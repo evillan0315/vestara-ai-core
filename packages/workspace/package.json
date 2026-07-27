@@ -1,0 +1,28 @@
+{
+  "name": "@vestara/workspace",
+  "description": "Workspace runtime pipeline and product services",
+  "version": "0.3.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/context": "workspace:*",
+    "@vestara/conversation": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/knowledge": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/memory": "workspace:*",
+    "@vestara/reasoning": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/stream": "workspace:*",
+    "@vestara/events": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10",
+    "@types/sql.js": "^1.4.11"
+  }
+}

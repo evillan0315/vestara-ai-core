@@ -1,0 +1,43 @@
+{
+  "name": "vestara-ai-core",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Vestara AI Core Runtime — Engineering Phase",
+  "scripts": {
+    "build": "tsc -b",
+    "watch": "tsc -b -w",
+    "clean": "tsc -b --clean",
+    "test": "vitest run",
+    "vestara": "node apps/cli/dist/index.js",
+    "doctor": "node apps/cli/dist/index.js doctor",
+    "milestone-status": "bash scripts/milestone-status.sh",
+    "ensure-docs": "bash scripts/ensure-docs.sh",
+    "generate-docs": "bash scripts/generate-docs.sh",
+    "benchmark": "bash scripts/benchmark.sh",
+    "conversation-audit": "node packages/conversation-runtime/dist/audit/cli.js",
+    "benchmark-index": "bash scripts/benchmark-index.sh",
+    "lint": "biome check --write",
+    "format": "biome format --write"
+  },
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.5",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^26.1.1",
+    "@types/sql.js": "^1.4.11",
+    "better-sqlite3": "^11.0.0",
+    "typedoc": "^0.28.20",
+    "vitest": "^4.1.10"
+  },
+  "peerDependencies": {
+    "better-sqlite3": "^11.0.0"
+  },
+  "dependencies": {
+    "react-router": "^8.3.0",
+    "react-router-dom": "^7.18.1",
+    "sql.js": "^1.14.1"
+  }
+}

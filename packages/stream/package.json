@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/stream",
+  "description": "Canonical streaming types and StreamProcessor",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

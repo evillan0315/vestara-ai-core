@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/cognitive",
+  "description": "Five-stage cognitive pipeline: perception through action",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/memory": "workspace:*",
+    "@vestara/stream": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

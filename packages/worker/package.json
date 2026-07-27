@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/worker",
+  "description": "Worker abstraction — every execution endpoint in Vestara. Worker extends Runtime with capability advertisement, job execution contracts, and load tracking. No scheduling logic.",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*",
+    "@vestara/runtime": "workspace:*",
+    "@vestara/job": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

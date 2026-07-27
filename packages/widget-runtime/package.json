@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/widget-runtime",
+  "description": "Widget manifest system, lifecycle management, and Dashboard Runtime for Vestara AI OS",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/service-registry": "workspace:*",
+    "@vestara/subsystem": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

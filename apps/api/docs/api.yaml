@@ -1,0 +1,23 @@
+```yaml
+openapi: "3.0.0"
+info:
+  title: API Documentation
+  version: "1.0.0"
+paths:
+  /health:
+    get:
+      summary: Health check endpoint
+      description: Returns the health status of the API.
+      operationId: healthCheck
+      responses:
+        '200':
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+```

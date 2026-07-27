@@ -1,0 +1,17 @@
+{
+  "name": "@vestara/os-controller",
+  "description": "OS integration: systemd desktop and service management",
+  "version": "1.0.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/workspace": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

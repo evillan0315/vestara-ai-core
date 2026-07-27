@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/provider-runtime",
+  "description": "AI provider lifecycle manager load/unload/health",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/service-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

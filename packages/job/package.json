@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/job",
+  "description": "Standard Job abstraction — every operation becomes a Job with known lifecycle, dependencies, retry/rollback policies, verification requirements, and required capabilities",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/capabilities": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "@vestara/state-machine": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

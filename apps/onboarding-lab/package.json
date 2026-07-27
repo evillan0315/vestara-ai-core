@@ -1,0 +1,27 @@
+{
+  "name": "@vestara/onboarding-lab",
+  "description": "Developer test rig for v4.0 conversational onboarding — visual pipeline inspector for the conversation stack",
+  "version": "0.4.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/context": "workspace:*",
+    "@vestara/conversation": "workspace:*",
+    "@vestara/conversation-runtime": "workspace:*",
+    "@vestara/audio": "workspace:*",
+    "@vestara/stt": "workspace:*",
+    "@vestara/tts": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
+    "@vestara/provider-opencode": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

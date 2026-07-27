@@ -1,0 +1,31 @@
+{
+  "name": "@vestara/kernel",
+  "description": "Ten-step boot sequence and service initialization",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/capabilities": "workspace:*",
+    "@vestara/configuration": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/health": "workspace:*",
+    "@vestara/job": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/metrics": "workspace:*",
+    "@vestara/permissions": "workspace:*",
+    "@vestara/registry": "workspace:*",
+    "@vestara/scheduler": "workspace:*",
+    "@vestara/service-registry": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "@vestara/worker": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

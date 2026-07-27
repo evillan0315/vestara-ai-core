@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/tools-shell",
+  "description": "Shell execution tool (stub)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/action": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

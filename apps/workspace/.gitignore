@@ -1,0 +1,24 @@
+dist/
+node_modules/
+*.tsbuildinfo
+*.js.map
+
+# Stale compiled artifacts next to .ts sources
+*.js
+*.d.ts
+
+# Keep vitest config source only
+vitest.config.js
+vitest.config.d.ts
+vitest.config.js.map
+
+# Generated API documentation
+docs/api/
+
+# Vestara workspace data
+.vestara/
+vestara-state.db
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/service-registry",
+  "description": "Topological service registry using Kahn's algorithm",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

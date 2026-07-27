@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/subsystem",
+  "description": "Standard subsystem base class and directory convention for Vestara AI OS",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/service-registry": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

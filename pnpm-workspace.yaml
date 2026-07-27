@@ -1,0 +1,10 @@
+packages:
+  - 'packages/*'
+  - 'packages/providers/*'
+  - 'packages/tools/*'
+  - 'apps/*'
+allowBuilds:
+  '@swc/core': true
+  better-sqlite3: true
+  esbuild: true
+  ws: set this to true or false

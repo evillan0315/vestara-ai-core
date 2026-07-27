@@ -1,0 +1,893 @@
+@import "tailwindcss";
+
+/* ── Dark zinc palette (default) ── */
+:root {
+  --color-zinc-950: #09090b;
+  --color-zinc-900: #18181b;
+  --color-zinc-800: #27272a;
+  --color-zinc-700: #3f3f46;
+  --color-zinc-600: #52525b;
+  --color-zinc-500: #6b7280;
+  --color-zinc-400: #a1a1aa;
+  --color-zinc-300: #d4d4d8;
+  --color-zinc-200: #e4e4e7;
+  --color-zinc-100: #f4f4f5;
+  --color-zinc-50: #fafafa;
+
+  --vestara-gold: #c9a84c;
+  --vestara-gold-light: #fcf6ba;
+  --vestara-gold-dark: #b38728;
+  --vestara-gold-gradient: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728);
+  --vestara-green: #4ade80;
+  --vestara-red: #f87171;
+  --vestara-blue: #60a5fa;
+  --vestara-purple: #a78bfa;
+  --vestara-amber: #f59e0b;
+  --vestara-amber-bg: rgba(245, 158, 11, 0.1);
+  --vestara-amber-border: rgba(245, 158, 11, 0.3);
+
+  /* Dynamic accent (overridden by JS theme system) */
+  --vestara-accent: #f59e0b;
+  --vestara-accent-light: #fbbf24;
+  --vestara-accent-dark: #d97706;
+  --vestara-accent-bg: #f59e0b14;
+  --vestara-accent-border: #f59e0b40;
+  --vestara-accent-border-hover: #f59e0b60;
+  --vestara-accent-border-active: #f59e0b;
+  --vestara-accent-text: #fbbf24;
+  --vestara-accent-text-hover: #fbbf24;
+  --vestara-accent-text-muted: #f59e0b;
+
+  /* Brand neutral color palette */
+  --vestara-text: #e4e4e7;
+  --vestara-text-2: #a1a1aa;
+  --vestara-text-muted: #71717a;
+  --vestara-text-dim: #52525b;
+
+  /* Font defaults (overridden by JS) */
+  --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --vestara-font-size-base: 14.25px;
+  --vestara-font-size-sm: 12.25px;
+  --vestara-font-size-xs: 10.75px;
+  --vestara-font-size-lg: 16.25px;
+  --vestara-font-weight-normal: 400;
+  --vestara-font-weight-medium: 500;
+  --vestara-font-weight-semibold: 600;
+
+  /* Layout defaults (overridden by JS) */
+  --vestara-sidebar-width: 240px;
+  --vestara-spacing-page: 1rem;
+  --vestara-spacing-section: 0.75rem;
+  --vestara-spacing-element: 0.375rem;
+
+  /* Border radius defaults (overridden by JS) */
+  --vestara-radius: 6px;
+  --vestara-radius-lg: 8px;
+  --vestara-radius-full: 9999px;
+
+  /* Page container (overridden by JS) */
+  --vestara-page-max-width: 1280px;
+
+  /* Chart defaults (dark) */
+  --chart-grid: #27272a;
+  --chart-text: #a1a1aa;
+  --chart-tooltip-bg: #18181b;
+  --chart-tooltip-border: #27272a;
+  --chart-tooltip-text: #d4d4d8;
+  --chart-axis: #3f3f46;
+}
+
+/* ── Light zinc palette ── */
+[data-theme="light"] {
+  --color-zinc-950: #fafaf5;
+  --color-zinc-900: #f0f0ea;
+  --color-zinc-800: #e0e0d8;
+  --color-zinc-700: #c8c8c0;
+  --color-zinc-600: #a8a8a0;
+  --color-zinc-500: #888880;
+  --color-zinc-400: #6b6b60;
+  --color-zinc-300: #4a4a40;
+  --color-zinc-200: #3a3a30;
+  --color-zinc-100: #2a2a20;
+  --color-zinc-50: #1a1a10;
+
+  --vestara-gold: #b8860b;
+  --vestara-green: #16a34a;
+  --vestara-red: #dc2626;
+  --vestara-blue: #2563eb;
+  --vestara-purple: #7c3aed;
+  --vestara-amber: #b45309;
+  --vestara-amber-bg: rgba(180, 83, 9, 0.08);
+  --vestara-amber-border: rgba(180, 83, 9, 0.2);
+  --color-amber-400: #b45309;
+  --color-amber-500: #92400e;
+  --vestara-accent: #b45309;
+  --vestara-accent-light: #d97706;
+  --vestara-accent-dark: #92400e;
+  --vestara-accent-bg: #b4530914;
+  --vestara-accent-border: #b4530940;
+  --vestara-accent-text: #d97706;
+
+  /* Brand neutral color palette - light mode */
+  --vestara-text: #3a3a34;
+  --vestara-text-2: #6b6b60;
+  --vestara-text-muted: #888880;
+  --vestara-text-dim: #a8a8a0;
+
+  --chart-grid: #d4d4c8;
+  --chart-text: #6b6b60;
+  --chart-tooltip-bg: #ffffff;
+  --chart-tooltip-border: #d4d4c8;
+  --chart-tooltip-text: #3a3a34;
+  --chart-axis: #c0c0b8;
+}
+
+[data-theme="dark"] {
+  --chart-grid: #27272a;
+  --chart-text: #a1a1aa;
+  --chart-tooltip-bg: #18181b;
+  --chart-tooltip-border: #27272a;
+  --chart-tooltip-text: #d4d4d8;
+  --chart-axis: #3f3f46;
+}
+
+/* ── Recharts ── */
+.recharts-layer,
+.recharts-layer * {
+  transition: none !important;
+}
+.recharts-bar-rectangle {
+  fill-opacity: 1 !important;
+  stroke: none !important;
+  pointer-events: none;
+}
+.recharts-default-tooltip {
+  background: var(--chart-tooltip-bg) !important;
+  border: 1px solid var(--chart-tooltip-border) !important;
+  border-radius: 6px;
+}
+.recharts-tooltip-label {
+  color: var(--chart-text);
+}
+.recharts-tooltip-item {
+  color: var(--chart-tooltip-text) !important;
+}
+.recharts-tooltip-item-name {
+  color: var(--chart-text);
+}
+
+body {
+  background-color: var(--color-zinc-950);
+  color: var(--color-zinc-200);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
+}
+
+/* ── Drag-and-drop transitions ── */
+.dash-section {
+  transition:
+    order 0.25s ease,
+    opacity 0.2s ease;
+}
+[data-dragging="true"] .dash-section:not(.dragging):hover {
+  outline: 2px dashed var(--vestara-accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+/* ── highlight.js overrides ── */
+.hljs {
+  background: transparent !important;
+}
+.markdown code:not(pre code) {
+  display: inline !important;
+  white-space: normal;
+}
+
+/* ── Markdown ── */
+.markdown p {
+  margin: 0.5em 0;
+}
+.markdown p:first-child {
+  margin-top: 0;
+}
+.markdown p:last-child {
+  margin-bottom: 0;
+}
+.markdown ul,
+.markdown ol {
+  padding-left: 1.25em;
+  margin: 0.5em 0;
+}
+.markdown li {
+  margin: 0.25em 0;
+}
+.markdown code {
+  border-radius: 4px;
+  padding: 0.125em 0.375em;
+  font-size: 0.875em;
+  font-family: "JetBrains Mono", "Fira Code", monospace;
+}
+.markdown pre {
+  border-radius: 6px;
+  padding: 0.75em 1em;
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.markdown pre code {
+  padding: 0;
+  font-size: 0.8125em;
+}
+.markdown strong {
+  color: var(--color-zinc-200);
+  font-weight: 600;
+}
+.markdown a {
+  color: var(--vestara-accent-text);
+  text-decoration: underline;
+}
+.markdown h1,
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  color: var(--color-zinc-200);
+  font-weight: 600;
+  margin: 0.75em 0 0.25em;
+}
+.markdown h1 {
+  font-size: 1.125em;
+}
+.markdown h2 {
+  font-size: 1em;
+}
+.markdown h3,
+.markdown h4 {
+  font-size: 0.9375em;
+}
+.markdown blockquote {
+  border-left: 3px solid var(--color-zinc-700);
+  padding-left: 0.75em;
+  margin: 0.5em 0;
+  color: var(--color-zinc-400);
+}
+.markdown hr {
+  border-color: var(--color-zinc-700);
+  margin: 1em 0;
+}
+.markdown table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.5em 0;
+  font-size: 0.875em;
+}
+.markdown th,
+.markdown td {
+  border: 1px solid var(--color-zinc-700);
+  padding: 0.375em 0.5em;
+  text-align: left;
+}
+.markdown th {
+  background: var(--color-zinc-800);
+  color: var(--color-zinc-200);
+  font-weight: 600;
+}
+
+/* ── Page transitions ── */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-in,
+  .animate-pulse,
+  .animate-ping,
+  .animate-bounce {
+    animation: none !important;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--vestara-accent-dark);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-zinc-600);
+}
+
+/* ── Focus ring ── */
+*:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* ── ShellLayout ── */
+.shell-header {
+  border-bottom-color: var(--color-zinc-800);
+}
+.shell-sidebar {
+  border-right-color: var(--color-zinc-800);
+}
+
+/* ── Section header accent ── */
+.section-accent {
+  background-color: var(--vestara-accent);
+}
+
+/* ── Toast ── */
+.toast-success {
+  background-color: rgba(22, 163, 74, 0.15);
+  border-color: rgba(22, 163, 74, 0.3);
+  color: var(--vestara-green);
+}
+.toast-error {
+  background-color: rgba(220, 38, 38, 0.15);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: var(--vestara-red);
+}
+.toast-info {
+  background-color: var(--vestara-accent-bg);
+  border-color: var(--vestara-accent-border);
+  color: var(--vestara-accent-text);
+}
+
+/* ── Form fields ── */
+input,
+select,
+textarea {
+  background: transparent !important;
+  color: var(--color-zinc-300);
+  border-color: var(--vestara-accent-border) !important;
+  transition: border-color 0.15s ease;
+}
+input:focus,
+select:focus,
+textarea:focus,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none !important;
+  outline-offset: 0 !important;
+  border-color: var(--vestara-accent-border-active) !important;
+}
+input:hover,
+select:hover,
+textarea:hover {
+  border-color: var(--vestara-accent-border-hover) !important;
+}
+select option {
+  background: var(--color-zinc-900);
+  color: var(--color-zinc-300);
+}
+::placeholder {
+  color: var(--color-zinc-600) !important;
+  opacity: 1;
+}
+
+/* ── Card and Component Borders ── */
+[class*="bg-zinc-"][class*="border-zinc-"]:not(button):not(a) {
+  border-color: var(--vestara-accent-border) !important;
+  transition: border-color 0.15s ease;
+}
+
+[class*="bg-zinc-"][class*="border-zinc-"]:not(button):not(a):hover {
+  border-color: var(--vestara-accent-border-hover) !important;
+}
+
+[class*="bg-zinc-"][class*="border-zinc-"]:not(button):not(a):focus,
+[class*="bg-zinc-"][class*="border-zinc-"]:not(button):not(a):active {
+  border-color: var(--vestara-accent-border-active) !important;
+}
+
+/* ── Accent color utility classes ── */
+.bg-accent {
+  background-color: var(--vestara-accent-bg);
+}
+.border-accent {
+  border-color: var(--vestara-accent-border);
+}
+.text-accent {
+  color: var(--vestara-accent-text);
+}
+.accent-btn {
+  background-color: var(--vestara-accent-bg);
+  border-color: var(--vestara-accent-border);
+  color: var(--vestara-accent-text);
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.accent-btn:hover {
+  background-color: color-mix(in srgb, var(--vestara-accent) 18%, transparent);
+  border-color: var(--vestara-accent-border-hover);
+}
+.accent-btn:active {
+  border-color: var(--vestara-accent-border-active);
+}
+
+/* ── Form and Card Border System ── */
+.form-border,
+input,
+select,
+textarea,
+.card,
+section.bg-zinc-900\/50,
+section.bg-zinc-950\/50 {
+  border-color: var(--vestara-accent-border) !important;
+  transition: border-color 0.15s ease;
+}
+
+.form-border:hover,
+input:hover,
+select:hover,
+textarea:hover,
+.card:hover,
+section.bg-zinc-900\/50:hover,
+section.bg-zinc-950\/50:hover {
+  border-color: var(--vestara-accent-border-hover) !important;
+}
+
+.form-border:focus,
+input:focus,
+select:focus,
+textarea:focus,
+.card:focus,
+section.bg-zinc-900\/50:focus,
+section.bg-zinc-950\/50:focus {
+  border-color: var(--vestara-accent-border-active) !important;
+  outline: none;
+}
+
+/* ── Small text readability ── */
+.text-\[7px\] {
+  font-size: 8.5px !important;
+  letter-spacing: 0.025em;
+}
+.text-\[8px\] {
+  font-size: 9.5px !important;
+  letter-spacing: 0.02em;
+}
+.text-\[9px\] {
+  font-size: 10.5px !important;
+  letter-spacing: 0.015em;
+}
+.text-\[10px\] {
+  font-size: 11.5px !important;
+  letter-spacing: 0.008em;
+}
+.text-\[11px\] {
+  font-size: 12px !important;
+  letter-spacing: 0.005em;
+}
+
+/* ── Holographic card overlay ── */
+
+/* Auto-apply to all card-like elements (excludes absolute-positioned dropdowns) */
+[class*="bg-zinc-"][class*="border-zinc-"][class*="rounded-lg"]:not(button):not(a):not([class*="absolute"]) {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  transition: none !important;
+}
+[class*="bg-zinc-"][class*="border-zinc-"][class*="rounded-lg"]:not(button):not(a)::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    135deg,
+    transparent 0%,
+    rgba(255, 100, 200, 0.035) 20%,
+    rgba(50, 200, 255, 0.025) 40%,
+    rgba(120, 255, 80, 0.02) 55%,
+    rgba(255, 200, 50, 0.025) 70%,
+    rgba(255, 100, 200, 0.035) 85%,
+    transparent 100%
+  );
+  background-size: 400% 340%;
+}
+/* Legacy amber fallback (same as default accent) */
+.bg-amber-accent {
+  background-color: var(--vestara-accent-bg);
+}
+.border-amber-accent {
+  border-color: var(--vestara-accent-border);
+}
+.text-amber-accent {
+  color: var(--vestara-accent-text);
+}
+
+/* ── Font utility classes ── */
+body {
+  font-family: var(--vestara-font-family);
+  font-size: var(--vestara-font-size-base);
+}
+.text-base-theme {
+  font-size: var(--vestara-font-size-base);
+}
+.text-sm-theme {
+  font-size: var(--vestara-font-size-sm);
+}
+.text-xs-theme {
+  font-size: var(--vestara-font-size-xs);
+}
+.text-lg-theme {
+  font-size: var(--vestara-font-size-lg);
+}
+.font-normal-theme {
+  font-weight: var(--vestara-font-weight-normal);
+}
+.font-medium-theme {
+  font-weight: var(--vestara-font-weight-medium);
+}
+.font-semibold-theme {
+  font-weight: var(--vestara-font-weight-semibold);
+}
+
+/* ── Spacing utility classes ── */
+.p-page {
+  padding: var(--vestara-spacing-page);
+}
+.p-section {
+  padding: var(--vestara-spacing-section);
+}
+.p-element {
+  padding: var(--vestara-spacing-element);
+}
+.gap-section {
+  gap: var(--vestara-spacing-section);
+}
+.gap-element {
+  gap: var(--vestara-spacing-element);
+}
+.mb-section {
+  margin-bottom: var(--vestara-spacing-section);
+}
+.mb-element {
+  margin-bottom: var(--vestara-spacing-element);
+}
+
+/* ── Radius utility classes ── */
+.rounded-theme {
+  border-radius: var(--vestara-radius);
+}
+.rounded-theme-lg {
+  border-radius: var(--vestara-radius-lg);
+}
+.rounded-theme-full {
+  border-radius: var(--vestara-radius-full);
+}
+
+/* ── Sidebar ── */
+.sidebar-width {
+  width: var(--vestara-sidebar-width);
+}
+.sidebar-width-fixed {
+  width: var(--vestara-sidebar-width);
+}
+
+/* ── Full-screen mode ── */
+html.full-screen body {
+  overflow: hidden;
+}
+
+html.full-screen .shell-header {
+  left: 0 !important;
+  width: 100% !important;
+}
+
+html.full-screen .shell-sidebar {
+  display: none !important;
+}
+
+html.full-screen .ml-auto {
+  margin-left: auto !important;
+}
+
+html.full-screen main {
+  margin-left: 0 !important;
+  width: 100% !important;
+}
+
+html.full-screen .sidebar-text {
+  display: none !important;
+}
+
+html.full-screen .sidebar-icon {
+  display: flex !important;
+}
+
+html:not(.full-screen) .sidebar-text {
+  display: flex !important;
+}
+
+html:not(.full-screen) .sidebar-icon {
+  display: none !important;
+}
+
+/* ── Thicker left borders for navigation elements ── */
+html:not(.left-border-disabled) .nav-item-left {
+  border-left: 5px solid transparent;
+  position: relative;
+  transition: all 0.2s ease;
+}
+
+html:not(.left-border-disabled) .nav-item-left::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background-color: var(--vestara-accent-border-active);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+html:not(.left-border-disabled) .nav-item-left:hover {
+  border-left-color: var(--vestara-accent-border-hover);
+  background-color: var(--vestara-accent-bg);
+}
+
+html:not(.left-border-disabled) .nav-item-left:hover::before {
+  opacity: 0.3;
+}
+
+html:not(.left-border-disabled) .nav-item-left.active {
+  border-left-color: var(--vestara-accent-border-active);
+  background-color: var(--vestara-accent-bg);
+  box-shadow: inset 3px 0 0 var(--vestara-accent);
+}
+
+html:not(.left-border-disabled) .nav-item-left.active::before {
+  opacity: 1;
+  background-color: var(--vestara-accent);
+}
+
+/* ── Card with thick left accent border ── */
+html:not(.left-border-disabled) .card-left-accent {
+  border-left: 5px solid var(--vestara-accent-border);
+  background: linear-gradient(to bottom, var(--vestara-accent-bg), transparent);
+  position: relative;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+html:not(.left-border-disabled) .card-left-accent:hover {
+  border-left-color: var(--vestara-accent-border-hover);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  transform: translateX(2px);
+}
+
+html:not(.left-border-disabled) .card-left-accent::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: linear-gradient(to bottom, var(--vestara-accent-border), var(--vestara-accent-border-active));
+  opacity: 0.7;
+  border-radius: 0 2px 2px 0;
+  transition: opacity 0.3s ease;
+}
+
+.card-left-accent:hover::before {
+  opacity: 1;
+}
+
+.card-left-accent.active {
+  border-left-color: var(--vestara-accent-border-active);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: translateX(4px);
+}
+
+.card-left-accent.active::before {
+  opacity: 1;
+  background: linear-gradient(to bottom, var(--vestara-accent), var(--vestara-accent-border-active));
+  box-shadow: 2px 0 8px rgba(var(--vestara-accent), 0.3);
+}
+
+/* ── Button with thick left indicator ── */
+.btn-left-indicator {
+  position: relative;
+  padding-left: 2rem;
+  border-left: 4px solid transparent;
+  transition: all 0.3s ease;
+  font-weight: 500;
+}
+
+.btn-left-indicator::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 30%;
+  transform: translateY(-50%);
+  height: 40%;
+  width: 4px;
+  background-color: var(--vestara-accent-border);
+  border-radius: 0 2px 2px 0;
+  transition: all 0.3s ease;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.btn-left-indicator:hover {
+  background-color: var(--vestara-accent-bg);
+  border-left-color: var(--vestara-accent-border-hover);
+}
+
+.btn-left-indicator:hover::before {
+  background-color: var(--vestara-accent-border-hover);
+  height: 60%;
+  box-shadow: 0 2px 6px rgba(var(--vestara-accent), 0.3);
+}
+
+.btn-left-indicator.active {
+  border-left-color: var(--vestara-accent-border-active);
+  background-color: var(--vestara-accent-bg);
+  font-weight: 600;
+}
+
+.btn-left-indicator.active::before {
+  background-color: var(--vestara-accent-border-active);
+  height: 100%;
+  box-shadow: 0 3px 8px rgba(var(--vestara-accent), 0.4);
+  border-radius: 0 3px 3px 0;
+}
+
+/* ── Thicker left borders for accordions ── */
+.accordion-item {
+  border-left: 5px solid transparent;
+  position: relative;
+  transition: all 0.3s ease;
+  margin-bottom: 0.5rem;
+}
+
+.accordion-item::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background-color: var(--vestara-accent-border-active);
+  border-radius: 0 2px 2px 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.accordion-item:hover {
+  border-left-color: var(--vestara-accent-border-hover);
+  background-color: var(--vestara-accent-bg);
+  transform: translateX(2px);
+}
+
+.accordion-item:hover::before {
+  opacity: 0.4;
+}
+
+.accordion-item.active {
+  border-left-color: var(--vestara-accent-border-active);
+  background-color: var(--vestara-accent-bg);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+.accordion-item.active::before {
+  opacity: 1;
+  background: linear-gradient(to bottom, var(--vestara-accent), var(--vestara-accent-border-active));
+  box-shadow: 2px 0 8px rgba(var(--vestara-accent), 0.3);
+}
+
+/* ── Collapsible panels with accent borders ── */
+.collapsible-panel {
+  border-left: 5px solid var(--vestara-accent-border);
+  background: linear-gradient(to right, var(--vestara-accent-bg), transparent);
+  transition: all 0.3s ease;
+  position: relative;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 0.75rem;
+}
+
+.collapsible-panel::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  width: 5px;
+  background: linear-gradient(to bottom, var(--vestara-accent), var(--vestara-accent-border));
+  opacity: 0.8;
+  border-radius: 0 2px 2px 0;
+  transition: opacity 0.3s ease;
+}
+
+.collapsible-panel:hover {
+  border-left-color: var(--vestara-accent-border-hover);
+  background: linear-gradient(to right, var(--vestara-accent-border), transparent);
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+  transform: translateX(3px);
+}
+
+.collapsible-panel:hover::before {
+  opacity: 1;
+  box-shadow: 2px 0 8px rgba(var(--vestara-accent), 0.3);
+}
+
+.collapsible-panel.active {
+  border-left-color: var(--vestara-accent-border-active);
+  background: linear-gradient(to right, var(--vestara-accent), var(--vestara-accent-bg));
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+  transform: translateX(4px);
+}
+
+.collapsible-panel.active::before {
+  opacity: 1;
+  background: linear-gradient(to bottom, var(--vestara-accent), var(--vestara-accent-border-active));
+  box-shadow: 2px 0 12px rgba(var(--vestara-accent), 0.4);
+}
+
+/* ── Navigation menu thick left borders ── */
+nav#sidebar {
+  border-right: 2px solid var(--vestara-accent-border);
+}
+
+nav#sidebar::before {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 0;
+  height: 100%;
+  width: 2px;
+  background: linear-gradient(to bottom, var(--vestara-accent), var(--vestara-accent-border-active));
+  opacity: 0.6;
+}
+
+nav#sidebar .nav-item-left {
+  margin: 0.25rem 0;
+  border-radius: 0 4px 4px 0;
+  padding: 0.75rem 1rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+nav#sidebar .nav-item-left:hover {
+  border-left-width: 6px;
+  background-color: var(--vestara-accent-bg);
+  margin-left: -2px;
+  box-shadow: -4px 0 12px rgba(var(--vestara-accent), 0.1);
+}
+
+nav#sidebar .nav-item-left.active {
+  border-left-width: 7px;
+  background-color: var(--vestara-accent-bg);
+  box-shadow: -6px 0 16px rgba(var(--vestara-accent), 0.15);
+  font-weight: 600;
+}

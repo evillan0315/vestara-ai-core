@@ -1,0 +1,23 @@
+{
+  "name": "@vestara/knowledge",
+  "description": "Full-text search knowledge engine with language detection",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/cognitive": "workspace:*",
+    "@vestara/stream": "workspace:*",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

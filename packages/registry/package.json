@@ -1,0 +1,18 @@
+{
+  "name": "@vestara/registry",
+  "description": "Canonical runtime type definitions — the Registry catalogs every RuntimeType with its properties, relationships, lifecycle config, and default capabilities",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

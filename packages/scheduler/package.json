@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/scheduler",
+  "description": "Job scheduling and worker assignment orchestrator — matches Jobs to Workers by capability, capacity, and policy",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/capabilities": "workspace:*",
+    "@vestara/job": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "@vestara/worker": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

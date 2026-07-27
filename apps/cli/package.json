@@ -1,0 +1,35 @@
+{
+  "name": "@vestara/cli",
+  "description": "CLI entry point REPL and demo commands",
+  "version": "0.3.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/kernel": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/state-runtime": "workspace:*",
+    "@vestara/context": "workspace:*",
+    "@vestara/conversation": "workspace:*",
+    "@vestara/conversation-runtime": "workspace:*",
+    "@vestara/audio": "workspace:*",
+    "@vestara/stt": "workspace:*",
+    "@vestara/tts": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
+    "@vestara/provider-opencode": "workspace:*",
+    "@vestara/workspace": "workspace:*",
+    "@vestara/events-server": "workspace:*",
+    "@vestara/activity-log": "workspace:*",
+    "@vestara/os-controller": "workspace:*",
+    "@vestara/action": "workspace:*",
+    "@vestara/tools-filesystem": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/runtime",
+  "description": "Core Runtime base class — every active entity in Vestara derives from Runtime with unified lifecycle, state machine, health, permissions, and event emission",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*",
+    "@vestara/state-machine": "workspace:*",
+    "@vestara/registry": "workspace:*",
+    "@vestara/permissions": "workspace:*",
+    "@vestara/events": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

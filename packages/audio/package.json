@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/audio",
+  "description": "Audio capture and Voice Activity Detection (VAD) abstraction (v4.0 Conversational Onboarding)",
+  "version": "0.4.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

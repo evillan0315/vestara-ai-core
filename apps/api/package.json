@@ -1,0 +1,30 @@
+{
+  "name": "@vestara/api",
+  "description": "HTTP and WebSocket gateway for the Workspace UI",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "node --watch dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/activity-log": "workspace:*",
+    "@vestara/events": "workspace:*",
+    "@vestara/kernel": "workspace:*",
+    "@vestara/workspace": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
+    "@vestara/provider-opencode": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "ws": "^8.18.0",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.0",
+    "@types/node": "^26.1.1",
+    "vitest": "^4.1.10"
+  }
+}

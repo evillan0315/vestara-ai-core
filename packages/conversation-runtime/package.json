@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/conversation-runtime",
+  "description": "Conversation engine with user profile enrichment and session management (v4.0 Conversational Onboarding)",
+  "version": "0.4.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/conversation": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

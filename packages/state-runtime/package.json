@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/state-runtime",
+  "description": "SQLite persistence layer via sql.js WASM",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "sql.js": "^1.11.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

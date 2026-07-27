@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/action",
+  "description": "Permission-gated tool execution runtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/permission": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/stream": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

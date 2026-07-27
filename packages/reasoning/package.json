@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/reasoning",
+  "description": "Eight reasoning strategies from fast response to deep analysis",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/stream": "workspace:*",
+    "@vestara/cognitive": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
