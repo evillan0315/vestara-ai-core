@@ -17,7 +17,7 @@ cd vestara-ai-core
 pnpm install
 bash build-order.sh
 # terminal A
-pnpm --filter @vestara/api start
+pnpm --filter @vestara/api dev
 # terminal B
 pnpm --filter @vestara/workspace-ui dev
 ```

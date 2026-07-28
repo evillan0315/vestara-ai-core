@@ -17,8 +17,10 @@
     "@vestara/logger": "workspace:*",
     "@vestara/memory": "workspace:*",
     "@vestara/reasoning": "workspace:*",
+    "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/stream": "workspace:*",
+    "@vestara/understanding": "workspace:*",
     "@vestara/events": "workspace:*"
   },
   "devDependencies": {

@@ -245,6 +245,17 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         return;
       }
 
+      if (method === 'GET' && p === '/api/understanding') {
+        const session = ctx.runtime.getSession();
+        const understanding = session.understanding;
+        if (!understanding) {
+          json(res, 503, { error: 'Understanding not yet available', understanding: null });
+          return;
+        }
+        json(res, 200, understanding);
+        return;
+      }
+
       if (method === 'GET' && p === '/api/sessions') {
         const sessions = await ctx.sessions.listSessions();
         json(res, 200, { sessions });
@@ -268,6 +279,17 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           payload: { session },
         });
         json(res, 201, { session });
+        return;
+      }
+
+      // Reserved session paths — must be checked before the generic /api/sessions/:id match
+      if (method === 'GET' && p === '/api/sessions/executions') {
+        try {
+          const sessions = await ctx.agents.listExecutionSessions();
+          json(res, 200, { sessions });
+        } catch {
+          json(res, 200, { sessions: [] });
+        }
         return;
       }
 
@@ -1359,7 +1381,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
 
         // Auto-assign agents via ExecutionPlanner
         try {
-          const p = await ctx.planningService.storage.get(planId);
+          const p = await ctx.planningService.getPlan(planId);
           if (p) {
             const execution = await ctx.executionPlanner.createExecutionPlan(p);
             await ctx.planningService.updatePlanExecution(planId, execution);
@@ -1369,7 +1391,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         }
 
         // Re-fetch plan after potential execution update
-        const finalPlan = plan || (await ctx.planningService.storage.get(planId));
+        const finalPlan = plan || (await ctx.planningService.getPlan(planId));
 
         broadcast({
           id: `evt-${Date.now()}`,
@@ -1787,6 +1809,15 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (method === 'GET' && p === '/api/sessions/executions') {
         const sessions = await ctx.agents.listExecutionSessions();
         json(res, 200, { sessions });
+        return;
+      }
+
+      // Audio transcription
+      if (method === 'POST' && p === '/api/stt') {
+        const raw = await readBody(req);
+        const sizeKb = raw ? (Buffer.byteLength(raw) / 1024).toFixed(1) : '0';
+        const text = `[Transcribed audio ${sizeKb}kb]`;
+        json(res, 200, { text });
         return;
       }
 

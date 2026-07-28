@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/trust",
+  "description": "Trust Engine — computes probabilistic trust scores from verification outcomes, supporting temporal decay, multidimensional scoring, and capability-adaptive trust",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

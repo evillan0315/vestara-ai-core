@@ -1,0 +1,23 @@
+{
+  "name": "@vestara/evaluation",
+  "description": "Understanding quality measurement: corpus, harness, metrics, regression",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "evaluate": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@vestara/understanding": "workspace:*",
+    "@vestara/workspace": "workspace:*"
+  },
+  "devDependencies": {
+    "@vestara/knowledge": "workspace:*",
+    "@vestara/memory": "workspace:*",
+    "@vestara/conversation": "workspace:*",
+    "vitest": "^4.1.10"
+  }
+}

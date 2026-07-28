@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ChatMessage, ConversationData, Model, ToolCall } from './types';
+import type { ChatMessage, ConversationData, ToolCall } from './types';
 import { branchId, genId } from './utils';
+import { useProviderSettings } from '../../hooks/useProviderSettings';
 
 const CONV_KEY = 'vestara-chat-convs';
 
@@ -23,11 +24,10 @@ export function useChat() {
   const [branches, setBranches] = useState<Record<string, ChatMessage[]>>({});
   const [activeBranch, setActiveBranch] = useState<string>(branchId());
   const [input, setInput] = useState('');
+  const { settings } = useProviderSettings();
   const [loading, setLoading] = useState(false);
   const [streamingText, setStreamingText] = useState('');
   const [abortController, setAbortController] = useState<AbortController | null>(null);
-  const [models, setModels] = useState<Model[]>([]);
-  const [selectedModel, setSelectedModel] = useState('nemotron-3-ultra-free');
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [userName, setUserName] = useState<string | null>(null);
   const [isNewUser, setIsNewUser] = useState(true);
@@ -53,20 +53,6 @@ export function useChat() {
     },
     [activeBranch],
   );
-
-  // Load models
-  useEffect(() => {
-    fetch('/api/models')
-      .then((r) => r.json())
-      .then((d) => {
-        if (d.models?.length) {
-          setModels(d.models);
-          const preferred = d.models.find((m: Model) => m.id === 'deepseek-v4-flash-free');
-          if (preferred) setSelectedModel(preferred.id);
-        }
-      })
-      .catch(() => {});
-  }, []);
 
   // Load conversations / greeting
   useEffect(() => {
@@ -171,7 +157,7 @@ export function useChat() {
         const res = await fetch('/api/chat/stream', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: text, model: selectedModel }),
+          body: JSON.stringify({ message: text, model: settings.model }),
           signal: controller.signal,
         });
 
@@ -299,7 +285,7 @@ export function useChat() {
         setAbortController(null);
       }
     },
-    [input, loading, selectedModel, isNewUser, userName, replyToId, setMessages],
+    [input, loading, settings, isNewUser, userName, replyToId, setMessages],
   );
 
   const stopGeneration = useCallback(() => {
@@ -445,9 +431,6 @@ export function useChat() {
     setInput,
     loading,
     streamingText,
-    models,
-    selectedModel,
-    setSelectedModel,
     copiedId,
     userName,
     isNewUser,

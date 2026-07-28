@@ -13,7 +13,7 @@
 
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
-import { DefaultStreamProcessor } from '@vestara/stream';
+import { Runtime, type RuntimeId, type RuntimeType } from '@vestara/runtime';
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -162,28 +162,41 @@ function calculateImportance(params: {
 
 // ─── DefaultMemoryRuntime ───────────────────────────────────
 
-export class DefaultMemoryRuntime implements MemoryRuntime {
+export class DefaultMemoryRuntime extends Runtime implements MemoryRuntime {
   private db: any = null;
   private logger?: Logger;
   private eventBus?: EventBus;
   private initialized = false;
-
   constructor(opts?: { logger?: Logger; eventBus?: EventBus }) {
+    const runtimeId = `memory:${Date.now()}` as unknown as RuntimeId;
+    super(
+      {
+        id: runtimeId,
+        type: 'runtime' as RuntimeType,
+        name: 'Memory Runtime',
+        eventBus: opts?.eventBus,
+      },
+      {
+        onInitialize: async () => {
+          this.ensureSchema();
+          this.initialized = true;
+          this.logger?.info('Memory runtime initialized');
+        },
+      },
+    );
+
     this.logger = opts?.logger?.child({ component: 'memory' });
     this.eventBus = opts?.eventBus;
-    this.streamProcessor = new DefaultStreamProcessor({ eventBus: opts?.eventBus, logger: opts?.logger });
   }
 
   async initialize(db?: any): Promise<void> {
     if (db) {
       this.db = db;
-    } else {
+    } else if (!this.db) {
       const SQL = await getSql();
       this.db = new SQL.Database();
     }
-    this.ensureSchema();
-    this.initialized = true;
-    this.logger?.info('Memory runtime initialized');
+    await super.initialize();
   }
 
   private ensureSchema(): void {

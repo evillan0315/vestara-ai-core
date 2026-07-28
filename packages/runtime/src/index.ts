@@ -1,5 +1,5 @@
-import type { EventBus } from '@vestara/events';
-import { createEvent, RuntimeEventTypes } from '@vestara/events';
+import type { EventBus } from '@vestara/event-bus';
+import { RuntimeEventTypes } from '@vestara/events';
 import type { PermissionManager } from '@vestara/permissions';
 import { getRuntimeDefinition } from '@vestara/registry';
 import type { StateMachine } from '@vestara/state-machine';
@@ -17,6 +17,9 @@ import type {
   Timestamp,
 } from '@vestara/types';
 
+export type { RuntimeContractTestOptions } from './runtime-contract-test';
+
+export { runRuntimeContractTests } from './runtime-contract-test';
 export type {
   HealthDependency,
   HealthStatus,
@@ -182,11 +185,13 @@ export class Runtime {
     severity: 'debug' | 'info' | 'warning' | 'error' | 'critical' = 'info',
   ): void {
     if (!this._eventBus) return;
-    const event = createEvent(type, 1, payload, `runtime:${this.type}`, {
-      runtimeId: this.id,
-      severity,
+    void this._eventBus.emit({
+      type,
+      version: 1,
+      source: `runtime:${this.type}`,
+      payload: { ...payload, runtimeId: this.id, severity },
+      metadata: { correlationId: `cor-${Date.now()}`, retryCount: 0, ttl: 60 },
     });
-    void this._eventBus.emit(event);
   }
 
   private async transition(target: RuntimeState, error?: string): Promise<void> {

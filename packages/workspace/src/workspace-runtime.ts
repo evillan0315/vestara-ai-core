@@ -211,9 +211,10 @@ export class WorkspaceRuntime {
 
       // ── Session initialization (before deferred index) ────
       const { DefaultConversationService } = await import('@vestara/conversation');
-      const { DefaultContextAssembler } = await import('@vestara/context');
-      /* eslint-disable @typescript-eslint/no-unused-vars */
-      const contextAssembler = new DefaultContextAssembler(
+      const { DefaultUnderstandingEngine } = await import('./understanding-engine.js');
+      const { UnderstandingContextAssembler } = await import('./understanding-context-assembler.js');
+      const contextAssembler = new UnderstandingContextAssembler(
+        null,
         `You are Vestara, an AI assistant helping with the "${fingerprint.name}" repository. ` +
           `The repository is written in ${this.workspace.analysis?.language ?? 'unknown'}.`,
       );
@@ -242,7 +243,6 @@ export class WorkspaceRuntime {
         logger: this.logger,
       });
 
-      /* eslint-enable @typescript-eslint/no-unused-vars */
       await conversation.createConversation(fingerprint.id);
       await WorkspaceManifest.touch(workspaceDir);
 
@@ -377,6 +377,30 @@ export class WorkspaceRuntime {
         conversation,
         prefs,
         indexReport: sessionIndexReport,
+      });
+
+      // ── Understanding (after session, before return) ──
+      {
+        const engine = new DefaultUnderstandingEngine(this.session);
+        this.session.setEngine(engine);
+        try {
+          const observation = await engine.observe();
+          const understanding = await engine.understand(observation);
+          this.session.publishUnderstanding(understanding);
+          contextAssembler.setUnderstanding(understanding);
+          this.logger?.info('Workspace understanding produced', {
+            id: understanding.id,
+            language: understanding.identity.primaryLanguage,
+            maturity: understanding.maturity.level,
+          });
+        } catch (err) {
+          this.logger?.warn('Understanding production failed (graceful)', { error: err });
+        }
+      }
+
+      await this.emit('workspace:understood', {
+        understandingId: this.session.understanding?.id ?? null,
+        workspaceName: fingerprint.name,
       });
 
       const wallDuration = Date.now() - clockTime;

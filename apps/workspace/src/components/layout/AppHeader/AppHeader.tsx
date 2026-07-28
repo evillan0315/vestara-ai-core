@@ -54,9 +54,9 @@ const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
       <div className="ml-auto flex items-center gap-3">
         <HeaderConnection />
 
-        <button className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition-colors">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition-colors">
           <HeaderNotifications />
-        </button>
+        </div>
 
         <button
           onClick={toggle}

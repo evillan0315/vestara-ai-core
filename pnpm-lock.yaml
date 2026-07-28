@@ -60,6 +60,9 @@ importers:
       '@vestara/provider-runtime':
         specifier: workspace:*
         version: link:../../packages/provider-runtime
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -76,6 +79,12 @@ importers:
       '@types/ws':
         specifier: ^8.5.0
         version: 8.18.1
+      '@vestara/permissions':
+        specifier: workspace:*
+        version: link:../../packages/permissions
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
@@ -109,12 +118,18 @@ importers:
       '@vestara/os-controller':
         specifier: workspace:*
         version: link:../../packages/os-controller
+      '@vestara/permission':
+        specifier: workspace:*
+        version: link:../../packages/permission
       '@vestara/provider-opencode':
         specifier: workspace:*
         version: link:../../packages/providers/opencode
       '@vestara/provider-runtime':
         specifier: workspace:*
         version: link:../../packages/provider-runtime
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../../packages/runtime
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -306,6 +321,9 @@ importers:
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
@@ -399,6 +417,9 @@ importers:
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
@@ -406,6 +427,28 @@ importers:
         specifier: ^1.11.0
         version: 1.14.1
     devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/evaluation:
+    dependencies:
+      '@vestara/understanding':
+        specifier: workspace:*
+        version: link:../understanding
+      '@vestara/workspace':
+        specifier: workspace:*
+        version: link:../workspace
+    devDependencies:
+      '@vestara/conversation':
+        specifier: workspace:*
+        version: link:../conversation
+      '@vestara/knowledge':
+        specifier: workspace:*
+        version: link:../knowledge
+      '@vestara/memory':
+        specifier: workspace:*
+        version: link:../memory
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
@@ -451,6 +494,12 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/history:
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -564,6 +613,9 @@ importers:
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
@@ -615,6 +667,25 @@ importers:
       '@vestara/types':
         specifier: workspace:*
         version: link:../types
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/policy-engine:
+    dependencies:
+      '@vestara/policy-types':
+        specifier: workspace:*
+        version: link:../policy-types
+    devDependencies:
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../types
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/policy-types:
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -689,6 +760,9 @@ importers:
 
   packages/runtime:
     dependencies:
+      '@vestara/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
       '@vestara/events':
         specifier: workspace:*
         version: link:../events
@@ -907,6 +981,12 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
 
+  packages/trust:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
   packages/tts:
     dependencies:
       '@vestara/logger':
@@ -921,6 +1001,18 @@ importers:
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
 
   packages/types:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/understanding:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/verification:
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -990,12 +1082,18 @@ importers:
       '@vestara/reasoning':
         specifier: workspace:*
         version: link:../reasoning
+      '@vestara/runtime':
+        specifier: workspace:*
+        version: link:../runtime
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
       '@vestara/stream':
         specifier: workspace:*
         version: link:../stream
+      '@vestara/understanding':
+        specifier: workspace:*
+        version: link:../understanding
     devDependencies:
       '@types/sql.js':
         specifier: ^1.4.11

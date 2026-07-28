@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@vestara/kernel": "workspace:*",
+    "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/state-runtime": "workspace:*",
     "@vestara/context": "workspace:*",
@@ -27,6 +28,7 @@
     "@vestara/activity-log": "workspace:*",
     "@vestara/os-controller": "workspace:*",
     "@vestara/action": "workspace:*",
+    "@vestara/permission": "workspace:*",
     "@vestara/tools-filesystem": "workspace:*"
   },
   "devDependencies": {

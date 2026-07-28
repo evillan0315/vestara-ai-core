@@ -15,6 +15,7 @@
     "@vestara/activity-log": "workspace:*",
     "@vestara/events": "workspace:*",
     "@vestara/kernel": "workspace:*",
+    "@vestara/runtime": "workspace:*",
     "@vestara/workspace": "workspace:*",
     "@vestara/provider-runtime": "workspace:*",
     "@vestara/provider-opencode": "workspace:*",
@@ -25,6 +26,8 @@
   "devDependencies": {
     "@types/ws": "^8.5.0",
     "@types/node": "^26.1.1",
+    "@vestara/permissions": "workspace:*",
+    "@vestara/types": "workspace:*",
     "vitest": "^4.1.10"
   }
 }

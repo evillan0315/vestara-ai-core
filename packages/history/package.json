@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/history",
+  "description": "History Store — immutable append-only audit trail for the Decision Pipeline, recording every stage from Permission through Trust",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

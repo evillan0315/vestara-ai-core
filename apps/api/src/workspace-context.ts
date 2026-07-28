@@ -38,10 +38,12 @@ import {
   WorkspaceRuntime,
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
+import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
   kernel: DefaultKernel;
   runtime: WorkspaceRuntime;
+  apiRuntime: ApiRuntime;
   eventBus: EventBus;
   repoPath: string;
   workspaceDir: string;
@@ -223,25 +225,43 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   });
   activityService.start();
 
-  const unsub = kernel.eventBus.subscribe('*', async (evt) => {
-    const e = evt as {
-      id?: string;
-      type?: string;
-      timestamp?: string;
-      payload?: Record<string, unknown>;
-    };
-    const payload = e.payload ?? {};
-    publish({
-      id: e.id ?? `evt-${Date.now()}`,
-      type: e.type ?? 'system.event',
-      actor: { id: 'system', name: 'System', type: 'system' },
-      sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : undefined,
-      artifactId: typeof payload.artifactId === 'string' ? payload.artifactId : undefined,
-      message: typeof payload.message === 'string' ? payload.message : undefined,
-      timestamp: e.timestamp ?? new Date().toISOString(),
-      payload,
-    } as any);
-  });
+  // Create ApiRuntime — managed lifecycle for API services
+  const runtimeId = 'api-runtime' as unknown as import('@vestara/types').RuntimeId;
+  const apiRuntime = new ApiRuntime(
+    {
+      id: runtimeId,
+      type: 'runtime' as import('@vestara/types').RuntimeType,
+      name: 'API Runtime',
+      eventBus: kernel.eventBus,
+      permissionManager: kernel.permissions as unknown as import('@vestara/permissions').PermissionManager,
+    },
+    {
+      kernel,
+      workspaceRuntime: runtime,
+      eventBus: kernel.eventBus,
+      planning: planningService,
+      sessions,
+      memory,
+      activity: activityService,
+    },
+  );
+
+  const unsub = kernel.eventBus.subscribe(
+    '*',
+    async (evt: { id: string; type: string; timestamp: string; payload: Record<string, unknown> }) => {
+      const payload = evt.payload ?? {};
+      publish({
+        id: evt.id,
+        type: evt.type,
+        actor: { id: 'system', name: 'System', type: 'system' },
+        sessionId: typeof payload.sessionId === 'string' ? payload.sessionId : undefined,
+        artifactId: typeof payload.artifactId === 'string' ? payload.artifactId : undefined,
+        message: typeof payload.message === 'string' ? payload.message : undefined,
+        timestamp: evt.timestamp,
+        payload,
+      } as any);
+    },
+  );
 
   const heartbeat = setInterval(() => {
     publish({
@@ -286,6 +306,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   return {
     kernel,
     runtime,
+    apiRuntime,
     eventBus: kernel.eventBus,
     repoPath: abs,
     workspaceDir,

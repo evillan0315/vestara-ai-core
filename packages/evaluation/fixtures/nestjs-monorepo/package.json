@@ -1,0 +1,7 @@
+{
+  "name": "nestjs-monorepo",
+  "private": true,
+  "scripts": { "build": "nest build" },
+  "dependencies": { "@nestjs/core": "^10.0.0", "@nestjs/common": "^10.0.0", "reflect-metadata": "^0.1.13" },
+  "devDependencies": { "typescript": "^5.0.0", "jest": "^29.0.0", "@nestjs/testing": "^10.0.0" }
+}

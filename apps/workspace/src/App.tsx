@@ -6,6 +6,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import Agents from './pages/Agents';
 import Artifacts from './pages/Artifacts';
 import Dashboard from './pages/Dashboard';
+import Overview from './pages/Overview';
 import Login from './pages/Login';
 import Memory from './pages/Memory';
 import SessionList, { SessionView } from './pages/SessionList';
@@ -28,6 +29,14 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route element={<ShellLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route
+                path="/overview"
+                element={
+                  <ErrorBoundary>
+                    <Overview />
+                  </ErrorBoundary>
+                }
+              />
               <Route
                 path="/dashboard"
                 element={

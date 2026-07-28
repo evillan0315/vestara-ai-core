@@ -14,6 +14,11 @@ echo "BUILD COMPLETE"
 for pkg in \
   shared \
   types \
+  policy-types \
+  policy-engine \
+  verification \
+  trust \
+  history \
   state-machine \
   configuration \
   logger \
@@ -48,6 +53,8 @@ for pkg in \
   activity-log \
   tools/filesystem \
   workspace \
+  understanding \
+  evaluation \
   events-server \
   os-controller \
   subsystem \

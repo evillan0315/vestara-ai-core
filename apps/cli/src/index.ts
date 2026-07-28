@@ -132,6 +132,13 @@ async function main() {
     return;
   }
 
+  if (args[0] === 'validate') {
+    const repoPath = args[1] ?? '.';
+    const { runValidate } = await import('./commands/validate.js');
+    await runValidate(repoPath);
+    return;
+  }
+
   if (args[0] === 'open') {
     let repoPath = args[1];
     if (!repoPath) {
@@ -252,17 +259,20 @@ async function main() {
     await conversationEngine.startSession();
 
     // Persist conversations after each exchange
-    kernel.eventBus.subscribe('conversation:response.completed', async (event) => {
-      const convId = event.payload.conversationId as string;
-      if (typeof convId !== 'string') return;
-      const conv = routedConversationService.getConversation(convId);
-      if (conv) {
-        await stateRuntime.conversations.saveConversation(conv);
-        for (const msg of conv.messages) {
-          await stateRuntime.conversations.saveMessage(convId, msg);
+    kernel.eventBus.subscribe(
+      'conversation:response.completed',
+      async (event: { payload: Record<string, unknown> }) => {
+        const convId = event.payload.conversationId as string;
+        if (typeof convId !== 'string') return;
+        const conv = routedConversationService.getConversation(convId);
+        if (conv) {
+          await stateRuntime.conversations.saveConversation(conv);
+          for (const msg of conv.messages) {
+            await stateRuntime.conversations.saveMessage(convId, msg);
+          }
         }
-      }
-    });
+      },
+    );
 
     // Register audio/STT/TTS OS services
     // Initialize Activity Log for domain events
@@ -930,6 +940,7 @@ async function runSystemStatus(): Promise<void> {
   console.log();
 
   console.log(`${GRAY}  Detailed diagnostics:${RESET}`);
+  console.log(`${GRAY}    vestara validate <path> — CAP-001 orientation${RESET}`);
   console.log(`${GRAY}    vestara doctor           — System health${RESET}`);
   console.log(`${GRAY}    vestara doctor audio     — Audio pipeline${RESET}`);
   console.log(`${GRAY}    vestara doctor conversation — Provider router${RESET}`);

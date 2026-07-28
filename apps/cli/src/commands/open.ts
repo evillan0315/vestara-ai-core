@@ -59,19 +59,22 @@ export async function runOpen(path: string): Promise<void> {
     const disposers: Array<() => void> = [];
 
     disposers.push(
-      kernel.eventBus.subscribe('workspace:discover.completed', async (event) => {
+      kernel.eventBus.subscribe('workspace:discover.completed', async (event: { payload: Record<string, unknown> }) => {
         renderStep(true, 'Repository discovered', `${(event.payload as any).fileCount} files`);
       }),
     );
 
     disposers.push(
-      kernel.eventBus.subscribe('workspace:fingerprint.completed', async (event) => {
-        renderStep(true, 'Repository identified', (event.payload as any).name);
-      }),
+      kernel.eventBus.subscribe(
+        'workspace:fingerprint.completed',
+        async (event: { payload: Record<string, unknown> }) => {
+          renderStep(true, 'Repository identified', (event.payload as any).name);
+        },
+      ),
     );
 
     disposers.push(
-      kernel.eventBus.subscribe('workspace:analysis.completed', async (event) => {
+      kernel.eventBus.subscribe('workspace:analysis.completed', async (event: { payload: Record<string, unknown> }) => {
         renderStep(true, 'Repository analyzed', (event.payload as any).language);
       }),
     );
@@ -83,7 +86,7 @@ export async function runOpen(path: string): Promise<void> {
     );
 
     disposers.push(
-      kernel.eventBus.subscribe('workspace:index.completed', async (event) => {
+      kernel.eventBus.subscribe('workspace:index.completed', async (event: { payload: Record<string, unknown> }) => {
         renderStep(true, 'Knowledge indexed', `${(event.payload as any).documents} documents`);
       }),
     );

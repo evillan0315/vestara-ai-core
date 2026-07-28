@@ -2170,3 +2170,158 @@ Evidence
 ```
 
 Each layer constrains the layers below it and enables the layers above it. No layer may violate the contracts established by the layers above.
+
+---
+
+## Product Evolution Milestones
+
+### EV-003a — Shared Understanding ✅ Complete
+
+**Objective**: Produce exactly one immutable `WorkspaceUnderstanding` snapshot per observation cycle. All product components consume this shared snapshot. No component independently reconstructs semantic context from repository, memory, or conversation state.
+
+**Primary invariant**: Every consumer references the same `WorkspaceUnderstanding.id`.
+
+**Architecture**:
+
+```
+WorkspaceSession
+        │
+        ▼
+UnderstandingEngine
+        │
+        ├── WorkspaceObservation   (raw signals, no interpretation)
+        │
+        ├── WorkspaceUnderstanding  (immutable snapshot with id)
+        │
+        └── PlanningContext        (task-specific projection)
+                │
+                ├── Conversation (via UnderstandingContextAssembler)
+                ├── Planner
+                ├── Overview UI
+                ├── Voice
+                └── Agents
+```
+
+**Key artifacts**:
+
+- `packages/understanding/` — four type files + interface, zero runtime deps
+- `packages/workspace/src/understanding-engine.ts` — `DefaultUnderstandingEngine` with `observe()` and `understand()`
+- `packages/workspace/src/understanding-context-assembler.ts` — replaces `DefaultContextAssembler`; projects understanding into conversation prompts
+- `workspace:understood` — product lifecycle event emitted after each observation cycle
+- `WorkspaceSession.publishUnderstanding()` — single mutation point for the snapshot
+- ADR-043 — Shared Understanding Snapshot (architectural invariant)
+- 5 contract tests verifying: deterministic ids, same-id-across-consumers, fallback behavior, system prompt enrichment
+
+**Lifecycle**: `workspace.opening → workspace.ready → workspace.understood → workspace.interactive`
+
+**Design principle recorded**:
+> Runtime ensures every component progresses through the same lifecycle. Understanding ensures every component begins from the same mental model.
+
+**Status**: ✅ Complete
+
+---
+
+### EV-003b Infrastructure — Evaluation Framework ✅ Complete
+
+**Objective**: Build the measurement infrastructure for understanding quality. Separate evaluation from implementation so every analyzer earns its place by measurably improving shared understanding without regressing existing knowledge.
+
+**Key artifacts**:
+
+- `packages/evaluation/` — corpus assertion types, harness, metrics, traceability
+- `CorpusEntryAssertions` — language, framework, architecture, maturity, risks, health — each with `minimumConfidence`
+- `EvaluationHarness` — opens each corpus entry, runs `observe()` → `understand()`, evaluates assertions against the snapshot
+- `EvaluationReport` — per-entry results, aggregate metrics (accuracy, coverage, confidence, traceability, regression count)
+- 3 fixture repositories: `vite-react-basic`, `nestjs-monorepo`, `empty-project`
+- Regression detection — reports assertions that passed previously but fail on current run
+- Traceability metric — verifies every assertion traces to observation sources
+- Build order updated: `understanding` and `evaluation` added to sequential build
+
+**Metrics**:
+
+| Metric | Purpose |
+|--------|---------|
+| Accuracy | What percentage of assertions pass? |
+| Coverage | What percentage of assertions could be evaluated? |
+| Confidence | Average confidence of passing assertions |
+| Traceability | Can every conclusion be traced to an observation source? |
+| Regression | Did previously passing assertions regress? |
+
+**Calibration loop**:
+
+```text
+Corpus Report → Find weakest dimension → Improve one producer → Run evaluation → Verify no regressions → Repeat
+```
+
+**Design principle recorded**:
+> Runtime executes. Workflow acts. Understanding knows. Evaluation measures.
+
+**Status**: ✅ Complete
+
+---
+
+### EV-003b — Producer Architecture ✅ Complete
+
+**Objective**: Factor `DefaultUnderstandingEngine.understand()` into 7 independent producers, each owning exactly one semantic dimension of `WorkspaceUnderstanding`. The engine becomes orchestration; producers own knowledge.
+
+**Architecture**:
+
+```
+UnderstandingEngine
+        │
+        ▼
+UnderstandingAssembler
+        │
+        ├── LanguageProducer    → identity.primaryLanguage
+        ├── FrameworkProducer   → identity.framework
+        ├── ArchitectureProducer → architecture.kind
+        ├── MaturityProducer    → maturity.level
+        ├── RiskProducer        → maturity.risks
+        ├── HealthProducer      → maturity.healthScore, state.*
+        └── ActivityProducer    → activity.*, memory.*
+```
+
+**Producer contract**: Every producer implements `UnderstandingProducer`, returns `DeepPartial<WorkspaceUnderstanding>` (only fields it owns), and reports confidence + evidence. Producers never mutate — they contribute. The assembler composes.
+
+**Key artifacts**:
+
+- `UnderstandingProducer` interface in `@vestara/understanding`
+- `DefaultUnderstandingAssembler` — merge strategy with field-level ownership
+- 7 producers in `packages/workspace/src/producers/`
+- Evaluation harness updated with per-producer metrics (`ProducerMetric`)
+- Producer interface replaces 150-line inline method with delegation
+- `DeepPartial<WorkspaceUnderstanding>` ensures each producer only sets the fields it owns
+
+**Architectural pattern**: This is the third recurrence of the same pattern:
+```
+Runtime                → RuntimeGroup + specialized runtimes
+WorkspaceRuntime       → WorkspaceRuntime + pipeline stages
+UnderstandingEngine    → UnderstandingAssembler + specialized producers
+```
+
+**Evaluation loop**:
+
+```text
+Read evaluation report → Pick weakest producer → Improve only that producer → Run corpus → Accept only if accuracy increases, confidence remains calibrated, regressions remain zero → Repeat
+```
+
+**Status**: ✅ Complete
+
+---
+
+### EV-003c — Workspace Overview ✅ Complete
+
+**Objective**: Expose the same `WorkspaceUnderstanding` model to the user through the Overview UI. The UI renders the same snapshot the planner and conversation already consume — no separate model, no duplicate logic.
+
+**Key artifacts**:
+
+- `GET /api/understanding` — returns `session.understanding` directly (503 if not yet available)
+- `apps/workspace/src/pages/Overview.tsx` — loads understanding via `useUnderstanding()` hook, renders 6 cards in responsive grid
+- 6 card components: `IdentityCard`, `HealthCard`, `ActivityCard`, `ArchitectureCard`, `DecisionsCard`, `StateCard`
+- Every component receives `understanding: UnderstandingData` as its only prop — zero repository analysis, memory queries, or git parsing in the UI
+- Nav link in ShellLayout sidebar
+- Route registered at `/overview`
+
+**Design principle validated**:
+> Compute once, consume everywhere. The first screen of the product renders the same semantic model that the planner, conversation, and evaluation harness already use.
+
+**Status**: ✅ Complete

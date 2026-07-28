@@ -26,6 +26,11 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     title: 'Workspace',
     items: [
       {
+        to: '/overview',
+        title: 'Overview',
+        icon: <DashboardRoundedIcon fontSize="small" />,
+      },
+      {
         to: '/dashboard',
         title: 'Dashboard',
         icon: <DashboardRoundedIcon fontSize="small" />,

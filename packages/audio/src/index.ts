@@ -10,6 +10,7 @@
  */
 
 import type { Logger } from '@vestara/logger';
+import { Runtime, type RuntimeId, type RuntimeType } from '@vestara/runtime';
 import type { AudioConfig, AudioPipelineStatus, VADConfig, VADProvider, VADState } from '@vestara/shared';
 
 export interface MicrophoneProvider {
@@ -36,8 +37,7 @@ export interface SpeakerProvider {
   healthCheck(): Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; latency: number }>;
 }
 
-export class VestaraAudioService {
-  readonly id = 'vestara-audio';
+export class VestaraAudioService extends Runtime {
   private microphone: MicrophoneProvider | null = null;
   private vad: VADProvider | null = null;
   private speaker: SpeakerProvider | null = null;
@@ -45,6 +45,13 @@ export class VestaraAudioService {
   private _status: VADState = 'idle';
 
   constructor(options?: { logger?: Logger }) {
+    const runtimeId = `audio:${Date.now()}` as unknown as RuntimeId;
+    super({
+      id: runtimeId,
+      type: 'runtime' as RuntimeType,
+      name: 'Audio Runtime',
+    });
+
     this.logger = options?.logger?.child({ component: 'vestara-audio' });
   }
 
@@ -179,8 +186,7 @@ export class DefaultMicrophoneProvider implements MicrophoneProvider {
   readonly available = _detectAudioSupport();
   private capturing = false;
 
-  async startCapture(config: AudioConfig): Promise<void> {
-    this.config = config;
+  async startCapture(_config: AudioConfig): Promise<void> {
     this.capturing = true;
   }
 
@@ -217,6 +223,11 @@ export class DefaultSpeakerProvider implements SpeakerProvider {
   readonly id = 'vestara.speaker.default';
   readonly name = 'System Default Speaker';
   readonly available = _detectAudioSupport();
+  private playing = false;
+
+  get isPlaying(): boolean {
+    return this.playing;
+  }
 
   async play(_audio: ArrayBuffer): Promise<void> {
     this.playing = true;

@@ -71,9 +71,6 @@ export default function ChatLayout() {
       <div className="flex flex-col flex-1 min-w-0">
         <div className="shrink-0">
           <ConversationHeader
-            models={chat.models}
-            selectedModel={chat.selectedModel}
-            onModelChange={chat.setSelectedModel}
             sidebarOpen={sidebarOpen}
             onSidebarToggle={() => setSidebarOpen((v) => !v)}
             onNewConversation={chat.newConversation}
@@ -121,9 +118,6 @@ export default function ChatLayout() {
           onKeyDown={chat.handleKeyDown}
           loading={chat.loading}
           onStop={chat.stopGeneration}
-          models={chat.models}
-          selectedModel={chat.selectedModel}
-          onModelChange={chat.setSelectedModel}
           placeholder={
             chat.loading
               ? 'Waiting...'
@@ -135,6 +129,10 @@ export default function ChatLayout() {
           }
           replyToId={chat.replyToId}
           onCancelReply={() => chat.setReplyToId(null)}
+          onAudioTranscription={(text) => {
+            chat.setInput(text);
+            setTimeout(() => chat.sendMessage(text), 100);
+          }}
         />
       </div>
     </div>

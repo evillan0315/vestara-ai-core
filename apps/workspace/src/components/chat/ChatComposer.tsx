@@ -1,8 +1,8 @@
 import { useRef, useEffect, useCallback, useState } from 'react';
 import { AttachmentPreview } from './AttachmentPreview';
-import type { Attachment, Model } from './types';
-import { ModelSelector } from './ModelSelector';
+import type { Attachment } from './types';
 import { genId } from './utils';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 
 interface ChatComposerProps {
   input: string;
@@ -11,12 +11,10 @@ interface ChatComposerProps {
   onKeyDown: (e: React.KeyboardEvent) => void;
   loading: boolean;
   onStop: () => void;
-  models: Model[];
-  selectedModel: string;
-  onModelChange: (id: string) => void;
   placeholder?: string;
   replyToId: string | null;
   onCancelReply: () => void;
+  onAudioTranscription?: (text: string) => void;
 }
 
 export function ChatComposer({
@@ -26,15 +24,39 @@ export function ChatComposer({
   onKeyDown,
   loading,
   onStop,
-  models,
-  selectedModel,
-  onModelChange,
   placeholder,
   replyToId,
   onCancelReply,
+  onAudioTranscription,
 }: ChatComposerProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const { state: audioState, startRecording, stopRecording } = useAudioRecorder();
+  const [transcribing, setTranscribing] = useState(false);
+
+  const handleMicClick = useCallback(async () => {
+    if (audioState.recording) {
+      const blob = await stopRecording();
+      if (!blob) return;
+      setTranscribing(true);
+      try {
+        const formData = new FormData();
+        formData.append('audio', blob, 'recording.webm');
+        const res = await fetch('/api/stt', { method: 'POST', body: formData });
+        if (res.ok) {
+          const data = await res.json();
+          const text = data.text || '';
+          if (text && onAudioTranscription) onAudioTranscription(text);
+        }
+      } catch {
+        // Transcription failed
+      } finally {
+        setTranscribing(false);
+      }
+    } else {
+      await startRecording();
+    }
+  }, [audioState.recording, startRecording, stopRecording, onAudioTranscription]);
 
   const adjustHeight = useCallback(() => {
     const ta = textareaRef.current;
@@ -177,6 +199,23 @@ export function ChatComposer({
             </svg>
             Attach
           </button>
+          <button
+            onClick={handleMicClick}
+            disabled={transcribing}
+            className={`text-[10px] transition-colors px-2 py-1 rounded hover:bg-zinc-800/30 cursor-pointer flex items-center gap-1 disabled:opacity-50 ${
+              audioState.recording ? 'text-red-400 bg-red-500/10' : 'text-zinc-600 hover:text-zinc-400'
+            }`}
+          >
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+              />
+            </svg>
+            {transcribing ? '...' : audioState.recording ? `${Math.round(audioState.duration / 1000)}s` : 'Voice'}
+          </button>
           <button className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors px-2 py-1 rounded hover:bg-zinc-800/30 cursor-pointer flex items-center gap-1">
             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path
@@ -190,13 +229,8 @@ export function ChatComposer({
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-zinc-700">
-            <kbd className="px-1 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[9px] font-mono">Enter</kbd>{' '}
-            send ·{' '}
-            <kbd className="px-1 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[9px] font-mono">
-              Shift+Enter
-            </kbd>{' '}
-            new line
+          <span className="text-[10px] text-zinc-600">
+            Using model from Settings
           </span>
         </div>
       </div>

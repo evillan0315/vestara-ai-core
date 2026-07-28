@@ -1,10 +1,4 @@
-import type { Model } from './types';
-import { ModelSelector } from './ModelSelector';
-
 interface ConversationHeaderProps {
-  models: Model[];
-  selectedModel: string;
-  onModelChange: (id: string) => void;
   sidebarOpen: boolean;
   onSidebarToggle: () => void;
   onNewConversation: () => void;
@@ -13,9 +7,6 @@ interface ConversationHeaderProps {
 }
 
 export function ConversationHeader({
-  models,
-  selectedModel,
-  onModelChange,
   sidebarOpen,
   onSidebarToggle,
   onNewConversation,
@@ -38,7 +29,6 @@ export function ConversationHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <ModelSelector models={models} selectedModel={selectedModel} onModelChange={onModelChange} />
         {!sidebarOpen && (
           <button
             onClick={onNewConversation}

@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { Tab, Tabs, Box, Button } from '@mui/material';
+import AddIcon from '@mui/icons-material/Add';
 import WorkflowPipeline from '../components/WorkflowPipeline';
 import {
   ActiveSessionWidget,
@@ -7,14 +9,55 @@ import {
   RepoHealthWidget,
   BuildToolsWidget,
 } from '../components/OperationalWidgets';
+import WorkspaceContinuityCard, { type ContinuityContext } from '../components/WorkspaceContinuityCard';
+import ProjectCreateDialog from '../components/ProjectCreateDialog';
 import { useDashboardData } from './Dashboard/useDashboardData';
 import { useDashboardLayout } from './Dashboard/useDashboardLayout';
 import { useSectionRenderer } from './Dashboard/useSectionRenderer';
 import DashboardHeader from './Dashboard/DashboardHeader';
 
+function useContinuity(data: ReturnType<typeof useDashboardData>): {
+  context: ContinuityContext | null;
+  loading: boolean;
+} {
+  const [dismissed, setDismissed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    if (!data.loading && !loaded) {
+      setLoaded(true);
+    }
+  }, [data.loading, loaded]);
+
+  if (dismissed || !loaded || data.loading) return { context: null, loading: data.loading };
+
+  const lastEvent = data.events[0];
+  const projectName = data.workspace?.name || 'workspace';
+  const decisionCount = data.events.filter((e) => e.type === 'decision.saved').length;
+  const milestoneCount = data.milestones?.milestones?.length ?? 0;
+
+  const context: ContinuityContext = {
+    workspaceName: projectName,
+    lastMilestone: milestoneCount > 0 ? 'In progress' : 'Initialized',
+    nextRecommended: data.suggestions?.[0]?.title || 'Continue development',
+    decisionCount,
+    lastActive: lastEvent?.timestamp
+      ? new Date(lastEvent.timestamp).toLocaleDateString()
+      : 'today',
+  };
+
+  return {
+    context: data.events.length > 0 ? context : null,
+    loading: false,
+  };
+}
+
 export default function Dashboard() {
+  const [tab, setTab] = useState(0);
+  const [showProjectDialog, setShowProjectDialog] = useState(false);
   const data = useDashboardData();
   const layout = useDashboardLayout();
+  const { context: continuityContext, loading: continuityLoading } = useContinuity(data);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showWorkflowPicker, setShowWorkflowPicker] = useState(false);
   const [workflowGoal, setWorkflowGoal] = useState('');
@@ -97,11 +140,10 @@ export default function Dashboard() {
       </div>
     );
 
-  if (data.error) return <div className="w-full px-4 py-8 text-center text-red-400">{data.error}</div>;
+  if (data.error) return <div className="w-full px-4 py-8 text-center text-(--vestara-red)">{data.error}</div>;
 
   return (
     <div className="w-full px-4" data-dragging={layout.dragId ? 'true' : undefined}>
-      {/* Header */}
       <DashboardHeader
         workspace={data.workspace}
         agents={data.agents}
@@ -123,50 +165,89 @@ export default function Dashboard() {
         onStartWorkflow={() => setShowWorkflowPicker(true)}
       />
 
-      {/* Workflow Pipeline */}
-      {data.activeSession && <WorkflowPipeline session={data.activeSession} compact={false} />}
+      {/* Tab bar */}
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
+          <Tab label="Home" />
+          <Tab label="System" />
+        </Tabs>
+        <Button
+          variant="contained"
+          size="small"
+          startIcon={<AddIcon />}
+          onClick={() => setShowProjectDialog(true)}
+        >
+          New Project
+        </Button>
+      </Box>
 
-      {/* Operational Widgets */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
-        <ActiveSessionWidget sessions={data.execSessions} agents={data.agents} />
-        <AgentUtilizationWidget agents={data.agents} execSessions={data.execSessions} />
-        <BackgroundServicesWidget execSessions={data.execSessions} />
-        <RepoHealthWidget workspace={data.workspace} execStats={data.execStats} />
-        <BuildToolsWidget onRunBuildScripts={() => window.open('https://github.com/actions', '_blank')} />
-      </div>
+      {/* Home tab */}
+      {tab === 0 && (
+        <>
+          <WorkspaceContinuityCard
+            context={continuityContext}
+            loading={continuityLoading}
+            onContinue={() => {
+              if (continuityContext?.nextRecommended) {
+                setWorkflowGoal(continuityContext.nextRecommended);
+                setShowWorkflowPicker(true);
+              }
+            }}
+            onDismiss={() => {}}
+          />
 
-      {/* Main content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column */}
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {layout.sectionOrder
-            .filter((id: string) => layout.isLeft(id) && layout.sectionVisibility[id] !== false)
-            .map((id: string) => {
-              const node = renderSection(id);
-              if (!node) return null;
-              return (
-                <div key={id} className="dash-section" style={{ order: layout.getIdx(id) }}>
-                  {node}
-                </div>
-              );
-            })}
+          {data.activeSession && <WorkflowPipeline session={data.activeSession} compact={false} />}
+
+          {/* Main content */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 flex flex-col gap-6">
+              {layout.sectionOrder
+                .filter((id: string) => layout.isLeft(id) && layout.sectionVisibility[id] !== false)
+                .map((id: string) => {
+                  const node = renderSection(id);
+                  if (!node) return null;
+                  return (
+                    <div key={id} className="dash-section" style={{ order: layout.getIdx(id) }}>
+                      {node}
+                    </div>
+                  );
+                })}
+            </div>
+            <div className="flex flex-col gap-6">
+              {layout.sectionOrder
+                .filter((id: string) => !layout.isLeft(id) && layout.sectionVisibility[id] !== false)
+                .map((id: string) => {
+                  const node = renderSection(id);
+                  if (!node) return null;
+                  return (
+                    <div key={id} className="dash-section" style={{ order: layout.getIdx(id) }}>
+                      {node}
+                    </div>
+                  );
+                })}
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* System tab */}
+      {tab === 1 && (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+          <ActiveSessionWidget sessions={data.execSessions} agents={data.agents} />
+          <AgentUtilizationWidget agents={data.agents} execSessions={data.execSessions} />
+          <BackgroundServicesWidget execSessions={data.execSessions} />
+          <RepoHealthWidget workspace={data.workspace} execStats={data.execStats} />
+          <BuildToolsWidget onRunBuildScripts={() => window.open('https://github.com/actions', '_blank')} />
         </div>
+      )}
 
-        {/* Right sidebar */}
-        <div className="flex flex-col gap-6">
-          {layout.sectionOrder
-            .filter((id: string) => !layout.isLeft(id) && layout.sectionVisibility[id] !== false)
-            .map((id: string) => {
-              const node = renderSection(id);
-              if (!node) return null;
-              return (
-                <div key={id} className="dash-section" style={{ order: layout.getIdx(id) }}>
-                  {node}
-                </div>
-              );
-            })}
-        </div>
-      </div>
+      <ProjectCreateDialog
+        open={showProjectDialog}
+        onClose={() => setShowProjectDialog(false)}
+        onCreated={() => {
+          data.refresh();
+        }}
+      />
     </div>
   );
 }

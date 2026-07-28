@@ -10,6 +10,7 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/event-bus": "workspace:*",

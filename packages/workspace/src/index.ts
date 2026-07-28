@@ -70,6 +70,27 @@ export type {
 export { createFingerprint } from './repository-fingerprint';
 export { RepositoryIntelligence } from './repository-intelligence';
 export { RepositoryPresenter } from './repository-presenter';
+export type { DependencyResolverConfig } from './runtime/dependency-resolver';
+// Runtime composition primitives
+export { DependencyResolver, MissingDependencyError, RuntimeDependencyCycleError } from './runtime/dependency-resolver';
+export type { AggregatedHealth } from './runtime/health-aggregator';
+export { HealthAggregator } from './runtime/health-aggregator';
+export type { RuntimeGroupEntry } from './runtime/runtime-group';
+export { DuplicateRuntimeError, RuntimeGroup } from './runtime/runtime-group';
+export type { RuntimeRegistration, WorkspaceDefinition } from './runtime/workspace-definition';
+export { WorkspaceFactory } from './runtime/workspace-factory';
+export { WorkspaceComposition } from './runtime/workspace-runtime';
+export { ProductEventTranslator } from './runtime/product-events';
+export type { ProductEvent, ProductEventType } from './runtime/product-events';
+export { ProjectOrchestrator } from './ev001/project-orchestrator';
+export type { ProjectPlanner, ProjectPlan, ProjectStep } from './ev001/project-planner';
+export { HardcodedProjectPlanner } from './ev001/hardcoded-planner';
+export { AiProjectPlanner } from './ev001/ai-project-planner';
+export { ProjectWorkflow } from './ev001/project-workflow';
+export type { WorkflowProgress } from './ev001/project-workflow';
+export type { CreateProjectResult } from './ev001/project-orchestrator';
+export { MemoryContextService } from './ev001/planning-context';
+export type { PlanningContext } from './ev001/planning-context';
 export type { HealthCheckResult, ServiceContract, ServiceStatus } from './service-contract';
 export {
   AgentDaemonService,
@@ -142,6 +163,19 @@ export type {
 export { VerificationService } from './verification-service';
 export { VerificationStorage } from './verification-storage';
 export { WorkflowService } from './workflow-service';
+export { DefaultUnderstandingEngine } from './understanding-engine';
+export { DefaultUnderstandingAssembler } from './understanding-assembler';
+export { UnderstandingContextAssembler } from './understanding-context-assembler';
+export {
+  createDefaultProducers,
+  LanguageProducer,
+  FrameworkProducer,
+  ArchitectureProducer,
+  MaturityProducer,
+  RiskProducer,
+  HealthProducer,
+  ActivityProducer,
+} from './producers/index';
 export { WorkspaceAnalyst } from './workspace-analyst';
 export { WorkspaceManifest } from './workspace-manifest';
 export { WorkspacePersistence } from './workspace-persistence';

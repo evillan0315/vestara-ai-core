@@ -13,6 +13,7 @@
 import type { ConversationService } from '@vestara/conversation';
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
+import { Runtime, type RuntimeId, type RuntimeType } from '@vestara/runtime';
 import type {
   ConversationSession,
   ProviderRouterStatus,
@@ -49,20 +50,27 @@ export interface ConversationEngineOptions {
   logger?: Logger;
 }
 
-export class DefaultConversationEngine {
-  readonly id = 'vestara-conversation';
+export class DefaultConversationEngine extends Runtime {
+  readonly componentId = 'vestara-conversation';
   private conversationService: ConversationService;
   private profileStore: UserProfileStore;
   private sessionStore: ConversationSessionStore;
   private providerRouter?: ProviderRouter;
   private eventBus?: EventBus;
   private logger?: Logger;
-  private _status: 'initializing' | 'ready' | 'degraded' | 'unavailable' = 'initializing';
   private _profile: UserProfile | null = null;
   private _session: ConversationSession | null = null;
   private _conversationId: string | null = null;
 
   constructor(options: ConversationEngineOptions) {
+    const runtimeId = `conversation:${Date.now()}` as unknown as RuntimeId;
+    super({
+      id: runtimeId,
+      type: 'runtime' as RuntimeType,
+      name: 'Conversation Engine',
+      eventBus: options.eventBus,
+    });
+
     this.conversationService = options.conversationService;
     this.profileStore = options.profileStore;
     this.sessionStore = options.sessionStore;
@@ -72,7 +80,7 @@ export class DefaultConversationEngine {
   }
 
   get status() {
-    return this._status;
+    return this.state === 'running' ? 'ready' : this.state === 'failed' ? 'unavailable' : 'degraded';
   }
 
   get profile(): UserProfile | null {
@@ -86,17 +94,20 @@ export class DefaultConversationEngine {
   async initialize(): Promise<void> {
     try {
       this._profile = await this.profileStore.load();
-      this._status = this._profile ? 'ready' : 'ready';
       this.logger?.info('Conversation engine initialized', {
         hasProfile: !!this._profile,
         profileName: this._profile?.name,
       });
     } catch (error) {
-      this._status = 'degraded';
       this.logger?.error('Failed to initialize conversation engine', {
         error: error instanceof Error ? error : new Error(String(error)),
       });
+      if (this.state === 'created') {
+        await super.initialize();
+      }
+      return;
     }
+    await super.initialize();
   }
 
   async getGreeting(): Promise<string> {
@@ -260,10 +271,10 @@ export class DefaultConversationEngine {
 
   async healthCheck(): Promise<{ status: 'healthy' | 'degraded' | 'unhealthy'; latency: number }> {
     const start = performance.now();
-    const svcHealthy = this._status === 'ready' || this._status === 'initializing';
+    const engineHealthy = this.state === 'running' || this.state === 'initializing';
     const latency = Math.round(performance.now() - start);
     return {
-      status: svcHealthy ? 'healthy' : 'degraded',
+      status: engineHealthy ? 'healthy' : 'degraded',
       latency,
     };
   }

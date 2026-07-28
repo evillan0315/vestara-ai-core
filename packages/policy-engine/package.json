@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/policy-engine",
+  "description": "Deterministic Policy Engine — evaluates declarative policies against context, resolves conflicts, produces immutable decisions",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/policy-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@vestara/types": "workspace:*",
+    "vitest": "^4.1.10"
+  }
+}

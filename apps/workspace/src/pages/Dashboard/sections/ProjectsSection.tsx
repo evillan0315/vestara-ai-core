@@ -15,7 +15,7 @@ export default function ProjectsSection({ projects, dragSection, onRefresh }: Pr
   return (
     <DashboardSection title="Projects" icon="▤" dragSection={dragSection}>
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
+        <div className="flex flex-col items-center justify-center p-5 bg-primary-900/50 border border-zinc-800 rounded-lg text-center">
           <div className="text-lg mb-1 opacity-20">▤</div>
           <p className="text-[10px] text-zinc-700">No projects</p>
         </div>

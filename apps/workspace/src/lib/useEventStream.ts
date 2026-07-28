@@ -15,7 +15,18 @@ export interface LiveEvent {
   metadata: Record<string, unknown>;
 }
 
-function toLiveEvent(e: WorkspaceEvent): LiveEvent {
+function isProductEvent(e: WorkspaceEvent): boolean {
+  const payload = e.payload as Record<string, unknown> | undefined;
+  return payload?._productEvent === true;
+}
+
+function isInfrastructureEvent(type: string): boolean {
+  return type.startsWith('runtime.') || type.startsWith('runtime:') || type === 'system.heartbeat';
+}
+
+function toLiveEvent(e: WorkspaceEvent): LiveEvent | null {
+  if (isInfrastructureEvent(e.type) && !isProductEvent(e)) return null;
+
   const data = (e.payload as Record<string, unknown>) ?? {};
   const actor = (e as any).actor;
   const resource = (e as any).resource;
@@ -81,8 +92,8 @@ export function useEventStream() {
     const offState = workspaceSocket.onState((s) => setConnected(s === 'open'));
     const offEvent = workspaceSocket.onEvent((event) => {
       const live = toLiveEvent(event);
+      if (!live) return;
       setEvents((prev) => {
-        // Deduplicate by id
         if (prev.some((e) => e.id === live.id)) return prev;
         return [live, ...prev].slice(0, 500);
       });

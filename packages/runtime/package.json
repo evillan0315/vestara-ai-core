@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@vestara/types": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
     "@vestara/state-machine": "workspace:*",
     "@vestara/registry": "workspace:*",
     "@vestara/permissions": "workspace:*",
