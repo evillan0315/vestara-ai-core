@@ -14,17 +14,17 @@ import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
+  PlanningConstraints,
+  PlanningContext,
+  RecommendedAction,
   UnderstandingEngine,
   UnderstandingProducer,
+  UserRequest,
   WorkspaceObservation,
   WorkspaceUnderstanding,
-  PlanningContext,
-  PlanningConstraints,
-  UserRequest,
-  RecommendedAction,
 } from '@vestara/understanding';
-import type { WorkspaceSession } from './workspace-session';
 import type { DefaultUnderstandingAssembler } from './understanding-assembler.js';
+import type { WorkspaceSession } from './workspace-session';
 
 function tryExec(cmd: string, cwd: string): string | null {
   try {
@@ -46,8 +46,17 @@ function tryExecLines(cmd: string, cwd: string): string[] {
 // ─── Language detection heuristics (shared with RepositoryIntelligence) ──
 
 const SOURCE_WEIGHT: Record<string, number> = {
-  ts: 3, tsx: 3, js: 3, jsx: 3, py: 3, rs: 3, go: 3,
-  java: 2, rb: 2, kt: 2, swift: 2,
+  ts: 3,
+  tsx: 3,
+  js: 3,
+  jsx: 3,
+  py: 3,
+  rs: 3,
+  go: 3,
+  java: 2,
+  rb: 2,
+  kt: 2,
+  swift: 2,
 };
 
 export class DefaultUnderstandingEngine implements UnderstandingEngine {
@@ -103,15 +112,10 @@ export class DefaultUnderstandingEngine implements UnderstandingEngine {
       ? tryExecLines('git branch --format="%(refname:short)"', gitRoot).filter((b) => b !== fp.gitBranch)
       : [];
 
-    const uncommittedChanges = gitRoot
-      ? Number(tryExec('git status --porcelain | wc -l', gitRoot) ?? '0')
-      : 0;
+    const uncommittedChanges = gitRoot ? Number(tryExec('git status --porcelain | wc -l', gitRoot) ?? '0') : 0;
 
     const filesChangedSinceOpen = manifest.files?.mtimeCache
-      ? WorkspaceManifest.detectChangedFiles(
-          this.discoverMtimeCache(rootPath),
-          manifest.files.mtimeCache,
-        )
+      ? WorkspaceManifest.detectChangedFiles(this.discoverMtimeCache(rootPath), manifest.files.mtimeCache)
       : [];
 
     return {
@@ -260,11 +264,27 @@ export class DefaultUnderstandingEngine implements UnderstandingEngine {
 
   private detectConfigFiles(rootPath: string): string[] {
     const candidates = [
-      'package.json', 'tsconfig.json', 'docker-compose.yml', 'Dockerfile',
-      '.github/workflows', '.gitlab-ci.yml', 'Makefile', 'Dockerfile',
-      'pnpm-workspace.yaml', 'lerna.json', 'nx.json', 'turbo.json',
-      'vitest.config.ts', 'jest.config.ts', '.eslintrc.js', '.prettierrc',
-      'biome.json', 'go.mod', 'Cargo.toml', 'Gemfile', 'setup.py',
+      'package.json',
+      'tsconfig.json',
+      'docker-compose.yml',
+      'Dockerfile',
+      '.github/workflows',
+      '.gitlab-ci.yml',
+      'Makefile',
+      'Dockerfile',
+      'pnpm-workspace.yaml',
+      'lerna.json',
+      'nx.json',
+      'turbo.json',
+      'vitest.config.ts',
+      'jest.config.ts',
+      '.eslintrc.js',
+      '.prettierrc',
+      'biome.json',
+      'go.mod',
+      'Cargo.toml',
+      'Gemfile',
+      'setup.py',
     ];
     const found: string[] = [];
     for (const name of candidates) {

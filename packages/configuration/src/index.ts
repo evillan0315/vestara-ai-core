@@ -69,7 +69,6 @@ export class ConfigurationManager implements ConfigurationProvider {
       }
     }
 
-    this.loaded = true;
     this.version++;
 
     // Start watching sources

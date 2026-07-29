@@ -1,6 +1,6 @@
+import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 import CloudDoneRoundedIcon from '@mui/icons-material/CloudDoneRounded';
 import CloudOffRoundedIcon from '@mui/icons-material/CloudOffRounded';
-import AutorenewRoundedIcon from '@mui/icons-material/AutorenewRounded';
 
 export interface HeaderConnectionProps {
   status?: 'connected' | 'connecting' | 'disconnected';

@@ -1,5 +1,5 @@
 import type { CapabilityCatalog } from './catalog';
-import type { CapabilityMatcher, CapabilityMatchResult } from './model';
+import type { CapabilityMatcher } from './model';
 import { DefaultCapabilityMatcher } from './model';
 
 export interface ResolvedCapability {

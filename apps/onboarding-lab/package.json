@@ -10,14 +10,12 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@vestara/shared": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
     "@vestara/conversation-runtime": "workspace:*",
     "@vestara/audio": "workspace:*",
     "@vestara/stt": "workspace:*",
     "@vestara/tts": "workspace:*",
-    "@vestara/event-bus": "workspace:*",
     "@vestara/provider-runtime": "workspace:*",
     "@vestara/provider-opencode": "workspace:*"
   },

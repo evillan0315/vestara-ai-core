@@ -1,5 +1,9 @@
-import type { UnderstandingProducer, ProducerResult, WorkspaceObservation } from '@vestara/understanding';
-import type { MaturityLevel } from '@vestara/understanding';
+import type {
+  MaturityLevel,
+  ProducerResult,
+  UnderstandingProducer,
+  WorkspaceObservation,
+} from '@vestara/understanding';
 
 export class MaturityProducer implements UnderstandingProducer {
   readonly id = 'maturity';
@@ -12,10 +16,19 @@ export class MaturityProducer implements UnderstandingProducer {
     let level: MaturityLevel;
     let confidence: number;
 
-    if (health >= 8) { level = 'mature'; confidence = 0.85; }
-    else if (health >= 6) { level = 'established'; confidence = 0.75; }
-    else if (health >= 3) { level = 'developing'; confidence = 0.65; }
-    else { level = 'early'; confidence = 0.6; }
+    if (health >= 8) {
+      level = 'mature';
+      confidence = 0.85;
+    } else if (health >= 6) {
+      level = 'established';
+      confidence = 0.75;
+    } else if (health >= 3) {
+      level = 'developing';
+      confidence = 0.65;
+    } else {
+      level = 'early';
+      confidence = 0.6;
+    }
 
     const testCov = o.health.testCoverage;
     const doc = o.health.documentation;

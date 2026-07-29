@@ -46,7 +46,6 @@ export class PlanStorage {
   constructor(db: any) {
     this.db = db;
     this.ensureSchema();
-    this.initialized = true;
   }
 
   private ensureSchema(): void {

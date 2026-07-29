@@ -1,5 +1,5 @@
-import type { JSX } from 'react';
 import { Box, Typography } from '@mui/material';
+import type { JSX } from 'react';
 
 export interface LogoProps {
   collapsed?: boolean;

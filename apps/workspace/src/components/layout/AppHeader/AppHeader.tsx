@@ -1,19 +1,18 @@
+import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded';
+import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
+import LightModeRounded from '@mui/icons-material/LightModeRounded';
+import MenuRounded from '@mui/icons-material/MenuRounded';
 import type { FC } from 'react';
 import { useLocation } from 'react-router-dom';
-import MenuRounded from '@mui/icons-material/MenuRounded';
-import LightModeRounded from '@mui/icons-material/LightModeRounded';
-import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded';
-
-import { useTheme } from '../../../lib/theme';
+import { NAV_CATEGORIES } from '../../../layouts/ShellLayout';
 import { useAuth } from '../../../lib/auth';
-import HeaderSearch from './HeaderSearch';
+import { useTheme } from '../../../lib/theme';
+import PageHeader from '../Page/PageHeader';
+import HeaderActions from './HeaderActions';
 import HeaderConnection from './HeaderConnection';
 import HeaderNotifications from './HeaderNotifications';
+import HeaderSearch from './HeaderSearch';
 import HeaderUserMenu from './HeaderUserMenu';
-import HeaderActions from './HeaderActions';
-import PageHeader from '../Page/PageHeader';
-import { NAV_CATEGORIES } from '../../../layouts/ShellLayout';
 
 interface AppHeaderProps {
   onMenuClick?: () => void;

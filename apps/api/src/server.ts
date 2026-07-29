@@ -9,6 +9,8 @@
 import * as http from 'node:http';
 import type { WorkspaceEvent, WsClientMessage, WsServerMessage } from '@vestara/events';
 import { WebSocket, WebSocketServer } from 'ws';
+import { AuditAction, logAudit } from './audit-log';
+import { type AuthUser, authenticate, requireRole } from './auth';
 import type { WorkspaceContext } from './workspace-context';
 
 const CORS = {
@@ -54,6 +56,10 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 function actorOf(req: http.IncomingMessage): string {
   const h = req.headers['x-vestara-actor'];
   return typeof h === 'string' && h.trim() ? h.trim() : 'local-operator';
+}
+
+function getActor(req: http.IncomingMessage, ctx: WorkspaceContext): AuthUser {
+  return authenticate(req, ctx.users);
 }
 
 export type ApiServer = http.Server & {
@@ -164,6 +170,171 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         return;
       }
 
+      // ── Auth endpoints ──────────────────────────────
+      if (method === 'GET' && p === '/api/auth/me') {
+        // Extract the raw token to look up the full user record
+        const authHeader = req.headers.authorization;
+        const tokenMatch = typeof authHeader === 'string' ? authHeader.match(/^Bearer\s+(.+)$/i) : null;
+        const token = tokenMatch?.[1];
+        const fullUser = token ? ctx.users.findByToken(token) : undefined;
+        const authUser = getActor(req, ctx);
+
+        json(res, 200, {
+          user: {
+            id: authUser.id,
+            name: authUser.name,
+            role: authUser.role,
+            type: authUser.type,
+          },
+          currentUser: fullUser
+            ? {
+                id: fullUser.id,
+                username: fullUser.username,
+                role: fullUser.role,
+                token: fullUser.token,
+                createdAt: fullUser.createdAt,
+              }
+            : undefined,
+          allUsers: ctx.users.listAll().map((u) => ({
+            id: u.id,
+            username: u.username,
+            role: u.role,
+            createdAt: u.createdAt,
+          })),
+        });
+        return;
+      }
+
+      if (method === 'POST' && p === '/api/auth/login') {
+        try {
+          const raw = await readBody(req);
+          const body = raw ? JSON.parse(raw) : {};
+          const username = body.username?.trim();
+          const token = body.token?.trim();
+
+          if (token) {
+            // Exchange a known token for user info
+            const user = ctx.users.findByToken(token);
+            if (user) {
+              logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Token login');
+              json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+            } else {
+              json(res, 401, { error: 'Invalid token' });
+            }
+          } else if (username) {
+            // Create or look up user by username
+            const existing = ctx.users.listAll().find((u) => u.username === username);
+            if (existing) {
+              logAudit(
+                ctx.audit,
+                req,
+                existing.id,
+                existing.username,
+                AuditAction.LOGIN,
+                'user',
+                existing.id,
+                'Username login',
+              );
+              json(res, 200, {
+                user: { id: existing.id, username: existing.username, role: existing.role, token: existing.token },
+              });
+            } else {
+              const newUser = ctx.users.createUser(username, 'editor');
+              logAudit(
+                ctx.audit,
+                req,
+                newUser.id,
+                newUser.username,
+                AuditAction.LOGIN,
+                'user',
+                newUser.id,
+                'New user registration',
+              );
+              json(res, 201, {
+                user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
+              });
+            }
+          } else {
+            json(res, 400, { error: 'Provide username or token' });
+          }
+        } catch (err: any) {
+          json(res, 500, { error: err.message });
+        }
+        return;
+      }
+
+      // ── Admin: audit log ───────────────────────────────
+      if (method === 'GET' && p === '/api/admin/audit-log') {
+        if (!requireRole(req, ctx, 'admin', res)) return;
+        const qs = new URL(req.url, `http://127.0.0.1:${port}`).searchParams;
+        const entries = ctx.audit.query({
+          limit: qs.get('limit') ? parseInt(qs.get('limit')!, 10) : 100,
+          offset: qs.get('offset') ? parseInt(qs.get('offset')!, 10) : undefined,
+          userId: qs.get('userId') || undefined,
+          action: qs.get('action') || undefined,
+          resource: qs.get('resource') || undefined,
+          since: qs.get('since') || undefined,
+          until: qs.get('until') || undefined,
+        });
+        const total = ctx.audit.count();
+        json(res, 200, { entries, total });
+        return;
+      }
+
+      // ── Admin: user management ─────────────────────────
+      if (method === 'GET' && p === '/api/admin/users') {
+        if (!requireRole(req, ctx, 'admin', res)) return;
+        const allUsers = ctx.users.listAll();
+        json(res, 200, {
+          users: allUsers.map((u) => ({ id: u.id, username: u.username, role: u.role, createdAt: u.createdAt })),
+        });
+        return;
+      }
+
+      if (method === 'POST' && p === '/api/admin/users') {
+        if (!requireRole(req, ctx, 'admin', res)) return;
+        const actor = getActor(req, ctx);
+        try {
+          const raw = await readBody(req);
+          const body = raw ? JSON.parse(raw) : {};
+          if (!body.username?.trim()) {
+            json(res, 400, { error: 'username is required' });
+            return;
+          }
+          const user = ctx.users.createUser(body.username.trim(), body.role || 'editor');
+          logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_CREATE, 'user', user.id, user.username);
+          json(res, 201, {
+            user: {
+              id: user.id,
+              username: user.username,
+              role: user.role,
+              token: user.token,
+              createdAt: user.createdAt,
+            },
+          });
+        } catch (err: any) {
+          json(res, 500, { error: err.message });
+        }
+        return;
+      }
+
+      if (method === 'POST' && p.startsWith('/api/admin/users/')) {
+        const rotateMatch = p.match(/^\/api\/admin\/users\/([^/]+)\/rotate-token$/);
+        if (rotateMatch && method === 'POST') {
+          if (!requireRole(req, ctx, 'admin', res)) return;
+          const actor = getActor(req, ctx);
+          const userId = decodeURIComponent(rotateMatch[1]);
+          const newToken = ctx.users.rotateToken(userId);
+          if (newToken) {
+            logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_ROTATE_TOKEN, 'user', userId);
+            json(res, 200, { token: newToken });
+          } else {
+            json(res, 404, { error: 'User not found' });
+          }
+          return;
+        }
+      }
+
       if (method === 'GET' && p === '/api/settings') {
         try {
           let prefs: any;
@@ -193,9 +364,11 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'PUT' && p === '/api/settings') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         try {
           const raw = await readBody(req);
           const body = raw ? JSON.parse(raw) : {};
+          const actor = getActor(req, ctx);
           try {
             const session = ctx.runtime.getSession();
             if (session?.prefs) {
@@ -209,6 +382,16 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           } catch {
             json(res, 200, { saved: true, note: 'No active session — changes will not persist' });
           }
+          logAudit(
+            ctx.audit,
+            req,
+            actor.id,
+            actor.name,
+            AuditAction.SETTINGS_UPDATE,
+            'settings',
+            undefined,
+            JSON.stringify(Object.keys(body)),
+          );
         } catch (err: any) {
           json(res, 500, { error: err.message });
         }
@@ -216,13 +399,16 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'DELETE' && p === '/api/settings') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         try {
+          const actor = getActor(req, ctx);
           const session = ctx.runtime.getSession();
           if (session?.prefs) {
             const all = session.prefs.getAll();
             for (const key of Object.keys(all)) {
               session.prefs.reset(key);
             }
+            logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.SETTINGS_DELETE, 'settings');
             json(res, 200, { reset: true, settings: session.prefs.getAll() });
           } else {
             json(res, 200, { reset: true, note: 'No active session' });
@@ -271,7 +457,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'session.created',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: session.id,
           artifactId: session.id,
           message: `Session created by ${actorOf(req)}: ${title}`,
@@ -361,6 +547,42 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         json(res, 200, {
           routes: [
             {
+              path: '/api/auth/me',
+              method: 'GET',
+              description: 'Get current user info and user list',
+              requiresAuth: false,
+            },
+            {
+              path: '/api/auth/login',
+              method: 'POST',
+              description: 'Login with username or token',
+              requiresAuth: false,
+            },
+            {
+              path: '/api/admin/users',
+              method: 'GET',
+              description: 'List all users (admin only)',
+              requiresAuth: true,
+            },
+            {
+              path: '/api/admin/users',
+              method: 'POST',
+              description: 'Create a new user (admin only)',
+              requiresAuth: true,
+            },
+            {
+              path: '/api/admin/users/:id/rotate-token',
+              method: 'POST',
+              description: 'Rotate a user API token (admin only)',
+              requiresAuth: true,
+            },
+            {
+              path: '/api/admin/audit-log',
+              method: 'GET',
+              description: 'Audit log with optional filters (admin only)',
+              requiresAuth: true,
+            },
+            {
               path: '/api/health',
               method: 'GET',
               description: 'System health status and uptime metrics',
@@ -380,6 +602,24 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
             },
             { path: '/api/activity', method: 'GET', description: 'Activity log and system events', requiresAuth: true },
             { path: '/api/activity-log', method: 'GET', description: 'Activity log entries', requiresAuth: true },
+            {
+              path: '/api/notifications',
+              method: 'GET',
+              description: 'List notifications with unread count',
+              requiresAuth: true,
+            },
+            {
+              path: '/api/notifications/read-all',
+              method: 'POST',
+              description: 'Mark all notifications as read',
+              requiresAuth: true,
+            },
+            {
+              path: '/api/notifications/:id/read',
+              method: 'POST',
+              description: 'Mark a single notification as read',
+              requiresAuth: true,
+            },
             {
               path: '/api/agents',
               method: 'GET',
@@ -674,7 +914,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           broadcast({
             id: `evt-${Date.now()}`,
             type: 'agent.updated',
-            actor: { id: 'user', name: 'User', type: 'user' },
+            actor: getActor(req, ctx),
             sessionId: id,
             artifactId: id,
             message: `Updated agent: ${updated.name}`,
@@ -695,7 +935,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           broadcast({
             id: `evt-${Date.now()}`,
             type: 'agent.deleted',
-            actor: { id: 'user', name: 'User', type: 'user' },
+            actor: getActor(req, ctx),
             sessionId: id,
             artifactId: id,
             message: `Deleted agent: ${id}`,
@@ -710,9 +950,11 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/agents') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         try {
           const raw = await readBody(req);
           const body = raw ? JSON.parse(raw) : {};
+          const actor = getActor(req, ctx);
           if (!body.name?.trim()) {
             json(res, 400, { error: 'name is required' });
             return;
@@ -737,10 +979,11 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
             createdAt: now,
           };
           await ctx.agents.saveAgent(agent);
+          logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.AGENT_CREATE, 'agent', id, agent.name);
           broadcast({
             id: `evt-${Date.now()}`,
             type: 'agent.created',
-            actor: { id: 'user', name: 'User', type: 'user' },
+            actor,
             sessionId: id,
             artifactId: id,
             message: `Created agent: ${agent.name}`,
@@ -967,6 +1210,8 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/schedules') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
+        const actor = getActor(req, ctx);
         try {
           const raw = await readBody(req);
           const body = raw ? JSON.parse(raw) : {};
@@ -987,6 +1232,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
             enabled: true,
             createdAt: now,
           });
+          logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.SCHEDULE_CREATE, 'schedule', id, body.task);
           json(res, 201, {
             schedule: {
               id,
@@ -1005,8 +1251,12 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
 
       const schedMatch = p.match(/^\/api\/schedules\/([^/]+)$/);
       if (method === 'DELETE' && schedMatch) {
+        if (!requireRole(req, ctx, 'admin', res)) return;
+        const actor = getActor(req, ctx);
         try {
-          await ctx.agents.deleteSchedule(decodeURIComponent(schedMatch[1]));
+          const id = decodeURIComponent(schedMatch[1]);
+          await ctx.agents.deleteSchedule(id);
+          logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.SCHEDULE_DELETE, 'schedule', id);
           json(res, 200, { deleted: true });
         } catch (err: any) {
           json(res, 500, { error: err.message });
@@ -1015,8 +1265,20 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/schedules/run-due') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
+        const actor = getActor(req, ctx);
         try {
           const due = await ctx.agents.getDueSchedules();
+          logAudit(
+            ctx.audit,
+            req,
+            actor.id,
+            actor.name,
+            AuditAction.SCHEDULE_RUN_DUE,
+            'schedule',
+            undefined,
+            `Due: ${due.length} schedules`,
+          );
           const results: any[] = [];
           for (const s of due) {
             try {
@@ -1087,7 +1349,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'milestone:completed',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: request.id,
           artifactId: request.id,
           message: `Feature request created: ${body.title}`,
@@ -1146,7 +1408,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           broadcast({
             id: `evt-${Date.now()}`,
             type: 'milestone:completed',
-            actor: { id: 'user', name: 'User', type: 'user' },
+            actor: getActor(req, ctx),
             sessionId: id,
             artifactId: id,
             message: `Feature request ${id} → ${body.status}`,
@@ -1213,13 +1475,25 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/projects') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         const raw = await readBody(req);
         const body = raw ? JSON.parse(raw) : {};
+        const actor = getActor(req, ctx);
         const project = await ctx.projects?.createProject(body.name || 'New Project', body.description);
+        logAudit(
+          ctx.audit,
+          req,
+          actor.id,
+          actor.name,
+          AuditAction.PROJECT_CREATE,
+          'project',
+          project?.id,
+          project?.name,
+        );
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'project.created',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor,
           sessionId: project?.id,
           artifactId: project?.id,
           message: `Created project: ${project?.name}`,
@@ -1268,6 +1542,47 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           json(res, 200, { events, total: events.length });
         } else {
           json(res, 200, { events: [], total: 0, note: 'Activity service not available' });
+        }
+        return;
+      }
+
+      // ── Notification Center ──────────────────────────────
+      if (method === 'GET' && p === '/api/notifications') {
+        const qs = new URL(req.url, `http://127.0.0.1:${port}`).searchParams;
+        const limit = qs.get('limit') ? parseInt(qs.get('limit')!, 10) : 50;
+        const unreadOnly = qs.get('unreadOnly') === 'true';
+        const category = qs.get('category') || undefined;
+        const before = qs.get('before') || undefined;
+
+        if (ctx.notificationService) {
+          const [notifications, unreadCount] = await Promise.all([
+            ctx.notificationService.list({ limit, unreadOnly, category, before }),
+            ctx.notificationService.unreadCount(),
+          ]);
+          json(res, 200, { notifications, unreadCount });
+        } else {
+          json(res, 200, { notifications: [], unreadCount: 0, note: 'Notification service not available' });
+        }
+        return;
+      }
+
+      if (method === 'POST' && p === '/api/notifications/read-all') {
+        if (ctx.notificationService) {
+          const count = await ctx.notificationService.markAllRead();
+          json(res, 200, { markedRead: count });
+        } else {
+          json(res, 200, { markedRead: 0 });
+        }
+        return;
+      }
+
+      if (method === 'POST' && p.startsWith('/api/notifications/') && p.endsWith('/read')) {
+        const id = p.replace('/api/notifications/', '').replace('/read', '');
+        if (ctx.notificationService) {
+          await ctx.notificationService.markRead(id);
+          json(res, 200, { ok: true });
+        } else {
+          json(res, 200, { ok: false, note: 'Notification service not available' });
         }
         return;
       }
@@ -1348,6 +1663,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/plans') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         const raw = await readBody(req);
         const body = raw ? JSON.parse(raw) : {};
         const goal = body.goal?.trim();
@@ -1355,11 +1671,22 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           json(res, 400, { error: 'goal is required' });
           return;
         }
+        const actor = getActor(req, ctx);
         const result = await ctx.planningService.createPlan(goal, ctx.runtime.getSession());
+        logAudit(
+          ctx.audit,
+          req,
+          actor.id,
+          actor.name,
+          AuditAction.PLAN_CREATE,
+          'plan',
+          result.plan.id,
+          `Goal: ${goal.slice(0, 200)}`,
+        );
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'plan.created',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor,
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: result.plan.id,
           message: `Plan created by ${actorOf(req)}: ${result.plan.title}`,
@@ -1396,7 +1723,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'plan.approved',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: planId,
           message: `Plan approved by ${actorOf(req)}: ${(finalPlan as any)?.title || planId}`,
@@ -1418,6 +1745,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/implement') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         const raw = await readBody(req);
         const body = raw ? JSON.parse(raw) : {};
         const planId = body.planId?.trim();
@@ -1425,11 +1753,22 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           json(res, 400, { error: 'planId is required' });
           return;
         }
+        const actor = getActor(req, ctx);
         const result = await ctx.implementationService.implement(planId, ctx.runtime.getSession());
+        logAudit(
+          ctx.audit,
+          req,
+          actor.id,
+          actor.name,
+          AuditAction.IMPLEMENT_START,
+          'plan',
+          planId,
+          `ChangeSet: ${result.changeSet.id}`,
+        );
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'changeset.created',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor,
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: result.changeSet.id,
           message: `Change Set created by ${actorOf(req)}: ${result.changeSet.title}`,
@@ -1460,6 +1799,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       }
 
       if (method === 'POST' && p === '/api/implement/apply') {
+        if (!requireRole(req, ctx, 'editor', res)) return;
         const raw = await readBody(req);
         const body = raw ? JSON.parse(raw) : {};
         const csId = body.changeSetId?.trim();
@@ -1467,11 +1807,13 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
           json(res, 400, { error: 'changeSetId is required' });
           return;
         }
+        const actor = getActor(req, ctx);
         const cs = await ctx.implementationService.apply(csId, ctx.runtime.getSession());
+        logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.IMPLEMENT_APPLY, 'changeset', csId, cs.title);
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'changeset.applied',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor,
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: cs.id,
           message: `Change Set applied by ${actorOf(req)}: ${cs.title}`,
@@ -1494,7 +1836,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'verification.completed',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: result.report.id,
           message: `Verification completed by ${actorOf(req)} for change set ${changeSetId}`,
@@ -1525,7 +1867,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'collab.submitted',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: record.id,
           message: `Change Set ${changeSetId} submitted for review by ${actorOf(req)}`,
@@ -1548,7 +1890,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'collab.approved',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: record.id,
           message: `Collaboration record ${recordId} approved by ${actorOf(req)}`,
@@ -1572,7 +1914,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         broadcast({
           id: `evt-${Date.now()}`,
           type: 'collab.rejected',
-          actor: { id: 'user', name: 'User', type: 'user' },
+          actor: getActor(req, ctx),
           sessionId: ctx.runtime.getSession().fingerprint.id,
           artifactId: record.id,
           message: `Collaboration record ${recordId} rejected by ${actorOf(req)}`,
@@ -1651,6 +1993,8 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
 
       const runAgentMatch = p.match(/^\/api\/agents\/([^/]+)\/run$/);
       if (method === 'POST' && runAgentMatch) {
+        if (!requireRole(req, ctx, 'editor', res)) return;
+        const actor = getActor(req, ctx);
         try {
           const agentId = decodeURIComponent(runAgentMatch[1]);
           const raw = await readBody(req);
@@ -1666,6 +2010,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
             json(res, 400, { error: result.message });
             return;
           }
+          logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.AGENT_RUN, 'agent', agentId, task.slice(0, 200));
           json(res, 200, { execution: result.execution, agent: result.agent, message: result.message });
         } catch (err: any) {
           json(res, 500, { error: err.message });

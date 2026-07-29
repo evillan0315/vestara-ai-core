@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { workspaceSocket } from '../lib/ws';
-import { useEventStream } from '../lib/useEventStream';
-import { useToasts } from '../components/Toast';
 import ExecutionDetailModal from '../components/ExecutionDetailModal';
+import { useToasts } from '../components/Toast';
+import { useEventStream } from '../lib/useEventStream';
+import { workspaceSocket } from '../lib/ws';
 
 const API = '';
 

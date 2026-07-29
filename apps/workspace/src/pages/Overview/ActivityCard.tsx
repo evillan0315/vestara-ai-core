@@ -1,5 +1,12 @@
 import type { UnderstandingData } from './useUnderstanding';
 
+const DESC_MAX_LENGTH = 80;
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + '…';
+}
+
 export function ActivityCard({ data }: { data: UnderstandingData }) {
   return (
     <div className="bg-[var(--color-zinc-900)] rounded-lg p-5 border border-[var(--color-zinc-700)]">
@@ -18,7 +25,9 @@ export function ActivityCard({ data }: { data: UnderstandingData }) {
           <div className="space-y-1">
             {data.activity.recentChanges.slice(0, 5).map((c, i) => (
               <div key={i} className="text-sm text-[var(--vestara-text-2)] truncate">
-                <span className="text-[var(--vestara-text)]">{c.description}</span>
+                <span className="text-[var(--vestara-text)]" title={c.description}>
+                  {truncate(c.description, DESC_MAX_LENGTH)}
+                </span>
                 <span className="text-[var(--vestara-text-muted)] ml-2 text-xs">{c.author}</span>
               </div>
             ))}
@@ -28,7 +37,9 @@ export function ActivityCard({ data }: { data: UnderstandingData }) {
 
       <div className="flex gap-4 text-xs text-[var(--vestara-text-muted)]">
         {data.activity.activeBranches.length > 0 && (
-          <span>{data.activity.activeBranches.length} active branch{data.activity.activeBranches.length > 1 ? 'es' : ''}</span>
+          <span>
+            {data.activity.activeBranches.length} active branch{data.activity.activeBranches.length > 1 ? 'es' : ''}
+          </span>
         )}
         {data.activity.uncommittedWork && <span className="text-amber-500 font-medium">Uncommitted changes</span>}
       </div>

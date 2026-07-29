@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useChat } from './useChat';
+import { ChatComposer } from './ChatComposer';
 import { ChatSidebar } from './ChatSidebar';
 import { ConversationHeader } from './ConversationHeader';
 import { MessageList } from './MessageList';
-import { ChatComposer } from './ChatComposer';
+import { useChat } from './useChat';
 
 export default function ChatLayout() {
   const chat = useChat();

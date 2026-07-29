@@ -14,7 +14,10 @@ export default function OpsEventModal({ event, onClose }: OpsEventModalProps) {
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-[var(--color-zinc-200)]">Event Details</h3>
-          <button onClick={onClose} className="text-[var(--color-zinc-600)] hover:text-[var(--color-zinc-400)] text-base cursor-pointer">
+          <button
+            onClick={onClose}
+            className="text-[var(--color-zinc-600)] hover:text-[var(--color-zinc-400)] text-base cursor-pointer"
+          >
             ✕
           </button>
         </div>
@@ -42,14 +45,18 @@ export default function OpsEventModal({ event, onClose }: OpsEventModalProps) {
             </div>
           </div>
           <div className="pt-2 border-t border-[var(--color-zinc-700)]">
-            <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">Message</div>
+            <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">
+              Message
+            </div>
             <div className="text-xs text-[var(--color-zinc-300)] leading-relaxed bg-[var(--color-zinc-800)]/50 border border-[var(--color-zinc-700)]/50 rounded-lg p-3">
               {event.message}
             </div>
           </div>
           {event.metadata && (
             <div className="pt-2 border-t border-[var(--color-zinc-700)]">
-              <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">Metadata</div>
+              <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">
+                Metadata
+              </div>
               <pre
                 className="text-[10px] text-[var(--color-zinc-400)] font-mono whitespace-pre-wrap bg-[var(--color-zinc-800)]/50 border border-[var(--color-zinc-700)]/50 rounded-lg p-3 max-h-48"
                 style={{ overflowY: 'scroll' }}

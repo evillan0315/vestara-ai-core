@@ -1,7 +1,6 @@
 import type { FC, ReactNode } from 'react';
-
-import SidebarSection from './SidebarSection';
 import SidebarNavigationItem from './SidebarNavigationItem';
+import SidebarSection from './SidebarSection';
 
 export interface NavigationItem {
   to: string;

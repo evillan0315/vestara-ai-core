@@ -15,7 +15,7 @@
 import type { ConversationService } from '@vestara/conversation';
 import type { KnowledgeEngine, SearchResult } from '@vestara/knowledge';
 import type { Memory, MemoryRuntime } from '@vestara/memory';
-import type { WorkspaceUnderstanding, UnderstandingEngine } from '@vestara/understanding';
+import type { UnderstandingEngine, WorkspaceUnderstanding } from '@vestara/understanding';
 import type { PreferenceService } from './preference-service';
 import type { RepositoryFingerprint } from './repository-fingerprint';
 import type { RepositoryProfile } from './types';

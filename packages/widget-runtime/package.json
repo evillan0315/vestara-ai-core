@@ -10,11 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vestara/shared": "workspace:*",
     "@vestara/event-bus": "workspace:*",
-    "@vestara/logger": "workspace:*",
-    "@vestara/service-registry": "workspace:*",
-    "@vestara/subsystem": "workspace:*"
+    "@vestara/logger": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

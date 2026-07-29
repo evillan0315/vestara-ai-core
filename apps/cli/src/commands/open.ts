@@ -11,6 +11,8 @@
  *   Runtime: Kernel Lifecycle
  */
 
+import fs from 'node:fs';
+import path from 'node:path';
 import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
@@ -19,7 +21,6 @@ import { WorkspaceRuntime } from '@vestara/workspace';
 const GOLD = '\x1b[33m';
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
-const _CYAN = '\x1b[36m';
 const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const GRAY = '\x1b[90m';
@@ -30,7 +31,17 @@ function renderStep(success: boolean, label: string, detail?: string): void {
   process.stdout.write(`  ${icon} ${label} ${detailStr}\n`);
 }
 
-export async function runOpen(path: string): Promise<void> {
+export async function runOpen(openPath: string, force = false): Promise<void> {
+  // If workspace already exists and --force was not passed, warn and exit
+  const wsManifestPath = path.join(openPath, '.vestara', 'workspace.json');
+  if (!force && fs.existsSync(wsManifestPath)) {
+    console.log();
+    console.log(`${GOLD}Workspace already open at: ${openPath}${RESET}`);
+    console.log(`${GRAY}Use ${BOLD}--force${RESET}${GRAY} to re-open and re-index the repository.${RESET}`);
+    console.log();
+    return;
+  }
+
   console.log();
   console.log(`${BOLD}${GOLD}Opening repository...${RESET}`);
   console.log(`${GRAY}─────────────────────────────────────${RESET}`);
@@ -46,6 +57,7 @@ export async function runOpen(path: string): Promise<void> {
     await providerManager.register(opencode);
     await kernel.boot({
       providers: [{ manager: providerManager, providerId: 'opencode' }],
+      logLevel: 'warn',
     });
 
     // Create workspace runtime with the OpenCode provider
@@ -59,38 +71,30 @@ export async function runOpen(path: string): Promise<void> {
     const disposers: Array<() => void> = [];
 
     disposers.push(
-      kernel.eventBus.subscribe('workspace:discover.completed', async (event: { payload: Record<string, unknown> }) => {
-        renderStep(true, 'Repository discovered', `${(event.payload as any).fileCount} files`);
+      kernel.eventBus.subscribe('workspace:discover.completed', async (event: any) => {
+        renderStep(true, 'Repository discovered', `${event.payload.fileCount} files`);
       }),
     );
-
     disposers.push(
-      kernel.eventBus.subscribe(
-        'workspace:fingerprint.completed',
-        async (event: { payload: Record<string, unknown> }) => {
-          renderStep(true, 'Repository identified', (event.payload as any).name);
-        },
-      ),
-    );
-
-    disposers.push(
-      kernel.eventBus.subscribe('workspace:analysis.completed', async (event: { payload: Record<string, unknown> }) => {
-        renderStep(true, 'Repository analyzed', (event.payload as any).language);
+      kernel.eventBus.subscribe('workspace:fingerprint.completed', async (event: any) => {
+        renderStep(true, 'Repository identified', event.payload.name);
       }),
     );
-
+    disposers.push(
+      kernel.eventBus.subscribe('workspace:analysis.completed', async (event: any) => {
+        renderStep(true, 'Repository analyzed', event.payload.language);
+      }),
+    );
     disposers.push(
       kernel.eventBus.subscribe('workspace:manifest.created', async () => {
         renderStep(true, 'Workspace created');
       }),
     );
-
     disposers.push(
-      kernel.eventBus.subscribe('workspace:index.completed', async (event: { payload: Record<string, unknown> }) => {
-        renderStep(true, 'Knowledge indexed', `${(event.payload as any).documents} documents`);
+      kernel.eventBus.subscribe('workspace:index.completed', async (event: any) => {
+        renderStep(true, 'Knowledge indexed', `${event.payload.documents} documents`);
       }),
     );
-
     disposers.push(
       kernel.eventBus.subscribe('workspace:present.completed', async () => {
         renderStep(true, 'Repository understood');
@@ -98,7 +102,7 @@ export async function runOpen(path: string): Promise<void> {
     );
 
     // Run the pipeline
-    const result = await runtime.open(path);
+    const result = await runtime.open(openPath);
     const duration = Date.now() - startTime;
 
     // Print the summary
@@ -122,7 +126,7 @@ export async function runOpen(path: string): Promise<void> {
       const sugDb = new SQL.Database();
       const sugSvc = new SuggestionService({ planStorage: new PlanStorage(sugDb) });
       const suggestions = await sugSvc.generate(session);
-      const highPri = suggestions.filter((s) => s.priority === 'high').slice(0, 2);
+      const highPri = suggestions.filter((s: any) => s.priority === 'high').slice(0, 2);
       if (highPri.length > 0) {
         console.log(`${GRAY}Top Suggestions:${RESET}`);
         for (const s of highPri) {
@@ -175,7 +179,7 @@ export async function runOpen(path: string): Promise<void> {
       const initSqlJs = (await import('sql.js')).default;
       const SQL = await initSqlJs();
       const desktop = new DesktopService(new SQL.Database());
-      await desktop.setLastWorkspace(require('node:path').resolve(path));
+      await desktop.setLastWorkspace(path.resolve(openPath));
     } catch {
       /* desktop is optional */
     }
@@ -189,7 +193,7 @@ export async function runOpen(path: string): Promise<void> {
       const planDb = new SQL.Database();
       const graph = new KnowledgeGraphStorage(planDb);
       const monitor = new MonitorService(ws, graph);
-      await monitor.start((event) => {
+      await monitor.start((event: any) => {
         if (event.type === 'file-changed' || event.type === 'file-added') {
           // File changed — event logged but no action needed in CLI mode
         }

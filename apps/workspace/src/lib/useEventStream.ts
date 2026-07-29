@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { workspaceSocket } from './ws';
-import type { WorkspaceEvent } from './ws';
-import { getActivity } from './api';
 import type { ActivityEvent } from './api';
+import { getActivity } from './api';
+import type { WorkspaceEvent } from './ws';
+import { workspaceSocket } from './ws';
 
 export interface LiveEvent {
   id: string;

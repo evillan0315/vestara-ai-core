@@ -18,9 +18,7 @@
 import type { WorkspaceObservation } from './observation';
 import type { WorkspaceUnderstanding } from './understanding';
 
-type DeepPartial<T> = T extends object
-  ? { [P in keyof T]?: DeepPartial<T[P]> }
-  : T;
+type DeepPartial<T> = T extends object ? { [P in keyof T]?: DeepPartial<T[P]> } : T;
 
 export interface ProducerResult {
   readonly fields: DeepPartial<WorkspaceUnderstanding>;

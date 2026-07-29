@@ -15,7 +15,7 @@
     "@vestara/conversation": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/logger": "workspace:*",
-    "sql.js": "^1.11.0"
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

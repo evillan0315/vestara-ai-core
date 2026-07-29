@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useTerminalSessions } from './useTerminalSessions';
-import { TerminalTabs } from './TerminalTabs';
-import { TerminalPane, writeToTerminal, writelnToTerminal, clearTerminal } from './TerminalPane';
-import { TerminalStatusBar } from './TerminalStatusBar';
 import { TerminalEmptyState } from './TerminalEmptyState';
+import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from './TerminalPane';
+import { TerminalStatusBar } from './TerminalStatusBar';
+import { TerminalTabs } from './TerminalTabs';
+import { useTerminalSessions } from './useTerminalSessions';
 
 export default function TerminalWorkspace() {
   const {

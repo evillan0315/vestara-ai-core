@@ -19,6 +19,7 @@ import type {
   ProviderHealthStatus,
   ProviderStatus,
   StreamChunk,
+  ToolDefinition,
 } from '@vestara/shared';
 import { DefaultStreamProcessor } from '@vestara/stream';
 
@@ -42,7 +43,7 @@ const DEFAULT_MODELS: AIModel[] = [
   {
     id: 'mimo-v2.5-free',
     provider: 'opencode',
-    name: 'Mimo v2.5 (Free)',
+    name: 'Mimo V2.5 (Free)',
     contextWindow: 128_000,
     maxOutput: 8_192,
     capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
@@ -53,6 +54,26 @@ const DEFAULT_MODELS: AIModel[] = [
     id: 'nemotron-3-ultra-free',
     provider: 'opencode',
     name: 'Nemotron 3 Ultra (Free)',
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
+    pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 },
+    status: 'available',
+  },
+  {
+    id: 'north-mini-code-free',
+    provider: 'opencode',
+    name: 'North Mini Code (Free)',
+    contextWindow: 128_000,
+    maxOutput: 8_192,
+    capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
+    pricing: { inputPerMillionTokens: 0, outputPerMillionTokens: 0 },
+    status: 'available',
+  },
+  {
+    id: 'big-pickle',
+    provider: 'opencode',
+    name: 'Big Pickle',
     contextWindow: 128_000,
     maxOutput: 8_192,
     capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
@@ -148,19 +169,35 @@ export class OpenCodeProvider implements AIProvider {
 
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const start = performance.now();
+    const body: Record<string, unknown> = {
+      model: request.model,
+      messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+      temperature: request.temperature ?? 0.7,
+      max_tokens: request.maxTokens ?? 2048,
+      stream: false,
+    };
+    if (request.tools && request.tools.length > 0) {
+      body.tools = request.tools.map((t) => ({
+        type: 'function',
+        function: {
+          name: t.id,
+          description: t.description,
+          parameters: {
+            type: t.inputSchema?.type ?? 'object',
+            properties: (t.inputSchema?.properties as Record<string, unknown>) ?? {},
+            required: (t.inputSchema?.required as string[]) ?? [],
+          },
+        },
+      }));
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
       },
-      body: JSON.stringify({
-        model: request.model,
-        messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-        temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2048,
-        stream: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -172,15 +209,33 @@ export class OpenCodeProvider implements AIProvider {
     const data = (await response.json()) as {
       id: string;
       model: string;
-      choices: Array<{ message: { content: string } }>;
+      choices: Array<{
+        message: {
+          content?: string;
+          tool_calls?: Array<{
+            id: string;
+            type: string;
+            function: { name: string; arguments: string };
+          }>;
+        };
+      }>;
       usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
     };
+
+    const choice = data.choices?.[0]?.message;
+    const content = choice?.content ?? '';
+    const toolCalls = choice?.tool_calls;
 
     return {
       id: data.id,
       model: data.model,
       provider: this.id,
-      content: data.choices[0]?.message?.content ?? '',
+      content,
+      ...(toolCalls && toolCalls.length > 0
+        ? {
+            toolCalls: toolCalls.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+          }
+        : {}),
       usage: {
         promptTokens: data.usage?.prompt_tokens ?? 0,
         completionTokens: data.usage?.completion_tokens ?? 0,
@@ -191,19 +246,35 @@ export class OpenCodeProvider implements AIProvider {
   }
 
   async *stream(request: CompletionRequest): AsyncIterable<StreamChunk> {
+    const body: Record<string, unknown> = {
+      model: request.model,
+      messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+      temperature: request.temperature ?? 0.7,
+      max_tokens: request.maxTokens ?? 2048,
+      stream: true,
+    };
+    if (request.tools && request.tools.length > 0) {
+      body.tools = request.tools.map((t) => ({
+        type: 'function',
+        function: {
+          name: t.id,
+          description: t.description,
+          parameters: {
+            type: t.inputSchema?.type ?? 'object',
+            properties: (t.inputSchema?.properties as Record<string, unknown>) ?? {},
+            required: (t.inputSchema?.required as string[]) ?? [],
+          },
+        },
+      }));
+    }
+
     const response = await fetch(`${this.baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
       },
-      body: JSON.stringify({
-        model: request.model,
-        messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-        temperature: request.temperature ?? 0.7,
-        max_tokens: request.maxTokens ?? 2048,
-        stream: true,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
     });
 
@@ -252,7 +323,13 @@ export class OpenCodeProvider implements AIProvider {
             }
             try {
               const parsed = JSON.parse(data) as {
-                choices?: Array<{ delta?: { content?: string }; finish_reason?: string }>;
+                choices?: Array<{
+                  delta?: {
+                    content?: string;
+                    tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+                  };
+                  finish_reason?: string;
+                }>;
                 usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
               };
               const content = parsed.choices?.[0]?.delta?.content;
@@ -260,7 +337,21 @@ export class OpenCodeProvider implements AIProvider {
                 _fullContent += content;
                 yield processor.text(content, { sequence: seq++, ...streamOptions });
               }
-              if (parsed.choices?.[0]?.finish_reason === 'stop') {
+              const toolCalls = parsed.choices?.[0]?.delta?.tool_calls;
+              if (toolCalls && toolCalls.length > 0) {
+                for (const tc of toolCalls) {
+                  if (tc.function?.name) {
+                    yield processor.toolCall(tc.function.name, tc.function.arguments ?? '{}', {
+                      sequence: seq++,
+                      ...streamOptions,
+                    });
+                  }
+                }
+              }
+              if (
+                parsed.choices?.[0]?.finish_reason === 'stop' ||
+                parsed.choices?.[0]?.finish_reason === 'tool_calls'
+              ) {
                 if (parsed.usage) {
                   yield processor.meta(
                     {

@@ -1,7 +1,7 @@
-import DashboardSection from '../DashboardSection';
-import type { DragSectionProps } from '../DashboardSection';
-import { ERA_COLORS } from '../../../components/dashboard/constants';
 import type { MilestoneResponse } from '../../../components/dashboard/constants';
+import { ERA_COLORS } from '../../../components/dashboard/constants';
+import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface RecentMilestonesSectionProps {
   recentCompletions: MilestoneResponse['milestones'];

@@ -1,53 +1,45 @@
+export { UnderstandingAssembler } from './assembler';
 export {
-  WorkspaceObservation,
-  RepositoryIdentity,
-  GitState,
-  FileSignals,
-  LanguageSignal,
-  PackageSignal,
-  DependencySignals,
   ConfigSignals,
+  ConversationSignals,
+  DependencySignals,
   EntryPointSignal,
+  FileSignals,
+  GitActivity,
+  GitState,
   HealthSignals,
   KnowledgeState,
+  LanguageSignal,
   MemoryState,
+  PackageSignal,
   PreferenceSignals,
-  ConversationSignals,
-  GitActivity,
+  RepositoryIdentity,
+  WorkspaceObservation,
 } from './observation';
 
 export {
-  WorkspaceUnderstanding,
-  IdentityUnderstanding,
-  ArchitectureUnderstanding,
-  ArchitectureKind,
-  MaturityUnderstanding,
-  MaturityLevel,
-  ActivityUnderstanding,
-  RecentChange,
-  DecisionRecord,
-  MemoryUnderstanding,
-  StateUnderstanding,
-} from './understanding';
-
-export {
-  PlanningContext,
-  UserRequest,
-  PlanningConstraints,
   Intent,
   IntentKind,
+  PlanningConstraints,
+  PlanningContext,
   RecommendedAction,
+  UserRequest,
 } from './planning-context';
-
 export {
-  UnderstandingEngine,
-} from './understanding-engine';
-
-export {
-  UnderstandingProducer,
   ProducerResult,
+  UnderstandingProducer,
 } from './producer';
-
 export {
-  UnderstandingAssembler,
-} from './assembler';
+  ActivityUnderstanding,
+  ArchitectureKind,
+  ArchitectureUnderstanding,
+  DecisionRecord,
+  IdentityUnderstanding,
+  MaturityLevel,
+  MaturityUnderstanding,
+  MemoryUnderstanding,
+  RecentChange,
+  StateUnderstanding,
+  WorkspaceUnderstanding,
+} from './understanding';
+export { UnderstandingEngine } from './understanding-engine';

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { DefaultHistoryStore } from '../src/default-history-store';
-import { DuplicateRecordError } from '../src/types/errors';
 import type { DecisionRecord } from '../src/types/record';
 
 function makeRecord(overrides?: Partial<DecisionRecord>): DecisionRecord {

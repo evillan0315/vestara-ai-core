@@ -14,9 +14,6 @@ function testConfig(overrides?: Partial<RuntimeConfig>): RuntimeConfig {
 }
 
 class TestWorker extends Worker {
-  constructor(config: Parameters<typeof Worker>[0], hooks?: Parameters<typeof Worker>[1]) {
-    super(config, hooks);
-  }
   protected async run(_job: Job): Promise<JobResult> {
     return { status: 'success', summary: 'test' };
   }

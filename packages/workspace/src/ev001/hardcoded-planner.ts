@@ -1,7 +1,6 @@
 import type { EventBus } from '@vestara/event-bus';
-import { ProductEventTranslator } from '../runtime/product-events';
-import type { ProjectPlan, ProjectStep, ProjectPlanner } from './project-planner';
-import type { PlanningContext } from './planning-context';
+import type { ProductEventTranslator } from '../runtime/product-events';
+import type { PlanningContext, ProjectPlan, ProjectPlanner, ProjectStep } from './project-planner';
 
 const DEFAULT_STEPS: ProjectStep[] = [
   { id: 'create-workspace', name: 'Create workspace', description: 'Setting up project directory structure' },
@@ -13,7 +12,11 @@ const DEFAULT_STEPS: ProjectStep[] = [
 
 const CONTINUE_STEPS: ProjectStep[] = [
   { id: 'restore-context', name: 'Restore workspace context', description: 'Loading previous workspace state' },
-  { id: 'review-decisions', name: 'Review architecture decisions', description: 'Checking previously recorded decisions' },
+  {
+    id: 'review-decisions',
+    name: 'Review architecture decisions',
+    description: 'Checking previously recorded decisions',
+  },
   { id: 'assess-progress', name: 'Assess outstanding work', description: 'Determining next steps from project state' },
   { id: 'plan-next', name: 'Plan next milestone', description: 'Creating execution plan for next milestone' },
   { id: 'save-memory', name: 'Save updated context', description: 'Persisting updated project context' },

@@ -52,22 +52,28 @@ export class OllamaProvider implements ConversationProvider {
         id: 'ollama-stub',
         model: this._model,
         provider: 'ollama',
-        content: '[Ollama offline — deterministic stub]',
+        content: '[Ollama offline]',
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: 0,
       };
     }
 
     const start = performance.now();
+    const body: Record<string, unknown> = {
+      model: request.model ?? this._model,
+      messages: request.messages,
+      stream: false,
+    };
+    if (request.temperature !== undefined || request.maxTokens !== undefined) {
+      body.options = {};
+      if (request.temperature !== undefined) (body.options as any).temperature = request.temperature;
+      if (request.maxTokens !== undefined) (body.options as any).num_predict = request.maxTokens;
+    }
+
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: request.model ?? this._model,
-        messages: request.messages,
-        options: { temperature: request.temperature, num_predict: request.maxTokens },
-        stream: false,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.timeout),
     });
 
@@ -83,7 +89,7 @@ export class OllamaProvider implements ConversationProvider {
 
     return {
       id: `ollama-${Date.now()}`,
-      model: this._model,
+      model: request.model ?? this._model,
       provider: 'ollama',
       content: data.message?.content ?? '',
       usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
@@ -96,7 +102,7 @@ export class OllamaProvider implements ConversationProvider {
       yield {
         id: 'ollama-stub-1',
         type: 'text',
-        content: '[Ollama offline — deterministic stub]',
+        content: '[Ollama offline]',
         metadata: { sequence: 0, timestamp: new Date().toISOString() },
       };
       yield {
@@ -107,15 +113,21 @@ export class OllamaProvider implements ConversationProvider {
       return;
     }
 
+    const body: Record<string, unknown> = {
+      model: request.model ?? this._model,
+      messages: request.messages,
+      stream: true,
+    };
+    if (request.temperature !== undefined || request.maxTokens !== undefined) {
+      body.options = {};
+      if (request.temperature !== undefined) (body.options as any).temperature = request.temperature;
+      if (request.maxTokens !== undefined) (body.options as any).num_predict = request.maxTokens;
+    }
+
     const res = await fetch(`${this.baseUrl}/api/chat`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: request.model ?? this._model,
-        messages: request.messages,
-        options: { temperature: request.temperature, num_predict: request.maxTokens },
-        stream: true,
-      }),
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(this.timeout * 2),
     });
 

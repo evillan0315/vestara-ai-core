@@ -1,42 +1,32 @@
 import type { MemoryRuntime } from '@vestara/memory';
+import type { ContextContribution, ContextSource } from './context-assembler';
 
-export interface PlanningContext {
-  request: string;
-  workspaceName: string;
-  architectureDecisions: string[];
-  repositorySummary: string;
-  outstandingWork: string[];
-  conversationSummary: string;
-}
-
-const EMPTY_CONTEXT: PlanningContext = {
-  request: '',
-  workspaceName: '',
-  architectureDecisions: [],
-  repositorySummary: '',
-  outstandingWork: [],
-  conversationSummary: '',
-};
-
-export class MemoryContextService {
+export class MemoryContextSource implements ContextSource {
+  readonly name = 'memory';
   private readonly memory: MemoryRuntime;
 
   constructor(memory: MemoryRuntime) {
     this.memory = memory;
   }
 
-  async assemble(request: string, workspaceName: string, userId: string): Promise<PlanningContext> {
+  async contribute(
+    request: string,
+    workspaceName: string,
+    _workspacePath: string,
+    userId: string,
+  ): Promise<ContextContribution> {
     const stored = await this.memory.search(userId, `workspace:${workspaceName}`);
     const decisions = stored.memories.filter((m) => m.type === 'decision');
     const summaries = stored.memories.filter((m) => m.type === 'event');
 
     return {
-      request,
-      workspaceName,
       architectureDecisions: decisions.map((d) => d.content),
       repositorySummary: this.extractSummary(summaries),
       outstandingWork: this.extractOutstanding(summaries),
-      conversationSummary: summaries.map((s) => s.content).join('\n').slice(0, 500),
+      conversationSummary: summaries
+        .map((s) => s.content)
+        .join('\n')
+        .slice(0, 500),
     };
   }
 
@@ -55,12 +45,9 @@ export class MemoryContextService {
   }
 
   private extractOutstanding(summaries: { content: string }[]): string[] {
-    return summaries
-      .filter((s) => s.content.includes('next:'))
-      .map((s) => s.content.replace(/^next:\s*/i, ''));
-  }
-
-  empty(): PlanningContext {
-    return { ...EMPTY_CONTEXT };
+    return summaries.filter((s) => s.content.includes('next:')).map((s) => s.content.replace(/^next:\s*/i, ''));
   }
 }
+
+export type { ContextContribution, ContextSource } from './context-assembler';
+export { ContextAssembler } from './context-assembler';

@@ -7,24 +7,25 @@
  *   Purpose: Let's Change the World
  */
 
-import { useMemo, lazy, Suspense, useEffect, useState } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import { SettingsLayout, SettingsSidebar, SettingsContent, SettingsBreadcrumbs } from './components/layout/index.js';
 import {
-  ModuleRegistry,
-  SettingsStore,
-  PermissionEngine,
-  SearchEngine,
-  ImportExportEngine,
-  ResetEngine,
-  ValidationEngine,
-  VersioningEngine,
   AnalyticsEngine,
   DEFAULT_PERMISSIONS,
+  ImportExportEngine,
+  ModuleRegistry,
+  PermissionEngine,
+  ResetEngine,
+  SearchEngine,
   type SettingsDatabase,
+  SettingsStore,
+  ValidationEngine,
+  VersioningEngine,
 } from '@vestara/settings-framework';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import { SettingsContent, SettingsLayout } from './components/layout/index.js';
 
 // Lazy load module components
+const AccountSettings = lazy(() => import('./components/account/AccountSettings.js'));
 const AIProvidersSettings = lazy(() => import('./components/ai/providers/AIProvidersSettings.js'));
 const AppearanceSettings = lazy(() => import('./components/appearance/AppearanceSettings.js'));
 
@@ -136,11 +137,19 @@ registry.register({
 });
 
 registry.register({
+  name: 'Account',
+  description: 'Profile, API token, and user management',
+  icon: '👤',
+  path: '/settings/account',
+  order: 3,
+});
+
+registry.register({
   name: 'Appearance',
   description: 'Theme, colors, and typography',
   icon: '🖌️',
   path: '/settings/appearance',
-  order: 3,
+  order: 4,
 });
 
 registry.register({
@@ -148,7 +157,7 @@ registry.register({
   description: 'Updates, logs, and storage',
   icon: '⚙️',
   path: '/settings/system',
-  order: 4,
+  order: 5,
 });
 
 // Index all modules in search engine
@@ -157,7 +166,7 @@ searchEngine.indexModules(registry.getAll());
 function LoadingSpinner() {
   return (
     <div className="flex items-center justify-center py-12">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-(--accent-primary)" />
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--vestara-accent)]" />
     </div>
   );
 }
@@ -245,28 +254,28 @@ export default function SettingsPage() {
   };
 
   return (
-    <SettingsLayout>
-      <SettingsSidebar modules={modules} />
+    <SettingsLayout modules={modules}>
       <SettingsContent>
-        <SettingsBreadcrumbs modules={modules} />
         <Suspense fallback={<LoadingSpinner />}>
           <Routes>
             <Route
               path="/"
               element={
                 <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-(--text-primary) mb-2">Welcome to Settings</h2>
-                  <p className="text-(--text-secondary) mb-6">Select a category from the sidebar to get started.</p>
+                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Settings</h2>
+                  <p className="text-[var(--vestara-text-2)] mb-6">
+                    Select a tab above to configure your workspace.
+                  </p>
                   <div className="flex justify-center gap-4 flex-wrap">
                     <button
                       onClick={handleExport}
-                      className="px-4 py-2 bg-(--accent-primary) text-white rounded-lg hover:opacity-90 transition-opacity"
+                      className="px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
                     >
                       Export Settings
                     </button>
                     <button
                       onClick={handleImport}
-                      className="px-4 py-2 bg-(--accent-secondary) text-white rounded-lg hover:opacity-90 transition-opacity"
+                      className="px-4 py-2 bg-[var(--vestara-accent-light)] text-white rounded-lg hover:opacity-90 transition-opacity"
                     >
                       Import Settings
                     </button>
@@ -295,13 +304,14 @@ export default function SettingsPage() {
                 </div>
               }
             />
+            <Route path="/account" element={<AccountSettings />} />
             <Route path="/ai/providers" element={<AIProvidersSettings />} />
             <Route
               path="/ai/routing"
               element={
                 <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-(--text-primary) mb-2">Routing</h2>
-                  <p className="text-(--text-secondary)">Coming soon</p>
+                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Routing</h2>
+                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
                 </div>
               }
             />
@@ -309,8 +319,8 @@ export default function SettingsPage() {
               path="/workspace"
               element={
                 <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-(--text-primary) mb-2">Workspace</h2>
-                  <p className="text-(--text-secondary)">Coming soon</p>
+                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Workspace</h2>
+                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
                 </div>
               }
             />
@@ -319,8 +329,8 @@ export default function SettingsPage() {
               path="/system"
               element={
                 <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-(--text-primary) mb-2">System</h2>
-                  <p className="text-(--text-secondary)">Coming soon</p>
+                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">System</h2>
+                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
                 </div>
               }
             />

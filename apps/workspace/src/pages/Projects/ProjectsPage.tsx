@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ProjectData, TaskData, SprintData } from './types';
 import { BOARD_COLUMNS, PRIORITY_COLORS, STATUS_COLORS, STATUS_OPTIONS } from './contanst';
+import type { ProjectData, SprintData, TaskData } from './types';
 
 function progressColor(pct: number): string {
   if (pct >= 70) return '#10b981';

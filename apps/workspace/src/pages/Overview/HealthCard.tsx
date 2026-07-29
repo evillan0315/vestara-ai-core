@@ -19,12 +19,14 @@ export function HealthCard({ data }: { data: UnderstandingData }) {
       <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-3">Health</h2>
 
       <div className="flex items-center gap-3 mb-4">
-        <div className="text-3xl font-bold" style={{ color: score >= 7 ? '#16a34a' : score >= 4 ? '#ca8a04' : '#dc2626' }}>
+        <div
+          className="text-3xl font-bold"
+          style={{ color: score >= 7 ? '#16a34a' : score >= 4 ? '#ca8a04' : '#dc2626' }}
+        >
           {score.toFixed(1)}
         </div>
         <div className="text-sm text-[var(--vestara-text-2)]">
-          <div className="capitalize font-medium text-[var(--vestara-text)]">{h.level}</div>
-          / 10
+          <div className="capitalize font-medium text-[var(--vestara-text)]">{h.level}</div>/ 10
         </div>
       </div>
 
@@ -55,9 +57,15 @@ export function HealthCard({ data }: { data: UnderstandingData }) {
           <div className="space-y-1">
             {h.risks.slice(0, 3).map((r, i) => (
               <div key={i} className="text-sm flex gap-2">
-                <span className={`shrink-0 font-medium ${
-                  r.severity === 'high' ? 'text-[var(--vestara-red)]' : r.severity === 'medium' ? 'text-amber-500' : 'text-[var(--vestara-text-muted)]'
-                }`}>
+                <span
+                  className={`shrink-0 font-medium ${
+                    r.severity === 'high'
+                      ? 'text-[var(--vestara-red)]'
+                      : r.severity === 'medium'
+                        ? 'text-amber-500'
+                        : 'text-[var(--vestara-text-muted)]'
+                  }`}
+                >
                   {r.severity}
                 </span>
                 <span className="text-[var(--vestara-text-2)] truncate">{r.summary}</span>

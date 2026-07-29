@@ -10,7 +10,6 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@vestara/capabilities": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/health": "workspace:*",
@@ -18,7 +17,6 @@
     "@vestara/logger": "workspace:*",
     "@vestara/metrics": "workspace:*",
     "@vestara/permissions": "workspace:*",
-    "@vestara/registry": "workspace:*",
     "@vestara/scheduler": "workspace:*",
     "@vestara/service-registry": "workspace:*",
     "@vestara/shared": "workspace:*",

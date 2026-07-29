@@ -1,4 +1,4 @@
-import { AreaChart, Area, Tooltip, ResponsiveContainer } from 'recharts';
+import { Area, AreaChart, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface AreaChartCardProps {
   data: { hour: string; events: number }[];

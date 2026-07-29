@@ -1,5 +1,5 @@
-import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 import AccountCircleRoundedIcon from '@mui/icons-material/AccountCircleRounded';
+import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded';
 
 export interface HeaderUserMenuProps {
   name: string;

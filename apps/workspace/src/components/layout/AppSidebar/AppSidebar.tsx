@@ -1,9 +1,9 @@
 import type { FC } from 'react';
 
 import SidebarBrand from './SidebarBrand';
-import SidebarWorkspace from './SidebarWorkspace';
-import SidebarNavigation, { type NavigationSection } from './SidebarNavigation';
 import SidebarFooter from './SidebarFooter';
+import SidebarNavigation, { type NavigationSection } from './SidebarNavigation';
+import SidebarWorkspace from './SidebarWorkspace';
 
 interface AppSidebarProps {
   navigation: NavigationSection[];

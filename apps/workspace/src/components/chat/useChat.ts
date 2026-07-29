@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useProviderSettings } from '../../hooks/useProviderSettings';
 import type { ChatMessage, ConversationData, ToolCall } from './types';
 import { branchId, genId } from './utils';
-import { useProviderSettings } from '../../hooks/useProviderSettings';
 
 const CONV_KEY = 'vestara-chat-convs';
 

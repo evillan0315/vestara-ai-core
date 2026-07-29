@@ -1,6 +1,3 @@
-import { Card, CardContent, Typography, Button, Box, Chip } from '@mui/material';
-import HistoryIcon from '@mui/icons-material/History';
-
 export interface ContinuityContext {
   workspaceName: string;
   lastMilestone: string;
@@ -19,46 +16,77 @@ interface Props {
 export default function WorkspaceContinuityCard({ context, loading, onContinue, onDismiss }: Props) {
   if (loading) {
     return (
-      <Card sx={{ mb: 2, bgcolor: 'primary.dark', color: 'primary.contrastText' }}>
-        <CardContent>
-          <Typography variant="body2">Restoring workspace...</Typography>
-        </CardContent>
-      </Card>
+      <div className="mb-2 p-4 bg-zinc-900/60 border border-(--vestara-accent-border) rounded-lg">
+        <div className="flex items-center gap-2 text-sm text-zinc-400">
+          <svg
+            className="w-4 h-4 animate-spin"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-label="Loading"
+          >
+            <path d="M21 12a9 9 0 11-6.219-8.56" />
+          </svg>
+          Restoring workspace...
+        </div>
+      </div>
     );
   }
 
   if (!context) return null;
 
   return (
-    <Card sx={{ mb: 2, bgcolor: 'primary.dark', color: 'primary.contrastText' }}>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <HistoryIcon />
-          <Typography variant="h6">Welcome Back</Typography>
-        </Box>
+    <div className="mb-2 p-4 bg-zinc-900/60 border border-(--vestara-accent-border) rounded-lg">
+      <div className="flex items-center gap-2 mb-2">
+        <svg
+          className="w-5 h-5 text-(--vestara-accent)"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          aria-label="History"
+        >
+          <circle cx="12" cy="12" r="10" />
+          <polyline points="12 6 12 12 16 14" />
+        </svg>
+        <h3 className="text-sm font-semibold text-zinc-200">Welcome Back</h3>
+      </div>
 
-        <Typography variant="body1" sx={{ mb: 1 }}>
-          Restored your <strong>{context.workspaceName}</strong> workspace.
-        </Typography>
+      <p className="text-xs text-zinc-300 mb-2 leading-relaxed">
+        Restored your <strong className="text-zinc-100">{context.workspaceName}</strong> workspace.
+      </p>
 
-        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
-          <Chip label={`${context.decisionCount} decisions`} size="small" variant="outlined" />
-          <Chip label={context.lastMilestone} size="small" variant="outlined" />
-        </Box>
+      <div className="flex gap-1.5 mb-3 flex-wrap">
+        <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-700 text-zinc-400">
+          {context.decisionCount} decisions
+        </span>
+        <span className="text-[9px] px-2 py-0.5 rounded border border-zinc-700 text-zinc-400">
+          {context.lastMilestone}
+        </span>
+      </div>
 
-        <Typography variant="body2" sx={{ mb: 2, opacity: 0.9 }}>
-          Last session: {context.lastActive}. Next recommended milestone: <strong>{context.nextRecommended}</strong>.
-        </Typography>
+      <p className="text-[11px] text-zinc-400 mb-3 leading-relaxed">
+        Last session: {context.lastActive}. Next recommended milestone:{' '}
+        <strong className="text-zinc-200">{context.nextRecommended}</strong>.
+      </p>
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="contained" color="secondary" onClick={onContinue}>
-            Continue
-          </Button>
-          <Button variant="text" color="inherit" onClick={onDismiss}>
-            Dismiss
-          </Button>
-        </Box>
-      </CardContent>
-    </Card>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onContinue}
+          className="text-[10px] px-3 py-1.5 accent-btn rounded cursor-pointer font-medium"
+        >
+          Continue
+        </button>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="text-[10px] px-3 py-1.5 border border-zinc-700 text-zinc-400 rounded hover:text-zinc-200 hover:border-zinc-600 transition-colors cursor-pointer"
+        >
+          Dismiss
+        </button>
+      </div>
+    </div>
   );
 }

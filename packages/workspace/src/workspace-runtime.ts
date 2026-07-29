@@ -365,6 +365,25 @@ export class WorkspaceRuntime {
         }
       };
 
+      // Seed model/provider from manifest's provider registry if available
+      try {
+        if (manifest?.providers && manifest.providers.length > 0) {
+          const enabledProvider = manifest.providers.find((p: any) => p.enabled);
+          if (enabledProvider) {
+            const currentProvider = prefs.get('provider');
+            if (currentProvider === 'opencode' || !manifest.providers.find((p: any) => p.id === currentProvider)) {
+              prefs.set('provider', enabledProvider.id);
+            }
+            const enabledModel = enabledProvider.models.find((m: any) => m.enabled);
+            if (enabledModel) {
+              prefs.set('model', enabledModel.id);
+            }
+          }
+        }
+      } catch {
+        /* best effort — provider registry is optional */
+      }
+
       this.session = new WorkspaceSession({
         rootPath: resolvedPath,
         workspaceDir,

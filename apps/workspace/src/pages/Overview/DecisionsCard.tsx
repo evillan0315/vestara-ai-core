@@ -12,12 +12,16 @@ export function DecisionsCard({ data }: { data: UnderstandingData }) {
 
       {decisions.length > 0 && (
         <div className="mb-3">
-          <div className="text-xs text-[var(--vestara-text-muted)] uppercase tracking-wide mb-1.5">Recent Decisions</div>
+          <div className="text-xs text-[var(--vestara-text-muted)] uppercase tracking-wide mb-1.5">
+            Recent Decisions
+          </div>
           <div className="space-y-1.5">
             {decisions.map((d, i) => (
               <div key={i} className="text-sm">
                 <div className="text-[var(--vestara-text)] font-medium">{d.title}</div>
-                <div className="text-[var(--vestara-text-muted)] text-xs">{new Date(d.timestamp).toLocaleDateString()}</div>
+                <div className="text-[var(--vestara-text-muted)] text-xs">
+                  {new Date(d.timestamp).toLocaleDateString()}
+                </div>
               </div>
             ))}
           </div>
@@ -29,7 +33,9 @@ export function DecisionsCard({ data }: { data: UnderstandingData }) {
           <div className="text-xs text-[var(--vestara-text-muted)] uppercase tracking-wide mb-1.5">Key Facts</div>
           <div className="space-y-1">
             {facts.map((f, i) => (
-              <div key={i} className="text-sm text-[var(--vestara-text-2)]">• {f}</div>
+              <div key={i} className="text-sm text-[var(--vestara-text-2)]">
+                • {f}
+              </div>
             ))}
           </div>
         </div>

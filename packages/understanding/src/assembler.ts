@@ -8,8 +8,8 @@
  * field, the one with higher confidence wins.
  */
 
-import type { UnderstandingProducer, ProducerResult } from './producer';
 import type { WorkspaceObservation } from './observation';
+import type { UnderstandingProducer } from './producer';
 import type { WorkspaceUnderstanding } from './understanding';
 
 export interface UnderstandingAssembler {

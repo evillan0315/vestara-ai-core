@@ -1,4 +1,4 @@
-import type { UnderstandingProducer, ProducerResult, WorkspaceObservation } from '@vestara/understanding';
+import type { ProducerResult, UnderstandingProducer, WorkspaceObservation } from '@vestara/understanding';
 
 export class HealthProducer implements UnderstandingProducer {
   readonly id = 'health';
@@ -18,8 +18,10 @@ export class HealthProducer implements UnderstandingProducer {
           status: o.workspace.status,
           isIndexed: o.workspace.knowledge.documentsIndexed > 0,
           indexFreshness: o.workspace.knowledge.lastIndexedAt
-            ? (Date.now() - new Date(o.workspace.knowledge.lastIndexedAt).getTime() < 86400000 ? 'fresh' as const : 'stale' as const)
-            : 'missing' as const,
+            ? Date.now() - new Date(o.workspace.knowledge.lastIndexedAt).getTime() < 86400000
+              ? ('fresh' as const)
+              : ('stale' as const)
+            : ('missing' as const),
           isCached: o.workspace.lastOpenedAt !== null,
         },
       },

@@ -110,6 +110,8 @@ export class AgentWorkflowService {
           const planner = new PlanningService({ storage: this.planStorage, provider: this.provider });
           const result = await planner.createPlan(wf.goal, session);
           lastPlanId = result.plan.id;
+          // Auto-approve the plan so the next step (developer) can implement it
+          await this.planStorage.updateStatus(lastPlanId, 'approved');
           stepResult.artifactId = result.plan.id;
           stepResult.artifactType = 'plan';
         } else if (step.agentId === 'developer' && this.csStorage && this.planStorage && lastPlanId) {

@@ -1,6 +1,6 @@
 import { StatCard } from '../../components/dashboard';
-import type { WorkspaceData, AgentData } from '../../lib/api';
 import type { MilestoneResponse } from '../../components/dashboard/constants';
+import type { AgentData, WorkspaceData } from '../../lib/api';
 
 interface DashboardHeaderProps {
   workspace: WorkspaceData | null;
@@ -56,7 +56,13 @@ export default function DashboardHeader({
                   cy="36"
                   r="30"
                   fill="none"
-                  stroke={workspace.healthScore >= 7 ? 'var(--vestara-green)' : workspace.healthScore >= 4 ? '#f59e0b' : 'var(--vestara-red)'}
+                  stroke={
+                    workspace.healthScore >= 7
+                      ? 'var(--vestara-green)'
+                      : workspace.healthScore >= 4
+                        ? '#f59e0b'
+                        : 'var(--vestara-red)'
+                  }
                   strokeWidth="6"
                   strokeLinecap="round"
                   strokeDasharray={`${(workspace.healthScore / 10) * 188.5} 188.5`}
@@ -89,7 +95,7 @@ export default function DashboardHeader({
             className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold transition-all cursor-pointer ${autoRefresh ? 'bg-(--vestara-green)/15 text-(--vestara-green)' : 'text-zinc-700 hover:text-zinc-500'}`}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-(--vestara-green) animate-pulse' :`'bg-(--vestara-zinc)`}`}
+              className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-(--vestara-green) animate-pulse' : `'bg-(--vestara-zinc)`}`}
             />
             {autoRefresh ? 'LIVE' : 'REFRESH'}
           </button>
@@ -108,7 +114,7 @@ export default function DashboardHeader({
                 {sectionOrder
                   .filter((id) => id !== 'system')
                   .map((id) => (
-                      <button
+                    <button
                       key={id}
                       onClick={() => onToggleVisibility(id)}
                       className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-800 transition-colors flex items-center gap-2 text-zinc-400"
@@ -161,7 +167,7 @@ export default function DashboardHeader({
           href="/ops"
           className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg transition-all cursor-pointer"
         >
-           <span>🎛️</span>  Ops Center
+          <span>🎛️</span> Ops Center
         </a>
         <a
           href="/sessions"

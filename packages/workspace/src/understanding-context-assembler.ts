@@ -8,8 +8,8 @@
  * WorkspaceUnderstanding snapshot.
  */
 
-import type { CompletionRequest, Conversation } from '@vestara/shared';
 import type { ContextAssembler, ContextOptions } from '@vestara/context';
+import type { CompletionRequest, Conversation } from '@vestara/shared';
 import type { WorkspaceUnderstanding } from '@vestara/understanding';
 
 export class UnderstandingContextAssembler implements ContextAssembler {
@@ -54,10 +54,7 @@ export class UnderstandingContextAssembler implements ContextAssembler {
     const u = this.understanding;
     if (!u) return this.fallbackPrompt;
 
-    const parts: string[] = [
-      `You are Vestara, working in the "${u.identity.name}" repository.`,
-      '',
-    ];
+    const parts: string[] = [`You are Vestara, working in the "${u.identity.name}" repository.`, ''];
 
     parts.push(`Repository: ${u.identity.name}`);
     parts.push(`Primary language: ${u.identity.primaryLanguage}`);

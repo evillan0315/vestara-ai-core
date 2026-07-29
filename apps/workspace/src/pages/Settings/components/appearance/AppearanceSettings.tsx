@@ -1,6 +1,12 @@
-import { useEffect, useState, useCallback } from 'react';
-import { useTheme, ACCENT_PALETTES, type ThemeSettings, type ThemeMode, type ColorTheme } from '../../../../lib/theme';
-import { PROFILES } from '../../../../lib/theme';
+import { useCallback, useEffect, useState } from 'react';
+import {
+  ACCENT_PALETTES,
+  type ColorTheme,
+  PROFILES,
+  type ThemeMode,
+  type ThemeSettings,
+  useTheme,
+} from '../../../../lib/theme';
 
 interface ApiSettingsResponse {
   settings: Record<string, string>;
@@ -65,7 +71,9 @@ export default function AppearanceSettings() {
       }
     }
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [settings, updateSetting]);
 
   const handleSettingChange = useCallback(
@@ -102,9 +110,7 @@ export default function AppearanceSettings() {
       <h1 className="text-2xl font-bold text-[var(--vestara-text)] mb-2">Appearance</h1>
       <p className="text-[var(--vestara-text-2)] mb-6">Customize the look and feel of your workspace.</p>
 
-      {saveStatus === 'saving' && (
-        <div className="mb-4 text-sm text-amber-500">Saving...</div>
-      )}
+      {saveStatus === 'saving' && <div className="mb-4 text-sm text-amber-500">Saving...</div>}
       {saveStatus === 'saved' && (
         <div className="mb-4 text-sm text-[var(--vestara-green)]">Settings saved to API and localStorage</div>
       )}
@@ -169,7 +175,9 @@ export default function AppearanceSettings() {
               }}
               className="flex-1"
             />
-            <span className="text-[var(--vestara-text)] font-medium w-16 text-center capitalize">{settings.fontSize}</span>
+            <span className="text-[var(--vestara-text)] font-medium w-16 text-center capitalize">
+              {settings.fontSize}
+            </span>
           </div>
         </section>
 
@@ -288,7 +296,9 @@ export default function AppearanceSettings() {
                 }}
                 className="p-3 rounded-lg border border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)] hover:border-[var(--vestara-accent-border-hover)] transition-colors text-left"
               >
-                <div className="text-[var(--vestara-text)] font-medium">{profile.icon} {profile.label}</div>
+                <div className="text-[var(--vestara-text)] font-medium">
+                  {profile.icon} {profile.label}
+                </div>
                 <div className="text-xs text-[var(--vestara-text-2)] mt-1">{profile.description}</div>
               </button>
             ))}

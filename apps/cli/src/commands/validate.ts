@@ -7,14 +7,13 @@
  * to capture developer confidence and decision outcomes.
  */
 
-import { WorkspaceRuntime, type WorkspaceSession } from '@vestara/workspace';
+import { WorkspaceRuntime } from '@vestara/workspace';
 
 const BOLD = '\x1b[1m';
 const GOLD = '\x1b[33m';
 const GREEN = '\x1b[32m';
 const RED = '\x1b[31m';
 const GRAY = '\x1b[90m';
-const CYAN = '\x1b[36m';
 const RESET = '\x1b[0m';
 
 function label(val: string): string {
@@ -30,13 +29,13 @@ export async function runValidate(path: string): Promise<void> {
   console.log();
 
   const runtime = new WorkspaceRuntime({});
-  let session: WorkspaceSession;
+  let session: any;
 
   try {
     console.log(`${GRAY}Opening workspace...${RESET}`);
     await runtime.open(path);
     session = runtime.getSession();
-  } catch (err) {
+  } catch (err: any) {
     console.log(`  ${RED}Failed to open workspace:${RESET} ${err instanceof Error ? err.message : String(err)}`);
     return;
   }
@@ -53,12 +52,20 @@ export async function runValidate(path: string): Promise<void> {
   // ── Identity ──────────────────────────────────────────────
   console.log(`  ${label('Identity')}`);
   console.log(`    Repository: ${u.identity.name}`);
-  console.log(`    Language:   ${u.identity.primaryLanguage}${u.identity.languageConfidence > 0 ? ` (${(u.identity.languageConfidence * 100).toFixed(0)}% confidence)` : ''}`);
+  console.log(
+    `    Language:   ${u.identity.primaryLanguage}${u.identity.languageConfidence > 0 ? ` (${(u.identity.languageConfidence * 100).toFixed(0)}% confidence)` : ''}`,
+  );
   if (u.identity.framework) console.log(`    Framework:  ${u.identity.framework}`);
   console.log();
 
   // ── Architecture ──────────────────────────────────────────
-  const archLabel = u.architecture.kind === 'monorepo' ? 'Monorepo' : u.architecture.kind === 'multi-module' ? 'Multi-Module' : 'Single Module';
+  const archLabel =
+    u.architecture.kind === 'monorepo'
+      ? 'Monorepo'
+      : u.architecture.kind === 'multi-module'
+        ? 'Multi-Module'
+        : 'Single Module';
+
   console.log(`  ${label('Architecture')}`);
   console.log(`    Kind:       ${archLabel}`);
   if (u.architecture.entryPoints.length > 0) {
@@ -68,7 +75,9 @@ export async function runValidate(path: string): Promise<void> {
     }
   }
   if (u.architecture.dependencyCycles.length > 0) {
-    console.log(`    ${RED}⚠ ${u.architecture.dependencyCycles.length} circular dependenc${u.architecture.dependencyCycles.length > 1 ? 'ies' : 'y'}${RESET}`);
+    console.log(
+      `    ${RED}⚠ ${u.architecture.dependencyCycles.length} circular dependenc${u.architecture.dependencyCycles.length > 1 ? 'ies' : 'y'}${RESET}`,
+    );
   }
   console.log();
 
@@ -84,7 +93,9 @@ export async function runValidate(path: string): Promise<void> {
     console.log(`    Risks:`);
     for (const r of u.maturity.risks) {
       const sevColor = r.severity === 'high' ? RED : r.severity === 'medium' ? GOLD : GRAY;
-      console.log(`      ${sevColor}[${r.severity}]${RESET} ${r.summary}${r.severity === 'high' ? ` ${RED}⚠${RESET}` : ''}`);
+      console.log(
+        `      ${sevColor}[${r.severity}]${RESET} ${r.summary}${r.severity === 'high' ? ` ${RED}⚠${RESET}` : ''}`,
+      );
     }
   }
   console.log();
@@ -128,15 +139,20 @@ export async function runValidate(path: string): Promise<void> {
   console.log();
 
   // ── Next action ───────────────────────────────────────────
-  const highRisks = u.maturity.risks.filter((r) => r.severity === 'high');
+  const highRisks = u.maturity.risks.filter((r: any) => r.severity === 'high');
   const hasUncommitted = u.activity.uncommittedWork;
   console.log(`  ${label('What to consider')}`);
-  if (highRisks.length > 0) console.log(`    ${RED}⚠ Address ${highRisks.length} high-severity risk${highRisks.length > 1 ? 's' : ''}${RESET}`);
+  if (highRisks.length > 0)
+    console.log(`    ${RED}⚠ Address ${highRisks.length} high-severity risk${highRisks.length > 1 ? 's' : ''}${RESET}`);
   if (hasUncommitted) console.log(`    ${GOLD}⚠ Commit or stash uncommitted changes before starting work${RESET}`);
-  if (u.architecture.dependencyCycles.length > 0) console.log(`    ${GOLD}⚠ Review circular dependenc${u.architecture.dependencyCycles.length > 1 ? 'ies' : 'y'} in dependency graph${RESET}`);
-  if (!u.activity.recentChanges.length) console.log(`    ${GRAY}No recent activity detected — explore recent files to understand current state${RESET}`);
-
+  if (u.architecture.dependencyCycles.length > 0)
+    console.log(
+      `    ${GOLD}⚠ Review circular dependenc${u.architecture.dependencyCycles.length > 1 ? 'ies' : 'y'} in dependency graph${RESET}`,
+    );
+  if (!u.activity.recentChanges.length)
+    console.log(`${GRAY}No recent activity detected — explore recent files to understand current state${RESET}`);
   console.log();
+
   console.log(`${GRAY}Orientation complete in ${elapsed}ms${RESET}`);
   console.log();
 }

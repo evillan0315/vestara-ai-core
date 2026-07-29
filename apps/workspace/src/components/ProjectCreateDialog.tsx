@@ -1,7 +1,14 @@
-import { useState } from 'react';
 import {
-  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button, CircularProgress, Alert,
+  Alert,
+  Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  TextField,
 } from '@mui/material';
+import { useState } from 'react';
 
 interface Props {
   open: boolean;
@@ -41,7 +48,11 @@ export default function ProjectCreateDialog({ open, onClose, onCreated }: Props)
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>New Project</DialogTitle>
       <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
         <TextField
           autoFocus
           label="Project name"
@@ -62,7 +73,9 @@ export default function ProjectCreateDialog({ open, onClose, onCreated }: Props)
         />
       </DialogContent>
       <DialogActions>
-        <Button onClick={onClose} disabled={creating}>Cancel</Button>
+        <Button onClick={onClose} disabled={creating}>
+          Cancel
+        </Button>
         <Button onClick={handleCreate} variant="contained" disabled={!name.trim() || creating}>
           {creating ? <CircularProgress size={20} /> : 'Create'}
         </Button>

@@ -1,6 +1,6 @@
-import DashboardSection from '../DashboardSection';
-import type { DragSectionProps } from '../DashboardSection';
 import type { MilestoneResponse } from '../../../components/dashboard/constants';
+import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface ActiveDevSectionProps {
   activeMilestones: MilestoneResponse['milestones'];

@@ -5,6 +5,9 @@
   "private": true,
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "bin": {
+    "vestara": "./dist/index.js"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
@@ -24,12 +27,9 @@
     "@vestara/provider-runtime": "workspace:*",
     "@vestara/provider-opencode": "workspace:*",
     "@vestara/workspace": "workspace:*",
-    "@vestara/events-server": "workspace:*",
-    "@vestara/activity-log": "workspace:*",
-    "@vestara/os-controller": "workspace:*",
     "@vestara/action": "workspace:*",
-    "@vestara/permission": "workspace:*",
-    "@vestara/tools-filesystem": "workspace:*"
+    "@vestara/activity-log": "workspace:*",
+    "@vestara/tools-shell": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

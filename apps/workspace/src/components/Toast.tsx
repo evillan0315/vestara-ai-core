@@ -1,5 +1,5 @@
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { workspaceSocket } from '../lib/ws';
 
 interface Toast {
@@ -69,15 +69,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    // Auto-toasts disabled - uncomment to re-enable
-    // const off = workspaceSocket.onEvent((event) => {
-    //   const mapping = EVENT_ICONS[event.type];
-    //   if (mapping) {
-    //     addToast({ type: mapping.type, message: event.message || mapping.label });
-    //   }
-    // });
-    // return off;
-  }, []);
+    const off = workspaceSocket.onEvent((event) => {
+      const mapping = EVENT_ICONS[event.type];
+      if (mapping) {
+        addToast({ type: mapping.type, message: event.message || mapping.label });
+      }
+    });
+    return off;
+  }, [addToast]);
 
   return (
     <ToastContext.Provider value={{ toasts, addToast, removeToast }}>

@@ -1,6 +1,6 @@
-import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import DashboardSection from '../DashboardSection';
+import { Cell, Pie, PieChart, ResponsiveContainer } from 'recharts';
 import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface AgentHealthSectionProps {
   execStats: { total: number; completed: number; failed: number; running: number };

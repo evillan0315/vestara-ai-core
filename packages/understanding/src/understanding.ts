@@ -16,8 +16,6 @@
  *      must be deterministic.)
  */
 
-import type { WorkspaceObservation } from './observation';
-
 // ─── Identity ────────────────────────────────────────────────
 
 export interface IdentityUnderstanding {
@@ -32,11 +30,7 @@ export interface IdentityUnderstanding {
 
 // ─── Architecture ────────────────────────────────────────────
 
-export type ArchitectureKind =
-  | 'monorepo'
-  | 'multi-module'
-  | 'single-module'
-  | 'unknown';
+export type ArchitectureKind = 'monorepo' | 'multi-module' | 'single-module' | 'unknown';
 
 export interface ArchitectureUnderstanding {
   readonly kind: ArchitectureKind;

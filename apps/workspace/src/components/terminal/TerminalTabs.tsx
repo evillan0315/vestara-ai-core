@@ -1,5 +1,5 @@
-import { useState, useRef, useEffect } from 'react';
-import type { TerminalSession, SessionStatus, ProcessStatus } from './types';
+import { useEffect, useRef, useState } from 'react';
+import type { ProcessStatus, SessionStatus, TerminalSession } from './types';
 
 interface TerminalTabsProps {
   sessions: TerminalSession[];

@@ -1,22 +1,23 @@
-import { useCallback } from 'react';
 import type { ReactNode } from 'react';
-import type { DashboardData } from './useDashboardData';
+import { useCallback } from 'react';
+import MilestoneEraSection from '../../components/dashboard/MilestoneEraSection';
 import type { DragSectionProps } from './DashboardSection';
 import {
-  RepoHealthSection,
-  AnalyzeFeatureSection,
-  ProjectsSection,
   ActiveDevSection,
-  SprintsSection,
-  ExecSessionsSection,
-  RecentMilestonesSection,
-  SuggestionsSection,
   AgentHealthSection,
-  RecentSessionsSection,
-  SystemSection,
+  AnalyzeFeatureSection,
+  ExecSessionsSection,
+  PlansSection,
+  ProjectsSection,
   RecentActivitySection,
+  RecentMilestonesSection,
+  RecentSessionsSection,
+  RepoHealthSection,
+  SprintsSection,
+  SuggestionsSection,
+  SystemSection,
 } from './sections';
-import MilestoneEraSection from '../../components/dashboard/MilestoneEraSection';
+import type { DashboardData } from './useDashboardData';
 
 interface UseSectionRendererProps {
   data: DashboardData;
@@ -48,6 +49,7 @@ export function useSectionRenderer({
           ) : null,
         'analyze-feature': () => <AnalyzeFeatureSection dragSection={dragSection} />,
         projects: () => <ProjectsSection projects={data.projects} dragSection={dragSection} onRefresh={data.refresh} />,
+        plans: () => <PlansSection plans={data.plans} dragSection={dragSection} onRefresh={data.refresh} />,
         'active-dev': () => (
           <ActiveDevSection
             activeMilestones={data.activeMilestones}

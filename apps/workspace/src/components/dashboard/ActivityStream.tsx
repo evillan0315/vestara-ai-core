@@ -1,7 +1,7 @@
-import { useMemo, type ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { AreaChartCard, BarChartCard } from '../charts';
+import { CATEGORY_COLORS, eventIcon, type LiveEvent } from './constants';
 import Section from './Section';
-import { eventIcon, CATEGORY_COLORS, type LiveEvent } from './constants';
 
 interface ActivityStreamProps {
   events: LiveEvent[];

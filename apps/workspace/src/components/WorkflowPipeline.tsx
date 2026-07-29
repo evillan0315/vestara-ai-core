@@ -114,4 +114,4 @@ export default function WorkflowPipeline({ session, compact }: { session?: any; 
   );
 }
 
-export { STAGES, matchStageStatus };
+export { matchStageStatus, STAGES };

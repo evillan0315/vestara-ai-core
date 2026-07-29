@@ -1,6 +1,6 @@
-import type { ConversationData, ChatMessage } from './types';
 import { ChatSearch } from './ChatSearch';
 import { ConversationList } from './ConversationList';
+import type { ChatMessage, ConversationData } from './types';
 
 interface ChatSidebarProps {
   open: boolean;

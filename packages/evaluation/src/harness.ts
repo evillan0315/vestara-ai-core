@@ -15,10 +15,9 @@
  * previous report for regression detection.
  */
 
-import * as path from 'node:path';
-import type { Corpus, CorpusEntry } from './corpus';
-import type { EvaluationReport, EntryResult, AssertionResult, ProducerMetric } from './types';
 import type { WorkspaceUnderstanding } from '@vestara/understanding';
+import type { Corpus, CorpusEntry } from './corpus';
+import type { AssertionResult, EntryResult, EvaluationReport, ProducerMetric } from './types';
 
 export class EvaluationHarness {
   async evaluate(corpus: Corpus, previousReport?: EvaluationReport): Promise<EvaluationReport> {
@@ -42,13 +41,9 @@ export class EvaluationHarness {
     }
 
     const overallAccuracy = totalAssertions > 0 ? totalPassed / totalAssertions : 1;
-    const overallCoverage = totalAssertions > 0
-      ? (totalPassed + totalFailed) / totalAssertions
-      : 1;
+    const overallCoverage = totalAssertions > 0 ? (totalPassed + totalFailed) / totalAssertions : 1;
     const avgConfidence = this.averageConfidence(entryResults);
-    const traceability = entryResults.length > 0
-      ? totalTraceability / entryResults.length
-      : 1;
+    const traceability = entryResults.length > 0 ? totalTraceability / entryResults.length : 1;
 
     // Detect regressions: assertions that passed before but fail now
     const regressions = this.detectRegressions(entryResults, previousReport);
@@ -111,15 +106,17 @@ export class EvaluationHarness {
     }
 
     // ── Language ────────────────────────────────────────────
-    results.push(this.evaluateField(
-      'language.primary',
-      entry.assertions.language.primary,
-      understanding.identity.primaryLanguage,
-      understanding.identity.languageConfidence,
-      entry.assertions.language.minimumConfidence ?? 0,
-      ['identity.primaryLanguage'],
-      understanding,
-    ));
+    results.push(
+      this.evaluateField(
+        'language.primary',
+        entry.assertions.language.primary,
+        understanding.identity.primaryLanguage,
+        understanding.identity.languageConfidence,
+        entry.assertions.language.minimumConfidence ?? 0,
+        ['identity.primaryLanguage'],
+        understanding,
+      ),
+    );
     if (results[results.length - 1].status === 'pass') passedCount++;
     else if (results[results.length - 1].status === 'fail') failedCount++;
     else if (results[results.length - 1].status === 'error') errorCount++;
@@ -127,15 +124,17 @@ export class EvaluationHarness {
 
     // ── Framework ───────────────────────────────────────────
     if (entry.assertions.framework) {
-      results.push(this.evaluateField(
-        'framework.kind',
-        entry.assertions.framework.kind,
-        understanding.identity.framework ?? '',
-        understanding.identity.framework ? 1 : 0,
-        entry.assertions.framework.minimumConfidence ?? 0,
-        ['identity.framework'],
-        understanding,
-      ));
+      results.push(
+        this.evaluateField(
+          'framework.kind',
+          entry.assertions.framework.kind,
+          understanding.identity.framework ?? '',
+          understanding.identity.framework ? 1 : 0,
+          entry.assertions.framework.minimumConfidence ?? 0,
+          ['identity.framework'],
+          understanding,
+        ),
+      );
       if (results[results.length - 1].status === 'pass') passedCount++;
       else if (results[results.length - 1].status === 'fail') failedCount++;
       else if (results[results.length - 1].status === 'error') errorCount++;
@@ -143,30 +142,34 @@ export class EvaluationHarness {
     }
 
     // ── Architecture ────────────────────────────────────────
-    results.push(this.evaluateField(
-      'architecture.kind',
-      entry.assertions.architecture.kind,
-      understanding.architecture.kind,
-      1, // architecture kind is deterministic
-      entry.assertions.architecture.minimumConfidence ?? 0,
-      ['config.isMonorepo', 'dependencies.packages.length'],
-      understanding,
-    ));
+    results.push(
+      this.evaluateField(
+        'architecture.kind',
+        entry.assertions.architecture.kind,
+        understanding.architecture.kind,
+        1, // architecture kind is deterministic
+        entry.assertions.architecture.minimumConfidence ?? 0,
+        ['config.isMonorepo', 'dependencies.packages.length'],
+        understanding,
+      ),
+    );
     if (results[results.length - 1].status === 'pass') passedCount++;
     else if (results[results.length - 1].status === 'fail') failedCount++;
     else if (results[results.length - 1].status === 'error') errorCount++;
     else missingCount++;
 
     // ── Maturity ────────────────────────────────────────────
-    results.push(this.evaluateField(
-      'maturity.level',
-      entry.assertions.maturity.level,
-      understanding.maturity.level,
-      1,
-      0,
-      ['maturity.healthScore', 'maturity.testCoverage'],
-      understanding,
-    ));
+    results.push(
+      this.evaluateField(
+        'maturity.level',
+        entry.assertions.maturity.level,
+        understanding.maturity.level,
+        1,
+        0,
+        ['maturity.healthScore', 'maturity.testCoverage'],
+        understanding,
+      ),
+    );
     if (results[results.length - 1].status === 'pass') passedCount++;
     else if (results[results.length - 1].status === 'fail') failedCount++;
     else if (results[results.length - 1].status === 'error') errorCount++;
@@ -182,7 +185,11 @@ export class EvaluationHarness {
 
     // ── Health ──────────────────────────────────────────────
     if (entry.assertions.health) {
-      const healthResult = this.evaluateHealth(entry.assertions.health.scoreMin, entry.assertions.health.scoreMax, understanding);
+      const healthResult = this.evaluateHealth(
+        entry.assertions.health.scoreMin,
+        entry.assertions.health.scoreMax,
+        understanding,
+      );
       results.push(healthResult);
       if (healthResult.status === 'pass') passedCount++;
       else if (healthResult.status === 'fail') failedCount++;
@@ -216,16 +223,22 @@ export class EvaluationHarness {
   ): AssertionResult {
     if (!actual && expected === 'unknown') {
       return {
-        field, expected, actual: null,
-        status: 'pass', confidence: 1,
+        field,
+        expected,
+        actual: null,
+        status: 'pass',
+        confidence: 1,
         observationSources,
         detail: 'Both expected and actual are unknown/empty',
       };
     }
     if (!actual) {
       return {
-        field, expected, actual: null,
-        status: 'missing', confidence: 0,
+        field,
+        expected,
+        actual: null,
+        status: 'missing',
+        confidence: 0,
         observationSources,
         detail: `Expected "${expected}" but no value was produced`,
       };
@@ -239,8 +252,11 @@ export class EvaluationHarness {
 
     if (exactMatch && confOk) {
       return {
-        field, expected, actual,
-        status: 'pass', confidence,
+        field,
+        expected,
+        actual,
+        status: 'pass',
+        confidence,
         observationSources,
         detail: null,
       };
@@ -248,8 +264,11 @@ export class EvaluationHarness {
 
     if (!exactMatch) {
       return {
-        field, expected, actual,
-        status: 'fail', confidence,
+        field,
+        expected,
+        actual,
+        status: 'fail',
+        confidence,
         observationSources,
         detail: `Expected "${expected}", got "${actual}"`,
       };
@@ -257,8 +276,11 @@ export class EvaluationHarness {
 
     // Match but confidence too low
     return {
-      field, expected, actual,
-      status: 'fail', confidence,
+      field,
+      expected,
+      actual,
+      status: 'fail',
+      confidence,
       observationSources,
       detail: `Value matches but confidence ${confidence.toFixed(2)} is below minimum ${minimumConfidence}`,
     };
@@ -267,7 +289,6 @@ export class EvaluationHarness {
   private evaluateRisks(expectedRisks: readonly string[], understanding: WorkspaceUnderstanding): AssertionResult {
     const actualCategories = understanding.maturity.risks.map((r) => r.category);
     const missing = expectedRisks.filter((er) => !actualCategories.includes(er));
-    const present = expectedRisks.filter((er) => actualCategories.includes(er));
 
     const sources = understanding.maturity.risks.map((r) => r.observationSource);
 
@@ -290,17 +311,11 @@ export class EvaluationHarness {
       status: expectedRisks.length === 0 ? 'pass' : 'fail',
       confidence: 1,
       observationSources: [...new Set(sources)],
-      detail: expectedRisks.length > 0
-        ? `Missing risks: ${missing.join(', ')}`
-        : null,
+      detail: expectedRisks.length > 0 ? `Missing risks: ${missing.join(', ')}` : null,
     };
   }
 
-  private evaluateHealth(
-    scoreMin: number,
-    scoreMax: number,
-    understanding: WorkspaceUnderstanding,
-  ): AssertionResult {
+  private evaluateHealth(scoreMin: number, scoreMax: number, understanding: WorkspaceUnderstanding): AssertionResult {
     const score = understanding.maturity.healthScore;
     const inRange = score >= scoreMin && score <= scoreMax;
 
@@ -370,10 +385,7 @@ export class EvaluationHarness {
     return count > 0 ? total / count : 1;
   }
 
-  private detectRegressions(
-    current: EntryResult[],
-    previous?: EvaluationReport,
-  ): AssertionResult[] {
+  private detectRegressions(current: EntryResult[], previous?: EvaluationReport): AssertionResult[] {
     if (!previous) return [];
     const regressions: AssertionResult[] = [];
 
@@ -396,7 +408,7 @@ export class EvaluationHarness {
     const { WorkspaceRuntime } = await import('@vestara/workspace');
 
     const runtime = new WorkspaceRuntime({});
-    const result = await runtime.open(repoPath);
+    await runtime.open(repoPath);
     const session = runtime.getSession();
 
     return session.understanding!;

@@ -1,5 +1,9 @@
-import type { UnderstandingProducer, ProducerResult, WorkspaceObservation } from '@vestara/understanding';
-import type { ArchitectureKind } from '@vestara/understanding';
+import type {
+  ArchitectureKind,
+  ProducerResult,
+  UnderstandingProducer,
+  WorkspaceObservation,
+} from '@vestara/understanding';
 
 export class ArchitectureProducer implements UnderstandingProducer {
   readonly id = 'architecture';

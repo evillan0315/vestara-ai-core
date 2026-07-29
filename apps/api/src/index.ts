@@ -6,13 +6,40 @@
  *   Runtime: VESTARA-KERNEL.md → Boot Sequence
  */
 
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import type { WorkspaceEvent } from '@vestara/events';
 import { type ApiServer, createServer } from './server';
 import { createWorkspaceContext } from './workspace-context';
 
+/**
+ * Resolve the repo root relative to the API server's own location.
+ *
+ * The compiled server lives at `apps/api/dist/index.js`, so the project
+ * root is two levels up: `apps/api/dist/` → `apps/api/` → project root.
+ * We walk upward from there looking for `.vestara/workspace.json`.
+ *
+ * The `VESTARA_REPO` env var overrides the search entirely.
+ */
+function resolveRepoRoot(envOverride?: string): string {
+  if (envOverride) return path.resolve(envOverride);
+  // __dirname = apps/api/dist/ in compiled output.
+  // Start one level above apps/api/ to avoid finding the API's own .vestara/.
+  let dir = path.resolve(__dirname, '..', '..');
+  const root = path.parse(dir).root;
+  while (dir !== root) {
+    if (fs.existsSync(path.join(dir, '.vestara', 'workspace.json'))) {
+      return dir;
+    }
+    dir = path.dirname(dir);
+  }
+  // Fallback to the directory containing the API
+  return path.resolve(__dirname, '..', '..');
+}
+
 async function main(): Promise<void> {
   const port = Number(process.env.VESTARA_API_PORT ?? 3001);
-  const repoPath = process.env.VESTARA_REPO ?? process.cwd();
+  const repoPath = resolveRepoRoot(process.env.VESTARA_REPO);
 
   const pending: WorkspaceEvent[] = [];
   let broadcast: ((e: WorkspaceEvent) => void) | null = null;

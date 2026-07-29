@@ -1,13 +1,17 @@
-import { useUnderstanding } from './Overview/useUnderstanding';
-import { IdentityCard } from './Overview/IdentityCard';
+import { useState } from 'react';
 import { ActivityCard } from './Overview/ActivityCard';
-import { HealthCard } from './Overview/HealthCard';
 import { ArchitectureCard } from './Overview/ArchitectureCard';
 import { DecisionsCard } from './Overview/DecisionsCard';
+import { HealthCard } from './Overview/HealthCard';
+import { IdentityCard } from './Overview/IdentityCard';
 import { StateCard } from './Overview/StateCard';
+import { useUnderstanding } from './Overview/useUnderstanding';
+
+const SUMMARY_MAX_LENGTH = 200;
 
 export default function Overview() {
   const { data, loading, error } = useUnderstanding();
+  const [summaryExpanded, setSummaryExpanded] = useState(false);
 
   if (loading && !data) {
     return (
@@ -33,11 +37,28 @@ export default function Overview() {
 
   if (!data) return null;
 
+  const truncated =
+    data.summary.length > SUMMARY_MAX_LENGTH
+      ? data.summary.slice(0, SUMMARY_MAX_LENGTH) + '...'
+      : data.summary;
+
   return (
     <div className="p-6 max-w-6xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-[var(--vestara-text)]">Workspace Overview</h1>
-        <p className="text-sm text-[var(--vestara-text-2)] mt-1">{data.summary}</p>
+        <div className="mt-1">
+          <p className="text-sm text-[var(--vestara-text-2)]">
+            {summaryExpanded ? data.summary : truncated}
+          </p>
+          {data.summary.length > SUMMARY_MAX_LENGTH && (
+            <button
+              onClick={() => setSummaryExpanded(!summaryExpanded)}
+              className="text-xs text-[var(--vestara-accent)] hover:underline mt-0.5 cursor-pointer"
+            >
+              {summaryExpanded ? 'Show less' : 'Show more'}
+            </button>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

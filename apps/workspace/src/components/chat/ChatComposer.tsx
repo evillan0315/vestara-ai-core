@@ -1,8 +1,8 @@
-import { useRef, useEffect, useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 import { AttachmentPreview } from './AttachmentPreview';
 import type { Attachment } from './types';
 import { genId } from './utils';
-import { useAudioRecorder } from '../../hooks/useAudioRecorder';
 
 interface ChatComposerProps {
   input: string;
@@ -229,9 +229,7 @@ export function ChatComposer({
           </button>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] text-zinc-600">
-            Using model from Settings
-          </span>
+          <span className="text-[10px] text-zinc-600">Using model from Settings</span>
         </div>
       </div>
     </div>

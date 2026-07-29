@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
@@ -492,4 +492,4 @@ export function useChartColors() {
   };
 }
 
-export { FONT_STACKS, FONT_SIZES, FONT_WEIGHTS, SIDEBAR_WIDTHS, SPACINGS, RADII, DEFAULT_SETTINGS };
+export { DEFAULT_SETTINGS, FONT_SIZES, FONT_STACKS, FONT_WEIGHTS, RADII, SIDEBAR_WIDTHS, SPACINGS };

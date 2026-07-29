@@ -18,6 +18,35 @@ import type { RepositoryProfile } from './types';
 const MANIFEST_FILENAME = 'workspace.json';
 const SCHEMA_VERSION = 1;
 
+export interface ModelConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  contextWindow: number;
+  maxOutput: number;
+  capabilities: {
+    chat: boolean;
+    streaming: boolean;
+    functionCalling: boolean;
+    vision: boolean;
+  };
+  pricing?: {
+    inputPerMillionTokens: number;
+    outputPerMillionTokens: number;
+  };
+}
+
+export interface ProviderConfig {
+  id: string;
+  name: string;
+  baseUrl?: string;
+  apiKeyEnv?: string;
+  enabled: boolean;
+  models: ModelConfig[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface WorkspaceManifestData {
   schemaVersion: number;
   id: string;
@@ -47,6 +76,7 @@ export interface WorkspaceManifestData {
     keyObservations: string[];
     cachedAt: string;
   } | null;
+  providers?: ProviderConfig[];
   openedAt: string;
   lastOpenedAt: string;
 }

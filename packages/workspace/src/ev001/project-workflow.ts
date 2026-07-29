@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { EventBus } from '@vestara/event-bus';
-import { ProductEventTranslator } from '../runtime/product-events';
+import type { ProductEventTranslator } from '../runtime/product-events';
 import type { ProjectPlan } from './project-planner';
 
 export interface WorkflowProgress {

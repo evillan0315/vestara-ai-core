@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import DashboardSection from '../DashboardSection';
 import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface ProjectsSectionProps {
   projects: Record<string, unknown>[];

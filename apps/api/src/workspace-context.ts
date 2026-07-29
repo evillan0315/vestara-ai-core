@@ -5,7 +5,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { ActivityLogStore, ActivityService } from '@vestara/activity-log';
+import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
 import { DefaultKernel } from '@vestara/kernel';
@@ -15,6 +15,7 @@ import {
   AgentRuntime,
   AgentService,
   AgentStorage,
+  AuditStore,
   ChangeSetStorage,
   CollaborationService,
   CollaborationStorage,
@@ -32,6 +33,7 @@ import {
   SessionService,
   SessionStorage,
   SuggestionService,
+  UserStore,
   VerificationService,
   VerificationStorage,
   WorkspaceAnalyst,
@@ -69,9 +71,12 @@ export interface WorkspaceContext {
   workspaceAnalyst: WorkspaceAnalyst;
   suggestionService: SuggestionService;
   activityService?: ActivityService;
+  notificationService?: NotificationService;
   milestones?: MilestoneService;
   projects?: ProjectService;
   activityStore?: ActivityLogStore;
+  users: UserStore;
+  audit: AuditStore;
   publish: (event: UiEvent) => void;
   onMilestoneUpdate?: (version: string) => void;
   workspaceUiWatcher?: WorkspaceUiWatcher;
@@ -93,7 +98,7 @@ async function openSqlDb(dbPath: string): Promise<unknown> {
   // Auto-persist: wrap exec to trigger disk write after every DML
   const origExec = db.exec.bind(db);
   db.exec = (sql: string) => {
-    origExec(sql);
+    const result = origExec(sql);
     // Only persist on write operations
     const trimmed = sql.trim().toUpperCase();
     if (
@@ -105,6 +110,7 @@ async function openSqlDb(dbPath: string): Promise<unknown> {
     ) {
       persistDb(db, dbPath);
     }
+    return result;
   };
   // Also wrap prepare-based writes via a patched prepare
   const origPrepare = db.prepare.bind(db);
@@ -170,6 +176,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const changeSets = new ChangeSetStorage(db);
   const verifications = new VerificationStorage(db);
   const collaboration = new CollaborationStorage(db);
+  const users = new UserStore(db);
+  const audit = new AuditStore(db);
   const knowledgeGraph = new KnowledgeGraphStorage(db);
   const memory = new MemoryService({
     graph: knowledgeGraph,
@@ -224,6 +232,12 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     logger: kernel.logger,
   });
   activityService.start();
+
+  // Initialize notification center — bridges activity events to persistent notifications
+  const notificationStore = new NotificationStore({ logger: kernel.logger });
+  await notificationStore.initialize();
+  const notificationService = new NotificationService({ store: notificationStore, logger: kernel.logger });
+  notificationService.start((fn) => activityService.onEvent(fn));
 
   // Create ApiRuntime — managed lifecycle for API services
   const runtimeId = 'api-runtime' as unknown as import('@vestara/types').RuntimeId;
@@ -318,6 +332,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     changeSets,
     verifications,
     collaboration,
+    users,
+    audit,
     knowledgeGraph,
     memory,
     explainService,
@@ -332,6 +348,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     workspaceAnalyst,
     suggestionService,
     activityService,
+    notificationService,
     milestones,
     projects,
     activityStore,
@@ -342,6 +359,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       clearInterval(heartbeat);
       unsub();
       workspaceUiWatcher.stop();
+      notificationService?.stop();
       persistDb(db, dbPath);
       await runtime.close();
       await kernel.shutdown();

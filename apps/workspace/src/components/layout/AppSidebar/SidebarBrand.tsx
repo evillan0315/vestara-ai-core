@@ -1,7 +1,9 @@
-import { useRef, type FC } from 'react';
-import { Link } from 'react-router-dom';
 import AutoAwesomeRounded from '@mui/icons-material/AutoAwesomeRounded';
+import { type FC, useRef } from 'react';
+import { Link } from 'react-router-dom';
+
 const DEFAULT_LOGO = '/logo.svg';
+
 import Logo from '../../../components/Logo';
 
 const SidebarBrand: FC = () => {

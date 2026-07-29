@@ -1,25 +1,25 @@
-import { Outlet } from 'react-router-dom';
-
+import ApiRoundedIcon from '@mui/icons-material/ApiRounded';
+import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
-import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
-import ViewTimelineRoundedIcon from '@mui/icons-material/ViewTimelineRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import ImportContactsRoundedIcon from '@mui/icons-material/ImportContactsRounded';
 import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
-import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
-import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
-import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
-import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
-import ApiRoundedIcon from '@mui/icons-material/ApiRounded';
+import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
+import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
+import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
+import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
+import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import ViewTimelineRoundedIcon from '@mui/icons-material/ViewTimelineRounded';
+import { Outlet } from 'react-router-dom';
 
 import AppHeader from '../components/layout/AppHeader/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
-import PageContainer from '../components/layout/Page/PageContainer';
-import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
-
 import type { NavigationSection } from '../components/layout/AppSidebar/SidebarNavigation';
+import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
+import PageContainer from '../components/layout/Page/PageContainer';
 
 export const NAV_CATEGORIES: NavigationSection[] = [
   {
@@ -34,6 +34,11 @@ export const NAV_CATEGORIES: NavigationSection[] = [
         to: '/dashboard',
         title: 'Dashboard',
         icon: <DashboardRoundedIcon fontSize="small" />,
+      },
+      {
+        to: '/notifications',
+        title: 'Notifications',
+        icon: <NotificationsRoundedIcon fontSize="small" />,
       },
       {
         to: '/ops',
@@ -107,6 +112,11 @@ export const NAV_CATEGORIES: NavigationSection[] = [
         to: '/api-builder',
         title: 'API Builder',
         icon: <ApiRoundedIcon fontSize="small" />,
+      },
+      {
+        to: '/docs',
+        title: 'Docs',
+        icon: <ImportContactsRoundedIcon fontSize="small" />,
       },
     ],
     icon: undefined,

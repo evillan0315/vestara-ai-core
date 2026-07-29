@@ -1,26 +1,26 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Tab, Tabs, Box, Button } from '@mui/material';
-import AddIcon from '@mui/icons-material/Add';
-import WorkflowPipeline from '../components/WorkflowPipeline';
 import {
   ActiveSessionWidget,
   AgentUtilizationWidget,
   BackgroundServicesWidget,
-  RepoHealthWidget,
   BuildToolsWidget,
+  RepoHealthWidget,
 } from '../components/OperationalWidgets';
-import WorkspaceContinuityCard, { type ContinuityContext } from '../components/WorkspaceContinuityCard';
 import ProjectCreateDialog from '../components/ProjectCreateDialog';
+import WorkflowPipeline from '../components/WorkflowPipeline';
+import WorkspaceContinuityCard, { type ContinuityContext } from '../components/WorkspaceContinuityCard';
+import DashboardHeader from './Dashboard/DashboardHeader';
 import { useDashboardData } from './Dashboard/useDashboardData';
 import { useDashboardLayout } from './Dashboard/useDashboardLayout';
 import { useSectionRenderer } from './Dashboard/useSectionRenderer';
-import DashboardHeader from './Dashboard/DashboardHeader';
 
 function useContinuity(data: ReturnType<typeof useDashboardData>): {
   context: ContinuityContext | null;
   loading: boolean;
+  dismiss: () => void;
 } {
-  const [dismissed, setDismissed] = useState(false);
+  const storageKey = 'vestara-continuity-dismissed';
+  const [dismissed, setDismissed] = useState(() => localStorage.getItem(storageKey) === 'true');
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -29,7 +29,12 @@ function useContinuity(data: ReturnType<typeof useDashboardData>): {
     }
   }, [data.loading, loaded]);
 
-  if (dismissed || !loaded || data.loading) return { context: null, loading: data.loading };
+  const dismiss = () => {
+    setDismissed(true);
+    localStorage.setItem(storageKey, 'true');
+  };
+
+  if (dismissed || !loaded || data.loading) return { context: null, loading: data.loading, dismiss };
 
   const lastEvent = data.events[0];
   const projectName = data.workspace?.name || 'workspace';
@@ -41,14 +46,13 @@ function useContinuity(data: ReturnType<typeof useDashboardData>): {
     lastMilestone: milestoneCount > 0 ? 'In progress' : 'Initialized',
     nextRecommended: data.suggestions?.[0]?.title || 'Continue development',
     decisionCount,
-    lastActive: lastEvent?.timestamp
-      ? new Date(lastEvent.timestamp).toLocaleDateString()
-      : 'today',
+    lastActive: lastEvent?.timestamp ? new Date(lastEvent.timestamp).toLocaleDateString() : 'today',
   };
 
   return {
     context: data.events.length > 0 ? context : null,
     loading: false,
+    dismiss,
   };
 }
 
@@ -57,7 +61,7 @@ export default function Dashboard() {
   const [showProjectDialog, setShowProjectDialog] = useState(false);
   const data = useDashboardData();
   const layout = useDashboardLayout();
-  const { context: continuityContext, loading: continuityLoading } = useContinuity(data);
+  const { context: continuityContext, loading: continuityLoading, dismiss: dismissContinuity } = useContinuity(data);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [showWorkflowPicker, setShowWorkflowPicker] = useState(false);
   const [workflowGoal, setWorkflowGoal] = useState('');
@@ -116,7 +120,7 @@ export default function Dashboard() {
       await fetch('/api/sessions/executions/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ goal: workflowGoal, workflowType }),
+        body: JSON.stringify({ goal: workflowGoal, workflow: workflowType }),
       });
       setShowWorkflowPicker(false);
       setWorkflowGoal('');
@@ -166,20 +170,42 @@ export default function Dashboard() {
       />
 
       {/* Tab bar */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)}>
-          <Tab label="Home" />
-          <Tab label="System" />
-        </Tabs>
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex gap-0.5 bg-zinc-800/50 rounded-lg p-0.5">
+          <button
+            type="button"
+            onClick={() => setTab(0)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 0 ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            Home
+          </button>
+          <button
+            type="button"
+            onClick={() => setTab(1)}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 1 ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+          >
+            System
+          </button>
+        </div>
+        <button
+          type="button"
           onClick={() => setShowProjectDialog(true)}
+          className="flex items-center gap-1 text-xs px-3 py-1.5 accent-btn rounded cursor-pointer"
         >
+          <svg
+            className="w-3.5 h-3.5"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-label="Add"
+          >
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
           New Project
-        </Button>
-      </Box>
+        </button>
+      </div>
 
       {/* Home tab */}
       {tab === 0 && (
@@ -193,7 +219,7 @@ export default function Dashboard() {
                 setShowWorkflowPicker(true);
               }
             }}
-            onDismiss={() => {}}
+            onDismiss={dismissContinuity}
           />
 
           {data.activeSession && <WorkflowPipeline session={data.activeSession} compact={false} />}

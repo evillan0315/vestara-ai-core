@@ -1,8 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import WorkflowPipeline from '../components/WorkflowPipeline';
-import SessionTimeline from '../components/SessionTimeline';
 import { StatCard } from '../components/dashboard';
+import SessionTimeline from '../components/SessionTimeline';
+import WorkflowPipeline from '../components/WorkflowPipeline';
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 10) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
 
 interface ExecutionSession {
   id: string;
@@ -76,6 +89,11 @@ export default function SessionList() {
   const [showNew, setShowNew] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newObjective, setNewObjective] = useState('');
+  const [showWorkflow, setShowWorkflow] = useState(false);
+  const [wfGoal, setWfGoal] = useState('');
+  const [wfFullscreen, setWfFullscreen] = useState(false);
+  const [wfType, setWfType] = useState('feature');
+  const [wfRunning, setWfRunning] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -109,6 +127,22 @@ export default function SessionList() {
       setShowNew(false);
       load();
     } catch {}
+  };
+
+  const startWorkflow = async () => {
+    if (!wfGoal.trim()) return;
+    setWfRunning(true);
+    try {
+      await fetch('/api/sessions/executions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal: wfGoal, workflow: wfType }),
+      });
+      setShowWorkflow(false);
+      setWfGoal('');
+      load();
+    } catch {}
+    setWfRunning(false);
   };
 
   const allItems = useMemo(() => {
@@ -153,77 +187,85 @@ export default function SessionList() {
   const filterOptions = ['all', 'active', 'completed', 'failed'];
 
   if (loading)
-    return <div className="w-full px-4 py-16 text-center text-zinc-600 animate-pulse">Loading sessions...</div>;
+    return <div className="w-full px-4 py-16 text-center text-[var(--vestara-text-muted)] animate-pulse">Loading sessions...</div>;
 
   return (
     <div className="w-full px-4">
       {/* Header */}
       <div className="flex items-start justify-between mb-4 flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Sessions</h1>
-          <p className="text-[10px] text-zinc-600 mt-0.5">
+          <h1 className="text-lg font-bold text-[var(--vestara-text)]">Sessions</h1>
+          <p className="text-[10px] text-[var(--vestara-text-muted)] mt-0.5">
             {stats.total} total · {stats.active} active · {stats.completed} completed
           </p>
         </div>
-        <button
-          onClick={() => setShowNew(true)}
-          className="text-[10px] px-3 py-1.5 accent-btn rounded-lg cursor-pointer flex items-center gap-1"
-        >
-          <span>+</span> New Session
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowWorkflow(true)}
+            className="text-[10px] px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg cursor-pointer flex items-center gap-1 hover:bg-amber-400/20 transition-colors"
+          >
+            ▶ Start Workflow
+          </button>
+          <button
+            onClick={() => setShowNew(true)}
+            className="text-[10px] px-3 py-1.5 accent-btn rounded-lg cursor-pointer flex items-center gap-1"
+          >
+            <span>+</span> New Session
+          </button>
+        </div>
       </div>
 
       {/* New session modal */}
       {showNew && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setShowNew(false)}
-        >
-          <div
-            className="bg-zinc-900 border border-zinc-700 rounded-lg w-full max-w-7xl mx-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowNew(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNew(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
                 <span className="text-accent">+</span> New Session
               </h2>
-              <button
-                onClick={() => setShowNew(false)}
-                className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm"
-              >
-                ✕
-              </button>
+              <button onClick={() => setShowNew(false)} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm">✕</button>
             </div>
             <div className="p-4 space-y-3">
-              <input
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-                placeholder="Session title*"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-300 placeholder-zinc-700 outline-none"
-                onKeyDown={(e) => e.key === 'Enter' && create()}
-              />
-              <textarea
-                value={newObjective}
-                onChange={(e) => setNewObjective(e.target.value)}
-                placeholder="Objective (optional)"
-                rows={2}
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-300 placeholder-zinc-700 outline-none resize-none"
-              />
+              <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Session title*" autoFocus className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" onKeyDown={(e) => e.key === 'Enter' && create()} />
+              <textarea value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Objective (optional)" rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)] resize-none" />
             </div>
             <div className="flex gap-2 p-4 border-t border-zinc-800">
-              <button
-                onClick={create}
-                disabled={!newTitle.trim()}
-                className="flex-1 text-[10px] px-3 py-1.5 accent-btn rounded-lg disabled:opacity-30 cursor-pointer"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => setShowNew(false)}
-                className="text-[10px] px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer"
-              >
-                Cancel
-              </button>
+              <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-xs px-3 py-2 bg-[var(--vestara-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer">Create</button>
+              <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Workflow start modal */}
+      {showWorkflow && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowWorkflow(false)} onKeyDown={(e) => e.key === 'Escape' && setShowWorkflow(false)}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); }}>
+            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+              <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
+                <span className="text-amber-400">▶</span> Start Workflow
+              </h2>
+              <button onClick={() => setShowWorkflow(false)} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm">✕</button>
+            </div>
+            <div className="p-4 space-y-3">
+              <div>
+                <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Goal</label>
+                <input value={wfGoal} onChange={(e) => setWfGoal(e.target.value)} placeholder="Describe the workflow goal..." autoFocus className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" />
+              </div>
+              <div>
+                <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Type</label>
+                <select value={wfType} onChange={(e) => setWfType(e.target.value)} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] outline-none focus:border-[var(--vestara-accent)] cursor-pointer">
+                  <option value="feature">Feature</option>
+                  <option value="analyze">Analysis</option>
+                  <option value="document">Documentation</option>
+                  <option value="refactor">Refactor</option>
+                  <option value="release">Release</option>
+                </select>
+              </div>
+            </div>
+            <div className="flex gap-2 p-4 border-t border-zinc-800">
+              <button onClick={startWorkflow} disabled={!wfGoal.trim() || wfRunning} className="flex-1 text-xs px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg disabled:opacity-30 cursor-pointer hover:bg-amber-400/20 transition-colors font-medium">{wfRunning ? 'Starting...' : 'Start Workflow'}</button>
+              <button onClick={() => setShowWorkflow(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
             </div>
           </div>
         </div>
@@ -275,8 +317,9 @@ export default function SessionList() {
       {filtered.length === 0 && (
         <div className="flex flex-col items-center justify-center py-14 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center">
           <div className="text-2xl mb-2 opacity-20">◈</div>
-          <p className="text-sm text-zinc-500 mb-1">No sessions found</p>
-          <p className="text-[10px] text-zinc-700">Create a new session or adjust your filters</p>
+          <p className="text-sm text-[var(--vestara-text-muted)] mb-1">No sessions found</p>
+          <p className="text-[10px] text-zinc-700">Create a new session to begin, or adjust your search filters</p>
+          <button onClick={() => setShowNew(true)} className="mt-4 text-xs px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer">+ New Session</button>
         </div>
       )}
       <div className="space-y-1.5">
@@ -296,42 +339,19 @@ export default function SessionList() {
               <div className="p-3 flex items-center gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-semibold text-zinc-200 truncate">{s.title || s.goal || s.id}</span>
+                    <span className="text-sm font-semibold text-[var(--vestara-text)] truncate">{s.title || s.goal || s.id}</span>
                     {isExecution && (
                       <span className="text-[8px] px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 uppercase font-medium shrink-0">
                         Workflow
                       </span>
                     )}
-                    <span
-                      className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-medium shrink-0 ${badge.bg} ${badge.text}`}
-                    >
-                      {s.status}
-                    </span>
+                    <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-medium shrink-0 ${badge.bg} ${badge.text}`}>{s.status}</span>
                   </div>
                   <div className="flex items-center gap-2 text-[9px] text-zinc-600 flex-wrap">
-                    {agentCount > 0 && (
-                      <span>
-                        {agentCount} agent{agentCount > 1 ? 's' : ''}
-                      </span>
-                    )}
-                    {stepCount && (
-                      <>
-                        <span className="text-zinc-700">·</span>
-                        <span>{stepCount} steps</span>
-                      </>
-                    )}
-                    {s.createdAt && (
-                      <>
-                        <span className="text-zinc-700">·</span>
-                        <span>{new Date(s.createdAt).toLocaleDateString()}</span>
-                      </>
-                    )}
-                    {s.metrics?.duration && (
-                      <>
-                        <span className="text-zinc-700">·</span>
-                        <span>{formatDuration(Math.round(s.metrics.duration / 1000))}</span>
-                      </>
-                    )}
+                    {agentCount > 0 && <span>{agentCount} agent{agentCount > 1 ? 's' : ''}</span>}
+                    {stepCount && (<><span className="text-zinc-700">·</span><span>{stepCount} steps</span></>)}
+                    {s.createdAt && (<><span className="text-zinc-700">·</span><span>{formatRelativeTime(s.createdAt)}</span></>)}
+                    {s.metrics?.duration && (<><span className="text-zinc-700">·</span><span>{formatDuration(Math.round(s.metrics.duration / 1000))}</span></>)}
                   </div>
                 </div>
                 <span className="text-zinc-700 shrink-0 text-[10px]">→</span>
@@ -393,12 +413,25 @@ export function SessionView() {
   if (loading)
     return (
       <div className="w-full px-4 py-16 animate-pulse">
-        <div className="h-8 w-64 bg-zinc-800 rounded mb-2" />
-        <div className="h-4 w-48 bg-zinc-800 rounded mb-6" />
-        <div className="h-40 bg-zinc-800/50 rounded-lg" />
+        <div className="flex items-center gap-3 mb-6">
+          <div className="h-3 w-3 rounded-full bg-zinc-800" />
+          <div className="h-6 w-48 bg-zinc-800 rounded" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2 space-y-4">
+            <div className="h-8 w-64 bg-zinc-800 rounded" />
+            <div className="h-4 w-96 bg-zinc-800 rounded" />
+            <div className="h-32 bg-zinc-800/50 rounded-lg" />
+            <div className="h-24 bg-zinc-800/50 rounded-lg" />
+          </div>
+          <div className="space-y-4">
+            <div className="h-48 bg-zinc-800/50 rounded-lg" />
+            <div className="h-32 bg-zinc-800/50 rounded-lg" />
+          </div>
+        </div>
       </div>
     );
-  if (!display) return <div className="w-full px-4 py-16 text-center text-zinc-600">Session not found</div>;
+  if (!display) return <div className="w-full px-4 py-16 text-center text-[var(--vestara-text-muted)]">Session not found</div>;
 
   const agentList = (display.timeline || []).map((t: any) => ({
     ...t,
@@ -411,12 +444,10 @@ export function SessionView() {
   return (
     <div className="w-full px-4">
       {/* Breadcrumb */}
-      <div className="flex items-center gap-2 text-xs text-zinc-600 mb-4">
-        <Link to="/sessions" className="hover:text-zinc-400 transition-colors">
-          Sessions
-        </Link>
+      <div className="flex items-center gap-2 text-xs text-[var(--vestara-text-muted)] mb-4">
+        <Link to="/sessions" className="hover:text-zinc-400 transition-colors">Sessions</Link>
         <span className="text-zinc-800">/</span>
-        <span className="text-zinc-300 font-medium truncate">{display.goal || display.title || display.id}</span>
+        <span className="text-[var(--vestara-text)] font-medium truncate">{display.goal || display.title || display.id}</span>
       </div>
 
       <WorkflowPipeline session={display} />

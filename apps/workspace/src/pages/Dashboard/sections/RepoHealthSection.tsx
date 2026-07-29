@@ -1,7 +1,7 @@
-import type { WorkspaceData } from '../../../lib/api';
 import type { Execution } from '../../../components/dashboard/constants';
-import DashboardSection from '../DashboardSection';
+import type { WorkspaceData } from '../../../lib/api';
 import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface RepoHealthSectionProps {
   workspace: WorkspaceData;

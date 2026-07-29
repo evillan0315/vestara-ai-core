@@ -1,6 +1,6 @@
+import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 import type { FC, ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import ChevronRightRounded from '@mui/icons-material/ChevronRightRounded';
 
 export interface SidebarNavigationItemProps {
   to: string;

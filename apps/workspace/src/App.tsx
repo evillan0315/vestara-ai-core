@@ -1,24 +1,26 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
-import ShellLayout from './layouts/ShellLayout';
-import { ToastProvider } from './components/Toast';
-import { ThemeProvider } from './lib/theme';
-import ErrorBoundary from './components/ErrorBoundary';
-import Agents from './pages/Agents';
-import Artifacts from './pages/Artifacts';
-import Dashboard from './pages/Dashboard';
-import Overview from './pages/Overview';
-import Login from './pages/Login';
-import Memory from './pages/Memory';
-import SessionList, { SessionView } from './pages/SessionList';
-import TerminalPage from './pages/Terminal';
-import ChatPage from './pages/ChatPage';
-import ProjectsPage from './pages/Projects';
-import OpsCenter from './pages/OpsCenter';
-import SettingsPage from './pages/Settings/SettingsPage';
-import FeatureRequests from './pages/FeatureRequests';
-import Logs from './pages/Logs';
-import ApiBuilder from './pages/ApiBuilder';
-import NotFound from './pages/NotFound';
+import { Navigate, Route, Routes } from "react-router-dom";
+import ErrorBoundary from "./components/ErrorBoundary";
+import { ToastProvider } from "./components/Toast";
+import ShellLayout from "./layouts/ShellLayout";
+import { ThemeProvider } from "./lib/theme";
+import Agents from "./pages/Agents";
+import ApiBuilder from "./pages/ApiBuilder";
+import Artifacts from "./pages/Artifacts";
+import ChatPage from "./pages/ChatPage";
+import Dashboard from "./pages/Dashboard";
+import Docs from "./pages/Docs";
+import FeatureRequests from "./pages/FeatureRequests";
+import Login from "./pages/Login";
+import Logs from "./pages/Logs";
+import Memory from "./pages/Memory";
+import NotFound from "./pages/NotFound";
+import NotificationsPage from "./pages/Notifications";
+import OpsCenter from "./pages/OpsCenter";
+import Overview from "./pages/Overview";
+import ProjectsPage from "./pages/Projects";
+import SessionList, { SessionView } from "./pages/SessionList";
+import SettingsPage from "./pages/Settings/SettingsPage";
+import TerminalPage from "./pages/Terminal";
 
 export default function App() {
   return (
@@ -75,6 +77,7 @@ export default function App() {
                   </ErrorBoundary>
                 }
               />
+              <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/settings/*" element={<SettingsPage />} />
               <Route
                 path="/requests"
@@ -97,6 +100,14 @@ export default function App() {
                 element={
                   <ErrorBoundary>
                     <ApiBuilder />
+                  </ErrorBoundary>
+                }
+              />
+              <Route
+                path="/docs"
+                element={
+                  <ErrorBoundary>
+                    <Docs />
                   </ErrorBoundary>
                 }
               />

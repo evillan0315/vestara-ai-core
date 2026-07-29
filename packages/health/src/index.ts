@@ -75,6 +75,18 @@ export class DefaultHealthManager implements HealthManager {
       const service = this.registry.get(info.id);
       if (!service) continue;
 
+      // Gracefully skip services that don't implement health()
+      if (typeof service.health !== 'function') {
+        checks.push({
+          serviceId: info.id,
+          status: 'unhealthy',
+          latency: 0,
+          message: 'Service does not implement health()',
+          dependencies: [],
+        });
+        continue;
+      }
+
       const start = performance.now();
       try {
         const health = await service.health();

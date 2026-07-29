@@ -1,1 +1,5 @@
-{ "name": "empty-project", "private": true, "version": "0.0.1" }
+{
+  "name": "empty-project",
+  "private": true,
+  "version": "0.0.1"
+}

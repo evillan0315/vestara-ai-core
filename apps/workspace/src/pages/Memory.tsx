@@ -185,13 +185,28 @@ export default function Memory() {
     if (!semanticQuery.trim()) return;
     setQuerying(true);
     try {
-      const res = await fetch('/api/memory/query', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ query: semanticQuery }),
-      });
-      const d = await res.json();
-      setQueryResult(d.result || d.message || JSON.stringify(d));
+      // Search knowledge graph nodes by name/description
+      const res = await fetch(`/api/memory?q=${encodeURIComponent(semanticQuery)}`);
+      if (res.ok) {
+        const d = await res.json();
+        if (d.results && d.results.length > 0) {
+          const lines = d.results.slice(0, 10).map((r: any) => {
+            const node = r.node || r;
+            return `• ${node.name} (${node.type}): ${(node.description || '').slice(0, 120)}`;
+          });
+          setQueryResult(lines.join('\n'));
+        } else if (d.nodes && d.nodes.length > 0) {
+          // Old API shape: filtered node list
+          setNodes(d.nodes);
+          setRelations(d.relations ?? []);
+          setStats(d.stats ?? { nodes: d.nodes.length, relations: d.relations?.length ?? 0 });
+          setQueryResult(`Found ${d.nodes.length} matching node${d.nodes.length > 1 ? 's' : ''}`);
+        } else {
+          setQueryResult('No matching results found.');
+        }
+      } else {
+        setQueryResult(`Search failed (${res.status})`);
+      }
     } catch (e: any) {
       setQueryResult(`Error: ${e.message}`);
     }

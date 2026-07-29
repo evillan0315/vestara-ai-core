@@ -373,7 +373,6 @@ describe('Success criteria: 6 questions', () => {
   });
 
   it('Q5: Is repository.write sufficient for repository.commit?', () => {
-    const matcher = new DefaultCapabilityMatcher();
     // repository.commit requires repository.write
     const rels = cat.getRelationships('repository.commit');
     expect(rels.requires).toContain('repository.write');

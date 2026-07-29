@@ -1805,23 +1805,31 @@ POST /api/analyze-feature
 
 ---
 
-### v7.6 — Notification Center & Alerting 🔶 Planned
+### v7.6 — Notification Center & Alerting ✅ Complete
 
-**Objective**: Build a comprehensive notification system with persistent alerts, configurable notification rules, and multi-channel delivery (in-app, email, webhook).
+**Objective**: Build a comprehensive notification system with persistent alerts, in-app toast notifications, and a dedicated notification center UI. Leverage the existing EventBus → ActivityService → WebSocket pipeline to auto-generate notifications from domain events.
 
-**Key features**:
+**Key features delivered**:
 
-- Persistent notification center with read/unread state
-- Configurable notification rules (e.g., "alert me when any agent execution fails")
-- In-app toast notifications for critical events
-- Email notification delivery for long-running task completion
-- Webhook integration for external system notifications
-- Notification history with search and filtering
-- Daily/weekly digest emails
+| Component | File | Description |
+|-----------|------|-------------|
+| `NotificationStore` | `packages/activity-log/src/notification-store.ts` | SQLite-backed persistent notifications with read/unread state, category filtering, pagination |
+| `NotificationService` | `packages/activity-log/src/notification-service.ts` | Bridges ActivityService events into notifications; auto-records for 18+ event types (plan.*, changeset.*, verification.*, collab.*, agent.*, session.*, system.error, memory.indexed) |
+| `GET /api/notifications` | `apps/api/src/server.ts` | List notifications with `?unreadOnly`, `?category`, `?limit`, `?before` query params, includes `unreadCount` |
+| `POST /api/notifications/:id/read` | `apps/api/src/server.ts` | Mark single notification as read |
+| `POST /api/notifications/read-all` | `apps/api/src/server.ts` | Mark all as read, returns count |
+| `useNotifications()` hook | `apps/workspace/src/lib/notifications.ts` | React hook with auto-polling (15s), `markRead`, `markAllRead`, `refresh` |
+| `HeaderNotifications` (rewired) | `apps/workspace/src/components/layout/AppHeader/HeaderNotifications.tsx` | Bell icon with unread badge + dropdown showing latest 10 unread notifications with mark-read and "View all" link |
+| `NotificationsPage` | `apps/workspace/src/pages/Notifications.tsx` | Full notification history view with type-colored cards, timestamps, mark-read on click, mark-all-read button, refresh, empty state |
+| Toast re-enabled | `apps/workspace/src/components/Toast.tsx` | Re-enabled auto-toast listener for 19 event types with success/info/error icons and 5-second auto-dismiss |
 
-**Target**: Q1 2027
+**Architecture**: Events flow `EventBus → ActivityService (domain translation) → NotificationService (persist) → API WebSocket → UI`. The notification center is a consumer of the existing activity stream — no new event pipeline required.
 
----
+**Verification**:
+- `bash build-order.sh` — zero errors (all 52 packages + apps)
+- `pnpm test` — 684 tests pass across 63 files (zero regressions)
+- `pnpm --filter @vestara/workspace-ui build` — UI builds cleanly
+- Notifications auto-populated from: plan creation/approval/cancellation, change set creation/apply, verification completion (pass/fail), collaboration submissions/approvals/rejections, agent start/complete, system errors
 
 ### v7.7 — Workspace UI Tester Automation ✅ Complete
 
@@ -1849,45 +1857,80 @@ POST /api/analyze-feature
 
 ---
 
-### v7.8 — API Builder UI/UX Enhancement 🔶 In Progress
+### v7.8 — API Builder UI/UX Enhancement ✅ Complete
 
-**Objective**: Redesign the API Builder page with improved layout, live endpoint discovery from @vestara/api, request history persistence, response schema visualization, and keyboard shortcuts for faster workflow.
+**Objective**: Redesign the API Builder page with improved layout, live endpoint discovery from Vestara API, request history persistence, code snippet generation, environment variables, and keyboard shortcuts for faster workflow.
 
 **Key features**:
 
-- Live endpoint discovery: Fetch available routes from `@vestara/api` instead of hardcoded sample list
-- Request history persistence: Save last 50 requests to localStorage with replay, edit, and share capabilities
-- Response schema visualization: Auto-detect JSON response structure and render collapsible tree view with types
-- Keyboard shortcuts: `Ctrl+Enter` to send, `Ctrl+Shift+Enter` for bulk send, `Escape` to clear, `Tab` to navigate between URL/method/body
-- Environment variables: Saved base URLs and auth tokens that auto-inject into requests
+- Live endpoint discovery: Fetch available routes from `/api/routes` instead of hardcoded sample list with search/filter
+- Request history persistence: Save last 50 requests to localStorage with replay, timestamp, and latency display
+- Keyboard shortcuts: `Ctrl+Enter` to send, `Escape` to clear inputs
+- Environment variables: Saved base URLs and auth tokens in localStorage that auto-inject `Authorization: Bearer` headers
 - Code snippet generation: Copy any request as cURL, fetch, or Python snippet
-- Tabbed interface: Multiple concurrent request tabs instead of single request view
+- Method selector: Toggle between GET/POST/PUT/PATCH/DELETE
+- Custom headers: JSON header injection alongside auth token
+- Status bar: Color-coded success/error responses with latency timing
+- Request history: Replay past requests, clear history, colored method badges
+- **Response schema tree view**: Collapsible typed JSON tree with type annotations (string, number, boolean, null, array, object), auto-expand up to 2 levels, toggle between Tree/Raw modes
+- **Tabbed interface**: Multiple concurrent request tabs with add (`Ctrl+T`), close (`Ctrl+W`), inline rename, per-tab URL/method/body/headers/result/history, all persisted to localStorage
 
 **Delivered Artifacts**:
 
-- `apps/workspace/src/pages/ApiBuilder.tsx` — redesigned page with tabs, history, live endpoint discovery, and code snippets
+- `apps/workspace/src/pages/ApiBuilder.tsx` — redesigned page with live endpoints, history persistence, code snippets, env vars, keyboard shortcuts, tree view, and tabs
+- `apps/workspace/src/components/JsonTreeView.tsx` — reusable collapsible typed JSON tree component
 
-**Status**: 🔶 In Progress
-
----
-
-**Objective**: Expand agent capabilities with parallel execution, inter-agent communication, agent templates, and a marketplace for community agents.
-
-**Key features**:
-
-- Persistent notification center with read/unread state
-- Configurable notification rules (e.g., "alert me when any agent execution fails")
-- In-app toast notifications for critical events
-- Email notification delivery for long-running task completion
-- Webhook integration for external system notifications
-- Notification history with search and filtering
-- Daily/weekly digest emails
-
-**Target**: Q1 2027
+**Status**: ✅ Complete — 7/7 features delivered
 
 ---
 
-### v8.0 — Multi-User Collaboration 🔶 Planned
+### v7.11 — Provider Registry & Local Provider Support ✅ Complete
+
+**Objective**: Replace the single hardcoded OpenCode provider with a persistent provider registry stored in `.vestara/workspace.json`. Users can add multiple providers (including local ones like Ollama), enable/disable them, and manage per-provider model lists.
+
+**CLI commands added**:
+
+| Command | Description |
+|---------|-------------|
+| `vestara provider add <id>` | Register a new provider (`--name`, `--base-url`, `--api-key-env`) |
+| `vestara provider add-local [name]` | Register a local provider with Ollama defaults |
+| `vestara provider remove <id>` | Remove a provider and all its models |
+| `vestara provider enable <id>` | Enable a provider |
+| `vestara provider disable <id>` | Disable a provider |
+| `vestara provider list` | List all providers with status and model counts |
+| `vestara provider status <id>` | Registry entry + live health check |
+| `vestara provider models <id>` | List models with enable/disable state |
+| `vestara provider model add <pid> <mid>` | Add a model to a provider |
+| `vestara provider model enable <pid> <mid>` | Enable a model |
+| `vestara provider model disable <pid> <mid>` | Disable a model |
+
+**Key artifacts**:
+
+- `ProviderConfig` / `ModelConfig` types in `@vestara/workspace` (`workspace-manifest.ts`)
+- `providers` field on `WorkspaceManifestData` — persisted in `.vestara/workspace.json`
+- `apps/cli/src/commands/provider.ts` — all provider management commands use `WorkspaceManifest` for persistence
+- Provider registry is a plain JSON array — inspectable and editable directly in `workspace.json`
+
+**Local provider support**:
+
+Any OpenAI-compatible API (Ollama, LM Studio, LocalAI) can be added:
+```
+vestara provider add-local ollama
+vestara provider model enable ollama llama3
+vestara provider status ollama
+```
+
+**Verification**:
+- `build-order.sh` — zero errors
+- Provider CRUD persists across CLI sessions
+- Enable/disable state survives restart
+- Model enable/disable per-provider works independently
+
+**Status**: ✅ Complete
+
+---
+
+### v8.0 — Multi-User Collaboration 🔶 In Progress
 
 **Objective**: Enable multiple users to collaborate within the same workspace with real-time presence, shared dashboards, and role-based access control.
 
@@ -1901,6 +1944,36 @@ POST /api/analyze-feature
 - Collaborative agent execution review
 - Shared notification preferences per workspace
 - Audit log of all user actions
+
+**Delivered**:
+
+| Component | Status |
+|-----------|--------|
+| `UserStore` — SQLite-backed users table with API token auth | ✅ Complete |
+| `User` type — id, username, role, token, createdAt | ✅ Complete |
+| `POST /api/auth/login` — login by username (creates if new) or token exchange | ✅ Complete |
+| `GET /api/auth/me` — current user info + user list | ✅ Complete |
+| Auth middleware — Bearer token extraction from `Authorization` header | ✅ Complete |
+| `VESTARA_API_KEY` env var — preset admin token on first boot | ✅ Complete |
+| Auto-generated admin token — printed to console when no env key set | ✅ Complete |
+| Role hierarchy — admin > editor > viewer with `hasRole()` helper | ✅ Complete |
+| `requireRole()` helper — sends 403 + JSON error if user lacks minimum role | ✅ Complete |
+| Role enforcement on settings mutation PUT/DELETE /api/settings | ✅ Complete |
+| Role enforcement on POST /api/agents, POST /api/agents/:id/run | ✅ Complete |
+| Role enforcement on POST /api/plans, POST /api/implement, POST /api/implement/apply | ✅ Complete |
+| Role enforcement on POST /api/projects, POST /api/schedules, POST /api/schedules/run-due | ✅ Complete |
+| Role enforcement on DELETE /api/schedules/:id (admin only) | ✅ Complete |
+| `GET /api/admin/users` — list all users (admin only) | ✅ Complete |
+| `POST /api/admin/users` — create user with role (admin only) | ✅ Complete |
+| `POST /api/admin/users/:id/rotate-token` — rotate API key (admin only) | ✅ Complete |
+| Actor context — all 15 event routes now use real user identity instead of hardcoded `{ id: 'user', name: 'User' }` | ✅ Complete |
+| Legacy support — `X-Vestara-Actor` header still works as fallback | ✅ Complete |
+
+**Remaining**:
+- Shared workspace state across users
+- Real-time presence indicators
+- Collaborative agent execution review
+- Audit log
 
 **Target**: Q2 2027
 
@@ -2067,9 +2140,11 @@ POST /api/analyze-feature
 | Build Tools | v7.4 | Build Tools & Dev Server Access (build buttons, dev server launch) | ✅ Complete |
 | API Builder | v7.5 | API Explorer & Testing Console (Postman-like interface, endpoint browser) | ✅ Complete |
 | UI Tester | v7.7 | Workspace UI Tester Automation (auto test+build on file changes, milestone triggers) | ✅ Complete |
-| API Builder UI | v7.8 | API Builder UI/UX Enhancement (tabs, history, live endpoints, code snippets) | 🔶 In Progress |
-| **Agents** | **v7.6** | **Advanced Agent Management, Notifications** | 🔶 Planned |
-| **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 Planned |
+| Notification Center | v7.6 | Notification Center & Alerting (persistent notifications, toast alerts, notification center UI) | ✅ Complete |
+| API Builder UI | v7.8 | API Builder UI/UX Enhancement (live endpoints, history persistence, env vars, code snippets, keyboard shortcuts, response tree view, tabs) | ✅ Complete |
+| Dashboard UI | v7.9 | Dashboard & Settings UI Consistency (MUI→Tailwind, CSS variable fixes) | ✅ Complete |
+| CLI/API Alignment | v7.10 | CLI/API Runtime Alignment (boot sequence, context pattern, lifecycle management) | ✅ Complete |
+| **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
 
@@ -2323,5 +2398,106 @@ Read evaluation report → Pick weakest producer → Improve only that producer 
 
 **Design principle validated**:
 > Compute once, consume everywhere. The first screen of the product renders the same semantic model that the planner, conversation, and evaluation harness already use.
+
+**Status**: ✅ Complete
+
+---
+
+### v7.9 — Dashboard & Settings UI Consistency ✅ Complete
+
+**Objective**: Eliminate stale Material UI dependencies from Dashboard components, replace with Tailwind equivalents, and fix broken CSS variable references across Settings pages to align with the theme system's `--vestara-*` variables.
+
+**Key changes**:
+
+| File | Before | After |
+|------|--------|-------|
+| `apps/workspace/src/pages/Dashboard.tsx` | MUI `Box`, `Tabs`, `Tab`, `Button`, `AddIcon` | Pure Tailwind toggle tabs + inline SVG button |
+| `apps/workspace/src/components/WorkspaceContinuityCard.tsx` | MUI `Card`, `CardContent`, `Typography`, `Chip`, `Button`, `Box`, `HistoryIcon` | Pure Tailwind div layout |
+| `apps/workspace/src/pages/Settings/SettingsPage.tsx` | Broken `--accent-primary/--text-primary` | Correct `--vestara-accent/--vestara-text` |
+| `apps/workspace/src/pages/Settings/components/layout/SettingsBreadcrumbs.tsx` | Broken `--text-primary/--text-secondary/--text-tertiary` | Correct `--vestara-text/--vestara-text-2/--vestara-text-muted` |
+| `apps/workspace/src/pages/Settings/components/layout/SettingsSidebar.tsx` | Broken `--accent-primary/--bg-secondary/--border-primary/--text-inverse` | Correct `--vestara-accent/--color-zinc-900/--vestara-accent-border/white` |
+| `apps/workspace/src/pages/Settings/SettingsRouter.tsx` | Broken `--text-primary/--text-error/--bg-secondary/--border-primary` | Correct `--vestara-text/--vestara-red/--color-zinc-900/--vestara-accent-border` |
+| `apps/workspace/src/pages/Settings/SettingsLayout.tsx` | Broken `--bg-primary` | Correct `--color-zinc-950` |
+| `apps/workspace/src/pages/Settings/components/ai/providers/AIProvidersSettings.tsx` | 12 broken `--accent-primary/--text-*/--bg-*/--border-*` | All corrected to `--vestara-*`/`--color-zinc-*` |
+
+**Cleanup**: Removed 10 empty stale theme files (ThemeSettings, ThemePreview, Models, useThemeSettings, SettingsHeader, SettingsGrid, StatusBanner, etc.)
+
+**Verification**:
+- `bash build-order.sh` — zero errors
+- `pnpm lint` — clean (pre-existing unused-variable warnings only)
+- Zero MUI imports remain in dashboard or settings source files
+- Unused dependencies identified: `@mui/icons-material`, `@mui/material`, `@emotion/react`, `@emotion/styled`
+
+**Status**: ✅ Complete
+
+---
+
+### v7.10 — CLI/API Runtime Alignment ✅ Complete
+
+**Objective**: Align `@vestara/cli` with `@vestara/api` so both apps follow the same boot sequence, runtime lifecycle, and service-initialization pattern. The CLI had 1800+ lines of inline boot logic in `index.ts` — extract into the same 3-layer pattern (`entry → context → runtime`) used by the API.
+
+**Before/After**:
+
+| Aspect | Before | After |
+|--------|--------|-------|
+| Boot logic location | Inline in `index.ts` (`main()`, ~230 lines) | Extracted to `context/cli-context.ts` |
+| Lifecycle manager | `CliRuntime` created but unused in boot flow | `CliRuntime` created by `createCliContext()`, manages lifecycle |
+| `startRepl()` signature | 6 individual parameters | Single `CliContext` parameter |
+| Cleanup | Duplicated in 3 places (REPL line handler, close handler, non-watch path) | Single `ctx.close()` tear down |
+| Stale artifacts | `.js`/`.d.ts`/`.js.map` in `src/` alongside `.ts` | Cleaned |
+
+**Key artifacts created**:
+
+| File | Pattern |
+|------|---------|
+| `apps/cli/src/context/cli-context.ts` | Mirrors `api/src/workspace-context.ts` |
+| `apps/cli/src/runtime/cli-runtime.ts` (refactored) | Mirrors `api/src/runtime/api-runtime.ts` |
+| `apps/cli/src/index.ts` (refactored) | Thin entry point, mirrors `api/src/index.ts` |
+
+**`CliRuntime` services added**: `stateRuntime`, `audioService`, `sttService`, `ttsService`, `providerRouter` — with proper lifecycle hooks (`onStop` stops activity, ends conversation, checkpoints state, shuts down kernel)
+
+**Verification**:
+- `bash build-order.sh` — zero errors (all 52 packages + apps)
+- `pnpm test` — **684 tests pass across 63 files** (zero regressions)
+- Stale compiled JS artifacts removed from `src/` directories
+
+**Status**: ✅ Complete
+
+---
+
+## Capability Validation Era
+
+### CAP-001 Validation Run #001 ✅ Complete
+
+**Objective**: Execute the first end-to-end CAP-001 Workspace Orientation validation. Demonstrate that `pnpm vestara validate <path>` produces a measurable orientation experience from the existing `WorkspaceUnderstanding` snapshot.
+
+**Command**: `pnpm vestara validate <path>`
+
+**Observation protocol**: `docs/validation/CAP-001/protocol.md`
+
+**Artifacts created**:
+
+- `apps/cli/src/commands/validate.ts` — `vestara validate` command, a consumer of the existing `WorkspaceUnderstanding` snapshot. No special validation code paths, no experimental AI prompts, no duplicated analysis.
+- `docs/validation/CAP-001/run-001.md` — first completed validation report against vite-react-basic fixture
+- `docs/validation/CAP-001/observations.md` — pattern tracking across runs
+- `docs/validation/CAP-001/findings.md` — improvement owner determination
+- `docs/evidence/learning-log.md` — organizational memory for validation findings
+
+**Validation flow**:
+
+```
+Developer → pnpm vestara validate <workspace> → WorkspaceUnderstanding → Orientation Output → CAP-001 Protocol → Validation Report → Finding → Targeted Improvement
+```
+
+**Performance**: Orientation completes in ~530ms for cached workspace (vestara monorepo), ~292ms for smaller fixture.
+
+**Finding from Run #001**:
+
+> The largest remaining cognitive gap is historical decision context because the evidence shows that after orientation, the developer understood identity, architecture, and health but had no context on why the project was structured that way or what decisions preceded its current state.
+
+**Improvement owner**: Memory / ActivityProducer — decisions exist in the memory runtime but are not automatically promoted from engineering sessions into the memory store consumed by the ActivityProducer.
+
+**Design principle validated**:
+> Orientation must explain, not merely summarize. The validate command is the first consumer of `WorkspaceUnderstanding` designed specifically for human validation rather than system validation.
 
 **Status**: ✅ Complete

@@ -23,6 +23,8 @@ export { AgentStorage } from './agent-storage';
 export type { WorkflowInstance, WorkflowStepDef, WorkflowStepResult } from './agent-workflow-service';
 export { AgentWorkflowService } from './agent-workflow-service';
 export { AnalyticsService } from './analytics-service';
+export type { AuditEntry } from './audit-store';
+export { AuditStore } from './audit-store';
 export { AutoIndex } from './auto-index';
 export { CapabilityService } from './capability-service';
 export { ChangeSetStorage } from './change-set-storage';
@@ -36,9 +38,40 @@ export { DesktopService } from './desktop-service';
 export { EngineeringMemory } from './engineering-memory';
 export { EnterpriseService } from './enterprise-service';
 export { EnterpriseStorage } from './enterprise-storage';
+export { AiProjectPlanner } from './ev001/ai-project-planner';
+export { HardcodedProjectPlanner } from './ev001/hardcoded-planner';
+export type { ContextContribution, ContextSource } from './ev001/planning-context';
+export { ContextAssembler, MemoryContextSource } from './ev001/planning-context';
+export type { CreateProjectResult } from './ev001/project-orchestrator';
+export { ProjectOrchestrator } from './ev001/project-orchestrator';
+export type { PlanningContext, ProjectPlan, ProjectPlanner, ProjectStep } from './ev001/project-planner';
+export type { WorkflowProgress } from './ev001/project-workflow';
+export { ProjectWorkflow } from './ev001/project-workflow';
+export { RepositoryContextSource } from './ev001/repository-context-source';
 export { ExecutionEngine } from './execution-engine';
 export { ExecutionPlanner } from './execution-planner';
 export { ExplainService } from './explain-service';
+export type {
+  CopyResult,
+  DirectoryEntry,
+  FileInfo,
+  GrepResult,
+  HashResult,
+  ReadResult,
+  TreeEntry,
+  WriteResult,
+} from './fs-service';
+export { FilesystemService } from './fs-service';
+export type {
+  GitBlameEntry,
+  GitCommit,
+  GitDiffEntry,
+  GitDiffHunk,
+  GitLogOptions,
+  GitStatus,
+  GitStatusEntry,
+} from './git-service';
+export { GitService } from './git-service';
 export { HelpService } from './help-service';
 export { ImpactStorage } from './impact-storage';
 export { ImplementationService } from './implementation-service';
@@ -50,12 +83,35 @@ export { MonitorService } from './monitor-service';
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';
 export { OSSystemService } from './os-service';
+export type { PathValidation } from './path-security';
+// ─── Workspace Runtime Service (NEW) ──────────────────────────
+export { PathSecurity } from './path-security';
 export { PlanStorage } from './plan-storage';
 export { PlanningService } from './planning-service';
 export { PluginRegistry } from './plugin-registry';
 export { PluginRuntime } from './plugin-runtime';
 export { PredictionService } from './prediction-service';
 export { PreferenceService } from './preference-service';
+export {
+  ActivityProducer,
+  ArchitectureProducer,
+  createDefaultProducers,
+  FrameworkProducer,
+  HealthProducer,
+  LanguageProducer,
+  MaturityProducer,
+  RiskProducer,
+} from './producers/index';
+export type {
+  DetectedFramework,
+  DetectedInfrastructure,
+  DetectedLanguage,
+  DetectedPackageManager,
+  DetectedTooling,
+  ProjectIdentity,
+  ProjectProfile,
+} from './project-profile';
+export { ProjectProfileService } from './project-profile';
 export { ProjectService } from './project-service';
 export { ProjectStorage } from './project-storage';
 export type {
@@ -75,22 +131,13 @@ export type { DependencyResolverConfig } from './runtime/dependency-resolver';
 export { DependencyResolver, MissingDependencyError, RuntimeDependencyCycleError } from './runtime/dependency-resolver';
 export type { AggregatedHealth } from './runtime/health-aggregator';
 export { HealthAggregator } from './runtime/health-aggregator';
+export type { ProductEvent, ProductEventType } from './runtime/product-events';
+export { ProductEventTranslator } from './runtime/product-events';
 export type { RuntimeGroupEntry } from './runtime/runtime-group';
 export { DuplicateRuntimeError, RuntimeGroup } from './runtime/runtime-group';
 export type { RuntimeRegistration, WorkspaceDefinition } from './runtime/workspace-definition';
 export { WorkspaceFactory } from './runtime/workspace-factory';
 export { WorkspaceComposition } from './runtime/workspace-runtime';
-export { ProductEventTranslator } from './runtime/product-events';
-export type { ProductEvent, ProductEventType } from './runtime/product-events';
-export { ProjectOrchestrator } from './ev001/project-orchestrator';
-export type { ProjectPlanner, ProjectPlan, ProjectStep } from './ev001/project-planner';
-export { HardcodedProjectPlanner } from './ev001/hardcoded-planner';
-export { AiProjectPlanner } from './ev001/ai-project-planner';
-export { ProjectWorkflow } from './ev001/project-workflow';
-export type { WorkflowProgress } from './ev001/project-workflow';
-export type { CreateProjectResult } from './ev001/project-orchestrator';
-export { MemoryContextService } from './ev001/planning-context';
-export type { PlanningContext } from './ev001/planning-context';
 export type { HealthCheckResult, ServiceContract, ServiceStatus } from './service-contract';
 export {
   AgentDaemonService,
@@ -160,26 +207,28 @@ export type {
   WorkspaceEvent,
   WorkspaceStatus,
 } from './types';
+export { DefaultUnderstandingAssembler } from './understanding-assembler';
+export { UnderstandingContextAssembler } from './understanding-context-assembler';
+export { DefaultUnderstandingEngine } from './understanding-engine';
+export type { User } from './user-store';
+export { UserStore } from './user-store';
 export { VerificationService } from './verification-service';
 export { VerificationStorage } from './verification-storage';
 export { WorkflowService } from './workflow-service';
-export { DefaultUnderstandingEngine } from './understanding-engine';
-export { DefaultUnderstandingAssembler } from './understanding-assembler';
-export { UnderstandingContextAssembler } from './understanding-context-assembler';
-export {
-  createDefaultProducers,
-  LanguageProducer,
-  FrameworkProducer,
-  ArchitectureProducer,
-  MaturityProducer,
-  RiskProducer,
-  HealthProducer,
-  ActivityProducer,
-} from './producers/index';
 export { WorkspaceAnalyst } from './workspace-analyst';
+export type { WorkspaceContext } from './workspace-context-provider';
+export { WorkspaceContextProvider } from './workspace-context-provider';
+export type { IndexEntry, IndexNode, IndexOptions } from './workspace-index';
+export { WorkspaceIndex } from './workspace-index';
+export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './workspace-manifest';
 export { WorkspaceManifest } from './workspace-manifest';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
+export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';
+export { WorkspaceRuntimeService } from './workspace-runtime-service';
 export { WorkspaceSession } from './workspace-session';
+export { WorkspaceToolProvider } from './workspace-tool-provider';
 export type { WorkspaceUiWatchEvent } from './workspace-ui-watcher';
 export { WorkspaceUiWatcher } from './workspace-ui-watcher';
+export type { WatchCallback, WatchEvent, WatchEventType } from './workspace-watcher';
+export { WorkspaceWatcher } from './workspace-watcher';

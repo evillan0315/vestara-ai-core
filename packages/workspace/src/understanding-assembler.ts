@@ -3,16 +3,20 @@
  * a single immutable WorkspaceUnderstanding snapshot.
  */
 
-import type { UnderstandingAssembler, UnderstandingProducer, WorkspaceObservation, WorkspaceUnderstanding, ProducerResult } from '@vestara/understanding';
+import type {
+  ProducerResult,
+  UnderstandingAssembler,
+  UnderstandingProducer,
+  WorkspaceObservation,
+  WorkspaceUnderstanding,
+} from '@vestara/understanding';
 
 export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
   async assemble(
     observation: WorkspaceObservation,
     producers: readonly UnderstandingProducer[],
   ): Promise<WorkspaceUnderstanding> {
-    const results = await Promise.all(
-      producers.map((p) => p.produce(observation)),
-    );
+    const results = await Promise.all(producers.map((p) => p.produce(observation)));
 
     const snapshotId = `${observation.identity.id}:${observation.timestamp}`;
     const now = new Date().toISOString();
@@ -65,9 +69,10 @@ export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
         status: observation.workspace.status,
         isIndexed: observation.workspace.knowledge.documentsIndexed > 0,
         indexFreshness: observation.workspace.knowledge.lastIndexedAt
-          ? (Date.now() - new Date(observation.workspace.knowledge.lastIndexedAt).getTime() < 86400000
-            ? 'fresh' as const : 'stale' as const)
-          : 'missing' as const,
+          ? Date.now() - new Date(observation.workspace.knowledge.lastIndexedAt).getTime() < 86400000
+            ? ('fresh' as const)
+            : ('stale' as const)
+          : ('missing' as const),
         isCached: observation.workspace.lastOpenedAt !== null,
       },
       summary: '',
@@ -121,10 +126,14 @@ export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
   private generateSummary(u: WorkspaceUnderstanding): string {
     const parts: string[] = [];
 
-    parts.push(`${u.identity.name} is a ${u.identity.primaryLanguage} ${u.architecture.kind === 'monorepo' ? 'monorepo' : u.architecture.kind === 'multi-module' ? 'multi-module project' : 'project'}`);
+    parts.push(
+      `${u.identity.name} is a ${u.identity.primaryLanguage} ${u.architecture.kind === 'monorepo' ? 'monorepo' : u.architecture.kind === 'multi-module' ? 'multi-module project' : 'project'}`,
+    );
 
     if (u.architecture.entryPoints.length > 0) {
-      parts.push(`with ${u.architecture.entryPoints.length} entry point${u.architecture.entryPoints.length > 1 ? 's' : ''}`);
+      parts.push(
+        `with ${u.architecture.entryPoints.length} entry point${u.architecture.entryPoints.length > 1 ? 's' : ''}`,
+      );
     }
 
     parts.push(`Health: ${u.maturity.healthScore.toFixed(1)}/10 (${u.maturity.level})`);
@@ -137,6 +146,6 @@ export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
     }
     if (u.activity.uncommittedWork) parts.push('Uncommitted changes present');
 
-    return parts.join('. ') + '.';
+    return `${parts.join('. ')}.`;
   }
 }

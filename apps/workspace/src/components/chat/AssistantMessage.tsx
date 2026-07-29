@@ -1,8 +1,8 @@
-import type { ChatMessage } from './types';
-import { formatTime, getFollowUps } from './utils';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { MessageActions } from './MessageActions';
 import { ToolCallDisplay } from './ToolCallDisplay';
+import type { ChatMessage } from './types';
+import { formatTime, getFollowUps } from './utils';
 
 interface AssistantMessageProps {
   message: ChatMessage;

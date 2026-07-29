@@ -14,8 +14,8 @@
  */
 
 import type { WorkspaceObservation } from './observation';
-import type { WorkspaceUnderstanding } from './understanding';
 import type { PlanningConstraints, PlanningContext, UserRequest } from './planning-context';
+import type { WorkspaceUnderstanding } from './understanding';
 
 export interface UnderstandingEngine {
   /**

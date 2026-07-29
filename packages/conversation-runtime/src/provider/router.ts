@@ -118,6 +118,7 @@ export class ProviderRouter implements ProviderExecutor {
       return this.offlineProvider;
     }
 
+    // Fallback to any registered provider, unhealthy or not
     if (this.onlineProvider) {
       this._activeId = this.onlineProvider.id;
       return this.onlineProvider;
@@ -140,6 +141,7 @@ export class ProviderRouter implements ProviderExecutor {
       messages: request.messages,
       temperature: request.temperature,
       maxTokens: request.maxTokens,
+      tools: request.tools,
     });
     return {
       id: result.id,
@@ -161,6 +163,7 @@ export class ProviderRouter implements ProviderExecutor {
       temperature: request.temperature,
       maxTokens: request.maxTokens,
       stream: true,
+      tools: request.tools,
     })) {
       yield chunk;
     }

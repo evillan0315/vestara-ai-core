@@ -1,4 +1,4 @@
-import type { RuntimeCategory, RuntimeDefinition, RuntimeLifecycleConfig, RuntimeType } from '@vestara/types';
+import type { RuntimeDefinition, RuntimeLifecycleConfig, RuntimeType } from '@vestara/types';
 
 const DEFAULT_LIFECYCLE: RuntimeLifecycleConfig = {
   maxDegradedMs: 300_000,

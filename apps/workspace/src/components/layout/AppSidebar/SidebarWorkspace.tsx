@@ -1,7 +1,7 @@
-import type { FC } from 'react';
+import FolderRounded from '@mui/icons-material/FolderRounded';
 
 import KeyboardArrowDownRounded from '@mui/icons-material/KeyboardArrowDownRounded';
-import FolderRounded from '@mui/icons-material/FolderRounded';
+import type { FC } from 'react';
 
 export interface SidebarWorkspaceProps {
   workspace: string;

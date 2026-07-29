@@ -1,4 +1,4 @@
-import type { UnderstandingProducer, ProducerResult, WorkspaceObservation } from '@vestara/understanding';
+import type { ProducerResult, UnderstandingProducer, WorkspaceObservation } from '@vestara/understanding';
 
 export class ActivityProducer implements UnderstandingProducer {
   readonly id = 'activity';

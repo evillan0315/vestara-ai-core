@@ -1,4 +1,11 @@
-import type { PlanningContext } from './planning-context';
+export interface PlanningContext {
+  request: string;
+  workspaceName: string;
+  architectureDecisions: string[];
+  repositorySummary: string;
+  outstandingWork: string[];
+  conversationSummary: string;
+}
 
 export interface ProjectStep {
   id: string;

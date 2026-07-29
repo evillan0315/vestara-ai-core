@@ -7,9 +7,6 @@ import { DefaultKernel } from '../src/index';
 // ── Mock Workers ──────────────────────────────────────────────
 
 class MockWorker extends Worker {
-  constructor(config: Parameters<typeof Worker>[0], hooks?: Parameters<typeof Worker>[1]) {
-    super(config, hooks);
-  }
   protected async run(job: Job): Promise<JobResult> {
     return {
       status: 'success',

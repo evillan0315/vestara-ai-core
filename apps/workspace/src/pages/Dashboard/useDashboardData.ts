@@ -1,14 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { WorkspaceData, AgentData } from '../../lib/api';
-import { getAgents, getSuggestions, getWorkflow, getWorkspace } from '../../lib/api';
+import type { Execution, MilestoneResponse } from '../../components/dashboard/constants';
+import { fetchExecutions, fetchMilestones, REFRESH_EVENTS } from '../../components/dashboard/constants';
+import type { AgentData, PlanData, WorkspaceData } from '../../lib/api';
+import { getAgents, getPlans, getSuggestions, getWorkflow, getWorkspace } from '../../lib/api';
 import { useEventStream } from '../../lib/useEventStream';
 import { workspaceSocket } from '../../lib/ws';
-import { fetchMilestones, fetchExecutions, REFRESH_EVENTS } from '../../components/dashboard/constants';
-import type { MilestoneResponse, Execution } from '../../components/dashboard/constants';
 
 export interface DashboardData {
   workspace: WorkspaceData | null;
   agents: AgentData[];
+  plans: PlanData[];
   suggestions: Array<{
     id: string;
     priority: string;
@@ -59,6 +60,7 @@ export interface DashboardData {
 export function useDashboardData(): DashboardData {
   const [workspace, setWorkspace] = useState<WorkspaceData | null>(null);
   const [agents, setAgents] = useState<AgentData[]>([]);
+  const [plans, setPlans] = useState<PlanData[]>([]);
   const [suggestions, setSuggestions] = useState<
     Array<{ id: string; priority: string; title: string; description?: string; impact?: string; category?: string }>
   >([]);
@@ -86,6 +88,7 @@ export function useDashboardData(): DashboardData {
     Promise.all([
       getWorkspace(),
       getAgents(),
+      getPlans(),
       getSuggestions(),
       getWorkflow(),
       fetchMilestones(),
@@ -97,9 +100,10 @@ export function useDashboardData(): DashboardData {
       fetch('/api/workflows').then((r) => (r.ok ? r.json() : { workflows: [] })),
       fetch('/api/activity-log').then((r) => (r.ok ? r.json() : { events: [] })),
     ])
-      .then(([w, a, sug, wf, ms, ex, h, pjs, sps, exs, wfs, logs]) => {
+      .then(([w, a, pl, sug, wf, ms, ex, h, pjs, sps, exs, wfs, logs]) => {
         if (w) setWorkspace(w);
         setAgents(a);
+        setPlans(pl);
         setSuggestions(sug);
         if (ms) setMilestones(ms);
         if (h) setHealth(h);
@@ -126,8 +130,16 @@ export function useDashboardData(): DashboardData {
           if (w) setWorkspace(w);
         });
         getAgents().then(setAgents);
+        getPlans().then(setPlans);
         if (event.type === 'milestone:completed') fetchMilestones().then(setMilestones);
-        if (event.type === 'session.created' || event.type === 'agent.started' || event.type === 'agent.completed') {
+        if (
+          event.type === 'plan.created' ||
+          event.type === 'plan.approved' ||
+          event.type === 'plan.completed' ||
+          event.type === 'session.created' ||
+          event.type === 'agent.started' ||
+          event.type === 'agent.completed'
+        ) {
           fetch('/api/sessions/executions')
             .then((r) => (r.ok ? r.json() : { sessions: [] }))
             .then((d) => setExecSessions(d.sessions ?? []));
@@ -181,6 +193,7 @@ export function useDashboardData(): DashboardData {
   return {
     workspace,
     agents,
+    plans,
     suggestions,
     milestones,
     health,

@@ -26,8 +26,6 @@
   "devDependencies": {
     "@types/ws": "^8.5.0",
     "@types/node": "^26.1.1",
-    "@vestara/permissions": "workspace:*",
-    "@vestara/types": "workspace:*",
     "vitest": "^4.1.10"
   }
 }

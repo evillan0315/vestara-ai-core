@@ -1,7 +1,7 @@
-import { useRef, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { MessageActions } from './MessageActions';
 import type { ChatMessage } from './types';
 import { formatTime } from './utils';
-import { MessageActions } from './MessageActions';
 
 interface UserMessageProps {
   message: ChatMessage;

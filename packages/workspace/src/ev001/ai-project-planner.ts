@@ -1,7 +1,6 @@
 import type { AIProvider } from '@vestara/shared';
-import { ProductEventTranslator } from '../runtime/product-events';
-import type { ProjectPlanner, ProjectPlan } from './project-planner';
-import type { PlanningContext } from './planning-context';
+import type { ProductEventTranslator } from '../runtime/product-events';
+import type { PlanningContext, ProjectPlan, ProjectPlanner } from './project-planner';
 
 export class AiProjectPlanner implements ProjectPlanner {
   private readonly provider: AIProvider;
@@ -24,11 +23,17 @@ Return ONLY valid JSON.`;
     const contextBlock = [
       `Current request: ${context.request}`,
       `Workspace: ${context.workspaceName}`,
-      context.architectureDecisions.length > 0 ? `Architecture decisions:\n${context.architectureDecisions.map((d) => `- ${d}`).join('\n')}` : '',
+      context.architectureDecisions.length > 0
+        ? `Architecture decisions:\n${context.architectureDecisions.map((d) => `- ${d}`).join('\n')}`
+        : '',
       context.repositorySummary ? `Repository: ${context.repositorySummary}` : '',
-      context.outstandingWork.length > 0 ? `Outstanding work:\n${context.outstandingWork.map((w) => `- ${w}`).join('\n')}` : '',
+      context.outstandingWork.length > 0
+        ? `Outstanding work:\n${context.outstandingWork.map((w) => `- ${w}`).join('\n')}`
+        : '',
       context.conversationSummary ? `Recent context: ${context.conversationSummary}` : '',
-    ].filter(Boolean).join('\n\n');
+    ]
+      .filter(Boolean)
+      .join('\n\n');
 
     const userPrompt = isResume
       ? `Continue working on ${context.workspaceName}. Generate 3-7 steps for the next milestone.\n\n${contextBlock}`

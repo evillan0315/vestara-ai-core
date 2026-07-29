@@ -10,18 +10,16 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@vestara/action": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/knowledge": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/memory": "workspace:*",
-    "@vestara/reasoning": "workspace:*",
     "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
-    "@vestara/stream": "workspace:*",
-    "@vestara/understanding": "workspace:*",
-    "@vestara/events": "workspace:*"
+    "@vestara/understanding": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10",

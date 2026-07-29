@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import JsonTreeView from '../components/JsonTreeView';
 
 interface ApiEndpoint {
   path: string;
@@ -15,16 +16,160 @@ interface TestResult {
   latency?: number;
 }
 
+interface HistoryItem {
+  timestamp: string;
+  request: { url: string; method: string; headers: Record<string, string>; body?: string };
+  response: any;
+  status: 'success' | 'error';
+  latency: number;
+}
+
+interface EnvironmentVars {
+  baseUrl: string;
+  authToken: string;
+}
+
+interface TabData {
+  id: string;
+  name: string;
+  url: string;
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  body: string;
+  headers: string;
+  result: TestResult;
+  history: HistoryItem[];
+}
+
+const TABS_KEY = 'vestara-api-builder-tabs';
+const ENV_KEY = 'vestara-api-builder-env';
+const MAX_HISTORY = 50;
+const MAX_TABS = 10;
+
+let tabCounter = 0;
+
+function createTab(name?: string): TabData {
+  tabCounter += 1;
+  return {
+    id: `tab-${Date.now()}-${tabCounter}`,
+    name: name || `Request ${tabCounter}`,
+    url: '',
+    method: 'GET',
+    body: '',
+    headers: '',
+    result: { status: 'success' },
+    history: [],
+  };
+}
+
+function loadTabs(): TabData[] {
+  try {
+    const raw = localStorage.getItem(TABS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch { /* ignore */ }
+  const defaultTab = createTab('Request 1');
+  saveTabs([defaultTab]);
+  return [defaultTab];
+}
+
+function saveTabs(tabs: TabData[]): void {
+  try {
+    localStorage.setItem(TABS_KEY, JSON.stringify(tabs.slice(0, MAX_TABS)));
+  } catch { /* quota exceeded */ }
+}
+
+function loadEnv(): EnvironmentVars {
+  try {
+    const raw = localStorage.getItem(ENV_KEY);
+    return raw ? JSON.parse(raw) : { baseUrl: '', authToken: '' };
+  } catch {
+    return { baseUrl: '', authToken: '' };
+  }
+}
+
+function saveEnv(env: EnvironmentVars): void {
+  try {
+    localStorage.setItem(ENV_KEY, JSON.stringify(env));
+  } catch { /* silently drop */ }
+}
+
+function generateCurl(method: string, url: string, headers: Record<string, string>, body?: string): string {
+  const parts = [`curl -X ${method} '${url}'`];
+  for (const [k, v] of Object.entries(headers)) {
+    parts.push(`  -H '${k}: ${v}'`);
+  }
+  if (body && method !== 'GET') {
+    parts.push(`  -d '${body}'`);
+  }
+  return parts.join(' \\\n');
+}
+
+function generateFetch(method: string, url: string, headers: Record<string, string>, body?: string): string {
+  const opts: Record<string, any> = { method };
+  if (Object.keys(headers).length) opts.headers = headers;
+  if (body && method !== 'GET') {
+    try { opts.body = JSON.stringify(JSON.parse(body)); }
+    catch { opts.body = body; }
+  }
+  return `fetch('${url}', ${JSON.stringify(opts, null, 2)})`;
+}
+
+function generatePython(method: string, url: string, headers: Record<string, string>, body?: string): string {
+  const lines = ['import requests', ''];
+  const h = Object.keys(headers).length ? JSON.stringify(headers, null, 2) : '{}';
+  if (body && method !== 'GET') {
+    try { lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h}, json=${JSON.stringify(JSON.parse(body))})`); }
+    catch { lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h}, data='''${body}''')`); }
+  } else {
+    lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h})`);
+  }
+  lines.push('print(response.status_code)');
+  lines.push('print(response.json())');
+  return lines.join('\n');
+}
+
 export default function ApiBuilderPage() {
+  const [tabs, setTabs] = useState<TabData[]>(loadTabs);
+  const [activeTabId, setActiveTabId] = useState<string>(tabs[0]?.id || '');
   const [selectedEndpoint, setSelectedEndpoint] = useState<ApiEndpoint | null>(null);
-  const [testUrl, setTestUrl] = useState('');
-  const [testMethod, setTestMethod] = useState<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>('GET');
-  const [testBody, setTestBody] = useState('');
-  const [testHeaders, setTestHeaders] = useState('');
-  const [testResult, setTestResult] = useState<TestResult>({ status: 'success' });
-  const [responseHistory, setResponseHistory] = useState<Array<{ timestamp: Date; request: any; response: any }>>([]);
   const [endpoints, setEndpoints] = useState<ApiEndpoint[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSnippets, setShowSnippets] = useState(false);
+  const [viewMode, setViewMode] = useState<'raw' | 'tree'>('tree');
+  const [envOpen, setEnvOpen] = useState(false);
+  const [envVars, setEnvVars] = useState<EnvironmentVars>(loadEnv);
+  const urlInputRef = useRef<HTMLInputElement>(null);
+  const newTabInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Active tab helpers ──────────────────────────────────
+
+  const activeTab = tabs.find((t) => t.id === activeTabId) || tabs[0];
+  const activeIdx = tabs.findIndex((t) => t.id === activeTabId);
+
+  /** Update the active tab with partial data and persist. */
+  const updateActive = useCallback((patch: Partial<TabData>) => {
+    setTabs((prev) => {
+      const idx = prev.findIndex((t) => t.id === activeTabId);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next[idx] = { ...next[idx], ...patch };
+      saveTabs(next);
+      return next;
+    });
+  }, [activeTabId]);
+
+  /** Direct setter for the whole tabs array (for operations like add/close). */
+  const setTabsAndPersist = useCallback((fn: (prev: TabData[]) => TabData[]) => {
+    setTabs((prev) => {
+      const next = fn(prev);
+      saveTabs(next);
+      return next;
+    });
+  }, []);
+
+  // ── Load endpoints on mount ─────────────────────────────
 
   useEffect(() => {
     fetch('/api/routes')
@@ -33,6 +178,69 @@ export default function ApiBuilderPage() {
       .catch(() => {});
   }, []);
 
+  // ── Keyboard shortcuts ──────────────────────────────────
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      // Ctrl+Enter or Cmd+Enter to send
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        if (activeTab?.url) testEndpoint();
+      }
+      // Ctrl+T or Cmd+T to new tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 't') {
+        e.preventDefault();
+        addTab();
+      }
+      // Ctrl+W or Cmd+W to close tab
+      if ((e.ctrlKey || e.metaKey) && e.key === 'w') {
+        e.preventDefault();
+        if (tabs.length > 1) closeTab(activeTabId);
+      }
+      // Escape to clear current result
+      if (e.key === 'Escape') {
+        updateActive({ result: { status: 'success' }, body: '', headers: '' });
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  });
+
+  // ── Tab operations ──────────────────────────────────────
+
+  const addTab = useCallback(() => {
+    const tab = createTab();
+    setTabsAndPersist((prev) => {
+      const next = [...prev, tab];
+      // Focus the new tab name input after render
+      setTimeout(() => newTabInputRef.current?.focus(), 50);
+      return next;
+    });
+    setActiveTabId(tab.id);
+  }, [setTabsAndPersist]);
+
+  const closeTab = useCallback((id: string) => {
+    setTabsAndPersist((prev) => {
+      if (prev.length <= 1) return prev;
+      const idx = prev.findIndex((t) => t.id === id);
+      const next = prev.filter((t) => t.id !== id);
+      // If closing the active tab, switch to neighbor
+      if (id === activeTabId) {
+        const newIdx = Math.min(idx, next.length - 1);
+        setActiveTabId(next[newIdx].id);
+      }
+      return next;
+    });
+  }, [activeTabId, setTabsAndPersist]);
+
+  const renameTab = useCallback((id: string, name: string) => {
+    setTabsAndPersist((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, name } : t)),
+    );
+  }, [setTabsAndPersist]);
+
+  // ── Computed ────────────────────────────────────────────
+
   const filteredEndpoints = endpoints.filter(
     (endpoint) =>
       endpoint.path.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -40,40 +248,41 @@ export default function ApiBuilderPage() {
       endpoint.method.toLowerCase().includes(searchTerm.toLowerCase()),
   );
 
+  const resolvedUrl = activeTab?.url?.startsWith('http')
+    ? activeTab.url
+    : activeTab?.url
+      ? `${envVars.baseUrl || 'http://localhost:3001'}${activeTab.url}`
+      : '';
+
+  // ── Test execution ──────────────────────────────────────
+
   const testEndpoint = useCallback(async () => {
-    setTestResult({ status: 'loading' });
+    if (!activeTab) return;
+    updateActive({ result: { status: 'loading' } });
     const start = performance.now();
 
     try {
-      const url = testUrl.startsWith('http') ? testUrl : `http://localhost:3001${testUrl}`;
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (envVars.authToken) headers['Authorization'] = `Bearer ${envVars.authToken}`;
 
-      if (testHeaders) {
+      if (activeTab.headers) {
         try {
-          const customHeaders = JSON.parse(testHeaders);
+          const customHeaders = JSON.parse(activeTab.headers);
           Object.assign(headers, customHeaders);
-        } catch (e) {
-          console.error('Invalid headers JSON:', e);
-        }
+        } catch { /* invalid JSON — skip */ }
       }
 
       let body: string | undefined;
-      if (testMethod !== 'GET' && testBody) {
-        try {
-          body = JSON.stringify(JSON.parse(testBody));
-        } catch (e) {
-          body = testBody;
-        }
+      if (activeTab.method !== 'GET' && activeTab.body) {
+        body = activeTab.body;
       }
 
-      const requestOptions: RequestInit = {
-        method: testMethod,
+      const response = await fetch(resolvedUrl, {
+        method: activeTab.method,
         headers,
         body,
         signal: AbortSignal.timeout(30000),
-      };
-
-      const response = await fetch(url, requestOptions);
+      });
       const data = await response.json().catch(() => null);
       const latency = Math.round(performance.now() - start);
 
@@ -84,25 +293,30 @@ export default function ApiBuilderPage() {
         latency,
       };
 
-      setTestResult(result);
+      updateActive({ result });
 
-      setResponseHistory((prev) =>
-        [
-          {
-            timestamp: new Date(),
-            request: { url, method: testMethod, headers, body },
-            response: data,
-          },
-          ...prev,
-        ].slice(0, 20),
-      );
+      // Persist to per-tab history
+      const item: HistoryItem = {
+        timestamp: new Date().toISOString(),
+        request: { url: resolvedUrl, method: activeTab.method, headers, body },
+        response: data,
+        status: response.ok ? 'success' : 'error',
+        latency,
+      };
+      updateActive({
+        history: [item, ...(activeTab?.history || [])].slice(0, MAX_HISTORY),
+      });
     } catch (error) {
-      setTestResult({
-        status: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error occurred',
+      updateActive({
+        result: {
+          status: 'error',
+          error: error instanceof Error ? error.message : 'Unknown error occurred',
+        },
       });
     }
-  }, [testUrl, testMethod, testBody, testHeaders]);
+  }, [activeTab, resolvedUrl, envVars.authToken, updateActive]);
+
+  // ── Helpers ─────────────────────────────────────────────
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
@@ -110,98 +324,254 @@ export default function ApiBuilderPage() {
 
   const useTemplate = (endpoint: ApiEndpoint) => {
     setSelectedEndpoint(endpoint);
-    setTestUrl(endpoint.path);
-    setTestMethod(endpoint.method);
-    if (endpoint.body) {
-      setTestBody(JSON.stringify(endpoint.body, null, 2));
-    }
-    setTestResult({ status: 'success' });
+    updateActive({
+      url: endpoint.path,
+      method: endpoint.method,
+      body: endpoint.body ? JSON.stringify(endpoint.body, null, 2) : '',
+      result: { status: 'success' },
+    });
   };
 
+  const restoreHistory = (item: HistoryItem) => {
+    updateActive({
+      url: item.request.url.replace(/^https?:\/\/[^/]+/, ''),
+      method: item.request.method as TabData['method'],
+      body: item.request.body
+        ? (() => { try { return JSON.stringify(JSON.parse(item.request.body), null, 2); } catch { return item.request.body; } })()
+        : '',
+      result: { status: 'success', data: item.response, latency: item.latency },
+    });
+    if (Object.keys(item.request.headers).length > 1) {
+      const { 'Content-Type': _ct, Authorization: _auth, ...rest } = item.request.headers;
+      if (Object.keys(rest).length) updateActive({ headers: JSON.stringify(rest, null, 2) });
+    }
+  };
+
+  const clearHistory = () => {
+    updateActive({ history: [] });
+  };
+
+  // ── Method color ────────────────────────────────────────
+
+  const methodColor = (method: string) => {
+    switch (method) {
+      case 'GET': return 'bg-green-400/10 text-green-400';
+      case 'POST': return 'bg-blue-400/10 text-blue-400';
+      case 'PUT': return 'bg-amber-400/10 text-amber-400';
+      case 'DELETE': return 'bg-red-400/10 text-red-400';
+      case 'PATCH': return 'bg-purple-400/10 text-purple-400';
+      default: return 'bg-zinc-400/10 text-zinc-400';
+    }
+  };
+
+  // ── Render: snippet block ───────────────────────────────
+
+  const renderSnippet = (title: string, code: string) => (
+    <div className="mb-3">
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs font-medium text-(--vestara-text-muted)">{title}</span>
+        <button
+          onClick={() => copyToClipboard(code)}
+          className="text-xs text-(--vestara-accent) hover:underline cursor-pointer"
+        >
+          Copy
+        </button>
+      </div>
+      <pre className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded p-3 text-xs text-(--vestara-text) font-mono overflow-x-auto whitespace-pre-wrap">
+        {code}
+      </pre>
+    </div>
+  );
+
+  // ── Render: test result ─────────────────────────────────
+
   const renderTestResult = () => {
-    if (testResult.status === 'loading') {
+    if (!activeTab) return null;
+    const { result } = activeTab;
+
+    if (result.status === 'loading') {
       return (
         <div className="flex items-center justify-center py-8">
-          <div className="text-sm text-zinc-600">Testing...</div>
+          <div className="text-sm text-(--vestara-text-muted)">Testing...</div>
         </div>
       );
     }
-    if (testResult.status === 'success' || testResult.status === 'error') {
-      const isSuccess = testResult.status === 'success';
+    if (result.status === 'success' || result.status === 'error') {
+      const isSuccess = result.status === 'success';
       return (
         <div>
-          <div
-            className={`flex items-center justify-between mb-3 p-3 rounded border-l-4 ${isSuccess ? 'border-l-green-500 bg-green-900/20' : 'border-l-red-500 bg-red-900/20'}`}
-          >
+          {/* Status bar */}
+          <div className="flex items-center justify-between mb-3 p-3 rounded-lg border-l-4 border-(--vestara-accent-border) bg-(--color-zinc-900)">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`} />
-              <div className={`text-sm font-medium ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
+              <span className={`text-sm font-medium ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
                 {isSuccess ? 'Success' : 'Error'}
-              </div>
-              {testResult.latency && <div className="text-xs text-zinc-600">({testResult.latency}ms)</div>}
+              </span>
+              {result.latency && <span className="text-xs text-(--vestara-text-muted)">({result.latency}ms)</span>}
             </div>
-            <button
-              onClick={() => copyToClipboard(JSON.stringify(testResult, null, 2))}
-              className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
-            >
-              Copy Result
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setViewMode((p) => (p === 'raw' ? 'tree' : 'raw'))}
+                className={`text-xs transition-colors cursor-pointer ${
+                  viewMode === 'tree' ? 'text-(--vestara-accent)' : 'text-(--vestara-text-muted) hover:text-(--vestara-text)'
+                }`}
+              >
+                {viewMode === 'tree' ? 'Tree' : 'Raw'}
+              </button>
+              <button
+                onClick={() => setShowSnippets((p) => !p)}
+                className="text-xs text-(--vestara-text-muted) hover:text-(--vestara-text) transition-colors cursor-pointer"
+              >
+                {showSnippets ? 'Hide Snippets' : 'Snippets'}
+              </button>
+              <button
+                onClick={() => copyToClipboard(JSON.stringify(result.data, null, 2))}
+                className="text-xs text-(--vestara-text-muted) hover:text-(--vestara-text) transition-colors cursor-pointer"
+              >
+                Copy
+              </button>
+            </div>
           </div>
-          {testResult.error && (
-            <div className="p-3 bg-red-900/20 border border-red-800/30 rounded text-xs text-red-400 font-mono">
-              {testResult.error}
+
+          {/* Code snippets */}
+          {showSnippets && (
+            <div className="mb-4 p-4 rounded-lg border border-(--vestara-accent-border) bg-(--color-zinc-950)">
+              <h4 className="text-xs font-semibold text-(--vestara-text) mb-3">Code Snippets</h4>
+              {renderSnippet('cURL', generateCurl(activeTab.method, resolvedUrl, { 'Content-Type': 'application/json' }, activeTab.body))}
+              {renderSnippet('fetch', generateFetch(activeTab.method, resolvedUrl, { 'Content-Type': 'application/json' }, activeTab.body))}
+              {renderSnippet('Python (requests)', generatePython(activeTab.method, resolvedUrl, { 'Content-Type': 'application/json' }, activeTab.body))}
             </div>
           )}
-          {testResult.data && (
-            <div className="mt-3">
-              <div className="text-xs font-medium text-zinc-500 mb-2">Response Body</div>
-              <div className="bg-zinc-800 border border-zinc-700 rounded p-3 max-h-96 overflow-y-auto">
-                <pre className="text-xs text-zinc-300 whitespace-pre-wrap font-mono">
-                  {JSON.stringify(testResult.data, null, 2)}
-                </pre>
+
+          {/* Error */}
+          {result.error && (
+            <div className="p-3 bg-red-400/5 border border-red-400/20 rounded-lg text-xs text-red-400 font-mono mb-3">
+              {result.error}
+            </div>
+          )}
+
+          {/* Response body */}
+          {result.data && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-medium text-(--vestara-text-muted)">Response Body</span>
+                <span className="text-[10px] text-(--vestara-text-muted)">
+                  {viewMode === 'tree' ? 'Collapsible tree view' : 'Raw JSON'}
+                </span>
               </div>
+              {viewMode === 'tree' ? (
+                <JsonTreeView data={result.data} defaultExpandDepth={2} label="response" />
+              ) : (
+                <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-lg p-3 max-h-96 overflow-y-auto">
+                  <pre className="text-xs text-(--vestara-text) whitespace-pre-wrap font-mono">
+                    {JSON.stringify(result.data, null, 2)}
+                  </pre>
+                </div>
+              )}
             </div>
           )}
         </div>
       );
     }
+
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-sm text-zinc-600">Enter endpoint details and test</div>
+        <div className="text-sm text-(--vestara-text-muted)">
+          Enter endpoint details and test — <span className="text-(--vestara-text-muted)">Ctrl+Enter</span> to send
+        </div>
       </div>
     );
   };
 
-  useEffect(() => {
-    if (selectedEndpoint?.path && !testUrl) {
-      setTestUrl(selectedEndpoint.path);
-      setTestMethod(selectedEndpoint.method);
-      if (selectedEndpoint.body) {
-        setTestBody(JSON.stringify(selectedEndpoint.body, null, 2));
-      }
-    }
-  }, [selectedEndpoint, testUrl]);
+  // ── Main render ─────────────────────────────────────────
+
+  if (!activeTab) {
+    return (
+      <div className="w-full px-4 py-12 text-center">
+        <p className="text-(--vestara-text-muted) mb-4">No tabs open</p>
+        <button
+          onClick={addTab}
+          className="px-4 py-2 bg-(--vestara-accent) text-white rounded-lg text-sm cursor-pointer"
+        >
+          New Tab
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full px-4">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-zinc-100 mb-2">API Builder</h1>
-        <p className="text-sm text-zinc-500">
-          Explore and test Vestara API endpoints. Build, document, and automate API integration.
-        </p>
+      {/* Header */}
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold text-(--vestara-text) mb-1">API Builder</h1>
+          <p className="text-sm text-(--vestara-text-muted)">
+            Explore and test Vestara API endpoints. <span className="text-(--vestara-text-muted)">Ctrl+Enter</span> to send,{' '}
+            <span className="text-(--vestara-text-muted)">Ctrl+T</span> new tab, <span className="text-(--vestara-text-muted)">Ctrl+W</span> close.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setEnvOpen((p) => !p)}
+            className={`px-3 py-1.5 rounded-lg text-xs border transition-colors cursor-pointer ${
+              envVars.baseUrl || envVars.authToken
+                ? 'border-(--vestara-accent)/50 text-(--vestara-accent)'
+                : 'border-(--vestara-accent-border) text-(--vestara-text-muted)'
+            }`}
+          >
+            {envVars.baseUrl ? 'Env: Active' : 'Environment'}
+          </button>
+          <button
+            onClick={() => fetch('/api/routes').then((r) => r.ok && r.json()).then((d) => setEndpoints(d.routes || [])).catch(() => {})}
+            className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:bg-(--color-zinc-900) transition-colors cursor-pointer"
+          >
+            Reload
+          </button>
+        </div>
       </div>
 
+      {/* Environment variables panel */}
+      {envOpen && (
+        <div className="mb-4 p-4 rounded-xl border border-(--vestara-accent-border) bg-(--color-zinc-900)">
+          <h3 className="text-sm font-semibold text-(--vestara-text) mb-3">Environment Variables</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+            <div>
+              <label className="block text-xs text-(--vestara-text-muted) mb-1">Base URL</label>
+              <input
+                type="text"
+                value={envVars.baseUrl}
+                onChange={(e) => setEnvVars((p) => { const n = { ...p, baseUrl: e.target.value }; saveEnv(n); return n; })}
+                placeholder="http://localhost:3001"
+                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-(--vestara-text-muted) mb-1">Auth Token</label>
+              <input
+                type="password"
+                value={envVars.authToken}
+                onChange={(e) => setEnvVars((p) => { const n = { ...p, authToken: e.target.value }; saveEnv(n); return n; })}
+                placeholder="Bearer token (optional)"
+                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-(--vestara-text-muted)">Tokens auto-inject as <code className="text-(--vestara-text)">Authorization: Bearer &lt;token&gt;</code> header.</p>
+        </div>
+      )}
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left: Endpoint list */}
         <div className="lg:col-span-1">
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg h-full">
-            <div className="p-5 border-b border-zinc-800">
-              <h2 className="text-sm font-semibold text-zinc-300 mb-3">Available Endpoints</h2>
+          <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl h-full">
+            <div className="p-4 border-b border-(--vestara-accent-border)">
+              <h2 className="text-sm font-semibold text-(--vestara-text) mb-3">Endpoints</h2>
               <input
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search endpoints..."
-                className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 placeholder-zinc-600 outline-none"
+                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none"
               />
             </div>
             <div className="overflow-y-auto max-h-[600px]">
@@ -209,188 +579,228 @@ export default function ApiBuilderPage() {
                 <button
                   key={`${endpoint.method}-${endpoint.path}-${index}`}
                   onClick={() => setSelectedEndpoint(endpoint)}
-                  className={`w-full text-left p-4 border-b border-zinc-800 hover:bg-zinc-800/50 transition-colors cursor-pointer ${selectedEndpoint?.path === endpoint.path ? 'bg-zinc-800/50' : ''}`}
+                  className={`w-full text-left p-4 border-b border-(--vestara-accent-border) hover:bg-(--color-zinc-800) transition-colors cursor-pointer ${
+                    selectedEndpoint?.path === endpoint.path ? 'bg-(--color-zinc-800)' : ''
+                  }`}
                 >
                   <div className="flex items-start gap-3">
-                    <span
-                      className={`
-                      px-2 py-0.5 rounded text-xs font-mono font-medium shrink-0
-                      ${endpoint.method === 'GET' ? 'bg-green-400/10 text-green-400' : ''}
-                      ${endpoint.method === 'POST' ? 'bg-blue-400/10 text-blue-400' : ''}
-                      ${endpoint.method === 'PUT' ? 'bg-amber-400/10 text-amber-400' : ''}
-                      ${endpoint.method === 'DELETE' ? 'bg-red-400/10 text-red-400' : ''}
-                      ${endpoint.method === 'PATCH' ? 'bg-purple-400/10 text-purple-400' : ''}
-                    `}
-                    >
+                    <span className={`px-2 py-0.5 rounded text-xs font-mono font-medium shrink-0 ${methodColor(endpoint.method)}`}>
                       {endpoint.method}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-xs font-medium text-zinc-300 truncate">{endpoint.path}</div>
-                      <div className="text-xs text-zinc-600 truncate mt-0.5">{endpoint.description}</div>
+                      <div className="text-xs font-medium text-(--vestara-text) truncate">{endpoint.path}</div>
+                      <div className="text-xs text-(--vestara-text-muted) truncate mt-0.5">{endpoint.description}</div>
                       {endpoint.requiresAuth && <div className="text-xs text-amber-400 mt-1">Auth required</div>}
                     </div>
                   </div>
                 </button>
               ))}
               {filteredEndpoints.length === 0 && (
-                <div className="p-8 text-center text-sm text-zinc-600">No endpoints found</div>
+                <div className="p-8 text-center text-sm text-(--vestara-text-muted)">No endpoints found</div>
               )}
             </div>
           </div>
         </div>
 
-        <div className="lg:col-span-2 flex flex-col gap-6">
-          {selectedEndpoint ? (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg">
-              <div className="p-5 border-b border-zinc-800">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-lg font-semibold text-zinc-300 flex items-center gap-2">
-                      <span
-                        className={`
-                        px-2 py-0.5 rounded text-xs font-mono
-                        ${selectedEndpoint.method === 'GET' ? 'bg-green-400/10 text-green-400' : ''}
-                        ${selectedEndpoint.method === 'POST' ? 'bg-blue-400/10 text-blue-400' : ''}
-                        ${selectedEndpoint.method === 'PUT' ? 'bg-amber-400/10 text-amber-400' : ''}
-                        ${selectedEndpoint.method === 'DELETE' ? 'bg-red-400/10 text-red-400' : ''}
-                        ${selectedEndpoint.method === 'PATCH' ? 'bg-purple-400/10 text-purple-400' : ''}
-                      `}
-                      >
-                        {selectedEndpoint.method}
-                      </span>
-                      <span className="text-zinc-300 truncate">{selectedEndpoint.path}</span>
-                    </h2>
-                    <p className="text-sm text-zinc-600 mt-1">{selectedEndpoint.description}</p>
-                  </div>
-                  <button
-                    onClick={() => useTemplate(selectedEndpoint)}
-                    className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-xs text-zinc-400 hover:text-zinc-200 hover:border-zinc-600 transition-colors cursor-pointer"
-                  >
-                    Use Template
-                  </button>
+        {/* Right: Tab bar + request builder + response */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          {/* Tab bar */}
+          <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl overflow-hidden">
+            <div className="flex items-center border-b border-(--vestara-accent-border) bg-(--color-zinc-950) overflow-x-auto">
+              {tabs.map((tab) => (
+                <div
+                  key={tab.id}
+                  className={`group flex items-center gap-1 px-3 py-2 text-xs border-r border-(--vestara-accent-border) cursor-pointer transition-colors shrink-0 min-w-0 ${
+                    tab.id === activeTabId
+                      ? 'bg-(--color-zinc-800) text-(--vestara-text) border-b-2 border-b-(--vestara-accent) mb-[-1px]'
+                      : 'text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800)'
+                  }`}
+                  onClick={() => setActiveTabId(tab.id)}
+                >
+                  {/* Inline rename */}
+                  <input
+                    ref={tab.id === activeTabId ? newTabInputRef : undefined}
+                    className={`bg-transparent border-none outline-none text-xs w-20 min-w-0 ${
+                      tab.id === activeTabId ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'
+                    }`}
+                    value={tab.name}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={(e) => renameTab(tab.id, e.target.value)}
+                  />
+                  {tabs.length > 1 && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
+                      className="text-(--vestara-text-muted) hover:text-red-400 transition-colors cursor-pointer text-xs ml-1 opacity-0 group-hover:opacity-100 shrink-0"
+                      title="Close tab"
+                    >
+                      ×
+                    </button>
+                  )}
                 </div>
-              </div>
+              ))}
+              <button
+                onClick={addTab}
+                className="px-3 py-2 text-xs text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800) transition-colors cursor-pointer shrink-0"
+                title="New tab (Ctrl+T)"
+              >
+                +
+              </button>
+            </div>
 
-              <div className="p-5 border-b border-zinc-800">
-                <h3 className="text-sm font-semibold text-zinc-400 mb-3">Request</h3>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-500 mb-1">URL</label>
-                    <input
-                      type="text"
-                      value={testUrl}
-                      onChange={(e) => setTestUrl(e.target.value)}
-                      placeholder="https://example.com/api/... or /api/..."
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 placeholder-zinc-600 outline-none font-mono"
-                    />
+            {/* Request builder (inside tab bar container) */}
+            {selectedEndpoint ? (
+              <div>
+                <div className="p-4 border-b border-(--vestara-accent-border)">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h2 className="text-base font-semibold text-(--vestara-text) flex items-center gap-2">
+                        <span className={`px-2 py-0.5 rounded text-xs font-mono ${methodColor(selectedEndpoint.method)}`}>
+                          {selectedEndpoint.method}
+                        </span>
+                        <span className="text-(--vestara-text) truncate font-mono">{selectedEndpoint.path}</span>
+                      </h2>
+                      <p className="text-xs text-(--vestara-text-muted) mt-1">{selectedEndpoint.description}</p>
+                    </div>
+                    <button
+                      onClick={() => useTemplate(selectedEndpoint)}
+                      className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800) transition-colors cursor-pointer"
+                    >
+                      Load
+                    </button>
                   </div>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* URL */}
                   <div>
-                    <label className="block text-xs font-medium text-zinc-500 mb-1">Method</label>
-                    <div className="flex gap-2">
+                    <label className="block text-xs font-medium text-(--vestara-text-muted) mb-1">URL</label>
+                    <input
+                      ref={urlInputRef}
+                      type="text"
+                      value={activeTab.url}
+                      onChange={(e) => updateActive({ url: e.target.value })}
+                      placeholder="/api/..."
+                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+                    />
+                    {envVars.baseUrl && (
+                      <p className="text-xs text-(--vestara-text-muted) mt-1">
+                        Resolves to: <span className="text-(--vestara-text)">{resolvedUrl}</span>
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Method */}
+                  <div>
+                    <label className="block text-xs font-medium text-(--vestara-text-muted) mb-1">Method</label>
+                    <div className="flex gap-2 flex-wrap">
                       {['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].map((method) => (
                         <button
                           key={method}
-                          onClick={() => setTestMethod(method as typeof testMethod)}
-                          className={`
-                            px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer
-                            ${
-                              testMethod === method
-                                ? 'bg-zinc-700 text-zinc-300 border border-zinc-600'
-                                : 'bg-zinc-800 text-zinc-600 hover:bg-zinc-700 hover:text-zinc-400'
-                            }
-                          `}
+                          onClick={() => updateActive({ method: method as TabData['method'] })}
+                          className={`px-3 py-1.5 rounded text-xs font-medium transition-colors cursor-pointer ${
+                            activeTab.method === method
+                              ? 'bg-(--color-zinc-700) text-(--vestara-text)'
+                              : 'text-(--vestara-text-muted) hover:text-(--vestara-text)'
+                          }`}
                         >
                           {method}
                         </button>
                       ))}
                     </div>
                   </div>
-                  {selectedEndpoint.body && (
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-500 mb-1">Body (JSON)</label>
-                      <textarea
-                        value={testBody}
-                        onChange={(e) => setTestBody(e.target.value)}
-                        placeholder='{"key": "value"}'
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 placeholder-zinc-600 outline-none font-mono h-24 resize-none"
-                        onFocus={(e) => e.target.select()}
-                      />
-                    </div>
-                  )}
+
+                  {/* Request body */}
                   <div>
-                    <label className="block text-xs font-medium text-zinc-500 mb-1">Headers (JSON)</label>
+                    <label className="block text-xs font-medium text-(--vestara-text-muted) mb-1">Body <span className="font-normal text-(--vestara-text-muted)">(JSON)</span></label>
                     <textarea
-                      value={testHeaders}
-                      onChange={(e) => setTestHeaders(e.target.value)}
-                      placeholder='{"Content-Type": "application/json"}'
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-xs text-zinc-300 placeholder-zinc-600 outline-none font-mono h-20 resize-none"
+                      value={activeTab.body}
+                      onChange={(e) => updateActive({ body: e.target.value })}
+                      placeholder='{"key": "value"}'
+                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-24 resize-none"
                     />
                   </div>
+
+                  {/* Headers */}
+                  <div>
+                    <label className="block text-xs font-medium text-(--vestara-text-muted) mb-1">Headers <span className="font-normal text-(--vestara-text-muted)">(JSON)</span></label>
+                    <textarea
+                      value={activeTab.headers}
+                      onChange={(e) => updateActive({ headers: e.target.value })}
+                      placeholder='{"X-Custom": "value"}'
+                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-20 resize-none"
+                    />
+                  </div>
+
+                  {/* Send button */}
+                  <button
+                    onClick={testEndpoint}
+                    disabled={activeTab.result.status === 'loading' || !activeTab.url}
+                    className="w-full px-4 py-3 bg-(--vestara-accent) text-white rounded-lg text-sm font-medium hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    {activeTab.result.status === 'loading' ? (
+                      <>Testing...</>
+                    ) : (
+                      <>Send Request <span className="text-xs opacity-60">Ctrl+Enter</span></>
+                    )}
+                  </button>
                 </div>
               </div>
+            ) : (
+              <div className="p-8 text-center text-sm text-(--vestara-text-muted)">
+                Select an endpoint from the list to begin
+              </div>
+            )}
+          </div>
 
-              <div className="p-5 border-b border-zinc-800">
-                <h3 className="text-sm font-semibold text-zinc-400 mb-3">Response</h3>
+          {/* Response */}
+          {selectedEndpoint && (
+            <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl">
+              <div className="p-4 border-b border-(--vestara-accent-border)">
+                <h3 className="text-sm font-semibold text-(--vestara-text)">Response</h3>
+              </div>
+              <div className="p-4">
                 {renderTestResult()}
-              </div>
-
-              <div className="p-5">
-                <button
-                  onClick={testEndpoint}
-                  disabled={testResult.status === 'loading' || !testUrl}
-                  className="w-full px-4 py-3 bg-zinc-900 border border-zinc-700 rounded-lg text-sm font-medium text-zinc-300 hover:bg-zinc-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer flex items-center justify-center gap-2"
-                >
-                  {testResult.status === 'loading' ? 'Testing...' : 'Test Endpoint'}
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-lg text-zinc-500 mb-2">Select an endpoint</div>
-                <div className="text-sm text-zinc-600">Choose an endpoint from the list to test it</div>
               </div>
             </div>
           )}
 
-          {responseHistory.length > 0 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg">
-              <div className="p-5 border-b border-zinc-800">
-                <h3 className="text-sm font-semibold text-zinc-400">Request History</h3>
+          {/* Per-tab Request History */}
+          {activeTab.history.length > 0 && (
+            <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl">
+              <div className="p-4 border-b border-(--vestara-accent-border) flex items-center justify-between">
+                <h3 className="text-sm font-semibold text-(--vestara-text)">
+                  Request History <span className="text-(--vestara-text-muted) font-normal">({activeTab.history.length})</span>
+                </h3>
+                <button
+                  onClick={clearHistory}
+                  className="text-xs text-(--vestara-text-muted) hover:text-red-400 transition-colors cursor-pointer"
+                >
+                  Clear
+                </button>
               </div>
               <div className="max-h-64 overflow-y-auto">
-                {responseHistory.map((item, index) => (
-                  <div
+                {activeTab.history.map((item, index) => (
+                  <button
                     key={index}
-                    className="p-4 border-b border-zinc-800 last:border-b-0 hover:bg-zinc-800/50 cursor-pointer"
-                    onClick={() => {
-                      setSelectedEndpoint({
-                        path: '/api/generic',
-                        method: 'GET',
-                        description: `Request from ${new Date(item.timestamp).toLocaleTimeString()}`,
-                      } as any);
-                      setTestUrl(item.request.url);
-                      setTestMethod(item.request.method as any);
-                      setTestResult({ status: 'success', data: item.response, latency: 0 });
-                    }}
+                    onClick={() => restoreHistory(item)}
+                    className="w-full text-left p-3 border-b border-(--vestara-accent-border) last:border-b-0 hover:bg-(--color-zinc-800) transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
-                        <div className="text-xs text-zinc-600 font-mono">
-                          {new Date(item.timestamp).toLocaleTimeString()}
-                        </div>
-                        <div className="text-xs text-zinc-400">
-                          {item.request.method} {item.request.url.split('/').slice(-2).join('/')}
-                        </div>
+                        <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${methodColor(item.request.method)}`}>
+                          {item.request.method}
+                        </span>
+                        <span className="text-xs text-(--vestara-text) truncate max-w-[200px] font-mono">
+                          {item.request.url.replace(/^https?:\/\/[^/]+/, '')}
+                        </span>
                       </div>
-                      <div className="text-xs text-zinc-600">
-                        {item.request.method === 'GET' ? 'GET' : item.request.method}
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-(--vestara-text-muted)">{item.latency}ms</span>
+                        <span className="text-[10px] text-(--vestara-text-muted)">{new Date(item.timestamp).toLocaleTimeString()}</span>
                       </div>
                     </div>
-                    <div className="text-xs text-zinc-500 truncate">
-                      {JSON.stringify(item.request, null, 1).slice(0, 100)}...
-                    </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>

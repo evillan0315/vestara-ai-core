@@ -1,6 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import WorkflowPipeline from '../components/WorkflowPipeline';
+import { approvePlan, implementPlan, verifyChangeSet } from '../lib/api';
+import StatCard from '../components/dashboard/StatCard';
 import SessionTimeline from '../components/SessionTimeline';
+import WorkflowPipeline from '../components/WorkflowPipeline';
+
+function formatRelativeTime(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const sec = Math.floor(diff / 1000);
+  if (sec < 10) return 'just now';
+  if (sec < 60) return `${sec}s ago`;
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  const days = Math.floor(hr / 24);
+  return `${days}d ago`;
+}
+
+function formatDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
+  return `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`;
+}
 
 interface Plan {
   id: string;
@@ -86,6 +107,11 @@ export default function Artifacts() {
   const [analyzing, setAnalyzing] = useState(false);
   const [showAnalysis, setShowAnalysis] = useState(false);
   const [selectedItem, setSelectedItem] = useState<any>(null);
+  const [planActionLoading, setPlanActionLoading] = useState<string | null>(null);
+  const [generatedChangeSets, setGeneratedChangeSets] = useState<Record<string, string>>({});
+  const [verificationResults, setVerificationResults] = useState<Record<string, string>>({});
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
 
   const load = useCallback(async () => {
     try {
@@ -108,6 +134,34 @@ export default function Artifacts() {
     } catch {}
     setLoading(false);
   }, []);
+
+  // Plan action handlers
+  const handleApprove = useCallback(async (planId: string) => {
+    setPlanActionLoading(`approve-${planId}`);
+    const ok = await approvePlan(planId);
+    if (ok) load();
+    setPlanActionLoading(null);
+  }, [load]);
+
+  const handleImplement = useCallback(async (planId: string) => {
+    setPlanActionLoading(`implement-${planId}`);
+    const result = await implementPlan(planId);
+    if (result?.changeSet) {
+      setGeneratedChangeSets((prev) => ({ ...prev, [planId]: result.changeSet.id }));
+    }
+    load();
+    setPlanActionLoading(null);
+  }, [load]);
+
+  const handleVerify = useCallback(async (changeSetId: string) => {
+    setPlanActionLoading(`verify-${changeSetId}`);
+    const result = await verifyChangeSet(changeSetId);
+    if (result?.report) {
+      setVerificationResults((prev) => ({ ...prev, [changeSetId]: result.report.status }));
+    }
+    load();
+    setPlanActionLoading(null);
+  }, [load]);
 
   useEffect(() => {
     load();
@@ -163,15 +217,15 @@ export default function Artifacts() {
   );
 
   if (loading)
-    return <div className="w-full px-4 py-16 text-center text-zinc-600 animate-pulse">Loading artifacts...</div>;
+    return <div className="w-full px-4 py-16 text-center text-[var(--vestara-text-muted)] animate-pulse">Loading artifacts...</div>;
 
   return (
     <div className="w-full px-4">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Artifact Explorer</h1>
-          <p className="text-[10px] text-zinc-600 mt-1">
+          <h1 className="text-lg font-bold text-[var(--vestara-text)]">Artifact Explorer</h1>
+          <p className="text-[10px] text-[var(--vestara-text-muted)] mt-1">
             {totalArtifacts} artifacts across {exSessions.length} execution sessions
           </p>
         </div>
@@ -198,7 +252,7 @@ export default function Artifacts() {
           </button>
           <button
             onClick={load}
-            className="text-xs px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="text-xs px-2 py-1.5 bg-zinc-800 border border-zinc-700 text-[var(--vestara-text-muted)] rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
             title="Refresh"
           >
             ↻
@@ -207,20 +261,30 @@ export default function Artifacts() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
-        {[
-          { label: 'Plans', value: plans.length, color: 'text-accent' },
-          { label: 'Change Sets', value: changeSets.length, color: 'text-cyan-400' },
-          { label: 'Verifications', value: verifications.length, color: 'text-green-400' },
-          { label: 'Approvals', value: collab.length, color: 'text-pink-400' },
-          { label: 'Sessions', value: exSessions.length, color: 'text-blue-400' },
-          { label: 'Active', value: activeSession ? 1 : 0, color: activeSession ? 'text-green-400' : 'text-zinc-600' },
-        ].map(({ label, value, color }) => (
-          <div key={label} className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
-            <div className="text-[9px] text-zinc-600 uppercase tracking-wider">{label}</div>
-            <div className={`text-lg font-bold mt-1 ${color}`}>{value}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">
+        <StatCard label="Plans" value={plans.length} accent="#8b5cf6" />
+        <StatCard label="Change Sets" value={changeSets.length} accent="#06b6d4" />
+        <StatCard label="Verifications" value={verifications.length} accent="#10b981" />
+        <StatCard label="Approvals" value={collab.length} accent="#ec4899" />
+        <StatCard label="Sessions" value={exSessions.length} accent="#3b82f6" />
+        <StatCard label="Active" value={activeSession ? 1 : 0} accent={activeSession ? '#10b981' : '#52525b'} sub={activeSession ? 'Running' : undefined} />
+      </div>
+
+      {/* Search + Filter */}
+      <div className="flex items-center gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-0 max-w-xs">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-700 text-[11px]">🔍</span>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search artifacts..." className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" />
+        </div>
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-zinc-800 border border-zinc-700 text-[var(--vestara-text)] rounded-lg px-2 py-1.5 text-xs outline-none cursor-pointer">
+          <option value="all">All Status</option>
+          <option value="completed">Completed</option>
+          <option value="failed">Failed</option>
+          <option value="running">Running</option>
+          <option value="draft">Draft</option>
+        </select>
+        <span className="text-[10px] text-zinc-700 ml-auto">{totalArtifacts} total</span>
+        <button onClick={load} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm" title="Refresh">↻</button>
       </div>
 
       {/* Session selector */}
@@ -278,7 +342,7 @@ export default function Artifacts() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
-                  <div className="text-lg font-bold text-zinc-200">{analysis.metrics?.totalFiles || 0}</div>
+                    <div className="text-lg font-bold text-[var(--vestara-text)]">{analysis.metrics?.totalFiles || 0}</div>
                   <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Files</div>
                 </div>
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
@@ -361,8 +425,11 @@ export default function Artifacts() {
           {totalArtifacts === 0 && exSessions.length === 0 && (
             <div className="flex flex-col items-center justify-center py-14 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
               <div className="text-2xl mb-2 opacity-30">◇</div>
-              <p className="text-sm text-zinc-500 mb-1">No artifacts yet</p>
+              <p className="text-sm text-[var(--vestara-text-muted)] mb-1">No artifacts yet</p>
               <p className="text-xs text-zinc-700">Create a plan or start a workflow to build the artifact chain</p>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => window.location.href = '/ops'} className="text-xs px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer">Go to Ops Center</button>
+              </div>
             </div>
           )}
 
@@ -419,7 +486,7 @@ export default function Artifacts() {
                           >
                             <div className="flex items-center gap-2.5">
                               <StatusDot status={item.status} />
-                              <span className="text-sm text-zinc-300 truncate flex-1 font-medium">
+                              <span className="text-sm text-[var(--vestara-text)] truncate flex-1 font-medium">
                                 {item.title || item.goal || item.message || item.name || item.id}
                               </span>
                               <StatusBadge status={item.status} />
@@ -432,6 +499,39 @@ export default function Artifacts() {
                                   {(item.taskCount ?? item.tasks?.length) !== undefined && (
                                     <span>{item.taskCount ?? item.tasks?.length} tasks</span>
                                   )}
+                                  <div className="flex items-center gap-1 ml-auto">
+                                    {item.status === 'draft' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleApprove(item.id); }}
+                                        disabled={planActionLoading === `approve-${item.id}`}
+                                        className="text-[8px] px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 hover:bg-blue-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
+                                      >
+                                        {planActionLoading === `approve-${item.id}` ? '...' : 'Approve'}
+                                      </button>
+                                    )}
+                                    {item.status === 'approved' && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleImplement(item.id); }}
+                                        disabled={planActionLoading === `implement-${item.id}`}
+                                        className="text-[8px] px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
+                                      >
+                                        {planActionLoading === `implement-${item.id}` ? '...' : 'Implement'}
+                                      </button>
+                                    )}
+                                    {generatedChangeSets[item.id] && (
+                                      <button
+                                        onClick={(e) => { e.stopPropagation(); handleVerify(generatedChangeSets[item.id]); }}
+                                        disabled={planActionLoading === `verify-${generatedChangeSets[item.id]}`}
+                                        className="text-[8px] px-1.5 py-0.5 rounded bg-green-400/10 text-green-400 hover:bg-green-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
+                                      >
+                                        {planActionLoading === `verify-${generatedChangeSets[item.id]}`
+                                          ? '...'
+                                          : verificationResults[generatedChangeSets[item.id]]
+                                            ? verificationResults[generatedChangeSets[item.id]] === 'passed' ? '✓ Verified' : '✗ Failed'
+                                            : 'Verify'}
+                                      </button>
+                                    )}
+                                  </div>
                                 </>
                               )}
                               {item._type === 'changeset' && (

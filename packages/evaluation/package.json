@@ -11,13 +11,9 @@
     "evaluate": "node dist/cli.js"
   },
   "dependencies": {
-    "@vestara/understanding": "workspace:*",
-    "@vestara/workspace": "workspace:*"
+    "@vestara/understanding": "workspace:*"
   },
   "devDependencies": {
-    "@vestara/knowledge": "workspace:*",
-    "@vestara/memory": "workspace:*",
-    "@vestara/conversation": "workspace:*",
     "vitest": "^4.1.10"
   }
 }

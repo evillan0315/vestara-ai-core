@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
+import { ConversationItem } from './ConversationItem';
 import type { ConversationData } from './types';
 import { getRelativeDateGroup } from './utils';
-import { ConversationItem } from './ConversationItem';
 
 interface ConversationListProps {
   conversations: ConversationData[];

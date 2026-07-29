@@ -22,6 +22,32 @@ const RESET = '\x1b[0m';
 const BOLD = '\x1b[1m';
 const GRAY = '\x1b[90m';
 
+function isRateLimitError(err: any): boolean {
+  const msg = err?.message ?? err?.toString?.() ?? '';
+  return (
+    msg.includes('429') ||
+    msg.includes('RateLimit') ||
+    msg.includes('rate limit') ||
+    msg.includes('FreeUsageLimitError')
+  );
+}
+
+function renderRateLimitHint(): string {
+  return [
+    `${GOLD}╔═══════════════════════════════════════════════════════════╗${RESET}`,
+    `${GOLD}║${RESET}  OpenCode free tier rate limit reached.                ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}                                                       ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}  Options:                                              ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}    ${BOLD}1. Wait${RESET} a few minutes and try again.                ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}    ${BOLD}2. Use a local provider${RESET} (Ollama):                    ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}       vestara provider add-local ollama               ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}       vestara provider model enable ollama <model>    ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}    ${BOLD}3. Add another remote provider${RESET}:                    ${GOLD}║${RESET}`,
+    `${GOLD}║${RESET}       vestara provider add <id> --base-url <url>      ${GOLD}║${RESET}`,
+    `${GOLD}╚═══════════════════════════════════════════════════════════╝${RESET}`,
+  ].join('\n');
+}
+
 export async function startWorkspaceRepl(
   kernel: DefaultKernel,
   runtime: WorkspaceRuntime,
@@ -87,8 +113,8 @@ export async function startWorkspaceRepl(
         const help = new HelpService();
         process.stdout.write(`\n${help.renderTopicList()}\n`);
         console.log(`${GRAY}  Use "help <topic>" for details (e.g., "help plan")${RESET}`);
-      } catch {
-        /* fallback */
+      } catch (error) {
+        console.log(`${GRAY}Help system unavailable${RESET}`);
       }
       rl.prompt();
       return;
@@ -105,8 +131,8 @@ export async function startWorkspaceRepl(
         } else {
           process.stdout.write(`\n${help.renderTopic(t)}\n`);
         }
-      } catch {
-        /* fallback */
+      } catch (error) {
+        console.log(`${GRAY}  Help topic "${topic}" unavailable${RESET}`);
       }
       rl.prompt();
       return;
@@ -209,6 +235,38 @@ export async function startWorkspaceRepl(
         rl.prompt();
         return;
       }
+
+      // Validate against provider registry from manifest
+      if (key === 'model' || key === 'provider') {
+        try {
+          const { WorkspaceManifest } = await import('@vestara/workspace');
+          const manifest = await WorkspaceManifest.load(session.workspaceDir);
+          const providers = manifest?.providers ?? [];
+          if (key === 'provider' && providers.length > 0) {
+            const match = providers.find((p: any) => p.id === value);
+            if (!match) {
+              console.log(`\n${RED}  Provider "${value}" not found in registry.${RESET}`);
+              console.log(`  ${GRAY}  To add it: vestara provider add ${value} --base-url <url>${RESET}\n`);
+              rl.prompt();
+              return;
+            }
+          }
+          if (key === 'model' && providers.length > 0) {
+            const currentProvider = session.prefs.get('provider');
+            const prov = providers.find((p: any) => p.id === currentProvider);
+            if (prov) {
+              const match = prov.models.find((m: any) => m.id === value);
+              if (!match) {
+                console.log(`\n${GOLD}  ⚠ Model "${value}" not registered for provider "${currentProvider}".${RESET}`);
+                console.log(`  ${GRAY}  Add it: vestara provider model add ${currentProvider} ${value}${RESET}\n`);
+                rl.prompt();
+                return;
+              }
+            }
+          }
+        } catch {}
+      }
+
       session.prefs.set(key, value);
       console.log(`\n${GREEN}  ${key} updated to: ${value}${RESET}\n`);
       rl.prompt();
@@ -218,6 +276,20 @@ export async function startWorkspaceRepl(
     if (input === 'config list' || input === 'config') {
       try {
         process.stdout.write(`\n${session.prefs.renderAll()}\n`);
+        // Show active provider/model from registry
+        const { WorkspaceManifest } = await import('@vestara/workspace');
+        const manifest = await WorkspaceManifest.load(session.workspaceDir);
+        if (manifest?.providers && manifest.providers.length > 0) {
+          const activeProv = manifest.providers.find((p: any) => p.enabled);
+          if (activeProv) {
+            const activeModels = activeProv.models.filter((m: any) => m.enabled).map((m: any) => m.id);
+            console.log(`\n  Provider Registry: ${manifest.providers.length} provider(s) configured`);
+            console.log(`  Active: ${activeProv.id} (${activeModels.length} model(s) enabled)`);
+            if (activeModels.length > 0) console.log(`  Models: ${activeModels.join(', ')}`);
+          } else {
+            console.log(`\n  ${GOLD}⚠ No enabled providers in registry${RESET}`);
+          }
+        }
       } catch (e: any) {
         console.log(`\n${RED}  Error: ${e.message}${RESET}\n`);
       }
@@ -2344,7 +2416,13 @@ export async function startWorkspaceRepl(
             } else if (chunk.type === 'reasoning' && chunk.content) {
               process.stdout.write(`${GRAY}${chunk.content}${RESET}`);
             } else if (chunk.type === 'error' && chunk.content) {
-              process.stdout.write(`\n${RED}Error: ${chunk.content}${RESET}`);
+              if (isRateLimitError(chunk)) {
+                process.stdout.write(`\n${RED}Rate limit exceeded.${RESET}\n\n`);
+                process.stdout.write(renderRateLimitHint());
+                process.stdout.write('\n');
+              } else {
+                process.stdout.write(`\n${RED}Error: ${chunk.content}${RESET}`);
+              }
             }
           }
           console.log();
@@ -2358,7 +2436,13 @@ export async function startWorkspaceRepl(
             });
             console.log(`\n${result.response.content}\n`);
           } catch (err: any) {
-            console.log(`\n${RED}Error: ${err.message}${RESET}\n`);
+            if (isRateLimitError(err)) {
+              console.log(`\n${RED}Rate limit exceeded.${RESET}\n`);
+              console.log(renderRateLimitHint());
+              console.log();
+            } else {
+              console.log(`\n${RED}Error: ${err.message}${RESET}\n`);
+            }
           }
         }
       } else {

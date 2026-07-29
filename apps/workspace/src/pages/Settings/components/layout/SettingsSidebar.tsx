@@ -6,8 +6,8 @@
  *   Natural Law: Identity precedes responsibility
  */
 
-import { useLocation, useNavigate } from 'react-router-dom';
 import type { SettingsModule } from '@vestara/settings-framework';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface SettingsSidebarProps {
   modules: SettingsModule[];
@@ -37,8 +37,8 @@ export default function SettingsSidebar({ modules, basePath = '/settings' }: Set
             w-full text-left px-4 py-2 text-sm rounded-md transition-colors
             ${
               active
-                ? 'bg-[var(--accent-primary)] text-[var(--text-inverse)]'
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--vestara-accent)] text-white'
+                : 'text-[var(--vestara-text-2)] hover:bg-[var(--color-zinc-800)] hover:text-[var(--vestara-text)]'
             }
           `}
           style={{ paddingLeft: `${16 + depth * 16}px` }}
@@ -52,9 +52,9 @@ export default function SettingsSidebar({ modules, basePath = '/settings' }: Set
   };
 
   return (
-    <nav className="w-64 border-r border-[var(--border-primary)] bg-[var(--bg-secondary)] p-4">
+    <nav className="w-64 border-r border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)] p-4">
       <div className="mb-4">
-        <h2 className="text-lg font-semibold text-[var(--text-primary)]">Settings</h2>
+        <h2 className="text-lg font-semibold text-[var(--vestara-text)]">Settings</h2>
       </div>
       <div className="space-y-1">{rootModules.map((module) => renderItem(module))}</div>
     </nav>

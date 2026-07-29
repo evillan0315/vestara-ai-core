@@ -9,11 +9,8 @@
  * references the same snapshot id.
  */
 
+import type { WorkspaceObservation } from '@vestara/understanding';
 import { describe, expect, it } from 'vitest';
-import type {
-  WorkspaceObservation,
-  WorkspaceUnderstanding,
-} from '@vestara/understanding';
 import { UnderstandingContextAssembler } from '../src/understanding-context-assembler';
 
 // ── Helpers ──────────────────────────────────────────────────
@@ -56,9 +53,7 @@ function createMinimalObservation(): WorkspaceObservation {
       detectedBuildTool: 'tsc',
       detectedTestFramework: 'vitest',
     },
-    entryPoints: [
-      { path: 'src/index.ts', type: 'app', source: 'convention' },
-    ],
+    entryPoints: [{ path: 'src/index.ts', type: 'app', source: 'convention' }],
     health: {
       overall: 7.5,
       codeQuality: 8.0,
@@ -66,7 +61,12 @@ function createMinimalObservation(): WorkspaceObservation {
       dependencyHealth: 9.0,
       documentation: 7.0,
       risks: [
-        { category: 'missing-tests', severity: 'medium', location: 'src/utils.ts', detail: 'Some modules lack test coverage' },
+        {
+          category: 'missing-tests',
+          severity: 'medium',
+          location: 'src/utils.ts',
+          detail: 'Some modules lack test coverage',
+        },
       ],
     },
     gitActivity: {
@@ -110,14 +110,21 @@ function createInvalidObservation(): WorkspaceObservation {
     languageSignals: [],
     dependencies: { packages: [], totalDependencies: 0, totalDevDependencies: 0 },
     config: {
-      hasPackageJson: false, hasTsconfig: false, hasDocker: false, hasCI: false,
-      isMonorepo: false, detectedPackageManager: null, detectedBuildTool: null, detectedTestFramework: null,
+      hasPackageJson: false,
+      hasTsconfig: false,
+      hasDocker: false,
+      hasCI: false,
+      isMonorepo: false,
+      detectedPackageManager: null,
+      detectedBuildTool: null,
+      detectedTestFramework: null,
     },
     entryPoints: [],
     health: { overall: 0, codeQuality: 0, testCoverage: 0, dependencyHealth: 0, documentation: 0, risks: [] },
     gitActivity: { recentCommits: [], activeBranches: [], uncommittedChanges: 0, filesChangedSinceOpen: [] },
     workspace: {
-      status: 'ready', lastOpenedAt: null,
+      status: 'ready',
+      lastOpenedAt: null,
       knowledge: { documentsIndexed: 0, chunksCreated: 0, lastIndexedAt: null },
       memory: { totalCount: 0, lastConsolidatedAt: null, recentMemories: [] },
       preferences: { activeProvider: null, activeModel: null, autoIndexEnabled: true },
@@ -178,7 +185,15 @@ describe('SharedUnderstandingContract', () => {
 
       const assembler = new UnderstandingContextAssembler(understanding);
       const request = assembler.buildContext(
-        { id: 'conv-1', title: 'Test', messages: [], metadata: { model: 'test', provider: 'test', tokens: 0, cost: 0, latency: 0 }, status: 'active', createdAt: '', updatedAt: '' },
+        {
+          id: 'conv-1',
+          title: 'Test',
+          messages: [],
+          metadata: { model: 'test', provider: 'test', tokens: 0, cost: 0, latency: 0 },
+          status: 'active',
+          createdAt: '',
+          updatedAt: '',
+        },
         'What should I work on?',
       );
 
@@ -193,7 +208,15 @@ describe('SharedUnderstandingContract', () => {
       const fallback = 'You are Vestara, a helpful assistant.';
       const assembler = new UnderstandingContextAssembler(null, fallback);
       const request = assembler.buildContext(
-        { id: 'conv-1', title: 'Test', messages: [], metadata: { model: 'test', provider: 'test', tokens: 0, cost: 0, latency: 0 }, status: 'active', createdAt: '', updatedAt: '' },
+        {
+          id: 'conv-1',
+          title: 'Test',
+          messages: [],
+          metadata: { model: 'test', provider: 'test', tokens: 0, cost: 0, latency: 0 },
+          status: 'active',
+          createdAt: '',
+          updatedAt: '',
+        },
         'Hello',
       );
 
@@ -214,8 +237,8 @@ describe('SharedUnderstandingContract', () => {
       const assembler2 = new UnderstandingContextAssembler(understanding);
 
       // Both assemblers carry the same snapshot id
-      expect(assembler1['understanding']?.id).toBe(understanding.id);
-      expect(assembler2['understanding']?.id).toBe(understanding.id);
+      expect(assembler1.understanding?.id).toBe(understanding.id);
+      expect(assembler2.understanding?.id).toBe(understanding.id);
 
       // The id is consistent: same observation → same id
       const observation2 = createMinimalObservation();

@@ -1,7 +1,7 @@
-import type { FC } from 'react';
+import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
 
 import KeyboardRounded from '@mui/icons-material/KeyboardRounded';
-import ChevronLeftRounded from '@mui/icons-material/ChevronLeftRounded';
+import type { FC } from 'react';
 
 export interface SidebarFooterProps {
   version: string;

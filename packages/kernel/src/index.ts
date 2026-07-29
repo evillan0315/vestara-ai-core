@@ -265,8 +265,27 @@ export class DefaultKernel implements VestaraKernel {
       const { DefaultJobManager } = await import('./job-manager.js');
       this._jobManager = new DefaultJobManager(this._jobScheduler);
 
-      // Register kernel itself
-      await this._registry.register(this as unknown as VestaraService, ['kernel', 'lifecycle']);
+      // Register kernel itself with a proper health() implementation.
+      // Methods are on the prototype so we bind them explicitly.
+      const kernelService: VestaraService = {
+        id: this.id,
+        version: this.version,
+        status: this._status as VestaraService['status'],
+        initialize: (c) => this.initialize(c),
+        start: () => this.start(),
+        stop: () => this.stop(),
+        dispose: () => this.dispose(),
+        health: async () => ({
+          status:
+            this._status === 'running' ? 'healthy' : this._status === 'degraded' ? 'degraded' : ('unhealthy' as const),
+          serviceId: this.id,
+          version: this.version,
+          uptime: this.uptime,
+          lastHealthCheck: new Date().toISOString(),
+          dependencies: [],
+        }),
+      };
+      await this._registry.register(kernelService, ['kernel', 'lifecycle']);
 
       // Step 13: Register workers (if configured)
       if (options.workers) {

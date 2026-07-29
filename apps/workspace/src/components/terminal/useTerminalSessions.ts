@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { TerminalSession, SessionStatus, ProcessStatus } from './types';
+import type { ProcessStatus, SessionStatus, TerminalSession } from './types';
 
 let sessionCounter = 0;
 function genId(): string {

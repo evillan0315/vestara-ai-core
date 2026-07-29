@@ -1,5 +1,5 @@
-import DashboardSection from '../DashboardSection';
 import type { DragSectionProps } from '../DashboardSection';
+import DashboardSection from '../DashboardSection';
 
 interface RecentSessionsSectionProps {
   execSessions: Record<string, unknown>[];

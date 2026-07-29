@@ -10,25 +10,43 @@ export function StateCard({ data }: { data: UnderstandingData }) {
       <div className="space-y-2 text-sm">
         <div className="flex justify-between">
           <span className="text-[var(--vestara-text-2)]">Status</span>
-          <span className={`font-medium capitalize ${
-            s.status === 'ready' ? 'text-[var(--vestara-green)]' : 'text-amber-500'
-          }`}>{s.status}</span>
+          <span
+            className={`font-medium capitalize ${
+              s.status === 'ready' ? 'text-[var(--vestara-green)]' : 'text-amber-500'
+            }`}
+          >
+            {s.status}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-[var(--vestara-text-2)]">Indexed</span>
-          <span className={`font-medium ${s.isIndexed ? 'text-[var(--vestara-green)]' : 'text-[var(--vestara-text-muted)]'}`}>
+          <span
+            className={`font-medium ${s.isIndexed ? 'text-[var(--vestara-green)]' : 'text-[var(--vestara-text-muted)]'}`}
+          >
             {s.isIndexed ? 'Yes' : 'No'}
           </span>
         </div>
         <div className="flex justify-between">
           <span className="text-[var(--vestara-text-2)]">Index Freshness</span>
-          <span className={`font-medium capitalize ${
-            s.indexFreshness === 'fresh' ? 'text-[var(--vestara-green)]' : s.indexFreshness === 'stale' ? 'text-amber-500' : 'text-[var(--vestara-red)]'
-          }`}>{s.indexFreshness}</span>
+          <span
+            className={`font-medium capitalize ${
+              s.indexFreshness === 'fresh'
+                ? 'text-[var(--vestara-green)]'
+                : s.indexFreshness === 'stale'
+                  ? 'text-amber-500'
+                  : 'text-[var(--vestara-red)]'
+            }`}
+          >
+            {s.indexFreshness}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-[var(--vestara-text-2)]">Cached</span>
-          <span className={`font-medium ${s.isCached ? 'text-[var(--vestara-green)]' : 'text-[var(--vestara-text-muted)]'}`}>{s.isCached ? 'Yes' : 'No'}</span>
+          <span
+            className={`font-medium ${s.isCached ? 'text-[var(--vestara-green)]' : 'text-[var(--vestara-text-muted)]'}`}
+          >
+            {s.isCached ? 'Yes' : 'No'}
+          </span>
         </div>
         <div className="flex justify-between">
           <span className="text-[var(--vestara-text-2)]">Snapshot</span>

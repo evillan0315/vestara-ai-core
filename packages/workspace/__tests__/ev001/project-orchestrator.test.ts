@@ -1,13 +1,12 @@
-import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
-import { HardcodedProjectPlanner } from '../../src/ev001/hardcoded-planner';
+import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { AiProjectPlanner } from '../../src/ev001/ai-project-planner';
-import { ProjectWorkflow } from '../../src/ev001/project-workflow';
-import { ProjectOrchestrator } from '../../src/ev001/project-orchestrator';
-import { MemoryContextService } from '../../src/ev001/planning-context';
+import { HardcodedProjectPlanner } from '../../src/ev001/hardcoded-planner';
 import type { PlanningContext } from '../../src/ev001/planning-context';
+import { ProjectOrchestrator } from '../../src/ev001/project-orchestrator';
+import { ProjectWorkflow } from '../../src/ev001/project-workflow';
 
 const TEST_DIR = path.join(os.tmpdir(), `vestara-ev002-${Date.now()}`);
 
@@ -42,8 +41,7 @@ describe('EV-002: Project Continuity', () => {
     it('detects resume vs new project', async () => {
       const newContext = makeContext({ architectureDecisions: [], outstandingWork: [] });
       const resumeContext = makeContext({ architectureDecisions: ['React'], outstandingWork: [] });
-      const hasResume = (c: PlanningContext) =>
-        c.architectureDecisions.length > 0 || c.outstandingWork.length > 0;
+      const hasResume = (c: PlanningContext) => c.architectureDecisions.length > 0 || c.outstandingWork.length > 0;
 
       expect(hasResume(newContext)).toBe(false);
       expect(hasResume(resumeContext)).toBe(true);

@@ -25,7 +25,10 @@ export default function OpsExecutionsModal({ execution, agents, onClose, formatD
       >
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-sm font-semibold text-[var(--color-zinc-200)]">Execution Details</h3>
-          <button onClick={onClose} className="text-[var(--color-zinc-600)] hover:text-[var(--color-zinc-400)] text-base cursor-pointer">
+          <button
+            onClick={onClose}
+            className="text-[var(--color-zinc-600)] hover:text-[var(--color-zinc-400)] text-base cursor-pointer"
+          >
             ✕
           </button>
         </div>
@@ -41,7 +44,9 @@ export default function OpsExecutionsModal({ execution, agents, onClose, formatD
             </div>
             <div>
               <span className="text-[var(--color-zinc-600)] text-[10px]">Started</span>
-              <div className="text-[var(--color-zinc-300)] text-[11px] mt-0.5">{new Date(execution.startedAt).toLocaleString()}</div>
+              <div className="text-[var(--color-zinc-300)] text-[11px] mt-0.5">
+                {new Date(execution.startedAt).toLocaleString()}
+              </div>
             </div>
             {execution.completedAt && (
               <div>
@@ -59,14 +64,18 @@ export default function OpsExecutionsModal({ execution, agents, onClose, formatD
             </div>
           </div>
           <div className="pt-2 border-t border-[var(--color-zinc-700)]">
-            <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">Task</div>
+            <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">
+              Task
+            </div>
             <div className="text-xs text-[var(--color-zinc-300)] leading-relaxed bg-[var(--color-zinc-800)]/50 border border-[var(--color-zinc-700)]/50 rounded-lg p-3">
               {execution.task}
             </div>
           </div>
           {execution.result && (
             <div className="pt-2 border-t border-[var(--color-zinc-700)]">
-              <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">Result</div>
+              <div className="text-[9px] font-semibold text-[var(--color-zinc-500)] uppercase tracking-wider mb-1.5">
+                Result
+              </div>
               <div
                 className="text-xs text-[var(--color-zinc-300)] leading-relaxed bg-[var(--color-zinc-800)]/50 border border-[var(--color-zinc-700)]/50 rounded-lg p-3 max-h-48"
                 style={{ overflowY: 'scroll' }}

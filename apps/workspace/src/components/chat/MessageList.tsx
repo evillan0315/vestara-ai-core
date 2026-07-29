@@ -1,16 +1,16 @@
-import { useRef, useEffect, useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import rehypeHighlight from 'rehype-highlight';
-import type { ChatMessage } from './types';
-import { getDateLabel, getFollowUps } from './utils';
-import { UserMessage } from './UserMessage';
+import remarkGfm from 'remark-gfm';
 import { AssistantMessage } from './AssistantMessage';
-import { ThinkingIndicator } from './ThinkingIndicator';
 import { ChatEmptyState } from './ChatEmptyState';
-import { ScrollToLatest } from './ScrollToLatest';
 import { ChatError } from './ChatError';
 import { CodeBlock, Table } from './CodeBlock';
+import { ScrollToLatest } from './ScrollToLatest';
+import { ThinkingIndicator } from './ThinkingIndicator';
+import type { ChatMessage } from './types';
+import { UserMessage } from './UserMessage';
+import { getDateLabel, getFollowUps } from './utils';
 
 interface MessageListProps {
   messages: ChatMessage[];

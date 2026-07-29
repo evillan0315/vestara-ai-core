@@ -5,6 +5,7 @@ import type {
   ModelInfo,
   ProviderHealth,
   StreamChunk,
+  ToolDefinition,
 } from '@vestara/shared';
 
 export interface OpenAICompatConfig {
@@ -39,21 +40,37 @@ export class OpenAICompatibleProvider implements ConversationProvider {
 
   async complete(request: ConversationRequest): Promise<ConversationResponse> {
     const baseUrl = this.config.baseUrl ?? 'https://api.openai.com/v1';
-    const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY ?? '';
+    const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+    const body: Record<string, unknown> = {
+      model: request.model ?? this._model,
+      messages: request.messages,
+      temperature: request.temperature,
+      max_tokens: request.maxTokens,
+      stream: false,
+    };
+    if (request.tools && request.tools.length > 0) {
+      body.tools = request.tools.map((t) => ({
+        type: 'function',
+        function: {
+          name: t.id,
+          description: t.description,
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
+      }));
+    }
 
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: request.model ?? this._model,
-        messages: request.messages,
-        temperature: request.temperature,
-        max_tokens: request.maxTokens,
-        stream: false,
-      }),
+      headers,
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
     });
 
@@ -65,7 +82,12 @@ export class OpenAICompatibleProvider implements ConversationProvider {
     const data = (await res.json()) as {
       id: string;
       model: string;
-      choices: Array<{ message: { content: string } }>;
+      choices: Array<{
+        message: {
+          content?: string;
+          tool_calls?: Array<{ id: string; function: { name: string; arguments: string } }>;
+        };
+      }>;
       usage: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
     };
 
@@ -85,26 +107,41 @@ export class OpenAICompatibleProvider implements ConversationProvider {
 
   async *stream(request: ConversationRequest): AsyncIterable<StreamChunk> {
     const baseUrl = this.config.baseUrl ?? 'https://api.openai.com/v1';
-    const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY ?? '';
+    const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY;
+
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+
+    const body: Record<string, unknown> = {
+      model: request.model ?? this._model,
+      messages: request.messages,
+      temperature: request.temperature,
+      max_tokens: request.maxTokens,
+      stream: true,
+    };
+    if (request.tools && request.tools.length > 0) {
+      body.tools = request.tools.map((t) => ({
+        type: 'function',
+        function: {
+          name: t.id,
+          description: t.description,
+          parameters: {
+            type: 'object',
+            properties: {},
+            required: [],
+          },
+        },
+      }));
+    }
 
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({
-        model: request.model ?? this._model,
-        messages: request.messages,
-        temperature: request.temperature,
-        max_tokens: request.maxTokens,
-        stream: true,
-      }),
+      headers,
+      body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
     });
 
     if (!res.ok) {
-      const _text = await res.text().catch(() => '');
       yield {
         id: 'openai-error',
         type: 'error',
@@ -150,7 +187,10 @@ export class OpenAICompatibleProvider implements ConversationProvider {
         }
         try {
           const parsed = JSON.parse(payload) as {
-            choices?: Array<{ delta: { content?: string }; finish_reason?: string }>;
+            choices?: Array<{
+              delta: { content?: string; tool_calls?: Array<{ function: { name: string; arguments: string } }> };
+              finish_reason?: string;
+            }>;
           };
           const content = parsed.choices?.[0]?.delta?.content;
           if (content) {
@@ -161,7 +201,21 @@ export class OpenAICompatibleProvider implements ConversationProvider {
               metadata: { sequence: seq++, timestamp: new Date().toISOString() },
             };
           }
-          if (parsed.choices?.[0]?.finish_reason === 'stop') {
+          const toolCalls = parsed.choices?.[0]?.delta?.tool_calls;
+          if (toolCalls && toolCalls.length > 0) {
+            for (const tc of toolCalls) {
+              if (tc.function?.name) {
+                yield {
+                  id: `openai-tool-${seq}`,
+                  type: 'tool_call',
+                  name: tc.function.name,
+                  content: tc.function.arguments ?? '{}',
+                  metadata: { sequence: seq++, timestamp: new Date().toISOString() },
+                };
+              }
+            }
+          }
+          if (parsed.choices?.[0]?.finish_reason === 'stop' || parsed.choices?.[0]?.finish_reason === 'tool_calls') {
             yield {
               id: `openai-complete-${seq}`,
               type: 'complete',
@@ -179,13 +233,20 @@ export class OpenAICompatibleProvider implements ConversationProvider {
     const start = performance.now();
     try {
       const baseUrl = this.config.baseUrl ?? 'https://api.openai.com/v1';
-      const res = await fetch(`${baseUrl}/models`, {
-        headers: {
-          Authorization: `Bearer ${this.config.apiKey ?? process.env.OPENAI_API_KEY ?? ''}`,
-        },
-        signal: AbortSignal.timeout(5000),
-      });
-      this._available = res.ok;
+      const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY;
+
+      // For local endpoints (Ollama, etc.), try their native API first
+      const isLocal = baseUrl.includes('localhost') || baseUrl.includes('127.0.0.1') || baseUrl.includes('0.0.0.0');
+      if (!apiKey && isLocal) {
+        const nativeUrl = baseUrl.replace('/v1', '');
+        const res = await fetch(`${nativeUrl}/api/tags`, { signal: AbortSignal.timeout(3000) });
+        this._available = res.ok;
+      } else {
+        const headers: Record<string, string> = {};
+        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        const res = await fetch(`${baseUrl}/models`, { headers, signal: AbortSignal.timeout(5000) });
+        this._available = res.ok;
+      }
     } catch {
       this._available = false;
     }

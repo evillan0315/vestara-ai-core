@@ -70,8 +70,8 @@ describe('RuntimeGroup', () => {
     expect(health.status).toBe('healthy');
     expect(health.healthy).toBe(2);
     expect(health.total).toBe(2);
-    expect(health.runtimes['memory']).toBeDefined();
-    expect(health.runtimes['agent']).toBeDefined();
+    expect(health.runtimes.memory).toBeDefined();
+    expect(health.runtimes.agent).toBeDefined();
   });
 
   it('initializes runtimes in dependency order', async () => {

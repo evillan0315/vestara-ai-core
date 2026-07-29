@@ -1,13 +1,19 @@
 import type { UnderstandingData } from './useUnderstanding';
 
 export function IdentityCard({ data }: { data: UnderstandingData }) {
-  const archLabel = data.architecture.kind === 'monorepo'
-    ? 'Monorepo'
-    : data.architecture.kind === 'multi-module'
-      ? 'Multi-Module'
-      : 'Project';
+  const archLabel =
+    data.architecture.kind === 'monorepo'
+      ? 'Monorepo'
+      : data.architecture.kind === 'multi-module'
+        ? 'Multi-Module'
+        : 'Project';
 
-  const healthColor = data.maturity.healthScore >= 7 ? 'text-[var(--vestara-green)]' : data.maturity.healthScore >= 4 ? 'text-amber-500' : 'text-[var(--vestara-red)]';
+  const healthColor =
+    data.maturity.healthScore >= 7
+      ? 'text-[var(--vestara-green)]'
+      : data.maturity.healthScore >= 4
+        ? 'text-amber-500'
+        : 'text-[var(--vestara-red)]';
 
   return (
     <div className="bg-[var(--color-zinc-900)] rounded-lg p-5 border border-[var(--color-zinc-700)]">

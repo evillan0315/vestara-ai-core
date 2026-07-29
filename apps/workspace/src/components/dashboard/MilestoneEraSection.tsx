@@ -1,6 +1,6 @@
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import Section from './Section';
+import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { ERA_COLORS, ERA_ORDER, type MilestoneResponse } from './constants';
+import Section from './Section';
 
 interface MilestoneEraSectionProps {
   milestones: MilestoneResponse | null;

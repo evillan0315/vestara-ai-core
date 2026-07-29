@@ -1,7 +1,7 @@
-import type { FC } from 'react';
+import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
 
 import PersonRounded from '@mui/icons-material/PersonRounded';
-import MoreHorizRounded from '@mui/icons-material/MoreHorizRounded';
+import type { FC } from 'react';
 
 export interface SidebarUserProps {
   name: string;

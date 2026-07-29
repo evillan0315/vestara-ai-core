@@ -11,12 +11,9 @@
   },
   "dependencies": {
     "@vestara/runtime": "workspace:*",
-    "@vestara/shared": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/event-bus": "workspace:*",
-    "@vestara/stream": "workspace:*",
-    "@vestara/state-runtime": "workspace:*",
-    "sql.js": "^1.11.0"
+    "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

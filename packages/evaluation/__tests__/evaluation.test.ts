@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { EvaluationHarness } from '../src/harness';
 import { EV003B_CORPUS } from '../src/corpus-definition';
+import { EvaluationHarness } from '../src/harness';
 
 describe('EV-003b Corpus Evaluation', () => {
   it('evaluates all corpus entries without error', async () => {

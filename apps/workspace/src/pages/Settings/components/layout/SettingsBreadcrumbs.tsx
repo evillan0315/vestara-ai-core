@@ -6,8 +6,8 @@
  *   Natural Law: Identity precedes responsibility
  */
 
-import { useLocation, useNavigate } from 'react-router-dom';
 import type { SettingsModule } from '@vestara/settings-framework';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface SettingsBreadcrumbsProps {
   modules: SettingsModule[];
@@ -35,20 +35,20 @@ export default function SettingsBreadcrumbs({ modules, basePath = '/settings' }:
   }
 
   return (
-    <nav className="mb-4 flex items-center space-x-2 text-sm text-[var(--text-secondary)]">
+    <nav className="mb-4 flex items-center space-x-2 text-sm text-[var(--vestara-text-2)]">
       {breadcrumbs.map((crumb, index) => (
         <span key={crumb.path} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-[var(--text-tertiary)]">/</span>}
+          {index > 0 && <span className="mx-2 text-[var(--vestara-text-muted)]">/</span>}
           {index < breadcrumbs.length - 1 ? (
             <button
               type="button"
               onClick={() => navigate(crumb.path)}
-              className="hover:text-[var(--text-primary)] transition-colors"
+              className="hover:text-[var(--vestara-text)] transition-colors"
             >
               {crumb.label}
             </button>
           ) : (
-            <span className="text-[var(--text-primary)] font-medium">{crumb.label}</span>
+            <span className="text-[var(--vestara-text)] font-medium">{crumb.label}</span>
           )}
         </span>
       ))}
