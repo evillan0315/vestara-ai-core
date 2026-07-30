@@ -101,10 +101,10 @@ export interface MemoryStats {
 
 let SQL: any = null;
 
-async function getSql(): Promise<any> {
+async function getDb(): Promise<any> {
   if (SQL) return SQL;
-  const initSqlJs = (await import('sql.js')).default;
-  SQL = await initSqlJs();
+  const { getSql } = await import('@vestara/shared');
+  SQL = await getDb();
   return SQL;
 }
 
@@ -193,7 +193,7 @@ export class DefaultMemoryRuntime extends Runtime implements MemoryRuntime {
     if (db) {
       this.db = db;
     } else if (!this.db) {
-      const SQL = await getSql();
+      const SQL = await getDb();
       this.db = new SQL.Database();
     }
     await super.initialize();

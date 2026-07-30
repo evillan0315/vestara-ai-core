@@ -16,6 +16,7 @@ interface AssistantMessageProps {
   onFollowUp: (id: string) => void;
   onSendFollowUp: (text: string) => void;
   isHighlighted?: boolean;
+  modelName?: string;
 }
 
 export function AssistantMessage({
@@ -30,6 +31,7 @@ export function AssistantMessage({
   onFollowUp,
   onSendFollowUp,
   isHighlighted,
+  modelName,
 }: AssistantMessageProps) {
   return (
     <div className={`flex justify-start group ${isHighlighted ? 'ring-1 ring-amber-500/20 rounded-2xl' : ''}`}>
@@ -41,6 +43,7 @@ export function AssistantMessage({
             </svg>
           </div>
           <span className="text-[11px] text-zinc-500 font-medium">Vestara AI</span>
+          {modelName && <span className="text-[8px] text-zinc-700 font-mono">{modelName}</span>}
           <span className="text-[10px] text-zinc-700">{formatTime(message.timestamp)}</span>
         </div>
 

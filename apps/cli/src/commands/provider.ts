@@ -65,7 +65,7 @@ function findProvider(data: WorkspaceManifestData, id: string): ProviderConfig |
 
 export async function runProviderAddLocal(args: string[]): Promise<void> {
   const name = args[0] || 'ollama';
-  let baseUrl = 'http://localhost:11434/v1';
+  let baseUrl = 'http://127.0.0.1:11434/v1';
   let apiKeyEnv: string | undefined;
 
   for (let i = 1; i < args.length; i++) {

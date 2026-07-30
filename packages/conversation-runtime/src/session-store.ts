@@ -3,10 +3,10 @@ import type { AudioTimelineEntry, ConversationSession, Message } from '@vestara/
 
 let SQL: any = null;
 
-async function getSql(): Promise<any> {
+async function getDb(): Promise<any> {
   if (SQL) return SQL;
-  const initSqlJs = (await import('sql.js')).default;
-  SQL = await initSqlJs();
+  const { getSql } = await import('@vestara/shared');
+  SQL = await getSql();
   return SQL;
 }
 
@@ -47,7 +47,7 @@ export class SqliteConversationSessionStore {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    const sql = await getSql();
+    const sql = await getDb();
     if (this.dbPath) {
       try {
         const fs = await import('node:fs');

@@ -17,7 +17,10 @@
     "conversation-audit": "node packages/conversation-runtime/dist/audit/cli.js",
     "benchmark-index": "bash scripts/benchmark-index.sh",
     "lint": "biome check --write",
-    "format": "biome format --write"
+    "format": "biome format --write",
+    "dev:api": "node apps/api/dist/index.js",
+    "dev:ui": "pnpm --filter @vestara/workspace-ui dev",
+    "dev": "node apps/api/dist/index.js & pnpm --filter @vestara/workspace-ui dev; kill %1"
   },
   "workspaces": [
     "packages/*",

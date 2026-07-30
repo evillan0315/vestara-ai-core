@@ -40,6 +40,7 @@ interface MessageListProps {
   onScrollToBottom: () => void;
   onSuggestionClick: (text: string) => void;
   onRegenerate?: () => void;
+  modelName?: string;
 }
 
 export function MessageList({
@@ -69,6 +70,7 @@ export function MessageList({
   onScrollToBottom,
   onSuggestionClick,
   onRegenerate,
+  modelName,
 }: MessageListProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
   const autoScrollRef = useRef(true);
@@ -181,6 +183,7 @@ export function MessageList({
                       onBranch={onBranch}
                       onFollowUp={onFollowUpToggle}
                       onSendFollowUp={onSendFollowUp}
+                      modelName={modelName}
                     />
                   )}
                 </div>

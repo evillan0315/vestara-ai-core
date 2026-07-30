@@ -48,6 +48,9 @@ importers:
       '@vestara/runtime':
         specifier: workspace:*
         version: link:../../packages/runtime
+      '@vestara/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -76,6 +79,9 @@ importers:
       '@vestara/activity-log':
         specifier: workspace:*
         version: link:../../packages/activity-log
+      '@vestara/architecture-runtime':
+        specifier: workspace:*
+        version: link:../../packages/architecture-runtime
       '@vestara/audio':
         specifier: workspace:*
         version: link:../../packages/audio
@@ -88,6 +94,9 @@ importers:
       '@vestara/conversation-runtime':
         specifier: workspace:*
         version: link:../../packages/conversation-runtime
+      '@vestara/events-server':
+        specifier: workspace:*
+        version: link:../../packages/events-server
       '@vestara/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
@@ -109,6 +118,9 @@ importers:
       '@vestara/stt':
         specifier: workspace:*
         version: link:../../packages/stt
+      '@vestara/telemetry':
+        specifier: workspace:*
+        version: link:../../packages/telemetry
       '@vestara/tools-shell':
         specifier: workspace:*
         version: link:../../packages/tools/shell
@@ -277,6 +289,12 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
 
+  packages/architecture-runtime:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
   packages/audio:
     dependencies:
       '@vestara/logger':
@@ -417,6 +435,25 @@ importers:
         version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
 
   packages/events-server:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/filesystem-runtime:
+    dependencies:
+      '@vestara/permission':
+        specifier: workspace:*
+        version: link:../permission
+      '@vestara/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
+      '@vestara/policy-types':
+        specifier: workspace:*
+        version: link:../policy-types
+      '@vestara/shared':
+        specifier: workspace:*
+        version: link:../shared
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -800,6 +837,12 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(yaml@2.9.0))
+
+  packages/telemetry:
     devDependencies:
       vitest:
         specifier: ^4.1.10

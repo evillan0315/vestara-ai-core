@@ -12,21 +12,22 @@ export interface NavigationItem {
 
 export interface NavigationSection {
   title: string;
-  icon: ReactNode;
+  icon?: ReactNode;
   items: NavigationItem[];
 }
 
 interface SidebarNavigationProps {
   sections: NavigationSection[];
+  collapsed?: boolean;
 }
 
-const SidebarNavigation: FC<SidebarNavigationProps> = ({ sections }) => {
+const SidebarNavigation: FC<SidebarNavigationProps> = ({ sections, collapsed }) => {
   return (
-    <div className="flex-1 space-y-8 overflow-y-auto px-3 py-6">
+    <div className={`flex-1 overflow-y-auto py-6 ${collapsed ? 'space-y-6 px-1' : 'space-y-8 px-3'}`}>
       {sections.map((section) => (
-        <SidebarSection key={section.title} title={section.title}>
+        <SidebarSection key={section.title} title={section.title} collapsed={collapsed}>
           {section.items.map((item) => (
-            <SidebarNavigationItem key={item.to} {...item} />
+            <SidebarNavigationItem key={item.to} {...item} collapsed={collapsed} />
           ))}
         </SidebarSection>
       ))}

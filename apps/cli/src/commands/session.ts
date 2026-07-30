@@ -1,14 +1,14 @@
-import { BOLD, GOLD, GREEN, GRAY, RESET, CYAN } from '../output/format.js';
+import { BOLD, GOLD, GREEN, RED, GRAY, RESET, CYAN } from '../output/format.js';
+import { openSharedDb } from '../lib/db.js';
 
 export async function runListWorkflows(): Promise<void> {
   console.log(); console.log(`${BOLD}${GOLD}Available Workflows${RESET}`); console.log(`${GRAY}─────────────────────────────────────${RESET}`); console.log();
   try {
-    const { WorkflowService } = await import('@vestara/workspace');
-    const ws = new WorkflowService(); const workflows = ws.listWorkflows();
+    const workflows = [{ id: 'feature', name: 'Feature Development', description: 'Build a new feature from understanding through verification.' }, { id: 'bugfix', name: 'Bug Fix', description: 'Diagnose and fix a reported bug.' }, { id: 'refactor', name: 'Refactor', description: 'Improve existing code without changing behavior.' }];
     if (workflows.length === 0) { console.log(`  ${GRAY}No workflows registered.${RESET}\n`); return; }
     for (const wf of workflows) {
       console.log(`  ${GREEN}●${RESET} ${BOLD}${wf.name}${RESET}  ${GRAY}${wf.id}${RESET}`); console.log(`     ${wf.description}`);
-      if (wf.agents && wf.agents.length > 0) console.log(`     Agents: ${CYAN}${wf.agents.join(', ')}${RESET}`); console.log();
+      console.log();
     }
   } catch (err: any) { console.log(`  ${RED}Error: ${err.message}${RESET}\n`); }
 }
@@ -17,20 +17,33 @@ export async function runStartSession(workflowId: string, goal: string): Promise
   console.log(); console.log(`${BOLD}${GOLD}Starting session...${RESET}`); console.log(`${GRAY}Workflow: ${workflowId}${RESET}`); console.log(`${GRAY}Goal: ${goal}${RESET}`); console.log();
   try {
     const { SessionOrchestrator } = await import('@vestara/workspace');
-    const so = new SessionOrchestrator(); const session = await so.startSession(workflowId, goal);
-    console.log(`  ${GREEN}✓${RESET} Session started  ${GRAY}(id: ${session.id})${RESET}`); console.log(`  ${GRAY}Status: ${session.status}${RESET}`); console.log(`  ${GRAY}Agents: ${session.agents?.join(', ') || 'pending'}${RESET}`); console.log();
+    const db = await openSharedDb();
+    const { AgentStorage, AgentRuntime } = await import('@vestara/workspace');
+    const agentStorage = new AgentStorage(db);
+    const runtime = new AgentRuntime({ storage: agentStorage });
+    const so = new SessionOrchestrator({ storage: agentStorage, runtime });
+    const { WorkspaceSession } = await import('@vestara/workspace');
+    const dummySession = new WorkspaceSession({ fingerprint: { id: 'cli-session' }, profile: { id: 'cli', name: 'CLI', primaryLanguage: { name: 'TypeScript' } } } as any);
+    const session = await so.startSession(goal, workflowId, dummySession);
+    console.log(`  ${GREEN}✓${RESET} Session started  ${GRAY}(id: ${session.id})${RESET}`); console.log(`  ${GRAY}Status: ${session.status}${RESET}`); console.log();
   } catch (err: any) { console.log(`  ${RED}Error: ${err.message}${RESET}\n`); }
 }
 
 export async function runListSessions(): Promise<void> {
-  console.log(); console.log(`${BOLD}${GOLD}Active Sessions${RESET}`); console.log(`${GRAY}─────────────────────────────────────${RESET}`); console.log();
+  console.log(); console.log(`${BOLD}${GOLD}Execution Sessions${RESET}`); console.log(`${GRAY}─────────────────────────────────────${RESET}`); console.log();
   try {
-    const { SessionOrchestrator } = await import('@vestara/workspace');
-    const so = new SessionOrchestrator(); const sessions = await so.listSessions();
-    if (sessions.length === 0) { console.log(`  ${GRAY}No active sessions.${RESET}\n`); return; }
-    for (const s of sessions) {
-      const icon = s.status === 'running' ? `${GREEN}●${RESET}` : s.status === 'completed' ? `${GREEN}✔${RESET}` : `${GRAY}○${RESET}`;
-      console.log(`  ${icon} ${BOLD}${s.id}${RESET}  ${GRAY}${s.workflowId}${RESET}`); console.log(`     Goal: ${s.goal}`); console.log(`     Status: ${s.status}  ·  Agents: ${s.agents?.length || 0}`); console.log();
+    const db = await openSharedDb();
+    const { AgentStorage } = await import('@vestara/workspace');
+    const store = new AgentStorage(db);
+    const sessions = await store.listExecutionSessions(20);
+    if (sessions.length === 0) { console.log(`  ${GRAY}No sessions found${RESET}`); return; }
+    for (const s of sessions.slice(0, 10)) {
+      const statusIcon = s.status === 'completed' ? '✓' : s.status === 'failed' ? '✗' : s.status === 'running' ? '◉' : '○';
+      const statusColor = s.status === 'completed' ? GREEN : s.status === 'failed' ? RED : GRAY;
+      console.log(`  ${statusColor}${statusIcon} ${s.id}${RESET}`);
+      console.log(`    ${GRAY}Goal: ${s.goal}${RESET}`);
+      console.log(`    ${statusColor}Status: ${s.status}${RESET}`);
+      console.log();
     }
   } catch (err: any) { console.log(`  ${RED}Error: ${err.message}${RESET}\n`); }
 }

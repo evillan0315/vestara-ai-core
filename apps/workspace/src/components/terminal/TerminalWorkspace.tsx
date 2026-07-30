@@ -188,7 +188,7 @@ export default function TerminalWorkspace() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] bg-zinc-950 border border-zinc-800/50 rounded-xl overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-7rem)] bg-zinc-950 border border-(--vestara-accent-border) rounded-xl overflow-hidden">
       {sessions.length > 0 && (
         <TerminalTabs
           sessions={sessions}

@@ -69,30 +69,30 @@ export default function DashboardHeader({
                 />
               )}
             </svg>
-            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-zinc-300">
+            <div className="absolute inset-0 flex items-center justify-center text-xs font-bold text-(--vestara-text)">
               {workspace?.healthScore != null ? workspace.healthScore.toFixed(1) : '--'}
             </div>
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-zinc-200">{workspace?.name ?? 'Dashboard'}</h1>
+              <h1 className="text-lg font-bold text-(--vestara-text)">{workspace?.name ?? 'Dashboard'}</h1>
               <span
                 className={`text-[9px] px-1.5 py-0.5 rounded-full ${connected ? 'bg-(--vestara-green)/20 text-(--vestara-green)' : 'bg-(--vestara-red)/20 text-(--vestara-red)'}`}
               >
                 {connected ? 'Online' : 'Offline'}
               </span>
             </div>
-            <p className="text-[10px] text-zinc-600 mt-0.5">
+            <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
               {workspace?.fileCount ?? 0} files · {workspace?.packageCount ?? 0} packages · {events.length} events ·{' '}
               {agents.length} agents
             </p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[9px] text-zinc-600">{new Date(lastRefresh).toLocaleTimeString()}</span>
+          <span className="text-[9px] text-(--vestara-text-muted)">{new Date(lastRefresh).toLocaleTimeString()}</span>
           <button
             onClick={onToggleAutoRefresh}
-            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold transition-all cursor-pointer ${autoRefresh ? 'bg-(--vestara-green)/15 text-(--vestara-green)' : 'text-zinc-700 hover:text-zinc-500'}`}
+            className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold transition-all cursor-pointer ${autoRefresh ? 'bg-(--vestara-green)/15 text-(--vestara-green)' : 'text-(--vestara-text-dim) hover:text-(--vestara-text-2)'}`}
           >
             <span
               className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? 'bg-(--vestara-green) animate-pulse' : `'bg-(--vestara-zinc)`}`}
@@ -110,19 +110,19 @@ export default function DashboardHeader({
               <span>⊞</span> Sections
             </button>
             {showSectionPicker && (
-              <div className="absolute right-0 top-7 w-48 bg-zinc-900 border border-zinc-800 rounded-lg shadow-xl z-50 py-1 max-h-72 overflow-y-auto">
+              <div className="absolute right-0 top-7 w-48 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg shadow-xl z-50 py-1 max-h-72 overflow-y-auto">
                 {sectionOrder
                   .filter((id) => id !== 'system')
                   .map((id) => (
                     <button
                       key={id}
                       onClick={() => onToggleVisibility(id)}
-                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-zinc-800 transition-colors flex items-center gap-2 text-zinc-400"
+                      className="w-full text-left px-3 py-1.5 text-xs hover:bg-(--vestara-accent-bg) transition-colors flex items-center gap-2 text-(--vestara-text-2)"
                     >
                       <span
                         className={`w-2 h-2 rounded-full ${sectionVisibility[id] === false ? 'bg-zinc-700' : 'bg-(--vestara-accent)'}`}
                       />
-                      <span className={sectionVisibility[id] === false ? 'text-zinc-700 line-through' : ''}>
+                      <span className={sectionVisibility[id] === false ? 'text-(--vestara-text-dim) line-through' : ''}>
                         {id.replace(/-/g, ' ')}
                       </span>
                     </button>

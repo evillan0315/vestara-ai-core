@@ -213,6 +213,7 @@ export { DefaultUnderstandingEngine } from './understanding-engine';
 export type { User } from './user-store';
 export { UserStore } from './user-store';
 export { VerificationService } from './verification-service';
+export type { TelemetryCallback, TelemetryCheckResult } from './verification-service';
 export { VerificationStorage } from './verification-storage';
 export { WorkflowService } from './workflow-service';
 export { WorkspaceAnalyst } from './workspace-analyst';

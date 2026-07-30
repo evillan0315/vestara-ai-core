@@ -20,7 +20,7 @@ export default function ExecutionDetailModal({ execution, agents, onClose }: Exe
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-lg mx-4 shadow-2xl max-h-[80vh] flex flex-col"
+        className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-lg mx-4 shadow-2xl max-h-[80vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -48,20 +48,20 @@ export default function ExecutionDetailModal({ execution, agents, onClose }: Exe
 
         <div className="space-y-3 flex-1 pr-1" style={{ overflowY: 'scroll' }}>
           <div>
-            <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">Task</div>
-            <div className="text-xs text-zinc-200 leading-relaxed bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3">
+            <div className="text-[9px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-1">Task</div>
+            <div className="text-xs text-zinc-200 leading-relaxed bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-3">
               {execution.task}
             </div>
           </div>
 
           {execution.result && (
             <div>
-              <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1">Result</div>
+              <div className="text-[9px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-1">Result</div>
               <div
-                className="bg-black/40 border border-zinc-700/60 rounded-lg p-3 max-h-64"
+                className="bg-black/40 border border-(--vestara-accent-border)/60 rounded-lg p-3 max-h-64"
                 style={{ overflowY: 'scroll' }}
               >
-                <div className="text-xs text-zinc-100 leading-relaxed">
+                <div className="text-xs text-(--vestara-text) leading-relaxed">
                   <MarkdownRenderer content={execution.result} />
                 </div>
               </div>

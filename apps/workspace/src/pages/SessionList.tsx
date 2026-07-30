@@ -71,7 +71,7 @@ function statusBadge(status: string): { bg: string; text: string } {
   if (status === 'failed') return { bg: 'bg-red-400/10', text: 'text-red-400' };
   if (status === 'running' || status === 'queued' || status === 'executing')
     return { bg: 'bg-amber-400/10', text: 'text-amber-400' };
-  return { bg: 'bg-zinc-800', text: 'text-zinc-500' };
+  return { bg: 'bg-zinc-800', text: 'text-(--vestara-text-2)' };
 }
 
 function formatDuration(seconds: number): string {
@@ -218,20 +218,20 @@ export default function SessionList() {
       {/* New session modal */}
       {showNew && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowNew(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNew(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
               <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
                 <span className="text-accent">+</span> New Session
               </h2>
-              <button onClick={() => setShowNew(false)} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm">✕</button>
+              <button onClick={() => setShowNew(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
             </div>
             <div className="p-4 space-y-3">
               <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Session title*" autoFocus className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" onKeyDown={(e) => e.key === 'Enter' && create()} />
               <textarea value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Objective (optional)" rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)] resize-none" />
             </div>
-            <div className="flex gap-2 p-4 border-t border-zinc-800">
+            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
               <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-xs px-3 py-2 bg-[var(--vestara-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer">Create</button>
-              <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
+              <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
             </div>
           </div>
         </div>
@@ -240,12 +240,12 @@ export default function SessionList() {
       {/* Workflow start modal */}
       {showWorkflow && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowWorkflow(false)} onKeyDown={(e) => e.key === 'Escape' && setShowWorkflow(false)}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); }}>
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); }}>
+            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
               <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
                 <span className="text-amber-400">▶</span> Start Workflow
               </h2>
-              <button onClick={() => setShowWorkflow(false)} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm">✕</button>
+              <button onClick={() => setShowWorkflow(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
             </div>
             <div className="p-4 space-y-3">
               <div>
@@ -263,9 +263,9 @@ export default function SessionList() {
                 </select>
               </div>
             </div>
-            <div className="flex gap-2 p-4 border-t border-zinc-800">
+            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
               <button onClick={startWorkflow} disabled={!wfGoal.trim() || wfRunning} className="flex-1 text-xs px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg disabled:opacity-30 cursor-pointer hover:bg-amber-400/20 transition-colors font-medium">{wfRunning ? 'Starting...' : 'Start Workflow'}</button>
-              <button onClick={() => setShowWorkflow(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
+              <button onClick={() => setShowWorkflow(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
             </div>
           </div>
         </div>
@@ -282,12 +282,12 @@ export default function SessionList() {
       {/* Search + Filters */}
       <div className="flex items-center gap-3 mb-4 flex-wrap">
         <div className="relative flex-1 min-w-45 max-w-xs">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-700 text-[11px]">🔍</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[11px]">🔍</span>
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search sessions..."
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-zinc-300 placeholder-zinc-700 outline-none"
+            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-700 outline-none"
           />
         </div>
         <div className="flex items-center gap-1">
@@ -297,28 +297,28 @@ export default function SessionList() {
               <button
                 key={f}
                 onClick={() => setFilter(f)}
-                className={`text-[10px] px-2.5 py-1 rounded-md cursor-pointer transition-colors ${filter === f ? 'bg-zinc-700 text-zinc-200 font-medium' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'}`}
+                className={`text-[10px] px-2.5 py-1 rounded-md cursor-pointer transition-colors ${filter === f ? 'bg-zinc-700 text-zinc-200 font-medium' : 'text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800'}`}
               >
                 {f === 'all' ? 'All' : f.charAt(0).toUpperCase() + f.slice(1)}
-                <span className={`ml-1 text-[8px] ${filter === f ? 'text-zinc-400' : 'text-zinc-700'}`}>{count}</span>
+                <span className={`ml-1 text-[8px] ${filter === f ? 'text-(--vestara-text-2)' : 'text-(--vestara-text-dim)'}`}>{count}</span>
               </button>
             );
           })}
         </div>
-        <span className="text-[10px] text-zinc-700 ml-auto">
+        <span className="text-[10px] text-(--vestara-text-dim) ml-auto">
           {filtered.length} of {allItems.length}
         </span>
-        <button onClick={load} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm" title="Refresh">
+        <button onClick={load} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm" title="Refresh">
           ↻
         </button>
       </div>
 
       {/* List */}
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-14 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center">
+        <div className="flex flex-col items-center justify-center py-14 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-2xl mb-2 opacity-20">◈</div>
           <p className="text-sm text-[var(--vestara-text-muted)] mb-1">No sessions found</p>
-          <p className="text-[10px] text-zinc-700">Create a new session to begin, or adjust your search filters</p>
+          <p className="text-[10px] text-(--vestara-text-dim)">Create a new session to begin, or adjust your search filters</p>
           <button onClick={() => setShowNew(true)} className="mt-4 text-xs px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer">+ New Session</button>
         </div>
       )}
@@ -333,7 +333,7 @@ export default function SessionList() {
             <Link
               key={`${s._type}-${s.id}`}
               to={`/sessions/${s.id}`}
-              className="block bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors border-l-[3px]"
+              className="block bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors border-l-[3px]"
               style={{ borderLeftColor: borderColor }}
             >
               <div className="p-3 flex items-center gap-3">
@@ -347,14 +347,14 @@ export default function SessionList() {
                     )}
                     <span className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-medium shrink-0 ${badge.bg} ${badge.text}`}>{s.status}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-[9px] text-zinc-600 flex-wrap">
+                  <div className="flex items-center gap-2 text-[9px] text-(--vestara-text-muted) flex-wrap">
                     {agentCount > 0 && <span>{agentCount} agent{agentCount > 1 ? 's' : ''}</span>}
-                    {stepCount && (<><span className="text-zinc-700">·</span><span>{stepCount} steps</span></>)}
-                    {s.createdAt && (<><span className="text-zinc-700">·</span><span>{formatRelativeTime(s.createdAt)}</span></>)}
-                    {s.metrics?.duration && (<><span className="text-zinc-700">·</span><span>{formatDuration(Math.round(s.metrics.duration / 1000))}</span></>)}
+                    {stepCount && (<><span className="text-(--vestara-text-dim)">·</span><span>{stepCount} steps</span></>)}
+                    {s.createdAt && (<><span className="text-(--vestara-text-dim)">·</span><span>{formatRelativeTime(s.createdAt)}</span></>)}
+                    {s.metrics?.duration && (<><span className="text-(--vestara-text-dim)">·</span><span>{formatDuration(Math.round(s.metrics.duration / 1000))}</span></>)}
                   </div>
                 </div>
-                <span className="text-zinc-700 shrink-0 text-[10px]">→</span>
+                <span className="text-(--vestara-text-dim) shrink-0 text-[10px]">→</span>
               </div>
             </Link>
           );
@@ -445,7 +445,7 @@ export function SessionView() {
     <div className="w-full px-4">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-xs text-[var(--vestara-text-muted)] mb-4">
-        <Link to="/sessions" className="hover:text-zinc-400 transition-colors">Sessions</Link>
+        <Link to="/sessions" className="hover:text-(--vestara-text-2) transition-colors">Sessions</Link>
         <span className="text-zinc-800">/</span>
         <span className="text-[var(--vestara-text)] font-medium truncate">{display.goal || display.title || display.id}</span>
       </div>
@@ -457,40 +457,40 @@ export function SessionView() {
           {/* Header + Status */}
           <div>
             <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-xl font-bold text-zinc-100">{display.goal || session?.title || 'Session'}</h1>
+              <h1 className="text-xl font-bold text-(--vestara-text)">{display.goal || session?.title || 'Session'}</h1>
               <span className={`text-[9px] px-2 py-0.5 rounded uppercase font-medium ${badge.bg} ${badge.text}`}>
                 {display.status}
               </span>
             </div>
-            {session?.objective && <p className="text-xs text-zinc-500">{session.objective}</p>}
+            {session?.objective && <p className="text-xs text-(--vestara-text-2)">{session.objective}</p>}
           </div>
 
           {/* Progress card */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
-            <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
+            <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-3 flex items-center gap-1.5">
               <span className="w-1 h-3.5 rounded-full bg-blue-500/60 shrink-0" /> Progress
             </h3>
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
               <div>
-                <span className="text-zinc-600 block text-[9px]">Created</span>
-                <span className="text-zinc-300">{new Date(display.createdAt).toLocaleDateString()}</span>
+                <span className="text-(--vestara-text-muted) block text-[9px]">Created</span>
+                <span className="text-(--vestara-text)">{new Date(display.createdAt).toLocaleDateString()}</span>
               </div>
               {display.completedAt && (
                 <div>
-                  <span className="text-zinc-600 block text-[9px]">Completed</span>
-                  <span className="text-zinc-300">{new Date(display.completedAt).toLocaleDateString()}</span>
+                  <span className="text-(--vestara-text-muted) block text-[9px]">Completed</span>
+                  <span className="text-(--vestara-text)">{new Date(display.completedAt).toLocaleDateString()}</span>
                 </div>
               )}
               {display.workflowId && (
                 <div>
-                  <span className="text-zinc-600 block text-[9px]">Workflow</span>
-                  <span className="text-zinc-300 font-mono text-[10px] truncate">{display.workflowId}</span>
+                  <span className="text-(--vestara-text-muted) block text-[9px]">Workflow</span>
+                  <span className="text-(--vestara-text) font-mono text-[10px] truncate">{display.workflowId}</span>
                 </div>
               )}
               {display.metrics && (
                 <div>
-                  <span className="text-zinc-600 block text-[9px]">Steps</span>
-                  <span className="text-zinc-300">
+                  <span className="text-(--vestara-text-muted) block text-[9px]">Steps</span>
+                  <span className="text-(--vestara-text)">
                     {display.metrics.completedSteps}/{display.metrics.totalSteps}
                   </span>
                 </div>
@@ -512,18 +512,18 @@ export function SessionView() {
           {/* Agents */}
           {uniqueAgents.length > 0 && (
             <div>
-              <h2 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              <h2 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3.5 rounded-full bg-amber-500/60 shrink-0" /> Agents ({uniqueAgents.length})
               </h2>
               <div className="space-y-1">
                 {uniqueAgents.map((t: any, i: number) => (
                   <div
                     key={i}
-                    className="p-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg flex items-center gap-2.5 border-l-[3px]"
+                    className="p-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg flex items-center gap-2.5 border-l-[3px]"
                     style={{ borderLeftColor: t.agentColor }}
                   >
-                    <span className="text-xs text-zinc-300 flex-1 truncate font-medium">{t.agentName}</span>
-                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-500 uppercase font-medium">
+                    <span className="text-xs text-(--vestara-text) flex-1 truncate font-medium">{t.agentName}</span>
+                    <span className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium">
                       {t.step || t.agentId}
                     </span>
                     <span
@@ -534,7 +534,7 @@ export function SessionView() {
                             ? 'bg-amber-400/10 text-amber-400'
                             : t.status === 'failed'
                               ? 'bg-red-400/10 text-red-400'
-                              : 'bg-zinc-800 text-zinc-500'
+                              : 'bg-zinc-800 text-(--vestara-text-2)'
                       }`}
                     >
                       {t.status}
@@ -547,10 +547,10 @@ export function SessionView() {
 
           {/* Timeline */}
           <div>
-            <h2 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <h2 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <span className="w-1 h-3.5 rounded-full bg-cyan-500/60 shrink-0" /> Timeline
             </h2>
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
               <SessionTimeline session={display} />
             </div>
           </div>
@@ -563,7 +563,7 @@ export function SessionView() {
             if (sessionApprovals.length === 0) return null;
             return (
               <div>
-                <h2 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                <h2 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                   <span className="w-1 h-3.5 rounded-full bg-purple-500/60 shrink-0" /> Approvals (
                   {sessionApprovals.length})
                 </h2>
@@ -571,17 +571,17 @@ export function SessionView() {
                   {sessionApprovals.map((a: any, i: number) => (
                     <div
                       key={a.id || i}
-                      className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg flex items-center gap-3 border-l-[3px]"
+                      className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg flex items-center gap-3 border-l-[3px]"
                       style={{
                         borderLeftColor:
                           a.status === 'approved' ? '#10b981' : a.status === 'rejected' ? '#ef4444' : '#f59e0b',
                       }}
                     >
                       <div className="flex-1 min-w-0">
-                        <div className="text-xs text-zinc-300 truncate font-medium">
+                        <div className="text-xs text-(--vestara-text) truncate font-medium">
                           {a.title || a.changeSetId || a.planId}
                         </div>
-                        <div className="text-[9px] text-zinc-600">
+                        <div className="text-[9px] text-(--vestara-text-muted)">
                           {a.status} · {new Date(a.createdAt || Date.now()).toLocaleDateString()}
                         </div>
                       </div>
@@ -597,8 +597,8 @@ export function SessionView() {
         <div className="space-y-3">
           {/* Artifact counts */}
           {(display.planIds?.length > 0 || display.changeSetIds?.length > 0 || display.verificationIds?.length > 0) && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-blue-500/60" /> Artifacts
               </h3>
               <div className="space-y-1.5">
@@ -622,29 +622,29 @@ export function SessionView() {
           )}
           {/* Metrics */}
           {display.metrics && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-green-500/60" /> Metrics
               </h3>
               <div className="space-y-1.5 text-[11px]">
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-600">Steps</span>
-                  <span className="text-zinc-300 font-medium">
+                  <span className="text-(--vestara-text-muted)">Steps</span>
+                  <span className="text-(--vestara-text) font-medium">
                     {display.metrics.completedSteps}/{display.metrics.totalSteps}
                   </span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-600">Agents</span>
-                  <span className="text-zinc-300 font-medium">{display.metrics.agentCount || uniqueAgents.length}</span>
+                  <span className="text-(--vestara-text-muted)">Agents</span>
+                  <span className="text-(--vestara-text) font-medium">{display.metrics.agentCount || uniqueAgents.length}</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-zinc-600">Artifacts</span>
-                  <span className="text-zinc-300 font-medium">{display.metrics.artifactCount || 0}</span>
+                  <span className="text-(--vestara-text-muted)">Artifacts</span>
+                  <span className="text-(--vestara-text) font-medium">{display.metrics.artifactCount || 0}</span>
                 </div>
                 {display.metrics.duration && (
                   <div className="flex items-center justify-between">
-                    <span className="text-zinc-600">Duration</span>
-                    <span className="text-zinc-300 font-medium">
+                    <span className="text-(--vestara-text-muted)">Duration</span>
+                    <span className="text-(--vestara-text) font-medium">
                       {formatDuration(Math.round(display.metrics.duration / 1000))}
                     </span>
                   </div>
@@ -654,34 +654,34 @@ export function SessionView() {
           )}
           {/* Participants */}
           {session?.participants && session.participants.length > 0 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-purple-500/60" /> Participants
               </h3>
               <div className="space-y-1">
                 {session.participants.map((p: any, i: number) => (
-                  <div key={i} className="text-xs text-zinc-400 flex items-center gap-2 py-0.5">
+                  <div key={i} className="text-xs text-(--vestara-text-2) flex items-center gap-2 py-0.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 shrink-0" />
-                    <span className="truncate text-zinc-300">{p.id}</span>
-                    <span className="text-zinc-700">({p.role})</span>
+                    <span className="truncate text-(--vestara-text)">{p.id}</span>
+                    <span className="text-(--vestara-text-dim)">({p.role})</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
           {/* Info */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-            <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+            <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <span className="w-1 h-3 rounded-full bg-zinc-500/60" /> Info
             </h3>
-            <div className="space-y-1.5 text-[11px] text-zinc-600">
+            <div className="space-y-1.5 text-[11px] text-(--vestara-text-muted)">
               <div className="flex items-center justify-between">
                 <span>ID</span>
-                <span className="text-zinc-400 font-mono text-[9px]">{display.id.slice(0, 16)}</span>
+                <span className="text-(--vestara-text-2) font-mono text-[9px]">{display.id.slice(0, 16)}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Source</span>
-                <span className="text-zinc-400">{exSession ? 'Workflow' : 'Session'}</span>
+                <span className="text-(--vestara-text-2)">{exSession ? 'Workflow' : 'Session'}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span>Status</span>
@@ -690,7 +690,7 @@ export function SessionView() {
               {display.workflowId && (
                 <div className="flex items-center justify-between">
                   <span>Workflow</span>
-                  <span className="text-zinc-400 text-[9px] font-mono">{display.workflowId.slice(0, 16)}</span>
+                  <span className="text-(--vestara-text-2) text-[9px] font-mono">{display.workflowId.slice(0, 16)}</span>
                 </div>
               )}
             </div>

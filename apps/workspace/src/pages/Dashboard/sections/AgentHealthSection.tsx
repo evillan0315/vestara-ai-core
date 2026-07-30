@@ -13,7 +13,7 @@ export default function AgentHealthSection({ execStats, dragSection }: AgentHeal
   return (
     <DashboardSection title="Agent Health" icon="☰" dragSection={dragSection}>
       <div className="space-y-3">
-        <div className="flex items-center gap-3 p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+        <div className="flex items-center gap-3 p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
           <div className="w-14 h-14 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -43,14 +43,14 @@ export default function AgentHealthSection({ execStats, dragSection }: AgentHeal
           <div className="flex-1 text-[10px]">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: 'var(--vestara-accent)' }} />
-              <span className="text-zinc-500">{execStats.completed} completed</span>
+              <span className="text-(--vestara-text-2)">{execStats.completed} completed</span>
             </div>
             <div className="flex items-center gap-2">
               <span
                 className="w-1.5 h-1.5 rounded-full"
                 style={{ backgroundColor: execStats.failed > 0 ? '#ef4444' : '#27272a' }}
               />
-              <span className="text-zinc-500">
+              <span className="text-(--vestara-text-2)">
                 {execStats.failed > 0 ? `${execStats.failed} failed` : 'No failures'}
               </span>
             </div>
@@ -65,34 +65,34 @@ export default function AgentHealthSection({ execStats, dragSection }: AgentHeal
             <div className="text-lg font-bold" style={{ color: 'var(--vestara-accent)' }}>
               {execStats.total > 0 ? Math.round((execStats.completed / execStats.total) * 100) : 0}%
             </div>
-            <div className="text-[9px] text-zinc-700">success</div>
+            <div className="text-[9px] text-(--vestara-text-dim)">success</div>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded text-center border-l-[2px] border-l-accent">
+          <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px] border-l-accent">
             <div className="text-sm font-bold text-accent">{execStats.total}</div>
-            <div className="text-[9px] text-zinc-600">Total</div>
+            <div className="text-[9px] text-(--vestara-text-muted)">Total</div>
           </div>
           <div
-            className="p-2 bg-zinc-900/50 border border-zinc-800 rounded text-center border-l-[2px]"
+            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
             style={{ borderLeftColor: '#10b981' }}
           >
             <div className="text-sm font-bold text-green-400">{execStats.completed}</div>
-            <div className="text-[9px] text-zinc-600">Done</div>
+            <div className="text-[9px] text-(--vestara-text-muted)">Done</div>
           </div>
           <div
-            className="p-2 bg-zinc-900/50 border border-zinc-800 rounded text-center border-l-[2px]"
+            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
             style={{ borderLeftColor: '#f59e0b' }}
           >
             <div className="text-sm font-bold text-amber-400">{execStats.running}</div>
-            <div className="text-[9px] text-zinc-600">Running</div>
+            <div className="text-[9px] text-(--vestara-text-muted)">Running</div>
           </div>
           <div
-            className="p-2 bg-zinc-900/50 border border-zinc-800 rounded text-center border-l-[2px]"
+            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
             style={{ borderLeftColor: '#ef4444' }}
           >
             <div className="text-sm font-bold text-red-400">{execStats.failed}</div>
-            <div className="text-[9px] text-zinc-600">Failed</div>
+            <div className="text-[9px] text-(--vestara-text-muted)">Failed</div>
           </div>
         </div>
       </div>

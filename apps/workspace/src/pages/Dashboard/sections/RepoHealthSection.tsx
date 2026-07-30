@@ -40,7 +40,7 @@ export default function RepoHealthSection({ workspace, execStats, dragSection }:
 
   return (
     <DashboardSection title="Repository Health" icon="◈" dragSection={dragSection}>
-      <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+      <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
         <div className="flex items-center gap-4 mb-2">
           <div className="relative w-14 h-14 shrink-0">
             <svg className="w-14 h-14 -rotate-90" viewBox="0 0 72 72">
@@ -59,16 +59,16 @@ export default function RepoHealthSection({ workspace, execStats, dragSection }:
               )}
             </svg>
             <div
-              className={`absolute inset-0 flex items-center justify-center text-base font-bold ${workspace.healthScore != null && workspace.healthScore >= 7 ? 'text-green-400' : workspace.healthScore != null && workspace.healthScore >= 4 ? 'text-amber-400' : 'text-zinc-500'}`}
+              className={`absolute inset-0 flex items-center justify-center text-base font-bold ${workspace.healthScore != null && workspace.healthScore >= 7 ? 'text-green-400' : workspace.healthScore != null && workspace.healthScore >= 4 ? 'text-amber-400' : 'text-(--vestara-text-2)'}`}
             >
               {workspace.healthScore != null ? workspace.healthScore.toFixed(1) : '--'}
             </div>
           </div>
-          <div className="text-[10px] text-zinc-400">
+          <div className="text-[10px] text-(--vestara-text-2)">
             <div>
               {workspace.packageManager ?? 'unknown'} · {workspace.isMonorepo ? 'monorepo' : 'single'}
             </div>
-            <div className="text-[9px] text-zinc-600">
+            <div className="text-[9px] text-(--vestara-text-muted)">
               {workspace.fileCount} files · {workspace.packageCount} packages · {workspace.dependencyCount} deps
             </div>
           </div>
@@ -78,14 +78,14 @@ export default function RepoHealthSection({ workspace, execStats, dragSection }:
             const pct = Math.min((m.value / m.max) * 100, 100);
             return (
               <div key={m.label} className="flex items-center gap-2">
-                <span className="text-[9px] text-zinc-500 w-[72px] shrink-0">{m.label}</span>
-                <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                <span className="text-[9px] text-(--vestara-text-2) w-[72px] shrink-0">{m.label}</span>
+                <div className="flex-1 h-1.5 bg-(--vestara-accent-bg) rounded-full overflow-hidden">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${pct}%`, backgroundColor: 'var(--vestara-accent)' }}
                   />
                 </div>
-                <span className="text-[9px] text-zinc-600 w-6 text-right">
+                <span className="text-[9px] text-(--vestara-text-muted) w-6 text-right">
                   {m.value}/{m.max}
                 </span>
               </div>

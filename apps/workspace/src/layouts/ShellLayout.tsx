@@ -1,153 +1,70 @@
-import ApiRoundedIcon from '@mui/icons-material/ApiRounded';
-import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
-import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
-import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
-import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
-import ImportContactsRoundedIcon from '@mui/icons-material/ImportContactsRounded';
-import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
-import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
-import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded';
-import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
-import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
-import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
-import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
-import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
-import ViewTimelineRoundedIcon from '@mui/icons-material/ViewTimelineRounded';
+import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 
 import AppHeader from '../components/layout/AppHeader/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
-import type { NavigationSection } from '../components/layout/AppSidebar/SidebarNavigation';
 import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
+import KeyboardShortcutsModal from '../components/layout/KeyboardShortcutsModal';
 import PageContainer from '../components/layout/Page/PageContainer';
-
-export const NAV_CATEGORIES: NavigationSection[] = [
-  {
-    title: 'Workspace',
-    items: [
-      {
-        to: '/overview',
-        title: 'Overview',
-        icon: <DashboardRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/dashboard',
-        title: 'Dashboard',
-        icon: <DashboardRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/notifications',
-        title: 'Notifications',
-        icon: <NotificationsRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/ops',
-        title: 'Operations',
-        icon: <TuneRoundedIcon fontSize="small" />,
-      },
-    ],
-    icon: undefined,
-  },
-  {
-    title: 'Engineering',
-    items: [
-      {
-        to: '/sessions',
-        title: 'Sessions',
-        icon: <ViewTimelineRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/artifacts',
-        title: 'Artifacts',
-        icon: <DescriptionRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/projects',
-        title: 'Projects',
-        icon: <FolderRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/requests',
-        title: 'Requests',
-        icon: <LightbulbRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/logs',
-        title: 'Logs',
-        icon: <ReceiptLongRoundedIcon fontSize="small" />,
-      },
-    ],
-    icon: undefined,
-  },
-  {
-    title: 'Agents',
-    items: [
-      {
-        to: '/agents',
-        title: 'Agent Control',
-        icon: <SmartToyRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/memory',
-        title: 'Knowledge',
-        icon: <MemoryRoundedIcon fontSize="small" />,
-      },
-    ],
-    icon: undefined,
-  },
-  {
-    title: 'Tools',
-    items: [
-      {
-        to: '/chat',
-        title: 'Chat',
-        icon: <ChatRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/terminal',
-        title: 'Terminal',
-        icon: <TerminalRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/api-builder',
-        title: 'API Builder',
-        icon: <ApiRoundedIcon fontSize="small" />,
-      },
-      {
-        to: '/docs',
-        title: 'Docs',
-        icon: <ImportContactsRoundedIcon fontSize="small" />,
-      },
-    ],
-    icon: undefined,
-  },
-  {
-    title: 'System',
-    items: [
-      {
-        to: '/settings',
-        title: 'Settings',
-        icon: <SettingsRoundedIcon fontSize="small" />,
-      },
-    ],
-    icon: undefined,
-  },
-];
+import { NAV_CATEGORIES } from './navigation';
 
 export default function ShellLayout() {
+  const [showShortcuts, setShowShortcuts] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem('vestara-sidebar-collapsed') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const toggleSidebar = () => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      try {
+        localStorage.setItem('vestara-sidebar-collapsed', String(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  useEffect(() => {
+    const check = () => {
+      if (window.innerWidth < 1024) {
+        setSidebarCollapsed(true);
+      }
+    };
+    check();
+    window.addEventListener('resize', check);
+    return () => window.removeEventListener('resize', check);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
+        setShowShortcuts((v) => !v);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   return (
     <div className="flex h-screen overflow-hidden bg-primary-950">
-      <AppSidebar navigation={NAV_CATEGORIES} />
+      <AppSidebar navigation={NAV_CATEGORIES} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
 
-      <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader />
-
+      <div className="flex min-w-0 flex-1 flex-col min-h-0">
+        <AppHeader onMenuClick={toggleSidebar} />
         <PageContainer>
-          <Outlet />
+          <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-8 w-full h-full">
+            <Outlet />
+          </div>
         </PageContainer>
       </div>
 
       <CommandPalette />
+      <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
     </div>
   );
 }

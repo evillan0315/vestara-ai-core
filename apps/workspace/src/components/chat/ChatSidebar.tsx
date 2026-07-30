@@ -16,6 +16,7 @@ interface ChatSidebarProps {
   onNewConversation: () => void;
   onSelectConversation: (id: string) => void;
   onDeleteConversation: (id: string) => void;
+  onTogglePinConversation?: (id: string) => void;
   onClose: () => void;
 }
 
@@ -33,6 +34,7 @@ export function ChatSidebar({
   onNewConversation,
   onSelectConversation,
   onDeleteConversation,
+  onTogglePinConversation,
   onClose,
 }: ChatSidebarProps) {
   return (
@@ -41,11 +43,13 @@ export function ChatSidebar({
       {open && <div className="fixed inset-0 bg-black/40 z-40 sm:hidden" onClick={onClose} />}
 
       <aside
-        className={`fixed sm:relative z-50 sm:z-0 top-0 sm:top-0 left-0 h-full sm:h-auto shrink-0 border-r border-zinc-800/60 bg-zinc-950/95 backdrop-blur-xl sm:bg-zinc-950 flex flex-col transition-all duration-200 ease-in-out ${
-          open ? 'w-[280px] translate-x-0 overflow-hidden sm:overflow-visible' : 'w-0 -translate-x-full overflow-hidden'
+        className={`fixed sm:relative z-50 sm:z-0 top-0 sm:top-0 left-0 h-full sm:h-auto shrink-0 border-r border-(--vestara-accent-border) bg-zinc-950/95 backdrop-blur-xl sm:bg-zinc-950 flex flex-col transition-all duration-200 ease-in-out ${
+          open
+            ? 'w-[280px] xl:w-[320px] translate-x-0 overflow-hidden sm:overflow-visible'
+            : 'w-0 -translate-x-full overflow-hidden'
         }`}
       >
-        <div className="p-3 border-b border-zinc-800/60 shrink-0">
+        <div className="p-3 border-b border-(--vestara-accent-border) shrink-0">
           <button
             onClick={onNewConversation}
             className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-zinc-800/50 border border-zinc-700/50 text-zinc-300 rounded-lg hover:bg-zinc-700/50 hover:border-zinc-600/50 transition-all text-[12px] cursor-pointer"
@@ -58,7 +62,7 @@ export function ChatSidebar({
         </div>
 
         {/* Search */}
-        <div className="border-b border-zinc-800/40">
+        <div className="border-b border-(--vestara-accent-border)">
           <button
             onClick={onSearchToggle}
             className="w-full flex items-center gap-2 px-3 py-2 text-[12px] text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/30 transition-colors cursor-pointer"
@@ -94,6 +98,7 @@ export function ChatSidebar({
             branches={branches}
             onSelect={onSelectConversation}
             onDelete={onDeleteConversation}
+            onTogglePin={onTogglePinConversation}
           />
         </div>
       </aside>

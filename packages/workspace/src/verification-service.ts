@@ -21,6 +21,24 @@ import type { CheckTrend, TrendReport, VerificationCheck, VerificationReport } f
 import type { VerificationStorage } from './verification-storage';
 import type { WorkspaceSession } from './workspace-session';
 
+/** Callback invoked during verification lifecycle for telemetry. */
+export interface TelemetryCheckResult {
+  name: string;
+  status: string;
+  durationMs: number;
+}
+
+export type TelemetryCallback = (event: {
+  phase: 'started' | 'check.started' | 'check.completed' | 'completed';
+  checkId?: string;
+  checkName?: string;
+  status?: string;
+  progress: number;
+  duration?: number;
+  detail: string;
+  checks?: TelemetryCheckResult[];
+}) => void;
+
 export interface VerifyResult {
   report: VerificationReport;
   duration: number;
@@ -32,6 +50,7 @@ export class VerificationService {
   private planStorage?: PlanStorage;
   private accuracyStorage?: AccuracyStorage;
   private pluginRuntime?: PluginRuntime;
+  private onTelemetry?: TelemetryCallback;
 
   constructor(opts: {
     csStorage: ChangeSetStorage;
@@ -39,12 +58,14 @@ export class VerificationService {
     planStorage?: PlanStorage;
     accuracyStorage?: AccuracyStorage;
     pluginRuntime?: PluginRuntime;
+    onTelemetry?: TelemetryCallback;
   }) {
     this.csStorage = opts.csStorage;
     this.vrStorage = opts.vrStorage;
     this.planStorage = opts.planStorage;
     this.accuracyStorage = opts.accuracyStorage;
     this.pluginRuntime = opts.pluginRuntime;
+    this.onTelemetry = opts.onTelemetry;
   }
 
   /**
@@ -67,6 +88,8 @@ export class VerificationService {
     const checks: VerificationCheck[] = [];
     const summary = { total: 0, passed: 0, failed: 0, skipped: 0 };
 
+    this.onTelemetry?.({ phase: 'started', progress: 0, detail: `Verifying Change Set ${changeSetId}` });
+
     const checkFns: Array<() => Promise<VerificationCheck>> = [
       () => this.checkFilesystemIntegrity(cs.id, rootDir, cs.files),
       () => this.checkChangeSetConsistency(cs.id, rootDir, cs.files),
@@ -74,14 +97,37 @@ export class VerificationService {
       () => this.checkTests(rootDir),
       () => this.checkBuild(rootDir),
     ];
+    const checkLabels = ['filesystem', 'consistency', 'typecheck', 'tests', 'build'];
+    const totalChecks = checkFns.length;
 
-    for (const checkFn of checkFns) {
-      const check = await checkFn();
+    for (let i = 0; i < checkFns.length; i++) {
+      const checkLabel = checkLabels[i];
+      const progress = Math.round(((i) / totalChecks) * 100);
+
+      this.onTelemetry?.({
+        phase: 'check.started',
+        checkId: checkLabel,
+        checkName: checkLabel,
+        progress,
+        detail: `Running ${checkLabel} check...`,
+      });
+
+      const check = await checkFns[i]();
       checks.push(check);
       summary.total++;
       if (check.status === 'passed') summary.passed++;
       else if (check.status === 'failed') summary.failed++;
       else if (check.status === 'skipped') summary.skipped++;
+
+      this.onTelemetry?.({
+        phase: 'check.completed',
+        checkId: checkLabel,
+        checkName: checkLabel,
+        status: check.status,
+        progress: Math.round(((i + 1) / totalChecks) * 100),
+        duration: check.durationMs,
+        detail: `${checkLabel}: ${check.status}`,
+      });
     }
 
     // Finalize report
@@ -90,6 +136,18 @@ export class VerificationService {
     report.status = summary.failed > 0 ? 'failed' : 'passed';
     report.completedAt = new Date().toISOString();
     await this.vrStorage.save(report);
+
+    this.onTelemetry?.({
+      phase: 'completed',
+      progress: 100,
+      duration: Math.round(performance.now() - startTime),
+      detail: `Verification ${report.status}: ${summary.passed}/${summary.total} passed`,
+      checks: checks.map((c) => ({
+        name: c.type,
+        status: c.status,
+        durationMs: c.durationMs,
+      })),
+    });
 
     // Fire after-verify plugin hooks
     if (this.pluginRuntime) {

@@ -27,14 +27,14 @@ function SuggestionCard({ prompt, onClick }: { prompt: string; onClick: () => vo
       disabled={sent}
       className={`group relative text-left px-3.5 py-3 rounded-xl border transition-all cursor-pointer overflow-hidden ${
         sent
-          ? 'bg-zinc-800/30 border-zinc-700/30 text-zinc-600'
-          : 'bg-zinc-900/40 border-zinc-800/60 text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300 hover:border-zinc-700/60'
+          ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) text-(--vestara-text-2)'
+          : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) hover:border-(--vestara-accent-border-hover)'
       }`}
     >
       <div className="flex items-start gap-2.5">
         <PromptIcon name={iconType} sent={sent} />
         <div className="flex-1 min-w-0 text-left">
-          <span className={`text-[12px] leading-snug ${sent ? 'text-zinc-600' : ''}`}>{prompt}</span>
+          <span className={`text-[12px] leading-snug ${sent ? 'text-(--vestara-text-2)' : ''}`}>{prompt}</span>
         </div>
         {sent ? (
           <svg
@@ -47,7 +47,7 @@ function SuggestionCard({ prompt, onClick }: { prompt: string; onClick: () => vo
           </svg>
         ) : (
           <svg
-            className="w-3.5 h-3.5 text-zinc-700 group-hover:text-zinc-500 transition-colors shrink-0 mt-0.5"
+            className="w-3.5 h-3.5 text-(--vestara-text-dim) group-hover:text-(--vestara-text-2) transition-colors shrink-0 mt-0.5"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -61,7 +61,7 @@ function SuggestionCard({ prompt, onClick }: { prompt: string; onClick: () => vo
 }
 
 function PromptIcon({ name, sent }: { name: string; sent: boolean }) {
-  const cls = sent ? 'text-zinc-600' : 'text-zinc-600 group-hover:text-amber-400/80';
+  const cls = sent ? 'text-(--vestara-text-2)' : 'text-(--vestara-text-2) group-hover:text-amber-400';
   switch (name) {
     case 'dashboard':
       return (
@@ -184,8 +184,23 @@ export function ChatEmptyState({ onSuggestionClick }: ChatEmptyStateProps) {
           </svg>
         </div>
 
-        <h1 className="text-xl font-semibold text-zinc-100 mb-2">Vestara AI</h1>
-        <p className="text-sm text-zinc-500 mb-8">Ask anything, build anything, and work with AI.</p>
+        {/* Activity wave chart */}
+        <div className="flex items-end justify-center gap-[3px] h-12 mb-5">
+          {[3, 5, 8, 12, 15, 18, 22, 25, 20, 16, 10, 6, 4, 7, 11, 14, 19, 23, 21, 17, 13, 9, 5, 3].map((h, i) => (
+            <div key={i} className="flex flex-col items-center gap-px">
+              <div className="w-[3px] rounded-sm bg-(--vestara-accent) transition-all duration-500 animate-pulse"
+                style={{
+                  height: `${Math.max(2, Math.min(h, 24))}px`,
+                  opacity: 0.15 + (h / 25) * 0.6,
+                  animationDelay: `${i * 80}ms`,
+                  animationDuration: '2s',
+                }} />
+            </div>
+          ))}
+        </div>
+
+        <h1 className="text-xl font-semibold text-(--vestara-text) mb-2">Vestara AI</h1>
+        <p className="text-sm text-(--vestara-text-2) mb-8">Ask anything, build anything, and work with AI.</p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-6">
           {SUGGESTED_PROMPTS.slice(0, 6).map((prompt) => (
@@ -193,23 +208,23 @@ export function ChatEmptyState({ onSuggestionClick }: ChatEmptyStateProps) {
           ))}
         </div>
 
-        <div className="text-[10px] text-zinc-700 leading-relaxed space-y-1">
+        <div className="text-[10px] text-(--vestara-text-dim) leading-relaxed space-y-1">
           <p>
-            <kbd className="px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] font-mono text-zinc-500">
+            <kbd className="px-1.5 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[10px] font-mono text-(--vestara-text-2)">
               Enter
             </kbd>{' '}
             to send ·{' '}
-            <kbd className="px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] font-mono text-zinc-500">
+            <kbd className="px-1.5 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[10px] font-mono text-(--vestara-text-2)">
               Shift+Enter
             </kbd>{' '}
             for new line
           </p>
           <p>
-            <kbd className="px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] font-mono text-zinc-500">
+            <kbd className="px-1.5 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[10px] font-mono text-(--vestara-text-2)">
               Ctrl+K
             </kbd>{' '}
             search ·{' '}
-            <kbd className="px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[10px] font-mono text-zinc-500">
+            <kbd className="px-1.5 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[10px] font-mono text-(--vestara-text-2)">
               Ctrl+N
             </kbd>{' '}
             new chat

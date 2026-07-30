@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 
-const DEFAULT_ORDER = [
+export const DEFAULT_ORDER = [
   'repo-health',
   'plans',
   'analyze-feature',

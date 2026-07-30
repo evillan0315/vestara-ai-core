@@ -16,7 +16,7 @@ interface Props {
 export default function WorkspaceContinuityCard({ context, loading, onContinue, onDismiss }: Props) {
   if (loading) {
     return (
-      <div className="mb-2 p-4 bg-zinc-900/60 border border-(--vestara-accent-border) rounded-lg">
+      <div className="mb-2 p-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <svg
             className="w-4 h-4 animate-spin"
@@ -37,7 +37,7 @@ export default function WorkspaceContinuityCard({ context, loading, onContinue, 
   if (!context) return null;
 
   return (
-    <div className="mb-2 p-4 bg-zinc-900/60 border border-(--vestara-accent-border) rounded-lg">
+    <div className="mb-2 p-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
       <div className="flex items-center gap-2 mb-2">
         <svg
           className="w-5 h-5 text-(--vestara-accent)"

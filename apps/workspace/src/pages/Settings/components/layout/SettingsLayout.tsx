@@ -17,9 +17,9 @@ interface SettingsLayoutProps {
 
 export default function SettingsLayout({ children, modules }: SettingsLayoutProps) {
   return (
-    <div className="flex flex-col h-full bg-[var(--vestara-bg)]">
+    <div className="flex flex-col w-full h-full bg-zinc-950">
       <SettingsTabs modules={modules} />
-      <div className="flex-1 overflow-auto">{children}</div>
+      <div className="flex-1 overflow-auto w-full">{children}</div>
     </div>
   );
 }

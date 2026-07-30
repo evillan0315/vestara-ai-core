@@ -78,7 +78,7 @@ export function startServer(port = 3001): http.Server {
   });
 
   server.listen(port, () => {
-    console.log(`[events-server] Listening on http://localhost:${port}`);
+    console.log(`[events-server] Listening on http://127.0.0.1:${port}`);
   });
 
   return server;
@@ -242,7 +242,7 @@ function handleAgents(res: http.ServerResponse): void {
 }
 
 function handleActivity(res: http.ServerResponse, url: string): void {
-  const qs = new URL(url, 'http://localhost').searchParams;
+  const qs = new URL(url, 'http://127.0.0.1').searchParams;
   const options: Record<string, any> = {};
   if (qs.get('category')) options.category = qs.get('category');
   if (qs.get('type')) options.type = qs.get('type');

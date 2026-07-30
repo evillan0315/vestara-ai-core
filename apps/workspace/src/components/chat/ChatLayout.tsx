@@ -47,7 +47,7 @@ export default function ChatLayout() {
   }, []);
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-zinc-950 border border-zinc-800/50 rounded-xl">
+    <div className="flex h-[calc(100vh-3.5rem)] w-full overflow-hidden bg-zinc-950 border border-(--vestara-accent-border) rounded-xl">
       <ChatSidebar
         open={sidebarOpen}
         conversations={chat.conversations}
@@ -65,6 +65,7 @@ export default function ChatLayout() {
         onNewConversation={chat.newConversation}
         onSelectConversation={chat.switchConversation}
         onDeleteConversation={chat.deleteConversation}
+        onTogglePinConversation={chat.togglePin}
         onClose={() => setSidebarOpen((v) => !v)}
       />
 
@@ -109,6 +110,7 @@ export default function ChatLayout() {
           onScroll={chat.handleMessagesScroll}
           onScrollToBottom={scrollToBottom}
           onSuggestionClick={handleSuggestionClick}
+          modelName={chat.settings?.model}
         />
 
         <ChatComposer

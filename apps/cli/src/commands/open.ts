@@ -17,19 +17,7 @@ import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
 import { WorkspaceRuntime } from '@vestara/workspace';
-
-const GOLD = '\x1b[33m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const RESET = '\x1b[0m';
-const BOLD = '\x1b[1m';
-const GRAY = '\x1b[90m';
-
-function renderStep(success: boolean, label: string, detail?: string): void {
-  const icon = success ? `${GREEN}✓${RESET}` : `${RED}✗${RESET}`;
-  const detailStr = detail ? `${GRAY}${detail}${RESET}` : '';
-  process.stdout.write(`  ${icon} ${label} ${detailStr}\n`);
-}
+import { GOLD, GREEN, RED, RESET, BOLD, GRAY, renderStep } from '../output/format.js';
 
 export async function runOpen(openPath: string, force = false): Promise<void> {
   // If workspace already exists and --force was not passed, warn and exit
@@ -167,8 +155,8 @@ export async function runOpen(openPath: string, force = false): Promise<void> {
       eventsServer = startServer(3001);
       registerSession(runtime.getSession());
       unsubscribeEvents = subscribeToEventBus(kernel.eventBus);
-      console.log(`${GRAY}  UI:         http://localhost:5173 (run: pnpm --filter @vestara/workspace-ui dev)${RESET}`);
-      console.log(`${GRAY}  Events:    http://localhost:3001/api/events${RESET}`);
+      console.log(`${GRAY}  UI:         http://127.0.0.1:5173 (run: pnpm --filter @vestara/workspace-ui dev)${RESET}`);
+      console.log(`${GRAY}  Events:    http://127.0.0.1:3001/api/events${RESET}`);
     } catch (e: any) {
       console.log(`${GRAY}  (Events server unavailable: ${e.message})${RESET}`);
     }

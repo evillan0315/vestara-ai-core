@@ -3,6 +3,15 @@ import { approvePlan, implementPlan, verifyChangeSet } from '../lib/api';
 import StatCard from '../components/dashboard/StatCard';
 import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
+import CreateArtifactModal from '../components/artifacts/CreateArtifactModal';
+import EditArtifactModal from '../components/artifacts/EditArtifactModal';
+import DeleteConfirmDialog from '../components/artifacts/DeleteConfirmDialog';
+import ApproveRejectDialog from '../components/artifacts/ApproveRejectDialog';
+import AssignPlanDialog from '../components/artifacts/AssignPlanDialog';
+import ArtifactStatusChip from '../components/artifacts/ArtifactStatusChip';
+import ArtifactActionsMenu from '../components/artifacts/ArtifactActionsMenu';
+import type { ActionItem } from '../components/artifacts/ArtifactActionsMenu';
+import ArtifactEmptyState from '../components/artifacts/ArtifactEmptyState';
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -81,7 +90,7 @@ function statusBadge(status: string): { bg: string; text: string; dot: string } 
   if (status === 'failed') return { bg: 'bg-red-400/10', text: 'text-red-400', dot: 'bg-red-400' };
   if (status === 'running' || status === 'active' || status === 'submitted' || status === 'queued')
     return { bg: 'bg-amber-400/10', text: 'text-amber-400', dot: 'bg-amber-400' };
-  return { bg: 'bg-zinc-800', text: 'text-zinc-500', dot: 'bg-zinc-600' };
+  return { bg: 'bg-zinc-800', text: 'text-(--vestara-text-2)', dot: 'bg-zinc-600' };
 }
 
 function StatusDot({ status }: { status: string }) {
@@ -112,6 +121,13 @@ export default function Artifacts() {
   const [verificationResults, setVerificationResults] = useState<Record<string, string>>({});
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+
+  // Dialog state
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingArtifact, setEditingArtifact] = useState<any>(null);
+  const [deletingArtifact, setDeletingArtifact] = useState<any>(null);
+  const [approveRejectAction, setApproveRejectAction] = useState<{ artifact: any; action: 'approve' | 'reject' } | null>(null);
+  const [assigningArtifact, setAssigningArtifact] = useState<any>(null);
 
   const load = useCallback(async () => {
     try {
@@ -224,39 +240,15 @@ export default function Artifacts() {
       {/* Header */}
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-[var(--vestara-text)]">Artifact Explorer</h1>
-          <p className="text-[10px] text-[var(--vestara-text-muted)] mt-1">
-            {totalArtifacts} artifacts across {exSessions.length} execution sessions
-          </p>
+          <h1 className="text-lg font-bold text-zinc-100">Artifacts</h1>
+          <p className="text-[11px] text-zinc-500 mt-0.5">Manage project artifacts and approval workflows.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={async () => {
-              setAnalyzing(true);
-              try {
-                const r = await fetch('/api/analyze-workspace', { method: 'POST' });
-                if (r.ok) {
-                  const d = await r.json();
-                  setAnalysis(d.analysis);
-                  setShowAnalysis(true);
-                }
-              } catch {
-              } finally {
-                setAnalyzing(false);
-              }
-            }}
-            disabled={analyzing}
-            className="text-xs px-3 py-1.5 accent-btn rounded-lg disabled:opacity-30 cursor-pointer font-medium"
-          >
-            {analyzing ? 'Analyzing...' : 'Analyze Workspace'}
+          <button onClick={() => setShowCreate(true)}
+            className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all cursor-pointer font-medium shadow-sm shadow-blue-600/20">
+            + Create Artifact
           </button>
-          <button
-            onClick={load}
-            className="text-xs px-2 py-1.5 bg-zinc-800 border border-zinc-700 text-[var(--vestara-text-muted)] rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
-            title="Refresh"
-          >
-            ↻
-          </button>
+          <button onClick={load} className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer" title="Refresh">↻</button>
         </div>
       </div>
 
@@ -270,27 +262,28 @@ export default function Artifacts() {
         <StatCard label="Active" value={activeSession ? 1 : 0} accent={activeSession ? '#10b981' : '#52525b'} sub={activeSession ? 'Running' : undefined} />
       </div>
 
-      {/* Search + Filter */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
+      {/* Search + Filter bar */}
+      <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-0 max-w-xs">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-700 text-[11px]">🔍</span>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search artifacts..." className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-7 pr-2 py-1.5 text-xs text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" />
+          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search artifacts..." className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors" />
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-zinc-800 border border-zinc-700 text-[var(--vestara-text)] rounded-lg px-2 py-1.5 text-xs outline-none cursor-pointer">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-xs outline-none cursor-pointer focus:border-zinc-500 transition-colors">
           <option value="all">All Status</option>
+          <option value="draft">Draft</option>
+          <option value="approved">Approved</option>
+          <option value="rejected">Rejected</option>
           <option value="completed">Completed</option>
           <option value="failed">Failed</option>
           <option value="running">Running</option>
-          <option value="draft">Draft</option>
         </select>
-        <span className="text-[10px] text-zinc-700 ml-auto">{totalArtifacts} total</span>
-        <button onClick={load} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm" title="Refresh">↻</button>
+        <span className="text-[10px] text-zinc-600">{totalArtifacts} total</span>
       </div>
 
       {/* Session selector */}
       {exSessions.length > 0 && (
         <div className="mb-4">
-          <div className="text-[9px] text-zinc-600 uppercase tracking-wider mb-1.5 font-semibold">
+          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1.5 font-semibold">
             Filter by Session
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
@@ -298,8 +291,8 @@ export default function Artifacts() {
               onClick={() => setSelectedSessionId(null)}
               className={`text-[9px] px-2.5 py-1 rounded-md transition-colors cursor-pointer ${
                 !selectedSessionId
-                  ? 'bg-zinc-700 text-zinc-200 border border-zinc-600 font-medium'
-                  : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-700'
+                  ? 'bg-(--vestara-accent-bg) text-(--vestara-text) border border-(--vestara-accent-border-active) font-medium'
+                  : 'bg-zinc-800 text-(--vestara-text-2) hover:text-(--vestara-text) border border-zinc-700'
               }`}
             >
               All
@@ -311,14 +304,14 @@ export default function Artifacts() {
                 className={`text-[9px] px-2.5 py-1 rounded-md transition-colors cursor-pointer flex items-center gap-1.5 ${
                   selectedSessionId === s.id
                     ? 'bg-accent text-accent border-accent font-medium'
-                    : 'bg-zinc-800 text-zinc-500 hover:text-zinc-300 border border-zinc-700'
+                    : 'bg-zinc-800 text-(--vestara-text-2) hover:text-(--vestara-text) border border-zinc-700'
                 }`}
               >
                 <StatusDot status={s.status} />
                 <span className="truncate max-w-[120px]">{s.goal?.slice(0, 24) || s.id?.slice(0, 12)}</span>
               </button>
             ))}
-            {exSessions.length > 10 && <span className="text-[8px] text-zinc-700">+{exSessions.length - 10} more</span>}
+            {exSessions.length > 10 && <span className="text-[8px] text-(--vestara-text-dim)">+{exSessions.length - 10} more</span>}
           </div>
         </div>
       )}
@@ -328,14 +321,14 @@ export default function Artifacts() {
         <div className="lg:col-span-8 space-y-4">
           {/* Workspace Analysis */}
           {analysis && showAnalysis && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
               <div className="flex items-center justify-between mb-3">
-                <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
+                <h2 className="text-xs font-semibold text-(--vestara-text-2) uppercase tracking-wider flex items-center gap-1.5">
                   <span className="w-1 h-3 rounded-full bg-purple-500/60" /> Workspace Analysis
                 </h2>
                 <button
                   onClick={() => setShowAnalysis(false)}
-                  className="text-zinc-700 hover:text-zinc-500 cursor-pointer text-[9px]"
+                  className="text-(--vestara-text-dim) hover:text-(--vestara-text-2) cursor-pointer text-[9px]"
                 >
                   ✕
                 </button>
@@ -343,11 +336,11 @@ export default function Artifacts() {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
                     <div className="text-lg font-bold text-[var(--vestara-text)]">{analysis.metrics?.totalFiles || 0}</div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Files</div>
+                  <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Files</div>
                 </div>
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
                   <div className="text-lg font-bold text-zinc-200">{analysis.metrics?.totalPackages || 0}</div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Packages</div>
+                  <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Packages</div>
                 </div>
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
                   <div
@@ -355,21 +348,21 @@ export default function Artifacts() {
                   >
                     {analysis.metrics?.testCoverage || 0}%
                   </div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Coverage</div>
+                  <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Coverage</div>
                 </div>
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
                   <div className="text-lg font-bold text-zinc-200">{analysis.metrics?.agentCount || 0}</div>
-                  <div className="text-[9px] text-zinc-600 uppercase tracking-wider">Agents</div>
+                  <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Agents</div>
                 </div>
               </div>
               {analysis.summary && (
-                <div className="p-2.5 bg-zinc-800/30 border border-zinc-700/50 rounded-lg text-[11px] text-zinc-400 leading-relaxed mb-3">
+                <div className="p-2.5 bg-zinc-800/30 border border-zinc-700/50 rounded-lg text-[11px] text-(--vestara-text-2) leading-relaxed mb-3">
                   {analysis.summary}
                 </div>
               )}
               {analysis.risks?.length > 0 && (
                 <div className="mb-2">
-                  <span className="text-[9px] text-zinc-500 uppercase font-semibold tracking-wider">Risks</span>
+                  <span className="text-[9px] text-(--vestara-text-2) uppercase font-semibold tracking-wider">Risks</span>
                   <div className="space-y-1 mt-1">
                     {analysis.risks.slice(0, 3).map((r: any, i: number) => (
                       <div
@@ -379,7 +372,7 @@ export default function Artifacts() {
                             ? 'bg-red-400/10 text-red-400 border border-red-400/20'
                             : r.severity === 'medium'
                               ? 'bg-amber-400/10 text-amber-400 border border-amber-400/20'
-                              : 'bg-zinc-800 text-zinc-500 border border-zinc-700'
+                              : 'bg-zinc-800 text-(--vestara-text-2) border border-zinc-700'
                         }`}
                       >
                         <span className="font-semibold shrink-0">
@@ -395,20 +388,20 @@ export default function Artifacts() {
               )}
               {analysis.recommendations?.length > 0 && (
                 <div>
-                  <span className="text-[9px] text-zinc-500 uppercase font-semibold tracking-wider">
+                  <span className="text-[9px] text-(--vestara-text-2) uppercase font-semibold tracking-wider">
                     Recommendations
                   </span>
                   <div className="space-y-1 mt-1">
                     {analysis.recommendations.slice(0, 3).map((r: any, i: number) => (
                       <div
                         key={i}
-                        className="text-[10px] text-zinc-400 flex items-start gap-2 p-1.5 bg-zinc-800/30 rounded-lg"
+                        className="text-[10px] text-(--vestara-text-2) flex items-start gap-2 p-1.5 bg-zinc-800/30 rounded-lg"
                       >
                         <span className={r.priority === 'high' ? 'text-red-400 shrink-0' : 'text-amber-400 shrink-0'}>
                           •
                         </span>
                         <span>
-                          <strong className="text-zinc-300">{r.action}</strong>: {r.rationale}
+                          <strong className="text-(--vestara-text)">{r.action}</strong>: {r.rationale}
                         </span>
                       </div>
                     ))}
@@ -423,14 +416,12 @@ export default function Artifacts() {
 
           {/* Empty state */}
           {totalArtifacts === 0 && exSessions.length === 0 && (
-            <div className="flex flex-col items-center justify-center py-14 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
-              <div className="text-2xl mb-2 opacity-30">◇</div>
-              <p className="text-sm text-[var(--vestara-text-muted)] mb-1">No artifacts yet</p>
-              <p className="text-xs text-zinc-700">Create a plan or start a workflow to build the artifact chain</p>
-              <div className="flex gap-2 mt-4">
-                <button onClick={() => window.location.href = '/ops'} className="text-xs px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer">Go to Ops Center</button>
-              </div>
-            </div>
+            <ArtifactEmptyState
+              title="No Artifacts Yet"
+              description="Create your first artifact to begin planning your workflow."
+              actionLabel="Create Artifact"
+              onAction={() => setShowCreate(true)}
+            />
           )}
 
           {/* Category sections */}
@@ -439,14 +430,14 @@ export default function Artifacts() {
               const cfg = CATEGORY_CONFIG[key] || {
                 label: key,
                 icon: '·',
-                color: 'text-zinc-400',
+                color: 'text-(--vestara-text-2)',
                 border: 'border-l-zinc-600',
               };
               const isExpanded = expandedCategory === key;
               return (
                 <div
                   key={key}
-                  className={`bg-zinc-900/50 border border-zinc-800 rounded-lg overflow-hidden transition-colors hover:border-zinc-700 border-l-[3px] ${cfg.border}`}
+                  className={`bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg overflow-hidden transition-colors hover:border-(--vestara-accent-border-hover) border-l-[3px] ${cfg.border}`}
                 >
                   <div
                     className="flex items-center justify-between p-3 cursor-pointer select-none"
@@ -457,13 +448,13 @@ export default function Artifacts() {
                         {cfg.icon} {cfg.label}
                       </span>
                       <span
-                        className={`text-[9px] px-1.5 py-0.5 rounded-full ${items.length > 0 ? 'bg-zinc-800 text-zinc-400' : 'text-zinc-700 bg-zinc-800/50'}`}
+                        className={`text-[9px] px-1.5 py-0.5 rounded-full ${items.length > 0 ? 'bg-zinc-800 text-(--vestara-text-2)' : 'text-(--vestara-text-dim) bg-zinc-800/50'}`}
                       >
                         {items.length}
                       </span>
                     </div>
                     <span
-                      className={`text-zinc-600 text-[10px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                      className={`text-(--vestara-text-muted) text-[10px] transition-transform ${isExpanded ? 'rotate-180' : ''}`}
                     >
                       ▼
                     </span>
@@ -472,7 +463,7 @@ export default function Artifacts() {
                   {isExpanded && (
                     <div className="border-t border-zinc-800 divide-y divide-zinc-800/40">
                       {items.length === 0 && (
-                        <div className="p-6 text-center text-[10px] text-zinc-700 italic">
+                        <div className="p-6 text-center text-[10px] text-(--vestara-text-dim) italic">
                           No {cfg.label.toLowerCase()} artifacts
                         </div>
                       )}
@@ -493,7 +484,7 @@ export default function Artifacts() {
                             </div>
 
                             {/* Metadata row */}
-                            <div className="flex items-center gap-3 mt-1 text-[10px] text-zinc-600 ml-[18px]">
+                            <div className="flex items-center gap-3 mt-1 text-[10px] text-(--vestara-text-muted) ml-[18px]">
                               {item._type === 'plan' && (
                                 <>
                                   {(item.taskCount ?? item.tasks?.length) !== undefined && (
@@ -531,6 +522,10 @@ export default function Artifacts() {
                                             : 'Verify'}
                                       </button>
                                     )}
+                                    <button onClick={(e) => { e.stopPropagation(); setEditingArtifact(item); }}
+                                      className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 transition-colors cursor-pointer font-medium">Edit</button>
+                                    <button onClick={(e) => { e.stopPropagation(); setDeletingArtifact(item); }}
+                                      className="text-[8px] px-1.5 py-0.5 rounded bg-red-400/10 text-red-400 hover:bg-red-400/20 transition-colors cursor-pointer font-medium">Del</button>
                                   </div>
                                 </>
                               )}
@@ -552,15 +547,15 @@ export default function Artifacts() {
                                 </>
                               )}
                               {item._type === 'approval' && item.title && <span>{item.title}</span>}
-                              <span className="text-zinc-700">
+                              <span className="text-(--vestara-text-dim)">
                                 {new Date(item.createdAt || Date.now()).toLocaleDateString()}
                               </span>
                             </div>
 
                             {/* Expanded detail */}
                             {isSelected && item._type === 'verification' && item.checks && (
-                              <div className="mt-2 pt-2.5 border-t border-zinc-800 space-y-1">
-                                <div className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold mb-1.5">
+                              <div className="mt-2 pt-2.5 border-t border-(--vestara-accent-border) space-y-1">
+                                <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider font-semibold mb-1.5">
                                   Checks ({item.checks.length})
                                 </div>
                                 {item.checks.map((c: any, ci: number) => (
@@ -569,17 +564,17 @@ export default function Artifacts() {
                                     className="flex items-start gap-2.5 text-[10px] p-2 bg-zinc-800/30 rounded-lg border border-zinc-700/50"
                                   >
                                     <span
-                                      className={`shrink-0 mt-0.5 text-[11px] ${c.status === 'passed' ? 'text-green-400' : c.status === 'failed' ? 'text-red-400' : 'text-zinc-600'}`}
+                                      className={`shrink-0 mt-0.5 text-[11px] ${c.status === 'passed' ? 'text-green-400' : c.status === 'failed' ? 'text-red-400' : 'text-(--vestara-text-muted)'}`}
                                     >
                                       {c.status === 'passed' ? '✓' : c.status === 'failed' ? '✗' : '−'}
                                     </span>
                                     <div className="flex-1 min-w-0">
-                                      <div className="text-zinc-300 font-medium text-[11px]">{c.type}</div>
+                                      <div className="text-(--vestara-text) font-medium text-[11px]">{c.type}</div>
                                       {c.output && (
-                                        <div className="text-zinc-500 truncate mt-0.5">{c.output.slice(0, 160)}</div>
+                                        <div className="text-(--vestara-text-2) truncate mt-0.5">{c.output.slice(0, 160)}</div>
                                       )}
                                       {c.durationMs > 0 && (
-                                        <span className="text-zinc-700 text-[9px]">{c.durationMs}ms</span>
+                                        <span className="text-(--vestara-text-dim) text-[9px]">{c.durationMs}ms</span>
                                       )}
                                     </div>
                                   </div>
@@ -588,14 +583,14 @@ export default function Artifacts() {
                             )}
 
                             {isSelected && item._type === 'changeset' && item.files && (
-                              <div className="mt-2 pt-2.5 border-t border-zinc-800 space-y-0.5">
-                                <div className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold mb-1">
+                              <div className="mt-2 pt-2.5 border-t border-(--vestara-accent-border) space-y-0.5">
+                                <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider font-semibold mb-1">
                                   Files ({item.files.length})
                                 </div>
                                 {item.files.map((f: any, fi: number) => (
                                   <div
                                     key={fi}
-                                    className="text-[9px] text-zinc-500 font-mono px-1 py-0.5 bg-zinc-800/20 rounded"
+                                    className="text-[9px] text-(--vestara-text-2) font-mono px-1 py-0.5 bg-zinc-800/20 rounded"
                                   >
                                     {f.path || f}
                                   </div>
@@ -604,12 +599,12 @@ export default function Artifacts() {
                             )}
 
                             {isSelected && item._type === 'plan' && item.tasks && (
-                              <div className="mt-2 pt-2.5 border-t border-zinc-800 space-y-0.5">
-                                <div className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold mb-1">
+                              <div className="mt-2 pt-2.5 border-t border-(--vestara-accent-border) space-y-0.5">
+                                <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider font-semibold mb-1">
                                   Tasks ({item.tasks.length})
                                 </div>
                                 {item.tasks.map((t: any, ti: number) => (
-                                  <div key={ti} className="text-[10px] text-zinc-500 flex items-start gap-1.5 py-0.5">
+                                  <div key={ti} className="text-[10px] text-(--vestara-text-2) flex items-start gap-1.5 py-0.5">
                                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 shrink-0 mt-0.5" />
                                     <span>{t.description || t.title || t}</span>
                                   </div>
@@ -620,7 +615,7 @@ export default function Artifacts() {
                         );
                       })}
                       {items.length > 20 && (
-                        <div className="p-2 text-center text-[10px] text-zinc-700">{items.length - 20} more...</div>
+                        <div className="p-2 text-center text-[10px] text-(--vestara-text-dim)">{items.length - 20} more...</div>
                       )}
                     </div>
                   )}
@@ -634,30 +629,30 @@ export default function Artifacts() {
         <div className="lg:col-span-4 space-y-3">
           {/* Session timeline */}
           {detailSession && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-blue-500/60" />
                 {detailSession.goal ? detailSession.goal.slice(0, 36) : 'Session'}
                 <StatusBadge status={detailSession.status} />
               </h3>
               <SessionTimeline session={detailSession} compact />
               {detailSession.metrics && (
-                <div className="mt-2 pt-2 border-t border-zinc-800 space-y-1.5 text-[10px] text-zinc-600">
+                <div className="mt-2 pt-2 border-t border-(--vestara-accent-border) space-y-1.5 text-[10px] text-(--vestara-text-muted)">
                   <div className="flex items-center justify-between">
                     <span>Progress</span>
-                    <span className="text-zinc-300">
+                    <span className="text-(--vestara-text)">
                       {detailSession.metrics.completedSteps}/{detailSession.metrics.totalSteps} steps
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Agents</span>
-                    <span className="text-zinc-300">
+                    <span className="text-(--vestara-text)">
                       {detailSession.metrics.agentCount || detailSession.timeline?.length || 0}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span>Artifacts</span>
-                    <span className="text-zinc-300">
+                    <span className="text-(--vestara-text)">
                       {detailSession.metrics.artifactCount || sessionArtifacts.length || 0}
                     </span>
                   </div>
@@ -676,8 +671,8 @@ export default function Artifacts() {
 
           {/* Session agents */}
           {detailSession?.timeline && detailSession.timeline.length > 0 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-purple-500/60" /> Agents ({detailSession.timeline.length})
               </h3>
               <div className="space-y-1.5">
@@ -687,7 +682,7 @@ export default function Artifacts() {
                     className="flex items-center gap-2.5 text-[10px] py-1 px-1 rounded hover:bg-zinc-800/20 transition-colors"
                   >
                     <StatusDot status={t.status} />
-                    <span className="text-zinc-300 flex-1 truncate font-medium">{t.step || t.agentId}</span>
+                    <span className="text-(--vestara-text) flex-1 truncate font-medium">{t.step || t.agentId}</span>
                     <StatusBadge status={t.status} />
                   </div>
                 ))}
@@ -696,8 +691,8 @@ export default function Artifacts() {
           )}
 
           {/* Artifact Summary */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-            <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+            <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <span className="w-1 h-3 rounded-full bg-zinc-500/60" /> Summary
             </h3>
             <div className="space-y-2 text-[10px]">
@@ -722,12 +717,12 @@ export default function Artifacts() {
                         }}
                       />
                     </div>
-                    <span className="text-zinc-700 w-8 text-right">{pct}%</span>
+                    <span className="text-(--vestara-text-dim) w-8 text-right">{pct}%</span>
                   </div>
                 );
               })}
               <div className="border-t border-zinc-800 pt-1.5 mt-1.5 flex items-center justify-between">
-                <span className="text-zinc-500 font-medium">Total</span>
+                <span className="text-(--vestara-text-2) font-medium">Total</span>
                 <span className="text-zinc-200 font-semibold">{totalArtifacts}</span>
               </div>
             </div>
@@ -735,18 +730,18 @@ export default function Artifacts() {
 
           {/* Verification health */}
           {verifications.length > 0 && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
-              <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+              <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
                 <span className="w-1 h-3 rounded-full bg-green-500/60" /> Verification Health
               </h3>
               <div className="space-y-2 text-[10px]">
                 <div className="flex items-center justify-between">
                   <span className="text-green-400">Passed</span>
-                  <span className="text-zinc-300 font-medium">{verificationCounts.passed}</span>
+                  <span className="text-(--vestara-text) font-medium">{verificationCounts.passed}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-red-400">Failed</span>
-                  <span className="text-zinc-300 font-medium">{verificationCounts.failed}</span>
+                  <span className="text-(--vestara-text) font-medium">{verificationCounts.failed}</span>
                 </div>
                 {verificationCounts.totalChecks > 0 && (
                   <>
@@ -767,8 +762,8 @@ export default function Artifacts() {
                       </div>
                     </div>
                     <div className="flex items-center justify-between text-[9px]">
-                      <span className="text-zinc-700">{verificationCounts.totalChecks} total checks</span>
-                      <span className="text-zinc-700">
+                      <span className="text-(--vestara-text-dim)">{verificationCounts.totalChecks} total checks</span>
+                      <span className="text-(--vestara-text-dim)">
                         {verificationCounts.passedChecks}✓ / {verificationCounts.failedChecks}✗
                       </span>
                     </div>
@@ -779,6 +774,13 @@ export default function Artifacts() {
           )}
         </div>
       </div>
+
+      {/* Dialogs */}
+      <CreateArtifactModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={load} />
+      <EditArtifactModal open={!!editingArtifact} artifact={editingArtifact} onClose={() => setEditingArtifact(null)} onUpdated={load} />
+      <DeleteConfirmDialog open={!!deletingArtifact} artifact={deletingArtifact} onClose={() => setDeletingArtifact(null)} onDeleted={load} />
+      <ApproveRejectDialog open={!!approveRejectAction} artifact={approveRejectAction?.artifact ?? null} action={approveRejectAction?.action ?? null} onClose={() => setApproveRejectAction(null)} onCompleted={load} />
+      <AssignPlanDialog open={!!assigningArtifact} artifact={assigningArtifact} plans={plans} onClose={() => setAssigningArtifact(null)} onAssigned={load} />
     </div>
   );
 }

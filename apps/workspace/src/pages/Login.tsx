@@ -47,9 +47,9 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-4 bg-zinc-950">
-      <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-lg p-8">
+      <div className="w-full max-w-sm bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-8">
         <h1 className="text-xl font-bold text-accent mb-2">Vestara Workspace</h1>
-        <p className="text-sm text-zinc-500 mb-6">
+        <p className="text-sm text-(--vestara-text-2)mb-6">
           Enter your operator name to log in. Creates a local session or authenticates with the workspace server.
         </p>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -64,7 +64,7 @@ export default function Login() {
               }}
               disabled={submitting}
               className={`w-full px-3 py-2 bg-zinc-950 border rounded-md text-sm text-zinc-300 placeholder-zinc-700 focus:outline-none focus:border-accent transition-colors ${
-                err ? 'border-red-400/50' : 'border-zinc-700'
+                err ? 'border-red-400/50' : 'border-(--vestara-accent-border)'
               }`}
             />
             {err && <p className="text-xs text-red-400 mt-1">{err}</p>}

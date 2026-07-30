@@ -1,6 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BOLD, GOLD, GREEN, GRAY, RESET, CYAN } from '../output/format.js';
+import { BOLD, GOLD, GREEN, RED, GRAY, RESET, CYAN } from '../output/format.js';
 
 export async function runModelsList(): Promise<void> {
   console.log(); console.log(`${BOLD}${GOLD}Available AI Models${RESET}`); console.log(`${GRAY}────────────────────────────────────────────────────────────────${RESET}`); console.log();

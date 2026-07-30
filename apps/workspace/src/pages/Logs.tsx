@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 interface LogEvent {
   id: string;
@@ -12,17 +12,19 @@ interface LogEvent {
 }
 
 const CATEGORY_COLORS: Record<string, string> = {
-  conversation: '#6366f1',
-  workspace: '#3b82f6',
-  planning: '#f59e0b',
-  implementation: '#ef4444',
-  verification: '#10b981',
-  collaboration: '#8b5cf6',
-  agent: '#06b6d4',
-  memory: '#ec4899',
-  profile: '#14b8a6',
-  system: '#6b7280',
+  conversation: '#6366f1', workspace: '#3b82f6', planning: '#f59e0b',
+  implementation: '#ef4444', verification: '#10b981', collaboration: '#8b5cf6',
+  agent: '#06b6d4', memory: '#ec4899', profile: '#14b8a6', system: '#6b7280',
 };
+
+function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
+  return (
+    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: accent }}>
+      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">{label}</div>
+      <div className="text-lg font-bold mt-1" style={{ color: (typeof value === 'number' && value > 0) ? accent : 'var(--vestara-text)' }}>{value}</div>
+    </div>
+  );
+}
 
 export default function Logs() {
   const [events, setEvents] = useState<LogEvent[]>([]);
@@ -33,106 +35,106 @@ export default function Logs() {
   const load = useCallback(async () => {
     try {
       const r = await fetch('/api/activity-log');
-      if (r.ok) {
-        const d = await r.json();
-        setEvents(d.events ?? []);
-      }
+      if (r.ok) { const d = await r.json(); setEvents(d.events ?? []); }
     } catch {}
     setLoading(false);
   }, []);
 
-  useEffect(() => {
-    load();
-  }, [load]);
+  useEffect(() => { load(); }, [load]);
 
-  const categories = [...new Set(events.map((e) => e.category))];
+  const categories = useMemo(() => [...new Set(events.map((e) => e.category))], [events]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of events) counts[e.category] = (counts[e.category] || 0) + 1;
+    return counts;
+  }, [events]);
+
   const filtered = events.filter((e) => {
     if (filter !== 'all' && e.category !== filter) return false;
     if (search.trim()) {
       const q = search.toLowerCase();
-      return (
-        e.message.toLowerCase().includes(q) ||
-        e.type.toLowerCase().includes(q) ||
-        e.actor.name.toLowerCase().includes(q)
-      );
+      return e.message.toLowerCase().includes(q) || e.type.toLowerCase().includes(q) || e.actor.name.toLowerCase().includes(q);
     }
     return true;
   });
 
-  if (loading) return <div className="w-full px-4 py-16 text-center text-zinc-600 animate-pulse">Loading logs...</div>;
+  // CSV export
+  const exportCsv = () => {
+    const csv = ['timestamp,category,type,actor,message', ...filtered.map((e) =>
+      `"${new Date(e.timestamp).toISOString()}","${e.category}","${e.type}","${e.actor.name}","${e.message.replace(/"/g, '""')}"`
+    )].join('\n');
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `vestara-logs-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+  };
+
+  if (loading) return <div className="w-full py-16 text-center text-(--vestara-text-muted) animate-pulse">Loading logs...</div>;
 
   return (
-    <div className="w-full px-4">
-      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
+    <div>
+      {/* Header */}
+      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Activity Log</h1>
-          <p className="text-[10px] text-zinc-600 mt-0.5">{events.length} events</p>
+          <h1 className="text-lg font-bold text-(--vestara-text)">Activity Log</h1>
+          <p className="text-[10px] text-(--vestara-text-muted) mt-1">{events.length} events · {categories.length} categories</p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-700 text-[9px]">🔍</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search logs..."
-              className="w-40 bg-zinc-800 border border-zinc-700 rounded-lg pl-6 pr-2 py-1.5 text-[10px] text-zinc-300 placeholder-zinc-700 outline-none"
-            />
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[10px]">🔍</span>
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search logs..." className="w-40 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg pl-7 pr-2 py-1.5 text-[10px] text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none" />
           </div>
-          <button onClick={load} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm">
-            ↻
-          </button>
+          <button onClick={exportCsv} className="text-[9px] px-2 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) transition-colors cursor-pointer" title="Export CSV">⬇ CSV</button>
+          <button onClick={load} className="text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer text-sm">↻</button>
         </div>
       </div>
 
-      <div className="flex gap-1 flex-wrap mb-4">
-        <button
-          onClick={() => setFilter('all')}
-          className={`text-[9px] px-2 py-0.5 rounded cursor-pointer transition-colors ${filter === 'all' ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-400'}`}
-        >
-          All <span className="text-[8px] text-zinc-600">{events.length}</span>
-        </button>
-        {categories.map((cat) => {
-          const count = events.filter((e) => e.category === cat).length;
-          return (
-            <button
-              key={cat}
-              onClick={() => setFilter(cat)}
-              className={`text-[9px] px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 ${filter === cat ? 'bg-zinc-700 text-zinc-200' : 'bg-zinc-800 text-zinc-500 hover:text-zinc-400'}`}
-            >
-              <span
-                className="w-1.5 h-1.5 rounded-full"
-                style={{ backgroundColor: CATEGORY_COLORS[cat] || '#6b7280' }}
-              />
-              {cat} <span className="text-[8px] text-zinc-600">{count}</span>
-            </button>
-          );
-        })}
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-5">
+        <StatCard label="Total Events" value={events.length} accent="#8b5cf6" />
+        <StatCard label="Categories" value={categories.length} accent="#6366f1" />
+        {categories.slice(0, 4).map((cat) => (
+          <StatCard key={cat} label={cat} value={categoryCounts[cat] || 0} accent={CATEGORY_COLORS[cat] || '#6b7280'} />
+        ))}
       </div>
 
+      {/* Filter chips */}
+      <div className="flex gap-1 flex-wrap mb-4">
+        <button onClick={() => setFilter('all')}
+          className={`text-[9px] px-2 py-0.5 rounded cursor-pointer transition-colors ${filter === 'all' ? 'bg-(--vestara-accent-bg) text-(--vestara-text) font-medium border border-(--vestara-accent-border)' : 'text-(--vestara-text-2) hover:text-(--vestara-text)'}`}>
+          All <span className="text-[8px] text-(--vestara-text-dim)">{events.length}</span>
+        </button>
+        {categories.map((cat) => (
+          <button key={cat} onClick={() => setFilter(cat)}
+            className={`text-[9px] px-2 py-0.5 rounded cursor-pointer transition-colors flex items-center gap-1 ${filter === cat ? 'bg-(--vestara-accent-bg) text-(--vestara-text) font-medium border border-(--vestara-accent-border)' : 'text-(--vestara-text-2) hover:text-(--vestara-text)'}`}>
+            <span className="w-1.5 h-1.5 rounded-full inline-block" style={{ backgroundColor: CATEGORY_COLORS[cat] || '#6b7280' }} />
+            {cat} <span className="text-[8px] text-(--vestara-text-dim)">{categoryCounts[cat]}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Empty state */}
       {filtered.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-16 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center">
-          <p className="text-sm text-zinc-600">No matching log events</p>
+        <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
+          <p className="text-sm text-(--vestara-text-muted)">No matching log events</p>
         </div>
       )}
 
+      {/* Event list */}
       <div className="space-y-1">
         {filtered.map((e) => (
-          <div
-            key={e.id}
-            className="flex items-start gap-2 p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg border-l-[3px]"
-            style={{ borderLeftColor: CATEGORY_COLORS[e.category] || '#6b7280' }}
-          >
+          <div key={e.id} className="flex items-start gap-2 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: CATEGORY_COLORS[e.category] || '#6b7280' }}>
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 text-[9px]">
-                <span className="text-zinc-700 font-mono">{new Date(e.timestamp).toLocaleTimeString()}</span>
-                <span className="text-zinc-700">·</span>
-                <span className="uppercase font-medium" style={{ color: CATEGORY_COLORS[e.category] || '#6b7280' }}>
-                  {e.category}
-                </span>
-                <span className="text-zinc-600">{e.type}</span>
-                <span className="ml-auto text-zinc-700 text-[8px]">{e.actor.name}</span>
+                <span className="text-(--vestara-text-dim) font-mono">{new Date(e.timestamp).toLocaleTimeString()}</span>
+                <span className="text-(--vestara-text-dim)">·</span>
+                <span className="uppercase font-medium" style={{ color: CATEGORY_COLORS[e.category] || '#6b7280' }}>{e.category}</span>
+                <span className="text-(--vestara-text-2)">{e.type}</span>
+                <span className="ml-auto text-(--vestara-text-dim) text-[8px]">{e.actor.name}</span>
               </div>
-              <div className="text-[10px] text-zinc-300 mt-0.5">{e.message}</div>
+              <div className="text-[10px] text-(--vestara-text) mt-0.5">{e.message}</div>
             </div>
           </div>
         ))}

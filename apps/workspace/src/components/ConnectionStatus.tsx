@@ -11,7 +11,7 @@ export default function ConnectionStatus() {
       <button
         onClick={refresh}
         title={lastError || 'API health'}
-        className="flex items-center gap-1.5 px-2 py-1 rounded border bg-zinc-900/50 border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer"
+        className="flex items-center gap-1.5 px-2 py-1 rounded border bg-zinc-900/50 border-zinc-800 hover:border-(--vestara-accent-border-hover) transition-colors cursor-pointer"
       >
         <span
           className={`w-1.5 h-1.5 rounded-full ${api === 'checking' ? 'bg-zinc-600' : apiOk ? 'bg-green-400' : 'bg-red-400'}`}

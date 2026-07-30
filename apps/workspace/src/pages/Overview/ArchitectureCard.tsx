@@ -17,12 +17,12 @@ export function ArchitectureCard({ data }: { data: UnderstandingData }) {
   const displayPoints = showAll ? arch.entryPoints : realEntryPoints.slice(0, 12);
 
   return (
-    <div className="bg-[var(--color-zinc-900)] rounded-lg p-5 border border-[var(--color-zinc-700)]">
-      <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-3">Architecture</h2>
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-5">
+      <h2 className="text-lg font-semibold text-(--vestara-text) mb-3">Architecture</h2>
 
-      <div className="text-sm text-[var(--vestara-text-2)] mb-3 capitalize">
+      <div className="text-sm text-(--vestara-text-2) mb-3 capitalize">
         {arch.kind === 'monorepo' ? 'Monorepo' : arch.kind === 'multi-module' ? 'Multi-Module' : 'Single Module'}
-        <span className="text-[var(--vestara-text-muted)] ml-2 text-xs">
+        <span className="text-(--vestara-text-muted) ml-2 text-xs">
           {realEntryPoints.length} entry point{realEntryPoints.length > 1 ? 's' : ''}
           {barrelCount > 0 && (
             <span className="ml-1">(+{barrelCount} barrel)</span>
@@ -32,19 +32,19 @@ export function ArchitectureCard({ data }: { data: UnderstandingData }) {
 
       {displayPoints.length > 0 && (
         <div>
-          <div className="text-xs text-[var(--vestara-text-muted)] uppercase tracking-wide mb-1.5">Entry Points</div>
+          <div className="text-xs text-(--vestara-text-muted) uppercase tracking-wide mb-1.5">Entry Points</div>
           <div className="space-y-1">
             {displayPoints.map((ep, i) => (
               <div key={i} className="text-sm flex justify-between">
                 <span className="text-[var(--color-zinc-300)] truncate">{ep.path}</span>
-                <span className="text-[var(--vestara-text-muted)] text-xs capitalize">{ep.role}</span>
+                <span className="text-(--vestara-text-muted) text-xs capitalize">{ep.role}</span>
               </div>
             ))}
           </div>
           {(realEntryPoints.length > 12 || !showAll) && arch.entryPoints.length > displayPoints.length && (
             <button
               onClick={() => setShowAll(!showAll)}
-              className="text-xs text-[var(--vestara-accent)] hover:underline mt-1.5 cursor-pointer"
+              className="text-xs text-(--vestara-accent) hover:underline mt-1.5 cursor-pointer"
             >
               {showAll
                 ? 'Show fewer'
@@ -56,12 +56,12 @@ export function ArchitectureCard({ data }: { data: UnderstandingData }) {
 
       {arch.layers.length > 0 && (
         <div className="mt-3 pt-3 border-t border-[var(--color-zinc-800)]">
-          <div className="text-xs text-[var(--vestara-text-muted)] uppercase tracking-wide mb-1.5">Layers</div>
+          <div className="text-xs text-(--vestara-text-muted) uppercase tracking-wide mb-1.5">Layers</div>
           <div className="space-y-1">
             {arch.layers.map((l, i) => (
               <div key={i} className="text-sm flex justify-between">
                 <span className="text-[var(--color-zinc-300)]">{l.packageName}</span>
-                <span className="text-[var(--vestara-text-muted)] capitalize">{l.layer}</span>
+                <span className="text-(--vestara-text-muted) capitalize">{l.layer}</span>
               </div>
             ))}
           </div>
@@ -70,7 +70,7 @@ export function ArchitectureCard({ data }: { data: UnderstandingData }) {
 
       {arch.dependencyCycles.length > 0 && (
         <div className="mt-3 pt-3 border-t border-[var(--color-zinc-800)]">
-          <div className="text-xs text-[var(--vestara-red)] uppercase tracking-wide">
+          <div className="text-xs text-(--vestara-red) uppercase tracking-wide">
             {arch.dependencyCycles.length} circular dependenc{arch.dependencyCycles.length > 1 ? 'ies' : 'y'}
           </div>
         </div>

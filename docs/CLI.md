@@ -312,6 +312,135 @@ vestara context
 
 ---
 
+### `vestara context`
+
+Display runtime context: workspace identity, provider health, active configuration,
+and storage paths.
+
+```
+vestara context
+```
+
+---
+
+### `vestara ops <sub> [args]`
+
+Engineering Operations Center — live telemetry for the AI engineering organization.
+
+| Subcommand | Description |
+|------------|-------------|
+| `feed` | Live activity feed (recent events) |
+| `status` | Current agent statuses with progress, tasks, and timing |
+| `timeline [agent]` | Chronological engineering timeline, optionally filtered by agent |
+| `demo` | Generate demo events to preview the telemetry system |
+
+```
+vestara ops feed
+vestara ops status
+vestara ops timeline engineer
+vestara ops demo
+```
+
+**Demo output:**
+
+```
+Demo: Engineering Activity Feed
+
+  04:18:29 ● context   Loading repository
+  04:18:29 ✓ context   ✓ Loaded
+  04:18:29 ◌ planner   Found 3 architectural issues
+  04:18:29 ● planner   Prioritizing EV-004
+  04:18:29 ✓ planner   4 tasks created
+  04:18:29 ● engineer  Analyzing exports
+  04:18:29 ● engineer  Adding GraphRuntime interface
+  04:18:29 ✓ engineer  4 files modified (+128 -43)
+  04:18:29 ◆ verifier  TypeScript compilation
+  04:18:29 ◆ verifier  12 passing, 0 failing
+  04:18:29 ✓ verifier  ✓ Build passed · ✓ Tests passed · ✓ Types correct
+  04:18:29 ◆ reviewer  Checking architecture compliance
+  04:18:29 ✓ reviewer  Approved — no architectural violations
+
+Demo: Agent Status
+
+  ✓ Context
+      Status:    completed
+      Task:      Loaded AGENTS.md
+      Operation: analyze
+      Detail:    ✓ Loaded
+
+  ✓ Engineer
+      Status:    completed
+      Task:      Implementation complete
+      Detail:    4 files modified (+128 -43)
+
+  ✓ Verifier
+      Status:    completed
+      Task:      Verification complete
+      Detail:    ✓ Build passed · ✓ Tests passed · ✓ Types correct
+```
+
+The telemetry system is designed for agents to emit events as they work.
+In a live session, the feed updates in real time as Planner, Engineer,
+Reviewer, and Verifier agents report their progress.
+
+---
+
+### `vestara architecture <sub> [args]`
+
+Query the Architecture Knowledge Graph (AKG) — a directed graph of foundational architectural
+decisions (ADRs 100+) with typed relationships.
+
+| Subcommand | Description |
+|------------|-------------|
+| `list` | List all ADRs |
+| `show <id>` | Show a single ADR with metadata (status, category, dependencies, influences, references) |
+| `depends-on <id>` | What an ADR depends on |
+| `dependents-of <id>` | What depends on an ADR |
+| `influences <role>` | Which ADRs influence a given role (Planner, Verifier, etc.) |
+| `impact <id>` | Impact analysis — affected ADRs, blueprints, agents, and risk level |
+
+```
+vestara architecture list
+vestara architecture show adr-100
+vestara architecture depends-on adr-104
+vestara architecture dependents-of adr-100
+vestara architecture influences verifier
+vestara architecture impact adr-103
+```
+
+---
+
+### `vestara blueprint verify`
+
+Structural integrity check for the Architecture Knowledge Graph. Validates:
+
+- All `depends_on` targets exist
+- No circular dependencies
+- All `referenced_by` paths resolve
+- No duplicate IDs
+
+```
+vestara blueprint verify
+```
+
+Output:
+
+```
+Vestara Blueprint Verification
+========================================
+
+✓ Foundational ADRs: 5
+
+✓ Broken Dependencies: 0
+✓ Circular Dependencies: 0
+✓ Missing References: 0
+✓ Duplicate IDs: 0
+
+Architecture Graph: PASS
+```
+
+---
+
 ### `vestara completions <shell>`
 
 Generate shell completion scripts.

@@ -37,7 +37,7 @@ export default function AnalyzeFeatureSection({ dragSection }: AnalyzeFeatureSec
           value={featureInput}
           onChange={(e) => setFeatureInput(e.target.value)}
           placeholder="Describe a feature to analyze..."
-          className="flex-1 bg-zinc-800 border border-zinc-700 rounded text-[10px] px-3 py-2 text-zinc-300 placeholder-zinc-600 outline-none"
+          className="flex-1 bg-zinc-800 border border-zinc-700 rounded text-[10px] px-3 py-2 text-(--vestara-text) placeholder-zinc-600 outline-none"
           onKeyDown={async (e) => {
             if (e.key === 'Enter') analyze();
           }}
@@ -51,11 +51,11 @@ export default function AnalyzeFeatureSection({ dragSection }: AnalyzeFeatureSec
         </button>
       </div>
       {featureAnalysis && (
-        <div className="mt-2 p-3 bg-zinc-800/50 border border-zinc-700 rounded-lg text-xs text-zinc-300 whitespace-pre-wrap font-mono text-[10px] leading-relaxed max-h-48 overflow-y-auto">
+        <div className="mt-2 p-3 bg-zinc-800/50 border border-zinc-700 rounded-lg text-xs text-(--vestara-text) whitespace-pre-wrap font-mono text-[10px] leading-relaxed max-h-48 overflow-y-auto">
           {featureAnalysis}
           <button
             onClick={() => setFeatureAnalysis(null)}
-            className="block mt-1 text-[9px] text-zinc-600 hover:text-zinc-400 cursor-pointer"
+            className="block mt-1 text-[9px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer"
           >
             Clear
           </button>

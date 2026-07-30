@@ -197,7 +197,7 @@ export default function ActivityStream({
         {events.length > 25 && displayEvents.length >= 25 && (
           <button
             onClick={onLoadMore}
-            className="w-full text-[9px] text-zinc-600 hover:text-zinc-400 py-1 border border-dashed border-zinc-800 rounded transition-colors cursor-pointer"
+            className="w-full text-[9px] text-(--vestara-text-2) hover:text-(--vestara-text) py-1 border border-dashed border-(--vestara-accent-border) rounded transition-colors cursor-pointer"
           >
             Load more
           </button>

@@ -91,13 +91,13 @@ export function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
                 {isExpanded && (
                   <div className="ml-2 mt-1 mb-2 space-y-1.5">
                     {tc.args && (
-                      <div className="px-2.5 py-1.5 bg-zinc-900/60 border border-zinc-800/40 rounded text-[11px] font-mono text-zinc-500 overflow-x-auto">
+                      <div className="px-2.5 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[11px] font-mono text-zinc-500 overflow-x-auto">
                         <div className="text-[9px] text-zinc-700 uppercase tracking-wider mb-1">Arguments</div>
                         <pre className="whitespace-pre-wrap">{tc.args}</pre>
                       </div>
                     )}
                     {tc.output && (
-                      <div className="px-2.5 py-1.5 bg-zinc-900/60 border border-zinc-800/40 rounded text-[11px] font-mono text-zinc-500 overflow-x-auto">
+                      <div className="px-2.5 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[11px] font-mono text-zinc-500 overflow-x-auto">
                         <div className="text-[9px] text-zinc-700 uppercase tracking-wider mb-1">Result</div>
                         <pre className="whitespace-pre-wrap">{tc.output}</pre>
                       </div>

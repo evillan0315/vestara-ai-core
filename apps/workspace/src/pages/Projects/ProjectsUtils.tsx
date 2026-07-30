@@ -22,7 +22,7 @@ export function StatCard({
 }) {
   return (
     <div
-      className={`text-center bg-zinc-800/50 border border-zinc-700 rounded-lg border-l-2 ${compact ? 'p-1.5' : 'p-2'}`}
+      className={`text-center bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-2 ${compact ? 'p-1.5' : 'p-2'}`}
       style={{ borderLeftColor: accent }}
     >
       <div
@@ -40,7 +40,7 @@ export function ProgressBar({ pct, size = 'sm' }: { pct: number; size?: 'sm' | '
   const h = size === 'lg' ? 'h-2' : size === 'md' ? 'h-1.5' : 'h-1';
   const color = progressColor(pct);
   return (
-    <div className={`w-full bg-zinc-800 rounded-full ${h}`}>
+    <div className={`w-full bg-(--vestara-accent-bg) rounded-full ${h}`}>
       <div
         className={`${h} rounded-full transition-all`}
         style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}

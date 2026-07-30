@@ -37,7 +37,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
   }, [editingId]);
 
   return (
-    <div className="flex items-center h-9 bg-zinc-900 border-b border-zinc-800/60 overflow-x-auto shrink-0">
+    <div className="flex items-center h-9 bg-(--vestara-accent-bg) border-b border-(--vestara-accent-border) overflow-x-auto shrink-0">
       <div className="flex items-center flex-1 min-w-0">
         {sessions.map((session) => {
           const isActive = session.id === activeId;
@@ -45,16 +45,24 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
             <div
               key={session.id}
               onClick={() => onSelect(session.id)}
-              className={`group flex items-center gap-1.5 px-3 h-full cursor-pointer border-r border-zinc-800/40 transition-colors shrink-0 max-w-[180px] ${
+              className={`group flex items-center gap-1.5 px-3 h-full cursor-pointer border-r border-(--vestara-accent-border) transition-colors shrink-0 max-w-[180px] ${
                 isActive
-                  ? 'bg-zinc-950 border-t-2 border-t-amber-500/70 text-zinc-200'
-                  : 'bg-zinc-900/50 text-zinc-500 hover:bg-zinc-800/40 hover:text-zinc-300'
+                  ? 'bg-(--vestara-accent-bg) border-t-2 border-t-(--vestara-accent) text-(--vestara-text)'
+                  : 'bg-(--vestara-accent-bg) text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text)'
               }`}
               onDoubleClick={() => {
                 setEditingId(session.id);
                 setEditValue(session.name);
               }}
             >
+              {session.processStatus === 'running' && (
+                <span className="flex items-end gap-[1px] h-3 shrink-0">
+                  {[3, 5, 4, 6].map((h, i) => (
+                    <span key={i} className="w-[2px] rounded-sm bg-(--vestara-accent) transition-all"
+                      style={{ height: `${h}px`, opacity: 0.5 + i * 0.15 }} />
+                  ))}
+                </span>
+              )}
               <span className={`text-[9px] ${statusColor(session.status, session.processStatus)} shrink-0`}>
                 {statusIcon(session.status, session.processStatus)}
               </span>
@@ -75,7 +83,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                     }
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  className="bg-zinc-800 border border-zinc-600 rounded text-[11px] px-1 py-0 text-zinc-200 outline-none w-24"
+                  className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) rounded text-[11px] px-1 py-0 text-(--vestara-text) outline-none w-24"
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
@@ -87,7 +95,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                   e.stopPropagation();
                   onClose(session.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-zinc-300 transition-all cursor-pointer shrink-0 ml-auto"
+                className="opacity-0 group-hover:opacity-100 text-(--vestara-text-muted) hover:text-(--vestara-text) transition-all cursor-pointer shrink-0 ml-auto"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -100,7 +108,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
 
       <button
         onClick={onAdd}
-        className="shrink-0 px-2.5 h-full flex items-center text-zinc-600 hover:text-zinc-300 hover:bg-zinc-800/40 transition-colors cursor-pointer border-l border-zinc-800/40"
+        className="shrink-0 px-2.5 h-full flex items-center text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer border-l border-(--vestara-accent-border)"
         title="New terminal"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

@@ -11,7 +11,7 @@ export interface StatCardProps {
 export function StatCard({ label, value, sub, accent = '#52525b', compact }: StatCardProps) {
   return (
     <div
-      className={`text-center bg-zinc-900/50 border border-zinc-800 rounded-lg border-l-[2px] ${compact ? 'p-1.5' : 'p-2'}`}
+      className={`text-center bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[2px] ${compact ? 'p-1.5' : 'p-2'}`}
       style={{ borderLeftColor: accent }}
     >
       <div
@@ -164,7 +164,7 @@ export function WorkflowModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
       <div
-        className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 w-full max-w-4xl shadow-2xl"
+        className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-6 w-full max-w-4xl shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
@@ -287,7 +287,7 @@ export function ExecutionsList({
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
         <div
-          className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-4xl mx-4 shadow-2xl max-h-[80vh] flex flex-col"
+          className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-4xl mx-4 shadow-2xl max-h-[80vh] flex flex-col"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between mb-4">
@@ -358,7 +358,7 @@ export function ExecutionsList({
   return (
     <div>
       {executions.length > 0 && (
-        <div className="mt-4 bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+        <div className="mt-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">
               Recent Executions <span className="text-zinc-700 font-normal">({executions.length})</span>
@@ -421,7 +421,7 @@ export interface ProviderCardProps {
 
 export function ProviderCard({ connected, providerName }: ProviderCardProps) {
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
       <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
         <span className="w-1 h-3 rounded-full bg-amber-500/60" /> Provider
       </h3>
@@ -455,7 +455,7 @@ export function SystemHealthGauge({ health }: SystemHealthGaugeProps) {
   ];
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
       <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
         <span className="w-1 h-3 rounded-full bg-green-500/60" /> System Health
       </h3>
@@ -500,7 +500,7 @@ export interface PipelineStatusProps {
 
 export function PipelineStatus({ stages }: PipelineStatusProps) {
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
       <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
         <span className="w-1 h-3 rounded-full bg-cyan-500/60" /> Pipeline
       </h3>
@@ -535,7 +535,7 @@ export function BackgroundServices({
   onRunBackground,
 }: BackgroundServicesProps) {
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider flex items-center gap-1.5">
           <span className="w-1 h-3 rounded-full bg-zinc-500/60" /> Background
@@ -597,7 +597,7 @@ export interface ActiveSessionsPanelProps {
 
 export function ActiveSessionsPanel({ activeSessions }: ActiveSessionsPanelProps) {
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-4">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
       <h3 className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
         <span className="w-1 h-3 rounded-full bg-amber-500/60" /> Active Sessions
         <span className="ml-1 text-zinc-600 font-normal">({activeSessions.length})</span>

@@ -230,8 +230,8 @@ export default function AccountSettings() {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--vestara-accent)] mx-auto" />
-        <p className="text-[var(--vestara-text-2)] mt-4">Loading account info…</p>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-(--vestara-accent) mx-auto" />
+        <p className="text-(--vestara-text-2) mt-4">Loading account info…</p>
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function AccountSettings() {
     return (
       <div className="text-center py-12">
         <p className="text-red-500">{error}</p>
-        <button onClick={fetchCurrentUser} className="mt-4 text-[var(--vestara-accent)] hover:underline">
+        <button onClick={fetchCurrentUser} className="mt-4 text-(--vestara-accent) hover:underline">
           Retry
         </button>
       </div>
@@ -250,68 +250,68 @@ export default function AccountSettings() {
   const isAdmin = currentUser?.role === 'admin';
 
   return (
-    <div className="space-y-8 max-w-4xl">
+    <div className="space-y-8">
       {/* ── Profile Section ── */}
       <section>
-        <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Profile</h2>
-        <div className="bg-[var(--vestara-bg-2)] rounded-lg p-4 space-y-3">
+        <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Profile</h2>
+        <div className="bg-(--vestara-accent-bg) rounded-lg p-4 space-y-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[var(--vestara-text-2)]">Username</span>
-            <span className="text-[var(--vestara-text)] font-medium">{currentUser?.username}</span>
+            <span className="text-sm text-(--vestara-text-2)">Username</span>
+            <span className="text-(--vestara-text) font-medium">{currentUser?.username}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[var(--vestara-text-2)]">Role</span>
+            <span className="text-sm text-(--vestara-text-2)">Role</span>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                 isAdmin
-                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
+                  ? 'bg-purple-500/10 text-purple-400'
                   : currentUser?.role === 'editor'
-                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                    : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                    ? 'bg-blue-500/10 text-blue-400'
+                    : 'bg-(--vestara-accent-bg) text-(--vestara-text-2)'
               }`}
             >
               {currentUser?.role}
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-sm text-[var(--vestara-text-2)]">User ID</span>
-            <span className="text-xs text-[var(--vestara-text-3)] font-mono">{currentUser?.id}</span>
+            <span className="text-sm text-(--vestara-text-2)">User ID</span>
+            <span className="text-xs text-(--vestara-text-dim) font-mono">{currentUser?.id}</span>
           </div>
         </div>
       </section>
 
       {/* ── API Token Section ── */}
       <section>
-        <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">API Token</h2>
-        <div className="bg-[var(--vestara-bg-2)] rounded-lg p-4 space-y-3">
+        <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">API Token</h2>
+        <div className="bg-(--vestara-accent-bg) rounded-lg p-4 space-y-3">
           <div className="flex items-center gap-2">
             <input
               ref={tokenRef}
               type={tokenVisible ? 'text' : 'password'}
               readOnly
               value={currentUser?.token || ''}
-              className="flex-1 px-3 py-2 bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded text-sm font-mono text-[var(--vestara-text)] focus:outline-none"
+              className="flex-1 px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm font-mono text-(--vestara-text) focus:outline-none"
             />
             <button
               onClick={() => setTokenVisible((v) => !v)}
-              className="px-3 py-2 text-sm text-[var(--vestara-text-2)] hover:text-[var(--vestara-text)] bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded transition-colors"
+              className="px-3 py-2 text-sm text-(--vestara-text-2) hover:text-(--vestara-text) bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded transition-colors"
               title={tokenVisible ? 'Hide token' : 'Show token'}
             >
               {tokenVisible ? '🙈' : '👁️'}
             </button>
             <button
               onClick={handleCopyToken}
-              className="px-3 py-2 text-sm bg-[var(--vestara-accent)] text-white rounded hover:opacity-90 transition-opacity"
+              className="px-3 py-2 text-sm bg-(--vestara-accent) text-white rounded hover:opacity-90 transition-opacity"
             >
               {copied ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <p className="text-xs text-[var(--vestara-text-3)]">
+          <p className="text-xs text-(--vestara-text-dim)">
             This token authenticates you with the Vestara API. Include it in the{' '}
-            <code className="text-[var(--vestara-accent)]">Authorization: Bearer &lt;token&gt;</code> header.
+            <code className="text-(--vestara-accent)">Authorization: Bearer &lt;token&gt;</code> header.
           </p>
           {isAdmin && (
-            <p className="text-xs text-amber-600 dark:text-amber-400">
+            <p className="text-xs text-amber-400">
               ⚠️ Keep this token secure. Anyone with it has full admin access.
             </p>
           )}
@@ -321,10 +321,10 @@ export default function AccountSettings() {
       {/* ── User Management Section (admin only) ── */}
       {isAdmin && (<>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-[var(--vestara-text)]">Users</h2>
+            <h2 className="text-lg font-semibold text-(--vestara-text)">Users</h2>
             <button
               onClick={() => setShowCreateForm(true)}
-              className="px-3 py-1.5 text-sm bg-[var(--vestara-accent)] text-white rounded hover:opacity-90 transition-opacity"
+              className="px-3 py-1.5 text-sm bg-(--vestara-accent) text-white rounded hover:opacity-90 transition-opacity"
             >
               + Add User
             </button>
@@ -332,21 +332,21 @@ export default function AccountSettings() {
 
           {/* Create User Form */}
           {showCreateForm && (
-            <div className="bg-[var(--vestara-bg-2)] rounded-lg p-4 mb-4 border border-[var(--vestara-border)]">
-              <h3 className="text-sm font-medium text-[var(--vestara-text)] mb-3">New User</h3>
+            <div className="bg-(--vestara-accent-bg) rounded-lg p-4 mb-4 border border-(--vestara-accent-border)">
+              <h3 className="text-sm font-medium text-(--vestara-text) mb-3">New User</h3>
               <div className="flex flex-col gap-3">
                 <input
                   type="text"
                   placeholder="Username"
                   value={newUsername}
                   onChange={(e) => setNewUsername(e.target.value)}
-                  className="px-3 py-2 bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded text-sm text-[var(--vestara-text)] focus:outline-none focus:border-[var(--vestara-accent)]"
+                  className="px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-(--vestara-text) focus:outline-none focus:border-(--vestara-accent)"
                   autoFocus
                 />
                 <select
                   value={newRole}
                   onChange={(e) => setNewRole(e.target.value as 'editor' | 'viewer')}
-                  className="px-3 py-2 bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded text-sm text-[var(--vestara-text)] focus:outline-none focus:border-[var(--vestara-accent)]"
+                  className="px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-(--vestara-text) focus:outline-none focus:border-(--vestara-accent)"
                 >
                   <option value="editor">Editor</option>
                   <option value="viewer">Viewer</option>
@@ -355,7 +355,7 @@ export default function AccountSettings() {
                   <button
                     onClick={handleCreateUser}
                     disabled={createLoading || !newUsername.trim()}
-                    className="px-4 py-2 text-sm bg-green-600 text-white rounded hover:bg-green-700 transition-colors disabled:opacity-50"
+                    className="px-4 py-2 text-sm bg-(--vestara-accent) text-white rounded hover:opacity-90 transition-colors disabled:opacity-50"
                   >
                     {createLoading ? 'Creating…' : 'Create'}
                   </button>
@@ -364,14 +364,14 @@ export default function AccountSettings() {
                       setShowCreateForm(false);
                       setCreateResult(null);
                     }}
-                    className="px-4 py-2 text-sm text-[var(--vestara-text-2)] hover:text-[var(--vestara-text)] transition-colors"
+                    className="px-4 py-2 text-sm text-(--vestara-text-2) hover:text-(--vestara-text) transition-colors"
                   >
                     Cancel
                   </button>
                 </div>
                 {createResult && (
                   <div
-                    className={`text-sm ${createResult.ok ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}
+                    className={`text-sm ${createResult.ok ? 'text-(--vestara-green)' : 'text-(--vestara-red)'}`}
                   >
                     {createResult.message}
                   </div>
@@ -383,12 +383,12 @@ export default function AccountSettings() {
           {/* User List */}
           {usersLoading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--vestara-accent)] mx-auto" />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-(--vestara-accent) mx-auto" />
             </div>
           ) : usersError ? (
             <div className="text-center py-8">
-              <p className="text-red-500 text-sm">{usersError}</p>
-              <button onClick={fetchUsers} className="mt-2 text-sm text-[var(--vestara-accent)] hover:underline">
+              <p className="text-(--vestara-red) text-sm">{usersError}</p>
+              <button onClick={fetchUsers} className="mt-2 text-sm text-(--vestara-accent) hover:underline">
                 Retry
               </button>
             </div>
@@ -397,7 +397,7 @@ export default function AccountSettings() {
               {users.map((user) => (
                 <div
                   key={user.id}
-                  className="bg-[var(--vestara-bg-2)] rounded-lg p-3 flex items-center justify-between"
+                  className="bg-(--vestara-accent-bg) rounded-lg p-3 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
                     <div
@@ -413,25 +413,25 @@ export default function AccountSettings() {
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-[var(--vestara-text)]">
+                        <span className="text-sm font-medium text-(--vestara-text)">
                           {user.username}
                         </span>
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             user.role === 'admin'
-                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200'
-                              : user.role === 'editor'
-                                ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                : 'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200'
+                              ? 'bg-purple-500/10 text-purple-400'
+                              : currentUser?.role === 'editor'
+                                ? 'bg-blue-500/10 text-blue-400'
+                                : 'bg-(--vestara-accent-bg) text-(--vestara-text-2)'
                           }`}
                         >
                           {user.role}
                         </span>
                         {user.id === currentUser?.id && (
-                          <span className="text-xs text-[var(--vestara-text-3)]">(you)</span>
+                          <span className="text-xs text-(--vestara-text-dim)">(you)</span>
                         )}
                       </div>
-                      <div className="text-xs text-[var(--vestara-text-3)]">
+                      <div className="text-xs text-(--vestara-text-dim)">
                         Created {new Date(user.createdAt).toLocaleDateString()}
                       </div>
                     </div>
@@ -441,11 +441,11 @@ export default function AccountSettings() {
                       type="password"
                       readOnly
                       value={user.token}
-                      className="w-32 px-2 py-1 bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded text-xs font-mono text-[var(--vestara-text-3)] focus:outline-none"
+                      className="w-32 px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs font-mono text-(--vestara-text-dim) focus:outline-none"
                     />
                     <button
                       onClick={() => handleRotateToken(user.id)}
-                      className="px-2 py-1 text-xs text-[var(--vestara-accent)] hover:underline transition-colors"
+                      className="px-2 py-1 text-xs text-(--vestara-accent) hover:underline transition-colors"
                       title="Rotate token"
                     >
                       🔄
@@ -459,15 +459,15 @@ export default function AccountSettings() {
         {/* ── Audit Log Section (admin only) ── */}
         <section>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-[var(--vestara-text)]">
+            <h2 className="text-lg font-semibold text-(--vestara-text)">
               Audit Log
-              <span className="ml-2 text-sm font-normal text-[var(--vestara-text-3)]">{auditTotal} entries</span>
+              <span className="ml-2 text-sm font-normal text-(--vestara-text-dim)">{auditTotal} entries</span>
             </h2>
             <div className="flex items-center gap-2">
               <select
                 value={auditFilter}
                 onChange={(e) => setAuditFilter(e.target.value)}
-                className="px-2 py-1 bg-[var(--vestara-bg)] border border-[var(--vestara-border)] rounded text-xs text-[var(--vestara-text)] focus:outline-none"
+                className="px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs text-(--vestara-text) focus:outline-none"
               >
                 <option value="">All actions</option>
                 <option value="settings.update">Settings update</option>
@@ -484,7 +484,7 @@ export default function AccountSettings() {
               </select>
               <button
                 onClick={fetchAuditLog}
-                className="px-3 py-1.5 text-sm bg-[var(--vestara-accent)] text-white rounded hover:opacity-90 transition-opacity"
+                className="px-3 py-1.5 text-sm bg-(--vestara-accent) text-white rounded hover:opacity-90 transition-opacity"
               >
                 Refresh
               </button>
@@ -493,27 +493,27 @@ export default function AccountSettings() {
 
           {auditLoading ? (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-[var(--vestara-accent)] mx-auto" />
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-(--vestara-accent) mx-auto" />
             </div>
           ) : auditEntries.length === 0 ? (
-            <div className="text-center py-8 text-[var(--vestara-text-3)] text-sm">No audit entries found.</div>
+            <div className="text-center py-8 text-(--vestara-text-dim) text-sm">No audit entries found.</div>
           ) : (
             <div className="space-y-1">
               {auditEntries.map((entry) => (
                 <div
                   key={entry.id}
-                  className="bg-[var(--vestara-bg-2)] rounded px-3 py-2 text-xs grid grid-cols-[120px_80px_100px_1fr_80px] gap-2 items-center"
+                  className="bg-(--vestara-accent-bg) rounded px-3 py-2 text-xs grid grid-cols-1 sm:grid-cols-[120px_80px_100px_1fr_80px] gap-2 items-center"
                 >
-                  <span className="text-[var(--vestara-text-3)] font-mono">
+                  <span className="text-(--vestara-text-dim) font-mono">
                     {new Date(entry.timestamp).toLocaleString()}
                   </span>
-                  <span className="text-[var(--vestara-text)] font-medium">{entry.username}</span>
-                  <span className="text-[var(--vestara-text-2)] font-mono text-[10px]">{entry.action}</span>
-                  <span className="text-[var(--vestara-text-2)] truncate">
+                  <span className="text-(--vestara-text) font-medium">{entry.username}</span>
+                  <span className="text-(--vestara-text-2) font-mono text-[10px]">{entry.action}</span>
+                  <span className="text-(--vestara-text-2) truncate">
                     {entry.details || entry.resourceId || entry.resource}
                     {entry.details && entry.resourceId ? ` — ${entry.resourceId}` : ''}
                   </span>
-                  <span className="text-[var(--vestara-text-3)] text-right font-mono text-[10px]">
+                  <span className="text-(--vestara-text-dim) text-right font-mono text-[10px]">
                     {entry.ip || ''}
                   </span>
                 </div>

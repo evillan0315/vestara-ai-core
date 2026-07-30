@@ -15,6 +15,8 @@ export const AuditAction = {
   AGENT_CREATE: 'agent.create',
   AGENT_RUN: 'agent.run',
   PLAN_CREATE: 'plan.create',
+  PLAN_UPDATE: 'plan.update',
+  PLAN_DELETE: 'plan.delete',
   IMPLEMENT_START: 'implement.start',
   IMPLEMENT_APPLY: 'implement.apply',
   PROJECT_CREATE: 'project.create',

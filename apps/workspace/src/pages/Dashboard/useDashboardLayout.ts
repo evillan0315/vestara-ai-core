@@ -1,12 +1,25 @@
 import { useCallback, useState } from 'react';
-import { useDashboardDrag } from '../../components/dashboard/useDashboardDrag';
+import { DEFAULT_ORDER, useDashboardDrag } from '../../components/dashboard/useDashboardDrag';
+
+const DEFAULT_COLLAPSED_THRESHOLD = 3;
 
 export function useDashboardLayout() {
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>(() => {
     try {
-      return JSON.parse(localStorage.getItem('vestara-dashboard-collapsed') || '{}');
+      const stored = JSON.parse(localStorage.getItem('vestara-dashboard-collapsed') || '{}');
+      const defaults: Record<string, boolean> = {};
+      DEFAULT_ORDER.forEach((id, i) => {
+        if (i >= DEFAULT_COLLAPSED_THRESHOLD) {
+          defaults[id] = stored[id] !== undefined ? stored[id] : true;
+        }
+      });
+      return { ...defaults, ...stored };
     } catch {
-      return {};
+      const defaults: Record<string, boolean> = {};
+      DEFAULT_ORDER.forEach((id, i) => {
+        if (i >= DEFAULT_COLLAPSED_THRESHOLD) defaults[id] = true;
+      });
+      return defaults;
     }
   });
 

@@ -111,10 +111,10 @@ export async function runDoctorAudio(): Promise<void> {
   const ttsService = new VestaraTTSService(); ttsService.registerProvider(new PiperTTSProvider());
   const audioStatus = await audioService.diagnose(); const sttHealth = await sttService.healthCheck(); const ttsHealth = await ttsService.healthCheck();
   console.log(`  ${BOLD}Audio${RESET}`); console.log(`  ${audioStatus.microphone.available ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} Microphone  ${audioStatus.microphone.available ? 'Ready' : 'Not found'}  ${GRAY}${audioStatus.microphone.latency}ms${RESET}`);
-  console.log(`  ${audioStatus.speaker.available ? `${GREEN}✔${RESET}` : `${GRAY}○${RESET}`} Speaker     ${audioStatus.speaker.available ? 'Ready' : 'Not found'}  ${GRAY}${audioStatus.speaker.latency}ms${RESET}`);
+  console.log(`  ${audioStatus.speakers.available ? `${GREEN}✔${RESET}` : `${GRAY}○${RESET}`} Speaker     ${audioStatus.speakers.available ? 'Ready' : 'Not found'}  ${GRAY}${audioStatus.speakers.latency}ms${RESET}`);
   console.log(`  ${audioStatus.vad.status !== 'error' ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} VAD         ${audioStatus.vad.status !== 'error' ? 'Ready' : 'Error'}  ${GRAY}${audioStatus.vad.latency}ms${RESET}`);
-  console.log(); console.log(`  ${BOLD}Speech-to-Text${RESET}`); console.log(`  ${sttHealth.status === 'healthy' ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} STT         ${sttHealth.status === 'healthy' ? 'Ready' : 'Unavailable'}  ${GRAY}${sttHealth.providers} provider(s)${RESET}`);
-  console.log(); console.log(`  ${BOLD}Text-to-Speech${RESET}`); console.log(`  ${ttsHealth.status === 'healthy' ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} TTS         ${ttsHealth.status === 'healthy' ? 'Ready' : 'Unavailable'}  ${GRAY}${ttsHealth.providers} provider(s)${RESET}`);
+  console.log(); console.log(`  ${BOLD}Speech-to-Text${RESET}`); console.log(`  ${sttHealth.status === 'healthy' ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} STT         ${sttHealth.status === 'healthy' ? 'Ready' : 'Unavailable'}  ${GRAY}${sttHealth.latency}ms${RESET}`);
+  console.log(); console.log(`  ${BOLD}Text-to-Speech${RESET}`); console.log(`  ${ttsHealth.status === 'healthy' ? `${GREEN}✔${RESET}` : `${RED}✗${RESET}`} TTS         ${ttsHealth.status === 'healthy' ? 'Ready' : 'Unavailable'}  ${GRAY}${ttsHealth.latency}ms${RESET}`);
   console.log();
 }
 

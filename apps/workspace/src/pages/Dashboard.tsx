@@ -131,23 +131,23 @@ export default function Dashboard() {
 
   if (data.loading)
     return (
-      <div className="w-full px-4 animate-pulse">
+      <div className="w-full animate-pulse">
         <div className="mb-4">
-          <div className="h-8 w-64 bg-zinc-800 rounded mb-2" />
-          <div className="h-4 w-48 bg-zinc-800/50 rounded" />
+          <div className="h-8 w-64 bg-(--vestara-accent-bg) rounded mb-2" />
+          <div className="h-4 w-48 bg-(--vestara-accent-bg) rounded" />
         </div>
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-20 bg-zinc-800/30 rounded-lg" />
+            <div key={i} className="h-20 bg-(--vestara-accent-bg) rounded-lg" />
           ))}
         </div>
       </div>
     );
 
-  if (data.error) return <div className="w-full px-4 py-8 text-center text-(--vestara-red)">{data.error}</div>;
+  if (data.error) return <div className="w-full py-8 text-center text-(--vestara-red)">{data.error}</div>;
 
   return (
-    <div className="w-full px-4" data-dragging={layout.dragId ? 'true' : undefined}>
+    <div className="w-full" data-dragging={layout.dragId ? 'true' : undefined}>
       <DashboardHeader
         workspace={data.workspace}
         agents={data.agents}
@@ -171,18 +171,18 @@ export default function Dashboard() {
 
       {/* Tab bar */}
       <div className="flex items-center justify-between mb-2">
-        <div className="flex gap-0.5 bg-zinc-800/50 rounded-lg p-0.5">
+        <div className="flex gap-0.5 bg-(--vestara-accent-bg) rounded-lg p-0.5">
           <button
             type="button"
             onClick={() => setTab(0)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 0 ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 0 ? 'bg-zinc-700 text-(--vestara-text)' : 'text-(--vestara-text-2)hover:text-zinc-300'}`}
           >
             Home
           </button>
           <button
             type="button"
             onClick={() => setTab(1)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 1 ? 'bg-zinc-700 text-zinc-100' : 'text-zinc-500 hover:text-zinc-300'}`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 1 ? 'bg-zinc-700 text-(--vestara-text)' : 'text-(--vestara-text-2)hover:text-zinc-300'}`}
           >
             System
           </button>
@@ -224,9 +224,32 @@ export default function Dashboard() {
 
           {data.activeSession && <WorkflowPipeline session={data.activeSession} compact={false} />}
 
+          {/* System health mini-widget */}
+          <div className="flex items-center gap-3 mb-4 px-1">
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${data.connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className={`text-[9px] ${data.connected ? 'text-green-400' : 'text-red-400'}`}>
+                {data.connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className={`w-2 h-2 rounded-full ${data.agents?.some((a: any) => a.status === 'active') ? 'bg-green-500' : 'bg-(--vestara-text-dim)'}`} />
+              <span className="text-[9px] text-(--vestara-text-2)">
+                {data.agents?.filter((a: any) => a.status === 'active').length || 0}/{data.agents?.length || 0} agents
+              </span>
+            </div>
+            {data.workspace?.healthScore != null && (
+              <div className="flex items-center gap-1.5">
+                <span className={`w-2 h-2 rounded-full ${data.workspace.healthScore >= 7 ? 'bg-green-500' : data.workspace.healthScore >= 4 ? 'bg-amber-500' : 'bg-red-500'}`} />
+                <span className="text-[9px] text-(--vestara-text-2)">Health {data.workspace.healthScore}/10</span>
+              </div>
+            )}
+            <div className="ml-auto text-[8px] text-(--vestara-text-dim)">{data.lastRefresh}</div>
+          </div>
+
           {/* Main content */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-2 flex flex-col gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="md:col-span-1 lg:col-span-2 flex flex-col gap-6">
               {layout.sectionOrder
                 .filter((id: string) => layout.isLeft(id) && layout.sectionVisibility[id] !== false)
                 .map((id: string) => {

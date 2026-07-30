@@ -4,7 +4,7 @@ import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import type { FC } from 'react';
 import { useLocation } from 'react-router-dom';
-import { NAV_CATEGORIES } from '../../../layouts/ShellLayout';
+import { NAV_CATEGORIES } from '../../../layouts/navigation';
 import { useAuth } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
 import PageHeader from '../Page/PageHeader';
@@ -33,7 +33,7 @@ const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
       <div className="flex items-center gap-4">
         <button
           onClick={onMenuClick}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-zinc-500 transition lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-(--vestara-text-2) transition lg:hidden"
         >
           <MenuRounded fontSize="small" />
         </button>
@@ -47,6 +47,15 @@ const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
 
       {/* Center */}
       <HeaderSearch />
+
+      {/* Activity indicator */}
+      <div className="hidden lg:flex items-center gap-1.5 mx-3">
+        <div className="flex items-end gap-[1px] h-4">
+          {[3, 5, 4, 6, 5, 7, 4].map((h, i) => (
+            <span key={i} className="w-[2px] rounded-sm bg-(--vestara-accent)" style={{ height: `${h}px`, opacity: 0.25 + i * 0.1 }} />
+          ))}
+        </div>
+      </div>
 
       {/* Right */}
 

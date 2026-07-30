@@ -29,11 +29,11 @@ export default function HeaderConnection({ status = 'connected' }: HeaderConnect
   }[status];
 
   return (
-    <div className={`hidden lg:flex items-center gap-2 px-3 h-9 rounded-xl border border-zinc-800 ${config.bg}`}>
+    <div className={`hidden lg:flex items-center gap-2 px-3 h-9 rounded-xl border border-(--vestara-accent-border) ${config.bg}`}>
       <div className={config.color}>{config.icon}</div>
 
       <div className="text-xs">
-        <div className="text-zinc-500">Workspace</div>
+        <div className="text-(--vestara-text-2)">Workspace</div>
         <div className={`font-medium ${config.color}`}>{config.label}</div>
       </div>
     </div>

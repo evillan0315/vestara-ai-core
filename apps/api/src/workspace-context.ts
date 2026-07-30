@@ -40,6 +40,7 @@ import {
   WorkspaceRuntime,
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
+import { TelemetryRuntime } from '@vestara/telemetry';
 import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
@@ -75,6 +76,7 @@ export interface WorkspaceContext {
   milestones?: MilestoneService;
   projects?: ProjectService;
   activityStore?: ActivityLogStore;
+  telemetry: TelemetryRuntime;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -86,8 +88,10 @@ export interface WorkspaceContext {
 type PublishFn = (event: UiEvent) => void;
 
 async function openSqlDb(dbPath: string): Promise<unknown> {
+  const path = await import('node:path');
   const initSqlJs = (await import('sql.js')).default;
-  const SQL = await initSqlJs();
+  const sqlJsDir = path.dirname(require.resolve('sql.js'));
+  const SQL = await initSqlJs({ locateFile: (file: string) => path.join(sqlJsDir, file) });
   let db: any;
   if (fs.existsSync(dbPath)) {
     const buffer = fs.readFileSync(dbPath);
@@ -207,6 +211,26 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     csStorage: changeSets,
     vrStorage: verifications,
     planStorage: plans,
+    onTelemetry: (evt) => {
+      void kernel.eventBus.emit({
+        type: `agent.verifier.${evt.phase}`,
+        source: 'verification-service',
+        payload: {
+          agentId: 'verifier',
+          agent: 'verifier',
+          phase: evt.phase,
+          checkId: evt.checkId,
+          checkName: evt.checkName,
+          status: evt.status,
+          progress: evt.progress,
+          detail: evt.detail,
+          message: evt.detail,
+          operation: evt.phase === 'started' ? 'verify' : evt.phase === 'completed' ? 'verify' : 'verify',
+          task: evt.detail,
+          checks: evt.checks,
+        },
+      });
+    },
   });
   const collaborationService = new CollaborationService({ storage: collaboration });
   const agentRuntime = new AgentRuntime({ storage: agents, provider: opencode });
@@ -260,10 +284,34 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   );
 
+  const telemetry = new TelemetryRuntime();
+
   const unsub = kernel.eventBus.subscribe(
     '*',
     async (evt: { id: string; type: string; timestamp: string; payload: Record<string, unknown> }) => {
       const payload = evt.payload ?? {};
+
+      // Feed agent.* events into the telemetry runtime
+      const type: string = evt.type || '';
+      if (type.startsWith('agent.') || type.startsWith('workspace.') || type.startsWith('verification.') || type.startsWith('plan.')) {
+        const agentId: string = (payload['agentId'] as string) || (payload['agent'] as string) || 'system';
+        const detail: string = (payload['detail'] as string) || (payload['message'] as string) || '';
+        const status = type.includes('failed') ? 'failed' : type.includes('completed') ? 'completed' : 'working';
+        telemetry.trackOp(
+          agentId,
+          status as any,
+          (payload['operation'] as any) || 'unknown',
+          (payload['task'] as string) || detail || type,
+          {
+            filePath: payload['filePath'] as string,
+            progress: (payload['progress'] as number) ?? 0,
+            phase: payload['phase'] as string,
+            detail,
+            metadata: payload,
+          },
+        );
+      }
+
       publish({
         id: evt.id,
         type: evt.type,
@@ -348,6 +396,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     workspaceAnalyst,
     suggestionService,
     activityService,
+    telemetry,
     notificationService,
     milestones,
     projects,

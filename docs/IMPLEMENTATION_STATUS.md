@@ -43,6 +43,7 @@
 | **v3.5** | **AI-Powered Suggestions** | **✅ Complete** | **2026-07-24** |
 | **v3.6** | **End-to-End Workflow Tests** | **✅ Complete** | **2026-07-24** |
 | **v3.7** | **Knowledge Engine Performance Optimization** | **✅ Complete** | **2026-07-24** |
+| **v3.8** | **Development Lifecycle & Governance** | **✅ Complete** | **2026-07-30** |
 | **v4.0** | **Conversational Onboarding** | **✅ Complete** | **2026-07-25** |
 | **v4.1** | **Conversation Platform Validation** | **✅ Complete** | **2026-07-25** |
 | **v4.2** | **Project Management & Dashboard Intelligence** | **✅ Complete** | **2026-07-25** |
@@ -320,6 +321,10 @@ Run: `pnpm vestara open .`
 | **v4.1 Validation** | **✅ ProviderFactory — switch-based creation of all provider types** |
 | **v4.1 Validation** | **✅ 15 provider independence acceptance tests (215 total)** |
 | **v4.1 Validation** | **✅ Enhanced benchmark: provider health comparison across OpenCode, Ollama, Gemini** |
+| **v3.8 Lifecycle** | **✅ Epistemic Principles, Daily Operational Lifecycle, EKS, 5 specialized agents** |
+| **v3.8 Lifecycle** | **✅ AIDL v1.3.0 — 840+ lines with confidence model, maturity lifecycle, promotion gate** |
+| **v3.8 Lifecycle** | **✅ 3 new agent profiles: context, engineer, verifier; 2 updated: planner, reviewer** |
+| **v3.8 Lifecycle** | **✅ .vestara/knowledge/ seeded with first entry; .vestara/metrics/ created** |
 | **v6.2 ChatPage** | **✅ Streaming responses via `/api/chat/stream` SSE, auto-resize textarea, timestamps, copy/clear** |
 | **v6.3 OpsCenter** | **✅ Clickable agent cards with inline execution details, clickable event detail popup** |
 | **v6.3 Dashboard** | **✅ Section-specific data export (Projects, Executions, Conversation Activity)** |

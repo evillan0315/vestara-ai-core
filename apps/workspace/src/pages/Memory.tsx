@@ -118,6 +118,7 @@ export default function Memory() {
   const [queryResult, setQueryResult] = useState<string | null>(null);
   const [querying, setQuerying] = useState(false);
   const [semanticQuery, setSemanticQuery] = useState('');
+  const [focusedNodeId, setFocusedNodeId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const load = useCallback(async () => {
@@ -168,7 +169,17 @@ export default function Memory() {
   const typeEntries = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
 
   const selectNode = async (node: GraphNode) => {
-    setSelectedNode(selectedNode?.id === node.id ? null : node);
+    if (selectedNode?.id === node.id) {
+      setSelectedNode(null);
+      setFocusedNodeId(null);
+    } else {
+      setSelectedNode(node);
+      setFocusedNodeId(node.id);
+    }
+  };
+
+  const exitFocus = () => {
+    setFocusedNodeId(null);
   };
 
   const handleMouseDown = (id: string) => setDragging(id);
@@ -180,6 +191,31 @@ export default function Memory() {
       prev.map((n) => (n.id === dragging ? { ...n, x: e.clientX - rect.left, y: e.clientY - rect.top } : n)),
     );
   };
+
+  const focusedNode = focusedNodeId ? layout.find((n) => n.id === focusedNodeId) : null;
+  const connectedIds = focusedNodeId
+    ? new Set([
+        focusedNodeId,
+        ...relations
+          .filter((r) => r.sourceId === focusedNodeId || r.targetId === focusedNodeId)
+          .flatMap((r) => [r.sourceId, r.targetId]),
+      ])
+    : null;
+
+  // Focus viewBox: center on focused node
+  const focusViewBox = focusedNode
+    ? `${focusedNode.x - 150} ${focusedNode.y - 100} 300 200`
+    : `0 0 ${GRAPH_W} ${GRAPH_H}`;
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') exitFocus();
+    };
+    if (focusedNodeId) {
+      window.addEventListener('keydown', onKey);
+      return () => window.removeEventListener('keydown', onKey);
+    }
+  }, [focusedNodeId]);
 
   const queryMemory = async () => {
     if (!semanticQuery.trim()) return;
@@ -214,14 +250,14 @@ export default function Memory() {
   };
 
   if (loading)
-    return <div className="w-full px-4 py-16 text-center text-zinc-600 animate-pulse">Loading knowledge graph...</div>;
+    return <div className="w-full py-16 text-center text-zinc-600 animate-pulse">Loading knowledge graph...</div>;
 
   return (
-    <div className="w-full px-4">
+    <div className="w-full">
       {/* Header */}
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Knowledge Graph</h1>
+          <h1 className="text-lg font-bold text-(--vestara-text)">Knowledge Graph</h1>
           <p className="text-[10px] text-zinc-600 mt-1">
             {stats.nodes} nodes · {stats.relations} relations · {typeEntries.length} types
           </p>
@@ -229,7 +265,7 @@ export default function Memory() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setViewMode(viewMode === 'graph' ? 'list' : 'graph')}
-            className="text-xs px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="text-xs px-3 py-1.5 bg-zinc-800 border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
           >
             {viewMode === 'graph' ? '☰ List View' : '◉ Graph View'}
           </button>
@@ -242,7 +278,7 @@ export default function Memory() {
           </button>
           <button
             onClick={load}
-            className="text-xs px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-500 rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="text-xs px-3 py-1.5 bg-zinc-800 border border-(--vestara-accent-border) text-(--vestara-text-2)rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
             title="Refresh"
           >
             ↻
@@ -253,11 +289,11 @@ export default function Memory() {
       {/* Stats row */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-5">
         {[
-          { label: 'Nodes', value: stats.nodes, color: 'text-zinc-100' },
+          { label: 'Nodes', value: stats.nodes, color: 'text-(--vestara-text)' },
           {
             label: 'Relations',
             value: stats.relations,
-            color: 'text-zinc-100',
+            color: 'text-(--vestara-text)',
           },
           {
             label: 'Modules',
@@ -271,7 +307,7 @@ export default function Memory() {
             color: 'text-green-400',
           },
         ].map(({ label, value, color }) => (
-          <div key={label} className="p-3 bg-zinc-900/50 border border-zinc-800 rounded-lg">
+          <div key={label} className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
             <div className="text-[9px] text-zinc-600 uppercase tracking-wider">{label}</div>
             <div className={`text-lg font-bold mt-1 ${value > 0 ? color : 'text-zinc-600'}`}>
               {value.toLocaleString()}
@@ -288,13 +324,13 @@ export default function Memory() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter by name or description..."
-            className="w-full bg-zinc-800 border border-zinc-700 rounded-lg pl-7 pr-2 py-2 text-sm text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-500"
+            className="w-full bg-zinc-800 border border-(--vestara-accent-border) rounded-lg pl-7 pr-2 py-2 text-sm text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-500"
           />
         </div>
         <select
           value={typeFilter}
           onChange={(e) => setTypeFilter(e.target.value)}
-          className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-2 py-2 text-xs outline-none cursor-pointer"
+          className="bg-zinc-800 border border-(--vestara-accent-border) text-zinc-300 rounded-lg px-2 py-2 text-xs outline-none cursor-pointer"
         >
           <option value="all">All Types ({nodes.length})</option>
           {typeEntries.map(([type, count]) => (
@@ -312,16 +348,30 @@ export default function Memory() {
         {/* ===== Main view ===== */}
         <div className="lg:col-span-2">
           {viewMode === 'graph' ? (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg overflow-hidden">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg overflow-hidden relative">
+              {focusedNodeId && (
+                <div className="absolute top-2 left-2 z-10 flex items-center gap-2 px-2 py-1 bg-zinc-800/90 border border-(--vestara-accent-border) rounded-md text-[9px] text-(--vestara-text-2)">
+                  <span>Focus: {selectedNode?.name || focusedNodeId}</span>
+                  <button
+                    type="button"
+                    onClick={exitFocus}
+                    className="text-zinc-600 hover:text-zinc-300 cursor-pointer ml-1"
+                  >
+                    ✕
+                  </button>
+                </div>
+              )}
               <svg
                 ref={svgRef}
                 width="100%"
-                height={GRAPH_H}
-                viewBox={`0 0 ${GRAPH_W} ${GRAPH_H}`}
+                height={Math.max(300, Math.min(480, window.innerHeight * 0.5))}
+                viewBox={focusViewBox}
                 onMouseMove={handleMouseMove}
                 onMouseUp={handleMouseUp}
                 onMouseLeave={handleMouseUp}
-                className="select-none"
+                onClick={(e) => { if (e.target === e.currentTarget) exitFocus(); }}
+                className="select-none bg-zinc-950"
+                style={{ cursor: focusedNodeId ? 'zoom-out' : 'default' }}
               >
                 {relations
                   .filter(
@@ -332,6 +382,7 @@ export default function Memory() {
                     const source = layout.find((n) => n.id === r.sourceId);
                     const target = layout.find((n) => n.id === r.targetId);
                     if (!source || !target) return null;
+                    const isDimmed = connectedIds !== null && (!connectedIds.has(r.sourceId) || !connectedIds.has(r.targetId));
                     return (
                       <line
                         key={r.id}
@@ -339,9 +390,10 @@ export default function Memory() {
                         y1={source.y}
                         x2={target.x}
                         y2={target.y}
-                        stroke="#3f3f46"
-                        strokeWidth={1}
-                        strokeOpacity={0.5}
+                        stroke={isDimmed ? '#27272a' : '#3f3f46'}
+                        strokeWidth={connectedIds?.has(r.sourceId) && connectedIds?.has(r.targetId) ? 1.5 : 0.5}
+                        strokeOpacity={isDimmed ? 0.15 : 0.5}
+                        className="transition-all duration-300"
                       />
                     );
                   })}
@@ -350,33 +402,37 @@ export default function Memory() {
                   .map((n) => {
                     const color = TYPE_COLORS[n.type] || '#6b7280';
                     const isSelected = selectedNode?.id === n.id;
+                    const isDimmed = connectedIds !== null && !connectedIds.has(n.id);
+                    const isConnected = connectedIds !== null && connectedIds.has(n.id) && n.id !== focusedNodeId;
                     return (
                       <g
                         key={n.id}
                         onMouseDown={() => handleMouseDown(n.id)}
                         onClick={() => selectNode(n)}
-                        className="cursor-pointer"
+                        className="cursor-pointer transition-all duration-300"
+                        style={{ opacity: isDimmed ? 0.15 : 1 }}
                       >
                         <circle
                           cx={n.x}
                           cy={n.y}
                           r={isSelected ? 12 : 8}
                           fill={color}
-                          fillOpacity={isSelected ? 0.2 : 0.08}
+                          fillOpacity={isSelected ? 0.2 : isConnected ? 0.15 : 0.08}
                         />
                         <circle
                           cx={n.x}
                           cy={n.y}
-                          r={isSelected ? 8 : 5}
+                          r={isSelected ? 8 : isConnected ? 6 : 5}
                           fill={color}
-                          stroke={isSelected ? '#fff' : 'none'}
-                          strokeWidth={isSelected ? 2 : 0}
+                          stroke={isSelected ? '#fff' : isConnected ? color : 'none'}
+                          strokeWidth={isSelected ? 2 : isConnected ? 1.5 : 0}
+                          strokeOpacity={isConnected ? 0.6 : 1}
                         />
                         <text
                           x={n.x}
                           y={n.y + (isSelected ? 15 : 12)}
                           textAnchor="middle"
-                          fill="#a1a1aa"
+                          fill={isDimmed ? '#27272a' : '#a1a1aa'}
                           fontSize={isSelected ? 9 : 8}
                           className="pointer-events-none"
                         >
@@ -386,18 +442,24 @@ export default function Memory() {
                     );
                   })}
                 {nodes.length === 0 && (
-                  <text x={GRAPH_W / 2} y={GRAPH_H / 2} textAnchor="middle" fill="#52525b" fontSize={12}>
-                    No nodes. Click "Re-index" to build the graph.
-                  </text>
+                  <g>
+                    <rect x={GRAPH_W / 2 - 120} y={GRAPH_H / 2 - 50} width={240} height={100} rx={8} fill="#18181b" opacity={0.95} stroke="#27272a" strokeWidth={1} />
+                    <text x={GRAPH_W / 2} y={GRAPH_H / 2 - 18} textAnchor="middle" fill="#a1a1aa" fontSize={13} fontWeight="bold">
+                      No knowledge indexed
+                    </text>
+                    <text x={GRAPH_W / 2} y={GRAPH_H / 2 + 6} textAnchor="middle" fill="#52525b" fontSize={10}>
+                      Index your workspace to build the graph
+                    </text>
+                  </g>
                 )}
               </svg>
-              <div className="px-3 py-1.5 border-t border-zinc-800 flex items-center gap-3 text-[9px] text-zinc-700">
+              <div className="px-3 py-1.5 border-t border-(--vestara-accent-border) flex items-center gap-3 text-[9px] text-zinc-700">
                 <span>Drag to reposition</span>
                 <span>· Click for details</span>
               </div>
             </div>
           ) : (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg max-h-135 overflow-y-auto p-2">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg max-h-135 overflow-y-auto p-2">
               {filteredNodes.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-10 text-center">
                   <div className="text-2xl mb-2 opacity-30">◎</div>
@@ -416,8 +478,8 @@ export default function Memory() {
                       onClick={() => selectNode(n)}
                       className={`flex items-center gap-2.5 p-2.5 rounded-lg cursor-pointer transition-colors ${
                         isSelected
-                          ? 'bg-zinc-800 border border-zinc-600'
-                          : 'hover:bg-zinc-800/30 border border-transparent'
+                          ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active)'
+                          : 'hover:bg-(--vestara-accent-bg) border border-transparent'
                       }`}
                     >
                       <span className="text-sm shrink-0" style={{ color }}>
@@ -453,13 +515,13 @@ export default function Memory() {
         <div className="space-y-3">
           {/* Node detail */}
           {selectedNode && (
-            <div className="bg-zinc-800/80 border border-zinc-700 rounded-lg p-3">
+            <div className="bg-zinc-800/80 border border-(--vestara-accent-border) rounded-lg p-3">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-lg" style={{ color: TYPE_COLORS[selectedNode.type] }}>
                   {TYPE_ICONS[selectedNode.type] || '·'}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-xs text-zinc-200 font-semibold truncate">{selectedNode.name}</div>
+                  <div className="text-xs text-(--vestara-text) font-semibold truncate">{selectedNode.name}</div>
                   <div className="flex items-center gap-1">
                     <span
                       className="w-1.5 h-1.5 rounded-full shrink-0"
@@ -467,18 +529,18 @@ export default function Memory() {
                         backgroundColor: TYPE_COLORS[selectedNode.type] || '#6b7280',
                       }}
                     />
-                    <span className="text-[9px] text-zinc-500 uppercase font-medium">{selectedNode.type}</span>
+                    <span className="text-[9px] text-(--vestara-text-2)uppercase font-medium">{selectedNode.type}</span>
                   </div>
                 </div>
               </div>
               {selectedNode.description && (
-                <div className="text-[11px] text-zinc-400 mb-2 leading-relaxed">{selectedNode.description}</div>
+                <div className="text-[11px] text-(--vestara-text-2) mb-2 leading-relaxed">{selectedNode.description}</div>
               )}
               {(() => {
                 const conns = relations.filter((r) => r.sourceId === selectedNode.id || r.targetId === selectedNode.id);
                 return conns.length > 0 ? (
-                  <div className="pt-2 border-t border-zinc-700">
-                    <span className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider">
+                  <div className="pt-2 border-t border-(--vestara-accent-border)">
+                    <span className="text-[9px] font-semibold text-(--vestara-text-2)uppercase tracking-wider">
                       Connections ({conns.length})
                     </span>
                     <div className="mt-1.5 space-y-0.5 max-h-40 overflow-y-auto">
@@ -489,7 +551,7 @@ export default function Memory() {
                         return (
                           <div
                             key={r.id}
-                            className="flex items-center gap-1.5 text-[10px] py-0.5 cursor-pointer hover:bg-zinc-800/30 rounded px-1 -mx-1 transition-colors"
+                            className="flex items-center gap-1.5 text-[10px] py-0.5 cursor-pointer hover:bg-(--vestara-accent-bg) rounded px-1 -mx-1 transition-colors"
                             onClick={() => selectNode(other)}
                           >
                             <span
@@ -498,7 +560,7 @@ export default function Memory() {
                                 backgroundColor: TYPE_COLORS[other.type] || '#6b7280',
                               }}
                             />
-                            <span className="text-zinc-400 truncate flex-1">{other.name}</span>
+                            <span className="text-(--vestara-text-2) truncate flex-1">{other.name}</span>
                             <span className="text-zinc-700 shrink-0 text-[8px]">({r.type})</span>
                           </div>
                         );
@@ -515,7 +577,7 @@ export default function Memory() {
             </div>
           )}
           {!selectedNode && (
-            <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-5 text-center">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-5 text-center">
               <div className="text-lg mb-1 opacity-30">◎</div>
               <p className="text-xs text-zinc-600">Click a node for details</p>
               <p className="text-[9px] text-zinc-700 mt-1">Drag to reposition in graph view</p>
@@ -523,7 +585,7 @@ export default function Memory() {
           )}
 
           {/* Type distribution */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
             <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <span className="w-1 h-3 rounded-full bg-zinc-500/60" /> Type Distribution
             </h3>
@@ -536,7 +598,7 @@ export default function Memory() {
                     key={type}
                     onClick={() => setTypeFilter(isActive ? 'all' : type)}
                     className={`w-full flex items-center gap-2 text-[10px] px-1.5 py-1 rounded-md transition-colors cursor-pointer ${
-                      isActive ? 'bg-zinc-800 text-zinc-200' : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/30'
+                      isActive ? 'bg-zinc-800 text-(--vestara-text)' : 'text-(--vestara-text-2)hover:text-zinc-300 hover:bg-(--vestara-accent-bg)'
                     }`}
                   >
                     <span
@@ -566,7 +628,7 @@ export default function Memory() {
           </div>
 
           {/* Semantic query */}
-          <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
             <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-2 flex items-center gap-1.5">
               <span className="w-1 h-3 rounded-full bg-amber-500/60" /> Query Memory
             </h3>
@@ -575,7 +637,7 @@ export default function Memory() {
                 value={semanticQuery}
                 onChange={(e) => setSemanticQuery(e.target.value)}
                 placeholder="Ask about the codebase..."
-                className="flex-1 bg-zinc-800 border border-zinc-700 rounded-lg text-xs px-2 py-1.5 text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-500"
+                className="flex-1 bg-zinc-800 border border-(--vestara-accent-border) rounded-lg text-xs px-2 py-1.5 text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-500"
                 onKeyDown={(e) => e.key === 'Enter' && queryMemory()}
               />
               <button
@@ -587,7 +649,7 @@ export default function Memory() {
               </button>
             </div>
             {queryResult && (
-              <div className="mt-2 p-2.5 bg-zinc-800/50 border border-zinc-700/50 rounded-lg text-[10px] text-zinc-400 max-h-36 overflow-y-auto leading-relaxed">
+              <div className="mt-2 p-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border)/50 rounded-lg text-[10px] text-(--vestara-text-2) max-h-36 overflow-y-auto leading-relaxed">
                 {queryResult}
               </div>
             )}

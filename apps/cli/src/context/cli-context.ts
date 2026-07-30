@@ -93,7 +93,7 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
 
   // Try local Ollama; fall back to OpenCode
   const ollamaProvider = new OllamaProvider({
-    baseUrl: 'http://localhost:11434',
+    baseUrl: 'http://127.0.0.1:11434',
     defaultModel: 'deepseek-coder:1.3b',
   });
   await ollamaProvider.health();

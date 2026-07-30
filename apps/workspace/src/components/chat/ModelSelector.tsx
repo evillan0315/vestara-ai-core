@@ -42,7 +42,7 @@ export function ModelSelector({ models, selectedModel, onModelChange }: ModelSel
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-1.5 w-64 bg-zinc-900 border border-zinc-700/50 rounded-xl shadow-2xl z-50 py-1 max-h-72 overflow-y-auto backdrop-blur-xl">
+        <div className="absolute right-0 mt-1.5 w-64 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl shadow-2xl z-50 py-1 max-h-72 overflow-y-auto backdrop-blur-xl">
           {models.map((m) => (
             <button
               key={m.id}

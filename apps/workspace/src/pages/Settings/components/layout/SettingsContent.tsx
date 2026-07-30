@@ -1,9 +1,5 @@
 /**
- * Settings Content — The content area for settings.
- *
- * Architecture Traceability:
- *   Settings Framework: 02-Architecture.md → System Architecture
- *   Natural Law: Identity precedes responsibility
+ * Settings Content — Content area for settings.
  */
 
 import type { ReactNode } from 'react';
@@ -13,5 +9,5 @@ interface SettingsContentProps {
 }
 
 export default function SettingsContent({ children }: SettingsContentProps) {
-  return <main className="flex-1 overflow-auto p-6">{children}</main>;
+  return <main className="flex-1 overflow-auto w-full">{children}</main>;
 }

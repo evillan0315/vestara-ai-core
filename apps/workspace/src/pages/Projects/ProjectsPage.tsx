@@ -31,7 +31,7 @@ function StatCard({
 }) {
   return (
     <div
-      className={`text-center bg-zinc-800/50 border border-zinc-700 rounded-lg border-l-2 ${compact ? 'p-1.5' : 'p-2'}`}
+      className={`text-center bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-2 ${compact ? 'p-1.5' : 'p-2'}`}
       style={{ borderLeftColor: accent }}
     >
       <div
@@ -40,8 +40,8 @@ function StatCard({
       >
         {value}
       </div>
-      <div className="text-[9px] text-zinc-600">{label}</div>
-      {sub && <div className="text-[8px] text-zinc-700 mt-0.5">{sub}</div>}
+      <div className="text-[9px] text-(--vestara-text-muted)">{label}</div>
+      {sub && <div className="text-[8px] text-(--vestara-text-dim) mt-0.5">{sub}</div>}
     </div>
   );
 }
@@ -50,7 +50,7 @@ function ProgressBar({ pct, size = 'sm' }: { pct: number; size?: 'sm' | 'md' | '
   const h = size === 'lg' ? 'h-2' : size === 'md' ? 'h-1.5' : 'h-1';
   const color = progressColor(pct);
   return (
-    <div className={`w-full bg-zinc-800 rounded-full ${h}`}>
+    <div className={`w-full bg-(--vestara-accent-bg) rounded-full ${h}`}>
       <div
         className={`${h} rounded-full transition-all`}
         style={{ width: `${Math.min(pct, 100)}%`, backgroundColor: color }}
@@ -222,17 +222,17 @@ export default function ProjectsPage() {
     return (
       <div className="w-full px-4 animate-pulse">
         <div className="mb-4">
-          <div className="h-8 w-56 bg-zinc-800 rounded mb-2" />
-          <div className="h-4 w-40 bg-zinc-800/50 rounded" />
+          <div className="h-8 w-56 bg-(--vestara-accent-bg) rounded mb-2" />
+          <div className="h-4 w-40 bg-(--vestara-accent-bg) rounded" />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="space-y-2">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 bg-zinc-800/30 rounded-lg" />
+              <div key={i} className="h-20 bg-(--vestara-accent-bg) rounded-lg" />
             ))}
           </div>
           <div className="lg:col-span-2">
-            <div className="h-64 bg-zinc-800/20 rounded-lg" />
+            <div className="h-64 bg-(--vestara-accent-bg) rounded-lg" />
           </div>
         </div>
       </div>
@@ -243,23 +243,23 @@ export default function ProjectsPage() {
       {/* Header */}
       <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
         <div>
-          <h1 className="text-lg font-bold text-zinc-100">Projects</h1>
-          <p className="text-[10px] text-zinc-600 mt-0.5">
+          <h1 className="text-lg font-bold text-(--vestara-text)">Projects</h1>
+          <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
             {projects.length} projects · {projects.filter((p) => p.status === 'active').length} active · {totalTasks}{' '}
             tasks
           </p>
         </div>
         <div className="flex items-center gap-2">
           <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-zinc-700 text-[9px]">🔍</span>
+            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[9px]">🔍</span>
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Filter projects..."
-              className="w-40 bg-zinc-800 border border-zinc-700 rounded-lg pl-6 pr-2 py-1.5 text-[10px] text-zinc-300 placeholder-zinc-700 outline-none focus:border-zinc-500"
+              className="w-40 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg pl-6 pr-2 py-1.5 text-[10px] text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
             />
           </div>
-          <button onClick={load} className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm" title="Refresh">
+          <button onClick={load} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm" title="Refresh">
             ↻
           </button>
           <button
@@ -305,42 +305,42 @@ export default function ProjectsPage() {
           onClick={() => setShowNew(false)}
         >
           <div
-            className="bg-zinc-900 border border-zinc-700 rounded-lg w-full max-w-7xl mx-auto"
+             className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg w-full max-w-7xl mx-auto shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-zinc-800">
-              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
+              <h2 className="text-sm font-semibold text-(--vestara-text) flex items-center gap-2">
                 <span className="text-accent">+</span> New Project
               </h2>
               <button
                 onClick={() => setShowNew(false)}
-                className="text-zinc-600 hover:text-zinc-400 cursor-pointer text-sm"
+                className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm"
               >
                 ✕
               </button>
             </div>
             <div className="p-4 space-y-3">
               <div>
-                <label className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1 block">Name</label>
+                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Name</label>
                 <input
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   placeholder="Project name..."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-300 outline-none focus:border-accent"
+                  className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-accent"
                   onKeyDown={(e) => e.key === 'Enter' && createProject()}
                 />
               </div>
               <div>
-                <label className="text-[9px] text-zinc-500 uppercase tracking-widest mb-1 block">Description</label>
+                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Description</label>
                 <input
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
                   placeholder="Optional description..."
-                  className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-300 outline-none focus:border-accent"
+                  className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-accent"
                 />
               </div>
             </div>
-            <div className="flex gap-2 p-4 border-t border-zinc-800">
+            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
               <button
                 onClick={createProject}
                 disabled={!newName.trim()}
@@ -350,7 +350,7 @@ export default function ProjectsPage() {
               </button>
               <button
                 onClick={() => setShowNew(false)}
-                className="text-[10px] px-3 py-1.5 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded-lg hover:bg-zinc-700 cursor-pointer"
+                className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) cursor-pointer"
               >
                 Cancel
               </button>
@@ -360,10 +360,10 @@ export default function ProjectsPage() {
       )}
 
       {projects.length === 0 && !showNew && (
-        <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center">
+        <div className="flex flex-col items-center justify-center py-20 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-3xl mb-3 opacity-10">◈</div>
-          <p className="text-sm text-zinc-600 mb-1">No projects yet</p>
-          <p className="text-[10px] text-zinc-700 mb-4">Create your first project to start tracking work</p>
+          <p className="text-sm text-(--vestara-text-muted) mb-1">No projects yet</p>
+          <p className="text-[10px] text-(--vestara-text-dim) mb-4">Create your first project to start tracking work</p>
           <button
             onClick={() => setShowNew(true)}
             className="text-[10px] px-4 py-1.5 accent-btn rounded-lg cursor-pointer"
@@ -377,9 +377,9 @@ export default function ProjectsPage() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Project list */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between text-[9px] text-zinc-600 mb-1 px-1">
+            <div className="flex items-center justify-between text-[9px] text-(--vestara-text-muted) mb-1 px-1">
               <span className="flex items-center gap-1.5">
-                <span className="w-1 h-3 rounded-full bg-zinc-500/60" />
+                <span className="w-1 h-3 rounded-full bg-(--vestara-accent)/60" />
                 Projects ({filteredProjects.length})
               </span>
             </div>
@@ -397,13 +397,13 @@ export default function ProjectsPage() {
                 <div
                   key={p.id}
                   onClick={() => selectProject(p)}
-                  className={`p-3 rounded-lg border transition-all cursor-pointer border-l-[3px] ${isSelected ? 'bg-zinc-800 border-zinc-600' : 'bg-zinc-900/50 border-zinc-800 hover:border-zinc-600'}`}
+                  className={`p-3 rounded-lg border transition-all cursor-pointer border-l-[3px] ${isSelected ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active)' : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) hover:border-(--vestara-accent-border-active)'}`}
                   style={{
                     borderLeftColor: STATUS_COLORS[p.status] || '#6b7280',
                   }}
                 >
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-zinc-200 font-medium truncate flex-1">{p.name}</span>
+                    <span className="text-sm text-(--vestara-text) font-medium truncate flex-1">{p.name}</span>
                     {p.priority === 'high' && (
                       <span className="text-[8px] px-1 py-0.5 rounded bg-red-400/10 text-red-400 uppercase font-medium">
                         High
@@ -415,7 +415,7 @@ export default function ProjectsPage() {
                       </span>
                     )}
                   </div>
-                  <div className="flex gap-2 text-[9px] text-zinc-600 mb-1.5 flex-wrap">
+                  <div className="flex gap-2 text-[9px] text-(--vestara-text-muted) mb-1.5 flex-wrap">
                     <span>{s.total} tasks</span>
                     {activeCount > 0 && (
                       <>
@@ -444,7 +444,7 @@ export default function ProjectsPage() {
                       {p.tags.map((t) => (
                         <span
                           key={t}
-                          className="text-[7px] px-1 py-0.5 bg-zinc-800 border border-zinc-700/50 rounded text-zinc-500"
+                          className="text-[7px] px-1 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border)/50 rounded text-(--vestara-text-2)"
                         >
                           {t}
                         </span>
@@ -452,14 +452,14 @@ export default function ProjectsPage() {
                     </div>
                   )}
                   <ProgressBar pct={ppct} />
-                  <div className="text-[7px] text-zinc-700 mt-1">{new Date(p.createdAt).toLocaleDateString()}</div>
+                  <div className="text-[7px] text-(--vestara-text-dim) mt-1">{new Date(p.createdAt).toLocaleDateString()}</div>
                 </div>
               );
             })}
             {filteredProjects.length === 0 && search.trim() && (
               <div className="flex flex-col items-center justify-center py-6 text-center">
                 <div className="text-lg mb-1 opacity-20">🔍</div>
-                <p className="text-[10px] text-zinc-700">No matching projects</p>
+                <p className="text-[10px] text-(--vestara-text-dim)">No matching projects</p>
               </div>
             )}
           </div>
@@ -467,16 +467,16 @@ export default function ProjectsPage() {
           {/* Detail view */}
           <div className="lg:col-span-2">
             {!selected && (
-              <div className="flex flex-col items-center justify-center py-20 bg-zinc-900/30 border border-zinc-800 rounded-lg text-center">
+              <div className="flex flex-col items-center justify-center py-20 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
                 <div className="text-3xl mb-3 opacity-10">◈</div>
-                <p className="text-xs text-zinc-600">Select a project to view details</p>
+                <p className="text-xs text-(--vestara-text-muted)">Select a project to view details</p>
               </div>
             )}
             {selected && (
               <div className="space-y-4">
                 {/* Project header */}
                 <div
-                  className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-lg border-l-[3px]"
+                  className="p-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]"
                   style={{
                     borderLeftColor: STATUS_COLORS[selected.status] || '#6b7280',
                   }}
@@ -486,24 +486,24 @@ export default function ProjectsPage() {
                       <input
                         value={editName}
                         onChange={(e) => setEditName(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-sm text-zinc-300 outline-none focus:border-accent"
+                        className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-accent"
                       />
                       <textarea
                         value={editDescription}
                         onChange={(e) => setEditDescription(e.target.value)}
                         rows={2}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1.5 text-[10px] text-zinc-300 outline-none focus:border-accent resize-none"
+                        className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-[10px] text-(--vestara-text) outline-none focus:border-accent resize-none"
                         placeholder="Description..."
                       />
                       <div>
-                        <label className="text-[8px] text-zinc-600 uppercase tracking-widest block mb-0.5">
+                        <label className="text-[8px] text-(--vestara-text-muted) uppercase tracking-widest block mb-0.5">
                           Tags (comma separated)
                         </label>
                         <input
                           value={editTags}
                           onChange={(e) => setEditTags(e.target.value)}
                           placeholder="frontend, api, ux"
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded px-2 py-1 text-[10px] text-zinc-300 outline-none focus:border-accent"
+                          className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1 text-[10px] text-(--vestara-text) outline-none focus:border-accent"
                         />
                       </div>
                       <div className="flex gap-2">
@@ -515,7 +515,7 @@ export default function ProjectsPage() {
                         </button>
                         <button
                           onClick={() => setEditingProject(false)}
-                          className="text-[9px] px-2 py-1 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded hover:bg-zinc-700 cursor-pointer"
+                          className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded hover:bg-(--vestara-accent-bg) cursor-pointer"
                         >
                           Cancel
                         </button>
@@ -524,7 +524,7 @@ export default function ProjectsPage() {
                   ) : (
                     <>
                       <div className="flex items-center gap-2 mb-2">
-                        <h2 className="text-lg font-semibold text-zinc-100 flex-1">{selected.name}</h2>
+                        <h2 className="text-lg font-semibold text-(--vestara-text) flex-1">{selected.name}</h2>
                         <div className="relative flex items-center">
                           <span
                             className="w-2 h-2 rounded-full absolute left-1.5"
@@ -535,7 +535,7 @@ export default function ProjectsPage() {
                           <select
                             value={selected.status}
                             onChange={(e) => changeProjectStatus(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 text-zinc-400 rounded text-[9px] pl-4 pr-1.5 py-0.5 outline-none cursor-pointer appearance-none"
+                            className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded text-[9px] pl-4 pr-1.5 py-0.5 outline-none cursor-pointer appearance-none"
                           >
                             <option value="planning">Planning</option>
                             <option value="active">Active</option>
@@ -551,25 +551,25 @@ export default function ProjectsPage() {
                             setEditDescription(selected.description || '');
                             setEditTags((selected.tags ?? []).join(', '));
                           }}
-                          className="text-[9px] text-zinc-600 hover:text-zinc-400 cursor-pointer"
+                          className="text-[9px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer"
                         >
                           Edit
                         </button>
                       </div>
-                      {selected.description && <p className="text-[10px] text-zinc-500 mb-2">{selected.description}</p>}
+                      {selected.description && <p className="text-[10px] text-(--vestara-text-2) mb-2">{selected.description}</p>}
                       {selected.tags?.length > 0 && (
                         <div className="flex gap-1 flex-wrap mb-2">
                           {selected.tags.map((t) => (
                             <span
                               key={t}
-                              className="text-[8px] px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-zinc-500"
+                              className="text-[8px] px-1.5 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-(--vestara-text-2)"
                             >
                               {t}
                             </span>
                           ))}
                         </div>
                       )}
-                      <div className="flex gap-3 text-[9px] text-zinc-700 mb-2">
+                      <div className="flex gap-3 text-[9px] text-(--vestara-text-dim) mb-2">
                         <span>Created {new Date(selected.createdAt).toLocaleDateString()}</span>
                         {selected.updatedAt && (
                           <span>· Updated {new Date(selected.updatedAt).toLocaleDateString()}</span>
@@ -604,7 +604,7 @@ export default function ProjectsPage() {
                       </div>
                       <div className="mt-2 flex items-center gap-2">
                         <ProgressBar pct={pct} size="md" />
-                        <span className="text-[9px] text-zinc-600 shrink-0">{pct}%</span>
+                        <span className="text-[9px] text-(--vestara-text-muted) shrink-0">{pct}%</span>
                       </div>
                     </>
                   )}
@@ -612,10 +612,10 @@ export default function ProjectsPage() {
 
                 {/* Sprints */}
                 {sprints.length > 0 && (
-                  <div className="p-3 bg-zinc-900/30 border border-zinc-800 rounded-lg">
+                  <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
                     <div className="flex items-center gap-1.5 mb-2">
                       <span className="w-1 h-3 rounded-full bg-cyan-500/60 shrink-0" />
-                      <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-widest">Sprints</h3>
+                      <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-widest">Sprints</h3>
                     </div>
                     <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-thin">
                       {sprints.map((s) => {
@@ -627,7 +627,7 @@ export default function ProjectsPage() {
                         return (
                           <div
                             key={s.id}
-                            className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg min-w-45 shrink-0 border-l-[3px] relative"
+                            className="p-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg min-w-45 shrink-0 border-l-[3px] relative"
                             style={{
                               borderLeftColor: isActive ? '#10b981' : s.status === 'completed' ? '#3b82f6' : '#6b7280',
                             }}
@@ -637,20 +637,20 @@ export default function ProjectsPage() {
                                 Active
                               </span>
                             )}
-                            <div className="text-xs text-zinc-300 font-medium pr-10">{s.name}</div>
+                            <div className="text-xs text-(--vestara-text) font-medium pr-10">{s.name}</div>
                             <div
-                              className={`text-[8px] uppercase font-medium ${isActive ? 'text-green-400' : 'text-zinc-600'}`}
+                              className={`text-[8px] uppercase font-medium ${isActive ? 'text-green-400' : 'text-(--vestara-text-muted)'}`}
                             >
                               {s.status.replace('_', ' ')}
                             </div>
-                            <div className="text-[8px] text-zinc-700 mt-0.5">
+                            <div className="text-[8px] text-(--vestara-text-dim) mt-0.5">
                               {new Date(s.startDate).toLocaleDateString()} – {new Date(s.endDate).toLocaleDateString()}
                             </div>
-                            {s.goal && <div className="text-[8px] text-zinc-600 mt-1 truncate">{s.goal}</div>}
+                            {s.goal && <div className="text-[8px] text-(--vestara-text-muted) mt-1 truncate">{s.goal}</div>}
                             {sprintTasks.length > 0 && (
                               <div className="mt-1.5">
                                 <ProgressBar pct={sprintPct} size="sm" />
-                                <div className="text-[7px] text-zinc-700 mt-0.5">
+                                <div className="text-[7px] text-(--vestara-text-dim) mt-0.5">
                                   {sprintDone}/{sprintTasks.length} tasks
                                 </div>
                               </div>
@@ -667,10 +667,10 @@ export default function ProjectsPage() {
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-1.5">
                       <span className="w-1 h-3 rounded-full bg-amber-500/60 shrink-0" />
-                      <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-widest">
+                      <h3 className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-widest">
                         Tasks ({filteredTasks.length})
                         {taskFilter === 'active' && doneTasks.length > 0 && (
-                          <span className="text-zinc-700 font-normal ml-1">· {doneTasks.length} done</span>
+                          <span className="text-(--vestara-text-dim) font-normal ml-1">· {doneTasks.length} done</span>
                         )}
                       </h3>
                     </div>
@@ -679,7 +679,7 @@ export default function ProjectsPage() {
                         <select
                           value={taskFilter}
                           onChange={(e) => setTaskFilter(e.target.value)}
-                          className="bg-zinc-800 border border-zinc-700 text-zinc-400 rounded text-[9px] px-1.5 py-0.5 outline-none cursor-pointer"
+                          className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded text-[9px] px-1.5 py-0.5 outline-none cursor-pointer"
                         >
                           <option value="active">Active ({activeFiltered.length})</option>
                           <option value="backlog">
@@ -696,7 +696,7 @@ export default function ProjectsPage() {
                       )}
                       <button
                         onClick={() => setViewMode(viewMode === 'list' ? 'board' : 'list')}
-                        className={`text-[9px] px-2 py-0.5 rounded cursor-pointer border transition-colors ${viewMode === 'board' ? 'bg-zinc-700 border-zinc-600 text-zinc-200' : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'}`}
+                        className={`text-[9px] px-2 py-0.5 rounded cursor-pointer border transition-colors ${viewMode === 'board' ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active) text-(--vestara-text)' : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) text-(--vestara-text-2) hover:border-(--vestara-accent-border-active)'}`}
                       >
                         {viewMode === 'list' ? '⊞ Board' : '☰ List'}
                       </button>
@@ -710,20 +710,20 @@ export default function ProjectsPage() {
                   </div>
 
                   {showNewTask && (
-                    <div className="flex gap-2 mb-2 p-2 bg-zinc-800/30 border border-zinc-700 rounded-lg border-l-[3px] border-l-amber-500/30">
+                    <div className="flex gap-2 mb-2 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px] border-l-amber-500/30">
                       <div className="flex-1 space-y-1">
                         <input
                           value={newTaskTitle}
                           onChange={(e) => setNewTaskTitle(e.target.value)}
                           placeholder="Task title..."
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded text-[10px] px-2 py-1.5 text-zinc-300 outline-none focus:border-accent"
+                          className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[10px] px-2 py-1.5 text-(--vestara-text) outline-none focus:border-accent"
                           onKeyDown={(e) => e.key === 'Enter' && createTask()}
                         />
                         <div className="flex gap-1.5 flex-wrap">
                           <select
                             value={newTaskPriority}
                             onChange={(e) => setNewTaskPriority(e.target.value)}
-                            className="bg-zinc-800 border border-zinc-700 text-zinc-400 rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer"
+                            className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer"
                           >
                             <option value="low">Low</option>
                             <option value="medium">Medium</option>
@@ -734,7 +734,7 @@ export default function ProjectsPage() {
                             <select
                               value={newTaskSprint}
                               onChange={(e) => setNewTaskSprint(e.target.value)}
-                              className="bg-zinc-800 border border-zinc-700 text-zinc-400 rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer"
+                              className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer"
                             >
                               <option value="">No sprint</option>
                               {sprints.map((s) => (
@@ -749,7 +749,7 @@ export default function ProjectsPage() {
                           value={newTaskDescription}
                           onChange={(e) => setNewTaskDescription(e.target.value)}
                           placeholder="Description (optional)..."
-                          className="w-full bg-zinc-800 border border-zinc-700 rounded text-[9px] px-2 py-1 text-zinc-400 outline-none focus:border-accent"
+                          className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[9px] px-2 py-1 text-(--vestara-text-2) outline-none focus:border-accent"
                         />
                       </div>
                       <div className="flex gap-1">
@@ -766,7 +766,7 @@ export default function ProjectsPage() {
                             setNewTaskDescription('');
                             setNewTaskSprint('');
                           }}
-                          className="text-[9px] px-2 py-1 bg-zinc-800 border border-zinc-700 text-zinc-400 rounded hover:bg-zinc-700 cursor-pointer"
+                          className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded hover:bg-(--vestara-accent-bg) cursor-pointer"
                         >
                           ✕
                         </button>
@@ -784,7 +784,7 @@ export default function ProjectsPage() {
                           return (
                             <div key={t.id}>
                               <div
-                                className="flex items-center gap-2 p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors group cursor-pointer border-l-[3px]"
+                                className="flex items-center gap-2 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors group cursor-pointer border-l-[3px]"
                                 style={{
                                   borderLeftColor:
                                     t.status === 'done'
@@ -807,7 +807,7 @@ export default function ProjectsPage() {
                                 />
                                 <div className="flex-1 min-w-0">
                                   <div
-                                    className={`text-[10px] truncate ${t.status === 'done' ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}
+                                    className={`text-[10px] truncate ${t.status === 'done' ? 'text-(--vestara-text-2) line-through' : 'text-(--vestara-text)'}`}
                                   >
                                     {t.title}
                                   </div>
@@ -820,18 +820,18 @@ export default function ProjectsPage() {
                                     >
                                       {t.priority}
                                     </span>
-                                    <span className="text-zinc-700">·</span>
-                                    <span className="text-zinc-500">{t.status.replace('_', ' ')}</span>
+                                    <span className="text-(--vestara-text-dim)">·</span>
+                                    <span className="text-(--vestara-text-2)">{t.status.replace('_', ' ')}</span>
                                     {sprintName && (
                                       <>
-                                        <span className="text-zinc-700">·</span>
+                                        <span className="text-(--vestara-text-dim)">·</span>
                                         <span className="text-cyan-500/80">{sprintName}</span>
                                       </>
                                     )}
                                     {t.description && (
                                       <>
-                                        <span className="text-zinc-700">·</span>
-                                        <span className="text-zinc-600">notes</span>
+                                        <span className="text-(--vestara-text-dim)">·</span>
+                                        <span className="text-(--vestara-text-muted)">notes</span>
                                       </>
                                     )}
                                   </div>
@@ -842,7 +842,7 @@ export default function ProjectsPage() {
                                     e.stopPropagation();
                                     updateTaskStatus(t.id, e.target.value);
                                   }}
-                                  className="bg-zinc-800 border border-zinc-700 text-zinc-400 rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer opacity-60 group-hover:opacity-100 transition-opacity"
+                                  className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer opacity-60 group-hover:opacity-100 transition-opacity"
                                   onClick={(e) => e.stopPropagation()}
                                 >
                                   {STATUS_OPTIONS.map((s) => (
@@ -856,16 +856,16 @@ export default function ProjectsPage() {
                                     e.stopPropagation();
                                     deleteTask(t.id);
                                   }}
-                                  className="opacity-0 group-hover:opacity-100 text-[9px] text-zinc-700 hover:text-red-400 transition-all cursor-pointer"
+                                  className="opacity-0 group-hover:opacity-100 text-[9px] text-(--vestara-text-dim) hover:text-red-400 transition-all cursor-pointer"
                                   title="Delete"
                                 >
                                   ✕
                                 </button>
                               </div>
                               {isExpanded && (
-                                <div className="ml-5 mt-0.5 p-2 bg-zinc-800/40 border border-zinc-700/50 rounded space-y-1">
-                                  {t.description && <div className="text-[9px] text-zinc-400">{t.description}</div>}
-                                  <div className="text-[8px] text-zinc-700">
+                                <div className="ml-5 mt-0.5 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded space-y-1">
+                                  {t.description && <div className="text-[9px] text-(--vestara-text-2)">{t.description}</div>}
+                                  <div className="text-[8px] text-(--vestara-text-dim)">
                                     Created {new Date(t.createdAt).toLocaleDateString()}
                                   </div>
                                 </div>
@@ -876,7 +876,7 @@ export default function ProjectsPage() {
                         {filteredTasks.length === 0 && (
                           <div className="flex flex-col items-center justify-center py-6 text-center">
                             <div className="text-lg mb-1 opacity-20">○</div>
-                            <p className="text-[10px] text-zinc-700">
+                            <p className="text-[10px] text-(--vestara-text-dim)">
                               {taskFilter === 'active' ? 'No active tasks' : `No ${taskFilter} tasks`}
                             </p>
                           </div>
@@ -885,10 +885,10 @@ export default function ProjectsPage() {
 
                       {/* Done tasks collapsible */}
                       {doneTasks.length > 0 && taskFilter !== 'done' && (
-                        <div className="mt-2 border border-zinc-800 rounded-lg overflow-hidden">
+                        <div className="mt-2 border border-(--vestara-accent-border) rounded-lg overflow-hidden">
                           <button
                             onClick={() => setShowDone(!showDone)}
-                            className="flex items-center gap-1.5 w-full text-[9px] text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/20 transition-colors px-2 py-1 cursor-pointer"
+                            className="flex items-center gap-1.5 w-full text-[9px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) transition-colors px-2 py-1 cursor-pointer"
                           >
                             <span className={`transition-transform ${showDone ? 'rotate-90' : ''}`}>▸</span>
                             {doneTasks.length} completed
@@ -898,12 +898,12 @@ export default function ProjectsPage() {
                               {doneTasks.slice(0, 10).map((t) => (
                                 <div
                                   key={t.id}
-                                  className="flex items-center gap-2 p-1.5 bg-zinc-900/20 border border-zinc-800/50 rounded border-l-2 border-l-green-500/40"
+                                  className="flex items-center gap-2 p-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded border-l-2 border-l-green-500/40"
                                 >
                                   <span className="text-green-500 text-[9px] shrink-0">✔</span>
-                                  <span className="text-[10px] text-zinc-500 line-through truncate">{t.title}</span>
+                                  <span className="text-[10px] text-(--vestara-text-2) line-through truncate">{t.title}</span>
                                   <span
-                                    className="text-[7px] text-zinc-700 ml-auto uppercase"
+                                    className="text-[7px] text-(--vestara-text-dim) ml-auto uppercase"
                                     style={{
                                       color: PRIORITY_COLORS[t.priority],
                                     }}
@@ -932,14 +932,14 @@ export default function ProjectsPage() {
                                 <span style={{ color: col.color }} className="text-sm">
                                   {col.icon}
                                 </span>
-                                <span className="text-[10px] text-zinc-400 font-medium">{col.label}</span>
+                                <span className="text-[10px] text-(--vestara-text-2) font-medium">{col.label}</span>
                               </div>
-                              <span className="text-[9px] text-zinc-600 bg-zinc-800 rounded-full px-1.5">
+                              <span className="text-[9px] text-(--vestara-text-muted) bg-(--vestara-accent-bg) rounded-full px-1.5">
                                 {colTasks.length}
                               </span>
                             </div>
                             {colTasks.length > 0 && (
-                              <div className="w-full bg-zinc-800/50 rounded-full h-1 mb-1.5">
+                              <div className="w-full bg-(--vestara-accent-bg) rounded-full h-1 mb-1.5">
                                 <div
                                   className="h-1 rounded-full transition-all"
                                   style={{
@@ -956,7 +956,7 @@ export default function ProjectsPage() {
                               }}
                             >
                               {colTasks.length === 0 && (
-                                <div className="flex items-center justify-center h-12 text-[9px] text-zinc-700 border border-dashed border-zinc-800 rounded-lg">
+                                <div className="flex items-center justify-center h-12 text-[9px] text-(--vestara-text-dim) border border-dashed border-(--vestara-accent-border) rounded-lg">
                                   Empty
                                 </div>
                               )}
@@ -965,7 +965,7 @@ export default function ProjectsPage() {
                                 return (
                                   <div
                                     key={t.id}
-                                    className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-colors group cursor-pointer border-l-[3px]"
+                                    className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-active) transition-colors group cursor-pointer border-l-[3px]"
                                     style={{
                                       borderLeftColor: PRIORITY_COLORS[t.priority] || '#6b7280',
                                     }}
@@ -974,7 +974,7 @@ export default function ProjectsPage() {
                                     <div className="flex items-start justify-between gap-1">
                                       <div className="flex-1 min-w-0">
                                         <div
-                                          className={`text-[10px] truncate ${t.status === 'done' ? 'text-zinc-500 line-through' : 'text-zinc-300'}`}
+                                          className={`text-[10px] truncate ${t.status === 'done' ? 'text-(--vestara-text-2) line-through' : 'text-(--vestara-text)'}`}
                                         >
                                           {t.title}
                                         </div>
@@ -987,7 +987,7 @@ export default function ProjectsPage() {
                                           >
                                             {t.priority}
                                           </span>
-                                          {t.description && <span className="text-zinc-700">· notes</span>}
+                                          {t.description && <span className="text-(--vestara-text-dim)">· notes</span>}
                                           {sprintName && <span className="text-cyan-500/70">· {sprintName}</span>}
                                         </div>
                                       </div>
@@ -996,18 +996,18 @@ export default function ProjectsPage() {
                                           e.stopPropagation();
                                           deleteTask(t.id);
                                         }}
-                                        className="opacity-0 group-hover:opacity-100 text-[8px] text-zinc-700 hover:text-red-400 transition-all shrink-0"
+                                        className="opacity-0 group-hover:opacity-100 text-[8px] text-(--vestara-text-dim) hover:text-red-400 transition-all shrink-0"
                                         title="Delete"
                                       >
                                         ✕
                                       </button>
                                     </div>
                                     {expandedTask === t.id && (
-                                      <div className="mt-1.5 pt-1.5 border-t border-zinc-800">
+                                      <div className="mt-1.5 pt-1.5 border-t border-(--vestara-accent-border)">
                                         {t.description && (
-                                          <div className="text-[8px] text-zinc-500 mb-1">{t.description}</div>
+                                          <div className="text-[8px] text-(--vestara-text-2) mb-1">{t.description}</div>
                                         )}
-                                        <div className="text-[7px] text-zinc-700 mb-1">
+                                        <div className="text-[7px] text-(--vestara-text-dim) mb-1">
                                           Created {new Date(t.createdAt).toLocaleDateString()}
                                         </div>
                                         <div className="flex gap-1 flex-wrap">

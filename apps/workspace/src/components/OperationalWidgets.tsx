@@ -3,7 +3,7 @@ export function ActiveSessionWidget({ sessions, agents }: { sessions: any[]; age
   if (active.length === 0) return null;
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
       <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Active Sessions</div>
       <div className="space-y-2">
         {active.slice(0, 3).map((s) => {
@@ -59,7 +59,7 @@ export function AgentUtilizationWidget({ agents, execSessions }: { agents: any[]
   const primary = agentStatus.slice(0, 5);
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
       <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Agent Utilization</div>
       <div className="space-y-1.5">
         {primary.map((a) => {
@@ -129,7 +129,7 @@ export function BackgroundServicesWidget({ execSessions }: { execSessions?: any[
   };
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
       <div className="flex items-center justify-between mb-2">
         <span className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider">Background Services</span>
         <button
@@ -172,7 +172,7 @@ export function RepoHealthWidget({ workspace, execStats }: { workspace?: any; ex
   const trend = score != null && score >= 7 ? '+0.4' : score != null && score >= 4 ? '0.0' : '-0.3';
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
       <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Repository Health</div>
       <div className="flex items-center gap-3">
         <div className="relative w-12 h-12 shrink-0">
@@ -233,7 +233,7 @@ export function BuildToolsWidget({
   const [runAllRunning, setRunAllRunning] = useState(false);
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg p-3">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
       <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">Build Tools</div>
       <div className="space-y-2">
         <button
@@ -258,7 +258,7 @@ export function BuildToolsWidget({
         >
           {running ? 'Starting...' : 'GitHub Actions'}
         </button>
-        <div className="mt-2 pt-2 border-t border-zinc-800/50 text-[9px] text-zinc-600">
+        <div className="mt-2 pt-2 border-t border-(--vestara-accent-border) text-[9px] text-zinc-600">
           <div className="font-medium text-zinc-500 mb-1">Build Commands:</div>
           <div className="space-y-0.5 font-mono">
             <div className="truncate" title="pnpm --filter @vestara/workspace-ui build">

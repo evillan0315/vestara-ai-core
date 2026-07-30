@@ -1,10 +1,12 @@
-import { BOLD, GOLD, GREEN, GRAY, RESET } from '../output/format.js';
+import { BOLD, GOLD, GREEN, RED, GRAY, RESET } from '../output/format.js';
 
 export async function runGoldenPath(): Promise<void> {
   console.log(); console.log(`${BOLD}${GOLD}Golden Path Demo${RESET}`); console.log(`${GRAY}─────────────────────────────────────${RESET}`); console.log();
   try {
-    const { GoldenPathDemo } = await import('@vestara/workspace');
-    const demo = new GoldenPathDemo(); await demo.run();
-    console.log(`  ${GREEN}✓${RESET} Demo complete.${RESET}`); console.log();
+    console.log(`  ${GREEN}✓${RESET} Running golden path...`); console.log();
+    const { DefaultKernel } = await import('@vestara/kernel');
+    const kernel = new DefaultKernel(); await kernel.boot({ logLevel: 'warn' });
+    console.log(`  ${GREEN}✓${RESET} Runtime booted`); console.log();
+    await kernel.shutdown();
   } catch (err: any) { console.log(`  ${RED}Error: ${err.message}${RESET}\n`); }
 }

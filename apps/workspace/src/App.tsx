@@ -1,120 +1,71 @@
-import { Navigate, Route, Routes } from "react-router-dom";
-import ErrorBoundary from "./components/ErrorBoundary";
-import { ToastProvider } from "./components/Toast";
-import ShellLayout from "./layouts/ShellLayout";
-import { ThemeProvider } from "./lib/theme";
-import Agents from "./pages/Agents";
-import ApiBuilder from "./pages/ApiBuilder";
-import Artifacts from "./pages/Artifacts";
-import ChatPage from "./pages/ChatPage";
-import Dashboard from "./pages/Dashboard";
-import Docs from "./pages/Docs";
-import FeatureRequests from "./pages/FeatureRequests";
-import Login from "./pages/Login";
-import Logs from "./pages/Logs";
-import Memory from "./pages/Memory";
-import NotFound from "./pages/NotFound";
-import NotificationsPage from "./pages/Notifications";
-import OpsCenter from "./pages/OpsCenter";
-import Overview from "./pages/Overview";
-import ProjectsPage from "./pages/Projects";
-import SessionList, { SessionView } from "./pages/SessionList";
-import SettingsPage from "./pages/Settings/SettingsPage";
-import TerminalPage from "./pages/Terminal";
+import { lazy, Suspense } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
+import { ToastProvider } from './components/Toast';
+import ShellLayout from './layouts/ShellLayout';
+import { ThemeProvider } from './lib/theme';
+import { TelemetryProvider } from './contexts/TelemetryContext';
+
+const Login = lazy(() => import('./pages/Login'));
+const Overview = lazy(() => import('./pages/Overview'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const SessionList = lazy(() => import('./pages/SessionList'));
+const SessionView = lazy(() => import('./pages/Sessions/SessionView'));
+const Artifacts = lazy(() => import('./pages/Artifacts'));
+const Agents = lazy(() => import('./pages/Agents'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const Memory = lazy(() => import('./pages/Memory'));
+const TerminalPage = lazy(() => import('./pages/Terminal'));
+const OpsCenter = lazy(() => import('./pages/OpsCenter'));
+const ProjectsPage = lazy(() => import('./pages/Projects'));
+const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
+const Activities = lazy(() => import('./pages/Activities'));
+const ApiBuilder = lazy(() => import('./pages/ApiBuilder'));
+const Docs = lazy(() => import('./pages/Docs'));
+const NotFound = lazy(() => import('./pages/NotFound'));
+const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
+
+function LazyPage({ children }: { children: React.ReactNode }) {
+  return (
+    <ErrorBoundary>
+      <Suspense fallback={<div className="w-full py-16 text-center text-(--vestara-text-muted) animate-pulse">Loading...</div>}>
+        {children}
+      </Suspense>
+    </ErrorBoundary>
+  );
+}
 
 export default function App() {
   return (
     <ErrorBoundary>
       <ThemeProvider>
-        <ToastProvider>
+        <TelemetryProvider>
+          <ToastProvider>
           <Routes>
-            <Route path="/login" element={<Login />} />
+            <Route path="/login" element={<LazyPage><Login /></LazyPage>} />
             <Route element={<ShellLayout />}>
               <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route
-                path="/overview"
-                element={
-                  <ErrorBoundary>
-                    <Overview />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/dashboard"
-                element={
-                  <ErrorBoundary>
-                    <Dashboard />
-                  </ErrorBoundary>
-                }
-              />
-              <Route path="/sessions" element={<SessionList />} />
-              <Route path="/sessions/:id" element={<SessionView />} />
-              <Route path="/artifacts" element={<Artifacts />} />
-              <Route
-                path="/agents"
-                element={
-                  <ErrorBoundary>
-                    <Agents />
-                  </ErrorBoundary>
-                }
-              />
-              <Route path="/memory" element={<Memory />} />
-              <Route path="/terminal" element={<TerminalPage />} />
-              <Route path="/chat" element={<ChatPage />} />
-              <Route
-                path="/projects"
-                element={
-                  <ErrorBoundary>
-                    <ProjectsPage />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/ops"
-                element={
-                  <ErrorBoundary>
-                    <OpsCenter />
-                  </ErrorBoundary>
-                }
-              />
-              <Route path="/notifications" element={<NotificationsPage />} />
-              <Route path="/settings/*" element={<SettingsPage />} />
-              <Route
-                path="/requests"
-                element={
-                  <ErrorBoundary>
-                    <FeatureRequests />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/logs"
-                element={
-                  <ErrorBoundary>
-                    <Logs />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/api-builder"
-                element={
-                  <ErrorBoundary>
-                    <ApiBuilder />
-                  </ErrorBoundary>
-                }
-              />
-              <Route
-                path="/docs"
-                element={
-                  <ErrorBoundary>
-                    <Docs />
-                  </ErrorBoundary>
-                }
-              />
-              <Route path="*" element={<NotFound />} />
+              <Route path="/overview" element={<LazyPage><Overview /></LazyPage>} />
+              <Route path="/dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
+              <Route path="/sessions" element={<LazyPage><SessionList /></LazyPage>} />
+              <Route path="/sessions/:id" element={<LazyPage><SessionView /></LazyPage>} />
+              <Route path="/artifacts" element={<LazyPage><Artifacts /></LazyPage>} />
+              <Route path="/agents" element={<LazyPage><Agents /></LazyPage>} />
+              <Route path="/chat" element={<LazyPage><ChatPage /></LazyPage>} />
+              <Route path="/memory" element={<LazyPage><Memory /></LazyPage>} />
+              <Route path="/terminal" element={<LazyPage><TerminalPage /></LazyPage>} />
+              <Route path="/ops" element={<LazyPage><OpsCenter /></LazyPage>} />
+              <Route path="/projects" element={<LazyPage><ProjectsPage /></LazyPage>} />
+              <Route path="/requests" element={<LazyPage><FeatureRequests /></LazyPage>} />
+              <Route path="/activities" element={<LazyPage><Activities /></LazyPage>} />
+              <Route path="/api-builder" element={<LazyPage><ApiBuilder /></LazyPage>} />
+              <Route path="/docs" element={<LazyPage><Docs /></LazyPage>} />
+              <Route path="/settings/*" element={<LazyPage><SettingsPage /></LazyPage>} />
+              <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
             </Route>
           </Routes>
         </ToastProvider>
+        </TelemetryProvider>
       </ThemeProvider>
     </ErrorBoundary>
   );

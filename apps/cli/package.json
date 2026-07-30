@@ -29,7 +29,10 @@
     "@vestara/workspace": "workspace:*",
     "@vestara/action": "workspace:*",
     "@vestara/activity-log": "workspace:*",
-    "@vestara/tools-shell": "workspace:*"
+    "@vestara/events-server": "workspace:*",
+    "@vestara/tools-shell": "workspace:*",
+    "@vestara/architecture-runtime": "workspace:*",
+    "@vestara/telemetry": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

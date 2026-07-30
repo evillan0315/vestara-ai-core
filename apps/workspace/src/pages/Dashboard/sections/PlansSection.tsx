@@ -131,31 +131,31 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
     <DashboardSection title="Plans" icon="△" dragSection={dragSection}>
       {/* Stat cards */}
       <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-3">
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
-          <div className="text-sm font-bold text-zinc-100">{counts.total}</div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Total</div>
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
+          <div className="text-sm font-bold text-(--vestara-text)">{counts.total}</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Total</div>
         </div>
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
-          <div className="text-sm font-bold text-zinc-400">{counts.draft}</div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Draft</div>
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
+          <div className="text-sm font-bold text-(--vestara-text-2)">{counts.draft}</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Draft</div>
         </div>
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-sm font-bold text-blue-400">{counts.approved}</div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Approved</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Approved</div>
         </div>
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-sm font-bold text-amber-400">{counts.executing}</div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Executing</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Executing</div>
         </div>
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-sm font-bold text-green-400">{counts.completed}</div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Completed</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Completed</div>
         </div>
-        <div className="p-2 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
-          <div className="text-sm font-bold text-zinc-100">
+        <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
+          <div className="text-sm font-bold text-(--vestara-text)">
             {counts.doneTasks}/{counts.totalTasks}
           </div>
-          <div className="text-[8px] text-zinc-600 uppercase tracking-wider">Tasks</div>
+          <div className="text-[8px] text-(--vestara-text-muted) uppercase tracking-wider">Tasks</div>
         </div>
       </div>
 
@@ -175,11 +175,11 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
 
       {/* Plan groups by status */}
       {plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-5 bg-zinc-900/50 border border-zinc-800 rounded-lg text-center">
+        <div className="flex flex-col items-center justify-center p-5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
           <div className="text-lg mb-1 opacity-20">△</div>
-          <p className="text-[10px] text-zinc-700">No plans yet</p>
-          <p className="text-[8px] text-zinc-700 mt-1">
-            Create a plan with <code className="text-zinc-500">plan &lt;goal&gt;</code> in the REPL
+          <p className="text-[10px] text-(--vestara-text-dim)">No plans yet</p>
+          <p className="text-[8px] text-(--vestara-text-dim) mt-1">
+            Create a plan with <code className="text-(--vestara-text-2)">plan &lt;goal&gt;</code> in the REPL
           </p>
         </div>
       ) : (
@@ -194,10 +194,10 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                     className="w-1.5 h-1.5 rounded-full shrink-0"
                     style={{ backgroundColor: group.accent }}
                   />
-                  <span className="text-[9px] text-zinc-600 uppercase tracking-wider font-semibold">
+                  <span className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider font-semibold">
                     {group.label}
                   </span>
-                  <span className="text-[8px] text-zinc-700">({group.items.length})</span>
+                  <span className="text-[8px] text-(--vestara-text-dim)">({group.items.length})</span>
                 </div>
 
                 <div className="space-y-1.5">
@@ -213,12 +213,12 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                         {/* Plan card */}
                         <div
                           onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
-                          className="p-2.5 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors cursor-pointer border-l-[3px]"
+                          className="p-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors cursor-pointer border-l-[3px]"
                           style={{ borderLeftColor: group.accent }}
                         >
                           {/* Title row */}
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[11px] text-zinc-200 truncate font-medium flex-1">
+                            <span className="text-[11px] text-(--vestara-text) truncate font-medium flex-1">
                               {plan.title || plan.goal || plan.id}
                             </span>
                             <div className="flex items-center gap-1 shrink-0">
@@ -254,10 +254,10 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                                     : plan.status === 'executing'
                                       ? 'bg-amber-400/10 text-amber-400'
                                       : plan.status === 'draft'
-                                        ? 'bg-zinc-800 text-zinc-500'
+                                        ? 'bg-zinc-800 text-(--vestara-text-2)'
                                         : plan.status === 'approved'
                                           ? 'bg-blue-400/10 text-blue-400'
-                                          : 'bg-zinc-800 text-zinc-500'
+                                          : 'bg-zinc-800 text-(--vestara-text-2)'
                                 }`}
                               >
                                 {plan.status}
@@ -266,11 +266,11 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                           </div>
 
                           {/* Meta row */}
-                          <div className="flex items-center gap-2 text-[9px] text-zinc-600">
+                          <div className="flex items-center gap-2 text-[9px] text-(--vestara-text-muted)">
                             <span>{plan.id}</span>
                             {taskTotal > 0 && (
                               <>
-                                <span className="text-zinc-700">·</span>
+                                <span className="text-(--vestara-text-dim)">·</span>
                                 <span>
                                   {taskDone}/{taskTotal} tasks
                                 </span>
@@ -278,7 +278,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                             )}
                             {plan.createdAt && (
                               <>
-                                <span className="text-zinc-700">·</span>
+                                <span className="text-(--vestara-text-dim)">·</span>
                                 <span>{new Date(plan.createdAt).toLocaleDateString()}</span>
                               </>
                             )}
@@ -286,7 +286,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
 
                           {/* Task progress bar */}
                           {taskTotal > 0 && (
-                            <div className="mt-1.5 w-full bg-zinc-800 rounded-full h-1 overflow-hidden">
+                            <div className="mt-1.5 w-full bg-(--vestara-accent-bg) rounded-full h-1 overflow-hidden">
                               <div
                                 className="h-1 rounded-full transition-all"
                                 style={{
@@ -337,7 +337,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
 
                         {/* Expanded: task list */}
                         {isExpanded && plan.tasks && plan.tasks.length > 0 && (
-                          <div className="ml-3 mt-1 border-l-2 border-zinc-800 pl-3 space-y-0.5">
+                          <div className="ml-3 mt-1 border-l-2 border-(--vestara-accent-border) pl-3 space-y-0.5">
                             {plan.tasks.map((task, ti) => (
                               <div key={task.id || ti} className="flex items-center gap-2 text-[10px] py-0.5">
                                 <span
@@ -348,12 +348,12 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                                         ? 'bg-amber-400'
                                         : task.status === 'blocked'
                                           ? 'bg-red-400'
-                                          : 'bg-zinc-600'
+                                          : 'bg-(--vestara-text-dim)'
                                   }`}
                                 />
-                                <span className="text-zinc-400 truncate flex-1">{task.summary || task.description || task.id}</span>
+                                <span className="text-(--vestara-text-2) truncate flex-1">{task.summary || task.description || task.id}</span>
                                 {task.effort && (
-                                  <span className="text-zinc-700 text-[8px]">({task.effort})</span>
+                                  <span className="text-(--vestara-text-dim) text-[8px]">({task.effort})</span>
                                 )}
                               </div>
                             ))}
@@ -363,7 +363,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                     );
                   })}
                   {group.items.length > 5 && (
-                    <div className="text-[8px] text-zinc-700 text-center py-1">
+                    <div className="text-[8px] text-(--vestara-text-dim) text-center py-1">
                       +{group.items.length - 5} more {group.label.toLowerCase()} plans
                     </div>
                   )}
@@ -377,13 +377,13 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
       <div className="flex gap-2 mt-2">
         <a
           href="/artifacts"
-          className="flex-1 block text-[10px] text-zinc-600 text-center py-1.5 hover:text-zinc-400 transition-colors rounded-lg bg-zinc-900/30 border border-zinc-800"
+          className="flex-1 block text-[10px] text-(--vestara-text-muted) text-center py-1.5 hover:text-(--vestara-text-2) transition-colors rounded-lg bg-(--vestara-accent-bg) border border-(--vestara-accent-border)"
         >
           All Plans & Artifacts →
         </a>
         <a
           href="/sessions"
-          className="flex-1 block text-[10px] text-zinc-600 text-center py-1.5 hover:text-zinc-400 transition-colors rounded-lg bg-zinc-900/30 border border-zinc-800"
+          className="flex-1 block text-[10px] text-(--vestara-text-muted) text-center py-1.5 hover:text-(--vestara-text-2) transition-colors rounded-lg bg-(--vestara-accent-bg) border border-(--vestara-accent-border)"
         >
           Execution Sessions →
         </a>

@@ -9,21 +9,28 @@ interface ConversationListProps {
   branches: Record<string, any>;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onTogglePin?: (id: string) => void;
 }
 
 type GroupedConvs = Record<string, ConversationData[]>;
 
-export function ConversationList({ conversations, activeBranch, branches, onSelect, onDelete }: ConversationListProps) {
+export function ConversationList({ conversations, activeBranch, branches, onSelect, onDelete, onTogglePin }: ConversationListProps) {
+  const { pinned, unpinned } = useMemo(() => {
+    const sorted = [...conversations].sort((a, b) => b.timestamp - a.timestamp);
+    const pinned = sorted.filter((c) => c.pinned);
+    const unpinned = sorted.filter((c) => !c.pinned);
+    return { pinned, unpinned };
+  }, [conversations]);
+
   const grouped = useMemo(() => {
     const groups: GroupedConvs = {};
-    const sorted = [...conversations].sort((a, b) => b.timestamp - a.timestamp);
-    for (const conv of sorted) {
+    for (const conv of unpinned) {
       const group = getRelativeDateGroup(conv.timestamp);
       if (!groups[group]) groups[group] = [];
       groups[group].push(conv);
     }
     return groups;
-  }, [conversations]);
+  }, [unpinned]);
 
   const groupOrder = ['Today', 'Yesterday', 'Previous 7 Days', 'Older'];
   const hasConvs = conversations.length > 0;
@@ -46,11 +53,30 @@ export function ConversationList({ conversations, activeBranch, branches, onSele
 
   return (
     <div className="py-2 space-y-3">
+      {/* Pinned section */}
+      {pinned.length > 0 && (
+        <div>
+          <div className="px-3 py-1 text-[10px] font-semibold text-amber-600/70 uppercase tracking-wider">Pinned</div>
+          <div className="space-y-0.5">
+            {pinned.map((conv) => (
+              <ConversationItem
+                key={conv.id}
+                conversation={conv}
+                isActive={false}
+                onSelect={onSelect}
+                onDelete={onDelete}
+                onTogglePin={onTogglePin}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {groupOrder.map(
         (group) =>
           grouped[group] && (
             <div key={group}>
-              <div className="px-3 py-1 text-[10px] font-semibold text-zinc-700 uppercase tracking-wider">{group}</div>
+              <div className="px-3 py-1 text-[10px] font-semibold text-(--vestara-text-dim) uppercase tracking-wider">{group}</div>
               <div className="space-y-0.5">
                 {grouped[group].map((conv) => (
                   <ConversationItem
@@ -62,6 +88,7 @@ export function ConversationList({ conversations, activeBranch, branches, onSele
                     }
                     onSelect={onSelect}
                     onDelete={onDelete}
+                    onTogglePin={onTogglePin}
                   />
                 ))}
               </div>

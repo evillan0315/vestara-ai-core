@@ -55,7 +55,7 @@ export default function WorkflowPipeline({ session, compact }: { session?: any; 
   const stepCount = session.metrics ? `${session.metrics.completedSteps}/${session.metrics.totalSteps}` : '';
 
   return (
-    <div className={`bg-zinc-900/50 border border-zinc-800 rounded-lg ${compact ? 'p-2' : 'p-3'} mb-4`}>
+    <div className={`bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg ${compact ? 'p-2' : 'p-3'} mb-4`}>
       {!compact && (
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2 text-[10px] text-zinc-600 min-w-0">

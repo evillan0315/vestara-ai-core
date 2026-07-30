@@ -35,20 +35,20 @@ export default function SettingsBreadcrumbs({ modules, basePath = '/settings' }:
   }
 
   return (
-    <nav className="mb-4 flex items-center space-x-2 text-sm text-[var(--vestara-text-2)]">
+    <nav className="mb-4 flex items-center gap-2 text-[11px] text-(--vestara-text-muted)">
       {breadcrumbs.map((crumb, index) => (
-        <span key={crumb.path} className="flex items-center">
-          {index > 0 && <span className="mx-2 text-[var(--vestara-text-muted)]">/</span>}
+        <span key={crumb.path} className="flex items-center gap-2">
+          {index > 0 && <span className="text-(--vestara-text-dim)">/</span>}
           {index < breadcrumbs.length - 1 ? (
             <button
               type="button"
               onClick={() => navigate(crumb.path)}
-              className="hover:text-[var(--vestara-text)] transition-colors"
+              className="hover:text-(--vestara-text-2) transition-colors cursor-pointer"
             >
               {crumb.label}
             </button>
           ) : (
-            <span className="text-[var(--vestara-text)] font-medium">{crumb.label}</span>
+            <span className="text-(--vestara-text-2) font-medium">{crumb.label}</span>
           )}
         </span>
       ))}

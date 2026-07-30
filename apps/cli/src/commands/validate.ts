@@ -8,13 +8,7 @@
  */
 
 import { WorkspaceRuntime } from '@vestara/workspace';
-
-const BOLD = '\x1b[1m';
-const GOLD = '\x1b[33m';
-const GREEN = '\x1b[32m';
-const RED = '\x1b[31m';
-const GRAY = '\x1b[90m';
-const RESET = '\x1b[0m';
+import { BOLD, GOLD, GREEN, RED, GRAY, RESET } from '../output/format.js';
 
 function label(val: string): string {
   return `${BOLD}${val}${RESET}`;

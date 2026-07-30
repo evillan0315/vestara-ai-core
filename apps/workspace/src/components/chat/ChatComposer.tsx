@@ -101,10 +101,10 @@ export function ChatComposer({
   }, []);
 
   return (
-    <div className="border-t border-zinc-800/40 bg-zinc-950/90 backdrop-blur-xl">
+    <div className="border-t border-(--vestara-accent-border) bg-zinc-950/90 backdrop-blur-xl">
       {/* Reply indicator */}
       {replyToId && (
-        <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] text-zinc-500 border-b border-zinc-800/30">
+        <div className="flex items-center gap-2 px-4 py-1.5 text-[11px] text-zinc-500 border-b border-(--vestara-accent-border)">
           <svg className="w-3.5 h-3.5 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path
               strokeLinecap="round"
@@ -157,7 +157,7 @@ export function ChatComposer({
             placeholder={placeholder || 'Ask Vestara AI anything...'}
             disabled={loading}
             rows={1}
-            className="w-full bg-zinc-900/50 border border-zinc-700/50 rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-600 disabled:opacity-50 resize-none min-h-[40px] max-h-[180px] leading-relaxed focus:border-zinc-500/70 focus:bg-zinc-900/70 transition-colors"
+            className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl pl-10 pr-4 py-2.5 text-[13px] text-zinc-200 placeholder-zinc-600 disabled:opacity-50 resize-none min-h-[40px] max-h-[180px] leading-relaxed focus:border-zinc-500/70 focus:bg-zinc-900/70 transition-colors"
           />
         </div>
 

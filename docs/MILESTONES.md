@@ -862,6 +862,58 @@ Prediction creates an explicit decision point between planning and execution, an
 
 ---
 
+### v3.8 — Development Lifecycle & Governance ✅ Complete
+
+**Date**: 2026-07-30
+
+**Objective**: Transition from AI-assisted development to engineering process orchestration. Define how specialized agents collaborate through a governed lifecycle with organizational knowledge, confidence calibration, and epistemic governance.
+
+**Philosophy**: *Agents don't perform work. They participate in a software development lifecycle.*
+
+**Verification**:
+- 5 specialized agents defined with strict role boundaries
+- Daily Operational Lifecycle codified in Blueprint
+- Engineering Knowledge System with promotion gate and confidence model
+- Epistemic Principles document in AIDL v1.3.0
+
+**Key artifacts**:
+
+| Artifact | Location |
+|----------|----------|
+| Epistemic Principles | `03-ai-development-lifecycle.md` (4 layers, 3 truths, derivation principle, epistemic governance) |
+| Daily Operational Lifecycle | `03-ai-development-lifecycle.md` (5 agents, 6 commands, workflow diagram) |
+| Engineering Knowledge System | `03-ai-development-lifecycle.md` (structure, promotion, confidence model, maturity lifecycle) |
+| Context Agent | `.opencode/agents/vestara-context.md` — read-only discovery |
+| Planner Agent | `.opencode/agents/vestara-planner.md` — analyze, prioritize, recommend |
+| Engineer Agent | `.opencode/agents/vestara-engineer.md` — implement approved tasks only |
+| Reviewer Agent | `.opencode/agents/vestara-reviewer.md` — inspect, never modify |
+| Verifier Agent | `.opencode/agents/vestara-verifier.md` — prove via evidence, never interpret |
+| Lifecycle Skill | `.opencode/skills/vestara-lifecycle/SKILL.md` — workflow commands |
+| Foundation Doc | `docs/foundation/02-development-lifecycle.md` — philosophy and architecture |
+| Engineering Knowledge | `.vestara/knowledge/architecture/workspace-rewrite-incremental-migration.md` — first seeded entry |
+| EKS Runtime | `.vestara/knowledge/{architecture,workflows,lessons,decisions}/` + `sessions/` + `metrics/` |
+
+**Agents**:
+
+| Agent | Role | Can Edit? | Can Plan? | Can Decide Scope? |
+|-------|------|-----------|-----------|-------------------|
+| Context | Discover | No | No | No |
+| Planner | Recommend | No | Yes | No |
+| Engineer | Implement | Yes | No | No |
+| Reviewer | Inspect | No | No | No |
+| Verifier | Prove | No | No | No |
+| Human | Approve | Yes | Yes | Yes |
+
+**Lifecycle commands**: `/init` (onboarding), `/morning` (briefing), `/work` (execute), `/review` (inspect), `/verify` (evidence), `/evening` (knowledge capture)
+
+**Knowledge Confidence Model**: Five-stage maturity lifecycle — `Hypothesis → Observation → Emerging Pattern → Verified Practice → Engineering Principle`. Confidence is derived from evidence, never assigned.
+
+**Spec**: `vestara-blueprint/00-governance/03-ai-development-lifecycle.md` (v1.3.0)
+
+**Status**: ✅ Complete
+
+---
+
 ## Conversational Onboarding — The Human Era
 
 v4.0 marks the inflection point where Vestara shifts from an **AI engineering platform** to an **AI engineering companion** — a system that understands who you are before it concerns itself with what you're building.

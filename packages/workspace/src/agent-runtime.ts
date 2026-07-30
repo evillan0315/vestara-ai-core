@@ -593,7 +593,7 @@ Dashboard Architecture:
 
 To run: pnpm --filter @vestara/workspace-ui dev
 To build: pnpm --filter @vestara/workspace-ui build
-Dashboard lives at: http://localhost:5173 (Vite dev)`;
+Dashboard lives at: http://127.0.0.1:5173 (Vite dev)`;
   }
 
   /**

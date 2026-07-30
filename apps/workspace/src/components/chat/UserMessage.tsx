@@ -50,7 +50,7 @@ export function UserMessage({
     <div className={`flex justify-end group ${isHighlighted ? 'ring-1 ring-amber-500/20 rounded-2xl' : ''}`}>
       <div className="max-w-full min-w-0">
         {isEditing ? (
-          <div className="bg-zinc-900 border border-amber-500/20 rounded-2xl p-3">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-2xl p-3">
             <textarea
               ref={editRef}
               value={editText}

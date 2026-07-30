@@ -5,9 +5,10 @@ interface ConversationItemProps {
   isActive: boolean;
   onSelect: (id: string) => void;
   onDelete: (id: string) => void;
+  onTogglePin?: (id: string) => void;
 }
 
-export function ConversationItem({ conversation, isActive, onSelect, onDelete }: ConversationItemProps) {
+export function ConversationItem({ conversation, isActive, onSelect, onDelete, onTogglePin }: ConversationItemProps) {
   const msgCount = Object.values(conversation.branches).flat().length;
 
   return (
@@ -15,12 +16,12 @@ export function ConversationItem({ conversation, isActive, onSelect, onDelete }:
       onClick={() => onSelect(conversation.id)}
       className={`group flex items-start gap-2.5 px-3 py-2.5 rounded-lg cursor-pointer transition-all ${
         isActive
-          ? 'bg-zinc-800/60 border border-zinc-700/50'
-          : 'border border-transparent hover:bg-zinc-800/30 hover:border-zinc-800/50'
+          ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border)'
+          : 'border border-transparent hover:bg-(--vestara-accent-bg) hover:border-(--vestara-accent-border)'
       }`}
     >
       <svg
-        className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? 'text-amber-400' : 'text-zinc-600'}`}
+        className={`w-4 h-4 mt-0.5 shrink-0 ${isActive ? 'text-amber-400' : 'text-(--vestara-text-muted)'}`}
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -33,19 +34,50 @@ export function ConversationItem({ conversation, isActive, onSelect, onDelete }:
         />
       </svg>
       <div className="flex-1 min-w-0">
-        <div className={`text-[12px] truncate ${isActive ? 'text-zinc-200 font-medium' : 'text-zinc-400'}`}>
-          {conversation.title}
+        <div className="flex items-center gap-1.5">
+          <div className={`text-[12px] truncate ${isActive ? 'text-(--vestara-text) font-medium' : 'text-(--vestara-text-2)'}`}>
+            {conversation.title}
+          </div>
+          {conversation.pinned && (
+            <span className="text-[9px] text-amber-500 shrink-0" title="Pinned">📌</span>
+          )}
         </div>
-        <div className="text-[10px] text-zinc-700 mt-0.5">
-          {msgCount} message{msgCount !== 1 ? 's' : ''}
+        <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-end gap-[1px] h-3">
+            {[2, 3, 4, 3, 5, 4, 2].map((h, i) => (
+              <span key={i} className="w-[2px] rounded-sm bg-(--vestara-accent) transition-all"
+                style={{ height: `${Math.max(2, Math.min(h, msgCount > 5 ? 12 : 6))}px`, opacity: Math.max(0.3, Math.min(1, h / 5)) }} />
+            ))}
+          </div>
+          <span className="text-[10px] text-(--vestara-text-dim)">
+            {msgCount} message{msgCount !== 1 ? 's' : ''}
+          </span>
         </div>
       </div>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation();
+          onTogglePin?.(conversation.id);
+        }}
+        className={`opacity-0 group-hover:opacity-100 transition-all cursor-pointer mt-0.5 shrink-0 ${conversation.pinned ? 'text-amber-500' : 'text-(--vestara-text-muted) hover:text-amber-400'}`}
+        title={conversation.pinned ? 'Unpin conversation' : 'Pin conversation'}
+      >
+        <svg className="w-3.5 h-3.5" fill={conversation.pinned ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"
+          />
+        </svg>
+      </button>
       <button
         onClick={(e) => {
           e.stopPropagation();
           onDelete(conversation.id);
         }}
-        className="opacity-0 group-hover:opacity-100 text-zinc-600 hover:text-red-400 transition-all cursor-pointer mt-0.5 shrink-0"
+        className="opacity-0 group-hover:opacity-100 text-(--vestara-text-muted) hover:text-red-400 transition-all cursor-pointer mt-0.5 shrink-0"
         title="Delete conversation"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

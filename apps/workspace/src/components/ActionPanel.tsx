@@ -245,9 +245,9 @@ export default function ActionPanel() {
   ];
 
   return (
-    <div className="bg-zinc-900/50 border border-zinc-800 rounded-lg overflow-hidden">
+    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg overflow-hidden">
       {/* Tabs */}
-      <div className="flex border-b border-zinc-800">
+      <div className="flex border-b border-(--vestara-accent-border)">
         {tabs.map((t) => (
           <button
             key={t.key}
@@ -257,8 +257,8 @@ export default function ActionPanel() {
             }}
             className={`flex-1 px-3 py-2.5 text-xs font-medium transition-colors cursor-pointer ${
               tab === t.key
-                ? 'text-accent border-b-2 border-accent bg-zinc-900/80'
-                : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-900/30'
+                ? 'text-accent border-b-2 border-accent bg-(--vestara-accent-bg)'
+                : 'text-zinc-500 hover:text-zinc-300 hover:bg-(--vestara-accent-bg)'
             }`}
           >
             {t.label}
@@ -282,7 +282,7 @@ export default function ActionPanel() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleExplain();
                 }}
-                className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700"
+                className="flex-1 px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700"
               />
               <button
                 onClick={handleExplain}
@@ -310,7 +310,7 @@ export default function ActionPanel() {
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleCreatePlan();
                 }}
-                className="flex-1 px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700"
+                className="flex-1 px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-zinc-300 placeholder-zinc-600 focus:outline-none focus:border-zinc-700"
               />
               <button
                 onClick={handleCreatePlan}
@@ -327,7 +327,7 @@ export default function ActionPanel() {
                   {plans.map((p) => (
                     <div
                       key={p.id}
-                      className="flex items-center justify-between px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-xs"
+                      className="flex items-center justify-between px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs"
                     >
                       <div className="min-w-0 flex-1">
                         <div className="text-zinc-300 truncate">{p.title}</div>
@@ -360,7 +360,7 @@ export default function ActionPanel() {
             <select
               value={selectedPlanId}
               onChange={(e) => setSelectedPlanId(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700"
+              className="w-full px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700"
             >
               <option value="">Select a plan…</option>
               {plans
@@ -385,7 +385,7 @@ export default function ActionPanel() {
                   {changeSets.map((cs) => (
                     <div
                       key={cs.id}
-                      className="flex items-center justify-between px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-xs"
+                      className="flex items-center justify-between px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs"
                     >
                       <span className="text-zinc-300 truncate min-w-0 flex-1">{cs.title}</span>
                       <div className="flex items-center gap-2 shrink-0 ml-2">
@@ -414,7 +414,7 @@ export default function ActionPanel() {
             <select
               value={selectedCSId}
               onChange={(e) => setSelectedCSId(e.target.value)}
-              className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700"
+              className="w-full px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-sm text-zinc-300 focus:outline-none focus:border-zinc-700"
             >
               <option value="">Select a change set…</option>
               {changeSets.map((cs) => (
@@ -442,13 +442,13 @@ export default function ActionPanel() {
 
             {/* Collaboration */}
             {collabRecords.length > 0 && (
-              <div className="pt-2 border-t border-zinc-800">
+              <div className="pt-2 border-t border-(--vestara-accent-border)">
                 <p className="text-xs text-zinc-600 mb-2">Pending Reviews ({collabRecords.length})</p>
                 <div className="space-y-1">
                   {collabRecords.map((cr) => (
                     <div
                       key={cr.id}
-                      className="flex items-center justify-between px-3 py-2 bg-zinc-950 border border-zinc-800 rounded text-xs"
+                      className="flex items-center justify-between px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs"
                     >
                       <span className="text-zinc-400 truncate min-w-0 flex-1">{cr.changeSetId}</span>
                       <div className="flex gap-1 shrink-0 ml-2">
@@ -475,7 +475,7 @@ export default function ActionPanel() {
 
         {/* Result output */}
         {result && (
-          <div className="mt-3 p-3 bg-zinc-950 border border-zinc-800 rounded text-xs text-zinc-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+          <div className="mt-3 p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-xs text-zinc-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
             {resultSource && <div className="text-xs text-zinc-600 mb-1">Source: {resultSource}</div>}
             {result}
           </div>

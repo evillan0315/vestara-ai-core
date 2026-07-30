@@ -16,14 +16,14 @@ export default function RecentSessionsSection({ execSessions, dragSection }: Rec
           <a
             key={s.id as string}
             href={`/sessions/${s.id}`}
-            className="flex items-center gap-2 p-2 bg-zinc-900/30 border border-zinc-800 rounded-lg hover:border-zinc-700 transition-colors border-l-[3px]"
+            className="flex items-center gap-2 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors border-l-[3px]"
             style={{
               borderLeftColor: s.status === 'completed' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b',
             }}
           >
             <div className="flex-1 min-w-0">
-              <div className="text-[9px] text-zinc-300 truncate font-medium">{s.goal as string}</div>
-              <div className="text-[8px] text-zinc-600">
+              <div className="text-[9px] text-(--vestara-text) truncate font-medium">{s.goal as string}</div>
+              <div className="text-[8px] text-(--vestara-text-muted)">
                 {s.status as string} · {s.createdAt ? new Date(s.createdAt as string).toLocaleDateString() : ''}
               </div>
             </div>
@@ -37,7 +37,7 @@ export default function RecentSessionsSection({ execSessions, dragSection }: Rec
         {execSessions.length > 4 && (
           <a
             href="/sessions"
-            className="block text-[8px] text-zinc-600 text-center py-1 hover:text-zinc-400 transition-colors rounded bg-zinc-800/20"
+            className="block text-[8px] text-(--vestara-text-muted) text-center py-1 hover:text-(--vestara-text-2) transition-colors rounded bg-zinc-800/20"
           >
             View all sessions →
           </a>

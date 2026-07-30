@@ -19,6 +19,7 @@ export interface ConversationData {
   branches: Record<string, ChatMessage[]>;
   activeBranch: string;
   timestamp: number;
+  pinned?: boolean;
 }
 
 export interface Attachment {

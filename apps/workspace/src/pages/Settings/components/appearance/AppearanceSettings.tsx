@@ -107,21 +107,21 @@ export default function AppearanceSettings() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-[var(--vestara-text)] mb-2">Appearance</h1>
-      <p className="text-[var(--vestara-text-2)] mb-6">Customize the look and feel of your workspace.</p>
+      <h1 className="text-2xl font-bold text-(--vestara-text) mb-2">Appearance</h1>
+      <p className="text-(--vestara-text-2) mb-6">Customize the look and feel of your workspace.</p>
 
       {saveStatus === 'saving' && <div className="mb-4 text-sm text-amber-500">Saving...</div>}
       {saveStatus === 'saved' && (
-        <div className="mb-4 text-sm text-[var(--vestara-green)]">Settings saved to API and localStorage</div>
+        <div className="mb-4 text-sm text-(--vestara-green)">Settings saved to API and localStorage</div>
       )}
       {saveStatus === 'error' && (
-        <div className="mb-4 text-sm text-[var(--vestara-red)]">Failed to save to API — changes saved locally</div>
+        <div className="mb-4 text-sm text-(--vestara-red)">Failed to save to API — changes saved locally</div>
       )}
 
       <div className="space-y-6">
         {/* Theme Mode */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Theme Mode</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Theme Mode</h2>
           <div className="grid grid-cols-3 gap-4">
             {(['dark', 'light', 'system'] as ThemeMode[]).map((m) => (
               <button
@@ -130,11 +130,11 @@ export default function AppearanceSettings() {
                 onClick={() => handleModeChange(m)}
                 className={`
                   p-4 rounded-lg border text-center transition-colors
-                  ${mode === m ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)] hover:border-[var(--vestara-accent-border-hover)]'}
+                  ${mode === m ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg) hover:border-(--vestara-accent-border-hover)'}
                 `}
               >
                 <div className="text-2xl mb-2">{m === 'dark' ? '🌙' : m === 'light' ? '☀️' : '💻'}</div>
-                <span className="font-medium text-[var(--vestara-text)] capitalize">{m}</span>
+                <span className="font-medium text-(--vestara-text) capitalize">{m}</span>
               </button>
             ))}
           </div>
@@ -142,7 +142,7 @@ export default function AppearanceSettings() {
 
         {/* Accent Color */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Accent Color</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Accent Color</h2>
           <div className="flex flex-wrap gap-3">
             {Object.entries(ACCENT_PALETTES).map(([key, palette]) => (
               <button
@@ -151,7 +151,7 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('colorTheme', key as ColorTheme)}
                 className={`
                   w-10 h-10 rounded-full border-2 transition-transform
-                  ${settings.colorTheme === key ? 'border-[var(--vestara-text)] scale-110' : 'border-transparent hover:scale-105'}
+                  ${settings.colorTheme === key ? 'border-(--vestara-text) scale-110' : 'border-transparent hover:scale-105'}
                 `}
                 style={{ backgroundColor: palette.hex }}
                 title={palette.label}
@@ -160,9 +160,35 @@ export default function AppearanceSettings() {
           </div>
         </section>
 
+        {/* Color Preview Chart */}
+        <section>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Color Preview</h2>
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
+            <div className="flex items-end gap-1 mb-3 h-16">
+              {[0.1, 0.2, 0.35, 0.5, 0.65, 0.8, 1.0].map((opacity, i) => (
+                <div key={i} className="flex-1 rounded-t-sm transition-all"
+                  style={{ backgroundColor: `var(--vestara-accent)`, opacity, height: `${16 + opacity * 48}px` }} />
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {['10%', '20%', '35%', '50%', '65%', '80%', '100%'].map((label, i) => (
+                <div key={i} className="text-[8px] text-(--vestara-text-dim) text-center">{label}</div>
+              ))}
+            </div>
+            <div className="mt-3 flex gap-2 items-center">
+              <div className="w-4 h-4 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border)" />
+              <span className="text-[10px] text-(--vestara-text-2)">Overlay background</span>
+              <div className="w-4 h-4 rounded bg-(--vestara-accent) border border-(--vestara-accent-border)" />
+              <span className="text-[10px] text-(--vestara-text-2)">Accent solid</span>
+              <div className="w-4 h-4 rounded border-2 border-(--vestara-accent-border)" />
+              <span className="text-[10px] text-(--vestara-text-2)">Border</span>
+            </div>
+          </div>
+        </section>
+
         {/* Font Size */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Font Size</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Font Size</h2>
           <div className="flex items-center gap-4">
             <input
               type="range"
@@ -175,7 +201,7 @@ export default function AppearanceSettings() {
               }}
               className="flex-1"
             />
-            <span className="text-[var(--vestara-text)] font-medium w-16 text-center capitalize">
+            <span className="text-(--vestara-text) font-medium w-16 text-center capitalize">
               {settings.fontSize}
             </span>
           </div>
@@ -183,7 +209,7 @@ export default function AppearanceSettings() {
 
         {/* Font Family */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Font Family</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Font Family</h2>
           <div className="grid grid-cols-3 gap-2">
             {(['system', 'serif', 'mono'] as const).map((font) => (
               <button
@@ -192,10 +218,10 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('fontFamily', font)}
                 className={`
                   p-3 rounded-lg border text-left transition-colors
-                  ${settings.fontFamily === font ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)]'}
+                  ${settings.fontFamily === font ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'}
                 `}
               >
-                <span className="text-[var(--vestara-text)] capitalize">{font}</span>
+                <span className="text-(--vestara-text) capitalize">{font}</span>
               </button>
             ))}
           </div>
@@ -203,7 +229,7 @@ export default function AppearanceSettings() {
 
         {/* Font Weight */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Font Weight</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Font Weight</h2>
           <div className="grid grid-cols-3 gap-2">
             {(['normal', 'medium', 'semibold'] as const).map((weight) => (
               <button
@@ -212,10 +238,10 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('fontWeight', weight)}
                 className={`
                   p-3 rounded-lg border text-center transition-colors
-                  ${settings.fontWeight === weight ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)]'}
+                  ${settings.fontWeight === weight ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'}
                 `}
               >
-                <span className="text-[var(--vestara-text)] capitalize">{weight}</span>
+                <span className="text-(--vestara-text) capitalize">{weight}</span>
               </button>
             ))}
           </div>
@@ -223,7 +249,7 @@ export default function AppearanceSettings() {
 
         {/* Sidebar Width */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Sidebar Width</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Sidebar Width</h2>
           <div className="grid grid-cols-3 gap-2">
             {(['compact', 'normal', 'wide'] as const).map((width) => (
               <button
@@ -232,10 +258,10 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('sidebarWidth', width)}
                 className={`
                   p-3 rounded-lg border text-center transition-colors
-                  ${settings.sidebarWidth === width ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)]'}
+                  ${settings.sidebarWidth === width ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'}
                 `}
               >
-                <span className="text-[var(--vestara-text)] capitalize">{width}</span>
+                <span className="text-(--vestara-text) capitalize">{width}</span>
               </button>
             ))}
           </div>
@@ -243,7 +269,7 @@ export default function AppearanceSettings() {
 
         {/* Spacing */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Spacing</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Spacing</h2>
           <div className="grid grid-cols-3 gap-2">
             {(['compact', 'comfortable', 'spacious'] as const).map((spacing) => (
               <button
@@ -252,10 +278,10 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('spacing', spacing)}
                 className={`
                   p-3 rounded-lg border text-center transition-colors
-                  ${settings.spacing === spacing ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)]'}
+                  ${settings.spacing === spacing ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'}
                 `}
               >
-                <span className="text-[var(--vestara-text)] capitalize">{spacing}</span>
+                <span className="text-(--vestara-text) capitalize">{spacing}</span>
               </button>
             ))}
           </div>
@@ -263,7 +289,7 @@ export default function AppearanceSettings() {
 
         {/* Border Radius */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Border Radius</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Border Radius</h2>
           <div className="grid grid-cols-4 gap-2">
             {(['none', 'small', 'medium', 'large'] as const).map((radius) => (
               <button
@@ -272,10 +298,10 @@ export default function AppearanceSettings() {
                 onClick={() => handleSettingChange('radius', radius)}
                 className={`
                   p-3 rounded-lg border text-center transition-colors
-                  ${settings.radius === radius ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)]' : 'border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)]'}
+                  ${settings.radius === radius ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)' : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'}
                 `}
               >
-                <span className="text-[var(--vestara-text)] capitalize">{radius}</span>
+                <span className="text-(--vestara-text) capitalize">{radius}</span>
               </button>
             ))}
           </div>
@@ -283,7 +309,7 @@ export default function AppearanceSettings() {
 
         {/* Presets */}
         <section>
-          <h2 className="text-lg font-semibold text-[var(--vestara-text)] mb-4">Presets</h2>
+          <h2 className="text-lg font-semibold text-(--vestara-text) mb-4">Presets</h2>
           <div className="grid grid-cols-2 gap-2">
             {PROFILES.map((profile) => (
               <button
@@ -294,19 +320,19 @@ export default function AppearanceSettings() {
                   saveApiThemeSettings(profile.settings);
                   persistThemeSettings(profile.settings);
                 }}
-                className="p-3 rounded-lg border border-[var(--vestara-accent-border)] bg-[var(--color-zinc-900)] hover:border-[var(--vestara-accent-border-hover)] transition-colors text-left"
+                className="p-3 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) hover:border-(--vestara-accent-border-hover) transition-colors text-left"
               >
-                <div className="text-[var(--vestara-text)] font-medium">
+                <div className="text-(--vestara-text) font-medium">
                   {profile.icon} {profile.label}
                 </div>
-                <div className="text-xs text-[var(--vestara-text-2)] mt-1">{profile.description}</div>
+                <div className="text-xs text-(--vestara-text-2) mt-1">{profile.description}</div>
               </button>
             ))}
           </div>
         </section>
 
         {/* Reset */}
-        <section className="pt-4 border-t border-[var(--vestara-accent-border)]">
+        <section className="pt-4 border-t border-(--vestara-accent-border)">
           <button
             type="button"
             onClick={() => {
@@ -314,7 +340,7 @@ export default function AppearanceSettings() {
               saveApiThemeSettings(settings);
               persistThemeSettings(settings);
             }}
-            className="px-4 py-2 bg-[var(--vestara-red)]/10 border border-[var(--vestara-red)]/30 text-[var(--vestara-red)] rounded-lg hover:bg-[var(--vestara-red)]/20 transition-colors text-sm"
+            className="px-4 py-2 bg-(--vestara-red)/10 border border-(--vestara-red)/30 text-(--vestara-red) rounded-lg hover:bg-(--vestara-red)/20 transition-colors text-sm"
           >
             Reset to Defaults
           </button>
@@ -325,7 +351,7 @@ export default function AppearanceSettings() {
           <button
             type="button"
             onClick={handleSave}
-            className="px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
+            className="px-4 py-2 bg-(--vestara-accent) text-white rounded-lg hover:opacity-90 transition-opacity text-sm"
           >
             Save to API &amp; Storage
           </button>

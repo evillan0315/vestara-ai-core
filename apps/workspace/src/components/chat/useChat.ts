@@ -384,6 +384,14 @@ export function useChat() {
     setReplyToId(null);
   }, []);
 
+  const togglePin = useCallback((convId: string) => {
+    setConversations((prev) => {
+      const next = prev.map((c) => (c.id === convId ? { ...c, pinned: !c.pinned } : c));
+      saveConversations(next);
+      return next;
+    });
+  }, []);
+
   const handleCopy = useCallback((id: string, content: string) => {
     copyToClipboard(content);
     setCopiedId(id);
@@ -459,6 +467,7 @@ export function useChat() {
     clearChat,
     newConversation,
     deleteConversation,
+    togglePin,
     switchConversation,
     handleCopy,
     resetOnboarding,
@@ -466,6 +475,7 @@ export function useChat() {
     setReplyToId,
     setShowSearch,
     setEditText,
+    settings,
   };
 }
 

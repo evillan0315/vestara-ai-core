@@ -1,134 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import JsonTreeView from '../components/JsonTreeView';
+import type { ApiEndpoint, TabData, EnvironmentVars, TestResult, HistoryItem } from './ApiBuilder/types';
+import { createTab, loadTabs, saveTabs, loadEnv, saveEnv } from './ApiBuilder/persistence';
+import { generateCurl, generateFetch, generatePython } from './ApiBuilder/codeGenerators';
+import { LatencyChart } from './ApiBuilder/charts/LatencyChart';
+import { MethodChart } from './ApiBuilder/charts/MethodChart';
+import Pagination from '../components/Pagination';
 
-interface ApiEndpoint {
-  path: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  description: string;
-  requiresAuth?: boolean;
-  body?: Record<string, unknown>;
-}
-
-interface TestResult {
-  status: 'success' | 'error' | 'loading';
-  data?: any;
-  error?: string;
-  latency?: number;
-}
-
-interface HistoryItem {
-  timestamp: string;
-  request: { url: string; method: string; headers: Record<string, string>; body?: string };
-  response: any;
-  status: 'success' | 'error';
-  latency: number;
-}
-
-interface EnvironmentVars {
-  baseUrl: string;
-  authToken: string;
-}
-
-interface TabData {
-  id: string;
-  name: string;
-  url: string;
-  method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
-  body: string;
-  headers: string;
-  result: TestResult;
-  history: HistoryItem[];
-}
-
-const TABS_KEY = 'vestara-api-builder-tabs';
-const ENV_KEY = 'vestara-api-builder-env';
 const MAX_HISTORY = 50;
-const MAX_TABS = 10;
-
-let tabCounter = 0;
-
-function createTab(name?: string): TabData {
-  tabCounter += 1;
-  return {
-    id: `tab-${Date.now()}-${tabCounter}`,
-    name: name || `Request ${tabCounter}`,
-    url: '',
-    method: 'GET',
-    body: '',
-    headers: '',
-    result: { status: 'success' },
-    history: [],
-  };
-}
-
-function loadTabs(): TabData[] {
-  try {
-    const raw = localStorage.getItem(TABS_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-    }
-  } catch { /* ignore */ }
-  const defaultTab = createTab('Request 1');
-  saveTabs([defaultTab]);
-  return [defaultTab];
-}
-
-function saveTabs(tabs: TabData[]): void {
-  try {
-    localStorage.setItem(TABS_KEY, JSON.stringify(tabs.slice(0, MAX_TABS)));
-  } catch { /* quota exceeded */ }
-}
-
-function loadEnv(): EnvironmentVars {
-  try {
-    const raw = localStorage.getItem(ENV_KEY);
-    return raw ? JSON.parse(raw) : { baseUrl: '', authToken: '' };
-  } catch {
-    return { baseUrl: '', authToken: '' };
-  }
-}
-
-function saveEnv(env: EnvironmentVars): void {
-  try {
-    localStorage.setItem(ENV_KEY, JSON.stringify(env));
-  } catch { /* silently drop */ }
-}
-
-function generateCurl(method: string, url: string, headers: Record<string, string>, body?: string): string {
-  const parts = [`curl -X ${method} '${url}'`];
-  for (const [k, v] of Object.entries(headers)) {
-    parts.push(`  -H '${k}: ${v}'`);
-  }
-  if (body && method !== 'GET') {
-    parts.push(`  -d '${body}'`);
-  }
-  return parts.join(' \\\n');
-}
-
-function generateFetch(method: string, url: string, headers: Record<string, string>, body?: string): string {
-  const opts: Record<string, any> = { method };
-  if (Object.keys(headers).length) opts.headers = headers;
-  if (body && method !== 'GET') {
-    try { opts.body = JSON.stringify(JSON.parse(body)); }
-    catch { opts.body = body; }
-  }
-  return `fetch('${url}', ${JSON.stringify(opts, null, 2)})`;
-}
-
-function generatePython(method: string, url: string, headers: Record<string, string>, body?: string): string {
-  const lines = ['import requests', ''];
-  const h = Object.keys(headers).length ? JSON.stringify(headers, null, 2) : '{}';
-  if (body && method !== 'GET') {
-    try { lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h}, json=${JSON.stringify(JSON.parse(body))})`); }
-    catch { lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h}, data='''${body}''')`); }
-  } else {
-    lines.push(`response = requests.${method.toLowerCase()}('${url}', headers=${h})`);
-  }
-  lines.push('print(response.status_code)');
-  lines.push('print(response.json())');
-  return lines.join('\n');
-}
 
 export default function ApiBuilderPage() {
   const [tabs, setTabs] = useState<TabData[]>(loadTabs);
@@ -139,6 +18,8 @@ export default function ApiBuilderPage() {
   const [showSnippets, setShowSnippets] = useState(false);
   const [viewMode, setViewMode] = useState<'raw' | 'tree'>('tree');
   const [envOpen, setEnvOpen] = useState(false);
+  const [historyPage, setHistoryPage] = useState(1);
+  const HISTORY_PAGE_SIZE = 8;
   const [envVars, setEnvVars] = useState<EnvironmentVars>(loadEnv);
   const urlInputRef = useRef<HTMLInputElement>(null);
   const newTabInputRef = useRef<HTMLInputElement>(null);
@@ -360,7 +241,7 @@ export default function ApiBuilderPage() {
       case 'PUT': return 'bg-amber-400/10 text-amber-400';
       case 'DELETE': return 'bg-red-400/10 text-red-400';
       case 'PATCH': return 'bg-purple-400/10 text-purple-400';
-      default: return 'bg-zinc-400/10 text-zinc-400';
+      default: return 'bg-(--vestara-text-dim)/10 text-(--vestara-text-dim)';
     }
   };
 
@@ -377,7 +258,7 @@ export default function ApiBuilderPage() {
           Copy
         </button>
       </div>
-      <pre className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded p-3 text-xs text-(--vestara-text) font-mono overflow-x-auto whitespace-pre-wrap">
+      <pre className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded p-3 text-xs text-(--vestara-text) font-mono overflow-x-auto whitespace-pre-wrap">
         {code}
       </pre>
     </div>
@@ -401,7 +282,7 @@ export default function ApiBuilderPage() {
       return (
         <div>
           {/* Status bar */}
-          <div className="flex items-center justify-between mb-3 p-3 rounded-lg border-l-4 border-(--vestara-accent-border) bg-(--color-zinc-900)">
+          <div className="flex items-center justify-between mb-3 p-3 rounded-lg border-l-4 border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${isSuccess ? 'bg-green-500' : 'bg-red-500'}`} />
               <span className={`text-sm font-medium ${isSuccess ? 'text-green-400' : 'text-red-400'}`}>
@@ -435,7 +316,7 @@ export default function ApiBuilderPage() {
 
           {/* Code snippets */}
           {showSnippets && (
-            <div className="mb-4 p-4 rounded-lg border border-(--vestara-accent-border) bg-(--color-zinc-950)">
+            <div className="mb-4 p-4 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
               <h4 className="text-xs font-semibold text-(--vestara-text) mb-3">Code Snippets</h4>
               {renderSnippet('cURL', generateCurl(activeTab.method, resolvedUrl, { 'Content-Type': 'application/json' }, activeTab.body))}
               {renderSnippet('fetch', generateFetch(activeTab.method, resolvedUrl, { 'Content-Type': 'application/json' }, activeTab.body))}
@@ -462,7 +343,7 @@ export default function ApiBuilderPage() {
               {viewMode === 'tree' ? (
                 <JsonTreeView data={result.data} defaultExpandDepth={2} label="response" />
               ) : (
-                <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-lg p-3 max-h-96 overflow-y-auto">
+                <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3 max-h-96 overflow-y-auto">
                   <pre className="text-xs text-(--vestara-text) whitespace-pre-wrap font-mono">
                     {JSON.stringify(result.data, null, 2)}
                   </pre>
@@ -500,7 +381,7 @@ export default function ApiBuilderPage() {
   }
 
   return (
-    <div className="w-full px-4">
+    <div className="w-full">
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
         <div>
@@ -523,7 +404,7 @@ export default function ApiBuilderPage() {
           </button>
           <button
             onClick={() => fetch('/api/routes').then((r) => r.ok && r.json()).then((d) => setEndpoints(d.routes || [])).catch(() => {})}
-            className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:bg-(--color-zinc-900) transition-colors cursor-pointer"
+            className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
           >
             Reload
           </button>
@@ -532,7 +413,7 @@ export default function ApiBuilderPage() {
 
       {/* Environment variables panel */}
       {envOpen && (
-        <div className="mb-4 p-4 rounded-xl border border-(--vestara-accent-border) bg-(--color-zinc-900)">
+        <div className="mb-4 p-4 rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
           <h3 className="text-sm font-semibold text-(--vestara-text) mb-3">Environment Variables</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
             <div>
@@ -542,7 +423,7 @@ export default function ApiBuilderPage() {
                 value={envVars.baseUrl}
                 onChange={(e) => setEnvVars((p) => { const n = { ...p, baseUrl: e.target.value }; saveEnv(n); return n; })}
                 placeholder="http://localhost:3001"
-                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+                className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
               />
             </div>
             <div>
@@ -552,7 +433,7 @@ export default function ApiBuilderPage() {
                 value={envVars.authToken}
                 onChange={(e) => setEnvVars((p) => { const n = { ...p, authToken: e.target.value }; saveEnv(n); return n; })}
                 placeholder="Bearer token (optional)"
-                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+                className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
               />
             </div>
           </div>
@@ -560,10 +441,15 @@ export default function ApiBuilderPage() {
         </div>
       )}
 
+      {/* Method usage chart */}
+      <div className="mb-4 max-w-md">
+        <MethodChart tabs={tabs} />
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left: Endpoint list */}
         <div className="lg:col-span-1">
-          <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl h-full">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl h-full">
             <div className="p-4 border-b border-(--vestara-accent-border)">
               <h2 className="text-sm font-semibold text-(--vestara-text) mb-3">Endpoints</h2>
               <input
@@ -571,7 +457,7 @@ export default function ApiBuilderPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search endpoints..."
-                className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none"
+                className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none"
               />
             </div>
             <div className="overflow-y-auto max-h-[600px]">
@@ -579,7 +465,7 @@ export default function ApiBuilderPage() {
                 <button
                   key={`${endpoint.method}-${endpoint.path}-${index}`}
                   onClick={() => setSelectedEndpoint(endpoint)}
-                  className={`w-full text-left p-4 border-b border-(--vestara-accent-border) hover:bg-(--color-zinc-800) transition-colors cursor-pointer ${
+                  className={`w-full text-left p-4 border-b border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer ${
                     selectedEndpoint?.path === endpoint.path ? 'bg-(--color-zinc-800)' : ''
                   }`}
                 >
@@ -605,15 +491,15 @@ export default function ApiBuilderPage() {
         {/* Right: Tab bar + request builder + response */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           {/* Tab bar */}
-          <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl overflow-hidden">
-            <div className="flex items-center border-b border-(--vestara-accent-border) bg-(--color-zinc-950) overflow-x-auto">
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl overflow-hidden">
+            <div className="flex items-center border-b border-(--vestara-accent-border) bg-(--vestara-accent-bg) overflow-x-auto">
               {tabs.map((tab) => (
                 <div
                   key={tab.id}
                   className={`group flex items-center gap-1 px-3 py-2 text-xs border-r border-(--vestara-accent-border) cursor-pointer transition-colors shrink-0 min-w-0 ${
                     tab.id === activeTabId
                       ? 'bg-(--color-zinc-800) text-(--vestara-text) border-b-2 border-b-(--vestara-accent) mb-[-1px]'
-                      : 'text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800)'
+                      : 'text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg)'
                   }`}
                   onClick={() => setActiveTabId(tab.id)}
                 >
@@ -640,7 +526,7 @@ export default function ApiBuilderPage() {
               ))}
               <button
                 onClick={addTab}
-                className="px-3 py-2 text-xs text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800) transition-colors cursor-pointer shrink-0"
+                className="px-3 py-2 text-xs text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer shrink-0"
                 title="New tab (Ctrl+T)"
               >
                 +
@@ -663,7 +549,7 @@ export default function ApiBuilderPage() {
                     </div>
                     <button
                       onClick={() => useTemplate(selectedEndpoint)}
-                      className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--color-zinc-800) transition-colors cursor-pointer"
+                      className="px-3 py-1.5 rounded-lg text-xs border border-(--vestara-accent-border) text-(--vestara-text-muted) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
                     >
                       Load
                     </button>
@@ -680,7 +566,7 @@ export default function ApiBuilderPage() {
                       value={activeTab.url}
                       onChange={(e) => updateActive({ url: e.target.value })}
                       placeholder="/api/..."
-                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
+                      className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono"
                     />
                     {envVars.baseUrl && (
                       <p className="text-xs text-(--vestara-text-muted) mt-1">
@@ -716,7 +602,7 @@ export default function ApiBuilderPage() {
                       value={activeTab.body}
                       onChange={(e) => updateActive({ body: e.target.value })}
                       placeholder='{"key": "value"}'
-                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-24 resize-none"
+                      className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-24 resize-none"
                     />
                   </div>
 
@@ -727,7 +613,7 @@ export default function ApiBuilderPage() {
                       value={activeTab.headers}
                       onChange={(e) => updateActive({ headers: e.target.value })}
                       placeholder='{"X-Custom": "value"}'
-                      className="w-full bg-(--color-zinc-950) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-20 resize-none"
+                      className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-3 py-2 text-xs text-(--vestara-text) placeholder-(--vestara-text-muted) outline-none font-mono h-20 resize-none"
                     />
                   </div>
 
@@ -754,7 +640,7 @@ export default function ApiBuilderPage() {
 
           {/* Response */}
           {selectedEndpoint && (
-            <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl">
               <div className="p-4 border-b border-(--vestara-accent-border)">
                 <h3 className="text-sm font-semibold text-(--vestara-text)">Response</h3>
               </div>
@@ -764,36 +650,27 @@ export default function ApiBuilderPage() {
             </div>
           )}
 
+          {/* Latency chart */}
+          <LatencyChart history={activeTab.history} />
+
           {/* Per-tab Request History */}
           {activeTab.history.length > 0 && (
-            <div className="bg-(--color-zinc-900) border border-(--vestara-accent-border) rounded-xl">
+            <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl">
               <div className="p-4 border-b border-(--vestara-accent-border) flex items-center justify-between">
                 <h3 className="text-sm font-semibold text-(--vestara-text)">
                   Request History <span className="text-(--vestara-text-muted) font-normal">({activeTab.history.length})</span>
                 </h3>
-                <button
-                  onClick={clearHistory}
-                  className="text-xs text-(--vestara-text-muted) hover:text-red-400 transition-colors cursor-pointer"
-                >
-                  Clear
-                </button>
+                <button onClick={clearHistory} className="text-xs text-(--vestara-text-muted) hover:text-red-400 transition-colors cursor-pointer">Clear</button>
               </div>
-              <div className="max-h-64 overflow-y-auto">
-                {activeTab.history.map((item, index) => (
-                  <button
-                    key={index}
-                    onClick={() => restoreHistory(item)}
-                    className="w-full text-left p-3 border-b border-(--vestara-accent-border) last:border-b-0 hover:bg-(--color-zinc-800) transition-colors cursor-pointer"
-                  >
+              <div>
+                {activeTab.history.slice((historyPage - 1) * HISTORY_PAGE_SIZE, historyPage * HISTORY_PAGE_SIZE).map((item, index) => (
+                  <button key={index} onClick={() => restoreHistory(item)}
+                    className="w-full text-left p-3 border-b border-(--vestara-accent-border) last:border-b-0 hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer">
                     <div className="flex items-center justify-between mb-1">
                       <div className="flex items-center gap-2">
                         <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'success' ? 'bg-green-500' : 'bg-red-500'}`} />
-                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${methodColor(item.request.method)}`}>
-                          {item.request.method}
-                        </span>
-                        <span className="text-xs text-(--vestara-text) truncate max-w-[200px] font-mono">
-                          {item.request.url.replace(/^https?:\/\/[^/]+/, '')}
-                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono font-medium ${methodColor(item.request.method)}`}>{item.request.method}</span>
+                        <span className="text-xs text-(--vestara-text) truncate max-w-[200px] font-mono">{item.request.url.replace(/^https?:\/\/[^/]+/, '')}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <span className="text-[10px] text-(--vestara-text-muted)">{item.latency}ms</span>
@@ -802,6 +679,9 @@ export default function ApiBuilderPage() {
                     </div>
                   </button>
                 ))}
+              </div>
+              <div className="p-2 border-t border-(--vestara-accent-border)">
+                <Pagination current={historyPage} total={activeTab.history.length} pageSize={HISTORY_PAGE_SIZE} onChange={setHistoryPage} />
               </div>
             </div>
           )}

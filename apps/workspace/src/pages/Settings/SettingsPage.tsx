@@ -21,7 +21,7 @@ import {
   VersioningEngine,
 } from '@vestara/settings-framework';
 import { lazy, Suspense, useMemo, useState } from 'react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { SettingsContent, SettingsLayout } from './components/layout/index.js';
 
 // Lazy load module components
@@ -165,17 +165,29 @@ searchEngine.indexModules(registry.getAll());
 
 function LoadingSpinner() {
   return (
-    <div className="flex items-center justify-center py-12">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--vestara-accent)]" />
+    <div className="flex items-center justify-center py-16 text-(--vestara-text-muted) animate-pulse">
+      <span className="text-sm">Loading settings...</span>
     </div>
   );
 }
 
 export default function SettingsPage() {
+  const navigate = useNavigate();
   const modules = useMemo(() => registry.getAll(), []);
+  const [settingsSearch, setSettingsSearch] = useState('');
   const [exportStatus, setExportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [importStatus, setImportStatus] = useState<{ success: boolean; message: string } | null>(null);
   const [resetStatus, setResetStatus] = useState<{ success: boolean; message: string } | null>(null);
+
+  const filteredModules = useMemo(() => {
+    if (!settingsSearch.trim()) return modules;
+    const q = settingsSearch.toLowerCase();
+    return modules.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        (m.description || '').toLowerCase().includes(q),
+    );
+  }, [modules, settingsSearch]);
 
   const handleExport = async () => {
     try {
@@ -261,43 +273,158 @@ export default function SettingsPage() {
             <Route
               path="/"
               element={
-                <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Settings</h2>
-                  <p className="text-[var(--vestara-text-2)] mb-6">
-                    Select a tab above to configure your workspace.
-                  </p>
-                  <div className="flex justify-center gap-4 flex-wrap">
+                <div className="w-full">
+                  {/* Page header */}
+                  <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
+                    <div>
+                      <h1 className="text-lg font-bold text-(--vestara-text)">Settings</h1>
+                      <p className="text-[10px] text-(--vestara-text-muted) mt-1">
+                        {modules.length} modules · {modules.filter((m) => m.parentId).length} sub-pages
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="relative">
+                        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[11px]">🔍</span>
+                        <input
+                          value={settingsSearch}
+                          onChange={(e) => setSettingsSearch(e.target.value)}
+                          placeholder="Search settings..."
+                          className="w-48 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg pl-7 pr-2 py-1.5 text-xs text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Stat cards */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+                    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: '#8b5cf6' }}>
+                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">Modules</div>
+                      <div className="text-lg font-bold text-(--vestara-text) mt-1">{modules.length}</div>
+                    </div>
+                    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: '#3b82f6' }}>
+                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">Sub-pages</div>
+                      <div className="text-lg font-bold text-(--vestara-text) mt-1">{modules.filter((m) => m.parentId).length}</div>
+                    </div>
+                    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: '#10b981' }}>
+                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">Root</div>
+                      <div className="text-lg font-bold text-(--vestara-text) mt-1">{modules.filter((m) => !m.parentId).length}</div>
+                    </div>
+                    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: '#f59e0b' }}>
+                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">With Children</div>
+                      <div className="text-lg font-bold text-(--vestara-text) mt-1">{modules.filter((m) => modules.some((c) => c.parentId === m.id)).length}</div>
+                    </div>
+                  </div>
+
+                  {/* Distribution bar chart */}
+                  <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3 mb-5">
+                    <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-2">Module Distribution</div>
+                    <div className="flex items-end gap-1 h-16">
+                      {modules.filter((m) => !m.parentId).map((m) => {
+                        const childCount = modules.filter((c) => c.parentId === m.id).length;
+                        const maxChildren = Math.max(1, ...modules.filter((m2) => !m2.parentId).map((m2) => modules.filter((c) => c.parentId === m2.id).length));
+                        return (
+                          <div key={m.id} className="flex-1 flex flex-col items-center gap-1">
+                            <div className="w-full rounded-t-sm bg-(--vestara-accent)" style={{ height: `${Math.max(8, (childCount / maxChildren) * 48)}px`, opacity: 0.3 + (childCount / Math.max(maxChildren, 1)) * 0.5 }} />
+                            <span className="text-[6px] text-(--vestara-text-dim) truncate w-full text-center">{m.icon}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {settingsSearch.trim() && (
+                    <div className="mb-6 space-y-1.5">
+                      {filteredModules.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center py-12 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
+                          <p className="text-sm text-(--vestara-text-muted) mb-1">No settings match "{settingsSearch}"</p>
+                          <p className="text-[10px] text-(--vestara-text-dim)">Try a different search term</p>
+                        </div>
+                      ) : (
+                        filteredModules.map((m) => (
+                          <button
+                            key={m.path}
+                            type="button"
+                            onClick={() => { setSettingsSearch(''); navigate(m.path); }}
+                            className="w-full flex items-center gap-3 px-3 py-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-active) hover:bg-(--vestara-accent-bg) transition-colors text-left cursor-pointer border-l-[3px]"
+                            style={{ borderLeftColor: '#6366f1' }}
+                          >
+                            <span className="text-base">{m.icon}</span>
+                            <div className="min-w-0 flex-1">
+                              <div className="text-xs font-medium text-(--vestara-text)">{m.name}</div>
+                              <div className="text-[9px] text-(--vestara-text-muted) truncate">{m.description}</div>
+                            </div>
+                            <span className="text-(--vestara-text-dim) text-[9px]">→</span>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  )}
+
+                  {/* Module cards grid */}
+                  {!settingsSearch.trim() && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
+                      {modules
+                        .filter((m) => !m.parentId)
+                        .map((m) => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => {
+                              const children = modules.filter((c) => c.parentId === m.id);
+                              navigate(children.length > 0 ? children[0].path : m.path);
+                            }}
+                            className="p-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-active) hover:bg-(--vestara-accent-bg) transition-colors text-left cursor-pointer group"
+                          >
+                            <div className="flex items-center gap-2 mb-2">
+                              <span className="text-xl">{m.icon}</span>
+                              <span className="text-sm font-semibold text-(--vestara-text) group-hover:text-(--vestara-text) transition-colors">
+                                {m.name}
+                              </span>
+                            </div>
+                            <p className="text-[10px] text-(--vestara-text-muted) leading-relaxed">{m.description}</p>
+                            <div className="mt-2 flex items-center gap-1 text-[9px] text-(--vestara-text-dim)">
+                              <span>{modules.filter((c) => c.parentId === m.id).length} sub-pages</span>
+                              <span className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity">→</span>
+                            </div>
+                          </button>
+                        ))}
+                    </div>
+                  )}
+
+                  {/* Action buttons */}
+                  <div className="flex items-center gap-2 justify-center">
                     <button
                       onClick={handleExport}
-                      className="px-4 py-2 bg-[var(--vestara-accent)] text-white rounded-lg hover:opacity-90 transition-opacity"
+                      className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) transition-colors cursor-pointer"
                     >
-                      Export Settings
+                      ⬇ Export
                     </button>
                     <button
                       onClick={handleImport}
-                      className="px-4 py-2 bg-[var(--vestara-accent-light)] text-white rounded-lg hover:opacity-90 transition-opacity"
+                      className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) transition-colors cursor-pointer"
                     >
-                      Import Settings
+                      📥 Import
                     </button>
                     <button
                       onClick={handleReset}
-                      className="px-4 py-2 bg-red-600 text-white rounded-lg hover:opacity-90 transition-opacity"
+                      className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-lg hover:bg-red-400/20 transition-colors cursor-pointer"
                     >
-                      Reset to Defaults
+                      ↺ Reset
                     </button>
                   </div>
+
                   {exportStatus && (
-                    <div className={`mt-4 text-sm ${exportStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`mt-3 text-center text-[10px] ${exportStatus.success ? 'text-green-500' : 'text-red-400'}`}>
                       {exportStatus.message}
                     </div>
                   )}
                   {importStatus && (
-                    <div className={`mt-4 text-sm ${importStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`mt-3 text-center text-[10px] ${importStatus.success ? 'text-green-500' : 'text-red-400'}`}>
                       {importStatus.message}
                     </div>
                   )}
                   {resetStatus && (
-                    <div className={`mt-4 text-sm ${resetStatus.success ? 'text-green-600' : 'text-red-600'}`}>
+                    <div className={`mt-3 text-center text-[10px] ${resetStatus.success ? 'text-green-500' : 'text-red-400'}`}>
                       {resetStatus.message}
                     </div>
                   )}
@@ -309,18 +436,30 @@ export default function SettingsPage() {
             <Route
               path="/ai/routing"
               element={
-                <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Routing</h2>
-                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
+                <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center mx-4 mt-4">
+                  <div className="text-3xl mb-3 opacity-50">🔀</div>
+                  <h2 className="text-sm font-semibold text-(--vestara-text) mb-2">Intent-Based Routing</h2>
+                  <p className="text-xs text-(--vestara-text-muted) max-w-md mb-2">
+                    Route requests to the optimal AI provider based on task type, complexity, and cost preferences.
+                  </p>
+                  <p className="text-[10px] text-(--vestara-text-dim) max-w-sm">
+                    Planned: Define routing rules, assign provider per capability, set fallback chains, and configure cost/quality thresholds.
+                  </p>
                 </div>
               }
             />
             <Route
               path="/workspace"
               element={
-                <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">Workspace</h2>
-                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
+                <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center mx-4 mt-4">
+                  <div className="text-3xl mb-3 opacity-50">🎨</div>
+                  <h2 className="text-sm font-semibold text-(--vestara-text) mb-2">Workspace Preferences</h2>
+                  <p className="text-xs text-(--vestara-text-muted) max-w-md mb-2">
+                    Customize your workspace layout, default views, panel visibility, and session behavior.
+                  </p>
+                  <p className="text-[10px] text-(--vestara-text-dim) max-w-sm">
+                    Planned: Default view per workspace, panel visibility presets, auto-refresh intervals, session defaults, and layout preferences.
+                  </p>
                 </div>
               }
             />
@@ -328,9 +467,15 @@ export default function SettingsPage() {
             <Route
               path="/system"
               element={
-                <div className="text-center py-12">
-                  <h2 className="text-xl font-semibold text-[var(--vestara-text)] mb-2">System</h2>
-                  <p className="text-[var(--vestara-text-2)]">Coming soon</p>
+                <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center mx-4 mt-4">
+                  <div className="text-3xl mb-3 opacity-50">⚙️</div>
+                  <h2 className="text-sm font-semibold text-(--vestara-text) mb-2">System Settings</h2>
+                  <p className="text-xs text-(--vestara-text-muted) max-w-md mb-2">
+                    Manage system updates, storage, diagnostics, and performance monitoring.
+                  </p>
+                  <p className="text-[10px] text-(--vestara-text-dim) max-w-sm">
+                    Planned: Storage management, log retention policies, diagnostic tools, performance monitoring, and update channels.
+                  </p>
                 </div>
               }
             />
