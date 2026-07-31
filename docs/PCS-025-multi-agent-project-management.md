@@ -11,6 +11,15 @@
 | Prerequisite | PCS-003 Planning, PCS-004 Implement, PCS-005 Verify, PCS-007 Agent Runtime, PCS-011 Agent Execution, PCS-017 Execution Engine, PCS-024 Agent Filesystem Capabilities |
 | Scope | Multi-agent project lifecycle: creation → implementation → review → verify → complete |
 
+> **Canonical reference**: the architectural model (WorkflowOrchestrator, event bus,
+> agent/task lifecycles, artifact model, state machines, file locking, capability
+> system, approval workflow) is documented once in
+> [`docs/Architecture/Agent-Orchestration.md`](Architecture/Agent-Orchestration.md)
+> and ADRs [ADR-001](ADR/ADR-001-runtime.md),
+> [ADR-002](ADR/ADR-002-capability-system.md),
+> [ADR-004](ADR/ADR-004-multi-agent-workflow.md). This blueprint specifies the workflow
+> lifecycle, event/data model, failure recovery, and roadmap.
+
 This blueprint maps onto the **existing** Vestara runtime. Every section names the
 components that already exist (verified in source) and the components that must be
 built. Where a feature exists in prototype form, the gap is called out explicitly.

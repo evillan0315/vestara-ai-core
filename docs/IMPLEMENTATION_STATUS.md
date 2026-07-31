@@ -210,7 +210,8 @@ Boot Order (16 steps):
 | `activity-log` | Domain activity log with SQLite persistence (v4.0) | events, shared, logger | ✅ Complete |
 | `suggestion-storage` | Suggestion dismissal and feedback persistence | workspace | ✅ Complete |
 | `tools/filesystem` | read/write with path traversal protection | shared, action, stream | ✅ Complete |
-| **`workspace`** | **WorkspaceRuntime, open pipeline (v0.3.0)** | shared, knowledge, memory, reasoning, conversation, context, logger, event-bus, stream | **✅ Complete** |
+| `filesystem-runtime` | Sandboxed FilesystemRuntime: read/write/update(patch)/delete, approval gates, dry-run, operation history, FsObservations | shared | ✅ Complete |
+| **`workspace`** | **WorkspaceRuntime, open pipeline (v0.3.0), AgentCapabilityManager (filesystem capabilities), agent execution** | shared, knowledge, memory, reasoning, conversation, context, logger, event-bus, stream, filesystem-runtime | **✅ Complete** |
 | `kernel` | DefaultKernel, 10-step boot sequence | shared, configuration, logger, metrics, event-bus, service-registry, health | ✅ Complete |
 | `events` | Workspace event type definitions | 0 | ✅ Complete |
 | `events-server` | Event streaming server for workspace signals | workspace | ✅ Complete |

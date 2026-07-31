@@ -45,3 +45,24 @@
 - "Agents don't perform work. They participate in a software development lifecycle."
 - "The organization learns, not the individual."
 - "Prefer deriving information over storing duplicate state."
+
+---
+
+## [3.9.0] — 2026-07-31 — Agent Filesystem Capabilities & Multi-Agent Workflow Design
+
+### Added
+- **FilesystemRuntime hardening** (`packages/filesystem-runtime`) — path traversal + absolute-path containment, deny list (`.env`, `credentials.json`, …), `update` (patch-based), `stat`, `copy`, dry-run mode, bounded operation history with `onOperation` audit hook, structured `FsObservation` results
+- **AgentCapabilityManager** (`packages/workspace`) — capability boundary between agents and the filesystem; 12 `filesystem.*` capabilities (`read`, `write`, `update`, `delete`, `create`, `rename`, `copy`, `list`, `stat`, `exists`, `search`, `references`) gated by `(resource, action)` permissions; mutations require a reason
+- **AgentRuntime.executeCapability()** — permission-gated capability execution with observation feedback into session memory; developer agent parses LLM JSON operations or Claude-style `<invoke>` tool calls and executes them
+- **Capability tools** — `filesystem.*` exposed as ActionRuntime tools via `createFilesystemCapabilityTools()`
+- **API** — `POST /api/agents/:id/capabilities` route; `ImplementationService.apply()` routed through the capability manager
+- **Specs** — `docs/PCS-024-agent-filesystem-capabilities.md`, `docs/PCS-025-multi-agent-project-management.md`
+- **Repository distribution** — `vestara-blueprint`, `vestara-foundation`, `vestara-labs`, `vestara-reference`, `vestara-runtime`, `vestara-specifications` published as standalone public repos under `github.com/evillan0315`
+
+### Changed
+- `packages/workspace` now depends on `@vestara/filesystem-runtime`
+- `AGENTS.md` — repo layout updated for published documentation repos
+
+### Security
+- Agents never touch the filesystem directly — all access flows through `AgentCapabilityManager` → `FilesystemRuntime`
+- Delete and high-risk operations require explicit approval; workspace-root escape and deny-list paths are rejected

@@ -11,6 +11,13 @@
 | Status | Implemented (v0.9) |
 | Prerequisite | PCS-007 Agent Runtime, Filesystem Runtime |
 
+> **Canonical reference**: the architectural context for this capability (capability
+> boundary, agent lifecycle, filesystem safety model) lives in
+> [`docs/Architecture/Agent-Orchestration.md`](Architecture/Agent-Orchestration.md)
+> and ADRs [ADR-002](ADR/ADR-002-capability-system.md),
+> [ADR-003](ADR/ADR-003-filesystem-runtime.md). This spec focuses on the capability
+> model and its safety controls.
+
 ---
 
 ## Goal
@@ -98,5 +105,8 @@ already surfaces recent memories, so future planning sees the new workspace stat
 ## Related Documents
 
 - PCS-007 — Agent Runtime
+- PCS-025 — Multi-Agent Project Management (workflow orchestration)
+- Architecture — `docs/Architecture/Agent-Orchestration.md`
+- ADR-002 — Capability System, ADR-003 — Filesystem Runtime
 - `packages/filesystem-runtime/__tests__/filesystem-runtime.test.ts`
 - `packages/workspace/__tests__/agent-capability.test.ts`

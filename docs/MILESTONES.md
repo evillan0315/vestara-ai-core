@@ -1566,6 +1566,46 @@ my-repo > workflow status
 
 ---
 
+## Multi-Agent Filesystem Era
+
+### v6.4 — Agent Filesystem Capabilities, Multi-Agent Workflow Design & Open Repo Distribution ✅ Complete
+
+**Objective**: Give agents controlled read/write/update/delete access to workspace files through a named capability boundary, and publish the Vestara documentation volumes as standalone public repositories.
+
+**Primary question**: Can agents execute filesystem operations safely without direct filesystem access?
+
+**Key artifacts**:
+
+- `FilesystemRuntime` hardened — path traversal/absolute-path containment, deny list, `update` (patch), `stat`, `copy`, dry-run mode, bounded operation history, structured `FsObservation` results
+- `AgentCapabilityManager` — the only path agents use to reach the filesystem; 12 `filesystem.*` capabilities mapped to `(resource, action)` permission gates
+- `AgentRuntime.executeCapability()` — gated execution + observation feedback into session memory
+- `AgentCapabilityManager` wired into API (`POST /api/agents/:id/capabilities`), CLI ActionRuntime, and `ImplementationService.apply()`
+- `PCS-024 — Agent Filesystem Capabilities` spec
+- `PCS-025 — Multi-Agent Project Management` design blueprint (Repository Analyst → Planner → Architect → Developer → Reviewer → Tester → Verifier lifecycle, state machines, event model, failure recovery)
+- Repository distribution — `vestara-blueprint`, `vestara-foundation`, `vestara-labs`, `vestara-reference`, `vestara-runtime`, `vestara-specifications` published as standalone public repos under `github.com/evillan0315`
+
+**User flow**:
+
+```
+POST /api/agents/agent-developer/capabilities
+  {"capability":"filesystem.write","input":{"path":"src/feature.ts","content":"export const answer = 42;","reason":"..."}}
+  → ok:true, observation: {operation:"write", status:"success", changes:{added:1,removed:0}}
+```
+
+**Operational principle validated**: #5 (User Feedback Is Evidence) + #6 (Trust is earned — capabilities are permission-gated, not assumed)
+
+**Status**: ✅ Complete
+
+**Verification results**:
+
+- `pnpm test` → 843 tests passing (43 new across `filesystem-runtime` + `workspace` agent-capability suites)
+- Path traversal, absolute-path escapes, and `.env`-style deny list rejected end-to-end
+- Delete requires explicit approval before touching disk
+- `agent run` → LLM output parsed → `filesystem.create` executed → file created on disk
+- Observations recorded via `session.storeMemory('event', …)` feed the Understanding Runtime
+
+---
+
 ## Artifact Dependency Chain
 
 ```
