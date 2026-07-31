@@ -1,5 +1,6 @@
 import * as http from 'node:http';
 import type { SettingsWorkspaceCommand } from '@vestara/configuration';
+import WebSocket from 'ws';
 
 export interface WorkspaceRuntimeClientStatus {
   readonly status: string;
@@ -46,8 +47,49 @@ export class HttpWorkspaceRuntimeClient implements WorkspaceRuntimeClient {
     });
   }
 
-  async subscribe(_listener: (event: unknown) => void): Promise<() => void> {
-    throw new Error('WebSocket subscription adapter is not implemented; use the Workspace UI event client');
+  subscribe(listener: (event: unknown) => void): Promise<() => void> {
+    const websocketEndpoint = new URL('/ws', this.endpoint);
+    websocketEndpoint.protocol = websocketEndpoint.protocol === 'https:' ? 'wss:' : 'ws:';
+
+    return new Promise((resolve, reject) => {
+      const socket = new WebSocket(
+        websocketEndpoint,
+        this.options.socketPath ? { socketPath: this.options.socketPath } : undefined,
+      );
+      let settled = false;
+      let active = true;
+
+      socket.once('open', () => {
+        settled = true;
+        socket.send(JSON.stringify({ op: 'subscribe', channels: ['workspace'] }));
+        resolve(() => {
+          active = false;
+          socket.close();
+        });
+      });
+      socket.on('message', (data) => {
+        if (!active) return;
+        try {
+          const message = JSON.parse(String(data)) as { op?: string; event?: unknown };
+          if (message.op === 'event' && message.event !== undefined) listener(message.event);
+        } catch {
+          // Ignore malformed frames; a later valid event can still be delivered.
+        }
+      });
+      socket.once('error', (error) => {
+        if (!settled) {
+          settled = true;
+          reject(error);
+        }
+      });
+      socket.once('close', () => {
+        active = false;
+        if (!settled) {
+          settled = true;
+          reject(new Error('Runtime WebSocket closed before the subscription was established'));
+        }
+      });
+    });
   }
 
   private request<TResult>(pathname: string, method: string, body?: unknown): Promise<TResult> {

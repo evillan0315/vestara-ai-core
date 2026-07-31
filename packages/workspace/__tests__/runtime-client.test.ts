@@ -1,6 +1,7 @@
 import * as http from 'node:http';
 import { createWorkspaceCommand } from '@vestara/configuration';
 import { afterEach, describe, expect, it } from 'vitest';
+import { WebSocketServer } from 'ws';
 import { HttpWorkspaceRuntimeClient } from '../src/runtime-client.js';
 
 const servers: http.Server[] = [];
@@ -54,5 +55,35 @@ describe('HttpWorkspaceRuntimeClient', () => {
     await new HttpWorkspaceRuntimeClient({ endpoint: url }).execute(command);
     expect(observedSource).toBe('cli');
     expect(observedCommandId).toBe(command.commandId);
+  });
+
+  it('subscribes to workspace events and closes on unsubscribe', async () => {
+    const server = http.createServer();
+    const sockets = new WebSocketServer({ server, path: '/ws' });
+    servers.push(server);
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (!address || typeof address === 'string') throw new Error('Test server did not bind');
+
+    const subscription = new Promise<{ op: string; channels: string[] }>((resolve) => {
+      sockets.once('connection', (socket) => {
+        socket.once('message', (data) => {
+          resolve(JSON.parse(String(data)) as { op: string; channels: string[] });
+          socket.send(JSON.stringify({ op: 'event', event: { id: 'event-1', type: 'system.heartbeat' } }));
+        });
+      });
+    });
+    let resolveEvent: (event: unknown) => void = () => undefined;
+    const received = new Promise<unknown>((resolve) => {
+      resolveEvent = resolve;
+    });
+    const unsubscribe = await new HttpWorkspaceRuntimeClient({ endpoint: `http://127.0.0.1:${address.port}` }).subscribe(
+      resolveEvent,
+    );
+
+    await expect(subscription).resolves.toEqual({ op: 'subscribe', channels: ['workspace'] });
+    await expect(received).resolves.toEqual({ id: 'event-1', type: 'system.heartbeat' });
+    unsubscribe();
+    sockets.close();
   });
 });
