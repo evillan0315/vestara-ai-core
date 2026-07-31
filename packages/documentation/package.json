@@ -2,6 +2,9 @@
   "name": "@vestara/documentation",
   "version": "0.1.0",
   "private": true,
+  "documentation": {
+    "owner": "documentation-automation"
+  },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {

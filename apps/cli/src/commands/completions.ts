@@ -11,6 +11,7 @@ export async function runCompletions(shell?: string): Promise<void> {
     'session',
     'metrics',
     'benchmark',
+    'screenshots',
     'demo',
     'config',
     'models',
@@ -27,6 +28,7 @@ export async function runCompletions(shell?: string): Promise<void> {
   const PROVIDER_SUBS = ['list', 'status'];
   const BENCHMARK_SUBS = ['conversation'];
   const DEMO_SUBS = ['golden-path'];
+  const SCREENSHOT_SUBS = ['run', 'update', 'report', 'clean', 'check'];
   const D = '$';
 
   if (!shell || shell === 'bash') {
@@ -47,6 +49,7 @@ _vestara_completions() {
     provider)  COMPREPLY=( $(compgen -W "${PROVIDER_SUBS.join(' ')}" -- "${D}cur") ) ;;
     benchmark) COMPREPLY=( $(compgen -W "${BENCHMARK_SUBS.join(' ')}" -- "${D}cur") ) ;;
     demo)      COMPREPLY=( $(compgen -W "${DEMO_SUBS.join(' ')}" -- "${D}cur") ) ;;
+    screenshots) COMPREPLY=( $(compgen -W "${SCREENSHOT_SUBS.join(' ')} --viewport --theme --routes --base-url --tolerance --max-diff --wait-network --ci --json" -- "${D}cur") ) ;;
     status)    COMPREPLY=( $(compgen -W "--json --brief" -- "${D}cur") ) ;;
     completions) COMPREPLY=( $(compgen -W "bash zsh" -- "${D}cur") ) ;;
   esac
@@ -66,6 +69,7 @@ _vestara_config_subs=(${CONFIG_SUBS.join(' ')})
 _vestara_provider_subs=(${PROVIDER_SUBS.join(' ')})
 _vestara_benchmark_subs=(${BENCHMARK_SUBS.join(' ')})
 _vestara_demo_subs=(${DEMO_SUBS.join(' ')})
+_vestara_screenshot_subs=(${SCREENSHOT_SUBS.join(' ')})
 _vestara() {
   local context state state_descr line; typeset -A opt_args
   _arguments -C \\
@@ -85,6 +89,7 @@ _vestara() {
         provider) _describe -t subs 'subcommand' _vestara_provider_subs ;;
         benchmark) _describe -t subs 'subcommand' _vestara_benchmark_subs ;;
         demo) _describe -t subs 'subcommand' _vestara_demo_subs ;;
+        screenshots) _describe -t subs 'subcommand' _vestara_screenshot_subs ;;
         completions) _describe -t subs 'shell' 'bash zsh' ;;
       esac ;;
   esac

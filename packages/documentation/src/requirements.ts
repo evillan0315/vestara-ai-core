@@ -1,4 +1,35 @@
-import type { DocumentationRequirement } from './domain.js';
+import type { DocumentationEntity, DocumentationRequirement } from './domain.js';
+
+export const PUBLIC_PACKAGE_README_SECTIONS = [
+  'Overview',
+  'Responsibilities',
+  'Architecture',
+  'Public API',
+  'Lifecycle',
+  'Failure behavior',
+  'Health behavior',
+  'Security and permissions',
+  'Usage',
+  'Testing',
+  'Verification',
+  'Dependencies',
+  'Ownership',
+  'Related ADRs',
+  'Related documentation',
+] as const;
+
+export const PUBLIC_PACKAGE_README_FRONTMATTER = [
+  'id',
+  'kind',
+  'authority',
+  'status',
+  'owner',
+  'version',
+  'last-reviewed',
+  'next-review',
+  'implementation-ref',
+  'verification-status',
+] as const;
 
 export const DEFAULT_DOCUMENTATION_REQUIREMENTS: readonly DocumentationRequirement[] = [
   {
@@ -6,9 +37,9 @@ export const DEFAULT_DOCUMENTATION_REQUIREMENTS: readonly DocumentationRequireme
     appliesTo: { entityKinds: ['package'], packagePrivate: false },
     requiredKinds: ['readme', 'architecture', 'testing', 'api'],
     optionalKinds: ['operations', 'migration', 'troubleshooting'],
-    requiredSections: ['Overview', 'Lifecycle', 'Failure behavior', 'Health behavior', 'Verification'],
-    requiredFrontmatter: ['owner'],
-    validationRules: ['required-sections', 'implementation-reference', 'public-api-coverage'],
+    requiredSections: PUBLIC_PACKAGE_README_SECTIONS,
+    requiredFrontmatter: PUBLIC_PACKAGE_README_FRONTMATTER,
+    validationRules: ['required-frontmatter', 'required-sections', 'implementation-reference', 'public-api-coverage'],
     severity: 'error',
   },
   {
@@ -51,4 +82,41 @@ export class DocumentationRequirementRegistry {
   get(id: string): DocumentationRequirement | undefined {
     return this.requirements.get(id);
   }
+
+  forPackage(packagePrivate: boolean): DocumentationRequirement {
+    const requirement = this.get(packagePrivate ? 'package-private' : 'package-public-runtime');
+    if (!requirement) throw new Error(`No documentation requirement registered for packagePrivate=${packagePrivate}`);
+    return requirement;
+  }
+}
+
+export interface DocumentationRequirementViolation {
+  readonly field: string;
+  readonly message: string;
+  readonly ruleId: 'package-readme-required-frontmatter' | 'package-readme-required-section';
+}
+
+export function validatePackageReadmeRequirement(
+  document: DocumentationEntity,
+  requirement: DocumentationRequirement,
+): readonly DocumentationRequirementViolation[] {
+  const violations: DocumentationRequirementViolation[] = [];
+  const headings = new Set(document.parsed.headings.map((heading) => heading.trim().toLowerCase()));
+  for (const field of requirement.requiredFrontmatter) {
+    if (document.parsed.frontmatter[field] !== undefined) continue;
+    violations.push({
+      field,
+      ruleId: 'package-readme-required-frontmatter',
+      message: `README is missing required frontmatter: ${field}`,
+    });
+  }
+  for (const section of requirement.requiredSections) {
+    if (headings.has(section.toLowerCase())) continue;
+    violations.push({
+      field: section,
+      ruleId: 'package-readme-required-section',
+      message: `README is missing required section: ${section}`,
+    });
+  }
+  return violations;
 }

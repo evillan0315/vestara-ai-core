@@ -12,4 +12,4 @@ pnpm --filter @vestara/permissions build
 
 `@vestara/types `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

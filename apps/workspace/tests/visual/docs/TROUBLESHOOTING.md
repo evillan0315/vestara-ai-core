@@ -6,7 +6,13 @@ Expected on a fresh clone or after adding a route. Approve baselines:
 
 ```bash
 pnpm screenshots:update
+# or update only the reviewed route through the CLI
+pnpm vestara screenshots update --routes dashboard
 ```
+
+Do not use `update` merely to make a regression disappear. Inspect the current
+and diff artifacts, confirm the UI change is intended, then update only the
+reviewed routes.
 
 ## Everything fails with dimension mismatches
 
@@ -43,6 +49,7 @@ still present.
 ## `pnpm screenshots` is slow
 
 - Narrow with `SCREENSHOT_ROUTES=...` or a single viewport group.
+- With the CLI, use `--routes <ids>`, `--theme <id>`, and `--viewport <group>`.
 - Raise CI workers (`playwright.config.ts`).
 - Shard: `npx playwright test --shard=1/4` etc.
 
@@ -59,3 +66,13 @@ pnpm exec playwright install --with-deps chromium
 Confirm `testMatch` in `playwright.config.ts` (`tests/visual/**/*.spec.ts`) and
 that `visual.spec.ts` exists. Run `pnpm --filter @vestara/workspace-ui screenshots:check`
 to catch type errors that silently break discovery.
+
+The CLI equivalent is `pnpm vestara screenshots check --json`. A non-zero
+`exitCode` and captured `stderr` identify the delegated package-script failure.
+
+## CLI reports an unknown or invalid option
+
+The CLI intentionally rejects pass-through arguments. Run
+`pnpm vestara help screenshots` for supported options. Use the package-level
+Playwright command directly for advanced development-only flags such as
+sharding.

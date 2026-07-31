@@ -1,0 +1,18 @@
+{
+  "id": "doc-proposal-adr-004-reconciliation-2026-08-01",
+  "status": "proposed",
+  "authority": "architecture",
+  "requiresHumanApproval": true,
+  "target": "docs/ADR/ADR-004-multi-agent-workflow.md",
+  "targetChecksum": "e43c0116ffb38bc972f797661736748ba9605dcf746849c3e07b66cae665bae2",
+  "dependentDocument": "docs/PCS-025-multi-agent-project-management.md",
+  "dependentChecksum": "d1c1c53aa9f275256f29af7f4bcf7ad7c5cd49406d9e95836b6dda1f97c25d7d",
+  "finding": "PCS-025 identifies ADR-004 as governing architecture while ADR-004 remains proposed.",
+  "requiredDecision": {
+    "accept": "Human deciders approve ADR-004 after confirming implementation and verification evidence; update ADR status and decision date through ADR governance.",
+    "reject": "Keep ADR-004 proposed or reject it, and revise PCS-025 so it does not present ADR-004 as accepted governing architecture.",
+    "supersede": "Create and accept a replacement ADR, then update PCS-025 and ADR-004 supersession metadata."
+  },
+  "deciders": ["@chief-architect", "@engineering-manager", "@product-manager"],
+  "automationPolicy": "Documentation automation must not choose or apply this decision."
+}

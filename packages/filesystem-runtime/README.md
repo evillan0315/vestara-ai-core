@@ -12,4 +12,4 @@ pnpm --filter @vestara/filesystem-runtime build
 
 `@vestara/policy-engine @vestara/policy-types @vestara/permission @vestara/shared `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

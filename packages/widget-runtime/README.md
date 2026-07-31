@@ -12,4 +12,4 @@ pnpm --filter @vestara/widget-runtime build
 
 `@vestara/event-bus @vestara/logger `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

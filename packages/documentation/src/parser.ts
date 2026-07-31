@@ -119,9 +119,10 @@ export function resolveAuthority(
 
 function extractImplementationRefs(parsed: ParsedDocument): DocumentationImplementationRef[] {
   const refs: DocumentationImplementationRef[] = [];
-  const frontmatterRef = scalar(parsed.frontmatter['implementation-ref']);
+  const declared = parsed.frontmatter['implementation-ref'];
+  const frontmatterRefs = typeof declared === 'string' ? [declared] : (declared ?? []);
   const repository = scalar(parsed.frontmatter['implementation-repository']);
-  if (frontmatterRef) refs.push({ path: frontmatterRef, repository });
+  for (const frontmatterRef of frontmatterRefs) refs.push({ path: frontmatterRef, repository });
   for (const fence of parsed.codeFences) {
     for (const line of fence.content.split(/\r?\n/)) {
       const trimmed = line.trim();
@@ -140,8 +141,29 @@ export function createDocumentEntity(
   const kind = classifyDocument(relativePath, repository);
   const authority = resolveAuthority(kind, repository);
   const rawStatus = scalar(parsed.frontmatter.status);
-  const status: DocumentationStatus =
-    rawStatus === 'deprecated' || rawStatus === 'superseded' || rawStatus === 'proposed' ? rawStatus : 'unverified';
+  const statuses: readonly DocumentationStatus[] = [
+    'current',
+    'stale',
+    'missing',
+    'invalid',
+    'conflicting',
+    'unverified',
+    'proposed',
+    'deprecated',
+    'superseded',
+  ];
+  let status: DocumentationStatus = statuses.includes(rawStatus as DocumentationStatus)
+    ? (rawStatus as DocumentationStatus)
+    : 'unverified';
+  const nextReview = scalar(parsed.frontmatter['next-review']);
+  if (
+    status === 'current' &&
+    nextReview &&
+    Number.isFinite(Date.parse(nextReview)) &&
+    Date.parse(nextReview) < Date.now()
+  ) {
+    status = 'stale';
+  }
   const related = parsed.links.filter((link) => !link.startsWith('http') && !link.startsWith('#'));
   const relatedAdrs = related.filter((link) => /adr[-/]/i.test(link));
   return {

@@ -12,6 +12,17 @@ bash build-order.sh
 pnpm vestara doctor
 ```
 
+Run governed Workspace UI visual regression checks through the compiled CLI:
+
+```bash
+pnpm vestara screenshots check
+pnpm vestara screenshots run --viewport desktop --theme dark
+```
+
+Screenshot comparison is the default. Updating approved baselines requires the
+explicit `screenshots update` action. See the [CLI reference](docs/CLI.md) and
+[visual automation setup guide](apps/workspace/tests/visual/docs/SETUP.md).
+
 See [docs/](docs/) for capability specifications, UX specs, architecture docs,
 and milestone tracking.
 

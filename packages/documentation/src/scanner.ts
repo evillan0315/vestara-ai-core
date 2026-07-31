@@ -9,6 +9,7 @@ import type {
 } from './domain.js';
 import { detectImplementationDrift, extractImplementation } from './drift.js';
 import { createDocumentEntity } from './parser.js';
+import { DocumentationRequirementRegistry, validatePackageReadmeRequirement } from './requirements.js';
 
 const SKIP_DIRECTORIES = new Set(['.git', '.vestara', 'node_modules', 'dist', 'coverage', '.cache']);
 
@@ -40,29 +41,72 @@ function packageDirectories(root: string): string[] {
   return found;
 }
 
+function applicationDirectories(root: string): string[] {
+  const appsRoot = path.join(root, 'apps');
+  if (!fs.existsSync(appsRoot)) return [];
+  return fs
+    .readdirSync(appsRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(appsRoot, entry.name, 'package.json')))
+    .map((entry) => `apps/${entry.name}`);
+}
+
+function packageIsPrivate(root: string, packagePath: string): boolean {
+  try {
+    const manifest = JSON.parse(fs.readFileSync(path.join(root, packagePath, 'package.json'), 'utf8')) as {
+      private?: boolean;
+    };
+    return manifest.private === true;
+  } catch {
+    return false;
+  }
+}
+
 function missingPackageFindings(
   repository: DocumentationRepositoryConfig,
+  root: string,
   packages: readonly string[],
   documents: readonly DocumentationEntity[],
 ): DocumentationFinding[] {
   const findings: DocumentationFinding[] = [];
+  const requirements = new DocumentationRequirementRegistry();
   for (const packagePath of packages) {
     const prefix = `${packagePath}/`;
     const packageDocs = documents.filter((document) => document.path.startsWith(prefix));
-    for (const requirement of [
-      { kind: 'readme', name: 'README.md' },
-      { kind: 'architecture', name: 'ARCHITECTURE.md' },
-      { kind: 'testing', name: 'TESTING.md' },
-    ] as const) {
-      if (packageDocs.some((document) => document.kind === requirement.kind)) continue;
+    const requirement = requirements.forPackage(packageIsPrivate(root, packagePath));
+    const names = {
+      readme: 'README.md',
+      architecture: 'ARCHITECTURE.md',
+      testing: 'TESTING.md',
+      api: 'API.md',
+    } as const;
+    for (const kind of requirement.requiredKinds) {
+      if (packageDocs.some((document) => document.kind === kind)) continue;
+      const name = names[kind as keyof typeof names] ?? `${kind.toUpperCase()}.md`;
       findings.push({
-        id: `finding://missing/${repository.id}/${packagePath}/${requirement.kind}`,
+        id: `finding://missing/${repository.id}/${packagePath}/${kind}`,
         ruleId: 'package-required-document',
-        severity: requirement.kind === 'readme' ? 'error' : 'warning',
+        severity: requirement.severity,
         entityId: `package://${packagePath}`,
-        message: `${packagePath} is missing ${requirement.name}`,
+        message: `${packagePath} is missing ${name}`,
         evidence: [{ kind: 'package', ref: packagePath }],
-        suggestedAction: { operation: 'create', path: `${packagePath}/${requirement.name}` },
+        suggestedAction: { operation: 'create', path: `${packagePath}/${name}` },
+      });
+    }
+    const readme = packageDocs.find((document) => document.kind === 'readme' && document.path === `${prefix}README.md`);
+    if (!readme) continue;
+    for (const violation of validatePackageReadmeRequirement(readme, requirement)) {
+      findings.push({
+        id: `finding://${violation.ruleId}/${repository.id}/${packagePath}/${encodeURIComponent(violation.field)}`,
+        ruleId: violation.ruleId,
+        severity: requirement.severity,
+        documentId: readme.id,
+        entityId: `package://${packagePath}`,
+        message: violation.message,
+        evidence: [
+          { kind: 'document', ref: readme.path },
+          { kind: 'package', ref: packagePath },
+        ],
+        suggestedAction: { operation: 'update', path: readme.path },
       });
     }
   }
@@ -95,9 +139,12 @@ export class DocumentationScanner {
           ),
         );
       const packages = packageDirectories(repository.path).map((item) => item.split(path.sep).join('/'));
-      const implementation = extractImplementation(repository.path, packages);
+      const implementation = extractImplementation(repository.path, [
+        ...packages,
+        ...applicationDirectories(repository.path),
+      ]);
       documents.push(...repositoryDocuments);
-      findings.push(...missingPackageFindings(repository, packages, repositoryDocuments));
+      findings.push(...missingPackageFindings(repository, repository.path, packages, repositoryDocuments));
       findings.push(...detectImplementationDrift(repositoryDocuments, implementation));
       repositoryInventories.push({
         id: repository.id,

@@ -1938,6 +1938,7 @@ POST /api/analyze-feature
 - Agent Runtime Integration: `continuous-tester` role in `AgentRuntime.run()` routes to dedicated `runContinuousTester()` handler
 - Result Reporting: Test output, build output, and status are recorded as agent executions in the workspace database
 - Runner isolation: Vitest owns UI and visual-framework unit tests; `tests/visual/visual.spec.ts` is reserved for Playwright and excluded from Vitest collection
+- Governed CLI adapter: `vestara screenshots run|update|report|clean|check`, with validated filters, structured JSON results, and explicit baseline-mutation intent
 
 **Delivered Artifacts**:
 

@@ -3,6 +3,63 @@
 
 ---
 
+## [3.9.4] — 2026-08-01 — Screenshot Automation CLI
+
+### Added
+
+- `vestara screenshots` command surface for visual comparison, explicit baseline updates, report generation, artifact cleanup, and framework checks.
+- Validated viewport, theme, route, URL, tolerance, maximum-difference, stability, role, network-wait, and CI controls.
+- Structured JSON execution results for CI and agent consumers.
+- CLI argument and safety tests proving comparison is the default and baseline mutation requires an explicit action.
+
+### Reused
+
+- The CLI delegates to the existing Workspace Playwright scripts and configuration instead of introducing a parallel screenshot runner.
+
+## [3.9.3] — 2026-08-01 — Semantic Documentation Validation
+
+### Added
+
+- Deterministic validation for implementation-reference existence, approved ownership, package-version alignment, review ordering and expiry, verification evidence, public barrel coverage, package commands, ADR status, and kind/authority classification.
+- Repository-local approved-owner registry at `docs/documentation-owners.json`, with package metadata ownership supported through `package.json.documentation.owner`.
+- Application package manifests in implementation inventory so documented app commands validate against real scripts.
+- Mutation-style acceptance coverage that corrupts each semantic claim in the independently conforming `@vestara/settings-framework` documents.
+
+### Behavior
+
+- Overdue documents declared current are projected as stale.
+- Existing semantic debt remains baseline-visible while newly introduced violations fail CI.
+- The `@vestara/documentation` and `@vestara/settings-framework` reference packages have zero semantic findings.
+- Repository-local owner registries resolve all 110 previously unregistered Blueprint and Specifications owners; placeholder owners remain unapproved.
+- Typed cross-repository implementation references accept configured repository IDs or GitHub-style repository slugs and path arrays.
+- A checksum-protected, human-approval-required proposal maps all 20 symbolic Blueprint implementation references without modifying Blueprint architecture documents.
+- Governance decision catalogs may enumerate proposed ADRs without treating them as accepted dependencies; ordinary related-ADR claims still require accepted/current status.
+- ADR-004's proposed status versus PCS-025 dependency is captured as a checksum-protected human decision proposal.
+
+## [3.9.2] — 2026-08-01 — Executable Public-Package Documentation Standard
+
+### Added
+
+- Canonical governed package documentation in `packages/documentation/README.md` with implementation, lifecycle, failure, health, security, API, ownership, ADR, and verification evidence.
+- Executable public-package README section and frontmatter contracts in `@vestara/documentation`.
+- Package privacy-aware requirement resolution and typed findings for missing README metadata or sections.
+- Required `README.md`, `ARCHITECTURE.md`, `TESTING.md`, and `API.md` coverage for non-private packages.
+- Reference-conformance and violation tests for the canonical README contract.
+
+### Changed
+
+- VSDE now defines the human-readable public-package documentation standard and points to its executable and reference implementations.
+- Documentation status parsing now preserves all supported status values, including `current`.
+- Generated package README links now resolve correctly to repository documentation.
+- Documentation baseline refreshed to record existing migration debt under the new standard while preserving fail-on-new-finding behavior.
+
+### Independent conformance
+
+- Migrated `@vestara/settings-framework`, Vestara's first non-private package, to the canonical standard.
+- Added governed `README.md`, `ARCHITECTURE.md`, `TESTING.md`, and `API.md` documents backed by implementation and test references.
+- Corrected the package test scripts so all 144 tests across five suites execute from the monorepo Vitest root.
+- Resolved 27 baseline findings with no newly introduced package requirement findings.
+
 ## [3.9.1] — 2026-08-01 — Workspace Notification Queue Reliability
 
 ### Changed

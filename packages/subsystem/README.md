@@ -12,4 +12,4 @@ pnpm --filter @vestara/subsystem build
 
 `@vestara/shared @vestara/event-bus @vestara/logger @vestara/service-registry `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

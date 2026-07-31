@@ -71,6 +71,19 @@ pnpm --filter @vestara/workspace-ui test                # UI + visual-framework 
 pnpm --filter @vestara/workspace-ui screenshots         # Playwright visual specification
 ```
 
+From a built repository, the equivalent governed CLI entry points are:
+
+```bash
+pnpm vestara screenshots check
+pnpm vestara screenshots run --routes dashboard --theme dark
+pnpm vestara screenshots update --routes dashboard
+```
+
+When adding CLI controls, extend the allowlist and validation in
+`apps/cli/src/commands/screenshots.ts`; do not pass arbitrary arguments through
+to a shell. Keep deterministic capture behavior in this visual package so both
+pnpm and CLI consumers execute the same implementation.
+
 Vitest excludes only `tests/visual/visual.spec.ts`, because that file invokes
 the Playwright test API. Tests under `tests/visual/__tests__/` remain owned by
 Vitest.

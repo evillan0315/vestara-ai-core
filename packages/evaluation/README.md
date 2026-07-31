@@ -12,4 +12,4 @@ pnpm --filter @vestara/evaluation build
 
 `@vestara/understanding @vestara/workspace `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

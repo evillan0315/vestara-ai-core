@@ -217,7 +217,7 @@ Boot Order (16 steps):
 | `events-server` | Event streaming server for workspace signals | workspace | ✅ Complete |
 | `os-controller` | OS integration: systemd, desktop, service management | workspace | ✅ Complete |
 | `apps/api` | HTTP+WS gateway for Workspace UI | events, kernel, workspace, provider-runtime, provider-opencode, event-bus | ✅ Complete |
-| `apps/cli` | CLI: REPL + doctor + golden path + open | kernel, shared, workspace, state-runtime, context, conversation, provider-runtime, provider-opencode, events-server | ✅ Complete |
+| `apps/cli` | CLI: REPL, diagnostics, documentation, and governed screenshot automation | kernel, shared, workspace, state-runtime, context, conversation, documentation, provider-runtime, provider-opencode, events-server | ✅ Complete |
 
 ## Stub / Empty Packages
 

@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import { runAgentsList } from './commands/agents.js';
 import { runArchitecture, runBlueprintVerify } from './commands/architecture.js';
 import { runBenchmarkConversation } from './commands/benchmark.js';
@@ -32,6 +30,7 @@ import {
   runPlanUpdateStatus,
 } from './commands/plans.js';
 import { runProjectsList } from './commands/projects.js';
+import { runScreenshots } from './commands/screenshots.js';
 import { runBackgroundServices, runListSessions, runListWorkflows, runStartSession } from './commands/session.js';
 import { runSystemStatus } from './commands/status.js';
 import { runTeamsAssign, runTeamsCreate, runTeamsList } from './commands/teams.js';
@@ -54,6 +53,9 @@ function printHelp(): void {
   console.log(`  ${BOLD}Commands${RESET}`);
   console.log(
     `    ${GREEN}docs${RESET} [sub]         ${GRAY}Documentation automation (scan|findings|plan|review|verify|baseline|check)${RESET}`,
+  );
+  console.log(
+    `    ${GREEN}screenshots${RESET} [sub]  ${GRAY}Visual regression automation (run|update|report|clean|check)${RESET}`,
   );
   console.log(
     `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
@@ -104,6 +106,7 @@ function printHelp(): void {
 
 function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
+  registry.register('screenshots', (args) => runScreenshots(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
   registry.register('teams', async (args) => {
@@ -225,6 +228,11 @@ export async function main() {
 
   if (args[0] === 'docs') {
     await runDocs(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'screenshots') {
+    await runScreenshots(args.slice(1));
     return;
   }
 

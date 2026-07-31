@@ -12,4 +12,4 @@ pnpm --filter @vestara/worker build
 
 `@vestara/types @vestara/runtime @vestara/job `
 
-See [docs/](../docs/) for capability specifications and architecture.
+See [docs/](../../docs/) for capability specifications and architecture.

@@ -25,6 +25,43 @@ the full runtime (kernel, providers, conversation engine, audio services).
 
 ## CLI Commands
 
+### `vestara screenshots <subcommand> [options]`
+
+Run the Workspace UI screenshot and visual-regression framework through the CLI. `run` compares against
+committed baselines; baseline mutation requires the explicit `update` subcommand.
+
+| Subcommand | Behavior |
+|------------|----------|
+| `run` | Capture and compare screenshots (default) |
+| `update` | Intentionally update selected baselines |
+| `report` | Regenerate JSON, Markdown, and HTML reports |
+| `clean` | Remove generated artifacts while preserving baselines |
+| `check` | Type-check the visual automation framework |
+
+```bash
+vestara screenshots run --viewport desktop
+vestara screenshots run --routes dashboard,docs --theme dark
+vestara screenshots update --routes settings
+vestara screenshots check --json
+```
+
+| Option | Constraint |
+|--------|------------|
+| `--viewport` | `mobile`, `tablet`, or `desktop` |
+| `--theme` | `dark` or `light` |
+| `--routes` | Comma-separated route IDs |
+| `--base-url` | HTTP(S) Workspace URL |
+| `--tolerance` | Pixel threshold from `0` to `1` |
+| `--max-diff` | Maximum differing percentage from `0` to `100` |
+| `--stability-ms` | Additional settle time from `0` to `60000` ms |
+| `--role` | Screenshot identity role ID |
+| `--wait-network` | Wait for network-idle before capture |
+| `--ci` | Enable Playwright CI behavior |
+| `--workspace` | Path used to locate `vestara-ai-core` |
+| `--json` | Emit the structured child-process result |
+
+---
+
 ### `vestara open [path]`
 
 Open a workspace at the given path (default `.`). Creates `.vestara/` manifest and storage

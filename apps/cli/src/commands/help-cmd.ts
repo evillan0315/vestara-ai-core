@@ -1,7 +1,18 @@
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, RESET } from '../output/format.js';
 
 export async function runHelpCommand(cmd: string): Promise<void> {
   const helpMap: Record<string, { desc: string; usage: string; subs?: string; examples: string[] }> = {
+    screenshots: {
+      desc: 'Run governed Playwright screenshot capture and visual-regression checks for the Workspace UI.',
+      usage: 'vestara screenshots <run|update|report|clean|check> [options]',
+      subs: 'run | update | report | clean | check',
+      examples: [
+        'vestara screenshots run --viewport desktop',
+        'vestara screenshots run --routes dashboard,docs --theme dark',
+        'vestara screenshots update --routes settings',
+        'vestara screenshots check --json',
+      ],
+    },
     open: {
       desc: 'Open a workspace, initializing .vestara/ manifest and storage directories.',
       usage: 'vestara open [path]',

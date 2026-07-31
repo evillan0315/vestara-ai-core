@@ -35,7 +35,8 @@
     "screenshots:desktop": "pnpm --filter @vestara/workspace-ui screenshots:desktop",
     "screenshots:ci": "pnpm --filter @vestara/workspace-ui screenshots:ci",
     "screenshots:report": "pnpm --filter @vestara/workspace-ui screenshots:report",
-    "screenshots:clean": "pnpm --filter @vestara/workspace-ui screenshots:clean"
+    "screenshots:clean": "pnpm --filter @vestara/workspace-ui screenshots:clean",
+    "screenshots:check": "pnpm --filter @vestara/workspace-ui screenshots:check"
   },
   "workspaces": [
     "packages/*",

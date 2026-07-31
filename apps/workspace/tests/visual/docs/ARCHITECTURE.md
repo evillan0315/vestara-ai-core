@@ -10,6 +10,8 @@ and produces HTML / JSON / Markdown reports that gate CI.
 
 ```mermaid
 flowchart TD
+    CLI[vestara screenshots] -->|validated action + options| PNPM[workspace-ui package scripts]
+    PNPM --> S
     R[src/routes.ts] --> D[RouteDiscovery]
     D --> E[VisualTestEngine]
     C[config.ts] --> E
@@ -52,6 +54,7 @@ flowchart TD
 | `engine.ts` | case generation, execution, result recording |
 | `visual.spec.ts` | Playwright entry: one test per case |
 | `setup-clean.ts` / `report-teardown.ts` | clear artifacts; aggregate report |
+| `apps/cli/src/commands/screenshots.ts` | validates CLI intent and delegates to the existing package scripts |
 
 ## Directory structure
 
@@ -94,6 +97,15 @@ env filtering for targeted runs.
   until approved.
 - `globalTeardown` aggregates per-worker results into
   `reports/visual-regression.{json,md,html}`.
+
+## CLI boundary
+
+`vestara screenshots` is an orchestration adapter, not another capture engine.
+It maps allowlisted CLI options to the framework's existing environment contract
+and invokes the `@vestara/workspace-ui` package scripts without shell
+interpolation. `run` forces compare mode; only `update` enables baseline writes.
+JSON mode captures the delegated process output and returns a stable execution
+envelope for CI or agent consumers.
 
 ## Dependencies
 

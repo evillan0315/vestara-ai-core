@@ -36,6 +36,21 @@ Commit those baselines.
 
 ## Daily run (compare)
 
+The same workflow is available through the compiled Vestara CLI:
+
+```bash
+vestara screenshots run
+vestara screenshots run --viewport mobile --routes dashboard --theme dark
+vestara screenshots update --routes settings
+vestara screenshots report
+vestara screenshots check --json
+```
+
+The CLI validates route IDs, roles, URLs, numeric ranges, viewports, and themes
+before invoking Playwright. `--json` emits a structured result with the action,
+delegated script, success state, exit code, stdout, and stderr. Use
+`vestara help screenshots` for the complete option list.
+
 ```bash
 pnpm screenshots               # all desktop viewports, dark + light
 pnpm screenshots:mobile        # mobile viewport group

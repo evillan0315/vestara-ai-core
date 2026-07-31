@@ -15,6 +15,32 @@ Vitest owns component, queue-policy, and visual-framework unit tests. The
 Playwright entrypoint at `tests/visual/visual.spec.ts` is intentionally excluded
 from Vitest and runs through the `screenshots*` scripts.
 
+## Visual regression automation
+
+The Playwright framework discovers enabled routes from `src/routes.ts`, captures
+the selected viewport and theme matrix, compares images with approved baselines,
+and emits JSON, Markdown, and HTML reports.
+
+Use either the root scripts or the compiled Vestara CLI:
+
+```bash
+pnpm screenshots
+pnpm vestara screenshots run --viewport desktop --theme dark
+pnpm vestara screenshots run --routes dashboard,docs --json
+pnpm vestara screenshots update --routes settings
+pnpm vestara screenshots report
+pnpm vestara screenshots check
+```
+
+CLI comparison runs force `SCREENSHOT_MODE=compare`. Baseline writes require the
+explicit `update` subcommand. Generated current images, diffs, and reports live
+under `tests/visual/.artifacts/`; approved baselines are retained by cleanup.
+
+See the visual framework [setup](tests/visual/docs/SETUP.md),
+[architecture](tests/visual/docs/ARCHITECTURE.md),
+[developer](tests/visual/docs/DEVELOPER.md), and
+[troubleshooting](tests/visual/docs/TROUBLESHOOTING.md) guides.
+
 ## Notification presentation
 
 Transient event notifications are presented by `src/components/Toast.tsx`:

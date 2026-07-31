@@ -462,7 +462,7 @@ export class DocumentationService implements VestaraService {
   }
 
   private proposalTemplate(title: string, documentPath: string): string {
-    return `---\ntitle: "${title.replace(/"/g, "'")}"\nstatus: proposed\nversion: 0.1.0\nowner: "@documentation-engineer"\n---\n\n# ${path.basename(documentPath, path.extname(documentPath))}\n\n## Overview\n\nProposed documentation generated from deterministic inventory findings.\n\n## Verification\n\nThis proposal is unverified until deterministic checks and human review complete.\n`;
+    return `---\ntitle: "${title.replace(/"/g, "'")}"\nstatus: proposed\nversion: 0.1.0\nowner: documentation-automation\n---\n\n# ${path.basename(documentPath, path.extname(documentPath))}\n\n## Overview\n\nProposed documentation generated from deterministic inventory findings.\n\n## Verification\n\nThis proposal is unverified until deterministic checks and human review complete.\n`;
   }
 
   private requireProposal(id: string): DocumentationProposal {

@@ -51,7 +51,8 @@ export function extractImplementation(root: string, packages: readonly string[])
         publicSymbols.push({ packagePath, symbol: match[1], sourcePath: relative });
       }
       for (const match of content.matchAll(/export\s*\{([^}]+)\}/g)) {
-        for (const item of match[1].split(',')) {
+        const exports = match[1].replace(/\/\/[^\n]*/g, '');
+        for (const item of exports.split(',')) {
           const symbol = item.trim().split(/\s+as\s+/)[1] ?? item.trim().split(/\s+as\s+/)[0];
           if (/^[A-Za-z_$][\w$]*$/.test(symbol)) publicSymbols.push({ packagePath, symbol, sourcePath: relative });
         }
