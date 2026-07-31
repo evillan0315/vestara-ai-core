@@ -27,6 +27,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     css: true,
-    exclude: [...configDefaults.exclude, 'tests/visual/visual.spec.ts'],
+    exclude: [...configDefaults.exclude, 'tests/visual/visual.spec.ts', 'tests/visual/settings-matrix.spec.ts'],
   },
 });
