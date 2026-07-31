@@ -198,9 +198,10 @@ function General({
   };
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
+      <AppearanceControls />
       <SettingsSection
-        title="Workspace Identity"
-        description="Only explicit changes are persisted to workspace configuration."
+        title="Workspace Defaults"
+        description="Repository-specific values. Only explicit changes are persisted to workspace configuration."
       >
         {settings.map((setting) => (
           <SettingsRow
@@ -208,7 +209,7 @@ function General({
             label={setting.key.split('.').at(-1) ?? setting.key}
             description={setting.key}
             value={
-              <span className="flex flex-col items-end gap-2">
+              <span className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:items-end">
                 {typeof setting.value === 'boolean' ? (
                   <Toggle
                     label={setting.key}
@@ -220,7 +221,7 @@ function General({
                     aria-label={setting.key}
                     value={String(draft.values[setting.key] ?? '')}
                     onChange={(event) => setDraft((state) => updateDraft(state, setting.key, event.target.value))}
-                    className={`${input} w-full max-w-xs`}
+                    className={`${input} w-full sm:w-72`}
                   />
                 )}
                 <Source setting={setting} />
@@ -228,33 +229,29 @@ function General({
             }
           />
         ))}
+        <footer className="flex flex-col gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+          <div>
+            <p className="text-xs text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
+              {draft.dirtyKeys.length
+                ? `${draft.dirtyKeys.length} unsaved change${draft.dirtyKeys.length === 1 ? '' : 's'}`
+                : 'Workspace configuration is synchronized'}
+            </p>
+            {error && (
+              <p role="alert" className="mt-1 text-xs text-[var(--vestara-red)]">
+                {error}
+              </p>
+            )}
+          </div>
+          <div className="flex w-full gap-2 sm:w-auto">
+            <Button disabled={saving} onClick={reset}>
+              Reset values
+            </Button>
+            <Button primary disabled={saving || !draft.dirtyKeys.length} onClick={save}>
+              {saving ? 'Saving…' : 'Save overrides'}
+            </Button>
+          </div>
+        </footer>
       </SettingsSection>
-      {error && (
-        <div
-          role="alert"
-          className={`rounded-[var(--vestara-radius)] border-[color-mix(in_srgb,var(--vestara-red)_40%,transparent)] p-3 text-sm text-[var(--vestara-red)] ${surface}`}
-        >
-          {error}
-        </div>
-      )}
-      <div
-        className={`sticky bottom-3 z-10 flex flex-wrap items-center justify-between gap-3 rounded-[var(--vestara-radius-lg)] p-3 shadow-xl ${surface}`}
-      >
-        <span className="text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-          {draft.dirtyKeys.length
-            ? `${draft.dirtyKeys.length} unsaved change(s)`
-            : 'Workspace configuration is synchronized'}
-        </span>
-        <div className="flex gap-2">
-          <Button disabled={saving} onClick={reset}>
-            Reset section
-          </Button>
-          <Button primary disabled={saving || !draft.dirtyKeys.length} onClick={save}>
-            {saving ? 'Saving…' : 'Save overrides'}
-          </Button>
-        </div>
-      </div>
-      <AppearanceControls />
     </div>
   );
 }
