@@ -234,6 +234,8 @@ export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './works
 export { WorkspaceManifest } from './workspace-manifest';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
+export type { WorkspaceRuntimeClient, WorkspaceRuntimeClientOptions, WorkspaceRuntimeClientStatus } from './runtime-client';
+export { HttpWorkspaceRuntimeClient } from './runtime-client';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';
 export { WorkspaceRuntimeService } from './workspace-runtime-service';
 export { WorkspaceSession } from './workspace-session';

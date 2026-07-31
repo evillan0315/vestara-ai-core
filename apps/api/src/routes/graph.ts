@@ -18,6 +18,7 @@
  */
 
 import type * as http from 'node:http';
+import { createWorkspaceCommand, isSettingsWorkspaceCommand } from '@vestara/configuration';
 import { isValidEntityId } from '@vestara/engineering-graph';
 import { EngineeringGraphService } from '../graph/service';
 import type { WorkspaceContext } from '../workspace-context';
@@ -25,7 +26,7 @@ import { json, readBody } from './types';
 
 const services = new WeakMap<WorkspaceContext, EngineeringGraphService>();
 
-function serviceFor(ctx: WorkspaceContext): EngineeringGraphService {
+export function serviceFor(ctx: WorkspaceContext): EngineeringGraphService {
   let service = services.get(ctx);
   if (!service) {
     service = new EngineeringGraphService(ctx);
@@ -232,7 +233,83 @@ export async function handleGraphRoute(
   }
 
   if (method === 'GET' && p === '/api/graph/store') {
-    json(res, 200, await svc.storeInfo());
+    const info = await svc.storeInfo();
+    const events = await svc.events(1);
+    json(res, 200, {
+      persistence: 'memory',
+      warning: 'Engineering history is session-only and will be lost when the API runtime stops.',
+      eventCount: info.events,
+      latestSequence: events[0]?.seq ?? 0,
+      oldestRetainedAt: (await svc.replay())[0]?.at ?? null,
+      checkpointCount: info.checkpoints.length,
+      checkpoints: info.checkpoints,
+      checkpointInterval: 2000,
+      checkpointRetention: 10,
+      eventSchemaVersion: 1,
+      workspaceStoreIdentity: ctx.runtime.getSession().fingerprint.id,
+    });
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/graph/store/integrity') {
+    json(res, 200, await svc.verifyStoreIntegrity());
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/graph/store/checkpoint') {
+    json(res, 200, { checkpoint: await svc.createCheckpoint() });
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/graph/rebuild') {
+    const raw = await readBody(req);
+    const supplied = raw ? (JSON.parse(raw) as unknown) : null;
+    const command =
+      isSettingsWorkspaceCommand(supplied) &&
+      supplied.type === 'graph.rebuild' &&
+      supplied.workspaceId === ctx.runtime.getSession().fingerprint.id &&
+      supplied.source === (req.headers['x-vestara-source'] === 'cli' ? 'cli' : 'workspace-ui')
+        ? supplied
+        : createWorkspaceCommand({
+            workspaceId: ctx.runtime.getSession().fingerprint.id,
+            source: req.headers['x-vestara-source'] === 'cli' ? 'cli' : 'workspace-ui',
+            type: 'graph.rebuild',
+          });
+    ctx.publish({
+      id: `evt-${command.commandId}-requested`,
+      timestamp: new Date().toISOString(),
+      category: 'system',
+      type: 'command-requested',
+      actor: { id: command.source, name: command.source, type: 'user' },
+      resource: { type: 'command', id: command.commandId, name: command.type },
+      message: `${command.source} requested engineering graph rebuild`,
+      metadata: {
+        commandId: command.commandId,
+        correlationId: command.correlationId,
+        workspaceId: command.workspaceId,
+        source: command.source,
+      },
+    });
+    await svc.recordCommand(command, 'requested', `${command.source} requested engineering graph rebuild`);
+    const result = await svc.refresh();
+    ctx.publish({
+      id: `evt-${command.commandId}-completed`,
+      timestamp: new Date().toISOString(),
+      category: 'system',
+      type: 'execution-completed',
+      actor: { id: 'runtime', name: 'Workspace Runtime', type: 'system' },
+      resource: { type: 'command', id: command.commandId, name: command.type },
+      message: 'Engineering graph rebuild completed',
+      metadata: {
+        commandId: command.commandId,
+        correlationId: command.correlationId,
+        workspaceId: command.workspaceId,
+        source: command.source,
+        result,
+      },
+    });
+    await svc.recordCommand(command, 'completed', 'Engineering graph rebuild completed', result);
+    json(res, 200, { command, result });
     return true;
   }
 
@@ -241,8 +318,8 @@ export async function handleGraphRoute(
     const body = raw ? JSON.parse(raw) : {};
     try {
       json(res, 200, await svc.queryGraph(body));
-    } catch (err: any) {
-      json(res, 400, { error: err.message });
+    } catch (error) {
+      json(res, 400, { error: error instanceof Error ? error.message : 'Graph query failed' });
     }
     return true;
   }
@@ -303,8 +380,8 @@ export async function handleGraphRoute(
         maxTokens: 2048,
       });
       json(res, 200, { answer: result.content || 'No response.' });
-    } catch (err: any) {
-      json(res, 500, { error: err.message });
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : 'Graph analysis failed' });
     }
     return true;
   }

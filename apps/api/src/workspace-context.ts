@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
+import { WorkspaceConfigurationService } from '@vestara/configuration';
 import { type DocumentationRepositoryConfig, DocumentationService } from '@vestara/documentation';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
@@ -82,6 +83,8 @@ export interface WorkspaceContext {
   activityStore?: ActivityLogStore;
   telemetry: TelemetryRuntime;
   documentation: DocumentationService;
+  settings: WorkspaceConfigurationService;
+  filesystemRuntime: FilesystemRuntime;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -211,6 +214,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // Filesystem capability boundary — the single path agents use to reach the filesystem.
   const telemetry = new TelemetryRuntime();
   const filesystemRuntime = new FilesystemRuntime({ rootDir: abs, telemetry });
+  const settings = new WorkspaceConfigurationService(abs, session.fingerprint.id);
   const capabilityManager = new AgentCapabilityManager({ filesystem: filesystemRuntime });
 
   const implementationService = new ImplementationService({
@@ -442,6 +446,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     activityService,
     telemetry,
     documentation,
+    settings,
+    filesystemRuntime,
     notificationService,
     milestones,
     projects,

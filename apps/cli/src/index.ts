@@ -30,6 +30,7 @@ import {
   runPlanUpdateStatus,
 } from './commands/plans.js';
 import { runProjectsList } from './commands/projects.js';
+import { runRuntimeCommand } from './commands/runtime.js';
 import { runScreenshots } from './commands/screenshots.js';
 import { runBackgroundServices, runListSessions, runListWorkflows, runStartSession } from './commands/session.js';
 import { runSystemStatus } from './commands/status.js';
@@ -56,6 +57,9 @@ function printHelp(): void {
   );
   console.log(
     `    ${GREEN}screenshots${RESET} [sub]  ${GRAY}Visual regression automation (run|update|report|clean|check)${RESET}`,
+  );
+  console.log(
+    `    ${GREEN}runtime${RESET} [sub]      ${GRAY}Connect to the shared Workspace Runtime API (status|health)${RESET}`,
   );
   console.log(
     `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
@@ -107,6 +111,7 @@ function printHelp(): void {
 function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
   registry.register('screenshots', (args) => runScreenshots(args));
+  registry.register('runtime', (args) => runRuntimeCommand(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
   registry.register('teams', async (args) => {
@@ -233,6 +238,11 @@ export async function main() {
 
   if (args[0] === 'screenshots') {
     await runScreenshots(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'runtime') {
+    await runRuntimeCommand(args.slice(1));
     return;
   }
 

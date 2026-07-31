@@ -762,6 +762,77 @@ export class EngineeringGraphService {
     return { events: this.store.eventCount, checkpoints: this.store.getCheckpoints() };
   }
 
+  async createCheckpoint(): Promise<GraphSnapshot> {
+    await this.ensureHydrated();
+    return this.store.createCheckpoint();
+  }
+
+  async verifyStoreIntegrity(): Promise<{ valid: boolean; events: number; latestSequence: number; checkedAt: string }> {
+    await this.ensureHydrated();
+    const events = this.store.all();
+    const valid = events.every((event, index) => event.seq === index + 1);
+    return {
+      valid,
+      events: events.length,
+      latestSequence: events.at(-1)?.seq ?? 0,
+      checkedAt: new Date().toISOString(),
+    };
+  }
+
+  async recordCommand(
+    command: {
+      commandId: string;
+      correlationId: string;
+      causationId?: string;
+      workspaceId: string;
+      source: string;
+      type: string;
+    },
+    phase: 'requested' | 'completed' | 'failed',
+    message: string,
+    result?: unknown,
+  ): Promise<void> {
+    await this.ensureHydrated();
+    const id = entityId('event', `command/${command.commandId}`);
+    const at = new Date().toISOString();
+    const existing = this.store.stateAt(at).getEntity(id);
+    const meta = {
+      commandId: command.commandId,
+      correlationId: command.correlationId,
+      causationId: command.causationId,
+      workspaceId: command.workspaceId,
+      source: command.source,
+      commandType: command.type,
+      phase,
+      result,
+    };
+    this.store.append([
+      existing
+        ? {
+            at,
+            type: 'entity-updated',
+            source: command.source,
+            entityId: id,
+            patch: { status: phase, description: message, updatedAt: at, meta },
+          }
+        : {
+            at,
+            type: 'entity-created',
+            source: command.source,
+            entityId: id,
+            entity: {
+              id,
+              kind: 'event',
+              label: command.type,
+              status: phase,
+              description: message,
+              updatedAt: at,
+              meta,
+            },
+          },
+    ]);
+  }
+
   /** General graph query, optionally against a past state. */
   async queryGraph(query: GraphQuery): Promise<ReturnType<typeof executeGraphQuery>> {
     if (!query.start) throw new Error('start is required');

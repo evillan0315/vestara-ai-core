@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@vestara/activity-log": "workspace:*",
+    "@vestara/configuration": "workspace:*",
     "@vestara/documentation": "workspace:*",
     "@vestara/engineering-graph": "workspace:*",
     "@vestara/event-bus": "workspace:*",

@@ -30,6 +30,9 @@ importers:
       '@vestara/activity-log':
         specifier: workspace:*
         version: link:../../packages/activity-log
+      '@vestara/configuration':
+        specifier: workspace:*
+        version: link:../../packages/configuration
       '@vestara/documentation':
         specifier: workspace:*
         version: link:../../packages/documentation
@@ -100,6 +103,9 @@ importers:
       '@vestara/audio':
         specifier: workspace:*
         version: link:../../packages/audio
+      '@vestara/configuration':
+        specifier: workspace:*
+        version: link:../../packages/configuration
       '@vestara/context':
         specifier: workspace:*
         version: link:../../packages/context
@@ -210,6 +216,9 @@ importers:
       '@mui/material':
         specifier: ^6.4.0
         version: 6.5.0(@emotion/react@11.14.0(@types/react@19.2.17)(react@19.2.8))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@vestara/configuration':
+        specifier: workspace:*
+        version: link:../../packages/configuration
       '@vestara/settings-framework':
         specifier: workspace:*
         version: link:../../packages/settings-framework
@@ -1088,6 +1097,9 @@ importers:
       '@vestara/action':
         specifier: workspace:*
         version: link:../action
+      '@vestara/configuration':
+        specifier: workspace:*
+        version: link:../configuration
       '@vestara/context':
         specifier: workspace:*
         version: link:../context

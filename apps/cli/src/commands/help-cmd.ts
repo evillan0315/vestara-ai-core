@@ -2,6 +2,12 @@ import { BOLD, GOLD, GRAY, RESET } from '../output/format.js';
 
 export async function runHelpCommand(cmd: string): Promise<void> {
   const helpMap: Record<string, { desc: string; usage: string; subs?: string; examples: string[] }> = {
+    runtime: {
+      desc: 'Connect to the active Workspace API without starting a separate runtime.',
+      usage: 'vestara runtime <status|health> [--endpoint URL] [--json]',
+      subs: 'status | health',
+      examples: ['vestara runtime status --json', 'vestara runtime health'],
+    },
     screenshots: {
       desc: 'Run governed Playwright screenshot capture and visual-regression checks for the Workspace UI.',
       usage: 'vestara screenshots <run|update|report|clean|check> [options]',
