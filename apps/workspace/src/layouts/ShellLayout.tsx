@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
-
+import { GraphProvider } from '../components/graph/GraphContext';
+import { GraphSearch } from '../components/graph/GraphSearch';
+import { Inspector } from '../components/graph/Inspector';
 import AppHeader from '../components/layout/AppHeader/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
 import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
@@ -37,7 +39,7 @@ export default function ShellLayout() {
     check();
     window.addEventListener('resize', check);
     return () => window.removeEventListener('resize', check);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -51,20 +53,24 @@ export default function ShellLayout() {
   }, []);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-primary-950">
-      <AppSidebar navigation={NAV_CATEGORIES} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+    <GraphProvider>
+      <div className="flex h-screen overflow-hidden bg-primary-950">
+        <AppSidebar navigation={NAV_CATEGORIES} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
 
-      <div className="flex min-w-0 flex-1 flex-col min-h-0">
-        <AppHeader onMenuClick={toggleSidebar} />
-        <PageContainer>
-          <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-8 w-full h-full">
-            <Outlet />
-          </div>
-        </PageContainer>
+        <div className="flex min-w-0 flex-1 flex-col min-h-0">
+          <AppHeader onMenuClick={toggleSidebar} />
+          <PageContainer>
+            <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-8 w-full h-full">
+              <Outlet />
+            </div>
+          </PageContainer>
+        </div>
+
+        <CommandPalette />
+        <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
       </div>
-
-      <CommandPalette />
-      <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
-    </div>
+      <Inspector />
+      <GraphSearch />
+    </GraphProvider>
   );
 }

@@ -8,6 +8,7 @@ import { runBenchmarkConversation } from './commands/benchmark.js';
 import { runCompletions } from './commands/completions.js';
 import { runContext } from './commands/context.js';
 import { runGoldenPath } from './commands/demo.js';
+import { runDocs } from './commands/docs.js';
 import {
   runDoctor,
   runDoctorAgents,
@@ -51,6 +52,9 @@ function printHelp(): void {
   console.log(`${GRAY}Usage: vestara <command> [options]${RESET}`);
   console.log();
   console.log(`  ${BOLD}Commands${RESET}`);
+  console.log(
+    `    ${GREEN}docs${RESET} [sub]         ${GRAY}Documentation automation (scan|findings|plan|review|verify|baseline|check)${RESET}`,
+  );
   console.log(
     `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
   );
@@ -99,6 +103,7 @@ function printHelp(): void {
 }
 
 function registerCommands(registry: CommandRegistry): void {
+  registry.register('docs', (args) => runDocs(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
   registry.register('teams', async (args) => {
@@ -215,6 +220,11 @@ export async function main() {
   }
   if (args[0] === '--version' || args[0] === '-v') {
     printVersion();
+    return;
+  }
+
+  if (args[0] === 'docs') {
+    await runDocs(args.slice(1));
     return;
   }
 

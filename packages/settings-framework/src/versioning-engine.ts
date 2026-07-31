@@ -80,8 +80,7 @@ export class VersioningEngine {
   private migrations: Map<string, MigrationStep[]> = new Map();
   private versions: Map<string, VersionRecord> = new Map();
 
-  constructor(registry: ModuleRegistry, store: SettingsStore) {
-    this.registry = registry;
+  constructor(_registry: ModuleRegistry, store: SettingsStore) {
     this.store = store;
   }
 

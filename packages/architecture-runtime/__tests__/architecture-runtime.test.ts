@@ -46,10 +46,11 @@ describe('architecture-runtime', () => {
   });
 
   describe('graph', () => {
-    it('loads all 5 ADRs', () => {
+    it('loads every ADR in the configured directory', () => {
       const ar = new ArchitectureRuntime(ADR_DIR);
       const all = ar.getAllNodes();
-      expect(all).toHaveLength(5);
+      const adrFiles = fs.readdirSync(ADR_DIR).filter((file) => /^ADR-\d+.*\.md$/.test(file));
+      expect(all).toHaveLength(adrFiles.length);
     });
 
     it('finds dependencies', () => {
@@ -80,7 +81,7 @@ describe('architecture-runtime', () => {
       const ar = new ArchitectureRuntime(ADR_DIR);
       const report = ar.verify();
       expect(report.pass).toBe(true);
-      expect(report.totalAdrs).toBe(5);
+      expect(report.totalAdrs).toBe(ar.getAllNodes().length);
       expect(report.brokenDependencies).toHaveLength(0);
       expect(report.circularDependencies).toHaveLength(0);
       expect(report.duplicateIds).toHaveLength(0);

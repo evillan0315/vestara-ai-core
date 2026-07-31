@@ -13,6 +13,7 @@
     "@vestara/action": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
+    "@vestara/conversation-runtime": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/filesystem-runtime": "workspace:*",
     "@vestara/knowledge": "workspace:*",
@@ -23,7 +24,7 @@
     "@vestara/understanding": "workspace:*"
   },
   "devDependencies": {
-    "vitest": "^4.1.10",
-    "@types/sql.js": "^1.4.11"
+    "@types/sql.js": "^1.4.11",
+    "vitest": "^4.1.10"
   }
 }

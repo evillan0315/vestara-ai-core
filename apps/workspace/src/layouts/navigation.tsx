@@ -1,10 +1,12 @@
-import type { ReactNode } from 'react';
+import AccountTreeRoundedIcon from '@mui/icons-material/AccountTreeRounded';
 import ApiRoundedIcon from '@mui/icons-material/ApiRounded';
 import ChatRoundedIcon from '@mui/icons-material/ChatRounded';
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import ImportContactsRoundedIcon from '@mui/icons-material/ImportContactsRounded';
+import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
@@ -13,6 +15,7 @@ import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
 import ViewTimelineRoundedIcon from '@mui/icons-material/ViewTimelineRounded';
+import type { ReactNode } from 'react';
 
 export interface NavigationItem {
   to: string;
@@ -34,6 +37,9 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     items: [
       { to: '/overview', title: 'Overview', icon: <DashboardRoundedIcon fontSize="small" /> },
       { to: '/dashboard', title: 'Dashboard', icon: <DashboardRoundedIcon fontSize="small" /> },
+      { to: '/graph', title: 'Engineering Graph', icon: <AccountTreeRoundedIcon fontSize="small" /> },
+      { to: '/execution', title: 'Execution', icon: <HubRoundedIcon fontSize="small" /> },
+      { to: '/diagnostics', title: 'Diagnostics', icon: <InsightsRoundedIcon fontSize="small" /> },
       { to: '/activities', title: 'Activities', icon: <ReceiptLongRoundedIcon fontSize="small" /> },
       { to: '/ops', title: 'Operations', icon: <TuneRoundedIcon fontSize="small" /> },
     ],
@@ -65,8 +71,6 @@ export const NAV_CATEGORIES: NavigationSection[] = [
   },
   {
     title: 'System',
-    items: [
-      { to: '/settings', title: 'Settings', icon: <SettingsRoundedIcon fontSize="small" /> },
-    ],
+    items: [{ to: '/settings', title: 'Settings', icon: <SettingsRoundedIcon fontSize="small" /> }],
   },
 ];

@@ -26,6 +26,12 @@ vitest run
 → If fails: BUILD FAILED — Test failure
 ```
 
+Test runners must have explicit ownership boundaries. Vitest runs unit,
+integration, and component suites. Playwright specifications run through the
+dedicated visual/end-to-end command and must not be collected by Vitest.
+Framework unit tests that support Playwright remain in Vitest unless they invoke
+the Playwright test API directly.
+
 ## Verification Gate
 
 ```

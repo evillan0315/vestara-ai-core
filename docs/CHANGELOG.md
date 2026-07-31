@@ -3,6 +3,22 @@
 
 ---
 
+## [3.9.1] — 2026-08-01 — Workspace Notification Queue Reliability
+
+### Changed
+
+- Workspace toasts now display one at a time through a bounded five-entry queue.
+- Identical type/message notifications received within three seconds collapse into one toast with a repetition count.
+- Waiting errors are prioritized without interrupting the currently visible toast.
+- Each toast receives a full five-second display window; manual dismissal advances the queue.
+- Vitest and Playwright collection boundaries are explicit: only the Playwright visual entrypoint is excluded from Vitest.
+
+### Verification
+
+- Added deterministic queue tests for duplicate collapse, window expiry, error priority, FIFO ordering, and queue limits.
+- Declared `jsdom` and Testing Library as workspace test dependencies.
+- Workspace Vitest suite and production build pass.
+
 ## [0.0.0] — Pre-Development
 
 ### Added

@@ -9,7 +9,9 @@
     "test": "vitest run",
     "build": "tsc"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vestara/shared": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "^4.1.10"
   }

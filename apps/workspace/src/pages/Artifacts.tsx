@@ -1,17 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { approvePlan, implementPlan, verifyChangeSet } from '../lib/api';
+import ApproveRejectDialog from '../components/artifacts/ApproveRejectDialog';
+import type { ActionItem } from '../components/artifacts/ArtifactActionsMenu';
+import ArtifactActionsMenu from '../components/artifacts/ArtifactActionsMenu';
+import ArtifactEmptyState from '../components/artifacts/ArtifactEmptyState';
+import ArtifactStatusChip from '../components/artifacts/ArtifactStatusChip';
+import AssignPlanDialog from '../components/artifacts/AssignPlanDialog';
+import CreateArtifactModal from '../components/artifacts/CreateArtifactModal';
+import DeleteConfirmDialog from '../components/artifacts/DeleteConfirmDialog';
+import EditArtifactModal from '../components/artifacts/EditArtifactModal';
 import StatCard from '../components/dashboard/StatCard';
 import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
-import CreateArtifactModal from '../components/artifacts/CreateArtifactModal';
-import EditArtifactModal from '../components/artifacts/EditArtifactModal';
-import DeleteConfirmDialog from '../components/artifacts/DeleteConfirmDialog';
-import ApproveRejectDialog from '../components/artifacts/ApproveRejectDialog';
-import AssignPlanDialog from '../components/artifacts/AssignPlanDialog';
-import ArtifactStatusChip from '../components/artifacts/ArtifactStatusChip';
-import ArtifactActionsMenu from '../components/artifacts/ArtifactActionsMenu';
-import type { ActionItem } from '../components/artifacts/ArtifactActionsMenu';
-import ArtifactEmptyState from '../components/artifacts/ArtifactEmptyState';
+import { approvePlan, implementPlan, verifyChangeSet } from '../lib/api';
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -126,7 +126,10 @@ export default function Artifacts() {
   const [showCreate, setShowCreate] = useState(false);
   const [editingArtifact, setEditingArtifact] = useState<any>(null);
   const [deletingArtifact, setDeletingArtifact] = useState<any>(null);
-  const [approveRejectAction, setApproveRejectAction] = useState<{ artifact: any; action: 'approve' | 'reject' } | null>(null);
+  const [approveRejectAction, setApproveRejectAction] = useState<{
+    artifact: any;
+    action: 'approve' | 'reject';
+  } | null>(null);
   const [assigningArtifact, setAssigningArtifact] = useState<any>(null);
 
   const load = useCallback(async () => {
@@ -152,32 +155,41 @@ export default function Artifacts() {
   }, []);
 
   // Plan action handlers
-  const handleApprove = useCallback(async (planId: string) => {
-    setPlanActionLoading(`approve-${planId}`);
-    const ok = await approvePlan(planId);
-    if (ok) load();
-    setPlanActionLoading(null);
-  }, [load]);
+  const handleApprove = useCallback(
+    async (planId: string) => {
+      setPlanActionLoading(`approve-${planId}`);
+      const ok = await approvePlan(planId);
+      if (ok) load();
+      setPlanActionLoading(null);
+    },
+    [load],
+  );
 
-  const handleImplement = useCallback(async (planId: string) => {
-    setPlanActionLoading(`implement-${planId}`);
-    const result = await implementPlan(planId);
-    if (result?.changeSet) {
-      setGeneratedChangeSets((prev) => ({ ...prev, [planId]: result.changeSet.id }));
-    }
-    load();
-    setPlanActionLoading(null);
-  }, [load]);
+  const handleImplement = useCallback(
+    async (planId: string) => {
+      setPlanActionLoading(`implement-${planId}`);
+      const result = await implementPlan(planId);
+      if (result?.changeSet) {
+        setGeneratedChangeSets((prev) => ({ ...prev, [planId]: result.changeSet.id }));
+      }
+      load();
+      setPlanActionLoading(null);
+    },
+    [load],
+  );
 
-  const handleVerify = useCallback(async (changeSetId: string) => {
-    setPlanActionLoading(`verify-${changeSetId}`);
-    const result = await verifyChangeSet(changeSetId);
-    if (result?.report) {
-      setVerificationResults((prev) => ({ ...prev, [changeSetId]: result.report.status }));
-    }
-    load();
-    setPlanActionLoading(null);
-  }, [load]);
+  const handleVerify = useCallback(
+    async (changeSetId: string) => {
+      setPlanActionLoading(`verify-${changeSetId}`);
+      const result = await verifyChangeSet(changeSetId);
+      if (result?.report) {
+        setVerificationResults((prev) => ({ ...prev, [changeSetId]: result.report.status }));
+      }
+      load();
+      setPlanActionLoading(null);
+    },
+    [load],
+  );
 
   useEffect(() => {
     load();
@@ -233,7 +245,11 @@ export default function Artifacts() {
   );
 
   if (loading)
-    return <div className="w-full px-4 py-16 text-center text-[var(--vestara-text-muted)] animate-pulse">Loading artifacts...</div>;
+    return (
+      <div className="w-full px-4 py-16 text-center text-[var(--vestara-text-muted)] animate-pulse">
+        Loading artifacts...
+      </div>
+    );
 
   return (
     <div className="w-full px-4">
@@ -244,11 +260,19 @@ export default function Artifacts() {
           <p className="text-[11px] text-zinc-500 mt-0.5">Manage project artifacts and approval workflows.</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowCreate(true)}
-            className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all cursor-pointer font-medium shadow-sm shadow-blue-600/20">
+          <button
+            onClick={() => setShowCreate(true)}
+            className="text-xs px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-500 transition-all cursor-pointer font-medium shadow-sm shadow-blue-600/20"
+          >
             + Create Artifact
           </button>
-          <button onClick={load} className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer" title="Refresh">↻</button>
+          <button
+            onClick={load}
+            className="w-8 h-8 flex items-center justify-center rounded-lg border border-zinc-700 text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Refresh"
+          >
+            ↻
+          </button>
         </div>
       </div>
 
@@ -259,16 +283,41 @@ export default function Artifacts() {
         <StatCard label="Verifications" value={verifications.length} accent="#10b981" />
         <StatCard label="Approvals" value={collab.length} accent="#ec4899" />
         <StatCard label="Sessions" value={exSessions.length} accent="#3b82f6" />
-        <StatCard label="Active" value={activeSession ? 1 : 0} accent={activeSession ? '#10b981' : '#52525b'} sub={activeSession ? 'Running' : undefined} />
+        <StatCard
+          label="Active"
+          value={activeSession ? 1 : 0}
+          accent={activeSession ? '#10b981' : '#52525b'}
+          sub={activeSession ? 'Running' : undefined}
+        />
       </div>
 
       {/* Search + Filter bar */}
       <div className="flex items-center gap-3 mb-6 flex-wrap">
         <div className="relative flex-1 min-w-0 max-w-xs">
-          <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search artifacts..." className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors" />
+          <svg
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 text-zinc-500"
+            width="13"
+            height="13"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <circle cx="11" cy="11" r="8" />
+            <path d="M21 21l-4.35-4.35" />
+          </svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search artifacts..."
+            className="w-full bg-zinc-900 border border-zinc-700 rounded-lg pl-8 pr-3 py-2 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-zinc-500 transition-colors"
+          />
         </div>
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-xs outline-none cursor-pointer focus:border-zinc-500 transition-colors">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-zinc-900 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-xs outline-none cursor-pointer focus:border-zinc-500 transition-colors"
+        >
           <option value="all">All Status</option>
           <option value="draft">Draft</option>
           <option value="approved">Approved</option>
@@ -311,7 +360,9 @@ export default function Artifacts() {
                 <span className="truncate max-w-[120px]">{s.goal?.slice(0, 24) || s.id?.slice(0, 12)}</span>
               </button>
             ))}
-            {exSessions.length > 10 && <span className="text-[8px] text-(--vestara-text-dim)">+{exSessions.length - 10} more</span>}
+            {exSessions.length > 10 && (
+              <span className="text-[8px] text-(--vestara-text-dim)">+{exSessions.length - 10} more</span>
+            )}
           </div>
         </div>
       )}
@@ -335,7 +386,9 @@ export default function Artifacts() {
               </div>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
-                    <div className="text-lg font-bold text-[var(--vestara-text)]">{analysis.metrics?.totalFiles || 0}</div>
+                  <div className="text-lg font-bold text-[var(--vestara-text)]">
+                    {analysis.metrics?.totalFiles || 0}
+                  </div>
                   <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Files</div>
                 </div>
                 <div className="p-2.5 bg-zinc-800/50 border border-zinc-700 rounded-lg text-center">
@@ -362,7 +415,9 @@ export default function Artifacts() {
               )}
               {analysis.risks?.length > 0 && (
                 <div className="mb-2">
-                  <span className="text-[9px] text-(--vestara-text-2) uppercase font-semibold tracking-wider">Risks</span>
+                  <span className="text-[9px] text-(--vestara-text-2) uppercase font-semibold tracking-wider">
+                    Risks
+                  </span>
                   <div className="space-y-1 mt-1">
                     {analysis.risks.slice(0, 3).map((r: any, i: number) => (
                       <div
@@ -493,7 +548,10 @@ export default function Artifacts() {
                                   <div className="flex items-center gap-1 ml-auto">
                                     {item.status === 'draft' && (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); handleApprove(item.id); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleApprove(item.id);
+                                        }}
                                         disabled={planActionLoading === `approve-${item.id}`}
                                         className="text-[8px] px-1.5 py-0.5 rounded bg-blue-400/10 text-blue-400 hover:bg-blue-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
                                       >
@@ -502,7 +560,10 @@ export default function Artifacts() {
                                     )}
                                     {item.status === 'approved' && (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); handleImplement(item.id); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleImplement(item.id);
+                                        }}
                                         disabled={planActionLoading === `implement-${item.id}`}
                                         className="text-[8px] px-1.5 py-0.5 rounded bg-amber-400/10 text-amber-400 hover:bg-amber-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
                                       >
@@ -511,21 +572,40 @@ export default function Artifacts() {
                                     )}
                                     {generatedChangeSets[item.id] && (
                                       <button
-                                        onClick={(e) => { e.stopPropagation(); handleVerify(generatedChangeSets[item.id]); }}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          handleVerify(generatedChangeSets[item.id]);
+                                        }}
                                         disabled={planActionLoading === `verify-${generatedChangeSets[item.id]}`}
                                         className="text-[8px] px-1.5 py-0.5 rounded bg-green-400/10 text-green-400 hover:bg-green-400/20 transition-colors cursor-pointer disabled:opacity-30 font-medium"
                                       >
                                         {planActionLoading === `verify-${generatedChangeSets[item.id]}`
                                           ? '...'
                                           : verificationResults[generatedChangeSets[item.id]]
-                                            ? verificationResults[generatedChangeSets[item.id]] === 'passed' ? '✓ Verified' : '✗ Failed'
+                                            ? verificationResults[generatedChangeSets[item.id]] === 'passed'
+                                              ? '✓ Verified'
+                                              : '✗ Failed'
                                             : 'Verify'}
                                       </button>
                                     )}
-                                    <button onClick={(e) => { e.stopPropagation(); setEditingArtifact(item); }}
-                                      className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 transition-colors cursor-pointer font-medium">Edit</button>
-                                    <button onClick={(e) => { e.stopPropagation(); setDeletingArtifact(item); }}
-                                      className="text-[8px] px-1.5 py-0.5 rounded bg-red-400/10 text-red-400 hover:bg-red-400/20 transition-colors cursor-pointer font-medium">Del</button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setEditingArtifact(item);
+                                      }}
+                                      className="text-[8px] px-1.5 py-0.5 rounded bg-zinc-700/50 text-zinc-400 hover:bg-zinc-700 transition-colors cursor-pointer font-medium"
+                                    >
+                                      Edit
+                                    </button>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setDeletingArtifact(item);
+                                      }}
+                                      className="text-[8px] px-1.5 py-0.5 rounded bg-red-400/10 text-red-400 hover:bg-red-400/20 transition-colors cursor-pointer font-medium"
+                                    >
+                                      Del
+                                    </button>
                                   </div>
                                 </>
                               )}
@@ -571,7 +651,9 @@ export default function Artifacts() {
                                     <div className="flex-1 min-w-0">
                                       <div className="text-(--vestara-text) font-medium text-[11px]">{c.type}</div>
                                       {c.output && (
-                                        <div className="text-(--vestara-text-2) truncate mt-0.5">{c.output.slice(0, 160)}</div>
+                                        <div className="text-(--vestara-text-2) truncate mt-0.5">
+                                          {c.output.slice(0, 160)}
+                                        </div>
                                       )}
                                       {c.durationMs > 0 && (
                                         <span className="text-(--vestara-text-dim) text-[9px]">{c.durationMs}ms</span>
@@ -592,7 +674,7 @@ export default function Artifacts() {
                                     key={fi}
                                     className="text-[9px] text-(--vestara-text-2) font-mono px-1 py-0.5 bg-zinc-800/20 rounded"
                                   >
-                                    {f.path || f}
+                                    {typeof f === 'string' ? f : (f?.path ?? '')}
                                   </div>
                                 ))}
                               </div>
@@ -604,9 +686,12 @@ export default function Artifacts() {
                                   Tasks ({item.tasks.length})
                                 </div>
                                 {item.tasks.map((t: any, ti: number) => (
-                                  <div key={ti} className="text-[10px] text-(--vestara-text-2) flex items-start gap-1.5 py-0.5">
+                                  <div
+                                    key={ti}
+                                    className="text-[10px] text-(--vestara-text-2) flex items-start gap-1.5 py-0.5"
+                                  >
                                     <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 shrink-0 mt-0.5" />
-                                    <span>{t.description || t.title || t}</span>
+                                    <span>{t.description || t.summary || t.title || ''}</span>
                                   </div>
                                 ))}
                               </div>
@@ -615,7 +700,9 @@ export default function Artifacts() {
                         );
                       })}
                       {items.length > 20 && (
-                        <div className="p-2 text-center text-[10px] text-(--vestara-text-dim)">{items.length - 20} more...</div>
+                        <div className="p-2 text-center text-[10px] text-(--vestara-text-dim)">
+                          {items.length - 20} more...
+                        </div>
                       )}
                     </div>
                   )}
@@ -777,10 +864,32 @@ export default function Artifacts() {
 
       {/* Dialogs */}
       <CreateArtifactModal open={showCreate} onClose={() => setShowCreate(false)} onCreated={load} />
-      <EditArtifactModal open={!!editingArtifact} artifact={editingArtifact} onClose={() => setEditingArtifact(null)} onUpdated={load} />
-      <DeleteConfirmDialog open={!!deletingArtifact} artifact={deletingArtifact} onClose={() => setDeletingArtifact(null)} onDeleted={load} />
-      <ApproveRejectDialog open={!!approveRejectAction} artifact={approveRejectAction?.artifact ?? null} action={approveRejectAction?.action ?? null} onClose={() => setApproveRejectAction(null)} onCompleted={load} />
-      <AssignPlanDialog open={!!assigningArtifact} artifact={assigningArtifact} plans={plans} onClose={() => setAssigningArtifact(null)} onAssigned={load} />
+      <EditArtifactModal
+        open={!!editingArtifact}
+        artifact={editingArtifact}
+        onClose={() => setEditingArtifact(null)}
+        onUpdated={load}
+      />
+      <DeleteConfirmDialog
+        open={!!deletingArtifact}
+        artifact={deletingArtifact}
+        onClose={() => setDeletingArtifact(null)}
+        onDeleted={load}
+      />
+      <ApproveRejectDialog
+        open={!!approveRejectAction}
+        artifact={approveRejectAction?.artifact ?? null}
+        action={approveRejectAction?.action ?? null}
+        onClose={() => setApproveRejectAction(null)}
+        onCompleted={load}
+      />
+      <AssignPlanDialog
+        open={!!assigningArtifact}
+        artifact={assigningArtifact}
+        plans={plans}
+        onClose={() => setAssigningArtifact(null)}
+        onAssigned={load}
+      />
     </div>
   );
 }

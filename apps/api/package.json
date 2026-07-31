@@ -13,21 +13,25 @@
   },
   "dependencies": {
     "@vestara/activity-log": "workspace:*",
-    "@vestara/events": "workspace:*",
-    "@vestara/kernel": "workspace:*",
-    "@vestara/runtime": "workspace:*",
-    "@vestara/workspace": "workspace:*",
-    "@vestara/provider-runtime": "workspace:*",
-    "@vestara/provider-opencode": "workspace:*",
+    "@vestara/documentation": "workspace:*",
+    "@vestara/engineering-graph": "workspace:*",
     "@vestara/event-bus": "workspace:*",
-    "@vestara/telemetry": "workspace:*",
+    "@vestara/events": "workspace:*",
     "@vestara/filesystem-runtime": "workspace:*",
-    "ws": "^8.18.0",
-    "sql.js": "^1.14.1"
+    "@vestara/kernel": "workspace:*",
+    "@vestara/permissions": "workspace:*",
+    "@vestara/provider-opencode": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
+    "@vestara/runtime": "workspace:*",
+    "@vestara/telemetry": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "@vestara/workspace": "workspace:*",
+    "sql.js": "^1.14.1",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "@types/ws": "^8.5.0",
     "@types/node": "^26.1.1",
+    "@types/ws": "^8.5.0",
     "vitest": "^4.1.10"
   }
 }

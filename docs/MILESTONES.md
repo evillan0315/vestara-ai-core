@@ -619,7 +619,7 @@ Prediction creates an explicit decision point between planning and execution, an
 
 ---
 
-### v3.1 — Codebase Cleanup 🔶 In Progress
+### v3.1 — Codebase Cleanup ✅ Complete
 
 **Objective**: Run Biome across the entire codebase, fix all lint and formatting violations, and set up pre-commit hooks so the codebase stays clean automatically.
 
@@ -650,13 +650,13 @@ Prediction creates an explicit decision point between planning and execution, an
 
 - `pnpm lint` → zero errors (202 files checked, auto-fixed 149 + 55 + 1 files)
 - `pnpm format` → 202 files formatted, no fixes remaining
-- `pnpm test` → 101 tests pass, 37 test files
+- `pnpm test` → 938 tests pass, 88 test files (1 skipped)
 - Pre-commit hook installed at `.githooks/pre-commit`, configured via `git config core.hooksPath .githooks`
 - `apps/workspace` (React UI) excluded from Biome to avoid React-specific false positives
 
 ---
 
-### v3.2 — Documentation Generation 🔶 In Progress
+### v3.2 — Documentation Generation ✅ Complete
 
 **Objective**: Generate API reference documentation from TypeScript source code across all packages. Produce a browsable docs site with package descriptions, type signatures, dependency graphs, and changelog.
 
@@ -686,14 +686,14 @@ Prediction creates an explicit decision point between planning and execution, an
 
 **Verification results**:
 
-- `pnpm generate-docs` → HTML generated at `docs/api/` with 25 entry point packages
-- `docs/api/PACKAGE_CATALOG.md` — 29 packages cataloged with versions, descriptions, and internal dependency counts
+- `pnpm run docs` → HTML generated at `docs/api/` from all 58 discovered package entrypoints
+- `docs/api/PACKAGE_CATALOG.md` — workspace packages cataloged with versions, descriptions, and internal dependency counts
 - TypeDoc configured with `excludePrivate`, `excludeProtected`, `skipErrorChecking`
 - Generated `docs/api/` is gitignored
 
 ---
 
-### v3.3 — Pipeline Integration Tests & Benchmarks 🔶 In Progress
+### v3.3 — Pipeline Integration Tests & Benchmarks ✅ Complete
 
 **Objective**: Establish integration tests for the full workspace open pipeline and benchmark baselines for stage timings. Replace manual verification with automated tests that prove the pipeline works end-to-end.
 
@@ -739,7 +739,7 @@ Prediction creates an explicit decision point between planning and execution, an
 
 ---
 
-### v3.4 — Repository Hygiene 🔶 In Progress
+### v3.4 — Repository Hygiene ✅ Complete
 
 **Objective**: Add standard repository governance files: issue templates, PR template, contributing guide, security policy, code of conduct.
 
@@ -817,7 +817,7 @@ Prediction creates an explicit decision point between planning and execution, an
 
 **Verification results**:
 
-- `pnpm test` → 117 tests, 39 files, all passing (+10 e2e tests)
+- `pnpm test` → 938 tests pass across 88 files (1 skipped), including deterministic implementation and verification composition
 - Full chain tested: discover → fingerprint → analyze → present → explain → plan → implement → verify
 - All deterministic tiers produce correct output shapes
 - No AI provider required for any test
@@ -854,8 +854,9 @@ Prediction creates an explicit decision point between planning and execution, an
 
 **Benchmark results** (50 TypeScript files, 2 iterations):
 
-- Iteration 1: 52 files in 71ms (~732 files/sec)
-- Iteration 2: 52 files in 59ms (~881 files/sec)
+- Iteration 1: 52 files in 41ms (~1268 files/sec)
+- Iteration 2: 52 files in 45ms (~1156 files/sec)
+- Iteration 3: 52 files in 36ms (~1444 files/sec)
 - Batch INSERT in `saveChunks` replaces N individual INSERTs
 - `bulkSave` wraps document + chunk saves in a single SQLite transaction with `PRAGMA synchronous = OFF` during bulk insert
 - `indexFiles` collects each parallel batch then bulk-saves, reducing transaction overhead
@@ -1913,7 +1914,7 @@ POST /api/analyze-feature
 | `useNotifications()` hook | `apps/workspace/src/lib/notifications.ts` | React hook with auto-polling (15s), `markRead`, `markAllRead`, `refresh` |
 | `HeaderNotifications` (rewired) | `apps/workspace/src/components/layout/AppHeader/HeaderNotifications.tsx` | Bell icon with unread badge + dropdown showing latest 10 unread notifications with mark-read and "View all" link |
 | `NotificationsPage` | `apps/workspace/src/pages/Notifications.tsx` | Full notification history view with type-colored cards, timestamps, mark-read on click, mark-all-read button, refresh, empty state |
-| Toast re-enabled | `apps/workspace/src/components/Toast.tsx` | Re-enabled auto-toast listener for 19 event types with success/info/error icons and 5-second auto-dismiss |
+| Toast queue | `apps/workspace/src/components/Toast.tsx`, `toast-queue.ts` | Auto-toast listener with one-at-a-time display, bounded FIFO queue, non-interrupting error priority, three-second duplicate collapse, repetition counts, and five-second auto-dismiss |
 
 **Architecture**: Events flow `EventBus → ActivityService (domain translation) → NotificationService (persist) → API WebSocket → UI`. The notification center is a consumer of the existing activity stream — no new event pipeline required.
 
@@ -1922,6 +1923,7 @@ POST /api/analyze-feature
 - `pnpm test` — 684 tests pass across 63 files (zero regressions)
 - `pnpm --filter @vestara/workspace-ui build` — UI builds cleanly
 - Notifications auto-populated from: plan creation/approval/cancellation, change set creation/apply, verification completion (pass/fail), collaboration submissions/approvals/rejections, agent start/complete, system errors
+- Toast queue policy is deterministic and covered by `apps/workspace/__tests__/toast-queue.test.ts`
 
 ### v7.7 — Workspace UI Tester Automation ✅ Complete
 
@@ -1935,6 +1937,7 @@ POST /api/analyze-feature
 - API Endpoint: `GET/POST /api/workspace-ui/test-build` triggers the tester on-demand from the Dashboard or external tools
 - Agent Runtime Integration: `continuous-tester` role in `AgentRuntime.run()` routes to dedicated `runContinuousTester()` handler
 - Result Reporting: Test output, build output, and status are recorded as agent executions in the workspace database
+- Runner isolation: Vitest owns UI and visual-framework unit tests; `tests/visual/visual.spec.ts` is reserved for Playwright and excluded from Vitest collection
 
 **Delivered Artifacts**:
 

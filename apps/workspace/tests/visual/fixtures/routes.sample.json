@@ -1,0 +1,8 @@
+{
+  "description": "Sample route manifest fixture (illustrates the RouteDefinition shape). The real manifest is derived from src/routes.ts.",
+  "routes": [
+    { "id": "dashboard", "path": "/dashboard", "url": "/dashboard", "title": "Dashboard", "requiresAuth": false, "enabled": true, "layout": "shell" },
+    { "id": "settings", "path": "/settings/*", "url": "/settings/appearance", "title": "Settings", "requiresAuth": true, "enabled": true, "layout": "shell" },
+    { "id": "session-detail", "path": "/sessions/:id", "url": "/sessions/session-sample", "title": "Session Detail", "requiresAuth": true, "enabled": true, "layout": "shell" }
+  ]
+}

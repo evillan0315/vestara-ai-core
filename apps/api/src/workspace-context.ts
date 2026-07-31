@@ -6,6 +6,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
+import { type DocumentationRepositoryConfig, DocumentationService } from '@vestara/documentation';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
@@ -80,6 +81,7 @@ export interface WorkspaceContext {
   projects?: ProjectService;
   activityStore?: ActivityLogStore;
   telemetry: TelemetryRuntime;
+  documentation: DocumentationService;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -302,6 +304,26 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const workspaceAnalyst = new WorkspaceAnalyst(agents, opencode);
   const suggestionService = new SuggestionService({ planStorage: plans, provider: opencode, executionPlanner });
 
+  const ecosystemRoot = path.dirname(abs);
+  const documentationRepositories: DocumentationRepositoryConfig[] = [
+    { id: 'vestara-ai-core', path: abs, authority: 'implementation', writable: true },
+    { id: 'vestara-blueprint', path: path.join(ecosystemRoot, 'vestara-blueprint'), authority: 'architecture' },
+    { id: 'vestara-standards', path: path.join(ecosystemRoot, 'vestara-standards'), authority: 'standard' },
+    {
+      id: 'vestara-specifications',
+      path: path.join(ecosystemRoot, 'vestara-specifications'),
+      authority: 'specification',
+    },
+  ];
+  const documentation = new DocumentationService({
+    repositories: documentationRepositories,
+    workspaceId: session.fingerprint.id,
+    stateDirectory: path.join(workspaceDir, 'documentation'),
+    eventBus: kernel.eventBus,
+  });
+  await documentation.initialize();
+  await documentation.start();
+
   const unsub = kernel.eventBus.subscribe(
     '*',
     async (evt: { id: string; type: string; timestamp: string; payload: Record<string, unknown> }) => {
@@ -419,6 +441,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     suggestionService,
     activityService,
     telemetry,
+    documentation,
     notificationService,
     milestones,
     projects,
@@ -432,6 +455,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       workspaceUiWatcher.stop();
       notificationService?.stop();
       persistDb(db, dbPath);
+      await documentation.dispose();
       await runtime.close();
       await kernel.shutdown();
     },

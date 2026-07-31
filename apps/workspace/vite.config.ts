@@ -2,7 +2,7 @@
 
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -27,5 +27,6 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     css: true,
+    exclude: [...configDefaults.exclude, 'tests/visual/visual.spec.ts'],
   },
 });

@@ -899,9 +899,9 @@ Development Velocity:
     let auditData = '';
     try {
       const fs = require('node:fs') as typeof import('node:fs');
-      const auditPath = require.resolve('@vestara/conversation-runtime/dist/audit/scanner.js');
+      const auditPath = require.resolve('@vestara/conversation-runtime');
       if (fs.existsSync(auditPath)) {
-        const { ConversationScanner } = require('@vestara/conversation-runtime/dist/audit/scanner.js');
+        const { ConversationScanner } = require('@vestara/conversation-runtime');
         const scanner = new ConversationScanner(process.cwd());
         const report = scanner.scan();
         auditData = `\nConversation Feature Audit Summary:
@@ -1034,9 +1034,7 @@ Provide a structured analysis with:
    * `{"operations": [...]}` contract AND Claude-style `<invoke>` XML tool calls,
    * whichever the provider emits.
    */
-  private tryParseCapabilityCalls(
-    output: string,
-  ): Array<{ name: AgentCapabilityName; input: AgentCapabilityInput }> {
+  private tryParseCapabilityCalls(output: string): Array<{ name: AgentCapabilityName; input: AgentCapabilityInput }> {
     const jsonOps = this.tryParseOperations(output);
     if (jsonOps.length > 0) {
       return jsonOps
@@ -1080,8 +1078,15 @@ Provide a structured analysis with:
         const key = param[1];
         const value = param[2].trim();
         if (
-          key === 'path' || key === 'content' || key === 'reason' || key === 'oldPath' ||
-          key === 'newPath' || key === 'source' || key === 'destination' || key === 'pattern' || key === 'dir'
+          key === 'path' ||
+          key === 'content' ||
+          key === 'reason' ||
+          key === 'oldPath' ||
+          key === 'newPath' ||
+          key === 'source' ||
+          key === 'destination' ||
+          key === 'pattern' ||
+          key === 'dir'
         ) {
           input[key] = value;
         }

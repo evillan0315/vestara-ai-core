@@ -173,8 +173,7 @@ pnpm --filter @vestara/${key} build
 \`${deps}\`"
   readme_content="${readme_content}
 
-See [docs/](../docs/) for capability specifications and architecture.
-"
+See [docs/](../docs/) for capability specifications and architecture."
 
   create "$pkg_dir/README.md" "$readme_content"
 

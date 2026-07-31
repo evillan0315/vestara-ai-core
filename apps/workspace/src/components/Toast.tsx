@@ -1,17 +1,11 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { workspaceSocket } from '../lib/ws';
-
-interface Toast {
-  id: string;
-  type: 'success' | 'info' | 'error';
-  message: string;
-  createdAt: number;
-}
+import { enqueueToast, type Toast, type ToastInput } from './toast-queue';
 
 interface ToastContextValue {
   toasts: Toast[];
-  addToast: (t: Omit<Toast, 'id' | 'createdAt'>) => void;
+  addToast: (toast: ToastInput) => void;
   removeToast: (id: string) => void;
 }
 
@@ -44,29 +38,32 @@ const EVENT_ICONS: Record<string, { type: Toast['type']; label: string }> = {
 
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([]);
-  const timers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const removeToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-    const timer = timers.current.get(id);
-    if (timer) {
-      clearTimeout(timer);
-      timers.current.delete(id);
-    }
   }, []);
 
-  const addToast = useCallback(
-    (t: Omit<Toast, 'id' | 'createdAt'>) => {
-      const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
-      const toast: Toast = { ...t, id, createdAt: Date.now() };
-      setToasts((prev) => [toast, ...prev].slice(0, 5));
-      timers.current.set(
-        id,
-        setTimeout(() => removeToast(id), 5000),
-      );
-    },
-    [removeToast],
-  );
+  const addToast = useCallback((toast: ToastInput) => {
+    const now = Date.now();
+    const id = `toast-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    setToasts((queue) => enqueueToast(queue, toast, id, now));
+  }, []);
+
+  const activeToast = toasts[0];
+  const activeToastId = activeToast?.id;
+
+  useEffect(() => {
+    if (!activeToastId) return;
+
+    timer.current = setTimeout(() => removeToast(activeToastId), 5000);
+    return () => {
+      if (timer.current) {
+        clearTimeout(timer.current);
+        timer.current = null;
+      }
+    };
+  }, [activeToastId, removeToast]);
 
   useEffect(() => {
     const off = workspaceSocket.onEvent((event) => {
@@ -83,24 +80,32 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {/* Toast container */}
       <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
-        {toasts.map((t) => (
+        {activeToast && (
           <div
-            key={t.id}
+            key={activeToast.id}
             className={`flex items-start gap-2 px-4 py-3 rounded-lg border shadow-lg text-sm transition-all ${
-              t.type === 'success'
+              activeToast.type === 'success'
                 ? 'bg-green-400/10 border-green-400/30 text-green-300'
-                : t.type === 'error'
+                : activeToast.type === 'error'
                   ? 'bg-red-400/10 border-red-400/30 text-red-300'
                   : 'bg-blue-400/10 border-blue-400/30 text-blue-300'
             }`}
           >
-            <span className="shrink-0 mt-0.5">{t.type === 'success' ? '✓' : t.type === 'error' ? '✗' : 'ℹ'}</span>
-            <span className="flex-1">{t.message}</span>
-            <button onClick={() => removeToast(t.id)} className="text-zinc-600 hover:text-zinc-400 cursor-pointer">
+            <span className="shrink-0 mt-0.5">
+              {activeToast.type === 'success' ? '✓' : activeToast.type === 'error' ? '✗' : 'ℹ'}
+            </span>
+            <span className="flex-1">{activeToast.message}</span>
+            {activeToast.count > 1 && <span className="font-semibold">×{activeToast.count}</span>}
+            <button
+              type="button"
+              aria-label="Dismiss notification"
+              onClick={() => removeToast(activeToast.id)}
+              className="text-zinc-600 hover:text-zinc-400 cursor-pointer"
+            >
               ×
             </button>
           </div>
-        ))}
+        )}
       </div>
     </ToastContext.Provider>
   );

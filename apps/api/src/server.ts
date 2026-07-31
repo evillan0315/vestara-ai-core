@@ -10,7 +10,12 @@ import { handleActivityRoute } from './routes/activity';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
 import { handleChatRoute } from './routes/chat';
+import { handleDiagnosticsRoute } from './routes/diagnostics';
+import { handleDocsRoute } from './routes/docs';
+import { handleDocumentationRoute } from './routes/documentation';
+import { handleExecutionRoute } from './routes/execution';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
+import { handleGraphRoute } from './routes/graph';
 import { CORS, json } from './routes/index';
 import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
@@ -123,6 +128,11 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
         return;
       }
       if (await handleMiscRoute(method, p, req, res, ctx, port, url)) return;
+      if (await handleDiagnosticsRoute(method, p, req, res, ctx)) return;
+      if (await handleExecutionRoute(method, p, req, res, ctx)) return;
+      if (await handleGraphRoute(method, p, req, res, ctx)) return;
+      if (await handleDocsRoute(method, p, req, res, ctx)) return;
+      if (await handleDocumentationRoute(method, p, req, res, ctx)) return;
       if (await handleAuthRoute(method, p, req, res, ctx, port)) return;
       if (await handleWorkspaceRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;

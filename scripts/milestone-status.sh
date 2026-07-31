@@ -5,6 +5,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MILESTONE="${1:-all}"
 PASS=0
 FAIL=0
 TOTAL=0
@@ -83,7 +84,7 @@ else
 fi
 
 # Stale compiled artifacts in __tests__ dirs
-STALE=$(find "$ROOT/packages" "$ROOT/apps" -path '*/__tests__/*.js' -not -path '*/node_modules/*' 2>/dev/null | head -10)
+STALE=$(find "$ROOT/packages" "$ROOT/apps" -path '*/__tests__/*.js' -not -path '*/node_modules/*' -not -path '*/dist/*' 2>/dev/null | head -10)
 if [ -z "$STALE" ]; then
   pass "No stale compiled artifacts in __tests__ directories"
 else
@@ -145,6 +146,62 @@ if [ -f "$ROOT/tsconfig.tsbuildinfo" ]; then
   pass "tsconfig.tsbuildinfo present (expected build artifact)"
 else
   skip "tsconfig.tsbuildinfo not checked (run pnpm build first)"
+fi
+
+# ── v3.1 — Codebase Cleanup ────────────────────────────────────────────────
+echo "--- v3.1 — Codebase Cleanup ---"
+check "Non-mutating lint gate is defined" "grep -q '\"lint:check\"' '$ROOT/package.json'"
+check "Pre-commit quality script exists and is executable" "test -x '$ROOT/scripts/pre-commit.sh'"
+check "Git pre-commit hook exists and is executable" "test -x '$ROOT/.githooks/pre-commit'"
+
+# ── v3.2 — Documentation Generation ────────────────────────────────────────
+echo "--- v3.2 — Documentation Generation ---"
+check "TypeDoc configuration exists" "test -f '$ROOT/typedoc.json'"
+check "Documentation generator discovers workspace entrypoints" "grep -q 'ENTRY_POINTS' '$ROOT/scripts/generate-docs.sh'"
+check "Generated API documentation exists" "test -f '$ROOT/docs/api/index.html'"
+check "Generated package catalog exists" "test -f '$ROOT/docs/api/PACKAGE_CATALOG.md'"
+
+# ── v3.3 — Pipeline Integration & Benchmarks ───────────────────────────────
+echo "--- v3.3 — Pipeline Integration Tests & Benchmarks ---"
+check "Workspace runtime integration tests exist" "test -f '$ROOT/packages/workspace/__tests__/workspace-runtime-service.test.ts'"
+check "Pipeline benchmark exists" "test -x '$ROOT/scripts/benchmark.sh'"
+check "Pipeline benchmark command is defined" "grep -q '\"benchmark\"' '$ROOT/package.json'"
+
+# ── v3.4 — Repository Hygiene ──────────────────────────────────────────────
+echo "--- v3.4 — Repository Hygiene ---"
+check "Bug report template exists" "test -f '$ROOT/.github/ISSUE_TEMPLATE/bug-report.md'"
+check "Feature request template exists" "test -f '$ROOT/.github/ISSUE_TEMPLATE/feature-request.md'"
+check "Pull request template exists" "test -f '$ROOT/.github/PULL_REQUEST_TEMPLATE.md'"
+check "Contributor and security policies exist" "test -f '$ROOT/CONTRIBUTING.md' && test -f '$ROOT/SECURITY.md' && test -f '$ROOT/CODE_OF_CONDUCT.md'"
+
+# ── v3.5–v3.8 — Product quality capabilities ───────────────────────────────
+echo "--- v3.5 — AI-Powered Suggestions ---"
+check "Suggestion service is exported" "grep -q \"export { SuggestionService }\" '$ROOT/packages/workspace/src/index.ts'"
+check "Suggest command is registered" "grep -Rq \"input.*suggest\" '$ROOT/apps/cli/src/commands'"
+
+echo "--- v3.6 — End-to-End Workflow Tests ---"
+check "Deterministic workspace lifecycle is integration-tested" "grep -q \"stops gracefully\" '$ROOT/packages/workspace/__tests__/workspace-runtime-service.test.ts'"
+check "Implementation and verification services have tests" "test -f '$ROOT/packages/workspace/__tests__/implementation-service.test.ts' || grep -Rq \"ImplementationService\" '$ROOT/packages/workspace/__tests__'"
+
+echo "--- v3.7 — Knowledge Performance Optimization ---"
+check "Knowledge bulkSave is implemented" "grep -q 'bulkSave' '$ROOT/packages/knowledge/src/storage/index.ts'"
+check "Bulk indexing adjusts SQLite synchronous mode" "grep -q 'synchronous = OFF' '$ROOT/packages/knowledge/src/storage/index.ts'"
+check "Index benchmark exists" "test -x '$ROOT/scripts/benchmark-index.sh'"
+
+echo "--- v3.8 — Development Lifecycle & Governance ---"
+for role in context planner engineer reviewer verifier; do
+  check "Vestara $role agent exists" "test -f '$ROOT/../.opencode/agents/vestara-$role.md'"
+done
+check "Lifecycle skill exists" "test -f '$ROOT/../.opencode/skills/vestara-lifecycle/SKILL.md'"
+check "Development lifecycle foundation document exists" "test -f '$ROOT/docs/foundation/02-development-lifecycle.md'"
+
+if [[ "$MILESTONE" == v3* ]]; then
+  echo ""
+  echo "=== v3 Summary ==="
+  echo "Total checks: $TOTAL"
+  echo "Passed:       $PASS"
+  echo "Failed:       $FAIL"
+  [ "$FAIL" -eq 0 ] && exit 0 || exit 1
 fi
 
 # ── v8.0 — Runtime Model ─────────────────────────────────────────────
