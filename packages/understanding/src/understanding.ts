@@ -105,6 +105,42 @@ export interface StateUnderstanding {
   readonly isCached: boolean;
 }
 
+// ─── Knowledge (Verified Conclusions) ────────────────────────
+
+export interface TechnologyConclusion {
+  readonly frontend: string;
+  readonly styling: readonly string[];
+  readonly backend?: string;
+  readonly database?: string;
+  readonly testing?: string;
+}
+
+export interface RuntimeConclusion {
+  readonly model: string;
+  readonly primaryOrchestrator: string;
+  readonly conversationRuntime: string;
+  readonly workspaceRuntime: string;
+}
+
+export interface ApplicationConclusion {
+  readonly primaryFrontend: string;
+  readonly primaryBackend: string;
+  readonly overviewPage: string;
+  readonly dashboardPages: readonly string[];
+  readonly entryPoints: readonly {
+    readonly path: string;
+    readonly role: string;
+  }[];
+}
+
+export interface KnowledgeUnderstanding {
+  readonly application: ApplicationConclusion;
+  readonly technology: TechnologyConclusion;
+  readonly runtime: RuntimeConclusion;
+  readonly confidence: number;
+  readonly evidence: readonly string[];
+}
+
 // ─── Root Model ─────────────────────────────────────────────
 
 export interface WorkspaceUnderstanding {
@@ -118,6 +154,7 @@ export interface WorkspaceUnderstanding {
   readonly activity: ActivityUnderstanding;
   readonly memory: MemoryUnderstanding;
   readonly state: StateUnderstanding;
+  readonly knowledge: KnowledgeUnderstanding;
 
   /**
    * Deterministic narrative — derived entirely from

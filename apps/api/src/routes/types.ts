@@ -1,7 +1,13 @@
-import * as http from 'node:http';
+import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
 
-export type RouteHandler = (req: http.IncomingMessage, res: http.ServerResponse, ctx: WorkspaceContext, url: URL, port: number) => Promise<boolean>;
+export type RouteHandler = (
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: WorkspaceContext,
+  url: URL,
+  port: number,
+) => Promise<boolean>;
 
 export const CORS = {
   'Access-Control-Allow-Origin': '*',

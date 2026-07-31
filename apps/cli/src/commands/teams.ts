@@ -1,5 +1,5 @@
-import { BOLD, GOLD, GREEN, RED, GRAY, RESET } from '../output/format.js';
 import { openSharedDb } from '../lib/db.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 export async function runTeamsList(): Promise<void> {
   console.log();
@@ -20,12 +20,21 @@ export async function runTeamsList(): Promise<void> {
     for (const team of teams) {
       const leader = agents.find((a: any) => a.id === team.leaderAgentId);
       const members = agents.filter((a: any) => team.memberIds.includes(a.id) || a.teamId === team.id);
-      const memberExecs = members.map((m: any) => execs.filter((e: any) => e.agentId === m.id || m.id.includes(e.agentId)));
+      const memberExecs = members.map((m: any) =>
+        execs.filter((e: any) => e.agentId === m.id || m.id.includes(e.agentId)),
+      );
       const totalExecs = memberExecs.reduce((s: number, es: any[]) => s + es.length, 0);
-      const failedExecs = memberExecs.reduce((s: number, es: any[]) => s + es.filter((e: any) => e.status === 'failed').length, 0);
-      console.log(`  ${GREEN}●${RESET} ${team.name.padEnd(25)} ${members.length} members${leader ? `, leader: ${leader.name}` : ''}`);
+      const failedExecs = memberExecs.reduce(
+        (s: number, es: any[]) => s + es.filter((e: any) => e.status === 'failed').length,
+        0,
+      );
+      console.log(
+        `  ${GREEN}●${RESET} ${team.name.padEnd(25)} ${members.length} members${leader ? `, leader: ${leader.name}` : ''}`,
+      );
       console.log(`  ${' '.repeat(4)}${GRAY}Executions: ${totalExecs} total, ${failedExecs} failed${RESET}`);
-      console.log(`  ${' '.repeat(4)}${GRAY}Members: ${members.map((m: any) => m.name).join(', ') || '(none)'}${RESET}`);
+      console.log(
+        `  ${' '.repeat(4)}${GRAY}Members: ${members.map((m: any) => m.name).join(', ') || '(none)'}${RESET}`,
+      );
       if (team.sharedContext) console.log(`  ${' '.repeat(4)}${GRAY}Context: ${team.sharedContext}${RESET}`);
       console.log();
     }
@@ -45,11 +54,19 @@ export async function runTeamsCreate(names: string[]): Promise<void> {
     const store = new AgentStorage(db);
     const agents = await store.listAgents();
     const teams = await store.listTeams().catch(() => []);
-    const unassigned = agents.filter((a: any) => a.status === 'active' && !a.teamId && !teams.some((t: any) => t.memberIds.includes(a.id)));
+    const unassigned = agents.filter(
+      (a: any) => a.status === 'active' && !a.teamId && !teams.some((t: any) => t.memberIds.includes(a.id)),
+    );
     const teamId = `team-${Date.now()}`;
     await store.saveTeam({
-      id: teamId, name: teamName, description: '', leaderAgentId: '',
-      memberIds: [], sharedContext: '', activeWorkflowId: '', createdAt: new Date().toISOString(),
+      id: teamId,
+      name: teamName,
+      description: '',
+      leaderAgentId: '',
+      memberIds: [],
+      sharedContext: '',
+      activeWorkflowId: '',
+      createdAt: new Date().toISOString(),
     });
     console.log(`  ${GREEN}✓${RESET} Team "${teamName}" created (id: ${teamId})`);
     if (unassigned.length > 0) {

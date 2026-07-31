@@ -17,7 +17,7 @@ import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
 import { WorkspaceRuntime } from '@vestara/workspace';
-import { GOLD, GREEN, RED, RESET, BOLD, GRAY, renderStep } from '../output/format.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStep } from '../output/format.js';
 
 export async function runOpen(openPath: string, force = false): Promise<void> {
   // If workspace already exists and --force was not passed, warn and exit

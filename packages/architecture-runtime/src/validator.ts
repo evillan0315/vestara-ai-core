@@ -1,6 +1,5 @@
-import type { AdrNode, VerificationReport } from './types.js';
-import type { AdrDocument } from './types.js';
 import { buildGraph, findNode, getDependents } from './graph.js';
+import type { AdrDocument, AdrNode, VerificationReport } from './types.js';
 
 export function findCycles(graph: Map<string, AdrNode>): string[][] {
   const cycles: string[][] = [];
@@ -45,7 +44,7 @@ export function findCycles(graph: Map<string, AdrNode>): string[][] {
 export function verifyGraph(
   graph: Map<string, AdrNode>,
   docs: AdrDocument[],
-  blueprintDir?: string
+  blueprintDir?: string,
 ): VerificationReport {
   const brokenDependencies: { from: string; to: string; error: string }[] = [];
   const circularDependencies = findCycles(graph);
@@ -80,10 +79,7 @@ export function verifyGraph(
     }
   }
 
-  const pass =
-    brokenDependencies.length === 0 &&
-    circularDependencies.length === 0 &&
-    duplicateIds.length === 0;
+  const pass = brokenDependencies.length === 0 && circularDependencies.length === 0 && duplicateIds.length === 0;
 
   return {
     totalAdrs: graph.size,

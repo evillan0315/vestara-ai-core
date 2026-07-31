@@ -14,6 +14,7 @@
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
     "@vestara/event-bus": "workspace:*",
+    "@vestara/filesystem-runtime": "workspace:*",
     "@vestara/knowledge": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/memory": "workspace:*",

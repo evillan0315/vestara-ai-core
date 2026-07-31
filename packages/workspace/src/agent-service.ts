@@ -1,4 +1,6 @@
 import type { EventBus } from '@vestara/event-bus';
+import type { AgentCapabilityName } from './agent-capability';
+import type { AgentCapabilityManager } from './agent-capability-manager';
 import { AgentPermissionEngine } from './agent-permission';
 import type { AgentRuntime } from './agent-runtime';
 import type { AgentStorage } from './agent-storage';
@@ -59,12 +61,19 @@ export class AgentService {
   private runtime: AgentRuntime;
   private permission: AgentPermissionEngine;
   private eventBus?: EventBus;
+  private capabilities?: AgentCapabilityManager;
 
-  constructor(opts: { storage: AgentStorage; runtime: AgentRuntime; eventBus?: EventBus }) {
+  constructor(opts: {
+    storage: AgentStorage;
+    runtime: AgentRuntime;
+    eventBus?: EventBus;
+    capabilities?: AgentCapabilityManager;
+  }) {
     this.storage = opts.storage;
     this.runtime = opts.runtime;
     this.permission = new AgentPermissionEngine();
     this.eventBus = opts.eventBus;
+    this.capabilities = opts.capabilities;
   }
 
   /**
@@ -97,11 +106,21 @@ export class AgentService {
    * List all capabilities with descriptions.
    */
   listCapabilities(): Array<{ id: string; name: string; description: string }> {
-    return Object.entries(CAPABILITY_DESCRIPTIONS).map(([id, description]) => ({
+    const domain = Object.entries(CAPABILITY_DESCRIPTIONS).map(([id, description]) => ({
       id,
       name: id.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()),
       description,
     }));
+    if (this.capabilities) {
+      domain.push(
+        ...this.capabilities.listCapabilities().map((c) => ({
+          id: c.name,
+          name: c.name,
+          description: c.description,
+        })),
+      );
+    }
+    return domain;
   }
 
   /**
@@ -110,10 +129,18 @@ export class AgentService {
   getAgentCapabilities(
     agent: AgentDefinition,
   ): Array<{ id: string; name: string; description: string; hasCapability: boolean }> {
-    return this.listCapabilities().map((cap) => ({
+    const domain = this.listCapabilities().map((cap) => ({
       ...cap,
       hasCapability: this.permission.hasCapability(agent, cap.id),
     }));
+
+    if (this.capabilities) {
+      const permitted = new Set(this.capabilities.getCapabilitiesForAgent(agent).map((c) => c.name));
+      for (const cap of domain) {
+        if (cap.id.startsWith('filesystem.')) cap.hasCapability = permitted.has(cap.id as AgentCapabilityName);
+      }
+    }
+    return domain;
   }
 
   /**

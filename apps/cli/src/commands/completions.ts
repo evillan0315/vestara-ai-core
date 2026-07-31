@@ -1,7 +1,25 @@
 import { GOLD, GRAY, RESET } from '../output/format.js';
 
 export async function runCompletions(shell?: string): Promise<void> {
-  const COMMANDS = ['open', 'validate', 'status', 'doctor', 'agents', 'teams', 'session', 'metrics', 'benchmark', 'demo', 'config', 'models', 'provider', 'plans', 'projects', 'completions', 'help'];
+  const COMMANDS = [
+    'open',
+    'validate',
+    'status',
+    'doctor',
+    'agents',
+    'teams',
+    'session',
+    'metrics',
+    'benchmark',
+    'demo',
+    'config',
+    'models',
+    'provider',
+    'plans',
+    'projects',
+    'completions',
+    'help',
+  ];
   const DOCTOR_SUBS = ['audio', 'conversation', 'agents', 'teams', 'models'];
   const TEAMS_SUBS = ['create', 'assign', 'list'];
   const SESSION_SUBS = ['workflows', 'start', 'list', 'background'];

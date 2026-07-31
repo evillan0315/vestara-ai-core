@@ -2,7 +2,7 @@
 // CHUNK ENGINE
 // ═══════════════════════════════════════════════════════════════
 
-import type { KnowledgeDocument, KnowledgeChunk } from '../types/index.js';
+import type { KnowledgeChunk, KnowledgeDocument } from '../types/index.js';
 
 export interface ChunkEngine {
   chunk(document: KnowledgeDocument, maxSize?: number, overlap?: number): KnowledgeChunk[];

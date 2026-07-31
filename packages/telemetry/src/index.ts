@@ -1,6 +1,14 @@
-import type { AgentId, AgentName, AgentState, AgentStatus, OperationType, TelemetryEvent, TelemetrySubscriber } from './types.js';
+import type {
+  AgentId,
+  AgentName,
+  AgentState,
+  AgentStatus,
+  OperationType,
+  TelemetryEvent,
+  TelemetrySubscriber,
+} from './types.js';
 
-export type { AgentState, AgentStatus, OperationType, TelemetryEvent, TelemetrySubscriber, AgentId, AgentName };
+export type { AgentId, AgentName, AgentState, AgentStatus, OperationType, TelemetryEvent, TelemetrySubscriber };
 
 const DEFAULT_AGENTS: Array<{ id: string; name: string }> = [
   { id: 'context', name: 'Context' },
@@ -68,7 +76,9 @@ export class TelemetryRuntime {
     }
 
     for (const sub of this.subscribers) {
-      try { sub(event); } catch {}
+      try {
+        sub(event);
+      } catch {}
     }
   }
 
@@ -81,7 +91,14 @@ export class TelemetryRuntime {
     status: AgentStatus,
     operation: OperationType,
     task: string,
-    opts?: { filePath?: string; progress?: number; phase?: string; detail?: string; metadata?: Record<string, unknown>; checks?: Array<{ name: string; status: string; durationMs: number }> },
+    opts?: {
+      filePath?: string;
+      progress?: number;
+      phase?: string;
+      detail?: string;
+      metadata?: Record<string, unknown>;
+      checks?: Array<{ name: string; status: string; durationMs: number }>;
+    },
   ): void {
     const agent = this.agents.get(agentId);
     if (!agent) return;

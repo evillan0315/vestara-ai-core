@@ -102,7 +102,7 @@ export class VerificationService {
 
     for (let i = 0; i < checkFns.length; i++) {
       const checkLabel = checkLabels[i];
-      const progress = Math.round(((i) / totalChecks) * 100);
+      const progress = Math.round((i / totalChecks) * 100);
 
       this.onTelemetry?.({
         phase: 'check.started',

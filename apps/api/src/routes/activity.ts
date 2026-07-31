@@ -1,11 +1,20 @@
-import * as http from 'node:http';
+import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
 import { json } from './types';
 
-export async function handleActivityRoute(method: string, p: string, req: http.IncomingMessage, res: http.ServerResponse, ctx: WorkspaceContext): Promise<boolean> {
+export async function handleActivityRoute(
+  method: string,
+  p: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: WorkspaceContext,
+): Promise<boolean> {
   if (method === 'GET' && p === '/api/activity-log') {
-    try { json(res, 200, { events: ctx.activityStore ? await ctx.activityStore.query({ limit: 100 }) : [] }); }
-    catch { json(res, 200, { events: [] }); }
+    try {
+      json(res, 200, { events: ctx.activityStore ? await ctx.activityStore.query({ limit: 100 }) : [] });
+    } catch {
+      json(res, 200, { events: [] });
+    }
     return true;
   }
 

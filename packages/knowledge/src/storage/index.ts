@@ -1,5 +1,5 @@
-import type { KnowledgeDocument, KnowledgeChunk, SearchResult, IndexReport } from '../types/index.js';
-import { dbRun, dbGet, dbAll } from '../db.js';
+import { dbAll, dbGet, dbRun } from '../db.js';
+import type { IndexReport, KnowledgeChunk, KnowledgeDocument, SearchResult } from '../types/index.js';
 
 export class KnowledgeStorage {
   private db: any;

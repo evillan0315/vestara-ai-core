@@ -18,6 +18,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { AIProvider } from '@vestara/shared';
+import type { AgentCapabilityManager } from './agent-capability-manager';
 import type { ChangeSetStorage } from './change-set-storage';
 import type { DecisionStorage } from './decision-storage';
 import type { PlanStorage } from './plan-storage';
@@ -36,17 +37,20 @@ export class ImplementationService {
   private csStorage: ChangeSetStorage;
   private decisionStorage?: DecisionStorage;
   private provider?: AIProvider;
+  private capabilities?: AgentCapabilityManager;
 
   constructor(opts: {
     planStorage: PlanStorage;
     csStorage: ChangeSetStorage;
     decisionStorage?: DecisionStorage;
     provider?: AIProvider;
+    capabilities?: AgentCapabilityManager;
   }) {
     this.planStorage = opts.planStorage;
     this.csStorage = opts.csStorage;
     this.decisionStorage = opts.decisionStorage;
     this.provider = opts.provider;
+    this.capabilities = opts.capabilities;
   }
 
   /**
@@ -197,10 +201,21 @@ export class ImplementationService {
 
     for (const fileChange of cs.files) {
       try {
-        const fullPath = path.resolve(rootDir, fileChange.path);
-        const dir = path.dirname(fullPath);
-        fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(fullPath, fileChange.proposedContent, 'utf-8');
+        if (this.capabilities) {
+          // Route through the FilesystemRuntime capability boundary — workspace
+          // sandbox, approval gates, dry-run, and operation logging apply.
+          const result = await this.capabilities.executeAsTool('filesystem.write', {
+            path: fileChange.path,
+            content: fileChange.proposedContent,
+            reason: `Apply change set ${cs.id}`,
+          });
+          if (!result.ok) throw new Error(result.error || 'Write failed');
+        } else {
+          const fullPath = path.resolve(rootDir, fileChange.path);
+          const dir = path.dirname(fullPath);
+          fs.mkdirSync(dir, { recursive: true });
+          fs.writeFileSync(fullPath, fileChange.proposedContent, 'utf-8');
+        }
         fileChange.status = 'applied';
       } catch (error) {
         fileChange.status = 'conflict';

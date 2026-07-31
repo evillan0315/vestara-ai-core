@@ -1,7 +1,7 @@
-import { describe, expect, it } from 'vitest';
 import * as fs from 'node:fs';
-import * as path from 'node:path';
 import * as os from 'node:os';
+import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { FilesystemRuntime } from '../src/index.js';
 
 function tmpDir(): string {
@@ -101,7 +101,10 @@ describe('FilesystemRuntime', () => {
     let pendingCalled = false;
     const rt = new FilesystemRuntime({
       rootDir: dir,
-      onPendingApproval: (op) => { pendingCalled = true; expect(op.type).toBe('delete'); },
+      onPendingApproval: (op) => {
+        pendingCalled = true;
+        expect(op.type).toBe('delete');
+      },
     });
     const result = await rt.delete('target.txt');
     expect(result.requiresApproval).toBe(true);
@@ -143,5 +146,124 @@ describe('FilesystemRuntime', () => {
     await rt.delete('f1.txt');
     await rt.delete('f2.txt');
     expect(rt.getPendingApprovals()).toHaveLength(2);
+  });
+
+  it('rejects path traversal via ..', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'secret.txt'), 'secret');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.read('../secret.txt');
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/escapes workspace root/);
+  });
+
+  it('rejects absolute paths outside the root', async () => {
+    const dir = tmpDir();
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const outside = path.join(os.tmpdir(), 'fs-runtime-outside.txt');
+    fs.writeFileSync(outside, 'x');
+    const result = await rt.read(outside);
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/escapes workspace root/);
+  });
+
+  it('rejects writes to denied files', async () => {
+    const dir = tmpDir();
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.write('.env', 'SECRET=1');
+    expect(result.ok).toBe(false);
+    expect(result.error).toMatch(/denied file/);
+  });
+
+  it('rejects absolute paths via write', async () => {
+    const dir = tmpDir();
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const outside = path.join(os.tmpdir(), 'fs-runtime-escaped.txt');
+    const result = await rt.write(outside, 'pwned');
+    expect(result.ok).toBe(false);
+    expect(fs.existsSync(outside)).toBe(false);
+  });
+
+  it('updates a file via replace patch and returns a change summary', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'doc.ts'), 'const a = 1;\nconst b = 2;\n');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.update('doc.ts', { replace: [{ search: 'const b = 2;', replace: 'const b = 20;' }] });
+    expect(result.ok).toBe(true);
+    expect(result.data!.summary.changed).toBe(true);
+    expect(result.data!.summary.added).toBeGreaterThan(0);
+    expect(result.data!.summary.removed).toBeGreaterThan(0);
+    expect(fs.readFileSync(path.join(dir, 'doc.ts'), 'utf-8')).toContain('const b = 20;');
+  });
+
+  it('inserts and removes lines via patch', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'lines.txt'), 'one\ntwo\nthree\n');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.update('lines.txt', {
+      insert: [{ atLine: 3, content: 'inserted' }],
+      removeLines: [{ startLine: 1, endLine: 1 }],
+    });
+    expect(result.ok).toBe(true);
+    const content = fs.readFileSync(path.join(dir, 'lines.txt'), 'utf-8');
+    expect(content).toContain('inserted');
+    expect(content).not.toContain('one');
+  });
+
+  it('returns metadata via stat', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'meta.txt'), 'hello');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.stat('meta.txt');
+    expect(result.ok).toBe(true);
+    expect(result.data!.isFile).toBe(true);
+    expect(result.data!.size).toBe(5);
+  });
+
+  it('copies a file', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'src.txt'), 'copy me');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.copy('src.txt', 'nested/dst.txt');
+    expect(result.ok).toBe(true);
+    expect(fs.readFileSync(path.join(dir, 'nested/dst.txt'), 'utf-8')).toBe('copy me');
+  });
+
+  it('honors dry-run mode without touching the disk', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'target.txt'), 'original');
+    const rt = new FilesystemRuntime({ rootDir: dir, dryRun: true });
+    const result = await rt.update('target.txt', { replace: [{ search: 'original', replace: 'changed' }] });
+    expect(result.ok).toBe(true);
+    expect(result.dryRun).toBe(true);
+    expect(fs.readFileSync(path.join(dir, 'target.txt'), 'utf-8')).toBe('original');
+  });
+
+  it('honors per-call dry-run override', async () => {
+    const dir = tmpDir();
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    const result = await rt.write('out.txt', 'content', { dryRun: true });
+    expect(result.ok).toBe(true);
+    expect(result.dryRun).toBe(true);
+    expect(fs.existsSync(path.join(dir, 'out.txt'))).toBe(false);
+  });
+
+  it('records operation history', async () => {
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, 'h.txt'), 'data');
+    const rt = new FilesystemRuntime({ rootDir: dir });
+    await rt.write('w.txt', 'x');
+    await rt.update('h.txt', { replace: [{ search: 'data', replace: 'DATA' }] });
+    const history = rt.getHistory();
+    expect(history.some((r) => r.type === 'write' && r.status === 'completed')).toBe(true);
+    expect(history.some((r) => r.type === 'update' && r.status === 'completed')).toBe(true);
+  });
+
+  it('fires onOperation for mutations', async () => {
+    const dir = tmpDir();
+    const seen: string[] = [];
+    const rt = new FilesystemRuntime({ rootDir: dir, onOperation: (r) => seen.push(r.type) });
+    await rt.write('o.txt', 'data');
+    expect(seen).toContain('write');
   });
 });

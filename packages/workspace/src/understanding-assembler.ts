@@ -75,6 +75,33 @@ export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
           : ('missing' as const),
         isCached: observation.workspace.lastOpenedAt !== null,
       },
+      knowledge: {
+        application: {
+          primaryFrontend: '',
+          primaryBackend: '',
+          overviewPage: '',
+          dashboardPages: [],
+          entryPoints: observation.entryPoints.map((ep) => ({
+            path: ep.path,
+            role: ep.type,
+          })),
+        },
+        technology: {
+          frontend: 'unknown',
+          styling: [],
+          backend: undefined,
+          database: undefined,
+          testing: undefined,
+        },
+        runtime: {
+          model: observation.config.isMonorepo ? 'Runtime-based (Monorepo)' : 'Runtime-based',
+          primaryOrchestrator: 'WorkspaceRuntime',
+          conversationRuntime: '',
+          workspaceRuntime: '@vestara/workspace',
+        },
+        confidence: 0,
+        evidence: [],
+      },
       summary: '',
     };
 
@@ -119,6 +146,11 @@ export class DefaultUnderstandingAssembler implements UnderstandingAssembler {
     if (partial.state) {
       for (const [k, v] of Object.entries(partial.state)) {
         if (v !== undefined) t.state[k] = v;
+      }
+    }
+    if (partial.knowledge) {
+      for (const [k, v] of Object.entries(partial.knowledge)) {
+        if (v !== undefined) t.knowledge[k] = v;
       }
     }
   }

@@ -13,6 +13,8 @@
  */
 
 import type { AIProvider } from '@vestara/shared';
+import type { AgentCapabilityInput, AgentCapabilityName, AgentCapabilityResult } from './agent-capability';
+import type { AgentCapabilityManager } from './agent-capability-manager';
 import { AgentPermissionEngine } from './agent-permission';
 import type { AgentStorage } from './agent-storage';
 import type { AgentDefinition, AgentExecution } from './types';
@@ -24,15 +26,40 @@ export interface AgentRunResult {
   message: string;
 }
 
+export interface CapabilityExecutionResult {
+  capability: AgentCapabilityName;
+  result: AgentCapabilityResult;
+}
+
+/** LLM-synthesized file operation, mapped into an executable capability. */
+interface AgentFileOperation {
+  op: 'write' | 'update' | 'create' | 'delete' | 'rename' | 'copy';
+  path?: string;
+  content?: string;
+  patch?: AgentCapabilityInput['patch'];
+  oldPath?: string;
+  newPath?: string;
+  source?: string;
+  destination?: string;
+  reason?: string;
+}
+
 export class AgentRuntime {
   private storage: AgentStorage;
   private permission: AgentPermissionEngine;
   private provider?: AIProvider;
+  private capabilities?: AgentCapabilityManager;
 
-  constructor(opts: { storage: AgentStorage; provider?: AIProvider }) {
+  constructor(opts: {
+    storage: AgentStorage;
+    provider?: AIProvider;
+    filesystem?: AgentCapabilityManager;
+    capabilities?: AgentCapabilityManager;
+  }) {
     this.storage = opts.storage;
     this.permission = new AgentPermissionEngine();
     this.provider = opts.provider;
+    this.capabilities = opts.capabilities ?? opts.filesystem;
   }
 
   /**
@@ -99,8 +126,122 @@ export class AgentRuntime {
   }
 
   /**
-   * List all available agents.
+   * Execute a filesystem capability on behalf of an agent.
+   * Routes through the AgentCapabilityManager (permission gate + FilesystemRuntime
+   * sandbox/approval) and records the observation into session memory so the
+   * Understanding Runtime sees updated workspace knowledge.
    */
+  async executeCapability(
+    agentId: string,
+    capability: AgentCapabilityName,
+    input: AgentCapabilityInput,
+    session?: WorkspaceSession,
+  ): Promise<CapabilityExecutionResult> {
+    const agent = await this.storage.getAgent(agentId);
+    if (!agent) throw new Error(`Agent "${agentId}" not found.`);
+    if (!this.capabilities) {
+      return {
+        capability,
+        result: { ok: false, error: 'Agent runtime has no capability manager wired' },
+      };
+    }
+
+    const result = await this.capabilities.execute(agent, capability, input);
+
+    if (session) {
+      try {
+        await session.storeMemory(
+          'event',
+          JSON.stringify(
+            result.observation ?? {
+              operation: capability,
+              file: String(input.path ?? input.oldPath ?? ''),
+              status: result.ok ? 'success' : 'failed',
+              error: result.error,
+              timestamp: new Date().toISOString(),
+            },
+          ),
+        );
+      } catch {
+        // Memory may be unavailable in lightweight sessions
+      }
+    }
+
+    return { capability, result };
+  }
+
+  /**
+   * The filesystem capabilities available to a given agent.
+   */
+  getCapabilitiesForAgent(agentId: string): Promise<ReturnType<AgentCapabilityManager['getCapabilitiesForAgent']>> {
+    return this.storage.getAgent(agentId).then((agent) => {
+      if (!agent || !this.capabilities) return [];
+      return this.capabilities.getCapabilitiesForAgent(agent);
+    });
+  }
+
+  /**
+   * Gather contextual file information before LLM reasoning.
+   * Uses the FilesystemRuntime to search, read, and reference files
+   * related to the task — so the LLM reasons from evidence, not guesses.
+   */
+  private async gatherFileContext(task: string, session: WorkspaceSession): Promise<string> {
+    if (!this.capabilities) return '';
+
+    const rootDir = session.rootPath || '.';
+    const parts: string[] = [];
+    const keywords = task
+      .toLowerCase()
+      .replace(/[^a-zA-Z0-9\s]/g, '')
+      .split(/\s+/)
+      .filter(
+        (w) =>
+          w.length > 3 &&
+          ![
+            'this',
+            'that',
+            'with',
+            'from',
+            'what',
+            'where',
+            'which',
+            'would',
+            'could',
+            'should',
+            'about',
+            'there',
+            'their',
+          ].includes(w),
+      )
+      .slice(0, 5);
+
+    // Search for files matching task keywords
+    if (keywords.length > 0) {
+      for (const kw of keywords) {
+        const searchResult = await this.capabilities.executeAsTool('filesystem.search', { pattern: kw, dir: rootDir });
+        if (searchResult.ok && Array.isArray(searchResult.data) && searchResult.data.length > 0) {
+          const matches = (searchResult.data as string[]).slice(0, 8);
+          parts.push(`Search "${kw}":\n  ${matches.join('\n  ')}`);
+        }
+      }
+    }
+
+    // Read relevant entry points
+    const entryPoints = session.profile?.entryPoints?.slice(0, 5) ?? [];
+    for (const ep of entryPoints) {
+      const epPath = typeof ep === 'string' ? ep : ep.path;
+      if (keywords.some((kw) => epPath.toLowerCase().includes(kw))) {
+        const readResult = await this.capabilities.executeAsTool('filesystem.read', { path: epPath });
+        if (readResult.ok && typeof readResult.data === 'string') {
+          const data = readResult.data;
+          const lines = data.split('\n').length;
+          parts.push(`File: ${epPath} (${lines} lines)\n\`\`\`\n${data.slice(0, 1200)}\n\`\`\``);
+        }
+      }
+    }
+
+    return parts.length > 0 ? `\nEvidence gathered from workspace:\n${parts.join('\n\n')}` : '';
+  }
   async listAgents(): Promise<AgentDefinition[]> {
     return this.storage.listAgents();
   }
@@ -139,6 +280,7 @@ export class AgentRuntime {
     if (!perm.allowed) throw new Error(perm.reason);
 
     const profile = session.profile;
+    const fileCtx = await this.gatherFileContext(task, session);
     const contextData = `Repository: ${profile.name}
 Language: ${profile.language}
 Packages: ${profile.packageCount}
@@ -146,7 +288,7 @@ Entry Points: ${profile.entryPoints
       .slice(0, 5)
       .map((e) => e.path)
       .join(', ')}
-Risks: ${profile.risks.length} detected`;
+Risks: ${profile.risks.length} detected${fileCtx}`;
 
     let output = '';
 
@@ -189,6 +331,9 @@ Risks: ${profile.risks.length} detected`;
 
   /**
    * Developer agent: implements changes through the standard lifecycle.
+   * Available filesystem capabilities are described to the LLM; any structured
+   * file operations it returns are executed through the AgentCapabilityManager
+   * and their observations are recorded for the Understanding Runtime.
    */
   private async runDeveloper(
     agent: AgentDefinition,
@@ -200,12 +345,23 @@ Risks: ${profile.risks.length} detected`;
     if (!perm.allowed) throw new Error(perm.reason);
 
     const profile = session.profile;
+    const fileCtx = await this.gatherFileContext(task, session);
+
+    const capabilityList = this.capabilities ? this.capabilities.getCapabilitiesForAgent(agent) : [];
+    const capabilityCtx =
+      capabilityList.length > 0
+        ? `\nAvailable filesystem capabilities (use ONLY these to modify files):\n${capabilityList
+            .map((c) => `  - ${c.name}: ${c.description}${c.requiresReason ? ' (requires a reason)' : ''}`)
+            .join('\n')}`
+        : '\n(No filesystem capabilities are available to this agent.)';
+
     const contextData = `Repository: ${profile.name}
 Language: ${profile.language}
 Packages: ${profile.packageCount}
-Files: ${profile.fileCount ?? profile.entryPoints?.length ?? 0}`;
+Files: ${profile.fileCount ?? profile.entryPoints?.length ?? 0}${capabilityCtx}${fileCtx}`;
 
     let output = '';
+    const observations: CapabilityExecutionResult[] = [];
 
     if (this.provider) {
       try {
@@ -215,7 +371,10 @@ Files: ${profile.fileCount ?? profile.entryPoints?.length ?? 0}`;
             {
               role: 'system',
               content:
-                "You are Vestara's Developer Agent. Analyze the feature request and create a detailed implementation plan with specific file changes.",
+                "You are Vestara's Developer Agent. Analyze the feature request and produce an implementation plan. " +
+                'If concrete file changes are needed, return a JSON block at the end of your reply with this exact shape: ' +
+                '{"operations": [{"op": "write|update|create|delete|rename|copy", "path": "relative/path", "content": "full new content (for write/create)", "patch": {"replace": [{"search": "...", "replace": "..."}]}, "oldPath": "..", "newPath": "..", "source": "..", "destination": "..", "reason": "why this change"}]}. ' +
+                'Only reference paths inside the workspace and only use the capabilities listed in the workspace context.',
             },
             { role: 'user', content: `Feature Request: ${task}\n\nWorkspace Context:\n${contextData}` },
           ],
@@ -223,6 +382,17 @@ Files: ${profile.fileCount ?? profile.entryPoints?.length ?? 0}`;
           maxTokens: 4096,
         });
         output = response.content || 'Implementation plan generated.';
+
+        const calls = this.tryParseCapabilityCalls(output);
+        if (calls.length > 0) {
+          for (const call of calls) {
+            if (call.input.reason === undefined && this.capabilities?.getDefinition(call.name)?.requiresReason) {
+              call.input.reason = `Agent ${agent.id} implementing requested change`;
+            }
+            const result = await this.executeCapability(agent.id, call.name, call.input, session);
+            observations.push(result);
+          }
+        }
       } catch (err: any) {
         output = `[Developer Agent] Error calling AI provider: ${err.message}\n\nFalling back to template plan.\n\nImplementation plan for: ${task}\n1. Analyze current state\n2. Implement changes\n3. Verify changes`;
       }
@@ -234,6 +404,16 @@ Files: ${profile.fileCount ?? profile.entryPoints?.length ?? 0}`;
         `2. Implement changes\n` +
         `3. Verify changes\n\n` +
         `Use "vestara plan" with the above description to create an approved plan.`;
+    }
+
+    if (observations.length > 0) {
+      output += `\n\nFilesystem operations executed:\n${observations
+        .map((o) => {
+          const obs = o.result.observation;
+          const details = obs?.changes ? ` (+${obs.changes.added}/-${obs.changes.removed} lines)` : '';
+          return `  - ${o.result.ok ? '✓' : '✗'} ${o.capability} ${obs?.file ?? ''}${details}${o.result.error ? ` — ${o.result.error}` : ''}`;
+        })
+        .join('\n')}`;
     }
 
     execution.status = 'completed';
@@ -850,6 +1030,145 @@ Provide a structured analysis with:
   }
 
   /**
+   * Parse LLM output into executable capability calls. Accepts the JSON
+   * `{"operations": [...]}` contract AND Claude-style `<invoke>` XML tool calls,
+   * whichever the provider emits.
+   */
+  private tryParseCapabilityCalls(
+    output: string,
+  ): Array<{ name: AgentCapabilityName; input: AgentCapabilityInput }> {
+    const jsonOps = this.tryParseOperations(output);
+    if (jsonOps.length > 0) {
+      return jsonOps
+        .map((op) => {
+          const capability = this.mapOperationToCapability(op.op);
+          if (!capability) return null;
+          return {
+            name: capability,
+            input: {
+              path: op.path,
+              content: op.content,
+              patch: op.patch,
+              oldPath: op.oldPath,
+              newPath: op.newPath,
+              source: op.source,
+              destination: op.destination,
+              reason: op.reason,
+            } as AgentCapabilityInput,
+          };
+        })
+        .filter((c): c is { name: AgentCapabilityName; input: AgentCapabilityInput } => c !== null);
+    }
+    return this.tryParseToolCalls(output);
+  }
+
+  /**
+   * Extract Claude-style `<invoke name="filesystem.…">` tool calls from LLM output.
+   */
+  private tryParseToolCalls(output: string): Array<{ name: AgentCapabilityName; input: AgentCapabilityInput }> {
+    const calls: Array<{ name: AgentCapabilityName; input: AgentCapabilityInput }> = [];
+    const blockRe = /<invoke\s+name="(filesystem\.[a-zA-Z]+)"\s*>([\s\S]*?)<\/invoke>/g;
+    let match: RegExpExecArray | null;
+    while ((match = blockRe.exec(output)) !== null) {
+      const name = match[1] as AgentCapabilityName;
+      if (!this.capabilities?.getDefinition(name)) continue;
+
+      const input: AgentCapabilityInput = {};
+      const paramRe = /<parameter\s+name="([a-zA-Z]+)"\s*>([\s\S]*?)<\/parameter>/g;
+      let param: RegExpExecArray | null;
+      while ((param = paramRe.exec(match[2])) !== null) {
+        const key = param[1];
+        const value = param[2].trim();
+        if (
+          key === 'path' || key === 'content' || key === 'reason' || key === 'oldPath' ||
+          key === 'newPath' || key === 'source' || key === 'destination' || key === 'pattern' || key === 'dir'
+        ) {
+          input[key] = value;
+        }
+      }
+      calls.push({ name, input });
+    }
+    return calls;
+  }
+
+  private mapOperationToCapability(op: AgentFileOperation['op']): AgentCapabilityName | null {
+    switch (op) {
+      case 'write':
+        return 'filesystem.write';
+      case 'update':
+        return 'filesystem.update';
+      case 'create':
+        return 'filesystem.create';
+      case 'delete':
+        return 'filesystem.delete';
+      case 'rename':
+        return 'filesystem.rename';
+      case 'copy':
+        return 'filesystem.copy';
+    }
+  }
+
+  /**
+   * Extract a JSON `{"operations": [...]}` block from LLM output. Braces are
+   * balanced from the first `{"operations"` occurrence so trailing prose is
+   * ignored safely.
+   */
+  private tryParseOperations(output: string): AgentFileOperation[] {
+    const startIdx = output.indexOf('{"operations"');
+    if (startIdx < 0) return [];
+    const openIdx = output.lastIndexOf('{', startIdx);
+    if (openIdx < 0) return [];
+
+    let depth = 0;
+    let endIdx = -1;
+    for (let i = openIdx; i < output.length; i++) {
+      if (output[i] === '{') depth++;
+      else if (output[i] === '}') {
+        depth--;
+        if (depth === 0) {
+          endIdx = i;
+          break;
+        }
+      }
+    }
+    if (endIdx < 0) return [];
+
+    try {
+      const parsed = JSON.parse(output.slice(openIdx, endIdx + 1));
+      if (!Array.isArray(parsed.operations)) return [];
+      return parsed.operations
+        .filter(
+          (o: unknown): o is Record<string, unknown> =>
+            typeof o === 'object' && o !== null && typeof (o as Record<string, unknown>).op === 'string',
+        )
+        .map((o: Record<string, unknown>) => ({
+          op: o.op as AgentFileOperation['op'],
+          path: typeof o.path === 'string' ? o.path : undefined,
+          content: typeof o.content === 'string' ? o.content : undefined,
+          patch: (typeof o.patch === 'object' && o.patch !== null
+            ? o.patch
+            : undefined) as AgentCapabilityInput['patch'],
+          oldPath: typeof o.oldPath === 'string' ? o.oldPath : undefined,
+          newPath: typeof o.newPath === 'string' ? o.newPath : undefined,
+          source: typeof o.source === 'string' ? o.source : undefined,
+          destination: typeof o.destination === 'string' ? o.destination : undefined,
+          reason: typeof o.reason === 'string' ? o.reason : undefined,
+        }))
+        .filter(
+          (o: AgentFileOperation) =>
+            o.op === 'write' ||
+            o.op === 'update' ||
+            o.op === 'create' ||
+            o.op === 'delete' ||
+            o.op === 'rename' ||
+            o.op === 'copy',
+        );
+    } catch {
+      return [];
+    }
+  }
+
+  /**
    * Render agent list for terminal.
    */
   renderAgentList(agents: AgentDefinition[]): string {
@@ -877,6 +1196,16 @@ Provide a structured analysis with:
     lines.push('Capabilities:');
     for (const cap of agent.capabilities) {
       lines.push(`  • ${cap}`);
+    }
+    if (this.capabilities) {
+      const fsCapabilities = this.capabilities.getCapabilitiesForAgent(agent);
+      if (fsCapabilities.length > 0) {
+        lines.push('');
+        lines.push('Filesystem capabilities:');
+        for (const cap of fsCapabilities) {
+          lines.push(`  • ${cap.name}${cap.requiresApproval ? ' (approval required)' : ''}`);
+        }
+      }
     }
     lines.push('');
     lines.push('Permissions:');

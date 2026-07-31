@@ -23,10 +23,7 @@ describe('cli-runtime', () => {
       providerRouter: {} as any,
     };
 
-    const runtime = new CliRuntime(
-      { id: 'test-cli' as any, type: 'runtime' as any, name: 'Test CLI' },
-      mockServices,
-    );
+    const runtime = new CliRuntime({ id: 'test-cli' as any, type: 'runtime' as any, name: 'Test CLI' }, mockServices);
 
     expect(runtime.kernel).toBe(mockServices.kernel);
     expect(runtime.conversationEngine).toBe(mockServices.conversationEngine);
@@ -40,7 +37,11 @@ describe('cli-runtime', () => {
     const { CliRuntime } = await import('../src/runtime/cli-runtime.js');
     let stopped = false;
     const mockServices = {
-      kernel: { shutdown: async () => { stopped = true; } },
+      kernel: {
+        shutdown: async () => {
+          stopped = true;
+        },
+      },
       conversationEngine: { endSession: async () => {} },
       conversationService: {} as any,
       activity: { stop: async () => {} },
@@ -52,10 +53,7 @@ describe('cli-runtime', () => {
       providerRouter: {} as any,
     };
 
-    const runtime = new CliRuntime(
-      { id: 'test-cli2' as any, type: 'runtime' as any, name: 'Test CLI' },
-      mockServices,
-    );
+    const runtime = new CliRuntime({ id: 'test-cli2' as any, type: 'runtime' as any, name: 'Test CLI' }, mockServices);
 
     await runtime.initialize();
     await runtime.stop();
@@ -78,7 +76,9 @@ describe('cli-runtime', () => {
       providerRouter: {} as any,
       workspaceRuntime: {
         state: 'running',
-        stop: async () => { wsStopped = true; },
+        stop: async () => {
+          wsStopped = true;
+        },
         destroy: async () => {},
       },
     };
@@ -120,7 +120,9 @@ describe('command-registry', () => {
     const registry = new CommandRegistry();
     let executed = false;
 
-    registry.register('test', async () => { executed = true; });
+    registry.register('test', async () => {
+      executed = true;
+    });
     expect(registry.has('test')).toBe(true);
     expect(registry.has('nonexistent')).toBe(false);
 
@@ -173,7 +175,9 @@ describe('index entry point', () => {
     (process.exit as any) = vi.fn() as any;
     const { main } = await import('../src/index.js');
     const logCalls: string[] = [];
-    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => { logCalls.push(String(msg)); });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => {
+      logCalls.push(String(msg));
+    });
     await main();
     expect(logCalls.some((c) => c.includes('vestara v'))).toBe(true);
     logSpy.mockRestore();
@@ -188,7 +192,9 @@ describe('index entry point', () => {
     (process.exit as any) = vi.fn() as any;
     const { main } = await import('../src/index.js');
     const logCalls: string[] = [];
-    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => { logCalls.push(String(msg)); });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => {
+      logCalls.push(String(msg));
+    });
     await main();
     expect(logCalls.some((c) => c.includes('Usage'))).toBe(true);
     logSpy.mockRestore();
@@ -203,7 +209,9 @@ describe('index entry point', () => {
     (process.exit as any) = vi.fn() as any;
     const { main } = await import('../src/index.js');
     const logCalls: string[] = [];
-    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => { logCalls.push(String(msg)); });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation((msg) => {
+      logCalls.push(String(msg));
+    });
     await main();
     expect(logCalls.some((c) => c.includes('Unknown command'))).toBe(true);
     logSpy.mockRestore();

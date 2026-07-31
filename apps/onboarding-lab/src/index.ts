@@ -191,7 +191,11 @@ async function testConversation(): Promise<{ name: string; ok: boolean; detail?:
     const store = new profileStore();
     await store.initialize();
     const profile = await store.load();
-    step('User profile', !!profile, profile ? `${profile.name ?? 'Unnamed'} (${profile.role ?? 'no role'})` : 'not set');
+    step(
+      'User profile',
+      !!profile,
+      profile ? `${profile.name ?? 'Unnamed'} (${profile.role ?? 'no role'})` : 'not set',
+    );
 
     return { name: 'Conversation Stack', ok: true, detail: `conv=${conv.id}` };
   } catch (err: any) {
@@ -237,7 +241,11 @@ async function testFilesystem(cwd: string): Promise<{ name: string; ok: boolean;
     await runtime.stop();
     await runtime.destroy();
 
-    return { name: 'Filesystem Tools', ok: true, detail: `${entries.length} entries, ${globResults.length} JSON files` };
+    return {
+      name: 'Filesystem Tools',
+      ok: true,
+      detail: `${entries.length} entries, ${globResults.length} JSON files`,
+    };
   } catch (err: any) {
     return { name: 'Filesystem Tools', ok: false, detail: err.message };
   }

@@ -1,7 +1,7 @@
-import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import { ArchitectureRuntime } from '@vestara/architecture-runtime';
-import { BOLD, GOLD, GREEN, RED, GRAY, RESET, CYAN } from '../output/format.js';
+import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 function resolveAdrDir(): string {
   const envDir = process.env['VESTARA_BLUEPRINT_DIR'];
@@ -13,7 +13,18 @@ function resolveAdrDir(): string {
   const fromCwdAlt = path.resolve(process.cwd(), 'vestara-blueprint', '00-governance', 'adr');
   if (fs.existsSync(fromCwdAlt)) return fromCwdAlt;
 
-  const fromDirname = path.resolve(__dirname, '..', '..', '..', '..', '..', '..', 'vestara-blueprint', '00-governance', 'adr');
+  const fromDirname = path.resolve(
+    __dirname,
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    '..',
+    'vestara-blueprint',
+    '00-governance',
+    'adr',
+  );
   if (fs.existsSync(fromDirname)) return fromDirname;
 
   return fromCwd;
@@ -23,11 +34,21 @@ function runtime(): ArchitectureRuntime {
   return new ArchitectureRuntime(resolveAdrDir());
 }
 
-function printAdr(node: { id: string; adr: string; title: string; category: string; status: string; dependsOn: string[]; influences: string[] }): void {
+function printAdr(node: {
+  id: string;
+  adr: string;
+  title: string;
+  category: string;
+  status: string;
+  dependsOn: string[];
+  influences: string[];
+}): void {
   const statusIcon =
-    node.status === 'superseded' ? `${GRAY}○${RESET}` :
-    node.status === 'deprecated' ? `${RED}✗${RESET}` :
-    `${GOLD}?${RESET}`;
+    node.status === 'superseded'
+      ? `${GRAY}○${RESET}`
+      : node.status === 'deprecated'
+        ? `${RED}✗${RESET}`
+        : `${GOLD}?${RESET}`;
   console.log(`  ${statusIcon} ${BOLD}${node.adr}${RESET} ${node.title}`);
   console.log(`       ${GRAY}id: ${node.id}  |  category: ${node.category}  |  status: ${node.status}${RESET}`);
   if (node.dependsOn.length > 0) {
@@ -55,10 +76,16 @@ export async function runArchitecture(cliArgs: string[]): Promise<void> {
 
   if (sub === 'show') {
     const id = cliArgs[1];
-    if (!id) { console.log(`${GOLD}Usage: vestara architecture show <id>${RESET}`); return; }
+    if (!id) {
+      console.log(`${GOLD}Usage: vestara architecture show <id>${RESET}`);
+      return;
+    }
     const ar = runtime();
     const node = ar.getNode(id);
-    if (!node) { console.log(`${RED}ADR not found: ${id}${RESET}`); return; }
+    if (!node) {
+      console.log(`${RED}ADR not found: ${id}${RESET}`);
+      return;
+    }
     console.log();
     console.log(`  ${BOLD}${node.adr}: ${node.title}${RESET}`);
     console.log(`  ${GRAY}${'-'.repeat(50)}${RESET}`);
@@ -80,47 +107,82 @@ export async function runArchitecture(cliArgs: string[]): Promise<void> {
 
   if (sub === 'depends-on') {
     const id = cliArgs[1];
-    if (!id) { console.log(`${GOLD}Usage: vestara architecture depends-on <id>${RESET}`); return; }
+    if (!id) {
+      console.log(`${GOLD}Usage: vestara architecture depends-on <id>${RESET}`);
+      return;
+    }
     const ar = runtime();
     const deps = ar.getDependencies(id);
     console.log(`\n  ${BOLD}Dependencies of ${id}${RESET}\n`);
-    if (deps.length === 0) { console.log(`  ${GRAY}(none)${RESET}\n`); return; }
-    for (const dep of deps) { printAdr(dep); console.log(); }
+    if (deps.length === 0) {
+      console.log(`  ${GRAY}(none)${RESET}\n`);
+      return;
+    }
+    for (const dep of deps) {
+      printAdr(dep);
+      console.log();
+    }
     return;
   }
 
   if (sub === 'dependents-of') {
     const id = cliArgs[1];
-    if (!id) { console.log(`${GOLD}Usage: vestara architecture dependents-of <id>${RESET}`); return; }
+    if (!id) {
+      console.log(`${GOLD}Usage: vestara architecture dependents-of <id>${RESET}`);
+      return;
+    }
     const ar = runtime();
     const deps = ar.getDependents(id);
     console.log(`\n  ${BOLD}Dependents of ${id}${RESET}\n`);
-    if (deps.length === 0) { console.log(`  ${GRAY}(none)${RESET}\n`); return; }
-    for (const dep of deps) { printAdr(dep); console.log(); }
+    if (deps.length === 0) {
+      console.log(`  ${GRAY}(none)${RESET}\n`);
+      return;
+    }
+    for (const dep of deps) {
+      printAdr(dep);
+      console.log();
+    }
     return;
   }
 
   if (sub === 'influences') {
     const role = cliArgs[1];
-    if (!role) { console.log(`${GOLD}Usage: vestara architecture influences <role>${RESET}`); return; }
+    if (!role) {
+      console.log(`${GOLD}Usage: vestara architecture influences <role>${RESET}`);
+      return;
+    }
     const ar = runtime();
     const nodes = ar.findDecisionsByRole(role);
     console.log(`\n  ${BOLD}ADRs influencing "${role}"${RESET}\n`);
-    if (nodes.length === 0) { console.log(`  ${GRAY}(none)${RESET}\n`); return; }
-    for (const node of nodes) { printAdr(node); console.log(); }
+    if (nodes.length === 0) {
+      console.log(`  ${GRAY}(none)${RESET}\n`);
+      return;
+    }
+    for (const node of nodes) {
+      printAdr(node);
+      console.log();
+    }
     return;
   }
 
   if (sub === 'impact') {
     const id = cliArgs[1];
-    if (!id) { console.log(`${GOLD}Usage: vestara architecture impact <id>${RESET}`); return; }
+    if (!id) {
+      console.log(`${GOLD}Usage: vestara architecture impact <id>${RESET}`);
+      return;
+    }
     const ar = runtime();
     const report = ar.analyzeImpact(id);
-    if (!report) { console.log(`${RED}ADR not found: ${id}${RESET}`); return; }
+    if (!report) {
+      console.log(`${RED}ADR not found: ${id}${RESET}`);
+      return;
+    }
     console.log();
     console.log(`  ${BOLD}${GOLD}Impact Analysis: ${report.target.adr}${RESET}`);
     console.log(`  ${report.target.title}`);
-    console.log(`  ${GRAY}Risk: ${report.risk === 'high' ? `${RED}${report.risk.toUpperCase()}${RESET}${GRAY}` : report.risk === 'medium' ? `${GOLD}${report.risk.toUpperCase()}${RESET}${GRAY}` : `${GREEN}${report.risk.toUpperCase()}${RESET}${GRAY}`}${RESET}`);
+    console.log(
+      `  ${GRAY}Risk: ${report.risk === 'high' ? `${RED}${report.risk.toUpperCase()}${RESET}${GRAY}` : report.risk === 'medium' ? `${GOLD}${report.risk.toUpperCase()}${RESET}${GRAY}` : `${GREEN}${report.risk.toUpperCase()}${RESET}${GRAY}`}${RESET}`,
+    );
     console.log();
     if (report.affectedAdrs.length > 0) {
       console.log(`  ${BOLD}Affected ADRs${RESET}`);
@@ -131,12 +193,16 @@ export async function runArchitecture(cliArgs: string[]): Promise<void> {
     }
     if (report.affectedBlueprints.length > 0) {
       console.log(`  ${BOLD}Affected Blueprint${RESET}`);
-      for (const bp of report.affectedBlueprints) { console.log(`    ${bp}`); }
+      for (const bp of report.affectedBlueprints) {
+        console.log(`    ${bp}`);
+      }
       console.log();
     }
     if (report.affectedAgents.length > 0) {
       console.log(`  ${BOLD}Affected Agents${RESET}`);
-      for (const agent of report.affectedAgents) { console.log(`    ${agent}`); }
+      for (const agent of report.affectedAgents) {
+        console.log(`    ${agent}`);
+      }
       console.log();
     }
     return;

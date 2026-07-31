@@ -4,12 +4,12 @@
 
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
-import type { KnowledgeDocument, KnowledgeChunk, SearchResult, IndexReport, ProjectInfo } from '../types/index.js';
-import { KnowledgeStorage } from '../storage/index.js';
-import { DocumentParser, DefaultDocumentParser } from '../parser/index.js';
-import { ChunkEngine, DefaultChunkEngine } from '../chunking/index.js';
-import { KnowledgeIndexer, DefaultKnowledgeIndexer } from '../indexer/index.js';
-import { RepositoryAnalyzer, DefaultRepositoryAnalyzer } from '../analyzer/index.js';
+import { DefaultRepositoryAnalyzer, type RepositoryAnalyzer } from '../analyzer/index.js';
+import { type ChunkEngine, DefaultChunkEngine } from '../chunking/index.js';
+import { DefaultKnowledgeIndexer, type KnowledgeIndexer } from '../indexer/index.js';
+import { DefaultDocumentParser, type DocumentParser } from '../parser/index.js';
+import type { KnowledgeStorage } from '../storage/index.js';
+import type { IndexReport, KnowledgeChunk, KnowledgeDocument, ProjectInfo, SearchResult } from '../types/index.js';
 
 export interface KnowledgeEngine {
   readonly storage: KnowledgeStorage;

@@ -1,8 +1,14 @@
-import * as http from 'node:http';
+import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
 import { json } from './types';
 
-export async function handleTelemetryRoute(method: string, p: string, req: http.IncomingMessage, res: http.ServerResponse, ctx: WorkspaceContext): Promise<boolean> {
+export async function handleTelemetryRoute(
+  method: string,
+  p: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: WorkspaceContext,
+): Promise<boolean> {
   if (method === 'GET' && p === '/api/telemetry') {
     const snap = ctx.telemetry.snapshot();
     json(res, 200, snap);

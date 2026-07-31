@@ -21,6 +21,7 @@
     "@vestara/provider-opencode": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/telemetry": "workspace:*",
+    "@vestara/filesystem-runtime": "workspace:*",
     "ws": "^8.18.0",
     "sql.js": "^1.14.1"
   },

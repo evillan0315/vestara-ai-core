@@ -1,5 +1,5 @@
-import { describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
 import * as http from 'node:http';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 
 describe('@vestara/api', () => {
   it('can import the module', async () => {

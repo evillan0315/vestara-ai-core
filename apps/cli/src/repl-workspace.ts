@@ -14,12 +14,29 @@
 import type { DefaultKernel } from '@vestara/kernel';
 import type { AIProvider } from '@vestara/shared';
 import type { WorkspaceRuntime } from '@vestara/workspace';
-import { PlanStorage, PlanningService } from '@vestara/workspace';
-import { GOLD, GREEN, RED, RESET, BOLD, GRAY } from './output/format.js';
-import { handleSearch, handleRisks, handleSummary, handleHistory, handleExplain } from './commands/repl-basic.js';
-import { handleConfigSet, handleConfigList, handleConfigReset } from './commands/repl-config.js';
-import { handleImplement, handleVerify, handleCollab, handlePredict, handleSuggest, handleRecommend, handleAgent, handleWorkflow, handlePlugin } from './commands/repl-advanced.js';
+import { PlanningService, PlanStorage } from '@vestara/workspace';
+import {
+  handleAgent,
+  handleCollab,
+  handleImplement,
+  handlePlugin,
+  handlePredict,
+  handleRecommend,
+  handleSuggest,
+  handleVerify,
+  handleWorkflow,
+} from './commands/repl-advanced.js';
+import {
+  handleExplain,
+  handleHistory,
+  handleRead,
+  handleRisks,
+  handleSearch,
+  handleSummary,
+} from './commands/repl-basic.js';
+import { handleConfigList, handleConfigReset, handleConfigSet } from './commands/repl-config.js';
 import { handleRemaining } from './commands/repl-remaining.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from './output/format.js';
 
 function isRateLimitError(err: any): boolean {
   const msg = err?.message ?? err?.toString?.() ?? '';
@@ -171,9 +188,19 @@ export async function startWorkspaceRepl(
     }
 
     if (await handleSearch(input, line, session, rl)) return;
-    if (input === 'risks') { await handleRisks(session, rl); return; }
-    if (input === 'summary') { await handleSummary(runtime, rl); return; }
-    if (input === 'history') { await handleHistory(session, rl); return; }  // replaced above
+    if (await handleRead(input, line, rl)) return;
+    if (input === 'risks') {
+      await handleRisks(session, rl);
+      return;
+    }
+    if (input === 'summary') {
+      await handleSummary(runtime, rl);
+      return;
+    }
+    if (input === 'history') {
+      await handleHistory(session, rl);
+      return;
+    } // replaced above
     if (await handleConfigSet(input, line, session, rl)) return;
     if (await handleConfigList(input, session, rl)) return;
     if (await handleConfigReset(input, line, session, rl)) return;

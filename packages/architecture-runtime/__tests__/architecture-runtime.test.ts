@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import * as path from 'node:path';
 import * as fs from 'node:fs';
+import * as path from 'node:path';
+import { describe, expect, it } from 'vitest';
 import { ArchitectureRuntime } from '../src/index.js';
 import { parseFrontmatter } from '../src/parser.js';
 

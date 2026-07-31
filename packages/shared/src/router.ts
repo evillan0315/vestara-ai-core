@@ -71,9 +71,9 @@ export interface IntentModelMap {
   provider?: string;
 }
 
+import type { ConversationSession, UserProfile, UserProfileUpdate } from './conversation-types.js';
 import type { StreamChunk } from './stream.js';
 import type { ToolDefinition } from './tool.js';
-import type { ConversationSession, UserProfile, UserProfileUpdate } from './conversation-types.js';
 
 export interface ProviderRouterStatus {
   online: ActiveRoute | null;

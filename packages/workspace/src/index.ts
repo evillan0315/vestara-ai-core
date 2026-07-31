@@ -15,6 +15,14 @@
  */
 
 export { AccuracyStorage } from './accuracy-storage';
+export type {
+  AgentCapabilityDefinition,
+  AgentCapabilityInput,
+  AgentCapabilityName,
+  AgentCapabilityResult,
+  AgentFilesystemCapability,
+} from './agent-capability';
+export { AgentCapabilityManager, capabilityDefinitions } from './agent-capability-manager';
 export { AgentCoordinator } from './agent-coordinator';
 export { AgentPermissionEngine } from './agent-permission';
 export { AgentRuntime } from './agent-runtime';
@@ -27,6 +35,7 @@ export type { AuditEntry } from './audit-store';
 export { AuditStore } from './audit-store';
 export { AutoIndex } from './auto-index';
 export { CapabilityService } from './capability-service';
+export { createFilesystemCapabilityTools } from './capability-tool-provider';
 export { ChangeSetStorage } from './change-set-storage';
 export { CloudService } from './cloud-service';
 export { CloudStorage } from './cloud-storage';
@@ -212,8 +221,8 @@ export { UnderstandingContextAssembler } from './understanding-context-assembler
 export { DefaultUnderstandingEngine } from './understanding-engine';
 export type { User } from './user-store';
 export { UserStore } from './user-store';
-export { VerificationService } from './verification-service';
 export type { TelemetryCallback, TelemetryCheckResult } from './verification-service';
+export { VerificationService } from './verification-service';
 export { VerificationStorage } from './verification-storage';
 export { WorkflowService } from './workflow-service';
 export { WorkspaceAnalyst } from './workspace-analyst';

@@ -211,6 +211,16 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
     actionRuntime.registerTool(tool);
   }
 
+  // Register agent filesystem capabilities as tools (capability model path).
+  // Execution flows through FilesystemRuntime: workspace root sandbox, approval
+  // gates, dry-run, and operation logging.
+  const { FilesystemRuntime } = await import('@vestara/filesystem-runtime');
+  const { AgentCapabilityManager, createFilesystemCapabilityTools } = await import('@vestara/workspace');
+  const capabilityManager = new AgentCapabilityManager({ filesystem: new FilesystemRuntime({ rootDir }) });
+  for (const tool of createFilesystemCapabilityTools(capabilityManager)) {
+    actionRuntime.registerTool(tool);
+  }
+
   // Register shell/bash execution tool
   actionRuntime.registerTool(createShellTool());
 

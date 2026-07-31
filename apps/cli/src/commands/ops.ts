@@ -1,5 +1,5 @@
 import { TelemetryRuntime } from '@vestara/telemetry';
-import { BOLD, GOLD, GREEN, RED, GRAY, RESET, CYAN } from '../output/format.js';
+import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 const STATUS_ICONS: Record<string, string> = {
   idle: `${GRAY}○${RESET}`,
@@ -29,7 +29,18 @@ function makeRuntime(): TelemetryRuntime {
   return rt;
 }
 
-function printAgentCard(agent: { id: string; name: string; status: string; currentTask: string; currentOperation: string; activeFilePath?: string; progress: number; elapsedMs: number; phase: string; detail: string }): void {
+function printAgentCard(agent: {
+  id: string;
+  name: string;
+  status: string;
+  currentTask: string;
+  currentOperation: string;
+  activeFilePath?: string;
+  progress: number;
+  elapsedMs: number;
+  phase: string;
+  detail: string;
+}): void {
   const icon = STATUS_ICONS[agent.status] ?? `${GRAY}?${RESET}`;
   const bar = progressBar(agent.progress, agent.status === 'working' || agent.status === 'verifying');
 
@@ -70,7 +81,9 @@ export async function runOps(cliArgs: string[]): Promise<void> {
   if (!sub || sub === 'feed') {
     const events = rt.getEvents(30);
     console.log(`\n  ${BOLD}${GOLD}Engineering Activity Feed${RESET}`);
-    console.log(`  ${GRAY}${events.length} recent events  |  ${rt.getEventCount()} total  |  ${rt.getAllAgents().length} agents${RESET}\n`);
+    console.log(
+      `  ${GRAY}${events.length} recent events  |  ${rt.getEventCount()} total  |  ${rt.getAllAgents().length} agents${RESET}\n`,
+    );
 
     if (events.length === 0) {
       console.log(`  ${GRAY}(no activity yet — run 'vestara ops demo' to see a simulation)${RESET}\n`);
@@ -131,20 +144,64 @@ export async function runOps(cliArgs: string[]): Promise<void> {
 
   if (sub === 'demo') {
     const rt2 = makeRuntime();
-    rt2.trackOp('context', 'working', 'analyze', 'Reading AGENTS.md...', { progress: 30, phase: 'discovery', detail: 'Loading repository' });
+    rt2.trackOp('context', 'working', 'analyze', 'Reading AGENTS.md...', {
+      progress: 30,
+      phase: 'discovery',
+      detail: 'Loading repository',
+    });
     rt2.trackOp('context', 'completed', 'analyze', 'Loaded AGENTS.md', { progress: 100, detail: '✓ Loaded' });
-    rt2.trackOp('planner', 'thinking', 'reason', 'Analyzing packages/workspace...', { progress: 0, phase: 'analysis', detail: 'Found 3 architectural issues' });
-    rt2.trackOp('planner', 'working', 'plan', 'Generating task list', { progress: 50, phase: 'planning', detail: 'Prioritizing EV-004' });
+    rt2.trackOp('planner', 'thinking', 'reason', 'Analyzing packages/workspace...', {
+      progress: 0,
+      phase: 'analysis',
+      detail: 'Found 3 architectural issues',
+    });
+    rt2.trackOp('planner', 'working', 'plan', 'Generating task list', {
+      progress: 50,
+      phase: 'planning',
+      detail: 'Prioritizing EV-004',
+    });
     rt2.trackOp('planner', 'completed', 'plan', 'Task list generated', { progress: 100, detail: '4 tasks created' });
-    rt2.trackOp('engineer', 'working', 'file.read', 'Reading runtime.ts...', { filePath: 'packages/runtime/src/index.ts', progress: 20, detail: 'Analyzing exports' });
-    rt2.trackOp('engineer', 'working', 'file.write', 'Writing types.ts...', { filePath: 'packages/runtime/src/types.ts', progress: 60, detail: 'Adding GraphRuntime interface' });
-    rt2.trackOp('engineer', 'working', 'file.write', 'Updating imports...', { filePath: 'packages/runtime/src/index.ts', progress: 85, detail: 'Re-exporting types' });
-    rt2.trackOp('engineer', 'completed', 'file.write', 'Implementation complete', { progress: 100, detail: '4 files modified (+128 -43)' });
-    rt2.trackOp('verifier', 'verifying', 'verify', 'Running build...', { progress: 30, phase: 'build', detail: 'TypeScript compilation' });
-    rt2.trackOp('verifier', 'verifying', 'verify', 'Running tests...', { progress: 70, phase: 'test', detail: '12 passing, 0 failing' });
-    rt2.trackOp('verifier', 'completed', 'verify', 'Verification complete', { progress: 100, detail: '✓ Build passed  ·  ✓ Tests passed  ·  ✓ Types correct' });
-    rt2.trackOp('reviewer', 'reviewing', 'review', 'Reviewing changes...', { progress: 40, detail: 'Checking architecture compliance' });
-    rt2.trackOp('reviewer', 'completed', 'review', 'Review complete', { progress: 100, detail: 'Approved — no architectural violations' });
+    rt2.trackOp('engineer', 'working', 'file.read', 'Reading runtime.ts...', {
+      filePath: 'packages/runtime/src/index.ts',
+      progress: 20,
+      detail: 'Analyzing exports',
+    });
+    rt2.trackOp('engineer', 'working', 'file.write', 'Writing types.ts...', {
+      filePath: 'packages/runtime/src/types.ts',
+      progress: 60,
+      detail: 'Adding GraphRuntime interface',
+    });
+    rt2.trackOp('engineer', 'working', 'file.write', 'Updating imports...', {
+      filePath: 'packages/runtime/src/index.ts',
+      progress: 85,
+      detail: 'Re-exporting types',
+    });
+    rt2.trackOp('engineer', 'completed', 'file.write', 'Implementation complete', {
+      progress: 100,
+      detail: '4 files modified (+128 -43)',
+    });
+    rt2.trackOp('verifier', 'verifying', 'verify', 'Running build...', {
+      progress: 30,
+      phase: 'build',
+      detail: 'TypeScript compilation',
+    });
+    rt2.trackOp('verifier', 'verifying', 'verify', 'Running tests...', {
+      progress: 70,
+      phase: 'test',
+      detail: '12 passing, 0 failing',
+    });
+    rt2.trackOp('verifier', 'completed', 'verify', 'Verification complete', {
+      progress: 100,
+      detail: '✓ Build passed  ·  ✓ Tests passed  ·  ✓ Types correct',
+    });
+    rt2.trackOp('reviewer', 'reviewing', 'review', 'Reviewing changes...', {
+      progress: 40,
+      detail: 'Checking architecture compliance',
+    });
+    rt2.trackOp('reviewer', 'completed', 'review', 'Review complete', {
+      progress: 100,
+      detail: 'Approved — no architectural violations',
+    });
 
     // Show feed and status inline since CLI invocations are stateless
     const events = rt2.getEvents(30);

@@ -31,15 +31,19 @@ export {
 } from './producer';
 export {
   ActivityUnderstanding,
+  ApplicationConclusion,
   ArchitectureKind,
   ArchitectureUnderstanding,
   DecisionRecord,
   IdentityUnderstanding,
+  KnowledgeUnderstanding,
   MaturityLevel,
   MaturityUnderstanding,
   MemoryUnderstanding,
   RecentChange,
+  RuntimeConclusion,
   StateUnderstanding,
+  TechnologyConclusion,
   WorkspaceUnderstanding,
 } from './understanding';
 export { UnderstandingEngine } from './understanding-engine';

@@ -519,7 +519,7 @@ export class WorkspaceRuntime {
       const dbPath = path.join(workspaceDir, 'knowledge', 'chunks.db');
       let knowledgeDb: any;
       const { getSql } = await import('@vestara/shared');
-        const SQL = await getSql();
+      const SQL = await getSql();
       if (fs.existsSync(dbPath)) {
         const buffer = fs.readFileSync(dbPath);
         knowledgeDb = new SQL.Database(buffer);
@@ -591,7 +591,7 @@ export class WorkspaceRuntime {
       const { MonitorService } = await import('./monitor-service.js');
       const { KnowledgeGraphStorage } = await import('./knowledge-graph-storage.js');
       const { getSql } = await import('@vestara/shared');
-        const SQL = await getSql();
+      const SQL = await getSql();
       const db = new SQL.Database();
       const graph = new KnowledgeGraphStorage(db);
       const monitor = new MonitorService(this.session, graph, this.session.knowledge as any);

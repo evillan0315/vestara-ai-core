@@ -1,10 +1,9 @@
-import type { AdrNode, ImpactReport, GraphRuntime, VerificationReport } from './types.js';
-import type { AdrDocument } from './types.js';
-import { buildGraph, findNode, getDependencies, getDependents, findNodesByRole, getDependentChain } from './graph.js';
-import { verifyGraph } from './validator.js';
+import { buildGraph, findNode, findNodesByRole, getDependencies, getDependentChain, getDependents } from './graph.js';
 import { loadAllAdrs } from './parser.js';
+import type { AdrDocument, AdrNode, GraphRuntime, ImpactReport, VerificationReport } from './types.js';
+import { verifyGraph } from './validator.js';
 
-export type { GraphRuntime, VerificationReport, ImpactReport, AdrNode };
+export type { AdrNode, GraphRuntime, ImpactReport, VerificationReport };
 
 export class ArchitectureRuntime implements GraphRuntime<AdrNode> {
   private graph: Map<string, AdrNode>;

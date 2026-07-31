@@ -8,10 +8,13 @@ import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
+import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
+import { TelemetryRuntime } from '@vestara/telemetry';
 import {
+  AgentCapabilityManager,
   AgentRuntime,
   AgentService,
   AgentStorage,
@@ -40,7 +43,6 @@ import {
   WorkspaceRuntime,
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
-import { TelemetryRuntime } from '@vestara/telemetry';
 import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
@@ -67,6 +69,7 @@ export interface WorkspaceContext {
   collaborationService: CollaborationService;
   agentRuntime: AgentRuntime;
   agentService: AgentService;
+  capabilityManager: AgentCapabilityManager;
   orchestrator: SessionOrchestrator;
   executionPlanner: ExecutionPlanner;
   workspaceAnalyst: WorkspaceAnalyst;
@@ -202,10 +205,17 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
 
   const explainService = new ExplainService({ provider: opencode });
   const planningService = new PlanningService({ storage: plans, provider: opencode });
+
+  // Filesystem capability boundary — the single path agents use to reach the filesystem.
+  const telemetry = new TelemetryRuntime();
+  const filesystemRuntime = new FilesystemRuntime({ rootDir: abs, telemetry });
+  const capabilityManager = new AgentCapabilityManager({ filesystem: filesystemRuntime });
+
   const implementationService = new ImplementationService({
     planStorage: plans,
     csStorage: changeSets,
     provider: opencode,
+    capabilities: capabilityManager,
   });
   const verificationService = new VerificationService({
     csStorage: changeSets,
@@ -233,12 +243,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   });
   const collaborationService = new CollaborationService({ storage: collaboration });
-  const agentRuntime = new AgentRuntime({ storage: agents, provider: opencode });
-  const agentService = new AgentService({ storage: agents, runtime: agentRuntime, eventBus: kernel.eventBus });
-  const orchestrator = new SessionOrchestrator({ storage: agents, runtime: agentRuntime });
-  const executionPlanner = new ExecutionPlanner(agents);
-  const workspaceAnalyst = new WorkspaceAnalyst(agents, opencode);
-  const suggestionService = new SuggestionService({ planStorage: plans, provider: opencode, executionPlanner });
 
   // Initialize milestone tracking
   const milestones = new MilestoneService({ eventBus: kernel.eventBus });
@@ -284,7 +288,19 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   );
 
-  const telemetry = new TelemetryRuntime();
+  // Create AgentRuntime after telemetry is available.
+  // Agents reach the filesystem ONLY through the AgentCapabilityManager.
+  const agentRuntime = new AgentRuntime({ storage: agents, provider: opencode, capabilities: capabilityManager });
+  const agentService = new AgentService({
+    storage: agents,
+    runtime: agentRuntime,
+    eventBus: kernel.eventBus,
+    capabilities: capabilityManager,
+  });
+  const orchestrator = new SessionOrchestrator({ storage: agents, runtime: agentRuntime });
+  const executionPlanner = new ExecutionPlanner(agents);
+  const workspaceAnalyst = new WorkspaceAnalyst(agents, opencode);
+  const suggestionService = new SuggestionService({ planStorage: plans, provider: opencode, executionPlanner });
 
   const unsub = kernel.eventBus.subscribe(
     '*',
@@ -293,7 +309,12 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
 
       // Feed agent.* events into the telemetry runtime
       const type: string = evt.type || '';
-      if (type.startsWith('agent.') || type.startsWith('workspace.') || type.startsWith('verification.') || type.startsWith('plan.')) {
+      if (
+        type.startsWith('agent.') ||
+        type.startsWith('workspace.') ||
+        type.startsWith('verification.') ||
+        type.startsWith('plan.')
+      ) {
         const agentId: string = (payload['agentId'] as string) || (payload['agent'] as string) || 'system';
         const detail: string = (payload['detail'] as string) || (payload['message'] as string) || '';
         const status = type.includes('failed') ? 'failed' : type.includes('completed') ? 'completed' : 'working';
@@ -391,6 +412,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     collaborationService,
     agentRuntime,
     agentService,
+    capabilityManager,
     orchestrator,
     executionPlanner,
     workspaceAnalyst,

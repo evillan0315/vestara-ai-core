@@ -1,9 +1,9 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
-import type { IndexReport, KnowledgeDocument, KnowledgeChunk, SearchResult } from '../types/index.js';
-import { KnowledgeStorage } from '../storage/index.js';
-import type { DocumentParser } from '../parser/index.js';
 import type { ChunkEngine } from '../chunking/index.js';
+import type { DocumentParser } from '../parser/index.js';
+import type { KnowledgeStorage } from '../storage/index.js';
+import type { IndexReport, KnowledgeChunk, KnowledgeDocument, SearchResult } from '../types/index.js';
 
 // ═══════════════════════════════════════════════════════════════
 // FILESYSTEM INDEXER

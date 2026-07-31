@@ -48,7 +48,10 @@ function parseYamlBlock(yaml: string): Record<string, any> {
         nestedObj = null;
         nestedIndent = 0;
       } else if (val.startsWith('[')) {
-        result[currentKey] = val.slice(1, -1).split(',').map((s) => trimQuotes(s.trim()));
+        result[currentKey] = val
+          .slice(1, -1)
+          .split(',')
+          .map((s) => trimQuotes(s.trim()));
         currentKey = null;
       } else {
         result[currentKey] = trimQuotes(val);
@@ -106,14 +109,16 @@ export function parseFrontmatter(raw: string): AdrFrontmatter | null {
   const dependsOnRaw = parsed['depends_on'] ?? [];
   const dependsOn = Array.isArray(dependsOnRaw)
     ? dependsOnRaw.map((d: any) =>
-        typeof d === 'string' ? { id: d, relationship: undefined } : { id: d.id, relationship: d.relationship }
+        typeof d === 'string' ? { id: d, relationship: undefined } : { id: d.id, relationship: d.relationship },
       )
     : [];
 
   const referencedByRaw = parsed['referenced_by'] ?? [];
   const referencedBy = Array.isArray(referencedByRaw)
     ? referencedByRaw.map((r: any) =>
-        typeof r === 'string' ? { type: 'blueprint' as const, target: r } : { type: r.type ?? 'blueprint', target: r.target }
+        typeof r === 'string'
+          ? { type: 'blueprint' as const, target: r }
+          : { type: r.type ?? 'blueprint', target: r.target },
       )
     : [];
 

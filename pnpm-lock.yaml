@@ -36,6 +36,9 @@ importers:
       '@vestara/events':
         specifier: workspace:*
         version: link:../../packages/events
+      '@vestara/filesystem-runtime':
+        specifier: workspace:*
+        version: link:../../packages/filesystem-runtime
       '@vestara/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
@@ -996,6 +999,9 @@ importers:
       '@vestara/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@vestara/filesystem-runtime':
+        specifier: workspace:*
+        version: link:../filesystem-runtime
       '@vestara/knowledge':
         specifier: workspace:*
         version: link:../knowledge

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { BOLD, GOLD, GREEN, RED, GRAY, RESET, CYAN } from '../output/format.js';
 import { openSharedDb } from '../lib/db.js';
+import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   const useJson = cliArgs?.includes('--json');
@@ -19,7 +19,11 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   const heapUsed = Math.round((memUsage.heapUsed / 1024 / 1024) * 100) / 100;
   const heapTotal = Math.round((memUsage.heapTotal / 1024 / 1024) * 100) / 100;
   if (useJson) {
-    data.runtime = { node: process.version, platform: process.platform, memoryMB: { used: heapUsed, total: heapTotal } };
+    data.runtime = {
+      node: process.version,
+      platform: process.platform,
+      memoryMB: { used: heapUsed, total: heapTotal },
+    };
   } else if (!useBrief) {
     console.log(`  ${BOLD}Runtime${RESET}`);
     console.log(`    Node:       ${process.version}`);
@@ -35,7 +39,9 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   let audioAvailable = false;
 
   try {
-    const { VestaraAudioService, DefaultMicrophoneProvider, DefaultSpeakerProvider, SileroVADProvider } = await import('@vestara/audio');
+    const { VestaraAudioService, DefaultMicrophoneProvider, DefaultSpeakerProvider, SileroVADProvider } = await import(
+      '@vestara/audio'
+    );
     const audio = new VestaraAudioService();
     audio.registerMicrophone(new DefaultMicrophoneProvider());
     audio.registerSpeaker(new DefaultSpeakerProvider());
@@ -46,8 +52,12 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
       data.audio = { microphone: ad.microphone.available, vad: ad.vad.status !== 'error' };
     } else if (!useBrief) {
       console.log(`  ${BOLD}Audio Pipeline${RESET}`);
-      console.log(`    Microphone:  ${ad.microphone.available ? `${GREEN}Detected${RESET}` : `${GRAY}Not found${RESET}`}`);
-      console.log(`    VAD:         ${ad.vad.status !== 'error' ? `${GREEN}Ready${RESET}` : `${GRAY}Unavailable${RESET}`}`);
+      console.log(
+        `    Microphone:  ${ad.microphone.available ? `${GREEN}Detected${RESET}` : `${GRAY}Not found${RESET}`}`,
+      );
+      console.log(
+        `    VAD:         ${ad.vad.status !== 'error' ? `${GREEN}Ready${RESET}` : `${GRAY}Unavailable${RESET}`}`,
+      );
       console.log();
     }
   } catch {
@@ -71,10 +81,17 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
     } else if (!useBrief) {
       console.log(`  ${BOLD}Providers${RESET}`);
       for (const p of providers) {
-        const icon = p.status === 'available' ? `${GREEN}●${RESET}` : p.status === 'degraded' ? `${GOLD}●${RESET}` : `${RED}●${RESET}`;
+        const icon =
+          p.status === 'available'
+            ? `${GREEN}●${RESET}`
+            : p.status === 'degraded'
+              ? `${GOLD}●${RESET}`
+              : `${RED}●${RESET}`;
         console.log(`    ${icon} ${p.name.padEnd(20)} ${p.status}  ${GRAY}${p.modelCount} models${RESET}`);
       }
-      console.log(`    Health:      ${health.status === 'healthy' ? `${GREEN}${health.status}${RESET}` : `${GOLD}${health.status}${RESET}`}  ${GRAY}${health.latency}ms${RESET}`);
+      console.log(
+        `    Health:      ${health.status === 'healthy' ? `${GREEN}${health.status}${RESET}` : `${GOLD}${health.status}${RESET}`}  ${GRAY}${health.latency}ms${RESET}`,
+      );
       console.log();
     }
   } catch {
@@ -97,7 +114,14 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
     const activeAgents = agents.filter((a: any) => a.status === 'active').length;
     const successRate = Math.round((completed / totalNonRunning) * 100);
     if (useJson) {
-      data.agents = { registered: agents.length, active: activeAgents, teams: teams.length, schedules: schedules.length, executions: { total: execs.length, completed, failed, running }, successRate: `${successRate}%` };
+      data.agents = {
+        registered: agents.length,
+        active: activeAgents,
+        teams: teams.length,
+        schedules: schedules.length,
+        executions: { total: execs.length, completed, failed, running },
+        successRate: `${successRate}%`,
+      };
     } else if (!useBrief) {
       console.log(`  ${BOLD}Agents${RESET}`);
       console.log(`    Registered:  ${agents.length}`);
@@ -118,12 +142,23 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
     const store = new ProjectStorage(db);
     const projects = await store.listProjects();
     const activeProjects = projects.filter((p: any) => p.status === 'active').length;
-    const totalTasks = (await Promise.all(projects.map((p: any) => store.getProjectStats(p.id)))).reduce((s: number, st: any) => s + st.total, 0);
-    const doneTasks = (await Promise.all(projects.map((p: any) => store.getProjectStats(p.id)))).reduce((s: number, st: any) => s + st.done, 0);
+    const totalTasks = (await Promise.all(projects.map((p: any) => store.getProjectStats(p.id)))).reduce(
+      (s: number, st: any) => s + st.total,
+      0,
+    );
+    const doneTasks = (await Promise.all(projects.map((p: any) => store.getProjectStats(p.id)))).reduce(
+      (s: number, st: any) => s + st.done,
+      0,
+    );
     const sprints = await store.listSprints();
     const activeSprints = sprints.filter((s: any) => s.status === 'active').length;
     if (useJson) {
-      data.projects = { total: projects.length, active: activeProjects, tasks: { total: totalTasks, done: doneTasks }, sprints: { total: sprints.length, active: activeSprints } };
+      data.projects = {
+        total: projects.length,
+        active: activeProjects,
+        tasks: { total: totalTasks, done: doneTasks },
+        sprints: { total: sprints.length, active: activeSprints },
+      };
     } else if (!useBrief) {
       console.log(`  ${BOLD}Projects${RESET}`);
       console.log(`    Total:       ${projects.length}`);
@@ -142,12 +177,25 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
     const progress = ms.getProgress();
     const current = ms.getCurrent();
     if (useJson) {
-      data.milestones = { completed: progress.completed, total: progress.total, inProgress: progress.inProgress, pending: progress.pending, current: current ? { version: current.version, name: current.name, status: current.status } : null };
+      data.milestones = {
+        completed: progress.completed,
+        total: progress.total,
+        inProgress: progress.inProgress,
+        pending: progress.pending,
+        current: current ? { version: current.version, name: current.name, status: current.status } : null,
+      };
     } else if (!useBrief) {
       console.log(`  ${BOLD}Milestones${RESET}`);
-      console.log(`    Progress:    ${progress.completed}/${progress.total} (${progress.inProgress} active, ${progress.pending} pending)`);
+      console.log(
+        `    Progress:    ${progress.completed}/${progress.total} (${progress.inProgress} active, ${progress.pending} pending)`,
+      );
       if (current) {
-        const icon = current.status === 'in_progress' ? `${GOLD}◉${RESET}` : current.status === 'completed' ? `${GREEN}✔${RESET}` : `${GRAY}○${RESET}`;
+        const icon =
+          current.status === 'in_progress'
+            ? `${GOLD}◉${RESET}`
+            : current.status === 'completed'
+              ? `${GREEN}✔${RESET}`
+              : `${GRAY}○${RESET}`;
         console.log(`    Current:     ${icon} ${current.version} — ${current.name}`);
       }
       console.log();
@@ -163,7 +211,14 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
     const errors = report.issues.filter((i: any) => i.severity === 'error').length;
     const warnings = report.issues.filter((i: any) => i.severity === 'warning').length;
     if (useJson) {
-      data.conversationFeatures = { packagesPresent: report.summary.present, packagesTotal: report.summary.total, built: report.summary.withDist, tested: report.summary.withTests, totalSourceLines: report.summary.totalSourceLines, issues: { total: errors + warnings, errors, warnings } };
+      data.conversationFeatures = {
+        packagesPresent: report.summary.present,
+        packagesTotal: report.summary.total,
+        built: report.summary.withDist,
+        tested: report.summary.withTests,
+        totalSourceLines: report.summary.totalSourceLines,
+        issues: { total: errors + warnings, errors, warnings },
+      };
     } else if (!useBrief) {
       console.log(`  ${BOLD}Conversation Features${RESET}`);
       console.log(`    Packages:    ${report.summary.present}/${report.summary.total}`);
@@ -178,7 +233,11 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   }
 
   if (useJson) {
-    data.testsAndBuild = { tests: '177 passing (47 files)', build: 'All 28 packages + 4 apps compile', lint: 'Biome clean, 202 files' };
+    data.testsAndBuild = {
+      tests: '177 passing (47 files)',
+      build: 'All 28 packages + 4 apps compile',
+      lint: 'Biome clean, 202 files',
+    };
   } else if (!useBrief) {
     console.log(`  ${BOLD}Tests & Build${RESET}`);
     console.log(`    Tests:       177 passing (47 files)`);
