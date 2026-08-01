@@ -25,7 +25,7 @@
     },
     {
       "path": "04-platform/engineering-operating-system.md",
-      "beforeChecksum": "9719fd5f765647dd0929065f6956eff7952394f75849de8ab05e60fffefc0973",
+      "beforeChecksum": "b54926ebbdc620f5dec513a3178b62e1213f6981d2c6756bba1d65e5e2d50a0f",
       "operation": "replace",
       "implementationRefs": [
         "packages/workspace/src/workspace-runtime.ts",

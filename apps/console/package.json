@@ -1,6 +1,6 @@
 {
   "name": "@vestara/console",
-  "description": "Ink-based interactive engineering console for Vestara",
+  "description": "Compatibility launcher for the canonical @vestara/tui package",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,18 +14,10 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "vitest run --root ../.. apps/console/__tests__"
+    "test": "pnpm --filter @vestara/tui test"
   },
   "dependencies": {
-    "@vestara/configuration": "workspace:*",
-    "@vestara/workspace": "workspace:*",
-    "ink": "7.0.6",
-    "react": "19.2.4"
-  },
-  "devDependencies": {
-    "@types/react": "19.2.14",
-    "ink-testing-library": "4.0.0",
-    "vitest": "^4.1.10"
+    "@vestara/tui": "workspace:*"
   },
   "engines": {
     "node": ">=22"

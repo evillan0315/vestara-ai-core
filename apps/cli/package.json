@@ -34,6 +34,7 @@
     "@vestara/state-runtime": "workspace:*",
     "@vestara/stt": "workspace:*",
     "@vestara/telemetry": "workspace:*",
+    "@vestara/tui": "workspace:*",
     "@vestara/tools-shell": "workspace:*",
     "@vestara/tts": "workspace:*",
     "@vestara/workspace": "workspace:*"

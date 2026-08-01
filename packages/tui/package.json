@@ -1,0 +1,33 @@
+{
+  "name": "@vestara/tui",
+  "description": "Native full-screen terminal presentation runtime for Vestara",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/tui/__tests__"
+  },
+  "dependencies": {
+    "ink": "7.0.6",
+    "react": "19.2.4",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "@types/ws": "^8.18.1",
+    "ink-testing-library": "4.0.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

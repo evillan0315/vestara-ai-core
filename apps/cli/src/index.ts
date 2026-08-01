@@ -43,6 +43,38 @@ import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStatus } from './output/form
 
 const VERSION = '0.3.0';
 
+async function launchTui(endpoint?: string): Promise<void> {
+  const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
+  let ownedApi: import('node:child_process').ChildProcess | undefined;
+  if (!(await runtimeAvailable(resolvedEndpoint)) && !endpoint && !process.env.VESTARA_API_URL) {
+    const path = await import('node:path');
+    const { spawn } = await import('node:child_process');
+    const apiEntry = path.join(__dirname, '..', '..', 'api', 'dist', 'index.js');
+    ownedApi = spawn(process.execPath, [apiEntry], {
+      cwd: process.cwd(),
+      env: { ...process.env, VESTARA_REPO: process.cwd() },
+      stdio: 'ignore',
+    });
+    for (let attempt = 0; attempt < 50 && !(await runtimeAvailable(resolvedEndpoint)); attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  const { runTui } = await import('@vestara/tui');
+  try {
+    await runTui({ endpoint: resolvedEndpoint });
+  } finally {
+    ownedApi?.kill('SIGTERM');
+  }
+}
+
+async function runtimeAvailable(endpoint: string): Promise<boolean> {
+  try {
+    const response = await fetch(new URL('/api/health', endpoint), { signal: AbortSignal.timeout(300) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
 function printVersion(): void {
   console.log(`vestara v${VERSION}`);
 }
@@ -107,7 +139,7 @@ function printHelp(): void {
   console.log(`  ${BOLD}Options${RESET}`);
   console.log(`    -h, --help        ${GRAY}Show this help message${RESET}`);
   console.log(`    -v, --version     ${GRAY}Show version number${RESET}`);
-  console.log(`    -w, --watch       ${GRAY}Start REPL with watch mode${RESET}`);
+  console.log(`    -w, --watch       ${GRAY}Start the TUI with live runtime events${RESET}`);
   console.log(`    --json            ${GRAY}Output status in JSON format${RESET}`);
   console.log(`    --brief           ${GRAY}Compact one-line status output${RESET}`);
   console.log();
@@ -260,13 +292,7 @@ export async function main() {
   if (args[0] === 'console' || args[0] === 'tui') {
     const endpointIndex = args.indexOf('--endpoint');
     const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
-    const path = await import('node:path');
-    const { pathToFileURL } = await import('node:url');
-    const consoleEntry = pathToFileURL(path.join(__dirname, '..', '..', 'console', 'dist', 'index.js')).href;
-    const { runConsole } = (await import(consoleEntry)) as {
-      runConsole(options?: { endpoint?: string }): Promise<void>;
-    };
-    await runConsole({ endpoint });
+    await launchTui(endpoint);
     return;
   }
 
@@ -600,6 +626,15 @@ export async function main() {
     console.log(`${RED}Unknown command: ${args[0]}${RESET}`);
     console.log(`${GRAY}Run 'vestara --help' to see available commands.${RESET}\n`);
     process.exitCode = 1;
+    return;
+  }
+
+  // The TUI is the canonical interactive surface. The legacy command handlers
+  // below remain temporarily as an internal migration layer, but readline is
+  // never entered from the public CLI.
+  if (process.env.VESTARA_INTERNAL_LEGACY_REPL !== '1') {
+    const endpointIndex = args.indexOf('--endpoint');
+    await launchTui(endpointIndex >= 0 ? args[endpointIndex + 1] : undefined);
     return;
   }
 

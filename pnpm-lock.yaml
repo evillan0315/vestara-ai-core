@@ -157,6 +157,9 @@ importers:
       '@vestara/tts':
         specifier: workspace:*
         version: link:../../packages/tts
+      '@vestara/tui':
+        specifier: workspace:*
+        version: link:../../packages/tui
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -167,28 +170,9 @@ importers:
 
   apps/console:
     dependencies:
-      '@vestara/configuration':
+      '@vestara/tui':
         specifier: workspace:*
-        version: link:../../packages/configuration
-      '@vestara/workspace':
-        specifier: workspace:*
-        version: link:../../packages/workspace
-      ink:
-        specifier: 7.0.6
-        version: 7.0.6(@types/react@19.2.14)(react@19.2.4)
-      react:
-        specifier: 19.2.4
-        version: 19.2.4
-    devDependencies:
-      '@types/react':
-        specifier: 19.2.14
-        version: 19.2.14
-      ink-testing-library:
-        specifier: 4.0.0
-        version: 4.0.0(@types/react@19.2.14)
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+        version: link:../../packages/tui
 
   apps/onboarding-lab:
     dependencies:
@@ -1139,6 +1123,31 @@ importers:
         specifier: workspace:*
         version: link:../shared
     devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/tui:
+    dependencies:
+      ink:
+        specifier: 7.0.6
+        version: 7.0.6(@types/react@19.2.14)(react@19.2.4)
+      react:
+        specifier: 19.2.4
+        version: 19.2.4
+      ws:
+        specifier: ^8.19.0
+        version: 8.21.1
+    devDependencies:
+      '@types/react':
+        specifier: 19.2.14
+        version: 19.2.14
+      '@types/ws':
+        specifier: ^8.18.1
+        version: 8.18.1
+      ink-testing-library:
+        specifier: 4.0.0
+        version: 4.0.0(@types/react@19.2.14)
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
