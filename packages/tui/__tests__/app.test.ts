@@ -31,10 +31,41 @@ class StubController {
       ],
     });
     listener({ type: 'files', files: [{ path: 'packages/tui/src/app.tsx', status: 'modified' }] });
+    listener({
+      type: 'routing',
+      routing: {
+        revision: 2,
+        profileId: 'manual',
+        roles: { developer: { providerId: 'opencode', modelId: 'deepseek' } },
+        agents: [
+          { id: 'agent-developer', name: 'Developer', role: 'developer', status: 'active' },
+          { id: 'agent-architect', name: 'Architect', role: 'architect', status: 'active' },
+        ],
+        candidates: [
+          {
+            ref: { providerId: 'opencode', modelId: 'deepseek' },
+            providerName: 'OpenCode',
+            locality: 'cloud',
+            availability: { available: true, state: 'healthy' },
+          },
+          {
+            ref: { providerId: 'ollama', modelId: 'qwen-coder' },
+            providerName: 'Ollama',
+            locality: 'local',
+            availability: { available: true, state: 'healthy' },
+          },
+        ],
+        activeAgentId: 'agent-developer',
+      },
+    });
     return () => {};
   }
   async *execute(command: string): AsyncGenerator<TuiEvent> {
     this.commands.push(command);
+    if (command.startsWith('/routing select')) {
+      yield { type: 'notification', level: 'success', message: 'Developer → Ollama/qwen-coder' };
+      return;
+    }
     const id = 'response-1';
     yield { type: 'conversation-start', id };
     yield { type: 'conversation-delta', id, content: 'Streaming response' };
@@ -48,11 +79,26 @@ async function frame(view: ReturnType<typeof render>, content: string): Promise<
 }
 
 describe('Vestara TUI', () => {
+  it('renders typed text immediately and submits it from the composer', async () => {
+    const controller = new StubController();
+    const view = render(createElement(App, { controller: controller as unknown as TuiController }));
+    try {
+      await frame(view, 'connected');
+      view.stdin.write('build the dashboard');
+      expect(await frame(view, 'build the dashboard')).toContain('› build the dashboard');
+      view.stdin.write('\r');
+      await frame(view, 'Streaming response');
+      expect(controller.commands).toEqual(['build the dashboard']);
+    } finally {
+      view.unmount();
+    }
+  });
+
   it('renders runtime state and navigates the command palette', async () => {
     const controller = new StubController();
     const view = render(createElement(App, { controller: controller as unknown as TuiController }));
     try {
-      const initial = await frame(view, '1 agents');
+      const initial = await frame(view, 'Developer · opencode/deepseek');
       expect(initial).toContain('main');
       view.stdin.write('\u0010');
       expect(await frame(view, 'Command Palette')).toContain('Open Graph');
@@ -60,6 +106,27 @@ describe('Vestara TUI', () => {
       await frame(view, 'Command Palette › graph');
       view.stdin.write('\r');
       expect(await frame(view, 'Engineering Graph')).toContain('No data yet');
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('selects an agent, provider, and model from the routing overlay', async () => {
+    const controller = new StubController();
+    const view = render(createElement(App, { controller: controller as unknown as TuiController }));
+    try {
+      await frame(view, 'connected');
+      view.stdin.write('\u0012');
+      expect(await frame(view, 'Execution Routing · Agent')).toContain('Developer · developer · current');
+      view.stdin.write('\r');
+      await frame(view, 'Execution Routing · Provider');
+      view.stdin.write('\u001b[B');
+      await frame(view, '› Ollama · ollama');
+      view.stdin.write('\r');
+      expect(await frame(view, 'Execution Routing · Model')).toContain('qwen-coder');
+      view.stdin.write('\r');
+      await frame(view, 'Developer → Ollama/qwen-coder');
+      expect(controller.commands).toEqual(['/routing select "agent-developer" "developer" "ollama" "qwen-coder"']);
     } finally {
       view.unmount();
     }

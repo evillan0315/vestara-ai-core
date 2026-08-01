@@ -26,6 +26,31 @@ export interface AgentCard {
   readonly elapsedMs?: number;
 }
 
+export interface RoutingAgent {
+  readonly id: string;
+  readonly name: string;
+  readonly role: string;
+  readonly status: string;
+  readonly provider?: string;
+  readonly model?: string;
+}
+
+export interface RoutingCandidate {
+  readonly ref: { readonly providerId: string; readonly modelId: string; readonly modelRevision?: string };
+  readonly providerName: string;
+  readonly locality: 'local' | 'cloud';
+  readonly availability: { readonly available: boolean; readonly state: string };
+}
+
+export interface RoutingSelection {
+  readonly revision: number;
+  readonly profileId: string;
+  readonly roles: Readonly<Record<string, { readonly providerId: string; readonly modelId: string } | undefined>>;
+  readonly agents: readonly RoutingAgent[];
+  readonly candidates: readonly RoutingCandidate[];
+  readonly activeAgentId?: string;
+}
+
 export interface WorkspaceSummary {
   readonly id: string;
   readonly name: string;
@@ -75,6 +100,7 @@ export type TuiEvent =
   | { type: 'message'; entry: ConversationEntry }
   | { type: 'tool'; card: ToolCard }
   | { type: 'agent'; agent: AgentCard }
+  | { type: 'routing'; routing: RoutingSelection }
   | { type: 'telemetry'; label: string; detail: string; timestamp: string }
   | { type: 'graph'; entities: readonly { id: string; kind: string; label: string; status?: string }[] }
   | { type: 'files'; files: readonly FileSummary[] }

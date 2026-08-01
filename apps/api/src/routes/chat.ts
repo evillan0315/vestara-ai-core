@@ -1,4 +1,5 @@
 import type * as http from 'node:http';
+import type { EngineeringAgentRole } from '@vestara/provider-runtime';
 import type { WorkspaceContext } from '../workspace-context';
 import { CORS, json, readBody } from './types';
 
@@ -19,9 +20,10 @@ export async function handleChatRoute(
     }
     const session = ctx.runtime.getSession();
     const profile = session.profile;
-    const provider = ctx.kernel.providerManager?.getProvider('opencode') ?? null;
+    const route = await resolveChatRoute(ctx, body.agentId, body.role, body.model);
+    const provider = ctx.kernel.providerManager?.getProvider(route.providerId) ?? null;
     if (!provider) {
-      json(res, 503, { error: 'AI provider not available' });
+      json(res, 503, { error: `AI provider not available: ${route.providerId}` });
       return true;
     }
     const systemPrompt = [
@@ -31,10 +33,13 @@ export async function handleChatRoute(
       `Framework: ${profile.framework || '(none)'}`,
       `Files: ${profile.fileCount}`,
       `Packages: ${profile.packageCount}`,
+      route.agentName ? `Active agent: ${route.agentName} (${route.role})` : '',
       'Keep responses concise and actionable.',
-    ].join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
     const result = await provider.complete({
-      model: body.model || 'nemotron-3-ultra-free',
+      model: route.modelId,
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: message },
@@ -56,9 +61,10 @@ export async function handleChatRoute(
     }
     const session = ctx.runtime.getSession();
     const profile = session.profile;
-    const provider = ctx.kernel.providerManager?.getProvider('opencode') ?? null;
+    const route = await resolveChatRoute(ctx, body.agentId, body.role, body.model);
+    const provider = ctx.kernel.providerManager?.getProvider(route.providerId) ?? null;
     if (!provider?.stream) {
-      json(res, 503, { error: 'streaming not available' });
+      json(res, 503, { error: `Streaming not available: ${route.providerId}` });
       return true;
     }
     res.writeHead(200, {
@@ -74,15 +80,18 @@ export async function handleChatRoute(
       `Framework: ${profile.framework || '(none)'}`,
       `Files: ${profile.fileCount}`,
       `Packages: ${profile.packageCount}`,
+      route.agentName ? `Active agent: ${route.agentName} (${route.role})` : '',
       'Keep responses concise and actionable.',
-    ].join('\n');
+    ]
+      .filter(Boolean)
+      .join('\n');
     try {
       const stream = provider.stream({
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: message },
         ],
-        model: body.model || 'nemotron-3-ultra-free',
+        model: route.modelId,
       });
       for await (const chunk of stream) {
         if (chunk.type === 'text' && chunk.content)
@@ -98,4 +107,49 @@ export async function handleChatRoute(
   }
 
   return false;
+}
+
+async function resolveChatRoute(
+  ctx: WorkspaceContext,
+  agentId: unknown,
+  requestedRole: unknown,
+  requestedModel: unknown,
+) {
+  if (typeof agentId !== 'string' && typeof requestedRole !== 'string') {
+    return {
+      agentName: undefined,
+      role: 'assistant',
+      providerId: 'opencode',
+      modelId: typeof requestedModel === 'string' && requestedModel ? requestedModel : 'nemotron-3-ultra-free',
+    };
+  }
+  const selection = ctx.routingStore.get().selection;
+  const agent = typeof agentId === 'string' ? await ctx.agents.getAgent(agentId) : null;
+  const normalizedAgentRole =
+    agent?.role === 'documenter' ? 'documentation' : agent?.role === 'planning' ? 'planner' : agent?.role;
+  const selectableRoles: readonly EngineeringAgentRole[] = [
+    'planner',
+    'architect',
+    'developer',
+    'reviewer',
+    'verifier',
+    'documentation',
+  ];
+  const requestedRoutingRole =
+    typeof requestedRole === 'string' && selectableRoles.includes(requestedRole as EngineeringAgentRole)
+      ? (requestedRole as EngineeringAgentRole)
+      : undefined;
+  const role =
+    requestedRoutingRole && requestedRoutingRole === normalizedAgentRole && selection.roles[requestedRoutingRole]
+      ? requestedRoutingRole
+      : selection.roles.developer
+        ? 'developer'
+        : Object.keys(selection.roles)[0];
+  const selected = role ? selection.roles[role as EngineeringAgentRole] : undefined;
+  return {
+    agentName: agent?.name,
+    role: role ?? 'assistant',
+    providerId: selected?.providerId ?? 'opencode',
+    modelId: selected?.modelId ?? 'nemotron-3-ultra-free',
+  };
 }

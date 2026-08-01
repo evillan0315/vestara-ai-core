@@ -6,6 +6,7 @@ import type {
   ConversationEntry,
   FileSummary,
   PlanSummary,
+  RoutingSelection,
   SessionSummary,
   ToolCard,
   TuiEvent,
@@ -48,6 +49,8 @@ export function App({ controller }: { controller: TuiController }) {
   ]);
   const [tools, setTools] = useState<ToolCard[]>([]);
   const [agents, setAgents] = useState<Map<string, AgentCard>>(new Map());
+  const [routing, setRouting] = useState<RoutingSelection>();
+  const routingRef = useRef<RoutingSelection | undefined>(undefined);
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [entities, setEntities] = useState<readonly { id: string; kind: string; label: string; status?: string }[]>([]);
   const [plans, setPlans] = useState<readonly PlanSummary[]>([]);
@@ -62,7 +65,13 @@ export function App({ controller }: { controller: TuiController }) {
   const [undo, setUndo] = useState<string[]>([]);
   const [redo, setRedo] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
-  const [overlay, setOverlay] = useState<'palette' | 'help' | null>(null);
+  const [overlay, setOverlay] = useState<'palette' | 'help' | 'routing' | null>(null);
+  const [routingPicker, setRoutingPicker] = useState<{
+    step: 'agent' | 'provider' | 'model';
+    index: number;
+    agentId?: string;
+    providerId?: string;
+  }>({ step: 'agent', index: 0 });
   const [paletteQuery, setPaletteQuery] = useState('');
   const [confirmation, setConfirmation] = useState<{ prompt: string; command: string }>();
   const [scroll, setScroll] = useState(0);
@@ -92,7 +101,10 @@ export function App({ controller }: { controller: TuiController }) {
       else if (event.type === 'tool')
         setTools((current) => [...current.filter((item) => item.id !== event.card.id), event.card].slice(-30));
       else if (event.type === 'agent') setAgents((current) => new Map(current).set(event.agent.id, event.agent));
-      else if (event.type === 'telemetry')
+      else if (event.type === 'routing') {
+        routingRef.current = event.routing;
+        setRouting(event.routing);
+      } else if (event.type === 'telemetry')
         setLogs((current) => [...current, { id: `${event.timestamp}-${event.label}`, ...event }].slice(-200));
       else if (event.type === 'graph') setEntities(event.entities);
       else if (event.type === 'plans') setPlans(event.plans);
@@ -110,6 +122,22 @@ export function App({ controller }: { controller: TuiController }) {
     },
     [exit, notify],
   );
+
+  const openRouting = useCallback(() => {
+    const currentRouting = routingRef.current;
+    if (!currentRouting?.agents.length || !currentRouting.candidates.length) {
+      notify('warning', 'No routing agents or provider models are available');
+      return;
+    }
+    setRoutingPicker({
+      step: 'agent',
+      index: Math.max(
+        0,
+        currentRouting.agents.findIndex((agent) => agent.id === currentRouting.activeAgentId),
+      ),
+    });
+    setOverlay('routing');
+  }, [notify]);
 
   useEffect(() => {
     let dispose = () => {};
@@ -136,11 +164,12 @@ export function App({ controller }: { controller: TuiController }) {
   );
 
   const execute = useCallback(
-    async (command: string) => {
+    async (command: string, echo = true) => {
       if (!command.trim() || busy) return;
-      setMessages((current) =>
-        [...current, { id: `user-${Date.now()}`, role: 'user' as const, content: command }].slice(-300),
-      );
+      if (echo)
+        setMessages((current) =>
+          [...current, { id: `user-${Date.now()}`, role: 'user' as const, content: command }].slice(-300),
+        );
       setHistory((current) => [...current.filter((item) => item !== command), command].slice(-100));
       setHistoryIndex(-1);
       setBusy(true);
@@ -190,11 +219,58 @@ export function App({ controller }: { controller: TuiController }) {
         const selected = paletteCommands(paletteQuery)[0];
         setOverlay(null);
         setPaletteQuery('');
-        if (selected) selected.run({ setView, setSidebar, setAgentPanel, execute });
+        if (selected) selected.run({ setView, setSidebar, setAgentPanel, execute, openRouting });
         return;
       }
       if (key.backspace || key.delete) setPaletteQuery((current) => current.slice(0, -1));
       else if (!key.ctrl && character) setPaletteQuery((current) => current + character);
+      return;
+    }
+    if (overlay === 'routing') {
+      if (!routing || key.escape) {
+        setOverlay(null);
+        return;
+      }
+      const selectedAgent = routing.agents.find((agent) => agent.id === routingPicker.agentId);
+      const providers = routingProviders(routing, selectedAgent?.role);
+      const models = routingModels(routing, routingPicker.providerId, selectedAgent?.role);
+      const optionCount =
+        routingPicker.step === 'agent'
+          ? routing.agents.length
+          : routingPicker.step === 'provider'
+            ? providers.length
+            : models.length;
+      if (key.upArrow) {
+        setRoutingPicker((current) => ({ ...current, index: Math.max(0, current.index - 1) }));
+        return;
+      }
+      if (key.downArrow) {
+        setRoutingPicker((current) => ({
+          ...current,
+          index: Math.max(0, Math.min(optionCount - 1, current.index + 1)),
+        }));
+        return;
+      }
+      if (key.return && routingPicker.step === 'agent') {
+        const agent = routing.agents[routingPicker.index];
+        if (agent) setRoutingPicker({ step: 'provider', index: 0, agentId: agent.id });
+        return;
+      }
+      if (key.return && routingPicker.step === 'provider') {
+        const provider = providers[routingPicker.index];
+        if (provider) setRoutingPicker({ ...routingPicker, step: 'model', index: 0, providerId: provider.providerId });
+        return;
+      }
+      if (key.return && routingPicker.step === 'model') {
+        const model = models[routingPicker.index];
+        if (selectedAgent && routingPicker.providerId && model) {
+          setOverlay(null);
+          void execute(
+            `/routing select "${selectedAgent.id}" "${selectedAgent.role}" "${routingPicker.providerId}" "${model.modelId}"`,
+            false,
+          );
+        }
+      }
       return;
     }
     if (overlay === 'help') {
@@ -211,6 +287,10 @@ export function App({ controller }: { controller: TuiController }) {
     }
     if (key.ctrl && character === 'p') {
       setOverlay('palette');
+      return;
+    }
+    if (key.ctrl && character === 'r') {
+      openRouting();
       return;
     }
     if (key.ctrl && character === 'b') {
@@ -335,7 +415,10 @@ export function App({ controller }: { controller: TuiController }) {
   const compact = columns < 90;
   const showSidebar = sidebar && !compact;
   const showAgents = agentPanel && columns >= 115;
-  const contentHeight = Math.max(8, rows - 7);
+  // Header (3), composer (4), and status bar (1) must fit inside the
+  // terminal height. If the center pane consumes one of those rows Ink
+  // clips the first composer line, which makes typed input appear missing.
+  const contentHeight = Math.max(8, rows - 8);
   return (
     <Box width={columns} height={rows} flexDirection="column">
       <Header workspace={workspace} connection={connection} busy={busy} />
@@ -357,11 +440,19 @@ export function App({ controller }: { controller: TuiController }) {
             workspace={workspace}
           />
         </Box>
-        {showAgents && <AgentPanel agents={[...agents.values()]} />}
+        {showAgents && <AgentPanel agents={[...agents.values()]} selectedAgentId={routing?.activeAgentId} />}
       </Box>
       <Editor value={input} cursor={cursor} busy={busy} />
-      <StatusBar workspace={workspace} connection={connection} agents={[...agents.values()]} busy={busy} view={view} />
-      {overlay && <Overlay mode={overlay} query={paletteQuery} />}
+      <StatusBar
+        workspace={workspace}
+        connection={connection}
+        agents={[...agents.values()]}
+        busy={busy}
+        view={view}
+        routing={routing}
+      />
+      {(overlay === 'palette' || overlay === 'help') && <Overlay mode={overlay} query={paletteQuery} />}
+      {overlay === 'routing' && routing && <RoutingOverlay routing={routing} picker={routingPicker} />}
       {confirmation && <Confirmation prompt={confirmation.prompt} />}
       <Toasts items={toasts} />
     </Box>
@@ -548,7 +639,7 @@ function ToolExecution({ card }: { card: ToolCard }) {
   );
 }
 
-function AgentPanel({ agents }: { agents: AgentCard[] }) {
+function AgentPanel({ agents, selectedAgentId }: { agents: AgentCard[]; selectedAgentId?: string }) {
   return (
     <Box width={26} borderStyle="single" borderColor="gray" flexDirection="column" paddingX={1}>
       <Text bold>Agents</Text>
@@ -556,6 +647,7 @@ function AgentPanel({ agents }: { agents: AgentCard[] }) {
         agents.map((agent) => (
           <Box key={agent.id} flexDirection="column" marginBottom={1}>
             <Text color={agent.status === 'completed' || agent.status === 'idle' ? 'green' : 'yellow'}>
+              {agent.id === selectedAgentId ? '● ' : ''}
               {agent.name} · {agent.status}
             </Text>
             <Text dimColor>{agent.task || 'Ready'}</Text>
@@ -570,13 +662,10 @@ function AgentPanel({ agents }: { agents: AgentCard[] }) {
 }
 
 function Editor({ value, cursor, busy }: { value: string; cursor: number; busy: boolean }) {
+  const visibleValue = `${value.slice(0, cursor)}${busy ? ' ' : '▌'}${value.slice(cursor)}`;
   return (
-    <Box minHeight={3} borderStyle="round" borderColor={busy ? 'gray' : 'cyan'} paddingX={1} flexDirection="column">
-      <Text color="cyan">
-        › <Text>{value.slice(0, cursor)}</Text>
-        <Text inverse={!busy}>{value[cursor] ?? ' '}</Text>
-        <Text>{value.slice(cursor + (value[cursor] ? 1 : 0))}</Text>
-      </Text>
+    <Box height={4} borderStyle="round" borderColor={busy ? 'gray' : 'cyan'} paddingX={1} flexDirection="column">
+      <Text color="cyan">› {visibleValue}</Text>
       <Text dimColor>{busy ? 'Ctrl+C cancel' : 'Enter send · Shift+Enter newline · Ctrl+P palette'}</Text>
     </Box>
   );
@@ -588,23 +677,27 @@ function StatusBar({
   agents,
   busy,
   view,
+  routing,
 }: {
   workspace?: WorkspaceSummary;
   connection: string;
   agents: AgentCard[];
   busy: boolean;
   view: TuiView;
+  routing?: RoutingSelection;
 }) {
   const memory = Math.round(process.memoryUsage().rss / 1024 / 1024);
   const tokens = agents.reduce((sum, agent) => sum + (agent.tokens ?? 0), 0);
+  const selectedAgent = routing?.agents.find((agent) => agent.id === routing.activeAgentId);
+  const route = selectedAgent ? routing?.roles[selectedAgent.role] : undefined;
   return (
     <Box paddingX={1} justifyContent="space-between">
       <Text dimColor>
         {workspace?.name ?? 'workspace'} · {workspace?.branch ?? 'no branch'} · {view}
       </Text>
       <Text dimColor>
-        {agents.filter((agent) => !['idle', 'completed'].includes(agent.status)).length} agents · {tokens} tokens ·{' '}
-        {memory}MB · {busy ? 'working' : 'ready'} · {connection}
+        {selectedAgent?.name ?? 'auto'} · {route ? `${route.providerId}/${route.modelId}` : 'automatic'} · {tokens}{' '}
+        tokens · {memory}MB · {busy ? 'working' : 'ready'} · {connection}
       </Text>
     </Box>
   );
@@ -618,7 +711,7 @@ function ListView({ title, lines, selected }: { title: string; lines: string[]; 
       </Text>
       {lines.length ? (
         lines.map((line, index) => (
-          <Text key={`${index}-${line}`} color={selected === index ? 'cyan' : undefined} bold={selected === index}>
+          <Text key={line} color={selected === index ? 'cyan' : undefined} bold={selected === index}>
             {selected === index ? '› ' : '  '}
             {line}
           </Text>
@@ -639,7 +732,8 @@ interface PaletteContext {
   setView: (view: TuiView) => void;
   setSidebar: React.Dispatch<React.SetStateAction<boolean>>;
   setAgentPanel: React.Dispatch<React.SetStateAction<boolean>>;
-  execute: (command: string) => Promise<void>;
+  execute: (command: string, echo?: boolean) => Promise<void>;
+  openRouting: () => void;
 }
 function paletteCommands(query: string): Array<{ label: string; run(context: PaletteContext): void }> {
   const commands = [
@@ -659,6 +753,7 @@ function paletteCommands(query: string): Array<{ label: string; run(context: Pal
         void context.execute('/routing show');
       },
     },
+    { label: 'Select Agent, Provider & Model', run: (context: PaletteContext) => context.openRouting() },
     { label: 'Toggle Sidebar', run: (context: PaletteContext) => context.setSidebar((value) => !value) },
     { label: 'Toggle Agents', run: (context: PaletteContext) => context.setAgentPanel((value) => !value) },
   ];
@@ -674,6 +769,7 @@ function Overlay({ mode, query }: { mode: 'palette' | 'help'; query: string }) {
           .map((item, index) => `${index === 0 ? '›' : ' '} ${item.label}`)
       : [
           'Ctrl+P Command palette',
+          'Ctrl+R Select agent/provider/model',
           'Ctrl+B Toggle navigation',
           'Ctrl+A Toggle agents',
           'Ctrl+G Engineering graph',
@@ -703,6 +799,86 @@ function Overlay({ mode, query }: { mode: 'palette' | 'help'; query: string }) {
     </Box>
   );
 }
+
+function routingProviders(routing: RoutingSelection, _role?: string): Array<{ providerId: string; name: string }> {
+  const providers = new Map<string, string>();
+  for (const candidate of routing.candidates) {
+    if (candidate.availability.available) providers.set(candidate.ref.providerId, candidate.providerName);
+  }
+  return [...providers].map(([providerId, name]) => ({ providerId, name }));
+}
+
+function routingModels(
+  routing: RoutingSelection,
+  providerId?: string,
+  _role?: string,
+): Array<{ modelId: string; revision?: string; state: string }> {
+  return routing.candidates
+    .filter((candidate) => candidate.ref.providerId === providerId && candidate.availability.available)
+    .map((candidate) => ({
+      modelId: candidate.ref.modelId,
+      revision: candidate.ref.modelRevision,
+      state: candidate.availability.state,
+    }));
+}
+
+function RoutingOverlay({
+  routing,
+  picker,
+}: {
+  routing: RoutingSelection;
+  picker: { step: 'agent' | 'provider' | 'model'; index: number; agentId?: string; providerId?: string };
+}) {
+  const agent = routing.agents.find((candidate) => candidate.id === picker.agentId);
+  const providers = routingProviders(routing, agent?.role);
+  const models = routingModels(routing, picker.providerId, agent?.role);
+  const lines =
+    picker.step === 'agent'
+      ? routing.agents.map(
+          (candidate) =>
+            `${candidate.name} · ${candidate.role}${candidate.id === routing.activeAgentId ? ' · current' : ''}`,
+        )
+      : picker.step === 'provider'
+        ? providers.map((provider) => `${provider.name} · ${provider.providerId}`)
+        : models.map((model) => `${model.modelId}${model.revision ? ` @ ${model.revision}` : ''} · ${model.state}`);
+  const windowStart = Math.max(0, Math.min(picker.index - 10, Math.max(0, lines.length - 12)));
+  return (
+    <Box
+      position="absolute"
+      marginTop={2}
+      marginLeft={4}
+      width={68}
+      borderStyle="double"
+      borderColor="cyan"
+      padding={1}
+      flexDirection="column"
+    >
+      <Text bold color="cyan">
+        Execution Routing · {picker.step === 'agent' ? 'Agent' : picker.step === 'provider' ? 'Provider' : 'Model'}
+      </Text>
+      <Text dimColor>
+        {agent ? `${agent.name} (${agent.role})` : 'Choose the agent that will own subsequent conversation work'}
+        {picker.providerId ? ` · ${picker.providerId}` : ''}
+      </Text>
+      {lines.length ? (
+        lines.slice(windowStart, windowStart + 12).map((line, index) => (
+          <Text
+            key={line}
+            color={windowStart + index === picker.index ? 'cyan' : undefined}
+            bold={windowStart + index === picker.index}
+          >
+            {windowStart + index === picker.index ? '› ' : '  '}
+            {line}
+          </Text>
+        ))
+      ) : (
+        <Text color="yellow">No available choices</Text>
+      )}
+      <Text dimColor>↑/↓ navigate · Enter choose · Esc cancel</Text>
+    </Box>
+  );
+}
+
 function Confirmation({ prompt }: { prompt: string }) {
   return (
     <Box

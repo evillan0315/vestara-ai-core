@@ -9,6 +9,21 @@ Runtime events are normalized before reaching UI state. Provider protocol,
 raw tool payloads, and provider metadata are never added to the conversation
 timeline.
 
+## Execution routing
+
+Press `Ctrl+R`, or choose **Select Agent, Provider & Model** from the command
+palette, to open the three-stage routing selector. The selector reads active
+agents from `/api/agents` and healthy provider-scoped models from the shared
+routing catalog. Completing the flow updates the versioned routing selection
+through `/api/routing/selection`; it does not keep an independent TUI routing
+configuration.
+
+The active agent and effective `provider/model` are shown in the status bar.
+Subsequent conversation requests include the selected agent identity, while
+the API resolves the provider and model from authoritative routing state. A
+revision conflict or unavailable candidate is surfaced as a TUI error instead
+of silently overwriting a selection made by another client.
+
 ## Component hierarchy
 
 ```text

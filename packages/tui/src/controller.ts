@@ -1,7 +1,16 @@
 import type { RawData } from 'ws';
 import WebSocket from 'ws';
 import { normalizeRuntimeEvent } from './normalize.js';
-import type { AgentCard, PlanSummary, SessionSummary, TuiEvent, TuiSnapshot } from './types.js';
+import type {
+  AgentCard,
+  PlanSummary,
+  RoutingAgent,
+  RoutingCandidate,
+  RoutingSelection,
+  SessionSummary,
+  TuiEvent,
+  TuiSnapshot,
+} from './types.js';
 
 export interface TuiControllerOptions {
   endpoint?: string;
@@ -9,6 +18,7 @@ export interface TuiControllerOptions {
 
 export class TuiController {
   private readonly endpoint: URL;
+  private routingState?: RoutingSelection;
   constructor(options: TuiControllerOptions = {}) {
     this.endpoint = new URL(options.endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001');
   }
@@ -16,7 +26,7 @@ export class TuiController {
   async connect(listener: (event: TuiEvent) => void): Promise<() => void> {
     listener({ type: 'connection', state: 'connecting' });
     try {
-      const [status, workspace, telemetry, graph, plans, sessions] = await Promise.all([
+      const [status, workspace, telemetry, graph, plans, sessions, agents, catalog, selection] = await Promise.all([
         this.getJson<{ status: string; workspaceId: string; runtimeVersion: string; apiEndpoint: string }>(
           '/api/runtime/status',
         ),
@@ -27,6 +37,9 @@ export class TuiController {
         ).catch(() => ({ entities: [] })),
         this.getJson<{ plans?: any[] }>('/api/plans').catch(() => ({ plans: [] })),
         this.getJson<{ sessions?: any[] }>('/api/sessions').catch(() => ({ sessions: [] })),
+        this.getJson<{ agents?: RoutingAgent[] }>('/api/agents').catch(() => ({ agents: [] })),
+        this.getJson<{ candidates?: RoutingCandidate[] }>('/api/routing/catalog').catch(() => ({ candidates: [] })),
+        this.getJson<any>('/api/routing/selection').catch(() => undefined),
       ]);
       listener({
         type: 'workspace',
@@ -53,6 +66,22 @@ export class TuiController {
           .filter((entity) => ['file', 'source-file'].includes(entity.kind))
           .map((entity) => ({ path: entity.label, status: entity.status })),
       });
+      if (selection) {
+        const availableAgents = (agents.agents ?? [])
+          .filter((agent) => agent.status === 'active')
+          .map(normalizeRoutingAgent)
+          .filter((agent): agent is RoutingAgent => agent !== undefined);
+        const routing: RoutingSelection = {
+          revision: selection.revision,
+          profileId: selection.selection.profileId,
+          roles: selection.selection.roles ?? {},
+          agents: availableAgents,
+          candidates: catalog.candidates ?? [],
+          activeAgentId: this.routingState?.activeAgentId ?? availableAgents[0]?.id,
+        };
+        this.routingState = routing;
+        listener({ type: 'routing', routing });
+      }
       listener({ type: 'connection', state: 'connected' });
       const unsubscribe = await this.subscribe((raw) => {
         for (const event of normalizeRuntimeEvent(raw)) listener(event);
@@ -113,7 +142,8 @@ export class TuiController {
         entry: {
           id: `help-${Date.now()}`,
           role: 'system',
-          content: 'Commands: /status, /routing show, /plans, /sessions, /graph, /explorer, /telemetry, /clear, /exit',
+          content:
+            'Commands: /status, /routing show, /routing select <agent> <role> <provider> <model>, /plans, /sessions, /graph, /explorer, /telemetry, /clear, /exit',
         },
       };
       return;
@@ -135,6 +165,40 @@ export class TuiController {
       };
       return;
     }
+    if (action === 'select') {
+      const [agentId, role, providerId, modelId] = args.slice(1, 5);
+      if (!agentId || !role || !providerId || !modelId)
+        throw new Error('Usage: /routing select <agent> <role> <provider> <model>');
+      if (!this.routingState) throw new Error('Routing catalog is not available');
+      const agent = this.routingState.agents.find((candidate) => candidate.id === agentId && candidate.role === role);
+      if (!agent) throw new Error(`Agent is not available for role ${role}: ${agentId}`);
+      const candidate = this.routingState.candidates.find(
+        (item) => item.ref.providerId === providerId && item.ref.modelId === modelId && item.availability.available,
+      );
+      if (!candidate) throw new Error(`Provider model is not available: ${providerId}/${modelId}`);
+      const result = await this.requestJson<any>('/api/routing/selection', 'PATCH', {
+        selection: {
+          profileId: this.routingState.profileId,
+          roles: { ...this.routingState.roles, [role]: candidate.ref },
+        },
+        expectedRevision: this.routingState.revision,
+        updatedByClientId: 'console',
+      });
+      this.routingState = {
+        ...this.routingState,
+        revision: result.revision,
+        profileId: result.selection.profileId,
+        roles: result.selection.roles,
+        activeAgentId: agentId,
+      };
+      yield { type: 'routing', routing: this.routingState };
+      yield {
+        type: 'notification',
+        level: 'success',
+        message: `${agent.name} → ${candidate.providerName}/${candidate.ref.modelId}`,
+      };
+      return;
+    }
     throw new Error(`Unknown routing command: ${action}`);
   }
 
@@ -144,7 +208,11 @@ export class TuiController {
     const response = await fetch(new URL('/api/chat/stream', this.endpoint), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({
+        message,
+        agentId: this.routingState?.activeAgentId,
+        role: this.routingState?.agents.find((agent) => agent.id === this.routingState?.activeAgentId)?.role,
+      }),
       signal,
     });
     if (!response.ok || !response.body) throw new Error(`Conversation stream unavailable: ${response.status}`);
@@ -171,6 +239,19 @@ export class TuiController {
   private async getJson<T>(pathname: string): Promise<T> {
     const response = await fetch(new URL(pathname, this.endpoint), { headers: { 'X-Vestara-Source': 'cli' } });
     if (!response.ok) throw new Error(`Runtime API ${response.status}: ${pathname}`);
+    return response.json() as Promise<T>;
+  }
+
+  private async requestJson<T>(pathname: string, method: string, body: unknown): Promise<T> {
+    const response = await fetch(new URL(pathname, this.endpoint), {
+      method,
+      headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
+      body: JSON.stringify(body),
+    });
+    if (!response.ok) {
+      const result = (await response.json().catch(() => ({}))) as { error?: string };
+      throw new Error(result.error ?? `Runtime API ${response.status}: ${pathname}`);
+    }
     return response.json() as Promise<T>;
   }
 
@@ -222,6 +303,13 @@ function toSessionSummary(session: any): SessionSummary {
         : 0,
     createdAt: session.createdAt,
   };
+}
+
+function normalizeRoutingAgent(agent: RoutingAgent): RoutingAgent | undefined {
+  const aliases: Readonly<Record<string, string>> = { planning: 'planner', documenter: 'documentation' };
+  const role = aliases[agent.role] ?? agent.role;
+  if (!['planner', 'architect', 'developer', 'reviewer', 'verifier', 'documentation'].includes(role)) return undefined;
+  return { ...agent, role };
 }
 
 export function splitArguments(input: string): string[] {
