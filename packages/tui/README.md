@@ -24,6 +24,17 @@ TuiApp
 ```
 
 `TuiController` is the runtime bridge. `normalizeRuntimeEvent` is the single
-protocol-to-presentation boundary. Future extension views can contribute a
-navigation entry and render function without gaining access to runtime
-internals.
+protocol-to-presentation boundary. Plans and sessions come from their public
+runtime APIs; the Explorer is a projection of file entities in the Engineering
+Graph. No workspace package is imported by this presentation package.
+
+## Extension point
+
+`TuiExtensionRegistry` accepts declarative `TuiViewContribution` descriptors.
+Extensions may contribute identity, labels, descriptions, and commands, but do
+not inject arbitrary Ink components into the trusted TUI process. The TUI owns
+rendering and can evolve its theme and responsive layout independently.
+
+Registrations return a disposal callback so package deactivation removes its
+contributions without restarting the runtime. Duplicate or unsafe identifiers
+are rejected at registration time.

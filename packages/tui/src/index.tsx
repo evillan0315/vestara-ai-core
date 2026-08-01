@@ -19,5 +19,6 @@ export async function runTui(options: RunTuiOptions = {}): Promise<void> {
 
 export { App } from './app.js';
 export { snapshotFromEvents, splitArguments, TuiController } from './controller.js';
+export { TuiExtensionRegistry } from './extensions.js';
 export { humanizeTool, normalizeRuntimeEvent } from './normalize.js';
 export type * from './types.js';

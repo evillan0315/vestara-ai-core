@@ -14,6 +14,23 @@ class StubController {
       type: 'agent',
       agent: { id: 'developer', name: 'Developer', status: 'thinking', task: 'Build TUI', progress: 40 },
     });
+    listener({
+      type: 'plans',
+      plans: [{ id: 'plan-1', title: 'Native TUI', goal: 'Replace REPL', status: 'approved', taskCount: 5 }],
+    });
+    listener({
+      type: 'sessions',
+      sessions: [
+        {
+          id: 'session-1',
+          title: 'TUI implementation',
+          objective: 'Ship the TUI',
+          status: 'executing',
+          participantCount: 2,
+        },
+      ],
+    });
+    listener({ type: 'files', files: [{ path: 'packages/tui/src/app.tsx', status: 'modified' }] });
     return () => {};
   }
   async *execute(command: string): AsyncGenerator<TuiEvent> {
@@ -60,6 +77,28 @@ describe('Vestara TUI', () => {
       view.stdin.write('\r');
       expect(await frame(view, 'Streaming response')).toContain('Vestara');
       expect(controller.commands).toEqual(['/status']);
+    } finally {
+      view.unmount();
+    }
+  });
+
+  it('renders runtime-backed plans, sessions, and workspace files', async () => {
+    const view = render(createElement(App, { controller: new StubController() as unknown as TuiController }));
+    try {
+      await frame(view, 'connected');
+      view.stdin.write('\u0010');
+      await frame(view, 'Command Palette');
+      view.stdin.write('plans');
+      await frame(view, 'Command Palette › plans');
+      view.stdin.write('\r');
+      expect(await frame(view, 'Native TUI')).toContain('5 tasks');
+
+      view.stdin.write('\u0010');
+      await frame(view, 'Command Palette');
+      view.stdin.write('explorer');
+      await frame(view, 'Command Palette › explorer');
+      view.stdin.write('\r');
+      expect(await frame(view, 'packages/tui/src/app.tsx')).toContain('modified');
     } finally {
       view.unmount();
     }

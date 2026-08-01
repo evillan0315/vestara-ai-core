@@ -1,7 +1,7 @@
-import WebSocket from 'ws';
 import type { RawData } from 'ws';
+import WebSocket from 'ws';
 import { normalizeRuntimeEvent } from './normalize.js';
-import type { AgentCard, TuiEvent, TuiSnapshot } from './types.js';
+import type { AgentCard, PlanSummary, SessionSummary, TuiEvent, TuiSnapshot } from './types.js';
 
 export interface TuiControllerOptions {
   endpoint?: string;
@@ -16,7 +16,7 @@ export class TuiController {
   async connect(listener: (event: TuiEvent) => void): Promise<() => void> {
     listener({ type: 'connection', state: 'connecting' });
     try {
-      const [status, workspace, telemetry, graph] = await Promise.all([
+      const [status, workspace, telemetry, graph, plans, sessions] = await Promise.all([
         this.getJson<{ status: string; workspaceId: string; runtimeVersion: string; apiEndpoint: string }>(
           '/api/runtime/status',
         ),
@@ -25,6 +25,8 @@ export class TuiController {
         this.getJson<{ entities?: Array<{ id: string; kind: string; label: string; status?: string }> }>(
           '/api/graph/entities?limit=100',
         ).catch(() => ({ entities: [] })),
+        this.getJson<{ plans?: any[] }>('/api/plans').catch(() => ({ plans: [] })),
+        this.getJson<{ sessions?: any[] }>('/api/sessions').catch(() => ({ sessions: [] })),
       ]);
       listener({
         type: 'workspace',
@@ -37,6 +39,20 @@ export class TuiController {
       });
       for (const agent of telemetry.agents ?? []) listener({ type: 'agent', agent });
       listener({ type: 'graph', entities: graph.entities ?? [] });
+      listener({
+        type: 'plans',
+        plans: (plans.plans ?? []).map(toPlanSummary),
+      });
+      listener({
+        type: 'sessions',
+        sessions: (sessions.sessions ?? []).map(toSessionSummary),
+      });
+      listener({
+        type: 'files',
+        files: (graph.entities ?? [])
+          .filter((entity) => ['file', 'source-file'].includes(entity.kind))
+          .map((entity) => ({ path: entity.label, status: entity.status })),
+      });
       listener({ type: 'connection', state: 'connected' });
       const unsubscribe = await this.subscribe((raw) => {
         for (const event of normalizeRuntimeEvent(raw)) listener(event);
@@ -76,6 +92,30 @@ export class TuiController {
     }
     if (command === 'routing') {
       yield* this.routing(args);
+      return;
+    }
+    const navigation: Record<string, TuiEvent & { type: 'navigate' }> = {
+      chat: { type: 'navigate', view: 'chat' },
+      sessions: { type: 'navigate', view: 'sessions' },
+      plans: { type: 'navigate', view: 'plans' },
+      graph: { type: 'navigate', view: 'graph' },
+      explorer: { type: 'navigate', view: 'explorer' },
+      logs: { type: 'navigate', view: 'logs' },
+      telemetry: { type: 'navigate', view: 'telemetry' },
+    };
+    if (navigation[command]) {
+      yield navigation[command];
+      return;
+    }
+    if (command === 'help') {
+      yield {
+        type: 'message',
+        entry: {
+          id: `help-${Date.now()}`,
+          role: 'system',
+          content: 'Commands: /status, /routing show, /plans, /sessions, /graph, /explorer, /telemetry, /clear, /exit',
+        },
+      };
       return;
     }
     yield* this.streamConversation(input, signal);
@@ -156,6 +196,32 @@ export class TuiController {
       });
     });
   }
+}
+
+function toPlanSummary(plan: any): PlanSummary {
+  return {
+    id: String(plan.id),
+    title: String(plan.title ?? plan.goal ?? plan.id),
+    goal: String(plan.goal ?? ''),
+    status: String(plan.status ?? 'unknown'),
+    taskCount: Array.isArray(plan.tasks) ? plan.tasks.length : 0,
+    updatedAt: plan.updatedAt,
+  };
+}
+
+function toSessionSummary(session: any): SessionSummary {
+  return {
+    id: String(session.id),
+    title: String(session.title ?? session.goal ?? session.id),
+    objective: String(session.objective ?? session.goal ?? ''),
+    status: String(session.status ?? 'unknown'),
+    participantCount: Array.isArray(session.participants)
+      ? session.participants.length
+      : Array.isArray(session.assignedAgentIds)
+        ? session.assignedAgentIds.length
+        : 0,
+    createdAt: session.createdAt,
+  };
 }
 
 export function splitArguments(input: string): string[] {

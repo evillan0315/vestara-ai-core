@@ -1,7 +1,17 @@
 import { Box, Text, useApp, useInput, usePaste, useWindowSize } from 'ink';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TuiController } from './controller.js';
-import type { AgentCard, ConversationEntry, ToolCard, TuiEvent, TuiView, WorkspaceSummary } from './types.js';
+import type {
+  AgentCard,
+  ConversationEntry,
+  FileSummary,
+  PlanSummary,
+  SessionSummary,
+  ToolCard,
+  TuiEvent,
+  TuiView,
+  WorkspaceSummary,
+} from './types.js';
 
 const NAVIGATION: Array<{ view: TuiView; label: string; key: string }> = [
   { view: 'chat', label: 'Chat', key: '1' },
@@ -40,6 +50,10 @@ export function App({ controller }: { controller: TuiController }) {
   const [agents, setAgents] = useState<Map<string, AgentCard>>(new Map());
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [entities, setEntities] = useState<readonly { id: string; kind: string; label: string; status?: string }[]>([]);
+  const [plans, setPlans] = useState<readonly PlanSummary[]>([]);
+  const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
+  const [files, setFiles] = useState<readonly FileSummary[]>([]);
+  const [selection, setSelection] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [input, setInput] = useState('');
   const [cursor, setCursor] = useState(0);
@@ -81,7 +95,13 @@ export function App({ controller }: { controller: TuiController }) {
       else if (event.type === 'telemetry')
         setLogs((current) => [...current, { id: `${event.timestamp}-${event.label}`, ...event }].slice(-200));
       else if (event.type === 'graph') setEntities(event.entities);
-      else if (event.type === 'notification') notify(event.level, event.message);
+      else if (event.type === 'plans') setPlans(event.plans);
+      else if (event.type === 'sessions') setSessions(event.sessions);
+      else if (event.type === 'files') setFiles(event.files);
+      else if (event.type === 'navigate') {
+        setView(event.view);
+        setSelection(0);
+      } else if (event.type === 'notification') notify(event.level, event.message);
       else if (event.type === 'confirmation') setConfirmation({ prompt: event.prompt, command: event.command });
       else if (event.type === 'clear') {
         setMessages([]);
@@ -236,6 +256,14 @@ export function App({ controller }: { controller: TuiController }) {
       setScroll((current) => Math.max(0, current - 5));
       return;
     }
+    if (!input && key.upArrow && view !== 'chat') {
+      setSelection((current) => Math.max(0, current - 1));
+      return;
+    }
+    if (!input && key.downArrow && view !== 'chat') {
+      setSelection((current) => current + 1);
+      return;
+    }
     if (key.return && key.shift) {
       updateInput(`${input.slice(0, cursor)}\n${input.slice(cursor)}`, cursor + 1);
       return;
@@ -320,6 +348,10 @@ export function App({ controller }: { controller: TuiController }) {
             tools={tools}
             logs={logs}
             entities={entities}
+            plans={plans}
+            sessions={sessions}
+            files={files}
+            selection={selection}
             scroll={scroll}
             height={contentHeight}
             workspace={workspace}
@@ -371,6 +403,10 @@ function MainView(props: {
   tools: ToolCard[];
   logs: LogEntry[];
   entities: readonly { id: string; kind: string; label: string; status?: string }[];
+  plans: readonly PlanSummary[];
+  sessions: readonly SessionSummary[];
+  files: readonly FileSummary[];
+  selection: number;
   scroll: number;
   height: number;
   workspace?: WorkspaceSummary;
@@ -384,6 +420,7 @@ function MainView(props: {
         lines={props.entities.map(
           (item) => `${item.kind.padEnd(18)} ${item.label}${item.status ? ` · ${item.status}` : ''}`,
         )}
+        selected={props.selection}
       />
     );
   if (props.view === 'telemetry' || props.view === 'logs')
@@ -391,25 +428,36 @@ function MainView(props: {
       <ListView
         title={props.view === 'telemetry' ? 'Live Telemetry' : 'Runtime Logs'}
         lines={props.logs.slice(-Math.max(1, props.height - 2)).map((item) => `${item.label} ${item.detail}`)}
+        selected={props.selection}
       />
     );
   if (props.view === 'explorer')
     return (
       <ListView
         title="Workspace Explorer"
-        lines={[
-          props.workspace?.root ?? 'Workspace root unavailable',
-          '',
-          'Explorer data is supplied by filesystem runtime events.',
-        ]}
+        lines={props.files.map((file) => `${file.status ? `${file.status.padEnd(10)} ` : ''}${file.path}`)}
+        selected={props.selection}
       />
     );
-  return (
-    <ListView
-      title={props.view[0]!.toUpperCase() + props.view.slice(1)}
-      lines={[`Runtime-backed ${props.view} view`, 'Use Ctrl+P to run an action.']}
-    />
-  );
+  if (props.view === 'plans')
+    return (
+      <ListView
+        title="Plans"
+        lines={props.plans.map((plan) => `${plan.status.padEnd(12)} ${plan.title} · ${plan.taskCount} tasks`)}
+        selected={props.selection}
+      />
+    );
+  if (props.view === 'sessions')
+    return (
+      <ListView
+        title="Sessions"
+        lines={props.sessions.map(
+          (session) => `${session.status.padEnd(12)} ${session.title} · ${session.participantCount} participants`,
+        )}
+        selected={props.selection}
+      />
+    );
+  return null;
 }
 
 function Conversation({
@@ -562,13 +610,22 @@ function StatusBar({
   );
 }
 
-function ListView({ title, lines }: { title: string; lines: string[] }) {
+function ListView({ title, lines, selected }: { title: string; lines: string[]; selected?: number }) {
   return (
     <Box flexDirection="column">
       <Text bold color="cyan">
         {title}
       </Text>
-      {lines.length ? lines.map((line) => <Text key={line}>{line}</Text>) : <Text dimColor>No data yet</Text>}
+      {lines.length ? (
+        lines.map((line, index) => (
+          <Text key={`${index}-${line}`} color={selected === index ? 'cyan' : undefined} bold={selected === index}>
+            {selected === index ? '› ' : '  '}
+            {line}
+          </Text>
+        ))
+      ) : (
+        <Text dimColor>No data yet</Text>
+      )}
     </Box>
   );
 }
