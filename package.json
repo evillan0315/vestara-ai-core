@@ -12,6 +12,7 @@
     "clean": "tsc -b --clean",
     "test": "vitest run",
     "vestara": "node apps/cli/dist/index.js",
+    "console": "node apps/cli/dist/index.js console",
     "doctor": "node apps/cli/dist/index.js doctor",
     "milestone-status": "bash scripts/milestone-status.sh",
     "ensure-docs": "bash scripts/ensure-docs.sh",

@@ -9,6 +9,7 @@ export { handleMiscRoute } from './misc';
 export { handleNotificationsRoute } from './notifications';
 export { handlePlansRoute } from './plans';
 export { handleProjectsRoute } from './projects';
+export { handleRoutingRoute } from './routing';
 export { handleSchedulesRoute } from './schedules';
 export { handleSessionsRoute } from './sessions';
 export { handleTeamsRoute } from './teams';

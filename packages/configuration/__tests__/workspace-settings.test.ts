@@ -101,4 +101,14 @@ describe('shared workspace commands', () => {
       'vestara://workspace/core%20workspace/entities/file%3Asrc%2Findex.ts',
     );
   });
+
+  it('serializes routing commands for Console parity', () => {
+    const command = createWorkspaceCommand({
+      workspaceId: 'vestara-ai-core',
+      source: 'cli',
+      type: 'routing.preview',
+      payload: { role: 'developer', agentId: 'developer-01' },
+    });
+    expect(serializeWorkspaceCommand(command)).toContain('vestara routing preview');
+  });
 });

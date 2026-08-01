@@ -28,6 +28,7 @@ const Execution = lazy(() => import('./pages/Execution'));
 const Graph = lazy(() => import('./pages/Graph'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
+const RoutingPage = lazy(() => import('./pages/Routing'));
 
 /** Route id → lazy page component. Keys match APP_ROUTES ids. */
 const PAGES: Record<string, ComponentType> = {
@@ -51,6 +52,7 @@ const PAGES: Record<string, ComponentType> = {
   execution: Execution,
   graph: Graph,
   settings: SettingsPage,
+  routing: RoutingPage,
   'not-found': NotFound,
 };
 

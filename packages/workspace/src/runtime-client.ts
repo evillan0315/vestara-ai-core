@@ -33,6 +33,44 @@ export class HttpWorkspaceRuntimeClient implements WorkspaceRuntimeClient {
   execute<TResult>(command: SettingsWorkspaceCommand): Promise<TResult> {
     if (command.type === 'runtime.health-check') return this.request('/api/runtime/health-check', 'POST', command);
     if (command.type === 'graph.rebuild') return this.request('/api/graph/rebuild', 'POST', command);
+    if (command.type === 'routing.catalog.get') return this.request('/api/routing/catalog', 'GET');
+    if (command.type === 'routing.selection.get') return this.request('/api/routing/selection', 'GET');
+    if (command.type === 'routing.selection.update')
+      return this.request('/api/routing/selection', 'PATCH', {
+        ...command.payload,
+        updatedByClientId: command.source,
+      });
+    if (command.type === 'routing.preview')
+      return this.request('/api/routing/preview', 'POST', {
+        ...command.payload,
+        source: command.source,
+      });
+    if (command.type === 'routing.assignment.list') return this.request('/api/routing/assignments', 'GET');
+    if (command.type === 'routing.assignment.create')
+      return this.request('/api/routing/assignments', 'POST', {
+        ...command.payload,
+        requestedByClientId: command.source,
+      });
+    if (command.type === 'routing.assignment.status')
+      return this.request(
+        `/api/routing/assignments/${encodeURIComponent(String(command.payload.taskId))}/status`,
+        'PATCH',
+        {
+          ...command.payload,
+        },
+      );
+    if (command.type === 'routing.assignment.side-effect')
+      return this.request(
+        `/api/routing/assignments/${encodeURIComponent(String(command.payload.taskId))}/side-effects`,
+        'POST',
+        command.payload,
+      );
+    if (command.type === 'routing.assignment.reassign')
+      return this.request(
+        `/api/routing/assignments/${encodeURIComponent(String(command.payload.taskId))}/reassign`,
+        'POST',
+        { ...command.payload, requestedByClientId: command.source },
+      );
     if (command.type === 'settings.reset') {
       const section = encodeURIComponent(String(command.payload.section ?? 'general'));
       return this.request(`/api/settings/overrides/${section}`, 'DELETE', command);

@@ -8,6 +8,24 @@ export async function runHelpCommand(cmd: string): Promise<void> {
       subs: 'status | health',
       examples: ['vestara runtime status --json', 'vestara runtime health'],
     },
+    routing: {
+      desc: 'Inspect and update shared engineering agent/provider/model routing.',
+      usage: 'vestara routing <show|catalog|profile|preview> [options]',
+      subs: 'show | catalog | profile | preview | assignments | assign | assignment-status | record-side-effect | reassign',
+      examples: [
+        'vestara routing show',
+        'vestara routing catalog',
+        'vestara routing profile strict-engineering',
+        'vestara routing preview developer developer-01',
+        'vestara routing assignments',
+        'vestara routing reassign TASK-1 3 developer-02 opencode model-x --reason "provider unavailable"',
+      ],
+    },
+    console: {
+      desc: 'Open the Ink-based interactive Engineering Console connected to the active Workspace Runtime.',
+      usage: 'vestara console [--endpoint URL]',
+      examples: ['vestara console', 'vestara console --endpoint http://127.0.0.1:3001'],
+    },
     screenshots: {
       desc: 'Run governed Playwright screenshot capture and visual-regression checks for the Workspace UI.',
       usage: 'vestara screenshots <run|update|report|clean|check> [options]',

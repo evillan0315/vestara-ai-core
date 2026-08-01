@@ -13,7 +13,7 @@ import type { WorkspaceEvent as UiEvent } from '@vestara/events';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
-import { DefaultProviderManager } from '@vestara/provider-runtime';
+import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
 import { TelemetryRuntime } from '@vestara/telemetry';
 import {
   AgentCapabilityManager,
@@ -49,6 +49,9 @@ import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
   kernel: DefaultKernel;
+  providerManager: DefaultProviderManager;
+  routingStore: FileRoutingStore;
+  routingAssignments: FileRoutingAssignmentStore;
   runtime: WorkspaceRuntime;
   apiRuntime: ApiRuntime;
   eventBus: EventBus;
@@ -163,12 +166,32 @@ function persistDb(db: any, dbPath: string): void {
 export async function createWorkspaceContext(repoPath: string, publish: PublishFn): Promise<WorkspaceContext> {
   const abs = path.resolve(repoPath);
   const kernel = new DefaultKernel();
+  // The provider manager must exist before kernel boot so the kernel can load it.
+  // Kernel-owned infrastructure is attached immediately after boot, once its
+  // guarded event bus and logger accessors are available.
   const providerManager = new DefaultProviderManager();
   const opencode = new OpenCodeProvider();
   await providerManager.register(opencode);
+  providerManager.registerEngineeringMetadata('opencode', {
+    locality: 'cloud',
+    capabilities: [
+      'conversation',
+      'planning',
+      'implementation',
+      'code-review',
+      'verification',
+      'filesystem-read',
+      'filesystem-write',
+      'command-execution',
+      'structured-output',
+      'streaming',
+    ],
+    dataPolicies: ['metadata-only', 'source-allowed'],
+  });
   await kernel.boot({
     providers: [{ manager: providerManager, providerId: 'opencode' }],
   });
+  providerManager.attachRuntimeServices({ eventBus: kernel.eventBus, logger: kernel.logger });
 
   const runtime = new WorkspaceRuntime({
     logger: kernel.logger,
@@ -179,6 +202,12 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   await runtime.open(abs);
   const session = runtime.getSession();
   const workspaceDir = session.workspaceDir;
+  const routingStore = new FileRoutingStore(
+    path.join(workspaceDir, 'routing.json'),
+    { profileId: 'balanced', roles: {} },
+    'system',
+  );
+  const routingAssignments = new FileRoutingAssignmentStore(path.join(workspaceDir, 'routing-assignments.json'));
   const dbPath = path.join(workspaceDir, 'plans', 'plans.db');
   const db = await openSqlDb(dbPath);
 
@@ -414,6 +443,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
 
   return {
     kernel,
+    providerManager,
+    routingStore,
+    routingAssignments,
     runtime,
     apiRuntime,
     eventBus: kernel.eventBus,

@@ -50,6 +50,7 @@ export const APP_ROUTES: AppRoute[] = [
   },
   { id: 'artifacts', path: '/artifacts', title: 'Artifacts', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'agents', path: '/agents', title: 'Agent Control', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'routing', path: '/routing', title: 'Engineering Routing', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'chat', path: '/chat', title: 'Chat', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'memory', path: '/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'terminal', path: '/terminal', title: 'Terminal', requiresAuth: true, enabled: true, layout: 'shell' },

@@ -57,6 +57,81 @@ describe('HttpWorkspaceRuntimeClient', () => {
     expect(observedCommandId).toBe(command.commandId);
   });
 
+  it('maps routing commands to the shared routing API', async () => {
+    const observed: Array<{ method?: string; path?: string; body: unknown }> = [];
+    const url = await endpoint((request, body) => {
+      observed.push({ method: request.method, path: request.url, body: body ? JSON.parse(body) : undefined });
+      return { accepted: true };
+    });
+    const client = new HttpWorkspaceRuntimeClient({ endpoint: url });
+
+    await client.execute(
+      createWorkspaceCommand({ workspaceId: 'workspace-test', source: 'cli', type: 'routing.catalog.get' }),
+    );
+    await client.execute(
+      createWorkspaceCommand({
+        workspaceId: 'workspace-test',
+        source: 'cli',
+        type: 'routing.assignment.reassign',
+        payload: {
+          taskId: 'TASK-1',
+          expectedRevision: 3,
+          agentId: 'developer-02',
+          route: { providerId: 'provider-b', modelId: 'model-b' },
+          reason: 'provider unavailable',
+          approved: false,
+        },
+      }),
+    );
+    await client.execute(
+      createWorkspaceCommand({
+        workspaceId: 'workspace-test',
+        source: 'cli',
+        type: 'routing.selection.update',
+        payload: { selection: { profileId: 'local', roles: {} }, expectedRevision: 2 },
+      }),
+    );
+    await client.execute(
+      createWorkspaceCommand({
+        workspaceId: 'workspace-test',
+        source: 'cli',
+        type: 'routing.preview',
+        payload: { role: 'developer', agentId: 'developer-01' },
+      }),
+    );
+
+    expect(observed).toEqual([
+      { method: 'GET', path: '/api/routing/catalog', body: undefined },
+      {
+        method: 'POST',
+        path: '/api/routing/assignments/TASK-1/reassign',
+        body: {
+          taskId: 'TASK-1',
+          expectedRevision: 3,
+          agentId: 'developer-02',
+          route: { providerId: 'provider-b', modelId: 'model-b' },
+          reason: 'provider unavailable',
+          approved: false,
+          requestedByClientId: 'cli',
+        },
+      },
+      {
+        method: 'PATCH',
+        path: '/api/routing/selection',
+        body: {
+          selection: { profileId: 'local', roles: {} },
+          expectedRevision: 2,
+          updatedByClientId: 'cli',
+        },
+      },
+      {
+        method: 'POST',
+        path: '/api/routing/preview',
+        body: { role: 'developer', agentId: 'developer-01', source: 'cli' },
+      },
+    ]);
+  });
+
   it('subscribes to workspace events and closes on unsubscribe', async () => {
     const server = http.createServer();
     const sockets = new WebSocketServer({ server, path: '/ws' });
@@ -77,9 +152,9 @@ describe('HttpWorkspaceRuntimeClient', () => {
     const received = new Promise<unknown>((resolve) => {
       resolveEvent = resolve;
     });
-    const unsubscribe = await new HttpWorkspaceRuntimeClient({ endpoint: `http://127.0.0.1:${address.port}` }).subscribe(
-      resolveEvent,
-    );
+    const unsubscribe = await new HttpWorkspaceRuntimeClient({
+      endpoint: `http://127.0.0.1:${address.port}`,
+    }).subscribe(resolveEvent);
 
     await expect(subscription).resolves.toEqual({ op: 'subscribe', channels: ['workspace'] });
     await expect(received).resolves.toEqual({ id: 'event-1', type: 'system.heartbeat' });

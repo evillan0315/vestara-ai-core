@@ -30,6 +30,7 @@ import {
   runPlanUpdateStatus,
 } from './commands/plans.js';
 import { runProjectsList } from './commands/projects.js';
+import { runRouting } from './commands/routing.js';
 import { runRuntimeCommand } from './commands/runtime.js';
 import { runScreenshots } from './commands/screenshots.js';
 import { runBackgroundServices, runListSessions, runListWorkflows, runStartSession } from './commands/session.js';
@@ -61,6 +62,10 @@ function printHelp(): void {
   console.log(
     `    ${GREEN}runtime${RESET} [sub]      ${GRAY}Connect to the shared Workspace Runtime API (status|health)${RESET}`,
   );
+  console.log(
+    `    ${GREEN}routing${RESET} [sub]      ${GRAY}Engineering routing (show|catalog|profile|preview)${RESET}`,
+  );
+  console.log(`    ${GREEN}console${RESET}             ${GRAY}Open the interactive Engineering Console${RESET}`);
   console.log(
     `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
   );
@@ -112,6 +117,7 @@ function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
   registry.register('screenshots', (args) => runScreenshots(args));
   registry.register('runtime', (args) => runRuntimeCommand(args));
+  registry.register('routing', (args) => runRouting(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
   registry.register('teams', async (args) => {
@@ -243,6 +249,24 @@ export async function main() {
 
   if (args[0] === 'runtime') {
     await runRuntimeCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'routing') {
+    await runRouting(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'console' || args[0] === 'tui') {
+    const endpointIndex = args.indexOf('--endpoint');
+    const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
+    const path = await import('node:path');
+    const { pathToFileURL } = await import('node:url');
+    const consoleEntry = pathToFileURL(path.join(__dirname, '..', '..', 'console', 'dist', 'index.js')).href;
+    const { runConsole } = (await import(consoleEntry)) as {
+      runConsole(options?: { endpoint?: string }): Promise<void>;
+    };
+    await runConsole({ endpoint });
     return;
   }
 

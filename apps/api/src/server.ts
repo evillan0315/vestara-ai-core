@@ -23,6 +23,7 @@ import { handleMiscRoute } from './routes/misc';
 import { handleNotificationsRoute } from './routes/notifications';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
+import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleTeamsRoute } from './routes/teams';
@@ -135,6 +136,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleDocumentationRoute(method, p, req, res, ctx)) return;
       if (await handleAuthRoute(method, p, req, res, ctx, port)) return;
       if (await handleWorkspaceRoute(method, p, req, res, ctx)) return;
+      if (await handleRoutingRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;
       if (await handleAgentsRoute(method, p, req, res, ctx)) return;
       if (await handleTeamsRoute(method, p, req, res, ctx)) return;

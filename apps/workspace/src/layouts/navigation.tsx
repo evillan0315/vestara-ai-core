@@ -10,6 +10,7 @@ import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
+import RouteRoundedIcon from '@mui/icons-material/RouteRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
 import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
@@ -57,6 +58,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     title: 'Agents',
     items: [
       { to: '/agents', title: 'Agent Control', icon: <SmartToyRoundedIcon fontSize="small" /> },
+      { to: '/routing', title: 'Routing', icon: <RouteRoundedIcon fontSize="small" /> },
       { to: '/memory', title: 'Knowledge', icon: <MemoryRoundedIcon fontSize="small" /> },
     ],
   },

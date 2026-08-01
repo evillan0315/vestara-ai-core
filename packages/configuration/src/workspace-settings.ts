@@ -68,10 +68,22 @@ export interface WorkspaceCommand<TType extends string = string, TPayload = unkn
   readonly sessionId?: string;
 }
 
-export type SettingsWorkspaceCommand = WorkspaceCommand<
-  'settings.update' | 'settings.reset' | 'runtime.health-check' | 'graph.rebuild',
-  Readonly<Record<string, unknown>>
->;
+export type WorkspaceCommandType =
+  | 'settings.update'
+  | 'settings.reset'
+  | 'runtime.health-check'
+  | 'graph.rebuild'
+  | 'routing.catalog.get'
+  | 'routing.selection.get'
+  | 'routing.selection.update'
+  | 'routing.preview'
+  | 'routing.assignment.list'
+  | 'routing.assignment.create'
+  | 'routing.assignment.status'
+  | 'routing.assignment.side-effect'
+  | 'routing.assignment.reassign';
+
+export type SettingsWorkspaceCommand = WorkspaceCommand<WorkspaceCommandType, Readonly<Record<string, unknown>>>;
 
 export function createWorkspaceCommand<TType extends SettingsWorkspaceCommand['type']>(input: {
   workspaceId: string;
@@ -114,6 +126,16 @@ export function serializeWorkspaceCommand(command: SettingsWorkspaceCommand): st
   const workspace = JSON.stringify(command.workspaceId);
   if (command.type === 'runtime.health-check') return `vestara runtime health --workspace ${workspace}`;
   if (command.type === 'graph.rebuild') return `vestara graph rebuild --workspace ${workspace}`;
+  if (command.type === 'routing.catalog.get') return `vestara routing catalog --workspace ${workspace}`;
+  if (command.type === 'routing.selection.get') return `vestara routing show --workspace ${workspace}`;
+  if (command.type === 'routing.selection.update') return `vestara routing update --workspace ${workspace}`;
+  if (command.type === 'routing.preview') return `vestara routing preview --workspace ${workspace}`;
+  if (command.type === 'routing.assignment.list') return `vestara routing assignments --workspace ${workspace}`;
+  if (command.type === 'routing.assignment.create') return `vestara routing assign --workspace ${workspace}`;
+  if (command.type === 'routing.assignment.reassign') return `vestara routing reassign --workspace ${workspace}`;
+  if (command.type === 'routing.assignment.status') return `vestara routing assignment-status --workspace ${workspace}`;
+  if (command.type === 'routing.assignment.side-effect')
+    return `vestara routing record-side-effect --workspace ${workspace}`;
   if (command.type === 'settings.reset') {
     const section = String(command.payload.section ?? 'general');
     return `vestara config reset-section ${section} --workspace ${workspace}`;
