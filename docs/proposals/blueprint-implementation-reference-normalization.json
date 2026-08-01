@@ -25,19 +25,22 @@
     },
     {
       "path": "04-platform/engineering-operating-system.md",
-      "beforeChecksum": "2b55113e87f5bb6d978b173e89a1f6e28350c40097fe5875e5d30aa072b0fce5",
+      "beforeChecksum": "9719fd5f765647dd0929065f6956eff7952394f75849de8ab05e60fffefc0973",
       "operation": "replace",
       "implementationRefs": [
         "packages/workspace/src/workspace-runtime.ts",
         "packages/kernel/src/index.ts",
         "packages/workspace/src/agent-runtime.ts",
+        "packages/agent-harness/src/index.ts",
+        "packages/thread-runtime/src/index.ts",
+        "packages/tool-runtime/src/index.ts",
         "packages/engineering-graph/src/index.ts"
       ],
       "confidence": "direct"
     },
     {
       "path": "05-ai-core/engineering-orchestration.md",
-      "beforeChecksum": "985937f824db3a67fdf507dc86d45d4e4b28771b82ce6ff0f43417f7a12f90d9",
+      "beforeChecksum": "905e3ebe7e86335d251b7144972dd0678286cc20e00256ab273d74a31ec31516",
       "operation": "replace",
       "implementationRefs": [
         "packages/workspace/src/workspace-runtime.ts",
@@ -49,7 +52,7 @@
     },
     {
       "path": "05-ai-core/provider-architecture.md",
-      "beforeChecksum": "a788ee4f9a8a8131c517f1cbe6f395db8c3cee7a8e6371cb47f64d94eb829a49",
+      "beforeChecksum": "151bde598f04882300571c5f36d3fe32aa9f05d136bab3aab7210089ebeb4209",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"
@@ -89,7 +92,7 @@
     },
     {
       "path": "06-workspace/settings-architecture.md",
-      "beforeChecksum": "86fde7334ee55f71a7aff148914a46f2de4efe4776302fc6d0a0206cc38df018",
+      "beforeChecksum": "839487994189510bee1a156a737a1b914ade3bdc14a95c62483e763da0ad9070",
       "operation": "replace",
       "implementationRefs": ["apps/workspace/src/pages/Settings/SettingsPage.tsx", "apps/workspace/src/lib/theme.tsx"],
       "confidence": "direct"
@@ -119,7 +122,7 @@
     },
     {
       "path": "14-engineering/evidence-based-verification.md",
-      "beforeChecksum": "3603269b1d49e6357191ef1c00b2fc9e348179289a6736c2cf0607fee298353c",
+      "beforeChecksum": "9a449b51b50690a710f3cefd66cc17927e3f89e21184cff1e9781705676c6ac1",
       "operation": "replace",
       "implementationRefs": ["packages/verification/src/index.ts", "packages/evaluation/src/index.ts"],
       "confidence": "direct"
@@ -133,7 +136,7 @@
     },
     {
       "path": "20-roadmaps/engineering-os-roadmap.md",
-      "beforeChecksum": "08e4ef83a2b5a52ff49d0f81f565f91161e10f3ddf32a8fec80befa34574b986",
+      "beforeChecksum": "c959ac8e0464a1be746e2694fa9c8a159f69215b8cfb5ebed805cf5706c4aa6f",
       "operation": "replace",
       "implementationRefs": ["packages/workspace/src/workspace-runtime.ts", "packages/kernel/src/index.ts"],
       "confidence": "inferred",
@@ -149,14 +152,14 @@
     },
     {
       "path": "20-roadmaps/provider-platform-roadmap.md",
-      "beforeChecksum": "99c1ce5f1f67357547536c3f38ed50e02db7f1effda2abdcc00b4487249c9c7b",
+      "beforeChecksum": "be04c7da066e021996fdc043dc70e712779aeb98c92180b69374ccbe7e69ab60",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"
     },
     {
       "path": "99-appendix/capability-maturity-matrix.md",
-      "beforeChecksum": "c0d9f1b6a1ca78bd4f17c62f768fc259702cb1c942668aa02016b4d53ecd2565",
+      "beforeChecksum": "3482ebf3b0562ce96a16b965e5bb47f2bd2e0682c8f8bfa86a692e9bab66fa16",
       "operation": "replace",
       "implementationRefs": ["docs/CAPABILITY-REGISTRY.md", "docs/IMPLEMENTATION_STATUS.md"],
       "confidence": "inferred",
@@ -164,7 +167,7 @@
     },
     {
       "path": "99-appendix/implementation-alignment.md",
-      "beforeChecksum": "051c240d0707cec89a8c5a3f2d94b77771f6c0bf6a1b427c773191bf6f941b38",
+      "beforeChecksum": "2d05de387a80ccbcef3f646ee7109da783cc333862b9d8516fef72a815f1f30c",
       "operation": "replace",
       "implementationRefs": ["scripts/workspace-architecture.mjs", "docs/IMPLEMENTATION_STATUS.md"],
       "confidence": "inferred",

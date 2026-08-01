@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/thread-runtime",
+  "description": "Durable task, thread, turn, and item history for the Agent Harness",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/thread-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11",
+    "vitest": "^4.1.10"
+  }
+}

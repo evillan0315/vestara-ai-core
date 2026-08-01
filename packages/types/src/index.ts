@@ -1,6 +1,7 @@
 export * from './capabilities';
 export * from './common';
 export * from './events';
+export * from './harness';
 export * from './ids';
 export * from './intent';
 export * from './job';

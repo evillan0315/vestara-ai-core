@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/tool-runtime",
+  "description": "Unified schema, policy, invocation, cancellation, and evidence boundary for Vestara tools",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/tool-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/filesystem-runtime": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
