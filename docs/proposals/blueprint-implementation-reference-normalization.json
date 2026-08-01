@@ -107,7 +107,7 @@
     },
     {
       "path": "10-developer-platform/extension-platform.md",
-      "beforeChecksum": "652e545d05e7aabcf92c5914265760b8699438d3573d8c87c5dcc6a80b7a44df",
+      "beforeChecksum": "1caa2f52186ed90ef1cf2cfe1a9c31d4d8adfad0815ac5dc59e897bdfcdb9e5b",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
@@ -144,7 +144,7 @@
     },
     {
       "path": "20-roadmaps/extension-platform-roadmap.md",
-      "beforeChecksum": "46a84227690a89cb1bf744d13494f6061357f4103a45569e7cd09286bfaeea1a",
+      "beforeChecksum": "976d458fe3d2cc73431260fb34b0cc3e7afdd810cae2ef9bd4602cc143f5e825",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
@@ -159,7 +159,7 @@
     },
     {
       "path": "99-appendix/capability-maturity-matrix.md",
-      "beforeChecksum": "3482ebf3b0562ce96a16b965e5bb47f2bd2e0682c8f8bfa86a692e9bab66fa16",
+      "beforeChecksum": "38e72de030af92f9ae5eceb3aa4bb65f851f5cfdb0bb7b5fdfeb5d66b1ef666e",
       "operation": "replace",
       "implementationRefs": ["docs/CAPABILITY-REGISTRY.md", "docs/IMPLEMENTATION_STATUS.md"],
       "confidence": "inferred",

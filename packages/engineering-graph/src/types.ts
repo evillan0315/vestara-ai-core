@@ -44,6 +44,12 @@ export const RELATIONSHIP_TYPES = [
   'generated-from',
   'owned-by',
   'requires',
+  'published-by',
+  'provides',
+  'installed-in',
+  'enabled-in',
+  'requests-permission',
+  'conflicts-with',
   'violates',
   'aligned-with',
 ] as const;
