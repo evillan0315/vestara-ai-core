@@ -3,6 +3,10 @@
 CLI entry point for the Vestara runtime, REPL, diagnostics, documentation
 automation, and Workspace UI visual regression workflows.
 
+The CLI also owns the `routing` command family and launches the optional Ink
+Console. Both use the shared Workspace Runtime transport; neither owns routing
+policy or provider state.
+
 ## Usage
 
 Build the compiled CLI before running it:
@@ -10,6 +14,8 @@ Build the compiled CLI before running it:
 ```
 pnpm --filter @vestara/cli build
 pnpm vestara --help
+pnpm vestara routing show
+pnpm console
 ```
 
 ## Screenshot automation

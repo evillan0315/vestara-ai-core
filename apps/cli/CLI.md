@@ -25,6 +25,53 @@ the full runtime (kernel, providers, conversation engine, audio services).
 
 ## CLI Commands
 
+### `vestara console` / `vestara tui`
+
+Launch the Ink-based engineering Console. The API must be running and stdin/
+stdout must be attached to an interactive terminal.
+
+```bash
+pnpm dev:api
+pnpm console
+```
+
+The Console supports streaming prompts, multiline input, bracketed paste,
+history, transcript scrolling, help and command-palette overlays, and governed
+routing reassignment confirmations. `Ctrl+C` cancels active work before exiting
+an idle Console.
+
+---
+
+### `vestara routing <subcommand>`
+
+Inspect and govern role/agent/provider/model routing through shared versioned
+runtime state.
+
+| Subcommand | Behavior |
+|------------|----------|
+| `show` | Show current profile, revision, and role defaults |
+| `catalog` | List profiles and provider-scoped model candidates |
+| `profile <id>` | Change the routing profile with optimistic concurrency |
+| `preview <role> <agent-id>` | Resolve and explain effective routing |
+| `assignments` | List governed task assignments |
+| `assign <task> <role> <agent> <provider> <model>` | Create an assignment |
+| `assignment-status <task> <state> <revision>` | Change assignment state |
+| `record-side-effect <task> <revision>` | Record that execution produced side effects |
+| `reassign <task> <revision> <agent> <provider> <model> --reason <text>` | Govern active reassignment (`--approve` after pause) |
+
+```bash
+vestara routing catalog
+vestara routing profile strict-engineering
+vestara routing preview developer developer-07
+vestara routing assignments
+```
+
+Routing identity is provider-scoped (`providerId/modelId`). A revision conflict
+must be reviewed and retried. Reassignment after recorded side effects pauses
+the task and requires explicit approval; approval does not resume work.
+
+---
+
 ### `vestara screenshots <subcommand> [options]`
 
 Run the Workspace UI screenshot and visual-regression framework through the CLI. `run` compares against
@@ -586,5 +633,7 @@ The CLI persists data in `.vestara/` under the workspace root:
 | `knowledge/` | Indexed knowledge graph |
 | `memory/` | Event memory |
 | `prefs.db` | User preferences |
+| `routing.json` | Versioned routing profile and role defaults |
+| `routing-assignments.json` | Governed task assignments and side-effect evidence |
 
 Default provider is **OpenCode** (`@vestara/provider-opencode`) — works without API keys.
