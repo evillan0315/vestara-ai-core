@@ -6,14 +6,18 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
+import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
 import { type DocumentationRepositoryConfig, DocumentationService } from '@vestara/documentation';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
+import { HostRuntime } from '@vestara/host-runtime';
 import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
+import type { Runtime } from '@vestara/runtime';
+import type { ServiceStatus, VestaraService } from '@vestara/shared';
 import { TelemetryRuntime } from '@vestara/telemetry';
 import {
   AgentCapabilityManager,
@@ -49,6 +53,8 @@ import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
   kernel: DefaultKernel;
+  hostRuntime: HostRuntime;
+  bootRuntime: BootRuntime;
   providerManager: DefaultProviderManager;
   routingStore: FileRoutingStore;
   routingAssignments: FileRoutingAssignmentStore;
@@ -166,6 +172,10 @@ function persistDb(db: any, dbPath: string): void {
 export async function createWorkspaceContext(repoPath: string, publish: PublishFn): Promise<WorkspaceContext> {
   const abs = path.resolve(repoPath);
   const kernel = new DefaultKernel();
+  const hostRuntime = new HostRuntime();
+  const bootRuntime = new BootRuntime({
+    store: new FileBootStateStore(path.join(abs, '.vestara', 'os', 'boot-state.json')),
+  });
   // The provider manager must exist before kernel boot so the kernel can load it.
   // Kernel-owned infrastructure is attached immediately after boot, once its
   // guarded event bus and logger accessors are available.
@@ -190,7 +200,26 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   });
   await kernel.boot({
     providers: [{ manager: providerManager, providerId: 'opencode' }],
+    services: [
+      {
+        service: runtimeService(hostRuntime, '0.1.0'),
+        capabilities: [...hostRuntime.capabilities],
+        dependencies: ['kernel'],
+      },
+      {
+        service: runtimeService(bootRuntime, '0.1.0'),
+        capabilities: [...bootRuntime.capabilities],
+        dependencies: ['host-runtime'],
+      },
+    ],
   });
+  hostRuntime.setEventBus(kernel.eventBus);
+  hostRuntime.setPermissionManager(kernel.permissions);
+  bootRuntime.setEventBus(kernel.eventBus);
+  await bootRuntime.advance('host-started');
+  await bootRuntime.advance('storage-mounted', abs);
+  await bootRuntime.advance('identity-loaded', `uid:${process.getuid?.() ?? 'unknown'}`);
+  await bootRuntime.advance('services-started');
   providerManager.attachRuntimeServices({ eventBus: kernel.eventBus, logger: kernel.logger });
 
   const runtime = new WorkspaceRuntime({
@@ -200,6 +229,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   });
 
   await runtime.open(abs);
+  await bootRuntime.advance('runtime-composed', sessionSafeId(runtime));
   const session = runtime.getSession();
   const workspaceDir = session.workspaceDir;
   const routingStore = new FileRoutingStore(
@@ -441,8 +471,18 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     }
   };
 
+  const diagnosis = await kernel.diagnose();
+  if (diagnosis.health.overall === 'unhealthy') {
+    await bootRuntime.enterRecovery('Kernel service health verification failed');
+    throw new Error('Vestara OS-0 entered recovery: kernel service health verification failed');
+  }
+  await bootRuntime.advance('health-verified', diagnosis.health.overall);
+  await bootRuntime.advance('workspace-ready', session.fingerprint.id);
+
   return {
     kernel,
+    hostRuntime,
+    bootRuntime,
     providerManager,
     routingStore,
     routingAssignments,
@@ -497,5 +537,34 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       await runtime.close();
       await kernel.shutdown();
     },
+  };
+}
+
+function sessionSafeId(runtime: WorkspaceRuntime): string {
+  try {
+    return runtime.getSession().fingerprint.id;
+  } catch {
+    return 'workspace-runtime';
+  }
+}
+
+function runtimeService(runtime: Runtime, version: string): VestaraService {
+  return {
+    id: runtime.id,
+    version,
+    get status(): ServiceStatus {
+      if (runtime.state === 'created') return 'uninitialized';
+      if (runtime.state === 'initializing') return 'initializing';
+      if (runtime.state === 'running') return 'running';
+      if (runtime.state === 'degraded') return 'degraded';
+      if (runtime.state === 'stopping') return 'stopping';
+      if (runtime.state === 'stopped') return 'stopped';
+      return 'disposed';
+    },
+    initialize: () => runtime.initialize(),
+    start: async () => {},
+    stop: () => runtime.stop(),
+    health: async () => ({ ...runtime.health, version }),
+    dispose: () => runtime.destroy(),
   };
 }

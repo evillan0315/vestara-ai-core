@@ -12,6 +12,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vestara/boot-runtime": "workspace:*",
     "@vestara/activity-log": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/documentation": "workspace:*",
@@ -19,11 +20,13 @@
     "@vestara/event-bus": "workspace:*",
     "@vestara/events": "workspace:*",
     "@vestara/filesystem-runtime": "workspace:*",
+    "@vestara/host-runtime": "workspace:*",
     "@vestara/kernel": "workspace:*",
     "@vestara/permissions": "workspace:*",
     "@vestara/provider-opencode": "workspace:*",
     "@vestara/provider-runtime": "workspace:*",
     "@vestara/runtime": "workspace:*",
+    "@vestara/shared": "workspace:*",
     "@vestara/telemetry": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/workspace": "workspace:*",

@@ -18,6 +18,7 @@ import {
   runDoctorWorkspace,
 } from './commands/doctor.js';
 import { runHelpCommand } from './commands/help-cmd.js';
+import { runBootCommand, runHostCommand } from './commands/host.js';
 import { runMetrics } from './commands/metrics.js';
 import { runModelsList } from './commands/models.js';
 import { runOps } from './commands/ops.js';
@@ -94,6 +95,8 @@ function printHelp(): void {
   console.log(
     `    ${GREEN}runtime${RESET} [sub]      ${GRAY}Connect to the shared Workspace Runtime API (status|health)${RESET}`,
   );
+  console.log(`    ${GREEN}host${RESET} status        ${GRAY}Inspect the OS-0 host boundary${RESET}`);
+  console.log(`    ${GREEN}boot${RESET} status        ${GRAY}Show durable OS-0 boot progress${RESET}`);
   console.log(
     `    ${GREEN}routing${RESET} [sub]      ${GRAY}Engineering routing (show|catalog|profile|preview)${RESET}`,
   );
@@ -149,6 +152,8 @@ function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
   registry.register('screenshots', (args) => runScreenshots(args));
   registry.register('runtime', (args) => runRuntimeCommand(args));
+  registry.register('host', (args) => runHostCommand(args));
+  registry.register('boot', (args) => runBootCommand(args));
   registry.register('routing', (args) => runRouting(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
@@ -281,6 +286,16 @@ export async function main() {
 
   if (args[0] === 'runtime') {
     await runRuntimeCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'host') {
+    await runHostCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'boot') {
+    await runBootCommand(args.slice(1));
     return;
   }
 

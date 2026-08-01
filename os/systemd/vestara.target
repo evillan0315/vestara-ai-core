@@ -1,0 +1,7 @@
+[Unit]
+Description=Vestara OS-0 Host Mode
+Requires=vestara-host.service vestara-api.service vestara-workspace.service
+After=vestara-workspace.service
+
+[Install]
+WantedBy=multi-user.target

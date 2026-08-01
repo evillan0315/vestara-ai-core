@@ -5,6 +5,8 @@ export type RuntimeType =
   | 'runtime'
   | 'system'
   | 'kernel'
+  | 'host'
+  | 'boot'
   | 'workspace'
   | 'agent'
   | 'ai-agent'

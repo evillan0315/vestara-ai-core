@@ -13,6 +13,8 @@ describe('@vestara/registry', () => {
     expect(mod.REGISTRY.agent).toBeDefined();
     expect(mod.REGISTRY.workspace).toBeDefined();
     expect(mod.REGISTRY.kernel).toBeDefined();
+    expect(mod.REGISTRY.host.parent).toBe('system');
+    expect(mod.REGISTRY.boot.dependencies).toContain('host');
   });
 
   it('includes system runtime types', () => {

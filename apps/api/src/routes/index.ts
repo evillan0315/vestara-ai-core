@@ -3,6 +3,7 @@ export { handleAgentsRoute } from './agents';
 export { handleAuthRoute } from './auth';
 export { handleChatRoute } from './chat';
 export { featureRequests, handleFeatureRequestsRoute } from './feature-requests';
+export { handleHostRoute } from './host';
 export { handleMemoryRoute } from './memory';
 export { handleMilestonesRoute } from './milestones';
 export { handleMiscRoute } from './misc';

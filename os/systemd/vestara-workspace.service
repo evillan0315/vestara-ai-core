@@ -1,0 +1,23 @@
+[Unit]
+Description=Vestara OS-0 Workspace Readiness Gate
+Documentation=file:/opt/vestara/os/README.md
+After=vestara-api.service
+Requires=vestara-api.service
+
+[Service]
+Type=oneshot
+User=vestara
+Group=vestara
+WorkingDirectory=/opt/vestara
+EnvironmentFile=-/etc/vestara/vestara.env
+ExecStart=/usr/bin/node /opt/vestara/apps/cli/dist/index.js runtime health --endpoint http://127.0.0.1:3001
+RemainAfterExit=yes
+Restart=on-failure
+RestartSec=2
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+
+[Install]
+WantedBy=vestara.target

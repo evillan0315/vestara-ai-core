@@ -16,6 +16,7 @@ import { handleDocumentationRoute } from './routes/documentation';
 import { handleExecutionRoute } from './routes/execution';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
 import { handleGraphRoute } from './routes/graph';
+import { handleHostRoute } from './routes/host';
 import { CORS, json } from './routes/index';
 import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
@@ -132,6 +133,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleDiagnosticsRoute(method, p, req, res, ctx)) return;
       if (await handleExecutionRoute(method, p, req, res, ctx)) return;
       if (await handleGraphRoute(method, p, req, res, ctx)) return;
+      if (await handleHostRoute(method, p, req, res, ctx)) return;
       if (await handleDocsRoute(method, p, req, res, ctx)) return;
       if (await handleDocumentationRoute(method, p, req, res, ctx)) return;
       if (await handleAuthRoute(method, p, req, res, ctx, port)) return;
