@@ -37,6 +37,7 @@ export type ThreadItemKind =
   | 'approval-request'
   | 'approval-decision'
   | 'verification-result'
+  | 'revision-request'
   | 'state-transition'
   | 'final-outcome';
 
