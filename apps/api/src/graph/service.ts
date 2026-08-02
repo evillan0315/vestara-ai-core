@@ -54,7 +54,20 @@ export class EngineeringGraphService {
     this.registerSources();
   }
 
+  /** Optional hook for modules (e.g. external runtime) to contribute sources. */
+  registerExternalRuntimeSource?: () => void;
+
+  /** External modules register entity/relationship sources here. */
+  addEntitySource(source: Parameters<EntityRegistry['registerEntitySource']>[0]): void {
+    this.registry.registerEntitySource(source);
+  }
+
+  addRelationshipSource(source: Parameters<EntityRegistry['registerRelationshipSource']>[0]): void {
+    this.registry.registerRelationshipSource(source);
+  }
+
   private registerSources(): void {
+    this.registerExternalRuntimeSource?.();
     this.registry.registerEntitySource({
       kind: 'repository',
       priority: 0,

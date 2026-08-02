@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
+import { VestaraModal } from '../components/ui/VestaraModal';
 
 export interface StatCardProps {
   label: string;
@@ -162,64 +163,61 @@ export function WorkflowModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-6 w-full max-w-4xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <VestaraModal onClose={onClose} className="max-w-4xl">
+      <div className="p-6">
         <div className="flex items-center justify-between mb-5">
-          <h3 className="text-sm font-semibold text-zinc-200">Start Workflow</h3>
-          <button onClick={onClose} className="text-zinc-600 hover:text-zinc-400 text-base cursor-pointer">
+          <h3 className="text-sm font-semibold text-(--vestara-text)">Start Workflow</h3>
+          <button onClick={onClose} className="text-(--vestara-text-dim) hover:text-(--vestara-text-2) text-base cursor-pointer">
             ✕
           </button>
         </div>
         <div className="space-y-4">
           <div>
-            <label className="text-[10px] text-zinc-600 uppercase tracking-wider block mb-2">Workflow Type</label>
+            <label className="text-[10px] text-(--vestara-text-muted) uppercase tracking-wider block mb-2">Workflow Type</label>
             <div className="grid grid-cols-2 gap-2">
               {WORKFLOW_TYPES.map((wt) => (
                 <button
                   key={wt.id}
                   onClick={() => setWorkflowType(wt.id)}
-                  className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${workflowType === wt.id ? 'bg-blue-600/10 border-blue-500/40 ring-1 ring-blue-500/20' : 'bg-zinc-800/50 border-zinc-700 hover:border-zinc-600'}`}
+                  className={`text-left p-3 rounded-lg border transition-all cursor-pointer ${workflowType === wt.id ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active) ring-1 ring-(--vestara-accent-border)' : 'bg-(--vestara-accent-bg)/50 border-(--vestara-accent-border) hover:border-(--vestara-accent-border-hover)'}`}
                 >
                   <div className="text-base mb-1">{wt.icon}</div>
-                  <div className={`text-xs font-medium ${workflowType === wt.id ? 'text-blue-400' : 'text-zinc-300'}`}>
+                  <div className={`text-xs font-medium ${workflowType === wt.id ? 'text-(--vestara-accent-text)' : 'text-(--vestara-text-2)'}`}>
                     {wt.label}
                   </div>
-                  <div className="text-[9px] text-zinc-600 leading-tight mt-0.5">{wt.description}</div>
+                  <div className="text-[9px] text-(--vestara-text-muted) leading-tight mt-0.5">{wt.description}</div>
                 </button>
               ))}
             </div>
           </div>
           <div>
-            <label className="text-[10px] text-zinc-600 uppercase tracking-wider block mb-1.5">Goal</label>
+            <label className="text-[10px] text-(--vestara-text-muted) uppercase tracking-wider block mb-1.5">Goal</label>
             <textarea
               value={workflowGoal}
               onChange={(e) => setWorkflowGoal(e.target.value)}
               rows={3}
               placeholder="Describe what you want to accomplish..."
-              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-300 text-xs rounded-lg px-3 py-2 placeholder-zinc-600 resize-none outline-none focus:border-blue-500/50"
+              className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) text-xs rounded-lg px-3 py-2 placeholder:text-(--vestara-text-dim) resize-none outline-none focus:border-(--vestara-accent-border-active)"
             />
           </div>
         </div>
         <div className="flex gap-2 mt-5">
           <button
             onClick={() => setWorkflowType('')}
-            className="flex-1 px-3 py-2 text-xs text-zinc-400 bg-zinc-800 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="flex-1 px-3 py-2 text-xs text-(--vestara-text-2) bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:text-(--vestara-text) transition-colors cursor-pointer"
           >
             Cancel
           </button>
           <button
             onClick={handleStart}
             disabled={wfRunning || !workflowGoal.trim()}
-            className="flex-1 px-3 py-2 text-xs font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-500 disabled:opacity-30 transition-colors cursor-pointer"
+            className="flex-1 px-3 py-2 text-xs font-medium text-white bg-(--vestara-accent) rounded-lg hover:opacity-90 disabled:opacity-30 transition-colors cursor-pointer"
           >
             {wfRunning ? 'Starting...' : 'Start Workflow'}
           </button>
         </div>
       </div>
-    </div>
+    </VestaraModal>
   );
 }
 
@@ -285,51 +283,48 @@ export function ExecutionsList({
         a.name.toLowerCase().includes(execution.agentId.split('-').pop()?.toLowerCase() || ''),
     );
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-        <div
-          className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-4xl mx-4 shadow-2xl max-h-[80vh] flex flex-col"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-semibold text-zinc-200">Execution Details</h3>
-            <button onClick={onClose} className="text-zinc-600 hover:text-zinc-400 text-base cursor-pointer">
+      <VestaraModal onClose={onClose} className="max-w-4xl max-h-[80vh] flex flex-col">
+        <div className="flex flex-col flex-1 min-h-0 p-5">
+          <div className="flex items-center justify-between mb-4 shrink-0">
+            <h3 className="text-sm font-semibold text-(--vestara-text)">Execution Details</h3>
+            <button onClick={onClose} className="text-(--vestara-text-dim) hover:text-(--vestara-text-2) text-base cursor-pointer">
               ✕
             </button>
           </div>
-          <div className="space-y-3 flex-1 pr-1" style={{ overflowY: 'scroll' }}>
+          <div className="space-y-3 flex-1 min-h-0 pr-1 overflow-y-auto">
             <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
               <div>
-                <span className="text-zinc-600 text-[10px]">Agent</span>
-                <div className="text-zinc-300 text-[11px] mt-0.5">{agent?.name || execution.agentId}</div>
+                <span className="text-(--vestara-text-muted) text-[10px]">Agent</span>
+                <div className="text-(--vestara-text-2) text-[11px] mt-0.5">{agent?.name || execution.agentId}</div>
               </div>
               <div>
-                <span className="text-zinc-600 text-[10px]">Status</span>
-                <div className="text-zinc-300 text-[11px] mt-0.5">{execution.status}</div>
+                <span className="text-(--vestara-text-muted) text-[10px]">Status</span>
+                <div className="text-(--vestara-text-2) text-[11px] mt-0.5">{execution.status}</div>
               </div>
               <div>
-                <span className="text-zinc-600 text-[10px]">Started</span>
-                <div className="text-zinc-300 text-[11px] mt-0.5">{new Date(execution.startedAt).toLocaleString()}</div>
+                <span className="text-(--vestara-text-muted) text-[10px]">Started</span>
+                <div className="text-(--vestara-text-2) text-[11px] mt-0.5">{new Date(execution.startedAt).toLocaleString()}</div>
               </div>
               {execution.completedAt && (
                 <div>
-                  <span className="text-zinc-600 text-[10px]">Completed</span>
-                  <div className="text-zinc-300 text-[11px] mt-0.5">
+                  <span className="text-(--vestara-text-muted) text-[10px]">Completed</span>
+                  <div className="text-(--vestara-text-2) text-[11px] mt-0.5">
                     {new Date(execution.completedAt).toLocaleString()}
                   </div>
                 </div>
               )}
             </div>
-            <div className="pt-2 border-t border-zinc-700">
-              <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Task</div>
-              <div className="text-xs text-zinc-300 leading-relaxed bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3">
+            <div className="pt-2 border-t border-(--vestara-accent-border)">
+              <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">Task</div>
+              <div className="text-xs text-(--vestara-text-2) leading-relaxed bg-(--vestara-accent-bg) border border-(--vestara-accent-border)/50 rounded-lg p-3">
                 {execution.task}
               </div>
             </div>
             {execution.result && (
-              <div className="pt-2 border-t border-zinc-700">
-                <div className="text-[9px] font-semibold text-zinc-500 uppercase tracking-wider mb-1.5">Result</div>
+              <div className="pt-2 border-t border-(--vestara-accent-border)">
+                <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">Result</div>
                 <div
-                  className="text-xs text-zinc-300 leading-relaxed bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3 max-h-48"
+                  className="text-xs text-(--vestara-text-2) leading-relaxed bg-(--vestara-accent-bg) border border-(--vestara-accent-border)/50 rounded-lg p-3 max-h-48"
                   style={{ overflowY: 'scroll' }}
                 >
                   {JSON.stringify(execution.result, null, 2)}
@@ -338,7 +333,7 @@ export function ExecutionsList({
             )}
           </div>
         </div>
-      </div>
+      </VestaraModal>
     );
   };
 

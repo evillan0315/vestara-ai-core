@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { VestaraModal } from '../components/ui/VestaraModal';
 
 interface FeatureRequest {
   id: string;
@@ -112,42 +113,40 @@ export default function FeatureRequests() {
 
       {/* New request modal */}
       {showNew && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowNew(false)}>
-          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg w-full max-w-lg mx-auto shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
-              <h2 className="text-sm font-semibold text-(--vestara-text)">+ New Feature Request</h2>
-              <button onClick={() => setShowNew(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text) cursor-pointer text-sm">✕</button>
+        <VestaraModal onClose={() => setShowNew(false)} className="max-w-lg">
+          <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
+            <h2 className="text-sm font-semibold text-(--vestara-text)">+ New Feature Request</h2>
+            <button onClick={() => setShowNew(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text) cursor-pointer text-sm">✕</button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Title</label>
+              <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Feature title..." className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none" onKeyDown={(e) => e.key === 'Enter' && create()} />
             </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Title</label>
-                <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Feature title..." className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none" onKeyDown={(e) => e.key === 'Enter' && create()} />
-              </div>
-              <div>
-                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Description</label>
-                <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Describe the feature..." rows={3} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none resize-none" />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Category</label>
-                  <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text) rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
-                    {CATEGORIES.map((c) => (<option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>))}
-                  </select>
-                </div>
-                <div>
-                  <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Priority</label>
-                  <select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text) rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
-                    <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
-                  </select>
-                </div>
-              </div>
+            <div>
+              <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Description</label>
+              <textarea value={newDescription} onChange={(e) => setNewDescription(e.target.value)} placeholder="Describe the feature..." rows={3} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none resize-none" />
             </div>
-            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
-              <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-[10px] px-3 py-1.5 bg-(--vestara-accent) text-white rounded-lg disabled:opacity-30 cursor-pointer font-medium">Submit</button>
-              <button onClick={() => setShowNew(false)} className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) cursor-pointer">Cancel</button>
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Category</label>
+                <select value={newCategory} onChange={(e) => setNewCategory(e.target.value)} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text) rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
+                  {CATEGORIES.map((c) => (<option key={c} value={c}>{c.charAt(0).toUpperCase() + c.slice(1)}</option>))}
+                </select>
+              </div>
+              <div>
+                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Priority</label>
+                <select value={newPriority} onChange={(e) => setNewPriority(e.target.value)} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text) rounded px-2 py-1.5 text-xs outline-none cursor-pointer">
+                  <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="critical">Critical</option>
+                </select>
+              </div>
             </div>
           </div>
-        </div>
+          <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
+            <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-[10px] px-3 py-1.5 bg-(--vestara-accent) text-white rounded-lg disabled:opacity-30 cursor-pointer font-medium">Submit</button>
+            <button onClick={() => setShowNew(false)} className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) cursor-pointer">Cancel</button>
+          </div>
+        </VestaraModal>
       )}
 
       {/* Stat cards */}

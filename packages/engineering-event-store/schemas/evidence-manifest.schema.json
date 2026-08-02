@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://vestara.dev/schemas/evidence-manifest.schema.json",
+  "title": "Vestara Immutable Evidence Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "runId",
+    "repository",
+    "implementationCommit",
+    "verifiedAt",
+    "verifiedBy",
+    "scope",
+    "limitations",
+    "commands",
+    "artifacts",
+    "outcome",
+    "correlationId",
+    "checksum"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "runId": { "type": "string", "pattern": "^[a-zA-Z0-9._-]+$" },
+    "repository": { "type": "string", "minLength": 1 },
+    "implementationCommit": { "type": "string", "pattern": "^[0-9a-fA-F]{40,64}$" },
+    "verifiedAt": { "type": "string", "format": "date-time" },
+    "verifiedBy": { "type": "string", "minLength": 1 },
+    "scope": { "type": "array", "items": { "type": "string" } },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "commands": { "type": "array", "items": { "type": "object" } },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["algorithm", "digest", "size", "mediaType", "kind", "summary"],
+        "properties": {
+          "algorithm": { "const": "sha256" },
+          "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "size": { "type": "integer", "minimum": 0 },
+          "mediaType": { "type": "string", "minLength": 1 },
+          "kind": { "type": "string", "minLength": 1 },
+          "summary": { "type": "string", "minLength": 1 },
+          "metadata": { "type": "object" }
+        }
+      }
+    },
+    "outcome": { "enum": ["passed", "failed", "inconclusive", "blocked"] },
+    "correlationId": { "type": "string", "minLength": 1 },
+    "threadId": { "type": "string" },
+    "turnId": { "type": "string" },
+    "checksum": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "digest"],
+      "properties": {
+        "algorithm": { "const": "sha256" },
+        "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+      }
+    }
+  }
+}

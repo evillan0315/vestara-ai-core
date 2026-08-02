@@ -29,6 +29,7 @@ export default defineConfig({
   test: {
     include: [
       'packages/*/__tests__/**/*.test.ts',
+      'packages/{providers,tools}/*/__tests__/**/*.test.ts',
       'apps/*/__tests__/**/*.test.ts',
       'apps/workspace/tests/visual/__tests__/**/*.test.ts',
     ],

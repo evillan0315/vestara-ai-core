@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { StatCard } from '../components/dashboard';
 import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
+import { VestaraModal } from '../components/ui/VestaraModal';
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -217,58 +218,54 @@ export default function SessionList() {
 
       {/* New session modal */}
       {showNew && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowNew(false)} onKeyDown={(e) => e.key === 'Escape' && setShowNew(false)}>
-          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
-              <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
-                <span className="text-accent">+</span> New Session
-              </h2>
-              <button onClick={() => setShowNew(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
-            </div>
-            <div className="p-4 space-y-3">
-              <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Session title*" autoFocus className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" onKeyDown={(e) => e.key === 'Enter' && create()} />
-              <textarea value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Objective (optional)" rows={2} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)] resize-none" />
-            </div>
-            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
-              <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-xs px-3 py-2 bg-[var(--vestara-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer">Create</button>
-              <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
-            </div>
+        <VestaraModal onClose={() => setShowNew(false)} className="max-w-md">
+          <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
+            <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
+              <span className="text-(--vestara-accent-text)">+</span> New Session
+            </h2>
+            <button onClick={() => setShowNew(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
           </div>
-        </div>
+          <div className="p-4 space-y-3">
+            <input value={newTitle} onChange={(e) => setNewTitle(e.target.value)} placeholder="Session title*" autoFocus className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder:text-(--vestara-text-dim) outline-none focus:border-[var(--vestara-accent-border-active)]" onKeyDown={(e) => e.key === 'Enter' && create()} />
+            <textarea value={newObjective} onChange={(e) => setNewObjective(e.target.value)} placeholder="Objective (optional)" rows={2} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder:text-(--vestara-text-dim) outline-none focus:border-[var(--vestara-accent-border-active)] resize-none" />
+          </div>
+          <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
+            <button onClick={create} disabled={!newTitle.trim()} className="flex-1 text-xs px-3 py-2 bg-[var(--vestara-accent)] text-white rounded-lg font-medium hover:opacity-90 transition-opacity disabled:opacity-50 cursor-pointer">Create</button>
+            <button onClick={() => setShowNew(false)} className="text-xs px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:text-(--vestara-text) cursor-pointer transition-colors">Cancel</button>
+          </div>
+        </VestaraModal>
       )}
 
       {/* Workflow start modal */}
       {showWorkflow && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50" onClick={() => setShowWorkflow(false)} onKeyDown={(e) => e.key === 'Escape' && setShowWorkflow(false)}>
-          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); }}>
-            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
-              <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
-                <span className="text-amber-400">▶</span> Start Workflow
-              </h2>
-              <button onClick={() => setShowWorkflow(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
+        <VestaraModal onClose={() => setShowWorkflow(false)} className="max-w-md">
+          <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
+            <h2 className="text-sm font-semibold text-[var(--vestara-text)] flex items-center gap-2">
+              <span className="text-amber-400">▶</span> Start Workflow
+            </h2>
+            <button onClick={() => setShowWorkflow(false)} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm">✕</button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Goal</label>
+              <input value={wfGoal} onChange={(e) => setWfGoal(e.target.value)} placeholder="Describe the workflow goal..." autoFocus className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder:text-(--vestara-text-dim) outline-none focus:border-[var(--vestara-accent-border-active)]" />
             </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Goal</label>
-                <input value={wfGoal} onChange={(e) => setWfGoal(e.target.value)} placeholder="Describe the workflow goal..." autoFocus className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] placeholder-zinc-600 outline-none focus:border-[var(--vestara-accent)]" />
-              </div>
-              <div>
-                <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Type</label>
-                <select value={wfType} onChange={(e) => setWfType(e.target.value)} className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] outline-none focus:border-[var(--vestara-accent)] cursor-pointer">
-                  <option value="feature">Feature</option>
-                  <option value="analyze">Analysis</option>
-                  <option value="document">Documentation</option>
-                  <option value="refactor">Refactor</option>
-                  <option value="release">Release</option>
-                </select>
-              </div>
-            </div>
-            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
-              <button onClick={startWorkflow} disabled={!wfGoal.trim() || wfRunning} className="flex-1 text-xs px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg disabled:opacity-30 cursor-pointer hover:bg-amber-400/20 transition-colors font-medium">{wfRunning ? 'Starting...' : 'Start Workflow'}</button>
-              <button onClick={() => setShowWorkflow(false)} className="text-xs px-3 py-2 bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded-lg hover:bg-zinc-700 cursor-pointer">Cancel</button>
+            <div>
+              <label className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-widest mb-1.5 block font-medium">Type</label>
+              <select value={wfType} onChange={(e) => setWfType(e.target.value)} className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-3 py-2 text-sm text-[var(--vestara-text)] outline-none focus:border-[var(--vestara-accent-border-active)] cursor-pointer">
+                <option value="feature">Feature</option>
+                <option value="analyze">Analysis</option>
+                <option value="document">Documentation</option>
+                <option value="refactor">Refactor</option>
+                <option value="release">Release</option>
+              </select>
             </div>
           </div>
-        </div>
+          <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
+            <button onClick={startWorkflow} disabled={!wfGoal.trim() || wfRunning} className="flex-1 text-xs px-3 py-2 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg disabled:opacity-30 cursor-pointer hover:bg-amber-400/20 transition-colors font-medium">{wfRunning ? 'Starting...' : 'Start Workflow'}</button>
+            <button onClick={() => setShowWorkflow(false)} className="text-xs px-3 py-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:text-(--vestara-text) cursor-pointer transition-colors">Cancel</button>
+          </div>
+        </VestaraModal>
       )}
 
       {/* Stats row */}

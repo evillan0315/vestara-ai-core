@@ -439,6 +439,13 @@ async function collectEvents(ctx: WorkspaceContext, limit: number): Promise<Exec
   return out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, limit);
 }
 
+function fileChangePath(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object' && typeof (value as { path?: unknown }).path === 'string')
+    return (value as { path: string }).path;
+  return String(value);
+}
+
 async function buildTraceability(ctx: WorkspaceContext, target?: string): Promise<TraceGraph> {
   const base = await collectBase(ctx);
   const nodes: TraceNode[] = [];
@@ -506,9 +513,10 @@ async function buildTraceability(ctx: WorkspaceContext, target?: string): Promis
       meta: cs.planId,
     });
     if (cs.planId) edges.push({ from: `plan:${cs.planId}`, to: `artifact:${cs.id}`, label: 'produces' });
-    for (const f of cs.files ?? []) {
-      addNode({ id: `file:${cs.id}:${f}`, kind: 'artifact', label: f, status: 'changed' });
-      edges.push({ from: `artifact:${cs.id}`, to: `file:${cs.id}:${f}`, label: 'touches' });
+    for (const rawFile of cs.files ?? []) {
+      const file = fileChangePath(rawFile);
+      addNode({ id: `file:${cs.id}:${file}`, kind: 'artifact', label: file, status: 'changed' });
+      edges.push({ from: `artifact:${cs.id}`, to: `file:${cs.id}:${file}`, label: 'touches' });
     }
   }
 

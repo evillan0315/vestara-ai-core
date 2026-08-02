@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type AgentData, getAgents } from '../lib/api.js';
+import { VestaraModal } from '../components/ui/VestaraModal';
 import {
   type EngineeringAgentRole,
   type ProviderModelRef,
@@ -393,22 +394,17 @@ function ConflictDialog({
   onCancel(): void;
 }) {
   return (
-    <div
-      className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="routing-conflict-title"
-    >
-      <div className={`${panel} max-w-md p-5`}>
-        <h2 id="routing-conflict-title" className="font-semibold">
+    <VestaraModal onClose={onCancel} className="max-w-md">
+      <div className="p-5">
+        <h2 id="routing-conflict-title" className="font-semibold text-(--vestara-text)">
           Routing changed in Workspace UI or Console
         </h2>
-        <p className="mt-2 text-sm text-[var(--vestara-text-muted)]">
+        <p className="mt-2 text-sm text-(--vestara-text-muted)">
           Current revision: {current.revision}, updated by {current.updatedByClientId}. Reload before applying another
           change.
         </p>
         <div className="mt-4 flex justify-end gap-2">
-          <button type="button" className={button} onClick={onCancel}>
+          <button type="button" className={`${button} text-(--vestara-text-2)`} onClick={onCancel}>
             Cancel
           </button>
           <button type="button" className={`${button} border-[var(--vestara-accent-border)]`} onClick={onReload}>
@@ -416,7 +412,7 @@ function ConflictDialog({
           </button>
         </div>
       </div>
-    </div>
+    </VestaraModal>
   );
 }
 

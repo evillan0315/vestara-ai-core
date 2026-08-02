@@ -52,6 +52,7 @@ export const ENTITY_KINDS = [
   'agent',
   'worker',
   'capability',
+  'skill',
   'filesystem',
   'git-commit',
   'git-branch',

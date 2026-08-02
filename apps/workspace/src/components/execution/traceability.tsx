@@ -21,6 +21,11 @@ function toneClass(t: string): string {
         : 'exec-status-unknown';
 }
 
+/** Coerce a trace node label to a string; a file-change object must never render as a React child. */
+function labelOf(node: TraceNode): string {
+  return typeof node.label === 'string' ? node.label : String(node.label ?? node.id);
+}
+
 const KIND_ORDER = [
   'request',
   'project',

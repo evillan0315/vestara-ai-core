@@ -3,6 +3,7 @@ import OpsEventModal from '../components/ops/OpsEventModal';
 import OpsExecutionsModal from '../components/ops/OpsExecutionsModal';
 import StatCard from '../components/dashboard/StatCard';
 import AgentTelemetryCard from '../components/ops/AgentTelemetryCard';
+import { VestaraModal } from '../components/ui/VestaraModal';
 import { useEventStream } from '../lib/useEventStream';
 import { useTelemetryStore } from '../contexts/TelemetryContext';
 import { workspaceSocket } from '../lib/ws';
@@ -227,8 +228,8 @@ export default function OpsCenter() {
       {selectedEvent && <OpsEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
 
       {showWorkflowModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowWorkflowModal(false)}>
-          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); if (e.key === 'Escape') setShowWorkflowModal(false); }}>
+        <VestaraModal onClose={() => setShowWorkflowModal(false)} className="max-w-md">
+          <div className="p-5">
             <h3 className="text-sm font-semibold text-(--vestara-text) mb-4">Start Workflow</h3>
             <div className="space-y-3">
               <div>
@@ -249,7 +250,7 @@ export default function OpsCenter() {
               </button>
             </div>
           </div>
-        </div>
+        </VestaraModal>
       )}
     </div>
   );

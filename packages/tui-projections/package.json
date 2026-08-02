@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/tui-projections",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/tui-projections/__tests__"
+  },
+  "dependencies": {
+    "@vestara/engineering-event-store": "workspace:*",
+    "@vestara/thread-runtime": "workspace:*",
+    "@vestara/tui-protocol": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

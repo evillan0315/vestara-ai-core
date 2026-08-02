@@ -27,6 +27,7 @@ import { json, readBody } from './types';
 const services = new WeakMap<WorkspaceContext, EngineeringGraphService>();
 
 export function serviceFor(ctx: WorkspaceContext): EngineeringGraphService {
+  if (ctx.graphService) return ctx.graphService;
   let service = services.get(ctx);
   if (!service) {
     service = new EngineeringGraphService(ctx);

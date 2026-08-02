@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useToasts } from '../Toast';
+import { VestaraModal } from '../ui/VestaraModal';
 
 interface Props {
   open: boolean;
@@ -38,15 +39,15 @@ export default function AssignPlanDialog({ open, artifact, plans, onClose, onAss
   if (!open || !artifact) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); }}>
-        <h3 className="text-sm font-semibold text-zinc-200 mb-2">Assign Plan</h3>
-        <p className="text-xs text-zinc-400 mb-3">Link this artifact to a plan: <span className="text-zinc-300 font-mono">{artifact.title || artifact.goal || artifact.id}</span></p>
+    <VestaraModal onClose={onClose} className="max-w-md">
+      <div className="p-5">
+        <h3 className="text-sm font-semibold text-(--vestara-text) mb-2">Assign Plan</h3>
+        <p className="text-xs text-(--vestara-text-2) mb-3">Link this artifact to a plan: <span className="text-(--vestara-text) font-mono">{artifact.title || artifact.goal || artifact.id}</span></p>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-zinc-400 block mb-1">Select Plan</label>
+            <label className="text-xs text-(--vestara-text-2) block mb-1">Select Plan</label>
             <select value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)} autoFocus
-              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-lg p-2 text-xs outline-none focus:border-blue-500 cursor-pointer">
+              className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg p-2 text-xs outline-none focus:border-(--vestara-accent-border-active) cursor-pointer">
               <option value="">-- Select a plan --</option>
               {plans.map((p) => (
                 <option key={p.id} value={p.id}>{p.title || p.goal || p.id}</option>
@@ -54,14 +55,14 @@ export default function AssignPlanDialog({ open, artifact, plans, onClose, onAss
             </select>
           </div>
           <div className="flex items-center gap-2 justify-end pt-1">
-            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 cursor-pointer">Cancel</button>
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) cursor-pointer transition-colors">Cancel</button>
             <button onClick={handleAssign} disabled={loading || !selectedPlanId}
-              className="text-xs px-4 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 cursor-pointer font-medium">
+              className="text-xs px-4 py-1.5 rounded-lg bg-(--vestara-accent) text-white hover:opacity-90 disabled:opacity-40 cursor-pointer font-medium">
               {loading ? 'Assigning...' : 'Assign'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </VestaraModal>
   );
 }
