@@ -3,6 +3,23 @@
 
 ---
 
+## [3.9.17] — 2026-08-03 — Distributed Worker Cluster (PCS-027 slice 1)
+
+### Added
+
+- `packages/workflow-orchestrator/src/distributed/`: worker contracts
+  (`WorkerNode`, `WorkerHeartbeat`, `TaskLease`, `WorkerRequest`/`Response`,
+  `WorkerTransport`, `WorkerExecutor`), `WorkerStore` (nodes + leases, sql.js),
+  `WorkerNodeRuntime` (pluggable executor + `executionId` result cache for
+  idempotent re-dispatch), `RemoteWorkerDispatcher` (a `TaskDispatcher` over a
+  transport), `WorkerRegistry` (registration/heartbeats/reap), `WorkerScheduler`
+  (capability match + least-load), `WorkerCluster` (schedule → lease → dispatch
+  → release), `MemoryWorkerTransport`.
+- 7 cluster tests. WebSocket transport + orchestrator integration are the
+  follow-ons.
+
+---
+
 ## [3.9.16] — 2026-08-03 — PCS-027 Distributed Worker Cluster (spec)
 
 ### Added

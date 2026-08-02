@@ -6,7 +6,7 @@
 |-------|-------|
 | ID | PCS-027 |
 | Name | Distributed Worker Cluster |
-| Status | Draft (design only — no implementation) |
+| Status | Design — slice 1 implemented (contracts, WorkerStore, node runtime, remote dispatcher, registry, scheduler, leases, idempotency); WebSocket transport + orchestrator integration pending |
 | Owner | Chief Architect |
 | Prerequisite | PCS-025 Multi-Agent Project Management (worker contract, capability assignment), PCS-026 Engineering Evidence Pipeline (executor + evidence), ADR-118 |
 | Scope | Physical distribution of task execution: worker nodes register and run tasks over a transport; the orchestrator schedules, load-balances, and recovers across the cluster |
@@ -229,6 +229,21 @@ Evidence pipeline on remote results
 | Scheduling staleness | capability/load TTL refreshed per heartbeat |
 | Node heterogeneity | capability announcements + capability resolver |
 | Scope creep (gRPC/K8s) | WebSocket first; gRPC/K8s as alternative transports behind the same contract |
+
+### Slice 1 Delivery Record (2026-08-03)
+
+- `packages/workflow-orchestrator/src/distributed/` — worker contracts
+  (`WorkerNode`, `WorkerHeartbeat`, `TaskLease`, `WorkerRequest`/`Response`,
+  `WorkerTransport`, `WorkerExecutor`), `WorkerStore` (nodes + leases, sql.js),
+  `WorkerNodeRuntime` (pluggable executor + executionId result cache),
+  `RemoteWorkerDispatcher` (a `TaskDispatcher` over a transport),
+  `WorkerRegistry` (registration + heartbeats + reap), `WorkerScheduler`
+  (capability match + least-load), `WorkerCluster` (schedule → lease →
+  dispatch → release), and `MemoryWorkerTransport` (in-memory pairing).
+- 7 cluster tests (registration/reap, capability routing, least-load,
+  remote dispatch, executionId idempotency, review/test over the cluster, no-
+  online-node). A WebSocket transport and orchestrator integration are the
+  follow-ons.
 
 ---
 

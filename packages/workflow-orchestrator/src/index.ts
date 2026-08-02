@@ -7,6 +7,7 @@
  */
 
 export * from './db';
+export * from './distributed';
 export * from './ids';
 export * from './multi-repo';
 export * from './orchestrator';
