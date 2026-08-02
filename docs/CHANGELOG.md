@@ -3,6 +3,19 @@
 
 ---
 
+## [3.9.16] — 2026-08-03 — PCS-027 Distributed Worker Cluster (spec)
+
+### Added
+
+- `docs/PCS-027-distributed-worker-cluster.md` — the next milestone spec:
+  worker nodes execute the `TaskDispatcher` contract over a WebSocket
+  transport; registration, heartbeats/liveness, capability + least-load
+  scheduling in `WorkerPool`, lease-based idempotent failure recovery, and the
+  PCS-026 evidence pipeline on remote results. Design only — slice-1
+  implementation is the follow-on.
+
+---
+
 ## [3.9.15] — 2026-08-03 — Workspace Evidence Viewer (PCS-026)
 
 ### Added
