@@ -36,6 +36,7 @@ import { handleSessionsRoute } from './routes/sessions';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelemetryRoute } from './routes/telemetry';
 import { handleTuiRoute } from './routes/tui';
+import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
 import { handleWorktreeRoute } from './routes/worktrees';
@@ -154,6 +155,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleWorkflowRoute(method, p, req, res, ctx)) return;
       if (await handleOrchestrationRoute(method, p, req, res, ctx)) return;
       if (await handleEvidenceRoute(method, p, req, res, ctx)) return;
+      if (await handleWorkersRoute(method, p, req, res, ctx)) return;
       if (await handleRoutingRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;
       if (await handleAgentsRoute(method, p, req, res, ctx)) return;
@@ -179,6 +181,10 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
   });
 
   const wss = new WebSocketServer({ server, path: '/ws' });
+  if (ctx.workerSocketServer) {
+    const workerWss = new WebSocketServer({ server, path: '/ws/worker' });
+    ctx.workerSocketServer.attach(workerWss);
+  }
   wss.on('connection', (ws) => {
     clients.add(ws);
     wsSend(ws, {

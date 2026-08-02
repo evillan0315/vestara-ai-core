@@ -178,4 +178,50 @@ describe('EvidencePipeline (PCS-026 slice 1)', () => {
     expect(bundle.evidence).toHaveLength(1);
     expect(bundle.evidence[0].summary).toContain('printf');
   });
+
+  it('attributes evidence to checks by declared kind', async () => {
+    const root = tmpdir('evidence-attribution-');
+    const pipeline = new EvidencePipeline({
+      artifacts: new ContentAddressedEvidenceStore(path.join(root, 'artifacts')),
+      manifests: new ImmutableEvidenceManifestStore(path.join(root, 'manifests')),
+      collectors: [new CommandEvidenceCollector({ command: 'printf', args: ['out'] }), new FilesystemChangeCollector()],
+    });
+
+    const bundle = await pipeline.buildBundle({
+      executionId: 'verification-attribution',
+      verifierId: 'verifier',
+      profileId: 'standard',
+      repository: '/repo',
+      implementationCommit: COMMIT,
+      outcome: 'passed',
+      checks: [
+        { id: 'build', name: 'Build', status: 'passed', summary: 'ok', evidenceKinds: ['command'] },
+        { id: 'fs', name: 'FS', status: 'passed', summary: 'ok', evidenceKinds: ['filesystem-change'] },
+      ],
+      workspaceRoot: root,
+      changedFiles: ['src/a.ts'],
+    });
+
+    const byId = new Map(bundle.checks.map((check) => [check.checkId, check]));
+    const commandKind = bundle.evidence.find((ref) => ref.kind === 'command');
+    const fsKind = bundle.evidence.find((ref) => ref.kind === 'filesystem-change');
+    expect(byId.get('build')?.evidenceRefs).toEqual([commandKind?.ref]);
+    expect(byId.get('fs')?.evidenceRefs).toEqual([fsKind?.ref]);
+    // A check with no declared kinds is backed by all run evidence.
+    expect(
+      (
+        await pipeline.buildBundle({
+          executionId: 'verification-attribution-2',
+          verifierId: 'verifier',
+          profileId: 'standard',
+          repository: '/repo',
+          implementationCommit: COMMIT,
+          outcome: 'passed',
+          checks: [{ id: 'all', name: 'All', status: 'passed', summary: 'ok' }],
+          workspaceRoot: root,
+          changedFiles: ['src/a.ts'],
+        })
+      ).checks[0].evidenceRefs.length,
+    ).toBe(2);
+  });
 });

@@ -18,4 +18,5 @@ export { handleSessionsRoute } from './sessions';
 export { handleTeamsRoute } from './teams';
 export type { RouteHandler } from './types';
 export { actorOf, CORS, getActor, json, readBody } from './types';
+export { handleWorkersRoute } from './workers';
 export { handleWorkspaceRoute } from './workspace';

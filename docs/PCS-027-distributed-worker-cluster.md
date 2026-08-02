@@ -6,7 +6,7 @@
 |-------|-------|
 | ID | PCS-027 |
 | Name | Distributed Worker Cluster |
-| Status | Design — slice 1 implemented (contracts, WorkerStore, node runtime, remote dispatcher, registry, scheduler, leases, idempotency); WebSocket transport + orchestrator integration pending |
+| Status | Design — slices 1-2 implemented (contracts, store, node runtime, remote dispatcher, registry, scheduler, leases, idempotency, WebSocket transport, orchestrator integration, Workspace workers view); multi-node hardening + gRPC/K8s transports future |
 | Owner | Chief Architect |
 | Prerequisite | PCS-025 Multi-Agent Project Management (worker contract, capability assignment), PCS-026 Engineering Evidence Pipeline (executor + evidence), ADR-118 |
 | Scope | Physical distribution of task execution: worker nodes register and run tasks over a transport; the orchestrator schedules, load-balances, and recovers across the cluster |
@@ -244,6 +244,18 @@ Evidence pipeline on remote results
   remote dispatch, executionId idempotency, review/test over the cluster, no-
   online-node). A WebSocket transport and orchestrator integration are the
   follow-ons.
+
+### Slice 2 Delivery Record (2026-08-03)
+
+- `WorkerSocketServer` (API, `/ws/worker`) + `WorkerSocketClient` (node side) +
+  `worker-node-bootstrap` (node process loading `VESTARA_WORKER_EXECUTOR`) —
+  a real WebSocket transport behind the `WorkerTransport` contract.
+- Orchestrator integration: `WorkerCluster` wired in the API, `worker.*` events
+  projected into the engineering event store, `/api/workers/nodes|leases|dispatch`,
+  and the Workspace **Workers** page.
+- 4 WS round-trip tests (register, dispatch, executionId idempotency,
+  unknown-node rejection). Multi-node hardening and gRPC/K8s transports remain
+  future.
 
 ---
 

@@ -3,6 +3,24 @@
 
 ---
 
+## [3.9.18] — 2026-08-03 — Distributed Workers over WebSocket + evidence follow-ons (PCS-027 slice 2, PCS-026)
+
+### Added
+
+- **WebSocket worker transport**: `WorkerSocketServer` (API, `/ws/worker`) +
+  `WorkerSocketClient` (node side) + `worker-node-bootstrap` (node process entry
+  loading `VESTARA_WORKER_EXECUTOR`). Real WS round-trip tests (register,
+  dispatch, executionId idempotency, unknown-node rejection).
+- **Orchestrator integration**: `WorkerCluster` wired in the API (WorkerStore/
+  Registry/Scheduler), `worker.*` events projected into the engineering event
+  store, `/api/workers/nodes|leases|dispatch`, and the Workspace **Workers**
+  page (`/workers`, nav under Engineering).
+- **PCS-026 follow-ons**: per-check evidence attribution
+  (`check.evidenceKinds` in the pipeline) and `PlaywrightScreenshotSource`
+  (lazy browser adapter; visual collector enabled via `VESTARA_SCREENSHOT_URL`).
+
+---
+
 ## [3.9.17] — 2026-08-03 — Distributed Worker Cluster (PCS-027 slice 1)
 
 ### Added

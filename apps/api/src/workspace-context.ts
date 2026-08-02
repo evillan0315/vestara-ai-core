@@ -23,7 +23,14 @@ import {
 } from '@vestara/engineering-event-store';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
-import { BundleStore, EvidencePipeline, FilesystemChangeCollector, SourceDiffCollector } from '@vestara/evidence';
+import {
+  BaselineStore,
+  BundleStore,
+  EvidencePipeline,
+  FilesystemChangeCollector,
+  SourceDiffCollector,
+  VisualEvidenceCollector,
+} from '@vestara/evidence';
 import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
@@ -46,6 +53,10 @@ import {
   PlanStore as OrchestrationPlanStore,
   ProjectStore as OrchestrationProjectStore,
   TaskStore as OrchestrationTaskStore,
+  WorkerCluster,
+  WorkerRegistry,
+  WorkerScheduler,
+  WorkerStore,
   WorkflowOrchestrator,
 } from '@vestara/workflow-orchestrator';
 import {
@@ -89,6 +100,7 @@ import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
+import { WorkerSocketServer } from './worker/worker-socket-server';
 
 export interface WorkspaceContext {
   kernel: DefaultKernel;
@@ -107,6 +119,10 @@ export interface WorkspaceContext {
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
   changeProjector: ChangeEventProjector;
+  workerSocketServer?: WorkerSocketServer;
+  workerRegistry?: WorkerRegistry;
+  workerStore?: WorkerStore;
+  workerCluster?: WorkerCluster;
   engineeringVerification: EngineeringVerificationProfiles;
   engineeringEvents: SqliteEngineeringEventStore;
   graphService?: EngineeringGraphService;
@@ -348,11 +364,33 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // content-addressed artifacts, writes an immutable manifest, and assembles a
   // verification bundle after every harness verification.
   const evidenceBundles = new BundleStore(path.join(workspaceDir, 'evidence', 'bundles'));
+  const evidenceCollectors: import('@vestara/evidence').EvidenceCollector[] = [
+    new FilesystemChangeCollector(),
+    new SourceDiffCollector(),
+  ];
+  const screenshotBase = process.env.VESTARA_SCREENSHOT_URL;
+  if (screenshotBase) {
+    // PCS-026 visual leg — enabled only when a target app URL is configured and
+    // Chromium is provisioned (`npx playwright install chromium`).
+    const { PlaywrightScreenshotSource } = await import('./evidence/playwright-screenshot-source.js');
+    evidenceCollectors.push(
+      new VisualEvidenceCollector({
+        source: new PlaywrightScreenshotSource({ baseUrl: screenshotBase }),
+        baselines: new BaselineStore(path.join(workspaceDir, 'evidence', 'baselines')),
+        artifacts: evidenceArtifacts,
+        scenario: {
+          url: process.env.VESTARA_SCREENSHOT_ROUTE ?? '/dashboard',
+          viewport: { width: 1280, height: 800 },
+          theme: process.env.VESTARA_SCREENSHOT_THEME ?? 'dark',
+        },
+      }),
+    );
+  }
   const evidencePipeline = new EvidencePipeline({
     artifacts: evidenceArtifacts,
     manifests: evidenceManifests,
     bundles: evidenceBundles,
-    collectors: [new FilesystemChangeCollector(), new SourceDiffCollector()],
+    collectors: evidenceCollectors,
     producer: 'harness-verifier',
     environment: `local:${session.fingerprint.id}`,
   });
@@ -639,6 +677,35 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     workspaceId: session.fingerprint.id,
     environmentId: agentEnvironment.id,
     root: abs,
+  });
+
+  // ── PCS-027 distributed worker cluster — nodes register over /ws/worker
+  // and the cluster dispatches tasks to them via capability + load scheduling.
+  const workerStore = new WorkerStore(db as import('sql.js').Database);
+  const workerRegistry = new WorkerRegistry(workerStore);
+  const workerSocketServer = new WorkerSocketServer(workerRegistry, {
+    append: (event) => {
+      try {
+        engineeringEvents.append({
+          type: `worker.${event.type}`,
+          source: 'worker-socket-server',
+          actorId: event.nodeId,
+          authority: 'system',
+          workspaceId: session.fingerprint.id,
+          environmentId: agentEnvironment.id,
+          correlationId: `worker:${event.nodeId}`,
+          payload: { nodeId: event.nodeId, detail: event.detail },
+        });
+      } catch {
+        // projection failures must not break worker connections
+      }
+    },
+  });
+  const workerCluster = new WorkerCluster({
+    registry: workerRegistry,
+    scheduler: new WorkerScheduler(workerRegistry),
+    store: workerStore,
+    transportFor: (nodeId) => workerSocketServer.transportFor(nodeId),
   });
   multiAgentWorkflow.changeProjector = changeProjector;
 
@@ -973,6 +1040,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceManifests,
     evidenceArtifacts,
     evidenceBundles,
+    workerSocketServer,
+    workerRegistry,
+    workerStore,
+    workerCluster,
     threadRecovery,
     worktreeRuntime,
     runtime,

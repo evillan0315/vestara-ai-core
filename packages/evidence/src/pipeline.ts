@@ -14,6 +14,7 @@ import type {
   CheckStatus,
   EvidenceCollector,
   EvidenceItem,
+  EvidenceKind,
   EvidenceOutcome,
   EvidenceProvenance,
   EvidenceReference,
@@ -40,6 +41,8 @@ export interface BundleCheckInput {
   readonly status: CheckStatus;
   readonly summary: string;
   readonly durationMs?: number;
+  /** Evidence kinds that back this check; empty = all collected evidence (coarse). */
+  readonly evidenceKinds?: readonly EvidenceKind[];
 }
 
 export interface BuildBundleInput {
@@ -135,16 +138,20 @@ export class EvidencePipeline {
       };
     });
 
-    // 5. Checks with run-level evidence attribution (slice-1 coarse mapping;
-    //    per-check collector targeting is refined in a later slice).
-    const allRefs = evidenceRefs.map((ref) => ref.ref);
+    // 5. Checks with per-check evidence attribution — a check is backed by the
+    //    evidence kinds it declares, or all run evidence when none are declared.
     const checks: VerificationCheckResult[] = input.checks.map((check) => ({
       checkId: check.id,
       name: check.name,
       status: check.status,
       summary: check.summary,
       durationMs: check.durationMs,
-      evidenceRefs: check.status === 'skipped' ? [] : allRefs,
+      evidenceRefs:
+        check.status === 'skipped'
+          ? []
+          : evidenceRefs
+              .filter((ref) => !check.evidenceKinds || check.evidenceKinds.includes(ref.kind))
+              .map((ref) => ref.ref),
     }));
 
     // 6. Replay descriptor — deterministic artifact replay only (slice 1).
