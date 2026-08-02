@@ -148,10 +148,10 @@ describe('AnalyticsEngine', () => {
     });
 
     it('should filter by time range', () => {
-      analyticsEngine.track(moduleId, 'default-model', 'read', 'user-1');
-
       const now = new Date().toISOString();
       const future = new Date(Date.now() + 100000).toISOString();
+
+      analyticsEngine.track(moduleId, 'default-model', 'read', 'user-1');
 
       const events = analyticsEngine.getEvents({ startTime: now });
       expect(events.length).toBe(1);
