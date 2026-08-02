@@ -1,5 +1,8 @@
 import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
 import type * as http from 'node:http';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import type { TaskDispatcher, TaskDispatchResult } from '@vestara/workflow-orchestrator';
 import {
@@ -10,16 +13,22 @@ import {
   TaskStore,
   WorkflowOrchestrator,
 } from '@vestara/workflow-orchestrator';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { OrchestrationEventBridge } from '../src/bridges/orchestration-event-bridge';
 import { handleOrchestrationRoute } from '../src/routes/orchestration';
 import type { WorkspaceContext } from '../src/workspace-context';
 
 let SQL: { Database: new (data?: Uint8Array | null) => import('sql.js').Database };
 
+const directories: string[] = [];
+
 beforeAll(async () => {
   const initSqlJs = (await import('sql.js')).default;
   SQL = await initSqlJs();
+});
+
+afterAll(() => {
+  for (const directory of directories.splice(0)) fs.rmSync(directory, { recursive: true, force: true });
 });
 
 class OkDispatcher implements TaskDispatcher {
@@ -68,8 +77,10 @@ describe('orchestration routes', () => {
   let ctx: WorkspaceContext;
 
   beforeAll(async () => {
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'vestara-orchestration-routes-'));
+    directories.push(directory);
     const db = new SQL.Database();
-    events = await SqliteEngineeringEventStore.open(':memory:');
+    events = await SqliteEngineeringEventStore.open(path.join(directory, 'events.db'));
     const bridge = new OrchestrationEventBridge({ events, workspaceId: 'ws-1' });
     orchestrator = new WorkflowOrchestrator({
       projects: new ProjectStore(db),
