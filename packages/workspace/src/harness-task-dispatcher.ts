@@ -26,6 +26,8 @@ import type {
   OrchestratedProject,
   TaskDispatcher,
   TaskDispatchResult,
+  TaskReviewResult,
+  TaskTestResult,
   WorkflowTask,
 } from '@vestara/workflow-orchestrator';
 import type { HarnessSession } from './harness-session';
@@ -140,6 +142,61 @@ export class HarnessTaskDispatcher implements TaskDispatcher {
     return { status: 'failed', agentId, error: `task turn ended with state "${state}"` };
   }
 
+  /** Review a task's changesets (PCS-025 §3.5). Decision parsed from agent output. */
+  async review(
+    task: WorkflowTask,
+    project: OrchestratedProject,
+    changesets: readonly Readonly<Record<string, unknown>>[],
+  ): Promise<TaskReviewResult> {
+    const agentId = await this.resolveRoleAgent('reviewer', ['code-review', 'review']);
+    const summary = changesets.map((changeset) => JSON.stringify(changeset)).join('\n');
+    const output = await this.runAgentTurn(
+      agentId,
+      `Review the changes for task "${task.summary}" in project "${project.name}":\n${summary}\n\n` +
+        'Respond with one of: APPROVE, REQUEST_CHANGES, or REJECT, then one line of feedback.',
+    );
+    return { decision: parseReviewDecision(output), agentId, feedback: output };
+  }
+
+  /** Run tests for a task (PCS-025 §3.6). Pass/fail parsed from agent output. */
+  async test(task: WorkflowTask, project: OrchestratedProject): Promise<TaskTestResult> {
+    const agentId = await this.resolveRoleAgent('tester', ['testing', 'test']);
+    const output = await this.runAgentTurn(
+      agentId,
+      `Run and evaluate tests for task "${task.summary}" in project "${project.name}". Respond with PASS or FAIL.`,
+    );
+    return { status: /\bFAIL\b/i.test(output) ? 'failed' : 'passed', agentId, report: { output } };
+  }
+
+  private async resolveRoleAgent(role: string, capabilities: readonly string[]): Promise<string> {
+    if (!this.storage) return `agent-${role}`;
+    const agents = await this.storage.listAgents().catch(() => []);
+    const active = agents.filter((agent) => agent.status === 'active');
+    const byRole = active.find((agent) => agent.role === role);
+    if (byRole) return byRole.id;
+    for (const capability of capabilities) {
+      const byCapability = active.find((agent) => agent.capabilities.includes(capability));
+      if (byCapability) return byCapability.id;
+    }
+    return `agent-${role}`;
+  }
+
+  private async runAgentTurn(agentId: string, instruction: string): Promise<string> {
+    const thread = this.runner.createThread({
+      taskId: `agent-turn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      title: `${agentId}: ${instruction.slice(0, 100)}`,
+      environment: this.environment,
+      metadata: { agentId, runSource: 'workflow-orchestrator-stage' },
+    });
+    const result = await this.runner.run({
+      threadId: thread.id,
+      instruction,
+      agentId,
+      environment: this.environment,
+    });
+    return result.turn.outcome?.summary ?? result.turn.state;
+  }
+
   /** Capability-based task → agent assignment (PCS-025 §5). */
   private async resolveAgent(task: WorkflowTask): Promise<string> {
     if (!this.storage) return 'developer';
@@ -170,4 +227,14 @@ export class HarnessTaskDispatcher implements TaskDispatcher {
     const developer = active.find((agent) => agent.role === 'developer');
     return developer?.id ?? active[0].id;
   }
+}
+
+/**
+ * Map reviewer agent output to a decision. Explicit markers win; anything
+ * without a clear marker defaults to approval.
+ */
+export function parseReviewDecision(output: string): TaskReviewResult['decision'] {
+  if (/\bREJECT\b/i.test(output)) return 'rejected';
+  if (/\bREQUEST_CHANGES\b/i.test(output) || /\bCHANGES\b/i.test(output)) return 'changes-requested';
+  return 'approved';
 }

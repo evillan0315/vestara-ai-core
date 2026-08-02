@@ -183,3 +183,21 @@ Phase 1 core is implemented and green:
 Remaining for full Phase 1 acceptance (see §7): a harness-backed end-to-end
 project run, projection wiring (`/api/workflow` multi-thread aggregation), and
 the approval gateway (Phase 2).
+
+### Delivery Notes — Phase 2 & Phase 3 foundations (2026-08-03)
+
+- **Phase 2 (complete):** reviewer + tester stages with bounded revision loops
+  (`TaskDispatcher.review/test`; `needs-review → reviewing → approved |
+  changes-requested → assigned | rejected → blocked`, revision cap), the
+  high-risk-change **Approval Gateway** (`DefaultRiskApprovalPolicy`,
+  `awaiting-approval` task state, `resolveTaskApproval`, `pendingApprovals`,
+  `/api/orchestration/projects/:id/tasks/:taskId/approval`), **parallel task
+  waves** (`maxParallelTasks`, bounded lock-wait then block), and capability-
+  based assignment via `@vestara/capabilities`. 11 new orchestrator tests.
+- **Phase 3 (foundations):** `TokenBudget` (blocks dispatch when exhausted),
+  event-sourced `reconcile(projectId, events)` drift detection, and
+  failure-injection/load tests. Remote workers and multi-repo projects remain
+  future: the `TaskDispatcher` interface is the worker contract.
+- `HarnessTaskDispatcher.review/test` run reviewer/tester harness turns with a
+  deterministic decision parser (`parseReviewDecision`).
+- Tests: full suite green (150 files), lint clean, build clean.

@@ -37,6 +37,7 @@ export class TaskStore {
         revision_count INTEGER NOT NULL DEFAULT 0,
         attempt_count INTEGER NOT NULL DEFAULT 0,
         last_error TEXT,
+        approval_reason TEXT,
         started_at TEXT,
         completed_at TEXT,
         created_at TEXT NOT NULL,
@@ -145,13 +146,26 @@ export class TaskStore {
     ]);
   }
 
+  async requestApproval(id: string, reason: string): Promise<void> {
+    dbRun(this.db, 'UPDATE orchestrated_tasks SET status = ?, approval_reason = ?, updated_at = ? WHERE id = ?', [
+      'awaiting-approval',
+      reason,
+      now(),
+      id,
+    ]);
+  }
+
+  async clearApproval(id: string): Promise<void> {
+    dbRun(this.db, 'UPDATE orchestrated_tasks SET approval_reason = NULL, updated_at = ? WHERE id = ?', [now(), id]);
+  }
+
   private persist(task: WorkflowTask): void {
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO orchestrated_tasks
        (id, plan_id, summary, description, files, dependencies, status, effort, required_capabilities,
-        assigned_agent_id, revision_count, attempt_count, last_error, started_at, completed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        assigned_agent_id, revision_count, attempt_count, last_error, approval_reason, started_at, completed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.id,
         task.planId,
@@ -166,6 +180,7 @@ export class TaskStore {
         task.revisionCount,
         task.attemptCount,
         task.lastError ?? null,
+        task.approvalReason ?? null,
         task.startedAt ?? null,
         task.completedAt ?? null,
         task.createdAt,
@@ -189,6 +204,7 @@ export class TaskStore {
       revisionCount: Number(row.revision_count) || 0,
       attemptCount: Number(row.attempt_count) || 0,
       lastError: row.last_error ? str(row.last_error) : undefined,
+      approvalReason: row.approval_reason ? str(row.approval_reason) : undefined,
       startedAt: row.started_at ? str(row.started_at) : undefined,
       completedAt: row.completed_at ? str(row.completed_at) : undefined,
       createdAt: str(row.created_at),

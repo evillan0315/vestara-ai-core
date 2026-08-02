@@ -58,14 +58,15 @@ export function canTransitionPlan(from: PlanStatus, to: PlanStatus): boolean {
 
 export const TASK_TRANSITIONS: Record<TaskStatus, readonly TaskStatus[]> = {
   pending: ['ready', 'cancelled'],
-  ready: ['assigned', 'blocked', 'cancelled'],
+  ready: ['assigned', 'awaiting-approval', 'blocked', 'cancelled'],
+  'awaiting-approval': ['ready', 'assigned', 'blocked', 'cancelled'],
   assigned: ['in-progress', 'failed', 'cancelled'],
   'in-progress': ['needs-review', 'testing', 'completed', 'failed', 'cancelled'],
   'needs-review': ['reviewing', 'cancelled'],
   reviewing: ['approved', 'changes-requested', 'blocked', 'cancelled'],
-  'changes-requested': ['assigned', 'cancelled'],
+  'changes-requested': ['assigned', 'blocked', 'cancelled'],
   testing: ['approved', 'failed', 'cancelled'],
-  approved: ['completed', 'cancelled'],
+  approved: ['testing', 'completed', 'cancelled'],
   retrying: ['assigned', 'failed', 'cancelled'],
   blocked: ['assigned', 'cancelled'],
   failed: ['retrying', 'blocked', 'cancelled'],

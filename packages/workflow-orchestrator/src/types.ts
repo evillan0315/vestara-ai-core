@@ -70,6 +70,7 @@ export interface WorkflowPlan {
 export const TASK_STATUSES = [
   'pending',
   'ready',
+  'awaiting-approval',
   'assigned',
   'in-progress',
   'needs-review',
@@ -103,6 +104,8 @@ export interface WorkflowTask {
   readonly revisionCount: number;
   readonly attemptCount: number;
   readonly lastError?: string;
+  /** Set while the task awaits a high-risk-change approval. */
+  readonly approvalReason?: string;
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly createdAt: string;
@@ -197,10 +200,29 @@ export type OrchestrationEvent =
         | 'task.blocked'
         | 'task.retrying'
         | 'task.revision'
-        | 'task.cancelled';
+        | 'task.approved'
+        | 'task.cancelled'
+        | 'task.approval-requested'
+        | 'task.approval-resolved';
       readonly projectId: string;
       readonly planId: string;
       readonly taskId: string;
+      readonly at: string;
+    }
+  | {
+      readonly type: 'task.review.decided';
+      readonly projectId: string;
+      readonly planId: string;
+      readonly taskId: string;
+      readonly decision: 'approved' | 'changes-requested' | 'rejected';
+      readonly at: string;
+    }
+  | {
+      readonly type: 'task.tests.decided';
+      readonly projectId: string;
+      readonly planId: string;
+      readonly taskId: string;
+      readonly status: 'passed' | 'failed';
       readonly at: string;
     }
   | {
@@ -235,9 +257,58 @@ export interface TaskDispatchResult {
   readonly artifacts?: readonly Readonly<Record<string, unknown>>[];
 }
 
-/** The orchestrator never executes agents itself; a dispatcher runs each task. */
+export interface TaskReviewResult {
+  readonly decision: 'approved' | 'changes-requested' | 'rejected';
+  readonly agentId?: string;
+  readonly feedback?: string;
+}
+
+export interface TaskTestResult {
+  readonly status: 'passed' | 'failed';
+  readonly agentId?: string;
+  readonly report?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * The orchestrator never executes agents itself; a dispatcher runs each task.
+ * `review` and `test` are optional — when absent, the orchestrator auto-approves
+ * review and skips testing (Phase 1 behavior).
+ */
 export interface TaskDispatcher {
   dispatch(task: WorkflowTask, project: OrchestratedProject): Promise<TaskDispatchResult>;
+
+  /** Optional reviewer — invoked on a task's changesets before completion. */
+  review?(
+    task: WorkflowTask,
+    project: OrchestratedProject,
+    changesets: readonly Readonly<Record<string, unknown>>[],
+  ): Promise<TaskReviewResult>;
+
+  /** Optional tester — invoked after review approval. */
+  test?(task: WorkflowTask, project: OrchestratedProject): Promise<TaskTestResult>;
+}
+
+// ─── Phase 2: Approval Gateway + budgets (PCS-025 §13, §15) ───
+
+export interface ApprovalDecision {
+  readonly required: boolean;
+  readonly reason?: string;
+  readonly risk?: 'low' | 'medium' | 'high';
+}
+
+/** Evaluates whether a task's changes require human approval before dispatch. */
+export interface ApprovalPolicy {
+  evaluate(task: WorkflowTask, project: OrchestratedProject): Promise<ApprovalDecision> | ApprovalDecision;
+}
+
+export interface TokenBudgetPolicy {
+  readonly maxTokens: number;
+  /** Estimated token cost of dispatching a task. */
+  estimateTokens(task: WorkflowTask): number;
+  /** Whether spending `amount` stays within the budget. */
+  canSpend(amount: number): boolean;
+  /** Commit `amount` to the spent total. */
+  consume(amount: number): void;
 }
 
 // ─── Snapshots ────────────────────────────────────────────────

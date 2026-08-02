@@ -3,6 +3,33 @@
 
 ---
 
+## [3.9.6] — 2026-08-03 — Multi-Agent Workflow Phase 2 + Phase 3 foundations (ADR-118 / PCS-025)
+
+### Added
+
+- **Reviewer + tester stages** with bounded revision loops: `TaskDispatcher`
+  gains optional `review`/`test`; tasks flow `needs-review → reviewing →
+  approved | changes-requested → assigned | rejected → blocked`, with a
+  revision cap from the retry policy. `HarnessTaskDispatcher` implements both
+  via reviewer/tester harness turns with a deterministic decision parser.
+- **High-risk-change Approval Gateway**: `DefaultRiskApprovalPolicy` (delete,
+  `.env`/sensitive paths, >10 files) + `awaiting-approval` task state +
+  `resolveTaskApproval`/`pendingApprovals` + `/api/orchestration/.../tasks/:id/approval`.
+- **Parallel task waves** with file-lock contention handling (`maxParallelTasks`,
+  bounded lock-wait then block).
+- **Capability-based assignment** via `@vestara/capabilities` resolver
+  (exact/wildcard/implied matches).
+- **Phase 3 foundations**: `TokenBudget` (blocks dispatch when exhausted) and
+  event-sourced `reconcile(projectId, events)` drift detection; failure-
+  injection and load tests for large task DAGs.
+
+### Changed
+
+- `task.approved` is a distinct event (no longer conflated with
+  `task.completed`); `approved → testing | completed` in the task machine.
+
+---
+
 ## [3.9.5] — 2026-08-03 — Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)
 
 ### Added

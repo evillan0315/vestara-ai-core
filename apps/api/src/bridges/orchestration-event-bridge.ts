@@ -95,6 +95,12 @@ function defaultMessage(type: string): string {
       return 'Task failed';
     case 'orchestration.task.blocked':
       return 'Task blocked';
+    case 'orchestration.task.approval-requested':
+      return 'Approval required';
+    case 'orchestration.task.review.decided':
+      return 'Task reviewed';
+    case 'orchestration.task.tests.decided':
+      return 'Tests completed';
     case 'orchestration.verification.failed':
       return 'Verification failed';
     case 'orchestration.plan.generated':

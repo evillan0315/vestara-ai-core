@@ -83,12 +83,15 @@
 
 > **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
 > `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
-> PCS-025 multi-agent orchestration is tracked under **v5.4** (Phase 1 core
-> delivered, partial): `WorkflowOrchestrator`, project/plan/task state machines,
-> task/artifact/file-lock stores, bounded retry/revision policy, task-graph
-> waves, checkpoint/resume, harness-backed task dispatch, `orchestration.*`
-> events, and `/api/orchestration/*` routes. Phases 2-3 (review/test/approval,
-> parallel waves, remote workers) remain pending.
+> PCS-025 multi-agent orchestration is tracked under **v5.4** (partial — Phase 1
+> complete, Phase 2 complete, Phase 3 foundations): `WorkflowOrchestrator`,
+> project/plan/task state machines, task/artifact/file-lock stores, bounded
+> retry/revision policy, task-graph waves, checkpoint/resume, harness-backed task
+> dispatch, capability-based assignment, reviewer/tester stages with bounded
+> revision loops, high-risk-change Approval Gateway, parallel task waves with
+> file-lock contention handling, token budgets, event-sourced reconcile,
+> `orchestration.*` events, and `/api/orchestration/*` routes. Remote workers and
+> multi-repo projects remain future (v10.0).
 
 ---
 

@@ -25,5 +25,5 @@ export function canRetryAttempt(policy: RetryPolicy, attempt: number): boolean {
 }
 
 export function canRevise(policy: RetryPolicy, revisionCount: number): boolean {
-  return revisionCount < policy.maxRevisions;
+  return revisionCount <= policy.maxRevisions;
 }

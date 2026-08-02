@@ -9,6 +9,7 @@
 export * from './db';
 export * from './ids';
 export * from './orchestrator';
+export * from './policies';
 export * from './retry-policy';
 export * from './state-machines';
 export * from './stores';
@@ -18,6 +19,4 @@ export type { CreatePlanInput } from './stores/plan-store';
 export type { CreateProjectInput } from './stores/project-store';
 export type { CreateTaskInput } from './stores/task-store';
 export * from './task-graph';
-export * from './task-graph';
-export * from './types';
 export * from './types';

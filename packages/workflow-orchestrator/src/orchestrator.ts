@@ -7,25 +7,33 @@
  * pluggable specialists reached through an injected TaskDispatcher; the
  * orchestrator never executes an agent itself.
  *
- * Phase 1 scope (PCS-025 §17): sequential project lifecycle with retry policy,
- * checkpointing, and idempotent resume. Approval Gateway, reviewer/test agents,
- * parallel wave execution and file-lock contention handling arrive in Phase 2;
- * the machinery (waves, locks, revision counters) is present.
+ * PCS-025 §17:
+ *  - Phase 1: sequential lifecycle, retry policy, checkpointing, idempotent resume.
+ *  - Phase 2: review/test stages with bounded revision loops, the Approval
+ *    Gateway (plan + high-risk changes), and parallel task waves with
+ *    file-lock contention handling.
+ *  - Phase 3 foundations: token budgets and event-sourced reconcile.
  */
 
 import { now } from './db';
-import { canRetryAttempt, DEFAULT_RETRY_POLICY, type RetryPolicy } from './retry-policy';
+import { DEFAULT_APPROVAL_POLICY } from './policies';
+import { canRetryAttempt, canRevise, DEFAULT_RETRY_POLICY, type RetryPolicy } from './retry-policy';
 import { canTransitionProject, canTransitionTask } from './state-machines';
 import type { ArtifactStore, FileLockRegistry, PlanStore, ProjectStore, TaskStore } from './stores';
 import type { CreateProjectInput } from './stores/project-store';
 import type { CreateTaskInput } from './stores/task-store';
 import type {
+  ApprovalDecision,
+  ApprovalPolicy,
   OrchestratedProject,
+  OrchestrationEvent,
   OrchestrationEventSink,
   ProjectPhase,
   ProjectSnapshot,
   TaskDispatcher,
+  TaskDispatchResult,
   TaskStatus,
+  TokenBudgetPolicy,
   WorkflowTask,
 } from './types';
 import { deriveProjectStatus } from './types';
@@ -40,18 +48,22 @@ type TaskEventType =
   | 'task.blocked'
   | 'task.retrying'
   | 'task.revision'
-  | 'task.cancelled';
+  | 'task.approved'
+  | 'task.cancelled'
+  | 'task.approval-requested'
+  | 'task.approval-resolved';
 
 const TASK_EVENT: Record<TaskStatus, TaskEventType> = {
   pending: 'task.created',
   ready: 'task.ready',
+  'awaiting-approval': 'task.approval-requested',
   assigned: 'task.assigned',
   'in-progress': 'task.started',
   'needs-review': 'task.started',
   reviewing: 'task.started',
   'changes-requested': 'task.revision',
   testing: 'task.started',
-  approved: 'task.completed',
+  approved: 'task.approved',
   retrying: 'task.retrying',
   blocked: 'task.blocked',
   failed: 'task.failed',
@@ -59,8 +71,46 @@ const TASK_EVENT: Record<TaskStatus, TaskEventType> = {
   completed: 'task.completed',
 };
 
+const TASK_STATUS_FROM_EVENT: Partial<Record<OrchestrationEvent['type'], TaskStatus>> = {
+  'task.created': 'pending',
+  'task.ready': 'ready',
+  'task.assigned': 'assigned',
+  'task.started': 'in-progress',
+  'task.retrying': 'retrying',
+  'task.failed': 'failed',
+  'task.blocked': 'blocked',
+  'task.approval-requested': 'awaiting-approval',
+  'task.revision': 'changes-requested',
+  'task.approved': 'approved',
+  'task.completed': 'completed',
+  'task.cancelled': 'cancelled',
+};
+
+export interface ReconciliationDrift {
+  readonly taskId: string;
+  readonly expected: TaskStatus;
+  readonly actual: TaskStatus;
+}
+
+export interface ReconciliationReport {
+  readonly projectId: string;
+  readonly eventsScanned: number;
+  readonly tasksChecked: number;
+  readonly consistent: boolean;
+  readonly drifts: readonly ReconciliationDrift[];
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isTaskEvent(event: OrchestrationEvent): event is Extract<OrchestrationEvent, { taskId: string }> {
+  return 'taskId' in event && typeof (event as { taskId?: unknown }).taskId === 'string';
+}
+
+function taskEventStatus(event: OrchestrationEvent): TaskStatus | undefined {
+  const status = TASK_STATUS_FROM_EVENT[event.type];
+  return status ?? (event.type === 'task.approval-resolved' ? 'ready' : undefined);
 }
 
 export interface OrchestratorOptions {
@@ -72,6 +122,14 @@ export interface OrchestratorOptions {
   readonly events: OrchestrationEventSink;
   readonly dispatcher: TaskDispatcher;
   readonly retry?: RetryPolicy;
+  /** Approval gateway for high-risk changes (PCS-025 §13). */
+  readonly approvalPolicy?: ApprovalPolicy;
+  /** Token/cost budget — blocks dispatch when exhausted (PCS-025 §15). */
+  readonly budget?: TokenBudgetPolicy;
+  /** Max tasks dispatched concurrently per wave (default 1 = sequential). */
+  readonly maxParallelTasks?: number;
+  /** Bounded wait for a contended file lock before blocking the task. */
+  readonly lockWaitTimeoutMs?: number;
 }
 
 export class WorkflowOrchestrator {
@@ -83,6 +141,10 @@ export class WorkflowOrchestrator {
   private readonly events: OrchestrationEventSink;
   private readonly dispatcher: TaskDispatcher;
   private readonly retry: RetryPolicy;
+  private readonly approvalPolicy: ApprovalPolicy;
+  private readonly budget?: TokenBudgetPolicy;
+  private readonly maxParallelTasks: number;
+  private readonly lockWaitTimeoutMs: number;
 
   constructor(options: OrchestratorOptions) {
     this.projects = options.projects;
@@ -93,6 +155,10 @@ export class WorkflowOrchestrator {
     this.events = options.events;
     this.dispatcher = options.dispatcher;
     this.retry = options.retry ?? DEFAULT_RETRY_POLICY;
+    this.approvalPolicy = options.approvalPolicy ?? DEFAULT_APPROVAL_POLICY;
+    this.budget = options.budget;
+    this.maxParallelTasks = Math.max(1, options.maxParallelTasks ?? 1);
+    this.lockWaitTimeoutMs = Math.max(0, options.lockWaitTimeoutMs ?? 2_000);
   }
 
   // ─── Project lifecycle ───────────────────────────────────────
@@ -175,13 +241,7 @@ export class WorkflowOrchestrator {
       at: now(),
     });
     for (const task of tasks) {
-      await this.events.append({
-        type: 'task.created',
-        projectId,
-        planId: plan.id,
-        taskId: task.id,
-        at: now(),
-      });
+      await this.events.append({ type: 'task.created', projectId, planId: plan.id, taskId: task.id, at: now() });
     }
     await this.transitionProject(project, 'architecture');
     return this.snapshot(projectId);
@@ -247,20 +307,27 @@ export class WorkflowOrchestrator {
         return !dependency || dependency.status === 'completed' || dependency.status === 'cancelled';
       };
       const runnable = tasks
-        .filter((task) => (task.status === 'pending' || task.status === 'ready') && task.dependencies.every(isDone))
+        .filter(
+          (task) =>
+            (task.status === 'pending' || task.status === 'ready' || task.status === 'assigned') &&
+            task.dependencies.every(isDone),
+        )
         .map((task) => ({ ...task }));
       if (runnable.length === 0) break;
-      for (const task of runnable) {
+      const wave = runnable.slice(0, this.maxParallelTasks);
+      for (const task of wave) {
         if (task.status === 'pending') {
           await this.transitionTask(project.id, task, 'ready');
         }
-        await this.runTask(project, { ...task });
       }
+      await Promise.all(wave.map((task) => this.runTask(project, { ...task })));
       await this.events.append({ type: 'workflow.checkpoint', projectId, at: now() });
     }
     const after = await this.tasks.listForProject(projectId);
-    const blocked = after.filter((task) => task.status === 'blocked' || task.status === 'failed');
-    if (blocked.length > 0) {
+    const pending = after.filter(
+      (task) => task.status === 'blocked' || task.status === 'failed' || task.status === 'awaiting-approval',
+    );
+    if (pending.length > 0) {
       return this.snapshot(projectId);
     }
     await this.transitionProject(project, 'verifying');
@@ -319,13 +386,7 @@ export class WorkflowOrchestrator {
     for (const task of tasks) {
       if (task.status === 'completed' || task.status === 'cancelled') continue;
       await this.tasks.updateStatus(task.id, 'cancelled');
-      await this.events.append({
-        type: 'task.cancelled',
-        projectId,
-        planId: task.planId,
-        taskId: task.id,
-        at: now(),
-      });
+      await this.events.append({ type: 'task.cancelled', projectId, planId: task.planId, taskId: task.id, at: now() });
     }
     return this.snapshot(projectId);
   }
@@ -350,6 +411,62 @@ export class WorkflowOrchestrator {
     return this.snapshot(projectId);
   }
 
+  // ─── Phase 2: Approval Gateway ───────────────────────────────
+
+  async resolveTaskApproval(projectId: string, taskId: string, approved: boolean): Promise<ProjectSnapshot> {
+    await this.mustGetProject(projectId);
+    const task = await this.tasks.get(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    if (task.status !== 'awaiting-approval') {
+      throw new Error(`Task ${taskId} is not awaiting approval (status=${task.status})`);
+    }
+    await this.tasks.clearApproval(taskId);
+    if (approved) {
+      await this.transitionTask(projectId, task, 'assigned');
+    } else {
+      await this.tasks.updateStatus(taskId, 'blocked', 'approval denied');
+    }
+    await this.events.append({
+      type: 'task.approval-resolved',
+      projectId,
+      planId: task.planId,
+      taskId,
+      at: now(),
+    });
+    return this.snapshot(projectId);
+  }
+
+  /** Lists tasks currently waiting on a high-risk-change approval. */
+  async pendingApprovals(projectId: string): Promise<WorkflowTask[]> {
+    const tasks = await this.tasks.listForProject(projectId);
+    return tasks.filter((task) => task.status === 'awaiting-approval');
+  }
+
+  // ─── Phase 3: event-sourced reconcile ────────────────────────
+
+  /** Rebuild expected task states from the event log and diff against stores. */
+  async reconcile(projectId: string, events: readonly OrchestrationEvent[]): Promise<ReconciliationReport> {
+    const expectedByTask = new Map<string, TaskStatus>();
+    for (const event of events) {
+      if (!isTaskEvent(event)) continue;
+      const status = taskEventStatus(event);
+      if (status) expectedByTask.set(event.taskId, status);
+    }
+    const tasks = await this.tasks.listForProject(projectId);
+    const drifts: ReconciliationDrift[] = [];
+    for (const task of tasks) {
+      const expected = expectedByTask.get(task.id);
+      if (expected && expected !== task.status) drifts.push({ taskId: task.id, expected, actual: task.status });
+    }
+    return {
+      projectId,
+      eventsScanned: events.length,
+      tasksChecked: tasks.length,
+      consistent: drifts.length === 0,
+      drifts,
+    };
+  }
+
   async snapshot(projectId: string): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
     const plans = await this.plans.listForProject(projectId);
@@ -370,46 +487,51 @@ export class WorkflowOrchestrator {
   // ─── Internals ───────────────────────────────────────────────
 
   private async runTask(project: OrchestratedProject, task: WorkflowTask): Promise<void> {
-    let current = (await this.tasks.get(task.id)) ?? { ...task };
     let attempt = 0;
+    for (let guard = 0; guard < 200; guard++) {
+      let current = (await this.tasks.get(task.id)) ?? { ...task };
 
-    for (;;) {
-      await this.transitionTask(project.id, current, 'assigned');
-
-      const acquiredPaths: string[] = [];
-      let conflict: string | undefined;
-      for (const file of current.files) {
-        const result = await this.locks.acquire({
-          path: file,
-          holderAgentId: current.assignedAgentId ?? 'unassigned',
-          taskId: current.id,
-        });
-        if (!result.acquired) {
-          conflict = `file lock held on "${file}" by ${result.holderTaskId ?? 'another task'}`;
+      // Approval gate + assign (first entry or post-approval).
+      if (current.status === 'ready') {
+        const decision = await this.evaluateApproval(project, current);
+        if (decision.required) {
+          await this.tasks.requestApproval(current.id, decision.reason ?? 'high-risk change');
           await this.events.append({
-            type: 'file.lock.conflict',
+            type: 'task.approval-requested',
             projectId: project.id,
-            path: file,
+            planId: current.planId,
             taskId: current.id,
-            holderAgentId: result.holderAgentId,
             at: now(),
           });
-          break;
+          return;
         }
-        acquiredPaths.push(file);
-        await this.events.append({
-          type: 'file.lock.acquired',
-          projectId: project.id,
-          path: file,
-          taskId: current.id,
-          holderAgentId: result.holderAgentId,
-          at: now(),
-        });
+        await this.transitionTask(project.id, current, 'assigned');
+        attempt = 0;
+      } else if (current.status !== 'assigned' && current.status !== 'retrying') {
+        await this.tasks.updateStatus(current.id, 'blocked', `unexpected status ${current.status}`);
+        return;
       }
 
-      if (conflict) {
-        await this.releaseLocks(project.id, current.id, acquiredPaths);
-        await this.tasks.updateStatus(current.id, 'blocked', conflict);
+      // Token budget gate.
+      if (this.budget) {
+        const estimate = this.budget.estimateTokens(current);
+        if (!this.budget.canSpend(estimate)) {
+          await this.tasks.updateStatus(current.id, 'blocked', 'token budget exceeded');
+          await this.events.append({
+            type: 'task.blocked',
+            projectId: project.id,
+            planId: current.planId,
+            taskId: current.id,
+            at: now(),
+          });
+          return;
+        }
+      }
+
+      // Acquire file locks (bounded wait on contention).
+      const lock = await this.acquireLocksWithWait(project, current);
+      if (!lock.acquired) {
+        await this.tasks.updateStatus(current.id, 'blocked', lock.reason ?? 'file lock conflict');
         await this.events.append({
           type: 'task.blocked',
           projectId: project.id,
@@ -430,54 +552,39 @@ export class WorkflowOrchestrator {
       });
 
       attempt++;
-      const result = await this.dispatcher.dispatch(current, project);
-      await this.releaseLocks(project.id, current.id, acquiredPaths);
+      let result: TaskDispatchResult;
+      try {
+        result = await this.dispatcher.dispatch(current, project);
+      } catch (error) {
+        result = { status: 'failed', error: error instanceof Error ? error.message : 'dispatch error' };
+      }
+      await this.releaseLocks(project.id, current.id, lock.paths);
+      if (this.budget) this.budget.consume(this.budget.estimateTokens(current));
+      // Reload so review/test/complete observe the persisted `in-progress` status.
+      current = (await this.tasks.get(task.id)) ?? current;
 
-      if (result.status === 'completed') {
-        const bodies = result.artifacts && result.artifacts.length > 0 ? result.artifacts : [{}];
-        for (const body of bodies) {
-          await this.artifacts.create({
-            kind: 'changeset',
+      if (result.status === 'failed') {
+        await this.tasks.recordFailure(current.id, result.error ?? 'dispatch failed', attempt);
+        await this.events.append({
+          type: 'task.failed',
+          projectId: project.id,
+          planId: current.planId,
+          taskId: current.id,
+          at: now(),
+        });
+        if (canRetryAttempt(this.retry, attempt)) {
+          await this.tasks.updateStatus(current.id, 'retrying');
+          await this.events.append({
+            type: 'task.retrying',
             projectId: project.id,
             planId: current.planId,
             taskId: current.id,
-            agentId: result.agentId ?? current.assignedAgentId ?? 'developer',
-            body: { taskId: current.id, summary: current.summary, output: result.output ?? null, ...body },
+            at: now(),
           });
+          const delay = this.retry.backoffMs(attempt);
+          if (delay > 0) await sleep(delay);
+          continue;
         }
-        await this.tasks.complete(current.id, result.agentId);
-        await this.events.append({
-          type: 'task.completed',
-          projectId: project.id,
-          planId: current.planId,
-          taskId: current.id,
-          at: now(),
-        });
-        return;
-      }
-
-      await this.tasks.recordFailure(current.id, result.error ?? 'dispatch failed', attempt);
-      await this.events.append({
-        type: 'task.failed',
-        projectId: project.id,
-        planId: current.planId,
-        taskId: current.id,
-        at: now(),
-      });
-
-      if (canRetryAttempt(this.retry, attempt)) {
-        await this.tasks.updateStatus(current.id, 'retrying');
-        await this.events.append({
-          type: 'task.retrying',
-          projectId: project.id,
-          planId: current.planId,
-          taskId: current.id,
-          at: now(),
-        });
-        const delay = this.retry.backoffMs(attempt);
-        if (delay > 0) await sleep(delay);
-        current = (await this.tasks.get(current.id)) ?? current;
-      } else {
         await this.tasks.updateStatus(current.id, 'blocked', result.error ?? 'max attempts exceeded');
         await this.events.append({
           type: 'task.blocked',
@@ -488,19 +595,215 @@ export class WorkflowOrchestrator {
         });
         return;
       }
+
+      // Record proposed changesets.
+      const bodies = result.artifacts && result.artifacts.length > 0 ? result.artifacts : [{}];
+      for (const body of bodies) {
+        await this.artifacts.create({
+          kind: 'changeset',
+          projectId: project.id,
+          planId: current.planId,
+          taskId: current.id,
+          agentId: result.agentId ?? current.assignedAgentId ?? 'developer',
+          body: { taskId: current.id, summary: current.summary, output: result.output ?? null, ...body },
+        });
+      }
+
+      // Review stage (bounded revision loop).
+      if (this.dispatcher.review) {
+        const decision = await this.runReviewStage(project, current, bodies);
+        if (decision === 'revise') {
+          attempt = 0;
+          continue;
+        }
+        if (decision === 'block') return;
+      }
+
+      // Test stage.
+      if (this.dispatcher.test) {
+        const passed = await this.runTestStage(project, current);
+        if (!passed) {
+          await this.tasks.recordFailure(current.id, 'tests failed', attempt);
+          await this.events.append({
+            type: 'task.failed',
+            projectId: project.id,
+            planId: current.planId,
+            taskId: current.id,
+            at: now(),
+          });
+          if (canRetryAttempt(this.retry, attempt)) {
+            await this.tasks.updateStatus(current.id, 'retrying');
+            await this.events.append({
+              type: 'task.retrying',
+              projectId: project.id,
+              planId: current.planId,
+              taskId: current.id,
+              at: now(),
+            });
+            continue;
+          }
+          await this.tasks.updateStatus(current.id, 'blocked', 'tests failed');
+          await this.events.append({
+            type: 'task.blocked',
+            projectId: project.id,
+            planId: current.planId,
+            taskId: current.id,
+            at: now(),
+          });
+          return;
+        }
+      }
+
+      await this.tasks.complete(current.id, result.agentId);
+      await this.events.append({
+        type: 'task.completed',
+        projectId: project.id,
+        planId: current.planId,
+        taskId: current.id,
+        at: now(),
+      });
+      return;
     }
+    await this.tasks.updateStatus(task.id, 'blocked', 'runTask guard exceeded');
+  }
+
+  private async evaluateApproval(project: OrchestratedProject, task: WorkflowTask): Promise<ApprovalDecision> {
+    try {
+      return await this.approvalPolicy.evaluate(task, project);
+    } catch {
+      return { required: false, risk: 'low' };
+    }
+  }
+
+  private async runReviewStage(
+    project: OrchestratedProject,
+    current: WorkflowTask,
+    changesets: readonly Readonly<Record<string, unknown>>[],
+  ): Promise<'proceed' | 'revise' | 'block'> {
+    await this.transitionTask(project.id, current, 'needs-review');
+    const reviewing = (await this.tasks.get(current.id)) ?? current;
+    await this.transitionTask(project.id, reviewing, 'reviewing');
+    const reviewed = (await this.tasks.get(current.id)) ?? reviewing;
+    const review = await this.dispatcher.review!(reviewed, project, changesets);
+    await this.artifacts.create({
+      kind: 'review',
+      projectId: project.id,
+      planId: reviewed.planId,
+      taskId: reviewed.id,
+      agentId: review.agentId ?? 'reviewer',
+      body: { decision: review.decision, feedback: review.feedback ?? null },
+    });
+    await this.events.append({
+      type: 'task.review.decided',
+      projectId: project.id,
+      planId: reviewed.planId,
+      taskId: reviewed.id,
+      decision: review.decision,
+      at: now(),
+    });
+
+    switch (review.decision) {
+      case 'approved':
+        await this.transitionTask(project.id, reviewed, 'approved');
+        return 'proceed';
+      case 'rejected':
+        await this.transitionTask(project.id, reviewed, 'blocked');
+        await this.tasks.updateStatus(reviewed.id, 'blocked', review.feedback ?? 'review rejected');
+        return 'block';
+      case 'changes-requested': {
+        await this.tasks.bumpRevision(reviewed.id);
+        const fresh = (await this.tasks.get(reviewed.id)) ?? reviewed;
+        if (canRevise(this.retry, fresh.revisionCount)) {
+          await this.transitionTask(project.id, fresh, 'changes-requested');
+          const revised = (await this.tasks.get(reviewed.id)) ?? fresh;
+          await this.transitionTask(project.id, revised, 'assigned');
+          return 'revise';
+        }
+        await this.transitionTask(project.id, fresh, 'blocked');
+        await this.tasks.updateStatus(reviewed.id, 'blocked', 'revision limit exceeded');
+        return 'block';
+      }
+    }
+  }
+
+  private async runTestStage(project: OrchestratedProject, current: WorkflowTask): Promise<boolean> {
+    await this.transitionTask(project.id, current, 'testing');
+    const testing = (await this.tasks.get(current.id)) ?? current;
+    const test = await this.dispatcher.test!(testing, project);
+    await this.artifacts.create({
+      kind: 'test',
+      projectId: project.id,
+      planId: testing.planId,
+      taskId: testing.id,
+      agentId: test.agentId ?? 'tester',
+      body: { status: test.status, report: test.report ?? {} },
+    });
+    await this.events.append({
+      type: 'task.tests.decided',
+      projectId: project.id,
+      planId: testing.planId,
+      taskId: testing.id,
+      status: test.status,
+      at: now(),
+    });
+    if (test.status === 'passed') {
+      await this.transitionTask(project.id, testing, 'approved');
+      return true;
+    }
+    return false;
+  }
+
+  private async acquireLocksWithWait(
+    project: OrchestratedProject,
+    task: WorkflowTask,
+  ): Promise<{ acquired: boolean; paths: string[]; reason?: string }> {
+    const paths: string[] = [];
+    const deadline = Date.now() + this.lockWaitTimeoutMs;
+    for (const file of task.files) {
+      for (;;) {
+        const result = await this.locks.acquire({
+          path: file,
+          holderAgentId: task.assignedAgentId ?? 'unassigned',
+          taskId: task.id,
+        });
+        if (result.acquired) {
+          paths.push(file);
+          await this.events.append({
+            type: 'file.lock.acquired',
+            projectId: project.id,
+            path: file,
+            taskId: task.id,
+            holderAgentId: result.holderAgentId,
+            at: now(),
+          });
+          break;
+        }
+        await this.events.append({
+          type: 'file.lock.conflict',
+          projectId: project.id,
+          path: file,
+          taskId: task.id,
+          holderAgentId: result.holderAgentId,
+          at: now(),
+        });
+        if (Date.now() >= deadline) {
+          await this.releaseLocks(project.id, task.id, paths);
+          return {
+            acquired: false,
+            paths: [],
+            reason: `file lock held on "${file}" by ${result.holderTaskId ?? 'another task'}`,
+          };
+        }
+        await sleep(50);
+      }
+    }
+    return { acquired: true, paths };
   }
 
   private async releaseLocks(projectId: string, taskId: string, paths: readonly string[]): Promise<void> {
     for (const path of paths) {
       await this.locks.release(path, taskId);
-      await this.events.append({
-        type: 'file.lock.released',
-        projectId,
-        path,
-        taskId,
-        at: now(),
-      });
+      await this.events.append({ type: 'file.lock.released', projectId, path, taskId, at: now() });
     }
   }
 

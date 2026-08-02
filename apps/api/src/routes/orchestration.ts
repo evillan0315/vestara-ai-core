@@ -184,6 +184,30 @@ export async function handleOrchestrationRoute(
     return true;
   }
 
+  // Pending high-risk-change approvals for a project.
+  const approvalsMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/approvals$/);
+  if (approvalsMatch && method === 'GET') {
+    const projectId = decodeURIComponent(approvalsMatch[1]);
+    json(res, 200, { approvals: await orchestrator.pendingApprovals(projectId) });
+    return true;
+  }
+
+  // Resolve a high-risk-change approval, then continue execution.
+  const taskApprovalMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/tasks\/([^/]+)\/approval$/);
+  if (taskApprovalMatch && method === 'POST') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const projectId = decodeURIComponent(taskApprovalMatch[1]);
+    const taskId = decodeURIComponent(taskApprovalMatch[2]);
+    const body = bodyOf(await readBody(req));
+    try {
+      const snapshot = await orchestrator.resolveTaskApproval(projectId, taskId, bool(body.approved));
+      json(res, 200, { snapshot });
+    } catch (error) {
+      json(res, 409, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
+
   const auditMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/audit$/);
   if (auditMatch && method === 'GET') {
     const projectId = decodeURIComponent(auditMatch[1]);

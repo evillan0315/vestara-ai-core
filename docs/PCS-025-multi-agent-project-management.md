@@ -508,19 +508,27 @@ harness (`HarnessTaskDispatcher`).
 Acceptance (pending full pass): single sequential project completes with
 `verification.passed` + full audit log.
 
-**Phase 2 — Review, test, approval — 🔶 in progress (partial)**
+**Phase 2 — Review, test, approval — ✅ complete**
 Capability-based task assignment (replace keyword matching) is delivered:
 `HarnessTaskDispatcher` resolves task → agent through `@vestara/capabilities`
 (`DefaultCapabilityResolver` over the builtin taxonomy, supporting exact,
 wildcard, and implied matches; `packages/workspace/src/harness-task-dispatcher.ts`).
-Remaining: `ReviewService`, `TestService`; Approval Gateway for plan + high-risk
-changes; revision loops (bounded); parallel task waves with file locking +
-conflict detection; observability dashboard (§18).
+Reviewer + tester stages with bounded revision loops (`TaskDispatcher.review/test`,
+`needs-review → reviewing → approved | changes-requested → assigned | rejected →
+blocked`, revision cap from the retry policy); Approval Gateway for high-risk
+changes (`DefaultRiskApprovalPolicy` + `awaiting-approval` task state +
+`resolveTaskApproval`, plan approval via the `pending-approval` phase); parallel
+task waves with file-lock contention handling (`maxParallelTasks`, bounded
+lock-wait then block). Remaining: observability dashboard (§18).
 
-**Phase 3 — Distributed + hardening**
-`remote` workers; multi-repo projects; token/cost budgets; replayable event-sourced
-history; migration to an append-only `AuditStore`-backed execution log; failure
-injection tests; load tests for large task graphs.
+**Phase 3 — Distributed + hardening — 🔶 foundations**
+Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted);
+event-sourced `reconcile(projectId, events)` (rebuild expected task state from the
+event log and diff against stores); failure-injection + load tests (flaky
+dispatchers, large task DAGs). `remote` workers and multi-repo projects remain
+future: the `TaskDispatcher` interface is the worker contract remote workers would
+implement, and multi-repo aggregates per-repo orchestrators under a parent
+project.
 
 ---
 
