@@ -3,6 +3,21 @@
 
 ---
 
+## [3.9.11] — 2026-08-03 — Orchestration create + detail UX and route tests
+
+### Added
+
+- Workspace Orchestration page: **New project** dialog (name, goal, repo path,
+  task rows with files + capabilities) that drives create → analyze → plan →
+  architecture → approve → execute; **expandable project cards** with per-project
+  detail (task list + revision/attempt counters, audit trail, plan approval when
+  `pending-approval`, resume execution).
+- **Route-level tests** (`apps/api/__tests__/orchestration-routes.test.ts`) —
+  create/list, missing-goal 400, approval-gateway round-trip through the real
+  event bridge, and metrics/audit endpoints (4 tests).
+
+---
+
 ## [3.9.10] — 2026-08-03 — Orchestration Workspace Dashboard (PCS-025 §18)
 
 ### Added
