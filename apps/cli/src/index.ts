@@ -19,6 +19,7 @@ import {
 } from './commands/doctor.js';
 import { runHelpCommand } from './commands/help-cmd.js';
 import { runBootCommand, runHostCommand } from './commands/host.js';
+import { runMarketplace } from './commands/marketplace.js';
 import { runMetrics } from './commands/metrics.js';
 import { runModelsList } from './commands/models.js';
 import { runOps } from './commands/ops.js';
@@ -133,6 +134,9 @@ function printHelp(): void {
     `    ${GREEN}architecture${RESET} [sub]  ${GRAY}AKG query (show|list|depends-on|dependents-of|influences|impact)${RESET}`,
   );
   console.log(`    ${GREEN}blueprint${RESET} verify    ${GRAY}Architecture Knowledge Graph integrity check${RESET}`);
+  console.log(
+    `    ${GREEN}marketplace${RESET} [sub]  ${GRAY}Engineering Exchange (search|list|info|installed|updates|install|update|uninstall|verify|rescan)${RESET}`,
+  );
   console.log(
     `    ${GREEN}ops${RESET} [sub]           ${GRAY}Engineering telemetry (feed|status|timeline|demo)${RESET}`,
   );
@@ -250,6 +254,7 @@ function registerCommands(registry: CommandRegistry): void {
     }
     console.log(`${GOLD}Usage: vestara demo golden-path${RESET}`);
   });
+  registry.register('marketplace', (args) => runMarketplace(args));
 }
 
 export async function main() {
@@ -387,6 +392,11 @@ export async function main() {
       return;
     }
     console.log(`${GOLD}Usage: vestara demo golden-path${RESET}`);
+    return;
+  }
+
+  if (args[0] === 'marketplace') {
+    await runMarketplace(args.slice(1));
     return;
   }
 

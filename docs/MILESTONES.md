@@ -2145,7 +2145,9 @@ vestara provider status ollama
 - Lifecycle hooks for all major events (plan.created, changeset.applied, etc.)
 - Plugin analytics (usage, performance, error rates)
 - Enterprise plugin approval workflow
-- Community plugin marketplace
+- Community plugin marketplace — local foundation shipped (2026-08-02:
+  `packages/marketplace`, `vestara marketplace` CLI, Workspace API/UI); remote
+  distribution and publishing remain open
 
 **Target**: Q3 2027
 

@@ -34,6 +34,8 @@
 | **v2.2** | **Auto-Indexing & Knowledge Propagation** | **✅ Complete** | **2026-07-23** |
 | **v2.3** | **Repository Health Scoring** | **✅ Complete** | **2026-07-23** |
 | **v2.4** | **Predictive Engineering** | **✅ Complete** | **2026-07-23** |
+| **v2.5** | **Marketplace Foundation (catalog, local registry, search, resolution, CLI)** | **✅ Complete** | **2026-08-02** |
+| **v2.6** | **Marketplace Workspace Experience (API, UI, operation center)** | **✅ Complete** | **2026-08-02** |
 | **v2.7** | **Outcome Verification** | **✅ Complete** | **2026-07-23** |
 | **v3.0** | **Quality Infrastructure** | **✅ Complete** | **2026-07-24** |
 | **v3.1** | **Codebase Cleanup** | **✅ Complete** | **2026-07-24** |

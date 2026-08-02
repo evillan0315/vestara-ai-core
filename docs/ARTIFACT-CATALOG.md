@@ -291,5 +291,7 @@ ImpactAssessment  ChangeSet
 | KanbanBoard | v8.1 | Visual task board configuration with columns and swimlanes |
 | Organization | v9.0 | Multi-workspace organizational structure |
 | PluginPackage | v9.1 | Versioned plugin definitions for the marketplace |
+| MarketplaceAsset | v9.2 | Catalog entry for a marketplace package (implemented in `packages/marketplace`) |
+| MarketplaceOperation | v9.2 | Operation record for install/update/uninstall/verify/rescan (returned by `/api/marketplace/*`) |
 | AgentFleet | v10.0 | Multi-workspace agent deployment configuration |
 | GovernancePolicy | v10.1 | AI action governance rules and approval workflows |

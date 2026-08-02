@@ -65,3 +65,22 @@ All 23 capabilities now have CSP READMEs with implementation status, version, an
 | CSP-001 through CSP-016 | Prior capabilities | 📋 Not yet created |
 
 All 23 capabilities are implemented. CSP-017 serves as the canonical template for future CSP creation.
+
+---
+
+## Marketplace (Engineering Exchange)
+
+Catalog, discovery, resolution, and install orchestration above
+`@vestara/extension-runtime`. See `docs/marketplace/MARKETPLACE-PLAN.md` and
+`docs/marketplace/MARKETPLACE-V0.2-WORKSPACE-EXPERIENCE.md`.
+
+| # | Capability | Command | Artifact | Version | CSP | Status |
+|---|-----------|---------|----------|---------|-----|--------|
+| 24 | Marketplace Catalog & Local Registry | `vestara marketplace list` | MarketplaceAsset | v9.2 | ✅ CSP-014 | ✅ |
+| 25 | Marketplace Discovery, Search & Compatibility | `vestara marketplace search` | MarketplaceSearchResult | v9.2 | ✅ CSP-014 | ✅ |
+| 26 | Marketplace Dependency Resolution (dry-run plans) | `vestara marketplace install --dry-run` | ResolutionPlan | v9.2 | ✅ CSP-014 | ✅ |
+| 27 | Marketplace Install Orchestration & CLI | `vestara marketplace install/update/uninstall` | MarketplaceOperation | v9.2 | ✅ CSP-014 | ✅ |
+| 28 | Marketplace Workspace API (operation DTOs) | `GET/POST /api/marketplace/*` | MarketplaceOperationDto | v9.2 | ✅ CSP-014 | ✅ |
+| 29 | Marketplace Workspace UI + Operation Center | (Workspace UI) | Marketplace views | v9.2 | ✅ CSP-014 | ✅ |
+
+Remote registries, publishing, and signature enforcement are not yet implemented.

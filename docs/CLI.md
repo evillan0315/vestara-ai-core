@@ -703,6 +703,36 @@ REPL is available with commands across every subsystem.
 
 ---
 
+### Marketplace (Engineering Exchange)
+
+Discover, install, update, and verify engineering assets from local registry
+directories. The Marketplace owns catalog and discovery; installation mechanics
+delegate to `@vestara/extension-runtime`.
+
+| Subcommand | Behavior |
+|------------|----------|
+| `search <query>` | Search assets (`--type T`, `--publisher P`, `--tag T`, `--limit N`) |
+| `list` | List all catalog assets |
+| `info <package>` | Asset details: versions, dependencies, permissions, verification |
+| `installed` | Installed packages with state and update status |
+| `updates` | Available updates (compatible and incompatible) |
+| `install <package>[@version]` | Install and activate (`--dry-run`, `--yes`) |
+| `update <package>` | Update to the latest compatible version (`--dry-run`, `--yes`) |
+| `uninstall <package>` | Uninstall (`--yes`) |
+| `verify <package>` | Recompute and compare the package digest |
+| `rescan` | Rescan local registry directories |
+
+Supports `--json`. `--dry-run` prints the full resolution plan (versions,
+dependencies, permissions) without installing; packages declaring permissions
+require confirmation unless `--yes` is given.
+
+Discovery sources (read-only): `<workspace>/.vestara/marketplace/`,
+`<workspace>/.vestara/packages/`, `~/.config/vestara/marketplace/`, and
+`$VESTARA_MARKETPLACE_ROOTS`. Installed state persists under
+`<workspace>/.vestara/extensions/`.
+
+---
+
 ## Data Storage
 
 The CLI persists data in `.vestara/` under the workspace root:

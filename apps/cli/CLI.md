@@ -621,6 +621,37 @@ REPL is available with commands across every subsystem.
 
 ---
 
+### `vestara marketplace <subcommand>`
+
+Marketplace (Engineering Exchange) — discover, install, update, and verify engineering
+assets from local registry directories. Installation mechanics delegate to
+`@vestara/extension-runtime`; the marketplace owns catalog, search, resolution, and update
+projections. Operates directly on the filesystem (no API dependency).
+
+| Subcommand | Behavior |
+|------------|----------|
+| `search <query>` | Search assets (`--type T`, `--publisher P`, `--tag T`, `--limit N`, `--sort name\|updated\|version`) |
+| `list` | List all catalog assets |
+| `info <package>` | Asset details: versions, dependencies, permissions, verification |
+| `installed` | Installed packages with state and update status |
+| `updates` | Available updates (compatible and incompatible) |
+| `install <package>[@version]` | Install and activate (`--dry-run`, `--yes`) |
+| `update <package>` | Update to the latest compatible version (`--dry-run`, `--yes`) |
+| `uninstall <package>` | Uninstall (`--yes`) |
+| `verify <package>` | Recompute and compare the package digest |
+| `rescan` | Rescan local registry directories |
+
+Supports `--json` for machine-readable output. `--dry-run` prints the full resolution plan
+(versions, dependencies, permissions) without installing. Packages declaring permissions
+require interactive confirmation unless `--yes` is given.
+
+Discovery sources (read-only, in order): `<workspace>/.vestara/marketplace/`,
+`<workspace>/.vestara/packages/`, `~/.config/vestara/marketplace/`, and any paths in
+`$VESTARA_MARKETPLACE_ROOTS`. Installed packages and their versions persist under
+`<workspace>/.vestara/extensions/` (see Data Storage).
+
+---
+
 ## Data Storage
 
 The CLI persists data in `.vestara/` under the workspace root:
@@ -635,5 +666,8 @@ The CLI persists data in `.vestara/` under the workspace root:
 | `prefs.db` | User preferences |
 | `routing.json` | Versioned routing profile and role defaults |
 | `routing-assignments.json` | Governed task assignments and side-effect evidence |
+| `marketplace/` | Discoverable package sources (read-only) |
+| `extensions/extensions.json` | Installed package state (extension-runtime durable store) |
+| `extensions/packages/` | Installed package payloads (immutable versions) |
 
 Default provider is **OpenCode** (`@vestara/provider-opencode`) — works without API keys.
