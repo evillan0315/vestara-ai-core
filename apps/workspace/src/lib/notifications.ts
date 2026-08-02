@@ -10,6 +10,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAuth } from './auth';
+import { workspaceSocket } from './ws';
 
 export interface AppNotification {
   id: string;
@@ -44,6 +45,7 @@ export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { actor } = useAuth();
 
   const fetchNotifications = useCallback(async () => {
@@ -71,12 +73,23 @@ export function useNotifications() {
     }
   }, []);
 
-  // Initial fetch + poll every 15s
+  // Initial fetch + poll every 15s, plus a debounced refetch whenever a
+  // relevant live event arrives (toast-worthy events refresh the badge now,
+  // not up to 15s later).
   useEffect(() => {
     fetchNotifications();
     intervalRef.current = setInterval(fetchNotifications, 15_000);
+    const off = workspaceSocket.onEvent((event) => {
+      if (event.type === 'system.heartbeat' || event.type === 'workflow.updated') return;
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
+      refreshTimer.current = setTimeout(() => {
+        void fetchNotifications();
+      }, 300);
+    });
     return () => {
+      off();
       if (intervalRef.current) clearInterval(intervalRef.current);
+      if (refreshTimer.current) clearTimeout(refreshTimer.current);
     };
   }, [fetchNotifications]);
 

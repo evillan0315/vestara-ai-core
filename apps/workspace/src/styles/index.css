@@ -891,3 +891,41 @@ nav#sidebar .nav-item-left.active {
   box-shadow: -6px 0 16px rgba(var(--vestara-accent), 0.15);
   font-weight: 600;
 }
+
+/* ── Toast / notification animations ── */
+@keyframes vestara-toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(24px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+@keyframes vestara-toast-out {
+  from {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateX(24px) scale(0.98);
+  }
+}
+
+.toast-enter {
+  animation: vestara-toast-in 180ms ease-out both;
+}
+
+.toast-exit {
+  animation: vestara-toast-out 160ms ease-in both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-enter,
+  .toast-exit {
+    animation: none;
+  }
+}

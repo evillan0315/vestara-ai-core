@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { enqueueToast, type Toast } from '../src/components/toast-queue';
+import { defaultToastDuration, enqueueToast, type Toast } from '../src/components/toast-queue';
 
 function toast(id: string, type: Toast['type'], message: string, createdAt = 1_000): Toast {
   return { id, type, message, createdAt, lastSeenAt: createdAt, count: 1 };
@@ -46,5 +46,26 @@ describe('toast queue', () => {
 
     expect(result).toHaveLength(5);
     expect(result.some(({ id }) => id === 'overflow')).toBe(false);
+  });
+
+  it('carries title and action through enqueue', () => {
+    const onAction = () => {};
+    const result = enqueueToast(
+      [],
+      { type: 'warning', message: 'Task blocked', title: 'Blocked', action: { label: 'View', onClick: onAction } },
+      'warn',
+      1_000,
+    );
+
+    expect(result).toHaveLength(1);
+    expect(result[0]).toMatchObject({ type: 'warning', title: 'Blocked' });
+    expect(result[0].action?.label).toBe('View');
+  });
+
+  it('uses type-specific default durations', () => {
+    expect(defaultToastDuration('error')).toBe(8_000);
+    expect(defaultToastDuration('warning')).toBe(6_000);
+    expect(defaultToastDuration('success')).toBe(5_000);
+    expect(defaultToastDuration('info')).toBe(5_000);
   });
 });

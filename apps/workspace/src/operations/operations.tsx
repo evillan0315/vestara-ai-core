@@ -1,4 +1,5 @@
 import { type ReactNode, useMemo, useState } from 'react';
+import { Alert } from '../components/Alert';
 import { VestaraModal } from '../components/ui/VestaraModal';
 
 export interface StatCardProps {
@@ -639,15 +640,10 @@ export function AlertBanner({ failed, onDismiss }: AlertBannerProps) {
   if (failed <= 3) return null;
 
   return (
-    <div className="mb-4 flex items-center gap-2 p-3 bg-red-400/5 border border-red-400/20 rounded-lg text-xs text-red-400">
-      <span>⚠</span>
-      <span>{failed} recent execution failures — check agent fleet for details</span>
-      <button
-        onClick={onDismiss}
-        className="ml-auto px-2 py-0.5 bg-zinc-800 rounded text-zinc-500 hover:text-zinc-300 cursor-pointer text-[9px]"
-      >
-        Dismiss
-      </button>
+    <div className="mb-4">
+      <Alert variant="error" onDismiss={onDismiss}>
+        {failed} recent execution failures — check agent fleet for details
+      </Alert>
     </div>
   );
 }
