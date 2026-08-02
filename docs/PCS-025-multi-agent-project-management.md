@@ -524,11 +524,13 @@ lock-wait then block); observability (§18).
 **Phase 3 — Distributed + hardening — 🔶 foundations**
 Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted);
 event-sourced `reconcile(projectId, events)` (rebuild expected task state from the
-event log and diff against stores); failure-injection + load tests (flaky
-dispatchers, large task DAGs). `remote` workers and multi-repo projects remain
-future: the `TaskDispatcher` interface is the worker contract remote workers would
-implement, and multi-repo aggregates per-repo orchestrators under a parent
-project.
+event log and diff against stores); full event-sourced `rebuild(projectId, events,
+context)` — `task.created` events now carry the task definition so the event log
+reconstructs project, plan, and tasks with their statuses; failure-injection +
+load tests (flaky dispatchers, large task DAGs). `remote` workers and multi-repo
+projects remain future: the `TaskDispatcher` interface is the worker contract
+remote workers would implement, and multi-repo aggregates per-repo orchestrators
+under a parent project.
 
 ---
 

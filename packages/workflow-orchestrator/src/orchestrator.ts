@@ -36,12 +36,12 @@ import type {
   TaskDispatchResult,
   TaskStatus,
   TokenBudgetPolicy,
+  WorkflowPlan,
   WorkflowTask,
 } from './types';
 import { deriveProjectStatus } from './types';
 
 type TaskEventType =
-  | 'task.created'
   | 'task.ready'
   | 'task.assigned'
   | 'task.started'
@@ -56,7 +56,7 @@ type TaskEventType =
   | 'task.approval-resolved';
 
 const TASK_EVENT: Record<TaskStatus, TaskEventType> = {
-  pending: 'task.created',
+  pending: 'task.ready',
   ready: 'task.ready',
   'awaiting-approval': 'task.approval-requested',
   assigned: 'task.assigned',
@@ -247,7 +247,19 @@ export class WorkflowOrchestrator {
       at: now(),
     });
     for (const task of tasks) {
-      await this.events.append({ type: 'task.created', projectId, planId: plan.id, taskId: task.id, at: now() });
+      await this.events.append({
+        type: 'task.created',
+        projectId,
+        planId: plan.id,
+        taskId: task.id,
+        at: now(),
+        summary: task.summary,
+        description: task.description,
+        files: task.files,
+        dependencies: task.dependencies,
+        requiredCapabilities: task.requiredCapabilities,
+        effort: task.effort,
+      });
     }
     await this.transitionProject(project, 'architecture');
     return this.snapshot(projectId);
@@ -479,6 +491,155 @@ export class WorkflowOrchestrator {
       tasksChecked: tasks.length,
       consistent: drifts.length === 0,
       drifts,
+    };
+  }
+
+  // ─── Phase 3: event-sourced rebuild ──────────────────────────
+
+  /**
+   * Reconstruct a project snapshot purely from the event log (PCS-025 §11, §17
+   * Phase 3). Artifacts and locks are not derivable from events and are empty;
+   * callers replay them from their own stores. Task content is recoverable
+   * because `task.created` carries the task definition.
+   */
+  async rebuild(
+    projectId: string,
+    events: readonly OrchestrationEvent[],
+    context: { readonly workspaceId: string; readonly repoPath: string },
+  ): Promise<ProjectSnapshot> {
+    let project: OrchestratedProject | undefined;
+    let phase: ProjectPhase = 'draft';
+    let cancelReason: string | undefined;
+    const planById = new Map<string, WorkflowPlan>();
+    const taskById = new Map<string, WorkflowTask>();
+    const applyTaskStatus = (event: { taskId: string; planId: string; at: string }, status: TaskStatus): void => {
+      const task = taskById.get(event.taskId);
+      if (task) taskById.set(event.taskId, { ...task, status, updatedAt: event.at });
+    };
+
+    for (const event of events) {
+      if (event.projectId !== projectId) continue;
+      switch (event.type) {
+        case 'project.created':
+          project = {
+            id: event.projectId,
+            name: event.name,
+            goal: event.goal,
+            repoPath: context.repoPath,
+            phase: 'draft',
+            workspaceId: context.workspaceId,
+            createdAt: event.at,
+            updatedAt: event.at,
+          };
+          break;
+        case 'project.phase.changed':
+          phase = event.to;
+          break;
+        case 'project.cancelled':
+          phase = 'cancelled';
+          cancelReason = event.reason;
+          break;
+        case 'plan.generated':
+          planById.set(event.planId, {
+            id: event.planId,
+            projectId,
+            title: '',
+            goal: '',
+            revision: event.revision,
+            status: 'proposed',
+            createdAt: event.at,
+            updatedAt: event.at,
+          });
+          break;
+        case 'plan.approved': {
+          const plan = planById.get(event.planId);
+          if (plan) planById.set(event.planId, { ...plan, status: 'approved', updatedAt: event.at });
+          break;
+        }
+        case 'task.created':
+          taskById.set(event.taskId, {
+            id: event.taskId,
+            planId: event.planId,
+            summary: event.summary,
+            description: event.description,
+            files: event.files,
+            dependencies: event.dependencies,
+            requiredCapabilities: event.requiredCapabilities,
+            effort: event.effort,
+            status: 'pending',
+            revisionCount: 0,
+            attemptCount: 0,
+            createdAt: event.at,
+            updatedAt: event.at,
+          });
+          break;
+        case 'task.ready':
+          applyTaskStatus(event, 'ready');
+          break;
+        case 'task.assigned':
+          applyTaskStatus(event, 'assigned');
+          break;
+        case 'task.started':
+          applyTaskStatus(event, 'in-progress');
+          break;
+        case 'task.approved':
+          applyTaskStatus(event, 'approved');
+          break;
+        case 'task.failed': {
+          const task = taskById.get(event.taskId);
+          if (task)
+            taskById.set(event.taskId, {
+              ...task,
+              status: 'failed',
+              attemptCount: task.attemptCount + 1,
+              updatedAt: event.at,
+            });
+          break;
+        }
+        case 'task.retrying':
+          applyTaskStatus(event, 'retrying');
+          break;
+        case 'task.revision': {
+          const task = taskById.get(event.taskId);
+          if (task)
+            taskById.set(event.taskId, {
+              ...task,
+              status: 'changes-requested',
+              revisionCount: task.revisionCount + 1,
+              updatedAt: event.at,
+            });
+          break;
+        }
+        case 'task.blocked':
+          applyTaskStatus(event, 'blocked');
+          break;
+        case 'task.completed':
+          applyTaskStatus(event, 'completed');
+          break;
+        case 'task.cancelled':
+          applyTaskStatus(event, 'cancelled');
+          break;
+        case 'task.approval-requested':
+          applyTaskStatus(event, 'awaiting-approval');
+          break;
+        case 'task.approval-resolved':
+          applyTaskStatus(event, 'assigned');
+          break;
+        default:
+          break;
+      }
+    }
+
+    if (!project) throw new Error(`No project.created event for ${projectId}`);
+    const rebuilt: OrchestratedProject = { ...project, phase, cancelReason };
+    return {
+      project: rebuilt,
+      plan: planById.values().next().value,
+      tasks: [...taskById.values()],
+      artifacts: [],
+      locks: [],
+      phase,
+      status: deriveProjectStatus(phase),
     };
   }
 

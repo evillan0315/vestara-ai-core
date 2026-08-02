@@ -190,8 +190,21 @@ export type OrchestrationEvent =
     }
   | { readonly type: 'plan.approved'; readonly projectId: string; readonly planId: string; readonly at: string }
   | {
+      readonly type: 'task.created';
+      readonly projectId: string;
+      readonly planId: string;
+      readonly taskId: string;
+      readonly at: string;
+      /** Task definition payload — makes the event log self-sufficient for replay. */
+      readonly summary: string;
+      readonly description: string;
+      readonly files: readonly string[];
+      readonly dependencies: readonly string[];
+      readonly requiredCapabilities: readonly string[];
+      readonly effort: TaskEffort;
+    }
+  | {
       readonly type:
-        | 'task.created'
         | 'task.ready'
         | 'task.assigned'
         | 'task.started'

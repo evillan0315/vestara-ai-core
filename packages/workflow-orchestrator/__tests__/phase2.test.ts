@@ -314,6 +314,60 @@ describe('Phase 3 — token budgets and reconcile', () => {
   });
 });
 
+describe('Phase 3 — event-sourced rebuild', () => {
+  it('reconstructs project, plan, and tasks from the event log', async () => {
+    const harness = await setup();
+    const project = await driveToExecution(harness.orchestrator);
+    await harness.orchestrator.runExecution(project.id);
+    await harness.orchestrator.runVerification(project.id, { verifierId: 'verifier', report: {}, passed: true });
+
+    const rebuilt = await harness.orchestrator.rebuild(project.id, harness.events, {
+      workspaceId: 'ws-1',
+      repoPath: '/repo',
+    });
+    expect(rebuilt.status).toBe('completed');
+    expect(rebuilt.project.name).toBe('Feature');
+    expect(rebuilt.project.workspaceId).toBe('ws-1');
+    expect(rebuilt.plan?.id).toBeTruthy();
+    expect(rebuilt.tasks).toHaveLength(1);
+    expect(rebuilt.tasks[0].status).toBe('completed');
+    expect(rebuilt.tasks[0].summary).toBe('Implement');
+    expect(rebuilt.tasks[0].files).toEqual(['src/a.ts']);
+  });
+
+  it('reconstructs a cancelled project and its pending task status', async () => {
+    const harness = await setup();
+    const project = await harness.orchestrator.createProject({
+      name: 'Feature',
+      goal: 'Build',
+      repoPath: '/repo',
+      workspaceId: 'ws-1',
+    });
+    await harness.orchestrator.cancelProject(project.id, 'scope change');
+
+    const rebuilt = await harness.orchestrator.rebuild(project.id, harness.events, {
+      workspaceId: 'ws-1',
+      repoPath: '/repo',
+    });
+    expect(rebuilt.status).toBe('cancelled');
+    expect(rebuilt.project.cancelReason).toBe('scope change');
+  });
+
+  it('reconstructs an awaiting-approval state from events', async () => {
+    const harness = await setup({ approvalPolicy: new SensitivePolicy() });
+    const project = await driveToExecution(harness.orchestrator, ['sensitive.txt']);
+    await harness.orchestrator.runExecution(project.id);
+
+    const rebuilt = await harness.orchestrator.rebuild(project.id, harness.events, {
+      workspaceId: 'ws-1',
+      repoPath: '/repo',
+    });
+    expect(rebuilt.phase).toBe('executing');
+    expect(rebuilt.tasks[0].status).toBe('awaiting-approval');
+    expect(rebuilt.tasks[0].summary).toBe('Implement');
+  });
+});
+
 describe('PCS-025 §18 — observability', () => {
   it('emits telemetry for lifecycle operations', async () => {
     const ops: OrchestrationTelemetry[] = [];

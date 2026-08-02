@@ -3,6 +3,20 @@
 
 ---
 
+## [3.9.8] — 2026-08-03 — Event-Sourced Rebuild (PCS-025 Phase 3)
+
+### Added
+
+- `task.created` events now carry the full task definition (summary,
+  description, files, dependencies, required capabilities, effort), making the
+  event log self-sufficient for replay.
+- `WorkflowOrchestrator.rebuild(projectId, events, context)` reconstructs the
+  project, plan, and tasks (with statuses) purely from `orchestration.*` events
+  — project phase, cancellation, task definitions, revision/attempt counters.
+- 3 event-sourced rebuild tests.
+
+---
+
 ## [3.9.7] — 2026-08-03 — Multi-Agent Workflow Observability (PCS-025 §18)
 
 ### Added
