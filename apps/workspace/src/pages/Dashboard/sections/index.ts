@@ -11,3 +11,4 @@ export { default as RepoHealthSection } from './RepoHealthSection';
 export { default as SprintsSection } from './SprintsSection';
 export { default as SuggestionsSection } from './SuggestionsSection';
 export { default as SystemSection } from './SystemSection';
+export { default as WorkflowLifecycleSection } from './WorkflowLifecycleSection';

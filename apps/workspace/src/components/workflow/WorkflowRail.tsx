@@ -1,7 +1,7 @@
 /**
  * WorkflowRail — reusable eight-stage lifecycle rail (Level 1) + active stage
- * card (Level 2) + approvals + verification, consumed by both the Sessions and
- * Agent Control pages. Renders from the canonical workflow projection.
+ * card (Level 2) + owning-agent attribution + approvals + verification.
+ * Renders from the canonical workflow projection.
  */
 
 import { harnessApi } from '../../lib/agent-harness';
@@ -22,6 +22,25 @@ function mark(stage: WorkflowStage): { glyph: string; color: string } {
   }
 }
 
+const AGENT_TONE: Record<string, string> = {
+  conversation: 'text-(--vestara-purple)',
+  analyst: 'text-(--vestara-blue)',
+  planner: 'text-(--vestara-blue)',
+  architect: 'text-(--vestara-blue)',
+  developer: 'text-(--vestara-amber)',
+  verifier: 'text-(--vestara-green)',
+  reviewer: 'text-(--vestara-green)',
+  system: 'text-(--vestara-text-muted)',
+};
+
+function agentTone(agentId: string): string {
+  const key = agentId.toLowerCase().replace(/[^a-z]/g, '');
+  for (const [name, tone] of Object.entries(AGENT_TONE)) {
+    if (key.includes(name)) return tone;
+  }
+  return 'text-(--vestara-text-muted)';
+}
+
 export function WorkflowRail({
   workflow,
   onRefresh,
@@ -31,7 +50,8 @@ export function WorkflowRail({
 }) {
   if (!workflow) return null;
   const active = workflow.stages.find((stage) => stage.status === 'active');
-  const pending = workflow.approvals.filter((approval) => approval.status === 'pending');
+  const pendingApprovals = workflow.approvals.filter((approval) => approval.status === 'pending');
+  const live = workflow.status === 'running' || workflow.status === 'awaiting-approval';
 
   const resolveApproval = async (approvalId: string, approved: boolean) => {
     await harnessApi.resolveApproval(workflow.threadId, approvalId, approved);
@@ -50,9 +70,17 @@ export function WorkflowRail({
               <span className={`${color} font-medium`}>
                 {glyph} {stage.label}
               </span>
+              {stage.agentId && stage.status !== 'pending' && (
+                <span className={`text-[8px] ${agentTone(stage.agentId)}`}>({stage.agentId})</span>
+              )}
             </span>
           );
         })}
+        {live && (
+          <span className="ml-1 px-1.5 py-0.5 rounded bg-(--vestara-red)/10 border border-(--vestara-red)/40 text-(--vestara-red) text-[8px] uppercase tracking-widest animate-pulse">
+            live
+          </span>
+        )}
         <span className="ml-auto text-[9px] uppercase tracking-wider text-(--vestara-text-muted)">
           {workflow.status}
         </span>
@@ -62,14 +90,21 @@ export function WorkflowRail({
       {active && (
         <div className="p-2 bg-black/30 border border-(--vestara-accent-border)/50 rounded-md mb-2">
           <div className="flex items-center justify-between text-[10px]">
-            <span className="font-semibold text-(--vestara-text)">{active.label}</span>
+            <span className="font-semibold text-(--vestara-text)">
+              {active.label}
+              {active.agentId && (
+                <span className={`ml-1.5 text-[9px] ${agentTone(active.agentId)}`}>· {active.agentId}</span>
+              )}
+            </span>
             <span className="text-(--vestara-text-muted)">
-              {active.agentId ? `agent ${active.agentId}` : ''}
-              {active.durationMs != null ? ` · ${(active.durationMs / 1000).toFixed(1)}s` : ''}
+              {active.durationMs != null ? `${(active.durationMs / 1000).toFixed(1)}s` : ''}
             </span>
           </div>
           {active.activeOperation && (
             <div className="text-[10px] text-(--vestara-accent-text) mt-0.5">{active.activeOperation}</div>
+          )}
+          {active.blockingReason && (
+            <div className="text-[10px] text-(--vestara-amber) mt-0.5">blocked: {active.blockingReason}</div>
           )}
           <div className="text-[9px] text-(--vestara-text-muted) mt-0.5">
             tools {active.tools.length} · files {active.files.length} · evidence {active.evidenceCount}
@@ -77,10 +112,21 @@ export function WorkflowRail({
         </div>
       )}
 
+      {/* Owning agents */}
+      {workflow.agents.length > 0 && (
+        <div className="flex items-center gap-1.5 flex-wrap mb-2">
+          {workflow.agents.map((agent) => (
+            <span key={agent.id} className={`text-[9px] ${agentTone(agent.id)}`}>
+              {agent.status === 'active' ? '●' : '○'} {agent.name || agent.id}
+            </span>
+          ))}
+        </div>
+      )}
+
       {/* Approvals */}
-      {pending.length > 0 && (
+      {pendingApprovals.length > 0 && (
         <div className="space-y-1 mb-2">
-          {pending.map((approval) => (
+          {pendingApprovals.map((approval) => (
             <div key={approval.id} className="flex items-center gap-2 text-[10px] text-(--vestara-text-2)">
               <span className="text-(--vestara-amber)">⚠</span>
               <span className="flex-1 truncate">

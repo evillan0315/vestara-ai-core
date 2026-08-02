@@ -25,6 +25,8 @@ export interface DashboardData {
   executions: Execution[];
   execSessions: Record<string, unknown>[];
   workflows: Array<{ id: string; label: string; steps: number }>;
+  harnessThreads: Array<{ id: string; status: string; title?: string }>;
+  workflowProjections: WorkflowProjection[];
   projects: Record<string, unknown>[];
   sprints: { sprints: Record<string, unknown>[]; active: Record<string, unknown>[] };
   logEvents: Array<{
@@ -71,6 +73,8 @@ export function useDashboardData(): DashboardData {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [execSessions, setExecSessions] = useState<Record<string, unknown>[]>([]);
   const [workflows, setWorkflows] = useState<Array<{ id: string; label: string; steps: number }>>([]);
+  const [harnessThreads, setHarnessThreads] = useState<Array<{ id: string; status: string; title?: string }>>([]);
+  const [workflowProjections, setWorkflowProjections] = useState<WorkflowProjection[]>([]);
   const [projects, setProjects] = useState<Record<string, unknown>[]>([]);
   const [sprints, setSprints] = useState<{ sprints: Record<string, unknown>[]; active: Record<string, unknown>[] }>({
     sprints: [],
@@ -101,8 +105,9 @@ export function useDashboardData(): DashboardData {
       fetch('/api/sessions/executions').then((r) => (r.ok ? r.json() : { sessions: [] })),
       fetch('/api/workflows').then((r) => (r.ok ? r.json() : { workflows: [] })),
       fetch('/api/activity-log').then((r) => (r.ok ? r.json() : { events: [] })),
+      fetch('/api/agent-threads').then((r) => (r.ok ? r.json() : { threads: [] })),
     ])
-      .then(([w, a, pl, sug, wf, ms, ex, h, pjs, sps, exs, wfs, logs]) => {
+      .then(([w, a, pl, sug, wf, ms, ex, h, pjs, sps, exs, wfs, logs, ths]) => {
         if (w) setWorkspace(w);
         setAgents(a);
         setPlans(pl);
@@ -115,6 +120,7 @@ export function useDashboardData(): DashboardData {
         if (exs) setExecSessions(exs.sessions ?? []);
         if (wfs) setWorkflows(wfs.workflows ?? []);
         if (logs?.events) setLogEvents(logs.events.slice(0, 5));
+        if (ths?.threads) setHarnessThreads(ths.threads ?? []);
         setLastRefresh(now);
       })
       .catch(() => setError('Failed to connect to workspace API'))
@@ -124,6 +130,31 @@ export function useDashboardData(): DashboardData {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Fetch canonical workflow projections for the active harness sessions so
+  // the Dashboard shows the live eight-stage lifecycle.
+  useEffect(() => {
+    let cancelled = false;
+    const harness = (execSessions ?? []).filter(
+      (session) => ((session.workflowId as string) ?? '').startsWith('thread:'),
+    );
+    const active = harness
+      .filter((session) => session.status === 'running' || session.status === 'awaiting-approval')
+      .slice(0, 3);
+    void Promise.all(
+      active.map(async (session) => {
+        const threadId = threadIdFromSession(session.workflowId as string);
+        if (!threadId) return null;
+        const data = await workflowApi.workflow(threadId);
+        return data?.projection ?? null;
+      }),
+    ).then((projections) => {
+      if (!cancelled) setWorkflowProjections(projections.filter((item): item is WorkflowProjection => item !== null));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [execSessions]);
 
   useEffect(() => {
     const off = workspaceSocket.onEvent((event) => {
@@ -202,6 +233,8 @@ export function useDashboardData(): DashboardData {
     executions,
     execSessions,
     workflows,
+    harnessThreads,
+    workflowProjections,
     projects,
     sprints,
     logEvents,

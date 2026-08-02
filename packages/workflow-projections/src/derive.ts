@@ -27,6 +27,18 @@ const STAGE_LABEL: Record<WorkflowStageId, string> = {
   complete: 'Complete',
 };
 
+/** Default owning agent per lifecycle stage, overridden by the first actor. */
+const STAGE_DEFAULT_AGENT: Record<WorkflowStageId, string> = {
+  intent: 'conversation',
+  context: 'analyst',
+  investigation: 'analyst',
+  planning: 'planner',
+  execution: 'developer',
+  verification: 'verifier',
+  review: 'reviewer',
+  complete: 'system',
+};
+
 function record(value: unknown): Readonly<Record<string, unknown>> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {};
 }
@@ -87,6 +99,7 @@ interface StageSignal {
   readonly id: WorkflowStageId;
   readonly at: string;
   readonly kind: 'item' | 'event';
+  readonly actorId: string;
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
@@ -138,15 +151,17 @@ export function deriveStages(
   const signals: StageSignal[] = [];
   for (const item of items) {
     const id = stageForItem(item);
-    if (id) signals.push({ id, at: item.createdAt, kind: 'item', payload: record(item.payload) });
+    if (id)
+      signals.push({ id, at: item.createdAt, kind: 'item', actorId: item.actorId, payload: record(item.payload) });
   }
   for (const event of events) {
     const id = stageForEvent(event);
-    if (id) signals.push({ id, at: event.at, kind: 'event', payload: record(event.payload) });
+    if (id) signals.push({ id, at: event.at, kind: 'event', actorId: event.actorId, payload: record(event.payload) });
   }
   signals.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0));
 
   const firstAt = new Map<WorkflowStageId, string>();
+  const firstActor = new Map<WorkflowStageId, string>();
   const tools = new Map<WorkflowStageId, Set<string>>();
   const files = new Map<WorkflowStageId, Set<string>>();
   const evidence = new Map<WorkflowStageId, number>();
@@ -158,6 +173,9 @@ export function deriveStages(
   for (const signal of signals) {
     const prior = firstAt.get(signal.id);
     if (!prior) firstAt.set(signal.id, signal.at);
+    const signalAgent =
+      typeof signal.payload.agentId === 'string' && signal.payload.agentId ? String(signal.payload.agentId) : undefined;
+    if (!firstActor.has(signal.id) && signalAgent) firstActor.set(signal.id, signalAgent);
     lastSignalAt.set(signal.id, signal.at);
     const tool = toolOf(signal.payload);
     if (tool) {
@@ -207,6 +225,7 @@ export function deriveStages(
       startedAt,
       completedAt,
       durationMs,
+      agentId: firstActor.get(id) ?? STAGE_DEFAULT_AGENT[id],
       tools: [...(tools.get(id) ?? [])],
       files: [...(files.get(id) ?? [])],
       evidenceCount: evidence.get(id) ?? 0,

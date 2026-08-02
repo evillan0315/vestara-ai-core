@@ -161,7 +161,7 @@
     },
     {
       "path": "20-roadmaps/engineering-os-roadmap.md",
-      "beforeChecksum": "0ea01da630c47f3d434bd28bc17e351a2a4142c6f99fbf15c659f529245a8925",
+      "beforeChecksum": "335ed465de50596bff7f50d6f29dc5b4b76a2c23974662a1c68c659e2ebb8817",
       "operation": "replace",
       "implementationRefs": [
         "packages/workspace/src/workspace-runtime.ts",

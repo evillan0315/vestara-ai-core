@@ -115,6 +115,34 @@ describe('deriveStages', () => {
     // Inferred stages still fill in around explicit ones.
     expect(stages.find((stage) => stage.id === 'intent')?.status).toBe('completed');
   });
+
+  it('assigns a default owning agent to every lifecycle stage', () => {
+    const items: ThreadItem[] = [
+      item('user-message', { content: 'x' }, iso(0)),
+      item('tool-call', { toolName: 'filesystem.read' }, iso(1)),
+      item('tool-call', { toolName: 'filesystem.write' }, iso(2)),
+      item('verification-result', { status: 'passed' }, iso(3)),
+      item('final-outcome', { state: 'completed' }, iso(4)),
+    ];
+    const stages = deriveStages(items, []);
+    const byId = new Map(stages.map((stage) => [stage.id, stage]));
+    expect(byId.get('intent')?.agentId).toBe('conversation');
+    expect(byId.get('investigation')?.agentId).toBe('analyst');
+    expect(byId.get('execution')?.agentId).toBe('developer');
+    expect(byId.get('verification')?.agentId).toBe('verifier');
+    expect(byId.get('complete')?.agentId).toBe('system');
+    // Even pending stages carry their owning role.
+    expect(byId.get('review')?.agentId).toBe('reviewer');
+  });
+
+  it('prefers the actual agent from a tool-call payload over the default', () => {
+    const items: ThreadItem[] = [
+      item('user-message', { content: 'x' }, iso(0)),
+      item('tool-call', { toolName: 'filesystem.write', agentId: 'developer-01' }, iso(1)),
+    ];
+    const stages = deriveStages(items, []);
+    expect(stages.find((stage) => stage.id === 'execution')?.agentId).toBe('developer-01');
+  });
 });
 
 describe('projectWorkflow + envelopes', () => {

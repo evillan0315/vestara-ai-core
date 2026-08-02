@@ -49,13 +49,24 @@ function changeState(events: readonly EngineeringTruthEvent[]): {
   };
 }
 
+async function agentNameMap(ctx: WorkspaceContext): Promise<Readonly<Record<string, string>>> {
+  const agents = await ctx.agents.listAgents().catch(() => [] as never[]);
+  const names: Record<string, string> = {};
+  for (const agent of agents as Array<{ id?: string; name?: string }>) {
+    if (agent.id) names[agent.id] = agent.name ?? agent.id;
+    if (agent.name) names[agent.name] = agent.name;
+  }
+  return names;
+}
+
 function projectAt(
   ctx: WorkspaceContext,
   threadId: TaskThreadId,
   events: readonly EngineeringTruthEvent[],
+  agentNames: Readonly<Record<string, string>>,
 ): AgentWorkflowProjection {
   const replay = ctx.agentThreadStore.replay(threadId);
-  return projectWorkflow({ replay, events, ...changeState(events) });
+  return projectWorkflow({ replay, events, agentNames, ...changeState(events) });
 }
 
 export async function handleWorkflowRoute(
@@ -73,7 +84,8 @@ export async function handleWorkflowRoute(
       return true;
     }
     const all = ctx.engineeringEvents.query({ threadId, limit: 100_000 });
-    json(res, 200, { projection: projectAt(ctx, threadId, all) });
+    const agentNames = await agentNameMap(ctx);
+    json(res, 200, { projection: projectAt(ctx, threadId, all, agentNames) });
     return true;
   }
 
@@ -87,8 +99,9 @@ export async function handleWorkflowRoute(
     }
     const all = ctx.engineeringEvents.query({ threadId, limit: 100_000 });
     const beforeEvents = all.filter((event) => event.seq <= after);
-    const before = projectAt(ctx, threadId, beforeEvents);
-    const current = projectAt(ctx, threadId, all);
+    const agentNames = await agentNameMap(ctx);
+    const before = projectAt(ctx, threadId, beforeEvents, agentNames);
+    const current = projectAt(ctx, threadId, all, agentNames);
     json(res, 200, { envelopes: workflowEnvelopes(before, current, after + 1) });
     return true;
   }

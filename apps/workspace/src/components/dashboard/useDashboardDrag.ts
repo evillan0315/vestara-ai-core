@@ -2,6 +2,7 @@ import { useCallback, useState } from 'react';
 
 export const DEFAULT_ORDER = [
   'repo-health',
+  'workflow-lifecycle',
   'plans',
   'analyze-feature',
   'projects',
@@ -19,6 +20,7 @@ export const DEFAULT_ORDER = [
 
 const DEFAULT_COLUMNS: Record<string, 'left' | 'right'> = {
   'repo-health': 'left',
+  'workflow-lifecycle': 'left',
   plans: 'left',
   'analyze-feature': 'left',
   projects: 'left',
