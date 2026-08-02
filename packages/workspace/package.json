@@ -12,6 +12,7 @@
   "dependencies": {
     "@vestara/action": "workspace:*",
     "@vestara/agent-harness": "workspace:*",
+    "@vestara/capabilities": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
     "@vestara/conversation-runtime": "workspace:*",

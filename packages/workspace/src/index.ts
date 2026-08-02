@@ -102,6 +102,7 @@ export {
   type HarnessSessionOptions,
 } from './harness-session';
 export {
+  createDefaultAssignmentResolver,
   HarnessTaskDispatcher,
   type HarnessTaskDispatcherOptions,
   type HarnessThreadRunner,

@@ -164,8 +164,9 @@ Phase 1 core is implemented and green:
 - **Execution adapter** `HarnessTaskDispatcher`
   (`packages/workspace/src/harness-task-dispatcher.ts`) — the PCS-025 "agents
   are pluggable specialists" boundary: each task runs as its own durable harness
-  thread tagged with a shared `workflowId` (capability-based agent resolution).
-  4 tests pass.
+  thread tagged with a shared `workflowId`. Task → agent assignment uses the
+  real `@vestara/capabilities` resolver (exact, wildcard, and implied matches)
+  — replacing keyword regex matching (PCS-025 §5). 7 tests pass.
 - **Event bridge** `apps/api/src/bridges/orchestration-event-bridge.ts` —
   projects `orchestration.*` events into the temporal engineering event store.
 - **Composition root + API** — `WorkflowOrchestrator` wired in

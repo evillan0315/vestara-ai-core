@@ -1460,6 +1460,9 @@ importers:
       '@vestara/agent-harness':
         specifier: workspace:*
         version: link:../agent-harness
+      '@vestara/capabilities':
+        specifier: workspace:*
+        version: link:../capabilities
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../configuration

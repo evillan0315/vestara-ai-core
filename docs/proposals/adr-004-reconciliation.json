@@ -12,7 +12,7 @@
   "target": "docs/ADR/ADR-004-multi-agent-workflow.md",
   "targetChecksum": "3f9dc1265617f58817bba767f07b97ab7a1613bdbf8cddd2ab08f9115696f9a3",
   "dependentDocument": "docs/PCS-025-multi-agent-project-management.md",
-  "dependentChecksum": "5f1e836556a32abd5ff7a07ef0b73c6f9a12a11220c1dc26c592bc21c7281fcf",
+  "dependentChecksum": "fce9dfece9924ad21f6902ad3bee4cf58d2c55f0fb03fb5c69868029ee6980e7",
   "finding": "PCS-025 identifies ADR-004 as governing architecture while ADR-004 remains proposed.",
   "requiredDecision": {
     "accept": "Human deciders approve ADR-004 after confirming implementation and verification evidence; update ADR status and decision date through ADR governance.",

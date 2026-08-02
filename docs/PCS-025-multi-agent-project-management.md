@@ -508,11 +508,14 @@ harness (`HarnessTaskDispatcher`).
 Acceptance (pending full pass): single sequential project completes with
 `verification.passed` + full audit log.
 
-**Phase 2 — Review, test, approval**
-`ReviewService`, `TestService`; capability-based task assignment (replace keyword
-matching); Approval Gateway for plan + high-risk changes; revision loops (bounded);
-parallel task waves with file locking + conflict detection; observability dashboard
-(§18).
+**Phase 2 — Review, test, approval — 🔶 in progress (partial)**
+Capability-based task assignment (replace keyword matching) is delivered:
+`HarnessTaskDispatcher` resolves task → agent through `@vestara/capabilities`
+(`DefaultCapabilityResolver` over the builtin taxonomy, supporting exact,
+wildcard, and implied matches; `packages/workspace/src/harness-task-dispatcher.ts`).
+Remaining: `ReviewService`, `TestService`; Approval Gateway for plan + high-risk
+changes; revision loops (bounded); parallel task waves with file locking +
+conflict detection; observability dashboard (§18).
 
 **Phase 3 — Distributed + hardening**
 `remote` workers; multi-repo projects; token/cost budgets; replayable event-sourced

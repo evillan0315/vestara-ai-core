@@ -1,8 +1,10 @@
+import { DefaultCapabilityCatalog, DefaultCapabilityResolver } from '@vestara/capabilities';
 import type { AgentEnvironment } from '@vestara/types';
 import type { WorkflowTask } from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AgentStorage } from '../src/agent-storage';
+import type { AgentSource } from '../src/harness-task-dispatcher';
 import { HarnessTaskDispatcher, type HarnessThreadRunner } from '../src/harness-task-dispatcher';
 
 let SQL: { Database: new (data?: Uint8Array | null) => Database };
@@ -111,4 +113,54 @@ describe('HarnessTaskDispatcher', () => {
     const result = await dispatcher.dispatch(task({ requiredCapabilities: ['quantum-computing'] }), PROJECT);
     expect(result.agentId).toBe('agent-developer');
   });
+
+  it('resolves a namespaced requirement against a wildcard provider', async () => {
+    const storage = stubStorage([
+      { id: 'agent-fs', role: 'developer', status: 'active', capabilities: ['filesystem.*'] },
+      { id: 'agent-chat', role: 'analyst', status: 'active', capabilities: ['ai.chat'] },
+    ]);
+    const runner = new StubRunner('completed');
+    const dispatcher = new HarnessTaskDispatcher({ runner, storage, environment: ENV });
+    const result = await dispatcher.dispatch(task({ requiredCapabilities: ['filesystem.write'] }), PROJECT);
+    expect(result.agentId).toBe('agent-fs');
+  });
+
+  it('resolves a requirement through capability implications', async () => {
+    const catalog = new DefaultCapabilityCatalog();
+    const definition = (id: string) => ({
+      id,
+      category: 'agent',
+      name: id,
+      version: '1.0.0',
+      stability: 'stable' as const,
+      description: id,
+    });
+    catalog.register(definition('implements'));
+    catalog.register(definition('code-generation'));
+    catalog.registerRelationships('implements', { implies: ['code-generation'] });
+    const resolver = new DefaultCapabilityResolver(catalog);
+
+    const storage = stubStorage([
+      { id: 'agent-builder', role: 'developer', status: 'active', capabilities: ['implements'] },
+    ]);
+    const runner = new StubRunner('completed');
+    const dispatcher = new HarnessTaskDispatcher({ runner, storage, environment: ENV, resolver });
+    const result = await dispatcher.dispatch(task({ requiredCapabilities: ['code-generation'] }), PROJECT);
+    expect(result.agentId).toBe('agent-builder');
+  });
+
+  it('prefers the developer role when several agents satisfy the requirement', async () => {
+    const storage = stubStorage([
+      { id: 'agent-security', role: 'security', status: 'active', capabilities: ['code-generation'] },
+      { id: 'agent-developer', role: 'developer', status: 'active', capabilities: ['code-generation'] },
+    ]);
+    const runner = new StubRunner('completed');
+    const dispatcher = new HarnessTaskDispatcher({ runner, storage, environment: ENV });
+    const result = await dispatcher.dispatch(task({ requiredCapabilities: ['code-generation'] }), PROJECT);
+    expect(result.agentId).toBe('agent-developer');
+  });
 });
+
+function stubStorage(agents: Array<{ id: string; role: string; status: string; capabilities: string[] }>): AgentSource {
+  return { listAgents: async () => agents };
+}
