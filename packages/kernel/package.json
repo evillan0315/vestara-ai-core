@@ -24,7 +24,9 @@
     "@vestara/scheduler": "workspace:*",
     "@vestara/service-registry": "workspace:*",
     "@vestara/shared": "workspace:*",
+    "@vestara/trust": "workspace:*",
     "@vestara/types": "workspace:*",
+    "@vestara/verification": "workspace:*",
     "@vestara/worker": "workspace:*"
   },
   "devDependencies": {

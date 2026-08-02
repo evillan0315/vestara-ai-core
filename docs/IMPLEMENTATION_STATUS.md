@@ -79,6 +79,7 @@
 | **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **🔶 In Progress** | **2026-07-27** |
 | **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
 | **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
+| **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
@@ -165,6 +166,13 @@ Ownership & Decision (v8.3)
   @vestara/ownership                 → ✅ Complete (OwnershipRegistry, ResourceLockManager — ADR-027)
   @vestara/decision-pipeline         → ✅ Complete (DecisionContext + Permission→Policy→Execution→Verification→Trust→History — ADR-035)
   Kernel wiring                      → ✅ Complete (ownership + locks + decision pipeline at boot; permission stage wired, policy/execution/verification/trust stages registered by embedding hosts)
+
+Recovery & Kernel Composition (v8.4)
+  FailureBudget                      → ✅ Complete (windowed error-rate budget: healthy/consuming/exhausted, ADR-029)
+  Worker quarantine                  → ✅ Complete (per-worker budget, quarantine/release, auto-release expiry)
+  Verification Engine at boot        → ✅ Complete (@vestara/verification composed)
+  Trust Engine at boot               → ✅ Complete (@vestara/trust composed)
+  Boot composition                   → ✅ Complete (Runtime-layer steps reconciled to ADR-030 16-step order)
 ```
 
 ---

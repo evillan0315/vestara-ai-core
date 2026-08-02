@@ -35,6 +35,8 @@ import type {
   SystemDiagnosis,
   VestaraService,
 } from '@vestara/shared';
+import type { DefaultTrustEngine } from '@vestara/trust';
+import type { DefaultVerificationEngine } from '@vestara/verification';
 import type { Worker } from '@vestara/worker';
 import type { JobManager } from './job-manager';
 import type { RecoveryManager } from './recovery-manager';
@@ -76,6 +78,8 @@ export interface VestaraKernel {
   readonly ownershipRegistry: OwnershipRegistry;
   readonly resourceLockManager: ResourceLockManager;
   readonly decisionPipeline: DecisionPipeline;
+  readonly verificationEngine: DefaultVerificationEngine;
+  readonly trustEngine: DefaultTrustEngine;
   readonly permissions: PermissionManager;
 
   boot(options?: BootOptions): Promise<BootReport>;
@@ -103,6 +107,8 @@ export class DefaultKernel implements VestaraKernel {
   private _ownershipRegistry!: OwnershipRegistry;
   private _resourceLockManager!: ResourceLockManager;
   private _decisionPipeline!: DecisionPipeline;
+  private _verificationEngine!: DefaultVerificationEngine;
+  private _trustEngine!: DefaultTrustEngine;
   private _providerManager: ProviderManager | null = null;
 
   readonly id = 'kernel';
@@ -209,6 +215,16 @@ export class DefaultKernel implements VestaraKernel {
   get decisionPipeline(): DecisionPipeline {
     if (!this._decisionPipeline) throw new Error('Kernel not booted: decision pipeline not available');
     return this._decisionPipeline;
+  }
+
+  get verificationEngine(): DefaultVerificationEngine {
+    if (!this._verificationEngine) throw new Error('Kernel not booted: verification engine not available');
+    return this._verificationEngine;
+  }
+
+  get trustEngine(): DefaultTrustEngine {
+    if (!this._trustEngine) throw new Error('Kernel not booted: trust engine not available');
+    return this._trustEngine;
   }
 
   get permissions(): PermissionManager {
@@ -327,6 +343,14 @@ export class DefaultKernel implements VestaraKernel {
         }),
       ]);
 
+      // Step 12e: Verification Engine (ADR-028) — deterministic evidence collection.
+      const { DefaultVerificationEngine } = await import('@vestara/verification');
+      this._verificationEngine = new DefaultVerificationEngine();
+
+      // Step 12f: Trust Engine (ADR-028) — probabilistic reputation over evidence.
+      const { DefaultTrustEngine } = await import('@vestara/trust');
+      this._trustEngine = new DefaultTrustEngine();
+
       // Register kernel itself with a proper health() implementation.
       // Methods are on the prototype so we bind them explicitly.
       const kernelService: VestaraService = {
@@ -357,7 +381,6 @@ export class DefaultKernel implements VestaraKernel {
           this._logger.info(`Worker registered: ${worker.id}`, { type: worker.workerType });
         }
       }
-
       // Step 14: Register user-provided services
       if (options.services) {
         for (const { service, capabilities, dependencies } of options.services) {
@@ -619,11 +642,20 @@ export type { DecisionPipeline } from '@vestara/decision-pipeline';
 export type { IntentManager } from '@vestara/intent';
 export { IntentManager as KernelIntentManager } from '@vestara/intent';
 export type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
+export type { DefaultTrustEngine } from '@vestara/trust';
+export type { DefaultVerificationEngine } from '@vestara/verification';
+export type {
+  FailureBudgetConfig,
+  FailureBudgetMitigation,
+  FailureBudgetState,
+  FailureBudgetStatus,
+} from './failure-budget';
+export { FailureBudget } from './failure-budget';
 export type { JobManager } from './job-manager';
 export { DefaultJobManager } from './job-manager';
 export type { RecoveryAttempt, RecoveryManager, RecoveryPolicy } from './recovery-manager';
 export { DefaultRecoveryManager } from './recovery-manager';
 export type { ScheduledTask, TaskExecution, TaskPriority, TaskScheduler, TaskStatus } from './task-scheduler';
 export { DefaultTaskScheduler } from './task-scheduler';
-export type { WorkerManager } from './worker-manager';
+export type { QuarantinedWorker, WorkerManager, WorkerQuarantineOptions } from './worker-manager';
 export { DefaultWorkerManager } from './worker-manager';

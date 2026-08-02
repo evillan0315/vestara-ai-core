@@ -897,9 +897,15 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+      '@vestara/trust':
+        specifier: workspace:*
+        version: link:../trust
       '@vestara/types':
         specifier: workspace:*
         version: link:../types
+      '@vestara/verification':
+        specifier: workspace:*
+        version: link:../verification
       '@vestara/worker':
         specifier: workspace:*
         version: link:../worker
