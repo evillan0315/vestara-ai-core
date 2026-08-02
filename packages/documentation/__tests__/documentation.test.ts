@@ -204,7 +204,7 @@ describe('documentation automation', () => {
       expectRuleFailure(
         'packages/settings-framework/README.md',
         'related-adr-status',
-        (content) => `${content}\n[Proposed ADR](../../docs/ADR/ADR-004-multi-agent-workflow.md)\n`,
+        (content) => `${content}\n[Proposed ADR](../../docs/ADR/ADR-107-not-accepted.md)\n`,
       );
     });
 
@@ -245,12 +245,13 @@ describe('documentation automation', () => {
     }
   });
 
-  it('verifies the ADR-004 reconciliation proposal without changing ADR status', () => {
+  it('records the decided ADR-004 reconciliation proposal against current files', () => {
     const repositoryRoot = path.resolve(__dirname, '../../..');
     const proposal = JSON.parse(
       fs.readFileSync(path.join(repositoryRoot, 'docs/proposals/adr-004-reconciliation.json'), 'utf8'),
     ) as {
       requiresHumanApproval: boolean;
+      status: string;
       target: string;
       targetChecksum: string;
       dependentDocument: string;
@@ -262,12 +263,13 @@ describe('documentation automation', () => {
         .digest('hex');
 
     expect(proposal.requiresHumanApproval).toBe(true);
+    expect(proposal.status).toBe('decided');
     expect(checksum(proposal.target)).toBe(proposal.targetChecksum);
     expect(checksum(proposal.dependentDocument)).toBe(proposal.dependentChecksum);
     expect(
       parseMarkdown(proposal.target, fs.readFileSync(path.join(repositoryRoot, proposal.target), 'utf8')).frontmatter
         .status,
-    ).toBe('proposed');
+    ).toBe('accepted');
   });
 
   it('parses Markdown structure and resolves protected authority', () => {
