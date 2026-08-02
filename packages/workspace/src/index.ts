@@ -101,6 +101,11 @@ export {
   HarnessSession,
   type HarnessSessionOptions,
 } from './harness-session';
+export {
+  HarnessTaskDispatcher,
+  type HarnessTaskDispatcherOptions,
+  type HarnessThreadRunner,
+} from './harness-task-dispatcher';
 export { HelpService } from './help-service';
 export { ImpactStorage } from './impact-storage';
 export { ImplementationService } from './implementation-service';
@@ -109,6 +114,15 @@ export { MemoryService } from './memory-service';
 export type { Milestone, MilestoneStatus } from './milestone-service';
 export { MilestoneService } from './milestone-service';
 export { MonitorService } from './monitor-service';
+export {
+  type ChangeProjectorLike,
+  type MultiAgentStageRecord,
+  type MultiAgentStageSpec,
+  type MultiAgentWorkflowOptions,
+  MultiAgentWorkflowOrchestrator,
+  type MultiAgentWorkflowStart,
+  type MultiAgentWorkflowStartInput,
+} from './multi-agent-workflow';
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';
 export { OSSystemService } from './os-service';

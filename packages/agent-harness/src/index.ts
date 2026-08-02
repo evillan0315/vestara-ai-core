@@ -20,6 +20,8 @@ import type {
   ToolRisk,
 } from '@vestara/types';
 
+export type { EventBus } from '@vestara/event-bus';
+
 export interface HarnessContextAssembler {
   assemble(input: {
     readonly thread: TaskThread;
@@ -248,6 +250,10 @@ export class AgentHarnessRuntime {
     this.maxContextItems = options.maxContextItems ?? 40;
     this.maxRevisions = options.maxRevisions ?? 2;
     this.interruptiveSteering = options.interruptiveSteering ?? true;
+  }
+
+  get eventBus(): EventBus | undefined {
+    return this.options.eventBus;
   }
 
   createThread(input: StartThreadInput): TaskThread {

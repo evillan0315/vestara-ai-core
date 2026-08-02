@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/workflow-orchestrator",
+  "description": "Multi-agent workflow orchestration core — project/plan/task state machines, task graph, retry policy, stores, and the WorkflowOrchestrator (ADR-004 / ADR-118)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/state-machine": "workspace:*",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/sql.js": "^1.4.11",
+    "vitest": "^4.1.10"
+  }
+}

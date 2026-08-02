@@ -8,6 +8,7 @@ export { handleMemoryRoute } from './memory';
 export { handleMilestonesRoute } from './milestones';
 export { handleMiscRoute } from './misc';
 export { handleNotificationsRoute } from './notifications';
+export { handleOrchestrationRoute } from './orchestration';
 export { handlePlansRoute } from './plans';
 export { handleProjectsRoute } from './projects';
 export { handleRoutingRoute } from './routing';

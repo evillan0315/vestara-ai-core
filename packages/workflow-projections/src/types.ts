@@ -52,9 +52,26 @@ export interface WorkflowStageProjection {
   readonly tools: readonly string[];
   readonly files: readonly string[];
   readonly evidenceCount: number;
-  readonly verification?: { readonly status: string; readonly confidence?: number };
+  readonly verification?: { readonly status: string; readonly confidence?: number; readonly retryCount?: number };
   readonly blockingReason?: string;
   readonly childSteps: readonly string[];
+}
+
+export interface WorkflowSwimlaneSegment {
+  readonly stageId: WorkflowStageId;
+  readonly status: WorkflowStageStatus;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly durationMs?: number;
+  readonly tools: readonly string[];
+  readonly files: readonly string[];
+  readonly evidenceCount: number;
+}
+
+export interface WorkflowSwimlane {
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly segments: readonly WorkflowSwimlaneSegment[];
 }
 
 export interface WorkflowAgentProjection {
@@ -104,6 +121,7 @@ export interface AgentWorkflowProjection {
   readonly currentStageId?: WorkflowStageId;
   readonly stages: readonly WorkflowStageProjection[];
   readonly agents: readonly WorkflowAgentProjection[];
+  readonly swimlanes: readonly WorkflowSwimlane[];
   readonly approvals: readonly WorkflowApprovalProjection[];
   readonly changes: ChangeProjection;
   readonly verification?: VerificationProjection;

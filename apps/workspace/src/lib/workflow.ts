@@ -20,7 +20,7 @@ export interface WorkflowStage {
   tools: string[];
   files: string[];
   evidenceCount: number;
-  verification?: { status: string; confidence?: number };
+  verification?: { status: string; confidence?: number; retryCount?: number };
   blockingReason?: string;
   childSteps: string[];
 }
@@ -32,6 +32,23 @@ export interface WorkflowAgent {
   activeStageId?: string;
   activeTool?: string;
   filesChanged: number;
+}
+
+export interface WorkflowSwimlaneSegment {
+  stageId: string;
+  status: WorkflowStageStatus;
+  startedAt?: string;
+  completedAt?: string;
+  durationMs?: number;
+  tools: string[];
+  files: string[];
+  evidenceCount: number;
+}
+
+export interface WorkflowSwimlane {
+  agentId: string;
+  agentName: string;
+  segments: WorkflowSwimlaneSegment[];
 }
 
 export interface WorkflowApproval {
@@ -58,6 +75,7 @@ export interface WorkflowProjection {
   currentStageId?: string;
   stages: WorkflowStage[];
   agents: WorkflowAgent[];
+  swimlanes: WorkflowSwimlane[];
   approvals: WorkflowApproval[];
   changes: { files: WorkflowChange[]; summary: string; additions: number; deletions: number };
   verification?: { status: string; confidence?: number };
@@ -90,14 +108,42 @@ async function fetchJSON<T>(path: string): Promise<T | null> {
   }
 }
 
+async function postJSON<T>(path: string, body: Record<string, unknown>): Promise<T | null> {
+  try {
+    const res = await fetch(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+export interface WorkflowStartResult {
+  workflowId: string;
+  goal: string;
+  stages: Array<{ role: string; agentId: string; threadId: string }>;
+}
+
 export const workflowApi = {
   workflow: (threadId: string) =>
     fetchJSON<{ projection: WorkflowProjection }>(`/api/workflow/${encodeURIComponent(threadId)}`),
+
+  at: (threadId: string, sequence: number) =>
+    fetchJSON<{ projection: WorkflowProjection; maxSequence: number; sequence: number }>(
+      `/api/workflow/${encodeURIComponent(threadId)}/at?seq=${sequence}`,
+    ),
 
   events: (threadId: string, after = 0) =>
     fetchJSON<{ envelopes: WorkflowEnvelope[] }>(
       `/api/workflow/${encodeURIComponent(threadId)}/events?after=${after}`,
     ),
+
+  start: (goal: string, agentIds?: Record<string, string>) =>
+    postJSON<WorkflowStartResult>('/api/workflows', { goal, agentIds }),
 };
 
 export function threadIdFromWorkflow(workflow: WorkflowProjection): string {

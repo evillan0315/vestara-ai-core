@@ -64,6 +64,7 @@ export function stageForItem(item: ThreadItem): WorkflowStageId | undefined {
     case 'approval-decision':
       return 'review';
     case 'verification-result':
+    case 'revision-request':
       return 'verification';
     case 'final-outcome':
       return 'complete';
@@ -75,7 +76,7 @@ export function stageForItem(item: ThreadItem): WorkflowStageId | undefined {
 export function stageForEvent(event: EngineeringTruthEvent): WorkflowStageId | undefined {
   const type = event.type;
   const payload = record(event.payload);
-  if (type.includes('verification')) return 'verification';
+  if (type.includes('verification') || type === 'harness.revision.requested') return 'verification';
   if (type.includes('approval')) return 'review';
   if (type.startsWith('change.') || type.includes('diff')) return 'review';
   if (type === 'harness.turn.started' || type === 'harness.thread.created') return 'intent';
@@ -100,6 +101,7 @@ interface StageSignal {
   readonly at: string;
   readonly kind: 'item' | 'event';
   readonly actorId: string;
+  readonly revision: boolean;
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
@@ -152,11 +154,26 @@ export function deriveStages(
   for (const item of items) {
     const id = stageForItem(item);
     if (id)
-      signals.push({ id, at: item.createdAt, kind: 'item', actorId: item.actorId, payload: record(item.payload) });
+      signals.push({
+        id,
+        at: item.createdAt,
+        kind: 'item',
+        actorId: item.actorId,
+        revision: item.kind === 'revision-request',
+        payload: record(item.payload),
+      });
   }
   for (const event of events) {
     const id = stageForEvent(event);
-    if (id) signals.push({ id, at: event.at, kind: 'event', actorId: event.actorId, payload: record(event.payload) });
+    if (id)
+      signals.push({
+        id,
+        at: event.at,
+        kind: 'event',
+        actorId: event.actorId,
+        revision: event.type === 'harness.revision.requested',
+        payload: record(event.payload),
+      });
   }
   signals.sort((left, right) => (left.at < right.at ? -1 : left.at > right.at ? 1 : 0));
 
@@ -166,6 +183,7 @@ export function deriveStages(
   const files = new Map<WorkflowStageId, Set<string>>();
   const evidence = new Map<WorkflowStageId, number>();
   const failed = new Map<WorkflowStageId, string>();
+  const retries = new Map<WorkflowStageId, number>();
   const lastSignalAt = new Map<WorkflowStageId, string>();
   let terminalAt: string | undefined;
   let failedStage: WorkflowStageId | undefined;
@@ -190,6 +208,7 @@ export function deriveStages(
       files.set(signal.id, set);
     }
     evidence.set(signal.id, (evidence.get(signal.id) ?? 0) + evidenceCountOf(signal.payload));
+    if (signal.revision) retries.set(signal.id, (retries.get(signal.id) ?? 0) + 1);
     if (signal.payload.status === 'failed' && !failedStage) {
       failedStage = signal.id;
       failed.set(signal.id, String(signal.payload.error ?? 'Tool failed'));
@@ -230,7 +249,12 @@ export function deriveStages(
       files: [...(files.get(id) ?? [])],
       evidenceCount: evidence.get(id) ?? 0,
       verification:
-        id === 'verification' && startedAt ? { status: failedStage === id ? 'failed' : 'passed' } : undefined,
+        id === 'verification' && startedAt
+          ? {
+              status: failedStage === id ? 'failed' : 'passed',
+              retryCount: retries.get(id) ?? 0,
+            }
+          : undefined,
       blockingReason: failed.get(id),
       childSteps: [],
     };

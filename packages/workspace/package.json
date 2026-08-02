@@ -26,6 +26,7 @@
     "@vestara/thread-runtime": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/understanding": "workspace:*",
+    "@vestara/workflow-orchestrator": "workspace:*",
     "ws": "^8.18.0"
   },
   "devDependencies": {

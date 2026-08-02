@@ -7,6 +7,7 @@ import type { EngineeringTruthEvent } from '@vestara/engineering-event-store';
 import type { ThreadReplay } from '@vestara/thread-runtime';
 import type { TaskFileChange, VerificationProjection } from '@vestara/tui-protocol';
 import { deriveStages } from './derive';
+import { deriveSwimlanes } from './swimlanes';
 import type {
   AgentWorkflowProjection,
   ChangeProjection,
@@ -48,6 +49,7 @@ export function projectWorkflow(source: WorkflowSource): AgentWorkflowProjection
     additions: source.changeSummary?.additions ?? source.changes?.reduce((sum, file) => sum + file.additions, 0) ?? 0,
     deletions: source.changeSummary?.deletions ?? source.changes?.reduce((sum, file) => sum + file.deletions, 0) ?? 0,
   };
+  const agents = deriveAgents(stages, source.agentNames);
   return {
     workflowId: `wf:${thread.id}`,
     threadId: thread.id,
@@ -55,7 +57,8 @@ export function projectWorkflow(source: WorkflowSource): AgentWorkflowProjection
     status,
     currentStageId,
     stages,
-    agents: deriveAgents(stages, source.agentNames),
+    agents,
+    swimlanes: deriveSwimlanes(stages, agents),
     approvals,
     changes,
     verification,

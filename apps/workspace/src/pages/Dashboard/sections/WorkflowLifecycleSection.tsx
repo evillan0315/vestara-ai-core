@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { WorkflowDiagram } from '../../../components/workflow/WorkflowDiagram';
 import { WorkflowRail } from '../../../components/workflow/WorkflowRail';
 import type { WorkflowProjection } from '../../../lib/workflow';
 import type { DragSectionProps } from '../DashboardSection';
@@ -25,6 +26,7 @@ export default function WorkflowLifecycleSection({
   dragSection,
 }: WorkflowLifecycleSectionProps) {
   const [showChanges, setShowChanges] = useState(false);
+  const [showDiagram, setShowDiagram] = useState(false);
   const harnessSessions = execSessions.filter((session) => ((session.workflowId as string) ?? '').startsWith('thread:'));
   const runningThreads = harnessThreads.filter(
     (thread) => thread.status === 'running' || thread.status === 'active',
@@ -78,13 +80,24 @@ export default function WorkflowLifecycleSection({
         <button
           type="button"
           onClick={() => setShowChanges((current) => !current)}
-          className="ml-auto text-[9px] px-2 py-1 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+          className="text-[9px] px-2 py-1 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
         >
           {showChanges ? 'Hide changes' : 'Show changes'}
         </button>
+        <button
+          type="button"
+          onClick={() => setShowDiagram((current) => !current)}
+          className={`text-[9px] px-2 py-1 rounded border cursor-pointer ${
+            showDiagram
+              ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active) text-(--vestara-accent-text)'
+              : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text)'
+          }`}
+        >
+          {showDiagram ? 'Hide diagram' : 'Diagram'}
+        </button>
       </div>
 
-      {/* Active workflow rails */}
+      {/* Active workflow rails + premium diagram */}
       {workflowProjections.length === 0 && (
         <p className="text-[10px] text-(--vestara-text-muted)">
           No active workflows. Start a harness run to watch the live lifecycle here.
@@ -94,6 +107,7 @@ export default function WorkflowLifecycleSection({
         {workflowProjections.map((workflow) => (
           <div key={workflow.workflowId}>
             <WorkflowRail workflow={workflow} />
+            {showDiagram && <WorkflowDiagram workflow={workflow} />}
             {showChanges && workflow.changes.files.length > 0 && (
               <div className="mt-1 p-2 bg-black/30 border border-(--vestara-accent-border)/50 rounded-md">
                 <div className="text-[9px] uppercase tracking-wider text-(--vestara-text-muted) mb-1">

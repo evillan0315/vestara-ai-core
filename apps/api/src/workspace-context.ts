@@ -39,6 +39,14 @@ import { GovernedShellExecuteTool } from '@vestara/tools-shell';
 import type { AgentEnvironment, AgentEnvironmentId } from '@vestara/types';
 import { EngineeringVerificationProfiles } from '@vestara/verification';
 import {
+  ArtifactStore,
+  FileLockRegistry,
+  PlanStore as OrchestrationPlanStore,
+  ProjectStore as OrchestrationProjectStore,
+  TaskStore as OrchestrationTaskStore,
+  WorkflowOrchestrator,
+} from '@vestara/workflow-orchestrator';
+import {
   AgentCapabilityManager,
   AgentRuntime,
   AgentService,
@@ -50,10 +58,12 @@ import {
   ExecutionPlanner,
   ExplainService,
   HarnessSession,
+  HarnessTaskDispatcher,
   ImplementationService,
   KnowledgeGraphStorage,
   MemoryService,
   MilestoneService,
+  MultiAgentWorkflowOrchestrator,
   PlanningService,
   PlanStorage,
   ProjectService,
@@ -72,6 +82,7 @@ import {
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
+import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
 import { restoreProviderConfigurations } from './routes/providers';
@@ -91,6 +102,8 @@ export interface WorkspaceContext {
   agentEnvironment: AgentEnvironment;
   agentHarness: AgentHarnessRuntime;
   harnessSession: HarnessSession;
+  multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
+  workflowOrchestrator: WorkflowOrchestrator;
   changeProjector: ChangeEventProjector;
   engineeringVerification: EngineeringVerificationProfiles;
   engineeringEvents: SqliteEngineeringEventStore;
@@ -562,11 +575,42 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     storage: agents,
     environment: agentEnvironment,
   });
+  const multiAgentWorkflow = new MultiAgentWorkflowOrchestrator({
+    session: harnessSession,
+    changeProjector: undefined,
+  });
   const changeProjector = new ChangeEventProjector({
     events: engineeringEvents,
     workspaceId: session.fingerprint.id,
     environmentId: agentEnvironment.id,
     root: abs,
+  });
+  multiAgentWorkflow.changeProjector = changeProjector;
+
+  // ── Workflow orchestration (ADR-118) — the single writer of project/plan/
+  // task state. Tasks execute through the harness (HarnessTaskDispatcher) and
+  // every mutation is appended to the engineering event store as an
+  // `orchestration.*` event.
+  const orchestrationEvents = new OrchestrationEventBridge({
+    events: engineeringEvents,
+    workspaceId: session.fingerprint.id,
+    environmentId: agentEnvironment.id,
+    eventBus: kernel.eventBus,
+  });
+  const workflowOrchestrator = new WorkflowOrchestrator({
+    projects: new OrchestrationProjectStore(db as import('sql.js').Database),
+    plans: new OrchestrationPlanStore(db as import('sql.js').Database),
+    tasks: new OrchestrationTaskStore(db as import('sql.js').Database),
+    artifacts: new ArtifactStore(db as import('sql.js').Database),
+    locks: new FileLockRegistry(db as import('sql.js').Database),
+    events: orchestrationEvents,
+    dispatcher: new HarnessTaskDispatcher({
+      runner: agentHarness,
+      session: harnessSession,
+      storage: agents,
+      environment: agentEnvironment,
+      changeProjector,
+    }),
   });
   harnessSession.restoreActiveSessions().catch((error: unknown) => {
     telemetry.track({
@@ -853,6 +897,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentEnvironment,
     agentHarness,
     harnessSession,
+    multiAgentWorkflow,
     changeProjector,
     engineeringVerification,
     engineeringEvents,
@@ -886,6 +931,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentService,
     capabilityManager,
     orchestrator,
+    workflowOrchestrator,
     executionPlanner,
     workspaceAnalyst,
     suggestionService,

@@ -2,7 +2,7 @@ import type { EngineeringTruthEvent } from '@vestara/engineering-event-store';
 import type { ThreadItem } from '@vestara/thread-runtime';
 import { describe, expect, it } from 'vitest';
 import { workflowEnvelopes, workflowSnapshotEnvelope } from '../src/events.js';
-import { deriveStages, stageForItem } from '../src/index.js';
+import { deriveStages, deriveSwimlanes, projectWorkflowAcrossThreads, stageForItem } from '../src/index.js';
 import { projectWorkflow } from '../src/project.js';
 
 function iso(seconds: number): string {
@@ -215,5 +215,196 @@ describe('projectWorkflow + envelopes', () => {
     expect(snapshot.sequence).toBe(100);
     expect(snapshot.event.type).toBe('snapshot');
     expect(snapshot.threadId).toBe('thread-1');
+  });
+});
+
+describe('revision repair loop + swimlanes', () => {
+  it('maps revision-request items to the verification stage with retryCount', () => {
+    const items: ThreadItem[] = [
+      item('user-message', { content: 'x' }, iso(0)),
+      item('revision-request', { revisionNumber: 1, feedback: 'tests failed' }, iso(1)),
+      item('verification-result', { status: 'passed', confidence: 0.95 }, iso(2)),
+      item('final-outcome', { state: 'completed' }, iso(3)),
+    ];
+    const stages = deriveStages(items, []);
+    const verification = stages.find((stage) => stage.id === 'verification')!;
+    expect(verification.status).toBe('completed');
+    expect(verification.verification?.retryCount).toBe(1);
+    expect(verification.verification?.status).toBe('passed');
+  });
+
+  it('groups stages into time-ordered agent swimlanes', () => {
+    const items: ThreadItem[] = [
+      item('user-message', { content: 'x' }, iso(0)),
+      item('tool-call', { toolName: 'filesystem.read' }, iso(1)),
+      item('tool-call', { toolName: 'filesystem.write' }, iso(2)),
+      item('verification-result', { status: 'passed' }, iso(3)),
+      item('final-outcome', { state: 'completed' }, iso(4)),
+    ];
+    const stages = deriveStages(items, []);
+    const lanes = deriveSwimlanes(stages, []);
+    // conversation (intent) + analyst (investigation) + developer (execution) + verifier + system
+    const byAgent = new Map(lanes.map((lane) => [lane.agentId, lane]));
+    expect(byAgent.has('conversation')).toBe(true);
+    expect(byAgent.get('developer')).toBeDefined();
+    expect(byAgent.get('developer')?.segments.some((segment) => segment.stageId === 'execution')).toBe(true);
+    expect(byAgent.get('verifier')).toBeDefined();
+    // Lanes ordered by role (conversation before developer before verifier).
+    expect(lanes[0].agentId).toBe('conversation');
+    expect(lanes[lanes.length - 1].agentId).toBe('system');
+  });
+});
+
+describe('projectWorkflowAcrossThreads (multi-agent aggregation)', () => {
+  function replayOf(threadId: string, items: ThreadItem[], turnState = 'completed') {
+    return {
+      thread: {
+        id: threadId,
+        taskId: 'task-1',
+        title: threadId,
+        status: turnState,
+        environmentId: 'env-1',
+        createdAt: iso(0),
+        updatedAt: iso(0),
+        metadata: {},
+      },
+      turns: [
+        {
+          id: `turn-${threadId}`,
+          threadId,
+          sequence: 1,
+          state: turnState,
+          input: 'x',
+          startedAt: iso(0),
+          completedAt: iso(9),
+        },
+      ],
+      items,
+    };
+  }
+
+  const plannerItems: ThreadItem[] = [
+    item('harness-run', { runId: 'run-planner', agentId: 'planner' }, iso(0)),
+    item('user-message', { content: 'plan the work' }, iso(1)),
+    item('tool-call', { toolName: 'filesystem.read', agentId: 'planner' }, iso(2)),
+    item('tool-call', { toolName: 'plan', agentId: 'planner' }, iso(3)),
+    item('tool-result', { toolName: 'plan', status: 'completed' }, iso(4)),
+    item('final-outcome', { state: 'completed' }, iso(5)),
+  ];
+
+  const developerItems: ThreadItem[] = [
+    item('harness-run', { runId: 'run-dev', agentId: 'developer' }, iso(3)),
+    item('user-message', { content: 'implement the plan' }, iso(4)),
+    item('tool-call', { toolName: 'filesystem.write', input: { path: 'a.ts' }, agentId: 'developer' }, iso(5)),
+    item('tool-result', { toolName: 'filesystem.write', status: 'completed' }, iso(6)),
+    item('final-outcome', { state: 'completed' }, iso(7)),
+  ];
+
+  const verifierItems: ThreadItem[] = [
+    item('harness-run', { runId: 'run-verifier', agentId: 'verifier' }, iso(6)),
+    item('user-message', { content: 'verify the work' }, iso(7)),
+    item('verification-result', { status: 'passed', confidence: 0.95 }, iso(8)),
+    item('final-outcome', { state: 'completed' }, iso(9)),
+  ];
+
+  it('merges three agent threads into one eight-stage rail with distinct swimlanes', () => {
+    const projection = projectWorkflowAcrossThreads({
+      threads: [
+        { replay: replayOf('thread-planner', plannerItems), events: [] },
+        { replay: replayOf('thread-developer', developerItems), events: [] },
+        { replay: replayOf('thread-verifier', verifierItems), events: [] },
+      ],
+    });
+
+    expect(projection.workflowId).toBe('wf:thread-planner');
+    expect(projection.stages).toHaveLength(8);
+    expect(projection.status).toBe('completed');
+
+    const byId = new Map(projection.stages.map((stage) => [stage.id, stage]));
+    expect(byId.get('planning')?.agentId).toBe('planner');
+    expect(byId.get('execution')?.agentId).toBe('developer');
+    expect(byId.get('verification')?.agentId).toBe('verifier');
+
+    const laneAgents = new Set(projection.swimlanes.map((lane) => lane.agentId));
+    expect(laneAgents.has('planner')).toBe(true);
+    expect(laneAgents.has('developer')).toBe(true);
+    expect(laneAgents.has('verifier')).toBe(true);
+    const developerLane = projection.swimlanes.find((lane) => lane.agentId === 'developer')!;
+    expect(developerLane.segments.some((segment) => segment.stageId === 'execution')).toBe(true);
+    expect(developerLane.segments.some((segment) => segment.stageId === 'planning')).toBe(false);
+  });
+
+  it('unions tools and files across threads in the shared stage', () => {
+    const projection = projectWorkflowAcrossThreads({
+      threads: [
+        { replay: replayOf('thread-a', plannerItems), events: [] },
+        {
+          replay: replayOf('thread-b', [
+            item('harness-run', { runId: 'run-b', agentId: 'analyst' }, iso(0)),
+            item('user-message', { content: 'investigate' }, iso(1)),
+            item('tool-call', { toolName: 'filesystem.search', agentId: 'analyst' }, iso(2)),
+          ]),
+          events: [],
+        },
+      ],
+    });
+    const investigation = projection.stages.find((stage) => stage.id === 'investigation')!;
+    expect(investigation.tools).toContain('filesystem.read');
+    expect(investigation.tools).toContain('filesystem.search');
+  });
+
+  it('merges change projections and computes cross-thread metrics', () => {
+    const changes = [
+      {
+        taskId: 'task-1',
+        path: 'a.ts',
+        operation: 'create' as const,
+        additions: 3,
+        deletions: 0,
+        hunks: [],
+        verificationIds: [],
+        observedAt: iso(5),
+        preExisting: false,
+      },
+      {
+        taskId: 'task-1',
+        path: 'b.ts',
+        operation: 'update' as const,
+        additions: 1,
+        deletions: 1,
+        hunks: [],
+        verificationIds: [],
+        observedAt: iso(6),
+        preExisting: false,
+      },
+    ];
+    const projection = projectWorkflowAcrossThreads({
+      threads: [
+        { replay: replayOf('thread-a', plannerItems), events: [], changes },
+        { replay: replayOf('thread-b', developerItems), events: [], changes },
+      ],
+    });
+    expect(projection.changes.files).toHaveLength(2);
+    expect(projection.changes.additions).toBe(4);
+    expect(projection.changes.deletions).toBe(1);
+    expect(projection.metrics.filesChanged).toBe(2);
+  });
+
+  it('reports awaiting-approval when any sibling thread blocks on an approval', () => {
+    const approvalEvent: EngineeringTruthEvent = event('harness.approval-request', {
+      approvalId: 'ap-1',
+      toolName: 'shell.run',
+      risk: 'high',
+      reason: 'Run a command',
+    });
+    const projection = projectWorkflowAcrossThreads({
+      threads: [
+        { replay: replayOf('thread-a', plannerItems), events: [] },
+        { replay: replayOf('thread-b', developerItems), events: [approvalEvent] },
+      ],
+    });
+    expect(projection.status).toBe('awaiting-approval');
+    expect(projection.approvals).toHaveLength(1);
+    expect(projection.approvals[0].status).toBe('pending');
   });
 });

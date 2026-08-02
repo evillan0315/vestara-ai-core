@@ -5,6 +5,7 @@ import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
 import { VestaraModal } from '../components/ui/VestaraModal';
 import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
+import { WorkflowDiagram } from '../components/workflow/WorkflowDiagram';
 import { WorkflowRail } from '../components/workflow/WorkflowRail';
 import { threadIdFromSession } from '../lib/agent-harness';
 import { workflowApi, type WorkflowProjection } from '../lib/workflow';
@@ -470,6 +471,7 @@ export function SessionView() {
       {harnessThreadId && (
         <div className="mb-5">
           <WorkflowRail workflow={workflow} onRefresh={() => setReloadKey((key) => key + 1)} />
+          {workflow && <WorkflowDiagram workflow={workflow} />}
           <div className="mt-3">
             <HarnessThreadTimeline threadId={harnessThreadId} />
           </div>

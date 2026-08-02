@@ -213,6 +213,16 @@ export interface WorkflowAgentSummary {
   readonly activeTool?: string;
 }
 
+export interface WorkflowSwimlaneSummary {
+  readonly agentId: string;
+  readonly agentName: string;
+  readonly segments: readonly {
+    readonly stageId: string;
+    readonly status: WorkflowStageSummary['status'];
+    readonly durationMs?: number;
+  }[];
+}
+
 export interface WorkflowApprovalSummary {
   readonly id: string;
   readonly tool: string;
@@ -227,6 +237,7 @@ export interface WorkflowProjectionSummary {
   readonly currentStageId?: string;
   readonly stages: readonly WorkflowStageSummary[];
   readonly agents: readonly WorkflowAgentSummary[];
+  readonly swimlanes: readonly WorkflowSwimlaneSummary[];
   readonly approvals: readonly WorkflowApprovalSummary[];
   readonly verification?: { readonly status: string; readonly confidence?: number };
   readonly metrics: {

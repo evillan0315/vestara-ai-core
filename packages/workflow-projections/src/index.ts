@@ -6,5 +6,7 @@
 
 export * from './derive';
 export * from './events';
+export * from './multithread';
 export * from './project';
+export * from './swimlanes';
 export * from './types';

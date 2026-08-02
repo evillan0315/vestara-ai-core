@@ -4,8 +4,11 @@
  * Renders from the canonical workflow projection.
  */
 
+import { useState } from 'react';
 import { harnessApi } from '../../lib/agent-harness';
 import type { WorkflowProjection, WorkflowStage } from '../../lib/workflow';
+import { WorkflowReplay } from './WorkflowReplay';
+import { WorkflowSwimlanes } from './WorkflowSwimlanes';
 
 function mark(stage: WorkflowStage): { glyph: string; color: string } {
   switch (stage.status) {
@@ -49,9 +52,13 @@ export function WorkflowRail({
   onRefresh?: () => void;
 }) {
   if (!workflow) return null;
+  const [showSwimlanes, setShowSwimlanes] = useState(false);
+  const [showReplay, setShowReplay] = useState(false);
   const active = workflow.stages.find((stage) => stage.status === 'active');
   const pendingApprovals = workflow.approvals.filter((approval) => approval.status === 'pending');
   const live = workflow.status === 'running' || workflow.status === 'awaiting-approval';
+  const owningAgents = new Set(workflow.stages.map((stage) => stage.agentId).filter(Boolean));
+  const multiAgent = owningAgents.size > 1;
 
   const resolveApproval = async (approvalId: string, approved: boolean) => {
     await harnessApi.resolveApproval(workflow.threadId, approvalId, approved);
@@ -79,6 +86,14 @@ export function WorkflowRail({
         {live && (
           <span className="ml-1 px-1.5 py-0.5 rounded bg-(--vestara-red)/10 border border-(--vestara-red)/40 text-(--vestara-red) text-[8px] uppercase tracking-widest animate-pulse">
             live
+          </span>
+        )}
+        {multiAgent && (
+          <span
+            title={`Multi-agent workflow — ${owningAgents.size} owning agents`}
+            className="ml-1 px-1.5 py-0.5 rounded bg-(--vestara-purple)/10 border border-(--vestara-purple)/40 text-(--vestara-purple) text-[8px] uppercase tracking-widest"
+          >
+            multi-agent · {owningAgents.size}
           </span>
         )}
         <span className="ml-auto text-[9px] uppercase tracking-wider text-(--vestara-text-muted)">
@@ -120,8 +135,26 @@ export function WorkflowRail({
               {agent.status === 'active' ? '●' : '○'} {agent.name || agent.id}
             </span>
           ))}
+          {workflow.swimlanes?.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowSwimlanes((current) => !current)}
+              className="ml-auto text-[9px] px-1.5 py-0.5 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+            >
+              {showSwimlanes ? 'Hide lanes' : 'Swimlanes'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => setShowReplay((current) => !current)}
+            className="text-[9px] px-1.5 py-0.5 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+          >
+            {showReplay ? 'Hide replay' : 'Replay'}
+          </button>
         </div>
       )}
+      {showSwimlanes && <WorkflowSwimlanes lanes={workflow.swimlanes ?? []} />}
+      {showReplay && <WorkflowReplay threadId={workflow.threadId} />}
 
       {/* Approvals */}
       {pendingApprovals.length > 0 && (

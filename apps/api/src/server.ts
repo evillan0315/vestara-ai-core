@@ -25,6 +25,7 @@ import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
 import { handleNotificationsRoute } from './routes/notifications';
+import { handleOrchestrationRoute } from './routes/orchestration';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
 import { handleProvidersRoute } from './routes/providers';
@@ -150,6 +151,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleProvidersRoute(method, p, req, res, ctx)) return;
       if (await handleWorktreeRoute(method, p, req, res, ctx)) return;
       if (await handleWorkflowRoute(method, p, req, res, ctx)) return;
+      if (await handleOrchestrationRoute(method, p, req, res, ctx)) return;
       if (await handleRoutingRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;
       if (await handleAgentsRoute(method, p, req, res, ctx)) return;

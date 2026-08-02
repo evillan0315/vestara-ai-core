@@ -623,6 +623,29 @@ function WorkflowView({ workflow }: { workflow?: WorkflowProjectionSummary }) {
     for (const approval of workflow.approvals)
       rows.push(`  ${approval.status.padEnd(8)} ${approval.tool} [${approval.id}]`);
   }
+  if (workflow.swimlanes?.length > 0) {
+    rows.push('');
+    rows.push('Agent Swimlanes');
+    for (const lane of workflow.swimlanes) {
+      const segments = lane.segments
+        .map((segment) => {
+          const mark =
+            segment.status === 'completed'
+              ? '✓'
+              : segment.status === 'failed'
+                ? '✗'
+                : segment.status === 'blocked'
+                  ? '⊘'
+                  : segment.status === 'active'
+                    ? '●'
+                    : '○';
+          const duration = segment.durationMs != null ? ` ${(segment.durationMs / 1000).toFixed(1)}s` : '';
+          return `${mark} ${segment.stageId}${duration}`;
+        })
+        .join(' ━ ');
+      rows.push(`  ${lane.agentName.padEnd(12)} ${segments}`);
+    }
+  }
   rows.push('');
   rows.push(
     `Metrics: ${workflow.metrics.elapsedMs / 1000}s · ${workflow.metrics.stagesCompleted}/8 stages · ${workflow.metrics.toolsInvoked} tools · +${workflow.metrics.additions} -${workflow.metrics.deletions}`,

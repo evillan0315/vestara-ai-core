@@ -52,6 +52,9 @@ export default function AgentsPage() {
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
+  const [workflowGoal, setWorkflowGoal] = useState('');
+  const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+  const [startingWorkflow, setStartingWorkflow] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterTeam, setFilterTeam] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -296,6 +299,26 @@ export default function AgentsPage() {
     }
   };
 
+  const startWorkflow = async () => {
+    if (!workflowGoal.trim()) return;
+    setStartingWorkflow(true);
+    try {
+      const result = await workflowApi.start(workflowGoal.trim());
+      if (!result) {
+        addToast({ type: 'error', message: 'Failed to start multi-agent workflow' });
+        return;
+      }
+      addToast({ type: 'success', message: `Workflow started: ${result.workflowId}` });
+      setShowWorkflowPanel(false);
+      setWorkflowGoal('');
+      load();
+    } catch (err: any) {
+      addToast({ type: 'error', message: `Failed to start workflow: ${err.message}` });
+    } finally {
+      setStartingWorkflow(false);
+    }
+  };
+
   const execSummary = useMemo(() => {
     const total = executions.filter((e) => e.status !== 'running' && e.status !== 'queued').length || 1;
     const completed = executions.filter((e) => e.status === 'completed').length;
@@ -345,6 +368,13 @@ export default function AgentsPage() {
             + Team
           </button>
           <button
+            onClick={() => setShowWorkflowPanel((current) => !current)}
+            className="text-xs px-3 py-1.5 bg-purple-400/10 border border-purple-400/30 text-purple-400 rounded-lg hover:bg-purple-400/20 transition-colors cursor-pointer font-medium"
+            title="Run a multi-agent workflow (planner → developer → verifier → reviewer)"
+          >
+            ⚡ Run Workflow
+          </button>
+          <button
             onClick={load}
             className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
             title="Refresh"
@@ -353,6 +383,30 @@ export default function AgentsPage() {
           </button>
         </div>
       </div>
+
+      {showWorkflowPanel && (
+        <div className="p-3 mb-4 bg-(--vestara-accent-bg) border border-purple-400/30 rounded-lg">
+          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
+            Multi-Agent Workflow — planner → developer → verifier → reviewer
+          </div>
+          <div className="flex items-center gap-2">
+            <input
+              value={workflowGoal}
+              onChange={(e) => setWorkflowGoal(e.target.value)}
+              placeholder="Describe the goal for the workflow..."
+              onKeyDown={(e) => e.key === 'Enter' && !startingWorkflow && startWorkflow()}
+              className="flex-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-600 outline-none focus:border-(--vestara-accent-border-active)"
+            />
+            <button
+              onClick={() => void startWorkflow()}
+              disabled={startingWorkflow || !workflowGoal.trim()}
+              className="text-[10px] px-3 py-1.5 bg-purple-400/10 border border-purple-400/30 text-purple-400 rounded-lg hover:bg-purple-400/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer font-medium shrink-0"
+            >
+              {startingWorkflow ? 'Starting...' : 'Start'}
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
