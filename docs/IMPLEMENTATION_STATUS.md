@@ -59,6 +59,8 @@
 | **v5.2** | **Provider & Model Selection** | **✅ Complete** | **2026-07-24** |
 | **v5.3** | **Agent Workflow Orchestration** | **✅ Complete** | **2026-07-24** |
 | **v5.4** | **Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)** | **🔶 Partial** | **2026-08-03** |
+| **v5.5** | **Engineering Evidence Pipeline (PCS-026)** | **🔶 Partial** | **2026-08-03** |
+| **v5.6** | **Distributed Worker Cluster (PCS-027)** | **🔶 Partial** | **2026-08-03** |
 | **v6.0** | **Interactive Dashboard (Agents & Suggestions)** | **✅ Complete** | **2026-07-24** |
 | **v6.1** | **In-Browser CLI Terminal** | **✅ Complete** | **2026-07-25** |
 | **v6.2** | **Chatbot Assistant Panel** | **✅ Complete** | **2026-07-24** |
