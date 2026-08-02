@@ -81,6 +81,7 @@
 | **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **✅ Complete** | **2026-08-03** |
+| **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
@@ -181,6 +182,11 @@ Recovery & Kernel Composition (v8.4)
   Verification Engine at boot        → ✅ Complete (@vestara/verification composed)
   Trust Engine at boot               → ✅ Complete (@vestara/trust composed)
   Boot composition                   → ✅ Complete (Runtime-layer steps reconciled to ADR-030 16-step order)
+
+Dashboard (v9.0)
+  @vestara/widget-runtime            → ✅ Complete (manifests, lifecycle, DashboardRuntime)
+  Kernel dashboard client            → ✅ Complete (dashboardRuntime composed from kernel eventBus/logger at boot)
+  Widget manifests via BootOptions   → ✅ Complete (registered with priority/location ordering)
 ```
 
 ---

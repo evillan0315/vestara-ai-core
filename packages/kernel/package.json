@@ -27,7 +27,8 @@
     "@vestara/trust": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/verification": "workspace:*",
-    "@vestara/worker": "workspace:*"
+    "@vestara/worker": "workspace:*",
+    "@vestara/widget-runtime": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

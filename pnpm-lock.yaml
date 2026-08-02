@@ -906,6 +906,9 @@ importers:
       '@vestara/verification':
         specifier: workspace:*
         version: link:../verification
+      '@vestara/widget-runtime':
+        specifier: workspace:*
+        version: link:../widget-runtime
       '@vestara/worker':
         specifier: workspace:*
         version: link:../worker

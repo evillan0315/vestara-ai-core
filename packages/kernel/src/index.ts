@@ -37,6 +37,7 @@ import type {
 } from '@vestara/shared';
 import type { DefaultTrustEngine } from '@vestara/trust';
 import type { DefaultVerificationEngine } from '@vestara/verification';
+import type { DashboardRuntime, WidgetManifest } from '@vestara/widget-runtime';
 import type { Worker } from '@vestara/worker';
 import type { JobManager } from './job-manager';
 import type { RecoveryManager } from './recovery-manager';
@@ -56,6 +57,8 @@ export interface BootOptions {
     providerId: string;
   }>;
   workers?: Worker[];
+  /** Widget manifests composed into the kernel dashboard client at boot. */
+  widgets?: WidgetManifest[];
 }
 
 export interface VestaraKernel {
@@ -80,6 +83,7 @@ export interface VestaraKernel {
   readonly decisionPipeline: DecisionPipeline;
   readonly verificationEngine: DefaultVerificationEngine;
   readonly trustEngine: DefaultTrustEngine;
+  readonly dashboardRuntime: DashboardRuntime;
   readonly permissions: PermissionManager;
 
   boot(options?: BootOptions): Promise<BootReport>;
@@ -109,6 +113,7 @@ export class DefaultKernel implements VestaraKernel {
   private _decisionPipeline!: DecisionPipeline;
   private _verificationEngine!: DefaultVerificationEngine;
   private _trustEngine!: DefaultTrustEngine;
+  private _dashboardRuntime!: DashboardRuntime;
   private _providerManager: ProviderManager | null = null;
 
   readonly id = 'kernel';
@@ -225,6 +230,11 @@ export class DefaultKernel implements VestaraKernel {
   get trustEngine(): DefaultTrustEngine {
     if (!this._trustEngine) throw new Error('Kernel not booted: trust engine not available');
     return this._trustEngine;
+  }
+
+  get dashboardRuntime(): DashboardRuntime {
+    if (!this._dashboardRuntime) throw new Error('Kernel not booted: dashboard runtime not available');
+    return this._dashboardRuntime;
   }
 
   get permissions(): PermissionManager {
@@ -351,6 +361,19 @@ export class DefaultKernel implements VestaraKernel {
       const { DefaultTrustEngine } = await import('@vestara/trust');
       this._trustEngine = new DefaultTrustEngine();
 
+      // Step 12g: Dashboard Runtime (ADR-021) — composed as a client of the
+      // kernel's event bus, logger, and service registry.
+      const { DashboardRuntime, WidgetLifecycleManager } = await import('@vestara/widget-runtime');
+      const lifecycleManager = new WidgetLifecycleManager({
+        eventBus: this._eventBus,
+        logger: this._logger,
+      });
+      this._dashboardRuntime = new DashboardRuntime({
+        eventBus: this._eventBus,
+        logger: this._logger,
+        lifecycleManager,
+      });
+
       // Register kernel itself with a proper health() implementation.
       // Methods are on the prototype so we bind them explicitly.
       const kernelService: VestaraService = {
@@ -380,6 +403,12 @@ export class DefaultKernel implements VestaraKernel {
           await this._registry.register(worker as unknown as VestaraService, worker.definition.capabilities);
           this._logger.info(`Worker registered: ${worker.id}`, { type: worker.workerType });
         }
+      }
+
+      // Step 13b: Register widget manifests into the dashboard client
+      if (options.widgets && options.widgets.length > 0) {
+        this._dashboardRuntime.registerManifests(options.widgets);
+        this._logger.info(`Widget manifests registered: ${options.widgets.length}`);
       }
       // Step 14: Register user-provided services
       if (options.services) {
@@ -644,6 +673,7 @@ export { IntentManager as KernelIntentManager } from '@vestara/intent';
 export type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
 export type { DefaultTrustEngine } from '@vestara/trust';
 export type { DefaultVerificationEngine } from '@vestara/verification';
+export type { DashboardRuntime, WidgetManifest } from '@vestara/widget-runtime';
 export type {
   FailureBudgetConfig,
   FailureBudgetMitigation,
