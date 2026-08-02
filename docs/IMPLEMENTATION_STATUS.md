@@ -80,6 +80,7 @@
 | **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
 | **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
+| **v8.5** | **Subsystem Migration — all packages to standard layout** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
@@ -106,6 +107,13 @@
 > `MarketplaceVersionTracker` (persisted installed-version store with
 > once-per-update `marketplace.update.notification` events and dismissal). CLI:
 > `vestara marketplace publish|keys|registry|track`.
+
+> **Note**: **v8.5 "Subsystem Migration"** (2026-08-03) brings every workspace
+> package into the ADR-022 standard layout (`__tests__/`, `src/index.*`,
+> `package.json`, `tsconfig.json`, `README.md`). The five packages added during
+> the v8.x series (intent, ownership, decision-pipeline, evidence,
+> workflow-orchestrator) received READMEs; the milestone script now enforces the
+> layout in `scripts/milestone-status.sh`.
 
 ---
 

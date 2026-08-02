@@ -223,6 +223,24 @@ check "@vestara/widget-runtime builds" "ls '$ROOT/packages/widget-runtime/dist/i
 check "Recovery Manager in kernel" "grep -q 'class DefaultRecoveryManager' '$ROOT/packages/kernel/src/recovery-manager.ts' 2>/dev/null"
 check "Scheduler in kernel" "grep -q 'Scheduler as JobScheduler' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null || grep -q 'new Scheduler()' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null"
 
+# ── v8.5 — Subsystem Migration (ADR-022 standard layout) ─────────────────────
+echo "--- v8.5 — Subsystem Migration (ADR-022 standard layout) ---"
+MISSING_LAYOUT=()
+while IFS= read -r pkg; do
+  name=$(basename "$pkg")
+  [ -f "$pkg/package.json" ] || continue
+  [ -f "$pkg/tsconfig.json" ] || MISSING_LAYOUT+=("$name:tsconfig")
+  [ -f "$pkg/README.md" ] || MISSING_LAYOUT+=("$name:README")
+  if [ -d "$pkg/src" ] && ! ls "$pkg/src"/index.* >/dev/null 2>&1; then
+    MISSING_LAYOUT+=("$name:src/index")
+  fi
+done < <(for d in "$ROOT"/packages/*/ "$ROOT"/packages/providers/*/ "$ROOT"/packages/tools/*/; do echo "$d"; done)
+if [ ${#MISSING_LAYOUT[@]} -eq 0 ]; then
+  pass "All packages conform to the ADR-022 standard layout"
+else
+  fail "Non-conforming packages: ${MISSING_LAYOUT[*]}"
+fi
+
 echo ""
 echo "=== Summary ==="
 echo "Total checks: $TOTAL"
