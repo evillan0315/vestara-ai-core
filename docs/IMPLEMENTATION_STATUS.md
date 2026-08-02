@@ -36,6 +36,7 @@
 | **v2.4** | **Predictive Engineering** | **✅ Complete** | **2026-07-23** |
 | **v2.5** | **Marketplace Foundation (catalog, local registry, search, resolution, CLI)** | **✅ Complete** | **2026-08-02** |
 | **v2.6** | **Marketplace Workspace Experience (API, UI, operation center)** | **✅ Complete** | **2026-08-02** |
+| **v2.8** | **Marketplace Remote Registries, Publishing, Signatures & Version Tracking** | **✅ Complete** | **2026-08-03** |
 | **v2.7** | **Outcome Verification** | **✅ Complete** | **2026-07-23** |
 | **v3.0** | **Quality Infrastructure** | **✅ Complete** | **2026-07-24** |
 | **v3.1** | **Codebase Cleanup** | **✅ Complete** | **2026-07-24** |
@@ -94,6 +95,16 @@
 > file-lock contention handling, token budgets, event-sourced reconcile,
 > `orchestration.*` events, and `/api/orchestration/*` routes. Remote workers and
 > multi-repo projects remain future (v10.0).
+
+> **Note**: **v2.8 "Marketplace Remote Registries, Publishing, Signatures &
+> Version Tracking"** (2026-08-03) adds the ADR-115 future-work capabilities to
+> `@vestara/marketplace`: `RemoteMarketplaceRegistry` (JSON registry-index fetch,
+> caching, health, injectable archive fetcher for local install),
+> `MarketplacePublisher` (validate + digest + optional Ed25519 sign + rewrite),
+> Ed25519 signature enforcement wired through `signatureValidated`, and
+> `MarketplaceVersionTracker` (persisted installed-version store with
+> once-per-update `marketplace.update.notification` events and dismissal). CLI:
+> `vestara marketplace publish|keys|registry|track`.
 
 ---
 

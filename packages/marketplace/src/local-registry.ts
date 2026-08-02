@@ -16,6 +16,7 @@ import type {
 } from './registry';
 import type { MarketplaceSearchQuery, MarketplaceSearchResult } from './search';
 import { searchAssets, withRegistryId } from './search';
+import { verifyManifest } from './signature';
 import { compareSemver, isStable, latestVersion, selectVersion } from './versions';
 
 export interface MarketplaceScanIssue {
@@ -45,6 +46,8 @@ export interface LocalMarketplaceRegistryOptions {
   readonly maxDepth?: number;
   readonly maxPackagesPerScan?: number;
   readonly maxFingerprintEntries?: number;
+  /** Look up a publisher's public key to validate manifest signatures. Absent → signatures are not validated. */
+  readonly publicKeyProvider?: (publisherId: string) => string | undefined;
 }
 
 const DEFAULT_MAX_MANIFEST_BYTES = 256 * 1024;
@@ -76,6 +79,7 @@ export class LocalMarketplaceRegistry implements MarketplaceRegistry {
   private readonly maxDepth: number;
   private readonly maxPackagesPerScan: number;
   private readonly maxFingerprintEntries: number;
+  private readonly publicKeyProvider?: (publisherId: string) => string | undefined;
 
   private readonly assets = new Map<string, MarketplaceAsset>();
   private readonly versionPaths = new Map<string, string>();
@@ -94,6 +98,7 @@ export class LocalMarketplaceRegistry implements MarketplaceRegistry {
     this.maxDepth = options.maxDepth ?? DEFAULT_MAX_DEPTH;
     this.maxPackagesPerScan = options.maxPackagesPerScan ?? DEFAULT_MAX_PACKAGES_PER_SCAN;
     this.maxFingerprintEntries = options.maxFingerprintEntries ?? DEFAULT_MAX_FINGERPRINT_ENTRIES;
+    this.publicKeyProvider = options.publicKeyProvider;
   }
 
   async scan(force = false): Promise<MarketplaceRegistryScanResult> {
@@ -373,6 +378,7 @@ export class LocalMarketplaceRegistry implements MarketplaceRegistry {
     const latest = latestVersion(versions.map((item) => item.version));
     const latestSummary = versions.find((item) => item.version === latest);
 
+    const signatureValidated = this.validateSignature(manifest);
     const asset: MarketplaceAsset = {
       id: `${manifest.publisher.id}/${manifest.id}`,
       slug: manifest.id,
@@ -390,7 +396,7 @@ export class LocalMarketplaceRegistry implements MarketplaceRegistry {
       versions,
       verification: {
         signed: Boolean(manifest.integrity.signature),
-        signatureValidated: false,
+        signatureValidated,
         checksumVerified: latestSummary?.checksumVerified ?? false,
         runtimeVerified: false,
       },
@@ -408,6 +414,13 @@ export class LocalMarketplaceRegistry implements MarketplaceRegistry {
 
   private hasManifest(directory: string): boolean {
     return fs.existsSync(path.join(directory, VESTARA_PACKAGE_MANIFEST));
+  }
+
+  private validateSignature(manifest: VestaraPackageManifest): boolean {
+    if (!this.publicKeyProvider) return false;
+    const publicKey = this.publicKeyProvider(manifest.publisher.id);
+    if (!publicKey) return false;
+    return verifyManifest(manifest, publicKey).valid;
   }
 
   private async emit(type: `marketplace.${string}`, metadata: Readonly<Record<string, unknown>>): Promise<void> {

@@ -59,7 +59,8 @@ export type {
   MarketplaceScanIssue,
 } from './local-registry';
 export { LocalMarketplaceRegistry } from './local-registry';
-
+export type { GenerateKeysResult, PublishOptions, PublishResult, PublishSigning, PublishSource } from './publisher';
+export { MarketplacePublisher } from './publisher';
 export type {
   MarketplaceAssetReference,
   MarketplaceEvent,
@@ -71,6 +72,15 @@ export type {
   MarketplaceVersionReference,
 } from './registry';
 export { formatReference, parsePackageReference } from './registry';
+export type { RemoteMarketplaceRegistryOptions, RemotePackageArchiveFetcher } from './remote-registry';
+export { RemoteMarketplaceRegistry } from './remote-registry';
+export type {
+  RemoteCatalogEntry,
+  RemoteRegistryIndex,
+  RemoteRegistryIndexAsset,
+  RemoteRegistryIndexVersion,
+  RemoteVerificationSignal,
+} from './remote-types';
 export type { ResolutionOptions, ResolutionPlan, ResolutionRequest, ResolvedPackage } from './resolver';
 export { latestCatalogVersionFor, resolveInstall } from './resolver';
 export type {
@@ -92,6 +102,8 @@ export type {
   MarketplaceVerifyRequest,
 } from './service';
 export { MarketplaceService } from './service';
+export type { PublisherKeyPair, SignatureAlgorithm, SignatureVerificationResult } from './signature';
+export { generatePublisherKeys, signManifest, verifyManifest } from './signature';
 export type {
   InstalledMarketplaceAsset,
   MarketplaceInstallState,
@@ -100,7 +112,8 @@ export type {
   MarketplaceUpdateType,
 } from './updates';
 export { detectUpdates, latestCompatibleVersion, projectInstalled, updateStatusOf } from './updates';
-
+export type { TrackedVersionEntry, VersionTrackerOptions, VersionTrackerSnapshot } from './version-tracker';
+export { MarketplaceVersionTracker } from './version-tracker';
 export type { ParsedSemver } from './versions';
 export {
   compareSemver,

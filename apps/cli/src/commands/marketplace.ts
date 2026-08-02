@@ -9,6 +9,7 @@
  *   - delegates install/activate/rollback/uninstall to `extension-runtime`.
  */
 
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -22,9 +23,12 @@ import {
   LocalMarketplaceRegistry,
   type MarketplaceEvent,
   type MarketplaceInstallRequest,
+  MarketplacePublisher,
   type MarketplaceSearchQuery,
   MarketplaceService,
+  MarketplaceVersionTracker,
   parsePackageReference,
+  RemoteMarketplaceRegistry,
 } from '@vestara/marketplace';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
@@ -62,6 +66,18 @@ export async function runMarketplace(args: readonly string[]): Promise<void> {
         return;
       case 'rescan':
         await runRescan(json);
+        return;
+      case 'publish':
+        await runPublish(rest(args), json);
+        return;
+      case 'keys':
+        await runKeys(rest(args), json);
+        return;
+      case 'registry':
+        await runRegistry(rest(args), json);
+        return;
+      case 'track':
+        await runTrack(json);
         return;
       default:
         printUsage();
@@ -298,6 +314,78 @@ async function runRescan(json: boolean): Promise<void> {
   }
 }
 
+async function runPublish(args: readonly string[], json: boolean): Promise<void> {
+  const packageDir = args.find((arg) => !arg.startsWith('--'));
+  if (!packageDir) throw new Error('Usage: vestara marketplace publish <dir> [--key <pem-file>] [--json]');
+  const keyFile = optionValue(args, '--key');
+  const publisher = new MarketplacePublisher();
+  const keyText = keyFile ? fs.readFileSync(path.resolve(keyFile), 'utf8') : undefined;
+  const result = publisher.publish({
+    source: { packagePath: packageDir },
+    signing: keyText ? { privateKeyPem: keyText } : undefined,
+  });
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  console.log(`${GREEN}✓${RESET} Published ${result.packageName}@${result.version}`);
+  console.log(`  ${GRAY}digest:${RESET} ${result.digest}`);
+  console.log(`  ${GRAY}signed:${RESET} ${result.signed ? (result.signatureValid ? 'yes' : 'invalid') : 'no'}`);
+}
+
+async function runKeys(args: readonly string[], json: boolean): Promise<void> {
+  const output = args.find((arg) => !arg.startsWith('--'));
+  if (!output) throw new Error('Usage: vestara marketplace keys <output-dir> [--json]');
+  const publisher = new MarketplacePublisher();
+  const keys = publisher.generateKeys();
+  fs.mkdirSync(output, { recursive: true });
+  const privatePath = path.join(output, 'private.pem');
+  const publicPath = path.join(output, 'public.pem');
+  fs.writeFileSync(privatePath, keys.privateKeyPem);
+  fs.writeFileSync(publicPath, keys.publicKeyPem);
+  if (json) {
+    console.log(JSON.stringify({ privatePath, publicPath }, null, 2));
+    return;
+  }
+  console.log(`${GREEN}✓${RESET} Generated publisher keys:`);
+  console.log(`  ${GRAY}private:${RESET} ${privatePath}`);
+  console.log(`  ${GRAY}public:${RESET} ${publicPath}`);
+}
+
+async function runRegistry(args: readonly string[], json: boolean): Promise<void> {
+  const subcommand = args[0] ?? '';
+  const { service } = createContext();
+  if (subcommand === 'list') {
+    const statuses = await service.registryStatuses();
+    if (json) {
+      console.log(JSON.stringify(statuses, null, 2));
+      return;
+    }
+    for (const status of statuses)
+      console.log(`${BOLD}${status.id}${RESET} (${status.kind}) — ${status.health.status}`);
+    return;
+  }
+  throw new Error('Usage: vestara marketplace registry list');
+}
+
+async function runTrack(json: boolean): Promise<void> {
+  const workspace = process.env.VESTARA_REPO ? path.resolve(process.env.VESTARA_REPO) : process.cwd();
+  const tracker = new MarketplaceVersionTracker({
+    storePath: path.join(workspace, '.vestara', 'marketplace', 'versions.json'),
+  });
+  const { service } = createContext();
+  const assets = new Map(service.catalog.list().map((entry) => [entry.asset.packageName, entry.asset]));
+  const snapshot = tracker.snapshot(service.manager.list(), assets, service.context);
+  if (json) {
+    console.log(JSON.stringify(snapshot, null, 2));
+    return;
+  }
+  console.log(`${BOLD}Marketplace update tracker${RESET}`);
+  for (const update of snapshot.pendingNotifications)
+    console.log(`  ${GOLD}${update.packageName}: ${update.installedVersion} → ${update.targetVersion}${RESET}`);
+  if (snapshot.pendingNotifications.length === 0) console.log(`  ${GREEN}No pending update notifications.${RESET}`);
+}
+
 // ─── Context and helpers ────────────────────────────────────────────────────
 
 function createContext(confirmAll = false): { service: MarketplaceService } {
@@ -400,6 +488,12 @@ function printUsage(): void {
   console.log(`  ${BOLD}uninstall${RESET} <package>     ${GRAY}Uninstall [--yes]${RESET}`);
   console.log(`  ${BOLD}verify${RESET} <package>        ${GRAY}Verify package integrity${RESET}`);
   console.log(`  ${BOLD}rescan${RESET}                  ${GRAY}Rescan local registry directories${RESET}`);
+  console.log(
+    `  ${BOLD}publish${RESET} <dir>           ${GRAY}Validate, digest, sign, and publish a package [--key <pem>]${RESET}`,
+  );
+  console.log(`  ${BOLD}keys${RESET} <dir>              ${GRAY}Generate a publisher Ed25519 key pair${RESET}`);
+  console.log(`  ${BOLD}registry${RESET} list           ${GRAY}List configured registries and health${RESET}`);
+  console.log(`  ${BOLD}track${RESET}                   ${GRAY}Show persisted update notifications${RESET}`);
   console.log();
   console.log(`${GRAY}Global options: --json${RESET}`);
 }
