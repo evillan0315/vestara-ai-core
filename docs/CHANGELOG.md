@@ -3,6 +3,20 @@
 
 ---
 
+## [3.9.10] — 2026-08-03 — Orchestration Workspace Dashboard (PCS-025 §18)
+
+### Added
+
+- Workspace **Orchestration** page (`/orchestration`, nav under Engineering):
+  lists orchestrated projects with phase/status badges and task metrics
+  (completed/total, retries, artifacts, elapsed), plus the Approval Gateway
+  queue rendered inline with Approve/Deny actions.
+- `GET /api/orchestration/projects` — lightweight project list for the UI;
+  `WorkflowOrchestrator.listProjects(workspaceId)`.
+- Route registered in the app manifest + nav (covered by the visual framework).
+
+---
+
 ## [3.9.9] — 2026-08-03 — Multi-Repo Parent Orchestration (PCS-025 §16)
 
 ### Added

@@ -184,6 +184,13 @@ export async function handleOrchestrationRoute(
     return true;
   }
 
+  // List orchestrated projects in the workspace (UI dashboard).
+  if (method === 'GET' && p === '/api/orchestration/projects') {
+    const workspaceId = ctx.runtime.getSession().fingerprint.id;
+    json(res, 200, { projects: await orchestrator.listProjects(workspaceId) });
+    return true;
+  }
+
   // Observability metrics for every orchestrated project in the workspace.
   if (method === 'GET' && p === '/api/orchestration/metrics') {
     const workspaceId = ctx.runtime.getSession().fingerprint.id;

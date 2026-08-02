@@ -542,6 +542,8 @@ lifecycle operation (`onTelemetry` — dispatch, review, test, approval, task
 completion, with agent/status/duration) wired to `TelemetryRuntime.track`, and
 exposes per-project + workspace aggregates via `metrics(projectId)` /
 `listMetrics(workspaceId)` and `GET /api/orchestration/[projects/:id/]metrics`.
+The Workspace "Orchestration" page (`/orchestration`) lists projects with phase/
+status/task metrics and renders the Approval Gateway queue with approve/deny.
 Plus new per-project dashboards:
 
 | Metric | Source |

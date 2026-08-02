@@ -55,6 +55,7 @@ export const APP_ROUTES: AppRoute[] = [
   { id: 'memory', path: '/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'terminal', path: '/terminal', title: 'Terminal', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'ops', path: '/ops', title: 'Operations', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'orchestration', path: '/orchestration', title: 'Orchestration', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'projects', path: '/projects', title: 'Projects', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'requests', path: '/requests', title: 'Requests', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'activities', path: '/activities', title: 'Activities', requiresAuth: true, enabled: true, layout: 'shell' },

@@ -56,6 +56,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
       { to: '/sessions', title: 'Sessions', icon: <ViewTimelineRoundedIcon fontSize="small" /> },
       { to: '/artifacts', title: 'Artifacts', icon: <DescriptionRoundedIcon fontSize="small" /> },
       { to: '/projects', title: 'Projects', icon: <FolderRoundedIcon fontSize="small" /> },
+      { to: '/orchestration', title: 'Orchestration', icon: <AccountTreeRoundedIcon fontSize="small" /> },
       { to: '/requests', title: 'Requests', icon: <LightbulbRoundedIcon fontSize="small" /> },
     ],
   },

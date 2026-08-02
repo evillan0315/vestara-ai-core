@@ -662,6 +662,28 @@ export class WorkflowOrchestrator {
     };
   }
 
+  /** Lightweight project list for a workspace (UI dashboard). */
+  async listProjects(workspaceId: string): Promise<
+    Array<{
+      id: string;
+      name: string;
+      goal: string;
+      phase: ProjectPhase;
+      status: ProjectSnapshot['status'];
+      createdAt: string;
+    }>
+  > {
+    const projects = await this.projects.list(workspaceId);
+    return projects.map((project) => ({
+      id: project.id,
+      name: project.name,
+      goal: project.goal,
+      phase: project.phase,
+      status: deriveProjectStatus(project.phase),
+      createdAt: project.createdAt,
+    }));
+  }
+
   /** Aggregate observability metrics for a project (PCS-025 §18). */
   async metrics(projectId: string): Promise<ProjectMetrics> {
     const project = await this.mustGetProject(projectId);
