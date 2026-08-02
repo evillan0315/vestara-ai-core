@@ -168,6 +168,14 @@ export type OrchestrationEvent =
   | { readonly type: 'project.cancelled'; readonly projectId: string; readonly reason: string; readonly at: string }
   | { readonly type: 'project.completed'; readonly projectId: string; readonly at: string }
   | {
+      readonly type: 'parent.created';
+      readonly projectId: string;
+      readonly name: string;
+      readonly goal: string;
+      readonly at: string;
+    }
+  | { readonly type: 'parent.completed'; readonly projectId: string; readonly at: string }
+  | {
       readonly type: 'analysis.completed';
       readonly projectId: string;
       readonly artifactId: string;

@@ -526,11 +526,12 @@ Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted)
 event-sourced `reconcile(projectId, events)` (rebuild expected task state from the
 event log and diff against stores); full event-sourced `rebuild(projectId, events,
 context)` — `task.created` events now carry the task definition so the event log
-reconstructs project, plan, and tasks with their statuses; failure-injection +
-load tests (flaky dispatchers, large task DAGs). `remote` workers and multi-repo
-projects remain future: the `TaskDispatcher` interface is the worker contract
-remote workers would implement, and multi-repo aggregates per-repo orchestrators
-under a parent project.
+reconstructs project, plan, and tasks with their statuses; **multi-repo parent
+orchestration** (`MultiRepoOrchestrator` — one `WorkflowOrchestrator` per repo,
+a parent project aggregates per-repo sub-projects with aggregate status and
+metrics); failure-injection + load tests (flaky dispatchers, large task DAGs).
+`remote` workers remain future: the `TaskDispatcher` interface is the worker
+contract remote workers would implement.
 
 ---
 

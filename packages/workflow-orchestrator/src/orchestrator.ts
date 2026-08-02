@@ -388,7 +388,9 @@ export class WorkflowOrchestrator {
         reportId: artifact.id,
         at: now(),
       });
-      await this.transitionProject(project, 'executing');
+      if (project.phase !== 'executing') {
+        await this.transitionProject(project, 'executing');
+      }
     }
     return this.snapshot(projectId);
   }

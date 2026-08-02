@@ -159,7 +159,7 @@
     },
     {
       "path": "99-appendix/capability-maturity-matrix.md",
-      "beforeChecksum": "21999cbd767474b0b8e8e310f6078ec37a93e488bd14605b233d05afbe59a80b",
+      "beforeChecksum": "76673d37f09f09032da52f161b3c1eecf1913a836007dd4cebfaafbb9d1fbad5",
       "operation": "replace",
       "implementationRefs": ["docs/CAPABILITY-REGISTRY.md", "docs/IMPLEMENTATION_STATUS.md"],
       "confidence": "inferred",

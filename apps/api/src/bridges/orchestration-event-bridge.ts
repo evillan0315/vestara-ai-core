@@ -91,6 +91,10 @@ function defaultMessage(type: string): string {
   switch (type) {
     case 'orchestration.project.completed':
       return 'Project completed';
+    case 'orchestration.parent.created':
+      return 'Multi-repo project created';
+    case 'orchestration.parent.completed':
+      return 'Multi-repo project completed';
     case 'orchestration.task.failed':
       return 'Task failed';
     case 'orchestration.task.blocked':

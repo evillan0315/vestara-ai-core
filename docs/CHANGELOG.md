@@ -3,6 +3,20 @@
 
 ---
 
+## [3.9.9] — 2026-08-03 — Multi-Repo Parent Orchestration (PCS-025 §16)
+
+### Added
+
+- `MultiRepoOrchestrator` + `ParentProjectStore`: one `WorkflowOrchestrator`
+  per repository, a parent project aggregates the per-repo sub-projects
+  (`runParentProject`, `parentStatus`, `aggregateMetrics`, `children`).
+  `parent.created` / `parent.completed` events join the orchestration log.
+- `runVerification` no longer fails when a blocked project reopens execution
+  (guards the `executing -> executing` transition).
+- 3 multi-repo tests.
+
+---
+
 ## [3.9.8] — 2026-08-03 — Event-Sourced Rebuild (PCS-025 Phase 3)
 
 ### Added
