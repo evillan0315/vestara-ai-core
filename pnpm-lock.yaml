@@ -604,6 +604,16 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/decision-pipeline:
+    dependencies:
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../types
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/diff-engine:
     dependencies:
       '@vestara/tui-protocol':
@@ -844,6 +854,9 @@ importers:
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../configuration
+      '@vestara/decision-pipeline':
+        specifier: workspace:*
+        version: link:../decision-pipeline
       '@vestara/event-bus':
         specifier: workspace:*
         version: link:../event-bus
@@ -862,6 +875,9 @@ importers:
       '@vestara/metrics':
         specifier: workspace:*
         version: link:../metrics
+      '@vestara/ownership':
+        specifier: workspace:*
+        version: link:../ownership
       '@vestara/permissions':
         specifier: workspace:*
         version: link:../permissions
@@ -963,6 +979,16 @@ importers:
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/os-controller:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/ownership:
+    dependencies:
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../types
     devDependencies:
       vitest:
         specifier: ^4.1.10

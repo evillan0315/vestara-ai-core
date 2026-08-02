@@ -77,7 +77,7 @@
 | **v8.0** | **OS Architecture — Complete Specification** | **✅ Complete** | **2026-07-27** |
 | **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **🔶 In Progress** | **2026-07-27** |
 | **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
-| **v8.3** | **Ownership, Verification, Trust Engine** | **📋 Planned** | **2026-09-01** |
+| **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
@@ -146,9 +146,14 @@ Scheduler (v8.2)
 Kernel v2 (v8.2)
   Kernel boot order (16-step)        → 📋 Planned
   @vestara/intent                    → ✅ Complete (goal → ExecutionPlan of jobs, ADR-026)
-  @vestara/verification              → 📋 Planned
-  @vestara/recovery                  → 📋 Planned
-  @vestara/trust                     → 📋 Planned
+  @vestara/verification              → ✅ Package complete (pipeline, build/test/lint/custom runners)
+  @vestara/recovery                  → ✅ Complete (DefaultRecoveryManager in kernel)
+  @vestara/trust                     → ✅ Package complete (engine, model, repository)
+
+Ownership & Decision (v8.3)
+  @vestara/ownership                 → ✅ Complete (OwnershipRegistry, ResourceLockManager — ADR-027)
+  @vestara/decision-pipeline         → ✅ Complete (DecisionContext + Permission→Policy→Execution→Verification→Trust→History — ADR-035)
+  Kernel wiring                      → ✅ Complete (ownership + locks + decision pipeline at boot; permission stage wired, policy/execution/verification/trust stages registered by embedding hosts)
 ```
 
 ---
@@ -168,6 +173,8 @@ Kernel v2 (v8.2)
 | `job` | Job lifecycle with JobSpec, retry/rollback/verification policies | types, state-machine | ✅ Complete (v1 frozen) |
 | `worker` | Worker extends Runtime: capability advertisement, execution contract | types, runtime, job | ✅ Complete (v1 stable) |
 | `intent` | Intent model + planner: goal → ExecutionPlan of jobs (ADR-026) | types, state-machine | ✅ Complete |
+| `ownership` | Resource ownership + keyed write locks with timeout/deadlock prevention (ADR-027) | types | ✅ Complete |
+| `decision-pipeline` | DecisionContext + invariant chain Permission→Policy→Execution→Verification→Trust→History (ADR-035) | types | ✅ Complete |
 | `capabilities` | Canonical capability taxonomy, matching catalog, hierarchy, profiles | types | ✅ Complete (90+ builtins) |
 | `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | 📋 Planned |
 

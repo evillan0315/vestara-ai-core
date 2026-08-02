@@ -15,11 +15,13 @@
  */
 
 import type { ConfigurationProvider } from '@vestara/configuration';
+import type { DecisionPipeline } from '@vestara/decision-pipeline';
 import type { EventBus } from '@vestara/event-bus';
 import type { HealthManager } from '@vestara/health';
 import type { IntentManager } from '@vestara/intent';
 import type { Logger } from '@vestara/logger';
 import type { MetricsCollector } from '@vestara/metrics';
+import type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
 import type { PermissionManager } from '@vestara/permissions';
 import type { ProviderManager } from '@vestara/provider-runtime';
 import type { Scheduler as JobScheduler } from '@vestara/scheduler';
@@ -71,6 +73,9 @@ export interface VestaraKernel {
   readonly workerManager: WorkerManager;
   readonly jobManager: JobManager;
   readonly intentManager: IntentManager;
+  readonly ownershipRegistry: OwnershipRegistry;
+  readonly resourceLockManager: ResourceLockManager;
+  readonly decisionPipeline: DecisionPipeline;
   readonly permissions: PermissionManager;
 
   boot(options?: BootOptions): Promise<BootReport>;
@@ -95,6 +100,9 @@ export class DefaultKernel implements VestaraKernel {
   private _workerManager!: WorkerManager;
   private _jobManager!: JobManager;
   private _intentManager!: IntentManager;
+  private _ownershipRegistry!: OwnershipRegistry;
+  private _resourceLockManager!: ResourceLockManager;
+  private _decisionPipeline!: DecisionPipeline;
   private _providerManager: ProviderManager | null = null;
 
   readonly id = 'kernel';
@@ -188,6 +196,21 @@ export class DefaultKernel implements VestaraKernel {
     return this._intentManager;
   }
 
+  get ownershipRegistry(): OwnershipRegistry {
+    if (!this._ownershipRegistry) throw new Error('Kernel not booted: ownership registry not available');
+    return this._ownershipRegistry;
+  }
+
+  get resourceLockManager(): ResourceLockManager {
+    if (!this._resourceLockManager) throw new Error('Kernel not booted: resource lock manager not available');
+    return this._resourceLockManager;
+  }
+
+  get decisionPipeline(): DecisionPipeline {
+    if (!this._decisionPipeline) throw new Error('Kernel not booted: decision pipeline not available');
+    return this._decisionPipeline;
+  }
+
   get permissions(): PermissionManager {
     if (!this._permissions) throw new Error('Kernel not booted: permissions not available');
     return this._permissions;
@@ -276,6 +299,33 @@ export class DefaultKernel implements VestaraKernel {
       // Step 12b: Intent Manager (goal → execution plan of jobs)
       const { IntentManager } = await import('@vestara/intent');
       this._intentManager = new IntentManager();
+
+      // Step 12c: Ownership & Resource Locking (ADR-027)
+      const { OwnershipRegistry, ResourceLockManager } = await import('@vestara/ownership');
+      this._ownershipRegistry = new OwnershipRegistry();
+      this._resourceLockManager = new ResourceLockManager(this._ownershipRegistry);
+
+      // Step 12d: Decision Pipeline (ADR-035) — permission stage wired from the
+      // kernel permission manager; policy/execution/verification/trust stages are
+      // registered by embedding hosts when their implementations exist.
+      const { DecisionPipeline, permissionStage } = await import('@vestara/decision-pipeline');
+      this._decisionPipeline = new DecisionPipeline([
+        permissionStage({
+          check: (input) => {
+            const allowed = this._permissions.check({
+              actor: input.actor,
+              operation: input.operation as never,
+              targetType: input.targetType,
+              targetId: input.targetId,
+            });
+            return {
+              allowed,
+              role: this._permissions.getEffectiveRole(input.actor, input.targetType, input.targetId) ?? 'unknown',
+              reason: allowed ? 'allowed' : 'denied',
+            };
+          },
+        }),
+      ]);
 
       // Register kernel itself with a proper health() implementation.
       // Methods are on the prototype so we bind them explicitly.
@@ -565,8 +615,10 @@ export class DefaultKernel implements VestaraKernel {
   }
 }
 
+export type { DecisionPipeline } from '@vestara/decision-pipeline';
 export type { IntentManager } from '@vestara/intent';
 export { IntentManager as KernelIntentManager } from '@vestara/intent';
+export type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
 export type { JobManager } from './job-manager';
 export { DefaultJobManager } from './job-manager';
 export type { RecoveryAttempt, RecoveryManager, RecoveryPolicy } from './recovery-manager';
