@@ -76,7 +76,7 @@
 | **v7.8** | **API Builder UI/UX Enhancement** | **✅ Complete** | **2026-07-26** |
 | **v8.0** | **OS Architecture — Complete Specification** | **✅ Complete** | **2026-07-27** |
 | **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **🔶 In Progress** | **2026-07-27** |
-| **v8.2** | **Job, Worker, Intent Systems** | **📋 Planned** | **2026-08-15** |
+| **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
 | **v8.3** | **Ownership, Verification, Trust Engine** | **📋 Planned** | **2026-09-01** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
@@ -139,13 +139,13 @@ Core Runtime (v1 frozen)
 Semantic Layer (v1 stable)
   @vestara/capabilities taxonomy     → ✅ Complete (90+ builtins, hierarchy, relationships, matcher, catalog)
 
-Scheduler (next)
-  @vestara/scheduler                 → 📋 Planned
+Scheduler (v8.2)
+  @vestara/scheduler                 → ✅ Complete (capability + capacity matching to Workers)
   @vestara/assignment                → 📋 Planned (if needed)
 
-Kernel v2 (next)
+Kernel v2 (v8.2)
   Kernel boot order (16-step)        → 📋 Planned
-  @vestara/intent                    → 📋 Planned
+  @vestara/intent                    → ✅ Complete (goal → ExecutionPlan of jobs, ADR-026)
   @vestara/verification              → 📋 Planned
   @vestara/recovery                  → 📋 Planned
   @vestara/trust                     → 📋 Planned
@@ -167,8 +167,8 @@ Kernel v2 (next)
 | `events` update | Standard event envelope, catalog types | types | ✅ Complete |
 | `job` | Job lifecycle with JobSpec, retry/rollback/verification policies | types, state-machine | ✅ Complete (v1 frozen) |
 | `worker` | Worker extends Runtime: capability advertisement, execution contract | types, runtime, job | ✅ Complete (v1 stable) |
+| `intent` | Intent model + planner: goal → ExecutionPlan of jobs (ADR-026) | types, state-machine | ✅ Complete |
 | `capabilities` | Canonical capability taxonomy, matching catalog, hierarchy, profiles | types | ✅ Complete (90+ builtins) |
-| `intent` | Intent model, planner, execution plans | types, events, job | 📋 Planned |
 | `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | 📋 Planned |
 
 ---

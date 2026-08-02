@@ -13,6 +13,7 @@
     "@vestara/configuration": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/health": "workspace:*",
+    "@vestara/intent": "workspace:*",
     "@vestara/job": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/metrics": "workspace:*",

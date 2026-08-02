@@ -17,6 +17,7 @@
 import type { ConfigurationProvider } from '@vestara/configuration';
 import type { EventBus } from '@vestara/event-bus';
 import type { HealthManager } from '@vestara/health';
+import type { IntentManager } from '@vestara/intent';
 import type { Logger } from '@vestara/logger';
 import type { MetricsCollector } from '@vestara/metrics';
 import type { PermissionManager } from '@vestara/permissions';
@@ -69,6 +70,7 @@ export interface VestaraKernel {
   readonly jobScheduler: JobScheduler;
   readonly workerManager: WorkerManager;
   readonly jobManager: JobManager;
+  readonly intentManager: IntentManager;
   readonly permissions: PermissionManager;
 
   boot(options?: BootOptions): Promise<BootReport>;
@@ -92,6 +94,7 @@ export class DefaultKernel implements VestaraKernel {
   private _jobScheduler!: JobScheduler;
   private _workerManager!: WorkerManager;
   private _jobManager!: JobManager;
+  private _intentManager!: IntentManager;
   private _providerManager: ProviderManager | null = null;
 
   readonly id = 'kernel';
@@ -180,6 +183,11 @@ export class DefaultKernel implements VestaraKernel {
     return this._jobManager;
   }
 
+  get intentManager(): IntentManager {
+    if (!this._intentManager) throw new Error('Kernel not booted: intent manager not available');
+    return this._intentManager;
+  }
+
   get permissions(): PermissionManager {
     if (!this._permissions) throw new Error('Kernel not booted: permissions not available');
     return this._permissions;
@@ -264,6 +272,10 @@ export class DefaultKernel implements VestaraKernel {
       // Step 12: Job Manager
       const { DefaultJobManager } = await import('./job-manager.js');
       this._jobManager = new DefaultJobManager(this._jobScheduler);
+
+      // Step 12b: Intent Manager (goal → execution plan of jobs)
+      const { IntentManager } = await import('@vestara/intent');
+      this._intentManager = new IntentManager();
 
       // Register kernel itself with a proper health() implementation.
       // Methods are on the prototype so we bind them explicitly.
@@ -553,6 +565,8 @@ export class DefaultKernel implements VestaraKernel {
   }
 }
 
+export type { IntentManager } from '@vestara/intent';
+export { IntentManager as KernelIntentManager } from '@vestara/intent';
 export type { JobManager } from './job-manager';
 export { DefaultJobManager } from './job-manager';
 export type { RecoveryAttempt, RecoveryManager, RecoveryPolicy } from './recovery-manager';
