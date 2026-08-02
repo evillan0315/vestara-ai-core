@@ -74,7 +74,7 @@ export function TraceabilityPanel() {
     return columns
       .map((c) => ({
         ...c,
-        nodes: c.nodes.filter((n) => n.label.toLowerCase().includes(q) || (n.meta ?? '').toLowerCase().includes(q)),
+        nodes: c.nodes.filter((n) => labelOf(n).toLowerCase().includes(q) || (n.meta ?? '').toLowerCase().includes(q)),
       }))
       .filter((c) => c.nodes.length > 0);
   }, [columns, search]);
@@ -121,7 +121,7 @@ export function TraceabilityPanel() {
                     title={n.meta ?? n.id}
                   >
                     <span className={`exec-status-dot ${toneClass(tone(n.status))}`} />
-                    <span className="truncate">{n.label}</span>
+                    <span className="truncate">{labelOf(n)}</span>
                   </button>
                 ))}
                 {col.nodes.length > 60 && (
