@@ -810,10 +810,16 @@ export class AgentHarnessRuntime {
     // allow the agent to retry with feedback
     if (result.status === 'failed' && this.countRevisions(turn.id) < this.maxRevisions) {
       const revisionCount = this.countRevisions(turn.id) + 1;
-      this.append(turn, 'revision-request', 'verification-runtime', {
-        revisionNumber: revisionCount,
-        feedback: result.checks.map((c) => `${c.name}: ${c.status} - ${c.summary}`).join('\n'),
-      }, correlationId);
+      this.append(
+        turn,
+        'revision-request',
+        'verification-runtime',
+        {
+          revisionNumber: revisionCount,
+          feedback: result.checks.map((c) => `${c.name}: ${c.status} - ${c.summary}`).join('\n'),
+        },
+        correlationId,
+      );
       await this.emit('harness.revision.requested', identity, {
         revisionNumber: revisionCount,
         feedback: result.checks,
