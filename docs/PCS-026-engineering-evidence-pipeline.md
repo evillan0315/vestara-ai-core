@@ -6,10 +6,10 @@
 |-------|-------|
 | ID | PCS-026 |
 | Name | Engineering Evidence Pipeline |
-| Status | Design — slice 1 implemented (collectors, pipeline, confidence, verifier integration); slice 2 (browser) pending |
+| Status | Design — slice 1 implemented (collectors, pipeline, confidence, verifier integration); slice 2 implemented (visual engine, baseline governance, screenshot/visual collector); browser adapter provisioning + Workspace evidence viewer pending |
 | Owner | Chief Architect |
 | Prerequisite | PCS-005 Verify, PCS-017 Execution Engine, PCS-025 Multi-Agent Project Management, ADR-104 (Evidence-Based Verification), ADR-121 (change.* projection) |
-| Scope | Collect → normalize → content-address → manifest → bundle → replay + confidence across verification, filesystem, command/test, and (later) browser evidence |
+| Scope | Collect → normalize → content-address → manifest → bundle → replay + confidence across verification, filesystem, command/test, and browser evidence |
 
 > **Canonical reference**: the content-addressed evidence and immutable manifest
 > stores are implemented in `packages/engineering-event-store`; the verification
@@ -357,6 +357,17 @@ governance, and visual-diff tolerances.
   manifest) and emits `harness.verification-bundle` with the bundle id and
   confidence.
 - 6 evidence tests; `pnpm lint && pnpm build && pnpm test` green.
+
+### Slice 2 Delivery Record (2026-08-03)
+
+- `VisualComparisonEngine` (pngjs pixel diff with per-channel tolerance and diff
+  ratio/mask) and `BaselineStore` (governance: candidates recorded, only
+  `approve`/`reject` promote — never a collector).
+- `VisualEvidenceCollector` captures a screenshot through an injected
+  `ScreenshotSource` (browser adapter such as Playwright), content-addresses it,
+  and compares against the approved baseline → `pass`/`fail`/`needs-review`.
+- 7 visual tests. Browser adapter provisioning (Playwright in the API) and the
+  Workspace evidence viewer remain the integration follow-ups.
 
 ## 11. Acceptance Criteria (Slice 1)
 

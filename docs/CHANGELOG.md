@@ -3,6 +3,22 @@
 
 ---
 
+## [3.9.14] — 2026-08-03 — Evidence Visual Comparison + Baselines (PCS-026 slice 2)
+
+### Added
+
+- `VisualComparisonEngine` — pngjs pixel diff with per-channel tolerance, diff
+  ratio, and a diff-mask PNG.
+- `BaselineStore` — human-reviewed visual baselines: candidates are recorded,
+  only explicit `approve`/`reject` promote them (a collector never does).
+- `VisualEvidenceCollector` — captures a screenshot through an injected
+  `ScreenshotSource`, content-addresses it, and compares against the approved
+  baseline → `pass` / `fail` / `needs-review`.
+- 7 visual tests. Browser adapter provisioning + Workspace evidence viewer
+  remain the integration follow-ups.
+
+---
+
 ## [3.9.13] — 2026-08-03 — Engineering Evidence Pipeline (PCS-026 slice 1)
 
 ### Added
