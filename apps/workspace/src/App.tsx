@@ -19,6 +19,7 @@ const Memory = lazy(() => import('./pages/Memory'));
 const TerminalPage = lazy(() => import('./pages/Terminal'));
 const OpsCenter = lazy(() => import('./pages/OpsCenter'));
 const OrchestrationPage = lazy(() => import('./pages/Orchestration'));
+const EvidencePage = lazy(() => import('./pages/Evidence'));
 const ProjectsPage = lazy(() => import('./pages/Projects'));
 const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 const Activities = lazy(() => import('./pages/Activities'));
@@ -48,6 +49,7 @@ const PAGES: Record<string, ComponentType> = {
   terminal: TerminalPage,
   ops: OpsCenter,
   orchestration: OrchestrationPage,
+  evidence: EvidencePage,
   projects: ProjectsPage,
   requests: FeatureRequests,
   activities: Activities,

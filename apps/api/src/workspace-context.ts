@@ -23,7 +23,7 @@ import {
 } from '@vestara/engineering-event-store';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
-import { EvidencePipeline, FilesystemChangeCollector, SourceDiffCollector } from '@vestara/evidence';
+import { BundleStore, EvidencePipeline, FilesystemChangeCollector, SourceDiffCollector } from '@vestara/evidence';
 import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
@@ -113,6 +113,7 @@ export interface WorkspaceContext {
   externalRuntimeService?: ExternalRuntimeService;
   evidenceManifests: ImmutableEvidenceManifestStore;
   evidenceArtifacts: ContentAddressedEvidenceStore;
+  evidenceBundles: BundleStore;
   threadRecovery: DurableThreadRecoveryService;
   worktreeRuntime: WorktreeLeaseRuntime;
   runtime: WorkspaceRuntime;
@@ -346,9 +347,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // PCS-026 evidence pipeline — collects changed files + source diff into
   // content-addressed artifacts, writes an immutable manifest, and assembles a
   // verification bundle after every harness verification.
+  const evidenceBundles = new BundleStore(path.join(workspaceDir, 'evidence', 'bundles'));
   const evidencePipeline = new EvidencePipeline({
     artifacts: evidenceArtifacts,
     manifests: evidenceManifests,
+    bundles: evidenceBundles,
     collectors: [new FilesystemChangeCollector(), new SourceDiffCollector()],
     producer: 'harness-verifier',
     environment: `local:${session.fingerprint.id}`,
@@ -969,6 +972,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     engineeringEvents,
     evidenceManifests,
     evidenceArtifacts,
+    evidenceBundles,
     threadRecovery,
     worktreeRuntime,
     runtime,

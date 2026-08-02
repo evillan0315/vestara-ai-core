@@ -3,6 +3,21 @@
 
 ---
 
+## [3.9.15] — 2026-08-03 — Workspace Evidence Viewer (PCS-026)
+
+### Added
+
+- `BundleStore` persists finalized `VerificationEvidenceBundle`s; the pipeline
+  writes through it, and `/api/evidence/bundles[/:executionId]` +
+  `/api/evidence/artifacts/:digest` serve them (artifact replay, immutable
+  cache headers).
+- Workspace **Evidence** page (`/evidence`, nav under Engineering): bundles
+  with confidence levels, checks, evidence references + provenance, inline
+  image artifact replay, confidence factors, and replay steps.
+- `harness.verification-bundle` surfaces as a toast. 5 route tests.
+
+---
+
 ## [3.9.14] — 2026-08-03 — Evidence Visual Comparison + Baselines (PCS-026 slice 2)
 
 ### Added

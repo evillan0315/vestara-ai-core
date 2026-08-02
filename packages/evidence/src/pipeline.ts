@@ -8,6 +8,7 @@
  */
 
 import type { ContentAddressedEvidenceStore, ImmutableEvidenceManifestStore } from '@vestara/engineering-event-store';
+import type { BundleStore } from './bundle-store';
 import { ConfidenceEngine } from './confidence';
 import type {
   CheckStatus,
@@ -29,6 +30,8 @@ export interface EvidencePipelineOptions {
   readonly confidence?: ConfidenceEngine;
   readonly producer?: string;
   readonly environment?: string;
+  /** When provided, the finalized bundle is persisted (immutable). */
+  readonly bundles?: BundleStore;
 }
 
 export interface BundleCheckInput {
@@ -63,6 +66,7 @@ export class EvidencePipeline {
   private readonly confidence: ConfidenceEngine;
   private readonly producer: string;
   private readonly environment: string;
+  private readonly bundles?: BundleStore;
 
   constructor(options: EvidencePipelineOptions) {
     this.artifacts = options.artifacts;
@@ -71,6 +75,7 @@ export class EvidencePipeline {
     this.confidence = options.confidence ?? new ConfidenceEngine();
     this.producer = options.producer ?? 'evidence-pipeline';
     this.environment = options.environment ?? 'local';
+    this.bundles = options.bundles;
   }
 
   async buildBundle(input: BuildBundleInput): Promise<VerificationEvidenceBundle> {
@@ -158,7 +163,7 @@ export class EvidencePipeline {
       profileChecksExpected: input.scope?.length,
     });
 
-    return {
+    const bundle: VerificationEvidenceBundle = {
       id: `bundle-${input.executionId}`,
       executionId: input.executionId,
       taskId: input.taskId,
@@ -171,8 +176,9 @@ export class EvidencePipeline {
       confidence,
       createdAt,
     };
+    if (this.bundles) this.bundles.write(bundle);
+    return bundle;
   }
-
   private async collect(input: BuildBundleInput): Promise<EvidenceItem[]> {
     const items: EvidenceItem[] = [];
     for (const collector of this.collectors) {

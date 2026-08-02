@@ -176,6 +176,7 @@ const EVENT_ICONS: Record<string, { type: Toast['type']; label: string }> = {
   'changeset.applied': { type: 'success', label: 'Change Set applied' },
   'verification.started': { type: 'info', label: 'Verification started' },
   'verification.completed': { type: 'success', label: 'Verification completed' },
+  'harness.verification-bundle': { type: 'success', label: 'Evidence bundle created' },
   'collab.submitted': { type: 'info', label: 'Submitted for review' },
   'collab.approved': { type: 'success', label: 'Approved' },
   'collab.rejected': { type: 'error', label: 'Rejected' },

@@ -6,6 +6,7 @@
  */
 
 export * from './baseline-store';
+export * from './bundle-store';
 export * from './collectors';
 export * from './confidence';
 export * from './pipeline';

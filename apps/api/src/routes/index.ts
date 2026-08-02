@@ -2,6 +2,7 @@ export { handleActivityRoute } from './activity';
 export { handleAgentsRoute } from './agents';
 export { handleAuthRoute } from './auth';
 export { handleChatRoute } from './chat';
+export { handleEvidenceRoute } from './evidence';
 export { featureRequests, handleFeatureRequestsRoute } from './feature-requests';
 export { handleHostRoute } from './host';
 export { handleMemoryRoute } from './memory';

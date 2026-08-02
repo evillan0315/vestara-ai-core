@@ -14,6 +14,7 @@ import { handleChatRoute } from './routes/chat';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
+import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
@@ -152,6 +153,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleWorktreeRoute(method, p, req, res, ctx)) return;
       if (await handleWorkflowRoute(method, p, req, res, ctx)) return;
       if (await handleOrchestrationRoute(method, p, req, res, ctx)) return;
+      if (await handleEvidenceRoute(method, p, req, res, ctx)) return;
       if (await handleRoutingRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;
       if (await handleAgentsRoute(method, p, req, res, ctx)) return;

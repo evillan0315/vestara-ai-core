@@ -6,7 +6,7 @@
 |-------|-------|
 | ID | PCS-026 |
 | Name | Engineering Evidence Pipeline |
-| Status | Design — slice 1 implemented (collectors, pipeline, confidence, verifier integration); slice 2 implemented (visual engine, baseline governance, screenshot/visual collector); browser adapter provisioning + Workspace evidence viewer pending |
+| Status | Design — slices 1-2 implemented (pipeline, confidence, visual comparison, baselines) + Workspace evidence viewer; browser adapter provisioning pending |
 | Owner | Chief Architect |
 | Prerequisite | PCS-005 Verify, PCS-017 Execution Engine, PCS-025 Multi-Agent Project Management, ADR-104 (Evidence-Based Verification), ADR-121 (change.* projection) |
 | Scope | Collect → normalize → content-address → manifest → bundle → replay + confidence across verification, filesystem, command/test, and browser evidence |
@@ -368,6 +368,16 @@ governance, and visual-diff tolerances.
   and compares against the approved baseline → `pass`/`fail`/`needs-review`.
 - 7 visual tests. Browser adapter provisioning (Playwright in the API) and the
   Workspace evidence viewer remain the integration follow-ups.
+
+### Workspace Evidence Viewer (2026-08-03)
+
+- `BundleStore` persists finalized `VerificationEvidenceBundle`s; the pipeline
+  writes through it and `GET /api/evidence/bundles[/:executionId]` +
+  `GET /api/evidence/artifacts/:digest` serve them (artifact replay).
+- Workspace **Evidence** page (`/evidence`, nav under Engineering): bundles with
+  confidence, checks, evidence references + provenance, inline image artifact
+  replay, confidence factors, and replay steps.
+- `harness.verification-bundle` surfaces as a toast. 5 route tests.
 
 ## 11. Acceptance Criteria (Slice 1)
 
