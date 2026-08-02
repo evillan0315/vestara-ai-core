@@ -1,6 +1,12 @@
 export type { VerificationEngineConfig } from './default-verification-engine';
 
 export { DefaultVerificationEngine } from './default-verification-engine';
+export type {
+  EngineeringVerificationInput,
+  EngineeringVerificationProfile,
+  EngineeringVerificationProgress,
+} from './engineering-profile';
+export { EngineeringVerificationProfiles } from './engineering-profile';
 export { DefaultVerificationPipeline } from './pipeline/default-pipeline';
 export { ResultAggregator } from './pipeline/result-aggregator';
 export { RunnerRegistry } from './pipeline/runner-registry';

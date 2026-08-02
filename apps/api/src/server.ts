@@ -14,22 +14,27 @@ import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
 import { handleExecutionRoute } from './routes/execution';
+import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
 import { handleGraphRoute } from './routes/graph';
 import { handleHostRoute } from './routes/host';
 import { CORS, json } from './routes/index';
+import { handleMarketplaceRoute } from './routes/marketplace';
 import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
 import { handleNotificationsRoute } from './routes/notifications';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
+import { handleProvidersRoute } from './routes/providers';
 import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelemetryRoute } from './routes/telemetry';
+import { handleTuiRoute } from './routes/tui';
 import { handleWorkspaceRoute } from './routes/workspace';
+import { handleWorktreeRoute } from './routes/worktrees';
 import type { WorkspaceContext } from './workspace-context';
 
 export type ApiServer = http.Server & { broadcast: (event: WorkspaceEvent) => void };
@@ -103,6 +108,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
   };
 
   const server = http.createServer(async (req, res) => {
+    if (ctx.externalRuntimeService) registerExternalRuntimeService(ctx, ctx.externalRuntimeService);
     res.on('error', () => {});
     if (!req.url || !req.method) {
       json(res, 400, { error: 'bad request' });
@@ -132,12 +138,15 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleMiscRoute(method, p, req, res, ctx, port, url)) return;
       if (await handleDiagnosticsRoute(method, p, req, res, ctx)) return;
       if (await handleExecutionRoute(method, p, req, res, ctx)) return;
+      if (await handleExternalRuntimeRoute(method, p, req, res, ctx)) return;
       if (await handleGraphRoute(method, p, req, res, ctx)) return;
       if (await handleHostRoute(method, p, req, res, ctx)) return;
       if (await handleDocsRoute(method, p, req, res, ctx)) return;
       if (await handleDocumentationRoute(method, p, req, res, ctx)) return;
       if (await handleAuthRoute(method, p, req, res, ctx, port)) return;
       if (await handleWorkspaceRoute(method, p, req, res, ctx)) return;
+      if (await handleProvidersRoute(method, p, req, res, ctx)) return;
+      if (await handleWorktreeRoute(method, p, req, res, ctx)) return;
       if (await handleRoutingRoute(method, p, req, res, ctx)) return;
       if (await handleSessionsRoute(method, p, req, res, ctx, port)) return;
       if (await handleAgentsRoute(method, p, req, res, ctx)) return;
@@ -151,7 +160,9 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleActivityRoute(method, p, req, res, ctx)) return;
       if (await handleNotificationsRoute(method, p, req, res, ctx)) return;
       if (await handleMemoryRoute(method, p, req, res, ctx, url)) return;
+      if (await handleMarketplaceRoute(method, p, req, res, ctx)) return;
       if (await handleTelemetryRoute(method, p, req, res, ctx)) return;
+      if (await handleTuiRoute(method, p, req, res, ctx, url)) return;
 
       json(res, 404, { error: 'not found' });
     } catch (err) {

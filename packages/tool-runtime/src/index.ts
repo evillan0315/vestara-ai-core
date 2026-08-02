@@ -19,6 +19,11 @@ export interface ToolExecutionContext {
   readonly taskId: string;
   readonly environment: AgentEnvironment;
   readonly signal: AbortSignal;
+  /** Optional progress stream for long-running tools (e.g. git, shell). */
+  readonly reportProgress?: (progress: {
+    readonly stream: 'status' | 'stdout' | 'stderr';
+    readonly content: string;
+  }) => void;
 }
 
 export interface ToolExecutionResult<TOutput> {
@@ -163,6 +168,7 @@ export class ToolRuntime {
       taskId: request.taskId,
       environment: request.environment,
       signal,
+      reportProgress: () => {},
     });
     return { ...result, risk: tool.risk, affectedResources };
   }
@@ -170,6 +176,11 @@ export class ToolRuntime {
 
 interface FilesystemReadInput {
   readonly path: string;
+}
+
+interface FilesystemSearchInput {
+  readonly pattern: string;
+  readonly searchDir?: string;
 }
 
 interface FilesystemWriteInput {
@@ -237,6 +248,62 @@ export class FilesystemReadTool implements VestaraTool<FilesystemReadInput, { re
           summary: `Read ${input.path}`,
           uri: input.path,
           metadata: { operation: 'read', workspaceRoot: context.environment.workspaceRoot },
+        },
+      ],
+    };
+  }
+}
+
+export class FilesystemSearchTool
+  implements VestaraTool<FilesystemSearchInput, { readonly matches: readonly string[] }>
+{
+  readonly name = 'filesystem.search';
+  readonly description =
+    'Search file contents for a pattern inside the active workspace (prefix with glob: to match filenames)';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<FilesystemSearchInput> = {
+    jsonSchema: {
+      type: 'object',
+      properties: {
+        pattern: { type: 'string', minLength: 1 },
+        searchDir: { type: 'string' },
+      },
+      required: ['pattern'],
+      additionalProperties: false,
+    },
+    parse(input) {
+      const record = recordInput(input);
+      return {
+        pattern: requiredString(record, 'pattern'),
+        searchDir: optionalString(record, 'searchDir'),
+      };
+    },
+  };
+
+  constructor(private readonly filesystem: FilesystemRuntime) {}
+
+  affectedResources(input: FilesystemSearchInput): readonly string[] {
+    return [input.searchDir ?? '.'];
+  }
+
+  async execute(
+    input: FilesystemSearchInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ matches: readonly string[] }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    const result = await this.filesystem.search(input.pattern, input.searchDir, context.agentId);
+    if (!result.ok || result.data === undefined)
+      return { status: 'failed', error: result.error ?? 'Filesystem search returned no results', evidence: [] };
+    return {
+      status: 'completed',
+      output: { matches: result.data },
+      evidence: [
+        {
+          id: result.operation.id,
+          kind: 'file',
+          summary: `Searched for "${input.pattern}"`,
+          uri: input.searchDir ?? '.',
+          metadata: { operation: 'search', workspaceRoot: context.environment.workspaceRoot },
         },
       ],
     };

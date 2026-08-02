@@ -48,6 +48,22 @@ export interface ThreadReplay {
   readonly items: readonly ThreadItem[];
 }
 
+export interface CreateCheckpointInput {
+  readonly threadId: TaskThreadId;
+  readonly turnId: AgentTurnId;
+  readonly reason: string;
+  readonly snapshot: Readonly<Record<string, unknown>>;
+}
+
+export interface ThreadCheckpoint {
+  readonly id: string;
+  readonly threadId: TaskThreadId;
+  readonly turnId: AgentTurnId;
+  readonly reason: string;
+  readonly snapshot: Readonly<Record<string, unknown>>;
+  readonly createdAt: string;
+}
+
 export interface ThreadStore {
   createThread(input: CreateThreadInput): TaskThread;
   getThread(id: TaskThreadId): TaskThread | undefined;
@@ -62,6 +78,8 @@ export interface ThreadStore {
     input: AppendThreadItemInput<TPayload>,
   ): ThreadItem<TPayload>;
   listItems(threadId: TaskThreadId, turnId?: AgentTurnId): readonly ThreadItem[];
+  createCheckpoint(input: CreateCheckpointInput): ThreadCheckpoint;
+  latestCheckpoint(threadId: TaskThreadId): ThreadCheckpoint | undefined;
   replay(threadId: TaskThreadId): ThreadReplay;
   close(): void;
 }
@@ -267,6 +285,44 @@ export class FileThreadStore implements ThreadStore {
     return rows.map((row) => this.itemFromRow(row)).filter((item): item is ThreadItem => item !== undefined);
   }
 
+  createCheckpoint(input: CreateCheckpointInput): ThreadCheckpoint {
+    this.requireThread(input.threadId);
+    const turn = this.requireTurn(input.turnId);
+    if (turn.threadId !== input.threadId) throw new Error('Turn does not belong to thread');
+    const checkpoint: ThreadCheckpoint = {
+      id: identifier('checkpoint'),
+      threadId: input.threadId,
+      turnId: input.turnId,
+      reason: input.reason,
+      snapshot: input.snapshot,
+      createdAt: new Date().toISOString(),
+    };
+    this.db.run(
+      `INSERT INTO thread_checkpoints
+       (id, thread_id, turn_id, reason, snapshot_json, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [
+        checkpoint.id,
+        checkpoint.threadId,
+        checkpoint.turnId,
+        checkpoint.reason,
+        stringify(checkpoint.snapshot),
+        checkpoint.createdAt,
+      ],
+    );
+    this.persist();
+    return checkpoint;
+  }
+
+  latestCheckpoint(threadId: TaskThreadId): ThreadCheckpoint | undefined {
+    const row = queryRows(
+      this.db,
+      'SELECT * FROM thread_checkpoints WHERE thread_id = ? ORDER BY created_at DESC, id DESC LIMIT 1',
+      [threadId],
+    )[0];
+    return this.checkpointFromRow(row);
+  }
+
   replay(threadId: TaskThreadId): ThreadReplay {
     return { thread: this.requireThread(threadId), turns: this.listTurns(threadId), items: this.listItems(threadId) };
   }
@@ -318,6 +374,16 @@ export class FileThreadStore implements ThreadStore {
       CREATE INDEX IF NOT EXISTS idx_turns_thread ON agent_turns(thread_id, sequence);
       CREATE INDEX IF NOT EXISTS idx_items_thread ON thread_items(thread_id, sequence);
       CREATE INDEX IF NOT EXISTS idx_items_turn ON thread_items(turn_id, sequence);
+      CREATE TABLE IF NOT EXISTS thread_checkpoints (
+        id TEXT PRIMARY KEY,
+        thread_id TEXT NOT NULL,
+        turn_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        snapshot_json TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        FOREIGN KEY(thread_id) REFERENCES task_threads(id),
+        FOREIGN KEY(turn_id) REFERENCES agent_turns(id)
+      );
     `);
     this.persist();
   }
@@ -396,6 +462,18 @@ export class FileThreadStore implements ThreadStore {
       createdAt: String(row[7]),
       correlationId: String(row[8]) as CorrelationId,
       causationId: row[9] ? (String(row[9]) as CausationId) : undefined,
+    };
+  }
+
+  private checkpointFromRow(row: readonly unknown[] | undefined): ThreadCheckpoint | undefined {
+    if (!row) return undefined;
+    return {
+      id: String(row[0]),
+      threadId: String(row[1]) as TaskThreadId,
+      turnId: String(row[2]) as AgentTurnId,
+      reason: String(row[3]),
+      snapshot: parseRecord(row[4]),
+      createdAt: String(row[5]),
     };
   }
 }

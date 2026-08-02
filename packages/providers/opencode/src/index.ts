@@ -29,6 +29,21 @@ interface OpenCodeConfig {
   apiKey?: string;
 }
 
+/**
+ * Options accepted by all OpenCode-family providers. The API provider routes
+ * construct providers from persisted configuration through this surface.
+ */
+export interface OpenCodeProviderOptions {
+  readonly id?: string;
+  readonly name?: string;
+  readonly baseUrl?: string;
+  readonly models?: AIModel[];
+  readonly apiKeyEnvironmentVariables?: string[];
+  readonly allowedRemoteModels?: ReadonlySet<string>;
+  readonly includeTemperature?: boolean;
+  readonly outputTokenField?: string;
+}
+
 const DEFAULT_MODELS: AIModel[] = [
   {
     id: 'deepseek-v4-flash-free',
@@ -83,14 +98,29 @@ const DEFAULT_MODELS: AIModel[] = [
 ];
 
 export class OpenCodeProvider implements AIProvider {
-  readonly id = 'opencode';
-  readonly name = 'OpenCode';
+  readonly id: string;
+  readonly name: string;
   readonly version = '0.1.0';
-  models: AIModel[] = [...DEFAULT_MODELS];
+  models: AIModel[];
 
   private _status: ProviderStatus = 'uninitialized';
   private config: OpenCodeConfig = {};
-  private baseUrl = 'https://opencode.ai/zen/v1';
+  private baseUrl: string;
+  private readonly includeTemperature: boolean;
+  private readonly outputTokenField: string;
+  private readonly apiKeyEnv?: string;
+  private readonly allowedRemoteModels?: ReadonlySet<string>;
+
+  constructor(options: OpenCodeProviderOptions = {}) {
+    this.id = options.id ?? 'opencode';
+    this.name = options.name ?? 'OpenCode';
+    this.models = options.models ? [...options.models] : [...DEFAULT_MODELS];
+    this.baseUrl = options.baseUrl ?? 'https://opencode.ai/zen/v1';
+    this.includeTemperature = options.includeTemperature ?? true;
+    this.outputTokenField = options.outputTokenField ?? 'max_tokens';
+    this.apiKeyEnv = options.apiKeyEnvironmentVariables?.[0];
+    this.allowedRemoteModels = options.allowedRemoteModels;
+  }
 
   get status(): ProviderStatus {
     return this._status;
@@ -121,15 +151,19 @@ export class OpenCodeProvider implements AIProvider {
       if (response.ok) {
         const data = (await response.json()) as { data?: Array<{ id: string }> };
         if (data.data && data.data.length > 0) {
-          this.models = data.data.map((m: { id: string }) => ({
-            id: m.id,
-            provider: 'opencode',
-            name: m.id,
-            contextWindow: 128_000,
-            maxOutput: 8_192,
-            capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
-            status: 'available' as const,
-          }));
+          const allowed = this.allowedRemoteModels;
+          const discovered = data.data.filter((model) => !allowed || allowed.has(model.id) || allowed.size === 0);
+          if (discovered.length > 0) {
+            this.models = discovered.map((m: { id: string }) => ({
+              id: m.id,
+              provider: this.id,
+              name: m.id,
+              contextWindow: 128_000,
+              maxOutput: 8_192,
+              capabilities: { chat: true, streaming: true, functionCalling: true, vision: false, embeddings: false },
+              status: 'available' as const,
+            }));
+          }
         }
       }
       this._status = 'available';
@@ -172,8 +206,8 @@ export class OpenCodeProvider implements AIProvider {
     const body: Record<string, unknown> = {
       model: request.model,
       messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-      temperature: request.temperature ?? 0.7,
-      max_tokens: request.maxTokens ?? 2048,
+      ...(this.includeTemperature ? { temperature: request.temperature ?? 0.7 } : {}),
+      [this.outputTokenField]: this.outputTokenBudget(request),
       stream: false,
     };
     if (request.tools && request.tools.length > 0) {
@@ -195,7 +229,7 @@ export class OpenCodeProvider implements AIProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
+        ...(this.apiKey() ? { Authorization: `Bearer ${this.apiKey()}` } : {}),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(30000),
@@ -203,7 +237,7 @@ export class OpenCodeProvider implements AIProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      throw new Error(`OpenCode API error (${response.status}): ${text}`);
+      throw new Error(`OpenCode API error (HTTP ${response.status}): ${text}`);
     }
 
     const data = (await response.json()) as {
@@ -233,7 +267,11 @@ export class OpenCodeProvider implements AIProvider {
       content,
       ...(toolCalls && toolCalls.length > 0
         ? {
-            toolCalls: toolCalls.map((tc) => ({ id: tc.id, name: tc.function.name, arguments: tc.function.arguments })),
+            toolCalls: toolCalls.map((tc) => ({
+              id: tc.id,
+              name: normalizeToolCallName(tc.function.name),
+              arguments: tc.function.arguments,
+            })),
           }
         : {}),
       usage: {
@@ -249,8 +287,8 @@ export class OpenCodeProvider implements AIProvider {
     const body: Record<string, unknown> = {
       model: request.model,
       messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
-      temperature: request.temperature ?? 0.7,
-      max_tokens: request.maxTokens ?? 2048,
+      ...(this.includeTemperature ? { temperature: request.temperature ?? 0.7 } : {}),
+      [this.outputTokenField]: this.outputTokenBudget(request),
       stream: true,
     };
     if (request.tools && request.tools.length > 0) {
@@ -272,7 +310,7 @@ export class OpenCodeProvider implements AIProvider {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(this.config.apiKey ? { Authorization: `Bearer ${this.config.apiKey}` } : {}),
+        ...(this.apiKey() ? { Authorization: `Bearer ${this.apiKey()}` } : {}),
       },
       body: JSON.stringify(body),
       signal: AbortSignal.timeout(60000),
@@ -288,7 +326,7 @@ export class OpenCodeProvider implements AIProvider {
 
     if (!response.ok) {
       const text = await response.text();
-      yield processor.error(`OpenCode API error (${response.status}): ${text}`, {
+      yield processor.error(`OpenCode API error (HTTP ${response.status}): ${text}`, {
         sequence: seq++,
         ...streamOptions,
       });
@@ -341,7 +379,7 @@ export class OpenCodeProvider implements AIProvider {
               if (toolCalls && toolCalls.length > 0) {
                 for (const tc of toolCalls) {
                   if (tc.function?.name) {
-                    yield processor.toolCall(tc.function.name, tc.function.arguments ?? '{}', {
+                    yield processor.toolCall(normalizeToolCallName(tc.function.name), tc.function.arguments ?? '{}', {
                       sequence: seq++,
                       ...streamOptions,
                     });
@@ -384,5 +422,61 @@ export class OpenCodeProvider implements AIProvider {
 
   async listModels(): Promise<AIModel[]> {
     return [...this.models];
+  }
+
+  /** Resolve the bearer token: explicit initialize config wins, then the declared env var. */
+  private apiKey(): string | undefined {
+    const environmentKey = this.apiKeyEnv ? process.env[this.apiKeyEnv] : undefined;
+    return this.config.apiKey ?? environmentKey;
+  }
+
+  /** Clamp the requested token budget to the model's maxOutput (default 2048). */
+  private outputTokenBudget(request: CompletionRequest): number {
+    const requested = request.maxTokens ?? 2048;
+    const model = this.models.find((candidate) => candidate.id === request.model);
+    return Math.min(requested, model?.maxOutput ?? requested);
+  }
+}
+
+/** The model layer encodes tool names with `__`; restore the `.` tool identifier. */
+function normalizeToolCallName(name: string): string {
+  return name.replace(/__/g, '.');
+}
+
+/**
+ * OpenCode Go — OpenAI-compatible endpoint at opencode.ai/zen/go/v1.
+ * Reuses the OpenCodeProvider protocol; requires an API key (OPENCODE_GO_API_KEY).
+ */
+export class OpenCodeGoProvider extends OpenCodeProvider {
+  constructor(options: OpenCodeProviderOptions = {}) {
+    super({
+      id: 'opencode-go',
+      name: 'OpenCode Go',
+      baseUrl: 'https://opencode.ai/zen/go/v1',
+      apiKeyEnvironmentVariables: ['OPENCODE_GO_API_KEY'],
+      // No models until configured with a key; discovered on initialize().
+      models: [],
+      ...options,
+    });
+  }
+}
+
+/**
+ * OpenAI — OpenAI-compatible endpoint at api.openai.com/v1.
+ * Uses `max_completion_tokens` and omits `temperature` to match the OpenAI API.
+ */
+export class OpenAIProvider extends OpenCodeProvider {
+  constructor(options: OpenCodeProviderOptions = {}) {
+    super({
+      id: 'openai',
+      name: 'OpenAI',
+      baseUrl: 'https://api.openai.com/v1',
+      apiKeyEnvironmentVariables: ['OPENAI_API_KEY'],
+      includeTemperature: false,
+      outputTokenField: 'max_completion_tokens',
+      // No models until configured with a key; discovered on initialize().
+      models: [],
+      ...options,
+    });
   }
 }

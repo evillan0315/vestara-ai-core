@@ -4,21 +4,39 @@
  */
 
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
+import { SqliteConversationSessionStore } from '@vestara/conversation-runtime';
 import { type DocumentationRepositoryConfig, DocumentationService } from '@vestara/documentation';
+import {
+  ContentAddressedEvidenceStore,
+  DurableThreadRecoveryService,
+  ImmutableEvidenceManifestStore,
+  importThreadHistory,
+  reconcileInterruptedThreads,
+  SqliteEngineeringEventStore,
+} from '@vestara/engineering-event-store';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
+import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
 import { DefaultKernel } from '@vestara/kernel';
-import { OpenCodeProvider } from '@vestara/provider-opencode';
+import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
+import { OpenAIProvider, OpenCodeGoProvider, OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
 import type { Runtime } from '@vestara/runtime';
 import type { ServiceStatus, VestaraService } from '@vestara/shared';
 import { TelemetryRuntime } from '@vestara/telemetry';
+import { FileThreadStore } from '@vestara/thread-runtime';
+import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
+import { GitAddTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool } from '@vestara/tools-git';
+import { GovernedShellExecuteTool } from '@vestara/tools-shell';
+import type { AgentEnvironment, AgentEnvironmentId } from '@vestara/types';
+import { EngineeringVerificationProfiles } from '@vestara/verification';
 import {
   AgentCapabilityManager,
   AgentRuntime,
@@ -49,6 +67,10 @@ import {
   WorkspaceRuntime,
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
+import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
+import { ExternalRuntimeService } from './external-runtime/service';
+import { EngineeringGraphService } from './graph/service';
+import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
 
 export interface WorkspaceContext {
@@ -58,6 +80,19 @@ export interface WorkspaceContext {
   providerManager: DefaultProviderManager;
   routingStore: FileRoutingStore;
   routingAssignments: FileRoutingAssignmentStore;
+  conversationSessions: SqliteConversationSessionStore;
+  agentThreadStore: FileThreadStore;
+  agentTools: ToolRuntime;
+  createAgentTools(workspaceRoot: string): ToolRuntime;
+  agentEnvironment: AgentEnvironment;
+  engineeringVerification: EngineeringVerificationProfiles;
+  engineeringEvents: SqliteEngineeringEventStore;
+  graphService?: EngineeringGraphService;
+  externalRuntimeService?: ExternalRuntimeService;
+  evidenceManifests: ImmutableEvidenceManifestStore;
+  evidenceArtifacts: ContentAddressedEvidenceStore;
+  threadRecovery: DurableThreadRecoveryService;
+  worktreeRuntime: WorktreeLeaseRuntime;
   runtime: WorkspaceRuntime;
   apiRuntime: ApiRuntime;
   eventBus: EventBus;
@@ -94,6 +129,7 @@ export interface WorkspaceContext {
   documentation: DocumentationService;
   settings: WorkspaceConfigurationService;
   filesystemRuntime: FilesystemRuntime;
+  marketplace: MarketplaceService;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -181,7 +217,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // guarded event bus and logger accessors are available.
   const providerManager = new DefaultProviderManager();
   const opencode = new OpenCodeProvider();
+  const opencodeGo = new OpenCodeGoProvider();
+  const openai = new OpenAIProvider();
   await providerManager.register(opencode);
+  await providerManager.register(opencodeGo);
+  await providerManager.register(openai);
   providerManager.registerEngineeringMetadata('opencode', {
     locality: 'cloud',
     capabilities: [
@@ -198,8 +238,45 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     ],
     dataPolicies: ['metadata-only', 'source-allowed'],
   });
+  providerManager.registerEngineeringMetadata('opencode-go', {
+    locality: 'cloud',
+    capabilities: [
+      'conversation',
+      'planning',
+      'implementation',
+      'code-review',
+      'verification',
+      'filesystem-read',
+      'filesystem-write',
+      'command-execution',
+      'structured-output',
+      'streaming',
+    ],
+    dataPolicies: ['metadata-only', 'source-allowed'],
+  });
+  providerManager.registerEngineeringMetadata('openai', {
+    locality: 'cloud',
+    capabilities: [
+      'conversation',
+      'planning',
+      'implementation',
+      'code-review',
+      'verification',
+      'filesystem-read',
+      'filesystem-write',
+      'command-execution',
+      'structured-output',
+      'streaming',
+      'image-understanding',
+    ],
+    dataPolicies: ['metadata-only', 'source-allowed'],
+  });
   await kernel.boot({
-    providers: [{ manager: providerManager, providerId: 'opencode' }],
+    providers: [
+      { manager: providerManager, providerId: 'opencode' },
+      { manager: providerManager, providerId: 'opencode-go' },
+      { manager: providerManager, providerId: 'openai' },
+    ],
     services: [
       {
         service: runtimeService(hostRuntime, '0.1.0'),
@@ -232,6 +309,40 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   await bootRuntime.advance('runtime-composed', sessionSafeId(runtime));
   const session = runtime.getSession();
   const workspaceDir = session.workspaceDir;
+  await restoreProviderConfigurations({ workspaceDir, providerManager });
+  const conversationSessions = new SqliteConversationSessionStore({
+    dbPath: path.join(workspaceDir, 'conversations', 'saved-chats.db'),
+    logger: kernel.logger,
+  });
+  await conversationSessions.initialize();
+  const agentThreadStore = await FileThreadStore.open(path.join(workspaceDir, 'threads', 'agent-harness.db'));
+  const engineeringEvents = await SqliteEngineeringEventStore.open(
+    path.join(workspaceDir, 'events', 'engineering-events.db'),
+  );
+  const evidenceManifests = new ImmutableEvidenceManifestStore(path.join(workspaceDir, 'evidence'));
+  const evidenceArtifacts = new ContentAddressedEvidenceStore(path.join(workspaceDir, 'evidence', 'artifacts'));
+  const worktreeRuntime = await WorktreeLeaseRuntime.open({
+    dbPath: path.join(workspaceDir, 'worktrees', 'leases.db'),
+    leaseRoot: path.join(
+      path.dirname(abs),
+      '.vestara-worktrees',
+      session.fingerprint.id.replace(/[^a-zA-Z0-9._-]/g, '-'),
+    ),
+    emit: (event) => {
+      engineeringEvents.append({
+        type: event.type,
+        source: 'worktree-runtime',
+        actorId: event.lease.agentId,
+        authority: 'system',
+        workspaceId: session.fingerprint.id,
+        environmentId: event.lease.id,
+        taskId: event.lease.taskId,
+        correlationId: `worktree:${event.lease.id}`,
+        payload: { lease: event.lease, detail: event.detail },
+      });
+    },
+  });
+  worktreeRuntime.recover();
   const routingStore = new FileRoutingStore(
     path.join(workspaceDir, 'routing.json'),
     { profileId: 'balanced', roles: {} },
@@ -273,6 +384,121 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // Filesystem capability boundary — the single path agents use to reach the filesystem.
   const telemetry = new TelemetryRuntime();
   const filesystemRuntime = new FilesystemRuntime({ rootDir: abs, telemetry });
+  const createAgentTools = (workspaceRoot: string): ToolRuntime => {
+    const scopedFilesystem =
+      path.resolve(workspaceRoot) === path.resolve(abs)
+        ? filesystemRuntime
+        : new FilesystemRuntime({ rootDir: workspaceRoot, telemetry });
+    const tools = new ToolRuntime();
+    tools.register(new FilesystemReadTool(scopedFilesystem));
+    tools.register(new FilesystemSearchTool(scopedFilesystem));
+    tools.register(new FilesystemWriteTool(scopedFilesystem));
+    tools.register(new GovernedShellExecuteTool());
+    tools.register(new GitStatusTool());
+    tools.register(new GitDiffTool());
+    tools.register(new GitLogTool());
+    tools.register(new GitAddTool());
+    tools.register(new GitCommitTool());
+    return tools;
+  };
+  const agentTools = createAgentTools(abs);
+
+  // Marketplace — catalog and discovery over approved local roots. Installation
+  // mechanics stay with extension-runtime (single authority for integrity,
+  // permissions, activation, rollback, durable state, and graph projection).
+  const alwaysGrantApprover: ExtensionPermissionApprover = {
+    async decide() {
+      return { granted: true, grantedBy: 'api' };
+    },
+  };
+  const marketplaceEventSink: MarketplaceEventSink = {
+    publish(event) {
+      publish({
+        id: `marketplace-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+        type: event.type,
+        actor: { id: 'marketplace', name: 'Marketplace', type: 'system' },
+        category: 'marketplace' as unknown as UiEvent['category'],
+        resource: {
+          type: 'marketplace-package',
+          id: event.packageName ?? 'registry',
+          name: event.packageName ?? event.type,
+        },
+        message: event.type,
+        timestamp: event.timestamp,
+        metadata: { ...event.metadata, correlationId: event.correlationId },
+      });
+    },
+  };
+  const marketplaceRoots = [
+    path.join(abs, '.vestara', 'marketplace'),
+    path.join(abs, '.vestara', 'packages'),
+    path.join(os.homedir(), '.config', 'vestara', 'marketplace'),
+  ];
+  if (process.env.VESTARA_MARKETPLACE_ROOTS)
+    marketplaceRoots.push(...process.env.VESTARA_MARKETPLACE_ROOTS.split(path.delimiter).filter(Boolean));
+  const marketplaceManager = new LocalExtensionManager(
+    path.join(abs, '.vestara', 'extensions'),
+    alwaysGrantApprover,
+    undefined,
+    undefined,
+    marketplaceEventSink,
+    undefined,
+    '1.0.0',
+  );
+  const marketplaceRegistry = new LocalMarketplaceRegistry({
+    id: 'local',
+    displayName: 'Local',
+    roots: marketplaceRoots,
+    eventSink: marketplaceEventSink,
+  });
+  const marketplace = new MarketplaceService({
+    registries: [marketplaceRegistry],
+    manager: marketplaceManager,
+    eventSink: marketplaceEventSink,
+    vestaraVersion: '1.0.0',
+    workspaceId: session.fingerprint.id,
+  });
+  const engineeringVerification = new EngineeringVerificationProfiles();
+  const agentEnvironment: AgentEnvironment = {
+    id: `local-workspace-${session.fingerprint.id}` as AgentEnvironmentId,
+    kind: 'local',
+    workspaceRoot: abs,
+    networkPolicy: 'restricted',
+    filesystemPolicy: 'workspace-write',
+    processPolicy: 'restricted',
+  };
+  const historyImport = importThreadHistory({
+    threads: agentThreadStore,
+    events: engineeringEvents,
+    workspaceId: session.fingerprint.id,
+    environmentId: agentEnvironment.id,
+  });
+  if (historyImport.imported > 0) {
+    await kernel.eventBus.emit({
+      type: 'engineering-history.imported',
+      source: 'engineering-event-store',
+      payload: { ...historyImport },
+    });
+  }
+  const recoveryDecisions = reconcileInterruptedThreads({
+    threads: agentThreadStore,
+    events: engineeringEvents,
+    workspaceId: session.fingerprint.id,
+    environmentId: agentEnvironment.id,
+  });
+  const threadRecovery = new DurableThreadRecoveryService(
+    agentThreadStore,
+    engineeringEvents,
+    session.fingerprint.id,
+    agentEnvironment.id,
+  );
+  for (const decision of recoveryDecisions) {
+    await kernel.eventBus.emit({
+      type: 'recovery.turn-reconciled',
+      source: 'engineering-event-store',
+      payload: { ...decision },
+    });
+  }
   const settings = new WorkspaceConfigurationService(abs, session.fingerprint.id);
   const capabilityManager = new AgentCapabilityManager({ filesystem: filesystemRuntime });
 
@@ -479,13 +705,24 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   await bootRuntime.advance('health-verified', diagnosis.health.overall);
   await bootRuntime.advance('workspace-ready', session.fingerprint.id);
 
-  return {
+  const context: WorkspaceContext = {
     kernel,
     hostRuntime,
     bootRuntime,
     providerManager,
     routingStore,
     routingAssignments,
+    conversationSessions,
+    agentThreadStore,
+    agentTools,
+    createAgentTools,
+    agentEnvironment,
+    engineeringVerification,
+    engineeringEvents,
+    evidenceManifests,
+    evidenceArtifacts,
+    threadRecovery,
+    worktreeRuntime,
     runtime,
     apiRuntime,
     eventBus: kernel.eventBus,
@@ -520,6 +757,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     documentation,
     settings,
     filesystemRuntime,
+    marketplace,
     notificationService,
     milestones,
     projects,
@@ -534,10 +772,61 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       notificationService?.stop();
       persistDb(db, dbPath);
       await documentation.dispose();
+      await marketplaceManager.shutdown();
+      agentThreadStore.close();
+      engineeringEvents.close();
+      worktreeRuntime.close();
       await runtime.close();
       await kernel.shutdown();
     },
   };
+
+  // Engineering Graph + External Runtime wiring.
+  const graphService = new EngineeringGraphService(context);
+  context.graphService = graphService;
+
+  const externalRuntimeService = new ExternalRuntimeService({
+    ctx: context,
+    events: engineeringEvents,
+    telemetry,
+    graph: graphService,
+    workspaceId: session.fingerprint.id,
+  });
+  externalRuntimeService.start();
+  context.externalRuntimeService = externalRuntimeService;
+
+  const { externalRuntimeGraphSource } = await import('./external-runtime/graph-source.js');
+  const source = externalRuntimeGraphSource(async () => {
+    const instances = externalRuntimeService.listInstances();
+    const agents: Record<string, never[]> = {};
+    const providers: Record<string, never[]> = {};
+    const mcp: Record<string, never[]> = {};
+    const plugins: Record<string, never[]> = {};
+    const skills: Record<string, never[]> = {};
+    const models: Record<string, never[]> = {};
+    for (const inst of instances) {
+      agents[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'agents').catch(() => [])) as never[];
+      providers[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'providers').catch(() => [])) as never[];
+      mcp[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'mcp').catch(() => [])) as never[];
+      plugins[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'plugins').catch(() => [])) as never[];
+      skills[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'skills').catch(() => [])) as never[];
+      models[inst.id] = (await externalRuntimeService.intelligence(inst.id, 'models').catch(() => [])) as never[];
+    }
+    return {
+      instances,
+      sessions: (await externalRuntimeService.listSessions()) as never[],
+      agents,
+      providers,
+      mcp,
+      plugins,
+      skills,
+      models,
+    } as never;
+  });
+  graphService.addEntitySource(source.entitySource);
+  graphService.addRelationshipSource(source.relationshipSource);
+
+  return context;
 }
 
 function sessionSafeId(runtime: WorkspaceRuntime): string {
