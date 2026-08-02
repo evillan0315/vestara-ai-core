@@ -11,6 +11,9 @@ import EditArtifactModal from '../components/artifacts/EditArtifactModal';
 import StatCard from '../components/dashboard/StatCard';
 import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
+import { WorkflowRail } from '../components/workflow/WorkflowRail';
+import { threadIdFromSession } from '../lib/agent-harness';
+import { workflowApi, type WorkflowProjection } from '../lib/workflow';
 import { approvePlan, implementPlan, verifyChangeSet } from '../lib/api';
 
 function formatRelativeTime(iso: string): string {
@@ -119,6 +122,8 @@ export default function Artifacts() {
   const [planActionLoading, setPlanActionLoading] = useState<string | null>(null);
   const [generatedChangeSets, setGeneratedChangeSets] = useState<Record<string, string>>({});
   const [verificationResults, setVerificationResults] = useState<Record<string, string>>({});
+  const [liveWorkflow, setLiveWorkflow] = useState<WorkflowProjection | null>(null);
+  const [showLiveDiff, setShowLiveDiff] = useState(false);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
 
@@ -153,6 +158,24 @@ export default function Artifacts() {
     } catch {}
     setLoading(false);
   }, []);
+
+  // Load the canonical workflow for the most recent harness session so the
+  // Artifacts page surfaces the live change projection and verification.
+  useEffect(() => {
+    const harnessSession = exSessions.find((entry: any) => (entry.workflowId ?? '').startsWith('thread:'));
+    const threadId = harnessSession ? threadIdFromSession(harnessSession.workflowId) : null;
+    if (!threadId) {
+      setLiveWorkflow(null);
+      return;
+    }
+    let cancelled = false;
+    void workflowApi.workflow(threadId).then((data) => {
+      if (!cancelled && data?.projection) setLiveWorkflow(data.projection);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [exSessions]);
 
   // Plan action handlers
   const handleApprove = useCallback(
@@ -275,6 +298,54 @@ export default function Artifacts() {
           </button>
         </div>
       </div>
+
+      {/* Live harness change projection (event + workflow milestones) */}
+      {liveWorkflow && (
+        <div className="mb-5">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-[10px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider">
+              Live Change Projection
+              <span className="ml-1 normal-case text-(--vestara-text-dim)">· {liveWorkflow.runId}</span>
+            </h3>
+            <button
+              type="button"
+              onClick={() => setShowLiveDiff((current) => !current)}
+              className="text-[9px] px-2 py-1 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+            >
+              {showLiveDiff ? 'Hide diff' : 'Show diff'}
+            </button>
+          </div>
+          <WorkflowRail workflow={liveWorkflow} onRefresh={() => setShowLiveDiff((current) => current)} />
+          {showLiveDiff && (
+            <div className="mt-2 p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
+              <div className="text-[10px] uppercase tracking-wider text-(--vestara-text-muted) mb-2">
+                Changed Files ({liveWorkflow.changes.files.length}) · {liveWorkflow.changes.summary}
+              </div>
+              <div className="space-y-0.5 max-h-64 overflow-auto">
+                {liveWorkflow.changes.files.map((change) => (
+                  <div key={`${change.path}-${change.operation}`} className="text-[10px] font-mono text-(--vestara-text-2)">
+                    <span
+                      className={
+                        change.operation === 'delete'
+                          ? 'text-(--vestara-red)'
+                          : change.operation === 'create'
+                            ? 'text-(--vestara-green)'
+                            : 'text-(--vestara-amber)'
+                      }
+                    >
+                      {change.operation}
+                    </span>{' '}
+                    {change.path}{' '}
+                    <span className="text-(--vestara-text-dim)">
+                      +{change.additions} -{change.deletions}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 mb-5">

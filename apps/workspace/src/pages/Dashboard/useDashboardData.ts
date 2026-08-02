@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { Execution, MilestoneResponse } from '../../components/dashboard/constants';
 import { fetchExecutions, fetchMilestones, REFRESH_EVENTS } from '../../components/dashboard/constants';
+import { threadIdFromSession } from '../../lib/agent-harness';
+import { workflowApi, type WorkflowProjection } from '../../lib/workflow';
 import type { AgentData, PlanData, WorkspaceData } from '../../lib/api';
 import { getAgents, getPlans, getSuggestions, getWorkflow, getWorkspace } from '../../lib/api';
 import { useEventStream } from '../../lib/useEventStream';

@@ -12,6 +12,7 @@ import { DocSearch } from './DocSearch';
 import { DocsProvider, useDocs } from './DocsContext';
 import { DocToc } from './DocToc';
 import { DocViewer } from './DocViewer';
+import { SystemMilestones } from './SystemMilestones';
 import { extractHeadings } from './frontmatter';
 import '../../styles/docs.css';
 
@@ -97,7 +98,11 @@ function DocPageInner() {
   };
 
   return (
-    <div className="doc-page h-[calc(100vh-7rem)]">
+    <div className="doc-page h-[calc(100vh-7rem)] flex flex-col">
+      <div className="px-4 pt-2">
+        <SystemMilestones />
+      </div>
+      <div className="flex-1 flex min-h-0">
       {docs.settings.explorerOpen && (
         <DocExplorer
           onResize={(w) => docs.setWidth('explorer', w)}
@@ -139,6 +144,7 @@ function DocPageInner() {
         onQueryChange={setSearchQuery}
         onSelect={handleSearchSelect}
       />
+      </div>
     </div>
   );
 }

@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ExecutionDetailModal from '../components/ExecutionDetailModal';
 import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
+import { WorkflowRail } from '../components/workflow/WorkflowRail';
 import { useToasts } from '../components/Toast';
 import { useEventStream } from '../lib/useEventStream';
 import { workspaceSocket } from '../lib/ws';
 import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
+import { workflowApi, type WorkflowProjection } from '../lib/workflow';
 import type { Agent, Team, Execution } from './Agents/types';
 import { ROLE_CATEGORIES, CATEGORY_ORDER, CATEGORY_COLORS, ROLE_COLORS, ALL_AGENT_SLOTS } from './Agents/constants';
 import { AgentStatusBadge } from './Agents/AgentStatusBadge';
@@ -46,6 +48,7 @@ export default function AgentsPage() {
   const [runOutput, setRunOutput] = useState<string | null>(null);
   const [harnessSessions, setHarnessSessions] = useState<Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>>([]);
   const [selectedHarnessSession, setSelectedHarnessSession] = useState<string | null>(null);
+  const [harnessWorkflow, setHarnessWorkflow] = useState<WorkflowProjection | null>(null);
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
@@ -95,6 +98,23 @@ export default function AgentsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Load the canonical workflow projection for the selected harness session.
+  useEffect(() => {
+    const session = harnessSessions.find((entry) => entry.id === selectedHarnessSession);
+    const threadId = session ? threadIdFromSession(session.workflowId) : null;
+    if (!threadId) {
+      setHarnessWorkflow(null);
+      return;
+    }
+    let cancelled = false;
+    void workflowApi.workflow(threadId).then((data) => {
+      if (!cancelled && data?.projection) setHarnessWorkflow(data.projection);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedHarnessSession, harnessSessions]);
   useEffect(() => {
     const off = workspaceSocket.onEvent((evt) => {
       if (evt.type.startsWith('agent.') || evt.type === 'agent.started' || evt.type === 'agent.completed') load();
@@ -724,7 +744,14 @@ export default function AgentsPage() {
                                 <span className="truncate flex-1">{s.goal || s.id}</span>
                                 <span className="text-[9px] text-(--vestara-text-muted)">{s.status}</span>
                               </button>
-                              {selectedHarnessSession === s.id && threadId && <HarnessThreadTimeline threadId={threadId} />}
+                              {selectedHarnessSession === s.id && threadId && (
+                                <>
+                                  <WorkflowRail workflow={harnessWorkflow} onRefresh={() => load()} />
+                                  <div className="mt-2">
+                                    <HarnessThreadTimeline threadId={threadId} />
+                                  </div>
+                                </>
+                              )}
                             </div>
                           );
                         })}

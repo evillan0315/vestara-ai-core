@@ -1,8 +1,16 @@
 # @vestara/tools
 
+## Overview
+
 Tool definitions for agent execution.
 
 Each sub-directory contains tool implementations for a specific domain (filesystem, git, knowledge, memory, project, shell). Tools are registered through the capability system and executed via `@vestara/agent-harness`.
+
+## Responsibilities
+
+- Define tool interfaces and implementations
+- Register tools with the capability system
+- Execute tool calls during agent harness runs
 
 ## Structure
 

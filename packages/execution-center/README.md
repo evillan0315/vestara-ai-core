@@ -1,18 +1,20 @@
 # @vestara/execution-center
 
+## Overview
+
 Execution Center domain — DTOs and pure projections for the engineering execution surface.
 
 Provides queue, metrics, approvals, and filesystem operation projections consumed by the Execution Center UI. All projections are pure functions that derive display-ready data from store records.
 
-## Exports
+## Responsibilities
 
-- `buildQueue` — Build execution queue from source data
-- `computeMetrics` — Compute execution metrics (total, completed, failed, running)
-- `countFsOps` — Count filesystem operations in an execution
-- `countPendingApprovals` — Count pending approvals
-- `queueSummary` — Generate queue summary statistics
+- Build execution queue from source data
+- Compute execution metrics (total, completed, failed, running)
+- Count filesystem operations in an execution
+- Count pending approvals
+- Generate queue summary statistics
 
-## Usage
+## Public API
 
 ```typescript
 import { buildQueue, computeMetrics } from '@vestara/execution-center';

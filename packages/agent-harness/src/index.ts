@@ -51,7 +51,8 @@ export interface AgentHarnessOptions {
   readonly maxContextItems?: number;
   /** Maximum number of verification-driven revision loops (default: 2). */
   readonly maxRevisions?: number;
-  /** Enable interruptive steering — steer messages abort active inference (default: true). */
+  /** Enable interruptive steering — steer messages abort active tool execution (default: true).
+   *  Note: steering during inference is always processed in the next iteration. */
   readonly interruptiveSteering?: boolean;
 }
 
@@ -450,13 +451,18 @@ export class AgentHarnessRuntime {
     const correlationId = this.correlationForTurn(threadId, turn.id);
     const item = this.append(turn, 'steering-message', actorId, { content: message }, correlationId);
     void this.emit('harness.steer', this.identity(threadId, turn.id, correlationId), { itemId: item.id, message });
-    // Interruptive steering: abort active inference to process steering immediately
+    // Interruptive steering: abort active tool execution (not inference)
+    // Inference always processes steering in the next iteration via the existing check
     if (this.interruptiveSteering) {
       const active = this.active.get(threadId);
       if (active) {
-        active.controller.abort('steering-message');
-        // Recreate controller for resumed execution
-        this.active.set(threadId, { ...active, controller: new AbortController() });
+        // Check if we're in tool execution state (not inference)
+        const currentState = turn.state;
+        if (currentState === 'executing-tool' || currentState === 'awaiting-tool') {
+          active.controller.abort('steering-message');
+          // Recreate controller for the next iteration
+          this.active.set(threadId, { ...active, controller: new AbortController() });
+        }
       }
     }
     return item;

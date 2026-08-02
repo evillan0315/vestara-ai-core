@@ -4,6 +4,10 @@ import { StatCard } from '../components/dashboard';
 import SessionTimeline from '../components/SessionTimeline';
 import WorkflowPipeline from '../components/WorkflowPipeline';
 import { VestaraModal } from '../components/ui/VestaraModal';
+import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
+import { WorkflowRail } from '../components/workflow/WorkflowRail';
+import { threadIdFromSession } from '../lib/agent-harness';
+import { workflowApi, type WorkflowProjection } from '../lib/workflow';
 
 function formatRelativeTime(iso: string): string {
   const diff = Date.now() - new Date(iso).getTime();
@@ -367,7 +371,21 @@ export function SessionView() {
   const [exSession, setExSession] = useState<ExecutionSession | null>(null);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; role: string; color?: string }>>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
+  const [workflow, setWorkflow] = useState<WorkflowProjection | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reloadKey, setReloadKey] = useState(0);
+
+  const harnessThreadId = exSession ? threadIdFromSession(exSession.workflowId) : null;
+
+  const loadWorkflow = useCallback(async (threadId: string) => {
+    const data = await workflowApi.workflow(threadId);
+    if (data?.projection) setWorkflow(data.projection);
+  }, []);
+
+  useEffect(() => {
+    if (harnessThreadId) void loadWorkflow(harnessThreadId);
+    else setWorkflow(null);
+  }, [harnessThreadId, loadWorkflow, reloadKey]);
 
   useEffect(() => {
     const load = async () => {
@@ -448,6 +466,15 @@ export function SessionView() {
       </div>
 
       <WorkflowPipeline session={display} />
+
+      {harnessThreadId && (
+        <div className="mb-5">
+          <WorkflowRail workflow={workflow} onRefresh={() => setReloadKey((key) => key + 1)} />
+          <div className="mt-3">
+            <HarnessThreadTimeline threadId={harnessThreadId} />
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-5">

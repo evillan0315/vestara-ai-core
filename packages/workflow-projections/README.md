@@ -1,17 +1,19 @@
 # @vestara/workflow-projections
 
+## Overview
+
 Canonical renderer-independent agent workflow projection with incremental event envelopes.
 
 Both the TUI and Workspace UI consume this model so they always agree on workflow state. Provides the eight-stage workflow model, agent assignments, approval tracking, change sets, verification, and metrics.
 
-## Features
+## Responsibilities
 
-- **Eight-Stage Model** — Canonical workflow stages (plan, implement, verify, etc.)
-- **Incremental Envelopes** — `workflow.*` event protocol with monotonic sequences
-- **Renderer-Independent** — Same projection consumed by TUI and Workspace UI
-- **Agent Tracking** — Agent assignments, status, and metrics per stage
+- Eight-Stage Model — Canonical workflow stages (plan, implement, verify, etc.)
+- Incremental Envelopes — `workflow.*` event protocol with monotonic sequences
+- Renderer-Independent — Same projection consumed by TUI and Workspace UI
+- Agent Tracking — Agent assignments, status, and metrics per stage
 
-## Exports
+## Public API
 
 ```typescript
 // Core projection
