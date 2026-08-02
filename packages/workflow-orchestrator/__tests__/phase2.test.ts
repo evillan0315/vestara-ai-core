@@ -9,6 +9,7 @@ import type {
   OrchestratedProject,
   OrchestrationEvent,
   OrchestrationEventSink,
+  OrchestrationTelemetry,
   TaskDispatcher,
   TaskReviewResult,
   TaskTestResult,
@@ -74,6 +75,7 @@ async function setup(options?: {
   approvalPolicy?: ApprovalPolicy;
   budget?: TokenBudget;
   maxParallelTasks?: number;
+  onTelemetry?: (op: OrchestrationTelemetry) => void;
 }): Promise<Harness> {
   const db = new SQL.Database();
   const events: OrchestrationEvent[] = [];
@@ -92,6 +94,7 @@ async function setup(options?: {
     approvalPolicy: options?.approvalPolicy,
     budget: options?.budget,
     maxParallelTasks: options?.maxParallelTasks ?? 1,
+    onTelemetry: options?.onTelemetry,
   });
   return { orchestrator, events, dispatcher, tasks };
 }
@@ -308,5 +311,47 @@ describe('Phase 3 — token budgets and reconcile', () => {
     expect(report.drifts).toHaveLength(1);
     expect(report.drifts[0].expected).toBe('completed');
     expect(report.drifts[0].actual).toBe('retrying');
+  });
+});
+
+describe('PCS-025 §18 — observability', () => {
+  it('emits telemetry for lifecycle operations', async () => {
+    const ops: OrchestrationTelemetry[] = [];
+    const { orchestrator } = await setup({
+      dispatcher: new StageDispatcher(['approved'], ['passed']),
+      onTelemetry: (op) => ops.push(op),
+    });
+    const project = await driveToExecution(orchestrator);
+    await orchestrator.runExecution(project.id);
+
+    const operations = ops.map((op) => op.operation);
+    expect(operations).toContain('dispatch');
+    expect(operations).toContain('review');
+    expect(operations).toContain('test');
+    expect(operations).toContain('task');
+    expect(ops.some((op) => op.status === 'completed')).toBe(true);
+  });
+
+  it('aggregates project metrics', async () => {
+    const { orchestrator } = await setup();
+    const project = await driveToExecution(orchestrator);
+    await orchestrator.runExecution(project.id);
+    await orchestrator.runVerification(project.id, { verifierId: 'verifier', report: {}, passed: true });
+
+    const metrics = await orchestrator.metrics(project.id);
+    expect(metrics.status).toBe('completed');
+    expect(metrics.tasks.total).toBe(1);
+    expect(metrics.tasks.completed).toBe(1);
+    expect(metrics.artifacts).toBeGreaterThanOrEqual(1);
+    expect(metrics.elapsedMs).toBeGreaterThanOrEqual(0);
+  });
+
+  it('lists metrics across the workspace', async () => {
+    const { orchestrator } = await setup();
+    const project = await driveToExecution(orchestrator);
+    await orchestrator.runExecution(project.id);
+
+    const all = await orchestrator.listMetrics('ws-1');
+    expect(all.some((metrics) => metrics.projectId === project.id)).toBe(true);
   });
 });

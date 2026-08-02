@@ -290,6 +290,19 @@ export interface TaskDispatcher {
 
 // ─── Phase 2: Approval Gateway + budgets (PCS-025 §13, §15) ───
 
+/** Observability callback payload (PCS-025 §18). */
+export interface OrchestrationTelemetry {
+  readonly projectId: string;
+  readonly taskId?: string;
+  readonly agent: string;
+  readonly status: 'working' | 'completed' | 'failed';
+  readonly operation: string;
+  readonly task: string;
+  readonly phase?: string;
+  readonly detail?: string;
+  readonly durationMs?: number;
+}
+
 export interface ApprovalDecision {
   readonly required: boolean;
   readonly reason?: string;
@@ -336,4 +349,26 @@ export function deriveProjectStatus(phase: ProjectPhase): ProjectSnapshot['statu
     default:
       return 'running';
   }
+}
+
+// ─── Observability metrics (PCS-025 §18) ──────────────────────
+
+export interface ProjectMetrics {
+  readonly projectId: string;
+  readonly phase: ProjectPhase;
+  readonly status: ProjectSnapshot['status'];
+  readonly tasks: {
+    readonly total: number;
+    readonly completed: number;
+    readonly failed: number;
+    readonly blocked: number;
+    readonly awaitingApproval: number;
+    readonly running: number;
+  };
+  readonly retries: number;
+  readonly revisions: number;
+  readonly artifacts: number;
+  readonly elapsedMs: number;
+  readonly createdAt: string;
+  readonly completedAt?: string;
 }

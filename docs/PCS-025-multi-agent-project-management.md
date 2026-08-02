@@ -519,7 +519,7 @@ blocked`, revision cap from the retry policy); Approval Gateway for high-risk
 changes (`DefaultRiskApprovalPolicy` + `awaiting-approval` task state +
 `resolveTaskApproval`, plan approval via the `pending-approval` phase); parallel
 task waves with file-lock contention handling (`maxParallelTasks`, bounded
-lock-wait then block). Remaining: observability dashboard (§18).
+lock-wait then block); observability (§18).
 
 **Phase 3 — Distributed + hardening — 🔶 foundations**
 Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted);
@@ -534,15 +534,19 @@ project.
 
 ## 18. Observability
 
-Leverage existing `TelemetryRuntime.trackOp`, `ActivityLogStore`, and `AuditStore`,
-plus new per-project dashboards:
+Implemented (2026-08-03): the orchestrator emits a telemetry callback on every
+lifecycle operation (`onTelemetry` — dispatch, review, test, approval, task
+completion, with agent/status/duration) wired to `TelemetryRuntime.track`, and
+exposes per-project + workspace aggregates via `metrics(projectId)` /
+`listMetrics(workspaceId)` and `GET /api/orchestration/[projects/:id/]metrics`.
+Plus new per-project dashboards:
 
 | Metric | Source |
 |--------|--------|
-| Agent execution duration / per phase | `ExecutionJob` events + telemetry |
-| Failures + retries per task/agent | `Task.failed`, `task.retrying`, audit |
+| Agent execution duration / per phase | `onTelemetry` + `TelemetryRuntime` |
+| Failures + retries per task/agent | `Task.failed`, `task.retrying`, task `attemptCount` |
 | Task throughput (completed/sec per worker) | telemetry aggregation |
-| Approval bottlenecks (time in `pending-approval`) | `approval.requested/granted` timestamps |
+| Approval bottlenecks (time in `awaiting-approval`) | `task.approval-requested/resolved` timestamps |
 | Success rate per agent / per plan | execution history |
 | Cost + token usage per agent/project | provider usage + `TelemetryRuntime` |
 | File lock contention (`file.lock.conflict` count) | lock registry events |

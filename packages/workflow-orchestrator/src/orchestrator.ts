@@ -28,6 +28,8 @@ import type {
   OrchestratedProject,
   OrchestrationEvent,
   OrchestrationEventSink,
+  OrchestrationTelemetry,
+  ProjectMetrics,
   ProjectPhase,
   ProjectSnapshot,
   TaskDispatcher,
@@ -130,6 +132,8 @@ export interface OrchestratorOptions {
   readonly maxParallelTasks?: number;
   /** Bounded wait for a contended file lock before blocking the task. */
   readonly lockWaitTimeoutMs?: number;
+  /** Observability callback for lifecycle operations (PCS-025 §18). */
+  readonly onTelemetry?: (op: OrchestrationTelemetry) => void;
 }
 
 export class WorkflowOrchestrator {
@@ -145,6 +149,7 @@ export class WorkflowOrchestrator {
   private readonly budget?: TokenBudgetPolicy;
   private readonly maxParallelTasks: number;
   private readonly lockWaitTimeoutMs: number;
+  private readonly onTelemetry?: (op: OrchestrationTelemetry) => void;
 
   constructor(options: OrchestratorOptions) {
     this.projects = options.projects;
@@ -159,6 +164,7 @@ export class WorkflowOrchestrator {
     this.budget = options.budget;
     this.maxParallelTasks = Math.max(1, options.maxParallelTasks ?? 1);
     this.lockWaitTimeoutMs = Math.max(0, options.lockWaitTimeoutMs ?? 2_000);
+    this.onTelemetry = options.onTelemetry;
   }
 
   // ─── Project lifecycle ───────────────────────────────────────
@@ -433,6 +439,15 @@ export class WorkflowOrchestrator {
       taskId,
       at: now(),
     });
+    this.telemetry({
+      projectId,
+      taskId,
+      agent: 'orchestrator',
+      status: approved ? 'completed' : 'failed',
+      operation: 'approval',
+      task: task.summary,
+      phase: approved ? 'approved' : 'denied',
+    });
     return this.snapshot(projectId);
   }
 
@@ -484,6 +499,54 @@ export class WorkflowOrchestrator {
     };
   }
 
+  /** Aggregate observability metrics for a project (PCS-025 §18). */
+  async metrics(projectId: string): Promise<ProjectMetrics> {
+    const project = await this.mustGetProject(projectId);
+    const tasks = await this.tasks.listForProject(projectId);
+    const artifacts = await this.artifacts.listForProject(projectId);
+    const status = deriveProjectStatus(project.phase);
+    const count = (statuses: readonly TaskStatus[]): number =>
+      tasks.filter((task) => statuses.includes(task.status)).length;
+    return {
+      projectId,
+      phase: project.phase,
+      status,
+      tasks: {
+        total: tasks.length,
+        completed: count(['completed']),
+        failed: count(['failed']),
+        blocked: count(['blocked']),
+        awaitingApproval: count(['awaiting-approval']),
+        running: count([
+          'pending',
+          'ready',
+          'assigned',
+          'in-progress',
+          'retrying',
+          'needs-review',
+          'reviewing',
+          'testing',
+        ]),
+      },
+      retries: tasks.reduce((sum, task) => sum + task.attemptCount, 0),
+      revisions: tasks.reduce((sum, task) => sum + task.revisionCount, 0),
+      artifacts: artifacts.length,
+      elapsedMs: Math.max(0, Date.now() - new Date(project.createdAt).getTime()),
+      createdAt: project.createdAt,
+      completedAt: project.phase === 'completed' || project.phase === 'archived' ? project.updatedAt : undefined,
+    };
+  }
+
+  /** Observability metrics for every project in a workspace. */
+  async listMetrics(workspaceId: string): Promise<ProjectMetrics[]> {
+    const projects = await this.projects.list(workspaceId);
+    const metrics: ProjectMetrics[] = [];
+    for (const project of projects) {
+      metrics.push(await this.metrics(project.id));
+    }
+    return metrics;
+  }
+
   // ─── Internals ───────────────────────────────────────────────
 
   private async runTask(project: OrchestratedProject, task: WorkflowTask): Promise<void> {
@@ -502,6 +565,16 @@ export class WorkflowOrchestrator {
             planId: current.planId,
             taskId: current.id,
             at: now(),
+          });
+          this.telemetry({
+            projectId: project.id,
+            taskId: current.id,
+            agent: 'orchestrator',
+            status: 'working',
+            operation: 'approval',
+            task: current.summary,
+            phase: 'awaiting-approval',
+            detail: decision.reason,
           });
           return;
         }
@@ -552,16 +625,30 @@ export class WorkflowOrchestrator {
       });
 
       attempt++;
+      const dispatchStart = Date.now();
       let result: TaskDispatchResult;
       try {
         result = await this.dispatcher.dispatch(current, project);
       } catch (error) {
         result = { status: 'failed', error: error instanceof Error ? error.message : 'dispatch error' };
       }
+      const durationMs = Date.now() - dispatchStart;
       await this.releaseLocks(project.id, current.id, lock.paths);
       if (this.budget) this.budget.consume(this.budget.estimateTokens(current));
       // Reload so review/test/complete observe the persisted `in-progress` status.
       current = (await this.tasks.get(task.id)) ?? current;
+
+      this.telemetry({
+        projectId: project.id,
+        taskId: current.id,
+        agent: current.assignedAgentId ?? 'agent',
+        status: result.status === 'completed' ? 'completed' : 'failed',
+        operation: 'dispatch',
+        task: current.summary,
+        phase: current.status,
+        detail: result.error,
+        durationMs,
+      });
 
       if (result.status === 'failed') {
         await this.tasks.recordFailure(current.id, result.error ?? 'dispatch failed', attempt);
@@ -662,6 +749,15 @@ export class WorkflowOrchestrator {
         taskId: current.id,
         at: now(),
       });
+      this.telemetry({
+        projectId: project.id,
+        taskId: current.id,
+        agent: result.agentId ?? current.assignedAgentId ?? 'agent',
+        status: 'completed',
+        operation: 'task',
+        task: current.summary,
+        phase: 'completed',
+      });
       return;
     }
     await this.tasks.updateStatus(task.id, 'blocked', 'runTask guard exceeded');
@@ -700,6 +796,16 @@ export class WorkflowOrchestrator {
       taskId: reviewed.id,
       decision: review.decision,
       at: now(),
+    });
+    this.telemetry({
+      projectId: project.id,
+      taskId: reviewed.id,
+      agent: review.agentId ?? 'reviewer',
+      status: review.decision === 'approved' ? 'completed' : 'failed',
+      operation: 'review',
+      task: reviewed.summary,
+      phase: review.decision,
+      detail: review.feedback,
     });
 
     switch (review.decision) {
@@ -745,6 +851,15 @@ export class WorkflowOrchestrator {
       taskId: testing.id,
       status: test.status,
       at: now(),
+    });
+    this.telemetry({
+      projectId: project.id,
+      taskId: testing.id,
+      agent: test.agentId ?? 'tester',
+      status: test.status === 'passed' ? 'completed' : 'failed',
+      operation: 'test',
+      task: testing.summary,
+      phase: test.status,
     });
     if (test.status === 'passed') {
       await this.transitionTask(project.id, testing, 'approved');
@@ -834,5 +949,15 @@ export class WorkflowOrchestrator {
     const project = await this.projects.get(projectId);
     if (!project) throw new Error(`Project ${projectId} not found`);
     return project;
+  }
+
+  private telemetry(op: OrchestrationTelemetry): void {
+    if (this.onTelemetry) {
+      try {
+        this.onTelemetry(op);
+      } catch {
+        // observability must never break the workflow
+      }
+    }
   }
 }

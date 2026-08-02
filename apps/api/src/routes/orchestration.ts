@@ -184,11 +184,30 @@ export async function handleOrchestrationRoute(
     return true;
   }
 
+  // Observability metrics for every orchestrated project in the workspace.
+  if (method === 'GET' && p === '/api/orchestration/metrics') {
+    const workspaceId = ctx.runtime.getSession().fingerprint.id;
+    json(res, 200, { metrics: await orchestrator.listMetrics(workspaceId) });
+    return true;
+  }
+
   // Pending high-risk-change approvals for a project.
   const approvalsMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/approvals$/);
   if (approvalsMatch && method === 'GET') {
     const projectId = decodeURIComponent(approvalsMatch[1]);
     json(res, 200, { approvals: await orchestrator.pendingApprovals(projectId) });
+    return true;
+  }
+
+  // Observability metrics for a project (PCS-025 §18).
+  const metricsMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/metrics$/);
+  if (metricsMatch && method === 'GET') {
+    const projectId = decodeURIComponent(metricsMatch[1]);
+    try {
+      json(res, 200, { metrics: await orchestrator.metrics(projectId) });
+    } catch (error) {
+      json(res, 404, { error: error instanceof Error ? error.message : String(error) });
+    }
     return true;
   }
 

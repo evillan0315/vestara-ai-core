@@ -31,7 +31,7 @@ import { OpenAIProvider, OpenCodeGoProvider, OpenCodeProvider } from '@vestara/p
 import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
 import type { Runtime } from '@vestara/runtime';
 import type { ServiceStatus, VestaraService } from '@vestara/shared';
-import { TelemetryRuntime } from '@vestara/telemetry';
+import { type OperationType, TelemetryRuntime } from '@vestara/telemetry';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import { GitAddTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool } from '@vestara/tools-git';
@@ -611,6 +611,20 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       environment: agentEnvironment,
       changeProjector,
     }),
+    onTelemetry: (op) => {
+      telemetry.track({
+        agent: op.agent,
+        timestamp: new Date().toISOString(),
+        type: `orchestration.${op.operation}`,
+        status: op.status,
+        operation: op.operation as OperationType,
+        task: op.task,
+        progress: op.status === 'completed' ? 100 : 0,
+        phase: op.phase ?? 'unknown',
+        detail: op.detail ?? '',
+        metadata: { projectId: op.projectId, taskId: op.taskId, durationMs: op.durationMs },
+      });
+    },
   });
   harnessSession.restoreActiveSessions().catch((error: unknown) => {
     telemetry.track({

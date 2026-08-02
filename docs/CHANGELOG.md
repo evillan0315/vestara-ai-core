@@ -3,6 +3,20 @@
 
 ---
 
+## [3.9.7] — 2026-08-03 — Multi-Agent Workflow Observability (PCS-025 §18)
+
+### Added
+
+- `WorkflowOrchestrator.onTelemetry` callback emitted on every lifecycle
+  operation (dispatch, review, test, approval, task completion) with agent/
+  status/phase/duration; wired to `TelemetryRuntime.track` in the API.
+- `metrics(projectId)` / `listMetrics(workspaceId)` aggregates and
+  `GET /api/orchestration/[projects/:id/]metrics` endpoints (task state counts,
+  retries, revisions, artifacts, elapsed).
+- 3 observability tests.
+
+---
+
 ## [3.9.6] — 2026-08-03 — Multi-Agent Workflow Phase 2 + Phase 3 foundations (ADR-118 / PCS-025)
 
 ### Added
