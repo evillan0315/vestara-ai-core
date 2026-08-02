@@ -49,6 +49,7 @@ import type { AgentEnvironment, AgentEnvironmentId, HarnessVerificationResult } 
 import { EngineeringVerificationProfiles } from '@vestara/verification';
 import {
   ArtifactStore,
+  FallbackTaskDispatcher,
   FileLockRegistry,
   PlanStore as OrchestrationPlanStore,
   ProjectStore as OrchestrationProjectStore,
@@ -726,12 +727,18 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     artifacts: new ArtifactStore(db as import('sql.js').Database),
     locks: new FileLockRegistry(db as import('sql.js').Database),
     events: orchestrationEvents,
-    dispatcher: new HarnessTaskDispatcher({
-      runner: agentHarness,
-      session: harnessSession,
-      storage: agents,
-      environment: agentEnvironment,
-      changeProjector,
+    // Prefer the distributed worker cluster when nodes are online; otherwise
+    // dispatch through the durable harness (PCS-027 orchestrator integration).
+    dispatcher: new FallbackTaskDispatcher({
+      primary: workerCluster,
+      fallback: new HarnessTaskDispatcher({
+        runner: agentHarness,
+        session: harnessSession,
+        storage: agents,
+        environment: agentEnvironment,
+        changeProjector,
+      }),
+      primaryReady: async () => (await workerRegistry.listOnline()).length > 0,
     }),
     onTelemetry: (op) => {
       telemetry.track({

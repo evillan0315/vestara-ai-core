@@ -18,6 +18,9 @@
 - **PCS-026 follow-ons**: per-check evidence attribution
   (`check.evidenceKinds` in the pipeline) and `PlaywrightScreenshotSource`
   (lazy browser adapter; visual collector enabled via `VESTARA_SCREENSHOT_URL`).
+- **Orchestrator uses the cluster**: the API's orchestrator dispatcher is a
+  `FallbackTaskDispatcher` — prefers the `WorkerCluster` when worker nodes are
+  online, else the durable harness.
 
 ---
 

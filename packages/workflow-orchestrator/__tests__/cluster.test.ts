@@ -1,6 +1,7 @@
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { WorkerCluster } from '../src/distributed/cluster';
+import { FallbackTaskDispatcher } from '../src/distributed/fallback-dispatcher';
 import { MemoryWorkerTransport } from '../src/distributed/memory-transport';
 import { WorkerRegistry } from '../src/distributed/registry';
 import { WorkerScheduler } from '../src/distributed/scheduler';
@@ -165,5 +166,51 @@ describe('WorkerCluster over an in-memory transport', () => {
   it('throws when no online node satisfies the task', async () => {
     const { cluster } = makeCluster(() => {});
     await expect(cluster.dispatch(task(), PROJECT)).rejects.toThrow(/No online worker/);
+  });
+});
+
+describe('FallbackTaskDispatcher (PCS-027 orchestrator integration)', () => {
+  class RecordingDispatcher {
+    calls: string[] = [];
+    async dispatch() {
+      this.calls.push('dispatch');
+      return { status: 'completed' as const };
+    }
+    async review() {
+      this.calls.push('review');
+      return { decision: 'approved' as const };
+    }
+    async test() {
+      this.calls.push('test');
+      return { status: 'passed' as const };
+    }
+  }
+
+  it('prefers the primary dispatcher when it is ready', async () => {
+    const primary = new RecordingDispatcher();
+    const fallback = new RecordingDispatcher();
+    const dispatcher = new FallbackTaskDispatcher({
+      primary,
+      fallback,
+      primaryReady: async () => true,
+    });
+    await dispatcher.dispatch(task(), PROJECT);
+    await dispatcher.review(task(), PROJECT, []);
+    await dispatcher.test(task(), PROJECT);
+    expect(primary.calls).toEqual(['dispatch', 'review', 'test']);
+    expect(fallback.calls).toHaveLength(0);
+  });
+
+  it('falls back when the primary is not ready', async () => {
+    const primary = new RecordingDispatcher();
+    const fallback = new RecordingDispatcher();
+    const dispatcher = new FallbackTaskDispatcher({
+      primary,
+      fallback,
+      primaryReady: async () => false,
+    });
+    await dispatcher.dispatch(task(), PROJECT);
+    expect(fallback.calls).toEqual(['dispatch']);
+    expect(primary.calls).toHaveLength(0);
   });
 });
