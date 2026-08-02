@@ -44,6 +44,18 @@ export { CollaborationStorage } from './collaboration-storage';
 export { DecisionService } from './decision-service';
 export { DecisionStorage } from './decision-storage';
 export { DesktopService } from './desktop-service';
+export {
+  type BehaviorReport,
+  type ComparisonDimension,
+  compareBehavior,
+  type DualPathComparison,
+  diffChangedFiles,
+  type EngineId,
+  type TerminalStatus,
+  terminalEquivalent,
+  UsageTracker,
+  type Verdict,
+} from './dual-path';
 export { EngineeringMemory } from './engineering-memory';
 export { EnterpriseService } from './enterprise-service';
 export { EnterpriseStorage } from './enterprise-storage';
@@ -81,6 +93,14 @@ export type {
   GitStatusEntry,
 } from './git-service';
 export { GitService } from './git-service';
+export {
+  type AgentExecutionRequest,
+  type AgentExecutionResult,
+  HarnessExecutionAdapter,
+  type HarnessRunRecord,
+  HarnessSession,
+  type HarnessSessionOptions,
+} from './harness-session';
 export { HelpService } from './help-service';
 export { ImpactStorage } from './impact-storage';
 export { ImplementationService } from './implementation-service';
@@ -147,6 +167,12 @@ export { DuplicateRuntimeError, RuntimeGroup } from './runtime/runtime-group';
 export type { RuntimeRegistration, WorkspaceDefinition } from './runtime/workspace-definition';
 export { WorkspaceFactory } from './runtime/workspace-factory';
 export { WorkspaceComposition } from './runtime/workspace-runtime';
+export type {
+  WorkspaceRuntimeClient,
+  WorkspaceRuntimeClientOptions,
+  WorkspaceRuntimeClientStatus,
+} from './runtime-client';
+export { HttpWorkspaceRuntimeClient } from './runtime-client';
 export type { HealthCheckResult, ServiceContract, ServiceStatus } from './service-contract';
 export {
   AgentDaemonService,
@@ -170,6 +196,7 @@ export type {
   AgentPermission,
   AgentRole,
   AgentTeam,
+  AgentType,
   AgentWorkflow,
   Approval,
   ChangeSet,
@@ -234,8 +261,6 @@ export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './works
 export { WorkspaceManifest } from './workspace-manifest';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
-export type { WorkspaceRuntimeClient, WorkspaceRuntimeClientOptions, WorkspaceRuntimeClientStatus } from './runtime-client';
-export { HttpWorkspaceRuntimeClient } from './runtime-client';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';
 export { WorkspaceRuntimeService } from './workspace-runtime-service';
 export { WorkspaceSession } from './workspace-session';

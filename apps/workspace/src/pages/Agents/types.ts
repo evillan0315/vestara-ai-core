@@ -1,7 +1,10 @@
+export type AgentType = 'workspace' | 'registry';
+
 export interface Agent {
   id: string;
   name: string;
   role: string;
+  agentType: AgentType;
   description?: string;
   capabilities: string[];
   permissions: any[];

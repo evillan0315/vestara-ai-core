@@ -1,6 +1,5 @@
 import { EventEmitter } from 'node:events';
 import type * as http from 'node:http';
-import { afterEach, describe, expect, it } from 'vitest';
 import type {
   InstalledMarketplaceAsset,
   MarketplaceOperation,
@@ -8,8 +7,9 @@ import type {
   MarketplaceService,
   MarketplaceUpdateCandidate,
 } from '@vestara/marketplace';
-import type { WorkspaceContext } from '../src/workspace-context.js';
+import { afterEach, describe, expect, it } from 'vitest';
 import { handleMarketplaceRoute } from '../src/routes/marketplace.js';
+import type { WorkspaceContext } from '../src/workspace-context.js';
 
 const OPERATION_ID = 'marketplace-install-1';
 
@@ -127,7 +127,13 @@ afterEach(() => {
 describe('marketplace routes', () => {
   it('serves search results', async () => {
     const { res, body, status } = fakeResponse();
-    const handled = await handleMarketplaceRoute('GET', '/api/marketplace/search', fakeRequest('GET', '/api/marketplace/search?q=demo'), res, makeContext());
+    const handled = await handleMarketplaceRoute(
+      'GET',
+      '/api/marketplace/search',
+      fakeRequest('GET', '/api/marketplace/search?q=demo'),
+      res,
+      makeContext(),
+    );
     expect(handled).toBe(true);
     expect(status()).toBe(200);
     expect((body() as { results: MarketplaceSearchResult }).results.total).toBe(1);
@@ -135,14 +141,26 @@ describe('marketplace routes', () => {
 
   it('returns 404 for unknown assets', async () => {
     const { res, status } = fakeResponse();
-    const handled = await handleMarketplaceRoute('GET', '/api/marketplace/assets/vestara/demo', fakeRequest('GET', '/api/marketplace/assets/vestara/demo'), res, makeContext());
+    const handled = await handleMarketplaceRoute(
+      'GET',
+      '/api/marketplace/assets/vestara/demo',
+      fakeRequest('GET', '/api/marketplace/assets/vestara/demo'),
+      res,
+      makeContext(),
+    );
     expect(handled).toBe(true);
     expect(status()).toBe(404);
   });
 
   it('returns planning for dry-run installs', async () => {
     const { res, body, status } = fakeResponse();
-    const handled = await handleMarketplaceRoute('POST', '/api/marketplace/install', fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo', dryRun: true })), res, makeContext());
+    const handled = await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/install',
+      fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo', dryRun: true })),
+      res,
+      makeContext(),
+    );
     expect(handled).toBe(true);
     expect(status()).toBe(200);
     const operation = (body() as { operation: { status: string; plan?: unknown } }).operation;
@@ -152,7 +170,13 @@ describe('marketplace routes', () => {
 
   it('returns awaiting-permission when permissions require approval', async () => {
     const { res, body, status } = fakeResponse();
-    const handled = await handleMarketplaceRoute('POST', '/api/marketplace/install', fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo' })), res, makeContext());
+    const handled = await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/install',
+      fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo' })),
+      res,
+      makeContext(),
+    );
     expect(handled).toBe(true);
     expect(status()).toBe(200);
     const operation = (body() as { operation: { status: string } }).operation;
@@ -161,7 +185,13 @@ describe('marketplace routes', () => {
 
   it('completes approved installs with the correlation id', async () => {
     const { res, body, status } = fakeResponse();
-    const handled = await handleMarketplaceRoute('POST', '/api/marketplace/install', fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo', approved: true })), res, makeContext());
+    const handled = await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/install',
+      fakeRequest('POST', '/api/marketplace/install', JSON.stringify({ reference: 'demo', approved: true })),
+      res,
+      makeContext(),
+    );
     expect(handled).toBe(true);
     expect(status()).toBe(200);
     const operation = (body() as { operation: { status: string; id: string } }).operation;
@@ -171,12 +201,24 @@ describe('marketplace routes', () => {
 
   it('handles rescan and verify operations', async () => {
     const rescanResponse = fakeResponse();
-    await handleMarketplaceRoute('POST', '/api/marketplace/rescan', fakeRequest('POST', '/api/marketplace/rescan'), rescanResponse.res, makeContext());
+    await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/rescan',
+      fakeRequest('POST', '/api/marketplace/rescan'),
+      rescanResponse.res,
+      makeContext(),
+    );
     expect(rescanResponse.status()).toBe(200);
     expect((rescanResponse.body() as { operation: { type: string } }).operation.type).toBe('rescan');
 
     const verifyResponse = fakeResponse();
-    await handleMarketplaceRoute('POST', '/api/marketplace/verify', fakeRequest('POST', '/api/marketplace/verify', JSON.stringify({ reference: 'demo' })), verifyResponse.res, makeContext());
+    await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/verify',
+      fakeRequest('POST', '/api/marketplace/verify', JSON.stringify({ reference: 'demo' })),
+      verifyResponse.res,
+      makeContext(),
+    );
     expect(verifyResponse.status()).toBe(200);
     expect((verifyResponse.body() as { operation: { type: string } }).operation.type).toBe('verify');
   });

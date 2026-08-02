@@ -48,6 +48,7 @@ export class AgentStorage {
         id TEXT PRIMARY KEY,
         name TEXT,
         role TEXT,
+        agent_type TEXT DEFAULT 'workspace',
         description TEXT DEFAULT '',
         capabilities TEXT DEFAULT '[]',
         permissions TEXT DEFAULT '[]',
@@ -136,6 +137,7 @@ export class AgentStorage {
         id: 'agent-architect',
         name: 'Architect',
         role: 'architect',
+        agentType: 'workspace',
         description: 'Architecture analysis, design review, dependency analysis',
         capabilities: ['architecture-analysis', 'design-review', 'dependency-analysis'],
         permissions: [
@@ -154,6 +156,7 @@ export class AgentStorage {
         id: 'agent-developer',
         name: 'Developer',
         role: 'developer',
+        agentType: 'workspace',
         description: 'Code generation, refactoring, bug fixing',
         capabilities: ['code-generation', 'refactoring', 'bug-fixing'],
         permissions: [
@@ -172,6 +175,7 @@ export class AgentStorage {
         id: 'agent-verifier',
         name: 'Verifier',
         role: 'verifier',
+        agentType: 'workspace',
         description: 'Testing, diagnostics, quality analysis',
         capabilities: ['testing', 'diagnostics', 'quality-analysis'],
         permissions: [
@@ -189,6 +193,7 @@ export class AgentStorage {
         id: 'agent-documenter',
         name: 'Documenter',
         role: 'documenter',
+        agentType: 'workspace',
         description: 'Documentation, summarization, knowledge management',
         capabilities: ['documentation', 'summarization', 'knowledge-management'],
         permissions: [
@@ -205,6 +210,7 @@ export class AgentStorage {
         id: 'agent-dashboard-curator',
         name: 'Dashboard Curator',
         role: 'dashboard-curator',
+        agentType: 'workspace',
         description:
           'Monitors workspace development progress, auto-advances milestones, updates the dashboard with feature detection and velocity tracking',
         capabilities: [
@@ -232,6 +238,7 @@ export class AgentStorage {
         id: 'agent-dashboard-dev',
         name: 'Dashboard Developer',
         role: 'frontend',
+        agentType: 'workspace',
         description:
           'Builds and maintains the Workspace Dashboard UI with React, Tailwind CSS, real-time data visualization, and activity stream integration',
         capabilities: [
@@ -260,6 +267,7 @@ export class AgentStorage {
         id: 'agent-conversation-dev',
         name: 'Conversation Developer',
         role: 'conversation',
+        agentType: 'workspace',
         description:
           'Designs and develops conversational onboarding flows, voice interaction pipelines, STT/TTS integration, and user profile enrichment',
         capabilities: [
@@ -291,6 +299,7 @@ export class AgentStorage {
         id: 'agent-planner',
         name: 'Planner',
         role: 'planning',
+        agentType: 'workspace',
         description: 'Transforms goals into structured plans with tasks, milestones, and resource estimates',
         capabilities: [
           'planning',
@@ -316,6 +325,7 @@ export class AgentStorage {
         id: 'agent-analyst',
         name: 'Repository Analyst',
         role: 'analyst',
+        agentType: 'workspace',
         description: 'Deep repository understanding, codebase insights, dependency mapping',
         capabilities: ['architecture-analysis', 'dependency-analysis', 'quality-analysis'],
         permissions: [
@@ -333,6 +343,7 @@ export class AgentStorage {
         id: 'agent-reviewer',
         name: 'Reviewer',
         role: 'reviewer',
+        agentType: 'workspace',
         description: 'Code review, change set validation, quality gate enforcement',
         capabilities: ['design-review', 'quality-analysis', 'testing'],
         permissions: [
@@ -350,6 +361,7 @@ export class AgentStorage {
         id: 'agent-tester',
         name: 'Tester',
         role: 'tester',
+        agentType: 'workspace',
         description: 'Test generation, test execution, coverage analysis',
         capabilities: ['testing', 'diagnostics', 'quality-analysis'],
         permissions: [
@@ -366,6 +378,7 @@ export class AgentStorage {
         id: 'agent-security',
         name: 'Security Agent',
         role: 'security-agent',
+        agentType: 'workspace',
         description: 'Security analysis, vulnerability detection, compliance checking',
         capabilities: ['security-analysis'],
         permissions: [
@@ -382,6 +395,7 @@ export class AgentStorage {
         id: 'agent-performance',
         name: 'Performance Agent',
         role: 'performance-agent',
+        agentType: 'workspace',
         description: 'Performance optimization, benchmarking, bottleneck detection',
         capabilities: ['performance-optimization'],
         permissions: [{ resource: 'repository', action: 'read', approvalRequired: false }],
@@ -395,6 +409,7 @@ export class AgentStorage {
         id: 'agent-documentation',
         name: 'Documentation Agent',
         role: 'documentation-agent',
+        agentType: 'workspace',
         description: 'API documentation, guide generation, knowledge base maintenance',
         capabilities: ['documentation', 'summarization', 'knowledge-management'],
         permissions: [
@@ -412,6 +427,7 @@ export class AgentStorage {
         id: 'agent-refactoring',
         name: 'Refactoring Agent',
         role: 'refactoring-agent',
+        agentType: 'workspace',
         description: 'Code quality improvement, technical debt reduction, pattern migration',
         capabilities: ['refactoring', 'architecture-analysis', 'quality-analysis'],
         permissions: [
@@ -429,6 +445,7 @@ export class AgentStorage {
         id: 'agent-release',
         name: 'Release Agent',
         role: 'release-agent',
+        agentType: 'workspace',
         description: 'Release management, versioning, changelog generation, deployment coordination',
         capabilities: ['release-management', 'summarization', 'knowledge-management'],
         permissions: [
@@ -446,6 +463,7 @@ export class AgentStorage {
         id: 'agent-workspace-ui-tester',
         name: 'Workspace UI Tester',
         role: 'continuous-tester',
+        agentType: 'workspace',
         description:
           'Monitors workspace-ui file changes and milestone updates, then runs pnpm test + build automatically',
         capabilities: [
@@ -477,12 +495,13 @@ export class AgentStorage {
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO agents
-       (id, name, role, description, capabilities, permissions, provider, model, team_id, color, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, role, agent_type, description, capabilities, permissions, provider, model, team_id, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         agent.id,
         agent.name,
         agent.role,
+        agent.agentType ?? 'workspace',
         agent.description ?? '',
         JSON.stringify(agent.capabilities),
         JSON.stringify(agent.permissions),
@@ -742,6 +761,7 @@ export class AgentStorage {
       id: row.id,
       name: row.name,
       role: row.role,
+      agentType: row.agent_type || 'workspace',
       description: row.description || undefined,
       capabilities: JSON.parse(row.capabilities ?? '[]'),
       permissions: JSON.parse(row.permissions ?? '[]'),

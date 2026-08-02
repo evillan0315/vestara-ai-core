@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { VestaraModal } from '../../components/ui/VestaraModal';
-import type { Agent, Team } from './types';
+import type { Agent, AgentType, Team } from './types';
 
 interface AgentRegistryModalProps {
   agent: Agent | null;
@@ -37,12 +37,15 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
   const isNewRegistration = !agent?.id || agent?.id?.startsWith('slot-') || agent?.status === 'unregistered';
   const [name, setName] = useState(agent?.name || '');
   const [role, setRole] = useState(agent?.role || 'custom');
+  const [agentType, setAgentType] = useState<AgentType>(agent?.agentType || 'workspace');
   const [description, setDescription] = useState(agent?.description || '');
   const [provider, setProvider] = useState(agent?.provider || '');
   const [model, setModel] = useState(agent?.model || '');
   const [teamId, setTeamId] = useState(agent?.teamId || '');
   const [color, setColor] = useState(agent?.color || '#6b7280');
   const [capStr, setCapStr] = useState((agent?.capabilities || []).join(', '));
+  const [registrySource, setRegistrySource] = useState('');
+  const [registryVersion, setRegistryVersion] = useState('');
   const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [providersLoading, setProvidersLoading] = useState(true);
   const defaultsApplied = useRef(false);
@@ -130,9 +133,10 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
     onSave({
       name,
       role,
+      agentType,
       description,
-      provider,
-      model,
+      provider: agentType === 'workspace' ? provider : registrySource,
+      model: agentType === 'workspace' ? model : registryVersion,
       teamId: teamId || '',
       color,
       capabilities: capStr
@@ -194,6 +198,38 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
               </div>
             </div>
             <div>
+              <label className={labelClass}>Agent Type</label>
+              <div className="flex gap-3">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="agentType"
+                    value="workspace"
+                    checked={agentType === 'workspace'}
+                    onChange={() => setAgentType('workspace')}
+                    className="w-4 h-4 text-(--vestara-accent-text) bg-(--vestara-accent-bg) border-(--vestara-accent-border) focus:ring-(--vestara-accent-border-active)"
+                  />
+                  <span className="text-xs text-(--vestara-text-2)">Workspace Agent</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="agentType"
+                    value="registry"
+                    checked={agentType === 'registry'}
+                    onChange={() => setAgentType('registry')}
+                    className="w-4 h-4 text-(--vestara-accent-text) bg-(--vestara-accent-bg) border-(--vestara-accent-border) focus:ring-(--vestara-accent-border-active)"
+                  />
+                  <span className="text-xs text-(--vestara-text-2)">Registry Agent</span>
+                </label>
+              </div>
+              <p className="text-[10px] text-(--vestara-text-muted) mt-1">
+                {agentType === 'workspace'
+                  ? 'Local agent configured in this workspace'
+                  : 'Agent installed from the marketplace registry'}
+              </p>
+            </div>
+            <div>
               <label className={labelClass}>Description</label>
               <input
                 value={description}
@@ -203,56 +239,87 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
               />
             </div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelClass}>Provider</label>
-                {providersLoading ? (
-                  <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading providers…</div>
-                ) : (
-                  <select
-                    value={provider}
-                    onChange={(e) => handleProviderChange(e.target.value)}
-                    className={`${inputClass} cursor-pointer`}
-                    disabled={providers.length === 0}
-                  >
-                    {providers.length === 0 && <option value="">No providers configured</option>}
-                    {agent?.provider && !providers.some((p) => p.id === agent.provider) && (
-                      <option value={agent.provider}>{agent.provider} (current)</option>
+              {agentType === 'workspace' ? (
+                <>
+                  <div>
+                    <label className={labelClass}>Provider</label>
+                    {providersLoading ? (
+                      <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading providers…</div>
+                    ) : (
+                      <select
+                        value={provider}
+                        onChange={(e) => handleProviderChange(e.target.value)}
+                        className={`${inputClass} cursor-pointer`}
+                        disabled={providers.length === 0}
+                      >
+                        {providers.length === 0 && <option value="">No providers configured</option>}
+                        {agent?.provider && !providers.some((p) => p.id === agent.provider) && (
+                          <option value={agent.provider}>{agent.provider} (current)</option>
+                        )}
+                        {providers.map((p) => (
+                          <option key={p.id} value={p.id} disabled={!p.enabled && p.id !== provider}>
+                            {p.name} ({p.id}){!p.enabled ? ' — disabled' : ''}
+                          </option>
+                        ))}
+                      </select>
                     )}
-                    {providers.map((p) => (
-                      <option key={p.id} value={p.id} disabled={!p.enabled && p.id !== provider}>
-                        {p.name} ({p.id}){!p.enabled ? ' — disabled' : ''}
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-              <div>
-                <label className={labelClass}>Model</label>
-                {providersLoading ? (
-                  <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading models…</div>
-                ) : modelOptions.length > 0 ? (
-                  <select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    className={`${inputClass} cursor-pointer`}
-                  >
-                    {modelOptions.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                        {!m.enabled ? ' (disabled)' : ''}
-                        {m.isCustom ? ' (current)' : ''}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    placeholder={provider ? `No models for ${provider} — enter model id` : 'Model id'}
-                    className={inputClass}
-                  />
-                )}
-              </div>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Model</label>
+                    {providersLoading ? (
+                      <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading models…</div>
+                    ) : modelOptions.length > 0 ? (
+                      <select
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        className={`${inputClass} cursor-pointer`}
+                      >
+                        {modelOptions.map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                            {!m.enabled ? ' (disabled)' : ''}
+                            {m.isCustom ? ' (current)' : ''}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        value={model}
+                        onChange={(e) => setModel(e.target.value)}
+                        placeholder={provider ? `No models for ${provider} — enter model id` : 'Model id'}
+                        className={inputClass}
+                      />
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className={labelClass}>Registry Source</label>
+                    <input
+                      value={registrySource}
+                      onChange={(e) => setRegistrySource(e.target.value)}
+                      placeholder="e.g. @vestara/agent-pack"
+                      className={inputClass}
+                    />
+                    <p className="text-[10px] text-(--vestara-text-muted) mt-1">
+                      Marketplace package or registry identifier
+                    </p>
+                  </div>
+                  <div>
+                    <label className={labelClass}>Version</label>
+                    <input
+                      value={registryVersion}
+                      onChange={(e) => setRegistryVersion(e.target.value)}
+                      placeholder="e.g. ^1.0.0"
+                      className={inputClass}
+                    />
+                    <p className="text-[10px] text-(--vestara-text-muted) mt-1">
+                      Semantic version constraint
+                    </p>
+                  </div>
+                </>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

@@ -27,6 +27,7 @@ export type AgentTerminalState = Extract<AgentRunState, 'blocked' | 'completed' 
 export type TaskThreadStatus = 'active' | 'blocked' | 'completed' | 'failed' | 'cancelled' | 'archived';
 
 export type ThreadItemKind =
+  | 'harness-run'
   | 'user-message'
   | 'steering-message'
   | 'agent-message'

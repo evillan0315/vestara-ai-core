@@ -1,4 +1,13 @@
-export type TuiView = 'chat' | 'sessions' | 'plans' | 'graph' | 'explorer' | 'logs' | 'telemetry';
+export type TuiView =
+  | 'chat'
+  | 'sessions'
+  | 'plans'
+  | 'graph'
+  | 'explorer'
+  | 'logs'
+  | 'telemetry'
+  | 'execution'
+  | 'workflow';
 
 export interface ConversationEntry {
   readonly id: string;
@@ -91,6 +100,145 @@ export interface TuiViewContribution {
   readonly command?: string;
 }
 
+// ─── Harness execution projections (mirror @vestara/tui-protocol) ─────────
+
+export interface HarnessThreadSummary {
+  readonly id: string;
+  readonly taskId: string;
+  readonly title: string;
+  readonly status: string;
+  readonly phase: string;
+  readonly environmentId: string;
+  readonly attentionRequired: boolean;
+}
+
+export interface HarnessActivityItem {
+  readonly id: string;
+  readonly kind: 'intent' | 'tool' | 'command' | 'filesystem' | 'diff' | 'verification' | 'approval' | 'system';
+  readonly label: string;
+  readonly detail?: string;
+  readonly status: string;
+  readonly timestamp: string;
+  readonly agentId?: string;
+}
+
+export interface HarnessDiffLine {
+  readonly kind: 'context' | 'addition' | 'deletion';
+  readonly oldLine?: number;
+  readonly newLine?: number;
+  readonly content: string;
+}
+
+export interface HarnessDiffHunk {
+  readonly id: string;
+  readonly header: string;
+  readonly lines: readonly HarnessDiffLine[];
+}
+
+export interface HarnessFileChange {
+  readonly path: string;
+  readonly previousPath?: string;
+  readonly operation: 'create' | 'update' | 'delete' | 'rename';
+  readonly additions: number;
+  readonly deletions: number;
+  readonly hunks?: readonly HarnessDiffHunk[];
+  readonly preExisting: boolean;
+}
+
+export interface HarnessApproval {
+  readonly id: string;
+  readonly tool: string;
+  readonly risk: string;
+  readonly reason: string;
+  readonly resources: readonly string[];
+  readonly status: 'pending' | 'approved' | 'denied';
+}
+
+export interface HarnessVerification {
+  readonly runId: string;
+  readonly status: string;
+  readonly confidence?: number;
+  readonly checks: readonly { id: string; name: string; status: string; summary: string }[];
+  readonly uncoveredRisks: readonly string[];
+}
+
+export interface HarnessCommandExecution {
+  readonly id: string;
+  readonly command: string;
+  readonly status: string;
+  readonly exitCode?: number;
+}
+
+export interface HarnessTaskSnapshot {
+  readonly schemaVersion: number;
+  readonly sequence: number;
+  readonly generatedAt: string;
+  readonly thread: {
+    readonly id: string;
+    readonly taskId: string;
+    readonly title: string;
+    readonly status: string;
+    readonly activeAgentId?: string;
+    readonly environmentId: string;
+    readonly branch?: string;
+    readonly phase: string;
+    readonly changedFileCount: number;
+    readonly verificationStatus?: string;
+    readonly attentionRequired: boolean;
+  };
+  readonly activity: readonly HarnessActivityItem[];
+  readonly changes: readonly HarnessFileChange[];
+  readonly executions: readonly HarnessCommandExecution[];
+  readonly verification?: HarnessVerification;
+  readonly approvals: readonly HarnessApproval[];
+}
+
+// ─── Workflow lifecycle projection (mirror @vestara/workflow-projections) ──
+
+export interface WorkflowStageSummary {
+  readonly id: string;
+  readonly label: string;
+  readonly status: 'pending' | 'active' | 'completed' | 'blocked' | 'failed' | 'skipped';
+  readonly durationMs?: number;
+  readonly agentId?: string;
+  readonly tools: readonly string[];
+  readonly files: readonly string[];
+  readonly blockingReason?: string;
+}
+
+export interface WorkflowAgentSummary {
+  readonly id: string;
+  readonly name: string;
+  readonly status: string;
+  readonly activeTool?: string;
+}
+
+export interface WorkflowApprovalSummary {
+  readonly id: string;
+  readonly tool: string;
+  readonly status: 'pending' | 'approved' | 'denied';
+}
+
+export interface WorkflowProjectionSummary {
+  readonly workflowId: string;
+  readonly threadId: string;
+  readonly runId: string;
+  readonly status: string;
+  readonly currentStageId?: string;
+  readonly stages: readonly WorkflowStageSummary[];
+  readonly agents: readonly WorkflowAgentSummary[];
+  readonly approvals: readonly WorkflowApprovalSummary[];
+  readonly verification?: { readonly status: string; readonly confidence?: number };
+  readonly metrics: {
+    readonly elapsedMs: number;
+    readonly stagesCompleted: number;
+    readonly toolsInvoked: number;
+    readonly filesChanged: number;
+    readonly additions: number;
+    readonly deletions: number;
+  };
+}
+
 export type TuiEvent =
   | { type: 'connection'; state: 'connecting' | 'connected' | 'disconnected' | 'error'; message?: string }
   | { type: 'workspace'; workspace: WorkspaceSummary }
@@ -106,6 +254,9 @@ export type TuiEvent =
   | { type: 'files'; files: readonly FileSummary[] }
   | { type: 'plans'; plans: readonly PlanSummary[] }
   | { type: 'sessions'; sessions: readonly SessionSummary[] }
+  | { type: 'harness-threads'; threads: readonly HarnessThreadSummary[] }
+  | { type: 'harness-task'; snapshot: HarnessTaskSnapshot }
+  | { type: 'workflow'; workflow: WorkflowProjectionSummary }
   | { type: 'navigate'; view: TuiView }
   | { type: 'notification'; level: 'success' | 'warning' | 'error' | 'info'; message: string }
   | { type: 'confirmation'; prompt: string; command: string }

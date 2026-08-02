@@ -5,12 +5,15 @@ import type {
   AgentCard,
   ConversationEntry,
   FileSummary,
+  HarnessTaskSnapshot,
+  HarnessThreadSummary,
   PlanSummary,
   RoutingSelection,
   SessionSummary,
   ToolCard,
   TuiEvent,
   TuiView,
+  WorkflowProjectionSummary,
   WorkspaceSummary,
 } from './types.js';
 
@@ -22,6 +25,8 @@ const NAVIGATION: Array<{ view: TuiView; label: string; key: string }> = [
   { view: 'explorer', label: 'Explorer', key: '5' },
   { view: 'logs', label: 'Logs', key: '6' },
   { view: 'telemetry', label: 'Telemetry', key: '7' },
+  { view: 'execution', label: 'Execution', key: '8' },
+  { view: 'workflow', label: 'Workflow', key: '9' },
 ];
 
 interface LogEntry {
@@ -55,6 +60,9 @@ export function App({ controller }: { controller: TuiController }) {
   const [entities, setEntities] = useState<readonly { id: string; kind: string; label: string; status?: string }[]>([]);
   const [plans, setPlans] = useState<readonly PlanSummary[]>([]);
   const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
+  const [harnessThreads, setHarnessThreads] = useState<readonly HarnessThreadSummary[]>([]);
+  const [harnessTask, setHarnessTask] = useState<HarnessTaskSnapshot>();
+  const [workflow, setWorkflow] = useState<WorkflowProjectionSummary>();
   const [files, setFiles] = useState<readonly FileSummary[]>([]);
   const [selection, setSelection] = useState(0);
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -109,6 +117,9 @@ export function App({ controller }: { controller: TuiController }) {
       else if (event.type === 'graph') setEntities(event.entities);
       else if (event.type === 'plans') setPlans(event.plans);
       else if (event.type === 'sessions') setSessions(event.sessions);
+      else if (event.type === 'harness-threads') setHarnessThreads(event.threads);
+      else if (event.type === 'harness-task') setHarnessTask(event.snapshot);
+      else if (event.type === 'workflow') setWorkflow(event.workflow);
       else if (event.type === 'files') setFiles(event.files);
       else if (event.type === 'navigate') {
         setView(event.view);
@@ -433,6 +444,9 @@ export function App({ controller }: { controller: TuiController }) {
             entities={entities}
             plans={plans}
             sessions={sessions}
+            harnessThreads={harnessThreads}
+            harnessTask={harnessTask}
+            workflow={workflow}
             files={files}
             selection={selection}
             scroll={scroll}
@@ -496,6 +510,9 @@ function MainView(props: {
   entities: readonly { id: string; kind: string; label: string; status?: string }[];
   plans: readonly PlanSummary[];
   sessions: readonly SessionSummary[];
+  harnessThreads: readonly HarnessThreadSummary[];
+  harnessTask?: HarnessTaskSnapshot;
+  workflow?: WorkflowProjectionSummary;
   files: readonly FileSummary[];
   selection: number;
   scroll: number;
@@ -548,7 +565,133 @@ function MainView(props: {
         selected={props.selection}
       />
     );
+  if (props.view === 'execution')
+    return <HarnessExecution threads={props.harnessThreads} snapshot={props.harnessTask} height={props.height} />;
+  if (props.view === 'workflow') return <WorkflowView workflow={props.workflow} />;
   return null;
+}
+
+function WorkflowView({ workflow }: { workflow?: WorkflowProjectionSummary }) {
+  if (!workflow) {
+    return (
+      <ListView
+        title="Workflow"
+        lines={['No workflow selected. Use /workflow <threadId> to follow a run.']}
+        selected={0}
+      />
+    );
+  }
+  const mark = (status: string): string =>
+    status === 'completed'
+      ? '✓'
+      : status === 'failed'
+        ? '✗'
+        : status === 'blocked'
+          ? '⊘'
+          : status === 'active'
+            ? '●'
+            : '○';
+  const rail = workflow.stages.map((stage) => `${mark(stage.status)} ${stage.label}`).join(' ━ ');
+  const active = workflow.stages.find((stage) => stage.status === 'active');
+  const rows: string[] = [
+    `wf ${workflow.runId} · ${workflow.status.toUpperCase()}${workflow.currentStageId ? ` · ${workflow.currentStageId}` : ''}`,
+    '',
+    rail,
+    '',
+    'Stages',
+    ...workflow.stages.map((stage) => {
+      const duration = stage.durationMs != null ? `${(stage.durationMs / 1000).toFixed(1)}s` : '';
+      const block = stage.blockingReason ? ` — ${stage.blockingReason}` : '';
+      return `  ${mark(stage.status)} ${stage.label.padEnd(14)} ${duration.padEnd(7)}${block}`;
+    }),
+    '',
+    'Agents',
+    ...workflow.agents.map(
+      (agent) => `  ${agent.status.padEnd(9)} ${agent.name}${agent.activeTool ? ` · ${agent.activeTool}` : ''}`,
+    ),
+  ];
+  if (active) {
+    rows.push('');
+    rows.push(`Active: ${active.label}`);
+    rows.push(
+      `  tools ${active.tools.length} · files ${active.files.length}${active.agentId ? ` · agent ${active.agentId}` : ''}`,
+    );
+  }
+  if (workflow.approvals.length > 0) {
+    rows.push('');
+    rows.push('Approvals');
+    for (const approval of workflow.approvals)
+      rows.push(`  ${approval.status.padEnd(8)} ${approval.tool} [${approval.id}]`);
+  }
+  rows.push('');
+  rows.push(
+    `Metrics: ${workflow.metrics.elapsedMs / 1000}s · ${workflow.metrics.stagesCompleted}/8 stages · ${workflow.metrics.toolsInvoked} tools · +${workflow.metrics.additions} -${workflow.metrics.deletions}`,
+  );
+  return <ListView title="Workflow" lines={rows} selected={0} />;
+}
+
+function HarnessExecution({
+  threads,
+  snapshot,
+  height,
+}: {
+  threads: readonly HarnessThreadSummary[];
+  snapshot?: HarnessTaskSnapshot;
+  height: number;
+}) {
+  if (!snapshot) {
+    const lines =
+      threads.length === 0
+        ? ['No harness threads yet. Start a run, then use /exec to follow it here.']
+        : threads.map((thread) => `${thread.status.padEnd(12)} ${thread.title} · ${thread.phase}`);
+    return <ListView title="Harness Execution" lines={lines} selected={0} />;
+  }
+  const thread = snapshot.thread;
+  const rows: string[] = [];
+  rows.push(
+    `${thread.status} · ${thread.phase}${thread.activeAgentId ? ` · ${thread.activeAgentId}` : ''} · ${thread.changedFileCount} changed${thread.attentionRequired ? ' · ⚠ attention' : ''}`,
+  );
+  rows.push('');
+  rows.push('Activity');
+  for (const item of snapshot.activity.slice(-Math.max(3, Math.floor(height / 3)))) {
+    rows.push(`  ${item.status.padEnd(9)} ${item.label}${item.detail ? ` — ${item.detail.slice(0, 64)}` : ''}`);
+  }
+  rows.push('');
+  rows.push(`Changes (${snapshot.changes.length})`);
+  for (const change of snapshot.changes.slice(0, 20)) {
+    const op = change.operation.toUpperCase().padEnd(6);
+    const counts = change.operation === 'delete' ? '' : ` +${change.additions} -${change.deletions}`;
+    rows.push(`  ${op} ${change.path}${counts}`);
+    for (const hunk of change.hunks ?? []) {
+      for (const line of hunk.lines.slice(0, 14)) {
+        const prefix = line.kind === 'addition' ? '+' : line.kind === 'deletion' ? '-' : ' ';
+        rows.push(`    ${prefix}${line.content}`);
+      }
+    }
+  }
+  if (snapshot.executions.length > 0) {
+    rows.push('');
+    rows.push('Commands');
+    for (const execution of snapshot.executions.slice(0, 8)) {
+      rows.push(
+        `  ${execution.status.padEnd(9)} ${execution.command}${execution.exitCode != null ? ` (${execution.exitCode})` : ''}`,
+      );
+    }
+  }
+  if (snapshot.approvals.length > 0) {
+    rows.push('');
+    rows.push('Approvals (/approve|/deny <thread> <id>)');
+    for (const approval of snapshot.approvals) {
+      rows.push(`  ${approval.status.padEnd(8)} ${approval.tool} — ${approval.reason} [${approval.id}]`);
+    }
+  }
+  if (snapshot.verification) {
+    rows.push('');
+    rows.push(
+      `Verification: ${snapshot.verification.status}${snapshot.verification.confidence != null ? ` (${Math.round(snapshot.verification.confidence * 100)}%)` : ''}`,
+    );
+  }
+  return <ListView title="Harness Execution" lines={rows} selected={0} />;
 }
 
 function Conversation({

@@ -44,6 +44,7 @@
     "@vestara/tools-git": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/verification": "workspace:*",
+    "@vestara/workflow-projections": "workspace:*",
     "@vestara/workspace": "workspace:*",
     "@vestara/worktree-runtime": "workspace:*",
     "sql.js": "^1.14.1",

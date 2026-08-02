@@ -3,6 +3,8 @@ import WebSocket from 'ws';
 import { normalizeRuntimeEvent } from './normalize.js';
 import type {
   AgentCard,
+  HarnessTaskSnapshot,
+  HarnessThreadSummary,
   PlanSummary,
   RoutingAgent,
   RoutingCandidate,
@@ -10,6 +12,7 @@ import type {
   SessionSummary,
   TuiEvent,
   TuiSnapshot,
+  WorkflowProjectionSummary,
 } from './types.js';
 
 export interface TuiControllerOptions {
@@ -19,6 +22,7 @@ export interface TuiControllerOptions {
 export class TuiController {
   private readonly endpoint: URL;
   private routingState?: RoutingSelection;
+  private workflowFollow?: { threadId: string; lastPush: number };
   constructor(options: TuiControllerOptions = {}) {
     this.endpoint = new URL(options.endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001');
   }
@@ -85,6 +89,30 @@ export class TuiController {
       listener({ type: 'connection', state: 'connected' });
       const unsubscribe = await this.subscribe((raw) => {
         for (const event of normalizeRuntimeEvent(raw)) listener(event);
+        const message = raw as { type?: unknown; payload?: unknown };
+        const payload =
+          message?.payload && typeof message.payload === 'object'
+            ? (message.payload as { threadId?: unknown })
+            : undefined;
+        if (message?.type === 'tui.task.updated' && payload?.threadId) {
+          void this.getJson<HarnessTaskSnapshot>(
+            `/api/tui/threads/${encodeURIComponent(String(payload.threadId))}/snapshot`,
+          )
+            .then((snapshot) => listener({ type: 'harness-task', snapshot }))
+            .catch(() => {});
+        }
+        if (
+          message?.type === 'workflow.updated' &&
+          payload?.threadId &&
+          this.workflowFollow?.threadId === String(payload.threadId)
+        ) {
+          this.workflowFollow.lastPush = Date.now();
+          void this.getJson<{ projection: WorkflowProjectionSummary }>(
+            `/api/workflow/${encodeURIComponent(String(payload.threadId))}`,
+          )
+            .then((result) => listener({ type: 'workflow', workflow: result.projection }))
+            .catch(() => {});
+        }
       });
       return unsubscribe;
     } catch (error) {
@@ -123,6 +151,18 @@ export class TuiController {
       yield* this.routing(args);
       return;
     }
+    if (command === 'exec') {
+      yield* this.execution(args, signal);
+      return;
+    }
+    if (command === 'workflow') {
+      yield* this.workflow(args, signal);
+      return;
+    }
+    if (command === 'approve' || command === 'deny') {
+      yield* this.approval(command === 'approve', args);
+      return;
+    }
     const navigation: Record<string, TuiEvent & { type: 'navigate' }> = {
       chat: { type: 'navigate', view: 'chat' },
       sessions: { type: 'navigate', view: 'sessions' },
@@ -131,6 +171,8 @@ export class TuiController {
       explorer: { type: 'navigate', view: 'explorer' },
       logs: { type: 'navigate', view: 'logs' },
       telemetry: { type: 'navigate', view: 'telemetry' },
+      execution: { type: 'navigate', view: 'execution' },
+      workflow: { type: 'navigate', view: 'workflow' },
     };
     if (navigation[command]) {
       yield navigation[command];
@@ -143,12 +185,96 @@ export class TuiController {
           id: `help-${Date.now()}`,
           role: 'system',
           content:
-            'Commands: /status, /routing show, /routing select <agent> <role> <provider> <model>, /plans, /sessions, /graph, /explorer, /telemetry, /clear, /exit',
+            'Commands: /status, /routing show, /routing select <agent> <role> <provider> <model>, /exec [threadId], /workflow <threadId>, /approve|/deny <threadId> <approvalId>, /plans, /sessions, /graph, /explorer, /telemetry, /clear, /exit',
         },
       };
       return;
     }
     yield* this.streamConversation(input, signal);
+  }
+
+  private async *approval(approved: boolean, args: string[]): AsyncGenerator<TuiEvent> {
+    const [threadId, approvalId] = args;
+    if (!threadId || !approvalId) throw new Error('Usage: /approve|/deny <threadId> <approvalId>');
+    try {
+      await this.requestJson<unknown>(
+        `/api/agent-threads/${encodeURIComponent(threadId)}/approvals/${encodeURIComponent(approvalId)}/resolve`,
+        'POST',
+        { approved },
+      );
+      yield {
+        type: 'notification',
+        level: 'success',
+        message: `Approval ${approved ? 'approved' : 'denied'}: ${approvalId}`,
+      };
+      const snapshot = await this.getJson<HarnessTaskSnapshot>(
+        `/api/tui/threads/${encodeURIComponent(threadId)}/snapshot`,
+      );
+      yield { type: 'harness-task', snapshot };
+    } catch (error) {
+      yield {
+        type: 'notification',
+        level: 'error',
+        message: error instanceof Error ? error.message : String(error),
+      };
+    }
+  }
+
+  private async *workflow(args: string[], signal?: AbortSignal): AsyncGenerator<TuiEvent> {
+    const threadId = args[0];
+    if (!threadId) {
+      throw new Error('Usage: /workflow <threadId>');
+    }
+    // Visibility-aware polling fallback: poll only when no push has arrived
+    // recently (healthy WebSocket pushes keep this idle).
+    this.workflowFollow = { threadId, lastPush: 0 };
+    try {
+      for (let iteration = 0; iteration < 600 && !signal?.aborted; iteration++) {
+        if (Date.now() - this.workflowFollow.lastPush > 3000) {
+          try {
+            const result = await this.getJson<{ projection: WorkflowProjectionSummary }>(
+              `/api/workflow/${encodeURIComponent(threadId)}`,
+            );
+            this.workflowFollow.lastPush = Date.now();
+            yield { type: 'workflow', workflow: result.projection };
+            if (['completed', 'failed', 'cancelled', 'blocked'].includes(result.projection.status)) return;
+          } catch {
+            /* snapshot may be momentarily unavailable */
+          }
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+    } finally {
+      if (this.workflowFollow?.threadId === threadId) this.workflowFollow = undefined;
+    }
+  }
+
+  private async *execution(args: string[], signal?: AbortSignal): AsyncGenerator<TuiEvent> {
+    const threads = (await this.getJson<{ threads?: HarnessThreadSummary[] }>('/api/tui/threads')).threads ?? [];
+    yield { type: 'harness-threads', threads };
+    const target = args[0] ?? threads[0]?.id;
+    if (!target) {
+      yield {
+        type: 'message',
+        entry: {
+          id: `exec-${Date.now()}`,
+          role: 'system',
+          content: 'No harness threads yet. Start a run to see execution here.',
+        },
+      };
+      return;
+    }
+    let latest: HarnessTaskSnapshot | undefined;
+    for (let iteration = 0; iteration < 120 && !signal?.aborted; iteration++) {
+      try {
+        latest = await this.getJson<HarnessTaskSnapshot>(`/api/tui/threads/${encodeURIComponent(target)}/snapshot`);
+        yield { type: 'harness-task', snapshot: latest };
+      } catch {
+        /* snapshot may be momentarily unavailable */
+      }
+      if (latest && ['completed', 'failed', 'blocked', 'cancelled', 'archived'].includes(latest.thread.status)) return;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+    }
   }
 
   private async *routing(args: string[]): AsyncGenerator<TuiEvent> {

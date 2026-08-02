@@ -42,6 +42,10 @@ function snapshotFixture(overrides: Partial<ExternalSessionRuntimeSnapshot> = {}
     availableSkillIds: ['testing', 'review'],
     loadedSkillIds: ['testing'],
     advertisedSkillIds: [],
+    instructionSourceIds: [],
+    commandDefinitionIds: [],
+    pluginIds: [],
+    mcpServerIds: [],
     effectiveConfigurationHash: 'abc123',
     observedAt: '2026-08-02T10:01:00.000Z',
     provenance: 'runtime-reported',
@@ -175,7 +179,7 @@ describe('configuration drift helpers', () => {
       sources: [],
       effective,
       capturedAt: '2026-08-02T10:00:00.000Z',
-    }) as Parameters<typeof snapshotHash>[0];
+    }) as unknown as Parameters<typeof snapshotHash>[0];
 
   it('detects hash differences for changed effective config', () => {
     expect(snapshotHash(snapshot({ agent: 'build' }))).not.toBe(snapshotHash(snapshot({ agent: 'build-x' })));

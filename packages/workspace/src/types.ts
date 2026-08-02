@@ -556,10 +556,13 @@ export interface AgentPermission {
   approvalRequired: boolean;
 }
 
+export type AgentType = 'workspace' | 'registry';
+
 export interface AgentDefinition {
   id: string;
   name: string;
   role: AgentRole;
+  agentType: AgentType;
   description?: string;
   capabilities: AgentCapability[];
   permissions: AgentPermission[];

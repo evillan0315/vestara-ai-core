@@ -16,7 +16,6 @@ const _sqlJsDistDir = getSqlJsDistDir();
 export async function getSql(): Promise<any> {
   if (_sql) return _sql;
   if (!_initPromise) {
-    // @ts-expect-error — sql.js has no official types
     const initSqlJs = (await import('sql.js')).default;
     _initPromise = initSqlJs({
       locateFile: (file: string) => path.join(_sqlJsDistDir, file),

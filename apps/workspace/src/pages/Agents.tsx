@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ExecutionDetailModal from '../components/ExecutionDetailModal';
+import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
 import { useToasts } from '../components/Toast';
 import { useEventStream } from '../lib/useEventStream';
 import { workspaceSocket } from '../lib/ws';
+import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
 import type { Agent, Team, Execution } from './Agents/types';
 import { ROLE_CATEGORIES, CATEGORY_ORDER, CATEGORY_COLORS, ROLE_COLORS, ALL_AGENT_SLOTS } from './Agents/constants';
 import { AgentStatusBadge } from './Agents/AgentStatusBadge';
@@ -21,6 +23,18 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 const getColor = (a: Agent) => a.color || ROLE_COLORS[a.role] || '#6b7280';
 
+const TERMINAL_STATES = ['completed', 'failed', 'blocked', 'cancelled'];
+
+async function pollHarnessThread(threadId: string, timeoutMs: number): Promise<{ state: string }> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const snapshot = await harnessApi.thread(threadId);
+    if (snapshot && TERMINAL_STATES.includes(snapshot.state)) return { state: snapshot.state };
+    await new Promise((resolve) => setTimeout(resolve, 800));
+  }
+  throw new Error('Timed out waiting for harness run');
+}
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -30,6 +44,8 @@ export default function AgentsPage() {
   const [runTask, setRunTask] = useState('');
   const [running, setRunning] = useState(false);
   const [runOutput, setRunOutput] = useState<string | null>(null);
+  const [harnessSessions, setHarnessSessions] = useState<Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>>([]);
+  const [selectedHarnessSession, setSelectedHarnessSession] = useState<string | null>(null);
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
@@ -71,6 +87,8 @@ export default function AgentsPage() {
       setExecutions(data.executions);
       const teamData = await apiFetch<{ teams: Team[] }>('/api/teams').catch(() => ({ teams: [] }));
       setTeams(teamData.teams);
+      const sessionData = await apiFetch<{ sessions: Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }> }>('/api/sessions/executions').catch(() => null);
+      if (sessionData?.sessions) setHarnessSessions(sessionData.sessions.filter((s) => (s.workflowId ?? '').startsWith('thread:')));
     } catch {}
   }, []);
 
@@ -173,13 +191,21 @@ export default function AgentsPage() {
     setRunning(true);
     setRunOutput(null);
     try {
-      const result = await apiFetch<{ execution: Execution; message: string }>(`/api/agents/${agentId}/run`, {
-        method: 'POST',
-        body: JSON.stringify({ task: runTask }),
-      });
-      setRunOutput(result.message);
+      // Harness execution path: a durable thread + ExecutionSession are created
+      // immediately; progress flows through the harness event stream.
+      const created = await harnessApi.createRun(agentId, { instruction: runTask });
+      if (!created?.threadId) throw new Error('Harness run not created');
+      const terminal = await pollHarnessThread(created.threadId, 120_000);
+      const detail = await harnessApi.thread(created.threadId);
+      const sessionId =
+        detail?.session && typeof (detail.session as { id?: unknown }).id === 'string'
+          ? (detail.session as { id: string }).id
+          : undefined;
+      setRunOutput(
+        `Harness run ${terminal.state}${sessionId ? ` · session ${sessionId}` : ''} · thread ${created.threadId.slice(0, 12)}…`,
+      );
       load();
-      addToast({ type: 'info', message: `Task started on agent` });
+      addToast({ type: 'success', message: `Harness run ${terminal.state}` });
     } catch (err: any) {
       setRunOutput(`Error: ${err.message}`);
       addToast({ type: 'error', message: `Failed to run task: ${err.message}` });
@@ -676,6 +702,33 @@ export default function AgentsPage() {
                   {runOutput && (
                     <div className="mt-1.5 text-[10px] text-(--vestara-text-2) bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-2">
                       {runOutput}
+                    </div>
+                  )}
+
+                  {harnessSessions.length > 0 && (
+                    <div className="mt-3 border-t border-(--vestara-accent-border) pt-2">
+                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1">
+                        Harness Sessions ({harnessSessions.length})
+                      </div>
+                      <div className="space-y-1">
+                        {harnessSessions.slice(0, 5).map((s) => {
+                          const threadId = threadIdFromSession(s.workflowId);
+                          return (
+                            <div key={s.id}>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedHarnessSession(selectedHarnessSession === s.id ? null : s.id)}
+                                className="w-full text-left flex items-center gap-2 text-[11px] text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer py-0.5"
+                              >
+                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.status === 'running' ? 'bg-(--vestara-green) animate-pulse' : 'bg-zinc-600'}`} />
+                                <span className="truncate flex-1">{s.goal || s.id}</span>
+                                <span className="text-[9px] text-(--vestara-text-muted)">{s.status}</span>
+                              </button>
+                              {selectedHarnessSession === s.id && threadId && <HarnessThreadTimeline threadId={threadId} />}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
                   )}
                 </div>

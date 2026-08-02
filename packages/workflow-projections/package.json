@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/workflow-projections",
+  "description": "Canonical renderer-independent agent workflow projection (stages, agents, approvals, changes, verification, metrics) with incremental event envelopes",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/engineering-event-store": "workspace:*",
+    "@vestara/thread-runtime": "workspace:*",
+    "@vestara/tui-protocol": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

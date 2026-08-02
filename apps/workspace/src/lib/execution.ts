@@ -1,198 +1,47 @@
 /**
- * Execution Center API client + types.
+ * Execution Center API client + helpers.
  *
- * Mirrors apps/api/src/routes/execution.ts DTOs.
+ * DTOs are owned by @vestara/execution-center (single source of truth) and
+ * re-exported here; only the API surface and formatting helpers are local.
  */
 
-export interface PipelineStage {
-  id: string;
-  label: string;
-  agents: string[];
-}
+import type {
+  AgentExecution,
+  AgentState,
+  ExecutionDashboard,
+  ExecutionEvent,
+  ExecutionMetrics,
+  ExecutionSession,
+  FsOperation,
+  PendingApproval,
+  PipelineStage,
+  ProjectWithStats,
+  QueueEntry,
+  QueueKind,
+  QueueSummary,
+  TraceEdge,
+  TraceGraph,
+  TraceNode,
+} from '@vestara/execution-center';
 
-export type QueueKind = 'session' | 'plan' | 'task' | 'execution';
-
-export interface QueueEntry {
-  id: string;
-  kind: QueueKind;
-  title: string;
-  status: string;
-  agentId?: string;
-  project?: string;
-  started?: string;
-  updated?: string;
-  priority?: string;
-}
-
-export interface QueueSummary {
-  total: number;
-  pending: number;
-  running: number;
-  blocked: number;
-  waitingApproval: number;
-  retrying: number;
-  cancelled: number;
-  completed: number;
-  failed: number;
-}
-
-export interface PendingApproval {
-  id: string;
-  kind: 'collaboration' | 'session';
-  title: string;
-  status: string;
-  requestedBy: string;
-  createdAt: string;
-  risk?: string;
-  detail?: string;
-}
-
-export interface FsOperation {
-  id: string;
-  agent: string;
-  operation: string;
-  target: string;
-  timestamp: string;
-  status: string;
-  detail: string;
-}
-
-export interface ExecutionEvent {
-  id: string;
-  timestamp: string;
-  category: string;
-  type: string;
-  actor: string;
-  message: string;
-  status?: string;
-}
-
-export interface TraceNode {
-  id: string;
-  kind:
-    | 'request'
-    | 'project'
-    | 'plan'
-    | 'task'
-    | 'execution'
-    | 'agent'
-    | 'capability'
-    | 'artifact'
-    | 'review'
-    | 'verification';
-  label: string;
-  status?: string;
-  meta?: string;
-}
-
-export interface TraceEdge {
-  from: string;
-  to: string;
-  label?: string;
-}
-
-export interface TraceGraph {
-  nodes: TraceNode[];
-  edges: TraceEdge[];
-}
-
-export interface ExecutionMetrics {
-  sessions: {
-    total: number;
-    running: number;
-    queued: number;
-    completed: number;
-    failed: number;
-    cancelled: number;
-    successRate: number;
-    avgDurationMs: number;
-  };
-  executions: {
-    total: number;
-    running: number;
-    completed: number;
-    failed: number;
-    successRate: number;
-    avgDurationMs: number;
-  };
-  plans: { total: number; approved: number; executing: number; completed: number; cancelled: number };
-  tasks: { total: number; running: number; completed: number; blocked: number; pending: number };
-  agents: { total: number; active: number; utilization: number };
-  fsOps: number;
-  artifacts: number;
-  approvalsPending: number;
-  queueLength: number;
-}
-
-export interface ExecutionSession {
-  id: string;
-  goal: string;
-  workflowId?: string;
-  assignedAgentIds: string[];
-  planIds: string[];
-  changeSetIds: string[];
-  verificationIds: string[];
-  logs: string[];
-  timeline: Array<{ step: string; agentId: string; status: string; timestamp: string }>;
-  approvals: Array<{ agentId: string; approved: boolean; reason?: string; timestamp: string }>;
-  metrics: { duration: number; totalSteps: number; completedSteps: number; artifactCount: number };
-  status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
-  createdAt: string;
-  completedAt?: string;
-}
-
-export interface AgentExecution {
-  id: string;
-  agentId: string;
-  task: string;
-  inputArtifacts: string[];
-  outputArtifacts: string[];
-  status: 'queued' | 'running' | 'completed' | 'failed';
-  startedAt: string;
-  completedAt?: string;
-  result?: string;
-}
-
-export interface AgentState {
-  id: string;
-  name: string;
-  status: string;
-  currentTask: string;
-  currentOperation: string;
-  activeFilePath?: string;
-  progress: number;
-  elapsedMs: number;
-  phase: string;
-  detail: string;
-  updatedAt: string;
-}
-
-export interface ProjectWithStats {
-  id: string;
-  name: string;
-  description?: string;
-  status: string;
-  createdAt: string;
-  updatedAt?: string;
-  stats?: Record<string, unknown>;
-}
-
-export interface ExecutionDashboard {
-  ts: number;
-  projects: ProjectWithStats[];
-  plans: Array<Record<string, unknown>>;
-  changeSets: Array<Record<string, unknown>>;
-  verifications: Array<Record<string, unknown>>;
-  collaboration: Array<Record<string, unknown>>;
-  sessions: ExecutionSession[];
-  executions: AgentExecution[];
-  agents: AgentState[];
-  approvals: PendingApproval[];
-  queue: QueueEntry[];
-  queueSummary: QueueSummary;
-  metrics: ExecutionMetrics;
-  pipeline: PipelineStage[];
-}
+export type {
+  AgentExecution,
+  AgentState,
+  ExecutionDashboard,
+  ExecutionEvent,
+  ExecutionMetrics,
+  ExecutionSession,
+  FsOperation,
+  PendingApproval,
+  PipelineStage,
+  ProjectWithStats,
+  QueueEntry,
+  QueueKind,
+  QueueSummary,
+  TraceEdge,
+  TraceGraph,
+  TraceNode,
+} from '@vestara/execution-center';
 
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {

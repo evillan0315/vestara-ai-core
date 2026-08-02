@@ -44,6 +44,7 @@ export async function handleAgentsRoute(
         id: body.id || `agent-${Date.now()}`,
         name: body.name.trim(),
         role: body.role || 'custom',
+        agentType: body.agentType || 'workspace',
         description: body.description || '',
         capabilities: body.capabilities || ([] as any[]),
         permissions:

@@ -7,6 +7,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
+import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
 import { SqliteConversationSessionStore } from '@vestara/conversation-runtime';
@@ -48,6 +49,7 @@ import {
   CollaborationStorage,
   ExecutionPlanner,
   ExplainService,
+  HarnessSession,
   ImplementationService,
   KnowledgeGraphStorage,
   MemoryService,
@@ -68,6 +70,8 @@ import {
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
+import { ChangeEventProjector } from './bridges/change-event-bridge';
+import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
 import { restoreProviderConfigurations } from './routes/providers';
@@ -85,6 +89,9 @@ export interface WorkspaceContext {
   agentTools: ToolRuntime;
   createAgentTools(workspaceRoot: string): ToolRuntime;
   agentEnvironment: AgentEnvironment;
+  agentHarness: AgentHarnessRuntime;
+  harnessSession: HarnessSession;
+  changeProjector: ChangeEventProjector;
   engineeringVerification: EngineeringVerificationProfiles;
   engineeringEvents: SqliteEngineeringEventStore;
   graphService?: EngineeringGraphService;
@@ -467,6 +474,113 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     filesystemPolicy: 'workspace-write',
     processPolicy: 'restricted',
   };
+
+  // ── Agent Harness — the durable single-turn execution loop. The composition
+  // root owns its dependencies; the harness itself never touches SQLite or the
+  // event store (projections attach through the event bus below).
+  const harnessContext: HarnessContextAssembler = {
+    async assemble({ thread, turn, replay, environment }) {
+      const lines = [
+        `Task: ${thread.taskId}`,
+        `Thread: ${thread.title}`,
+        `Turn instruction: ${turn.input}`,
+        `Workspace: ${environment.workspaceRoot}`,
+        `Policies: network=${environment.networkPolicy} filesystem=${environment.filesystemPolicy} process=${environment.processPolicy}`,
+      ];
+      const recentResults = replay.items.filter((item) => item.kind === 'tool-result').slice(-8);
+      for (const item of recentResults) {
+        const p = item.payload as { toolName?: unknown; status?: unknown };
+        lines.push(`Tool ${String(p.toolName ?? '')}: ${String(p.status ?? '')}`);
+      }
+      return lines.join('\n');
+    },
+  };
+  const harnessVerifier: HarnessVerifier = {
+    async verify({ thread, turn, replay, environment }) {
+      const changedFiles: string[] = [];
+      for (const item of replay.items) {
+        if (item.kind !== 'tool-call') continue;
+        const p = item.payload as { toolName?: unknown; input?: { path?: unknown } };
+        if (
+          String(p.toolName ?? '').startsWith('filesystem.') &&
+          p.input &&
+          typeof p.input.path === 'string' &&
+          p.input.path
+        ) {
+          changedFiles.push(p.input.path);
+        }
+      }
+      return engineeringVerification.verify({
+        workspaceRoot: environment.workspaceRoot,
+        changedFiles,
+        signal: undefined,
+      });
+    },
+  };
+  const agentHarness = new AgentHarnessRuntime({
+    store: agentThreadStore,
+    provider: opencode,
+    model: opencode.models[0]?.id ?? 'opencode',
+    tools: agentTools,
+    context: harnessContext,
+    verifier: harnessVerifier,
+    eventBus: kernel.eventBus,
+  });
+  const workflowPublishTimers = new Map<string, ReturnType<typeof setTimeout>>();
+  const unsubscribeHarnessBridge = createHarnessEngineeringEventBridge({
+    eventBus: kernel.eventBus,
+    events: engineeringEvents,
+    workspaceId: session.fingerprint.id,
+    environmentId: agentEnvironment.id,
+    telemetry,
+    // Push when events are appended (not on GET), coalesced over a small
+    // interval to avoid render storms from high-frequency tool/terminal events.
+    onAppended: ({ threadId, sequence }) => {
+      if (!threadId) return;
+      const existing = workflowPublishTimers.get(threadId);
+      if (existing) clearTimeout(existing);
+      workflowPublishTimers.set(
+        threadId,
+        setTimeout(() => {
+          workflowPublishTimers.delete(threadId);
+          publish({
+            id: `workflow-${Date.now()}`,
+            type: 'workflow.updated',
+            timestamp: new Date().toISOString(),
+            category: 'system',
+            actor: { id: 'agent-harness', name: 'Agent Harness', type: 'system' },
+            resource: { type: 'agent-thread', id: threadId, name: threadId },
+            message: 'Workflow updated',
+            metadata: { threadId, sequence },
+          });
+        }, 75),
+      );
+    },
+  });
+  const harnessSession = new HarnessSession({
+    harness: agentHarness,
+    storage: agents,
+    environment: agentEnvironment,
+  });
+  const changeProjector = new ChangeEventProjector({
+    events: engineeringEvents,
+    workspaceId: session.fingerprint.id,
+    environmentId: agentEnvironment.id,
+    root: abs,
+  });
+  harnessSession.restoreActiveSessions().catch((error: unknown) => {
+    telemetry.track({
+      agent: 'agent-harness',
+      timestamp: new Date().toISOString(),
+      type: 'harness-session.restore-failed',
+      status: 'failed',
+      operation: 'verify',
+      task: 'harness-session',
+      progress: 0,
+      phase: 'restore',
+      detail: error instanceof Error ? error.message : String(error),
+    });
+  });
   const historyImport = importThreadHistory({
     threads: agentThreadStore,
     events: engineeringEvents,
@@ -581,7 +695,27 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
 
   // Create AgentRuntime after telemetry is available.
   // Agents reach the filesystem ONLY through the AgentCapabilityManager.
-  const agentRuntime = new AgentRuntime({ storage: agents, provider: opencode, capabilities: capabilityManager });
+  const agentRuntime = new AgentRuntime({
+    storage: agents,
+    provider: opencode,
+    capabilities: capabilityManager,
+    harnessSession,
+    onEngineUsed: (engine) => {
+      if (engine === 'harness') {
+        telemetry.track({
+          agent: 'agent-runtime',
+          timestamp: new Date().toISOString(),
+          type: 'agent-runtime.harness-engine-used',
+          status: 'completed',
+          operation: 'delegate',
+          task: 'agent-runtime',
+          progress: 0,
+          phase: 'engine',
+          detail: 'harness',
+        });
+      }
+    },
+  });
   const agentService = new AgentService({
     storage: agents,
     runtime: agentRuntime,
@@ -717,6 +851,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentTools,
     createAgentTools,
     agentEnvironment,
+    agentHarness,
+    harnessSession,
+    changeProjector,
     engineeringVerification,
     engineeringEvents,
     evidenceManifests,
@@ -768,6 +905,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     close: async () => {
       clearInterval(heartbeat);
       unsub();
+      unsubscribeHarnessBridge();
       workspaceUiWatcher.stop();
       notificationService?.stop();
       persistDb(db, dbPath);

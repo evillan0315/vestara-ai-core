@@ -4,8 +4,10 @@
 
 import type { QueueEntry } from '../../lib/execution';
 import { formatTime, tone } from '../../lib/execution';
+import { threadIdFromSession } from '../../lib/agent-harness';
 import { inspectEntity } from '../graph/GraphContext';
 import { useExecution } from './ExecutionContext';
+import { HarnessThreadTimeline } from './harness-timeline';
 
 function toneClass(t: string): string {
   return t === 'pass'
@@ -122,37 +124,51 @@ export function ExecutionsPanel() {
         <div className="exec-section-title">Execution Sessions</div>
         {sessions.length === 0 && <p className="exec-empty">No execution sessions yet</p>}
         <div className="space-y-1">
-          {sessions.map((s) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => selectSession(selectedSession === s.id ? null : s.id)}
-              className={`exec-session-row ${selectedSession === s.id ? 'exec-session-active' : ''}`}
-            >
-              <div className="flex items-center gap-2 min-w-0">
-                <span className={`exec-status-chip ${toneClass(tone(s.status))}`}>{s.status}</span>
-                <span className="text-[12px] text-zinc-100 truncate">{s.goal || s.id}</span>
-                <button
-                  type="button"
-                  className="exec-btn ml-auto"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    inspectEntity(`session://${s.id}`);
-                  }}
-                  title="Open in Engineering Graph"
-                >
-                  graph
-                </button>
-                <span className="text-[10px] text-zinc-500">{formatTime(s.createdAt)}</span>
-              </div>
-              <div className="text-[10px] text-zinc-600 mt-0.5">
-                steps {s.timeline?.length ?? 0} · artifacts {s.metrics?.artifactCount ?? 0} · approvals{' '}
-                {s.approvals?.length ?? 0}
-              </div>
-            </button>
-          ))}
+          {sessions.map((s) => {
+            const harnessThreadId = threadIdFromSession(s.workflowId);
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => selectSession(selectedSession === s.id ? null : s.id)}
+                className={`exec-session-row ${selectedSession === s.id ? 'exec-session-active' : ''}`}
+              >
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`exec-status-chip ${toneClass(tone(s.status))}`}>{s.status}</span>
+                  {harnessThreadId && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-accent-text)">harness</span>
+                  )}
+                  <span className="text-[12px] text-zinc-100 truncate">{s.goal || s.id}</span>
+                  <button
+                    type="button"
+                    className="exec-btn ml-auto"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      inspectEntity(`session://${s.id}`);
+                    }}
+                    title="Open in Engineering Graph"
+                  >
+                    graph
+                  </button>
+                  <span className="text-[10px] text-zinc-500">{formatTime(s.createdAt)}</span>
+                </div>
+                <div className="text-[10px] text-zinc-600 mt-0.5">
+                  steps {s.timeline?.length ?? 0} · artifacts {s.metrics?.artifactCount ?? 0} · approvals{' '}
+                  {s.approvals?.length ?? 0}
+                  {harnessThreadId && <span className="ml-1">· durable thread</span>}
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
+
+      {(() => {
+        const selected = sessions.find((s) => s.id === selectedSession);
+        const harnessThreadId = selected ? threadIdFromSession(selected.workflowId) : null;
+        if (!selected || !harnessThreadId) return null;
+        return <HarnessThreadTimeline threadId={harnessThreadId} />;
+      })()}
     </div>
   );
 }
