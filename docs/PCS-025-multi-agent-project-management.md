@@ -521,7 +521,7 @@ changes (`DefaultRiskApprovalPolicy` + `awaiting-approval` task state +
 task waves with file-lock contention handling (`maxParallelTasks`, bounded
 lock-wait then block); observability (§18).
 
-**Phase 3 — Distributed + hardening — 🔶 foundations**
+**Phase 3 — Distributed + hardening — ✅ delivered (foundations; network transport future)**
 Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted);
 event-sourced `reconcile(projectId, events)` (rebuild expected task state from the
 event log and diff against stores); full event-sourced `rebuild(projectId, events,
@@ -529,9 +529,12 @@ context)` — `task.created` events now carry the task definition so the event l
 reconstructs project, plan, and tasks with their statuses; **multi-repo parent
 orchestration** (`MultiRepoOrchestrator` — one `WorkflowOrchestrator` per repo,
 a parent project aggregates per-repo sub-projects with aggregate status and
-metrics); failure-injection + load tests (flaky dispatchers, large task DAGs).
-`remote` workers remain future: the `TaskDispatcher` interface is the worker
-contract remote workers would implement.
+metrics); **remote worker contract** (`WorkerPool` — bounded worker pool with
+`runWithConcurrency`; `SubprocessTaskDispatcher` executes each task in an
+isolated child process over IPC, with a pluggable executor module); failure-
+injection + load tests (flaky dispatchers, large task DAGs). Network transport
+for remote workers remains future; any transport implements the `TaskDispatcher`
+contract.
 
 ---
 

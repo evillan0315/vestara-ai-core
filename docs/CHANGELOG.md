@@ -3,6 +3,21 @@
 
 ---
 
+## [3.9.12] — 2026-08-03 — Remote worker contract (PCS-025 §12)
+
+### Added
+
+- `WorkerPool` + `runWithConcurrency`: a bounded worker pool where each worker is
+  a `TaskDispatcher`; the orchestrator's wave dispatch uses bounded concurrency.
+- `SubprocessTaskDispatcher`: executes each task (and review/test) in an
+  isolated child process over IPC (`dist/workers/subprocess-worker.js`), with a
+  pluggable executor module (`VESTARA_WORKER_EXECUTOR`) — the `remote` worker
+  boundary made real for the subprocess case.
+- 7 worker tests (concurrency bound, round-robin, pool size, subprocess
+  dispatch/review/test, executor failure propagation).
+
+---
+
 ## [3.9.11] — 2026-08-03 — Orchestration create + detail UX and route tests
 
 ### Added

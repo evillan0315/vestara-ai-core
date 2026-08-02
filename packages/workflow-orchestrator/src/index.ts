@@ -20,7 +20,7 @@ export type { ParentProject, ParentProjectChild, ParentProjectStatus } from './s
 export type { CreatePlanInput } from './stores/plan-store';
 export type { CreateProjectInput } from './stores/project-store';
 export type { CreateTaskInput } from './stores/task-store';
-export * from './task-graph';
+export * from './subprocess-dispatcher';
 export * from './task-graph';
 export * from './types';
-export * from './types';
+export * from './worker-pool';

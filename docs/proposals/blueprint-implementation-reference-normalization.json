@@ -107,7 +107,7 @@
     },
     {
       "path": "10-developer-platform/extension-platform.md",
-      "beforeChecksum": "b7dbf5461b9b5b7646cf9fae529919bba84835264f5fd73f590d871d6eeef76e",
+      "beforeChecksum": "d4084a5b55d6472ea307891e588515e10a662103f8b31ee7dba7d9d5a0b3d80a",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",

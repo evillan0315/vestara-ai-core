@@ -40,6 +40,7 @@ import type {
   WorkflowTask,
 } from './types';
 import { deriveProjectStatus } from './types';
+import { runWithConcurrency } from './worker-pool';
 
 type TaskEventType =
   | 'task.ready'
@@ -338,7 +339,7 @@ export class WorkflowOrchestrator {
           await this.transitionTask(project.id, task, 'ready');
         }
       }
-      await Promise.all(wave.map((task) => this.runTask(project, { ...task })));
+      await runWithConcurrency(wave, this.maxParallelTasks, (task) => this.runTask(project, { ...task }));
       await this.events.append({ type: 'workflow.checkpoint', projectId, at: now() });
     }
     const after = await this.tasks.listForProject(projectId);
