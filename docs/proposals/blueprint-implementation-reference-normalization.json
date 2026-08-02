@@ -20,12 +20,14 @@
       "path": "04-platform/engineering-event-architecture.md",
       "beforeChecksum": "4ad0cd069a3b7585fb1435e30a4f22b836cb2bb1f1be7a8674aca1979b638231",
       "operation": "replace",
-      "implementationRefs": ["packages/engineering-graph/src/events.ts"],
+      "implementationRefs": [
+        "packages/engineering-graph/src/events.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "04-platform/engineering-operating-system.md",
-      "beforeChecksum": "b54926ebbdc620f5dec513a3178b62e1213f6981d2c6756bba1d65e5e2d50a0f",
+      "beforeChecksum": "25099b4aefc01177c53a84af0cc49c320ba259a454d32d5d59924b7f0c131e94",
       "operation": "replace",
       "implementationRefs": [
         "packages/workspace/src/workspace-runtime.ts",
@@ -54,7 +56,10 @@
       "path": "05-ai-core/provider-architecture.md",
       "beforeChecksum": "151bde598f04882300571c5f36d3fe32aa9f05d136bab3aab7210089ebeb4209",
       "operation": "replace",
-      "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
+      "implementationRefs": [
+        "packages/provider-runtime/src/index.ts",
+        "packages/providers/opencode/src/index.ts"
+      ],
       "confidence": "direct"
     },
     {
@@ -73,28 +78,40 @@
       "path": "06-workspace/cli-workspace-integration.md",
       "beforeChecksum": "24f641b6c908c427f6faafbfa71b54cd06bf2d187efbee01f705ca8761f50585",
       "operation": "replace",
-      "implementationRefs": ["apps/cli/src/index.ts", "apps/api/src/index.ts", "apps/workspace/src/main.tsx"],
+      "implementationRefs": [
+        "apps/cli/src/index.ts",
+        "apps/api/src/index.ts",
+        "apps/workspace/src/main.tsx"
+      ],
       "confidence": "direct"
     },
     {
       "path": "06-workspace/engineering-session.md",
       "beforeChecksum": "82a511bd1d8a4b06d7da7831235f905cbd05c5b31a71b008aa7b0471cc61002d",
       "operation": "replace",
-      "implementationRefs": ["packages/workspace/src/types.ts", "packages/workspace/src/session-orchestrator.ts"],
+      "implementationRefs": [
+        "packages/workspace/src/types.ts",
+        "packages/workspace/src/session-orchestrator.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "06-workspace/inspector.md",
       "beforeChecksum": "9ae30437a95c49f208a8e9afb56d21886e422146e4be0891de1ffcb67ddf8f92",
       "operation": "replace",
-      "implementationRefs": ["apps/workspace/src/components/graph/Inspector.tsx"],
+      "implementationRefs": [
+        "apps/workspace/src/components/graph/Inspector.tsx"
+      ],
       "confidence": "direct"
     },
     {
       "path": "06-workspace/settings-architecture.md",
       "beforeChecksum": "839487994189510bee1a156a737a1b914ade3bdc14a95c62483e763da0ad9070",
       "operation": "replace",
-      "implementationRefs": ["apps/workspace/src/pages/Settings/SettingsPage.tsx", "apps/workspace/src/lib/theme.tsx"],
+      "implementationRefs": [
+        "apps/workspace/src/pages/Settings/SettingsPage.tsx",
+        "apps/workspace/src/lib/theme.tsx"
+      ],
       "confidence": "direct"
     },
     {
@@ -107,7 +124,7 @@
     },
     {
       "path": "10-developer-platform/extension-platform.md",
-      "beforeChecksum": "1caa2f52186ed90ef1cf2cfe1a9c31d4d8adfad0815ac5dc59e897bdfcdb9e5b",
+      "beforeChecksum": "b7dbf5461b9b5b7646cf9fae529919bba84835264f5fd73f590d871d6eeef76e",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
@@ -117,34 +134,45 @@
       "path": "12-data/engineering-event-store.md",
       "beforeChecksum": "846303045de0ec6dc9d824420f36cbb2d823ac278d4995e9c2f16448f21fab50",
       "operation": "replace",
-      "implementationRefs": ["packages/engineering-graph/src/events.ts"],
+      "implementationRefs": [
+        "packages/engineering-graph/src/events.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "14-engineering/evidence-based-verification.md",
       "beforeChecksum": "9a449b51b50690a710f3cefd66cc17927e3f89e21184cff1e9781705676c6ac1",
       "operation": "replace",
-      "implementationRefs": ["packages/verification/src/index.ts", "packages/evaluation/src/index.ts"],
+      "implementationRefs": [
+        "packages/verification/src/index.ts",
+        "packages/evaluation/src/index.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "14-engineering/visual-verification.md",
       "beforeChecksum": "8c52c83ead910e509a685ac06634bc862e0fb8a42149e86b7a4f11d4c4df5542",
       "operation": "replace",
-      "implementationRefs": ["apps/workspace/tests/visual/visual.spec.ts", "apps/workspace/playwright.config.ts"],
+      "implementationRefs": [
+        "apps/workspace/tests/visual/visual.spec.ts",
+        "apps/workspace/playwright.config.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "20-roadmaps/engineering-os-roadmap.md",
-      "beforeChecksum": "c959ac8e0464a1be746e2694fa9c8a159f69215b8cfb5ebed805cf5706c4aa6f",
+      "beforeChecksum": "0ea01da630c47f3d434bd28bc17e351a2a4142c6f99fbf15c659f529245a8925",
       "operation": "replace",
-      "implementationRefs": ["packages/workspace/src/workspace-runtime.ts", "packages/kernel/src/index.ts"],
+      "implementationRefs": [
+        "packages/workspace/src/workspace-runtime.ts",
+        "packages/kernel/src/index.ts"
+      ],
       "confidence": "inferred",
       "requiresClaimReview": true
     },
     {
       "path": "20-roadmaps/extension-platform-roadmap.md",
-      "beforeChecksum": "976d458fe3d2cc73431260fb34b0cc3e7afdd810cae2ef9bd4602cc143f5e825",
+      "beforeChecksum": "e6989199e6c80462d0db81d7cdae7b03da0e7b436bdf34388fc34b1ec6246872",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
@@ -154,22 +182,31 @@
       "path": "20-roadmaps/provider-platform-roadmap.md",
       "beforeChecksum": "be04c7da066e021996fdc043dc70e712779aeb98c92180b69374ccbe7e69ab60",
       "operation": "replace",
-      "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
+      "implementationRefs": [
+        "packages/provider-runtime/src/index.ts",
+        "packages/providers/opencode/src/index.ts"
+      ],
       "confidence": "direct"
     },
     {
       "path": "99-appendix/capability-maturity-matrix.md",
-      "beforeChecksum": "38e72de030af92f9ae5eceb3aa4bb65f851f5cfdb0bb7b5fdfeb5d66b1ef666e",
+      "beforeChecksum": "21999cbd767474b0b8e8e310f6078ec37a93e488bd14605b233d05afbe59a80b",
       "operation": "replace",
-      "implementationRefs": ["docs/CAPABILITY-REGISTRY.md", "docs/IMPLEMENTATION_STATUS.md"],
+      "implementationRefs": [
+        "docs/CAPABILITY-REGISTRY.md",
+        "docs/IMPLEMENTATION_STATUS.md"
+      ],
       "confidence": "inferred",
       "requiresClaimReview": true
     },
     {
       "path": "99-appendix/implementation-alignment.md",
-      "beforeChecksum": "2d05de387a80ccbcef3f646ee7109da783cc333862b9d8516fef72a815f1f30c",
+      "beforeChecksum": "a8904479452d74cd301d694d25ded5f09659556ef44492cb5e4c874fb317684c",
       "operation": "replace",
-      "implementationRefs": ["scripts/workspace-architecture.mjs", "docs/IMPLEMENTATION_STATUS.md"],
+      "implementationRefs": [
+        "scripts/workspace-architecture.mjs",
+        "docs/IMPLEMENTATION_STATUS.md"
+      ],
       "confidence": "inferred",
       "requiresClaimReview": true
     }

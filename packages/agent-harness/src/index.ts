@@ -49,6 +49,10 @@ export interface AgentHarnessOptions {
   readonly maxIterations?: number;
   /** Items kept raw in the provider context; earlier items are compacted. */
   readonly maxContextItems?: number;
+  /** Maximum number of verification-driven revision loops (default: 2). */
+  readonly maxRevisions?: number;
+  /** Enable interruptive steering — steer messages abort active inference (default: true). */
+  readonly interruptiveSteering?: boolean;
 }
 
 export interface StartThreadInput {
@@ -235,10 +239,14 @@ export class AgentHarnessRuntime {
   private readonly environments = new Map<string, AgentEnvironment>();
   private readonly maxIterations: number;
   private readonly maxContextItems: number;
+  private readonly maxRevisions: number;
+  private readonly interruptiveSteering: boolean;
 
   constructor(private readonly options: AgentHarnessOptions) {
     this.maxIterations = options.maxIterations ?? 12;
     this.maxContextItems = options.maxContextItems ?? 40;
+    this.maxRevisions = options.maxRevisions ?? 2;
+    this.interruptiveSteering = options.interruptiveSteering ?? true;
   }
 
   createThread(input: StartThreadInput): TaskThread {
@@ -442,6 +450,15 @@ export class AgentHarnessRuntime {
     const correlationId = this.correlationForTurn(threadId, turn.id);
     const item = this.append(turn, 'steering-message', actorId, { content: message }, correlationId);
     void this.emit('harness.steer', this.identity(threadId, turn.id, correlationId), { itemId: item.id, message });
+    // Interruptive steering: abort active inference to process steering immediately
+    if (this.interruptiveSteering) {
+      const active = this.active.get(threadId);
+      if (active) {
+        active.controller.abort('steering-message');
+        // Recreate controller for resumed execution
+        this.active.set(threadId, { ...active, controller: new AbortController() });
+      }
+    }
     return item;
   }
 
@@ -561,7 +578,10 @@ export class AgentHarnessRuntime {
           .listItems(thread.id)
           .some((item) => item.kind === 'steering-message' && item.sequence > beforeInferenceSequence);
         if (steeredDuringInference) continue;
-        return await this.verifyAndFinish(turn, active.environment, correlationId);
+        const verificationResult = await this.verifyAndFinish(turn, active.environment, correlationId);
+        // If verification returned without outcome, it's a revision loop - continue the turn
+        if (!verificationResult.outcome) continue;
+        return verificationResult;
       }
 
       await this.transition(turn, 'awaiting-tool', correlationId);
@@ -786,6 +806,23 @@ export class AgentHarnessRuntime {
     });
     if (result.status === 'passed')
       return this.finish(turn, 'completed', 'Verification passed', undefined, correlationId);
+    // Revision loop: if verification fails and we haven't exceeded max revisions,
+    // allow the agent to retry with feedback
+    if (result.status === 'failed' && this.countRevisions(turn.id) < this.maxRevisions) {
+      const revisionCount = this.countRevisions(turn.id) + 1;
+      this.append(turn, 'revision-request', 'verification-runtime', {
+        revisionNumber: revisionCount,
+        feedback: result.checks.map((c) => `${c.name}: ${c.status} - ${c.summary}`).join('\n'),
+      }, correlationId);
+      await this.emit('harness.revision.requested', identity, {
+        revisionNumber: revisionCount,
+        feedback: result.checks,
+      });
+      // Transition back to preparing to allow the agent to retry
+      await this.transition(turn, 'preparing', correlationId);
+      // Return without a final outcome - the harness will continue the turn loop
+      return { thread: this.requireThread(turn.threadId), turn: this.requireTurn(turn.id) };
+    }
     if (result.status === 'blocked' || result.status === 'inconclusive')
       return this.finish(
         turn,
@@ -795,6 +832,13 @@ export class AgentHarnessRuntime {
         correlationId,
       );
     return this.finish(turn, 'failed', 'Verification failed', 'verification-failed', correlationId);
+  }
+
+  private countRevisions(turnId: AgentTurnId): number {
+    const threadId = this.options.store.getTurn(turnId)?.threadId;
+    if (!threadId) return 0;
+    const items = this.options.store.listItems(threadId, turnId);
+    return items.filter((item) => item.kind === 'revision-request').length;
   }
 
   private async recordToolResult(
