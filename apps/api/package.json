@@ -21,6 +21,7 @@
     "@vestara/diff-engine": "workspace:*",
     "@vestara/engineering-graph": "workspace:*",
     "@vestara/engineering-event-store": "workspace:*",
+    "@vestara/evidence": "workspace:*",
     "@vestara/extension-contracts": "workspace:*",
     "@vestara/extension-runtime": "workspace:*",
     "@vestara/external-runtime": "workspace:*",

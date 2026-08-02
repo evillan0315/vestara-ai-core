@@ -3,6 +3,7 @@
  * Thin adapter — no product policy beyond wiring.
  */
 
+import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -22,6 +23,7 @@ import {
 } from '@vestara/engineering-event-store';
 import type { EventBus } from '@vestara/event-bus';
 import type { WorkspaceEvent as UiEvent } from '@vestara/events';
+import { EvidencePipeline, FilesystemChangeCollector, SourceDiffCollector } from '@vestara/evidence';
 import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
@@ -36,7 +38,7 @@ import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import { GitAddTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool } from '@vestara/tools-git';
 import { GovernedShellExecuteTool } from '@vestara/tools-shell';
-import type { AgentEnvironment, AgentEnvironmentId } from '@vestara/types';
+import type { AgentEnvironment, AgentEnvironmentId, HarnessVerificationResult } from '@vestara/types';
 import { EngineeringVerificationProfiles } from '@vestara/verification';
 import {
   ArtifactStore,
@@ -341,6 +343,16 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   );
   const evidenceManifests = new ImmutableEvidenceManifestStore(path.join(workspaceDir, 'evidence'));
   const evidenceArtifacts = new ContentAddressedEvidenceStore(path.join(workspaceDir, 'evidence', 'artifacts'));
+  // PCS-026 evidence pipeline — collects changed files + source diff into
+  // content-addressed artifacts, writes an immutable manifest, and assembles a
+  // verification bundle after every harness verification.
+  const evidencePipeline = new EvidencePipeline({
+    artifacts: evidenceArtifacts,
+    manifests: evidenceManifests,
+    collectors: [new FilesystemChangeCollector(), new SourceDiffCollector()],
+    producer: 'harness-verifier',
+    environment: `local:${session.fingerprint.id}`,
+  });
   const worktreeRuntime = await WorktreeLeaseRuntime.open({
     dbPath: path.join(workspaceDir, 'worktrees', 'leases.db'),
     leaseRoot: path.join(
@@ -523,11 +535,51 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
           changedFiles.push(p.input.path);
         }
       }
-      return engineeringVerification.verify({
+      const result = await engineeringVerification.verify({
         workspaceRoot: environment.workspaceRoot,
         changedFiles,
         signal: undefined,
       });
+      // PCS-026: persist a verification evidence bundle; a failure here must not
+      // break verification.
+      try {
+        const commit = gitHeadCommit(environment.workspaceRoot);
+        const executionId = `verification-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const bundle = await evidencePipeline.buildBundle({
+          executionId,
+          taskId: thread.taskId,
+          verifierId: 'engineering-verifier',
+          profileId: 'standard',
+          repository: environment.workspaceRoot,
+          implementationCommit: commit,
+          outcome: result.status,
+          scope: result.checks.map((check) => check.id),
+          limitations: result.uncoveredRisks,
+          checks: result.checks.map((check) => ({
+            id: check.id,
+            name: check.name,
+            status: check.status,
+            summary: check.summary,
+          })),
+          uncoveredRisks: result.uncoveredRisks,
+          workspaceRoot: environment.workspaceRoot,
+          changedFiles,
+        });
+        void kernel.eventBus
+          .emit({
+            type: 'harness.verification-bundle',
+            source: 'evidence-pipeline',
+            payload: { threadId: thread.id, bundleId: bundle.id, executionId, confidence: bundle.confidence.score },
+          })
+          .catch(() => {});
+        const extended: HarnessVerificationResult & { evidenceBundleId?: string } = {
+          ...result,
+          evidenceBundleId: bundle.id,
+        };
+        return extended;
+      } catch {
+        return result;
+      }
     },
   };
   const agentHarness = new AgentHarnessRuntime({
@@ -1032,6 +1084,16 @@ function sessionSafeId(runtime: WorkspaceRuntime): string {
     return runtime.getSession().fingerprint.id;
   } catch {
     return 'workspace-runtime';
+  }
+}
+
+function gitHeadCommit(repoPath: string): string {
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], { cwd: repoPath, stdio: ['ignore', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+  } catch {
+    return 'a'.repeat(40);
   }
 }
 

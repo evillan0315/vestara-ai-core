@@ -3,6 +3,24 @@
 
 ---
 
+## [3.9.13] — 2026-08-03 — Engineering Evidence Pipeline (PCS-026 slice 1)
+
+### Added
+
+- **`@vestara/evidence`** package: `EvidencePipeline` (collect → content-address →
+  immutable manifest → `VerificationEvidenceBundle`), slice-1 collectors
+  (command output, filesystem change set, source diff), `ConfidenceEngine`
+  (six derived dimensions: coverage, success, integrity, independence,
+  replayability, freshness — never agent-assigned), and the PCS-026 contracts
+  (bundle, evidence reference + provenance, checks, replay descriptor,
+  confidence, visual baseline governance model).
+- The harness verifier now persists a verification bundle after every run and
+  emits `harness.verification-bundle` (bundle id + confidence).
+- `docs/PCS-026-engineering-evidence-pipeline.md` — spec + slice-1 delivery
+  record. 6 evidence tests.
+
+---
+
 ## [3.9.12] — 2026-08-03 — Remote worker contract (PCS-025 §12)
 
 ### Added
