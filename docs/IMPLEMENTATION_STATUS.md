@@ -82,10 +82,7 @@
 | **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **✅ Complete** | **2026-08-03** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **✅ Complete** | **2026-08-03** |
-| **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
-| **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
-| **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
-| **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **📋 Planned** | **2026-11-01** |
+| **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **✅ Complete** | **2026-08-03** |
 
 > **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
 > `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
@@ -187,6 +184,12 @@ Dashboard (v9.0)
   @vestara/widget-runtime            → ✅ Complete (manifests, lifecycle, DashboardRuntime)
   Kernel dashboard client            → ✅ Complete (dashboardRuntime composed from kernel eventBus/logger at boot)
   Widget manifests via BootOptions   → ✅ Complete (registered with priority/location ordering)
+
+Remote Worker (v10.0)
+  DockerWorker                       → ✅ Complete (docker run via child_process, dependency-light)
+  CIWorker                           → ✅ Complete (subprocess shell command executor)
+  MCPWorker                          → ✅ Complete (minimal stdio JSON-RPC MCP client)
+  RemoteWorker                       → ✅ Complete (injected RemoteJobDispatcher or HTTP POST to remoteUrl)
 ```
 
 ---
