@@ -14,10 +14,13 @@
   },
   "scripts": {
     "build": "tsc",
-    "test": "pnpm --filter @vestara/tui test"
+    "test": "vitest run --root ../.. apps/console/__tests__"
   },
   "dependencies": {
     "@vestara/tui": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
   },
   "engines": {
     "node": ">=22"

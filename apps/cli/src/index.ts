@@ -37,6 +37,7 @@ import { runRuntimeCommand } from './commands/runtime.js';
 import { runScreenshots } from './commands/screenshots.js';
 import { runBackgroundServices, runListSessions, runListWorkflows, runStartSession } from './commands/session.js';
 import { runSystemStatus } from './commands/status.js';
+import { runSuggest } from './commands/suggest.js';
 import { runTeamsAssign, runTeamsCreate, runTeamsList } from './commands/teams.js';
 import type { CliContext } from './context/cli-context.js';
 import { createCliContext } from './context/cli-context.js';
@@ -136,6 +137,7 @@ function printHelp(): void {
   console.log(`    ${GREEN}blueprint${RESET} verify    ${GRAY}Architecture Knowledge Graph integrity check${RESET}`);
   console.log(
     `    ${GREEN}marketplace${RESET} [sub]  ${GRAY}Engineering Exchange (search|list|info|installed|updates|install|update|uninstall|verify|rescan)${RESET}`,
+    `    ${GREEN}suggest${RESET} [path]       ${GRAY}Show AI implementation suggestions for an open workspace${RESET}`,
   );
   console.log(
     `    ${GREEN}ops${RESET} [sub]           ${GRAY}Engineering telemetry (feed|status|timeline|demo)${RESET}`,
@@ -255,6 +257,7 @@ function registerCommands(registry: CommandRegistry): void {
     console.log(`${GOLD}Usage: vestara demo golden-path${RESET}`);
   });
   registry.register('marketplace', (args) => runMarketplace(args));
+  registry.register('suggest', (args) => runSuggest(args[0] ?? undefined, args.includes('--json')));
 }
 
 export async function main() {
@@ -397,6 +400,11 @@ export async function main() {
 
   if (args[0] === 'marketplace') {
     await runMarketplace(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'suggest') {
+    await runSuggest(args[1] ?? undefined, args.includes('--json'));
     return;
   }
 

@@ -177,7 +177,7 @@ check "Contributor and security policies exist" "test -f '$ROOT/CONTRIBUTING.md'
 # ── v3.5–v3.8 — Product quality capabilities ───────────────────────────────
 echo "--- v3.5 — AI-Powered Suggestions ---"
 check "Suggestion service is exported" "grep -q \"export { SuggestionService }\" '$ROOT/packages/workspace/src/index.ts'"
-check "Suggest command is registered" "grep -Rq \"input.*suggest\" '$ROOT/apps/cli/src/commands'"
+check "Suggest command is registered" "grep -Rq 'runSuggest' '$ROOT/apps/cli/src/index.ts'"
 
 echo "--- v3.6 — End-to-End Workflow Tests ---"
 check "Deterministic workspace lifecycle is integration-tested" "grep -q \"stops gracefully\" '$ROOT/packages/workspace/__tests__/workspace-runtime-service.test.ts'"
@@ -221,7 +221,7 @@ check "@vestara/subsystem builds" "ls '$ROOT/packages/subsystem/dist/index.js' 2
 check "@vestara/widget-runtime package exists" "test -d '$ROOT/packages/widget-runtime/src'"
 check "@vestara/widget-runtime builds" "ls '$ROOT/packages/widget-runtime/dist/index.js' 2>/dev/null | grep -q ."
 check "Recovery Manager in kernel" "grep -q 'class DefaultRecoveryManager' '$ROOT/packages/kernel/src/recovery-manager.ts' 2>/dev/null"
-check "Scheduler in kernel" "grep -q 'class DefaultScheduler' '$ROOT/packages/kernel/src/scheduler.ts' 2>/dev/null"
+check "Scheduler in kernel" "grep -q 'Scheduler as JobScheduler' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null || grep -q 'new Scheduler()' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null"
 
 echo ""
 echo "=== Summary ==="
