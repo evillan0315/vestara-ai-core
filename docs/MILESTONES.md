@@ -1408,6 +1408,30 @@ my-repo > workflow status
 
 ---
 
+### v5.4 — Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1) 🔶 Partial
+
+**Objective**: Replace the hard-coded sequential prototype with a `WorkflowOrchestrator`
+as the single writer of project/plan/task state — state machines, task/artifact/
+file-lock stores, bounded retry/revision policy, task-graph waves, and idempotent
+resume — with tasks executing through the durable harness.
+
+**Key artifacts**:
+
+- `@vestara/workflow-orchestrator` — `WorkflowOrchestrator`, project/plan/task state
+  machines, `TaskStore`/`ArtifactStore`/`FileLockRegistry`, `task-graph` waves +
+  cycle detection, retry/revision policy, checkpoint + resume (28 tests)
+- `HarnessTaskDispatcher` — each task runs as a durable harness thread tagged with a
+  shared `workflowId`; capability-based agent resolution (4 tests)
+- `orchestration.*` event bridge — workflow mutations project into the temporal
+  engineering event store
+- `/api/orchestration/*` routes — create/start/analyze/plan/architecture/approve/
+  execute/verify/cancel/archive/resume + snapshot + audit
+- `docs/PCS-025-phase-1-implementation-plan.md` — Phase 1 plan + delivery record
+
+**Status**: 🔶 Partial (Phase 1 core delivered; Phases 2-3 pending)
+
+---
+
 ## Interactive Dashboard Era
 
 ### v6.0 — Interactive Workspace Dashboard (Agents & Suggestions) ✅ Complete

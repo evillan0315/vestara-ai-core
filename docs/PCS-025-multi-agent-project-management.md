@@ -6,10 +6,21 @@
 |-------|-------|
 | ID | PCS-025 |
 | Name | Multi-Agent Project Management Workflow |
-| Status | Draft (design only — no implementation) |
+| Status | Design — Phase 1 orchestration core implemented (partial); Phases 2-3 pending |
 | Owner | Chief Architect |
 | Prerequisite | PCS-003 Planning, PCS-004 Implement, PCS-005 Verify, PCS-007 Agent Runtime, PCS-011 Agent Execution, PCS-017 Execution Engine, PCS-024 Agent Filesystem Capabilities |
 | Scope | Multi-agent project lifecycle: creation → implementation → review → verify → complete |
+
+> **Implementation status (2026-08-03)**: Phase 1 of the roadmap (§17) is
+> delivered — `packages/workflow-orchestrator/` provides `WorkflowOrchestrator`,
+> project/plan/task state machines, `TaskStore`/`ArtifactStore`/
+> `FileLockRegistry`, bounded retry/revision policy, task-graph waves, and
+> idempotent resume; tasks execute through the harness
+> (`packages/workspace/src/harness-task-dispatcher.ts`); `orchestration.*` events
+> project into the engineering event store; `/api/orchestration/*` exposes the
+> lifecycle. See `docs/PCS-025-phase-1-implementation-plan.md` §11 for the
+> delivery record. Phases 2-3 (review/test/approval gateway, parallel waves,
+> remote workers) are not started.
 
 > **Canonical reference**: the architectural model (WorkflowOrchestrator, event bus,
 > agent/task lifecycles, artifact model, state machines, file locking, capability
@@ -487,11 +498,15 @@ User        Orchestrator   Analyst   Planner   Architect   Developer   Reviewer 
 
 ## 17. Implementation Roadmap
 
-**Phase 1 — Orchestration core**
+**Phase 1 — Orchestration core — ✅ implemented (partial)**
 `WorkflowOrchestrator` + project/plan/task state machines; `TaskStore`, `ArtifactStore`,
-`FileLockRegistry`; event catalog extension; retry policy; `TaskGraph` from plan DAG;
-migrate `AgentWorkflowService` prototype into the orchestrator; resume from checkpoint.
-Acceptance: single sequential project completes with `verification.passed` + full audit log.
+`FileLockRegistry`; event catalog extension (`orchestration.*` via
+`apps/api/src/bridges/orchestration-event-bridge.ts`); retry policy; task-graph waves
+from plan DAG (`task-graph.ts`); resume from persisted checkpoint. The legacy
+`AgentWorkflowService` prototype is deprecated (superseded). Tasks execute through the
+harness (`HarnessTaskDispatcher`).
+Acceptance (pending full pass): single sequential project completes with
+`verification.passed` + full audit log.
 
 **Phase 2 — Review, test, approval**
 `ReviewService`, `TestService`; capability-based task assignment (replace keyword

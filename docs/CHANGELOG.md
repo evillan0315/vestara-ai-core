@@ -3,6 +3,40 @@
 
 ---
 
+## [3.9.5] — 2026-08-03 — Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)
+
+### Added
+
+- New `@vestara/workflow-orchestrator` package: `WorkflowOrchestrator` (single
+  writer of project/plan/task state), project/plan/task state machines on
+  `@vestara/state-machine`, sql.js `TaskStore`/`ArtifactStore`/`FileLockRegistry`,
+  task-graph parallel waves + cycle detection, bounded retry/revision policy,
+  and idempotent resume from persisted checkpoint. 28 tests.
+- `HarnessTaskDispatcher` (`packages/workspace`) — tasks execute as durable
+  harness threads tagged with a shared `workflowId`; capability-based agent
+  resolution. 4 tests.
+- `orchestration.*` event bridge — workflow mutations append to the temporal
+  engineering event store (`correlationId` = projectId), replayable alongside
+  `harness.*`/`change.*`.
+- `/api/orchestration/*` routes — create/start/analyze/plan/architecture/
+  approve/execute/verify/cancel/archive/resume + snapshot + audit.
+
+### Changed
+
+- ADR-118 (blueprint) and ADR-004 (implementation) moved **proposed → accepted**:
+  Phase 1 orchestration core is implemented (partial). Phases 2-3 pending.
+- `projectWorkflowAcrossThreads` resolves the shared `workflowId` from thread
+  metadata (multi-thread aggregation for orchestrated projects).
+- `AgentWorkflowService` marked deprecated — superseded by the orchestrator.
+
+### Fixed
+
+- Type errors in in-progress multi-agent work (`ChangeProjectorLike` variance,
+  readonly options) and `readonly` array types in `multithread.ts` so `pnpm build`
+  passes across the solution.
+
+---
+
 ## [3.9.4] — 2026-08-01 — Screenshot Automation CLI
 
 ### Added

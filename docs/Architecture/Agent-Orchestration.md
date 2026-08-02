@@ -12,6 +12,15 @@ specialized agents collaborate to safely plan, execute, review, and verify work 
 workspace. Specifications (PCS-024, PCS-025) reference this document instead of
 duplicating the architectural model.
 
+> **Implementation status (2026-08-03)**: the PCS-025 Phase 1 orchestration core is
+> delivered in `packages/workflow-orchestrator/` (`WorkflowOrchestrator`, project/
+> plan/task state machines, `TaskStore`/`ArtifactStore`/`FileLockRegistry`, bounded
+> retry/revision policy, task-graph waves, checkpoint/resume). Tasks execute through
+> the durable harness via `HarnessTaskDispatcher`; `orchestration.*` events project
+> into the temporal engineering event store; `/api/orchestration/*` exposes the
+> lifecycle. Agent-runner roles (`Repository Analyst`, `Reviewer`, `Tester`, remote
+> workers) and the Approval Gateway remain future (PCS-025 Phases 2-3).
+
 ---
 
 ## 1. Design Invariant
@@ -168,6 +177,7 @@ so the workflow remains replayable. Every approval is an audit entry.
 
 - PCS-024 — Agent Filesystem Capabilities (capability model + safety controls)
 - PCS-025 — Multi-Agent Project Management (workflow lifecycle + event/data model)
+- PCS-025 Phase 1 — `docs/PCS-025-phase-1-implementation-plan.md` (delivery record)
 - ADR-001 — Runtime model
 - ADR-002 — Capability system
 - ADR-003 — Filesystem runtime

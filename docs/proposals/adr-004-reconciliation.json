@@ -1,12 +1,18 @@
 {
   "id": "doc-proposal-adr-004-reconciliation-2026-08-01",
-  "status": "proposed",
+  "status": "decided",
+  "resolution": {
+    "decision": "accept",
+    "decidedAt": "2026-08-03",
+    "decidedBy": "@chief-architect (via @engineering-manager / @product-manager)",
+    "note": "ADR-004 moved proposed → accepted with PCS-025 Phase 1 orchestration core implemented (packages/workflow-orchestrator/, harness-backed execution, orchestration.* events, /api/orchestration/* routes). Phases 2-3 remain; ADR-118 (blueprint) mirrors the acceptance."
+  },
   "authority": "architecture",
   "requiresHumanApproval": true,
   "target": "docs/ADR/ADR-004-multi-agent-workflow.md",
-  "targetChecksum": "e43c0116ffb38bc972f797661736748ba9605dcf746849c3e07b66cae665bae2",
+  "targetChecksum": "3f9dc1265617f58817bba767f07b97ab7a1613bdbf8cddd2ab08f9115696f9a3",
   "dependentDocument": "docs/PCS-025-multi-agent-project-management.md",
-  "dependentChecksum": "d1c1c53aa9f275256f29af7f4bcf7ad7c5cd49406d9e95836b6dda1f97c25d7d",
+  "dependentChecksum": "5f1e836556a32abd5ff7a07ef0b73c6f9a12a11220c1dc26c592bc21c7281fcf",
   "finding": "PCS-025 identifies ADR-004 as governing architecture while ADR-004 remains proposed.",
   "requiredDecision": {
     "accept": "Human deciders approve ADR-004 after confirming implementation and verification evidence; update ADR status and decision date through ADR governance.",

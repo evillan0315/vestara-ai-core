@@ -58,6 +58,7 @@
 | **v5.1** | **Observability** | **✅ Complete** | **2026-07-24** |
 | **v5.2** | **Provider & Model Selection** | **✅ Complete** | **2026-07-24** |
 | **v5.3** | **Agent Workflow Orchestration** | **✅ Complete** | **2026-07-24** |
+| **v5.4** | **Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)** | **🔶 Partial** | **2026-08-03** |
 | **v6.0** | **Interactive Dashboard (Agents & Suggestions)** | **✅ Complete** | **2026-07-24** |
 | **v6.1** | **In-Browser CLI Terminal** | **✅ Complete** | **2026-07-25** |
 | **v6.2** | **Chatbot Assistant Panel** | **✅ Complete** | **2026-07-24** |
@@ -79,6 +80,15 @@
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
 | **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **📋 Planned** | **2026-11-01** |
+
+> **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
+> `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
+> PCS-025 multi-agent orchestration is tracked under **v5.4** (Phase 1 core
+> delivered, partial): `WorkflowOrchestrator`, project/plan/task state machines,
+> task/artifact/file-lock stores, bounded retry/revision policy, task-graph
+> waves, checkpoint/resume, harness-backed task dispatch, `orchestration.*`
+> events, and `/api/orchestration/*` routes. Phases 2-3 (review/test/approval,
+> parallel waves, remote workers) remain pending.
 
 ---
 
