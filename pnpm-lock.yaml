@@ -84,6 +84,9 @@ importers:
       '@vestara/marketplace':
         specifier: workspace:*
         version: link:../../packages/marketplace
+      '@vestara/memory':
+        specifier: workspace:*
+        version: link:../../packages/memory
       '@vestara/permissions':
         specifier: workspace:*
         version: link:../../packages/permissions

@@ -200,6 +200,10 @@ Remote Worker (v10.0)
   CIWorker                           → ✅ Complete (subprocess shell command executor)
   MCPWorker                          → ✅ Complete (minimal stdio JSON-RPC MCP client)
   RemoteWorker                       → ✅ Complete (injected RemoteJobDispatcher or HTTP POST to remoteUrl)
+
+Durable Engineering Memory (Phase 4)
+  EngineeringMemoryProjection        → ✅ Complete (harness.* events → long-term memories via @vestara/memory)
+  API wiring                         → ✅ Complete (projection at composition root alongside the harness event bridge)
 ```
 
 ---

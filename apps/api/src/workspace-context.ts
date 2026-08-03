@@ -666,6 +666,20 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       );
     },
   });
+  // Phase 4 (engineering-os-roadmap item 4) — durable engineering memory:
+  // project harness.* events from completed threads into the memory runtime.
+  const { DefaultMemoryRuntime, createEngineeringMemoryProjection } = await import('@vestara/memory');
+  const engineeringMemory = new DefaultMemoryRuntime({
+    logger: kernel.logger,
+    eventBus: kernel.eventBus,
+  });
+  await engineeringMemory.initialize();
+  const unsubscribeEngineeringMemory = createEngineeringMemoryProjection({
+    eventBus: kernel.eventBus,
+    memory: engineeringMemory,
+    logger: kernel.logger,
+    userId: session.fingerprint.id,
+  });
   const harnessSession = new HarnessSession({
     harness: agentHarness,
     storage: agents,
@@ -1139,6 +1153,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       clearInterval(heartbeat);
       unsub();
       unsubscribeHarnessBridge();
+      unsubscribeEngineeringMemory();
       workspaceUiWatcher.stop();
       notificationService?.stop();
       persistDb(db, dbPath);

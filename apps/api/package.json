@@ -23,6 +23,7 @@
     "@vestara/engineering-graph": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/events": "workspace:*",
+    "@vestara/memory": "workspace:*",
     "@vestara/evidence": "workspace:*",
     "@vestara/extension-contracts": "workspace:*",
     "@vestara/extension-runtime": "workspace:*",

@@ -470,3 +470,6 @@ export class DefaultMemoryRuntime extends Runtime implements MemoryRuntime {
     };
   }
 }
+
+export type { EngineeringMemoryProjectionOptions } from './engineering-memory-projection';
+export { createEngineeringMemoryProjection, deriveMemory } from './engineering-memory-projection';

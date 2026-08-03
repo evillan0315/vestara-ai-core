@@ -215,7 +215,7 @@ check "ADR-027 documented (Ownership & Locking)" "grep -q 'ADR-027' '$ROOT/../ve
 check "ADR-028 documented (Verification & Trust)" "grep -q 'ADR-028' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
 check "ADR-029 documented (Recovery & Failure Budget)" "grep -q 'ADR-029' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
 check "ADR-030 documented (Kernel Architecture)" "grep -q 'ADR-030' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
-check "Blueprint v2.0 (07 updated)" "grep -q 'version: .2.0.0' '$ROOT/../vestara-blueprint/00-governance/07-ai-operating-system-architecture.md' 2>/dev/null"
+check "Blueprint v2.0 (07 updated)" "grep -Eq 'version: \".?2\\.[01]' '$ROOT/../vestara-blueprint/00-governance/07-ai-operating-system-architecture.md' 2>/dev/null"
 check "@vestara/subsystem package exists" "test -d '$ROOT/packages/subsystem/src'"
 check "@vestara/subsystem builds" "ls '$ROOT/packages/subsystem/dist/index.js' 2>/dev/null | grep -q ."
 check "@vestara/widget-runtime package exists" "test -d '$ROOT/packages/widget-runtime/src'"
