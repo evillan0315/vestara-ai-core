@@ -104,7 +104,7 @@ let SQL: any = null;
 async function getDb(): Promise<any> {
   if (SQL) return SQL;
   const { getSql } = await import('@vestara/shared');
-  SQL = await getDb();
+  SQL = await getSql();
   return SQL;
 }
 

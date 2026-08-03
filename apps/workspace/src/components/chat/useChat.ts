@@ -41,6 +41,7 @@ export function useChat() {
   const [followUpId, setFollowUpId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<ConversationData[]>([]);
   const [convLoaded, setConvLoaded] = useState(false);
+  const conversationIdRef = useRef<string | null>(null);
 
   const messages = branches[activeBranch] || [];
 
@@ -154,7 +155,19 @@ export function useChat() {
       const pendingToolCalls: ToolCall[] = [];
 
       try {
-        const res = await fetch('/api/chat/stream', {
+        if (!conversationIdRef.current) {
+          const created = await fetch('/api/conversations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({}),
+            signal: controller.signal,
+          }).then((r) => r.json().catch(() => ({})) as Promise<{ conversation?: { id?: string } }>);
+          conversationIdRef.current = created?.conversation?.id ?? null;
+        }
+        const conversationId = conversationIdRef.current;
+        if (!conversationId) throw new Error('Unable to create a conversation');
+
+        const res = await fetch(`/api/conversations/${encodeURIComponent(conversationId)}/stream`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ message: text, model: settings.model }),
@@ -180,65 +193,21 @@ export function useChat() {
             if (!trimmed.startsWith('data: ')) continue;
             try {
               const data = JSON.parse(trimmed.slice(6));
+              const eventType = data?.event?.type;
+              const content = data?.event?.content ?? '';
 
-              if (data.type === 'text') {
-                let txt = data.content || '';
-                const spans: Array<[number, number]> = [];
-                const re = /<tool_call>\s*\{/g;
-                let match: RegExpExecArray | null;
-                while ((match = re.exec(txt)) !== null) {
-                  const open = match.index + match[0].length - 1;
-                  let depth = 0,
-                    close = -1;
-                  for (let i = open; i < txt.length; i++) {
-                    if (txt[i] === '{') depth++;
-                    if (txt[i] === '}') {
-                      depth--;
-                      if (depth === 0) {
-                        close = i + 1;
-                        break;
-                      }
-                    }
-                  }
-                  if (close === -1) break;
-                  spans.push([match.index, close]);
-                  try {
-                    const p = JSON.parse(txt.slice(open, close));
-                    pendingToolCalls.push({
-                      id: genId(),
-                      tool: p.tool || p.action || p.operation || p.command || p.path || p.pattern || 'tool',
-                      args: txt.slice(open, close),
-                      status: 'running',
-                      label: p.tool || p.action || p.operation || p.command || p.path || p.pattern || 'Executing tool',
-                      timestamp: Date.now(),
-                    });
-                  } catch {}
-                }
-                for (let i = spans.length - 1; i >= 0; i--) {
-                  txt = txt.slice(0, spans[i][0]) + txt.slice(spans[i][1]);
-                }
-                accumulated += txt.replace(/<\/?think>\s*/g, '');
+              if (eventType === 'delta') {
+                accumulated += content.replace(/<\/?think>\s*/g, '');
                 setStreamingText(accumulated);
-              } else if (data.type === 'tool_call') {
-                const tc: ToolCall = {
-                  id: data.id || genId(),
-                  tool: data.name || 'unknown',
-                  args: data.content || '',
-                  status: 'running',
-                  label: data.name || 'Executing tool',
-                  timestamp: Date.now(),
-                };
-                pendingToolCalls.push(tc);
-                setStreamingText(accumulated);
-              } else if (data.type === 'tool_result') {
-                const toolName = data.name || '';
+              } else if (eventType === 'tool_result') {
+                const toolName = data.event.name || '';
                 const existing = pendingToolCalls.find((t) => t.tool === toolName && t.status === 'running');
                 if (existing) {
                   existing.status = 'completed';
-                  existing.output = data.content || '';
+                  existing.output = content || '';
                 }
                 setStreamingText(accumulated);
-              } else if (data.type === 'done') {
+              } else if (eventType === 'done') {
                 setMessages((prev) => [
                   ...prev,
                   {
@@ -252,9 +221,9 @@ export function useChat() {
                 ]);
                 setStreamingText('');
                 added = true;
-              } else if (data.type === 'status') {
+              } else if (eventType === 'status') {
                 setStreamingText(accumulated);
-              } else if (data.type === 'error') throw new Error(data.content);
+              } else if (eventType === 'error') throw new Error(content || 'Stream failed');
             } catch {}
           }
         }

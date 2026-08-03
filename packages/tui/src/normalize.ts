@@ -21,6 +21,29 @@ export function humanizeTool(tool: string, resource?: string): string {
   return `${labels[action] ?? action.replace(/-/g, ' ')}${resource ? ` ${resource}` : ''}`;
 }
 
+/**
+ * Remove raw model tool-call markup (DSML / opencode `<|DSML|...>` blocks) from
+ * streamed conversation text so the TUI never displays raw invocation syntax.
+ * Handles ASCII and fullwidth bracket variants, whole invoke/parameter blocks
+ * and dangling tags.
+ */
+export function scrubToolMarkup(content: string): string {
+  if (!content || !/(DSML|<\s*\/?\s*(invoke|parameter|result))/i.test(content)) return content;
+
+  // ASCII blocks: <|DSML|invoke ...> ... </|DSML|invoke> (including nested parameter tags)
+  let out = content.replace(/<\|DSML\|[\s\S]*?<\/\|DSML\|invoke>/gi, '');
+  // Fullwidth blocks: ＜｜DSML｜invoke ...＞ ... ＜／｜DSML｜invoke＞
+  out = out.replace(/＜｜DSML｜[\s\S]*?＜／｜DSML｜invoke＞/g, '');
+  // Bare invoke/parameter tags and their payload (heuristic, non-greedy across lines)
+  out = out.replace(/(^|\n)\s*<\|DSML\|[^\n]*(\n[ \t]*<\|DSML\|[^\n]*)*/gi, '$1');
+  out = out.replace(/(^|\n)\s*＜｜DSML｜[^\n]*/g, '$1');
+  // Dangling close/attribute fragments left over
+  out = out.replace(/<\/?\|?DSML\|?[^>]*>/gi, '');
+  out = out.replace(/＜\/(｜)?DSML｜＞/g, '');
+  out = out.replace(/\n{3,}/g, '\n\n');
+  return out.trim();
+}
+
 export function normalizeRuntimeEvent(raw: unknown): readonly TuiEvent[] {
   const event = record(raw);
   const type = text(event.type) ?? '';

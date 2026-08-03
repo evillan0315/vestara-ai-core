@@ -118,7 +118,7 @@ export class OpenCodeProvider implements AIProvider {
     this.baseUrl = options.baseUrl ?? 'https://opencode.ai/zen/v1';
     this.includeTemperature = options.includeTemperature ?? true;
     this.outputTokenField = options.outputTokenField ?? 'max_tokens';
-    this.apiKeyEnv = options.apiKeyEnvironmentVariables?.[0];
+    this.apiKeyEnv = options.apiKeyEnvironmentVariables?.[0] ?? 'OPENCODE_API_KEY';
     this.allowedRemoteModels = options.allowedRemoteModels;
   }
 
@@ -205,7 +205,7 @@ export class OpenCodeProvider implements AIProvider {
     const start = performance.now();
     const body: Record<string, unknown> = {
       model: request.model,
-      messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: request.messages.map(serializeMessage),
       ...(this.includeTemperature ? { temperature: request.temperature ?? 0.7 } : {}),
       [this.outputTokenField]: this.outputTokenBudget(request),
       stream: false,
@@ -214,7 +214,7 @@ export class OpenCodeProvider implements AIProvider {
       body.tools = request.tools.map((t) => ({
         type: 'function',
         function: {
-          name: t.id,
+          name: encodeToolCallName(t.id),
           description: t.description,
           parameters: {
             type: t.inputSchema?.type ?? 'object',
@@ -286,7 +286,7 @@ export class OpenCodeProvider implements AIProvider {
   async *stream(request: CompletionRequest): AsyncIterable<StreamChunk> {
     const body: Record<string, unknown> = {
       model: request.model,
-      messages: request.messages.map((m) => ({ role: m.role, content: m.content })),
+      messages: request.messages.map(serializeMessage),
       ...(this.includeTemperature ? { temperature: request.temperature ?? 0.7 } : {}),
       [this.outputTokenField]: this.outputTokenBudget(request),
       stream: true,
@@ -295,7 +295,7 @@ export class OpenCodeProvider implements AIProvider {
       body.tools = request.tools.map((t) => ({
         type: 'function',
         function: {
-          name: t.id,
+          name: encodeToolCallName(t.id),
           description: t.description,
           parameters: {
             type: t.inputSchema?.type ?? 'object',
@@ -441,6 +441,34 @@ export class OpenCodeProvider implements AIProvider {
 /** The model layer encodes tool names with `__`; restore the `.` tool identifier. */
 function normalizeToolCallName(name: string): string {
   return name.replace(/__/g, '.');
+}
+
+/** Encode a `.`-separated tool identifier so the upstream gateway accepts it (names must match `^[a-zA-Z0-9_-]+$`). */
+function encodeToolCallName(name: string): string {
+  return name.replace(/\./g, '__');
+}
+
+/** Serialize a shared CompletionRequest message to the OpenAI-compatible wire shape. */
+function serializeMessage(m: CompletionRequest['messages'][number]): {
+  role: string;
+  content: string;
+  tool_call_id?: string;
+  tool_calls?: unknown[];
+} {
+  return {
+    role: m.role,
+    content: m.content,
+    ...(m.role === 'tool' && m.toolCallId ? { tool_call_id: m.toolCallId } : {}),
+    ...(m.role === 'assistant' && m.toolCalls && m.toolCalls.length > 0
+      ? {
+          tool_calls: m.toolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function',
+            function: { name: encodeToolCallName(tc.name), arguments: tc.arguments },
+          })),
+        }
+      : {}),
+  };
 }
 
 /**

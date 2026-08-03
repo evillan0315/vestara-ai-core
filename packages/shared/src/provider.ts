@@ -63,6 +63,8 @@ export interface CompletionRequest {
   messages: Array<{
     role: 'system' | 'user' | 'assistant' | 'tool';
     content: string;
+    toolCallId?: string;
+    toolCalls?: Array<{ id: string; name: string; arguments: string }>;
   }>;
   temperature?: number;
   maxTokens?: number;

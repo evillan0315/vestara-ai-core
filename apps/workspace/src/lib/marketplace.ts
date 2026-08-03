@@ -123,7 +123,7 @@ export interface MarketplaceRegistryStatus {
   id: string;
   kind: string;
   displayName: string;
-  health: { status: string; assetCount: number; lastScanAt?: string; error?: string };
+  health: { status: string; assetCount: number; lastScanAt?: string; roots?: string[]; error?: string };
 }
 
 export interface MarketplaceSearchResult {

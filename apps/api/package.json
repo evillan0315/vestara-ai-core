@@ -16,6 +16,8 @@
     "@vestara/agent-harness": "workspace:*",
     "@vestara/boot-runtime": "workspace:*",
     "@vestara/configuration": "workspace:*",
+    "@vestara/context": "workspace:*",
+    "@vestara/conversation": "workspace:*",
     "@vestara/conversation-runtime": "workspace:*",
     "@vestara/diff-engine": "workspace:*",
     "@vestara/documentation": "workspace:*",

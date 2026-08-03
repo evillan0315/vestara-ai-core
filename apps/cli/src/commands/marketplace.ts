@@ -28,7 +28,6 @@ import {
   MarketplaceService,
   MarketplaceVersionTracker,
   parsePackageReference,
-  RemoteMarketplaceRegistry,
 } from '@vestara/marketplace';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
@@ -60,6 +59,18 @@ export async function runMarketplace(args: readonly string[]): Promise<void> {
         return;
       case 'uninstall':
         await runUninstall(rest(args), json);
+        return;
+      case 'enable':
+        await runEnable(rest(args), json);
+        return;
+      case 'disable':
+        await runDisable(rest(args), json);
+        return;
+      case 'configure':
+        await runConfigure(rest(args), json);
+        return;
+      case 'status':
+        await runPackageStatus(rest(args), json);
         return;
       case 'verify':
         await runVerify(rest(args), json);
@@ -266,7 +277,7 @@ async function runUpdate(args: readonly string[], json: boolean): Promise<void> 
 
 async function runUninstall(args: readonly string[], json: boolean): Promise<void> {
   const reference = args.find((arg) => !arg.startsWith('--'));
-  if (!reference) throw new Error('Usage: vestara marketplace uninstall <package> [--yes]');
+  if (!reference) throw new Error('Usage: vestara marketplace uninstall <package> [--yes] [--purge]');
   if (!flag(args, '--yes') && !(await confirm(`Uninstall ${reference}?`))) {
     console.log(`${GRAY}Aborted.${RESET}`);
     return;
@@ -278,6 +289,107 @@ async function runUninstall(args: readonly string[], json: boolean): Promise<voi
     return;
   }
   console.log(`${GREEN}✓${RESET} Uninstalled ${reference}`);
+  if (flag(args, '--purge')) {
+    const packageId = normalizePackageId(reference);
+    const configPath = path.join(os.homedir(), '.config', 'vestara', 'packages', `${packageId}.json`);
+    if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
+      console.log(`${GRAY}Purged configuration: ${configPath}${RESET}`);
+    }
+  }
+}
+
+async function runEnable(args: readonly string[], json: boolean): Promise<void> {
+  const reference = args.find((arg) => !arg.startsWith('--'));
+  if (!reference) throw new Error('Usage: vestara marketplace enable <package>');
+  const packageId = normalizePackageId(reference);
+  const { manager } = createContext(true);
+  await manager.enable(packageId);
+  if (json) {
+    console.log(JSON.stringify({ packageId, enabled: true }, null, 2));
+    return;
+  }
+  console.log(`${GREEN}✓${RESET} Enabled ${packageId}`);
+}
+
+async function runDisable(args: readonly string[], json: boolean): Promise<void> {
+  const reference = args.find((arg) => !arg.startsWith('--'));
+  if (!reference) throw new Error('Usage: vestara marketplace disable <package>');
+  const packageId = normalizePackageId(reference);
+  const { manager } = createContext(true);
+  await manager.disable(packageId);
+  if (json) {
+    console.log(JSON.stringify({ packageId, enabled: false }, null, 2));
+    return;
+  }
+  console.log(`${GREEN}✓${RESET} Disabled ${packageId}`);
+}
+
+async function runConfigure(args: readonly string[], json: boolean): Promise<void> {
+  const reference = args.find((arg) => !arg.startsWith('--'));
+  if (!reference) throw new Error('Usage: vestara marketplace configure <package> [key=value ...]');
+  const packageId = normalizePackageId(reference);
+  const pairs = args.filter((arg) => arg.includes('='));
+  const configPath = path.join(os.homedir(), '.config', 'vestara', 'packages', `${packageId}.json`);
+  let config: Record<string, unknown> = {};
+  if (fs.existsSync(configPath)) {
+    try {
+      config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+    } catch {}
+  }
+  for (const pair of pairs) {
+    const equals = pair.indexOf('=');
+    const key = pair.slice(0, equals);
+    const raw = pair.slice(equals + 1);
+    config[key] = coerceValue(raw);
+  }
+  fs.mkdirSync(path.dirname(configPath), { recursive: true });
+  fs.writeFileSync(configPath, JSON.stringify(config, null, 2));
+  if (json) {
+    console.log(JSON.stringify({ packageId, configPath, config }, null, 2));
+    return;
+  }
+  console.log(`${GREEN}✓${RESET} Configured ${packageId} → ${configPath}`);
+  for (const [key, value] of Object.entries(config)) console.log(`  ${GRAY}${key}${RESET} = ${value}`);
+}
+
+async function runPackageStatus(args: readonly string[], json: boolean): Promise<void> {
+  const reference = args.find((arg) => !arg.startsWith('--'));
+  if (!reference) throw new Error('Usage: vestara marketplace status <package>');
+  const packageId = normalizePackageId(reference);
+  const { manager } = createContext(true);
+  const installed = manager.get(packageId);
+  if (!installed) {
+    if (json) {
+      console.log(JSON.stringify({ packageId, installed: false }, null, 2));
+      return;
+    }
+    console.log(`${GRAY}${packageId} is not installed.${RESET}`);
+    return;
+  }
+  const version = installed.versions[installed.currentVersion];
+  if (json) {
+    console.log(
+      JSON.stringify(
+        {
+          packageId,
+          installed: true,
+          currentVersion: installed.currentVersion,
+          enabled: installed.enabledWorkspaces.length > 0,
+          state: version?.state,
+          health: version?.health?.status,
+        },
+        null,
+        2,
+      ),
+    );
+    return;
+  }
+  console.log(`${BOLD}${packageId}${RESET}`);
+  console.log(`  Version:  ${GOLD}${installed.currentVersion}${RESET}`);
+  console.log(`  Enabled:  ${installed.enabledWorkspaces.length > 0 ? `${GREEN}yes${RESET}` : `${GRAY}no${RESET}`}`);
+  console.log(`  State:    ${version?.state ?? 'unknown'}`);
+  console.log(`  Health:   ${version?.health?.status ?? 'unknown'}`);
 }
 
 async function runVerify(args: readonly string[], json: boolean): Promise<void> {
@@ -388,7 +500,7 @@ async function runTrack(json: boolean): Promise<void> {
 
 // ─── Context and helpers ────────────────────────────────────────────────────
 
-function createContext(confirmAll = false): { service: MarketplaceService } {
+function createContext(confirmAll = false): { service: MarketplaceService; manager: LocalExtensionManager } {
   const workspace = process.env.VESTARA_REPO ? path.resolve(process.env.VESTARA_REPO) : process.cwd();
   const roots = [
     path.join(workspace, '.vestara', 'marketplace'),
@@ -417,7 +529,7 @@ function createContext(confirmAll = false): { service: MarketplaceService } {
     vestaraVersion: '1.0.0',
     workspaceId: workspace,
   });
-  return { service };
+  return { service, manager };
 }
 
 /** Approval flow: `--yes` approves everything; otherwise prompt per permission. */
@@ -442,6 +554,19 @@ function splitReference(reference: string): { name: string; version?: string } {
   const at = reference.lastIndexOf('@');
   if (at > 0) return { name: reference.slice(0, at), version: reference.slice(at + 1) };
   return { name: reference };
+}
+
+/** Normalize `@vestara/tui` → `vestara.tui` for Marketplace package identity. */
+function normalizePackageId(reference: string): string {
+  return reference.replace(/^@/, '').replace(/\//g, '.');
+}
+
+function coerceValue(raw: string): unknown {
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  const number = Number(raw);
+  if (raw.trim() !== '' && Number.isFinite(number)) return number;
+  return raw;
 }
 
 function rest(args: readonly string[]): string[] {
@@ -485,7 +610,13 @@ function printUsage(): void {
   console.log(
     `  ${BOLD}update${RESET} <package>        ${GRAY}Update to the latest compatible version [--dry-run] [--yes]${RESET}`,
   );
-  console.log(`  ${BOLD}uninstall${RESET} <package>     ${GRAY}Uninstall [--yes]${RESET}`);
+  console.log(`  ${BOLD}uninstall${RESET} <package>     ${GRAY}Uninstall [--yes] [--purge]${RESET}`);
+  console.log(
+    `  ${BOLD}enable${RESET} <package>        ${GRAY}Enable a package (register interactive interface)${RESET}`,
+  );
+  console.log(`  ${BOLD}disable${RESET} <package>       ${GRAY}Disable a package (restore standard CLI)${RESET}`);
+  console.log(`  ${BOLD}configure${RESET} <package>     ${GRAY}Configure a package (key=value ...)${RESET}`);
+  console.log(`  ${BOLD}status${RESET} <package>        ${GRAY}Show package install/enabled/health status${RESET}`);
   console.log(`  ${BOLD}verify${RESET} <package>        ${GRAY}Verify package integrity${RESET}`);
   console.log(`  ${BOLD}rescan${RESET}                  ${GRAY}Rescan local registry directories${RESET}`);
   console.log(

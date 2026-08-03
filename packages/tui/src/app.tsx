@@ -1,1089 +1,220 @@
-import { Box, Text, useApp, useInput, usePaste, useWindowSize } from 'ink';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import type { TuiController } from './controller.js';
-import type {
-  AgentCard,
-  ConversationEntry,
-  FileSummary,
-  HarnessTaskSnapshot,
-  HarnessThreadSummary,
-  PlanSummary,
-  RoutingSelection,
-  SessionSummary,
-  ToolCard,
-  TuiEvent,
-  TuiView,
-  WorkflowProjectionSummary,
-  WorkspaceSummary,
-} from './types.js';
+import { TextAttributes } from '@opentui/core';
+import { DEFAULT_THEME, TUI_NAVIGATION, TUI_SEMANTIC_PALETTES } from '@vestara/design-system';
+import { useKeyboard, useTerminalDimensions } from '@vestara/tui-renderer';
+import type { ReactNode } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { ChatView } from './components/chat.js';
+import { CommandPalette } from './components/command-palette.js';
+import { ListView } from './components/list-view.js';
+import { LogsView } from './components/logs.js';
+import { Navigation } from './components/navigation.js';
+import { SessionsView } from './components/sessions.js';
+import { StatusBar } from './components/status-bar.js';
+import type { TuiHostHandle } from './host.js';
+import type { TuiEvent, TuiView } from './types.js';
 
-const NAVIGATION: Array<{ view: TuiView; label: string; key: string }> = [
-  { view: 'chat', label: 'Chat', key: '1' },
-  { view: 'sessions', label: 'Sessions', key: '2' },
-  { view: 'plans', label: 'Plans', key: '3' },
-  { view: 'graph', label: 'Graph', key: '4' },
-  { view: 'explorer', label: 'Explorer', key: '5' },
-  { view: 'logs', label: 'Logs', key: '6' },
-  { view: 'telemetry', label: 'Telemetry', key: '7' },
-  { view: 'execution', label: 'Execution', key: '8' },
-  { view: 'workflow', label: 'Workflow', key: '9' },
-];
-
-interface LogEntry {
-  id: string;
-  label: string;
-  detail: string;
-  timestamp: string;
-}
-interface Toast {
-  id: string;
-  level: 'success' | 'warning' | 'error' | 'info';
-  message: string;
+export interface TuiShellProps {
+  host: TuiHostHandle;
+  endpoint: string;
+  repoPath: string;
 }
 
-export function App({ controller }: { controller: TuiController }) {
-  const { exit } = useApp();
-  const { columns, rows } = useWindowSize();
+export function TuiShell(props: TuiShellProps): ReactNode {
+  const palette = TUI_SEMANTIC_PALETTES[DEFAULT_THEME];
+  const { width, height } = useTerminalDimensions();
   const [view, setView] = useState<TuiView>('chat');
-  const [sidebar, setSidebar] = useState(true);
-  const [agentPanel, setAgentPanel] = useState(true);
-  const [connection, setConnection] = useState('connecting');
-  const [workspace, setWorkspace] = useState<WorkspaceSummary>();
-  const [messages, setMessages] = useState<ConversationEntry[]>([
-    { id: 'welcome', role: 'system', content: 'Vestara TUI connected to the shared runtime.' },
-  ]);
-  const [tools, setTools] = useState<ToolCard[]>([]);
-  const [agents, setAgents] = useState<Map<string, AgentCard>>(new Map());
-  const [routing, setRouting] = useState<RoutingSelection>();
-  const routingRef = useRef<RoutingSelection | undefined>(undefined);
-  const [logs, setLogs] = useState<LogEntry[]>([]);
-  const [entities, setEntities] = useState<readonly { id: string; kind: string; label: string; status?: string }[]>([]);
-  const [plans, setPlans] = useState<readonly PlanSummary[]>([]);
-  const [sessions, setSessions] = useState<readonly SessionSummary[]>([]);
-  const [harnessThreads, setHarnessThreads] = useState<readonly HarnessThreadSummary[]>([]);
-  const [harnessTask, setHarnessTask] = useState<HarnessTaskSnapshot>();
-  const [workflow, setWorkflow] = useState<WorkflowProjectionSummary>();
-  const [files, setFiles] = useState<readonly FileSummary[]>([]);
-  const [selection, setSelection] = useState(0);
-  const [toasts, setToasts] = useState<Toast[]>([]);
-  const [input, setInput] = useState('');
-  const [cursor, setCursor] = useState(0);
-  const [history, setHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
-  const [undo, setUndo] = useState<string[]>([]);
-  const [redo, setRedo] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const [overlay, setOverlay] = useState<'palette' | 'help' | 'routing' | null>(null);
-  const [routingPicker, setRoutingPicker] = useState<{
-    step: 'agent' | 'provider' | 'model';
-    index: number;
-    agentId?: string;
-    providerId?: string;
-  }>({ step: 'agent', index: 0 });
-  const [paletteQuery, setPaletteQuery] = useState('');
-  const [confirmation, setConfirmation] = useState<{ prompt: string; command: string }>();
-  const [scroll, setScroll] = useState(0);
-  const active = useRef<AbortController | undefined>(undefined);
+  const [connection, setConnection] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [workspace, setWorkspace] = useState<{ name: string; root?: string; branch?: string }>();
+  const [agents, setAgents] = useState<Array<{ id: string; name: string; status: string; task?: string }>>([]);
+  const [logs, setLogs] = useState<Array<{ id: string; label: string; detail: string; timestamp: string }>>([]);
+  const [sessions, setSessions] = useState<readonly { id: string; title: string; status: string }[]>([]);
+  const [plans, setPlans] = useState<readonly { id: string; title: string; status: string }[]>([]);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteInput, setPaletteInput] = useState('');
+  const [notifications, setNotifications] = useState<Array<{ id: string; level: string; message: string }>>([]);
 
-  const notify = useCallback((level: Toast['level'], message: string) => {
-    const toast = { id: `toast-${Date.now()}-${Math.random()}`, level, message };
-    setToasts((current) => [...current, toast].slice(-3));
-    setTimeout(() => setToasts((current) => current.filter((item) => item.id !== toast.id)), 3500);
+  const notify = useCallback((level: 'success' | 'warning' | 'error' | 'info', message: string) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setNotifications((current) => [...current, { id, level, message }].slice(-3));
+    setTimeout(() => setNotifications((current) => current.filter((t) => t.id !== id)), 3500);
   }, []);
 
-  const handleEvent = useCallback(
-    (event: TuiEvent) => {
-      if (event.type === 'connection') setConnection(event.state);
-      else if (event.type === 'workspace') setWorkspace(event.workspace);
-      else if (event.type === 'message') setMessages((current) => [...current, event.entry].slice(-300));
-      else if (event.type === 'conversation-start')
-        setMessages((current) =>
-          [...current, { id: event.id, role: 'assistant' as const, content: '', streaming: true }].slice(-300),
-        );
-      else if (event.type === 'conversation-delta')
-        setMessages((current) =>
-          current.map((item) => (item.id === event.id ? { ...item, content: item.content + event.content } : item)),
-        );
-      else if (event.type === 'conversation-complete')
-        setMessages((current) => current.map((item) => (item.id === event.id ? { ...item, streaming: false } : item)));
-      else if (event.type === 'tool')
-        setTools((current) => [...current.filter((item) => item.id !== event.card.id), event.card].slice(-30));
-      else if (event.type === 'agent') setAgents((current) => new Map(current).set(event.agent.id, event.agent));
-      else if (event.type === 'routing') {
-        routingRef.current = event.routing;
-        setRouting(event.routing);
-      } else if (event.type === 'telemetry')
-        setLogs((current) => [...current, { id: `${event.timestamp}-${event.label}`, ...event }].slice(-200));
-      else if (event.type === 'graph') setEntities(event.entities);
-      else if (event.type === 'plans') setPlans(event.plans);
-      else if (event.type === 'sessions') setSessions(event.sessions);
-      else if (event.type === 'harness-threads') setHarnessThreads(event.threads);
-      else if (event.type === 'harness-task') setHarnessTask(event.snapshot);
-      else if (event.type === 'workflow') setWorkflow(event.workflow);
-      else if (event.type === 'files') setFiles(event.files);
-      else if (event.type === 'navigate') {
-        setView(event.view);
-        setSelection(0);
-      } else if (event.type === 'notification') notify(event.level, event.message);
-      else if (event.type === 'confirmation') setConfirmation({ prompt: event.prompt, command: event.command });
-      else if (event.type === 'clear') {
-        setMessages([]);
-        setTools([]);
-      } else if (event.type === 'exit') exit();
-    },
-    [exit, notify],
-  );
-
-  const openRouting = useCallback(() => {
-    const currentRouting = routingRef.current;
-    if (!currentRouting?.agents.length || !currentRouting.candidates.length) {
-      notify('warning', 'No routing agents or provider models are available');
-      return;
-    }
-    setRoutingPicker({
-      step: 'agent',
-      index: Math.max(
-        0,
-        currentRouting.agents.findIndex((agent) => agent.id === currentRouting.activeAgentId),
-      ),
-    });
-    setOverlay('routing');
-  }, [notify]);
-
   useEffect(() => {
-    let dispose = () => {};
+    let dispose: (() => void) | undefined;
     let mounted = true;
-    void controller.connect(handleEvent).then((unsubscribe) => {
-      if (mounted) dispose = unsubscribe;
-      else unsubscribe();
-    });
+    void props.host
+      .subscribe((event: TuiEvent) => {
+        if (!mounted) return;
+        switch (event.type) {
+          case 'connection':
+            setConnection(event.state === 'connected' ? 'connected' : 'error');
+            break;
+          case 'workspace':
+            setWorkspace({ name: event.workspace.name, root: event.workspace.root, branch: event.workspace.branch });
+            break;
+          case 'agent':
+            setAgents((current) => {
+              const rest = current.filter((a) => a.id !== event.agent.id);
+              return [...rest, event.agent];
+            });
+            break;
+          case 'telemetry':
+            setLogs((current) => [...current, { id: event.timestamp, ...event }].slice(-200));
+            break;
+          case 'sessions':
+            setSessions(event.sessions);
+            break;
+          case 'plans':
+            setPlans(event.plans);
+            break;
+          case 'notification':
+            notify(event.level, event.message);
+            break;
+          case 'navigate':
+            setView(event.view);
+            break;
+          default:
+            break;
+        }
+      })
+      .then((unsubscribe) => {
+        if (!mounted) unsubscribe();
+        else dispose = unsubscribe;
+      });
     return () => {
       mounted = false;
-      dispose();
-      active.current?.abort();
+      dispose?.();
     };
-  }, [controller, handleEvent]);
+  }, [props.host, notify]);
 
-  const updateInput = useCallback(
-    (next: string, nextCursor = next.length) => {
-      setUndo((current) => [...current, input].slice(-100));
-      setRedo([]);
-      setInput(next);
-      setCursor(Math.max(0, Math.min(nextCursor, next.length)));
-    },
-    [input],
-  );
-
-  const execute = useCallback(
-    async (command: string, echo = true) => {
-      if (!command.trim() || busy) return;
-      if (echo)
-        setMessages((current) =>
-          [...current, { id: `user-${Date.now()}`, role: 'user' as const, content: command }].slice(-300),
-        );
-      setHistory((current) => [...current.filter((item) => item !== command), command].slice(-100));
-      setHistoryIndex(-1);
-      setBusy(true);
-      const abort = new AbortController();
-      active.current = abort;
-      try {
-        for await (const event of controller.execute(command, abort.signal)) handleEvent(event);
-      } catch (error) {
-        notify('error', error instanceof Error ? error.message : String(error));
-      } finally {
-        active.current = undefined;
-        setBusy(false);
+  useKeyboard((key) => {
+    if (key.eventType === 'release') return;
+    if (paletteOpen) {
+      if (key.ctrl && key.name === 'p') setPaletteOpen(false);
+      else if (key.name === 'escape') setPaletteOpen(false);
+      else if (key.name === 'return' || key.name === 'enter') {
+        const command = paletteInput.trim();
+        setPaletteOpen(false);
+        if (command) void props.host.controller.execute(command);
+      } else if (key.name === 'backspace') {
+        setPaletteInput((current) => current.slice(0, -1));
+      } else if (!key.ctrl && !key.meta && key.sequence) {
+        setPaletteInput((current) => current + key.sequence);
       }
-    },
-    [busy, controller, handleEvent, notify],
-  );
-
-  const submit = useCallback(() => {
-    const command = input.trim();
-    if (!command || busy) return;
-    setInput('');
-    setCursor(0);
-    setScroll(0);
-    void execute(command);
-  }, [busy, execute, input]);
-
-  usePaste((value) => updateInput(`${input.slice(0, cursor)}${value}${input.slice(cursor)}`, cursor + value.length), {
-    isActive: !busy && !overlay && !confirmation,
+      return;
+    }
+    if (key.ctrl && key.name === 'p') {
+      setPaletteOpen(true);
+      setPaletteInput('');
+      return;
+    }
+    if (key.name === 'tab') {
+      setView((current) => {
+        const index = TUI_NAVIGATION.findIndex((item) => item.id === current);
+        const next = TUI_NAVIGATION[(index + 1) % TUI_NAVIGATION.length];
+        return (next?.id ?? 'chat') as TuiView;
+      });
+      return;
+    }
+    const digit = key.sequence;
+    if (digit === '1') setView('chat');
+    else if (digit === '2') setView('sessions');
+    else if (digit === '3') setView('plans');
+    else if (digit === '4') setView('graph');
+    else if (digit === '5') setView('execution');
+    else if (digit === '6') setView('workflow');
+    else if (digit === '7') setView('logs');
   });
 
-  useInput((character, key) => {
-    if (confirmation) {
-      if (character.toLowerCase() === 'y') {
-        const command = confirmation.command;
-        setConfirmation(undefined);
-        void execute(command);
-      } else if (character.toLowerCase() === 'n' || key.escape) setConfirmation(undefined);
-      return;
-    }
-    if (overlay === 'palette') {
-      if (key.escape) {
-        setOverlay(null);
-        setPaletteQuery('');
-        return;
-      }
-      if (key.return) {
-        const selected = paletteCommands(paletteQuery)[0];
-        setOverlay(null);
-        setPaletteQuery('');
-        if (selected) selected.run({ setView, setSidebar, setAgentPanel, execute, openRouting });
-        return;
-      }
-      if (key.backspace || key.delete) setPaletteQuery((current) => current.slice(0, -1));
-      else if (!key.ctrl && character) setPaletteQuery((current) => current + character);
-      return;
-    }
-    if (overlay === 'routing') {
-      if (!routing || key.escape) {
-        setOverlay(null);
-        return;
-      }
-      const selectedAgent = routing.agents.find((agent) => agent.id === routingPicker.agentId);
-      const providers = routingProviders(routing, selectedAgent?.role);
-      const models = routingModels(routing, routingPicker.providerId, selectedAgent?.role);
-      const optionCount =
-        routingPicker.step === 'agent'
-          ? routing.agents.length
-          : routingPicker.step === 'provider'
-            ? providers.length
-            : models.length;
-      if (key.upArrow) {
-        setRoutingPicker((current) => ({ ...current, index: Math.max(0, current.index - 1) }));
-        return;
-      }
-      if (key.downArrow) {
-        setRoutingPicker((current) => ({
-          ...current,
-          index: Math.max(0, Math.min(optionCount - 1, current.index + 1)),
-        }));
-        return;
-      }
-      if (key.return && routingPicker.step === 'agent') {
-        const agent = routing.agents[routingPicker.index];
-        if (agent) setRoutingPicker({ step: 'provider', index: 0, agentId: agent.id });
-        return;
-      }
-      if (key.return && routingPicker.step === 'provider') {
-        const provider = providers[routingPicker.index];
-        if (provider) setRoutingPicker({ ...routingPicker, step: 'model', index: 0, providerId: provider.providerId });
-        return;
-      }
-      if (key.return && routingPicker.step === 'model') {
-        const model = models[routingPicker.index];
-        if (selectedAgent && routingPicker.providerId && model) {
-          setOverlay(null);
-          void execute(
-            `/routing select "${selectedAgent.id}" "${selectedAgent.role}" "${routingPicker.providerId}" "${model.modelId}"`,
-            false,
-          );
-        }
-      }
-      return;
-    }
-    if (overlay === 'help') {
-      if (key.escape || character === '?') setOverlay(null);
-      return;
-    }
-    if (key.ctrl && character === 'c') {
-      if (active.current) {
-        active.current.abort();
-        setBusy(false);
-        notify('warning', 'Operation cancelled');
-      } else exit();
-      return;
-    }
-    if (key.ctrl && character === 'p') {
-      setOverlay('palette');
-      return;
-    }
-    if (key.ctrl && character === 'r') {
-      openRouting();
-      return;
-    }
-    if (key.ctrl && character === 'b') {
-      setSidebar((current) => !current);
-      return;
-    }
-    if (key.ctrl && character === 'a') {
-      setAgentPanel((current) => !current);
-      return;
-    }
-    if (key.ctrl && character === 'g') {
-      setView('graph');
-      return;
-    }
-    if (key.ctrl && character === 't') {
-      setView('telemetry');
-      return;
-    }
-    if (key.ctrl && character === 'l') {
-      setMessages([]);
-      setTools([]);
-      return;
-    }
-    if (character === '?' && !input) {
-      setOverlay('help');
-      return;
-    }
-    const shortcut = NAVIGATION.find((item) => key.ctrl && character === item.key);
-    if (shortcut) {
-      setView(shortcut.view);
-      return;
-    }
-    if (key.tab) {
-      const index = NAVIGATION.findIndex((item) => item.view === view);
-      setView(NAVIGATION[(index + 1) % NAVIGATION.length]!.view);
-      return;
-    }
-    if (key.pageUp) {
-      setScroll((current) => current + 5);
-      return;
-    }
-    if (key.pageDown) {
-      setScroll((current) => Math.max(0, current - 5));
-      return;
-    }
-    if (!input && key.upArrow && view !== 'chat') {
-      setSelection((current) => Math.max(0, current - 1));
-      return;
-    }
-    if (!input && key.downArrow && view !== 'chat') {
-      setSelection((current) => current + 1);
-      return;
-    }
-    if (key.return && key.shift) {
-      updateInput(`${input.slice(0, cursor)}\n${input.slice(cursor)}`, cursor + 1);
-      return;
-    }
-    if (key.return) {
-      submit();
-      return;
-    }
-    if (key.ctrl && character === 'z') {
-      const previous = undo.at(-1);
-      if (previous !== undefined) {
-        setRedo((current) => [...current, input]);
-        setUndo((current) => current.slice(0, -1));
-        setInput(previous);
-        setCursor(previous.length);
-      }
-      return;
-    }
-    if (key.ctrl && character === 'y') {
-      const next = redo.at(-1);
-      if (next !== undefined) {
-        setUndo((current) => [...current, input]);
-        setRedo((current) => current.slice(0, -1));
-        setInput(next);
-        setCursor(next.length);
-      }
-      return;
-    }
-    if (key.leftArrow) {
-      setCursor((current) => Math.max(0, current - 1));
-      return;
-    }
-    if (key.rightArrow) {
-      setCursor((current) => Math.min(input.length, current + 1));
-      return;
-    }
-    if (key.backspace) {
-      if (cursor > 0) updateInput(`${input.slice(0, cursor - 1)}${input.slice(cursor)}`, cursor - 1);
-      return;
-    }
-    if (key.delete) {
-      if (cursor < input.length) updateInput(`${input.slice(0, cursor)}${input.slice(cursor + 1)}`, cursor);
-      return;
-    }
-    if (key.upArrow && input.includes('\n')) {
-      setCursor((current) => Math.max(0, current - (input.slice(0, current).split('\n').at(-1)?.length ?? 0) - 1));
-      return;
-    }
-    if (key.upArrow && history.length) {
-      const next = Math.min(historyIndex + 1, history.length - 1);
-      const value = history[history.length - 1 - next] ?? '';
-      setHistoryIndex(next);
-      setInput(value);
-      setCursor(value.length);
-      return;
-    }
-    if (key.downArrow && historyIndex >= 0) {
-      const next = historyIndex - 1;
-      const value = next < 0 ? '' : (history[history.length - 1 - next] ?? '');
-      setHistoryIndex(next);
-      setInput(value);
-      setCursor(value.length);
-      return;
-    }
-    if (!key.ctrl && !key.meta && character)
-      updateInput(`${input.slice(0, cursor)}${character}${input.slice(cursor)}`, cursor + character.length);
-  });
+  const compact = width < 90;
+  const showSidebar = !compact;
 
-  const compact = columns < 90;
-  const showSidebar = sidebar && !compact;
-  const showAgents = agentPanel && columns >= 115;
-  // Header (3), composer (4), and status bar (1) must fit inside the
-  // terminal height. If the center pane consumes one of those rows Ink
-  // clips the first composer line, which makes typed input appear missing.
-  const contentHeight = Math.max(8, rows - 8);
   return (
-    <Box width={columns} height={rows} flexDirection="column">
-      <Header workspace={workspace} connection={connection} busy={busy} />
-      <Box height={contentHeight}>
-        {showSidebar && <Navigation active={view} />}
-        <Box flexGrow={1} flexDirection="column" paddingX={1} overflow="hidden">
-          <MainView
-            view={view}
-            messages={messages}
-            tools={tools}
-            logs={logs}
-            entities={entities}
-            plans={plans}
-            sessions={sessions}
-            harnessThreads={harnessThreads}
-            harnessTask={harnessTask}
-            workflow={workflow}
-            files={files}
-            selection={selection}
-            scroll={scroll}
-            height={contentHeight}
-            workspace={workspace}
-          />
-        </Box>
-        {showAgents && <AgentPanel agents={[...agents.values()]} selectedAgentId={routing?.activeAgentId} />}
-      </Box>
-      <Editor value={input} cursor={cursor} busy={busy} />
-      <StatusBar
-        workspace={workspace}
-        connection={connection}
-        agents={[...agents.values()]}
-        busy={busy}
-        view={view}
-        routing={routing}
-      />
-      {(overlay === 'palette' || overlay === 'help') && <Overlay mode={overlay} query={paletteQuery} />}
-      {overlay === 'routing' && routing && <RoutingOverlay routing={routing} picker={routingPicker} />}
-      {confirmation && <Confirmation prompt={confirmation.prompt} />}
-      <Toasts items={toasts} />
-    </Box>
-  );
-}
-
-function Header({ workspace, connection, busy }: { workspace?: WorkspaceSummary; connection: string; busy: boolean }) {
-  return (
-    <Box borderStyle="round" borderColor="yellow" paddingX={1} justifyContent="space-between">
-      <Text bold color="yellow">
-        Vestara
-      </Text>
-      <Text>
-        {workspace?.name ?? 'No workspace'} <Text dimColor>{workspace?.branch ?? ''}</Text>
-      </Text>
-      <Text color={connection === 'connected' ? 'green' : connection === 'error' ? 'red' : 'yellow'}>
-        {busy ? '● working' : `● ${connection}`}
-      </Text>
-    </Box>
-  );
-}
-
-function Navigation({ active }: { active: TuiView }) {
-  return (
-    <Box width={16} borderStyle="single" borderColor="gray" flexDirection="column" paddingX={1}>
-      <Text bold>Navigation</Text>
-      {NAVIGATION.map((item) => (
-        <Text key={item.view} color={active === item.view ? 'cyan' : undefined} bold={active === item.view}>
-          {active === item.view ? '›' : ' '} {item.label}
-        </Text>
-      ))}
-    </Box>
-  );
-}
-
-function MainView(props: {
-  view: TuiView;
-  messages: ConversationEntry[];
-  tools: ToolCard[];
-  logs: LogEntry[];
-  entities: readonly { id: string; kind: string; label: string; status?: string }[];
-  plans: readonly PlanSummary[];
-  sessions: readonly SessionSummary[];
-  harnessThreads: readonly HarnessThreadSummary[];
-  harnessTask?: HarnessTaskSnapshot;
-  workflow?: WorkflowProjectionSummary;
-  files: readonly FileSummary[];
-  selection: number;
-  scroll: number;
-  height: number;
-  workspace?: WorkspaceSummary;
-}) {
-  if (props.view === 'chat')
-    return <Conversation messages={props.messages} tools={props.tools} scroll={props.scroll} height={props.height} />;
-  if (props.view === 'graph')
-    return (
-      <ListView
-        title="Engineering Graph"
-        lines={props.entities.map(
-          (item) => `${item.kind.padEnd(18)} ${item.label}${item.status ? ` · ${item.status}` : ''}`,
-        )}
-        selected={props.selection}
-      />
-    );
-  if (props.view === 'telemetry' || props.view === 'logs')
-    return (
-      <ListView
-        title={props.view === 'telemetry' ? 'Live Telemetry' : 'Runtime Logs'}
-        lines={props.logs.slice(-Math.max(1, props.height - 2)).map((item) => `${item.label} ${item.detail}`)}
-        selected={props.selection}
-      />
-    );
-  if (props.view === 'explorer')
-    return (
-      <ListView
-        title="Workspace Explorer"
-        lines={props.files.map((file) => `${file.status ? `${file.status.padEnd(10)} ` : ''}${file.path}`)}
-        selected={props.selection}
-      />
-    );
-  if (props.view === 'plans')
-    return (
-      <ListView
-        title="Plans"
-        lines={props.plans.map((plan) => `${plan.status.padEnd(12)} ${plan.title} · ${plan.taskCount} tasks`)}
-        selected={props.selection}
-      />
-    );
-  if (props.view === 'sessions')
-    return (
-      <ListView
-        title="Sessions"
-        lines={props.sessions.map(
-          (session) => `${session.status.padEnd(12)} ${session.title} · ${session.participantCount} participants`,
-        )}
-        selected={props.selection}
-      />
-    );
-  if (props.view === 'execution')
-    return <HarnessExecution threads={props.harnessThreads} snapshot={props.harnessTask} height={props.height} />;
-  if (props.view === 'workflow') return <WorkflowView workflow={props.workflow} />;
-  return null;
-}
-
-function WorkflowView({ workflow }: { workflow?: WorkflowProjectionSummary }) {
-  if (!workflow) {
-    return (
-      <ListView
-        title="Workflow"
-        lines={['No workflow selected. Use /workflow <threadId> to follow a run.']}
-        selected={0}
-      />
-    );
-  }
-  const mark = (status: string): string =>
-    status === 'completed'
-      ? '✓'
-      : status === 'failed'
-        ? '✗'
-        : status === 'blocked'
-          ? '⊘'
-          : status === 'active'
-            ? '●'
-            : '○';
-  const rail = workflow.stages.map((stage) => `${mark(stage.status)} ${stage.label}`).join(' ━ ');
-  const active = workflow.stages.find((stage) => stage.status === 'active');
-  const rows: string[] = [
-    `wf ${workflow.runId} · ${workflow.status.toUpperCase()}${workflow.currentStageId ? ` · ${workflow.currentStageId}` : ''}`,
-    '',
-    rail,
-    '',
-    'Stages',
-    ...workflow.stages.map((stage) => {
-      const duration = stage.durationMs != null ? `${(stage.durationMs / 1000).toFixed(1)}s` : '';
-      const block = stage.blockingReason ? ` — ${stage.blockingReason}` : '';
-      return `  ${mark(stage.status)} ${stage.label.padEnd(14)} ${duration.padEnd(7)}${block}`;
-    }),
-    '',
-    'Agents',
-    ...workflow.agents.map(
-      (agent) => `  ${agent.status.padEnd(9)} ${agent.name}${agent.activeTool ? ` · ${agent.activeTool}` : ''}`,
-    ),
-  ];
-  if (active) {
-    rows.push('');
-    rows.push(`Active: ${active.label}`);
-    rows.push(
-      `  tools ${active.tools.length} · files ${active.files.length}${active.agentId ? ` · agent ${active.agentId}` : ''}`,
-    );
-  }
-  if (workflow.approvals.length > 0) {
-    rows.push('');
-    rows.push('Approvals');
-    for (const approval of workflow.approvals)
-      rows.push(`  ${approval.status.padEnd(8)} ${approval.tool} [${approval.id}]`);
-  }
-  if (workflow.swimlanes?.length > 0) {
-    rows.push('');
-    rows.push('Agent Swimlanes');
-    for (const lane of workflow.swimlanes) {
-      const segments = lane.segments
-        .map((segment) => {
-          const mark =
-            segment.status === 'completed'
-              ? '✓'
-              : segment.status === 'failed'
-                ? '✗'
-                : segment.status === 'blocked'
-                  ? '⊘'
-                  : segment.status === 'active'
-                    ? '●'
-                    : '○';
-          const duration = segment.durationMs != null ? ` ${(segment.durationMs / 1000).toFixed(1)}s` : '';
-          return `${mark} ${segment.stageId}${duration}`;
-        })
-        .join(' ━ ');
-      rows.push(`  ${lane.agentName.padEnd(12)} ${segments}`);
-    }
-  }
-  rows.push('');
-  rows.push(
-    `Metrics: ${workflow.metrics.elapsedMs / 1000}s · ${workflow.metrics.stagesCompleted}/8 stages · ${workflow.metrics.toolsInvoked} tools · +${workflow.metrics.additions} -${workflow.metrics.deletions}`,
-  );
-  return <ListView title="Workflow" lines={rows} selected={0} />;
-}
-
-function HarnessExecution({
-  threads,
-  snapshot,
-  height,
-}: {
-  threads: readonly HarnessThreadSummary[];
-  snapshot?: HarnessTaskSnapshot;
-  height: number;
-}) {
-  if (!snapshot) {
-    const lines =
-      threads.length === 0
-        ? ['No harness threads yet. Start a run, then use /exec to follow it here.']
-        : threads.map((thread) => `${thread.status.padEnd(12)} ${thread.title} · ${thread.phase}`);
-    return <ListView title="Harness Execution" lines={lines} selected={0} />;
-  }
-  const thread = snapshot.thread;
-  const rows: string[] = [];
-  rows.push(
-    `${thread.status} · ${thread.phase}${thread.activeAgentId ? ` · ${thread.activeAgentId}` : ''} · ${thread.changedFileCount} changed${thread.attentionRequired ? ' · ⚠ attention' : ''}`,
-  );
-  rows.push('');
-  rows.push('Activity');
-  for (const item of snapshot.activity.slice(-Math.max(3, Math.floor(height / 3)))) {
-    rows.push(`  ${item.status.padEnd(9)} ${item.label}${item.detail ? ` — ${item.detail.slice(0, 64)}` : ''}`);
-  }
-  rows.push('');
-  rows.push(`Changes (${snapshot.changes.length})`);
-  for (const change of snapshot.changes.slice(0, 20)) {
-    const op = change.operation.toUpperCase().padEnd(6);
-    const counts = change.operation === 'delete' ? '' : ` +${change.additions} -${change.deletions}`;
-    rows.push(`  ${op} ${change.path}${counts}`);
-    for (const hunk of change.hunks ?? []) {
-      for (const line of hunk.lines.slice(0, 14)) {
-        const prefix = line.kind === 'addition' ? '+' : line.kind === 'deletion' ? '-' : ' ';
-        rows.push(`    ${prefix}${line.content}`);
-      }
-    }
-  }
-  if (snapshot.executions.length > 0) {
-    rows.push('');
-    rows.push('Commands');
-    for (const execution of snapshot.executions.slice(0, 8)) {
-      rows.push(
-        `  ${execution.status.padEnd(9)} ${execution.command}${execution.exitCode != null ? ` (${execution.exitCode})` : ''}`,
-      );
-    }
-  }
-  if (snapshot.approvals.length > 0) {
-    rows.push('');
-    rows.push('Approvals (/approve|/deny <thread> <id>)');
-    for (const approval of snapshot.approvals) {
-      rows.push(`  ${approval.status.padEnd(8)} ${approval.tool} — ${approval.reason} [${approval.id}]`);
-    }
-  }
-  if (snapshot.verification) {
-    rows.push('');
-    rows.push(
-      `Verification: ${snapshot.verification.status}${snapshot.verification.confidence != null ? ` (${Math.round(snapshot.verification.confidence * 100)}%)` : ''}`,
-    );
-  }
-  return <ListView title="Harness Execution" lines={rows} selected={0} />;
-}
-
-function Conversation({
-  messages,
-  tools,
-  scroll,
-  height,
-}: {
-  messages: ConversationEntry[];
-  tools: ToolCard[];
-  scroll: number;
-  height: number;
-}) {
-  const items = [
-    ...messages.map((message) => ({ kind: 'message' as const, message })),
-    ...tools.map((tool) => ({ kind: 'tool' as const, tool })),
-  ];
-  const end = Math.max(0, items.length - scroll);
-  const visible = items.slice(Math.max(0, end - Math.max(2, height - 2)), end);
-  return (
-    <Box flexDirection="column">
-      <Text bold>Conversation</Text>
-      {visible.map((item) =>
-        item.kind === 'tool' ? (
-          <ToolExecution key={`tool-${item.tool.id}`} card={item.tool} />
-        ) : (
-          <Box key={item.message.id} flexDirection="column" marginBottom={1}>
-            <Text
-              bold
-              color={item.message.role === 'user' ? 'cyan' : item.message.role === 'assistant' ? 'green' : 'yellow'}
-            >
-              {item.message.role === 'user' ? 'You' : item.message.role === 'assistant' ? 'Vestara' : 'System'}
-              {item.message.streaming ? ' …' : ''}
-            </Text>
-            <MarkdownText content={item.message.content} />
-          </Box>
-        ),
-      )}
-    </Box>
-  );
-}
-
-function MarkdownText({ content }: { content: string }) {
-  let code = false;
-  return (
-    <>
-      {content.split('\n').map((line) => {
-        if (line.startsWith('```')) {
-          code = !code;
-          return (
-            <Text key={`fence-${line}`} dimColor>
-              {line}
-            </Text>
-          );
-        }
-        const heading = /^#{1,6}\s/.test(line);
-        const bullet = /^\s*[-*]\s/.test(line);
-        return (
-          <Text key={line} color={code ? 'yellow' : heading ? 'cyan' : undefined} bold={heading}>
-            {bullet ? `• ${line.replace(/^\s*[-*]\s/, '')}` : line || ' '}
-          </Text>
-        );
-      })}
-    </>
-  );
-}
-
-function ToolExecution({ card }: { card: ToolCard }) {
-  const icon =
-    card.status === 'completed'
-      ? '✓'
-      : card.status === 'failed'
-        ? '✖'
-        : card.status === 'approval-required'
-          ? '⚠'
-          : '⟳';
-  const color = card.status === 'completed' ? 'green' : card.status === 'failed' ? 'red' : 'yellow';
-  return (
-    <Box borderStyle="single" borderColor={color} paddingX={1} flexDirection="column">
-      <Text color={color}>
-        {icon} {card.label}
-      </Text>
-      <Text dimColor>
-        {card.tool}
-        {card.detail ? ` · ${card.detail}` : ''}
-      </Text>
-    </Box>
-  );
-}
-
-function AgentPanel({ agents, selectedAgentId }: { agents: AgentCard[]; selectedAgentId?: string }) {
-  return (
-    <Box width={26} borderStyle="single" borderColor="gray" flexDirection="column" paddingX={1}>
-      <Text bold>Agents</Text>
-      {agents.length ? (
-        agents.map((agent) => (
-          <Box key={agent.id} flexDirection="column" marginBottom={1}>
-            <Text color={agent.status === 'completed' || agent.status === 'idle' ? 'green' : 'yellow'}>
-              {agent.id === selectedAgentId ? '● ' : ''}
-              {agent.name} · {agent.status}
-            </Text>
-            <Text dimColor>{agent.task || 'Ready'}</Text>
-            {agent.progress !== undefined && <Text>{progress(agent.progress)}</Text>}
-          </Box>
-        ))
-      ) : (
-        <Text dimColor>No active agents</Text>
-      )}
-    </Box>
-  );
-}
-
-function Editor({ value, cursor, busy }: { value: string; cursor: number; busy: boolean }) {
-  const visibleValue = `${value.slice(0, cursor)}${busy ? ' ' : '▌'}${value.slice(cursor)}`;
-  return (
-    <Box height={4} borderStyle="round" borderColor={busy ? 'gray' : 'cyan'} paddingX={1} flexDirection="column">
-      <Text color="cyan">› {visibleValue}</Text>
-      <Text dimColor>{busy ? 'Ctrl+C cancel' : 'Enter send · Shift+Enter newline · Ctrl+P palette'}</Text>
-    </Box>
-  );
-}
-
-function StatusBar({
-  workspace,
-  connection,
-  agents,
-  busy,
-  view,
-  routing,
-}: {
-  workspace?: WorkspaceSummary;
-  connection: string;
-  agents: AgentCard[];
-  busy: boolean;
-  view: TuiView;
-  routing?: RoutingSelection;
-}) {
-  const memory = Math.round(process.memoryUsage().rss / 1024 / 1024);
-  const tokens = agents.reduce((sum, agent) => sum + (agent.tokens ?? 0), 0);
-  const selectedAgent = routing?.agents.find((agent) => agent.id === routing.activeAgentId);
-  const route = selectedAgent ? routing?.roles[selectedAgent.role] : undefined;
-  return (
-    <Box paddingX={1} justifyContent="space-between">
-      <Text dimColor>
-        {workspace?.name ?? 'workspace'} · {workspace?.branch ?? 'no branch'} · {view}
-      </Text>
-      <Text dimColor>
-        {selectedAgent?.name ?? 'auto'} · {route ? `${route.providerId}/${route.modelId}` : 'automatic'} · {tokens}{' '}
-        tokens · {memory}MB · {busy ? 'working' : 'ready'} · {connection}
-      </Text>
-    </Box>
-  );
-}
-
-function ListView({ title, lines, selected }: { title: string; lines: string[]; selected?: number }) {
-  return (
-    <Box flexDirection="column">
-      <Text bold color="cyan">
-        {title}
-      </Text>
-      {lines.length ? (
-        lines.map((line, index) => (
-          <Text key={line} color={selected === index ? 'cyan' : undefined} bold={selected === index}>
-            {selected === index ? '› ' : '  '}
-            {line}
-          </Text>
-        ))
-      ) : (
-        <Text dimColor>No data yet</Text>
-      )}
-    </Box>
-  );
-}
-function progress(value: number): string {
-  const width = 10;
-  const count = Math.round((Math.max(0, Math.min(100, value)) / 100) * width);
-  return `${'█'.repeat(count)}${'░'.repeat(width - count)} ${Math.round(value)}%`;
-}
-
-interface PaletteContext {
-  setView: (view: TuiView) => void;
-  setSidebar: React.Dispatch<React.SetStateAction<boolean>>;
-  setAgentPanel: React.Dispatch<React.SetStateAction<boolean>>;
-  execute: (command: string, echo?: boolean) => Promise<void>;
-  openRouting: () => void;
-}
-function paletteCommands(query: string): Array<{ label: string; run(context: PaletteContext): void }> {
-  const commands = [
-    ...NAVIGATION.map((item) => ({
-      label: `Open ${item.label}`,
-      run: (context: PaletteContext) => context.setView(item.view),
-    })),
-    {
-      label: 'Runtime Status',
-      run: (context: PaletteContext) => {
-        void context.execute('/status');
-      },
-    },
-    {
-      label: 'Show Routing',
-      run: (context: PaletteContext) => {
-        void context.execute('/routing show');
-      },
-    },
-    { label: 'Select Agent, Provider & Model', run: (context: PaletteContext) => context.openRouting() },
-    { label: 'Toggle Sidebar', run: (context: PaletteContext) => context.setSidebar((value) => !value) },
-    { label: 'Toggle Agents', run: (context: PaletteContext) => context.setAgentPanel((value) => !value) },
-  ];
-  const normalized = query.trim().toLowerCase();
-  return normalized ? commands.filter((item) => item.label.toLowerCase().includes(normalized)) : commands;
-}
-
-function Overlay({ mode, query }: { mode: 'palette' | 'help'; query: string }) {
-  const lines =
-    mode === 'palette'
-      ? paletteCommands(query)
-          .slice(0, 10)
-          .map((item, index) => `${index === 0 ? '›' : ' '} ${item.label}`)
-      : [
-          'Ctrl+P Command palette',
-          'Ctrl+R Select agent/provider/model',
-          'Ctrl+B Toggle navigation',
-          'Ctrl+A Toggle agents',
-          'Ctrl+G Engineering graph',
-          'Ctrl+T Telemetry',
-          'Ctrl+L Clear conversation',
-          'Tab Switch view',
-          'PgUp/PgDn Scroll',
-          'Ctrl+Z/Y Undo/redo',
-          'Esc Back',
-        ];
-  return (
-    <Box
-      position="absolute"
-      marginTop={2}
-      marginLeft={4}
-      width={54}
-      borderStyle="double"
-      borderColor="yellow"
-      padding={1}
-      flexDirection="column"
-    >
-      <Text bold>{mode === 'palette' ? `Command Palette › ${query}` : 'Keyboard'}</Text>
-      {lines.map((line) => (
-        <Text key={line}>{line}</Text>
-      ))}
-      <Text dimColor>Esc close · Enter select</Text>
-    </Box>
-  );
-}
-
-function routingProviders(routing: RoutingSelection, _role?: string): Array<{ providerId: string; name: string }> {
-  const providers = new Map<string, string>();
-  for (const candidate of routing.candidates) {
-    if (candidate.availability.available) providers.set(candidate.ref.providerId, candidate.providerName);
-  }
-  return [...providers].map(([providerId, name]) => ({ providerId, name }));
-}
-
-function routingModels(
-  routing: RoutingSelection,
-  providerId?: string,
-  _role?: string,
-): Array<{ modelId: string; revision?: string; state: string }> {
-  return routing.candidates
-    .filter((candidate) => candidate.ref.providerId === providerId && candidate.availability.available)
-    .map((candidate) => ({
-      modelId: candidate.ref.modelId,
-      revision: candidate.ref.modelRevision,
-      state: candidate.availability.state,
-    }));
-}
-
-function RoutingOverlay({
-  routing,
-  picker,
-}: {
-  routing: RoutingSelection;
-  picker: { step: 'agent' | 'provider' | 'model'; index: number; agentId?: string; providerId?: string };
-}) {
-  const agent = routing.agents.find((candidate) => candidate.id === picker.agentId);
-  const providers = routingProviders(routing, agent?.role);
-  const models = routingModels(routing, picker.providerId, agent?.role);
-  const lines =
-    picker.step === 'agent'
-      ? routing.agents.map(
-          (candidate) =>
-            `${candidate.name} · ${candidate.role}${candidate.id === routing.activeAgentId ? ' · current' : ''}`,
-        )
-      : picker.step === 'provider'
-        ? providers.map((provider) => `${provider.name} · ${provider.providerId}`)
-        : models.map((model) => `${model.modelId}${model.revision ? ` @ ${model.revision}` : ''} · ${model.state}`);
-  const windowStart = Math.max(0, Math.min(picker.index - 10, Math.max(0, lines.length - 12)));
-  return (
-    <Box
-      position="absolute"
-      marginTop={2}
-      marginLeft={4}
-      width={68}
-      borderStyle="double"
-      borderColor="cyan"
-      padding={1}
-      flexDirection="column"
-    >
-      <Text bold color="cyan">
-        Execution Routing · {picker.step === 'agent' ? 'Agent' : picker.step === 'provider' ? 'Provider' : 'Model'}
-      </Text>
-      <Text dimColor>
-        {agent ? `${agent.name} (${agent.role})` : 'Choose the agent that will own subsequent conversation work'}
-        {picker.providerId ? ` · ${picker.providerId}` : ''}
-      </Text>
-      {lines.length ? (
-        lines.slice(windowStart, windowStart + 12).map((line, index) => (
-          <Text
-            key={line}
-            color={windowStart + index === picker.index ? 'cyan' : undefined}
-            bold={windowStart + index === picker.index}
-          >
-            {windowStart + index === picker.index ? '› ' : '  '}
-            {line}
-          </Text>
-        ))
-      ) : (
-        <Text color="yellow">No available choices</Text>
-      )}
-      <Text dimColor>↑/↓ navigate · Enter choose · Esc cancel</Text>
-    </Box>
-  );
-}
-
-function Confirmation({ prompt }: { prompt: string }) {
-  return (
-    <Box
-      position="absolute"
-      marginTop={4}
-      marginLeft={6}
-      borderStyle="double"
-      borderColor="yellow"
-      padding={1}
-      flexDirection="column"
-    >
-      <Text bold color="yellow">
-        Approval required
-      </Text>
-      <Text>{prompt}</Text>
-      <Text dimColor>Y approve · N cancel</Text>
-    </Box>
-  );
-}
-function Toasts({ items }: { items: Toast[] }) {
-  return (
-    <Box position="absolute" marginTop={1} marginLeft={2} flexDirection="column">
-      {items.map((item) => (
-        <Text
-          key={item.id}
-          color={
-            item.level === 'error'
-              ? 'red'
-              : item.level === 'warning'
-                ? 'yellow'
-                : item.level === 'success'
-                  ? 'green'
-                  : 'cyan'
-          }
+    <box flexDirection="column" height={height} width={width} backgroundColor={palette.background}>
+      <box height={1} paddingLeft={1} paddingRight={1} flexDirection="row" backgroundColor={palette.backgroundPanel}>
+        <text fg={palette.accent} attributes={TextAttributes.BOLD}>
+          vestara
+        </text>
+        <text
+          fg={connection === 'connected' ? palette.success : connection === 'error' ? palette.error : palette.warning}
         >
-          {item.level === 'success' ? '✓' : item.level === 'error' ? '✖' : item.level === 'warning' ? '⚠' : '•'}{' '}
-          {item.message}
-        </Text>
+          {' '}
+          {connection === 'connected' ? '●' : connection === 'error' ? '✗' : '○'}
+        </text>
+        <text fg={palette.textMuted} paddingLeft={1}>
+          {workspace?.name ?? '…'}
+        </text>
+        {workspace?.branch ? (
+          <text fg={palette.textDim} paddingLeft={1}>
+            {workspace.branch}
+          </text>
+        ) : null}
+        <box flexGrow={1} />
+        <text fg={palette.textDim}>
+          {width}×{height}
+        </text>
+      </box>
+      <box flexGrow={1} flexDirection="row">
+        {showSidebar && <Navigation active={view} palette={palette} onSelect={(id) => setView(id as TuiView)} />}
+        <box flexGrow={1} paddingLeft={1} paddingRight={1} paddingTop={1}>
+          {view === 'chat' && (
+            <ChatView host={props.host} palette={palette} endpoint={props.endpoint} notify={notify} />
+          )}
+          {view === 'sessions' && <SessionsView sessions={sessions} palette={palette} />}
+          {view === 'plans' && (
+            <ListView
+              title="Plans"
+              palette={palette}
+              rows={plans.map((plan) => ({ id: plan.id, title: plan.title, status: plan.status }))}
+            />
+          )}
+          {view === 'logs' && <LogsView logs={logs} palette={palette} />}
+          {view === 'graph' && (
+            <ListView
+              title="Graph"
+              palette={palette}
+              rows={agents.map((agent) => ({ id: agent.id, title: agent.name, status: agent.status }))}
+            />
+          )}
+          {view === 'execution' && (
+            <ListView title="Execution" palette={palette} rows={[]} empty="No execution data yet." />
+          )}
+          {view === 'workflow' && (
+            <ListView title="Workflow" palette={palette} rows={[]} empty="No workflow projection yet." />
+          )}
+          {view === 'telemetry' && <LogsView logs={logs} palette={palette} />}
+        </box>
+      </box>
+      <StatusBar palette={palette} connection={connection} agents={agents} workspace={workspace} view={view} />
+      {paletteOpen && (
+        <CommandPalette
+          palette={palette}
+          input={paletteInput}
+          setInput={setPaletteInput}
+          onClose={() => setPaletteOpen(false)}
+          onSelect={(command) => {
+            setPaletteOpen(false);
+            void props.host.controller.execute(command);
+          }}
+        />
+      )}
+      {notifications.map((toast) => (
+        <box
+          key={toast.id}
+          position="absolute"
+          bottom={1}
+          left={1}
+          backgroundColor={palette.backgroundPanel}
+          paddingLeft={1}
+          paddingRight={1}
+        >
+          <text
+            fg={toast.level === 'error' ? palette.error : toast.level === 'warning' ? palette.warning : palette.success}
+          >
+            {toast.message}
+          </text>
+        </box>
       ))}
-    </Box>
+    </box>
   );
 }

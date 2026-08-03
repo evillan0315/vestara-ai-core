@@ -54,8 +54,15 @@ export async function handleMiscRoute(
         { path: '/api/projects', method: 'GET', description: 'List projects', requiresAuth: true },
         { path: '/api/projects', method: 'POST', description: 'Create project', requiresAuth: true },
         { path: '/api/sprints', method: 'GET', description: 'Sprints list', requiresAuth: true },
-        { path: '/api/chat/send', method: 'POST', description: 'Chat send', requiresAuth: false },
-        { path: '/api/chat/stream', method: 'POST', description: 'Chat stream', requiresAuth: false },
+        { path: '/api/conversations', method: 'POST', description: 'Create conversation', requiresAuth: false },
+        { path: '/api/conversations', method: 'GET', description: 'List conversations', requiresAuth: false },
+        { path: '/api/conversations/:id', method: 'GET', description: 'Get conversation history', requiresAuth: false },
+        {
+          path: '/api/conversations/:id/stream',
+          method: 'POST',
+          description: 'Stream a message into a conversation',
+          requiresAuth: false,
+        },
       ],
     });
     return true;

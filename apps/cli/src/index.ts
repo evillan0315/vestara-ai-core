@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import * as path from 'node:path';
 import { runAgentsList } from './commands/agents.js';
 import { runArchitecture, runBlueprintVerify } from './commands/architecture.js';
 import { runBenchmarkConversation } from './commands/benchmark.js';
@@ -42,31 +43,103 @@ import { runTeamsAssign, runTeamsCreate, runTeamsList } from './commands/teams.j
 import type { CliContext } from './context/cli-context.js';
 import { createCliContext } from './context/cli-context.js';
 import { CommandRegistry } from './lib/command-registry.js';
+import { isInteractiveTerminal } from './lib/interface-resolver.js';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStatus } from './output/format.js';
 
 const VERSION = '0.3.0';
 
-async function launchTui(endpoint?: string): Promise<void> {
+async function launchTui(endpoint?: string, repoPath?: string, forceDev = false): Promise<void> {
   const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
+  const resolvedRepo = repoPath ?? process.env.VESTARA_REPO ?? process.cwd();
   let ownedApi: import('node:child_process').ChildProcess | undefined;
   if (!(await runtimeAvailable(resolvedEndpoint)) && !endpoint && !process.env.VESTARA_API_URL) {
-    const path = await import('node:path');
     const { spawn } = await import('node:child_process');
     const apiEntry = path.join(__dirname, '..', '..', 'api', 'dist', 'index.js');
     ownedApi = spawn(process.execPath, [apiEntry], {
-      cwd: process.cwd(),
-      env: { ...process.env, VESTARA_REPO: process.cwd() },
+      cwd: resolvedRepo,
+      env: { ...process.env, VESTARA_REPO: resolvedRepo },
       stdio: 'ignore',
     });
     for (let attempt = 0; attempt < 50 && !(await runtimeAvailable(resolvedEndpoint)); attempt++)
       await new Promise((resolve) => setTimeout(resolve, 100));
   }
-  const { runTui } = await import('@vestara/tui');
   try {
-    await runTui({ endpoint: resolvedEndpoint });
+    if (forceDev || process.env.VESTARA_TUI_DEV === '1') {
+      await spawnBunTui(resolvedEndpoint, resolvedRepo);
+    } else {
+      await spawnInstalledTui(resolvedEndpoint, resolvedRepo);
+    }
   } finally {
     ownedApi?.kill('SIGTERM');
   }
+}
+
+/**
+ * Spawn the installed Marketplace TUI executable directly. Resolves the
+ * platform-specific artifact from the installed package; no Bun dependency.
+ */
+async function spawnInstalledTui(endpoint: string, repoPath: string): Promise<void> {
+  const { defaultPackagesRoot, resolveInterface } = await import('./lib/interface-resolver.js');
+  const resolution = resolveInterface({ packagesRoot: defaultPackagesRoot() });
+  if (resolution.kind === 'tui') {
+    await spawnExecutable(resolution.executable.path, endpoint, repoPath);
+    return;
+  }
+  if (resolution.kind === 'unavailable') {
+    console.error(`${RED}${resolution.error}${RESET}`);
+    process.exitCode = 1;
+    return;
+  }
+  // Not installed — fall back to the in-repo Bun launch (development path).
+  console.log(`${GRAY}Marketplace TUI not installed; using in-repo development launch.${RESET}`);
+  await spawnBunTui(endpoint, repoPath);
+}
+
+/**
+ * Spawn the OpenTUI-based TUI as an isolated Bun process. OpenTUI's native
+ * renderer only runs under Bun; it must never be imported into the Node CLI
+ * process. Used for development and as a fallback when no packaged executable
+ * is installed.
+ */
+async function spawnBunTui(endpoint: string, repoPath: string): Promise<void> {
+  const tuiEntry = path.resolve(__dirname, '..', '..', '..', 'packages', 'tui', 'dist', 'index.js');
+  await spawnExecutable('bun', endpoint, repoPath, ['run', tuiEntry]);
+}
+
+/** Spawn the TUI binary with signal forwarding and stdio inheritance. */
+function spawnExecutable(
+  executablePath: string,
+  endpoint: string,
+  repoPath: string,
+  extraArgs: readonly string[] = [],
+): Promise<void> {
+  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  const child = spawn(executablePath, [...extraArgs, '--endpoint', endpoint, '--repo', repoPath], {
+    cwd: repoPath,
+    env: {
+      ...process.env,
+      VESTARA_API_URL: endpoint,
+      VESTARA_REPO: repoPath,
+    },
+    stdio: 'inherit',
+  });
+  const forward = (signal: NodeJS.Signals) => {
+    if (child.exitCode === null) child.kill(signal);
+  };
+  process.on('SIGINT', () => forward('SIGINT'));
+  process.on('SIGTERM', () => forward('SIGTERM'));
+  process.on('SIGHUP', () => forward('SIGHUP'));
+  return new Promise<void>((resolve, reject) => {
+    child.once('exit', (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Vestara TUI exited with ${signal ?? code}`));
+    });
+    child.once('error', reject);
+  }).finally(() => {
+    process.off('SIGINT', () => forward('SIGINT'));
+    process.off('SIGTERM', () => forward('SIGTERM'));
+    process.off('SIGHUP', () => forward('SIGHUP'));
+  });
 }
 
 async function runtimeAvailable(endpoint: string): Promise<boolean> {
@@ -104,7 +177,7 @@ function printHelp(): void {
   );
   console.log(`    ${GREEN}console${RESET}             ${GRAY}Open the interactive Engineering Console${RESET}`);
   console.log(
-    `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
+    `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace and enter the TUI (default: ., --force to re-open)${RESET}`,
   );
   console.log(`    ${GREEN}validate${RESET} [path]    ${GRAY}CAP-001 workspace orientation${RESET}`);
   console.log(`    ${GREEN}status${RESET} [--json]    ${GRAY}System health overview${RESET}`);
@@ -261,7 +334,7 @@ function registerCommands(registry: CommandRegistry): void {
 }
 
 export async function main() {
-  const args = process.argv.slice(2);
+  let args = process.argv.slice(2);
   const registry = new CommandRegistry();
   registerCommands(registry);
 
@@ -315,7 +388,8 @@ export async function main() {
   if (args[0] === 'console' || args[0] === 'tui') {
     const endpointIndex = args.indexOf('--endpoint');
     const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
-    await launchTui(endpoint);
+    const forceDev = args.includes('--dev');
+    await launchTui(endpoint, undefined, forceDev);
     return;
   }
 
@@ -443,7 +517,8 @@ export async function main() {
   if (args[0] === 'open') {
     const force = args.includes('--force');
     const pathArgs = args.slice(1).filter((a) => a !== '--force');
-    let repoPath = pathArgs[0];
+    const explicitPath = pathArgs[0];
+    let repoPath = explicitPath;
     if (!repoPath) {
       try {
         const initSqlJs = (await import('sql.js')).default;
@@ -460,6 +535,10 @@ export async function main() {
     }
     const { runOpen } = await import('./commands/open.js');
     await runOpen(repoPath, force);
+    // The TUI is the canonical interactive surface — open lands in it after
+    // the workspace is (re-)indexed. The API picks up the repo via VESTARA_REPO
+    // (defaulting to process.cwd()); only an explicit path overrides it.
+    await launchTui(undefined, explicitPath ? path.resolve(explicitPath) : undefined);
     return;
   }
 
@@ -654,6 +733,15 @@ export async function main() {
     return;
   }
 
+  // `--no-tui` disables the interactive TUI (CI / scripting).
+  if (args.includes('--no-tui')) {
+    args = args.filter((arg) => arg !== '--no-tui');
+    if (args.length === 0) {
+      console.log(`${GRAY}Interactive TUI disabled (--no-tui). Run 'vestara --help' for commands.${RESET}`);
+      return;
+    }
+  }
+
   // Unknown command
   if (args.length > 0 && args[0] !== '--watch' && args[0] !== '-w') {
     console.log(`${RED}Unknown command: ${args[0]}${RESET}`);
@@ -667,7 +755,13 @@ export async function main() {
   // never entered from the public CLI.
   if (process.env.VESTARA_INTERNAL_LEGACY_REPL !== '1') {
     const endpointIndex = args.indexOf('--endpoint');
-    await launchTui(endpointIndex >= 0 ? args[endpointIndex + 1] : undefined);
+    const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
+    const interactive = isInteractiveTerminal();
+    if (!interactive) {
+      console.log(`${GRAY}Noninteractive terminal: running standard CLI. Use 'vestara tui' to force the TUI.${RESET}`);
+      return;
+    }
+    await launchTui(endpoint);
     return;
   }
 
@@ -873,7 +967,7 @@ export async function startRepl(ctx: CliContext): Promise<void> {
     }
     if (input === 'history') {
       if (conversationId && conversationService) {
-        const conv = conversationService.getConversation(conversationId);
+        const conv = await conversationService.getConversation(conversationId);
         if (conv) {
           console.log(`${GRAY}Conversation: ${conv.title} (${conv.messages.length} messages)${RESET}`);
           for (const msg of conv.messages) {

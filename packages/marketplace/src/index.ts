@@ -50,7 +50,20 @@ export {
   MarketplaceRegistryError,
   MarketplaceResolutionError,
 } from './errors';
-
+export type {
+  EntrypointMapping,
+  PackageExecutable,
+  PackageExecutableResolver,
+  PlatformDescriptor,
+} from './executable-resolver';
+export {
+  ExecutableResolutionError,
+  formatResolutionError,
+  platformTarget,
+  resolveExecutableTarget,
+  resolvePackageExecutable,
+  SUPPORTED_TUI_TARGETS,
+} from './executable-resolver';
 export type { MarketplaceFilters } from './filters';
 export { applyFilters } from './filters';
 

@@ -30,12 +30,28 @@ export interface ProviderExecutor {
   stream(request: CompletionRequest): AsyncIterable<StreamChunk>;
 }
 
+/**
+ * Persistence boundary for conversations. `DefaultConversationService` keeps an
+ * in-memory map by default; pass a store (e.g. the SQLite store in
+ * `@vestara/conversation-runtime`) to survive restart. All mutations flow
+ * through the service as the single writer.
+ */
+export interface ConversationStore {
+  create(conversation: Conversation): Promise<void>;
+  get(id: string): Promise<Conversation | null>;
+  list(userId: string): Promise<ConversationSummary[]>;
+  addMessage(conversationId: string, message: Message): Promise<void>;
+  setStatus(id: string, status: Conversation['status']): Promise<void>;
+  remove(id: string): Promise<void>;
+}
+
 export interface ConversationService {
   createConversation(userId?: string): Promise<Conversation>;
   sendMessage(conversationId: string, content: string, options?: SendOptions): Promise<SendResult>;
   closeConversation(conversationId: string): Promise<void>;
-  listConversations(): ConversationSummary[];
-  getConversation(id: string): Conversation | null;
+  listConversations(userId?: string): Promise<ConversationSummary[]>;
+  getConversation(id: string): Promise<Conversation | null>;
+  deleteConversation(id: string): Promise<void>;
   sendMessageStream(conversationId: string, content: string, options?: SendOptions): AsyncIterable<StreamChunk>;
 }
 
@@ -65,17 +81,27 @@ export class DefaultConversationService implements ConversationService {
   private providerExecutor: ProviderExecutor;
   private eventBus?: EventBus;
   private logger?: Logger;
+  private store?: ConversationStore;
 
   constructor(options: {
     contextAssembler: ContextAssembler;
     providerExecutor: ProviderExecutor;
     eventBus?: EventBus;
     logger?: Logger;
+    store?: ConversationStore;
   }) {
     this.contextAssembler = options.contextAssembler;
     this.providerExecutor = options.providerExecutor;
     this.eventBus = options.eventBus;
     this.logger = options.logger?.child({ component: 'conversation' });
+    this.store = options.store;
+  }
+
+  private async loadIntoMemory(id: string): Promise<Conversation | null> {
+    if (!this.store) return this.conversations.get(id) ?? null;
+    const persisted = await this.store.get(id);
+    if (persisted) this.conversations.set(id, persisted);
+    return persisted ?? this.conversations.get(id) ?? null;
   }
 
   async createConversation(userId = 'local'): Promise<Conversation> {
@@ -93,6 +119,7 @@ export class DefaultConversationService implements ConversationService {
     };
 
     this.conversations.set(id, conversation);
+    await this.store?.create(conversation);
 
     await this.eventBus?.emit({
       type: 'conversation:created',
@@ -110,7 +137,7 @@ export class DefaultConversationService implements ConversationService {
   }
 
   async sendMessage(conversationId: string, content: string, options: SendOptions = {}): Promise<SendResult> {
-    const conversation = this.conversations.get(conversationId);
+    const conversation = await this.loadIntoMemory(conversationId);
     if (!conversation) throw new Error(`Conversation not found: ${conversationId}`);
     if (conversation.status !== 'active') throw new Error('Conversation is not active');
 
@@ -124,6 +151,7 @@ export class DefaultConversationService implements ConversationService {
     };
     conversation.messages.push(userMessage);
     conversation.updatedAt = userMessage.createdAt;
+    await this.store?.addMessage(conversationId, userMessage);
 
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
@@ -151,11 +179,15 @@ export class DefaultConversationService implements ConversationService {
     const startTime = performance.now();
     let responseContent = '';
     let responseTokens = 0;
+    let responseProvider = 'opencode';
+    let responseModel = request.model;
 
     try {
       const response = await this.providerExecutor.complete(request);
       responseContent = response.content;
       responseTokens = response.usage.totalTokens;
+      responseProvider = response.provider ?? responseProvider;
+      responseModel = response.model ?? responseModel;
 
       await this.eventBus?.emit({
         type: 'conversation:provider.response.completed',
@@ -189,14 +221,15 @@ export class DefaultConversationService implements ConversationService {
       conversationId,
       role: 'assistant',
       content: responseContent,
-      provider: 'opencode',
-      model: request.model,
+      provider: responseProvider,
+      model: responseModel,
       tokens: responseTokens,
       latency,
       createdAt: new Date().toISOString(),
     };
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
+    await this.store?.addMessage(conversationId, responseMessage);
 
     await this.eventBus?.emit({
       type: 'conversation:response.completed',
@@ -226,7 +259,7 @@ export class DefaultConversationService implements ConversationService {
     content: string,
     options: SendOptions = {},
   ): AsyncIterable<StreamChunk> {
-    const conversation = this.conversations.get(conversationId);
+    const conversation = await this.loadIntoMemory(conversationId);
     if (!conversation) throw new Error(`Conversation not found: ${conversationId}`);
     if (conversation.status !== 'active') throw new Error('Conversation is not active');
 
@@ -240,6 +273,7 @@ export class DefaultConversationService implements ConversationService {
     };
     conversation.messages.push(userMessage);
     conversation.updatedAt = userMessage.createdAt;
+    await this.store?.addMessage(conversationId, userMessage);
 
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
@@ -249,10 +283,7 @@ export class DefaultConversationService implements ConversationService {
     });
 
     // Build context
-    const request = this.contextAssembler.buildContext(conversation, content, {
-      ...options,
-      model: options.model ?? 'deepseek-v4-flash-free',
-    });
+    const request = this.contextAssembler.buildContext(conversation, content, options);
 
     await this.eventBus?.emit({
       type: 'conversation:provider.request.started',
@@ -263,12 +294,16 @@ export class DefaultConversationService implements ConversationService {
 
     let fullContent = '';
     let totalTokens = 0;
+    let responseProvider = 'opencode';
+    let responseModel = request.model;
     const startTime = performance.now();
 
     try {
       for await (const chunk of this.providerExecutor.stream(request)) {
         if (chunk.type === 'text' && chunk.content) {
           fullContent += chunk.content;
+          responseProvider = chunk.metadata?.provider ?? responseProvider;
+          responseModel = chunk.metadata?.model ?? responseModel;
           yield chunk;
         } else if (chunk.type === 'meta' && chunk.metadata.usage) {
           totalTokens = chunk.metadata.usage.totalTokens;
@@ -299,14 +334,15 @@ export class DefaultConversationService implements ConversationService {
       conversationId,
       role: 'assistant',
       content: fullContent,
-      provider: 'opencode',
-      model: request.model,
+      provider: responseProvider,
+      model: responseModel,
       tokens: totalTokens,
       latency,
       createdAt: new Date().toISOString(),
     };
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
+    await this.store?.addMessage(conversationId, responseMessage);
 
     await this.eventBus?.emit({
       type: 'conversation:response.completed',
@@ -329,11 +365,12 @@ export class DefaultConversationService implements ConversationService {
   }
 
   async closeConversation(conversationId: string): Promise<void> {
-    const conversation = this.conversations.get(conversationId);
+    const conversation = await this.loadIntoMemory(conversationId);
     if (!conversation) throw new Error(`Conversation not found: ${conversationId}`);
 
     conversation.status = 'archived';
     conversation.updatedAt = new Date().toISOString();
+    await this.store?.setStatus(conversationId, 'archived');
 
     await this.eventBus?.emit({
       type: 'conversation:archived',
@@ -343,7 +380,8 @@ export class DefaultConversationService implements ConversationService {
     });
   }
 
-  listConversations(): ConversationSummary[] {
+  async listConversations(userId = 'local'): Promise<ConversationSummary[]> {
+    if (this.store) return this.store.list(userId);
     return Array.from(this.conversations.values())
       .filter((c) => c.status !== 'deleted')
       .map((c) => ({
@@ -357,7 +395,13 @@ export class DefaultConversationService implements ConversationService {
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  getConversation(id: string): Conversation | null {
+  async getConversation(id: string): Promise<Conversation | null> {
+    if (this.store) return this.loadIntoMemory(id);
     return this.conversations.get(id) ?? null;
+  }
+
+  async deleteConversation(id: string): Promise<void> {
+    if (this.store) await this.store.remove(id);
+    this.conversations.delete(id);
   }
 }

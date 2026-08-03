@@ -58,6 +58,7 @@ export interface RoutingSelection {
   readonly agents: readonly RoutingAgent[];
   readonly candidates: readonly RoutingCandidate[];
   readonly activeAgentId?: string;
+  readonly providers?: Readonly<Record<string, { readonly configured: boolean; readonly source?: string }>>;
 }
 
 export interface WorkspaceSummary {
@@ -90,6 +91,19 @@ export interface SessionSummary {
 export interface FileSummary {
   readonly path: string;
   readonly status?: string;
+}
+
+export interface LogEntry {
+  readonly id: string;
+  readonly label: string;
+  readonly detail: string;
+  readonly timestamp: string;
+}
+
+export interface Toast {
+  readonly id: string;
+  readonly level: 'success' | 'warning' | 'error' | 'info';
+  readonly message: string;
 }
 
 /** Declarative extension point. Extensions supply data, never Ink components. */

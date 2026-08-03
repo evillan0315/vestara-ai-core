@@ -426,6 +426,7 @@ function _extractGoals(message: string): string[] {
 
 export type { AuditIssue, ConversationAuditReport, ConversationPackage } from './audit/scanner';
 export { ConversationScanner } from './audit/scanner';
+export { SqliteConversationStore } from './conversation-store';
 export type {
   GeminiConfig,
   OllamaConfig,

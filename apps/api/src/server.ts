@@ -10,7 +10,7 @@ import { handleActivityRoute } from './routes/activity';
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
-import { handleChatRoute } from './routes/chat';
+import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
@@ -165,7 +165,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleFeatureRequestsRoute(method, p, req, res, ctx)) return;
       if (await handlePlansRoute(method, p, req, res, ctx)) return;
       if (await handleProjectsRoute(method, p, req, res, ctx)) return;
-      if (await handleChatRoute(method, p, req, res, ctx)) return;
+      if (await handleConversationsRoute(method, p, req, res, ctx)) return;
       if (await handleActivityRoute(method, p, req, res, ctx)) return;
       if (await handleAgentHarnessRoute(method, p, req, res, ctx)) return;
       if (await handleNotificationsRoute(method, p, req, res, ctx)) return;

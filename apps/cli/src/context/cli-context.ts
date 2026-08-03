@@ -155,7 +155,7 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
     async (event: { payload: Record<string, unknown> }) => {
       const convId = event.payload.conversationId as string;
       if (typeof convId !== 'string') return;
-      const conv = routedConversationService.getConversation(convId);
+      const conv = await routedConversationService.getConversation(convId);
       if (conv) {
         await stateRuntime.conversations.saveConversation(conv);
         for (const msg of conv.messages) {

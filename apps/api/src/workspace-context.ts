@@ -11,7 +11,9 @@ import { ActivityLogStore, ActivityService, NotificationService, NotificationSto
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
-import { SqliteConversationSessionStore } from '@vestara/conversation-runtime';
+import { DefaultContextAssembler } from '@vestara/context';
+import { type ConversationService, DefaultConversationService, type ProviderExecutor } from '@vestara/conversation';
+import { SqliteConversationSessionStore, SqliteConversationStore } from '@vestara/conversation-runtime';
 import { type DocumentationRepositoryConfig, DocumentationService } from '@vestara/documentation';
 import {
   ContentAddressedEvidenceStore,
@@ -99,6 +101,7 @@ import { createHarnessEngineeringEventBridge } from './bridges/harness-engineeri
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
+import { runToolLoop } from './routes/chat';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
 import { WorkerSocketServer } from './worker/worker-socket-server';
@@ -111,6 +114,7 @@ export interface WorkspaceContext {
   routingStore: FileRoutingStore;
   routingAssignments: FileRoutingAssignmentStore;
   conversationSessions: SqliteConversationSessionStore;
+  conversationService: ConversationService;
   agentThreadStore: FileThreadStore;
   agentTools: ToolRuntime;
   createAgentTools(workspaceRoot: string): ToolRuntime;
@@ -427,7 +431,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const routingAssignments = new FileRoutingAssignmentStore(path.join(workspaceDir, 'routing-assignments.json'));
   const dbPath = path.join(workspaceDir, 'plans', 'plans.db');
   const db = await openSqlDb(dbPath);
-
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);
   const plans = new PlanStorage(db);
@@ -444,8 +447,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     collabStorage: collaboration,
     agentStorage: agents,
   });
-  // Auto-index knowledge graph on workspace open so the Memory page has data
-  memory.index(session).catch((err) => kernel.logger?.warn?.('Knowledge graph index failed', { error: String(err) }));
+  // Auto-index knowledge graph on workspace open so the Memory page has data.
+  // Skip with VESTARA_SKIP_MEMORY_INDEX=1 to reduce startup memory pressure.
+  if (process.env.VESTARA_SKIP_MEMORY_INDEX !== '1') {
+    memory.index(session).catch((err) => kernel.logger?.warn?.('Knowledge graph index failed', { error: String(err) }));
+  }
   const sessions = new SessionService({
     storage: sessionStorage,
     planStorage: plans,
@@ -478,6 +484,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     return tools;
   };
   const agentTools = createAgentTools(abs);
+
+  // Conversation service (constructed below after agentEnvironment) — persisted,
+  // tool-aware chat engine backed by the SQLite conversation store.
 
   // Marketplace — catalog and discovery over approved local roots. Installation
   // mechanics stay with extension-runtime (single authority for integrity,
@@ -543,6 +552,104 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     filesystemPolicy: 'workspace-write',
     processPolicy: 'restricted',
   };
+
+  // ── Conversation service — persisted, tool-aware chat engine. The provider
+  // executor resolves the provider + model from the current routing selection
+  // (the same source `/api/routing` and `/api/providers` expose), defaulting to
+  // the `developer` role, so chat follows whatever agent/provider/model the
+  // routing picker chose. Falls back to the first provider that has models.
+  const resolveConversationRoute = (requestedModel?: string): { providerId: string; modelId: string } => {
+    const roles = routingStore.get().selection.roles;
+    const ref = roles.developer ?? Object.values(roles)[0];
+    const candidate = ref ? providerManager.getProvider(ref.providerId) : null;
+    if (candidate?.models.length) {
+      const modelExists = (id: string) => candidate.models.some((model) => model.id === id);
+      const modelId =
+        ref?.modelId && modelExists(ref.modelId)
+          ? ref.modelId
+          : requestedModel && modelExists(requestedModel)
+            ? requestedModel
+            : candidate.models[0]!.id;
+      return { providerId: candidate.id, modelId };
+    }
+    for (const info of providerManager.listProviders()) {
+      const provider = providerManager.getProvider(info.id);
+      if (provider?.models.length) {
+        const modelId =
+          requestedModel && provider.models.some((model) => model.id === requestedModel)
+            ? requestedModel
+            : provider.models[0]!.id;
+        return { providerId: provider.id, modelId };
+      }
+    }
+    throw new Error('No AI provider with available models is configured');
+  };
+  const conversationProviderExecutor: ProviderExecutor = {
+    async complete(request) {
+      const { providerId, modelId } = resolveConversationRoute(request.model);
+      const provider = providerManager.getProvider(providerId);
+      if (!provider) throw new Error(`AI provider not available: ${providerId}`);
+      const { content } = await runToolLoop({
+        provider: provider as never,
+        model: modelId,
+        messages: request.messages,
+        tools: agentTools.definitions(),
+        toolsRuntime: agentTools,
+        environment: agentEnvironment,
+        taskId: `conversation-${Date.now()}`,
+      });
+      return {
+        id: `conv-${Date.now()}`,
+        model: modelId,
+        provider: providerId,
+        content,
+        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+        latency: 0,
+      };
+    },
+    async *stream(request) {
+      const { providerId, modelId } = resolveConversationRoute(request.model);
+      const provider = providerManager.getProvider(providerId);
+      if (!provider) throw new Error(`AI provider not available: ${providerId}`);
+      const { content, toolResults } = await runToolLoop({
+        provider: provider as never,
+        model: modelId,
+        messages: request.messages,
+        tools: agentTools.definitions(),
+        toolsRuntime: agentTools,
+        environment: agentEnvironment,
+        taskId: `conversation-${Date.now()}`,
+      });
+      for (const toolResult of toolResults) {
+        yield {
+          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          type: 'tool_result',
+          content: toolResult,
+          metadata: { sequence: 0, timestamp: new Date().toISOString(), provider: providerId, model: modelId },
+        };
+      }
+      if (content) {
+        yield {
+          id: `text-${Date.now()}`,
+          type: 'text',
+          content,
+          metadata: { sequence: 1, timestamp: new Date().toISOString(), provider: providerId, model: modelId },
+        };
+      }
+    },
+  };
+  const conversationStore = new SqliteConversationStore({
+    dbPath: path.join(workspaceDir, 'conversations', 'conversations.db'),
+    logger: kernel.logger,
+  });
+  await conversationStore.initialize();
+  const conversationService: ConversationService = new DefaultConversationService({
+    contextAssembler: new DefaultContextAssembler(),
+    providerExecutor: conversationProviderExecutor,
+    eventBus: kernel.eventBus,
+    logger: kernel.logger,
+    store: conversationStore,
+  });
 
   // ── Agent Harness — the durable single-turn execution loop. The composition
   // root owns its dependencies; the harness itself never touches SQLite or the
@@ -999,18 +1106,18 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         type.startsWith('verification.') ||
         type.startsWith('plan.')
       ) {
-        const agentId: string = (payload['agentId'] as string) || (payload['agent'] as string) || 'system';
-        const detail: string = (payload['detail'] as string) || (payload['message'] as string) || '';
+        const agentId: string = (payload.agentId as string) || (payload.agent as string) || 'system';
+        const detail: string = (payload.detail as string) || (payload.message as string) || '';
         const status = type.includes('failed') ? 'failed' : type.includes('completed') ? 'completed' : 'working';
         telemetry.trackOp(
           agentId,
           status as any,
-          (payload['operation'] as any) || 'unknown',
-          (payload['task'] as string) || detail || type,
+          (payload.operation as any) || 'unknown',
+          (payload.task as string) || detail || type,
           {
-            filePath: payload['filePath'] as string,
-            progress: (payload['progress'] as number) ?? 0,
-            phase: payload['phase'] as string,
+            filePath: payload.filePath as string,
+            progress: (payload.progress as number) ?? 0,
+            phase: payload.phase as string,
             detail,
             metadata: payload,
           },
@@ -1086,6 +1193,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     routingStore,
     routingAssignments,
     conversationSessions,
+    conversationService,
     agentThreadStore,
     agentTools,
     createAgentTools,

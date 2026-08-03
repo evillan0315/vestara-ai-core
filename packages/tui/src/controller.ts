@@ -1,3 +1,4 @@
+import { isConversationChunk } from '@vestara/tui-protocol';
 import type { RawData } from 'ws';
 import WebSocket from 'ws';
 import { normalizeRuntimeEvent } from './normalize.js';
@@ -23,6 +24,7 @@ export class TuiController {
   private readonly endpoint: URL;
   private routingState?: RoutingSelection;
   private workflowFollow?: { threadId: string; lastPush: number };
+  private conversationId?: string;
   constructor(options: TuiControllerOptions = {}) {
     this.endpoint = new URL(options.endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001');
   }
@@ -30,21 +32,25 @@ export class TuiController {
   async connect(listener: (event: TuiEvent) => void): Promise<() => void> {
     listener({ type: 'connection', state: 'connecting' });
     try {
-      const [status, workspace, telemetry, graph, plans, sessions, agents, catalog, selection] = await Promise.all([
-        this.getJson<{ status: string; workspaceId: string; runtimeVersion: string; apiEndpoint: string }>(
-          '/api/runtime/status',
-        ),
-        this.getJson<any>('/api/workspace'),
-        this.getJson<{ agents?: AgentCard[] }>('/api/telemetry/agents').catch(() => ({ agents: [] })),
-        this.getJson<{ entities?: Array<{ id: string; kind: string; label: string; status?: string }> }>(
-          '/api/graph/entities?limit=100',
-        ).catch(() => ({ entities: [] })),
-        this.getJson<{ plans?: any[] }>('/api/plans').catch(() => ({ plans: [] })),
-        this.getJson<{ sessions?: any[] }>('/api/sessions').catch(() => ({ sessions: [] })),
-        this.getJson<{ agents?: RoutingAgent[] }>('/api/agents').catch(() => ({ agents: [] })),
-        this.getJson<{ candidates?: RoutingCandidate[] }>('/api/routing/catalog').catch(() => ({ candidates: [] })),
-        this.getJson<any>('/api/routing/selection').catch(() => undefined),
-      ]);
+      const [status, workspace, telemetry, graph, plans, sessions, agents, catalog, selection, providers] =
+        await Promise.all([
+          this.getJson<{ status: string; workspaceId: string; runtimeVersion: string; apiEndpoint: string }>(
+            '/api/runtime/status',
+          ),
+          this.getJson<any>('/api/workspace'),
+          this.getJson<{ agents?: AgentCard[] }>('/api/telemetry/agents').catch(() => ({ agents: [] })),
+          this.getJson<{ entities?: Array<{ id: string; kind: string; label: string; status?: string }> }>(
+            '/api/graph/entities?limit=100',
+          ).catch(() => ({ entities: [] })),
+          this.getJson<{ plans?: any[] }>('/api/plans').catch(() => ({ plans: [] })),
+          this.getJson<{ sessions?: any[] }>('/api/sessions').catch(() => ({ sessions: [] })),
+          this.getJson<{ agents?: RoutingAgent[] }>('/api/agents').catch(() => ({ agents: [] })),
+          this.getJson<{ candidates?: RoutingCandidate[] }>('/api/routing/catalog').catch(() => ({ candidates: [] })),
+          this.getJson<any>('/api/routing/selection').catch(() => undefined),
+          this.getJson<{
+            providers?: Array<{ id: string; credential?: { configured: boolean; source?: string } }>;
+          }>('/api/providers').catch(() => ({ providers: [] })),
+        ]);
       listener({
         type: 'workspace',
         workspace: {
@@ -82,6 +88,12 @@ export class TuiController {
           agents: availableAgents,
           candidates: catalog.candidates ?? [],
           activeAgentId: this.routingState?.activeAgentId ?? availableAgents[0]?.id,
+          providers: Object.fromEntries(
+            (providers.providers ?? []).map((provider) => [
+              provider.id,
+              { configured: Boolean(provider.credential?.configured), source: provider.credential?.source },
+            ]),
+          ),
         };
         this.routingState = routing;
         listener({ type: 'routing', routing });
@@ -328,19 +340,43 @@ export class TuiController {
     throw new Error(`Unknown routing command: ${action}`);
   }
 
+  async *setProviderCredential(providerId: string, apiKey: string): AsyncGenerator<TuiEvent> {
+    await this.requestJson(`/api/providers/${encodeURIComponent(providerId)}/credentials`, 'POST', { apiKey });
+    if (this.routingState) {
+      this.routingState = {
+        ...this.routingState,
+        providers: {
+          ...(this.routingState.providers ?? {}),
+          [providerId]: { configured: true, source: 'stored' },
+        },
+      };
+      yield { type: 'routing', routing: this.routingState };
+    }
+  }
+
   private async *streamConversation(message: string, signal?: AbortSignal): AsyncGenerator<TuiEvent> {
     const id = `assistant-${Date.now()}`;
     yield { type: 'conversation-start', id };
-    const response = await fetch(new URL('/api/chat/stream', this.endpoint), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
-      body: JSON.stringify({
-        message,
-        agentId: this.routingState?.activeAgentId,
-        role: this.routingState?.agents.find((agent) => agent.id === this.routingState?.activeAgentId)?.role,
-      }),
-      signal,
-    });
+
+    // Ensure a conversation exists (create once per TUI session, then reuse).
+    if (!this.conversationId) {
+      const created = await this.requestJson<{ conversation: { id: string } }>('/api/conversations', 'POST', {}).catch(
+        () => undefined,
+      );
+      this.conversationId = created?.conversation?.id;
+    }
+    const conversationId = this.conversationId;
+    if (!conversationId) throw new Error('Unable to create a conversation');
+
+    const response = await fetch(
+      new URL(`/api/conversations/${encodeURIComponent(conversationId)}/stream`, this.endpoint),
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Vestara-Source': 'cli' },
+        body: JSON.stringify({ message }),
+        signal,
+      },
+    );
     if (!response.ok || !response.body) throw new Error(`Conversation stream unavailable: ${response.status}`);
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
@@ -354,8 +390,23 @@ export class TuiController {
       for (const frame of frames) {
         const line = frame.split('\n').find((candidate) => candidate.startsWith('data: '));
         if (!line) continue;
-        const event = JSON.parse(line.slice(6)) as { type: string; content?: string };
-        if (event.type === 'text' && event.content) yield { type: 'conversation-delta', id, content: event.content };
+        const parsed = JSON.parse(line.slice(6)) as unknown;
+        if (!isConversationChunk(parsed)) continue;
+        const event = parsed.event;
+        if (event.type === 'delta' && event.content) yield { type: 'conversation-delta', id, content: event.content };
+        if (event.type === 'tool_result') {
+          yield {
+            type: 'tool',
+            card: {
+              id: `tool-${Date.now()}`,
+              tool: event.name ?? 'tool',
+              label: event.name ?? 'Tool',
+              status: 'completed',
+              startedAt: parsed.timestamp,
+              detail: event.content,
+            },
+          };
+        }
         if (event.type === 'error') throw new Error(event.content ?? 'Conversation failed');
       }
     }

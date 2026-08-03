@@ -260,6 +260,18 @@ export const REGISTRY: Record<RuntimeType, RuntimeDefinition> = {
     metadata: { displayName: 'Terminal', description: 'Terminal session runtime' },
     version: '1.0.0',
   },
+  tui: {
+    type: 'tui',
+    parent: 'runtime',
+    category: 'core',
+    singleton: false,
+    persistable: false,
+    capabilities: ['tui:render', 'tui:command'],
+    lifecycle: DEFAULT_LIFECYCLE,
+    dependencies: ['terminal'],
+    metadata: { displayName: 'TUI', description: 'Full-screen terminal UI runtime (opentui/Solid)' },
+    version: '1.0.0',
+  },
   git: {
     type: 'git',
     parent: 'runtime',

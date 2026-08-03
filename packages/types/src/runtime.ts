@@ -37,7 +37,8 @@ export type RuntimeType =
   | 'config'
   | 'health'
   | 'worker-pool'
-  | 'dashboard';
+  | 'dashboard'
+  | 'tui';
 
 export type RuntimeCategory = 'core' | 'extension' | 'custom';
 

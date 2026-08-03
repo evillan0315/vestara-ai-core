@@ -55,4 +55,20 @@ describe('extension manifest contracts', () => {
     };
     expect(validatePackageManifest(candidate).errors).toContain('duplicate dependency: vestara.base');
   });
+
+  it('accepts a tui package type manifest', () => {
+    const candidate: VestaraPackageManifest = {
+      ...manifest(),
+      id: 'vestara.cli-tui',
+      name: 'Vestara Terminal TUI',
+      type: 'tui',
+      entrypoints: { cli: './dist/index.js' },
+      capabilities: ['tui:render', 'tui:command'],
+      permissions: [{ capability: 'network:connect', scope: 'system', resources: ['http://127.0.0.1:3001'] }],
+      isolation: 'process',
+    };
+    const result = validatePackageManifest(candidate);
+    expect(result.valid).toBe(true);
+    expect(assertPackageManifest(candidate).type).toBe('tui');
+  });
 });

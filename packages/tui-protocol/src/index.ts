@@ -127,3 +127,53 @@ export function isStreamEnvelope(value: unknown): value is StreamEnvelope {
     !!item.event
   );
 }
+
+// ─── Conversation envelope ───────────────────────────────────
+//
+// Shared shape for chat streaming across the TUI and Workspace clients. The
+// server (`/api/conversations/:id/stream`) emits these; both clients consume
+// the same structure instead of re-implementing SSE parsing.
+
+export type ConversationChunkType =
+  | 'delta' // incremental text token
+  | 'tool' // a tool call is proposed/started
+  | 'tool_result' // a tool execution result
+  | 'status' // progress/status update
+  | 'done' // stream finished
+  | 'error'; // stream failed
+
+export interface ConversationChunk {
+  readonly schemaVersion: typeof TUI_PROTOCOL_VERSION;
+  readonly conversationId: string;
+  readonly messageId: string;
+  readonly sequence: number;
+  readonly timestamp: string;
+  readonly event: {
+    readonly type: ConversationChunkType;
+    readonly content?: string;
+    readonly name?: string;
+    readonly detail?: string;
+  };
+}
+
+export interface ConversationSummaryProtocol {
+  readonly id: string;
+  readonly title: string;
+  readonly messageCount: number;
+  readonly status: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
+export function isConversationChunk(value: unknown): value is ConversationChunk {
+  if (!value || typeof value !== 'object') return false;
+  const item = value as Partial<ConversationChunk>;
+  return (
+    item.schemaVersion === 1 &&
+    typeof item.conversationId === 'string' &&
+    typeof item.messageId === 'string' &&
+    Number.isInteger(item.sequence) &&
+    !!item.event &&
+    typeof (item.event as { type?: unknown })?.type === 'string'
+  );
+}

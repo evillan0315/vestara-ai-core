@@ -4,6 +4,7 @@ import Categories from './Categories.js';
 import Discover from './Discover.js';
 import Installed from './Installed.js';
 import OperationCenter from './OperationCenter.js';
+import Registries from './Registries.js';
 import { muted } from './styles.js';
 import Updates from './Updates.js';
 
@@ -12,6 +13,7 @@ const TABS = [
   { to: '/marketplace/categories', label: 'Categories', end: false },
   { to: '/marketplace/installed', label: 'Installed', end: false },
   { to: '/marketplace/updates', label: 'Updates', end: false },
+  { to: '/marketplace/registries', label: 'Registries', end: false },
 ];
 
 export default function MarketplaceLayout() {
@@ -40,6 +42,7 @@ export default function MarketplaceLayout() {
         <Route path="categories" element={<Categories />} />
         <Route path="installed" element={<Installed />} />
         <Route path="updates" element={<Updates />} />
+        <Route path="registries" element={<Registries />} />
         <Route path="assets/:publisher/:name" element={<AssetDetail />} />
       </Routes>
       <OperationCenter />

@@ -288,8 +288,9 @@ describe('@vestara/conversation-runtime', () => {
       }),
       sendMessageStream: async function* () {},
       closeConversation: async () => {},
-      listConversations: () => [],
-      getConversation: () => null,
+      listConversations: async () => [],
+      getConversation: async () => null,
+      deleteConversation: async () => {},
     };
 
     const store = new mod.SqliteUserProfileStore();

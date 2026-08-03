@@ -5,7 +5,8 @@
     "outDir": "./dist",
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
-    "jsx": "react-jsx"
+    "jsx": "react-jsx",
+    "jsxImportSource": "@vestara/tui-renderer"
   },
   "include": ["src/**/*"]
 }

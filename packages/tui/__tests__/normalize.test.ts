@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { humanizeTool, normalizeRuntimeEvent } from '../src/normalize.js';
+import { humanizeTool, normalizeRuntimeEvent, scrubToolMarkup } from '../src/normalize.js';
 
 describe('TUI runtime event normalization', () => {
   it('converts tool protocol into a human-readable execution card', () => {
@@ -48,5 +48,26 @@ describe('TUI runtime event normalization', () => {
   it('humanizes common tool operations', () => {
     expect(humanizeTool('shell.build')).toBe('Running build');
     expect(humanizeTool('filesystem.search')).toBe('Searching workspace');
+  });
+
+  it('strips ASCII DSML invoke/parameter blocks from conversation text', () => {
+    const markup =
+      'Here is the plan.\n<|DSML|invoke name="Bash">\n<|DSML|parameter name="cmd">ls -la</|DSML|parameter>\n</|DSML|invoke>\nDone.';
+    const scrubbed = scrubToolMarkup(markup);
+    expect(scrubbed).toContain('Here is the plan.');
+    expect(scrubbed).toContain('Done.');
+    expect(scrubbed).not.toContain('DSML');
+    expect(scrubbed).not.toContain('invoke');
+    expect(scrubbed).not.toContain('parameter');
+  });
+
+  it('strips fullwidth DSML blocks', () => {
+    const markup = '＜｜DSML｜parameter name="cmd" string="true"＞ls -la＜／｜DSML｜parameter＞';
+    expect(scrubToolMarkup(markup)).not.toContain('DSML');
+  });
+
+  it('leaves plain text and markdown untouched', () => {
+    const plain = 'Run `pnpm test` — no markup here.';
+    expect(scrubToolMarkup(plain)).toBe(plain);
   });
 });
