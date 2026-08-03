@@ -257,6 +257,22 @@ Evidence pipeline on remote results
   unknown-node rejection). Multi-node hardening and gRPC/K8s transports remain
   future.
 
+### Completion Notes (2026-08-03)
+
+- **§8 evidence on remote results**: `WorkerCluster` accepts an
+  `onRemoteResult` hook; the API composition root runs remote dispatch results
+  through the PCS-026 `EvidencePipeline` and emits `worker.remote-bundle`.
+- **Capability routing**: the scheduler's wildcard executor match is now
+  opt-in (`WildcardExecutors`), so a node must advertise a matching capability
+  by default (PCS-027 §6).
+- **Lease reaping**: `WorkerStore.reapExpiredLeases()` enforces `expiresAt`
+  (invoked before each dispatch), recovering leases left by node loss (§7).
+- **Heartbeats**: `worker.heartbeat` events project into the engineering event
+  store, and nodes report real in-flight load (least-load routing is no longer
+  a stub).
+- **§9 security** (shared-token auth on `/ws/worker`, secret references)
+  remains explicit future work, as does multi-node hardening.
+
 ---
 
 *End of blueprint. All slice-1 components are additive to the existing runtime;

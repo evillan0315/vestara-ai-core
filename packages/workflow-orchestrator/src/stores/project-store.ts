@@ -28,11 +28,17 @@ export class ProjectStore {
         phase TEXT NOT NULL DEFAULT 'draft',
         workspace_id TEXT NOT NULL,
         cancel_reason TEXT,
+        verification_reopens INTEGER NOT NULL DEFAULT 0,
         created_at TEXT NOT NULL,
         updated_at TEXT NOT NULL
       );
       CREATE INDEX IF NOT EXISTS idx_op_workspace ON orchestrated_projects(workspace_id);
     `);
+    // Migration: add verification_reopens to databases created before v5.4.
+    const columns = dbAll(this.db, 'PRAGMA table_info(orchestrated_projects)');
+    if (!columns.some((c) => c.name === 'verification_reopens')) {
+      this.db.exec('ALTER TABLE orchestrated_projects ADD COLUMN verification_reopens INTEGER NOT NULL DEFAULT 0');
+    }
   }
 
   async create(input: CreateProjectInput): Promise<OrchestratedProject> {
@@ -44,13 +50,14 @@ export class ProjectStore {
       repoPath: input.repoPath,
       phase: 'draft',
       workspaceId: input.workspaceId,
+      verificationReopens: 0,
       createdAt: now(),
       updatedAt: now(),
     };
     dbRun(
       this.db,
-      `INSERT INTO orchestrated_projects (id, name, goal, repo_path, phase, workspace_id, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO orchestrated_projects (id, name, goal, repo_path, phase, workspace_id, verification_reopens, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         project.id,
         project.name,
@@ -58,6 +65,7 @@ export class ProjectStore {
         project.repoPath,
         project.phase,
         project.workspaceId,
+        project.verificationReopens,
         project.createdAt,
         project.updatedAt,
       ],
@@ -79,6 +87,17 @@ export class ProjectStore {
 
   async updatePhase(id: string, phase: ProjectPhase): Promise<void> {
     dbRun(this.db, 'UPDATE orchestrated_projects SET phase = ?, updated_at = ? WHERE id = ?', [phase, now(), id]);
+  }
+
+  /** Increment the verification auto-reopen counter (PCS-025 §11). */
+  async incrementVerificationReopens(id: string): Promise<number> {
+    dbRun(
+      this.db,
+      'UPDATE orchestrated_projects SET verification_reopens = verification_reopens + 1, updated_at = ? WHERE id = ?',
+      [now(), id],
+    );
+    const row = dbGet(this.db, 'SELECT verification_reopens FROM orchestrated_projects WHERE id = ?', [id]);
+    return Number(row?.verification_reopens ?? 0);
   }
 
   async cancel(id: string, reason: string): Promise<void> {
@@ -103,6 +122,7 @@ export class ProjectStore {
       phase: str(row.phase) as ProjectPhase,
       workspaceId: str(row.workspace_id),
       cancelReason: row.cancel_reason ? str(row.cancel_reason) : undefined,
+      verificationReopens: Number(row.verification_reopens ?? 0),
       createdAt: str(row.created_at),
       updatedAt: str(row.updated_at),
     };

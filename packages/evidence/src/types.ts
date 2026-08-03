@@ -24,6 +24,11 @@ export interface VerificationEvidenceBundle {
   readonly replay: EvidenceReplayDescriptor;
   readonly confidence: VerificationConfidence;
 
+  /** Bundle this one corrects/replaces (PCS-026 §6 — corrections link to the original, never mutate it). */
+  readonly supersedes?: string;
+  /** Bundle this one was derived from (re-run of the same scope/execution). */
+  readonly derivedFrom?: string;
+
   readonly createdAt: string;
 }
 

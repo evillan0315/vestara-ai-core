@@ -180,9 +180,10 @@ Phase 1 core is implemented and green:
   `workflowId` from thread metadata. Two type errors in that in-progress work
   were fixed so the full `pnpm build` passes.
 
-Remaining for full Phase 1 acceptance (see §7): a harness-backed end-to-end
-project run, projection wiring (`/api/workflow` multi-thread aggregation), and
-the approval gateway (Phase 2).
+All Phase 1 acceptance items (§7) are now delivered: a harness-backed
+end-to-end project run (`apps/api/__tests__/workflow-orchestrator-harness.test.ts`),
+projection wiring (`/api/workflow` multi-thread aggregation), and the approval
+gateway (Phase 2).
 
 ### Delivery Notes — Phase 2 & Phase 3 foundations (2026-08-03)
 
@@ -194,10 +195,10 @@ the approval gateway (Phase 2).
   `/api/orchestration/projects/:id/tasks/:taskId/approval`), **parallel task
   waves** (`maxParallelTasks`, bounded lock-wait then block), and capability-
   based assignment via `@vestara/capabilities`. 11 new orchestrator tests.
-- **Phase 3 (foundations):** `TokenBudget` (blocks dispatch when exhausted),
+- **Phase 3 (complete):** `TokenBudget` (blocks dispatch when exhausted),
   event-sourced `reconcile(projectId, events)` drift detection, and
-  failure-injection/load tests. Remote workers and multi-repo projects remain
-  future: the `TaskDispatcher` interface is the worker contract.
+  failure-injection/load tests. Remote workers (v10.0) are complete; multi-repo
+  projects remain future — the `TaskDispatcher` interface is the worker contract.
 - `HarnessTaskDispatcher.review/test` run reviewer/tester harness turns with a
   deterministic decision parser (`parseReviewDecision`).
 - Tests: full suite green (150 files), lint clean, build clean.

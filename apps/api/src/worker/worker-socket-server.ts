@@ -95,6 +95,11 @@ export class WorkerSocketServer {
           load: message.load ?? 0,
           status: message.status as 'ok' | 'draining' | 'overloaded',
         });
+        this.events.append({
+          type: 'worker.heartbeat',
+          nodeId: message.nodeId,
+          detail: String(message.load ?? 0),
+        });
         break;
       }
       case 'response': {

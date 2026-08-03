@@ -59,9 +59,9 @@
 | **v5.1** | **Observability** | **✅ Complete** | **2026-07-24** |
 | **v5.2** | **Provider & Model Selection** | **✅ Complete** | **2026-07-24** |
 | **v5.3** | **Agent Workflow Orchestration** | **✅ Complete** | **2026-07-24** |
-| **v5.4** | **Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)** | **🔶 Partial** | **2026-08-03** |
-| **v5.5** | **Engineering Evidence Pipeline (PCS-026)** | **🔶 Partial** | **2026-08-03** |
-| **v5.6** | **Distributed Worker Cluster (PCS-027)** | **🔶 Partial** | **2026-08-03** |
+| **v5.4** | **Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)** | **✅ Complete** | **2026-08-03** |
+| **v5.5** | **Engineering Evidence Pipeline (PCS-026)** | **✅ Complete** | **2026-08-03** |
+| **v5.6** | **Distributed Worker Cluster (PCS-027)** | **✅ Complete** | **2026-08-03** |
 | **v6.0** | **Interactive Dashboard (Agents & Suggestions)** | **✅ Complete** | **2026-07-24** |
 | **v6.1** | **In-Browser CLI Terminal** | **✅ Complete** | **2026-07-25** |
 | **v6.2** | **Chatbot Assistant Panel** | **✅ Complete** | **2026-07-24** |
@@ -76,7 +76,7 @@
 | **v7.7** | **Workspace UI Tester Automation** | **✅ Complete** | **2026-07-26** |
 | **v7.8** | **API Builder UI/UX Enhancement** | **✅ Complete** | **2026-07-26** |
 | **v8.0** | **OS Architecture — Complete Specification** | **✅ Complete** | **2026-07-27** |
-| **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **🔶 In Progress** | **2026-07-27** |
+| **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **✅ Complete** | **2026-07-27** |
 | **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
 | **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
 | **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
@@ -86,15 +86,25 @@
 
 > **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
 > `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
-> PCS-025 multi-agent orchestration is tracked under **v5.4** (partial — Phase 1
-> complete, Phase 2 complete, Phase 3 foundations): `WorkflowOrchestrator`,
+> PCS-025 multi-agent orchestration is tracked under **v5.4** (complete): `WorkflowOrchestrator`,
 > project/plan/task state machines, task/artifact/file-lock stores, bounded
 > retry/revision policy, task-graph waves, checkpoint/resume, harness-backed task
 > dispatch, capability-based assignment, reviewer/tester stages with bounded
 > revision loops, high-risk-change Approval Gateway, parallel task waves with
-> file-lock contention handling, token budgets, event-sourced reconcile,
-> `orchestration.*` events, and `/api/orchestration/*` routes. Remote workers and
-> multi-repo projects remain future (v10.0).
+> file-lock contention handling, token budgets, event-sourced reconcile, bounded
+> verification re-open, `orchestration.*` events, and `/api/orchestration/*`
+> routes. Remote workers (v10.0) are complete; multi-repo projects remain future.
+
+> **Note**: **v5.5 "Engineering Evidence Pipeline"** (2026-08-03) is complete:
+> `packages/evidence/` provides collectors (command/test/build/filesystem/source
+> diff), content-addressed artifacts, immutable manifests, replay, derived
+> confidence, visual comparison + human-reviewed baselines with an
+> approve/reject governance API, and bundle corrections via `supersedes`.
+> **v5.6 "Distributed Worker Cluster"** (2026-08-03) is complete: PCS-027 node
+> registration, heartbeats, capability scheduling (wildcard opt-in), lease
+> reaping, executionId idempotency, WebSocket transport, evidence on remote
+> results, and the Workspace Workers view. Shared-token auth on `/ws/worker`
+> (§9) and multi-node hardening remain explicit future work.
 
 > **Note**: **v2.8 "Marketplace Remote Registries, Publishing, Signatures &
 > Version Tracking"** (2026-08-03) adds the ADR-115 future-work capabilities to
@@ -159,12 +169,12 @@ Semantic Layer (v1 stable)
 
 Scheduler (v8.2)
   @vestara/scheduler                 → ✅ Complete (capability + capacity matching to Workers)
-  @vestara/assignment                → 📋 Planned (if needed)
+  @vestara/assignment                → ✅ Not needed — worker selection is owned by @vestara/scheduler
 
-Kernel v2 (v8.2)
-  Kernel boot order (16-step)        → 📋 Planned
+Kernel v2 (v8.2–v8.4)
+  Kernel boot order (16-step)        → ✅ Complete (Runtime-layer composition reconciled in v8.4; Interface Layer is the embedding host's responsibility)
   @vestara/intent                    → ✅ Complete (goal → ExecutionPlan of jobs, ADR-026)
-  @vestara/verification              → ✅ Package complete (pipeline, build/test/lint/custom runners)
+  @vestara/verification              → ✅ Complete (pipeline, build/test/lint/custom runners; composed at kernel boot)
   @vestara/recovery                  → ✅ Complete (DefaultRecoveryManager in kernel)
   @vestara/trust                     → ✅ Package complete (engine, model, repository)
 
@@ -212,7 +222,7 @@ Remote Worker (v10.0)
 | `ownership` | Resource ownership + keyed write locks with timeout/deadlock prevention (ADR-027) | types | ✅ Complete |
 | `decision-pipeline` | DecisionContext + invariant chain Permission→Policy→Execution→Verification→Trust→History (ADR-035) | types | ✅ Complete |
 | `capabilities` | Canonical capability taxonomy, matching catalog, hierarchy, profiles | types | ✅ Complete (90+ builtins) |
-| `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | 📋 Planned |
+| `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | ✅ Complete |
 
 ---
 

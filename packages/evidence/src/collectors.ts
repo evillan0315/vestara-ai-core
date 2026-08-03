@@ -92,6 +92,72 @@ export class SourceDiffCollector implements EvidenceCollector {
   }
 }
 
+// ─── Test execution collector (PCS-026 §4 slice-1) ────────────
+
+export interface TestEvidenceCollectorOptions {
+  readonly command: string;
+  readonly args?: readonly string[];
+  readonly cwd?: string;
+  readonly summary?: string;
+}
+
+/** Emits `test` evidence from a test-run command (e.g. `pnpm test`). */
+export class TestEvidenceCollector implements EvidenceCollector {
+  readonly kind = 'test' as const;
+
+  constructor(private readonly options: TestEvidenceCollectorOptions) {}
+
+  async collect(request: EvidenceCollectionRequest) {
+    const { stdout, stderr, exitCode } = await runCommand(this.options.command, this.options.args ?? [], {
+      cwd: this.options.cwd ?? request.workspaceRoot,
+      allowFailure: true,
+    });
+    const item: EvidenceItem = {
+      kind: 'test',
+      mediaType: 'text/plain',
+      content: `${stdout}${stderr ? `\n--- stderr ---\n${stderr}` : ''}`,
+      summary:
+        this.options.summary ??
+        `test: ${this.options.command} ${this.options.args?.join(' ') ?? ''} (exit ${exitCode ?? 0})`.trim(),
+      operation: `test ${this.options.command}`,
+    };
+    return { items: [item] };
+  }
+}
+
+// ─── Build execution collector (PCS-026 §4 slice-1) ───────────
+
+export interface BuildEvidenceCollectorOptions {
+  readonly command: string;
+  readonly args?: readonly string[];
+  readonly cwd?: string;
+  readonly summary?: string;
+}
+
+/** Emits `build` evidence from a build command (e.g. `pnpm build`). */
+export class BuildEvidenceCollector implements EvidenceCollector {
+  readonly kind = 'build' as const;
+
+  constructor(private readonly options: BuildEvidenceCollectorOptions) {}
+
+  async collect(request: EvidenceCollectionRequest) {
+    const { stdout, stderr, exitCode } = await runCommand(this.options.command, this.options.args ?? [], {
+      cwd: this.options.cwd ?? request.workspaceRoot,
+      allowFailure: true,
+    });
+    const item: EvidenceItem = {
+      kind: 'build',
+      mediaType: 'text/plain',
+      content: `${stdout}${stderr ? `\n--- stderr ---\n${stderr}` : ''}`,
+      summary:
+        this.options.summary ??
+        `build: ${this.options.command} ${this.options.args?.join(' ') ?? ''} (exit ${exitCode ?? 0})`.trim(),
+      operation: `build ${this.options.command}`,
+    };
+    return { items: [item] };
+  }
+}
+
 // ─── helpers ──────────────────────────────────────────────────
 
 export interface CommandResult {

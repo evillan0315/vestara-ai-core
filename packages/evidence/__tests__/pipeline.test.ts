@@ -224,4 +224,40 @@ describe('EvidencePipeline (PCS-026 slice 1)', () => {
       ).checks[0].evidenceRefs.length,
     ).toBe(2);
   });
+
+  it('links a correction bundle via supersedes (PCS-026 §6)', async () => {
+    const root = tmpdir('evidence-correct-');
+    const workspaceRoot = path.join(root, 'workspace');
+    fs.mkdirSync(workspaceRoot);
+    const pipeline = new EvidencePipeline({
+      artifacts: new ContentAddressedEvidenceStore(path.join(root, 'artifacts')),
+      manifests: new ImmutableEvidenceManifestStore(path.join(root, 'manifests')),
+      environment: 'test-env',
+    });
+    const original = await pipeline.buildBundle({
+      executionId: 'verification-1',
+      verifierId: 'verifier',
+      profileId: 'standard',
+      repository: '/repo',
+      implementationCommit: COMMIT,
+      outcome: 'failed',
+      checks: [{ id: 'build', name: 'Build', status: 'failed', summary: 'bad' }],
+      workspaceRoot,
+    });
+    expect(original.supersedes).toBeUndefined();
+
+    const correction = await pipeline.buildBundle({
+      executionId: 'verification-2',
+      verifierId: 'verifier',
+      profileId: 'standard',
+      repository: '/repo',
+      implementationCommit: COMMIT,
+      outcome: 'passed',
+      correctionOf: 'verification-1',
+      checks: [{ id: 'build', name: 'Build', status: 'passed', summary: 'good' }],
+      workspaceRoot,
+    });
+    expect(correction.supersedes).toBe('bundle-verification-1');
+    expect(correction.id).not.toBe(original.id);
+  });
 });

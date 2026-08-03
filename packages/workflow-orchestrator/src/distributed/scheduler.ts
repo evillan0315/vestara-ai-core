@@ -22,7 +22,9 @@ export class WorkerScheduler {
 
   constructor(registry: WorkerRegistry, options: WorkerSchedulerOptions = {}) {
     this.registry = registry;
-    this.wildcardExecutors = options.wildcardExecutors ?? ['*'];
+    // Wildcard matching is opt-in; by default a node must advertise a matching
+    // executor or satisfy the task's required capabilities (PCS-027 §6).
+    this.wildcardExecutors = options.wildcardExecutors ?? [];
   }
 
   async select(task: WorkflowTask): Promise<WorkerNode | undefined> {

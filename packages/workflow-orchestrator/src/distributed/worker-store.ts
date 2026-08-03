@@ -151,6 +151,15 @@ export class WorkerStore {
     }));
   }
 
+  /** Delete leases whose expiry has passed; returns the removed lease ids. */
+  async reapExpiredLeases(): Promise<string[]> {
+    const nowIso = now();
+    const expired = dbAll(this.db, 'SELECT lease_id FROM orchestrated_task_leases WHERE expires_at <= ?', [nowIso]);
+    const ids = expired.map((row) => str(row.lease_id));
+    for (const leaseId of ids) await this.releaseLease(leaseId);
+    return ids;
+  }
+
   private rowToNode(row: Record<string, unknown>): WorkerNode {
     return {
       id: str(row.id),

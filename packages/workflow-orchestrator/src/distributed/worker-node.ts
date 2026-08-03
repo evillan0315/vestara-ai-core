@@ -29,6 +29,11 @@ export class WorkerNodeRuntime {
     return this.nodeId;
   }
 
+  /** Current concurrency — number of in-flight requests (real load signal). */
+  get load(): number {
+    return this.inFlight.size;
+  }
+
   /** Handle a request; concurrent duplicates for the same executionId dedupe. */
   handleRequest(request: WorkerRequest): Promise<WorkerResponse> {
     const key = `${request.kind}:${request.executionId}`;

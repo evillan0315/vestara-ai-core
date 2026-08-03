@@ -131,6 +131,7 @@ export interface WorkspaceContext {
   evidenceManifests: ImmutableEvidenceManifestStore;
   evidenceArtifacts: ContentAddressedEvidenceStore;
   evidenceBundles: BundleStore;
+  evidenceBaselines: BaselineStore;
   threadRecovery: DurableThreadRecoveryService;
   worktreeRuntime: WorktreeLeaseRuntime;
   runtime: WorkspaceRuntime;
@@ -365,6 +366,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // content-addressed artifacts, writes an immutable manifest, and assembles a
   // verification bundle after every harness verification.
   const evidenceBundles = new BundleStore(path.join(workspaceDir, 'evidence', 'bundles'));
+  const evidenceBaselines = new BaselineStore(path.join(workspaceDir, 'evidence', 'baselines'));
   const evidenceCollectors: import('@vestara/evidence').EvidenceCollector[] = [
     new FilesystemChangeCollector(),
     new SourceDiffCollector(),
@@ -377,7 +379,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceCollectors.push(
       new VisualEvidenceCollector({
         source: new PlaywrightScreenshotSource({ baseUrl: screenshotBase }),
-        baselines: new BaselineStore(path.join(workspaceDir, 'evidence', 'baselines')),
+        baselines: evidenceBaselines,
         artifacts: evidenceArtifacts,
         scenario: {
           url: process.env.VESTARA_SCREENSHOT_ROUTE ?? '/dashboard',
@@ -707,6 +709,42 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     scheduler: new WorkerScheduler(workerRegistry),
     store: workerStore,
     transportFor: (nodeId) => workerSocketServer.transportFor(nodeId),
+    // PCS-027 §8 — remote dispatch results flow through the evidence pipeline.
+    onRemoteResult: async ({ task, result }) => {
+      try {
+        const commit = gitHeadCommit(abs);
+        const executionId = `remote-${task.id}-${Date.now()}`;
+        const bundle = await evidencePipeline.buildBundle({
+          executionId,
+          taskId: task.id,
+          verifierId: result.agentId ?? 'remote-worker',
+          profileId: 'standard',
+          repository: abs,
+          implementationCommit: commit,
+          outcome: result.status === 'completed' ? 'passed' : 'failed',
+          scope: task.requiredCapabilities,
+          checks: [
+            {
+              id: 'remote-execution',
+              name: 'Remote worker dispatch',
+              status: result.status === 'completed' ? 'passed' : 'failed',
+              summary: result.output ?? result.error ?? `remote ${task.summary}`,
+            },
+          ],
+          workspaceRoot: abs,
+          changedFiles: [],
+        });
+        void kernel.eventBus
+          .emit({
+            type: 'worker.remote-bundle',
+            source: 'worker-cluster',
+            payload: { taskId: task.id, bundleId: bundle.id, confidence: bundle.confidence.score },
+          })
+          .catch(() => {});
+      } catch {
+        // evidence failure must not break remote dispatch
+      }
+    },
   });
   multiAgentWorkflow.changeProjector = changeProjector;
 
@@ -1047,6 +1085,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceManifests,
     evidenceArtifacts,
     evidenceBundles,
+    evidenceBaselines,
     workerSocketServer,
     workerRegistry,
     workerStore,

@@ -31,7 +31,6 @@ describe('project state machine (PCS-025 §7.1)', () => {
       'architecture',
       'pending-approval',
       'executing',
-      'testing',
       'verifying',
     ]) {
       expect(canTransitionProject(phase, 'cancelled')).toBe(true);

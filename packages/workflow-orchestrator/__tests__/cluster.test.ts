@@ -154,7 +154,7 @@ describe('WorkerCluster over an in-memory transport', () => {
       store,
       transportFor: () => new MemoryWorkerTransport(node),
     });
-    await registry.register({ id: 'node-r', hostname: 'h', capabilities: [], executors: ['harness'] });
+    await registry.register({ id: 'node-r', hostname: 'h', capabilities: ['code-generation'], executors: ['harness'] });
     await registry.heartbeat({ nodeId: 'node-r', load: 0 });
 
     const review = await cluster.review(task(), PROJECT, [{ taskId: 't' }]);
@@ -212,5 +212,64 @@ describe('FallbackTaskDispatcher (PCS-027 orchestrator integration)', () => {
     await dispatcher.dispatch(task(), PROJECT);
     expect(fallback.calls).toEqual(['dispatch']);
     expect(primary.calls).toHaveLength(0);
+  });
+});
+
+describe('PCS-027 §6-8 — capability matching, lease reaping, evidence', () => {
+  it('does not route to a node without matching capabilities when wildcard is off (default)', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-empty', hostname: 'h', capabilities: [] });
+    await registry.heartbeat({ nodeId: 'node-empty', load: 0 });
+
+    const scheduler = new WorkerScheduler(registry); // default: no wildcard
+    expect(await scheduler.select(task())).toBeUndefined();
+  });
+
+  it('reaps expired leases', async () => {
+    const store = new WorkerStore(new SQL.Database());
+    await store.acquireLease({
+      leaseId: 'lease-expired',
+      executionId: 'exec-1',
+      nodeId: 'node-a',
+      task: task(),
+      expiresAt: new Date(Date.now() - 1000).toISOString(),
+    });
+    await store.acquireLease({
+      leaseId: 'lease-live',
+      executionId: 'exec-2',
+      nodeId: 'node-a',
+      task: task(),
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const reaped = await store.reapExpiredLeases();
+    expect(reaped).toEqual(['lease-expired']);
+    const remaining = await store.listActiveLeases();
+    expect(remaining.map((lease) => lease.leaseId)).toEqual(['lease-live']);
+  });
+
+  it('records evidence for a completed remote dispatch via onRemoteResult', async () => {
+    const store = new WorkerStore(new SQL.Database());
+    const registry = new WorkerRegistry(store);
+    const node = new WorkerNodeRuntime({
+      nodeId: 'node-ev',
+      executor: inlineExecutor({ dispatch: async () => ({ status: 'completed', agentId: 'remote' }) }),
+    });
+    const evidence: string[] = [];
+    const cluster = new WorkerCluster({
+      registry,
+      scheduler: new WorkerScheduler(registry),
+      store,
+      transportFor: () => new MemoryWorkerTransport(node),
+      onRemoteResult: async ({ task: t, result }) => {
+        evidence.push(`${t.id}:${result.status}`);
+      },
+    });
+    await registry.register({ id: 'node-ev', hostname: 'h', capabilities: ['code-generation'] });
+    await registry.heartbeat({ nodeId: 'node-ev', load: 0 });
+
+    const result = await cluster.dispatch(task(), PROJECT);
+    expect(result.status).toBe('completed');
+    expect(evidence).toEqual(['task-1:completed']);
   });
 });

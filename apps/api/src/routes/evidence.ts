@@ -5,7 +5,7 @@
 
 import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
-import { json } from './types';
+import { json, readBody } from './types';
 
 export async function handleEvidenceRoute(
   method: string,
@@ -55,6 +55,41 @@ export async function handleEvidenceRoute(
       'Cache-Control': 'public, max-age=31536000, immutable',
     });
     res.end(bytes);
+    return true;
+  }
+
+  // GET /api/evidence/baselines — visual baseline records awaiting/passed review.
+  if (method === 'GET' && p === '/api/evidence/baselines') {
+    json(res, 200, { baselines: ctx.evidenceBaselines.list() });
+    return true;
+  }
+
+  // POST /api/evidence/baselines/:scenario/approve — promote a candidate baseline.
+  const approveMatch = p.match(/^\/api\/evidence\/baselines\/([^/]+)\/approve$/);
+  if (approveMatch && method === 'POST') {
+    const scenarioKey = decodeURIComponent(approveMatch[1]);
+    const raw = await readBody(_req);
+    const body = raw ? ((JSON.parse(raw) as { artifactDigest?: string; approvedBy?: string }) ?? {}) : {};
+    const artifactDigest = String(body.artifactDigest ?? '');
+    const approvedBy = String(body.approvedBy ?? 'governance');
+    if (!artifactDigest) {
+      json(res, 400, { error: 'artifactDigest is required' });
+      return true;
+    }
+    const record = ctx.evidenceBaselines.approve(scenarioKey, artifactDigest, approvedBy);
+    json(res, 200, { baseline: record });
+    return true;
+  }
+
+  // POST /api/evidence/baselines/:scenario/reject — reject a candidate baseline.
+  const rejectMatch = p.match(/^\/api\/evidence\/baselines\/([^/]+)\/reject$/);
+  if (rejectMatch && method === 'POST') {
+    const scenarioKey = decodeURIComponent(rejectMatch[1]);
+    const raw = await readBody(_req);
+    const body = raw ? ((JSON.parse(raw) as { approvedBy?: string }) ?? {}) : {};
+    const approvedBy = String(body.approvedBy ?? 'governance');
+    const record = ctx.evidenceBaselines.reject(scenarioKey, approvedBy);
+    json(res, 200, { baseline: record });
     return true;
   }
 

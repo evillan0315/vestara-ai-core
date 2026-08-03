@@ -60,6 +60,8 @@ export interface BuildBundleInput {
   readonly workspaceRoot: string;
   readonly changedFiles?: readonly string[];
   readonly correlationId?: string;
+  /** Bundle executionId this run corrects (PCS-026 §6). */
+  readonly correctionOf?: string;
 }
 
 export class EvidencePipeline {
@@ -181,6 +183,7 @@ export class EvidencePipeline {
       checks,
       replay,
       confidence,
+      ...(input.correctionOf ? { supersedes: `bundle-${input.correctionOf}` } : {}),
       createdAt,
     };
     if (this.bundles) this.bundles.write(bundle);

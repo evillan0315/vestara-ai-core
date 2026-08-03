@@ -6,7 +6,7 @@
 |-------|-------|
 | ID | PCS-026 |
 | Name | Engineering Evidence Pipeline |
-| Status | Design — slices 1-2 implemented (pipeline, confidence, visual comparison, baselines) + Workspace evidence viewer; browser adapter provisioning pending |
+| Status | Implemented — pipeline, confidence, visual comparison, baselines governance, API + Workspace evidence viewer delivered |
 | Owner | Chief Architect |
 | Prerequisite | PCS-005 Verify, PCS-017 Execution Engine, PCS-025 Multi-Agent Project Management, ADR-104 (Evidence-Based Verification), ADR-121 (change.* projection) |
 | Scope | Collect → normalize → content-address → manifest → bundle → replay + confidence across verification, filesystem, command/test, and browser evidence |
@@ -367,7 +367,7 @@ governance, and visual-diff tolerances.
   `ScreenshotSource` (browser adapter such as Playwright), content-addresses it,
   and compares against the approved baseline → `pass`/`fail`/`needs-review`.
 - 7 visual tests. Browser adapter provisioning (Playwright in the API) and the
-  Workspace evidence viewer remain the integration follow-ups.
+  Workspace evidence viewer are delivered (see below).
 
 ### Workspace Evidence Viewer (2026-08-03)
 

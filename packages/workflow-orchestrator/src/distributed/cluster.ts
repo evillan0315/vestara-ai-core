@@ -30,6 +30,12 @@ export interface WorkerClusterOptions {
   /** Build a transport to a node (WebSocket in production, in-memory in tests). */
   readonly transportFor: (nodeId: string) => WorkerTransport;
   readonly leaseDurationMs?: number;
+  /** PCS-027 §8 — records evidence for a remote dispatch result (wired to the evidence pipeline). */
+  readonly onRemoteResult?: (input: {
+    readonly task: WorkflowTask;
+    readonly projectId: string;
+    readonly result: TaskDispatchResult;
+  }) => Promise<void> | void;
 }
 
 export class WorkerCluster implements TaskDispatcher {
@@ -38,6 +44,7 @@ export class WorkerCluster implements TaskDispatcher {
   private readonly store: WorkerStore;
   private readonly transportFor: (nodeId: string) => WorkerTransport;
   private readonly leaseDurationMs: number;
+  private readonly onRemoteResult?: WorkerClusterOptions['onRemoteResult'];
   private seq = 0;
 
   constructor(options: WorkerClusterOptions) {
@@ -46,10 +53,19 @@ export class WorkerCluster implements TaskDispatcher {
     this.store = options.store;
     this.transportFor = options.transportFor;
     this.leaseDurationMs = options.leaseDurationMs ?? 30_000;
+    this.onRemoteResult = options.onRemoteResult;
   }
 
   async dispatch(task: WorkflowTask, project: OrchestratedProject): Promise<TaskDispatchResult> {
-    return this.withNode(task, project, (dispatcher) => dispatcher.dispatch(task, project));
+    const result = await this.withNode(task, project, (dispatcher) => dispatcher.dispatch(task, project));
+    if (result.status === 'completed' && this.onRemoteResult) {
+      try {
+        await this.onRemoteResult({ task, projectId: project.id, result });
+      } catch {
+        // evidence failure must not break dispatch
+      }
+    }
+    return result;
   }
 
   async review(
@@ -69,6 +85,8 @@ export class WorkerCluster implements TaskDispatcher {
     project: OrchestratedProject,
     run: (dispatcher: RemoteWorkerDispatcher) => Promise<T>,
   ): Promise<T> {
+    // Reap leases that expired during node loss before selecting (PCS-027 §7).
+    await this.store.reapExpiredLeases();
     const node = await this.scheduler.select(task);
     if (!node) throw new Error(`No online worker satisfies task "${task.id}"`);
     const leaseId = `lease-${Date.now()}-${++this.seq}`;

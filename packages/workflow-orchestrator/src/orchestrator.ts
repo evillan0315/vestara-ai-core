@@ -22,6 +22,7 @@ import { canTransitionProject, canTransitionTask } from './state-machines';
 import type { ArtifactStore, FileLockRegistry, PlanStore, ProjectStore, TaskStore } from './stores';
 import type { CreateProjectInput } from './stores/project-store';
 import type { CreateTaskInput } from './stores/task-store';
+import { computeWaves } from './task-graph';
 import type {
   ApprovalDecision,
   ApprovalPolicy,
@@ -317,29 +318,31 @@ export class WorkflowOrchestrator {
     if (project.phase !== 'executing') {
       throw new Error(`Project ${projectId} is not executing (phase=${project.phase})`);
     }
+    // Canonical wave scheduler (PCS-025 §12): partition the task DAG into
+    // parallel waves; re-derive waves each pass so retries/failures are
+    // picked up. `computeWaves` is cycle-safe and deterministic.
     let guard = 0;
     while (guard < 1_000) {
       guard++;
       const tasks = await this.tasks.listForProject(projectId);
-      const isDone = (id: string): boolean => {
-        const dependency = tasks.find((task) => task.id === id);
-        return !dependency || dependency.status === 'completed' || dependency.status === 'cancelled';
-      };
-      const runnable = tasks
-        .filter(
-          (task) =>
-            (task.status === 'pending' || task.status === 'ready' || task.status === 'assigned') &&
-            task.dependencies.every(isDone),
-        )
-        .map((task) => ({ ...task }));
-      if (runnable.length === 0) break;
-      const wave = runnable.slice(0, this.maxParallelTasks);
-      for (const task of wave) {
+      const runnableTasks = tasks.filter(
+        (task) =>
+          (task.status === 'pending' || task.status === 'ready' || task.status === 'assigned') &&
+          task.dependencies.every((id) => {
+            const dependency = tasks.find((candidate) => candidate.id === id);
+            return !dependency || dependency.status === 'completed' || dependency.status === 'cancelled';
+          }),
+      );
+      if (runnableTasks.length === 0) break;
+      const wave =
+        computeWaves(runnableTasks.map((task) => ({ id: task.id, dependencies: task.dependencies })))[0] ?? [];
+      const waveTasks = runnableTasks.filter((task) => wave.includes(task.id)).slice(0, this.maxParallelTasks);
+      for (const task of waveTasks) {
         if (task.status === 'pending') {
           await this.transitionTask(project.id, task, 'ready');
         }
       }
-      await runWithConcurrency(wave, this.maxParallelTasks, (task) => this.runTask(project, { ...task }));
+      await runWithConcurrency(waveTasks, this.maxParallelTasks, (task) => this.runTask(project, { ...task }));
       await this.events.append({ type: 'workflow.checkpoint', projectId, at: now() });
     }
     const after = await this.tasks.listForProject(projectId);
@@ -389,8 +392,25 @@ export class WorkflowOrchestrator {
         reportId: artifact.id,
         at: now(),
       });
-      if (project.phase !== 'executing') {
+      // PCS-025 §11: at most one automatic re-open to execution; subsequent
+      // failures require human approval and leave the project in verifying.
+      if (project.phase !== 'executing' && project.verificationReopens < 1) {
+        await this.projects.incrementVerificationReopens(projectId);
         await this.transitionProject(project, 'executing');
+        await this.events.append({
+          type: 'project.verification.reopened',
+          projectId,
+          reopenCount: project.verificationReopens + 1,
+          at: now(),
+        });
+      } else {
+        await this.events.append({
+          type: 'verification.awaiting-approval',
+          projectId,
+          planId: plan?.id ?? '',
+          reportId: artifact.id,
+          at: now(),
+        });
       }
     }
     return this.snapshot(projectId);
@@ -428,7 +448,11 @@ export class WorkflowOrchestrator {
   /** Idempotent re-entry: reload persisted state and continue in-progress work. */
   async resume(projectId: string): Promise<ProjectSnapshot> {
     const project = await this.mustGetProject(projectId);
-    if (project.phase === 'executing') return this.runExecution(projectId);
+    if (project.phase === 'executing') {
+      // Continue from the persisted checkpoint: runExecution re-derives which
+      // tasks still need work, so completed tasks are never re-executed.
+      return this.runExecution(projectId);
+    }
     return this.snapshot(projectId);
   }
 
@@ -531,6 +555,7 @@ export class WorkflowOrchestrator {
             repoPath: context.repoPath,
             phase: 'draft',
             workspaceId: context.workspaceId,
+            verificationReopens: 0,
             createdAt: event.at,
             updatedAt: event.at,
           };

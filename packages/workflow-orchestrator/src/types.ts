@@ -20,7 +20,6 @@ export const PROJECT_PHASES = [
   'architecture',
   'pending-approval',
   'executing',
-  'testing',
   'verifying',
   'completed',
   'archived',
@@ -37,6 +36,8 @@ export interface OrchestratedProject {
   readonly phase: ProjectPhase;
   readonly workspaceId: string;
   readonly cancelReason?: string;
+  /** Number of times verification failure has auto-reopened execution (PCS-025 §11). */
+  readonly verificationReopens: number;
   readonly createdAt: string;
   readonly updatedAt: string;
 }
@@ -256,6 +257,19 @@ export type OrchestrationEvent =
     }
   | {
       readonly type: 'verification.passed' | 'verification.failed';
+      readonly projectId: string;
+      readonly planId: string;
+      readonly reportId: string;
+      readonly at: string;
+    }
+  | {
+      readonly type: 'project.verification.reopened';
+      readonly projectId: string;
+      readonly reopenCount: number;
+      readonly at: string;
+    }
+  | {
+      readonly type: 'verification.awaiting-approval';
       readonly projectId: string;
       readonly planId: string;
       readonly reportId: string;

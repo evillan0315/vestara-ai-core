@@ -409,3 +409,45 @@ describe('PCS-025 §18 — observability', () => {
     expect(all.some((metrics) => metrics.projectId === project.id)).toBe(true);
   });
 });
+
+describe('PCS-025 §11 — bounded verification re-open', () => {
+  it('auto-reopens execution exactly once, then requires approval', async () => {
+    const harness = await setup();
+    const project = await driveToExecution(harness.orchestrator);
+    await harness.orchestrator.runExecution(project.id);
+
+    // First failure: auto-reopen to executing (bounded to one).
+    const first = await harness.orchestrator.runVerification(project.id, {
+      verifierId: 'verifier',
+      report: {},
+      passed: false,
+    });
+    expect(first.phase).toBe('executing');
+    expect(
+      harness.events.some((event) => event.type === 'project.verification.reopened' && event.reopenCount === 1),
+    ).toBe(true);
+
+    // Second failure: no further auto-reopen; signals awaiting-approval and
+    // stays in executing (it was reopened there by the first failure).
+    const second = await harness.orchestrator.runVerification(project.id, {
+      verifierId: 'verifier',
+      report: {},
+      passed: false,
+    });
+    expect(second.phase).toBe('executing');
+    expect(harness.events.some((event) => event.type === 'verification.awaiting-approval')).toBe(true);
+    expect(harness.events.filter((event) => event.type === 'project.verification.reopened')).toHaveLength(1);
+  });
+
+  it('completes normally when verification passes on the first attempt', async () => {
+    const harness = await setup();
+    const project = await driveToExecution(harness.orchestrator);
+    await harness.orchestrator.runExecution(project.id);
+    const result = await harness.orchestrator.runVerification(project.id, {
+      verifierId: 'verifier',
+      report: {},
+      passed: true,
+    });
+    expect(result.phase).toBe('completed');
+  });
+});

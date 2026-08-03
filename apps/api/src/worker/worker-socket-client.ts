@@ -68,7 +68,10 @@ export class WorkerSocketClient {
         void this.onMessage(raw);
       });
     });
-    this.timer = setInterval(() => this.send({ op: 'heartbeat', nodeId: this.node.id, load: 0 }), this.heartbeatMs);
+    this.timer = setInterval(
+      () => this.send({ op: 'heartbeat', nodeId: this.node.id, load: this.runtime.load }),
+      this.heartbeatMs,
+    );
     this.timer.unref?.();
   }
 

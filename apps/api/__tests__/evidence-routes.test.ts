@@ -4,7 +4,7 @@ import type * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ContentAddressedEvidenceStore, ImmutableEvidenceManifestStore } from '@vestara/engineering-event-store';
-import { BundleStore, CommandEvidenceCollector, EvidencePipeline } from '@vestara/evidence';
+import { BaselineStore, BundleStore, CommandEvidenceCollector, EvidencePipeline } from '@vestara/evidence';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { handleEvidenceRoute } from '../src/routes/evidence';
 import type { WorkspaceContext } from '../src/workspace-context';
@@ -62,6 +62,7 @@ describe('evidence routes', () => {
     const artifacts = new ContentAddressedEvidenceStore(path.join(root, 'artifacts'));
     const manifests = new ImmutableEvidenceManifestStore(path.join(root, 'manifests'));
     const bundles = new BundleStore(path.join(root, 'bundles'));
+    const baselines = new BaselineStore(path.join(root, 'baselines'));
     const pipeline = new EvidencePipeline({
       artifacts,
       manifests,
@@ -86,6 +87,7 @@ describe('evidence routes', () => {
       evidenceBundles: bundles,
       evidenceManifests: manifests,
       evidenceArtifacts: artifacts,
+      evidenceBaselines: baselines,
     } as unknown as WorkspaceContext;
   });
 
@@ -130,5 +132,40 @@ describe('evidence routes', () => {
   it('rejects a malformed digest', async () => {
     const { response } = await call('/api/evidence/artifacts/not-a-digest');
     expect(response.status).toBe(400);
+  });
+
+  it('lists visual baselines', async () => {
+    const { response } = await call('/api/evidence/baselines');
+    expect(response.status).toBe(200);
+  });
+
+  it('approves and rejects a baseline candidate (governance)', async () => {
+    // record a candidate first
+    const { response: recorded } = await call('/api/evidence/baselines');
+    expect(recorded.status).toBe(200);
+
+    async function post(pathValue: string, body: unknown) {
+      const { res, response } = capture();
+      const req = new EventEmitter() as unknown as http.IncomingMessage;
+      req.headers = {};
+      req.url = pathValue;
+      queueMicrotask(() => {
+        req.emit('data', Buffer.from(JSON.stringify(body)));
+        req.emit('end');
+      });
+      const handled = await handleEvidenceRoute('POST', pathValue, req, res, ctx);
+      return { handled, response };
+    }
+
+    const approved = await post('/api/evidence/baselines/dashboard/approve', {
+      artifactDigest: 'c'.repeat(64),
+      approvedBy: 'tester',
+    });
+    expect(approved.response.status).toBe(200);
+    expect((approved.response.body as { baseline: { status: string } }).baseline.status).toBe('approved');
+
+    const rejected = await post('/api/evidence/baselines/dashboard/reject', { approvedBy: 'tester' });
+    expect(rejected.response.status).toBe(200);
+    expect((rejected.response.body as { baseline: { status: string } }).baseline.status).toBe('rejected');
   });
 });

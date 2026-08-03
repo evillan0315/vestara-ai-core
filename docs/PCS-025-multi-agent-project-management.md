@@ -6,21 +6,24 @@
 |-------|-------|
 | ID | PCS-025 |
 | Name | Multi-Agent Project Management Workflow |
-| Status | Design — Phase 1 orchestration core implemented (partial); Phases 2-3 pending |
+| Status | Implemented — orchestration core (Phase 1), review/test stages, Approval Gateway, parallel waves, token budgets, event-sourced reconcile (Phases 1–3) |
 | Owner | Chief Architect |
 | Prerequisite | PCS-003 Planning, PCS-004 Implement, PCS-005 Verify, PCS-007 Agent Runtime, PCS-011 Agent Execution, PCS-017 Execution Engine, PCS-024 Agent Filesystem Capabilities |
 | Scope | Multi-agent project lifecycle: creation → implementation → review → verify → complete |
 
-> **Implementation status (2026-08-03)**: Phase 1 of the roadmap (§17) is
-> delivered — `packages/workflow-orchestrator/` provides `WorkflowOrchestrator`,
+> **Implementation status (2026-08-03)**: Phases 1–3 are delivered —
+> `packages/workflow-orchestrator/` provides `WorkflowOrchestrator`,
 > project/plan/task state machines, `TaskStore`/`ArtifactStore`/
-> `FileLockRegistry`, bounded retry/revision policy, task-graph waves, and
-> idempotent resume; tasks execute through the harness
+> `FileLockRegistry`, bounded retry/revision policy, task-graph waves,
+> idempotent resume, reviewer/tester stages with bounded revision loops,
+> the high-risk-change Approval Gateway, parallel task waves with file-lock
+> contention handling, token budgets, and event-sourced reconcile/rebuild.
+> Tasks execute through the harness
 > (`packages/workspace/src/harness-task-dispatcher.ts`); `orchestration.*` events
 > project into the engineering event store; `/api/orchestration/*` exposes the
 > lifecycle. See `docs/PCS-025-phase-1-implementation-plan.md` §11 for the
-> delivery record. Phases 2-3 (review/test/approval gateway, parallel waves,
-> remote workers) are not started.
+> delivery record. Remote workers (v10.0) are complete; multi-repo projects
+> remain future.
 
 > **Canonical reference**: the architectural model (WorkflowOrchestrator, event bus,
 > agent/task lifecycles, artifact model, state machines, file locking, capability
