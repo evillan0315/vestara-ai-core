@@ -20,6 +20,7 @@
     "@vestara/metrics": "workspace:*",
     "@vestara/ownership": "workspace:*",
     "@vestara/permissions": "workspace:*",
+    "@vestara/policy-engine": "workspace:*",
     "@vestara/provider-runtime": "workspace:*",
     "@vestara/scheduler": "workspace:*",
     "@vestara/service-registry": "workspace:*",

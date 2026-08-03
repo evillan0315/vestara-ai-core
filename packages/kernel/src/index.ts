@@ -36,6 +36,7 @@ import type {
   VestaraService,
 } from '@vestara/shared';
 import type { DefaultTrustEngine } from '@vestara/trust';
+import type { JobPriority } from '@vestara/types';
 import type { DefaultVerificationEngine } from '@vestara/verification';
 import type { DashboardRuntime, WidgetManifest } from '@vestara/widget-runtime';
 import type { Worker } from '@vestara/worker';
@@ -331,10 +332,13 @@ export class DefaultKernel implements VestaraKernel {
       this._ownershipRegistry = new OwnershipRegistry();
       this._resourceLockManager = new ResourceLockManager(this._ownershipRegistry);
 
-      // Step 12d: Decision Pipeline (ADR-035) — permission stage wired from the
-      // kernel permission manager; policy/execution/verification/trust stages are
-      // registered by embedding hosts when their implementations exist.
-      const { DecisionPipeline, permissionStage } = await import('@vestara/decision-pipeline');
+      // Step 12d: Decision Pipeline (ADR-035) — the invariant chain
+      // Permission → Policy → Execution → Verification → Trust. All stages are
+      // wired at boot from the kernel's composed engines.
+      const { DecisionPipeline, executionStage, permissionStage, policyStage, trustStage, verificationStage } =
+        await import('@vestara/decision-pipeline');
+      const { DefaultPolicyEngine } = await import('@vestara/policy-engine');
+      const policyEngine = new DefaultPolicyEngine();
       this._decisionPipeline = new DecisionPipeline([
         permissionStage({
           check: (input) => {
@@ -349,6 +353,65 @@ export class DefaultKernel implements VestaraKernel {
               role: this._permissions.getEffectiveRole(input.actor, input.targetType, input.targetId) ?? 'unknown',
               reason: allowed ? 'allowed' : 'denied',
             };
+          },
+        }),
+        policyStage({
+          evaluate: async (input) => {
+            const decision = await policyEngine.evaluate({
+              policies: [],
+              context: {
+                user: { id: input.actor, role: 'runtime', groups: [] },
+                workspace: { id: input.targetId, name: input.targetType },
+                system: {
+                  currentHour: new Date().getHours(),
+                  currentDayOfWeek: new Date().getDay(),
+                  environment: 'local',
+                },
+                metadata: { operation: input.operation, targetType: input.targetType },
+              },
+            });
+            return {
+              result: decision.result === 'deny' ? 'deny' : 'allow',
+              reason: decision.reason ?? 'policy evaluation',
+              matchedPolicies: decision.matchedPolicies.map((policy) => policy.policyId),
+            };
+          },
+        }),
+        executionStage({
+          execute: async (input) => {
+            const job = new (await import('@vestara/job')).Job({
+              id: `pipe-${input.requestId}` as never,
+              owner: input.actor as never,
+              runtime: this.id as never,
+              spec: { type: input.operation as never, priority: 3 as JobPriority },
+            });
+            const result = await this._jobManager.submit(job);
+            return {
+              status: result.status === 'scheduled' || result.status === 'queued' ? 'succeeded' : 'failed',
+              summary: `Job ${job.id} ${result.status}${result.assignedWorker ? ` on ${result.assignedWorker}` : ''}`,
+            };
+          },
+        }),
+        verificationStage({
+          verify: async (input) => {
+            const result = await this._verificationEngine.verify({
+              id: input.requestId,
+              jobId: input.targetId,
+              checks: [],
+            });
+            return {
+              status: result.status,
+              summary: result.summary,
+              checks: result.checkResults.map((check) => check.checkId),
+            };
+          },
+        }),
+        trustStage({
+          score: async (input) => {
+            const snapshot = this._trustEngine.getTrustSnapshot(input.sourceId, (input.sourceType as never) ?? 'agent');
+            return snapshot
+              ? { score: snapshot.overall.value, confidence: snapshot.overall.confidence }
+              : { score: 0.5, confidence: 0 };
           },
         }),
       ]);

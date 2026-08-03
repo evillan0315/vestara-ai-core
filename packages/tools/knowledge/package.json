@@ -1,6 +1,6 @@
 {
   "name": "@vestara/tools-knowledge",
-  "description": "Knowledge search tool (stub)",
+  "description": "Knowledge search tool — search indexed repository knowledge through the KnowledgeEngine (ToolRuntime adapter)",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
@@ -10,8 +10,11 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@vestara/action": "workspace:*",
+    "@vestara/knowledge": "workspace:*",
     "@vestara/shared": "workspace:*",
-    "@vestara/action": "workspace:*"
+    "@vestara/tool-runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

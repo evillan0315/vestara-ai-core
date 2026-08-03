@@ -293,10 +293,10 @@ Boot Order (16 steps):
 
 | Package | Status |
 | --------- | -------- |
-| `tools/shell` | 🔶 STUB (exports version only) |
-| `tools/memory` | 🔶 STUB (exports version only) |
-| `tools/knowledge` | 🔶 STUB (exports version only) |
-| `tools/project` | 🔶 STUB (exports version only) |
+| `tools/shell` | ✅ Complete (governed shell execution tool, ToolRuntime adapter) |
+| `tools/memory` | ✅ Complete (memory graph query tool, ToolRuntime adapter) |
+| `tools/knowledge` | ✅ Complete (knowledge search tool, ToolRuntime adapter) |
+| `tools/project` | ✅ Complete (project analysis tool, ToolRuntime adapter) |
 | `agent-runtime/` | 📁 Directory exists, no package.json |
 | `conversation-runtime/` | 📁 Directory exists, no package.json |
 | `knowledge-runtime/` | 📁 Directory exists, no package.json |
@@ -368,12 +368,12 @@ Run: `pnpm vestara open .`
 
 | Check | Status |
 | ------- | -------- |
-| `bash build-order.sh` | ✅ All 29 packages + 4 apps compile |
+| `bash build-order.sh` | ✅ All workspace packages + apps compile |
 | TypeScript strict mode | ✅ Enabled |
-| Linter | ✅ Biome, 202 files clean, zero errors |
-| Formatter | ✅ Biome, 202 files formatted, no fixes pending |
-| CI | 🔶 Not configured for code |
-| Tests | ✅ 50 test files, 489 tests passing |
+| Linter | ✅ Biome clean (zero errors) |
+| Formatter | ✅ Biome formatted (no fixes pending) |
+| CI | ✅ Configured — `.github/workflows/ci.yml` runs deps-check, build, lint, full test suite, documentation drift gate, and benchmarks |
+| Tests | ✅ 171 test files, 1397 tests passing |
 | `.gitignore` | ✅ Configured at vestara-ai-core root |
 | **v4.0 packages** | **✅ 4 new packages: audio, stt, tts, conversation-runtime** |
 | **v4.0+ CLI commands** | **✅ status, doctor, doctor audio, doctor conversation, doctor agents, doctor teams, benchmark conversation, conversation-audit, agents, teams** |

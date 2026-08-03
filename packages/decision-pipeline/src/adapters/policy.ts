@@ -2,7 +2,12 @@ import type { DecisionContext, PolicyDecisionRecord } from '../context';
 import type { StageRunner } from '../stages';
 
 export interface PolicyAdapter {
-  evaluate(input: { actor: string; operation: string; targetType: string; targetId: string }): PolicyDecisionRecord;
+  evaluate(input: {
+    actor: string;
+    operation: string;
+    targetType: string;
+    targetId: string;
+  }): PolicyDecisionRecord | Promise<PolicyDecisionRecord>;
 }
 
 /**
@@ -12,9 +17,9 @@ export interface PolicyAdapter {
 export function policyStage(adapter: PolicyAdapter): StageRunner {
   return {
     stage: 'policy',
-    run: (context: DecisionContext) => ({
+    run: async (context: DecisionContext) => ({
       field: 'policyDecision',
-      value: adapter.evaluate({
+      value: await adapter.evaluate({
         actor: context.principal.id,
         operation: context.request.operation,
         targetType: context.request.targetType,

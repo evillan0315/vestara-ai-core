@@ -885,6 +885,9 @@ importers:
       '@vestara/permissions':
         specifier: workspace:*
         version: link:../permissions
+      '@vestara/policy-engine':
+        specifier: workspace:*
+        version: link:../policy-engine
       '@vestara/provider-runtime':
         specifier: workspace:*
         version: link:../provider-runtime
@@ -1327,9 +1330,18 @@ importers:
       '@vestara/action':
         specifier: workspace:*
         version: link:../../action
+      '@vestara/knowledge':
+        specifier: workspace:*
+        version: link:../../knowledge
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../shared
+      '@vestara/tool-runtime':
+        specifier: workspace:*
+        version: link:../../tool-runtime
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../types
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -1340,9 +1352,18 @@ importers:
       '@vestara/action':
         specifier: workspace:*
         version: link:../../action
+      '@vestara/memory':
+        specifier: workspace:*
+        version: link:../../memory
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../shared
+      '@vestara/tool-runtime':
+        specifier: workspace:*
+        version: link:../../tool-runtime
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../types
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -1353,9 +1374,18 @@ importers:
       '@vestara/action':
         specifier: workspace:*
         version: link:../../action
+      '@vestara/knowledge':
+        specifier: workspace:*
+        version: link:../../knowledge
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../shared
+      '@vestara/tool-runtime':
+        specifier: workspace:*
+        version: link:../../tool-runtime
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../types
     devDependencies:
       vitest:
         specifier: ^4.1.10
