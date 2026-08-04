@@ -220,6 +220,9 @@ importers:
       '@vestara/marketplace':
         specifier: workspace:*
         version: link:../../packages/marketplace
+      '@vestara/native-installer':
+        specifier: workspace:*
+        version: link:../../packages/native-installer
       '@vestara/os-controller':
         specifier: workspace:*
         version: link:../../packages/os-controller
@@ -994,6 +997,19 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/native-installer:
+    dependencies:
+      '@vestara/extension-contracts':
+        specifier: workspace:*
+        version: link:../extension-contracts
+      '@vestara/marketplace':
+        specifier: workspace:*
+        version: link:../marketplace
     devDependencies:
       vitest:
         specifier: ^4.1.10

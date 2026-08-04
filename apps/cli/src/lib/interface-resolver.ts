@@ -5,6 +5,10 @@
  * package when one is installed and healthy. In noninteractive terminals, when
  * the package is disabled/unavailable/unhealthy, or when `--no-tui` is set, it
  * degrades to the standard CLI. `vestara tui` always requires the package.
+ *
+ * The canonical authority is the committed installation record produced by
+ * `@vestara/native-installer` (`installation.json`). The legacy `extensions.json`
+ * state is only consulted as a backward-compatible fallback.
  */
 
 import * as fs from 'node:fs';
@@ -18,6 +22,7 @@ import {
   type PlatformDescriptor,
   resolvePackageExecutable,
 } from '@vestara/marketplace';
+import type { NativePackageInstallationRecord } from '@vestara/native-installer';
 
 export const TUI_PACKAGE_ID = 'vestara.tui';
 
@@ -40,6 +45,21 @@ export function defaultPackagesRoot(): string {
   return path.join(base, 'vestara', 'packages');
 }
 
+/** Read the committed native installation record (canonical authority). */
+export function readNativeInstallation(
+  packagesRoot: string,
+  packageId: string,
+): NativePackageInstallationRecord | undefined {
+  const recordPath = path.join(packagesRoot, packageId, 'installation.json');
+  if (!fs.existsSync(recordPath)) return undefined;
+  try {
+    return JSON.parse(fs.readFileSync(recordPath, 'utf8')) as NativePackageInstallationRecord;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Legacy fallback: read the extension-runtime state file. */
 export function readInstalledPackage(packagesRoot: string, packageId: string): InstalledExtension | undefined {
   const statePath = path.join(packagesRoot, 'extensions.json');
   if (!fs.existsSync(statePath)) return undefined;
@@ -58,7 +78,7 @@ export function isInteractiveTerminal(env: NodeJS.ProcessEnv = process.env): boo
 }
 
 function packageVersionPath(packagesRoot: string, packageId: string, version: string): string {
-  return path.join(packagesRoot, packageId, version);
+  return path.join(packagesRoot, packageId, 'versions', version);
 }
 
 /**
@@ -70,50 +90,101 @@ export function resolveInterface(
   context: InterfaceResolverContext,
   options: { requirePackage?: boolean; enabled?: boolean } = {},
 ): InterfaceResolution {
+  const record = readNativeInstallation(context.packagesRoot, TUI_PACKAGE_ID);
+  if (record) return resolveFromRecord(context, record, options);
+
+  // Legacy fallback path.
   const installed = readInstalledPackage(context.packagesRoot, TUI_PACKAGE_ID);
   if (!installed) {
-    if (options.requirePackage) {
-      return {
-        kind: 'unavailable',
-        error: `${TUI_PACKAGE_ID} is not installed. Run 'vestara marketplace install @vestara/tui'.`,
-      };
-    }
-    return { kind: 'cli', reason: 'TUI package is not installed' };
+    return notInstalled(options);
   }
-
   const enabled = options.enabled ?? installed.enabledWorkspaces.length > 0;
-  if (!enabled) {
-    if (options.requirePackage) {
-      return {
-        kind: 'unavailable',
-        error: `${TUI_PACKAGE_ID} is disabled. Run 'vestara marketplace enable @vestara/tui'.`,
-      };
-    }
-    return { kind: 'cli', reason: 'TUI package is disabled' };
-  }
-
+  if (!enabled) return disabled(options);
   const currentVersion = installed.currentVersion;
   const version = installed.versions?.[currentVersion];
   if (!version?.manifest) {
     return { kind: 'unavailable', error: `${TUI_PACKAGE_ID}@${currentVersion} has no manifest` };
   }
+  return resolveManifest(context.packagesRoot, currentVersion, version.manifest);
+}
 
+function resolveFromRecord(
+  context: InterfaceResolverContext,
+  record: NativePackageInstallationRecord,
+  options: { requirePackage?: boolean; enabled?: boolean },
+): InterfaceResolution {
+  const enabled = options.enabled ?? record.enabled;
+  if (!enabled) return disabled(options);
+  const active = record.activeVersion;
+  if (!active) {
+    return {
+      kind: 'unavailable',
+      error: `${TUI_PACKAGE_ID} has no active version. Run 'vestara marketplace rollback @vestara/tui'.`,
+    };
+  }
+  const version = record.installedVersions.find((item) => item.version === active);
+  if (!version) {
+    return { kind: 'unavailable', error: `${TUI_PACKAGE_ID}@${active} is not present in the installation record` };
+  }
+  if (version.health !== 'healthy') {
+    return {
+      kind: 'unavailable',
+      error: `${TUI_PACKAGE_ID}@${active} is ${version.health}. Run 'vestara marketplace rollback @vestara/tui'.`,
+    };
+  }
   const platform = context.platform ?? { platform: process.platform, architecture: process.arch };
+  const executablePath = path.join(context.packagesRoot, TUI_PACKAGE_ID, 'versions', active, version.executablePath);
+  if (!fs.existsSync(executablePath)) {
+    return { kind: 'unavailable', error: `Executable missing at ${executablePath}` };
+  }
+  return {
+    kind: 'tui',
+    executable: {
+      packageId: TUI_PACKAGE_ID,
+      version: active,
+      path: executablePath,
+      checksum: version.checksum,
+      platform,
+      target: version.target,
+    },
+  };
+}
+
+function resolveManifest(
+  packagesRoot: string,
+  version: string,
+  manifest: { entrypoints?: Record<string, unknown> },
+): InterfaceResolution {
+  const platform = { platform: process.platform, architecture: process.arch };
   try {
-    const packagePath = packageVersionPath(context.packagesRoot, TUI_PACKAGE_ID, currentVersion);
-    const executable = resolvePackageExecutable(packagePath, version.manifest, platform);
+    const packagePath = packageVersionPath(packagesRoot, TUI_PACKAGE_ID, version);
+    const executable = resolvePackageExecutable(packagePath, manifest as never, platform);
     if (!fs.existsSync(executable.path)) {
-      return {
-        kind: 'unavailable',
-        error: `Executable missing at ${executable.path}`,
-      };
+      return { kind: 'unavailable', error: `Executable missing at ${executable.path}` };
     }
     return { kind: 'tui', executable };
   } catch (error) {
     const resolutionError = error as ExecutableResolutionError;
+    return { kind: 'unavailable', error: formatResolutionError(TUI_PACKAGE_ID, version, resolutionError) };
+  }
+}
+
+function notInstalled(options: { requirePackage?: boolean }): InterfaceResolution {
+  if (options.requirePackage) {
     return {
       kind: 'unavailable',
-      error: formatResolutionError(TUI_PACKAGE_ID, currentVersion, resolutionError),
+      error: `${TUI_PACKAGE_ID} is not installed. Run 'vestara marketplace install @vestara/tui'.`,
     };
   }
+  return { kind: 'cli', reason: 'TUI package is not installed' };
+}
+
+function disabled(options: { requirePackage?: boolean }): InterfaceResolution {
+  if (options.requirePackage) {
+    return {
+      kind: 'unavailable',
+      error: `${TUI_PACKAGE_ID} is disabled. Run 'vestara marketplace enable @vestara/tui'.`,
+    };
+  }
+  return { kind: 'cli', reason: 'TUI package is disabled' };
 }

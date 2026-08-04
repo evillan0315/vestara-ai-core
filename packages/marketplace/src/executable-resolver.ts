@@ -19,6 +19,8 @@ export interface PackageExecutable {
   readonly path: string;
   readonly checksum: string;
   readonly platform: PlatformDescriptor;
+  /** Canonical platform tag, e.g. `linux-x64`. */
+  readonly target: string;
 }
 
 export interface PackageExecutableResolver {
@@ -89,6 +91,7 @@ export function resolvePackageExecutable(
     path: resolved,
     checksum: executableMapping?.checksums?.[target] ?? '',
     platform,
+    target,
   };
 }
 

@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/native-installer",
+  "description": "Transactional installation, update, rollback, and removal of native Marketplace packages (side-by-side immutable versions, checksum + health verification, journaled recovery)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/native-installer/__tests__"
+  },
+  "dependencies": {
+    "@vestara/extension-contracts": "workspace:*",
+    "@vestara/marketplace": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

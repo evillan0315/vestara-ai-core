@@ -70,6 +70,42 @@ next-review: 2026-09-03
 > `pnpm build` (87 projects), 1471 Vitest tests + 2 Bun smoke tests pass, Biome
 > clean on touched files, `docs:validate` clean.
 >
+> **PCS-TUI-003 / PCS-PLATFORM-001 — Transactional native application lifecycle
+> (2026-08-04):**
+> New package `@vestara/native-installer` makes native app install, update,
+> rollback, and removal transactional and evidence-backed. The package is
+> platform-agnostic (package / version / executable / install / rollback /
+> recover) — the TUI is simply its first consumer. It implements the Vestara
+> Engineering Cycle, documented in `docs/philosophy/`:
+> - **Canonical model**: immutable side-by-side versions under
+>   `<root>/<packageId>/versions/<version>/`, an atomic `installation.json`
+>   record (`NativePackageInstallationRecord`, `InstalledPackageVersion`), and a
+>   per-transaction journal (`PackageInstallJournal`). Active version changes by
+>   rewriting the record — never by overwriting binaries.
+> - **Phase machine**: created → resolving → acquiring → verifying → staging →
+>   health-checking → registering → committing → completed, with
+>   rolling-back/rolled-back/failed and `marketplace.install.*` events.
+> - **Transactional install**: resolve platform artifact → stage immutable copy →
+>   verify manifest-bound checksum → set 0755 → health-check the STAGED binary
+>   (`--health-check --json`, asserting manifest↔binary identity AND version
+>   match) → register → commit. Any failure rolls back: remove staged files,
+>   restore prior active version, clear journal.
+> - **Security**: `assertChecksum`, `assertContained` (path + symlink traversal),
+>   `assertNoSymlinksInTree`, `assertExpectedExecutableName`,
+>   `assertExecutableSize`, `assertIdentityMatch`.
+> - **Recovery**: `recoverAll()` scans non-terminal journals on startup and rolls
+>   back interrupted transactions.
+> - **CLI**: `marketplace install <local-dir>` routes tui packages through the
+>   native installer; new `marketplace rollback [--to <version>]`; `uninstall`
+>   removes owned artifacts while retaining `configuration/` unless `--purge`.
+> - **Interface resolver** now consumes the committed `installation.json` record
+>   as the canonical authority (legacy `extensions.json` kept as a fallback).
+> Verified end-to-end: install → side-by-side 0.1.0/0.2.0 → rollback → bad
+> checksum rejected with no trace → bad identity/version rejected → uninstall
+> retains config → purge removes all → interrupted journal recovered → `vestara
+> tui` spawns the installed binary. `pnpm build` (88 projects), 1487 Vitest
+> tests, Biome clean on touched files, `docs:validate` clean.
+>
 > **Implementation note (2026-08-03):** Phases 0–4 are implemented and verified
 > in working tree: `SqliteConversationStore`, async conversation service, the
 > `/api/conversations` REST + SSE resource, the shared `ConversationChunk`

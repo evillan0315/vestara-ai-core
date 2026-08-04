@@ -60,6 +60,9 @@ export async function runMarketplace(args: readonly string[]): Promise<void> {
       case 'uninstall':
         await runUninstall(rest(args), json);
         return;
+      case 'rollback':
+        await runRollback(rest(args), json);
+        return;
       case 'enable':
         await runEnable(rest(args), json);
         return;
@@ -226,6 +229,13 @@ async function runUpdates(json: boolean): Promise<void> {
 async function runInstall(args: readonly string[], json: boolean): Promise<void> {
   const reference = args.find((arg) => !arg.startsWith('--'));
   if (!reference) throw new Error('Usage: vestara marketplace install <package>[@version] [--dry-run] [--yes]');
+
+  // Local directory installs go through the transactional native installer.
+  if (looksLikePath(reference)) {
+    await runNativeInstall(path.resolve(reference), json);
+    return;
+  }
+
   const { name, version } = splitReference(reference);
   const { service } = createContext(flag(args, '--yes'));
   const request: MarketplaceInstallRequest = {
@@ -250,6 +260,53 @@ async function runInstall(args: readonly string[], json: boolean): Promise<void>
     return;
   }
   console.log(`${GREEN}✓${RESET} Installed ${name}@${operation.version}`);
+}
+
+async function runNativeInstall(sourceDirectory: string, json: boolean): Promise<void> {
+  const installer = nativeInstaller();
+  const outcome = await installer.install({ sourceDirectory, activate: true });
+  if (json) {
+    console.log(JSON.stringify({ outcome }, null, 2));
+    return;
+  }
+  console.log(
+    `${GREEN}✓${RESET} Installed ${outcome.packageId}@${outcome.version} (active: ${outcome.activeVersion ?? 'none'})`,
+  );
+}
+
+async function runRollback(args: readonly string[], json: boolean): Promise<void> {
+  const reference = args.find((arg) => !arg.startsWith('--'));
+  if (!reference) throw new Error('Usage: vestara marketplace rollback <package> [--to <version>]');
+  const packageId = normalizePackageId(reference);
+  const installer = nativeInstaller();
+  const toVersion = optionValue(args, '--to');
+  const result = installer.rollback({ packageId, targetVersion: toVersion });
+  if (json) {
+    console.log(JSON.stringify({ packageId, ...result }, null, 2));
+    return;
+  }
+  console.log(
+    `${GREEN}✓${RESET} Rolled back ${packageId} to ${result.activeVersion ?? 'none'}${
+      result.rolledBackFrom && result.rolledBackFrom !== result.activeVersion
+        ? ` (from ${result.rolledBackFrom})`
+        : ' (no prior version)'
+    }`,
+  );
+}
+
+function nativeInstaller(): import('@vestara/native-installer').NativePackageInstaller {
+  const { NativePackageInstaller } = require('@vestara/native-installer') as typeof import('@vestara/native-installer');
+  return new NativePackageInstaller({ root: nativePackagesRoot() });
+}
+
+function nativePackagesRoot(): string {
+  const { defaultPackagesRoot } =
+    require('../lib/interface-resolver.js') as typeof import('../lib/interface-resolver.js');
+  return defaultPackagesRoot();
+}
+
+function looksLikePath(reference: string): boolean {
+  return reference.startsWith('.') || reference.startsWith('/') || reference.startsWith('~');
 }
 
 async function runUpdate(args: readonly string[], json: boolean): Promise<void> {
@@ -282,6 +339,26 @@ async function runUninstall(args: readonly string[], json: boolean): Promise<voi
     console.log(`${GRAY}Aborted.${RESET}`);
     return;
   }
+  const packageId = normalizePackageId(reference);
+
+  // Native packages (installed via the transactional installer) are removed
+  // through the native installer so configuration can be retained.
+  const { NativePackageInstaller, NativeInstallStore } = await import('@vestara/native-installer');
+  const store = new NativeInstallStore({ root: nativePackagesRoot() });
+  if (store.readInstallationRecord(packageId).exists) {
+    const installer = new NativePackageInstaller({ root: nativePackagesRoot() });
+    const purge = flag(args, '--purge');
+    installer.uninstall({ packageId, purge });
+    if (json) {
+      console.log(JSON.stringify({ packageId, uninstalled: true, purged: purge }, null, 2));
+      return;
+    }
+    console.log(
+      `${GREEN}✓${RESET} Uninstalled ${packageId}${purge ? ' (configuration purged)' : ' (configuration retained)'}`,
+    );
+    return;
+  }
+
   const { service } = createContext(true);
   const operation = await service.uninstall({ packageName: reference });
   if (json) {
@@ -290,7 +367,6 @@ async function runUninstall(args: readonly string[], json: boolean): Promise<voi
   }
   console.log(`${GREEN}✓${RESET} Uninstalled ${reference}`);
   if (flag(args, '--purge')) {
-    const packageId = normalizePackageId(reference);
     const configPath = path.join(os.homedir(), '.config', 'vestara', 'packages', `${packageId}.json`);
     if (fs.existsSync(configPath)) {
       fs.unlinkSync(configPath);
@@ -611,6 +687,9 @@ function printUsage(): void {
     `  ${BOLD}update${RESET} <package>        ${GRAY}Update to the latest compatible version [--dry-run] [--yes]${RESET}`,
   );
   console.log(`  ${BOLD}uninstall${RESET} <package>     ${GRAY}Uninstall [--yes] [--purge]${RESET}`);
+  console.log(
+    `  ${BOLD}rollback${RESET} <package>      ${GRAY}Roll back to the previous version [--to <version>]${RESET}`,
+  );
   console.log(
     `  ${BOLD}enable${RESET} <package>        ${GRAY}Enable a package (register interactive interface)${RESET}`,
   );

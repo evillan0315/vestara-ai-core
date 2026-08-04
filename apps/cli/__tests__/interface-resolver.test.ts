@@ -42,7 +42,7 @@ describe('interactive-interface resolver', () => {
   });
 
   it('resolves a tui package when installed and enabled', () => {
-    const packageDir = join(root, TUI_PACKAGE_ID, '0.1.0');
+    const packageDir = join(root, TUI_PACKAGE_ID, 'versions', '0.1.0');
     mkdirSync(join(packageDir, 'bin'), { recursive: true });
     writeFileSync(join(packageDir, 'bin', 'vestara-tui-linux-x64'), '#!/bin/sh\n');
     const state = {
