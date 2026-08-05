@@ -9,6 +9,11 @@ next-review: 2026-09-05
 
 # Engineering Findings
 
+> **Every finding is an invitation to be challenged.**
+> If new evidence improves a finding, the organization becomes wiser.
+> The goal is not to preserve conclusions.
+> The goal is to preserve the path by which better conclusions are reached.
+
 ## Purpose
 
 Capture engineering lessons discovered during implementation, verification,
