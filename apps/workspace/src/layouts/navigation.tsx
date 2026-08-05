@@ -44,6 +44,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
       { to: '/graph', title: 'Engineering Graph', icon: <AccountTreeRoundedIcon fontSize="small" /> },
       { to: '/marketplace', title: 'Marketplace', icon: <StorefrontRoundedIcon fontSize="small" /> },
       { to: '/external-runtimes', title: 'External Runtimes', icon: <DnsRoundedIcon fontSize="small" /> },
+      { to: '/opencode', title: 'OpenCode', icon: <TerminalRoundedIcon fontSize="small" /> },
       { to: '/execution', title: 'Execution', icon: <HubRoundedIcon fontSize="small" /> },
       { to: '/diagnostics', title: 'Diagnostics', icon: <InsightsRoundedIcon fontSize="small" /> },
       { to: '/activities', title: 'Activities', icon: <ReceiptLongRoundedIcon fontSize="small" /> },

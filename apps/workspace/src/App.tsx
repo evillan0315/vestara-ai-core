@@ -31,6 +31,7 @@ const Execution = lazy(() => import('./pages/Execution'));
 const Graph = lazy(() => import('./pages/Graph'));
 const Marketplace = lazy(() => import('./pages/Marketplace/MarketplaceLayout'));
 const ExternalRuntimes = lazy(() => import('./pages/ExternalRuntimes'));
+const OpenCode = lazy(() => import('./pages/OpenCode'));
 const Workforce = lazy(() => import('./pages/Workforce'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
@@ -62,6 +63,7 @@ const PAGES: Record<string, ComponentType> = {
   graph: Graph,
   marketplace: Marketplace,
   'external-runtimes': ExternalRuntimes,
+  opencode: OpenCode,
   workforce: Workforce,
   settings: SettingsPage,
   routing: RoutingPage,
