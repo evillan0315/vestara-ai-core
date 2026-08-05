@@ -162,5 +162,32 @@ Inspector/Engineering-Graph contribution materialization (Phase F) are later mil
   `pnpm --filter @vestara/workspace-ui build` (tsc -b + vite build).
 - API smoke: curl search/assets/categories/registries/installed/updates + install dry-run →
   awaiting-permission → approved install → updates → verify → uninstall → rescan.
+
+## MK-1 — catalog seed and live verification (2026-08-05)
+
+The local registry is seeded with approved fixture assets via
+`scripts/marketplace-fixtures/seed.ts` (`pnpm marketplace:fixtures:seed`), which writes
+valid `vestara-package.json` manifests with computed sha256 digests and runtime stubs that
+export a real `VestaraExtension`. Three fixtures cover the category spread and the
+permission gate:
+
+| Fixture | Type | Permissions | Exercises |
+| --- | --- | --- | --- |
+| `vestara.analysis@1.2.0` | module | filesystem:read (automatic) | safe install |
+| `vestara.git-helper@0.4.1` | plugin | process:execute (explicit) + filesystem:write (policy) | awaiting-permission gate |
+| `vestara.review-standards@2.0.0` | standards-pack | none | metadata-only install |
+
+Verified live against the running API:
+
+- rescan → registry healthy, 3 assets, 3 categories; search finds `git-helper`.
+- install dry-run → `planning` with the 2-permission plan.
+- install without approval → `awaiting-permission` (never bypassed).
+- approved install → `completed`, installed state `active`/`current`; updates empty.
+- verify → `completed`; uninstall → `completed`; installed count back to 0.
+
+Note: install must run against a freshly started API or after clearing
+`.vestara/extensions/extensions.json`; a stale in-memory registry/install state from before
+the fixtures existed surfaces a misleading `Runtime entrypoint did not export a
+VestaraExtension` failure even though the package is valid.
 - Biome on touched files; full `pnpm build` state documented (pre-existing failures
   unchanged and outside Marketplace scope).
