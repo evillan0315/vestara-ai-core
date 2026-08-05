@@ -280,7 +280,26 @@ export async function handleOpenCodeRoute(
       const body = parseJson(raw);
       const directory = typeof body?.directory === 'string' ? body.directory : undefined;
       const title = typeof body?.title === 'string' ? body.title : undefined;
-      const session = await client.createSession({ directory, title }, workspaceContext(_ctx));
+      const agent = typeof body?.agent === 'string' ? body.agent : undefined;
+      const model =
+        body?.model && typeof body.model === 'object'
+          ? (() => {
+              const m = body.model as Record<string, unknown>;
+              return {
+                providerID: typeof m.providerID === 'string' ? m.providerID : undefined,
+                id:
+                  typeof m.modelID === 'string'
+                    ? m.modelID
+                    : typeof m.id === 'string'
+                      ? m.id
+                      : undefined,
+              };
+            })()
+          : undefined;
+      const session = await client.createSession(
+        { directory, title, agent, model: model?.providerID && model.id ? model : undefined },
+        workspaceContext(_ctx),
+      );
       const binding = sessionRegistry.bind({
         openCodeSessionId: session.id,
         vestaraSessionId: _ctx.runtime.getSession?.().fingerprint?.id ?? 'workspace-session',
@@ -310,6 +329,23 @@ export async function handleOpenCodeRoute(
       await client.deleteSession(sessionId, workspaceContext(_ctx));
       sessionRegistry.updateStatus(sessionId, 'deleted');
       json(res, 200, { deleted: true, sessionId });
+    });
+  }
+
+  if (sessionMatch && method === 'PATCH' && !sessionMatch[2]) {
+    const sessionId = decodeURIComponent(sessionMatch[1]);
+    return withOpenCodeClient(res, async (client) => {
+      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      if (!ownership.ok) throw ownership.error;
+      const raw = await readBody(_req);
+      const body = parseJson(raw);
+      const title = typeof body?.title === 'string' && body.title.trim() ? body.title.trim() : undefined;
+      if (!title) {
+        json(res, 400, { error: { code: 'OPENCODE_INVALID_ARGUMENT', message: 'title is required.' } });
+        return;
+      }
+      const session = await client.renameSession(sessionId, title, workspaceContext(_ctx));
+      json(res, 200, { session });
     });
   }
 

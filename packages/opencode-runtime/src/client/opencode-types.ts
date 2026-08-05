@@ -121,6 +121,8 @@ export type OpenCodePromptPart =
 export interface CreateOpenCodeSessionInput {
   readonly directory?: string;
   readonly title?: string;
+  readonly agent?: string;
+  readonly model?: { readonly providerID?: string; readonly id?: string };
 }
 
 export interface SendOpenCodeMessageInput {

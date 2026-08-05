@@ -73,6 +73,13 @@ export interface OpenCodeClient {
 
   deleteSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<boolean>;
 
+  renameSession(
+    sessionId: string,
+    title: string,
+    context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession>;
+
   sendMessage(
     sessionId: string,
     input: SendOpenCodeMessageInput,

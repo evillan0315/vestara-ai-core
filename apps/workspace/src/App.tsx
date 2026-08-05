@@ -32,6 +32,9 @@ const Graph = lazy(() => import('./pages/Graph'));
 const Marketplace = lazy(() => import('./pages/Marketplace/MarketplaceLayout'));
 const ExternalRuntimes = lazy(() => import('./pages/ExternalRuntimes'));
 const OpenCode = lazy(() => import('./pages/OpenCode'));
+const OpenCodeSessions = lazy(() => import('./pages/OpenCodeSessions'));
+const OpenCodeNewSession = lazy(() => import('./pages/OpenCodeNewSession'));
+const OpenCodeSessionDetail = lazy(() => import('./pages/OpenCodeSessionDetail'));
 const Workforce = lazy(() => import('./pages/Workforce'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
@@ -64,6 +67,9 @@ const PAGES: Record<string, ComponentType> = {
   marketplace: Marketplace,
   'external-runtimes': ExternalRuntimes,
   opencode: OpenCode,
+  'opencode-sessions': OpenCodeSessions,
+  'opencode-new-session': OpenCodeNewSession,
+  'opencode-session-detail': OpenCodeSessionDetail,
   workforce: Workforce,
   settings: SettingsPage,
   routing: RoutingPage,

@@ -179,6 +179,22 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     return true;
   }
 
+  async renameSession(
+    sessionId: string,
+    title: string,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession> {
+    return this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}`,
+      method: 'PATCH',
+      body: { title },
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    }) as Promise<OpenCodeSession>;
+  }
+
   async getSessionStatus(
     _context: OpenCodeRequestContext,
     signal?: AbortSignal,

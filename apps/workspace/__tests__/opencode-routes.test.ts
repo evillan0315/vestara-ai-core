@@ -14,9 +14,9 @@ describe('OpenCode route registration', () => {
   });
 
   it('adds an OpenCode navigation entry', () => {
-    const nav = NAV_CATEGORIES.flatMap((c) => c.items).find((item) => item.to === '/opencode');
+    const nav = NAV_CATEGORIES.flatMap((c) => c.items).find((item) => item.to === '/opencode/sessions');
     expect(nav).toBeDefined();
-    expect(nav?.title).toBe('OpenCode');
+    expect(nav?.title).toBe('OpenCode Sessions');
   });
 
   it('exposes stable typed query keys', () => {
