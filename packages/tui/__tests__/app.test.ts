@@ -16,6 +16,16 @@ describe('TUI shell — navigation definitions', () => {
     const keys = TUI_NAVIGATION.map((item) => item.key);
     expect(new Set(keys).size).toBe(keys.length);
   });
+
+  it('includes artifacts and settings destinations', () => {
+    const ids = TUI_NAVIGATION.map((item) => item.id);
+    expect(ids).toContain('artifacts');
+    expect(ids).toContain('settings');
+    const artifacts = TUI_NAVIGATION.find((item) => item.id === 'artifacts');
+    const settings = TUI_NAVIGATION.find((item) => item.id === 'settings');
+    expect(artifacts?.key).toBe('8');
+    expect(settings?.key).toBe('9');
+  });
 });
 
 describe('TUI shell — command registry', () => {

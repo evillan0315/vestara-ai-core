@@ -51,15 +51,10 @@ const VERSION = '0.3.0';
 async function launchTui(endpoint?: string, repoPath?: string, forceDev = false): Promise<void> {
   const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
   const resolvedRepo = repoPath ?? process.env.VESTARA_REPO ?? process.cwd();
-  let ownedApi: import('node:child_process').ChildProcess | undefined;
+  let ownedApi: import('./lib/owned-api.js').OwnedApiProcess | undefined;
   if (!(await runtimeAvailable(resolvedEndpoint)) && !endpoint && !process.env.VESTARA_API_URL) {
-    const { spawn } = await import('node:child_process');
-    const apiEntry = path.join(__dirname, '..', '..', 'api', 'dist', 'index.js');
-    ownedApi = spawn(process.execPath, [apiEntry], {
-      cwd: resolvedRepo,
-      env: { ...process.env, VESTARA_REPO: resolvedRepo },
-      stdio: 'ignore',
-    });
+    const { spawnOwnedApi } = await import('./lib/owned-api.js');
+    ownedApi = spawnOwnedApi(resolvedRepo);
     for (let attempt = 0; attempt < 50 && !(await runtimeAvailable(resolvedEndpoint)); attempt++)
       await new Promise((resolve) => setTimeout(resolve, 100));
   }
@@ -70,7 +65,8 @@ async function launchTui(endpoint?: string, repoPath?: string, forceDev = false)
       await spawnInstalledTui(resolvedEndpoint, resolvedRepo);
     }
   } finally {
-    ownedApi?.kill('SIGTERM');
+    ownedApi?.kill();
+    ownedApi?.detach();
   }
 }
 

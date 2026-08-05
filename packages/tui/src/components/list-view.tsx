@@ -2,6 +2,7 @@ import { TextAttributes } from '@opentui/core';
 import type { TuiSemanticPalette } from '@vestara/design-system';
 import { toneForStatus } from '@vestara/design-system';
 import type { ReactNode } from 'react';
+import { EmptyState } from '../shared/empty-state.js';
 
 export interface ListItem {
   readonly id: string;
@@ -15,6 +16,8 @@ export interface ListViewProps {
   palette: TuiSemanticPalette;
   rows: readonly ListItem[];
   empty?: string;
+  emptyDescription?: string;
+  emptyAction?: { label: string; onPress: () => void };
 }
 
 export function ListView(props: ListViewProps): ReactNode {
@@ -24,7 +27,12 @@ export function ListView(props: ListViewProps): ReactNode {
         {props.title}
       </text>
       {props.rows.length === 0 ? (
-        <text fg={props.palette.textMuted}>{props.empty ?? 'No items.'}</text>
+        <EmptyState
+          palette={props.palette}
+          title={props.empty ?? 'No items.'}
+          description={props.emptyDescription}
+          action={props.emptyAction}
+        />
       ) : (
         props.rows.map((row) => (
           <box key={row.id} flexDirection="row">

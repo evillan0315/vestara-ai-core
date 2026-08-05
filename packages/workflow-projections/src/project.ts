@@ -14,6 +14,7 @@ import type {
   WorkflowAgentProjection,
   WorkflowApprovalProjection,
   WorkflowMetrics,
+  WorkflowOutcome,
   WorkflowStageId,
   WorkflowStatus,
 } from './types';
@@ -55,6 +56,7 @@ export function projectWorkflow(source: WorkflowSource): AgentWorkflowProjection
     threadId: thread.id,
     runId,
     status,
+    outcome: deriveOutcome(turn?.state, status),
     currentStageId,
     stages,
     agents,
@@ -83,6 +85,14 @@ function workflowStatus(
     default:
       return 'running';
   }
+}
+
+function deriveOutcome(turnState: string | undefined, status: WorkflowStatus): WorkflowOutcome {
+  if (status === 'cancelled') return 'cancelled';
+  if (status === 'failed') return 'failed';
+  if (status === 'completed') return 'succeeded';
+  if (turnState === 'failed') return 'failed';
+  return 'aborted';
 }
 
 export function deriveApprovals(events: readonly EngineeringTruthEvent[]): WorkflowApprovalProjection[] {
@@ -159,7 +169,14 @@ function deriveAgents(
     };
     if (stage.tools.length > 0) agent.activeTool = stage.tools.at(-1);
     agent.filesChanged = Math.max(agent.filesChanged, stage.files.length);
-    agent.status = stage.status === 'active' ? 'active' : stage.status === 'failed' ? 'failed' : agent.status;
+    agent.status =
+      stage.status === 'active'
+        ? 'active'
+        : stage.status === 'failed'
+          ? 'failed'
+          : stage.status === 'completed'
+            ? 'completed'
+            : agent.status;
     byId.set(agentId, agent);
   }
   return [...byId.values()].map((agent) => ({ ...agent }));

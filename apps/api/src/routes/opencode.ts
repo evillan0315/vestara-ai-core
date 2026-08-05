@@ -287,12 +287,7 @@ export async function handleOpenCodeRoute(
               const m = body.model as Record<string, unknown>;
               return {
                 providerID: typeof m.providerID === 'string' ? m.providerID : undefined,
-                id:
-                  typeof m.modelID === 'string'
-                    ? m.modelID
-                    : typeof m.id === 'string'
-                      ? m.id
-                      : undefined,
+                id: typeof m.modelID === 'string' ? m.modelID : typeof m.id === 'string' ? m.id : undefined,
               };
             })()
           : undefined;

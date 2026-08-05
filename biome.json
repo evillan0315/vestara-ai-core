@@ -9,8 +9,8 @@
       "!**/node_modules",
       "!**/.vestara",
       "!apps/workspace",
-      "!packages/opencode-runtime/openapi/**",
-      "!packages/opencode-runtime/src/generated/**"
+      "!packages/opencode-runtime/openapi",
+      "!packages/opencode-runtime/src/generated"
     ]
   },
   "formatter": {

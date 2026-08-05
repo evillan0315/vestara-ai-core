@@ -17,6 +17,13 @@ export type WorkflowStatus =
   | 'failed'
   | 'cancelled';
 
+/**
+ * Aggregate workflow outcome. Distinguishes between a run that truly
+ * succeeded, one that finalized with failures, and one that was aborted
+ * or cancelled before completion.
+ */
+export type WorkflowOutcome = 'succeeded' | 'failed' | 'cancelled' | 'aborted';
+
 export type WorkflowStageId =
   | 'intent'
   | 'context'
@@ -118,6 +125,7 @@ export interface AgentWorkflowProjection {
   readonly threadId: string;
   readonly runId: string;
   readonly status: WorkflowStatus;
+  readonly outcome: WorkflowOutcome;
   readonly currentStageId?: WorkflowStageId;
   readonly stages: readonly WorkflowStageProjection[];
   readonly agents: readonly WorkflowAgentProjection[];

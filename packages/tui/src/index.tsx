@@ -29,7 +29,7 @@ export async function runTui(options: RunTuiOptions = {}): Promise<void> {
   const renderer = new OpenTuiRenderer({
     targetFps: options.targetFps,
     useMouse: options.useMouse,
-    exitOnCtrlC: false,
+    exitOnCtrlC: true,
   });
   const controller = new TuiController({ endpoint });
   const host = createTuiHost(renderer, { endpoint, repoPath, controller });

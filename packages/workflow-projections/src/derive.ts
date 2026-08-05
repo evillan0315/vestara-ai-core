@@ -271,6 +271,10 @@ function stageStatus(
 ): WorkflowStageStatus {
   if (!startedAt) return 'pending';
   if (failedStage === id) return 'failed';
+  // The `complete` stage is a lifecycle marker, not an execution stage.
+  // It should reflect the aggregate outcome: failed if any stage failed,
+  // completed only when the workflow truly succeeded.
+  if (id === 'complete' && failedStage !== undefined) return 'failed';
   if (completedAt !== undefined) return 'completed';
   if (id === lastActivated) return terminal ? 'completed' : 'active';
   return 'active';

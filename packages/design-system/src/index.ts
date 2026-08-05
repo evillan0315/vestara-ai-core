@@ -378,6 +378,8 @@ export const TUI_NAVIGATION: readonly NavItem[] = [
   { id: 'execution', label: 'Execution', icon: '▸', key: '5' },
   { id: 'workflow', label: 'Workflow', icon: '↻', key: '6' },
   { id: 'logs', label: 'Logs', icon: '≡', key: '7' },
+  { id: 'artifacts', label: 'Artifacts', icon: '▪', key: '8' },
+  { id: 'settings', label: 'Settings', icon: '⚙', key: '9' },
 ];
 
 export const TUI_NAV_KEYS: readonly string[] = TUI_NAVIGATION.map((item) => item.id);

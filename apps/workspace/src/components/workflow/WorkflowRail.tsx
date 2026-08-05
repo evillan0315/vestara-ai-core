@@ -132,7 +132,14 @@ export function WorkflowRail({
         <div className="flex items-center gap-1.5 flex-wrap mb-2">
           {workflow.agents.map((agent) => (
             <span key={agent.id} className={`text-[9px] ${agentTone(agent.id)}`}>
-              {agent.status === 'active' ? '●' : '○'} {agent.name || agent.id}
+              {agent.status === 'active'
+                ? '●'
+                : agent.status === 'completed'
+                  ? '✓'
+                  : agent.status === 'failed'
+                    ? '✗'
+                    : '○'}{' '}
+              {agent.name || agent.id}
             </span>
           ))}
           {workflow.swimlanes?.length > 0 && (

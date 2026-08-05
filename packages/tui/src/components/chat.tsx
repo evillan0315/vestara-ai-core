@@ -1,86 +1,15 @@
 import { TextAttributes } from '@opentui/core';
 import type { TuiSemanticPalette } from '@vestara/design-system';
-import { useKeyboard } from '@vestara/tui-renderer';
 import type { ReactNode } from 'react';
-import { useCallback, useRef, useState } from 'react';
-import { useChat } from '../hooks/use-chat.js';
-import type { TuiHostHandle } from '../host.js';
-import type { TuiEvent } from '../types.js';
+import { useConversation } from '../hooks/conversation-context.js';
+import { summarizeOutcome } from '../state/execution-outcome.js';
 
 export interface ChatViewProps {
-  host: TuiHostHandle;
   palette: TuiSemanticPalette;
-  endpoint: string;
-  notify: (level: 'success' | 'warning' | 'error' | 'info', message: string) => void;
 }
 
 export function ChatView(props: ChatViewProps): ReactNode {
-  const chat = useChat();
-  const [input, setInput] = useState('');
-  const [busy, setBusy] = useState(false);
-  const inputRef = useRef(input);
-  inputRef.current = input;
-  const busyRef = useRef(busy);
-  busyRef.current = busy;
-
-  const handleEvent = useCallback(
-    (event: TuiEvent) => {
-      switch (event.type) {
-        case 'message':
-          chat.pushSystem(event.entry.content);
-          break;
-        case 'conversation-start':
-          chat.startAssistant(event.id);
-          break;
-        case 'conversation-delta':
-          chat.appendDelta(event.id, event.content);
-          break;
-        case 'conversation-complete':
-          chat.completeAssistant(event.id);
-          break;
-        case 'tool':
-          chat.upsertTool(event.card);
-          break;
-        case 'notification':
-          props.notify(event.level, event.message);
-          break;
-        case 'clear':
-          chat.clear();
-          break;
-        default:
-          break;
-      }
-    },
-    [chat, props.notify],
-  );
-
-  const submit = useCallback(async () => {
-    const message = inputRef.current.trim();
-    if (!message || busyRef.current) return;
-    setInput('');
-    chat.pushUser(message);
-    setBusy(true);
-    try {
-      for await (const event of props.host.controller.execute(message)) handleEvent(event);
-    } catch (error) {
-      props.notify('error', error instanceof Error ? error.message : String(error));
-    } finally {
-      setBusy(false);
-    }
-  }, [props.host, handleEvent, props.notify, chat]);
-
-  useKeyboard((key) => {
-    if (key.eventType === 'release') return;
-    if (key.name === 'return' || key.name === 'enter') {
-      void submit();
-    } else if (key.name === 'backspace') {
-      setInput((current) => current.slice(0, -1));
-    } else if (key.name === 'escape') {
-      setInput('');
-    } else if (!key.ctrl && !key.meta && key.sequence) {
-      setInput((current) => current + key.sequence);
-    }
-  });
+  const chat = useConversation();
 
   return (
     <box flexDirection="column" flexGrow={1}>
@@ -109,12 +38,63 @@ export function ChatView(props: ChatViewProps): ReactNode {
             </text>
           </box>
         ))}
+        {chat.outcome ? (
+          <box flexDirection="column" paddingTop={1}>
+            <text
+              fg={
+                chat.outcome.status === 'completed'
+                  ? props.palette.success
+                  : chat.outcome.status === 'cancelled'
+                    ? props.palette.warning
+                    : props.palette.error
+              }
+              attributes={TextAttributes.BOLD}
+            >
+              {summarizeOutcome(chat.outcome)}
+            </text>
+            {chat.outcome.observations.length ? (
+              <box flexDirection="column" paddingTop={1}>
+                <text fg={props.palette.textMuted}>Observations</text>
+                {chat.outcome.observations.slice(0, 6).map((observation) => (
+                  <text key={observation} fg={props.palette.text}>
+                    • {observation}
+                  </text>
+                ))}
+              </box>
+            ) : null}
+            {chat.outcome.evidence.length ? (
+              <box flexDirection="column" paddingTop={1}>
+                <text fg={props.palette.textMuted}>Evidence</text>
+                {chat.outcome.evidence.map((path) => (
+                  <text key={path} fg={props.palette.info}>
+                    {path}
+                  </text>
+                ))}
+              </box>
+            ) : null}
+            {chat.outcome.unresolved.length ? (
+              <box flexDirection="column" paddingTop={1}>
+                <text fg={props.palette.textMuted}>Unresolved</text>
+                {chat.outcome.unresolved.map((item) => (
+                  <text key={item} fg={props.palette.warning}>
+                    {item}
+                  </text>
+                ))}
+              </box>
+            ) : null}
+            {chat.outcome.nextActions.length ? (
+              <box flexDirection="column" paddingTop={1}>
+                <text fg={props.palette.textMuted}>Next</text>
+                {chat.outcome.nextActions.map((action) => (
+                  <text key={action} fg={props.palette.accent}>
+                    {action}
+                  </text>
+                ))}
+              </box>
+            ) : null}
+          </box>
+        ) : null}
       </scrollbox>
-      <box height={1}>
-        <text fg={props.palette.accent}>›</text>
-        <text fg={props.palette.text}> {input}</text>
-        {busy ? <text fg={props.palette.textDim}> …</text> : null}
-      </box>
     </box>
   );
 }

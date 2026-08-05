@@ -1,6 +1,8 @@
 // React hooks for the Vestara TUI, backed by OpenTUI. Feature code imports
 // these from `@vestara/tui-renderer` and never touches OpenTUI directly.
 
+import type { KeyEvent } from '@opentui/core';
+
 export type { UseKeyboardOptions } from '@opentui/react';
 export {
   useBlur,
@@ -13,3 +15,4 @@ export {
   useTerminalDimensions,
   useTimeline,
 } from '@opentui/react';
+export type { KeyEvent };

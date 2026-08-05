@@ -7,7 +7,9 @@ export type TuiView =
   | 'logs'
   | 'telemetry'
   | 'execution'
-  | 'workflow';
+  | 'workflow'
+  | 'artifacts'
+  | 'settings';
 
 export interface ConversationEntry {
   readonly id: string;

@@ -39,8 +39,8 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
   const [role, setRole] = useState(agent?.role || 'custom');
   const [agentType, setAgentType] = useState<AgentType>(agent?.agentType || 'workspace');
   const [description, setDescription] = useState(agent?.description || '');
-  const [provider, setProvider] = useState(agent?.provider || '');
-  const [model, setModel] = useState(agent?.model || '');
+  const [provider, setProvider] = useState(agent?.provider ?? '');
+  const [model, setModel] = useState(agent?.model ?? '');
   const [teamId, setTeamId] = useState(agent?.teamId || '');
   const [color, setColor] = useState(agent?.color || '#6b7280');
   const [capStr, setCapStr] = useState((agent?.capabilities || []).join(', '));
@@ -86,9 +86,9 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
       if (defaultsApplied.current) return;
       defaultsApplied.current = true;
 
-      if (agent?.provider || agent?.model) {
-        if (agent.provider) setProvider(agent.provider);
-        if (agent.model) setModel(agent.model);
+      if (agent?.provider !== undefined || agent?.model !== undefined) {
+        if (agent.provider !== undefined) setProvider(agent.provider);
+        if (agent.model !== undefined) setModel(agent.model);
         return;
       }
 
@@ -135,8 +135,8 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
       role,
       agentType,
       description,
-      provider: agentType === 'workspace' ? provider : registrySource,
-      model: agentType === 'workspace' ? model : registryVersion,
+      provider: agentType === 'workspace' ? (provider || undefined) : (registrySource || undefined),
+      model: agentType === 'workspace' ? (model || undefined) : (registryVersion || undefined),
       teamId: teamId || '',
       color,
       capabilities: capStr

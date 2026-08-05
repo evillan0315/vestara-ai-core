@@ -67,11 +67,14 @@ export interface WorkflowChange {
   deletions: number;
 }
 
+export type WorkflowOutcome = 'succeeded' | 'failed' | 'cancelled' | 'aborted';
+
 export interface WorkflowProjection {
   workflowId: string;
   threadId: string;
   runId: string;
   status: string;
+  outcome: WorkflowOutcome;
   currentStageId?: string;
   stages: WorkflowStage[];
   agents: WorkflowAgent[];

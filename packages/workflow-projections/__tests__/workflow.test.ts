@@ -89,6 +89,18 @@ describe('deriveStages', () => {
     expect(stages.find((stage) => stage.id === 'complete')?.status).toBe('pending');
   });
 
+  it('marks the complete stage as failed when any prior stage fails', () => {
+    const items: ThreadItem[] = [
+      item('user-message', { content: 'x' }, iso(0)),
+      item('tool-call', { toolName: 'filesystem.write' }, iso(1)),
+      item('tool-result', { toolName: 'filesystem.write', status: 'failed', error: 'EACCES' }, iso(2)),
+      item('final-outcome', { state: 'completed' }, iso(3)),
+    ];
+    const stages = deriveStages(items, []);
+    const complete = stages.find((stage) => stage.id === 'complete')!;
+    expect(complete.status).toBe('failed');
+  });
+
   it('lets explicit harness.stage.* announcements override inference', () => {
     // No write/shell tools → inference would never activate Execution, but an
     // orchestrator announces it explicitly.
@@ -189,6 +201,7 @@ describe('projectWorkflow + envelopes', () => {
     expect(projection.workflowId).toBe('wf:thread-1');
     expect(projection.runId).toBe('run-9');
     expect(projection.status).toBe('completed');
+    expect(projection.outcome).toBe('succeeded');
     expect(projection.stages).toHaveLength(8);
     expect(projection.metrics.filesChanged).toBe(1);
     expect(projection.metrics.additions).toBe(3);
@@ -319,6 +332,7 @@ describe('projectWorkflowAcrossThreads (multi-agent aggregation)', () => {
     expect(projection.workflowId).toBe('wf:thread-planner');
     expect(projection.stages).toHaveLength(8);
     expect(projection.status).toBe('completed');
+    expect(projection.outcome).toBe('succeeded');
 
     const byId = new Map(projection.stages.map((stage) => [stage.id, stage]));
     expect(byId.get('planning')?.agentId).toBe('planner');

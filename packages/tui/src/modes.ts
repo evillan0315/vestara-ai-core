@@ -105,7 +105,7 @@ export async function printCapabilities(): Promise<Record<string, unknown>> {
     themes,
     accents,
     defaultView: 'chat',
-    views: ['chat', 'sessions', 'plans', 'graph', 'execution', 'workflow', 'logs'],
+    views: ['chat', 'sessions', 'plans', 'graph', 'execution', 'workflow', 'logs', 'artifacts', 'settings'],
     features: ['command-palette', 'keyboard-navigation', 'live-telemetry', 'clean-shutdown'],
   };
 }
