@@ -1,8 +1,11 @@
 import type * as http from 'node:http';
 import { AuditAction, logAudit } from '../audit-log';
 import { requireRole } from '../auth';
+import { ApiError } from '../http/api-error';
+import { readJsonBody } from '../http/body';
+import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
-import { CORS, getActor, json, readBody } from './types';
+import { getActor } from './types';
 
 export async function handleAuthRoute(
   method: string,
@@ -37,53 +40,48 @@ export async function handleAuthRoute(
   }
 
   if (method === 'POST' && p === '/api/auth/login') {
-    try {
-      const raw = await readBody(req);
-      const body = raw ? JSON.parse(raw) : {};
-      const username = body.username?.trim();
-      const token = body.token?.trim();
-      if (token) {
-        const user = ctx.users.findByToken(token);
-        if (user) {
-          logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Token login');
-          json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
-        } else json(res, 401, { error: 'Invalid token' });
-      } else if (username) {
-        const existing = ctx.users.listAll().find((u) => u.username === username);
-        if (existing) {
-          logAudit(
-            ctx.audit,
-            req,
-            existing.id,
-            existing.username,
-            AuditAction.LOGIN,
-            'user',
-            existing.id,
-            'Username login',
-          );
-          json(res, 200, {
-            user: { id: existing.id, username: existing.username, role: existing.role, token: existing.token },
-          });
-        } else {
-          const newUser = ctx.users.createUser(username, 'editor');
-          logAudit(
-            ctx.audit,
-            req,
-            newUser.id,
-            newUser.username,
-            AuditAction.LOGIN,
-            'user',
-            newUser.id,
-            'New user registration',
-          );
-          json(res, 201, {
-            user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
-          });
-        }
-      } else json(res, 400, { error: 'Provide username or token' });
-    } catch (err: any) {
-      json(res, 500, { error: err.message });
-    }
+    const body = await readJsonBody<{ username?: string; token?: string }>(req);
+    const username = body.username?.trim();
+    const token = body.token?.trim();
+    if (token) {
+      const user = ctx.users.findByToken(token);
+      if (user) {
+        logAudit(ctx.audit, req, user.id, user.username, AuditAction.LOGIN, 'user', user.id, 'Token login');
+        json(res, 200, { user: { id: user.id, username: user.username, role: user.role, token: user.token } });
+      } else throw ApiError.unauthorized('Invalid token.');
+    } else if (username) {
+      const existing = ctx.users.listAll().find((u) => u.username === username);
+      if (existing) {
+        logAudit(
+          ctx.audit,
+          req,
+          existing.id,
+          existing.username,
+          AuditAction.LOGIN,
+          'user',
+          existing.id,
+          'Username login',
+        );
+        json(res, 200, {
+          user: { id: existing.id, username: existing.username, role: existing.role, token: existing.token },
+        });
+      } else {
+        const newUser = ctx.users.createUser(username, 'editor');
+        logAudit(
+          ctx.audit,
+          req,
+          newUser.id,
+          newUser.username,
+          AuditAction.LOGIN,
+          'user',
+          newUser.id,
+          'New user registration',
+        );
+        json(res, 201, {
+          user: { id: newUser.id, username: newUser.username, role: newUser.role, token: newUser.token },
+        });
+      }
+    } else throw ApiError.badRequest('Provide username or token.');
     return true;
   }
 
@@ -114,21 +112,14 @@ export async function handleAuthRoute(
   if (method === 'POST' && p === '/api/admin/users') {
     if (!requireRole(req, ctx, 'admin', res)) return true;
     const actor = getActor(req, ctx);
-    try {
-      const raw = await readBody(req);
-      const body = raw ? JSON.parse(raw) : {};
-      if (!body.username?.trim()) {
-        json(res, 400, { error: 'username is required' });
-        return true;
-      }
-      const user = ctx.users.createUser(body.username.trim(), body.role || 'editor');
-      logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_CREATE, 'user', user.id, user.username);
-      json(res, 201, {
-        user: { id: user.id, username: user.username, role: user.role, token: user.token, createdAt: user.createdAt },
-      });
-    } catch (err: any) {
-      json(res, 500, { error: err.message });
-    }
+    const body = await readJsonBody<{ username?: string; role?: string }>(req);
+    if (!body.username?.trim()) throw ApiError.badRequest('username is required.');
+    const role = body.role === 'admin' || body.role === 'editor' || body.role === 'viewer' ? body.role : 'editor';
+    const user = ctx.users.createUser(body.username.trim(), role);
+    logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_CREATE, 'user', user.id, user.username);
+    json(res, 201, {
+      user: { id: user.id, username: user.username, role: user.role, token: user.token, createdAt: user.createdAt },
+    });
     return true;
   }
 
@@ -141,7 +132,7 @@ export async function handleAuthRoute(
     if (newToken) {
       logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.USER_ROTATE_TOKEN, 'user', userId);
       json(res, 200, { token: newToken });
-    } else json(res, 404, { error: 'User not found' });
+    } else throw ApiError.notFound('User not found.');
     return true;
   }
 
