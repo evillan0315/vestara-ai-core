@@ -79,6 +79,7 @@ export interface OpenCodeQueryKeys {
   sessions: readonly ['opencode', 'sessions'];
   session: (sessionId: string) => readonly ['opencode', 'sessions', string];
   status: readonly ['opencode', 'sessions', 'status'];
+  permissions: readonly ['opencode', 'permissions'];
 }
 
 /** Stable query keys for React Query / caching layers. */
@@ -92,7 +93,59 @@ export const openCodeQueryKeys: OpenCodeQueryKeys = {
   sessions: ['opencode', 'sessions'],
   session: (sessionId) => ['opencode', 'sessions', sessionId],
   status: ['opencode', 'sessions', 'status'],
+  permissions: ['opencode', 'permissions'],
 };
+
+// ─── Permission DTOs ──────────────────────────────────────────
+
+export type OpenCodePermissionRisk = 'safe' | 'sensitive' | 'dangerous';
+
+export type OpenCodePermissionStatus = 'pending' | 'approved' | 'rejected' | 'expired' | 'unknown';
+
+export interface OpenCodePermissionRequest {
+  id: string;
+  permission?: string;
+  action: string;
+  resources: string[];
+  risk: OpenCodePermissionRisk;
+  status: OpenCodePermissionStatus;
+  sessionId?: string;
+  askedAt: string;
+}
+
+export type OpenCodePermissionDecision = 'approve' | 'reject';
+export type OpenCodePermissionScope = 'once' | 'session';
+
+/** Normalize a raw permission status, degrading unknown values safely. */
+export function normalizePermissionStatus(status: string | undefined): OpenCodePermissionStatus {
+  switch (status) {
+    case 'pending':
+    case 'approved':
+    case 'rejected':
+    case 'expired':
+      return status;
+    default:
+      return 'unknown';
+  }
+}
+
+/** Normalize a raw risk value, degrading unknown values to a neutral safe label. */
+export function normalizePermissionRisk(risk: string | undefined): OpenCodePermissionRisk {
+  switch (risk) {
+    case 'dangerous':
+    case 'sensitive':
+      return risk;
+    default:
+      return 'safe';
+  }
+}
+
+/** Human-readable resource summary for a permission request. */
+export function permissionResourceSummary(request: OpenCodePermissionRequest): string {
+  const resources = request.resources ?? [];
+  if (resources.length === 0) return request.permission ?? request.action;
+  return resources.length === 1 ? resources[0] : `${resources[0]} +${resources.length - 1} more`;
+}
 
 // ─── Session DTOs ─────────────────────────────────────────────
 
@@ -343,6 +396,33 @@ export const openCodeApi = {
 
   abortSession: async (sessionId: string): Promise<boolean> => {
     const res = await fetch(`/api/opencode/sessions/${encodeURIComponent(sessionId)}/abort`, { method: 'POST' });
+    return res.ok;
+  },
+
+  permissions: async (): Promise<OpenCodePermissionRequest[]> => {
+    const data = await fetchJSON<{ permissions: OpenCodePermissionRequest[] }>('/api/opencode/permissions');
+    return (data?.permissions ?? []).map((permission) => ({
+      ...permission,
+      risk: normalizePermissionRisk(permission.risk),
+      status: normalizePermissionStatus(permission.status),
+      resources: permission.resources ?? [],
+    }));
+  },
+
+  respondToPermission: async (
+    sessionId: string,
+    permissionId: string,
+    decision: OpenCodePermissionDecision,
+    scope: OpenCodePermissionScope,
+  ): Promise<boolean> => {
+    const res = await fetch(
+      `/api/opencode/sessions/${encodeURIComponent(sessionId)}/permissions/${encodeURIComponent(permissionId)}/respond`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, scope }),
+      },
+    );
     return res.ok;
   },
 };

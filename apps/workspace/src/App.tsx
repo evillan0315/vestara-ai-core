@@ -35,6 +35,7 @@ const OpenCode = lazy(() => import('./pages/OpenCode'));
 const OpenCodeSessions = lazy(() => import('./pages/OpenCodeSessions'));
 const OpenCodeNewSession = lazy(() => import('./pages/OpenCodeNewSession'));
 const OpenCodeSessionDetail = lazy(() => import('./pages/OpenCodeSessionDetail'));
+const OpenCodePermissions = lazy(() => import('./pages/OpenCodePermissions'));
 const Workforce = lazy(() => import('./pages/Workforce'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
@@ -70,6 +71,7 @@ const PAGES: Record<string, ComponentType> = {
   'opencode-sessions': OpenCodeSessions,
   'opencode-new-session': OpenCodeNewSession,
   'opencode-session-detail': OpenCodeSessionDetail,
+  'opencode-permissions': OpenCodePermissions,
   workforce: Workforce,
   settings: SettingsPage,
   routing: RoutingPage,

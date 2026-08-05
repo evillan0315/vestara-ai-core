@@ -124,6 +124,14 @@ export const APP_ROUTES: AppRoute[] = [
     sampleParams: { sessionId: 'session-sample' },
   },
   {
+    id: 'opencode-permissions',
+    path: '/opencode/permissions',
+    title: 'OpenCode Permissions',
+    requiresAuth: true,
+    enabled: true,
+    layout: 'shell',
+  },
+  {
     id: 'workforce',
     path: '/workforce',
     title: 'Engineering Workforce',
