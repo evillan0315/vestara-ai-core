@@ -316,3 +316,11 @@ To record a new finding:
 
 *This is not a changelog. It is the accumulated engineering knowledge that
 makes the next engineer start smarter than the last one.*
+
+---
+
+> **Every conclusion belongs to the present.**
+>
+> **Every path belongs to the future.**
+>
+> Preserve the path.
