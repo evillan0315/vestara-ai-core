@@ -16,6 +16,10 @@ Organizational memory for Vestara. Each entry records a question, the evidence t
 
 *This is not documentation. It is accumulated evidence connecting developer behavior to product decisions.*
 
+> Lessons learned from these observations are captured separately in
+> [Engineering Findings](../ENGINEERING-FINDINGS.md). Evidence records what
+> happened; findings record what was learned.
+
 ---
 
 ## GOV-001 — Agent Honors Prior Engineering Constraints Before Executing New Instructions
