@@ -1,0 +1,25 @@
+{
+  "name": "@vestara/opencode-runtime",
+  "description": "Controlled integration boundary for the OpenCode headless HTTP server — typed client, runtime lifecycle, session binding, event normalization, and permission governance",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/opencode-runtime/__tests__",
+    "opencode:spec:fetch": "tsx scripts/fetch-openapi.ts",
+    "opencode:spec:generate": "tsx scripts/generate-contracts.ts",
+    "opencode:spec:check": "tsx scripts/check-openapi-compatibility.ts",
+    "opencode:spec:update": "pnpm opencode:spec:fetch && pnpm opencode:spec:generate && pnpm opencode:spec:check"
+  },
+  "dependencies": {
+    "@vestara/events": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.2",
+    "vitest": "^4.1.10"
+  }
+}

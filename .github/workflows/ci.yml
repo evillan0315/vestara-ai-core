@@ -26,6 +26,17 @@ jobs:
 
       - run: pnpm dependencies:check
 
+      - name: OpenCode contract guard
+        run: |
+          pnpm --filter @vestara/opencode-runtime opencode:spec:generate
+          if git diff --exit-code -- packages/opencode-runtime/src/generated/opencode-contracts.ts; then
+            echo "Generated contracts in sync with pinned schema."
+          else
+            echo "Generated contracts are stale — run pnpm opencode:spec:update."
+            exit 1
+          fi
+          pnpm --filter @vestara/opencode-runtime opencode:spec:check --candidate openapi/opencode.openapi.json
+
       - run: bash build-order.sh
 
       - run: pnpm lint:check

@@ -1,0 +1,20 @@
+[Unit]
+Description=Vestara OpenCode Headless Server (user)
+Documentation=file:/home/eddie/projects/vestara/vestara-ai-core/os/README.md
+After=network-online.target
+Wants=network-online.target
+PartOf=vestara.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/eddie/projects/vestara
+EnvironmentFile=-/home/eddie/.config/vestara/vestara.env
+Environment=OPENCODE_SERVER_USERNAME=vestara
+ExecStart=/home/eddie/.opencode/bin/opencode serve --hostname 127.0.0.1 --port 4096
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+
+[Install]
+WantedBy=default.target

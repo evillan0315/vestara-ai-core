@@ -26,6 +26,7 @@ import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
 import { handleNotificationsRoute } from './routes/notifications';
+import { handleOpenCodeRoute } from './routes/opencode';
 import { handleOrchestrationRoute } from './routes/orchestration';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
@@ -171,6 +172,7 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
       if (await handleNotificationsRoute(method, p, req, res, ctx)) return;
       if (await handleMemoryRoute(method, p, req, res, ctx, url)) return;
       if (await handleMarketplaceRoute(method, p, req, res, ctx)) return;
+      if (await handleOpenCodeRoute(method, p, req, res, ctx)) return;
       if (await handleTelemetryRoute(method, p, req, res, ctx)) return;
       if (await handleTuiRoute(method, p, req, res, ctx, url)) return;
 
@@ -180,11 +182,28 @@ export function createServer(ctx: WorkspaceContext, port: number, activityServic
     }
   });
 
-  const wss = new WebSocketServer({ server, path: '/ws' });
+  // Both WebSocket endpoints share one HTTP server. Using `path` on multiple
+  // WebSocketServers causes the first server to abort non-matching upgrades
+  // with 400 (see ws handleUpgrade → shouldHandle). Use `noServer` + a single
+  // upgrade dispatcher that routes by pathname instead.
+  const wss = new WebSocketServer({ noServer: true });
+  let workerWss: WebSocketServer | undefined;
   if (ctx.workerSocketServer) {
-    const workerWss = new WebSocketServer({ server, path: '/ws/worker' });
+    workerWss = new WebSocketServer({ noServer: true });
     ctx.workerSocketServer.attach(workerWss);
   }
+  server.on('upgrade', (req, socket, head) => {
+    const pathname = new URL(req.url ?? '/', `http://${req.headers.host ?? 'localhost'}`).pathname;
+    if (pathname === '/ws/worker' && workerWss) {
+      workerWss.handleUpgrade(req, socket, head, (ws) => workerWss?.emit('connection', ws, req));
+      return;
+    }
+    if (pathname === '/ws') {
+      wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+      return;
+    }
+    socket.destroy();
+  });
   wss.on('connection', (ws) => {
     clients.add(ws);
     wsSend(ws, {

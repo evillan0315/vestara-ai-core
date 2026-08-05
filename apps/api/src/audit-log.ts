@@ -26,6 +26,8 @@ export const AuditAction = {
   USER_CREATE: 'user.create',
   USER_ROTATE_TOKEN: 'user.rotate-token',
   LOGIN: 'user.login',
+  OPENCODE_PERMISSION_APPROVE: 'opencode.permission.approve',
+  OPENCODE_PERMISSION_REJECT: 'opencode.permission.reject',
 } as const;
 
 /** Extract the client IP from the request. */

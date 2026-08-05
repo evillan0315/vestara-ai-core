@@ -136,6 +136,7 @@ export interface WorkspaceContext {
   evidenceArtifacts: ContentAddressedEvidenceStore;
   evidenceBundles: BundleStore;
   evidenceBaselines: BaselineStore;
+  evidencePipeline: EvidencePipeline;
   threadRecovery: DurableThreadRecoveryService;
   worktreeRuntime: WorktreeLeaseRuntime;
   runtime: WorkspaceRuntime;
@@ -1208,6 +1209,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceArtifacts,
     evidenceBundles,
     evidenceBaselines,
+    evidencePipeline,
     workerSocketServer,
     workerRegistry,
     workerStore,

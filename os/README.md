@@ -9,6 +9,7 @@ automatically.
 ```text
 systemd
   -> vestara-host.service (read-only host preflight)
+  -> opencode-server.service (OpenCode headless server on 127.0.0.1:4096)
   -> vestara-api.service (kernel, Host Runtime, Boot Runtime, workspace)
   -> vestara-workspace.service (readiness verification)
   -> vestara.target
@@ -50,3 +51,85 @@ sudo systemctl disable --now vestara.target
 The supplied units use `NoNewPrivileges`, read-only host protection, private
 temporary storage, and narrow writable paths. Host power operations remain
 disabled in application code even when these services run as a system unit.
+
+## OpenCode server service
+
+`os/systemd/opencode-server.service` runs the OpenCode headless server on
+`127.0.0.1:4096` and survives reboots via `vestara.target`. It binds only to
+loopback and requires Basic authentication, so the workspace never talks to
+OpenCode directly; the Vestara API exposes it through `/api/opencode/*`.
+
+### Service account layout
+
+The unit assumes the OpenCode binary is installed at
+`/opt/vestara/.opencode/bin/opencode` and runs as the `vestara` service
+account. OpenCode state is written under the service account's home
+(`/var/lib/vestara/.local/share|state|config/opencode`), which is granted as a
+narrow writable path while the host stays read-only.
+
+On a developer machine the binary typically lives under the real user's home
+(`~/.opencode/bin/opencode`). For a local, non-OS-0 service, adapt the unit:
+point `ExecStart` and `ReadWritePaths` at the actual user and opencode home,
+and drop `User=`/`Group=` so it runs as the invoking user.
+
+### Developer-machine (user-level) install
+
+`os/systemd/opencode-server.user.service` is a user-level unit for machines
+where opencode runs under the logged-in user rather than a `vestara` service
+account. It reads credentials from `~/.config/vestara/vestara.env`. Enable
+lingering so the service starts at boot even before the user logs in:
+
+```bash
+loginctl enable-linger eddie
+mkdir -p ~/.config/vestara
+echo 'OPENCODE_SERVER_PASSWORD=<local-secret>' > ~/.config/vestara/vestara.env
+chmod 600 ~/.config/vestara/vestara.env
+sudo install -m 0644 os/systemd/opencode-server.user.service \
+  /etc/systemd/system/opencode-server.service
+systemctl --user daemon-reload
+systemctl --user enable --now opencode-server.service
+systemctl --user status opencode-server.service
+```
+
+Verify:
+
+```bash
+curl -s http://127.0.0.1:4096/global/health
+curl -s http://127.0.0.1:3001/api/opencode/health
+```
+
+The Vestara API must be started with the same `OPENCODE_SERVER_PASSWORD`
+available in its environment so `@vestara/opencode-runtime` can authenticate to
+the server. For example, source `~/.config/vestara/vestara.env` before launching
+the API, or add it to the API unit's `EnvironmentFile`.
+
+Rollback:
+
+```bash
+systemctl --user disable --now opencode-server.service
+```
+
+### Credentials
+
+The server password is read from `/etc/vestara/vestara.env` as
+`OPENCODE_SERVER_PASSWORD`. The username defaults to `vestara` in the unit.
+These credentials are consumed server-side by `@vestara/opencode-runtime` and
+are never returned to workspace clients.
+
+### Install and verify
+
+```bash
+sudo install -m 0644 os/systemd/opencode-server.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable opencode-server.service
+sudo systemctl start opencode-server.service
+sudo systemctl status opencode-server.service
+curl -s http://127.0.0.1:4096/global/health
+curl -s http://127.0.0.1:3001/api/opencode/health
+```
+
+Rollback is explicit and non-destructive:
+
+```bash
+sudo systemctl disable --now opencode-server.service
+```

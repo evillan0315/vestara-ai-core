@@ -481,3 +481,7 @@ docs/build/
 
 tsconfig.reference.json
 tsconfig.references.json
+
+# OpenCode contract guard — candidate schema is a transient fetch artifact
+packages/opencode-runtime/openapi/candidate.openapi.json
+packages/opencode-runtime/openapi/candidate.openapi.sha256
