@@ -1,0 +1,11 @@
+id: recovery
+description: Minimal diagnostics profile for repair and service recovery.
+display_manager: none
+desktop: none
+login: recovery-terminal
+boot_splash: recovery
+services:
+  - vestara.target
+branding:
+  wallpaper: recovery-diagnostics.png
+  sound: false

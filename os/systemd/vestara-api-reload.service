@@ -1,0 +1,6 @@
+[Unit]
+Description=Reload Vestara API after a production build
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl try-restart vestara-api.service

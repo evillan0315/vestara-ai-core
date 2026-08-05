@@ -1,0 +1,4 @@
+# Replace this example with the reviewed Vestara splash implementation.
+# Keep service readiness reporting separate from the visual animation.
+Window.SetBackgroundTopColor(0.04, 0.06, 0.12);
+Window.SetBackgroundBottomColor(0.02, 0.03, 0.07);

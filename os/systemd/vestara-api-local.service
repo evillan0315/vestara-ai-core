@@ -1,0 +1,28 @@
+[Unit]
+Description=Vestara OS-0 API and Runtime Host
+Documentation=file:/home/eddie/projects/vestara/vestara-ai-core/os/README.md
+After=network-online.target vestara-host.service
+Wants=network-online.target
+Requires=vestara-host.service
+
+[Service]
+Type=simple
+User=vestara
+Group=vestara
+WorkingDirectory=/home/eddie/projects/vestara/vestara-ai-core
+EnvironmentFile=-/home/eddie/projects/vestara/vestara-ai-core/.env
+Environment=NODE_ENV=production
+Environment=VESTARA_API_PORT=3001
+ExecStart=/usr/bin/node /home/eddie/projects/vestara/vestara-ai-core/apps/api/dist/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/vestara /home/eddie/projects/vestara/vestara-ai-core/.vestara
+
+[Install]
+WantedBy=vestara.target

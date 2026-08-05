@@ -1,0 +1,144 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width="64"
+  height="64"
+  viewBox="0 0 512 512"
+  fill="none"
+>
+  <defs>
+    <!-- Gold Metallic -->
+    <linearGradient id="gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFF6C7" />
+      <stop offset="18%" stop-color="#FFE07A" />
+      <stop offset="45%" stop-color="#F5C542" />
+      <stop offset="70%" stop-color="#C98A1F" />
+      <stop offset="100%" stop-color="#8E5A12" />
+    </linearGradient>
+
+    <!-- Gold Border -->
+    <linearGradient id="goldDark" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7A4A0A" />
+      <stop offset="100%" stop-color="#FFD86B" />
+    </linearGradient>
+
+    <!-- Premium Black Metallic -->
+    <linearGradient id="blackMetal" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#4A4A4A" />
+      <stop offset="12%" stop-color="#343434" />
+      <stop offset="28%" stop-color="#202020" />
+      <stop offset="45%" stop-color="#111111" />
+      <stop offset="60%" stop-color="#040404" />
+      <stop offset="78%" stop-color="#101010" />
+      <stop offset="100%" stop-color="#000000" />
+    </linearGradient>
+
+    <!-- Shine -->
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.9" />
+      <stop offset="45%" stop-color="#FFFFFF" stop-opacity="0.15" />
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+
+    <!-- Optimized Shadow for Favicons -->
+    <filter
+      id="shadow"
+      x="-10%"
+      y="-10%"
+      width="120%"
+      height="120%"
+    >
+      <feDropShadow
+        dx="0"
+        dy="3"
+        stdDeviation="4"
+        flood-color="#000000"
+        flood-opacity="0.18"
+      />
+    </filter>
+  </defs>
+
+  <!--
+    Scale the logo to ~82% so it has comfortable padding
+    around the edges when rendered at 16x16 or 32x32.
+  -->
+  <g
+    filter="url(#shadow)"
+    transform="translate(46 46) scale(0.82)"
+  >
+    <!-- Outer Gold V -->
+    <path
+      d="
+        M40 40
+        L190 40
+        L256 170
+        L322 40
+        L472 40
+        L282 470
+        L230 470
+        Z
+      "
+      fill="url(#gold)"
+    />
+
+    <!-- Inner Black -->
+    <path
+      d="
+        M105 80
+        L180 80
+        L256 235
+        L332 80
+        L407 80
+        L270 410
+        L242 410
+        Z
+      "
+      fill="url(#blackMetal)"
+    />
+
+    <!-- Gold Inner Border -->
+    <path
+      d="
+        M122 97
+        L187 97
+        L256 243
+        L325 97
+        L390 97
+        L267 387
+        L245 387
+        Z
+      "
+      fill="none"
+      stroke="url(#goldDark)"
+      stroke-width="8"
+      stroke-linejoin="round"
+    />
+
+    <!-- Center Spine -->
+    <path
+      d="
+        M252 168
+        L260 168
+        L260 470
+        L252 470
+        Z
+      "
+      fill="url(#goldDark)"
+    />
+
+    <!-- Metallic Highlight -->
+    <path
+      d="
+        M58 45
+        L182 45
+        L256 185
+        L330 45
+        L454 45
+        L270 458
+        L242 458
+        Z
+      "
+      fill="url(#shine)"
+      opacity="0.35"
+    />
+  </g>
+</svg>

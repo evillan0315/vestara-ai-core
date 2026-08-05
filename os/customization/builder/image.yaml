@@ -1,0 +1,17 @@
+format: vestara-image-profile
+version: 1
+default_profile: developer
+profiles:
+  - headless
+  - developer
+  - desktop
+  - recovery
+boot:
+  firmware: uefi
+  partition_table: gpt
+  efi_partition: true
+  bootloader: grub
+  splash: plymouth
+runtime:
+  root: /opt/vestara
+  target: vestara.target

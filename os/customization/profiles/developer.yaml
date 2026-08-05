@@ -1,0 +1,12 @@
+id: developer
+description: Engineering workstation profile with terminal-first tooling.
+display_manager: optional
+desktop: workspace
+login: vestara
+boot_splash: plymouth
+services:
+  - vestara.target
+  - vestara-api-reload.path
+branding:
+  wallpaper: developer-blueprint.png
+  sound: false

@@ -1,0 +1,9 @@
+[Unit]
+Description=Watch Vestara API production build output
+
+[Path]
+PathChanged=/opt/vestara/apps/api/dist
+Unit=vestara-api-reload.service
+
+[Install]
+WantedBy=multi-user.target

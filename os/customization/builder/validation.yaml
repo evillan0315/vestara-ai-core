@@ -1,0 +1,17 @@
+required:
+  - /boot/efi/EFI/BOOT/BOOTX64.EFI
+  - /boot/vmlinuz
+  - /boot/initrd.img
+  - /etc/default/grub.d/vestara.cfg
+  - /etc/systemd/system/vestara.target
+  - /etc/systemd/system/vestara-api-reload.path
+services:
+  - vestara-host.service
+  - vestara-api.service
+  - vestara-workspace.service
+  - vestara-api-reload.path
+checks:
+  - grub-configuration
+  - plymouth-theme
+  - systemd-enablements
+  - vestara-runtime-artifacts

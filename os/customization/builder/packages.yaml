@@ -1,0 +1,15 @@
+base:
+  - systemd-sysv
+  - linux-image-generic
+  - grub-efi-amd64-signed
+  - shim-signed
+  - plymouth
+  - plymouth-themes
+  - ca-certificates
+  - nodejs
+profiles:
+  headless: []
+  developer:
+    - fonts-jetbrains-mono
+  desktop: []
+  recovery: []

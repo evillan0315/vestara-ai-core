@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Vestara
+Description=Vestara AI OS boot splash
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/vestara
+ScriptFile=/usr/share/plymouth/themes/vestara/vestara.script
