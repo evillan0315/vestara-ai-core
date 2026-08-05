@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
   providers: vi.fn(),
   createSession: vi.fn(),
   session: vi.fn(),
+  messages: vi.fn(),
   deleteSession: vi.fn(),
 }));
 
@@ -28,9 +29,21 @@ vi.mock('../src/lib/opencode.js', async (importOriginal) => {
       providers: mocks.providers,
       createSession: mocks.createSession,
       session: mocks.session,
+      messages: mocks.messages,
       deleteSession: mocks.deleteSession,
     },
   };
+});
+
+vi.mock('../src/lib/opencode-events.js', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../src/lib/opencode-events.js')>();
+  class MockStreamClient {
+    open = vi.fn();
+    close = vi.fn();
+    clearDedupe = vi.fn();
+    currentStatus = 'connected';
+  }
+  return { ...original, OpenCodeStreamClient: MockStreamClient };
 });
 
 const project = { id: 'proj-1', worktree: '/home/user/repo', vcs: 'git' as const, name: 'repo' };
@@ -57,7 +70,9 @@ beforeEach(() => {
   mocks.providers.mockReset();
   mocks.createSession.mockReset();
   mocks.session.mockReset();
+  mocks.messages.mockReset();
   mocks.deleteSession.mockReset();
+  mocks.messages.mockResolvedValue([]);
 });
 
 describe('OpenCodeNewSessionPage', () => {
@@ -154,7 +169,7 @@ describe('OpenCodeNewSessionPage', () => {
 });
 
 describe('OpenCodeSessionPage', () => {
-  it('renders session metadata and placeholders', async () => {
+  it('renders the live session workspace header', async () => {
     mocks.session.mockResolvedValue({
       id: 'ses_det',
       title: 'Detail session',
@@ -177,10 +192,9 @@ describe('OpenCodeSessionPage', () => {
       </ThemeProvider>,
     );
     expect(await screen.findByText('Detail session')).toBeTruthy();
-    expect(screen.getByText(/home\/user\/repo/)).toBeTruthy();
-    expect(screen.getByText(/build · deepseek-v4-flash/)).toBeTruthy();
-    expect(screen.getByText('5 files · +10/-2')).toBeTruthy();
-    expect(screen.getAllByText('Activity').length).toBeGreaterThan(0);
+    expect(screen.getByText('ses_det')).toBeTruthy();
+    expect(screen.getByPlaceholderText(/Send a follow-up message/)).toBeTruthy();
+    expect(screen.getByText('Lifecycle')).toBeTruthy();
   });
 
   it('handles session-not-found', async () => {

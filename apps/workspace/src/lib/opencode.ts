@@ -191,6 +191,43 @@ export function normalizeSessionWithStatus(
   return normalizeSession(raw, statusMap[raw.id]?.type);
 }
 
+/** Raw upstream message from message history. */
+export interface OpenCodeRawMessage {
+  id?: string;
+  role?: string;
+  sessionId?: string;
+  agent?: string;
+  text?: string;
+  parts?: Array<{ id?: string; type?: string; text?: string }>;
+  createdAt?: string;
+}
+
+/** Message summary for the activity feed snapshot. */
+export interface OpenCodeMessageSummary {
+  id?: string;
+  role: string;
+  text: string;
+  agent?: string;
+  createdAt?: string;
+}
+
+export function normalizeMessage(raw: OpenCodeRawMessage): OpenCodeMessageSummary {
+  const parts = Array.isArray(raw.parts) ? raw.parts : [];
+  const text =
+    (raw.text ?? '') ||
+    parts
+      .filter((part) => part.type === 'text' && typeof part.text === 'string')
+      .map((part) => part.text)
+      .join('\n');
+  return {
+    id: raw.id,
+    role: raw.role ?? 'unknown',
+    text,
+    agent: raw.agent,
+    createdAt: raw.createdAt,
+  };
+}
+
 async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {
     const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -285,6 +322,27 @@ export const openCodeApi = {
 
   deleteSession: async (sessionId: string): Promise<boolean> => {
     const res = await fetch(`/api/opencode/sessions/${encodeURIComponent(sessionId)}`, { method: 'DELETE' });
+    return res.ok;
+  },
+
+  messages: async (sessionId: string): Promise<OpenCodeMessageSummary[]> => {
+    const data = await fetchJSON<{ messages: OpenCodeRawMessage[] }>(
+      `/api/opencode/sessions/${encodeURIComponent(sessionId)}/messages`,
+    );
+    return (data?.messages ?? []).map(normalizeMessage);
+  },
+
+  sendMessage: async (sessionId: string, text: string): Promise<boolean> => {
+    const res = await fetch(`/api/opencode/sessions/${encodeURIComponent(sessionId)}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ parts: [{ type: 'text', text }] }),
+    });
+    return res.ok;
+  },
+
+  abortSession: async (sessionId: string): Promise<boolean> => {
+    const res = await fetch(`/api/opencode/sessions/${encodeURIComponent(sessionId)}/abort`, { method: 'POST' });
     return res.ok;
   },
 };
