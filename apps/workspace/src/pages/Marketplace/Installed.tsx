@@ -151,6 +151,19 @@ export default function Installed() {
                         >
                           Uninstall
                         </button>
+                        <button
+                          type="button"
+                          className={item.enabled ? buttonDanger : button}
+                          disabled={busy !== null}
+                          onClick={() =>
+                            void run(
+                              `${item.enabled ? 'disable' : 'enable'} ${item.packageName}`,
+                              marketplaceClient.setEnabled(item.packageName, !item.enabled),
+                            )
+                          }
+                        >
+                          {item.enabled ? 'Disable' : 'Enable'}
+                        </button>
                       </div>
                     </td>
                   </tr>

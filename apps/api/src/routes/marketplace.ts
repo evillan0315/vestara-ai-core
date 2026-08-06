@@ -15,7 +15,9 @@ import type {
   MarketplaceOperation,
   MarketplaceSearchQuery,
   MarketplaceUpdateCandidate,
+  PublishIntoRootResult,
 } from '@vestara/marketplace';
+import { MarketplacePublisher } from '@vestara/marketplace';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -30,7 +32,7 @@ export type MarketplaceOperationStatus =
 
 export interface MarketplaceOperationDto {
   id: string;
-  type: MarketplaceOperation['operation'];
+  type: MarketplaceOperation['operation'] | 'publish';
   status: MarketplaceOperationStatus;
   asset?: { publisherId?: string; packageName: string };
   plan?: {
@@ -40,6 +42,7 @@ export interface MarketplaceOperationDto {
     warnings: string[];
   };
   installed?: InstalledMarketplaceAsset;
+  published?: PublishIntoRootResult;
   error?: { code: string; message: string };
   createdAt: string;
   updatedAt: string;
@@ -52,13 +55,28 @@ interface MutationBody {
   workspaceId?: string;
   dryRun?: boolean;
   approved?: boolean;
+  enabled?: boolean;
+  /** Absolute path to a package directory to publish into the marketplace. */
+  sourcePath?: string;
+  /** PEM-encoded Ed25519 private key used to sign the published package. */
+  key?: string;
+  /** Directory to scan for detectable packages. */
+  directory?: string;
+  /** Publisher ID for detected packages. */
+  publisherId?: string;
+  /** Publisher display name for detected packages. */
+  publisherName?: string;
+  /** Maximum directory depth for detection. */
+  maxDepth?: number;
+  /** Skip directories that already have vestara-package.json. */
+  skipExisting?: boolean;
 }
 
 function now(): string {
   return new Date().toISOString();
 }
 
-function identifier(type: MarketplaceOperation['operation']): string {
+function identifier(type: string): string {
   return `marketplace-${type}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
@@ -180,6 +198,131 @@ export async function handleMarketplaceRoute(
     const operation = await ctx.marketplace.rescan();
     json(res, 200, { operation: toDto(operation, 'rescan', undefined, operation.correlationId) });
     return true;
+  }
+
+  // PATCH /api/marketplace/installed/:packageId — enable or disable an installed extension
+  const installedMatch = p.match(/^\/api\/marketplace\/installed\/([^/]+)$/);
+  if (installedMatch && method === 'PATCH') {
+    const packageId = decodeURIComponent(installedMatch[1]);
+    const body = parseBody(await readBody(req));
+    if (typeof body.enabled !== 'boolean') {
+      json(res, 400, { code: 'marketplace.invalid-body', error: 'enabled boolean is required' });
+      return true;
+    }
+    try {
+      const result = await ctx.marketplace.setEnabled({
+        packageName: packageId,
+        enabled: body.enabled,
+        workspaceId: body.workspaceId,
+      });
+      json(res, 200, {
+        operation: {
+          id: result.correlationId ?? identifier('set-enabled'),
+          type: 'update' as const,
+          status: 'completed' as const,
+          asset: { packageName: packageId },
+          installed: result.installed,
+          createdAt: now(),
+          updatedAt: now(),
+        },
+      });
+      return true;
+    } catch (error) {
+      const isNotFound =
+        error instanceof Error &&
+        'code' in error &&
+        (error as unknown as MarketplaceError).code === 'marketplace.not-found';
+      json(res, isNotFound ? 404 : 500, {
+        code: isNotFound ? 'marketplace.not-found' : 'marketplace.set-enabled-failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return true;
+    }
+  }
+
+  // POST /api/marketplace/detect — scan a directory for packages and register them
+  if (method === 'POST' && p === '/api/marketplace/detect') {
+    const body = parseBody(await readBody(req));
+    if (!body.directory) {
+      json(res, 400, { code: 'marketplace.invalid-directory', error: 'directory is required' });
+      return true;
+    }
+    try {
+      const report = await ctx.marketplace.detectAndRegister(body.directory, {
+        publisherId: body.publisherId ?? 'local',
+        publisherName: body.publisherName,
+        maxDepth: body.maxDepth,
+        skipExisting: body.skipExisting,
+      });
+      json(res, 200, {
+        report: {
+          directory: report.directory,
+          scanned: report.scanned,
+          detected: report.detected,
+          registered: report.registered,
+          skipped: report.skipped,
+          errors: report.errors,
+          packages: report.results.map((r) => ({
+            name: r.detected.name,
+            version: r.detected.version,
+            type: r.manifest.type,
+            packageDir: r.packageDir,
+            registered: r.registered,
+          })),
+        },
+      });
+      return true;
+    } catch (error) {
+      json(res, 500, {
+        code: 'marketplace.detect-failed',
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return true;
+    }
+  }
+
+  // POST /api/marketplace/publish — validate + digest + sign a package directory
+  // and register it into the marketplace root so a scan indexes it as an asset.
+  if (method === 'POST' && p === '/api/marketplace/publish') {
+    const body = parseBody(await readBody(req));
+    const id = identifier('publish');
+    if (!body.sourcePath) {
+      json(res, 400, { code: 'marketplace.invalid-source', error: 'sourcePath is required' });
+      return true;
+    }
+    try {
+      const result = new MarketplacePublisher().publishIntoRoot({
+        source: { packagePath: body.sourcePath },
+        ...(body.key ? { signing: { privateKeyPem: body.key } } : {}),
+        root: ctx.marketplacePublishRoot,
+      });
+      await ctx.marketplace.rescan();
+      json(res, 200, {
+        operation: {
+          id,
+          type: 'publish' as const,
+          status: 'completed' as const,
+          asset: { publisherId: result.publisherId, packageName: result.packageName },
+          published: result,
+          createdAt: now(),
+          updatedAt: now(),
+        },
+      });
+      return true;
+    } catch (error) {
+      json(res, 200, {
+        operation: {
+          id,
+          type: 'publish' as const,
+          status: 'failed' as const,
+          asset: { packageName: String(body.sourcePath) },
+          error: errorDetails(error),
+          createdAt: now(),
+          updatedAt: now(),
+        },
+      });
+      return true;
+    }
   }
 
   if (method === 'POST' && p === '/api/marketplace/install') {

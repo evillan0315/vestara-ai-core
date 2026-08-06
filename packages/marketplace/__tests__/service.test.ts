@@ -245,4 +245,54 @@ describe('MarketplaceService', () => {
     const { service } = createService(root);
     await expect(service.update({ packageName: 'vestara.never' })).rejects.toBeInstanceOf(MarketplaceInstallError);
   });
+
+  it('enables an installed package', async () => {
+    const root = temp('service-enable');
+    writePackage(path.join(root, 'pkg'), { id: 'vestara.toggle', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+
+    const { manager, service } = createService(root);
+    await service.install({ reference: 'vestara.toggle', enable: false });
+    const afterInstall = (await service.listInstalled())[0];
+    expect(afterInstall?.enabled).toBe(false);
+
+    const operation = await service.setEnabled({ packageName: 'vestara.toggle', enabled: true });
+    expect(operation.status).toBe('completed');
+    expect(operation.installed?.enabled).toBe(true);
+    expect(manager.get('vestara.toggle')?.versions['1.0.0']?.state).toBe('active');
+  });
+
+  it('disables an enabled package', async () => {
+    const root = temp('service-disable');
+    writePackage(path.join(root, 'pkg'), { id: 'vestara.toggle2', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+
+    const { manager, service } = createService(root);
+    await service.install({ reference: 'vestara.toggle2', enable: true });
+    const afterInstall = (await service.listInstalled())[0];
+    expect(afterInstall?.enabled).toBe(true);
+
+    const operation = await service.setEnabled({ packageName: 'vestara.toggle2', enabled: false });
+    expect(operation.status).toBe('completed');
+    expect(operation.installed?.enabled).toBe(false);
+    expect(manager.get('vestara.toggle2')?.versions['1.0.0']?.state).toBe('disabled');
+  });
+
+  it('returns idempotent result when already in requested state', async () => {
+    const root = temp('service-enable-idempotent');
+    writePackage(path.join(root, 'pkg'), { id: 'vestara.idem', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+
+    const { service } = createService(root);
+    await service.install({ reference: 'vestara.idem', enable: true });
+
+    const operation = await service.setEnabled({ packageName: 'vestara.idem', enabled: true });
+    expect(operation.status).toBe('completed');
+    expect(operation.message).toContain('already enabled');
+  });
+
+  it('rejects setEnabled for a package that is not installed', async () => {
+    const root = temp('service-enable-not-installed');
+    writePackage(path.join(root, 'pkg'), { id: 'vestara.missing' });
+
+    const { service } = createService(root);
+    await expect(service.setEnabled({ packageName: 'vestara.missing', enabled: true })).rejects.toBeInstanceOf(MarketplaceInstallError);
+  });
 });

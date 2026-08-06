@@ -3,7 +3,7 @@ import { useParams } from 'react-router-dom';
 import type { InstalledMarketplaceAsset, MarketplaceAssetDetails } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import InstallReview from './InstallReview.js';
-import { chip, muted, panel, panelBody, panelHeader } from './styles.js';
+import { button, buttonDanger, chip, muted, panel, panelBody, panelHeader } from './styles.js';
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
@@ -33,6 +33,7 @@ export default function AssetDetail() {
   const [installed, setInstalled] = useState<InstalledMarketplaceAsset | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [showReview, setShowReview] = useState(false);
+  const [busy, setBusy] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -51,6 +52,20 @@ export default function AssetDetail() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const toggleEnabled = async () => {
+    if (!installed) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await marketplaceClient.setEnabled(installed.packageName, !installed.enabled);
+      await load();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to toggle enabled state');
+    } finally {
+      setBusy(false);
+    }
+  };
 
   if (error) return <div className="p-8 text-center text-sm text-red-300">{error}</div>;
   if (!details) return <div className={`${panel} p-8 text-center text-sm ${muted}`}>Loading asset…</div>;
@@ -73,7 +88,17 @@ export default function AssetDetail() {
         </div>
         <div className="flex items-center gap-2">
           {installed ? (
-            <span className={`${chip} text-emerald-300`}>installed {installed.installedVersion}</span>
+            <>
+              <span className={`${chip} text-emerald-300`}>installed {installed.installedVersion}</span>
+              <button
+                type="button"
+                onClick={() => void toggleEnabled()}
+                className={installed.enabled ? buttonDanger : button}
+                disabled={busy}
+              >
+                {installed.enabled ? 'Disable' : 'Enable'}
+              </button>
+            </>
           ) : (
             <button
               type="button"

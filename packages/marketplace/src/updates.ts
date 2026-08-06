@@ -17,6 +17,7 @@ export interface InstalledMarketplaceAsset {
   readonly installedVersion: string;
   readonly latestCompatibleVersion?: string;
   readonly state: MarketplaceInstallState;
+  readonly enabled: boolean;
   readonly updateStatus: MarketplaceUpdateStatus;
   readonly installedAt: string;
 }
@@ -57,6 +58,7 @@ export function projectInstalled(
       installedVersion: entry.currentVersion,
       latestCompatibleVersion: latestCompatible,
       state: projectState(entry),
+      enabled: version?.state === 'active',
       updateStatus,
       installedAt: version?.installedAt ?? '',
     });

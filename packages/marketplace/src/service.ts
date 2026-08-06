@@ -12,6 +12,7 @@ import type { MarketplaceAsset, MarketplaceAssetDetails, MarketplaceAssetVersion
 import { MarketplaceCatalog } from './catalog';
 import type { RuntimeCompatibilityContext } from './compatibility';
 import { platformToOperatingSystem } from './compatibility';
+import { type DetectionReport, DirectoryDetector, type DirectoryDetectorOptions } from './detector';
 import { errorMessage, MarketplaceError, MarketplaceInstallError, MarketplaceNotFoundError } from './errors';
 import type { MarketplaceRegistryScanResult } from './local-registry';
 import type { MarketplaceRegistry, MarketplaceRegistryStatus } from './registry';
@@ -79,6 +80,12 @@ export interface MarketplaceUninstallRequest {
 
 export interface MarketplaceVerifyRequest {
   readonly reference: MarketplaceAssetReference | string;
+}
+
+export interface MarketplaceSetEnabledRequest {
+  readonly packageName: string;
+  readonly enabled: boolean;
+  readonly workspaceId?: string;
 }
 
 export interface MarketplaceServiceOptions {
@@ -235,6 +242,43 @@ export class MarketplaceService {
       packageName: request.packageName,
       dryRun,
       correlationId: identifier('uninstall'),
+    };
+  }
+
+  async setEnabled(request: MarketplaceSetEnabledRequest): Promise<MarketplaceOperation> {
+    await this.ensureScanned();
+    const installed = this.installedMap().get(request.packageName);
+    if (!installed) throw new MarketplaceInstallError(request.packageName, undefined, 'package is not installed');
+    const version = installed.versions[installed.currentVersion];
+    const currentState = version?.state === 'active';
+    if (currentState === request.enabled) {
+      return {
+        operation: 'update',
+        status: 'completed',
+        packageName: request.packageName,
+        version: installed.currentVersion,
+        dryRun: false,
+        message: `already ${request.enabled ? 'enabled' : 'disabled'}`,
+      };
+    }
+    try {
+      if (request.enabled) {
+        await this.manager.enable(request.packageName, request.workspaceId);
+      } else {
+        await this.manager.disable(request.packageName, request.workspaceId);
+      }
+    } catch (error) {
+      throw new MarketplaceInstallError(request.packageName, undefined, errorMessage(error));
+    }
+    const projected = (await this.listInstalled()).find((item) => item.packageName === request.packageName);
+    return {
+      operation: 'update',
+      status: 'completed',
+      packageName: request.packageName,
+      version: installed.currentVersion,
+      dryRun: false,
+      correlationId: identifier('set-enabled'),
+      installed: projected,
     };
   }
 
@@ -420,6 +464,33 @@ export class MarketplaceService {
       }
     }
     this.scanned = true;
+  }
+
+  /**
+   * Detect packages in a directory and register them in the marketplace catalog.
+   *
+   * Walks the directory tree for manifest files (package.json, Cargo.toml,
+   * pyproject.toml, go.mod), generates vestara-package.json for each detected
+   * package, and upserts them into the catalog.
+   */
+  async detectAndRegister(
+    directory: string,
+    options: Partial<DirectoryDetectorOptions> = {},
+  ): Promise<DetectionReport> {
+    const detector = new DirectoryDetector({
+      publisherId: options.publisherId ?? 'local',
+      publisherName: options.publisherName ?? options.publisherId ?? 'Local',
+      vestaraVersion: options.vestaraVersion ?? this.context.vestaraVersion,
+      maxDepth: options.maxDepth,
+      skipExisting: options.skipExisting,
+    });
+    const report = await detector.detectAndRegister(directory, this.catalog);
+    await this.emit('marketplace.directory.detected', {
+      directory,
+      detected: report.detected,
+      registered: report.registered,
+    });
+    return report;
   }
 
   private installedMap(): ReadonlyMap<string, InstalledExtension> {

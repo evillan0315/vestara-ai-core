@@ -78,6 +78,7 @@ export interface InstalledMarketplaceAsset {
   installedVersion: string;
   latestCompatibleVersion?: string;
   state: string;
+  enabled: boolean;
   updateStatus: string;
   installedAt: string;
 }
@@ -158,6 +159,23 @@ export interface MarketplaceInstallBody {
   workspaceId?: string;
   dryRun?: boolean;
   approved?: boolean;
+}
+
+export interface MarketplacePublishBody {
+  sourcePath: string;
+  key?: string;
+}
+
+export interface MarketplacePublishResult {
+  packageName: string;
+  publisherId: string;
+  version: string;
+  packagePath: string;
+  targetPath: string;
+  digest: string;
+  signed: boolean;
+  signatureValid: boolean;
+  publishedAt: string;
 }
 
 export const marketplaceClient = {
@@ -264,6 +282,24 @@ export const marketplaceClient = {
 
   async rescan(): Promise<MarketplaceOperationDto> {
     const data = await request<{ operation: MarketplaceOperationDto }>('/api/marketplace/rescan', { method: 'POST' });
+    return data.operation;
+  },
+
+  async setEnabled(packageName: string, enabled: boolean): Promise<MarketplaceOperationDto> {
+    const data = await request<{ operation: MarketplaceOperationDto }>(
+      `/api/marketplace/installed/${encodeURIComponent(packageName)}`,
+      { method: 'PATCH', body: JSON.stringify({ enabled }) },
+    );
+    return data.operation;
+  },
+
+  async publish(
+    body: MarketplacePublishBody,
+  ): Promise<MarketplaceOperationDto & { published?: MarketplacePublishResult }> {
+    const data = await request<{ operation: MarketplaceOperationDto & { published?: MarketplacePublishResult } }>(
+      '/api/marketplace/publish',
+      { method: 'POST', body: JSON.stringify(body) },
+    );
     return data.operation;
   },
 };

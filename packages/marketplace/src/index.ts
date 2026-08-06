@@ -34,7 +34,19 @@ export {
   isCompatible,
   platformToOperatingSystem,
 } from './compatibility';
-
+// ─── Directory Detector ──────────────────────────────────────
+export type {
+  DetectionError,
+  DetectionReport,
+  DetectionResult,
+  DirectoryDetectorOptions,
+} from './detector';
+export { DirectoryDetector } from './detector';
+export type { GeneratedManifest, ManifestGeneratorOptions } from './detector/generator';
+export { generateManifest } from './detector/generator';
+export type { DetectedPackage, ManifestReader } from './detector/manifest-readers';
+export { detectPackageInDirectory, MANIFEST_READERS } from './detector/manifest-readers';
+export { mapPackageType } from './detector/type-mapper';
 export type {
   MarketplaceErrorCode,
   VersionConflict,
@@ -66,13 +78,20 @@ export {
 } from './executable-resolver';
 export type { MarketplaceFilters } from './filters';
 export { applyFilters } from './filters';
-
 export type {
   MarketplaceRegistryScanResult,
   MarketplaceScanIssue,
 } from './local-registry';
 export { LocalMarketplaceRegistry } from './local-registry';
-export type { GenerateKeysResult, PublishOptions, PublishResult, PublishSigning, PublishSource } from './publisher';
+export type {
+  GenerateKeysResult,
+  PublishIntoRootOptions,
+  PublishIntoRootResult,
+  PublishOptions,
+  PublishResult,
+  PublishSigning,
+  PublishSource,
+} from './publisher';
 export { MarketplacePublisher } from './publisher';
 export type {
   MarketplaceAssetReference,
@@ -110,6 +129,7 @@ export type {
   MarketplaceOperationType,
   MarketplacePermissionSummary,
   MarketplaceServiceOptions,
+  MarketplaceSetEnabledRequest,
   MarketplaceUninstallRequest,
   MarketplaceUpdateRequest,
   MarketplaceVerifyRequest,
