@@ -103,6 +103,10 @@ export class WorkerCluster implements TaskDispatcher {
       return await run(dispatcher);
     } finally {
       await this.store.releaseLease(leaseId);
+      // After releasing the lease, reconcile any draining nodes that may have
+      // finished their active work. This transitions draining → offline when
+      // the node has no remaining leases.
+      await this.registry.reconcileDraining(this.store);
     }
   }
 }

@@ -55,6 +55,107 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
     expect(reaped).toContain('node-a');
     expect((await registry.listOnline()).map((node) => node.id)).not.toContain('node-a');
   });
+
+  it('enableScheduling transitions offline → online', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-c', hostname: 'h' });
+    await registry.markOffline('node-c');
+    expect((await registry.list()).find((n) => n.id === 'node-c')?.status).toBe('offline');
+
+    const node = await registry.enableScheduling('node-c');
+    expect(node.status).toBe('online');
+  });
+
+  it('disableScheduling transitions online → draining', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-d', hostname: 'h' });
+    await registry.heartbeat({ nodeId: 'node-d', load: 0 });
+
+    const node = await registry.disableScheduling('node-d');
+    expect(node.status).toBe('draining');
+  });
+
+  it('enableScheduling throws for unknown nodes', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await expect(registry.enableScheduling('nonexistent')).rejects.toThrow(/Node not found/);
+  });
+
+  it('disableScheduling throws for unknown nodes', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await expect(registry.disableScheduling('nonexistent')).rejects.toThrow(/Node not found/);
+  });
+
+  it('enableScheduling throws when already online', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-e', hostname: 'h' });
+    await expect(registry.enableScheduling('node-e')).rejects.toThrow(/already online/);
+  });
+
+  it('disableScheduling throws when already offline', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-f', hostname: 'h' });
+    await registry.markOffline('node-f');
+    await expect(registry.disableScheduling('node-f')).rejects.toThrow(/already offline/);
+  });
+
+  it('disableScheduling throws when already draining', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-f2', hostname: 'h' });
+    await registry.disableScheduling('node-f2');
+    await expect(registry.disableScheduling('node-f2')).rejects.toThrow(/already draining/);
+  });
+
+  it('enableScheduling cancels draining → online', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-h', hostname: 'h' });
+    await registry.disableScheduling('node-h');
+    expect((await registry.list()).find((n) => n.id === 'node-h')?.status).toBe('draining');
+
+    const node = await registry.enableScheduling('node-h');
+    expect(node.status).toBe('online');
+  });
+
+  it('reconcileDraining transitions draining → offline when no active leases', async () => {
+    const store = new WorkerStore(new SQL.Database());
+    const registry = new WorkerRegistry(store);
+    await registry.register({ id: 'node-i', hostname: 'h' });
+    await registry.disableScheduling('node-i');
+    expect((await registry.list()).find((n) => n.id === 'node-i')?.status).toBe('draining');
+
+    const reconciled = await registry.reconcileDraining(store);
+    expect(reconciled).toEqual(['node-i']);
+    expect((await registry.list()).find((n) => n.id === 'node-i')?.status).toBe('offline');
+  });
+
+  it('reconcileDraining does not transition draining nodes with active leases', async () => {
+    const store = new WorkerStore(new SQL.Database());
+    const registry = new WorkerRegistry(store);
+    await registry.register({ id: 'node-j', hostname: 'h' });
+    await registry.disableScheduling('node-j');
+    await store.acquireLease({
+      leaseId: 'lease-active',
+      executionId: 'exec-1',
+      nodeId: 'node-j',
+      task: { id: 'task-1', planId: 'p', summary: 'Work', description: '', files: [], dependencies: [], status: 'pending', effort: 'medium', requiredCapabilities: [], revisionCount: 0, attemptCount: 0, createdAt: '', updatedAt: '' },
+      expiresAt: new Date(Date.now() + 60_000).toISOString(),
+    });
+
+    const reconciled = await registry.reconcileDraining(store);
+    expect(reconciled).toEqual([]);
+    expect((await registry.list()).find((n) => n.id === 'node-j')?.status).toBe('draining');
+  });
+
+  it('listOnline excludes draining nodes', async () => {
+    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    await registry.register({ id: 'node-g1', hostname: 'h1' });
+    await registry.register({ id: 'node-g2', hostname: 'h2' });
+    await registry.heartbeat({ nodeId: 'node-g1', load: 0 });
+    await registry.heartbeat({ nodeId: 'node-g2', load: 0 });
+    await registry.disableScheduling('node-g2');
+
+    const online = await registry.listOnline();
+    expect(online.map((n) => n.id)).toEqual(['node-g1']);
+  });
 });
 
 describe('WorkerScheduler (PCS-027 §6)', () => {

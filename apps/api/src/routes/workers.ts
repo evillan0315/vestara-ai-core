@@ -51,6 +51,50 @@ export async function handleWorkersRoute(
     return true;
   }
 
+  // POST /api/workers/:nodeId/scheduling/enable — enable scheduling for a node
+  const enableMatch = p.match(/^\/api\/workers\/([^/]+)\/scheduling\/enable$/);
+  if (enableMatch && method === 'POST') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const nodeId = decodeURIComponent(enableMatch[1]);
+    try {
+      const node = await ctx.workerRegistry.enableScheduling(nodeId);
+      json(res, 200, { node });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes('not found') ? 404 : message.includes('already online') ? 409 : 500;
+      json(res, status, { error: message });
+    }
+    return true;
+  }
+
+  // POST /api/workers/:nodeId/scheduling/disable — disable scheduling for a node (drain mode)
+  const disableMatch = p.match(/^\/api\/workers\/([^/]+)\/scheduling\/disable$/);
+  if (disableMatch && method === 'POST') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const nodeId = decodeURIComponent(disableMatch[1]);
+    try {
+      const node = await ctx.workerRegistry.disableScheduling(nodeId);
+      json(res, 200, { node });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const status = message.includes('not found') ? 404 : message.includes('already') ? 409 : 500;
+      json(res, status, { error: message });
+    }
+    return true;
+  }
+
+  // POST /api/workers/drain/reconcile — reconcile draining nodes (draining → offline when no active leases)
+  if (method === 'POST' && p === '/api/workers/drain/reconcile') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    if (!ctx.workerStore) {
+      json(res, 503, { error: 'worker store not configured' });
+      return true;
+    }
+    const reconciled = await ctx.workerRegistry.reconcileDraining(ctx.workerStore);
+    json(res, 200, { reconciled });
+    return true;
+  }
+
   if (method === 'POST' && p === '/api/workers/dispatch') {
     if (!requireRole(req, ctx, 'editor', res)) return true;
     const body = JSON.parse((await readBody(req)) || '{}') as Record<string, unknown>;

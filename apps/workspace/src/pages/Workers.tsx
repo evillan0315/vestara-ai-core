@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { workersApi } from '../lib/workers.js';
 
 /**
  * Workers — PCS-027 distributed worker cluster.
@@ -6,8 +7,6 @@ import { useCallback, useEffect, useState } from 'react';
  * Lists registered worker nodes (status, load, capabilities, executors,
  * heartbeat) and active task leases. Nodes connect over /ws/worker.
  */
-
-const API = '/api/workers';
 
 interface WorkerNode {
   id: string;
@@ -26,16 +25,6 @@ interface TaskLease {
   nodeId: string;
   task: { summary: string };
   expiresAt: string;
-}
-
-async function fetchJson<T>(path: string): Promise<T | null> {
-  try {
-    const res = await fetch(path);
-    if (!res.ok) return null;
-    return (await res.json()) as T;
-  } catch {
-    return null;
-  }
 }
 
 const NODE_STATUS_BADGE: Record<string, string> = {
@@ -59,16 +48,13 @@ export default function WorkersPage() {
   const [online, setOnline] = useState(0);
   const [leases, setLeases] = useState<TaskLease[]>([]);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [nodeData, leaseData] = await Promise.all([
-      fetchJson<{ nodes: WorkerNode[]; online: number }>(`${API}/nodes`),
-      fetchJson<{ leases: TaskLease[] }>(`${API}/leases`),
-    ]);
-    if (nodeData) {
-      setNodes(nodeData.nodes ?? []);
-      setOnline(nodeData.online ?? 0);
-    }
+    const [nodeData, leaseData] = await Promise.all([workersApi.listNodes(), workersApi.listLeases()]);
+    setNodes(nodeData.nodes ?? []);
+    setOnline(nodeData.online ?? 0);
     setLeases(leaseData?.leases ?? []);
     setLoading(false);
   }, []);
@@ -78,6 +64,23 @@ export default function WorkersPage() {
     const timer = setInterval(() => void refresh(), 10_000);
     return () => clearInterval(timer);
   }, [refresh]);
+
+  const toggleScheduling = async (nodeId: string, enable: boolean) => {
+    setBusy(nodeId);
+    setError(null);
+    try {
+      if (enable) {
+        await workersApi.enableScheduling(nodeId);
+      } else {
+        await workersApi.disableScheduling(nodeId);
+      }
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : 'Failed to toggle scheduling');
+    } finally {
+      setBusy(null);
+    }
+  };
 
   return (
     <div>
@@ -95,6 +98,10 @@ export default function WorkersPage() {
           ↻ Refresh
         </button>
       </div>
+
+      {error && (
+        <div className="mb-3 text-xs text-red-300 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2">{error}</div>
+      )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
         <StatCard label="Nodes" value={nodes.length} accent="#8b5cf6" />
@@ -143,6 +150,27 @@ export default function WorkersPage() {
                   <p className="text-[10px] text-(--vestara-text-dim) mt-1">
                     heartbeat {new Date(node.lastHeartbeatAt).toLocaleTimeString()} · registered {new Date(node.registeredAt).toLocaleString()}
                   </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  {node.status === 'online' ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggleScheduling(node.id, false)}
+                      disabled={busy !== null}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-amber-800 bg-amber-950/40 text-amber-300 hover:bg-amber-900/40 disabled:cursor-not-allowed disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      {busy === node.id ? '…' : 'Disable scheduling'}
+                    </button>
+                  ) : node.status === 'draining' || node.status === 'offline' ? (
+                    <button
+                      type="button"
+                      onClick={() => void toggleScheduling(node.id, true)}
+                      disabled={busy !== null}
+                      className="text-xs px-3 py-1.5 rounded-lg border border-emerald-800 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/40 disabled:cursor-not-allowed disabled:opacity-50 transition-colors cursor-pointer"
+                    >
+                      {busy === node.id ? '…' : 'Enable scheduling'}
+                    </button>
+                  ) : null}
                 </div>
               </div>
             </div>

@@ -51,9 +51,56 @@ export class WorkerRegistry {
     const nodes = await this.store.listNodes();
     const cutoff = Date.now() - this.heartbeatTtlMs;
     return nodes.filter((node) => {
-      if (node.status === 'offline' || node.status === 'draining') return node.status === 'draining';
+      if (node.status === 'offline' || node.status === 'draining') return false;
       return new Date(node.lastHeartbeatAt).getTime() >= cutoff;
     });
+  }
+
+  /**
+   * Enable scheduling for a node — transitions offline/draining → online.
+   * If the node is draining, this cancels the drain. Returns the updated node.
+   * Throws if the node is not registered or already online.
+   */
+  async enableScheduling(nodeId: string): Promise<WorkerNode> {
+    const node = await this.store.getNode(nodeId);
+    if (!node) throw new Error(`Node not found: ${nodeId}`);
+    if (node.status === 'online') throw new Error(`Node is already online: ${nodeId}`);
+    await this.store.markStatus(nodeId, 'online');
+    return (await this.store.getNode(nodeId))!;
+  }
+
+  /**
+   * Disable scheduling for a node — transitions online → draining.
+   * Once active tasks reach zero, the node transitions to offline via
+   * `reconcileDraining()`. Returns the updated node.
+   * Throws if the node is not registered, already offline, or already draining.
+   */
+  async disableScheduling(nodeId: string): Promise<WorkerNode> {
+    const node = await this.store.getNode(nodeId);
+    if (!node) throw new Error(`Node not found: ${nodeId}`);
+    if (node.status === 'offline') throw new Error(`Node is already offline: ${nodeId}`);
+    if (node.status === 'draining') throw new Error(`Node is already draining: ${nodeId}`);
+    await this.store.markStatus(nodeId, 'draining');
+    return (await this.store.getNode(nodeId))!;
+  }
+
+  /**
+   * Reconcile draining nodes — transitions draining → offline when the node
+   * has no active leases. Called after lease release to complete the drain.
+   * Returns the ids of nodes that transitioned to offline.
+   */
+  async reconcileDraining(store: { listActiveLeases(nodeId?: string): Promise<readonly { nodeId: string }[]> }): Promise<string[]> {
+    const nodes = await this.store.listNodes();
+    const draining = nodes.filter((node) => node.status === 'draining');
+    const reconciled: string[] = [];
+    for (const node of draining) {
+      const leases = await store.listActiveLeases(node.id);
+      if (leases.length === 0) {
+        await this.store.markStatus(node.id, 'offline');
+        reconciled.push(node.id);
+      }
+    }
+    return reconciled;
   }
 
   /** Mark nodes whose heartbeat lapsed as offline. Returns the ids. */
