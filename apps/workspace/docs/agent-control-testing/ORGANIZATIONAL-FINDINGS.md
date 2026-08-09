@@ -440,6 +440,30 @@ anything else change?" — closes the loop that started this experiment.
 **Status:** VE-4 complete. VE-5 is the next boundary; design recorded, not
 implemented.
 
+## VE-5 COMPLETE — the first write boundary is proven
+
+**VE-5 result (recorded):** configuration-first apply — a tiny declarative
+visual configuration keyed by instance id, consumed by the Activity components
+through React (no TSX rewrite). Apply preserves Design Intent scope exactly
+(instance scope representable; **refusal** for unrepresentable scope, rather
+than broadening). Previous value retained as an AppliedChange record and
+**Undo** restores it.
+
+- The running React UI reflects the configuration (applied alignment persists
+  after Visual Edit is toggled off — config-driven, not transient preview).
+- Source TSX not rewritten (variant class unchanged).
+- Undo restores the previous rendered state.
+- Refusal exercised: a no-instance component (Activity Composer) is refused.
+
+The pipeline has now crossed from **observation** to **mutation**: Vestara can
+answer both "what did you ask me to do?" and "what did I actually change?"
+(an Application Record: target / property / before / after / scope / appliedBy /
+mechanism).
+
+**Status:** VE-5 complete. VE-6 (verify implemented vs intended, including
+"did anything else change?") is the next, deliberately not started — too
+important to treat as cleanup.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
