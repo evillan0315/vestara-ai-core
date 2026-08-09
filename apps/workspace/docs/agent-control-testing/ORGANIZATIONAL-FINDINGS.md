@@ -335,6 +335,35 @@ the decisive experiment).
 Visual Edit implementation authorized until the plan is reviewed and a phase is
 explicitly approved.
 
+## Visual grounding hypothesis — VE-1 SUPPORTED
+
+**VE-1 result (recorded):** the first Visual Edit experiment — can Vestara
+reliably identify what the human is pointing at in the rendered application?
+
+- Mechanism: four Activity Room semantic targets declare their identity on the
+  rendered element (`data-ve-target` / `data-ve-name`); a read-only overlay
+  highlights the hovered element's actual rendered bounding rect and identifies
+  it on click. No manipulation, no persistence, no source mutation.
+- Technical verification: PASS — real-browser hover boundary matches the
+  visible element; click identifies the correct semantic component; nested
+  controls resolve to the nearest semantic target (a pointer on the Reference
+  action correctly yields "Activity Message", not the deepest DOM node); normal
+  behavior preserved when disabled.
+- Director perceptual verification: PASS — "It's perfect!"
+- **Visual grounding hypothesis: SUPPORTED** for the initial Activity Room
+  semantic targets (Activity Composer, Activity Stream, Activity Message,
+  Organizational Event). Not universal arbitrary-component grounding — exactly
+  enough evidence for this phase.
+
+**Meaning:** the translation loss from the failed convergence experiment has a
+demonstrated alternative: humans can point at the object they mean, and Vestara
+understands it directly — "You see problem → screenshot → describe → interpret
+→ describe again" is replaced by "point → Vestara says what you meant."
+
+**Status:** VE-1 complete. VE-2 (preview-only manipulation: Alignment /
+Density / Presentation on the selected element, no source changes) is the next
+experiment.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
