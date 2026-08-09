@@ -464,6 +464,25 @@ mechanism).
 "did anything else change?") is the next, deliberately not started — too
 important to treat as cleanup.
 
+## VE-6 COMPLETE — the closed loop
+
+**VE-6 result (recorded):** the visual verifier reads the DOM (not the config
+store) and proves the rendered result matches the confirmed intent — per
+dimension (alignment → align-self, density → padding, presentation →
+background-color), scope (changed matching instances = 1, unexpected changed =
+0), and behavioral integrity (target rendered, action present, stream intact).
+VERIFIED on match; **PARTIAL on drift** (a manual override is detected) — it
+does not trust the config store.
+
+The full Visual Edit sequence is now an end-to-end primitive:
+
+> **See → Point → Manipulate → Understand → Confirm → Propose → Apply → Verify**
+
+The failed Activity Room UI experiment produced a mechanism for humans and AI
+developers to establish **shared visual intent** — the UI itself is becoming
+the communication surface. Next (separate phase, not folded in): durable
+persistence of approved visual decisions across reloads.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
