@@ -387,6 +387,28 @@ it to look like (VE-2) → what Vestara understands you requested (VE-3).
 **Status:** VE-2 complete (supported). VE-3 built for inspection; no source
 changes, no persistence, no Apply to Similar yet.
 
+## VE-4 — Implementation Proposal (Design Intent → architecture bridge)
+
+VE-4 is the boundary where the experiment stops being only a UX experiment: it
+resolves a confirmed Design Intent into the actual component architecture
+without mutating source. The smallest mechanism is a semantic-target → source
+manifest (Activity Composer → `ActivityComposer.tsx`, Activity Message /
+Organizational Event → `ActivityItem.tsx` variant, Activity Stream →
+`ActivityStream.tsx`) plus a proposal builder producing: Resolved target,
+Affected source, Proposed implementation, Expected visual outcome, Scope:
+instance, Risk, Unrelated behavior, Verification. The human inspects the
+proposal before any Apply.
+
+**Design Intent is becoming a UI modification language** — human-intent
+representation for presentation (not CSS/Tailwind/React props), consumable by
+multiple implementations. Future scope model recorded (instance / component /
+semantic-group / page / workspace); configuration-first direction recorded
+(declarative presentation changes routed to config, not generated code).
+
+**Status:** VE-3 technical pass (perceptual test pending on the Director);
+VE-4 proposal-only built (no source mutation). VE-5 (visual verification of
+implemented vs intended) is the eventual loop-closing experiment.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
