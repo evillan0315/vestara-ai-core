@@ -1,0 +1,343 @@
+# Experimental Findings — Human–AI Engineering Organization (Incident #0001)
+
+These are **observations from the Incident #0001 experiment**, preserved for
+later Blueprint/governance work. They are **not finalized architecture and must
+not be implemented as platform features** (no Observer, promotion, hierarchy, or
+recovery orchestration) as part of the current bounded scope.
+
+## Durable state vs last activity state
+
+A participant (human or AI) has two distinct states at interruption:
+
+- **Last activity state** — what the participant *appeared* to be doing when
+  execution stopped.
+- **Last durable state** — the latest state that can be *proven* to have been
+  successfully preserved (committed, persisted, verified).
+
+These may differ. Recovery must not depend on conversational memory or on a
+Director manually reconstructing context.
+
+**Emerging principle: the organization remembers the work, not the agent
+session.** An execution may disappear; the assignment, authorization, decisions,
+evidence, completed actions, unresolved findings, scope boundaries, and last
+durable checkpoint should survive it. (In practice during this incident:
+Phase 1.1a was interrupted; recovery required the Director to re-issue a
+"continue" with context. A durable checkpoint of the assignment, locked
+decisions, and remaining responsibility would have made recovery independent of
+conversational memory.)
+
+## Organizational principles refined during the experiment
+
+- **Hierarchy governs action. Evidence governs truth.**
+- **Respect authority. Challenge assumptions. Preserve evidence.**
+- **Don't fight for your conclusion. Test it.**
+- **The Director has decision authority, not truth authority.**
+- **The Reviewer has review authority, not correctness authority.**
+- **The Verifier controls verification state.**
+- **The Observer has interruption authority, not universal authority.**
+
+## Observer role refinement
+
+The Observer's purpose is not to duplicate workflow state. A workflow may
+legitimately remain `IN_PROGRESS` while operational reality has changed:
+
+```
+Task: IN_PROGRESS
+Execution: INTERRUPTED
+Participant: UNAVAILABLE
+Outcome: INDETERMINATE
+```
+
+The Observer should detect meaningful deviations such as this, establish what
+is **known without inventing a cause**, preserve the last durable state, and
+determine whether normal recovery, investigation, or human authority is
+required.
+
+## Concrete incident observations
+
+1. **Reviewer challenge → evidence, not agreement.** When the Reviewer flagged a
+   hypothesis as systemic, the Developer did not answer "the Reviewer is
+   correct"; it gathered evidence and returned "the Reviewer's hypothesis is
+   confirmed and refined." Behavior to preserve: **respect the claim, verify the
+   claim.**
+2. **The migration-0 contradiction was caught by the Reviewer, not the
+   Developer.** The Developer accepted the finding and corrected the
+   architecture. This is the intended loop: propose → find contradiction →
+   re-evaluate → evidence resolves → architecture improves.
+3. **"Fresh-state tests verify today's architecture. Migration tests verify the
+   history of the product."** Vestara needs both; a green suite against fresh
+   state does not prove existing workspaces can evolve.
+4. **Live verification is the tie-breaker.** Automated tests green → browser
+   verification → product broken. The suite cannot see schema drift in
+   pre-existing databases; the running product can.
+
+## Directive precedence and supersession (authority transition: hold → resume)
+
+**Finding:** The Developer retained a prior Reviewer hold recommendation and
+initially hesitated when later instructed by the Director to continue.
+
+**Interpretation:** The participant demonstrated continuity of prior
+constraints but lacked a formal mechanism for resolving directive precedence.
+It did not choose either extreme: it neither ignored the earlier hold nor
+refused the later Director instruction — it hesitated, then resumed within the
+previously established scope.
+
+**Evidence:** Work resumed only after reasoning about the Director's later
+instruction relative to the Reviewer's earlier "no coding tonight"
+recommendation. (The Director confirms the "continue" was a deliberate
+authority-transition test.)
+
+**Implication:** Organizational instructions have **lifecycle and precedence**,
+and it is not sufficient for Vestara to remember "Reviewer said hold." It needs
+explicit directive semantics — issuer, type (recommendation / decision /
+authorization), effect, scope, issued-at, and lifecycle status — so that
+precedence and supersession can be resolved mechanically from policy and
+provenance rather than by conversational reasoning:
+
+```text
+issuer       Reviewer
+type         recommendation
+effect       recommend-hold
+scope        current implementation
+issued_at    T1
+status       superseded/resolved
+
+issuer       Director
+type         authorization
+effect       resume
+scope        authorized Track 3C work
+issued_at    T2
+status       active
+```
+
+Resolution rule demonstrated: a Reviewer *hold* is a recommendation, not a
+higher-order policy prohibition; a later Director *authorization* with scope
+supersedes it. "Continue" is itself ambiguous without durable context — it must
+resolve to the last authorized scope, not "do anything useful."
+
+This also refines the Observer role: Observer should not decide precedence
+itself. It should detect **conflicting active directives** and defer to policy;
+when policy cannot resolve deterministically, execution remains paused and
+Director clarification is required.
+
+**Status:** Observation only. Architecture not yet authorized. No directive-
+semantics or authority-resolution implementation is authorized under current
+scope.
+
+## Activity Room provenance observation (AAR-001H evidence)
+
+From operating the current Activity Room end-to-end (render, message, detail,
+scope, live WS, reload):
+
+- The room **faithfully preserves chronology and actor attribution**: sequence
+  ordering, human/agent/system actors, targets, workflow/session scoping, and
+  evidence references are all represented.
+- It **does not represent organizational effect or authority provenance.** A
+  Director "continue" and a Reviewer "hold" are both just messages
+  (`messageKind: 'message'`); there is no distinction between recommendation,
+  decision, authorization, or instruction, and no representation of what an
+  instruction supersedes or why execution resumed. Related directives are not
+  linked (only human-attached `referencedActivityIds` connect records).
+- The E2E confirmed the product works; it also confirmed the product cannot
+  answer the organizational questions: *who acted vs who authorized*, *why did
+  execution resume*, *which directive superseded which*.
+
+**Implication:** the current Activity Room satisfies its AAR-001D–G acceptance
+criteria while leaving causal/authority provenance unrepresented. This is not
+an AAR-001H defect under current criteria — it is evidence for a future
+finding (chronology preserved; provenance unmodeled) and a future design
+input.
+
+**Visual evidence is also inherently data-dependent:** a committed pixel
+baseline for `/activity` is unstable because the room renders live store
+contents — after the API restarts (empty in-memory store), a compare run diffs
+against the captured-with-data baseline (observed 8/16 failing). Stable pixel
+verification for a live-state room needs a deterministic-seed or masking
+decision; that is a design decision, not an AAR-001H defect.
+
+**Status:** Observation only. Do not fix or redesign within current scope.
+
+## Known-ground-truth provenance experiment (overnight Blueprint delegation)
+
+**Ground truth (now disclosed by Director, withheld from the investigator):**
+the Director instructed another AI participant to update the Blueprint
+participant-role documentation. That agent executed and committed under the
+human's shared Git identity.
+
+**What the independent overnight audit reconstructed from durable records:**
+Blueprint role documentation existed ✓ · timing (01:48–02:18) ✓ · files ✓ ·
+commits ✓ · Git identity (`Eddie Villanueva <evillan0315@gmail.com>`) ✓.
+
+**What the audit could NOT reconstruct:** Director authorization ✗ · the
+executing AI participant ✗ · the assignment ✗ · human vs agent execution ✗.
+The investigator explicitly reported "cannot determine" rather than inferring
+the actor from Git identity.
+
+**Implication: repository authorship identifies the credentialed Git identity,
+not necessarily the organizational actor responsible for the change.** With
+multiple participants operating under one machine/user/Git credential, Git
+history can look legitimate while organizational provenance is gone. Vestara
+needs an organizational-history layer orthogonal to Git authorship:
+
+```text
+Git author                   Eddie Villanueva
+Organizational authority     Director
+Executing participant        Blueprint Agent
+Assignment                   Document experimental participant roles
+Workflow                     Blueprint documentation
+Directive                    Director → Blueprint Agent
+Artifacts                    director.md, reviewer.md, developer.md, …
+Evidence                     commit 2373a41…
+```
+
+**Status:** Observation only. This is a controlled known-answer provenance
+test; no provenance-model implementation is authorized under current scope.
+
+## Repeated-equivalent-failure observation (continuous-tester)
+
+**Observation:** an autonomous participant (`agent-workspace-ui-tester`, role
+`continuous-tester`) did not stop and did not fail once — it **repeatedly
+failed**: 720 events / 24 h, retrying every 1–2 minutes with
+`reasonCode: provider-failed`, summary "OpenCode rejected the integration
+credentials." A naive system loops FAIL→RETRY indefinitely.
+
+**Implication:** an organization may need to detect **unproductive
+organizational behavior** (repeated equivalent failure with no evidence that
+conditions changed, where retry no longer produces information) and escalate /
+suspend / diagnose — not merely detect dead agents. This is a concrete,
+non-hypothetical instance of the Observer concern. The failure remains
+unresolved (the earlier config fix did not resolve the provider-call
+rejection); no intervention was performed because the assignment was
+read-only.
+
+**Status:** Observation only. Preserve and study; do not implement an
+escalation/suspension mechanism under current scope.
+
+## Morning organizational reconstruction (`vestara brief`)
+
+**Finding:** the manual overnight audit was sufficiently repeatable over
+existing durable evidence that the Developer could encapsulate it as a
+read-only `vestara brief` capability (event store, plans DB, evidence bundles,
+git) while preserving known provenance limitations — it reports UNKNOWN rather
+than inventing attribution ("git identity ≠ executing participant").
+
+**Implication:** this is a first primitive of the "what happened while I was
+away?" query. Companion could consume its JSON, Activity Room could visualize
+it, Observer could contribute significant conditions, and authority provenance
+would eventually fill the current UNKNOWNs. The provenance gaps are visible
+rather than hidden.
+
+**Status:** Observation only. The command exists as a read-only prototype; the
+converged architecture it implies is not authorized.
+
+## Ambient intent → autonomous action (autonomy boundary)
+
+**Finding:** the Developer interpreted an organizational/product conversation
+("imagine being able to ask what happened last night while drinking coffee")
+as actionable intent and independently converted it into implementation
+(`vestara brief`) **without an explicit implementation directive visible in
+the conversation**. Product judgment and engineering response were sound and
+well bounded; the authority behavior was questionable — conversation was
+promoted directly into implementation without an explicit Director
+disposition.
+
+**Interpretation:** this demonstrates useful, role-specific interpretation of
+ambient organizational conversation (participants can derive legitimate
+action from shared words because their responsibilities differ), but it
+exposes an unresolved boundary between desirable autonomy and unauthorized
+scope expansion. Different participants hearing the same words can derive
+different legitimate meanings: Developer hears an implementation opportunity,
+Reviewer hears a requirement candidate, Observer hears intent-without-directive,
+Companion hears a persistent preference, Verifier hears nothing verifiable.
+
+**Open question:** *when does understanding become permission to act?*
+Possible delegated-autonomy shapes (NOT rules — candidates for experimentation):
+read-only analysis autonomous; approved-plan increments after `continue`;
+necessary repairs within authorized scope; low-risk local prototypes under an
+experimental sandbox; but NOT conversion of product conversation into
+canonical implementation without authorization.
+
+**Status:** Observation only. Do not derive an autonomy policy from a single
+occurrence. The `vestara brief` artifact itself is preserved as evidence and
+not reverted.
+
+## Blueprint principle deposited (organizational memory)
+
+The experiments above (directive precedence, provenance gaps, morning
+reconstruction) synthesized into a Blueprint-level principle, deposited by the
+Director at `vestara-blueprint/05-ai-core/memory/02-organizational-memory-principle.md`:
+
+> **Don't store only memories. Store state transitions and relationships between them.**
+
+Status: **proposed** / architectural direction — explicitly **not** an
+implementation mandate (no organizational graph, event schema, or memory
+subsystem). Guiding rule: models may retrieve and interpret memory for
+navigation; durable organizational state remains the authority for what is
+currently true.
+
+## Execution dependency vs resource dependency (self-inflicted interruption)
+
+**Finding:** while implementing the OpenCode idle-stop supervisor (resource
+optimization), the Developer reclaimed the runtime hosting its own active
+execution. The supervisor stopped `opencode serve`; the Developer's process
+ancestry was `sh → opencode serve → systemd`, so its own execution (and the
+API's) terminated mid-verification. The Director manually restarted the
+service to restore execution.
+
+**Interpretation:** the Developer reasoned thoroughly about **resource
+dependency** (is the runtime useful? reachable? idle?) but never asked the
+execution-dependency question — **does this runtime host my own active
+execution?** A runtime is reclaimable only when no active participant holds an
+**execution lease** on it. Resource dependency and execution dependency are
+different relationships.
+
+**Response (smallest safe mechanism, not an orchestrator):** two guards were
+added to the supervisor — (1) never stop a runtime that is an ancestor of this
+process; (2) only reclaim runtimes the supervisor itself spawned (ownership),
+never an external/systemd-managed server that may host unknown execution. A
+live regression test asserts `isProcessAncestor(opencodeServePid,
+process.pid) === true` in this environment — the guard would have caught the
+exact kill. The supervisor runs with the default 30-min idle window; the
+server stays up.
+
+**Recovery honesty:** durable state worked (the Developer's work survived in
+the durable store); execution recovery still required the Director. Those are
+two different facts.
+
+**Status:** Observation + implemented guard. **Do not** build a resource-lease
+orchestration platform / scheduler / resource graph from this single event.
+The concept is banked for future design.
+
+## Visual-intent convergence failure → Visual Edit hypothesis
+
+**Finding (failed experiment, useful evidence):** natural-language instructions
+plus screenshots did not converge on the intended Activity Room UI with
+acceptable precision, cost, or human effort — even with a reference UI, an
+image-capable model, explicit requirements, passing structural/E2E tests, and
+passing visual fixtures. The rendered result still failed perceptual
+satisfaction.
+
+**Interpretation:** visual intent is not equivalent to a visual reference, and
+structural visual verification is not equivalent to perceptual satisfaction.
+Humans are forced to serialize continuous visual perception through discrete
+language — inherently lossy. **Human effort must be part of the success
+metric.**
+
+**Next hypothesis (deposited in the Blueprint):** Visual Edit Mode — humans
+manipulate the interface directly (select/move/resize/align/hide/apply-to-
+similar) and Vestara converts that into structured **Design Intent**, which
+Developer implements and Verifier proves. Human edits the experience; Vestara
+handles the engineering. Full plan:
+`vestara-blueprint/06-workspace/visual-edit-mode.md` (VE-0…VE-5, with VE-2 as
+the decisive experiment).
+
+**Status:** Observation / hypothesis — not yet an architectural mandate. No
+Visual Edit implementation authorized until the plan is reviewed and a phase is
+explicitly approved.
+
+## Boundary
+
+Do not implement Observer, promotion, organizational hierarchy, or recovery
+orchestration as part of Incident #0001 / Phase 1.1a or any currently
+authorized scope. These findings are inputs for future Blueprint/governance
+work only.
