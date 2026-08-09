@@ -364,6 +364,29 @@ understands it directly — "You see problem → screenshot → describe → int
 Density / Presentation on the selected element, no source changes) is the next
 experiment.
 
+## VE-2 SUPPORTED + VE-3 (Design Intent) — Visual Edit experiments
+
+**VE-2 result (recorded):** preview-only manipulation — the selected element
+gains three human-level controls (Alignment, Density, Presentation), mutating
+runtime DOM styles only, never source. Director perceptual test **PASS**: "I
+think I like it very much" — controls visibly change the rendered experience
+with dramatically lower cognitive effort than describe → interpret → code →
+inspect. Two preview-mechanism limitations preserved (not implementation
+defects): Director message does not move fully right in preview; Bubble
+presentation imperfect. Contrast with the failed experiment is now concrete:
+"select → click Right → see it move" vs yesterday's loop.
+
+**VE-3 (in progress):** structured, implementation-neutral Design Intent
+derived from the manipulation — Target / Instance / Operations (alignment,
+density, presentation) / Scope: instance / Provenance: Director visual
+manipulation · VE-2 preview — rendered for human inspection before any code.
+
+**Pipeline now separated cleanly:** What you pointed at (VE-1) → what you want
+it to look like (VE-2) → what Vestara understands you requested (VE-3).
+
+**Status:** VE-2 complete (supported). VE-3 built for inspection; no source
+changes, no persistence, no Apply to Similar yet.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
