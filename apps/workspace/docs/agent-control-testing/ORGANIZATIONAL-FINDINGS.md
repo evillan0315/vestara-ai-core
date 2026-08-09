@@ -409,6 +409,37 @@ semantic-group / page / workspace); configuration-first direction recorded
 VE-4 proposal-only built (no source mutation). VE-5 (visual verification of
 implemented vs intended) is the eventual loop-closing experiment.
 
+## VE-4 PASS + VE-5 design (first write boundary)
+
+**VE-4 result (recorded):** Design Intent → Implementation Proposal resolves
+the semantic target into the actual component architecture (manifest: semantic
+target → source file) without mutating source. **Director perceptual PASS** —
+*"I can see the intent and proposal. This is good and I like it. With this
+feature, it makes the app alive."* The controlled bridge (Rendered UI →
+Semantic Target → Design Intent → Architecture Resolution → Implementation
+Proposal) avoids the dangerous DOM-element → arbitrary-source shortcut.
+
+**Safety boundary (recorded):** presentational properties (alignment, spacing,
+density, size, visibility, typography, presentation variant) may be
+direct/config-driven; behavioral concerns (events, data, logic, routing,
+permissions, state) go to the engineering workflow. Visual Edit is a dialogue
+with the running application, not a settings panel.
+
+**VE-5 — Apply (designed, not implemented):** the first write boundary.
+Configuration-first: a small declarative presentation config consumed by the
+Activity components, so a confirmed presentation-only intent becomes a Visual
+Configuration update (React renders it) rather than a TSX rewrite. First
+experiment applies exactly one confirmed presentation intent to one
+target/property set, reversible, with before/after evidence. Behavioral changes
+out of scope.
+
+**VE-6 — Verify (designed):** compare intended preview vs running UI per
+dimension (Target/Alignment/Density/Presentation/Scope), including "did
+anything else change?" — closes the loop that started this experiment.
+
+**Status:** VE-4 complete. VE-5 is the next boundary; design recorded, not
+implemented.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
