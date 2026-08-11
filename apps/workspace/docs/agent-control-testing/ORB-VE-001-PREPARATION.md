@@ -803,3 +803,57 @@ loop. Recorded as an observation only: revision ownership/convergence semantics
 are not implemented and not proposed here. No automatic revision loop.
 
 **Activity Room** preserved as the existing independent observability finding.
+
+## Run 4 — behavioral acceptance-evidence exercise (authorized, artifact untouched)
+
+Executed against the frozen Run 4 artifact via the real Workspace UI (isolated
+Vite proxy → r4 API 4002; the working-world API was never contacted). No
+patching, seeding, or storage alteration of the artifact. Evidence:
+
+```text
+initial              accent=Vestara Gold (#D4A843) · /api/settings overrideCount=0
+after UI click Amber accent=Amber (#f59e0b) DOM+CSS applied · overrideCount=0
+                     localStorage vestara-theme-settings written (client)
+after reload         accent=Amber survives — from CLIENT localStorage
+after localStorage.clear + reload
+                     accent reverts to Gold — server had nothing to restore
+```
+
+**Decisive behavioral facts:**
+1. The user-visible path (Appearance settings → click accent) **never writes the
+   server settings API**: `/api/settings` `overrideCount` stayed `0` and no
+   `appearance.theme` appeared at any point.
+2. The change survives a plain reload **only via client localStorage**
+   (`vestara-theme-settings`).
+3. With ephemeral client storage absent (the obligation's explicit case), the
+   approved change **reverts to default** — the server has nothing to restore.
+4. Root cause, behaviorally confirmed: the user-visible Appearance UI
+   (`appearance-controls.tsx`) persists only to localStorage; the developer's
+   server-write component (`components/appearance/AppearanceSettings.tsx`) is
+   **never mounted** (dead code), so its `persistThemeSettings`/`persistThemeMode`
+   are unreachable. `resolveHydratedTheme` is wired in the ThemeProvider mount
+   effect, but there is nothing on the server to hydrate from.
+
+**§16 assessment (behavioral, with provenance):**
+
+| §16 item | Determination |
+|---|---|
+| Identify/select intended UI target | SATISFIED — accent/mode controls selectable |
+| Manipulate supported visual property | SATISFIED — accent click visibly applied (CSS `--vestara-accent` → #f59e0b) |
+| Preview reflects intent | SATISFIED — change reflected immediately |
+| Apply makes confirmed intent durable | NOT SATISFIED — client localStorage only; server never written |
+| Cold reload reconstructs intended presentation | NOT SATISFIED — reverts to default when ephemeral storage is absent |
+| Undo/revert supported | INDETERMINATE — Reset control exists, not exercised |
+| Verification observes rendered result | NOT SATISFIED — no independent rendered-result observation |
+| Verification detects deliberate drift | NOT SATISFIED |
+| Unrelated targets unchanged | INDETERMINATE — only appearance touched |
+| Unsupported scope refused | INDETERMINATE |
+| No unresolved high-severity findings | NOT SATISFIED — server-durability gap is high-severity |
+
+**Determination: PRODUCT ACCEPTANCE NOT SATISFIED.** The behaviorally decisive
+point is the ephemeral-storage-absent case: the approved change does not
+survive reload from server state, because the user-visible path never persists
+to the server. This is an **integration/unreachable-wiring defect** (the
+server-write component is dead code) confirmed by browser evidence, not merely
+an evidence deficiency. The parser lifecycle finding remains separate and does
+not affect these obligations.
