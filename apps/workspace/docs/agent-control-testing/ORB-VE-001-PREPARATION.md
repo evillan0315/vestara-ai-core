@@ -389,3 +389,58 @@ immutability    Run 1 and Run 2 remain immutable, independently attributable
 
 Run 3 executes in `/home/eddie/projects/vestara-orb-ve-001-r3` (baseline
 `orb-ve-001-baseline-r3 @ 8ec4cf3`). Runs 1 and 2 are left untouched.
+
+## Run 3 — run log (execution — frozen v0.2.0)
+
+```text
+15:51:55  API + dedicated server (4001/4099) live; intent submitted (seq 1)
+15:52:27  POST /api/workflows → wf-1786463546545-1 (planner→developer→verifier→reviewer)
+15:52:27  Planner turn dispatched → ACTIVE (liveness contract holds; no wall-clock kill)
+16:01:4x  Planner COMPLETED (user-message → verification → final) — first completed stage
+         chain advanced autonomously to Developer
+16:0x     Developer ACTIVE → COMPLETED with real implementation (see diff below)
+16:2x     Verifier ACTIVE → COMPLETED
+16:3x     Reviewer ACTIVE → COMPLETED
+16:45     All four stages completed; no busy sessions; chain terminal. Organization stopped.
+```
+
+**Implementation produced (working tree, 4 files + 1 new test):**
+
+```text
+M apps/api/src/routes/verifier.ts                 verifier route durability wiring
+M apps/api/src/verifier/verifier-results-store.ts durable verdict store (+51)
+M apps/api/src/workspace-context.ts               store wiring
+M packages/evidence/src/verifier/verifier-types.ts  VerifierVerdictRecord type
+?? apps/api/__tests__/verifier-routes.test.ts     developer-authored test
+64 insertions, 23 deletions
+```
+
+The Developer independently designed persistence for the product intent through
+the verification/evidence layer ("a Director override (a visual governance-state
+change) survives process reload") — a different architecture than the reference,
+which the contract (§16) explicitly permits evaluating by behavior, not design.
+
+**Run 3 result — full autonomous pipeline convergence:**
+
+```text
+failure frontier moved again:
+  Run 1: provider discovery order (3s, first turn)
+  Run 2: 300s wall-clock stream timeout (302s, first turn)
+  Run 3: Planner, Developer, Verifier, and Reviewer ALL completed autonomously
+         with real implementation and no infrastructure failure.
+```
+
+**Not demonstrated (recorded honestly, per §15 freeze-before-compare, NOT scored):**
+- The ORB acceptance contract (§16) is not evidenced as satisfied: the
+  implementation is verifier/evidence infrastructure; no browser-observable
+  durability proof ("cold reload reconstructs intended presentation") exists.
+- The agents' `final-outcome` summary is the harness's generic "Verification
+  passed" completion label, not an agent-authored acceptance verdict.
+- Activity Room captured ONLY the product intent. The entire organizational
+  process (four agents, implementation, verification, review, terminal state)
+  was NOT visible in the room; Effective State never derived conditions. The
+  Run 1 observability gap now spans a full successful run.
+
+Per the frozen contract and authorization, the organization reached a terminal
+state and stopped; the evidence is preserved, not judged. Runs 1 and 2 remain
+immutable.
