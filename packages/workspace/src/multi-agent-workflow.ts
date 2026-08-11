@@ -19,6 +19,13 @@
 
 import type { AgentHarnessRuntime, HarnessRunResult } from '@vestara/agent-harness';
 import type { AgentEnvironment, TaskThreadId } from '@vestara/types';
+import {
+  type AcceptanceBoundary,
+  parseAcceptanceDeclaration,
+  refineAcceptanceBoundary,
+  renderAcceptanceBoundary,
+  seedAcceptanceBoundary,
+} from './acceptance-boundary';
 import type { HarnessSession } from './harness-session';
 
 export interface ChangeProjectorLike {
@@ -59,7 +66,11 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   {
     role: 'planner',
     agentId: 'agent-planner',
-    instruction: 'Analyze the goal, inspect the workspace, and produce a concrete implementation plan.',
+    instruction:
+      'Analyze the goal, inspect the workspace, and produce a concrete implementation plan. ' +
+      'After your plan, declare the acceptance boundary: list the observable acceptance ' +
+      'obligations derived from the goal, and any material uncertainties about your ' +
+      'interpretation that could affect acceptance.',
   },
   {
     role: 'developer',
@@ -70,12 +81,18 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
     role: 'verifier',
     agentId: 'agent-verifier',
     instruction:
-      'Verify the implementation: run the verification profile, check the changed files, and report findings.',
+      'Verify the implementation: run the verification profile, check the changed files, and report findings. ' +
+      'Distinguish implementation-quality verification from behavioral acceptance: state, for each acceptance ' +
+      'obligation, whether available evidence establishes it, or NOT ESTABLISHED. Build/lint/test/diff results ' +
+      'support implementation conclusions only; they do not by themselves establish product acceptance.',
   },
   {
     role: 'reviewer',
     agentId: 'agent-reviewer',
-    instruction: 'Review the diff and verification results. Approve or request revisions with specific feedback.',
+    instruction:
+      'Review the diff and verification results. Approve or request revisions with specific feedback. ' +
+      'Review against the acceptance boundary (objective and obligations), not only diff correctness. ' +
+      'Flag any interpretation, implementation, or verification that substitutes or weakens the acceptance object.',
   },
 ];
 
@@ -97,9 +114,15 @@ function stageRole(agentId: string): string {
 
 export class MultiAgentWorkflowOrchestrator {
   private readonly session: HarnessSession;
+  private readonly acceptanceBoundaries = new Map<string, AcceptanceBoundary>();
 
   constructor(private readonly options: MultiAgentWorkflowOptions) {
     this.session = options.session;
+  }
+
+  /** The durable acceptance boundary for a workflow (objective + obligations + uncertainty). */
+  acceptanceBoundary(workflowId: string): AcceptanceBoundary | undefined {
+    return this.acceptanceBoundaries.get(workflowId);
   }
 
   get changeProjector(): ChangeProjectorLike | undefined {
@@ -143,6 +166,9 @@ export class MultiAgentWorkflowOrchestrator {
     const workflowId = input.workflowId ?? nextWorkflowId();
     const stages: MultiAgentStageRecord[] = [];
     const taskId = `task-${Date.now()}`;
+    // The acceptance boundary is seeded from the authorized objective and
+    // remains the authoritative anchor for every downstream stage.
+    this.acceptanceBoundaries.set(workflowId, seedAcceptanceBoundary(workflowId, input.goal));
 
     for (const [index, spec] of input.stages.entries()) {
       const thread = this.session.harness.createThread({
@@ -200,11 +226,19 @@ export class MultiAgentWorkflowOrchestrator {
       const state = result.turn.state;
       if (state !== 'completed') return; // chain stops on non-terminal outcome
       previousOutput = result.turn.outcome?.summary ?? previousOutput;
+      // The interpreting stage may refine the acceptance boundary from its own
+      // declared output. The boundary is never derived from a stage summary.
+      this.refineFromStageOutput(workflowId, threadId, spec.role);
     }
+    const boundary = this.acceptanceBoundaries.get(workflowId);
     this.session.harness.eventBus?.emit({
       type: 'multi-agent-workflow.completed',
       source: 'multi-agent-workflow',
-      payload: { workflowId },
+      payload: {
+        workflowId,
+        conditional: boundary?.conditional === true,
+        acceptance: boundary,
+      },
     });
   }
 
@@ -213,15 +247,58 @@ export class MultiAgentWorkflowOrchestrator {
     threadId: TaskThreadId,
     previousOutput: string | undefined,
   ): Promise<HarnessRunResult> {
-    const instruction = previousOutput
-      ? `${spec.instruction}\n\nPrior stage output:\n${previousOutput}`
-      : spec.instruction;
+    const instruction = this.instructionForStage(spec, threadId, previousOutput);
     return this.session.harness.run({
       threadId,
       instruction,
       agentId: spec.agentId,
       environment: this.environment,
     });
+  }
+
+  /**
+   * Compose a stage instruction: the authoritative acceptance boundary (from
+   * the workflow record, never an upstream summary), then the stage's own
+   * instruction, then the prior implementation output as context.
+   */
+  private instructionForStage(
+    spec: MultiAgentStageSpec,
+    threadId: TaskThreadId,
+    previousOutput: string | undefined,
+  ): string {
+    const workflowId = this.workflowIdForThread(threadId);
+    const boundary = workflowId ? this.acceptanceBoundaries.get(workflowId) : undefined;
+    const parts = [];
+    if (boundary) parts.push(renderAcceptanceBoundary(boundary));
+    parts.push(spec.instruction);
+    if (previousOutput)
+      parts.push(`Prior stage output (implementation context, not authoritative):\n${previousOutput}`);
+    return parts.join('\n\n');
+  }
+
+  private workflowIdForThread(threadId: TaskThreadId): string | undefined {
+    const thread = this.session.harness.listThreads().find((candidate) => candidate.id === threadId);
+    const workflowId = thread?.metadata?.workflowId;
+    return typeof workflowId === 'string' ? workflowId : undefined;
+  }
+
+  /** Refine the boundary from the stage's declared acceptance block, if any. */
+  private refineFromStageOutput(workflowId: string, threadId: TaskThreadId, role: string): void {
+    const output = this.lastModelResponse(threadId);
+    if (!output) return;
+    const declaration = parseAcceptanceDeclaration(output);
+    if (!declaration) return;
+    const current = this.acceptanceBoundaries.get(workflowId);
+    if (!current) return;
+    this.acceptanceBoundaries.set(workflowId, refineAcceptanceBoundary(current, { ...declaration, derivedBy: role }));
+  }
+
+  private lastModelResponse(threadId: TaskThreadId): string | undefined {
+    const replay = this.session.harness.replay(threadId);
+    const items = [...replay.items].reverse();
+    const response = items.find((item) => item.kind === 'model-response');
+    const payload = response?.payload as { content?: unknown } | undefined;
+    return typeof payload?.content === 'string' ? payload.content : undefined;
   }
 
   private async syncStage(threadId: string): Promise<void> {
