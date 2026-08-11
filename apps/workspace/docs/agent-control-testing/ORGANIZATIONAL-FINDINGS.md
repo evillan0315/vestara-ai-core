@@ -702,6 +702,124 @@ responsibility, verification, reopening, human intervention, and terminal
 state naturally become understandable through the existing room. If not, we
 record exactly what's missing. Either way, no implementation in this scope.
 
+## Agent Stall / Responsibility Liveness Finding (pre-ORB)
+
+**Classification:** observational finding. Do **not** fix before ORB — let the
+experiment challenge the current system. Not a feature requirement; not to be
+implemented in any currently authorized scope (see Boundary).
+
+**Repeated observation (multiple days/tasks, not an isolated hiccup):** an
+agent can retain active responsibility while producing no terminal conclusion,
+responsibility transfer, blocked state, human request, or durable progress.
+The last visible state ends in reasoning without a terminal response.
+
+**Critical nuance:** the reasoning itself was not bad. Developer repeatedly
+reconsidered whether baseline construction was authorized, arrived close to the
+correct organizational response (create the observation protocol, then request
+explicit authorization before a consequential operation), yet never converted
+that into organizational state.
+
+> The failure was that the reasoning never became organizational state.
+
+The failure mode is a transition, not a crash:
+
+```text
+ACTIVE
+  ↓
+Reasoning
+  ↓
+Ambiguous authority
+  ↓
+Reconsider → Reconsider → Reconsider
+  ↓
+...nothing
+```
+
+vs. what the organization needs:
+
+```text
+BLOCKED
+Reason: authorization ambiguity
+Current owner: Developer
+Required resolution: Director authorization
+Needs Director: Yes
+No justified autonomous action remains.
+```
+
+**Two distinct possible causes — Activity Room should eventually make them
+distinguishable:**
+
+1. **Technical disappearance:** model invocation timeout, process death,
+   connection failure, context exhaustion, provider failure, runtime exception.
+2. **Organizational deadlock:** the agent remains cognitively active but cannot
+   confidently select an authorized next action, and no mechanism forces it to
+   yield responsibility, request clarification, declare itself blocked, or
+   terminate.
+
+**Core equation:**
+
+> `active responsibility + absence of meaningful progress ≠ in progress`
+
+The organizational model must eventually distinguish `QUIESCENT`, `WAITING`,
+`BLOCKED`, `FAILED`, and `STALLED`.
+
+**QUIESCENT vs STALLED:**
+
+```text
+No activity + no unresolved responsibility   = QUIESCENT
+No activity + unresolved responsibility      = STALLED
+```
+
+**Derivation from observable liveness evidence, not private reasoning:**
+
+```text
+Developer responsibility acquired
+  ↓
+Last durable activity: T0
+  ↓
+No new evidence / completion / responsibility transfer /
+explicit BLOCKED / human request
+  ↓
+Expected progress window exceeded
+  ↓
+STALLED condition created
+```
+
+**Observer's role boundary:** Observer may detect the condition but must not
+assume the stalled participant's engineering responsibility. Observer says:
+"the organization currently believes work is in progress, but there is no
+evidence that work is progressing." Responsibility for resolving the
+stalled-agent condition transfers elsewhere if the agent is unavailable — not
+responsibility for its engineering task.
+
+**Required response from a stalled agent (one of):** resume with evidence ·
+declare BLOCKED · request required human input · transfer responsibility ·
+report execution/runtime failure.
+
+**Activity Room should eventually expose it simply:**
+
+```text
+ORB-VE-001  STALLED
+Developer has responsibility for: Synthetic baseline preparation
+Last meaningful activity: 12 minutes ago
+No completion, transfer, block, or human request has been recorded.
+Vestara is determining why progress stopped.
+```
+
+→ then possibly `WAITING FOR HUMAN` with one precise decision question
+(e.g., "Authorize synthetic baseline construction? [Authorize] [Do not
+authorize]").
+
+**Why not fix it now:** ORB may reproduce exactly this condition. The outcome
+is evidence either way — Activity Room keeps saying `IN PROGRESS` while no one
+produces evidence, Effective State derives `STALLED`, or Vestara recognizes
+authority ambiguity and asks one precise question.
+
+**Relates to:** the earlier emerging principle — *the organization remembers
+the work, not the agent session*. An agent workflow knows who is running; an
+organization needs to know whether the participant who owns responsibility is
+actually making progress — and what to do when they aren't.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
