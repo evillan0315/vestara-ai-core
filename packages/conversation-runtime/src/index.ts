@@ -427,6 +427,12 @@ function _extractGoals(message: string): string[] {
 export type { AuditIssue, ConversationAuditReport, ConversationPackage } from './audit/scanner';
 export { ConversationScanner } from './audit/scanner';
 export { SqliteConversationStore } from './conversation-store';
+export {
+  CONVERSATION_MANIFEST,
+  CONVERSATION_SESSION_MANIFEST,
+  USER_PROFILE_MANIFEST,
+  USER_PROFILE_MIGRATIONS,
+} from './migrations';
 export type {
   GeminiConfig,
   OllamaConfig,

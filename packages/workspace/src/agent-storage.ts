@@ -37,94 +37,11 @@ export class AgentStorage {
   private db: any;
 
   constructor(db: any) {
+    // Schema evolution is owned by the migration chain, executed by each
+    // entrypoint's composition root (API workspace-context, CLI openSharedDb)
+    // BEFORE any storage constructs. AgentStorage does not mutate schema.
     this.db = db;
-    this.ensureSchema();
     this.seedBuiltIn();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        role TEXT,
-        agent_type TEXT DEFAULT 'workspace',
-        description TEXT DEFAULT '',
-        capabilities TEXT DEFAULT '[]',
-        permissions TEXT DEFAULT '[]',
-        provider TEXT DEFAULT '',
-        model TEXT DEFAULT '',
-        team_id TEXT DEFAULT '',
-        color TEXT DEFAULT '',
-        status TEXT DEFAULT 'active',
-        created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_executions (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT,
-        task TEXT,
-        input_artifacts TEXT DEFAULT '[]',
-        output_artifacts TEXT DEFAULT '[]',
-        status TEXT DEFAULT 'queued',
-        started_at TEXT,
-        completed_at TEXT,
-        result TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_teams (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        description TEXT DEFAULT '',
-        leader_agent_id TEXT DEFAULT '',
-        member_ids TEXT DEFAULT '[]',
-        shared_context TEXT DEFAULT '',
-        active_workflow_id TEXT DEFAULT '',
-        created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_schedules (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT NOT NULL,
-        task TEXT NOT NULL,
-        frequency TEXT DEFAULT 'once',
-        cron_expression TEXT DEFAULT '',
-        next_run_at TEXT,
-        last_run_at TEXT,
-        last_status TEXT DEFAULT '',
-        enabled INTEGER DEFAULT 1,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_sched_agent ON agent_schedules(agent_id);
-      CREATE INDEX IF NOT EXISTS idx_sched_next ON agent_schedules(next_run_at);
-      CREATE INDEX IF NOT EXISTS idx_exec_agent ON agent_executions(agent_id);
-      CREATE INDEX IF NOT EXISTS idx_exec_status ON agent_executions(status);
-      CREATE TABLE IF NOT EXISTS agent_memory (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT NOT NULL,
-        type TEXT DEFAULT 'observation',
-        summary TEXT DEFAULT '',
-        detail TEXT DEFAULT '',
-        tags TEXT DEFAULT '[]',
-        confidence REAL DEFAULT 0.5,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_memory_agent ON agent_memory(agent_id);
-      CREATE TABLE IF NOT EXISTS execution_sessions (
-        id TEXT PRIMARY KEY,
-        goal TEXT NOT NULL,
-        workflow_id TEXT DEFAULT '',
-        assigned_agent_ids TEXT DEFAULT '[]',
-        plan_ids TEXT DEFAULT '[]',
-        change_set_ids TEXT DEFAULT '[]',
-        verification_ids TEXT DEFAULT '[]',
-        logs TEXT DEFAULT '[]',
-        timeline TEXT DEFAULT '[]',
-        approvals TEXT DEFAULT '[]',
-        metrics TEXT DEFAULT '{}',
-        status TEXT DEFAULT 'queued',
-        created_at TEXT,
-        completed_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_exs_status ON execution_sessions(status);
-    `);
   }
 
   private seedBuiltIn(): void {
@@ -495,8 +412,8 @@ export class AgentStorage {
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO agents
-       (id, name, role, agent_type, description, capabilities, permissions, provider, model, team_id, color, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, role, agent_type, description, capabilities, permissions, provider, model, runtime_agent, team_id, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         agent.id,
         agent.name,
@@ -507,6 +424,7 @@ export class AgentStorage {
         JSON.stringify(agent.permissions),
         agent.provider ?? '',
         agent.model ?? '',
+        agent.runtimeAgent ?? '',
         agent.teamId ?? '',
         agent.color ?? '',
         agent.status,
@@ -767,6 +685,7 @@ export class AgentStorage {
       permissions: JSON.parse(row.permissions ?? '[]'),
       provider: row.provider ?? undefined,
       model: row.model ?? undefined,
+      runtimeAgent: row.runtime_agent ?? undefined,
       teamId: row.team_id || undefined,
       color: row.color || undefined,
       status: row.status,

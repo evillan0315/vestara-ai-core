@@ -10,11 +10,15 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/state-machine": "workspace:*",
     "sql.js": "^1.14.1"
   },
   "devDependencies": {
     "@types/sql.js": "^1.4.11",
+    "@vestara/opencode-runtime": "workspace:*",
+    "@vestara/opportunity-registry": "workspace:*",
+    "@vestara/verification-evidence": "workspace:*",
     "vitest": "^4.1.10"
   }
 }

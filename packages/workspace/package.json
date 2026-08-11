@@ -24,6 +24,7 @@
     "@vestara/memory": "workspace:*",
     "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/thread-runtime": "workspace:*",
     "@vestara/types": "workspace:*",
     "@vestara/understanding": "workspace:*",

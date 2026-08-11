@@ -1,5 +1,6 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { migrate } from '@vestara/sqlite-migrations';
 import type {
   AgentEnvironmentId,
   AgentRunOutcome,
@@ -16,6 +17,7 @@ import type {
   ThreadItemKind,
 } from '@vestara/types';
 import type { Database, SqlValue } from 'sql.js';
+import { THREAD_MANIFEST } from './migrations';
 
 export interface CreateThreadInput {
   readonly id?: TaskThreadId;
@@ -120,16 +122,21 @@ export class FileThreadStore implements ThreadStore {
   private constructor(
     private readonly db: Database,
     private readonly dbPath: string,
-  ) {
-    this.initializeSchema();
-  }
+  ) {}
 
   static async open(dbPath: string): Promise<FileThreadStore> {
     const initSqlJs = (await import('sql.js')).default;
     const sqlJsDir = path.dirname(require.resolve('sql.js'));
     const SQL = await initSqlJs({ locateFile: (file: string) => path.join(sqlJsDir, file) });
     const data = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : undefined;
-    return new FileThreadStore(data ? new SQL.Database(data) : new SQL.Database(), path.resolve(dbPath));
+    const raw = data ? new SQL.Database(data) : new SQL.Database();
+    migrate(raw, THREAD_MANIFEST, {
+      persist: (migrated) => {
+        fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+        fs.writeFileSync(path.resolve(dbPath), Buffer.from(migrated.export()));
+      },
+    });
+    return new FileThreadStore(raw, path.resolve(dbPath));
   }
 
   createThread(input: CreateThreadInput): TaskThread {
@@ -332,62 +339,6 @@ export class FileThreadStore implements ThreadStore {
     this.db.close();
   }
 
-  private initializeSchema(): void {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS task_threads (
-        id TEXT PRIMARY KEY,
-        task_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        status TEXT NOT NULL,
-        environment_id TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        metadata_json TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS agent_turns (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        sequence INTEGER NOT NULL,
-        state TEXT NOT NULL,
-        input TEXT NOT NULL,
-        outcome_json TEXT,
-        started_at TEXT NOT NULL,
-        completed_at TEXT,
-        UNIQUE(thread_id, sequence),
-        FOREIGN KEY(thread_id) REFERENCES task_threads(id)
-      );
-      CREATE TABLE IF NOT EXISTS thread_items (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        turn_id TEXT NOT NULL,
-        sequence INTEGER NOT NULL,
-        kind TEXT NOT NULL,
-        actor_id TEXT NOT NULL,
-        payload_json TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        correlation_id TEXT NOT NULL,
-        causation_id TEXT,
-        UNIQUE(thread_id, sequence),
-        FOREIGN KEY(thread_id) REFERENCES task_threads(id),
-        FOREIGN KEY(turn_id) REFERENCES agent_turns(id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_turns_thread ON agent_turns(thread_id, sequence);
-      CREATE INDEX IF NOT EXISTS idx_items_thread ON thread_items(thread_id, sequence);
-      CREATE INDEX IF NOT EXISTS idx_items_turn ON thread_items(turn_id, sequence);
-      CREATE TABLE IF NOT EXISTS thread_checkpoints (
-        id TEXT PRIMARY KEY,
-        thread_id TEXT NOT NULL,
-        turn_id TEXT NOT NULL,
-        reason TEXT NOT NULL,
-        snapshot_json TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        FOREIGN KEY(thread_id) REFERENCES task_threads(id),
-        FOREIGN KEY(turn_id) REFERENCES agent_turns(id)
-      );
-    `);
-    this.persist();
-  }
-
   private persist(): void {
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
     const temporaryPath = `${this.dbPath}.tmp`;
@@ -477,3 +428,4 @@ export class FileThreadStore implements ThreadStore {
     };
   }
 }
+export { THREAD_MANIFEST } from './migrations';

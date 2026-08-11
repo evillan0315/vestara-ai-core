@@ -1,7 +1,9 @@
 import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { migrate } from '@vestara/sqlite-migrations';
 import type { Database, SqlValue } from 'sql.js';
+import { WORKTREE_MANIFEST } from './migrations';
 
 export type WorkspaceLeaseStatus = 'active' | 'conflicted' | 'orphaned' | 'released';
 
@@ -49,9 +51,7 @@ export class WorktreeLeaseRuntime {
     private readonly dbPath: string,
     private readonly leaseRoot: string,
     private readonly emit?: (event: WorktreeRuntimeEvent) => void,
-  ) {
-    this.initialize();
-  }
+  ) {}
 
   static async open(options: {
     readonly dbPath: string;
@@ -62,12 +62,14 @@ export class WorktreeLeaseRuntime {
     const sqlJsDir = path.dirname(require.resolve('sql.js'));
     const SQL = await initSqlJs({ locateFile: (file: string) => path.join(sqlJsDir, file) });
     const data = fs.existsSync(options.dbPath) ? fs.readFileSync(options.dbPath) : undefined;
-    return new WorktreeLeaseRuntime(
-      data ? new SQL.Database(data) : new SQL.Database(),
-      path.resolve(options.dbPath),
-      path.resolve(options.leaseRoot),
-      options.emit,
-    );
+    const raw = data ? new SQL.Database(data) : new SQL.Database();
+    migrate(raw, WORKTREE_MANIFEST, {
+      persist: (migrated) => {
+        fs.mkdirSync(path.dirname(path.resolve(options.dbPath)), { recursive: true });
+        fs.writeFileSync(path.resolve(options.dbPath), Buffer.from(migrated.export()));
+      },
+    });
+    return new WorktreeLeaseRuntime(raw, path.resolve(options.dbPath), path.resolve(options.leaseRoot), options.emit);
   }
 
   acquire(input: AcquireLeaseInput): AgentWorkspaceLease {
@@ -224,24 +226,6 @@ export class WorktreeLeaseRuntime {
     this.db.close();
   }
 
-  private initialize(): void {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS workspace_leases (
-        id TEXT PRIMARY KEY, task_id TEXT NOT NULL, agent_id TEXT NOT NULL, repository_root TEXT NOT NULL,
-        worktree_path TEXT NOT NULL UNIQUE, branch_name TEXT NOT NULL, base_revision TEXT NOT NULL,
-        status TEXT NOT NULL, created_at TEXT NOT NULL, updated_at TEXT NOT NULL, released_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS file_leases (
-        lease_id TEXT NOT NULL, repository_root TEXT NOT NULL, file_path TEXT NOT NULL, claimed_at TEXT NOT NULL,
-        PRIMARY KEY (lease_id, file_path), FOREIGN KEY(lease_id) REFERENCES workspace_leases(id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_workspace_leases_task ON workspace_leases(task_id, status);
-      CREATE INDEX IF NOT EXISTS idx_workspace_leases_agent ON workspace_leases(agent_id, status);
-      CREATE INDEX IF NOT EXISTS idx_file_leases_owner ON file_leases(repository_root, file_path);
-    `);
-    this.persist();
-  }
-
   private updateStatus(id: string, status: WorkspaceLeaseStatus): AgentWorkspaceLease {
     this.db.run('UPDATE workspace_leases SET status = ?, updated_at = ? WHERE id = ?', [
       status,
@@ -332,3 +316,5 @@ function leaseFromRow(row: readonly unknown[] | undefined): AgentWorkspaceLease 
     releasedAt: row[10] ? String(row[10]) : undefined,
   };
 }
+
+export { WORKTREE_MANIFEST } from './migrations';

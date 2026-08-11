@@ -1,6 +1,8 @@
 import type { ConversationStore } from '@vestara/conversation';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationStatus, ConversationSummary, Message } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
+import { CONVERSATION_MANIFEST } from './migrations';
 
 let SQL: any = null;
 
@@ -55,9 +57,9 @@ export class SqliteConversationStore implements ConversationStore {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     const sql = await getDb();
+    const fs = await import('node:fs');
     if (this.dbPath) {
       try {
-        const fs = await import('node:fs');
         const buffer = fs.readFileSync(this.dbPath);
         this.db = new sql.Database(buffer);
       } catch {
@@ -67,30 +69,13 @@ export class SqliteConversationStore implements ConversationStore {
       this.db = new sql.Database();
     }
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        status TEXT NOT NULL,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS conversation_messages (
-        id TEXT PRIMARY KEY,
-        conversation_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        provider TEXT,
-        model TEXT,
-        tokens INTEGER,
-        cost REAL,
-        latency INTEGER,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_conversations_user ON conversations(user_id, updated_at DESC);
-      CREATE INDEX IF NOT EXISTS idx_conversation_messages_conv ON conversation_messages(conversation_id, created_at);
-    `);
+    migrate(this.db, CONVERSATION_MANIFEST, {
+      persist: (migrated) => {
+        if (this.dbPath) {
+          fs.writeFileSync(this.dbPath, Buffer.from(migrated.export()));
+        }
+      },
+    });
     this.initialized = true;
   }
 

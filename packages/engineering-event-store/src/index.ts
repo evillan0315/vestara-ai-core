@@ -2,9 +2,11 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { migrate } from '@vestara/sqlite-migrations';
 import type { ThreadStore } from '@vestara/thread-runtime';
 import type { AgentRunOutcome, AgentTurn, TaskThreadId, ThreadItem } from '@vestara/types';
 import type { Database, SqlValue } from 'sql.js';
+import { ENGINEERING_EVENT_MANIFEST } from './migrations';
 
 export interface EngineeringTruthEventInput {
   readonly id?: string;
@@ -153,16 +155,23 @@ export class SqliteEngineeringEventStore {
   private constructor(
     private readonly db: Database,
     private readonly dbPath: string,
-  ) {
-    this.initialize();
-  }
+  ) {}
 
   static async open(dbPath: string): Promise<SqliteEngineeringEventStore> {
     const initSqlJs = (await import('sql.js')).default;
     const sqlJsDir = path.dirname(require.resolve('sql.js'));
     const SQL = await initSqlJs({ locateFile: (file: string) => path.join(sqlJsDir, file) });
     const data = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : undefined;
-    return new SqliteEngineeringEventStore(data ? new SQL.Database(data) : new SQL.Database(), path.resolve(dbPath));
+    const db = data ? new SQL.Database(data) : new SQL.Database();
+    // Schema is owned by the migration chain (migrations.ts), run here — this
+    // file's composition root — before the store is constructed.
+    migrate(db, ENGINEERING_EVENT_MANIFEST, {
+      persist: (migrated) => {
+        fs.mkdirSync(path.dirname(path.resolve(dbPath)), { recursive: true });
+        fs.writeFileSync(path.resolve(dbPath), Buffer.from(migrated.export()));
+      },
+    });
+    return new SqliteEngineeringEventStore(db, path.resolve(dbPath));
   }
 
   append(input: EngineeringTruthEventInput): EngineeringTruthEvent {
@@ -286,40 +295,6 @@ export class SqliteEngineeringEventStore {
   close(): void {
     this.persist();
     this.db.close();
-  }
-
-  private initialize(): void {
-    this.db.run(`
-      CREATE TABLE IF NOT EXISTS engineering_events (
-        seq INTEGER PRIMARY KEY,
-        id TEXT NOT NULL UNIQUE,
-        at TEXT NOT NULL,
-        type TEXT NOT NULL,
-        source TEXT NOT NULL,
-        actor_id TEXT NOT NULL,
-        authority TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        environment_id TEXT,
-        task_id TEXT,
-        thread_id TEXT,
-        turn_id TEXT,
-        tool_call_id TEXT,
-        verification_run_id TEXT,
-        correlation_id TEXT NOT NULL,
-        causation_id TEXT,
-        payload_json TEXT NOT NULL,
-        previous_hash TEXT NOT NULL,
-        hash TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_truth_task ON engineering_events(task_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_thread ON engineering_events(thread_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_turn ON engineering_events(turn_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_tool ON engineering_events(tool_call_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_verification ON engineering_events(verification_run_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_correlation ON engineering_events(correlation_id, seq);
-      CREATE INDEX IF NOT EXISTS idx_truth_causation ON engineering_events(causation_id, seq);
-    `);
-    this.persist();
   }
 
   private persist(): void {
@@ -774,3 +749,5 @@ function projectTruthGraph(events: readonly EngineeringTruthEvent[]): Historical
   }
   return { entities: [...entities.values()], relationships: [...relationships.values()] };
 }
+
+export { ENGINEERING_EVENT_MANIFEST } from './migrations';

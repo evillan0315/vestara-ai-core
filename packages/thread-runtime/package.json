@@ -10,6 +10,7 @@
     "test": "vitest run --root ../.. packages/thread-runtime/__tests__"
   },
   "dependencies": {
+    "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/types": "workspace:*",
     "sql.js": "^1.14.1"
   },

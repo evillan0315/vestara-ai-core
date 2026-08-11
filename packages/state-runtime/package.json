@@ -13,7 +13,8 @@
     "@vestara/event-bus": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/shared": "workspace:*",
-    "sql.js": "^1.14.1"
+    "sql.js": "^1.14.1",
+    "@vestara/sqlite-migrations": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

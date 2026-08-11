@@ -21,19 +21,6 @@ export class ImpactStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS impact_assessments (
-        id TEXT PRIMARY KEY, workspace_id TEXT, plan_id TEXT,
-        target TEXT, created_at TEXT, confidence REAL,
-        scope TEXT, risk TEXT, effort TEXT, health TEXT,
-        recommendations TEXT, narrative TEXT, model_version TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_imp_ws ON impact_assessments(workspace_id);
-    `);
   }
 
   async save(a: ImpactAssessment): Promise<void> {

@@ -5,6 +5,8 @@
  *   PCS: PCS-013 — Enterprise Organizations
  */
 
+import { migrate } from '@vestara/sqlite-migrations';
+import { ENTERPRISE_MANIFEST } from './scaffold-migrations';
 import type { ApprovalPolicy, AuditEvent, EnterpriseProject, Team } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -41,25 +43,7 @@ export class EnterpriseStorage {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS teams (
-        id TEXT PRIMARY KEY, name TEXT, description TEXT,
-        members TEXT DEFAULT '[]', role TEXT DEFAULT 'engineer', created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS enterprise_projects (
-        id TEXT PRIMARY KEY, name TEXT, goal TEXT,
-        repositories TEXT DEFAULT '[]', status TEXT DEFAULT 'active', created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS approval_policies (
-        id TEXT PRIMARY KEY, name TEXT, artifact_type TEXT,
-        required_approvers INTEGER DEFAULT 1, roles TEXT DEFAULT '[]', created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS audit_events (
-        id TEXT PRIMARY KEY, actor TEXT, action TEXT,
-        resource TEXT, details TEXT, timestamp TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_audit_time ON audit_events(timestamp);
-    `);
+    migrate(this.db, ENTERPRISE_MANIFEST);
   }
 
   private seedDefaults(): void {

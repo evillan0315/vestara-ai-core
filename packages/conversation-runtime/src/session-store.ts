@@ -1,5 +1,7 @@
 import type { Logger } from '@vestara/logger';
 import type { AudioTimelineEntry, ConversationSession, Message } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
+import { CONVERSATION_SESSION_MANIFEST } from './migrations';
 
 let SQL: any = null;
 
@@ -48,9 +50,9 @@ export class SqliteConversationSessionStore {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     const sql = await getDb();
+    const fs = await import('node:fs');
     if (this.dbPath) {
       try {
-        const fs = await import('node:fs');
         const buffer = fs.readFileSync(this.dbPath);
         this.db = new sql.Database(buffer);
       } catch {
@@ -60,41 +62,11 @@ export class SqliteConversationSessionStore {
       this.db = new sql.Database();
     }
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS conversation_sessions (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        profile_id TEXT NOT NULL,
-        started_at TEXT NOT NULL,
-        ended_at TEXT,
-        context TEXT DEFAULT '{}',
-        referenced_artifacts TEXT DEFAULT '[]',
-        summaries TEXT DEFAULT '[]',
-        actions TEXT DEFAULT '[]',
-        memory_updates TEXT DEFAULT '[]'
-      );
-      CREATE TABLE IF NOT EXISTS session_transcripts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        provider TEXT,
-        model TEXT,
-        tokens INTEGER,
-        latency INTEGER,
-        created_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS session_audio_timeline (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        session_id TEXT NOT NULL,
-        timestamp TEXT NOT NULL,
-        type TEXT NOT NULL,
-        duration INTEGER,
-        data TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_sessions_user ON conversation_sessions(user_id, started_at);
-      CREATE INDEX IF NOT EXISTS idx_transcript_session ON session_transcripts(session_id, created_at);
-    `);
+    migrate(this.db, CONVERSATION_SESSION_MANIFEST, {
+      persist: (migrated) => {
+        if (this.dbPath) fs.writeFileSync(this.dbPath, Buffer.from(migrated.export()));
+      },
+    });
     this.initialized = true;
     this.logger?.info('SessionStore initialized');
   }

@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@vestara/thread-runtime": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/types": "workspace:*",
     "sql.js": "^1.14.1"
   },
