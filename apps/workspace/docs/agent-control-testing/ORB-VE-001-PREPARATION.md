@@ -857,3 +857,36 @@ to the server. This is an **integration/unreachable-wiring defect** (the
 server-write component is dead code) confirmed by browser evidence, not merely
 an evidence deficiency. The parser lifecycle finding remains separate and does
 not affect these obligations.
+
+## Post-ORB remediation — reachable durable appearance persistence (verified)
+
+**Run 4 behavioral determination accepted as conclusive. Generic invariant: an
+accepted behavior must be reachable through the actual user-visible execution
+path; dead/unmounted implementations do not satisfy acceptance.**
+
+```text
+fix         commit 5a0f71b (fix(workspace): reachable durable appearance persistence)
+            configuration: appearance.theme setting added (durable workspace
+            config). appearance-durability module: resolveHydratedTheme +
+            persistAppearanceSettings + persistThemeMode (generic). Theme
+            provider (the shared surface every appearance UI uses via
+            useTheme): setMode/applyProfile/updateSetting now persist durably;
+            mount effect reconstructs the approved appearance on reload.
+            No dead-component mounting; the real appearance-controls UI now
+            reaches the durable path.
+```
+
+**Browser verification (remediated substrate, real user-visible path):**
+
+```text
+initial             accent=Gold · overrideCount=0 · appearance.theme=""
+UI change (Emerald) accent=Emerald (#10b981) · PUT /api/settings 200 ·
+                    overrideCount=1 · appearance.theme persisted
+clear localStorage  ephemeral storage ABSENT
+reload              accent=Emerald (#10b981) reconstructed from SERVER durable
+                    state — the Run 4 failure case now passes
+```
+
+Focused tests: 7/7 (hydration parsing, invalid/absent durable state, PUT shape,
+failure handling). Build green; biome clean. Parser lifecycle finding and
+Activity Room finding remain separate. **No Run 5 preparation.**
