@@ -912,3 +912,31 @@ status        prepared — NOT started. Awaits Director authorization for Run 5.
 ```
 
 Runs 1–4 remain immutable, independently attributable evidence.
+
+## Run 5 — execution authorization
+
+```text
+authorization   Director authorization granted for ORB-VE-001 Run 5. Execute
+                the prepared fresh isolated Run 5 environment under the
+                unchanged frozen v0.2.0 contract and unchanged original
+                product intent.
+boundaries      Preserve Runs 1–4 as immutable evidence. Do not modify or
+                compensate for the parser lifecycle defect, Activity Room
+                gap, revision-loop observation, boundary restart-durability
+                limitation, uncertainty-pause limitation, or any other known
+                unresolved finding. Operate autonomously without participant
+                guidance, manual responsibility selection, retries around
+                discovered failures, acceptance coaching, or ORB-specific
+                intervention. Preserve newly evidenced boundaries.
+reporting       after termination, freeze before evaluation/remediation.
+                Report the acceptance boundary and obligations actually
+                carried, material uncertainties, stage progression, participant
+                conclusions, evidence produced, and terminal state. Then
+                evaluate §16 product acceptance independently and symmetrically
+                (SATISFIED / NOT SATISFIED / INDETERMINATE — only what the
+                evidence justifies). No remediation following Run 5 until the
+                frozen result has been reviewed.
+```
+
+Run 5 executes in `/home/eddie/projects/vestara-orb-ve-001-r5` (baseline
+`orb-ve-001-baseline-r5 @ 0067931`). Runs 1–4 left untouched.
