@@ -1,3 +1,4 @@
+import { OpenCodeIntegrationError } from '@vestara/opencode-runtime';
 import { describe, expect, it, vi } from 'vitest';
 import { OpenCodeRuntimeProvider } from '../src/runtime-provider.js';
 
@@ -7,13 +8,16 @@ function fakeEventStream(events: Array<{ type: string; payload?: Record<string, 
   })();
 }
 
-function mockClient() {
+function mockClient(providers?: Array<{ id: string; name?: string; modelCount?: number }>) {
   const calls: Array<{ method: string; body?: unknown }> = [];
   const client = {
-    listProviders: vi.fn(async () => [
-      { id: 'opencode-go', name: 'OpenCode Go', modelCount: 3 },
-      { id: 'opencode', name: 'OpenCode', modelCount: 5 },
-    ]),
+    listProviders: vi.fn(
+      async () =>
+        providers ?? [
+          { id: 'opencode-go', name: 'OpenCode Go', modelCount: 3 },
+          { id: 'opencode', name: 'OpenCode', modelCount: 5 },
+        ],
+    ),
     getHealth: vi.fn(async () => ({ healthy: true, version: '0.1.0' })),
     createSession: vi.fn(async (input: { title?: string; model?: unknown }) => {
       calls.push({ method: 'createSession', body: input });
@@ -35,6 +39,12 @@ function mockClient() {
   return { client, calls };
 }
 
+function createCallModel(calls: Array<{ method: string; body?: unknown }>): unknown {
+  const createCall = calls.find((c) => c.method === 'createSession');
+  expect(createCall).toBeDefined();
+  return (createCall?.body as { model?: unknown } | undefined)?.model;
+}
+
 describe('OpenCodeRuntimeProvider', () => {
   it('discovers providers from the runtime instead of hardcoding them', async () => {
     const { client } = mockClient();
@@ -47,7 +57,7 @@ describe('OpenCodeRuntimeProvider', () => {
     expect(models.map((m) => m.id)).toEqual(['opencode-go', 'opencode']);
   });
 
-  it('creates a session without forcing a hardcoded model and returns the streamed reply', async () => {
+  it('defaults to the runtime resolution when no explicit provider assignment is given', async () => {
     const { client, calls } = mockClient();
     const provider = new OpenCodeRuntimeProvider({ client: client as never });
 
@@ -61,13 +71,112 @@ describe('OpenCodeRuntimeProvider', () => {
 
     expect(response.content).toBe('Plan: add the endpoint');
     expect(response.provider).toBe('opencode-runtime');
-
-    const createCall = calls.find((c) => c.method === 'createSession');
-    expect(createCall).toBeDefined();
-    const body = createCall?.body as { model?: { providerID?: string } };
-    // Provider is discovered (opencode-go), model id is NOT forced.
-    expect(body?.model).toEqual({ providerID: 'opencode-go' });
+    // Discovery order must not determine execution identity: the session is
+    // created without forcing a provider, so the runtime's configured default
+    // governs.
+    expect(createCallModel(calls)).toBeUndefined();
+    expect(response.resolution).toEqual({
+      providerId: undefined,
+      reason: 'default',
+      defaultResolution: true,
+    });
     expect(client.abortSession).toHaveBeenCalledWith('session-1', expect.anything());
+  });
+
+  it('is unaffected by provider discovery order', async () => {
+    const a = mockClient([{ id: 'opencode' }, { id: 'opencode-go' }]);
+    const b = mockClient([{ id: 'opencode-go' }, { id: 'opencode' }]);
+    const pa = new OpenCodeRuntimeProvider({ client: a.client as never });
+    const pb = new OpenCodeRuntimeProvider({ client: b.client as never });
+
+    const [ra, rb] = await Promise.all([
+      pa.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+      pb.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+    ]);
+
+    expect(ra.resolution).toEqual(rb.resolution);
+    expect(createCallModel(a.calls)).toBeUndefined();
+    expect(createCallModel(b.calls)).toBeUndefined();
+    expect(createCallModel(a.calls)).toBe(createCallModel(b.calls));
+  });
+
+  it('does not force an unavailable first provider — it falls back to default resolution', async () => {
+    // Simulates the observed defect: the first discovered provider (zhipuai)
+    // is unusable. Execution must not resolve to it.
+    const { client, calls } = mockClient([{ id: 'zhipuai' }, { id: 'deepseek' }]);
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+
+    expect(createCallModel(calls)).toBeUndefined();
+    const createCall = calls.find((c) => c.method === 'createSession');
+    const model = (createCall?.body as { model?: { providerID?: string } } | undefined)?.model;
+    expect(model?.providerID).not.toBe('zhipuai');
+  });
+
+  it('uses the preferred provider when explicitly configured and discovered', async () => {
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({ client: client as never, preferredProviderId: 'opencode' });
+
+    const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+
+    expect(createCallModel(calls)).toEqual({ providerID: 'opencode' });
+    expect(response.resolution).toEqual({
+      providerId: 'opencode',
+      reason: 'preferred',
+      defaultResolution: false,
+    });
+  });
+
+  it('falls back to default when the preferred provider is not discovered', async () => {
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({
+      client: client as never,
+      preferredProviderId: 'nonexistent-provider',
+    });
+
+    const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+
+    expect(createCallModel(calls)).toBeUndefined();
+    expect(response.resolution).toEqual({
+      providerId: undefined,
+      reason: 'preferred-unavailable',
+      defaultResolution: true,
+    });
+  });
+
+  it('resolves an explicit slash-qualified model provider when discovered', async () => {
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    const response = await provider.complete({
+      model: 'opencode/deepseek-v4-flash-free',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    expect(createCallModel(calls)).toEqual({ providerID: 'opencode' });
+    expect(response.resolution).toEqual({
+      providerId: 'opencode',
+      reason: 'explicit-model',
+      defaultResolution: false,
+    });
+  });
+
+  it('falls back to default when the explicit model provider is not discovered', async () => {
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    const response = await provider.complete({
+      model: 'opencode-runtime/some-model',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    expect(createCallModel(calls)).toBeUndefined();
+    expect(response.resolution).toEqual({
+      providerId: undefined,
+      reason: 'explicit-unresolvable',
+      defaultResolution: true,
+    });
   });
 
   it('omits the model entirely when no provider is discovered', async () => {
@@ -81,9 +190,21 @@ describe('OpenCodeRuntimeProvider', () => {
     });
 
     expect(response.content).toBe('Plan: add the endpoint');
-    const createCall = calls.find((c) => c.method === 'createSession');
-    expect(createCall).toBeDefined();
-    expect((createCall.body as { model?: unknown }).model).toBeUndefined();
+    expect(createCallModel(calls)).toBeUndefined();
+    expect(response.resolution?.reason).toBe('default');
+  });
+
+  it('propagates typed upstream errors so the harness classifies the outcome', async () => {
+    const { client } = mockClient();
+    client.createSession.mockRejectedValueOnce(
+      new OpenCodeIntegrationError('OPENCODE_UPSTREAM_ERROR', 'OpenCode returned an unexpected error.', 502, true),
+    );
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    await expect(provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] })).rejects.toMatchObject({
+      code: 'OPENCODE_UPSTREAM_ERROR',
+      retryable: true,
+    });
   });
 
   it('passes the configured runtime agent to the created session', async () => {

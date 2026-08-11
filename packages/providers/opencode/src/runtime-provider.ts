@@ -41,6 +41,19 @@ export interface OpenCodeRuntimeProviderOptions {
   readonly agent?: string;
 }
 
+export type ProviderResolutionReason =
+  | 'preferred'
+  | 'preferred-unavailable'
+  | 'explicit-model'
+  | 'explicit-unresolvable'
+  | 'default';
+
+export interface ProviderResolution {
+  readonly providerId?: string;
+  readonly reason: ProviderResolutionReason;
+  readonly defaultResolution: boolean;
+}
+
 export class OpenCodeRuntimeProvider implements AIProvider {
   readonly id: string;
   readonly name: string;
@@ -145,17 +158,22 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
-    const resolvedProvider = this.resolveProvider();
-    const sessionId = await this.createSession(resolvedProvider);
+    const resolved = this.resolveProvider(request.model);
+    const sessionId = await this.createSession(resolved.providerId);
     try {
       const text = await this.streamReply(sessionId, renderPrompt(request));
       return {
         id: `ocrt-${Date.now()}`,
-        model: resolvedProvider ?? request.model,
+        model: resolved.providerId ?? request.model,
         provider: this.id,
         content: text,
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: Math.round(Date.now() - started),
+        resolution: {
+          providerId: resolved.providerId,
+          reason: resolved.reason,
+          defaultResolution: resolved.defaultResolution,
+        },
       };
     } finally {
       // Sessions are created per invocation so agent turns never share history.
@@ -196,10 +214,28 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     return this.providersPromise;
   }
 
-  /** Prefer the configured provider id, else the first discovered provider, else the runtime default. */
-  private resolveProvider(): string | undefined {
-    if (this.preferredProviderId) return this.preferredProviderId;
-    return this.models[0]?.id;
+  /**
+   * Resolve which runtime provider executes a completion. Discovery order never
+   * determines execution identity: only an explicit, demonstrably-resolvable
+   * assignment selects a provider; otherwise the runtime's configured default
+   * is used (the session is created without forcing a provider).
+   */
+  private resolveProvider(modelId: string | undefined): ProviderResolution {
+    const discovered = new Set(this.models.map((model) => model.id));
+    if (this.preferredProviderId) {
+      if (discovered.has(this.preferredProviderId)) {
+        return { providerId: this.preferredProviderId, reason: 'preferred', defaultResolution: false };
+      }
+      return { providerId: undefined, reason: 'preferred-unavailable', defaultResolution: true };
+    }
+    const explicit = explicitProviderOf(modelId);
+    if (explicit !== undefined && discovered.has(explicit)) {
+      return { providerId: explicit, reason: 'explicit-model', defaultResolution: false };
+    }
+    if (explicit !== undefined) {
+      return { providerId: undefined, reason: 'explicit-unresolvable', defaultResolution: true };
+    }
+    return { providerId: undefined, reason: 'default', defaultResolution: true };
   }
 
   private async createSession(providerId?: string): Promise<string> {
@@ -265,7 +301,20 @@ function renderPrompt(request: CompletionRequest): string {
     .join('\n\n');
 }
 
+/**
+ * Extract an explicit provider assignment from a model id. Only a
+ * slash-qualified id (`provider/model`) is treated as an explicit assignment;
+ * a bare model id carries no provider intent.
+ */
+function explicitProviderOf(modelId: string | undefined): string | undefined {
+  if (!modelId) return undefined;
+  const slash = modelId.indexOf('/');
+  if (slash <= 0) return undefined;
+  const provider = modelId.slice(0, slash);
+  return provider.length > 0 ? provider : undefined;
+}
+
 function sessionOf(event: { payload?: Record<string, unknown> }): string | undefined {
-  const value = event.payload?.['sessionID'];
+  const value = event.payload?.sessionID;
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }

@@ -84,4 +84,13 @@ export interface CompletionResponse {
     totalTokens: number;
   };
   latency: number;
+  /** How the provider resolved which upstream provider/model executed this completion (provenance). */
+  resolution?: {
+    /** Selected upstream provider id; undefined means the runtime's configured default. */
+    providerId?: string;
+    /** Why this resolution was chosen. */
+    reason: 'preferred' | 'preferred-unavailable' | 'explicit-model' | 'explicit-unresolvable' | 'default';
+    /** True when execution fell back to the runtime's configured/default resolution. */
+    defaultResolution: boolean;
+  };
 }
