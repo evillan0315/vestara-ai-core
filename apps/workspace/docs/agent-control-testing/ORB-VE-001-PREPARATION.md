@@ -323,3 +323,51 @@ organization: activated, derived stages, planner owned the first transition
 Per authorization, this is preserved as evidence and **not repaired/compensated**
 (no timeout adjustment, no retry, no guidance). The organization is stopped at
 this boundary. Run 1 evidence remains immutable.
+
+## Post-ORB substrate remediation — execution-liveness contract (verified)
+
+**Run 2 closed; evidence preserved unchanged.** Independent remediation of the
+stream-timeout boundary, generic (not tuned to ORB-VE-001):
+
+```text
+finding      Run 2: a healthy Planner turn (producing output) was killed by the
+             provider's fixed 300s wall-clock stream timeout.
+observation  live: the opencode server emits message deltas (~20ms cadence)
+             and server.heartbeat events (~8s cadence) during healthy
+             generation — a healthy connection is never silent.
+invariant    a turn is ACTIVE while upstream events arrive; only the absence of
+             activity, not elapsed wall-clock time, distinguishes a stalled or
+             dead execution from a healthy long-running one.
+fix          commit 8165acb (fix(opencode-runtime))
+             streamReply is now idle-based (streamIdleTimeoutMs default 60s →
+             STALLED), bounded by an absolute ceiling (streamMaxDurationMs
+             default 30 min → MAX DURATION), cancellation-safe (harness passes
+             its active-controller signal; caller abort → empty completion so
+             the harness classifies cancelled), and classifies a stream that
+             ends without a terminal event as connection lost. Termination
+             reasons are observable through typed errors. abortSession cleanup
+             preserved on every path.
+```
+
+**Focused verification (all passing):** completes below the threshold; stays
+alive while events flow past the old 300s boundary; genuinely stalled (no
+events → STALLED); absolute maximum duration; explicit caller cancellation;
+connection lost; cleanup after termination. Harness + provider suites green;
+biome clean; full build green. **Live:** fixed provider completed a real turn
+against a real opencode server under the liveness contract (5.6s).
+
+## ORB-VE-001 Run 3 — readiness (prepared, NOT executed)
+
+```text
+baseline      orb-ve-001-baseline-r3 @ 8ec4cf3 (orphan, experimental)
+              = Run 2 baseline + execution-liveness remediation
+environment   /home/eddie/projects/vestara-orb-ve-001-r3
+              single-branch, 0 remotes, 2100 tracked files
+residue       VE/ORB/reference-execution markers: 0
+build         tsc -b, 95 projects, exit 0
+tests         liveness + harness + Activity Room: 58/58 passed
+status        prepared — NOT started. Awaits Director authorization for Run 3.
+```
+
+Run 1 (3999/4097) and Run 2 (4000/4098) environments remain running for
+inspection of their recorded states.
