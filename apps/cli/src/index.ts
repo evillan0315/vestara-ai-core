@@ -4,6 +4,7 @@ import * as path from 'node:path';
 import { runAgentsList } from './commands/agents.js';
 import { runArchitecture, runBlueprintVerify } from './commands/architecture.js';
 import { runBenchmarkConversation } from './commands/benchmark.js';
+import { runBrief } from './commands/brief.js';
 import { runCompletions } from './commands/completions.js';
 import { runContext } from './commands/context.js';
 import { runGoldenPath } from './commands/demo.js';
@@ -181,6 +182,7 @@ function printHelp(): void {
     `    ${GREEN}doctor${RESET} [sub]       ${GRAY}Diagnostics (audio|conversation|agents|teams|models|workspace|all)${RESET}`,
   );
   console.log(`    ${GREEN}agents${RESET}             ${GRAY}List all registered agents${RESET}`);
+  console.log(`    ${GREEN}brief${RESET} [--hours=N]  ${GRAY}Overnight brief — what happened while offline${RESET}`);
   console.log(`    ${GREEN}teams${RESET} [sub]        ${GRAY}Team management (create|assign|list)${RESET}`);
   console.log(
     `    ${GREEN}session${RESET} <sub>      ${GRAY}Session management (workflows|start|list|background)${RESET}`,
@@ -225,6 +227,7 @@ function printHelp(): void {
 
 function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
+  registry.register('brief', (args) => runBrief(args));
   registry.register('screenshots', (args) => runScreenshots(args));
   registry.register('runtime', (args) => runRuntimeCommand(args));
   registry.register('host', (args) => runHostCommand(args));
@@ -353,6 +356,10 @@ export async function main() {
 
   if (args[0] === 'docs') {
     await runDocs(args.slice(1));
+    return;
+  }
+  if (args[0] === 'brief') {
+    await runBrief(args.slice(1));
     return;
   }
 

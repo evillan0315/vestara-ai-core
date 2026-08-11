@@ -38,13 +38,32 @@ import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
 import { DefaultKernel } from '@vestara/kernel';
 import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
-import { OpenAIProvider, OpenCodeGoProvider, OpenCodeProvider } from '@vestara/provider-opencode';
+import {
+  OpenAIProvider,
+  OpenCodeGoProvider,
+  OpenCodeProvider,
+  OpenCodeRuntimeProvider,
+} from '@vestara/provider-opencode';
 import { DefaultProviderManager, FileRoutingAssignmentStore, FileRoutingStore } from '@vestara/provider-runtime';
 import type { Runtime } from '@vestara/runtime';
 import type { ServiceStatus, VestaraService } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
 import { type OperationType, TelemetryRuntime } from '@vestara/telemetry';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
+import {
+  BrowserClickTool,
+  BrowserCloseTool,
+  BrowserNavigateTool,
+  BrowserScreenshotTool,
+  BrowserSession,
+  BrowserSnapshotTool,
+  BrowserTypeTool,
+  isInformationClassification,
+  isRedactionMode,
+  type OriginPolicy,
+  PlaywrightBrowserDriver,
+} from '@vestara/tools-browser';
 import { GitAddTool, GitCommitTool, GitDiffTool, GitLogTool, GitStatusTool } from '@vestara/tools-git';
 import { GovernedShellExecuteTool } from '@vestara/tools-shell';
 import type { AgentEnvironment, AgentEnvironmentId, HarnessVerificationResult } from '@vestara/types';
@@ -80,6 +99,7 @@ import {
   MemoryService,
   MilestoneService,
   MultiAgentWorkflowOrchestrator,
+  PLANS_MANIFEST,
   PlanningService,
   PlanStorage,
   ProjectService,
@@ -99,11 +119,14 @@ import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
+import { resolveVisualScenarios } from './evidence/visual-scenarios.js';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
+import { type OpenCodeRuntimeService, openCodeRuntimeService } from './opencode-runtime-service';
 import { runToolLoop } from './routes/chat';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
+import { VerifierResultsStore } from './verifier/verifier-results-store';
 import { WorkerSocketServer } from './worker/worker-socket-server';
 
 export interface WorkspaceContext {
@@ -137,6 +160,7 @@ export interface WorkspaceContext {
   evidenceBundles: BundleStore;
   evidenceBaselines: BaselineStore;
   evidencePipeline: EvidencePipeline;
+  verifierResults: import('./verifier/verifier-results-store').VerifierResultsStore;
   threadRecovery: DurableThreadRecoveryService;
   worktreeRuntime: WorktreeLeaseRuntime;
   runtime: WorkspaceRuntime;
@@ -176,6 +200,12 @@ export interface WorkspaceContext {
   settings: WorkspaceConfigurationService;
   filesystemRuntime: FilesystemRuntime;
   marketplace: MarketplaceService;
+  /** Root into which new products are registered by `POST /api/marketplace/publish`. */
+  marketplacePublishRoot: string;
+  /** Injectable live-trial runner for `POST /api/qualification/run` (tests override). */
+  qualificationLiveRunner?: (profileId: string) => Promise<void>;
+  /** Shared OpenCode runtime client used by /api/opencode, /api/agents, /api/providers. */
+  opencodeRuntime: OpenCodeRuntimeService;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -186,7 +216,7 @@ export interface WorkspaceContext {
 
 type PublishFn = (event: UiEvent) => void;
 
-async function openSqlDb(dbPath: string): Promise<unknown> {
+async function openSqlDb(dbPath: string, migrateRaw?: (raw: import('sql.js').Database) => void): Promise<unknown> {
   const path = await import('node:path');
   const initSqlJs = (await import('sql.js')).default;
   const sqlJsDir = path.dirname(require.resolve('sql.js'));
@@ -198,6 +228,11 @@ async function openSqlDb(dbPath: string): Promise<unknown> {
   } else {
     db = new SQL.Database();
   }
+  // Migrate FIRST on the raw Database, before the auto-persist wrappers are
+  // applied. The wrappers call db.export() on CREATE/DML, which sql.js commits
+  // an open transaction — incompatible with the migration runner's
+  // per-step transactions.
+  if (migrateRaw) migrateRaw(db);
   // Auto-persist: wrap exec to trigger disk write after every DML
   const origExec = db.exec.bind(db);
   db.exec = (sql: string) => {
@@ -249,6 +284,30 @@ function persistDb(db: any, dbPath: string): void {
   } catch {
     /* best-effort */
   }
+}
+
+function parseOriginPolicies(raw: string | undefined): OriginPolicy[] {
+  if (!raw) return [];
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw) as unknown;
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(parsed)) return [];
+  const policies: OriginPolicy[] = [];
+  for (const entry of parsed) {
+    if (typeof entry !== 'object' || entry === null) continue;
+    const { origin, classification, retentionPolicy, redaction } = entry as OriginPolicy;
+    if (typeof origin !== 'string' || origin.length === 0) continue;
+    policies.push({
+      origin,
+      ...(isInformationClassification(classification) ? { classification } : {}),
+      ...(typeof retentionPolicy === 'string' ? { retentionPolicy } : {}),
+      ...(isRedactionMode(redaction) ? { redaction } : {}),
+    });
+  }
+  return policies;
 }
 
 export async function createWorkspaceContext(repoPath: string, publish: PublishFn): Promise<WorkspaceContext> {
@@ -372,27 +431,35 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // verification bundle after every harness verification.
   const evidenceBundles = new BundleStore(path.join(workspaceDir, 'evidence', 'bundles'));
   const evidenceBaselines = new BaselineStore(path.join(workspaceDir, 'evidence', 'baselines'));
+  const verifierResults = new VerifierResultsStore();
   const evidenceCollectors: import('@vestara/evidence').EvidenceCollector[] = [
     new FilesystemChangeCollector(),
     new SourceDiffCollector(),
   ];
   const screenshotBase = process.env.VESTARA_SCREENSHOT_URL;
-  if (screenshotBase) {
+  const visualScenarios = resolveVisualScenarios(process.env);
+  if (screenshotBase && visualScenarios.scenarios.length > 0) {
     // PCS-026 visual leg — enabled only when a target app URL is configured and
-    // Chromium is provisioned (`npx playwright install chromium`).
+    // Chromium is provisioned (`npx playwright install chromium`). A scenario
+    // matrix (routes × viewports × themes) provisions one collector per scenario;
+    // baseline governance stays keyed per scenario.
     const { PlaywrightScreenshotSource } = await import('./evidence/playwright-screenshot-source.js');
-    evidenceCollectors.push(
-      new VisualEvidenceCollector({
-        source: new PlaywrightScreenshotSource({ baseUrl: screenshotBase }),
-        baselines: evidenceBaselines,
-        artifacts: evidenceArtifacts,
-        scenario: {
-          url: process.env.VESTARA_SCREENSHOT_ROUTE ?? '/dashboard',
-          viewport: { width: 1280, height: 800 },
-          theme: process.env.VESTARA_SCREENSHOT_THEME ?? 'dark',
-        },
-      }),
-    );
+    const source = new PlaywrightScreenshotSource({ baseUrl: screenshotBase });
+    for (const scenario of visualScenarios.scenarios) {
+      evidenceCollectors.push(
+        new VisualEvidenceCollector({
+          source,
+          baselines: evidenceBaselines,
+          artifacts: evidenceArtifacts,
+          scenario,
+        }),
+      );
+    }
+    if (visualScenarios.note)
+      kernel.logger?.info?.('visual evidence scenario matrix', {
+        note: visualScenarios.note,
+        scenarios: visualScenarios.scenarios.length,
+      });
   }
   const evidencePipeline = new EvidencePipeline({
     artifacts: evidenceArtifacts,
@@ -431,7 +498,14 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   );
   const routingAssignments = new FileRoutingAssignmentStore(path.join(workspaceDir, 'routing-assignments.json'));
   const dbPath = path.join(workspaceDir, 'plans', 'plans.db');
-  const db = await openSqlDb(dbPath);
+  // Phase 1.1a (incident #0001): the plans.db migration chain runs on the raw
+  // Database with explicit persistence before the auto-persist wrappers apply,
+  // and before any storage constructs. Idempotent; no-op when current.
+  const db = await openSqlDb(dbPath, (raw) => {
+    migrate(raw, PLANS_MANIFEST, {
+      persist: (migrated) => persistDb(migrated, dbPath),
+    });
+  });
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);
   const plans = new PlanStorage(db);
@@ -482,6 +556,34 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     tools.register(new GitLogTool());
     tools.register(new GitAddTool());
     tools.register(new GitCommitTool());
+    // Browser / computer-use tools — enabled when a base URL is configured
+    // (VESTARA_BROWSER_URL, falling back to VESTARA_SCREENSHOT_URL). The session
+    // is lazy; Chromium must be provisioned (`npx playwright install chromium`).
+    const browserBaseUrl = process.env.VESTARA_BROWSER_URL ?? process.env.VESTARA_SCREENSHOT_URL;
+    if (browserBaseUrl) {
+      const allowedOrigins = (process.env.VESTARA_BROWSER_ALLOWED_ORIGINS ?? '')
+        .split(',')
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0);
+      const classification = process.env.VESTARA_BROWSER_CLASSIFICATION;
+      const retentionPolicy = process.env.VESTARA_BROWSER_RETENTION;
+      const redaction = process.env.VESTARA_BROWSER_REDACTION;
+      const options = {
+        baseUrl: browserBaseUrl,
+        allowedOrigins,
+        originPolicies: parseOriginPolicies(process.env.VESTARA_BROWSER_ORIGIN_POLICIES),
+        ...(isInformationClassification(classification) ? { classification } : {}),
+        ...(retentionPolicy ? { retentionPolicy } : {}),
+        ...(isRedactionMode(redaction) ? { redaction } : {}),
+      };
+      const browserSession = new BrowserSession(new PlaywrightBrowserDriver(options), options);
+      tools.register(new BrowserNavigateTool(browserSession));
+      tools.register(new BrowserSnapshotTool(browserSession));
+      tools.register(new BrowserScreenshotTool(browserSession));
+      tools.register(new BrowserClickTool(browserSession));
+      tools.register(new BrowserTypeTool(browserSession));
+      tools.register(new BrowserCloseTool(browserSession));
+    }
     return tools;
   };
   const agentTools = createAgentTools(abs);
@@ -736,8 +838,12 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   };
   const agentHarness = new AgentHarnessRuntime({
     store: agentThreadStore,
-    provider: opencode,
-    model: opencode.models[0]?.id ?? 'opencode',
+    // Agents execute through the OpenCode runtime (same mechanism as the
+    // governed live trials): a runtime session per turn, replies streamed over
+    // the /event SSE endpoint until session.idle. Provider/model are discovered
+    // from the runtime (`/api/opencode/providers`), never hardcoded.
+    provider: new OpenCodeRuntimeProvider(),
+    model: 'opencode-runtime',
     tools: agentTools,
     context: harnessContext,
     verifier: harnessVerifier,
@@ -1151,32 +1257,46 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     });
   }, 30_000);
 
-  // Workspace UI Watcher — monitors workspace-ui file changes + milestone updates
-  const workspaceUiWatcher = new WorkspaceUiWatcher(abs, kernel.eventBus);
-  workspaceUiWatcher.start(async (event) => {
-    // Trigger the workspace-ui tester agent on file changes or milestone updates
-    try {
-      const session = runtime.getSession();
-      await agentRuntime.run(
-        'agent-workspace-ui-tester',
-        `Auto-triggered by: ${event.type} — ${event.detail}`,
-        session,
-      );
-    } catch {
-      // Tester may fail silently if agent is not available
-    }
-  });
+  // Workspace UI Tester auto-trigger (continuous-tester) — gated by default so
+  // the agent does not run unproductive autonomous work (its OpenCode-provider
+  // runs were failing in a loop and consuming resources without producing
+  // results). Durable participant; compute released until needed. Re-enable
+  // with VESTARA_UI_TESTER_AUTOTRIGGER=1 once the provider is healthy.
+  const uiTesterAutotriggerEnabled = process.env.VESTARA_UI_TESTER_AUTOTRIGGER === '1';
+  let workspaceUiWatcher: WorkspaceUiWatcher | undefined;
 
-  const onMilestoneUpdate = (version: string) => {
-    try {
-      const session = runtime.getSession();
-      agentRuntime
-        .run('agent-workspace-ui-tester', `Auto-triggered by milestone update: ${version}`, session)
-        .catch(() => {});
-    } catch {
-      // fail silently
-    }
-  };
+  const onMilestoneUpdate = uiTesterAutotriggerEnabled
+    ? (version: string) => {
+        try {
+          const session = runtime.getSession();
+          agentRuntime
+            .run('agent-workspace-ui-tester', `Auto-triggered by milestone update: ${version}`, session)
+            .catch(() => {});
+        } catch {
+          // fail silently
+        }
+      }
+    : undefined;
+
+  if (uiTesterAutotriggerEnabled) {
+    // Workspace UI Watcher — monitors workspace-ui file changes + milestone updates
+    workspaceUiWatcher = new WorkspaceUiWatcher(abs, kernel.eventBus);
+    workspaceUiWatcher.start(async (event) => {
+      // Trigger the workspace-ui tester agent on file changes or milestone updates
+      try {
+        const session = runtime.getSession();
+        await agentRuntime.run(
+          'agent-workspace-ui-tester',
+          `Auto-triggered by: ${event.type} — ${event.detail}`,
+          session,
+        );
+      } catch {
+        // Tester may fail silently if agent is not available
+      }
+    });
+  } else {
+    console.log('[api] UI tester auto-trigger DISABLED (set VESTARA_UI_TESTER_AUTOTRIGGER=1 to enable)');
+  }
 
   const diagnosis = await kernel.diagnose();
   if (diagnosis.health.overall === 'unhealthy') {
@@ -1210,6 +1330,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceBundles,
     evidenceBaselines,
     evidencePipeline,
+    verifierResults,
     workerSocketServer,
     workerRegistry,
     workerStore,
@@ -1252,6 +1373,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     settings,
     filesystemRuntime,
     marketplace,
+    marketplacePublishRoot: marketplaceRoots[0] ?? path.join(abs, '.vestara', 'marketplace'),
+    opencodeRuntime: openCodeRuntimeService,
     notificationService,
     milestones,
     projects,
@@ -1264,7 +1387,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsub();
       unsubscribeHarnessBridge();
       unsubscribeEngineeringMemory();
-      workspaceUiWatcher.stop();
+      workspaceUiWatcher?.stop();
       notificationService?.stop();
       persistDb(db, dbPath);
       await documentation.dispose();

@@ -13,11 +13,13 @@ import type { ActivityService } from '@vestara/activity-log';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
+import { getActivityRoom } from './activity-room';
 import { ApiError, httpMetrics, logger, requestContext, sendJson, sendNoContent } from './http';
 import { normalizeError } from './http/api-error';
 import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
 import { handleActivityRoute } from './routes/activity';
+import { handleActivityRoomRoute } from './routes/activity-room';
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
@@ -41,12 +43,14 @@ import { handleOrchestrationRoute } from './routes/orchestration';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
 import { handleProvidersRoute } from './routes/providers';
+import { handleQualificationRoute } from './routes/qualification';
 import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelemetryRoute } from './routes/telemetry';
 import { handleTuiRoute } from './routes/tui';
+import { handleVerifierRoute } from './routes/verifier';
 import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
@@ -88,6 +92,8 @@ interface RouteDef {
   handler: RouteGroup['handler'];
 }
 
+export type { RouteDef };
+
 function memAdapter(
   method: string,
   p: string,
@@ -112,7 +118,7 @@ function tuiAdapter(
   return handleTuiRoute(method, p, req, res, ctx, url);
 }
 
-const ROUTE_DEFS: RouteDef[] = [
+export const ROUTE_DEFS: RouteDef[] = [
   {
     prefixes: [
       '/api/analyze-feature',
@@ -149,8 +155,10 @@ const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/providers'], handler: handleProvidersRoute },
   { prefixes: ['/api/worktrees'], handler: handleWorktreeRoute },
   { prefixes: ['/api/workflows'], handler: handleWorkflowRoute },
+  { prefixes: ['/api/qualification'], handler: handleQualificationRoute },
   { prefixes: ['/api/orchestration'], handler: handleOrchestrationRoute },
   { prefixes: ['/api/evidence'], handler: handleEvidenceRoute },
+  { prefixes: ['/api/verifier'], handler: handleVerifierRoute },
   { prefixes: ['/api/workers'], handler: handleWorkersRoute },
   { prefixes: ['/api/routing'], handler: handleRoutingRoute },
   { prefixes: ['/api/sessions', '/api/background'], handler: handleSessionsRoute },
@@ -166,6 +174,7 @@ const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/projects', '/api/sprints'], handler: handleProjectsRoute },
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
   { prefixes: ['/api/activity-log', '/api/activity'], handler: handleActivityRoute },
+  { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },
   { prefixes: ['/api/agent-threads'], handler: handleAgentHarnessRoute },
   { prefixes: ['/api/notifications'], handler: handleNotificationsRoute },
   { prefixes: ['/api/approvals', '/api/artifacts', '/api/memory'], handler: memAdapter },
@@ -475,9 +484,7 @@ export function createServer(
     const statusCode = headerOverflow ? 431 : 400;
     const statusText = headerOverflow ? 'Request Header Fields Too Large' : 'Bad Request';
     const code = headerOverflow ? 'HEADER_TOO_LARGE' : 'BAD_REQUEST';
-    const data = Buffer.from(
-      JSON.stringify({ error: { code, message: 'Malformed HTTP request.', requestId: '' } }),
-    );
+    const data = Buffer.from(JSON.stringify({ error: { code, message: 'Malformed HTTP request.', requestId: '' } }));
     if (socket.writable) {
       socket.write(
         `HTTP/1.1 ${statusCode} ${statusText}\r\nContent-Type: application/json\r\nContent-Length: ${data.length}\r\nConnection: close\r\n\r\n`,
@@ -499,6 +506,7 @@ export function createServer(
     workerWss = new WebSocketServer({ noServer: true });
     ctx.workerSocketServer.attach(workerWss);
   }
+  const activityWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
 
   server.on('upgrade', (req, socket, head) => {
     let pathname = '/';
@@ -514,6 +522,10 @@ export function createServer(
     }
     if (pathname === '/ws') {
       wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
+      return;
+    }
+    if (pathname === '/ws/activity') {
+      activityWss.handleUpgrade(req, socket, head, (ws) => activityWss.emit('connection', ws, req));
       return;
     }
     socket.destroy();
@@ -580,6 +592,51 @@ export function createServer(
         durationMs: Date.now() - connectAt,
       });
     });
+  });
+
+  // ─── Activity Room stream (/ws/activity) ─────────────────────────
+  // Recovery is history-first: the client subscribes with its last seen
+  // sequence, missed records are replayed from the persisted store, and live
+  // delivery resumes from the same boundary through the broadcast hub.
+  activityWss.on('connection', (ws) => {
+    const activityRoom = getActivityRoom();
+    let attachedId: string | undefined;
+    ws.on('message', (data: RawData) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data.toString('utf8'));
+      } catch {
+        wsSend(ws, { op: 'error', error: 'invalid message' });
+        return;
+      }
+      if (parsed === null || typeof parsed !== 'object') return;
+      const message = parsed as Record<string, unknown>;
+      if (message.op === 'activity-subscribe') {
+        const afterSequence =
+          typeof message.afterSequence === 'number' && Number.isFinite(message.afterSequence)
+            ? Math.max(0, Math.floor(message.afterSequence))
+            : 0;
+        void activityRoom.store.list({ afterSequence, limit: 1000 }).then((page) => {
+          if (ws.readyState !== WebSocket.OPEN) return;
+          for (const record of page.records) {
+            wsSend(ws, { type: 'activity.appended', sequence: record.sequence, activity: record });
+          }
+          const last = page.records.at(-1)?.sequence ?? afterSequence;
+          attachedId = `activity-${connectionIdOf(ws)}`;
+          activityRoom.hub.attach(attachedId, { send: (streamMessage) => wsSend(ws, streamMessage) }, last);
+        });
+        return;
+      }
+      if (message.op === 'activity-unsubscribe') {
+        if (attachedId !== undefined) activityRoom.hub.detach(attachedId);
+        attachedId = undefined;
+      }
+    });
+    ws.on('close', () => {
+      if (attachedId !== undefined) activityRoom.hub.detach(attachedId);
+      attachedId = undefined;
+    });
+    ws.on('error', () => {});
   });
 
   // Heartbeat: terminate stale clients that never respond to pings.
