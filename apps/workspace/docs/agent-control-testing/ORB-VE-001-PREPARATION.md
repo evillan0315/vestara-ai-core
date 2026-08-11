@@ -652,3 +652,29 @@ status        prepared — NOT started. Awaits Director authorization for Run 4.
 ```
 
 Runs 1–3 remain immutable, independently attributable evidence.
+
+## Run 4 — execution authorization
+
+```text
+authorization   Director authorization granted. Execute ORB-VE-001 Run 4 in
+                the prepared fresh isolated environment under the unchanged
+                frozen v0.2.0 contract and original product intent.
+boundaries      Preserve Runs 1–3 as immutable evidence. Do not modify the
+                acceptance-boundary remediation, compensate for its recorded
+                limitations, repair the Activity Room gap, guide individual
+                participants, retry around failures, or introduce ORB-specific
+                behavior during the run. Allow the organization to operate
+                autonomously until convergence, a conditional terminal state,
+                or the next evidenced boundary. Preserve new failures/ambiguity
+                as evidence and stop per the frozen protocol.
+reporting       after termination, freeze before comparison/remediation.
+                Report organizational progression, acceptance-boundary state
+                and obligations, material uncertainties, participant
+                conclusions, evidence produced, terminal state, and any newly
+                discovered boundary. Workflow completion is not product
+                acceptance; acceptance remains subject to frozen §16
+                behavioral evaluation.
+```
+
+Run 4 executes in `/home/eddie/projects/vestara-orb-ve-001-r4` (baseline
+`orb-ve-001-baseline-r4 @ 7daec20`). Runs 1–3 left untouched.
