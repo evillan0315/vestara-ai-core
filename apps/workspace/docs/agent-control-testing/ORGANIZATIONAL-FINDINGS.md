@@ -540,6 +540,29 @@ developers to establish **shared visual intent** — the UI itself is becoming
 the communication surface. Next (separate phase, not folded in): durable
 persistence of approved visual decisions across reloads.
 
+## Visual Edit Milestone — PASS (convergence, not first-try)
+
+The milestone passed through a full contradiction→reopen→investigate→resolve
+loop. First completion was incorrect despite green automated evidence; a real
+browser reload contradicted it, invalidating the conclusion. Investigation
+found four defects (server routing, persistence serialization/hydration,
+verifier scope accounting, success-verdict propagation) plus a test blind spot
+(mocked persistence). After correction, persisted = rendered = verified, and a
+live reload of the exact Director workflow preserved the change.
+
+**Durable intent invariant (architectural principle):** Persisted Truth =
+Reconstructed Runtime Truth = Verification Truth. For durable operations,
+Vestara should not claim success from a 200 or a currently-correct runtime
+alone.
+
+**Organizational convergence principle:** a trustworthy engineering workflow is
+not one that never reaches an incorrect conclusion — it is one that can detect
+contradictory evidence, invalidate the conclusion, investigate, correct,
+strengthen evidence, and stop only when the original condition is resolved.
+This is the baseline the autonomous workflow experiment will be measured
+against (iterations to justified completion, contradictions detected, false
+conclusions invalidated, human interventions required, evidence strength).
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
