@@ -153,3 +153,26 @@ recorded in the Activity Room, but the responsibility-resolution loop has not
 autonomously begun — no unresolved condition was derived and no participant
 has taken responsibility. This is the room's honest output at launch and is
 preserved as evidence per the observation protocol (absence is evidence).
+
+## AUTHORIZATION-class intervention — organization-level activation
+
+**Director authorization granted only to invoke the existing legitimate
+organizational run/start mechanism for ORB-VE-001 under frozen contract
+v0.2.0.**
+
+This authorization **starts the organization only**. It does **not** authorize:
+selecting individual agents, assigning responsibility, sequencing participants,
+supplying additional product guidance, changing the frozen contract,
+implementing missing orchestration, or repairing workflow gaps discovered
+during the run.
+
+After activation, Vestara must determine who should act, why they should act,
+what unresolved condition they own, when responsibility transfers, what
+evidence is sufficient, and when no justified action remains. If the existing
+mechanism cannot autonomously perform those transitions, preserve that as
+experiment evidence and stop rather than constructing the missing mechanism.
+
+**Mechanism selected from existing substrate:** `POST /api/workflows` — the
+multi-agent workflow start (ADR-118) which derives stages from a goal via
+`stagesFromGoal` and starts the workflow. This is the organization-level start;
+it does not select individual agents.
