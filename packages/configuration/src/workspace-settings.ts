@@ -6,6 +6,7 @@ import * as path from 'node:path';
 export type ConfigurationSource = 'default' | 'user' | 'workspace' | 'session' | 'command';
 export type SettingsSectionId =
   | 'general'
+  | 'appearance'
   | 'runtime'
   | 'providers'
   | 'agents'
@@ -179,6 +180,7 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
     validate: oneOf(['restore-session', 'overview', 'dashboard']),
   },
   'general.theme': { section: 'general', defaultValue: 'system', validate: oneOf(['system', 'dark', 'light']) },
+  'appearance.theme': { section: 'appearance', defaultValue: '', validate: stringValue },
   'general.density': { section: 'general', defaultValue: 'comfortable', validate: oneOf(['compact', 'comfortable']) },
   'general.dateTimeFormat': { section: 'general', defaultValue: 'locale', validate: oneOf(['locale', 'iso']) },
   'general.logFormat': { section: 'general', defaultValue: 'structured', validate: oneOf(['structured', 'compact']) },

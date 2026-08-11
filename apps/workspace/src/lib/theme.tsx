@@ -1,4 +1,5 @@
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
+import { persistAppearanceSettings, persistThemeMode, resolveHydratedTheme } from './appearance-durability';
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
@@ -408,11 +409,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     try {
       localStorage.setItem(THEME_KEY, m);
     } catch {}
+    // Durable: persist the approved mode to workspace settings (general.theme).
+    void persistThemeMode(m).catch(() => {});
   }, []);
 
   const toggle = useCallback(() => {
     setMode(resolved === 'dark' ? 'light' : 'dark');
-  }, [resolved]);
+  }, [resolved, setMode]);
 
   const applyProfile = useCallback((id: string) => {
     const profile = PROFILES.find((p) => p.id === id);
@@ -423,6 +426,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(PROFILE_KEY, id);
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(profile.settings));
     } catch {}
+    // Durable: persist the approved appearance to workspace settings.
+    void persistAppearanceSettings(profile.settings).catch(() => {});
   }, []);
 
   const updateSetting = useCallback(<K extends keyof ThemeSettings>(key: K, value: ThemeSettings[K]) => {
@@ -433,6 +438,8 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
         localStorage.setItem(SETTINGS_KEY, JSON.stringify(next));
         localStorage.setItem(PROFILE_KEY, '');
       } catch {}
+      // Durable: persist the approved appearance to workspace settings.
+      void persistAppearanceSettings(next).catch(() => {});
       return next;
     });
   }, []);
@@ -444,6 +451,38 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applySettings(settings, resolved);
   }, [settings, resolved]);
+
+  // Reconstruct the approved appearance from durable server settings on mount,
+  // so a reload restores it even when ephemeral client storage is absent.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch('/api/settings');
+        if (!res.ok || cancelled) return;
+        const configuration = (await res.json()) as import('@vestara/configuration').ResolvedConfiguration;
+        if (cancelled) return;
+        const hydrated = resolveHydratedTheme(configuration);
+        if (hydrated.mode) {
+          setModeState(hydrated.mode);
+          try {
+            localStorage.setItem(THEME_KEY, hydrated.mode);
+          } catch {}
+        }
+        if (hydrated.settings) {
+          setSettingsState((prev) => ({ ...prev, ...hydrated.settings }));
+          try {
+            localStorage.setItem(SETTINGS_KEY, JSON.stringify({ ...DEFAULT_SETTINGS, ...hydrated.settings }));
+          } catch {}
+        }
+      } catch {
+        // API unavailable — keep the client (localStorage) values
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     if (mode !== 'system') return;
