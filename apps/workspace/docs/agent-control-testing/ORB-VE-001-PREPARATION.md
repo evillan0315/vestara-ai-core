@@ -678,3 +678,58 @@ reporting       after termination, freeze before comparison/remediation.
 
 Run 4 executes in `/home/eddie/projects/vestara-orb-ve-001-r4` (baseline
 `orb-ve-001-baseline-r4 @ 7daec20`). Runs 1–3 left untouched.
+
+## Run 4 — run log + frozen result (execution — frozen v0.2.0)
+
+```text
+17:48:18  Intent + workflow start → wf-1786470497020-1 (planner→developer→verifier→reviewer)
+17:48-17:54  Planner ACTIVE → COMPLETED. Correct interpretation this run:
+            "visual change" = Workspace appearance/theme settings · "approved
+            by the Director" = explicit apply/save in the Appearance UI ·
+            "reload" = page/app reload without ephemeral client storage.
+            Declared concrete obligations (accent palette + theme mode re-applied
+            after reload) and resolved the interpretation axes explicitly.
+            NOTE: the response also contained an earlier placeholder-draft block
+            (<observable obligation 1> …); the boundary parser takes the FIRST
+            block, so the orchestrator boundary carried the placeholders.
+17:5x     Developer ACTIVE → COMPLETED. Built theme persistence:
+            appearance.theme (JSON ThemeSettings) + general.theme via workspace
+            settings; resolveHydratedTheme re-applies on reload. + authored test.
+17:5x     Verifier ACTIVE → COMPLETED. Ran the profile; anchored to acceptance:
+            obligations 4 largely established; 5–6 PARTIALLY ESTABLISHED —
+            "no automated browser-level observation after reload … NOT
+            ESTABLISHED". Overall: "CONDITIONAL stands". Flagged hydration
+            default-source clobbering + no optimistic concurrency.
+17:5x     Reviewer ACTIVE → COMPLETED. "The implementation covers the durable-
+            store and hydration primitives, but the acceptance object is
+            weakened by unreachable wiring and unverified behavior." Requested
+            revisions (fix wiring, add end-to-end reload test).
+           Terminal: all four stages completed; no busy sessions.
+```
+
+**Run 4 result — the Run 3 dangerous pattern did NOT recur:**
+
+```text
+Run 3:  planner misinterprets → organization inherits → verifier/reviewer
+        accept the same wrong object → COMPLETED (accepted truth).
+Run 4:  planner interprets correctly → verifier anchors to acceptance and
+        sustains CONDITIONAL ("behavioral reload-restore NOT ESTABLISHED") →
+        reviewer anchors to acceptance and flags the weakened object with
+        revision requests → terminal, but acceptance NOT accepted as truth.
+```
+
+- **Semantic continuity held:** the acceptance object (visual change → appearance
+  persistence) survived interpretation → plan → implementation → verification →
+  review. The verifier/reviewer were independently anchored to the objective +
+  obligations, not to an upstream summary.
+- **Workflow completion ≠ product acceptance:** the chain reached terminal
+  states, yet the verifier explicitly sustained CONDITIONAL and the reviewer
+  requested revisions. The organization did not convert completion into truth.
+- **Newly discovered mechanism imperfection:** the boundary parser takes the
+  first ACCEPTANCE BOUNDARY block; the planner's draft placeholder block was
+  captured instead of its final concrete declaration. The verifier noticed the
+  placeholders and reconstructed the real obligations from the objective.
+- **Product acceptance (§16): NOT SATISFIED** — no browser-level reload-restore
+  evidence exists; the reviewer flagged unreachable wiring. Preserved frozen.
+
+Runs 1–3 remain immutable. Run 4 frozen before comparison/remediation.
