@@ -630,3 +630,25 @@ refuted (boundary obligations unchanged). Workspace + API suites: 367 passed /
 workflow run (in-memory); process-restart durability is not yet wired. Material
 uncertainty marks the terminal state conditional but does not pause the chain
 (no blanket "ask the Director" rule, per the remediation constraint).
+
+## ORB-VE-001 Run 4 — readiness (prepared, NOT executed)
+
+```text
+baseline      orb-ve-001-baseline-r4 @ 7daec20 (orphan, experimental)
+              = Run 3 baseline + acceptance-boundary remediation only
+environment   /home/eddie/projects/vestara-orb-ve-001-r4
+              single-branch, 0 remotes, 2102 tracked files
+residue       VE/ORB/reference-execution markers: 0
+build         tsc -b, 95 projects, exit 0
+focused       acceptance-boundary + workflow routes + Activity Room +
+              provider liveness: 51/51 passed
+contract      ORB-VE-001 spec blob identical to freeze
+              (32c7a5ad…), blueprint @ ed6ab31
+intent        unchanged: "A visual change approved by the Director must
+              survive reload."
+limitations   preserved: no restart durability, no uncertainty-pause policy,
+              no Activity Room remediation, no ORB-specific behavior
+status        prepared — NOT started. Awaits Director authorization for Run 4.
+```
+
+Runs 1–3 remain immutable, independently attributable evidence.
