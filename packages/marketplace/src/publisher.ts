@@ -34,6 +34,15 @@ export interface PublishResult {
   readonly publishedAt: string;
 }
 
+export interface PublishIntoRootOptions extends PublishOptions {
+  /** Directory into which the published package is registered (`<root>/<publisher>/<package>/<version>`). */
+  readonly root: string;
+}
+
+export interface PublishIntoRootResult extends PublishResult {
+  readonly targetPath: string;
+}
+
 export interface GenerateKeysResult {
   readonly privateKeyPem: string;
   readonly publicKeyPem: string;
@@ -104,6 +113,26 @@ export class MarketplacePublisher {
     return result;
   }
 
+  /**
+   * Publish a package and register it into a registry root at
+   * `<root>/<publisherId>/<packageName>/<version>/`. The source is validated,
+   * digested, and signed (when a key is provided), then copied verbatim into the
+   * root so the next registry scan indexes it. Re-publishing an existing
+   * version overwrites that version directory.
+   */
+  publishIntoRoot(options: PublishIntoRootOptions): PublishIntoRootResult {
+    const result = this.publish(options);
+    const targetPath = path.join(
+      path.resolve(options.root),
+      safeSegment(result.publisherId),
+      safeSegment(result.packageName),
+      safeSegment(result.version),
+    );
+    fs.mkdirSync(targetPath, { recursive: true });
+    fs.cpSync(result.packagePath, targetPath, { recursive: true });
+    return { ...result, targetPath };
+  }
+
   generateKeys(): GenerateKeysResult {
     return generatePublisherKeys();
   }
@@ -124,6 +153,11 @@ export class MarketplacePublisher {
 
 function publicKeyOf(privateKeyPem: string): string {
   return createPublicKey({ key: privateKeyPem, format: 'pem' }).export({ type: 'spki', format: 'pem' }).toString();
+}
+
+function safeSegment(value: string): string {
+  const cleaned = value.replace(/[^a-zA-Z0-9._-]/g, '_');
+  return cleaned || 'unnamed';
 }
 
 function identifier(prefix: string): string {

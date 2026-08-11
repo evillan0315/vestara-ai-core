@@ -12,12 +12,19 @@ export function normalizeProviders(raw: unknown): OpenCodeProviderSummary[] {
     .map((provider) => {
       const id = typeof provider.id === 'string' ? provider.id : String(provider.id ?? '');
       const models = provider.models;
-      const modelCount = models && typeof models === 'object' ? Object.keys(models).length : 0;
+      const modelIds =
+        models && typeof models === 'object'
+          ? Object.keys(models)
+              .filter((key) => typeof key === 'string' && key.length > 0)
+              .sort()
+          : [];
+      const modelCount = modelIds.length;
       return {
         id,
         name: typeof provider.name === 'string' ? provider.name : undefined,
         source: typeof provider.source === 'string' ? provider.source : undefined,
         modelCount,
+        models: modelIds,
       };
     });
 }

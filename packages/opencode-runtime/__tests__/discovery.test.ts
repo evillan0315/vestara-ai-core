@@ -17,8 +17,14 @@ describe('opencode discovery normalizers', () => {
     };
     const providers = normalizeProviders(raw);
     expect(providers).toHaveLength(2);
-    expect(providers[0]).toMatchObject({ id: 'opencode', name: 'OpenCode', source: 'builtin', modelCount: 2 });
-    expect(providers[1]).toMatchObject({ id: 'empty', modelCount: 0 });
+    expect(providers[0]).toMatchObject({
+      id: 'opencode',
+      name: 'OpenCode',
+      source: 'builtin',
+      modelCount: 2,
+      models: ['model-a', 'model-b'],
+    });
+    expect(providers[1]).toMatchObject({ id: 'empty', modelCount: 0, models: [] });
     expect(JSON.stringify(providers)).not.toContain('OPENCODE_API_KEY');
   });
 

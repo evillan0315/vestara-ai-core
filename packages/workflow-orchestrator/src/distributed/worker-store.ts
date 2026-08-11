@@ -12,26 +12,8 @@ export class WorkerStore {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_worker_nodes (
-        id TEXT PRIMARY KEY,
-        hostname TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'unknown',
-        executors TEXT NOT NULL DEFAULT '[]',
-        capabilities TEXT NOT NULL DEFAULT '[]',
-        load REAL NOT NULL DEFAULT 0,
-        last_heartbeat_at TEXT,
-        registered_at TEXT NOT NULL
-      );
-      CREATE TABLE IF NOT EXISTS orchestrated_task_leases (
-        lease_id TEXT PRIMARY KEY,
-        execution_id TEXT NOT NULL,
-        node_id TEXT NOT NULL,
-        task TEXT NOT NULL,
-        expires_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_otl_node ON orchestrated_task_leases(node_id);
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   // ─── Nodes ──────────────────────────────────────────────────

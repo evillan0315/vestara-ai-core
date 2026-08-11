@@ -508,3 +508,8 @@ export class OpenAIProvider extends OpenCodeProvider {
     });
   }
 }
+
+export {
+  OpenCodeRuntimeProvider,
+  type OpenCodeRuntimeProviderOptions,
+} from './runtime-provider';

@@ -31,6 +31,8 @@ export interface OpenCodeProviderSummary {
   readonly name?: string;
   readonly source?: string;
   readonly modelCount: number;
+  /** Model ids discovered for this provider (keys of the provider's models map). */
+  readonly models?: readonly string[];
 }
 
 export interface OpenCodeAgentSummary {

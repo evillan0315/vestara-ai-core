@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/agent-performance",
+  "description": "APE-001 — agent performance & behavioral evaluation: contracts, evidence snapshots, and an ADR-012 comparator over engineering work inside Vestara workflows",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/agent-performance/__tests__"
+  },
+  "dependencies": {
+    "@vestara/verification-evidence": "workspace:*",
+    "@vestara/workflow-orchestrator": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

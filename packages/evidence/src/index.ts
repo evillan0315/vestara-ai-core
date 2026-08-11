@@ -11,5 +11,6 @@ export * from './collectors';
 export * from './confidence';
 export * from './pipeline';
 export * from './types';
+export * from './verifier';
 export * from './visual';
 export * from './visual-collector';

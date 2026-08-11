@@ -5,6 +5,7 @@
  */
 
 export * from './cluster';
+export * from './execution-attempt';
 export * from './fallback-dispatcher';
 export * from './memory-transport';
 export * from './registry';

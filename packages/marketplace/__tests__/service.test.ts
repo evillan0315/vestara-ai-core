@@ -248,7 +248,11 @@ describe('MarketplaceService', () => {
 
   it('enables an installed package', async () => {
     const root = temp('service-enable');
-    writePackage(path.join(root, 'pkg'), { id: 'vestara.toggle', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+    writePackage(path.join(root, 'pkg'), {
+      id: 'vestara.toggle',
+      version: '1.0.0',
+      entrypoints: { runtime: './runtime.js' },
+    });
 
     const { manager, service } = createService(root);
     await service.install({ reference: 'vestara.toggle', enable: false });
@@ -263,7 +267,11 @@ describe('MarketplaceService', () => {
 
   it('disables an enabled package', async () => {
     const root = temp('service-disable');
-    writePackage(path.join(root, 'pkg'), { id: 'vestara.toggle2', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+    writePackage(path.join(root, 'pkg'), {
+      id: 'vestara.toggle2',
+      version: '1.0.0',
+      entrypoints: { runtime: './runtime.js' },
+    });
 
     const { manager, service } = createService(root);
     await service.install({ reference: 'vestara.toggle2', enable: true });
@@ -278,7 +286,11 @@ describe('MarketplaceService', () => {
 
   it('returns idempotent result when already in requested state', async () => {
     const root = temp('service-enable-idempotent');
-    writePackage(path.join(root, 'pkg'), { id: 'vestara.idem', version: '1.0.0', entrypoints: { runtime: './runtime.js' } });
+    writePackage(path.join(root, 'pkg'), {
+      id: 'vestara.idem',
+      version: '1.0.0',
+      entrypoints: { runtime: './runtime.js' },
+    });
 
     const { service } = createService(root);
     await service.install({ reference: 'vestara.idem', enable: true });
@@ -293,6 +305,8 @@ describe('MarketplaceService', () => {
     writePackage(path.join(root, 'pkg'), { id: 'vestara.missing' });
 
     const { service } = createService(root);
-    await expect(service.setEnabled({ packageName: 'vestara.missing', enabled: true })).rejects.toBeInstanceOf(MarketplaceInstallError);
+    await expect(service.setEnabled({ packageName: 'vestara.missing', enabled: true })).rejects.toBeInstanceOf(
+      MarketplaceInstallError,
+    );
   });
 });

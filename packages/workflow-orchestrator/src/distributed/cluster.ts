@@ -16,6 +16,7 @@ import type {
   TaskTestResult,
   WorkflowTask,
 } from '../types';
+import { ExecutionAttemptLedger } from './execution-attempt';
 import type { WorkerRegistry } from './registry';
 import { RemoteWorkerDispatcher } from './remote-dispatcher';
 import type { WorkerScheduler } from './scheduler';
@@ -46,6 +47,8 @@ export class WorkerCluster implements TaskDispatcher {
   private readonly leaseDurationMs: number;
   private readonly onRemoteResult?: WorkerClusterOptions['onRemoteResult'];
   private seq = 0;
+  /** Execution-attempt authority: only the current generation publishes a result. */
+  readonly attempts = new ExecutionAttemptLedger();
 
   constructor(options: WorkerClusterOptions) {
     this.registry = options.registry;
@@ -98,9 +101,27 @@ export class WorkerCluster implements TaskDispatcher {
       task,
       expiresAt: new Date(Date.now() + this.leaseDurationMs).toISOString(),
     });
+    const attempt = this.attempts.begin(task.id, node.id, leaseId);
     const dispatcher = new RemoteWorkerDispatcher(this.transportFor(node.id), node.id);
     try {
-      return await run(dispatcher);
+      const result = await run(dispatcher);
+      if (this.attempts.isAuthoritative(attempt.attemptId)) {
+        // Only the current generation publishes the result; a failed result is
+        // recorded as a failed attempt, never a completed one.
+        if (isFailedResult(result)) this.attempts.markFailed(attempt.attemptId);
+        else this.attempts.accept(attempt.attemptId);
+        return result;
+      }
+      // WFO-E2E-001D: late output from an expired/superseded execution must not
+      // be accepted as the task result.
+      this.attempts.markFailed(attempt.attemptId);
+      return {
+        status: 'failed',
+        error: 'superseded execution attempt — late result rejected',
+      } as unknown as T;
+    } catch (error) {
+      this.attempts.markFailed(attempt.attemptId);
+      throw error;
     } finally {
       await this.store.releaseLease(leaseId);
       // After releasing the lease, reconcile any draining nodes that may have
@@ -109,4 +130,8 @@ export class WorkerCluster implements TaskDispatcher {
       await this.registry.reconcileDraining(this.store);
     }
   }
+}
+
+function isFailedResult(result: unknown): boolean {
+  return typeof result === 'object' && result !== null && (result as { status?: string }).status === 'failed';
 }

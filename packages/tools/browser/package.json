@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/tools-browser",
+  "description": "Governed browser / computer-use tools for the Agent Harness Tool Runtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../../.. packages/tools/browser/__tests__"
+  },
+  "dependencies": {
+    "@vestara/tool-runtime": "workspace:*",
+    "playwright": "^1.62.1"
+  },
+  "devDependencies": {
+    "@vestara/types": "workspace:*",
+    "vitest": "^4.1.10"
+  }
+}

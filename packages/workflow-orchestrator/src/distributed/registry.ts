@@ -89,7 +89,9 @@ export class WorkerRegistry {
    * has no active leases. Called after lease release to complete the drain.
    * Returns the ids of nodes that transitioned to offline.
    */
-  async reconcileDraining(store: { listActiveLeases(nodeId?: string): Promise<readonly { nodeId: string }[]> }): Promise<string[]> {
+  async reconcileDraining(store: {
+    listActiveLeases(nodeId?: string): Promise<readonly { nodeId: string }[]>;
+  }): Promise<string[]> {
     const nodes = await this.store.listNodes();
     const draining = nodes.filter((node) => node.status === 'draining');
     const reconciled: string[] = [];

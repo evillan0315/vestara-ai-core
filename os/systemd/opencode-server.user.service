@@ -7,7 +7,7 @@ PartOf=vestara.target
 
 [Service]
 Type=simple
-WorkingDirectory=/home/eddie/projects/vestara
+WorkingDirectory=/home/eddie/projects/vestara/vestara-ai-core
 EnvironmentFile=-/home/eddie/.config/vestara/vestara.env
 Environment=OPENCODE_SERVER_USERNAME=vestara
 ExecStart=/home/eddie/.opencode/bin/opencode serve --hostname 127.0.0.1 --port 4096

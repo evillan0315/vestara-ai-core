@@ -86,4 +86,47 @@ describe('MarketplacePublisher', () => {
     const publisher = new MarketplacePublisher();
     expect(() => publisher.publish({ source: { packagePath: dir } })).toThrow();
   });
+
+  it('registers the published package into a registry root', () => {
+    const source = temp('into-root-source');
+    const root = temp('into-root');
+    seedPackage(source, 'demo', '1.0.0');
+    const publisher = new MarketplacePublisher();
+    const result = publisher.publishIntoRoot({ source: { packagePath: source }, root });
+    expect(result.targetPath).toBe(path.join(root, 'acme', 'demo', '1.0.0'));
+    expect(fs.existsSync(path.join(result.targetPath, VESTARA_PACKAGE_MANIFEST))).toBe(true);
+    // The registered copy preserves a self-consistent digest.
+    const manifest = readManifest(result.targetPath);
+    expect(manifest.integrity.digest).toBe(digestPackageDirectory(result.targetPath));
+  });
+
+  it('sanitizes publisher identity segments in the registry path', () => {
+    const source = temp('into-root-sanitize');
+    const root = temp('into-root-sanitize-root');
+    fs.mkdirSync(source, { recursive: true });
+    fs.writeFileSync(path.join(source, 'runtime.js'), 'module.exports = {};\n');
+    fs.writeFileSync(
+      path.join(source, VESTARA_PACKAGE_MANIFEST),
+      JSON.stringify({
+        schemaVersion: 1,
+        id: 'demo',
+        name: 'demo',
+        version: '1.0.0',
+        description: 'Demo package',
+        type: 'plugin',
+        publisher: { id: 'acme/org', name: 'Acme' },
+        compatibility: { vestara: '>=1.0.0' },
+        entrypoints: {},
+        capabilities: [],
+        permissions: [],
+        dependencies: [],
+        contributions: {},
+        isolation: 'in-process',
+        integrity: { algorithm: 'sha256', digest: 'a'.repeat(64) },
+      }),
+    );
+    const result = new MarketplacePublisher().publishIntoRoot({ source: { packagePath: source }, root });
+    expect(result.targetPath).toBe(path.join(root, 'acme_org', 'demo', '1.0.0'));
+    expect(fs.existsSync(path.join(result.targetPath, VESTARA_PACKAGE_MANIFEST))).toBe(true);
+  });
 });
