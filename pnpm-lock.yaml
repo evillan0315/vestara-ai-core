@@ -30,6 +30,9 @@ importers:
       '@vestara/activity-log':
         specifier: workspace:*
         version: link:../../packages/activity-log
+      '@vestara/activity-projection':
+        specifier: workspace:*
+        version: link:../../packages/activity-projection
       '@vestara/agent-harness':
         specifier: workspace:*
         version: link:../../packages/agent-harness
@@ -111,6 +114,9 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../../packages/sqlite-migrations
       '@vestara/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
@@ -120,6 +126,9 @@ importers:
       '@vestara/tool-runtime':
         specifier: workspace:*
         version: link:../../packages/tool-runtime
+      '@vestara/tools-browser':
+        specifier: workspace:*
+        version: link:../../packages/tools/browser
       '@vestara/tools-git':
         specifier: workspace:*
         version: link:../../packages/tools/git
@@ -241,6 +250,9 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../../packages/sqlite-migrations
       '@vestara/state-runtime':
         specifier: workspace:*
         version: link:../../packages/state-runtime
@@ -318,6 +330,9 @@ importers:
       '@mui/material':
         specifier: ^6.4.0
         version: 6.5.0(@emotion/react@11.14.0(@types/react@19.2.17)(react@19.2.8))(@emotion/styled@11.14.1(@emotion/react@11.14.0(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react@19.2.8))(@types/react@19.2.17)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+      '@vestara/activity-projection':
+        specifier: workspace:*
+        version: link:../../packages/activity-projection
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../../packages/configuration
@@ -463,6 +478,19 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/activity-projection:
+    dependencies:
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
+      sql.js:
+        specifier: ^1.14.1
+        version: 1.14.1
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/agent-harness:
     dependencies:
       '@vestara/event-bus':
@@ -480,6 +508,19 @@ importers:
       '@vestara/types':
         specifier: workspace:*
         version: link:../types
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/agent-performance:
+    dependencies:
+      '@vestara/verification-evidence':
+        specifier: workspace:*
+        version: link:../verification-evidence
+      '@vestara/workflow-orchestrator':
+        specifier: workspace:*
+        version: link:../workflow-orchestrator
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -608,6 +649,9 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
@@ -663,6 +707,9 @@ importers:
 
   packages/engineering-event-store:
     dependencies:
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       '@vestara/thread-runtime':
         specifier: workspace:*
         version: link:../thread-runtime
@@ -1040,6 +1087,12 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/opportunity-registry:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/os-controller:
     devDependencies:
       vitest:
@@ -1113,6 +1166,9 @@ importers:
 
   packages/providers/opencode:
     dependencies:
+      '@vestara/opencode-runtime':
+        specifier: workspace:*
+        version: link:../../opencode-runtime
       '@vestara/provider-runtime':
         specifier: workspace:*
         version: link:../../provider-runtime
@@ -1148,6 +1204,16 @@ importers:
       '@vestara/types':
         specifier: workspace:*
         version: link:../types
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/repository-evidence:
+    dependencies:
+      '@vestara/verification-evidence':
+        specifier: workspace:*
+        version: link:../verification-evidence
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -1231,6 +1297,15 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/sqlite-migrations:
+    devDependencies:
+      sql.js:
+        specifier: ^1.14.1
+        version: 1.14.1
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/state-machine:
     devDependencies:
       vitest:
@@ -1248,6 +1323,9 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
@@ -1312,6 +1390,9 @@ importers:
 
   packages/thread-runtime:
     dependencies:
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       '@vestara/types':
         specifier: workspace:*
         version: link:../types
@@ -1338,6 +1419,22 @@ importers:
         specifier: workspace:*
         version: link:../types
     devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/tools/browser:
+    dependencies:
+      '@vestara/tool-runtime':
+        specifier: workspace:*
+        version: link:../../tool-runtime
+      playwright:
+        specifier: ^1.62.1
+        version: 1.62.1
+    devDependencies:
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../types
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
@@ -1581,6 +1678,12 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/verification-evidence:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/widget-runtime:
     dependencies:
       '@vestara/event-bus':
@@ -1612,6 +1715,9 @@ importers:
 
   packages/workflow-orchestrator:
     dependencies:
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       '@vestara/state-machine':
         specifier: workspace:*
         version: link:../state-machine
@@ -1622,6 +1728,15 @@ importers:
       '@types/sql.js':
         specifier: ^1.4.11
         version: 1.4.11
+      '@vestara/opencode-runtime':
+        specifier: workspace:*
+        version: link:../opencode-runtime
+      '@vestara/opportunity-registry':
+        specifier: workspace:*
+        version: link:../opportunity-registry
+      '@vestara/verification-evidence':
+        specifier: workspace:*
+        version: link:../verification-evidence
       vitest:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
@@ -1689,6 +1804,9 @@ importers:
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       '@vestara/thread-runtime':
         specifier: workspace:*
         version: link:../thread-runtime
@@ -1717,6 +1835,9 @@ importers:
 
   packages/worktree-runtime:
     dependencies:
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1

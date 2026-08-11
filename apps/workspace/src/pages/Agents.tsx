@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ExecutionDetailModal from '../components/ExecutionDetailModal';
 import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
-import { WorkflowRail } from '../components/workflow/WorkflowRail';
-import { useToasts } from '../components/Toast';
-import { useEventStream } from '../lib/useEventStream';
-import { workspaceSocket } from '../lib/ws';
-import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
-import { workflowApi, type WorkflowProjection } from '../lib/workflow';
-import type { Agent, Team, Execution } from './Agents/types';
-import { ROLE_CATEGORIES, CATEGORY_ORDER, CATEGORY_COLORS, ROLE_COLORS, ALL_AGENT_SLOTS } from './Agents/constants';
-import { AgentStatusBadge } from './Agents/AgentStatusBadge';
-import AgentRegistryModal from './Agents/AgentRegistryModal';
-import TeamCreatorModal from './Agents/TeamCreatorModal';
-import { ExecutionChart } from './Agents/charts/ExecutionChart';
 import Pagination from '../components/Pagination';
+import { useToasts } from '../components/Toast';
+import { WorkflowRail } from '../components/workflow/WorkflowRail';
+import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
+import { useEventStream } from '../lib/useEventStream';
+import { type WorkflowProjection, workflowApi } from '../lib/workflow';
+import { workspaceSocket } from '../lib/ws';
+import AgentRegistryModal from './Agents/AgentRegistryModal';
+import { AgentStatusBadge } from './Agents/AgentStatusBadge';
+import { ExecutionChart } from './Agents/charts/ExecutionChart';
+import { ALL_AGENT_SLOTS, CATEGORY_COLORS, CATEGORY_ORDER, ROLE_CATEGORIES, ROLE_COLORS } from './Agents/constants';
+import TeamCreatorModal from './Agents/TeamCreatorModal';
+import type { Agent, Execution, Team } from './Agents/types';
 
 const API = '';
 
@@ -46,7 +46,9 @@ export default function AgentsPage() {
   const [runTask, setRunTask] = useState('');
   const [running, setRunning] = useState(false);
   const [runOutput, setRunOutput] = useState<string | null>(null);
-  const [harnessSessions, setHarnessSessions] = useState<Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>>([]);
+  const [harnessSessions, setHarnessSessions] = useState<
+    Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>
+  >([]);
   const [selectedHarnessSession, setSelectedHarnessSession] = useState<string | null>(null);
   const [harnessWorkflow, setHarnessWorkflow] = useState<WorkflowProjection | null>(null);
   const [showRegistry, setShowRegistry] = useState(false);
@@ -83,8 +85,21 @@ export default function AgentsPage() {
   };
   const [teamMemberSearch, setTeamMemberSearch] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const [runtimeHealth, setRuntimeHealth] = useState<{ status: string; upstream?: { healthy?: boolean } } | null>(null);
+  const [runtimeProviders, setRuntimeProviders] = useState<Array<{ id: string; modelCount: number }>>([]);
   const { events } = useEventStream();
   const { addToast } = useToasts();
+
+  const loadRuntime = useCallback(async () => {
+    try {
+      const [health, providers] = await Promise.all([
+        apiFetch<{ status: string; upstream?: { healthy?: boolean } }>('/api/opencode/health').catch(() => null),
+        apiFetch<{ providers: Array<{ id: string; modelCount: number }> }>('/api/opencode/providers').catch(() => null),
+      ]);
+      if (health) setRuntimeHealth(health);
+      if (providers?.providers) setRuntimeProviders(providers.providers);
+    } catch {}
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -93,14 +108,18 @@ export default function AgentsPage() {
       setExecutions(data.executions);
       const teamData = await apiFetch<{ teams: Team[] }>('/api/teams').catch(() => ({ teams: [] }));
       setTeams(teamData.teams);
-      const sessionData = await apiFetch<{ sessions: Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }> }>('/api/sessions/executions').catch(() => null);
-      if (sessionData?.sessions) setHarnessSessions(sessionData.sessions.filter((s) => (s.workflowId ?? '').startsWith('thread:')));
+      const sessionData = await apiFetch<{
+        sessions: Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>;
+      }>('/api/sessions/executions').catch(() => null);
+      if (sessionData?.sessions)
+        setHarnessSessions(sessionData.sessions.filter((s) => (s.workflowId ?? '').startsWith('thread:')));
     } catch {}
   }, []);
 
   useEffect(() => {
     load();
-  }, [load]);
+    loadRuntime();
+  }, [load, loadRuntime]);
 
   // Load the canonical workflow projection for the selected harness session.
   useEffect(() => {
@@ -238,9 +257,8 @@ export default function AgentsPage() {
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
-      await fetch(`${API}/api/agents/${agent.id}`, {
+      await apiFetch(`/api/agents/${agent.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: agent.status === 'active' ? 'disabled' : 'active' }),
       });
       addToast({ type: 'success', message: `${agent.name} ${agent.status === 'active' ? 'disabled' : 'enabled'}` });
@@ -253,7 +271,7 @@ export default function AgentsPage() {
   const deleteAgent = async (id: string) => {
     if (!window.confirm('Delete this agent?')) return;
     try {
-      await fetch(`${API}/api/agents/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/agents/${id}`, { method: 'DELETE' });
       if (selectedAgent?.id === id) setSelectedAgent(null);
       addToast({ type: 'success', message: 'Agent deleted' });
       load();
@@ -267,16 +285,14 @@ export default function AgentsPage() {
       const clean = Object.fromEntries(Object.entries(agent).filter(([_, v]) => v !== undefined));
       const isNewRegistration = editAgent?.id?.startsWith('slot-') || editAgent?.status === 'unregistered';
       if (editAgent && !isNewRegistration) {
-        await fetch(`${API}/api/agents/${editAgent.id}`, {
+        await apiFetch(`/api/agents/${editAgent.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(clean),
         });
         addToast({ type: 'success', message: `Agent "${clean.name || editAgent.name}" updated` });
       } else {
-        await fetch(`${API}/api/agents`, {
+        await apiFetch('/api/agents', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...clean, name: clean.name || 'New Agent' }),
         });
         addToast({ type: 'success', message: `Agent "${clean.name || 'New Agent'}" registered` });
@@ -408,6 +424,28 @@ export default function AgentsPage() {
         </div>
       )}
 
+      {/* OpenCode runtime — agents execute through the runtime; providers are
+          discovered from /api/opencode, never hardcoded. */}
+      <div className="flex flex-wrap items-center gap-3 p-3 mb-4 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
+        <span
+          className={`text-[10px] px-2 py-0.5 rounded-full font-medium ${
+            runtimeHealth?.status === 'healthy'
+              ? 'bg-green-400/10 text-green-400'
+              : runtimeHealth
+                ? 'bg-amber-400/10 text-amber-400'
+                : 'bg-zinc-800 text-(--vestara-text-muted)'
+          }`}
+        >
+          Runtime {runtimeHealth?.status ?? 'unknown'}
+        </span>
+        <span className="text-[11px] text-(--vestara-text-muted)">
+          OpenCode runtime ·{' '}
+          {runtimeProviders.length > 0
+            ? `providers: ${runtimeProviders.map((p) => `${p.id} (${p.modelCount})`).join(', ')}`
+            : 'no providers discovered — the server\u2019s configured default will be used'}
+        </span>
+      </div>
+
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
         <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
@@ -443,7 +481,12 @@ export default function AgentsPage() {
 
       {/* Execution chart */}
       <div className="mb-5 max-w-xs">
-        <ExecutionChart total={execSummary.total} completed={execSummary.completed} failed={execSummary.failed} running={execSummary.running} />
+        <ExecutionChart
+          total={execSummary.total}
+          completed={execSummary.completed}
+          failed={execSummary.failed}
+          running={execSummary.running}
+        />
       </div>
 
       {/* Filters */}
@@ -525,298 +568,331 @@ export default function AgentsPage() {
             {!isCollapsed && (
               <div className="space-y-2">
                 {catAgents.map((agent: any) => {
-          const isRegistered = agent.status !== 'unregistered';
-          const color = getColor(agent);
-          const team = teams.find((t) => t.id === agent.teamId);
-          const stats = agentStats[agent.id] || { total: 0, completed: 0, failed: 0, running: 0, avgDuration: 0 };
-          const isExpanded = selectedAgent?.id === agent.id;
-          return (
-            <div
-              key={agent.id}
-              className={`rounded-lg border transition-all ${isExpanded ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active)' : isRegistered ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) hover:border-(--vestara-accent-border-active)' : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border)/50 opacity-60'}`}
-              style={{
-                borderLeftColor: isRegistered ? color : undefined,
-                borderLeftWidth: isRegistered ? '3px' : undefined,
-              }}
-            >
-              {/* Header row */}
-              <div
-                className="p-3 flex items-center gap-3 cursor-pointer"
-                onClick={() => isRegistered && setSelectedAgent(isExpanded ? null : agent)}
-              >
-                <div className="relative shrink-0">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: isRegistered ? (agent.status === 'active' ? color : '#52525b') : '#27272a',
-                    }}
-                  />
-                  {stats.running > 0 && (
+                  const isRegistered = agent.status !== 'unregistered';
+                  const color = getColor(agent);
+                  const team = teams.find((t) => t.id === agent.teamId);
+                  const stats = agentStats[agent.id] || {
+                    total: 0,
+                    completed: 0,
+                    failed: 0,
+                    running: 0,
+                    avgDuration: 0,
+                  };
+                  const isExpanded = selectedAgent?.id === agent.id;
+                  return (
                     <div
-                      className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-40"
-                      style={{ backgroundColor: color }}
-                    />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-semibold truncate ${isRegistered ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'}`}
+                      key={agent.id}
+                      className={`rounded-lg border transition-all ${isExpanded ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active)' : isRegistered ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) hover:border-(--vestara-accent-border-active)' : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border)/50 opacity-60'}`}
+                      style={{
+                        borderLeftColor: isRegistered ? color : undefined,
+                        borderLeftWidth: isRegistered ? '3px' : undefined,
+                      }}
                     >
-                      {agent.name}
-                    </span>
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium shrink-0">
-                      {agent.role}
-                    </span>
-                    <AgentStatusBadge status={agent.status} />
-                  </div>
-                  {agent.description && (
-                    <div className={`text-[10px] truncate mt-0.5 ${isRegistered ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text-dim)'}`}>
-                      {agent.description}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {agent.provider && <span className="text-[9px] text-(--vestara-text-dim)">{agent.provider}</span>}
-                    {agent.model && <span className="text-[9px] text-(--vestara-text-dim) font-mono">{agent.model}</span>}
-                    {stats.total > 0 && (
-                      <span className="text-[9px] text-(--vestara-text-dim)">
-                        {stats.completed}/{stats.total} tasks
-                      </span>
-                    )}
-                    {stats.running > 0 && (
-                      <span className="text-[9px] text-amber-400 animate-pulse font-semibold">
-                        {stats.running} running
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const slot = ALL_AGENT_SLOTS.find((s) => s.role === agent.role);
-                      setEditAgent(
-                        isRegistered
-                          ? agent
-                          : ({
-                              ...agent,
-                              name: slot?.defaultName || agent.name,
-                              description: slot?.defaultDescription || '',
-                              capabilities: slot?.defaultCapabilities || [],
-                              color: slot?.color || agent.color,
-                              provider: 'opencode',
-                              model: 'deepseek-v4-flash-free',
-                            } as any),
-                      );
-                      setShowRegistry(true);
-                    }}
-                    className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-                  >
-                    {isRegistered ? 'Edit' : 'Register'}
-                  </button>
-                  {isRegistered && (
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleAgentStatus(agent);
-                        }}
-                        className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                      {/* Header row */}
+                      <div
+                        className="p-3 flex items-center gap-3 cursor-pointer"
+                        onClick={() => isRegistered && setSelectedAgent(isExpanded ? null : agent)}
                       >
-                        {agent.status === 'active' ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteAgent(agent.id);
-                        }}
-                        className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-md hover:bg-red-400/10 transition-colors cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Stats bar */}
-              {stats.total > 0 && (
-                <div className="px-3 pb-2">
-                  <div className="flex-1 bg-(--vestara-accent-bg) rounded-full h-1.5 flex overflow-hidden">
-                    {stats.completed > 0 && (
-                      <div
-                        className="h-1.5 bg-green-500 transition-all"
-                        style={{ width: `${(stats.completed / stats.total) * 100}%` }}
-                      />
-                    )}
-                    {stats.failed > 0 && (
-                      <div
-                        className="h-1.5 bg-red-500 transition-all"
-                        style={{ width: `${(stats.failed / stats.total) * 100}%` }}
-                      />
-                    )}
-                    {stats.running > 0 && (
-                      <div
-                        className="h-1.5 bg-amber-400 animate-pulse transition-all"
-                        style={{ width: `${(stats.running / stats.total) * 100}%` }}
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Expanded execution history */}
-              {isExpanded && (
-                <div className="px-3 pb-3 pt-2 border-t border-(--vestara-accent-border)">
-                  <div className="flex gap-4 mb-3">
-                    <div className="flex-1">
-                      <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                        Capabilities
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(agent.capabilities || []).map((c: string) => (
-                          <span
-                            key={c}
-                            className="text-[9px] px-1.5 py-0.5 bg-zinc-800 text-(--vestara-text-2) rounded-md border border-(--vestara-accent-border)/50"
-                          >
-                            {c}
-                          </span>
-                        ))}
-                        {(!agent.capabilities || agent.capabilities.length === 0) && (
-                          <span className="text-[9px] text-(--vestara-text-dim) italic">No capabilities defined</span>
-                        )}
-                      </div>
-                    </div>
-                    {team && (
-                      <div className="shrink-0">
-                        <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                          Team
+                        <div className="relative shrink-0">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              backgroundColor: isRegistered
+                                ? agent.status === 'active'
+                                  ? color
+                                  : '#52525b'
+                                : '#27272a',
+                            }}
+                          />
+                          {stats.running > 0 && (
+                            <div
+                              className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-40"
+                              style={{ backgroundColor: color }}
+                            />
+                          )}
                         </div>
-                        <span
-                          className="text-[9px] px-1.5 py-0.5 rounded-md"
-                          style={{ backgroundColor: getColor(agent) + '20', color: getColor(agent) }}
-                        >
-                          {team.name}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider">
-                      Tasks ({agentExecutions.length})
-                    </div>
-                    <select
-                      value={executionFilter}
-                      onChange={(e) => setExecutionFilter(e.target.value)}
-                      className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md text-[9px] px-1.5 py-0.5 outline-none cursor-pointer"
-                    >
-                      <option value="all">All</option>
-                      <option value="completed">Done</option>
-                      <option value="failed">Failed</option>
-                      <option value="running">Active</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                    {filteredAgentExecs.length === 0 && (
-                      <p className="text-[10px] text-(--vestara-text-dim) py-2 text-center italic">No executions</p>
-                    )}
-                    {filteredAgentExecs.slice((execPage - 1) * EXEC_PAGE_SIZE, execPage * EXEC_PAGE_SIZE).map((ex) => {
-                      const duration = ex.completedAt
-                        ? Math.round((new Date(ex.completedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
-                        : null;
-                      return (
-                        <div
-                          key={ex.id}
-                          onClick={() => setSelectedExecution(ex)}
-                          className="flex items-center gap-2 py-1 px-1.5 rounded-md hover:bg-(--vestara-accent-bg) transition-colors text-[10px] cursor-pointer"
-                        >
-                          <span
-                            className={`shrink-0 ${ex.status === 'completed' ? 'text-green-500' : ex.status === 'failed' ? 'text-red-500' : 'text-amber-400'}`}
-                          >
-                            {ex.status === 'completed' ? '✔' : ex.status === 'failed' ? '✗' : '◉'}
-                          </span>
-                          <span className="text-(--vestara-text) truncate flex-1">{ex.task}</span>
-                          <span className="text-(--vestara-text-muted) shrink-0">
-                            {new Date(ex.startedAt).toLocaleTimeString()} {duration !== null && `· ${duration}s`}
-                          </span>
-                          <span
-                            className={`text-[8px] px-1 py-0.5 rounded uppercase font-medium ${ex.status === 'completed' ? 'bg-green-400/10 text-green-400' : ex.status === 'failed' ? 'bg-red-400/10 text-red-400' : 'bg-amber-400/10 text-amber-400'}`}
-                          >
-                            {ex.status}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {filteredAgentExecs.length > EXEC_PAGE_SIZE && (
-                    <div className="border-t border-(--vestara-accent-border) pt-1.5 mt-1.5">
-                      <Pagination current={execPage} total={filteredAgentExecs.length} pageSize={EXEC_PAGE_SIZE} onChange={setExecPage} />
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={runTask}
-                      onChange={(e) => setRunTask(e.target.value)}
-                      placeholder="Assign a task to this agent..."
-                      className="flex-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-600 outline-none focus:border-(--vestara-accent-border-active)"
-                      onKeyDown={(e) => e.key === 'Enter' && runAgent(agent.id)}
-                    />
-                    <button
-                      onClick={() => runAgent(agent.id)}
-                      disabled={running || !runTask.trim()}
-                      className="text-[10px] px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer font-medium"
-                    >
-                      {running ? 'Running...' : 'Run'}
-                    </button>
-                  </div>
-                  {runOutput && (
-                    <div className="mt-1.5 text-[10px] text-(--vestara-text-2) bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-2">
-                      {runOutput}
-                    </div>
-                  )}
-
-                  {harnessSessions.length > 0 && (
-                    <div className="mt-3 border-t border-(--vestara-accent-border) pt-2">
-                      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1">
-                        Harness Sessions ({harnessSessions.length})
-                      </div>
-                      <div className="space-y-1">
-                        {harnessSessions.slice(0, 5).map((s) => {
-                          const threadId = threadIdFromSession(s.workflowId);
-                          return (
-                            <div key={s.id}>
-                              <button
-                                type="button"
-                                onClick={() => setSelectedHarnessSession(selectedHarnessSession === s.id ? null : s.id)}
-                                className="w-full text-left flex items-center gap-2 text-[11px] text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer py-0.5"
-                              >
-                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.status === 'running' ? 'bg-(--vestara-green) animate-pulse' : 'bg-zinc-600'}`} />
-                                <span className="truncate flex-1">{s.goal || s.id}</span>
-                                <span className="text-[9px] text-(--vestara-text-muted)">{s.status}</span>
-                              </button>
-                              {selectedHarnessSession === s.id && threadId && (
-                                <>
-                                  <WorkflowRail workflow={harnessWorkflow} onRefresh={() => load()} />
-                                  <div className="mt-2">
-                                    <HarnessThreadTimeline threadId={threadId} />
-                                  </div>
-                                </>
-                              )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`text-sm font-semibold truncate ${isRegistered ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'}`}
+                            >
+                              {agent.name}
+                            </span>
+                            <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium shrink-0">
+                              {agent.role}
+                            </span>
+                            <AgentStatusBadge status={agent.status} />
+                          </div>
+                          {agent.description && (
+                            <div
+                              className={`text-[10px] truncate mt-0.5 ${isRegistered ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text-dim)'}`}
+                            >
+                              {agent.description}
                             </div>
-                          );
-                        })}
+                          )}
+                          <div className="flex items-center gap-2 mt-0.5">
+                            {agent.provider && (
+                              <span className="text-[9px] text-(--vestara-text-dim)">{agent.provider}</span>
+                            )}
+                            {agent.model && (
+                              <span className="text-[9px] text-(--vestara-text-dim) font-mono">{agent.model}</span>
+                            )}
+                            {stats.total > 0 && (
+                              <span className="text-[9px] text-(--vestara-text-dim)">
+                                {stats.completed}/{stats.total} tasks
+                              </span>
+                            )}
+                            {stats.running > 0 && (
+                              <span className="text-[9px] text-amber-400 animate-pulse font-semibold">
+                                {stats.running} running
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 shrink-0">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const slot = ALL_AGENT_SLOTS.find((s) => s.role === agent.role);
+                              setEditAgent(
+                                isRegistered
+                                  ? agent
+                                  : ({
+                                      ...agent,
+                                      name: slot?.defaultName || agent.name,
+                                      description: slot?.defaultDescription || '',
+                                      capabilities: slot?.defaultCapabilities || [],
+                                      color: slot?.color || agent.color,
+                                      runtimeAgent: 'build',
+                                    } as any),
+                              );
+                              setShowRegistry(true);
+                            }}
+                            className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                          >
+                            {isRegistered ? 'Edit' : 'Register'}
+                          </button>
+                          {isRegistered && (
+                            <>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleAgentStatus(agent);
+                                }}
+                                className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                              >
+                                {agent.status === 'active' ? 'Disable' : 'Enable'}
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  deleteAgent(agent.id);
+                                }}
+                                className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-md hover:bg-red-400/10 transition-colors cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </>
+                          )}
+                        </div>
                       </div>
+
+                      {/* Stats bar */}
+                      {stats.total > 0 && (
+                        <div className="px-3 pb-2">
+                          <div className="flex-1 bg-(--vestara-accent-bg) rounded-full h-1.5 flex overflow-hidden">
+                            {stats.completed > 0 && (
+                              <div
+                                className="h-1.5 bg-green-500 transition-all"
+                                style={{ width: `${(stats.completed / stats.total) * 100}%` }}
+                              />
+                            )}
+                            {stats.failed > 0 && (
+                              <div
+                                className="h-1.5 bg-red-500 transition-all"
+                                style={{ width: `${(stats.failed / stats.total) * 100}%` }}
+                              />
+                            )}
+                            {stats.running > 0 && (
+                              <div
+                                className="h-1.5 bg-amber-400 animate-pulse transition-all"
+                                style={{ width: `${(stats.running / stats.total) * 100}%` }}
+                              />
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Expanded execution history */}
+                      {isExpanded && (
+                        <div className="px-3 pb-3 pt-2 border-t border-(--vestara-accent-border)">
+                          <div className="flex gap-4 mb-3">
+                            <div className="flex-1">
+                              <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
+                                Capabilities
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {(agent.capabilities || []).map((c: string) => (
+                                  <span
+                                    key={c}
+                                    className="text-[9px] px-1.5 py-0.5 bg-zinc-800 text-(--vestara-text-2) rounded-md border border-(--vestara-accent-border)/50"
+                                  >
+                                    {c}
+                                  </span>
+                                ))}
+                                {(!agent.capabilities || agent.capabilities.length === 0) && (
+                                  <span className="text-[9px] text-(--vestara-text-dim) italic">
+                                    No capabilities defined
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {team && (
+                              <div className="shrink-0">
+                                <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
+                                  Team
+                                </div>
+                                <span
+                                  className="text-[9px] px-1.5 py-0.5 rounded-md"
+                                  style={{ backgroundColor: getColor(agent) + '20', color: getColor(agent) }}
+                                >
+                                  {team.name}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+
+                          <div className="flex items-center justify-between mb-1.5">
+                            <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider">
+                              Tasks ({agentExecutions.length})
+                            </div>
+                            <select
+                              value={executionFilter}
+                              onChange={(e) => setExecutionFilter(e.target.value)}
+                              className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md text-[9px] px-1.5 py-0.5 outline-none cursor-pointer"
+                            >
+                              <option value="all">All</option>
+                              <option value="completed">Done</option>
+                              <option value="failed">Failed</option>
+                              <option value="running">Active</option>
+                            </select>
+                          </div>
+
+                          <div className="space-y-0.5 max-h-40 overflow-y-auto">
+                            {filteredAgentExecs.length === 0 && (
+                              <p className="text-[10px] text-(--vestara-text-dim) py-2 text-center italic">
+                                No executions
+                              </p>
+                            )}
+                            {filteredAgentExecs
+                              .slice((execPage - 1) * EXEC_PAGE_SIZE, execPage * EXEC_PAGE_SIZE)
+                              .map((ex) => {
+                                const duration = ex.completedAt
+                                  ? Math.round(
+                                      (new Date(ex.completedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000,
+                                    )
+                                  : null;
+                                return (
+                                  <div
+                                    key={ex.id}
+                                    onClick={() => setSelectedExecution(ex)}
+                                    className="flex items-center gap-2 py-1 px-1.5 rounded-md hover:bg-(--vestara-accent-bg) transition-colors text-[10px] cursor-pointer"
+                                  >
+                                    <span
+                                      className={`shrink-0 ${ex.status === 'completed' ? 'text-green-500' : ex.status === 'failed' ? 'text-red-500' : 'text-amber-400'}`}
+                                    >
+                                      {ex.status === 'completed' ? '✔' : ex.status === 'failed' ? '✗' : '◉'}
+                                    </span>
+                                    <span className="text-(--vestara-text) truncate flex-1">{ex.task}</span>
+                                    <span className="text-(--vestara-text-muted) shrink-0">
+                                      {new Date(ex.startedAt).toLocaleTimeString()}{' '}
+                                      {duration !== null && `· ${duration}s`}
+                                    </span>
+                                    <span
+                                      className={`text-[8px] px-1 py-0.5 rounded uppercase font-medium ${ex.status === 'completed' ? 'bg-green-400/10 text-green-400' : ex.status === 'failed' ? 'bg-red-400/10 text-red-400' : 'bg-amber-400/10 text-amber-400'}`}
+                                    >
+                                      {ex.status}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                          </div>
+
+                          {filteredAgentExecs.length > EXEC_PAGE_SIZE && (
+                            <div className="border-t border-(--vestara-accent-border) pt-1.5 mt-1.5">
+                              <Pagination
+                                current={execPage}
+                                total={filteredAgentExecs.length}
+                                pageSize={EXEC_PAGE_SIZE}
+                                onChange={setExecPage}
+                              />
+                            </div>
+                          )}
+
+                          <div className="mt-2 flex gap-2">
+                            <input
+                              value={runTask}
+                              onChange={(e) => setRunTask(e.target.value)}
+                              placeholder="Assign a task to this agent..."
+                              className="flex-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-600 outline-none focus:border-(--vestara-accent-border-active)"
+                              onKeyDown={(e) => e.key === 'Enter' && runAgent(agent.id)}
+                            />
+                            <button
+                              onClick={() => runAgent(agent.id)}
+                              disabled={running || !runTask.trim()}
+                              className="text-[10px] px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer font-medium"
+                            >
+                              {running ? 'Running...' : 'Run'}
+                            </button>
+                          </div>
+                          {runOutput && (
+                            <div className="mt-1.5 text-[10px] text-(--vestara-text-2) bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-2">
+                              {runOutput}
+                            </div>
+                          )}
+
+                          {harnessSessions.length > 0 && (
+                            <div className="mt-3 border-t border-(--vestara-accent-border) pt-2">
+                              <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider mb-1">
+                                Harness Sessions ({harnessSessions.length})
+                              </div>
+                              <div className="space-y-1">
+                                {harnessSessions.slice(0, 5).map((s) => {
+                                  const threadId = threadIdFromSession(s.workflowId);
+                                  return (
+                                    <div key={s.id}>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          setSelectedHarnessSession(selectedHarnessSession === s.id ? null : s.id)
+                                        }
+                                        className="w-full text-left flex items-center gap-2 text-[11px] text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer py-0.5"
+                                      >
+                                        <span
+                                          className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.status === 'running' ? 'bg-(--vestara-green) animate-pulse' : 'bg-zinc-600'}`}
+                                        />
+                                        <span className="truncate flex-1">{s.goal || s.id}</span>
+                                        <span className="text-[9px] text-(--vestara-text-muted)">{s.status}</span>
+                                      </button>
+                                      {selectedHarnessSession === s.id && threadId && (
+                                        <>
+                                          <WorkflowRail workflow={harnessWorkflow} onRefresh={() => load()} />
+                                          <div className="mt-2">
+                                            <HarnessThreadTimeline threadId={threadId} />
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -835,20 +911,32 @@ export default function AgentsPage() {
             {agentEvents.slice(0, 80).length === 0 ? (
               <p className="text-[10px] text-(--vestara-text-dim) py-3 text-center italic">No agent activity yet</p>
             ) : (
-              agentEvents.slice((activityPage - 1) * ACTIVITY_PAGE_SIZE, activityPage * ACTIVITY_PAGE_SIZE).map((e, i) => (
-                <div key={e.id || i} className="flex items-start gap-2 py-1 px-1 rounded hover:bg-(--vestara-accent-bg) transition-colors">
-                  <span className="text-blue-400 shrink-0 mt-0.5 text-[11px]">●</span>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-(--vestara-text-2) truncate">{e.message}</div>
-                    <div className="text-[8px] text-(--vestara-text-dim) truncate">{e.actor.name} · {new Date(e.timestamp).toLocaleTimeString()}</div>
+              agentEvents
+                .slice((activityPage - 1) * ACTIVITY_PAGE_SIZE, activityPage * ACTIVITY_PAGE_SIZE)
+                .map((e, i) => (
+                  <div
+                    key={e.id || i}
+                    className="flex items-start gap-2 py-1 px-1 rounded hover:bg-(--vestara-accent-bg) transition-colors"
+                  >
+                    <span className="text-blue-400 shrink-0 mt-0.5 text-[11px]">●</span>
+                    <div className="min-w-0">
+                      <div className="text-[10px] text-(--vestara-text-2) truncate">{e.message}</div>
+                      <div className="text-[8px] text-(--vestara-text-dim) truncate">
+                        {e.actor.name} · {new Date(e.timestamp).toLocaleTimeString()}
+                      </div>
+                    </div>
                   </div>
-                </div>
-              ))
+                ))
             )}
           </div>
           {agentEvents.length > ACTIVITY_PAGE_SIZE && (
             <div className="border-t border-(--vestara-accent-border) pt-2 mt-2">
-              <Pagination current={activityPage} total={agentEvents.length} pageSize={ACTIVITY_PAGE_SIZE} onChange={setActivityPage} />
+              <Pagination
+                current={activityPage}
+                total={agentEvents.length}
+                pageSize={ACTIVITY_PAGE_SIZE}
+                onChange={setActivityPage}
+              />
             </div>
           )}
         </div>
@@ -1073,5 +1161,3 @@ export default function AgentsPage() {
     </div>
   );
 }
-
-

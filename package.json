@@ -37,6 +37,8 @@
     "documentation:baseline": "node apps/cli/dist/index.js docs baseline --output docs/documentation-baseline.json --json",
     "documentation:check": "node apps/cli/dist/index.js docs check --baseline docs/documentation-baseline.json --output docs/documentation-ci-report.json --json",
     "benchmark-index": "bash scripts/benchmark-index.sh",
+    "test:e2e:workflow": "vitest run packages/workflow-orchestrator/__tests__/e2e",
+    "test:e2e:workflow:real-agent": "tsx --env-file=.env scripts/wfo-e2e-002b-live.ts",
     "lint": "biome check --write",
     "lint:check": "biome check --diagnostic-level=error",
     "format": "biome format --write",
