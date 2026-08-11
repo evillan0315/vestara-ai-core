@@ -27,6 +27,8 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     css: true,
-    exclude: [...configDefaults.exclude, 'tests/visual/visual.spec.ts', 'tests/visual/settings-matrix.spec.ts'],
+    // Playwright owns tests/visual/*.spec.*; exclude both the sources and the
+    // stale compiled artifacts so vitest never executes them.
+    exclude: [...configDefaults.exclude, 'tests/visual/**/*.spec.ts', 'tests/visual/**/*.spec.js'],
   },
 });

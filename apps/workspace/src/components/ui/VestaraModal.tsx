@@ -17,14 +17,17 @@ interface VestaraModalProps {
   className?: string;
   /** Render the primary accent bar along the top edge. Default true. */
   accentBar?: boolean;
+  /** Accessible name for the dialog. */
+  ariaLabel?: string;
 }
 
-export function VestaraModal({ onClose, children, className = 'max-w-md', accentBar = true }: VestaraModalProps) {
+export function VestaraModal({ onClose, children, className = 'max-w-md', accentBar = true, ariaLabel }: VestaraModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
+        aria-label={ariaLabel}
         className={`relative w-full overflow-hidden rounded-2xl border border-(--vestara-accent-border) shadow-2xl ${className}`}
         onClick={(event) => event.stopPropagation()}
         onKeyDown={(event) => {
