@@ -268,3 +268,21 @@ status        prepared — NOT started. Awaits Director review of the
 
 Run 1 environment (`vestara-orb-ve-001`, API 3999, server 4097) remains
 running for inspection of the recorded failure state.
+
+## Run 2 — execution authorization
+
+```text
+authorization   Director authorization granted. Execute ORB-VE-001 Run 2 in
+                the prepared fresh isolated environment under the unchanged
+                frozen contract v0.2.0.
+boundaries      Same experimental boundaries and intervention policy. Do not
+                repair, guide, retry around, or compensate for newly
+                discovered failures during the run. Allow the existing
+                organization to proceed until it reaches convergence or the
+                next evidenced boundary, then stop and report the evidence.
+immutability    Run 1 remains immutable experimental evidence and must not be
+                altered or reclassified by Run 2.
+```
+
+Run 2 executes in `/home/eddie/projects/vestara-orb-ve-001-r2` (baseline
+`orb-ve-001-baseline-r2 @ 4ec0a07`). Run 1 (3999/4097) is left untouched.
