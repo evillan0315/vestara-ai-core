@@ -286,3 +286,40 @@ immutability    Run 1 remains immutable experimental evidence and must not be
 
 Run 2 executes in `/home/eddie/projects/vestara-orb-ve-001-r2` (baseline
 `orb-ve-001-baseline-r2 @ 4ec0a07`). Run 1 (3999/4097) is left untouched.
+
+## Run 2 — run log (execution — frozen v0.2.0)
+
+```text
+15:15:35  Director product intent submitted (Activity Room seq 1, all-agents)
+15:15:35  POST /api/workflows → wf-1786461334008-1
+         stages derived: planner → developer → verifier → reviewer
+15:15:35  Planner turn dispatched (run-…, turn queued → preparing → reasoning)
+15:15:35  Planner ACTIVE — real model run in progress (provider resolution
+         defect from Run 1 no longer blocks; the boundary moved)
+15:20:37  Planner turn FAILED after ~302s:
+         reasonCode: provider-failed · summary: "This operation was aborted"
+         Cause: OpenCodeRuntimeProvider streamReply aborts after the 300s
+         timeout (timeoutMs default). The planner was still producing when
+         aborted; the abort cut the turn off.
+         Chain stopped by design (executeChain returns on non-terminal state);
+         developer/verifier/reviewer threads were pre-created but never ran
+         (0 timeline steps).
+15:21:58  Effective State: open=[] needsAttention=0 (unchanged — observability
+         gap from Run 1 persists)
+```
+
+**Run 2 result — next evidenced boundary:**
+
+```text
+failure frontier moved:
+  Run 1: provider discovery order → OPENCODE_UPSTREAM_ERROR (3s, first turn)
+  Run 2: agent turn duration > provider stream timeout → abort (302s, first turn)
+
+organization: activated, derived stages, planner owned the first transition
+             and executed a genuine model run before the infrastructure
+             timeout aborted it.
+```
+
+Per authorization, this is preserved as evidence and **not repaired/compensated**
+(no timeout adjustment, no retry, no guidance). The organization is stopped at
+this boundary. Run 1 evidence remains immutable.
