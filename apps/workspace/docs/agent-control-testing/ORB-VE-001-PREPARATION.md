@@ -940,3 +940,63 @@ reporting       after termination, freeze before evaluation/remediation.
 
 Run 5 executes in `/home/eddie/projects/vestara-orb-ve-001-r5` (baseline
 `orb-ve-001-baseline-r5 @ 0067931`). Runs 1–4 left untouched.
+
+## Run 5 — run log + frozen result (execution — frozen v0.2.0)
+
+```text
+19:34:47  Intent + workflow start → wf-1786476903830-1 (planner→developer→verifier→reviewer)
+19:3x-19:4x  Planner COMPLETED — correct interpretation (reachable appearance
+            path via useTheme); declared material uncertainties (interpretation
+            scope + mock-vs-live evidence caveat).
+19:4x-19:5x  Developer COMPLETED — built on the durable path (system-mode read
+            fix in resolveHydratedTheme), added unit tests, and authored a
+            browser-level reload-survival spec (appearance-reload.spec.ts):
+            make approved change → assert applied → wipe localStorage → reload
+            → assert reconstructed from durable server settings (4 cases).
+19:5x-20:0x  Verifier COMPLETED — distinguished implementation-quality from
+            behavioral acceptance; ran the profile + the spec (4/4); approved
+            with one caveat: the spec used a faithful in-test settings harness,
+            not the live API round-trip.
+20:0x-20:1x  Reviewer COMPLETED — anchored to the acceptance boundary; confirmed
+            the read path (resolveHydratedTheme over resolved server settings)
+            is the source of truth and the tests prove reconstruction from
+            durable state (CSS-level assertions); approved.
+           Terminal: all four stages completed; no busy sessions.
+```
+
+**§16 evaluation (Run 5 artifact, evidence-based, symmetric):**
+
+- The artifact's OWN browser spec passes **4/4** (accent / mode light / mode
+  system / workspace profile — each: change → wipe ephemeral → reload →
+  reconstructed from durable settings).
+- Live verification against the Run 5 artifact (real UI → live API): change
+  accent → `PUT /api/settings` 200 · `overrideCount: 1` · `appearance.theme`
+  persisted → clear localStorage → reload → **reconstructed from live server
+  state** (`--vestara-accent` #10b981). This closes the Verifier's mock-vs-live
+  caveat with run-5-artifact evidence and confirms the Run 4 failure condition
+  no longer reproduces.
+
+| §16 item | Determination |
+|---|---|
+| Identify/select target · manipulate property · preview | SATISFIED |
+| Apply makes confirmed intent durable | SATISFIED (live PUT, overrideCount 1) |
+| Cold reload reconstructs intended presentation | SATISFIED (clear + reload → reconstructed from server) |
+| Verification independently observes rendered result | SATISFIED (CSS/DOM assertions + live observation) |
+| Undo/revert · unrelated targets unchanged · scope refused | INDETERMINATE (not exercised by evidence) |
+| Verification detects deliberate drift | INDETERMINATE |
+| No unresolved high-severity findings | SATISFIED (caveat closed; remaining are non-blocking) |
+
+**Run 5 result — calibration demonstrated:**
+
+```text
+Run 3: behavior wrong → organization says success            (FALSE → COMPLETED)
+Run 4: behavior wrong → organization refuses acceptance      (FALSE → CONDITIONAL)
+Run 5: behavior true + evidence → organization correctly
+       concludes readiness, and the behavior survives reload  (TRUE → SATISFIED)
+```
+
+The organization now demonstrates the positive side of calibration: when the
+behavior genuinely exists and sufficient evidence (browser-observable) is
+produced, the verifier/reviewer correctly concluded readiness, and the §16
+durable-reload obligations are established by the run's own artifact + live
+evidence. Frozen before comparison/remediation; Runs 1–4 immutable.
