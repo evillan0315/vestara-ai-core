@@ -218,3 +218,53 @@ authorized).
   record organizational events; the failure surfaced through the harness store
   (agent_turns / thread_items), not the room, which had no derived condition to
   show.
+
+## Post-ORB substrate remediation — OpenCode provider/model resolution (verified)
+
+**Run 1 closed; evidence preserved unchanged.** Independent remediation of the
+first-transition blocker, generic (not optimized for zhipuai/ORB/Visual Edit):
+
+```text
+invariant   provider discovery order must not determine execution identity.
+            An explicit model/provider assignment must be demonstrably
+            resolvable under the configured runtime policy; otherwise Vestara
+            uses the legitimate configured/default resolution rather than
+            inventing an assignment.
+fix         commit daa9e2f (fix(opencode-runtime))
+            OpenCodeRuntimeProvider.resolveProvider() no longer forces
+            models[0].id; explicit preferred / slash-qualified model
+            assignments resolve only when discovered, else runtime default.
+            CompletionResponse gains a resolution provenance field.
+```
+
+**Focused verification (all passing):**
+- provider reordering — resolution identical regardless of discovery order
+- unavailable first provider — falls back to default, never forces it
+- valid/invalid explicit preferred assignments
+- valid/invalid slash-qualified model assignments
+- default resolution (no explicit) — session created without forcing a provider
+- upstream failure classification (401/403/404/5xx → typed integration errors)
+- harness + provider contract suites green; biome clean; full build green
+- **live:** fixed provider `complete()` against a real opencode server returned
+  a model reply (16.5s) with `resolution: { reason: 'default',
+  defaultResolution: true }` — the previously failing path is unreachable
+
+Pre-existing `config.test.ts` env failures (OPENCODE_SERVER_*) remain and are
+unrelated.
+
+## ORB-VE-001 Run 2 — readiness (prepared, NOT executed)
+
+```text
+baseline      orb-ve-001-baseline-r2 @ 4ec0a07 (orphan, experimental)
+              = Run 1 synthetic baseline + provider resolution remediation
+environment   /home/eddie/projects/vestara-orb-ve-001-r2
+              single-branch, 0 remotes, 2100 tracked files
+residue       VE/ORB/reference-execution markers: 0
+build         tsc -b, 95 projects, exit 0
+tests         provider fix + Activity Room: 44/44 passed
+status        prepared — NOT started. Awaits Director review of the
+              remediation evidence before a fresh Run 2 may be authorized.
+```
+
+Run 1 environment (`vestara-orb-ve-001`, API 3999, server 4097) remains
+running for inspection of the recorded failure state.
