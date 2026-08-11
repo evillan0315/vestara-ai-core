@@ -548,6 +548,7 @@ export class AgentHarnessRuntime {
           model: this.options.model,
           messages: this.messages(thread.id, context),
           tools: [...this.options.tools.definitions()],
+          signal: active.controller.signal,
         } satisfies CompletionRequest);
       } catch (error) {
         return this.finish(

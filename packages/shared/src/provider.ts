@@ -70,6 +70,8 @@ export interface CompletionRequest {
   maxTokens?: number;
   stream?: boolean;
   tools?: ToolDefinition[];
+  /** Caller-controlled cancellation: when aborted, the provider terminates the turn. */
+  signal?: AbortSignal;
 }
 
 export interface CompletionResponse {

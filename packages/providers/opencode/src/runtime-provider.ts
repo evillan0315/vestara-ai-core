@@ -17,7 +17,12 @@
  * crash and never a secret leak.
  */
 
-import { type OpenCodeClient, OpenCodeHttpClient, resolveOpenCodeConfig } from '@vestara/opencode-runtime';
+import {
+  type OpenCodeClient,
+  OpenCodeHttpClient,
+  OpenCodeIntegrationError,
+  resolveOpenCodeConfig,
+} from '@vestara/opencode-runtime';
 import type {
   AIModel,
   AIProvider,
@@ -39,6 +44,18 @@ export interface OpenCodeRuntimeProviderOptions {
   readonly preferredProviderId?: string;
   /** Native runtime agent (e.g. build/planner/reviewer) the sessions run as (default: runtime default). */
   readonly agent?: string;
+  /**
+   * Execution-liveness window: if no upstream event arrives for this long, the
+   * turn is classified STALLED and terminated. Activity (message deltas,
+   * session updates, server heartbeats) extends it. Default 60s.
+   */
+  readonly streamIdleTimeoutMs?: number;
+  /**
+   * Absolute safety ceiling for one agent turn, regardless of activity.
+   * Default 30 minutes. A healthy long-running turn is terminated only when it
+   * exceeds this ceiling, not on arbitrary wall-clock duration.
+   */
+  readonly streamMaxDurationMs?: number;
 }
 
 export type ProviderResolutionReason =
@@ -69,6 +86,8 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   private readonly workspaceId: string;
   private readonly preferredProviderId?: string;
   private readonly agent?: string;
+  private readonly streamIdleTimeoutMs: number;
+  private readonly streamMaxDurationMs: number;
   private providersPromise?: Promise<string[]>;
   private providersLoadedAt = 0;
 
@@ -83,6 +102,16 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     this.workspaceId = options.workspaceId ?? 'vestara';
     this.preferredProviderId = options.preferredProviderId ?? process.env.OPENCODE_RUNTIME_PROVIDER_ID;
     this.agent = options.agent ?? process.env.OPENCODE_RUNTIME_AGENT;
+    this.streamIdleTimeoutMs = positiveInt(
+      options.streamIdleTimeoutMs,
+      process.env.OPENCODE_STREAM_IDLE_TIMEOUT_MS,
+      60_000,
+    );
+    this.streamMaxDurationMs = positiveInt(
+      options.streamMaxDurationMs,
+      process.env.OPENCODE_STREAM_MAX_DURATION_MS,
+      1_800_000,
+    );
   }
 
   /** Lazily resolve the runtime client; caches the config on success or the error. */
@@ -161,7 +190,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const resolved = this.resolveProvider(request.model);
     const sessionId = await this.createSession(resolved.providerId);
     try {
-      const text = await this.streamReply(sessionId, renderPrompt(request));
+      const text = await this.streamReply(sessionId, renderPrompt(request), request.signal);
       return {
         id: `ocrt-${Date.now()}`,
         model: resolved.providerId ?? request.model,
@@ -250,36 +279,78 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     return session.id;
   }
 
-  private async streamReply(sessionId: string, prompt: string): Promise<string> {
+  /**
+   * Stream a turn under an execution-liveness contract. The turn is ACTIVE
+   * while upstream events arrive (message deltas, session updates, server
+   * heartbeats); each event extends the idle window. It is terminated when:
+   *   - no event arrives within `streamIdleTimeoutMs`       → STALLED
+   *   - the turn exceeds `streamMaxDurationMs`              → MAX DURATION
+   *   - the caller's signal aborts                          → CANCELLED
+   *   - the runtime emits `session.idle` / `session.error`  → terminal
+   *   - the SSE stream ends without a terminal event        → CONNECTION LOST
+   * Termination reasons are observable through thrown typed errors; caller
+   * cancellation returns an empty completion so the harness classifies it as
+   * cancelled rather than provider-failed.
+   */
+  private async streamReply(sessionId: string, prompt: string, externalSignal?: AbortSignal): Promise<string> {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), this.timeoutMs);
+    const onExternalAbort = () => controller.abort();
+    if (externalSignal?.aborted) onExternalAbort();
+    else externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
     const context = { workspaceId: this.workspaceId, sessionId };
     const stream = this.client().openEventStream(context, controller.signal);
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let maxTimer: ReturnType<typeof setTimeout> | undefined;
+    let terminationReason: 'stalled' | 'max-duration' | undefined;
+    const armIdle = () => {
+      if (idleTimer) clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => {
+        terminationReason = 'stalled';
+        controller.abort();
+      }, this.streamIdleTimeoutMs);
+    };
     try {
       await this.client().sendMessageAsync(sessionId, { parts: [{ type: 'text', text: prompt }] }, context);
+      armIdle();
+      maxTimer = setTimeout(() => {
+        terminationReason = 'max-duration';
+        controller.abort();
+      }, this.streamMaxDurationMs);
       let text = '';
       let terminal: 'idle' | 'error' | undefined;
-      for await (const event of stream) {
-        if (sessionOf(event) !== sessionId) continue;
-        if (event.type === 'session.idle') {
-          terminal = 'idle';
-          break;
+      try {
+        for await (const event of stream) {
+          armIdle();
+          if (sessionOf(event) !== sessionId) continue;
+          if (event.type === 'session.idle') {
+            terminal = 'idle';
+            break;
+          }
+          if (event.type === 'session.error' || event.type === 'session.unavailable') {
+            terminal = 'error';
+            break;
+          }
+          if (event.type.startsWith('message.') && typeof event.payload?.delta === 'string') {
+            text += event.payload.delta;
+          }
         }
-        if (event.type === 'session.error' || event.type === 'session.unavailable') {
-          terminal = 'error';
-          break;
-        }
-        if (event.type.startsWith('message.') && typeof event.payload?.delta === 'string') {
-          text += event.payload.delta;
-        }
+      } catch (error) {
+        if (externalSignal?.aborted) return ''; // caller cancellation → harness classifies cancelled
+        if (terminationReason === 'stalled') throw stalledTurnError(this.streamIdleTimeoutMs);
+        if (terminationReason === 'max-duration') throw maxDurationTurnError(this.streamMaxDurationMs);
+        throw error; // genuine stream failure (connection/network)
       }
+      if (terminationReason === 'stalled') throw stalledTurnError(this.streamIdleTimeoutMs);
+      if (terminationReason === 'max-duration') throw maxDurationTurnError(this.streamMaxDurationMs);
       if (!text && terminal !== 'idle') {
-        text = await this.lastMessageText(sessionId);
+        text = await this.lastMessageText(sessionId).catch(() => '');
       }
-      if (!text) throw new Error('no assistant reply within timeout');
+      if (!text && terminal !== 'idle') throw connectionLostError();
       return text;
     } finally {
-      clearTimeout(timer);
+      clearTimeout(idleTimer);
+      clearTimeout(maxTimer);
+      externalSignal?.removeEventListener('abort', onExternalAbort);
       controller.abort();
     }
   }
@@ -317,4 +388,39 @@ function explicitProviderOf(modelId: string | undefined): string | undefined {
 function sessionOf(event: { payload?: Record<string, unknown> }): string | undefined {
   const value = event.payload?.sessionID;
   return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function positiveInt(...candidates: Array<number | string | undefined>): number {
+  for (const candidate of candidates) {
+    const parsed = typeof candidate === 'number' ? candidate : Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  throw new Error('A positive integer is required');
+}
+
+function stalledTurnError(idleMs: number): OpenCodeIntegrationError {
+  return new OpenCodeIntegrationError(
+    'OPENCODE_TIMEOUT',
+    `OpenCode execution stalled: no upstream events for ${idleMs}ms.`,
+    504,
+    true,
+  );
+}
+
+function maxDurationTurnError(maxMs: number): OpenCodeIntegrationError {
+  return new OpenCodeIntegrationError(
+    'OPENCODE_TIMEOUT',
+    `OpenCode execution exceeded the maximum duration of ${maxMs}ms.`,
+    504,
+    true,
+  );
+}
+
+function connectionLostError(): OpenCodeIntegrationError {
+  return new OpenCodeIntegrationError(
+    'OPENCODE_UNAVAILABLE',
+    'OpenCode stream ended without a terminal event (connection lost).',
+    503,
+    true,
+  );
 }

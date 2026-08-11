@@ -8,12 +8,48 @@ function fakeEventStream(events: Array<{ type: string; payload?: Record<string, 
   })();
 }
 
-function mockClient(providers?: Array<{ id: string; name?: string; modelCount?: number }>) {
+/** Abort-aware stream: rejects with AbortError when `signal` aborts. */
+function abortAwareStream(events: Array<{ type: string; payload?: Record<string, unknown> }>) {
+  return (signal: AbortSignal) =>
+    (async function* stream() {
+      const abort = new Promise<never>((_, reject) => {
+        const onAbort = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      });
+      for (const event of events) {
+        yield await Promise.race([Promise.resolve(event), abort]);
+      }
+      await abort;
+    })();
+}
+
+/** Abort-aware stream that yields an event every `intervalMs` until `count`. */
+function periodicStream(count: number, intervalMs: number) {
+  return (signal: AbortSignal) =>
+    (async function* stream() {
+      const abort = new Promise<never>((_, reject) => {
+        const onAbort = () => reject(Object.assign(new Error('aborted'), { name: 'AbortError' }));
+        if (signal.aborted) onAbort();
+        else signal.addEventListener('abort', onAbort, { once: true });
+      });
+      for (let index = 0; index < count; index++) {
+        await Promise.race([new Promise((resolve) => setTimeout(resolve, intervalMs)), abort]);
+        yield { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: `chunk${index} ` } };
+      }
+      yield { type: 'session.idle', payload: { sessionID: 'session-1' } };
+    })();
+}
+
+function mockClient(options?: {
+  providers?: Array<{ id: string; name?: string; modelCount?: number }>;
+  stream?: (signal: AbortSignal) => AsyncGenerator<{ type: string; payload?: Record<string, unknown> }>;
+}) {
   const calls: Array<{ method: string; body?: unknown }> = [];
   const client = {
     listProviders: vi.fn(
       async () =>
-        providers ?? [
+        options?.providers ?? [
           { id: 'opencode-go', name: 'OpenCode Go', modelCount: 3 },
           { id: 'opencode', name: 'OpenCode', modelCount: 5 },
         ],
@@ -28,12 +64,14 @@ function mockClient(providers?: Array<{ id: string; name?: string; modelCount?: 
     }),
     abortSession: vi.fn(async () => true),
     listMessages: vi.fn(async () => []),
-    openEventStream: vi.fn(() =>
-      fakeEventStream([
-        { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: 'Plan: ' } },
-        { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: 'add the endpoint' } },
-        { type: 'session.idle', payload: { sessionID: 'session-1' } },
-      ]),
+    openEventStream: vi.fn((_context: unknown, signal: AbortSignal) =>
+      options?.stream
+        ? options.stream(signal)
+        : fakeEventStream([
+            { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: 'Plan: ' } },
+            { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: 'add the endpoint' } },
+            { type: 'session.idle', payload: { sessionID: 'session-1' } },
+          ]),
     ),
   };
   return { client, calls };
@@ -84,8 +122,8 @@ describe('OpenCodeRuntimeProvider', () => {
   });
 
   it('is unaffected by provider discovery order', async () => {
-    const a = mockClient([{ id: 'opencode' }, { id: 'opencode-go' }]);
-    const b = mockClient([{ id: 'opencode-go' }, { id: 'opencode' }]);
+    const a = mockClient({ providers: [{ id: 'opencode' }, { id: 'opencode-go' }] });
+    const b = mockClient({ providers: [{ id: 'opencode-go' }, { id: 'opencode' }] });
     const pa = new OpenCodeRuntimeProvider({ client: a.client as never });
     const pb = new OpenCodeRuntimeProvider({ client: b.client as never });
 
@@ -103,7 +141,7 @@ describe('OpenCodeRuntimeProvider', () => {
   it('does not force an unavailable first provider — it falls back to default resolution', async () => {
     // Simulates the observed defect: the first discovered provider (zhipuai)
     // is unusable. Execution must not resolve to it.
-    const { client, calls } = mockClient([{ id: 'zhipuai' }, { id: 'deepseek' }]);
+    const { client, calls } = mockClient({ providers: [{ id: 'zhipuai' }, { id: 'deepseek' }] });
     const provider = new OpenCodeRuntimeProvider({ client: client as never });
 
     await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
@@ -246,5 +284,99 @@ describe('OpenCodeRuntimeProvider', () => {
       if (previous === undefined) delete process.env.OPENCODE_SERVER_PASSWORD;
       else process.env.OPENCODE_SERVER_PASSWORD = previous;
     }
+  });
+
+  describe('execution-liveness contract', () => {
+    it('terminates a turn that produces no events beyond the idle window as STALLED', async () => {
+      const { client } = mockClient({
+        stream: abortAwareStream([
+          { type: 'message.part.updated', payload: { sessionID: 'session-1', delta: 'start' } },
+        ]),
+      });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 80,
+        streamMaxDurationMs: 30_000,
+      });
+
+      await expect(
+        provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+      ).rejects.toMatchObject({
+        code: 'OPENCODE_TIMEOUT',
+        retryable: true,
+        message: expect.stringContaining('stalled'),
+      });
+      expect(client.abortSession).toHaveBeenCalled();
+    });
+
+    it('keeps a turn alive while events keep arriving — idle, not wall-clock, bounds the turn', async () => {
+      // Events every 30ms for ~300ms total with an 80ms idle window. If the
+      // turn were bounded by wall-clock duration it would be killed; activity
+      // extends it until session.idle.
+      const { client } = mockClient({ stream: periodicStream(10, 30) });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 80,
+        streamMaxDurationMs: 30_000,
+      });
+
+      const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+
+      expect(response.content).toBe('chunk0 chunk1 chunk2 chunk3 chunk4 chunk5 chunk6 chunk7 chunk8 chunk9 ');
+    });
+
+    it('terminates a long-but-active turn at the absolute maximum duration ceiling', async () => {
+      const { client } = mockClient({ stream: periodicStream(1000, 10) });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 30_000,
+        streamMaxDurationMs: 120,
+      });
+
+      await expect(
+        provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+      ).rejects.toMatchObject({
+        code: 'OPENCODE_TIMEOUT',
+        message: expect.stringContaining('maximum duration'),
+      });
+      expect(client.abortSession).toHaveBeenCalled();
+    });
+
+    it('returns an empty completion when the caller cancels, so the harness classifies cancelled', async () => {
+      const { client } = mockClient({ stream: abortAwareStream([]) });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 30_000,
+        streamMaxDurationMs: 30_000,
+      });
+      const controller = new AbortController();
+
+      const pending = provider.complete({
+        model: 'x',
+        messages: [{ role: 'user', content: 'hi' }],
+        signal: controller.signal,
+      });
+      controller.abort();
+
+      const response = await pending;
+      expect(response.content).toBe('');
+      expect(client.abortSession).toHaveBeenCalled();
+    });
+
+    it('classifies a stream that ends without a terminal event as connection lost', async () => {
+      const { client } = mockClient({ stream: () => fakeEventStream([]) });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 30_000,
+        streamMaxDurationMs: 30_000,
+      });
+
+      await expect(
+        provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+      ).rejects.toMatchObject({
+        code: 'OPENCODE_UNAVAILABLE',
+        message: expect.stringContaining('connection lost'),
+      });
+    });
   });
 });
