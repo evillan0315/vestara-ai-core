@@ -577,6 +577,44 @@ and a pre-established scoring model. Visual Edit is the reference execution,
 not inspectable by participants. **Status: specification recorded — execution
 not authorized.**
 
+## ORB-VE-001 preparation — READINESS: NOT READY (evidence-backed)
+
+Preparation assessed the frozen v0.2.0 contract's readiness conditions. Result
+is **NOT READY**, stopped at the readiness gate as instructed.
+
+**Blockers:**
+
+1. **No historical baseline exists.** `vestara-ai-core` HEAD (`21cbb84`) contains
+   **zero** files under the required substrate (Activity Room UI, API activity
+   routes, `activity-projection`, `sqlite-migrations`). The entire substrate is
+   uncommitted working-tree state; there is no commit providing "enough
+   infrastructure to make the problem realistic but no Visual Edit
+   implementation."
+2. **The reference is interleaved with the substrate.** Six substrate files
+   contain Visual Edit code (`data-ve-*` markers, `useVisualConfig`/
+   `overrideStyle`/`hydrateVisualConfig` hooks, the `/api/visual-config` route
+   handler, the dispatch prefix): `ActivityItem.tsx`, `ActivityComposer.tsx`,
+   `ActivityStream.tsx`, `ActivityRoomPage.tsx`, `routes/activity-room.ts`,
+   `server.ts`. The standalone VE modules (`VisualEditMode`, `visual-config`,
+   `visual-verify`, `edit-manifest`), the VE test spec, and the VE design/
+   findings docs also exist in the working tree. A clean baseline requires
+   stripping VE from the interleaved files; residue-free isolation cannot
+   currently be verified.
+
+**Captured provenance (partial):** baseline candidate HEAD `21cbb84` ·
+benchmark spec commit `3c61793` (frozen) · runtime node v24.18.0 · model
+deepseek-v4-flash (session).
+
+**Remediation path (not taken — requires separate authorization):** create a
+deliberate baseline snapshot — strip VE code from the six interleaved files,
+exclude the standalone VE modules + VE spec + VE docs/findings, commit as
+`orb-ve-001-baseline`, then establish the isolated worktree, verify retrieval
+isolation (incl. agent context), and capture full provenance before the
+readiness gate can pass.
+
+**Status:** Preparation stopped at the gate. NOT READY. The frozen contract
+remains untouched.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
