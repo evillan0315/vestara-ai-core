@@ -371,3 +371,21 @@ status        prepared — NOT started. Awaits Director authorization for Run 3.
 
 Run 1 (3999/4097) and Run 2 (4000/4098) environments remain running for
 inspection of their recorded states.
+
+## Run 3 — execution authorization
+
+```text
+authorization   Director authorization granted. Execute ORB-VE-001 Run 3 in
+                the prepared fresh isolated environment under the unchanged
+                frozen contract v0.2.0.
+boundaries      Same experimental boundaries and intervention policy. Do not
+                repair, retry around, guide, compensate for, or preempt newly
+                discovered failures during the run. Allow the existing
+                organization to proceed until convergence or the next evidenced
+                boundary, then stop and preserve the evidence.
+immutability    Run 1 and Run 2 remain immutable, independently attributable
+                experimental evidence.
+```
+
+Run 3 executes in `/home/eddie/projects/vestara-orb-ve-001-r3` (baseline
+`orb-ve-001-baseline-r3 @ 8ec4cf3`). Runs 1 and 2 are left untouched.
