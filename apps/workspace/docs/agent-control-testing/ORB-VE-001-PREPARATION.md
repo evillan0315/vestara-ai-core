@@ -593,3 +593,40 @@ prompt). **Competing explanations considered:** Developer-only drift (refuted �
 Developer executed the planner's plan); substrate corruption (refuted — the
 Planner had the correct goal); hidden-scenario interpretation (acknowledged by
 the Planner's risk note, but the plan was still produced without escalation).
+
+## Post-ORB remediation — acceptance boundary (organizational invariant)
+
+**Run 3 postmortem accepted as sufficient causal evidence. Generic, no ORB
+product knowledge, no Run 4 preparation.**
+
+```text
+invariant   a workflow may transform plans and implementations, but must not
+            silently lose, weaken, or replace the acceptance obligations
+            derived from the authorized objective.
+contract    commit 713ae64 (feat(workspace): acceptance boundary)
+            AcceptanceBoundary: objective (immutable anchor) + derived
+            obligations (append-only) + material uncertainties; conditional
+            when unresolved. Orchestrator seeds it from the objective; the
+            interpreting stage declares obligations/uncertainty via a
+            structured ACCEPTANCE BOUNDARY block parsed from its own output.
+            Every stage receives the rendered boundary as the authoritative
+            anchor; upstream summaries travel only as non-authoritative
+            context. Verifier distinguishes implementation quality from
+            behavioral acceptance (NOT ESTABLISHED); Reviewer is anchored to
+            the boundary. Material uncertainty stays observable (conditional
+            terminal state + boundary on the completed event).
+```
+
+**Focused verification (all passing, generic scenarios):** acceptance
+obligations preserved across every handoff (never derived from a summary);
+legitimate plan transformation without drift (objective anchor intact when no
+declaration); unresolved material ambiguity observable and conditional (not
+silently collapsed); verifier contract distinguishes implementation-quality
+PASS from behavioral acceptance unproven; downstream substitution attempt
+refuted (boundary obligations unchanged). Workspace + API suites: 367 passed /
+1 skipped; biome clean; full build green.
+
+**Limitations (recorded):** the boundary is owned by the orchestrator for the
+workflow run (in-memory); process-restart durability is not yet wired. Material
+uncertainty marks the terminal state conditional but does not pause the chain
+(no blanket "ask the Director" rule, per the remediation constraint).
