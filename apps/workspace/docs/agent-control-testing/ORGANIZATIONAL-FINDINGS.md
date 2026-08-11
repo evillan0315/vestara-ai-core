@@ -640,6 +640,68 @@ local** after push.
 This boundary is durable: before it, we built the organization; after it, we
 began testing whether the organization can work on its own.
 
+## GitHub as external governance surface — architecture principle (pre-ORB)
+
+Established during checkpoint + branch-protection work (Director + Reviewer),
+recorded so ORB can test whether the abstraction already holds up.
+
+**Observation:** protecting `main` via GitHub rulesets (block force-push,
+block deletion) made repository policy an *external* enforcement layer:
+
+```text
+Observed risk → governance decision → repository policy → GitHub ruleset
+→ remote verification → 3 repositories protected
+```
+
+Intent was expressed once, translated into policy, executed, and verified —
+without per-repo manual configuration. This is the first instance of an
+**external execution surface** for Vestara governance.
+
+**Emerging architecture principle — Activity Room is a projection, not an
+owner.** GitHub (and later CI/CD, deployment, issue trackers, monitoring,
+business systems) sits *underneath* Vestara as external execution truth:
+
+```text
+GitHub: external execution truth
+   ↓ repository events / evidence
+Vestara organizational interpretation
+   ↓ Effective State
+Activity Room: human-understandable meaning
+```
+
+- Activity Room must not own integrations; it renders their meaning.
+  Integrations live below as **capabilities/events/evidence**, interpreted by
+  the organizational runtime. This prevents the UI from becoming the
+  architecture.
+- Repository events have organizational meaning, not Git noise:
+  `Developer submitted implementation` · `Verification completed` ·
+  `Repository Governance authorized integration` · `GitHub merged → main`.
+  The underlying event (SHA, PR, checks, workflow run) stays immutable
+  evidence, available through Inspect.
+- **Authority boundaries become executable.** Repository mutation is governed
+  by organizational state: `VERIFIER FAILED → MERGE_READY=false → merge
+  prohibited` is stronger than prompt-level "don't merge unless tests pass."
+- **Defense in depth:** an autonomous system should not rely solely on its own
+  self-restraint. GitHub independently enforces parts of the boundary
+  (experiments may mutate freely on branches/worktrees; `main` is protected).
+- **Three worlds:** Protected World (`main`, Blueprint, accepted evidence,
+  reference state) · Working World (feature branches, agent worktrees,
+  ordinary development) · Experimental World (ORB baseline, isolated worktree,
+  controlled authority, failures allowed, disposable state).
+- **Governance is earned through evidence, not adopted as convention.**
+  Today: deletion + non-fast-forward only (direct fast-forward automation must
+  keep working). Later, evidence from the first 50 changes could justify
+  enabling required status checks; evidence of reliable PR/review could justify
+  disabling direct pushes to `main`. Do not enable heavyweight restrictions
+  because they are conventional best practices.
+
+**ORB relevance:** this gives Activity Room its first genuinely demanding
+workload — explaining an organization whose behavior we deliberately are not
+controlling. The abstraction holds up if GitHub operations, agent
+responsibility, verification, reopening, human intervention, and terminal
+state naturally become understandable through the existing room. If not, we
+record exactly what's missing. Either way, no implementation in this scope.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
