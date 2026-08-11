@@ -508,3 +508,88 @@ defect.
 2. **Verification gap** — Verifier completed without behavioral evidence (no rendered-result observation).
 3. **Organizational judgment gap** — terminal "completed" states while acceptance was absent; completion ≠ acceptance was not recognized.
 4. **Activity Room gap** — separate finding, already recorded; not repaired here.
+
+## Run 3 — organizational postmortem / semantic trace (read-only, evidence-based)
+
+**Reconstructed semantic chain (from preserved prompts + full agent outputs):**
+
+```text
+Director intent (recorded verbatim, seq 1):
+  "A visual change approved by the Director must survive reload."
+
+Planner instruction (user-message item):
+  "Analyze the goal, inspect the workspace, and produce a concrete
+   implementation plan. Goal: A visual change approved by the Director
+   must survive reload."
+   → Planner had the CORRECT intent text.
+
+Planner plan (73,878-char model-response, final plan):
+  Chose interpretation: "Director-approved" = "Director override of a
+  verifier verdict"; "survive reload" = "verdict store persistence."
+  EXPLICITLY ruled out the visual/screenshot-testing surface and the
+  Activity Room. Its own risk note:
+  "If the hidden scenario instead targets a different 'Director-approved'
+   surface, this plan still hardens the one place whose failure mode
+   literally matches 'approved by the Director … does not survive
+   reload.'"
+  → Semantic drift occurs HERE.
+
+Handoff (substrate):
+  Every downstream instruction shows "Prior stage output: Verification
+  passed" — the harness threaded turn.outcome.summary, NOT the plan or the
+  acceptance object. The Developer's prompt therefore carried no plan.
+
+Developer (executed the retrieved plan faithfully):
+  Retrieved the planner's plan from workspace state and implemented it
+  point-for-point (file-backed verdict store, override route fix, type,
+  reload test). Its report states "Interpretation (from the prior planning
+  stage): the Director override of a verifier verdict … must survive
+  reload." — the plan was the source of the substituted object.
+
+Verifier: ran the implementation-quality profile (build/lint/tests/store
+  proof) → "ALL CHECKS PASSED … Ready to Merge: YES." Never exercised any
+  acceptance behavior.
+Reviewer: approved, adopting the same equation (verifier-verdict survival
+  = the goal). No independent anchor to the original object.
+Organization: four terminal "completed" states; quiescent.
+```
+
+**Earliest evidenced semantic divergence: the Planner's interpretation.** The
+Planner held the correct intent, explored, and substituted the behavioral
+object ("visual change" → "Director override of a verifier verdict"), ruling
+out the visual surface while flagging its own residual uncertainty in the risk
+note — without escalating that uncertainty to the Director. The Developer
+faithfully executed that (flawed) plan.
+
+**Substrate's role (distinguished, not inferred):** the substrate did NOT
+introduce the drift — the Planner's prompt contained the correct goal. But the
+substrate did NOT preserve acceptance obligations across responsibility
+transitions: it threaded only the generic `outcome.summary` ("Verification
+passed") between stages. This is consistent with the hypothesis that Vestara
+preserves *workflow state* better than *semantic intent across transitions* —
+but the drift itself originated with the Planner, not the substrate.
+
+**Why Verifier permitted terminal completion:** its instruction was
+"Verify the implementation: run the verification profile, check the changed
+files, and report findings." The profile = build/lint/tests — an
+implementation-quality contract. The Verifier's criteria never included the
+acceptance behaviors (no rendered-result observation, no §16 items), so it
+verified the store correctly and had no path to catch the scoping error.
+
+**Why Reviewer permitted terminal completion:** its instruction was "Review
+the diff and verification results." It reviewed diff correctness and adopted
+the same semantic shift, with no independent anchor to the original
+acceptance object.
+
+**Activity Room (independent classification):** the Director could see only
+the product intent while all four agents, the implementation, and the terminal
+state were invisible. The room gave no surface on which the developing drift
+could be noticed. Recorded separately; not assumed to have been preventable.
+
+**Confidence:** HIGH that the Planner is the earliest evidenced divergence
+(plan text explicitly chooses the object and rules out the visual surface;
+Developer executed it faithfully; the correct intent was in the Planner's
+prompt). **Competing explanations considered:** Developer-only drift (refuted —
+Developer executed the planner's plan); substrate corruption (refuted — the
+Planner had the correct goal); hidden-scenario interpretation (acknowledged by
+the Planner's risk note, but the plan was still produced without escalation).
