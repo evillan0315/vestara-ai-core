@@ -490,6 +490,37 @@ developers to establish **shared visual intent** — the UI is now the
 communication surface, and the original problem (repeatedly describing UI
 changes in language) is solved by pointing instead.
 
+## Milestone REOPENED → RESOLVED (automated evidence contradicted)
+
+The Director's manual workflow (Apply → Saved and verified → reload → reverts)
+contradicted the automated completion claim. The rule held: **user-observed
+behavior wins until the contradiction is explained.**
+
+Four real defects found by tracing the full durability lifecycle
+(UI intent → Apply → PUT → file → reload → GET → hydration → render →
+verification):
+
+1. `/api/visual-config` was **never dispatched** (route prefix missing) — PUT
+   never persisted, GET 404 → empty → revert.
+2. GET **double-wrapped** the persisted `{ overrides }` shape, so hydration
+   found nothing.
+3. The success state was **not gated on the verdict** — a PARTIAL verdict still
+   displayed "✓ Saved and verified".
+4. The verifier's **scope counts were wrong** (matching = all overrides;
+   unexpected = count-1).
+
+**Test blind spot:** the VE E2E mocked `/api/visual-config`, proving client
+hydration against a mock rather than the real route wiring and GET shape. A
+live reproduction of the exact Director workflow now passes (Apply → reload →
+still right-aligned, from the real durable config), and an API regression test
+covers dispatch + PUT→GET persistence.
+
+**Process finding:** 2111 tests + 7 VE specs + 22 API tests + 21 unit tests +
+build + lint all passed, yet the feature failed the human acceptance test —
+automated coverage of reality was incomplete. The organization revised its
+conclusion (REOPEN) instead of defending it: exactly the epistemic revision
+loop Vestara is being built to recognize.
+
 ## VE-6 COMPLETE — the closed loop
 
 **VE-6 result (recorded):** the visual verifier reads the DOM (not the config
