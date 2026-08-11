@@ -820,6 +820,41 @@ the work, not the agent session*. An agent workflow knows who is running; an
 organization needs to know whether the participant who owns responsibility is
 actually making progress — and what to do when they aren't.
 
+## ORB-VE-001 Activity Room observability finding (Run 1, recorded separately)
+
+**Classification:** observability finding from ORB-VE-001 Run 1. Recorded
+separately from the provider remediation. **Not repaired** as part of that
+remediation and not fixed mid-run.
+
+**What was observable from the room alone:** the Director product intent
+("a visual change approved by the Director must survive reload") was recorded
+durably (seq 1, all-agents). The room showed that activity.
+
+**What was NOT reconstructable from the room alone:**
+
+```text
+the multi-agent workflow start      (POST /api/workflows → wf-…-1)
+the derived stage sequence          (planner → developer → verifier → reviewer)
+the planner thread + run dispatch   (run-…-6)
+the turn progression                (queued → preparing → reasoning)
+the runtime failure                 (provider-failed, OPENCODE_UPSTREAM_ERROR)
+```
+
+None of those surfaced as Activity Room records or Effective State projections:
+Effective State stayed `open: [] / needsAttention: 0` while the workflow was
+running and failing. The failure was recoverable only by reading the harness
+store (`agent_turns`, `thread_items`) or the run log — i.e., **leaving the
+room**.
+
+**Implication for the observability hypothesis (ORB §20):** the room did not
+yet project workflow-derived state, participant activation, or the first
+runtime failure. The Activity Room observability track for Run 1 is
+PARTIAL/NOT DEMONSTRATED for these transition types — the room explained
+"intent entered," not "the organization tried and why it stopped."
+
+**Not fixed now.** Recorded as evidence; repair belongs to post-ORB Activity
+Room work, not the provider remediation.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
