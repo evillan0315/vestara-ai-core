@@ -733,3 +733,73 @@ Run 4:  planner interprets correctly → verifier anchors to acceptance and
   evidence exists; the reviewer flagged unreachable wiring. Preserved frozen.
 
 Runs 1–3 remain immutable. Run 4 frozen before comparison/remediation.
+
+## Run 4 — focused postmortem (read-only, no remediation)
+
+**Run 4 accepted as frozen evidence. Product acceptance remains NOT SATISFIED;
+the Acceptance Boundary invariant is provisionally supported (terminal workflow
+completion did not become accepted product truth).**
+
+### Boundary 1 — Acceptance Boundary declaration lifecycle
+
+**Evidence:** the Planner's single model-response contained **10** `ACCEPTANCE
+BOUNDARY` occurrences. Block 1 = the literal format template (placeholder
+obligations). Blocks 2–8 = the planner *reasoning about the format* (echoing
+the template while deciding semantics). Block 9 = the final concrete
+declaration (three real obligations: durable recording, reload restore without
+Director re-apply, observable match). Block 10 = closing resolution of the
+interpretive axes (no material uncertainty).
+
+**Why the placeholder was selected:** `parseAcceptanceDeclaration` uses
+`String.match(/ACCEPTANCE BOUNDARY…END ACCEPTANCE BOUNDARY/)`, which returns the
+**first** match — block 1, the placeholders. The orchestrator boundary therefore
+carried placeholder obligations + `<material uncertainty>` → `conditional: true`.
+
+**Generic authority semantics required (observation, not implemented):** the
+evidence supports *the final declaration is authoritative* (the planner's closing
+declaration after it finished reasoning) and *placeholder-only blocks are not
+declarations* (literal `<…>` content is the format template, not intent). The
+smallest deterministic contract consistent with the evidence: **the last
+well-formed declaration containing real (non-placeholder) obligations wins;
+placeholder-only blocks are ignored.** First-block-wins (current) and
+append-only/versioned are competing alternatives; the evidence does not justify
+versioning.
+
+**Earliest boundary:** the parser in `parseAcceptanceDeclaration` (the
+mechanism itself). **Confidence:** HIGH (all 10 blocks recovered verbatim).
+
+### Boundary 2 — theme-persistence path (implementation vs evidence)
+
+**Reconstruction (static evidence):**
+- **Persistence path — REACHABLE:** AppearanceSettings `persistThemeSettings`/
+  `persistThemeMode` → `PUT /api/settings { section, overrides, source }` → the
+  route accepts this exact shape → `settings.save`.
+- **Reload-restore path — WIRED:** ThemeProvider mount effect fetches
+  `/api/settings`, calls `resolveHydratedTheme`, applies mode + settings, then
+  `applySettings` renders. The hydration primitive is invoked on app reload.
+- **Behavioral evidence — ABSENT:** no browser-level reload-restore test exists.
+  The Verifier explicitly sustained CONDITIONAL: obligations 5–6 "NOT
+  ESTABLISHED" by automated evidence.
+- **Secondary implementation defects (verifier/reviewer-identified):**
+  AppearanceSettings load-effect depends on `settings` (re-fetches and
+  re-applies API values over local changes — revert/feedback risk);
+  `general.theme` hydration applies even when default/inherited (may clobber a
+  user's stored mode on un-overridden reloads); PUT omits `expectedRevision`.
+
+**Determination:** the acceptance gap is **predominantly an evidence deficiency**
+(the mechanism is statically wired but not behaviorally demonstrated), **plus
+secondary integration defects** (not a wholesale absent behavior). Earliest
+boundary: the implementation + the Verifier contract's inability to exercise
+browser/runtime evidence. **Confidence:** MEDIUM-HIGH (static reachability
+established by code reading; runtime behavior requires browser evidence that is
+deliberately not generated during a read-only postmortem).
+
+### Observation — Reviewer requested revisions, organization terminated
+
+The Reviewer produced an actionable revision request (fix wiring, add end-to-end
+reload verification, treat `general.theme` as authoritative only when
+overridden), but the workflow terminated because the chain has no revision
+loop. Recorded as an observation only: revision ownership/convergence semantics
+are not implemented and not proposed here. No automatic revision loop.
+
+**Activity Room** preserved as the existing independent observability finding.
