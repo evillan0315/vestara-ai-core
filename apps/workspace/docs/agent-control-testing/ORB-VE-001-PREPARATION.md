@@ -135,3 +135,21 @@ The experimental organization operates in the isolated environment
 (root `.opencode/agents/`, verified VE-free) made available there. A dedicated
 opencode server scoped to the environment (NOT the working-world server on
 4096) drives agent sessions. Product intent is the only Director input.
+
+## Run log (execution — frozen v0.2.0)
+
+```text
+11:55:32  Director submitted product intent (Activity Room seq 1, all-agents):
+          "Product intent: a visual change approved by the Director must
+          survive reload."
+11:56:37  Observation — organization has NOT activated:
+          unresolved conditions 0 · agent activations 0 (5 agents idle)
+          projects/plans/sessions/executions 0
+          dedicated opencode server (4097): no session requests received
+```
+
+**Recorded observation (not fixed mid-run):** the product intent is durably
+recorded in the Activity Room, but the responsibility-resolution loop has not
+autonomously begun — no unresolved condition was derived and no participant
+has taken responsibility. This is the room's honest output at launch and is
+preserved as evidence per the observation protocol (absence is evidence).
