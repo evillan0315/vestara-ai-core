@@ -563,6 +563,20 @@ This is the baseline the autonomous workflow experiment will be measured
 against (iterations to justified completion, contradictions detected, false
 conclusions invalidated, human interventions required, evidence strength).
 
+## ORB-VE-001 specified (recorded, not executed)
+
+The organizational convergence experiment is now specified as a benchmark in
+the Blueprint (`00-governance/orb-ve-001.md`): unresolved conditions as the
+central abstraction, responsibility derived from conditions, Observer
+observational, contamination controls (no answer leakage incl. agent context),
+product intent vs acceptance contract, baseline provenance, Director
+interventions as evidence events, classified human-intervention budget, causal
+responsibility lineage, QUIESCENT terminal state, no single agent owns the
+terminal conclusion, freeze-before-compare against the Visual Edit reference,
+and a pre-established scoring model. Visual Edit is the reference execution,
+not inspectable by participants. **Status: specification recorded — execution
+not authorized.**
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
