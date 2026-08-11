@@ -176,3 +176,45 @@ experiment evidence and stop rather than constructing the missing mechanism.
 multi-agent workflow start (ADR-118) which derives stages from a goal via
 `stagesFromGoal` and starts the workflow. This is the organization-level start;
 it does not select individual agents.
+
+## Run log (execution — frozen v0.2.0, continued)
+
+```text
+12:54:15  POST /api/workflows invoked with the product intent as the goal.
+         → wf-1786452855035-1, stages derived autonomously:
+           planner → developer → verifier → reviewer (one thread each)
+12:54:15  Planner thread created and run dispatched autonomously
+         (run-1786452855857-6, runSource multi-agent, stageIndex 0).
+         Turn transitions: queued → preparing → reasoning.
+12:54:18  Turn FAILED. reasonCode: provider-failed.
+         summary: "OpenCode returned an unexpected error."
+         (code OPENCODE_UPSTREAM_ERROR)
+```
+
+**Root cause (evidence):** `OpenCodeRuntimeProvider.complete()` resolves the
+session provider via `resolveProvider()` → `this.models[0].id`, i.e. the first
+provider id from `listProviders()` on the dedicated experiment server (4097),
+which is `zhipuai`. `createSession({ model: { providerID: 'zhipuai' } })`
+returns a non-OK status (`OPENCODE_UPSTREAM_ERROR`); the same call **without** a
+model succeeds, as do listProviders/createSession/sendMessageAsync/listMessages/
+openEventStream/abortSession individually. This is a runtime integration defect
+in the opencode provider's provider resolution, not an organizational decision.
+
+**Result — STOP per authorization:** the organization-level mechanism exists and
+autonomously derived responsibility (planner stage) and dispatched the first
+agent turn, but the first turn could not execute because the provider resolved
+to an unusable providerID. Per the frozen contract and the activation
+authorization ("If the existing mechanism cannot autonomously perform those
+transitions, preserve that as experiment evidence and stop rather than
+constructing the missing mechanism"), this is preserved as evidence and **not
+repaired** (repairing workflow gaps discovered during the run is not
+authorized).
+
+**ORB outcome so far:**
+- Organizational execution: responsibility was derived and the first transition
+  attempted, but the agent runtime integration blocked the first turn →
+  INDETERMINATE/BLOCKED at the activation boundary (evidence recorded above).
+- Activity Room observability: the room recorded the product intent and would
+  record organizational events; the failure surfaced through the harness store
+  (agent_turns / thread_items), not the room, which had no derived condition to
+  show.
