@@ -890,3 +890,25 @@ reload              accent=Emerald (#10b981) reconstructed from SERVER durable
 Focused tests: 7/7 (hydration parsing, invalid/absent durable state, PUT shape,
 failure handling). Build green; biome clean. Parser lifecycle finding and
 Activity Room finding remain separate. **No Run 5 preparation.**
+
+## ORB-VE-001 Run 5 — readiness (prepared, NOT executed)
+
+```text
+baseline      orb-ve-001-baseline-r5 @ 0067931 (orphan, experimental)
+              = Run 4 baseline + reachable durable appearance remediation ONLY
+environment   /home/eddie/projects/vestara-orb-ve-001-r5
+              single-branch, 0 remotes, 2104 tracked files
+residue       VE/ORB/reference-execution markers: 0
+build         tsc -b, 95 projects, exit 0
+focused       appearance-durability 7/7 · acceptance-boundary + provider
+              liveness + Activity Room 49/49 · total 56/56
+contract      ORB-VE-001 spec blob identical to freeze (32c7a5ad…)
+intent        unchanged: "A visual change approved by the Director must
+              survive reload."
+deliberately  Acceptance Boundary parser lifecycle defect · Activity Room
+unresolved    observability gap · revision-loop observation · no restart
+              durability of the boundary · no uncertainty-pause policy
+status        prepared — NOT started. Awaits Director authorization for Run 5.
+```
+
+Runs 1–4 remain immutable, independently attributable evidence.
