@@ -615,6 +615,31 @@ readiness gate can pass.
 **Status:** Preparation stopped at the gate. NOT READY. The frozen contract
 remains untouched.
 
+## REFERENCE CHECKPOINT (pre-benchmark) — committed, pushed, verified
+
+A durable checkpoint of the current world was created on GitHub before any
+benchmark preparation, giving an immutable separation between *everything
+built and proved up to Visual Edit + frozen ORB contract* and *what happens
+during benchmark preparation/execution*.
+
+**Checkpoint commit IDs (recorded in ORB provenance):**
+
+```text
+vestara-ai-core    ef01f47  (Activity Room + Visual Edit + migrations + findings)
+vestara-blueprint  3c61793  (ORB-VE-001 v0.2.0 FROZEN contract)
+vestara (root)     21c1618  (coordination gitlinks + AGENTS.md)
+```
+
+All three pushed to GitHub (`evillan0315/*`); **remote HEADs verified MATCH
+local** after push.
+
+**Deliberately excluded from the checkpoint (identified, not swept in):**
+`react-dashboard/` (scratch WIP per AGENTS.md), `vestara.env` (credentials),
+`.env` (gitignored credentials), `.vestara/` runtime state (gitignored).
+
+This boundary is durable: before it, we built the organization; after it, we
+began testing whether the organization can work on its own.
+
 ## Boundary
 
 Do not implement Observer, promotion, organizational hierarchy, or recovery
