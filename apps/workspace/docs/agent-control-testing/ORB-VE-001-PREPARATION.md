@@ -444,3 +444,67 @@ failure frontier moved again:
 Per the frozen contract and authorization, the organization reached a terminal
 state and stopped; the evidence is preserved, not judged. Runs 1 and 2 remain
 immutable.
+
+## Run 3 — FROZEN post-run evaluation (authorized, no mutation)
+
+```text
+freeze        ORB-VE-001 Run 3 frozen exactly as completed. No remediation,
+              implementation, retry, guidance, or mutation of the environment
+              is authorized.
+evaluation    frozen post-run evaluation per ORB-VE-001 §15 freeze-before-
+              compare and §16 behavioral acceptance, as-is.
+principle     organizational completion ≠ product acceptance. Harness terminal
+              states, agent completion summaries, authored tests, and agent
+              claims are not substitutes for externally observable behavioral
+              evidence.
+```
+
+Evaluation proceeds below (read-only; the environment is not modified).
+
+## Run 3 — frozen acceptance evaluation (§15 freeze-before-compare · §16)
+
+**What the artifact is (evidence):** 4 files modified + 1 authored test.
+`VerifierResultsStore` gained file persistence (`verdicts.json`) so a Director
+override on a *verifier verdict* survives a store reload; the verifier route
+records/serves/persists verdicts + overrides; the authored test proves the
+verdict-record override survives a fresh-store read. The store is consumed only
+by the API (workspace-context, verifier route) — **no UI rendering path consumes
+it, and no visual-manipulation capability exists in the artifact or substrate.**
+
+**§16 acceptance assessment (behavioral, externally observable):**
+
+| §16 item | Determination |
+|---|---|
+| Human can identify/select intended UI target | NOT SATISFIED — no target-selection capability |
+| Human can manipulate supported visual property | NOT SATISFIED — no visual-manipulation capability |
+| Preview reflects intent | NOT SATISFIED — no preview mechanism |
+| Apply makes confirmed intent durable | NOT SATISFIED — durability is for verdict records, not visual state |
+| Cold reload reconstructs intended presentation | NOT SATISFIED — nothing reconstructs presentation |
+| Undo/revert is supported | NOT SATISFIED |
+| Verification independently observes rendered result | NOT SATISFIED — verification is store/route-level, no rendered result |
+| Verification detects deliberate drift | NOT SATISFIED |
+| Unrelated targets remain unchanged | NOT SATISFIED — no targets exist |
+| Unsupported scope is refused | INDETERMINATE — no scope mechanism |
+| No unresolved high-severity findings remain | NOT SATISFIED — the acceptance gap is high-severity; findings not surfaced as conditions |
+
+**Determination:** **Product acceptance NOT SATISFIED.** Organizational
+completion (all four stages terminal, quiescent) was achieved; product
+acceptance was not. The implementation was scoped to verifier/verdict
+infrastructure — durable, tested, but for a different object than the requested
+"visual change." No mechanism makes, applies, persists, or reconstructs a
+visual presentation.
+
+**Confidence:** HIGH — the acceptance behavior is absent (provably no UI/rendering
+path), not merely unevidenced. **Comparability:** acceptance already fails
+behaviorally, so §15 reference comparison is secondary.
+
+**Outcome class:** closest to the taxonomy's *C — behavior absent and pipeline
+reached terminal success states*. The organization did not distinguish
+completion from acceptance — an organizational/epistemic gap, not a coding
+defect.
+
+**Gaps discovered (recorded, NOT repaired):**
+1. **Product-acceptance gap** — requested behavior not implemented (scoped to verifier infrastructure).
+2. **Verification gap** — Verifier completed without behavioral evidence (no rendered-result observation).
+3. **Organizational judgment gap** — terminal "completed" states while acceptance was absent; completion ≠ acceptance was not recognized.
+4. **Activity Room gap** — separate finding, already recorded; not repaired here.
