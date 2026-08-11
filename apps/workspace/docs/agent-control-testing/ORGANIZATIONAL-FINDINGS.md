@@ -464,6 +464,32 @@ mechanism).
 "did anything else change?") is the next, deliberately not started — too
 important to treat as cleanup.
 
+## VE MILESTONE COMPLETE — the productized workflow
+
+**Completion criterion met:** *Point. Change. Apply. → Saved and verified.*
+
+- **Durable:** visual configuration persisted via the API
+  (`/api/visual-config` → `.vestara/visual-config.json`) and hydrated on boot;
+  the decision survives reload/restart — the durable representation, not
+  transient DOM state, reconstructs it.
+- **Automatic routing:** presentation-only intent → persisted configuration;
+  unrepresentable scope → refusal ("Could not safely apply this change. No
+  changes were saved. [View reason]") — never silently broadened.
+- **Automatic verification:** Apply → persist → render → verify automatically
+  → "✓ Saved and verified" with progressive disclosure; Re-verify under
+  diagnostics.
+- The human doesn't supervise the mechanism; the machinery remains underneath
+  for Developer/Reviewer/Verifier/evidence.
+
+**Milestone review:** permanent ✓ · human stops supervising the mechanism ✓ ·
+Vestara proves the resulting UI matches the request ✓ (verifier reads the DOM,
+drift detection included).
+
+The failed Activity Room UI experiment produced a mechanism for humans and AI
+developers to establish **shared visual intent** — the UI is now the
+communication surface, and the original problem (repeatedly describing UI
+changes in language) is solved by pointing instead.
+
 ## VE-6 COMPLETE — the closed loop
 
 **VE-6 result (recorded):** the visual verifier reads the DOM (not the config
