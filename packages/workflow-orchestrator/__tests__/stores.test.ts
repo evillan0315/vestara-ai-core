@@ -1,5 +1,7 @@
+import { migrate } from '@vestara/sqlite-migrations';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { ArtifactStore } from '../src/stores/artifact-store';
 import { FileLockRegistry } from '../src/stores/file-lock-registry';
 import { PlanStore } from '../src/stores/plan-store';
@@ -15,7 +17,9 @@ beforeAll(async () => {
 });
 
 function freshDb(): Database {
-  return new SQL.Database();
+  const db = new SQL.Database();
+  migrate(db, ORCHESTRATION_MANIFEST, {});
+  return db;
 }
 
 describe('project + plan stores', () => {

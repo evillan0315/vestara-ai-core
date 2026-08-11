@@ -45,31 +45,8 @@ export class PlanStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS plans (
-        id TEXT PRIMARY KEY,
-        title TEXT,
-        goal TEXT,
-        scope TEXT DEFAULT '[]',
-        assumptions TEXT DEFAULT '[]',
-        constraints TEXT DEFAULT '[]',
-        risks TEXT DEFAULT '[]',
-        tasks TEXT DEFAULT '[]',
-        status TEXT DEFAULT 'draft',
-        created_at TEXT,
-        updated_at TEXT,
-        workspace_id TEXT,
-        parent_explanations TEXT DEFAULT '[]',
-        prediction_id TEXT,
-        decision_id TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_plans_status ON plans(status);
-      CREATE INDEX IF NOT EXISTS idx_plans_workspace ON plans(workspace_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(goal: string, workspaceId: string): Promise<Plan> {

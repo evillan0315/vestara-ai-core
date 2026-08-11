@@ -24,6 +24,7 @@ export type {
 } from './agent-capability';
 export { AgentCapabilityManager, capabilityDefinitions } from './agent-capability-manager';
 export { AgentCoordinator } from './agent-coordinator';
+export { AGENT_MANIFEST, AGENT_MIGRATIONS, PLANS_MANIFEST } from './agent-migrations';
 export { AgentPermissionEngine } from './agent-permission';
 export { AgentRuntime } from './agent-runtime';
 export { AgentService } from './agent-service';
@@ -274,6 +275,7 @@ export type { IndexEntry, IndexNode, IndexOptions } from './workspace-index';
 export { WorkspaceIndex } from './workspace-index';
 export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './workspace-manifest';
 export { WorkspaceManifest } from './workspace-manifest';
+export { WORKSPACE_DOMAIN_MANIFEST, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';

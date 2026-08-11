@@ -1,4 +1,11 @@
 import type { Database } from 'sql.js';
+
+function migratedDb(db: Database): Database {
+  migrate(db, ORCHESTRATION_MANIFEST, {});
+  return db;
+}
+
+import { migrate } from '@vestara/sqlite-migrations';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { WorkerCluster } from '../src/distributed/cluster';
 import { FallbackTaskDispatcher } from '../src/distributed/fallback-dispatcher';
@@ -7,6 +14,7 @@ import { WorkerRegistry } from '../src/distributed/registry';
 import { WorkerScheduler } from '../src/distributed/scheduler';
 import { inlineExecutor, WorkerNodeRuntime } from '../src/distributed/worker-node';
 import { WorkerStore } from '../src/distributed/worker-store';
+import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import type { WorkflowTask } from '../src/types';
 
 let SQL: { Database: new (data?: Uint8Array | null) => Database };
@@ -39,7 +47,7 @@ const PROJECT = { id: 'project-1' } as const;
 
 describe('WorkerRegistry (PCS-027 §4-5)', () => {
   it('registers nodes and reaps stale heartbeats offline', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()), { heartbeatTtlMs: 100 });
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())), { heartbeatTtlMs: 100 });
     await registry.register({
       id: 'node-a',
       hostname: 'laptop',
@@ -57,7 +65,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('enableScheduling transitions offline → online', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-c', hostname: 'h' });
     await registry.markOffline('node-c');
     expect((await registry.list()).find((n) => n.id === 'node-c')?.status).toBe('offline');
@@ -67,7 +75,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('disableScheduling transitions online → draining', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-d', hostname: 'h' });
     await registry.heartbeat({ nodeId: 'node-d', load: 0 });
 
@@ -76,37 +84,37 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('enableScheduling throws for unknown nodes', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await expect(registry.enableScheduling('nonexistent')).rejects.toThrow(/Node not found/);
   });
 
   it('disableScheduling throws for unknown nodes', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await expect(registry.disableScheduling('nonexistent')).rejects.toThrow(/Node not found/);
   });
 
   it('enableScheduling throws when already online', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-e', hostname: 'h' });
     await expect(registry.enableScheduling('node-e')).rejects.toThrow(/already online/);
   });
 
   it('disableScheduling throws when already offline', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-f', hostname: 'h' });
     await registry.markOffline('node-f');
     await expect(registry.disableScheduling('node-f')).rejects.toThrow(/already offline/);
   });
 
   it('disableScheduling throws when already draining', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-f2', hostname: 'h' });
     await registry.disableScheduling('node-f2');
     await expect(registry.disableScheduling('node-f2')).rejects.toThrow(/already draining/);
   });
 
   it('enableScheduling cancels draining → online', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-h', hostname: 'h' });
     await registry.disableScheduling('node-h');
     expect((await registry.list()).find((n) => n.id === 'node-h')?.status).toBe('draining');
@@ -116,7 +124,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('reconcileDraining transitions draining → offline when no active leases', async () => {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     const registry = new WorkerRegistry(store);
     await registry.register({ id: 'node-i', hostname: 'h' });
     await registry.disableScheduling('node-i');
@@ -128,7 +136,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('reconcileDraining does not transition draining nodes with active leases', async () => {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     const registry = new WorkerRegistry(store);
     await registry.register({ id: 'node-j', hostname: 'h' });
     await registry.disableScheduling('node-j');
@@ -136,7 +144,21 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
       leaseId: 'lease-active',
       executionId: 'exec-1',
       nodeId: 'node-j',
-      task: { id: 'task-1', planId: 'p', summary: 'Work', description: '', files: [], dependencies: [], status: 'pending', effort: 'medium', requiredCapabilities: [], revisionCount: 0, attemptCount: 0, createdAt: '', updatedAt: '' },
+      task: {
+        id: 'task-1',
+        planId: 'p',
+        summary: 'Work',
+        description: '',
+        files: [],
+        dependencies: [],
+        status: 'pending',
+        effort: 'medium',
+        requiredCapabilities: [],
+        revisionCount: 0,
+        attemptCount: 0,
+        createdAt: '',
+        updatedAt: '',
+      },
       expiresAt: new Date(Date.now() + 60_000).toISOString(),
     });
 
@@ -146,7 +168,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
   });
 
   it('listOnline excludes draining nodes', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-g1', hostname: 'h1' });
     await registry.register({ id: 'node-g2', hostname: 'h2' });
     await registry.heartbeat({ nodeId: 'node-g1', load: 0 });
@@ -160,7 +182,7 @@ describe('WorkerRegistry (PCS-027 §4-5)', () => {
 
 describe('WorkerScheduler (PCS-027 §6)', () => {
   it('routes a task to a node satisfying its capabilities', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-fs', hostname: 'h1', capabilities: ['filesystem.write'] });
     await registry.register({ id: 'node-dev', hostname: 'h2', capabilities: ['code-generation'] });
     await registry.heartbeat({ nodeId: 'node-fs', load: 0 });
@@ -172,7 +194,7 @@ describe('WorkerScheduler (PCS-027 §6)', () => {
   });
 
   it('breaks ties by least load', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'busy', hostname: 'h1', capabilities: ['code-generation'] });
     await registry.register({ id: 'idle', hostname: 'h2', capabilities: ['code-generation'] });
     await registry.heartbeat({ nodeId: 'busy', load: 0.9 });
@@ -185,7 +207,7 @@ describe('WorkerScheduler (PCS-027 §6)', () => {
 
 describe('WorkerCluster over an in-memory transport', () => {
   function makeCluster(onDispatch: () => void) {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     const registry = new WorkerRegistry(store);
     const devNode = new WorkerNodeRuntime({
       nodeId: 'node-dev',
@@ -240,7 +262,7 @@ describe('WorkerCluster over an in-memory transport', () => {
   });
 
   it('supports review and test through the cluster', async () => {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     const registry = new WorkerRegistry(store);
     const node = new WorkerNodeRuntime({
       nodeId: 'node-r',
@@ -318,7 +340,7 @@ describe('FallbackTaskDispatcher (PCS-027 orchestrator integration)', () => {
 
 describe('PCS-027 §6-8 — capability matching, lease reaping, evidence', () => {
   it('does not route to a node without matching capabilities when wildcard is off (default)', async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()));
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())));
     await registry.register({ id: 'node-empty', hostname: 'h', capabilities: [] });
     await registry.heartbeat({ nodeId: 'node-empty', load: 0 });
 
@@ -327,7 +349,7 @@ describe('PCS-027 §6-8 — capability matching, lease reaping, evidence', () =>
   });
 
   it('reaps expired leases', async () => {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     await store.acquireLease({
       leaseId: 'lease-expired',
       executionId: 'exec-1',
@@ -350,7 +372,7 @@ describe('PCS-027 §6-8 — capability matching, lease reaping, evidence', () =>
   });
 
   it('records evidence for a completed remote dispatch via onRemoteResult', async () => {
-    const store = new WorkerStore(new SQL.Database());
+    const store = new WorkerStore(migratedDb(new SQL.Database()));
     const registry = new WorkerRegistry(store);
     const node = new WorkerNodeRuntime({
       nodeId: 'node-ev',

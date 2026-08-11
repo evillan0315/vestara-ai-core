@@ -1,6 +1,19 @@
+import { migrate } from '@vestara/sqlite-migrations';
 import type { WorkflowTask } from '@vestara/workflow-orchestrator';
-import { inlineExecutor, WorkerNodeRuntime, WorkerRegistry, WorkerStore } from '@vestara/workflow-orchestrator';
+import {
+  inlineExecutor,
+  ORCHESTRATION_MANIFEST,
+  WorkerNodeRuntime,
+  WorkerRegistry,
+  WorkerStore,
+} from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
+
+function migratedDb(db: Database): Database {
+  migrate(db, ORCHESTRATION_MANIFEST, {});
+  return db;
+}
+
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocketServer } from 'ws';
 import { WorkerSocketClient } from '../src/worker/worker-socket-client';
@@ -49,7 +62,7 @@ describe('Worker WebSocket transport (PCS-027 slice 2)', () => {
   let executions = 0;
 
   beforeAll(async () => {
-    const registry = new WorkerRegistry(new WorkerStore(new SQL.Database()), { heartbeatTtlMs: 60_000 });
+    const registry = new WorkerRegistry(new WorkerStore(migratedDb(new SQL.Database())), { heartbeatTtlMs: 60_000 });
     events = [];
     server = new WorkerSocketServer(registry, { append: (event) => events.push(event) });
     wss = new WebSocketServer({ port: 0 });

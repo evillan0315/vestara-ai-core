@@ -1,5 +1,9 @@
 import { EventEmitter } from 'node:events';
+import * as fs from 'node:fs';
 import type * as http from 'node:http';
+import * as os from 'node:os';
+import * as path from 'node:path';
+import { VESTARA_PACKAGE_MANIFEST } from '@vestara/extension-runtime';
 import type {
   InstalledMarketplaceAsset,
   MarketplaceOperation,
@@ -86,8 +90,11 @@ class FakeMarketplace {
   uninstall = async () => operation({ operation: 'uninstall', status: 'completed', correlationId: OPERATION_ID });
 }
 
-function makeContext(): WorkspaceContext {
-  return { marketplace: new FakeMarketplace() as unknown as MarketplaceService } as unknown as WorkspaceContext;
+function makeContext(publishRoot = ''): WorkspaceContext {
+  return {
+    marketplace: new FakeMarketplace() as unknown as MarketplaceService,
+    marketplacePublishRoot: publishRoot,
+  } as unknown as WorkspaceContext;
 }
 
 function fakeResponse(): { res: http.ServerResponse; body: () => unknown; status: () => number } {
@@ -221,5 +228,85 @@ describe('marketplace routes', () => {
     );
     expect(verifyResponse.status()).toBe(200);
     expect((verifyResponse.body() as { operation: { type: string } }).operation.type).toBe('verify');
+  });
+
+  it('publishes a package directory into the marketplace root', async () => {
+    const source = fs.mkdtempSync(path.join(os.tmpdir(), 'vestara-mp-publish-'));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vestara-mp-root-'));
+    try {
+      fs.writeFileSync(path.join(source, 'runtime.js'), 'module.exports = {};\n');
+      fs.writeFileSync(
+        path.join(source, VESTARA_PACKAGE_MANIFEST),
+        JSON.stringify({
+          schemaVersion: 1,
+          id: 'demo',
+          name: 'demo',
+          version: '1.0.0',
+          description: 'Demo package',
+          type: 'plugin',
+          publisher: { id: 'acme', name: 'Acme' },
+          compatibility: { vestara: '>=1.0.0' },
+          entrypoints: {},
+          capabilities: [],
+          permissions: [],
+          dependencies: [],
+          contributions: {},
+          isolation: 'in-process',
+          integrity: { algorithm: 'sha256', digest: 'a'.repeat(64) },
+        }),
+      );
+
+      const { res, body, status } = fakeResponse();
+      const handled = await handleMarketplaceRoute(
+        'POST',
+        '/api/marketplace/publish',
+        fakeRequest('POST', '/api/marketplace/publish', JSON.stringify({ sourcePath: source })),
+        res,
+        makeContext(root),
+      );
+      expect(handled).toBe(true);
+      expect(status()).toBe(200);
+      const operation = (
+        body() as {
+          operation: {
+            status: string;
+            type: string;
+            asset: { packageName: string };
+            published: {
+              packageName: string;
+              publisherId: string;
+              version: string;
+              targetPath: string;
+              digest: string;
+            };
+          };
+        }
+      ).operation;
+      expect(operation.type).toBe('publish');
+      expect(operation.status).toBe('completed');
+      expect(operation.asset.packageName).toBe('demo');
+      expect(operation.published.publisherId).toBe('acme');
+      expect(operation.published.version).toBe('1.0.0');
+      expect(operation.published.targetPath).toBe(path.join(root, 'acme', 'demo', '1.0.0'));
+      expect(operation.published.digest).toMatch(/^[a-f0-9]{64}$/);
+      expect(fs.existsSync(path.join(root, 'acme', 'demo', '1.0.0', VESTARA_PACKAGE_MANIFEST))).toBe(true);
+    } finally {
+      fs.rmSync(source, { recursive: true, force: true });
+      fs.rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it('rejects publish without a source path', async () => {
+    const { res, body, status } = fakeResponse();
+    const handled = await handleMarketplaceRoute(
+      'POST',
+      '/api/marketplace/publish',
+      fakeRequest('POST', '/api/marketplace/publish', JSON.stringify({})),
+      res,
+      makeContext(),
+    );
+    expect(handled).toBe(true);
+    expect(status()).toBe(400);
+    expect((body() as { code: string }).code).toBe('marketplace.invalid-source');
   });
 });

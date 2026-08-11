@@ -61,6 +61,21 @@ export const executionApi = {
 
   queue: () => fetchJSON<{ entries: QueueEntry[]; summary: QueueSummary }>('/api/execution/queue'),
 
+  start: async (goal: string, workflow: string): Promise<{ id?: string } | null> => {
+    try {
+      const res = await fetch('/api/sessions/executions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal, workflow }),
+      });
+      if (!res.ok) return null;
+      const data = (await res.json()) as { session?: { id?: string } };
+      return data.session ?? null;
+    } catch {
+      return null;
+    }
+  },
+
   timeline: (sessionId?: string) =>
     fetchJSON<{ pipeline: PipelineStage[]; session: ExecutionSession | null }>(
       `/api/execution/timeline${sessionId ? `?sessionId=${encodeURIComponent(sessionId)}` : ''}`,

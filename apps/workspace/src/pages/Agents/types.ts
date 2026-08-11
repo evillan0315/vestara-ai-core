@@ -10,6 +10,8 @@ export interface Agent {
   permissions: any[];
   provider?: string;
   model?: string;
+  /** Native OpenCode runtime agent (e.g. build/planner/reviewer) this agent maps to. */
+  runtimeAgent?: string;
   teamId?: string;
   color?: string;
   status: string;

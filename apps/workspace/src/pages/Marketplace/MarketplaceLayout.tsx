@@ -4,12 +4,14 @@ import Categories from './Categories.js';
 import Discover from './Discover.js';
 import Installed from './Installed.js';
 import OperationCenter from './OperationCenter.js';
+import Publish from './Publish.js';
 import Registries from './Registries.js';
 import { muted } from './styles.js';
 import Updates from './Updates.js';
 
 const TABS = [
   { to: '/marketplace', label: 'Discover', end: true },
+  { to: '/marketplace/publish', label: 'Publish', end: false },
   { to: '/marketplace/categories', label: 'Categories', end: false },
   { to: '/marketplace/installed', label: 'Installed', end: false },
   { to: '/marketplace/updates', label: 'Updates', end: false },
@@ -39,6 +41,7 @@ export default function MarketplaceLayout() {
       </header>
       <Routes>
         <Route index element={<Discover />} />
+        <Route path="publish" element={<Publish />} />
         <Route path="categories" element={<Categories />} />
         <Route path="installed" element={<Installed />} />
         <Route path="updates" element={<Updates />} />

@@ -377,6 +377,93 @@ governance, and visual-diff tolerances.
 - Workspace **Evidence** page (`/evidence`, nav under Engineering): bundles with
   confidence, checks, evidence references + provenance, inline image artifact
   replay, confidence factors, and replay steps.
+
+### Visual Baseline Review + Scenario Matrix (2026-08-05)
+
+- **Baseline review UI** (`apps/workspace/src/pages/Evidence.tsx`): the Evidence
+  page lists `GET /api/evidence/baselines` records with per-scenario status,
+  inline candidate screenshot replay (`/api/evidence/artifacts/:digest`), and
+  Approve/Reject buttons that POST to the governance endpoints. Approved
+  records show reviewer + timestamp; a new candidate against an approved
+  baseline surfaces as an update action.
+- **Scenario matrix** (`apps/api/src/evidence/visual-scenarios.ts`):
+  `resolveVisualScenarios` provisions one `VisualEvidenceCollector` per
+  scenario from `VESTARA_SCREENSHOT_MATRIX` (JSON array of
+  `{ route/url, viewport, theme, tolerance }`), so a single `VESTARA_SCREENSHOT_URL`
+  enables a routes × viewports × themes matrix. The legacy
+  `VESTARA_SCREENSHOT_ROUTE` / `VESTARA_SCREENSHOT_THEME` single scenario remains
+  the fallback; `scenarioKey()` keeps baseline governance per scenario.
+- 8 resolver tests (API) + 4 baseline-review UI tests (Workspace).
+
+### Browser / Computer-Use Tool Providers (2026-08-05)
+
+- **`@vestara/tools-browser`** (`packages/tools/browser/`): the browser/computer
+  use leg from §4 (slice 2) is now a Tool Runtime provider — `browser.navigate`,
+  `browser.snapshot`, `browser.screenshot`, `browser.click` (selector or
+  coordinates), `browser.type` (fill + optional submit), and `browser.close`.
+  A shared lazy-launched Playwright Chromium session is owned per ToolRuntime
+  instance behind a `BrowserDriver` boundary (unit-testable without a browser).
+- **Navigation policy**: `resolveBrowserUrl` resolves relative targets against
+  the configured base URL and confines absolute http(s) targets to the base
+  origin plus `allowedOrigins` (`*` allows any http/https target); `data:` and
+  `javascript:` targets are rejected.
+- **Wiring**: registered in the API `createAgentTools` when `VESTARA_BROWSER_URL`
+  (falling back to `VESTARA_SCREENSHOT_URL`) is set; `VESTARA_BROWSER_ALLOWED_ORIGINS`
+  widens the allowlist. `click`/`type` are medium-risk and pass through the
+  approval policy; read-only actions run automatically. Evidence artifacts
+  (screenshots, navigation) feed the harness evidence collection.
+- **Information governance (ENG-007)**: every browser evidence artifact retains
+  origin, route, information classification (`VESTARA_BROWSER_CLASSIFICATION`),
+  derived information risk, redaction status, retention policy
+  (`VESTARA_BROWSER_RETENTION`), and the requesting agent, so operational risk
+  (read-only vs mutating) is recorded separately from information risk.
+- 18 browser tool tests (URL policy + behavior + governance metadata against a
+  fake driver). Findings ENG-007 and ENG-008 are recorded in
+  `docs/ENGINEERING-FINDINGS.md`.
+
+### Information Stewardship Enforcement (2026-08-05)
+
+- **Per-origin policies**: `BrowserSession.policyFor` resolves each target to a
+  classification, retention policy, and redaction mode from `originPolicies`
+  (`VESTARA_BROWSER_ORIGIN_POLICIES` JSON), falling back to session defaults.
+  A policy entry also allows its origin; bare-hostname entries match any scheme.
+- **Redaction enforcement**: snapshot text is masked under `secrets` redaction
+  and fully replaced under `full`; screenshots refuse raw pixels whenever the
+  origin policy requires redaction — a screenshot is operationally read-only but
+  may still be high-risk information access, so content is handled before it
+  leaves the provider. `redactionStatus` on the evidence artifact reflects what
+  was actually applied.
+- **Cancel/abort**: the harness `AbortSignal` threads through the driver;
+  in-flight navigation is cancelled, the stability window races the signal, and
+  a partial page is closed rather than reused. Aborts produce `cancelled` tool
+  results.
+- 26 browser tool tests (URL policy + governance + redaction + abort).
+
+### Session Isolation (2026-08-05)
+
+- **Per agent:task isolation**: browser pages are keyed by `sessionKey`
+  (`agentId:taskId`) threaded through driver → session → tools, so each
+  agent:task owns an isolated page and never shares navigation, cookies, or
+  form state with concurrent agents.
+- **Scoped release**: `browser.close` closes only the calling agent's page; the
+  browser process is released when the last page closes.
+- 27 browser tool tests. Finding ENG-009 recorded in
+  `docs/ENGINEERING-FINDINGS.md`.
+
+### Browser Action Replay (2026-08-05)
+
+- **Interaction trace**: `BrowserSession` records each browser action
+  (`navigate`/`click`/`type`) as a PCS-026-shaped `run-scenario` `ReplayStep`
+  per session key; `replayDescriptor(key)` returns an `execution`-mode
+  `EvidenceReplayDescriptor` claiming only the captured dependency (Chromium
+  runtime). The shape is structural to `@vestara/evidence`'s `ReplayStep` /
+  `EvidenceReplayDescriptor` so the bundle can consume it without a package
+  dependency.
+- **Evidence integration**: every browser evidence artifact carries a `replay`
+  metadata block with the session's action trace, so the interaction sequence is
+  retained alongside screenshots and observations (ENG-008). `browser.close`
+  clears the caller's trace.
+- 32 browser tool tests.
 - `harness.verification-bundle` surfaces as a toast. 5 route tests.
 
 ## 11. Acceptance Criteria (Slice 1)

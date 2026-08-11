@@ -4,10 +4,12 @@ import type * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
+import { migrate } from '@vestara/sqlite-migrations';
 import type { TaskDispatcher, TaskDispatchResult } from '@vestara/workflow-orchestrator';
 import {
   ArtifactStore,
   FileLockRegistry,
+  ORCHESTRATION_MANIFEST,
   PlanStore,
   ProjectStore,
   TaskStore,
@@ -80,6 +82,7 @@ describe('orchestration routes', () => {
     const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'vestara-orchestration-routes-'));
     directories.push(directory);
     const db = new SQL.Database();
+    migrate(db, ORCHESTRATION_MANIFEST, {});
     events = await SqliteEngineeringEventStore.open(path.join(directory, 'events.db'));
     const bridge = new OrchestrationEventBridge({ events, workspaceId: 'ws-1' });
     orchestrator = new WorkflowOrchestrator({

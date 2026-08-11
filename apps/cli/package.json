@@ -16,6 +16,7 @@
   "dependencies": {
     "@vestara/action": "workspace:*",
     "@vestara/activity-log": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/architecture-runtime": "workspace:*",
     "@vestara/audio": "workspace:*",
     "@vestara/boot-runtime": "workspace:*",

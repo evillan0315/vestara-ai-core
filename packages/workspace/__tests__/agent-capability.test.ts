@@ -2,8 +2,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
+import { migrate } from '@vestara/sqlite-migrations';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { AgentCapabilityManager } from '../src/agent-capability-manager';
+import { PLANS_MANIFEST } from '../src/agent-migrations';
 import { AgentRuntime } from '../src/agent-runtime';
 import { AgentStorage } from '../src/agent-storage';
 import { createFilesystemCapabilityTools } from '../src/capability-tool-provider';
@@ -17,6 +19,7 @@ beforeAll(async () => {
   const initSqlJs = (await import('sql.js')).default;
   const SQL = await initSqlJs();
   db = new SQL.Database();
+  migrate(db, PLANS_MANIFEST, {});
   const storage = new AgentStorage(db);
   developer = (await storage.getAgent('agent-developer'))!;
   architect = (await storage.getAgent('agent-architect'))!;

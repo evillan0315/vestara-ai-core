@@ -4,12 +4,21 @@ import * as path from 'node:path';
 import type { AgentHarnessRuntime } from '@vestara/agent-harness';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import type { AIModel, AIProvider, CompletionResponse } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import type { AgentEnvironment, HarnessVerificationResult } from '@vestara/types';
 import { afterAll, describe, expect, it } from 'vitest';
+import { PLANS_MANIFEST } from '../src/agent-migrations.js';
 import { AgentRuntime } from '../src/agent-runtime.js';
 import { AgentStorage } from '../src/agent-storage.js';
+
+/** Composition-root responsibility for direct-construction tests. */
+function migratedDb(db: import('sql.js').Database): import('sql.js').Database {
+  migrate(db, PLANS_MANIFEST, {});
+  return db;
+}
+
 import { HarnessSession } from '../src/harness-session.js';
 
 const directories: string[] = [];
@@ -116,7 +125,7 @@ async function setup(
   });
   const initSqlJs = (await import('sql.js')).default;
   const SQL = await initSqlJs();
-  const storage = new AgentStorage(new SQL.Database());
+  const storage = new AgentStorage(migratedDb(new SQL.Database()));
   const session = new HarnessSession({ harness, storage, environment });
   return { harness, store, storage, session };
 }
@@ -158,7 +167,7 @@ describe('AgentRuntime — harness execution path', () => {
     fs.mkdirSync(workspaceRoot);
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
-    const storage = new AgentStorage(new SQL.Database());
+    const storage = new AgentStorage(migratedDb(new SQL.Database()));
     const runtime = new AgentRuntime({ storage });
 
     const result = await runtime.run('agent-developer', 'No-op', { rootPath: workspaceRoot } as never);

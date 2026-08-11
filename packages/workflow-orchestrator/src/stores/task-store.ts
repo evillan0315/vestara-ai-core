@@ -22,30 +22,8 @@ export class TaskStore {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_tasks (
-        id TEXT PRIMARY KEY,
-        plan_id TEXT NOT NULL,
-        summary TEXT NOT NULL,
-        description TEXT NOT NULL DEFAULT '',
-        files TEXT NOT NULL DEFAULT '[]',
-        dependencies TEXT NOT NULL DEFAULT '[]',
-        status TEXT NOT NULL DEFAULT 'pending',
-        effort TEXT NOT NULL DEFAULT 'medium',
-        required_capabilities TEXT NOT NULL DEFAULT '[]',
-        assigned_agent_id TEXT,
-        revision_count INTEGER NOT NULL DEFAULT 0,
-        attempt_count INTEGER NOT NULL DEFAULT 0,
-        last_error TEXT,
-        approval_reason TEXT,
-        started_at TEXT,
-        completed_at TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_otask_plan ON orchestrated_tasks(plan_id);
-      CREATE INDEX IF NOT EXISTS idx_otask_status ON orchestrated_tasks(status);
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async createMany(planId: string, inputs: readonly CreateTaskInput[]): Promise<WorkflowTask[]> {

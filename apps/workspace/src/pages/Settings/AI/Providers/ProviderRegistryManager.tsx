@@ -20,6 +20,7 @@ interface ManagedProvider {
   builtIn: boolean;
   revision: number;
   status: string;
+  source?: 'opencode-runtime' | 'configuration';
   credential?: { configured: boolean; source?: 'stored' | 'environment' };
   models: ManagedModel[];
   createdAt: string;
@@ -188,11 +189,22 @@ export function ProviderRegistryManager({ onChanged }: { onChanged(): void }) {
               >
                 <span className="flex items-center justify-between gap-2">
                   <strong>{provider.name}</strong>
-                  <Status value={provider.enabled ? provider.status : 'disabled'} />
+                  <span className="flex items-center gap-1.5">
+                    {provider.source === 'opencode-runtime' && (
+                      <span className="rounded-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) px-1.5 py-0.5 text-[9px] uppercase tracking-wider text-(--vestara-accent-text)">
+                        runtime
+                      </span>
+                    )}
+                    <Status value={provider.enabled ? provider.status : 'disabled'} />
+                  </span>
                 </span>
                 <span className="mt-1 block text-xs text-[var(--vestara-text-muted)]">
                   {provider.models.filter((model) => model.enabled).length}/{provider.models.length} models ·{' '}
-                  {provider.hasApiKey ? 'key configured' : 'no stored key'}
+                  {provider.source === 'opencode-runtime'
+                    ? 'discovered from OpenCode runtime'
+                    : provider.hasApiKey
+                      ? 'key configured'
+                      : 'no stored key'}
                 </span>
               </button>
             ))}

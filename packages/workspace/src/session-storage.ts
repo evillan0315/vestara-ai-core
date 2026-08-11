@@ -39,32 +39,8 @@ export class SessionStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS engineering_sessions (
-        id TEXT PRIMARY KEY,
-        title TEXT,
-        objective TEXT,
-        status TEXT DEFAULT 'created',
-        participants TEXT DEFAULT '[]',
-        artifacts TEXT DEFAULT '[]',
-        created_at TEXT,
-        completed_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS workspace_events (
-        id TEXT PRIMARY KEY,
-        session_id TEXT,
-        type TEXT,
-        actor TEXT,
-        artifact_id TEXT,
-        message TEXT,
-        timestamp TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_we_session ON workspace_events(session_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async createSession(title: string, objective: string): Promise<EngineeringSession> {

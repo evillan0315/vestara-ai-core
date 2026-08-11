@@ -6,10 +6,11 @@ import { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import { InProcessEventBus } from '@vestara/event-bus';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import type { AIModel, AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemWriteTool, type ToolPolicyEvaluator, ToolRuntime, type VestaraTool } from '@vestara/tool-runtime';
 import type { AgentEnvironment, HarnessVerificationResult, PolicyEvaluationInput } from '@vestara/types';
-import { AgentStorage, HarnessSession } from '@vestara/workspace';
+import { AgentStorage, HarnessSession, PLANS_MANIFEST } from '@vestara/workspace';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHarnessEngineeringEventBridge } from '../src/bridges/harness-engineering-event-bridge.js';
 import { createServer } from '../src/server.js';
@@ -189,6 +190,7 @@ describe('agent harness API routes', () => {
 
     // AgentStorage over an in-memory sql.js database for ExecutionSession rows.
     const db = await openInMemoryDb();
+    migrate(db, PLANS_MANIFEST, {});
     const agents = new AgentStorage(db);
     const harnessSession = new HarnessSession({ harness, storage: agents, environment });
     const { ChangeEventProjector } = await import('../src/bridges/change-event-bridge.js');

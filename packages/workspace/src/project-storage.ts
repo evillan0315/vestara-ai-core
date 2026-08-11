@@ -29,36 +29,8 @@ export class ProjectStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS projects (
-        id TEXT PRIMARY KEY, name TEXT, description TEXT DEFAULT '',
-        status TEXT DEFAULT 'planning', priority TEXT DEFAULT 'medium',
-        lead_agent_id TEXT DEFAULT '', tags TEXT DEFAULT '[]',
-        created_at TEXT, updated_at TEXT, completed_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS tasks (
-        id TEXT PRIMARY KEY, project_id TEXT, sprint_id TEXT DEFAULT '',
-        title TEXT, description TEXT DEFAULT '',
-        status TEXT DEFAULT 'backlog', priority TEXT DEFAULT 'medium',
-        assignee_agent_id TEXT DEFAULT '', depends_on TEXT DEFAULT '[]',
-        labels TEXT DEFAULT '[]', estimated_hours REAL DEFAULT 0,
-        actual_hours REAL DEFAULT 0,
-        created_at TEXT, updated_at TEXT, completed_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS sprints (
-        id TEXT PRIMARY KEY, project_id TEXT, name TEXT, goal TEXT DEFAULT '',
-        status TEXT DEFAULT 'planning',
-        start_date TEXT, end_date TEXT,
-        created_at TEXT, completed_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, status);
-      CREATE INDEX IF NOT EXISTS idx_tasks_sprint ON tasks(sprint_id);
-      CREATE INDEX IF NOT EXISTS idx_sprints_project ON sprints(project_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   // ─── Projects ────────────────────────────────────────

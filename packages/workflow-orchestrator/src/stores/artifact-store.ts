@@ -21,20 +21,8 @@ export class ArtifactStore {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_artifacts (
-        id TEXT PRIMARY KEY,
-        kind TEXT NOT NULL,
-        project_id TEXT NOT NULL,
-        plan_id TEXT,
-        task_id TEXT,
-        agent_id TEXT NOT NULL,
-        body TEXT NOT NULL DEFAULT '{}',
-        version INTEGER NOT NULL DEFAULT 1,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_oartifact_project ON orchestrated_artifacts(project_id, kind);
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(input: CreateArtifactInput): Promise<WorkflowArtifact> {

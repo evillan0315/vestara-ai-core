@@ -13,6 +13,8 @@ export const AuditAction = {
   SETTINGS_UPDATE: 'settings.update',
   SETTINGS_DELETE: 'settings.delete',
   AGENT_CREATE: 'agent.create',
+  AGENT_UPDATE: 'agent.update',
+  AGENT_DELETE: 'agent.delete',
   AGENT_RUN: 'agent.run',
   PLAN_CREATE: 'plan.create',
   PLAN_UPDATE: 'plan.update',

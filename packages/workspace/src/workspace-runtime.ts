@@ -20,13 +20,14 @@ import * as path from 'node:path';
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
 import type { AIProvider, CompletionResponse, StreamChunk } from '@vestara/shared';
-
+import { migrate } from '@vestara/sqlite-migrations';
 import { RepositoryDiscovery } from './repository-discovery';
 import { createFingerprint } from './repository-fingerprint';
 import { RepositoryIntelligence } from './repository-intelligence';
 import { RepositoryPresenter } from './repository-presenter';
 import type { OpenResult, RepositoryWorkspace, StageTimings, WorkspaceStatus } from './types';
 import { WorkspaceManifest } from './workspace-manifest';
+import { PREFERENCES_MANIFEST } from './workspace-migrations';
 import { WorkspaceSession } from './workspace-session';
 
 export class WorkspaceRuntime {
@@ -345,6 +346,16 @@ export class WorkspaceRuntime {
         const SQL = await getSql();
         prefsDb = new SQL.Database();
       }
+      migrate(prefsDb, PREFERENCES_MANIFEST, {
+        persist: (migrated) => {
+          try {
+            fs.mkdirSync(path.dirname(prefsDbPath), { recursive: true });
+            fs.writeFileSync(prefsDbPath, Buffer.from(migrated.export()));
+          } catch {
+            /* best effort */
+          }
+        },
+      });
       const prefs = new PreferenceService(prefsDb);
       prefs.onPersist(() => {
         try {

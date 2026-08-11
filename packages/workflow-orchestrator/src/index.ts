@@ -10,6 +10,8 @@ export * from './db';
 export * from './distributed';
 export * from './ids';
 export * from './multi-repo';
+export * from './observation';
+export { ORCHESTRATION_MANIFEST, ORCHESTRATION_MIGRATIONS } from './orchestration-migrations';
 export * from './orchestrator';
 export * from './policies';
 export * from './retry-policy';

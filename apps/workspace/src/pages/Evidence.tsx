@@ -41,12 +41,29 @@ interface Bundle {
   createdAt: string;
 }
 
+interface Baseline {
+  scenarioKey: string;
+  artifactDigest: string;
+  status: 'missing' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: string;
+  candidateDigest?: string;
+}
+
 const CONFIDENCE_BADGE: Record<string, string> = {
   'very-high': 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   high: 'bg-teal-500/15 text-teal-300 border-teal-500/30',
   moderate: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
   low: 'bg-red-500/15 text-red-300 border-red-500/30',
 };
+
+const BASELINE_BADGE: Record<string, string> = {
+  approved: 'bg-emerald-500/15 text-emerald-300',
+  rejected: 'bg-red-500/15 text-red-300',
+  missing: 'bg-amber-500/15 text-amber-300',
+};
+
+const REVIEWER = 'workspace-reviewer';
 
 const CHECK_BADGE: Record<string, string> = {
   passed: 'bg-emerald-500/15 text-emerald-300',
@@ -104,7 +121,9 @@ export default function EvidencePage() {
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [detail, setDetail] = useState<Record<string, Bundle>>({});
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [baselines, setBaselines] = useState<Baseline[]>([]);
   const [loading, setLoading] = useState(true);
+  const [baselineBusy, setBaselineBusy] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchJson<{ bundles: Bundle[] }>(`${API}/bundles`);
@@ -112,9 +131,35 @@ export default function EvidencePage() {
     setLoading(false);
   }, []);
 
+  const refreshBaselines = useCallback(async () => {
+    const data = await fetchJson<{ baselines: Baseline[] }>(`${API}/baselines`);
+    setBaselines(data?.baselines ?? []);
+  }, []);
+
   useEffect(() => {
     void refresh();
-  }, [refresh]);
+    void refreshBaselines();
+  }, [refresh, refreshBaselines]);
+
+  const reviewBaseline = useCallback(
+    async (scenarioKey: string, action: 'approve' | 'reject', candidateDigest?: string) => {
+      setBaselineBusy(scenarioKey);
+      try {
+        await fetch(`${API}/baselines/${encodeURIComponent(scenarioKey)}/${action}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...(action === 'approve' ? { artifactDigest: candidateDigest } : {}),
+            approvedBy: REVIEWER,
+          }),
+        });
+        await refreshBaselines();
+      } finally {
+        setBaselineBusy(null);
+      }
+    },
+    [refreshBaselines],
+  );
 
   const loadDetail = useCallback(async (executionId: string) => {
     const data = await fetchJson<{ bundle: Bundle }>(`${API}/bundles/${executionId}`);
@@ -162,6 +207,89 @@ export default function EvidencePage() {
         <StatCard label="High confidence" value={stats.high} accent="#10b981" />
         <StatCard label="Very high" value={stats.veryHigh} accent="#14b8a6" />
         <StatCard label="Evidence items" value={stats.evidence} accent="#6366f1" />
+      </div>
+
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-(--vestara-text)">Visual Baselines</h2>
+            <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
+              Human-reviewed governance — candidates are only promoted through approve/reject (PCS-026 §9)
+            </p>
+          </div>
+          <button
+            onClick={() => void refreshBaselines()}
+            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:text-(--vestara-text) transition-colors cursor-pointer"
+          >
+            ↻ Refresh
+          </button>
+        </div>
+
+        {baselines.length === 0 ? (
+          <div className="text-center py-8 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
+            <p className="text-xs text-(--vestara-text-2)">No visual baselines yet</p>
+            <p className="text-xs text-(--vestara-text-muted) mt-1">
+              Candidates are recorded after a screenshot capture runs against a configured scenario.
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            {baselines.map((baseline) => {
+              const candidate =
+                baseline.candidateDigest ?? (baseline.status !== 'approved' ? baseline.artifactDigest : undefined);
+              const actionable = candidate !== undefined;
+              return (
+                <div
+                  key={baseline.scenarioKey}
+                  className="rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg)/40 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <code className="text-[10px] text-(--vestara-text-muted) break-all">{baseline.scenarioKey}</code>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] ${BASELINE_BADGE[baseline.status] ?? 'bg-zinc-600/20 text-zinc-300'}`}>
+                      {baseline.status}
+                    </span>
+                  </div>
+                  {candidate ? (
+                    <img
+                      src={`${API}/artifacts/${candidate}?mediaType=${encodeURIComponent('image/png')}`}
+                      alt={`candidate ${baseline.scenarioKey}`}
+                      className="mt-2 max-h-32 w-auto rounded-lg border border-(--vestara-accent-border)"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="mt-2 text-[10px] text-(--vestara-text-dim)">no candidate capture</div>
+                  )}
+                  {baseline.approvedBy && (
+                    <div className="mt-2 text-[10px] text-(--vestara-text-muted)">
+                      {baseline.status === 'approved' ? 'approved' : 'reviewed'} by {baseline.approvedBy}
+                      {baseline.approvedAt ? ` · ${new Date(baseline.approvedAt).toLocaleString()}` : ''}
+                    </div>
+                  )}
+                  {actionable && (
+                    <div className="mt-3 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void reviewBaseline(baseline.scenarioKey, 'approve', candidate)}
+                        disabled={baselineBusy === baseline.scenarioKey}
+                        className="flex-1 text-xs px-3 py-1.5 bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 rounded-lg hover:bg-emerald-500/25 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void reviewBaseline(baseline.scenarioKey, 'reject')}
+                        disabled={baselineBusy === baseline.scenarioKey}
+                        className="flex-1 text-xs px-3 py-1.5 bg-red-500/15 border border-red-500/30 text-red-300 rounded-lg hover:bg-red-500/25 transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {loading ? (

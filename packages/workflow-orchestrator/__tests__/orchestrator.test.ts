@@ -1,5 +1,7 @@
+import { migrate } from '@vestara/sqlite-migrations';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { WorkflowOrchestrator } from '../src/orchestrator';
 import type { RetryPolicy } from '../src/retry-policy';
 import { ArtifactStore, FileLockRegistry, PlanStore, ProjectStore, TaskStore } from '../src/stores';
@@ -41,6 +43,7 @@ interface SetupOptions {
 
 async function setup(options?: SetupOptions) {
   const db = new SQL.Database();
+  migrate(db, ORCHESTRATION_MANIFEST, {});
   const projects = new ProjectStore(db);
   const plans = new PlanStore(db);
   const tasks = new TaskStore(db);

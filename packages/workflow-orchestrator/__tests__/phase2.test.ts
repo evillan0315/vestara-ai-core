@@ -1,5 +1,7 @@
+import { migrate } from '@vestara/sqlite-migrations';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { WorkflowOrchestrator } from '../src/orchestrator';
 import { type ApprovalPolicy, DefaultRiskApprovalPolicy, TokenBudget } from '../src/policies';
 import { DEFAULT_RETRY_POLICY, type RetryPolicy } from '../src/retry-policy';
@@ -78,6 +80,7 @@ async function setup(options?: {
   onTelemetry?: (op: OrchestrationTelemetry) => void;
 }): Promise<Harness> {
   const db = new SQL.Database();
+  migrate(db, ORCHESTRATION_MANIFEST, {});
   const events: OrchestrationEvent[] = [];
   const sink: OrchestrationEventSink = { append: (event) => events.push(event) };
   const dispatcher = options?.dispatcher ?? new StageDispatcher();

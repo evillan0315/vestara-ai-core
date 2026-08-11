@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { VestaraModal } from '../../components/ui/VestaraModal';
 import type { Agent, AgentType, Team } from './types';
 
@@ -46,7 +46,10 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
   const [capStr, setCapStr] = useState((agent?.capabilities || []).join(', '));
   const [registrySource, setRegistrySource] = useState('');
   const [registryVersion, setRegistryVersion] = useState('');
-  const [providers, setProviders] = useState<ProviderOption[]>([]);
+  const [runtimeProviders, setRuntimeProviders] = useState<ProviderOption[]>([]);
+  const [configProviders, setConfigProviders] = useState<ProviderOption[]>([]);
+  const [runtimeAgents, setRuntimeAgents] = useState<Array<{ name: string; description?: string }>>([]);
+  const [runtimeAgent, setRuntimeAgent] = useState(agent?.runtimeAgent ?? '');
   const [providersLoading, setProvidersLoading] = useState(true);
   const defaultsApplied = useRef(false);
   const roles = [
@@ -68,44 +71,90 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
     'dashboard-curator',
   ];
 
-  // Load providers and the global routing selection, then apply defaults:
-  // editing keeps the agent's own provider/model; a new agent defaults to the
-  // global configuration (developer role), falling back to the first enabled
-  // provider + its first enabled model.
+  // Workspace agents execute through the OpenCode runtime, so their provider and
+  // model options come from `/api/opencode/providers` (runtime discovery — the
+  // same source the agent harness uses). The provider-manager config
+  // (`/api/providers`) is kept as the fallback when the runtime is unreachable.
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const [providerRes, routingRes] = await Promise.all([
+      const [runtimeRes, configRes, agentsRes] = await Promise.all([
+        fetchJSON<{ providers: Array<{ id: string; name?: string; models?: string[] }> }>('/api/opencode/providers'),
         fetchJSON<{ providers: ProviderOption[] }>('/api/providers'),
-        fetchJSON<RoutingSelectionResponse>('/api/routing/selection'),
+        fetchJSON<{ agents: Array<{ name: string; description?: string }> }>('/api/opencode/agents'),
       ]);
       if (cancelled) return;
-      const list = providerRes?.providers ?? [];
-      setProviders(list);
+      const runtime = (runtimeRes?.providers ?? []).map((p) => ({
+        id: p.id,
+        name: p.name ?? p.id,
+        enabled: true,
+        status: 'available',
+        models: (p.models ?? []).map((modelId) => ({ id: modelId, name: modelId, enabled: true })),
+      }));
+      setRuntimeProviders(runtime);
+      setConfigProviders(configRes?.providers ?? []);
+      setRuntimeAgents(agentsRes?.agents ?? []);
       setProvidersLoading(false);
-      if (defaultsApplied.current) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // The active provider/model list follows the agent type: Workspace agents use
+  // the OpenCode runtime discovery; Registry agents are not provider-bound.
+  const providers = agentType === 'workspace' && runtimeProviders.length > 0 ? runtimeProviders : configProviders;
+  const providerSource = agentType === 'workspace' && runtimeProviders.length > 0 ? 'runtime' : 'config';
+
+  // Apply defaults for a new Workspace agent (keeps an edited agent's own
+  // provider/model). Runs when the workspace type is selected and the runtime
+  // discovery has landed.
+  const applyWorkspaceDefaults = useCallback(() => {
+    if (agent?.provider !== undefined || agent?.model !== undefined || agent?.runtimeAgent !== undefined) {
+      if (agent.provider !== undefined) setProvider(agent.provider);
+      if (agent.model !== undefined) setModel(agent.model);
+      if (agent.runtimeAgent !== undefined) setRuntimeAgent(agent.runtimeAgent);
+      return;
+    }
+    const first = runtimeProviders.find((p) => p.enabled) ?? runtimeProviders[0];
+    if (first) {
+      setProvider(first.id);
+      const firstModel = first.models.find((m) => m.enabled) ?? first.models[0];
+      setModel(firstModel?.id ?? '');
+    }
+    // Runtime agents are the source of truth for agent identity: default a new
+    // workspace agent to the runtime's primary agent when the runtime is
+    // reachable, else fall back to the conventional 'build' agent.
+    const build = runtimeAgents.find((a) => a.name === 'build');
+    setRuntimeAgent(build?.name ?? runtimeAgents[0]?.name ?? 'build');
+  }, [agent, runtimeProviders, runtimeAgents]);
+
+  useEffect(() => {
+    if (agentType !== 'workspace') return;
+    if (defaultsApplied.current) return;
+    if (providersLoading) return;
+    if (agent?.provider !== undefined || agent?.model !== undefined || agent?.runtimeAgent !== undefined) {
       defaultsApplied.current = true;
+      applyWorkspaceDefaults();
+      return;
+    }
+    if (runtimeProviders.length === 0 && runtimeAgents.length === 0) return;
+    defaultsApplied.current = true;
+    applyWorkspaceDefaults();
+  }, [agentType, providersLoading, runtimeProviders, runtimeAgents, agent, applyWorkspaceDefaults]);
 
-      if (agent?.provider !== undefined || agent?.model !== undefined) {
-        if (agent.provider !== undefined) setProvider(agent.provider);
-        if (agent.model !== undefined) setModel(agent.model);
-        return;
-      }
-
+  // Load the global routing selection for registry/fallback defaults (kept from
+  // the previous behavior for non-workspace agents).
+  useEffect(() => {
+    let cancelled = false;
+    void fetchJSON<RoutingSelectionResponse>('/api/routing/selection').then((routingRes) => {
+      if (cancelled) return;
       const global = routingRes?.selection?.roles?.developer;
-      if (global?.providerId && global?.modelId) {
+      if (global?.providerId && global?.modelId && !agent?.provider && !agent?.model) {
         setProvider(global.providerId);
         setModel(global.modelId);
-        return;
       }
-
-      const enabled = list.find((p) => p.enabled && p.status !== 'disabled');
-      if (enabled) {
-        setProvider(enabled.id);
-        const firstModel = enabled.models.find((m) => m.enabled) ?? enabled.models[0];
-        setModel(firstModel?.id ?? '');
-      }
-    })();
+    });
     return () => {
       cancelled = true;
     };
@@ -137,6 +186,7 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
       description,
       provider: agentType === 'workspace' ? (provider || undefined) : (registrySource || undefined),
       model: agentType === 'workspace' ? (model || undefined) : (registryVersion || undefined),
+      runtimeAgent: agentType === 'workspace' ? runtimeAgent || undefined : undefined,
       teamId: teamId || '',
       color,
       capabilities: capStr
@@ -159,8 +209,8 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
               {isNewRegistration ? 'Register Agent' : 'Edit Agent'}
               </h2>
               <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
-                Provider and model options load from the workspace configuration · defaults follow the global routing
-                selection
+                Providers and models load from the OpenCode runtime discovery — same source the agent harness uses ·
+                defaults follow the global routing selection
               </p>
             </div>
             <button
@@ -241,8 +291,34 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
             <div className="grid grid-cols-2 gap-3">
               {agentType === 'workspace' ? (
                 <>
+                  <div className="col-span-2">
+                    <label className={labelClass}>
+                      Runtime Agent <span className="normal-case font-normal text-(--vestara-accent-text)">(OpenCode runtime)</span>
+                    </label>
+                    <select
+                      value={runtimeAgent}
+                      onChange={(e) => setRuntimeAgent(e.target.value)}
+                      className={`${inputClass} cursor-pointer`}
+                    >
+                      {runtimeAgents.length === 0 && <option value="">No runtime agents discovered</option>}
+                      {runtimeAgent && !runtimeAgents.some((a) => a.name === runtimeAgent) && (
+                        <option value={runtimeAgent}>{runtimeAgent} (current)</option>
+                      )}
+                      {runtimeAgents.map((a) => (
+                        <option key={a.name} value={a.name}>
+                          {a.name}
+                          {a.description ? ` — ${a.description}` : ''}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-(--vestara-text-muted) mt-1">
+                      The native agent from the OpenCode runtime this agent runs as.
+                    </p>
+                  </div>
                   <div>
-                    <label className={labelClass}>Provider</label>
+                    <label className={labelClass}>
+                      Provider {providerSource === 'runtime' && <span className="normal-case font-normal text-(--vestara-accent-text)">(OpenCode runtime)</span>}
+                    </label>
                     {providersLoading ? (
                       <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading providers…</div>
                     ) : (
@@ -265,7 +341,9 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
                     )}
                   </div>
                   <div>
-                    <label className={labelClass}>Model</label>
+                    <label className={labelClass}>
+                      Model {providerSource === 'runtime' && <span className="normal-case font-normal text-(--vestara-accent-text)">(runtime)</span>}
+                    </label>
                     {providersLoading ? (
                       <div className={`${inputClass} flex items-center text-(--vestara-text-dim)`}>Loading models…</div>
                     ) : modelOptions.length > 0 ? (

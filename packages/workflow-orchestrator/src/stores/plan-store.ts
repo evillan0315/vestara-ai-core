@@ -18,20 +18,8 @@ export class PlanStore {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_plans (
-        id TEXT PRIMARY KEY,
-        project_id TEXT NOT NULL,
-        title TEXT NOT NULL,
-        goal TEXT NOT NULL,
-        revision INTEGER NOT NULL DEFAULT 1,
-        status TEXT NOT NULL DEFAULT 'draft',
-        approval_id TEXT,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_oplan_project ON orchestrated_plans(project_id);
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(input: CreatePlanInput): Promise<WorkflowPlan> {

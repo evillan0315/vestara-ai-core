@@ -45,28 +45,8 @@ export class ChangeSetStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS change_sets (
-        id TEXT PRIMARY KEY,
-        plan_id TEXT,
-        title TEXT,
-        status TEXT DEFAULT 'draft',
-        files TEXT DEFAULT '[]',
-        created_at TEXT,
-        applied_at TEXT,
-        workspace_id TEXT,
-        assessment_id TEXT,
-        decision_id TEXT,
-        author TEXT,
-        summary TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_cs_plan ON change_sets(plan_id);
-      CREATE INDEX IF NOT EXISTS idx_cs_workspace ON change_sets(workspace_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(planId: string, title: string, workspaceId: string): Promise<ChangeSet> {

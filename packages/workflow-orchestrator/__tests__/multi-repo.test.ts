@@ -1,6 +1,15 @@
 import type { Database } from 'sql.js';
+
+function migratedParentDb() {
+  const db = new SQL.Database();
+  migrate(db, ORCHESTRATION_MANIFEST, {});
+  return db;
+}
+
+import { migrate } from '@vestara/sqlite-migrations';
 import { beforeAll, describe, expect, it } from 'vitest';
 import { MultiRepoOrchestrator } from '../src/multi-repo';
+import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { WorkflowOrchestrator } from '../src/orchestrator';
 import { DEFAULT_RETRY_POLICY, type RetryPolicy } from '../src/retry-policy';
 import { ArtifactStore, FileLockRegistry, ParentProjectStore, PlanStore, ProjectStore, TaskStore } from '../src/stores';
@@ -23,6 +32,7 @@ const FAST_RETRY: RetryPolicy = { maxAttempts: 3, maxRevisions: 3, backoffMs: ()
 
 function makeOrchestrator(dispatcher: TaskDispatcher): WorkflowOrchestrator {
   const db = new SQL.Database();
+  migrate(db, ORCHESTRATION_MANIFEST, {});
   return new WorkflowOrchestrator({
     projects: new ProjectStore(db),
     plans: new PlanStore(db),
@@ -58,7 +68,7 @@ describe('MultiRepoOrchestrator (PCS-025 §16)', () => {
         { repoPath: '/repo/api', orchestrator: apiOrchestrator },
         { repoPath: '/repo/ui', orchestrator: uiOrchestrator },
       ],
-      parents: new ParentProjectStore(new SQL.Database()),
+      parents: new ParentProjectStore(migratedParentDb()),
       workspaceId: 'ws-1',
       events: sink,
     });
@@ -124,7 +134,7 @@ describe('MultiRepoOrchestrator (PCS-025 §16)', () => {
         { repoPath: '/repo/api', orchestrator: apiOrchestrator },
         { repoPath: '/repo/ui', orchestrator: uiOrchestrator },
       ],
-      parents: new ParentProjectStore(new SQL.Database()),
+      parents: new ParentProjectStore(migratedParentDb()),
       workspaceId: 'ws-1',
     });
 
@@ -172,7 +182,7 @@ describe('MultiRepoOrchestrator (PCS-025 §16)', () => {
   it('requires a bound orchestrator for each repo', async () => {
     const multi = new MultiRepoOrchestrator({
       bindings: [{ repoPath: '/repo/api', orchestrator: makeOrchestrator(new OkDispatcher()) }],
-      parents: new ParentProjectStore(new SQL.Database()),
+      parents: new ParentProjectStore(migratedParentDb()),
       workspaceId: 'ws-1',
     });
     await expect(

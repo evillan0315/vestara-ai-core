@@ -57,50 +57,8 @@ export class CollaborationStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS collaboration_records (
-        id TEXT PRIMARY KEY,
-        workspace_id TEXT,
-        change_set_id TEXT,
-        plan_id TEXT,
-        verification_id TEXT,
-        status TEXT DEFAULT 'draft',
-        approvals TEXT DEFAULT '[]',
-        comments TEXT DEFAULT '[]',
-        ownership TEXT DEFAULT '{}',
-        created_at TEXT,
-        updated_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_cr_cs ON collaboration_records(change_set_id);
-      CREATE INDEX IF NOT EXISTS idx_cr_workspace ON collaboration_records(workspace_id);
-
-      CREATE TABLE IF NOT EXISTS approvals (
-        id TEXT PRIMARY KEY,
-        record_id TEXT,
-        reviewer TEXT,
-        decision TEXT,
-        comment TEXT,
-        created_at TEXT,
-        FOREIGN KEY (record_id) REFERENCES collaboration_records(id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_apr_record ON approvals(record_id);
-
-      CREATE TABLE IF NOT EXISTS comments (
-        id TEXT PRIMARY KEY,
-        record_id TEXT,
-        artifact_type TEXT,
-        artifact_id TEXT,
-        author TEXT,
-        message TEXT,
-        created_at TEXT,
-        FOREIGN KEY (record_id) REFERENCES collaboration_records(id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_cmt_record ON comments(record_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(changeSetId: string, planId: string, workspaceId: string): Promise<CollaborationRecord> {

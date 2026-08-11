@@ -2,12 +2,21 @@
  * Executions tab — unified execution queue + execution sessions.
  */
 
+import { useState } from 'react';
 import type { QueueEntry } from '../../lib/execution';
-import { formatTime, tone } from '../../lib/execution';
+import { executionApi, formatTime, tone } from '../../lib/execution';
 import { threadIdFromSession } from '../../lib/agent-harness';
 import { inspectEntity } from '../graph/GraphContext';
 import { useExecution } from './ExecutionContext';
 import { HarnessThreadTimeline } from './harness-timeline';
+
+const WORKFLOW_DEFS = [
+  { id: 'feature', label: 'Feature Development', steps: 4 },
+  { id: 'analyze', label: 'Repository Analysis', steps: 3 },
+  { id: 'document', label: 'Documentation Generation', steps: 2 },
+  { id: 'refactor', label: 'Code Refactoring', steps: 3 },
+  { id: 'release', label: 'Release Preparation', steps: 3 },
+];
 
 function toneClass(t: string): string {
   return t === 'pass'
@@ -33,10 +42,35 @@ function kindIcon(kind: QueueEntry['kind']): string {
 }
 
 export function ExecutionsPanel() {
-  const { dashboard, search, selectedSession, selectSession } = useExecution();
+  const { dashboard, refresh, search, selectedSession, selectSession } = useExecution();
   const queue = dashboard?.queue ?? [];
   const summary = dashboard?.queueSummary;
   const sessions = dashboard?.sessions ?? [];
+  const [wfGoal, setWfGoal] = useState('');
+  const [wfType, setWfType] = useState('feature');
+  const [wfStarting, setWfStarting] = useState(false);
+  const [wfError, setWfError] = useState<string | null>(null);
+
+  const startWorkflow = async () => {
+    const goal = wfGoal.trim();
+    if (!goal) {
+      setWfError('A goal is required.');
+      return;
+    }
+    setWfStarting(true);
+    setWfError(null);
+    try {
+      const created = await executionApi.start(goal, wfType);
+      if (!created) throw new Error('Workflow start failed');
+      setWfGoal('');
+      if (created.id) selectSession(created.id);
+      refresh();
+    } catch (caught) {
+      setWfError(caught instanceof Error ? caught.message : 'Unable to start the workflow');
+    } finally {
+      setWfStarting(false);
+    }
+  };
 
   const filtered = queue.filter((e) => {
     if (!search.trim()) return true;
@@ -50,6 +84,40 @@ export function ExecutionsPanel() {
 
   return (
     <div className="space-y-3">
+      <div className="exec-card exec-card-body">
+        <div className="exec-section-title">Start a New Workflow</div>
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="text"
+            value={wfGoal}
+            onChange={(e) => setWfGoal(e.target.value)}
+            placeholder="What should this workflow accomplish?"
+            className="exec-input min-w-[220px] flex-1"
+          />
+          <select
+            value={wfType}
+            onChange={(e) => setWfType(e.target.value)}
+            className="exec-input"
+            aria-label="Workflow type"
+          >
+            {WORKFLOW_DEFS.map((wf) => (
+              <option key={wf.id} value={wf.id}>
+                {wf.label} · {wf.steps} step(s)
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="exec-btn exec-btn-primary"
+            onClick={() => void startWorkflow()}
+            disabled={wfStarting}
+          >
+            {wfStarting ? 'Starting…' : 'Start workflow'}
+          </button>
+        </div>
+        {wfError && <p className="exec-empty mt-1">{wfError}</p>}
+      </div>
+
       {summary && (
         <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2">
           {(

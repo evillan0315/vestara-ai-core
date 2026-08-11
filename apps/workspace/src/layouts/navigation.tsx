@@ -5,6 +5,7 @@ import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded';
 import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded';
 import DnsRoundedIcon from '@mui/icons-material/DnsRounded';
 import FolderRoundedIcon from '@mui/icons-material/FolderRounded';
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded';
 import GroupsRoundedIcon from '@mui/icons-material/GroupsRounded';
 import HubRoundedIcon from '@mui/icons-material/HubRounded';
 import ImportContactsRoundedIcon from '@mui/icons-material/ImportContactsRounded';
@@ -49,6 +50,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
       { to: '/execution', title: 'Execution', icon: <HubRoundedIcon fontSize="small" /> },
       { to: '/diagnostics', title: 'Diagnostics', icon: <InsightsRoundedIcon fontSize="small" /> },
       { to: '/activities', title: 'Activities', icon: <ReceiptLongRoundedIcon fontSize="small" /> },
+      { to: '/activity', title: 'Activity Room', icon: <ForumRoundedIcon fontSize="small" /> },
       { to: '/ops', title: 'Operations', icon: <TuneRoundedIcon fontSize="small" /> },
     ],
   },

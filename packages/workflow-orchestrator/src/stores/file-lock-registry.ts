@@ -22,16 +22,8 @@ export class FileLockRegistry {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_file_locks (
-        path TEXT PRIMARY KEY,
-        holder_agent_id TEXT NOT NULL,
-        task_id TEXT NOT NULL,
-        acquired_at TEXT NOT NULL,
-        released_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_ofl_task ON orchestrated_file_locks(task_id);
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async acquire(input: { path: string; holderAgentId: string; taskId: string }): Promise<AcquireLockResult> {

@@ -6,6 +6,7 @@ import { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import { InProcessEventBus } from '@vestara/event-bus';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import type { AIModel, AIProvider, CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import type { AgentEnvironment, HarnessVerificationResult } from '@vestara/types';
@@ -17,7 +18,7 @@ import {
   TaskStore,
   WorkflowOrchestrator,
 } from '@vestara/workflow-orchestrator';
-import { AgentStorage, HarnessSession, HarnessTaskDispatcher } from '@vestara/workspace';
+import { AgentStorage, HarnessSession, HarnessTaskDispatcher, PLANS_MANIFEST } from '@vestara/workspace';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { createHarnessEngineeringEventBridge } from '../src/bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from '../src/bridges/orchestration-event-bridge';
@@ -180,6 +181,7 @@ describe('WorkflowOrchestrator + HarnessTaskDispatcher (integration)', () => {
     createHarnessEngineeringEventBridge({ eventBus, events, workspaceId: 'ws-test', environmentId: environment.id });
 
     const db = await openInMemoryDb();
+    migrate(db, PLANS_MANIFEST, {});
     const agents = new AgentStorage(db);
     const harnessSession = new HarnessSession({ harness, storage: agents, environment });
     const orchestrationEvents = new OrchestrationEventBridge({

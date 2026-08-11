@@ -2,12 +2,21 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import type { AIModel, AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import type { VestaraTool } from '@vestara/tool-runtime';
 import { ToolRuntime } from '@vestara/tool-runtime';
 import type { AgentEnvironment, HarnessVerificationResult } from '@vestara/types';
 import { afterAll, describe, expect, it } from 'vitest';
+import { PLANS_MANIFEST } from '../src/agent-migrations.js';
 import { AgentStorage } from '../src/agent-storage.js';
+
+/** Composition-root responsibility for direct-construction tests. */
+function migratedDb(db: import('sql.js').Database): import('sql.js').Database {
+  migrate(db, PLANS_MANIFEST, {});
+  return db;
+}
+
 import { HarnessExecutionAdapter, HarnessSession } from '../src/harness-session.js';
 import type { ExecutionSession } from '../src/types.js';
 
@@ -146,7 +155,7 @@ async function setup(): Promise<{
   });
   const initSqlJs = (await import('sql.js')).default;
   const SQL = await initSqlJs();
-  const storage = new AgentStorage(new SQL.Database());
+  const storage = new AgentStorage(migratedDb(new SQL.Database()));
   const session = new HarnessSession({ harness, storage, environment });
   return { directory, harness, storage, session, environment, threadId: thread.id };
 }
@@ -242,7 +251,7 @@ describe('HarnessSession', () => {
     const thread = harness.createThread({ taskId: 'T', title: 'Blocked', environment, metadata: { agentId: 'dev' } });
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
-    const storage = new AgentStorage(new SQL.Database());
+    const storage = new AgentStorage(migratedDb(new SQL.Database()));
     const session = new HarnessSession({ harness, storage, environment });
     await session.createForRun({ threadId: thread.id, goal: 'Blocked', agentId: 'dev' });
     const result = await harness.run({ threadId: thread.id, instruction: 'Work', agentId: 'dev', environment });
@@ -309,7 +318,7 @@ describe('HarnessSession', () => {
     const thread = harness.createThread({ taskId: 'T', title: 'Write', environment, metadata: { agentId: 'dev' } });
     const initSqlJs = (await import('sql.js')).default;
     const SQL = await initSqlJs();
-    const storage = new AgentStorage(new SQL.Database());
+    const storage = new AgentStorage(migratedDb(new SQL.Database()));
     const session = new HarnessSession({ harness, storage, environment });
     const record = await session.createForRun({ threadId: thread.id, goal: 'Write', agentId: 'dev' });
     const waiting = await harness.run({ threadId: thread.id, instruction: 'Write', agentId: 'dev', environment });

@@ -144,7 +144,7 @@
     },
     {
       "path": "20-roadmaps/extension-platform-roadmap.md",
-      "beforeChecksum": "e6989199e6c80462d0db81d7cdae7b03da0e7b436bdf34388fc34b1ec6246872",
+      "beforeChecksum": "529327ffe1398aecd5c657783d298e619d38973da4c1dccb35d658d5789a3929",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",

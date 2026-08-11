@@ -18,27 +18,9 @@ export class ProjectStore {
   private readonly db: Database;
 
   constructor(db: Database) {
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_projects (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        goal TEXT NOT NULL,
-        repo_path TEXT NOT NULL,
-        phase TEXT NOT NULL DEFAULT 'draft',
-        workspace_id TEXT NOT NULL,
-        cancel_reason TEXT,
-        verification_reopens INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_op_workspace ON orchestrated_projects(workspace_id);
-    `);
-    // Migration: add verification_reopens to databases created before v5.4.
-    const columns = dbAll(this.db, 'PRAGMA table_info(orchestrated_projects)');
-    if (!columns.some((c) => c.name === 'verification_reopens')) {
-      this.db.exec('ALTER TABLE orchestrated_projects ADD COLUMN verification_reopens INTEGER NOT NULL DEFAULT 0');
-    }
   }
 
   async create(input: CreateProjectInput): Promise<OrchestratedProject> {

@@ -27,26 +27,8 @@ export class AuditStore {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS audit_log (
-        id TEXT PRIMARY KEY,
-        user_id TEXT NOT NULL,
-        username TEXT NOT NULL,
-        action TEXT NOT NULL,
-        resource TEXT NOT NULL,
-        resource_id TEXT,
-        details TEXT,
-        ip TEXT,
-        timestamp TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_audit_timestamp ON audit_log(timestamp DESC);
-      CREATE INDEX IF NOT EXISTS idx_audit_user_id ON audit_log(user_id);
-      CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   /** Append an entry to the audit log. */

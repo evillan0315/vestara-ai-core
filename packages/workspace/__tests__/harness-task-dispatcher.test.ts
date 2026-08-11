@@ -1,9 +1,18 @@
 import { DefaultCapabilityCatalog, DefaultCapabilityResolver } from '@vestara/capabilities';
+import { migrate } from '@vestara/sqlite-migrations';
 import type { AgentEnvironment } from '@vestara/types';
 import type { WorkflowTask } from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { PLANS_MANIFEST } from '../src/agent-migrations';
 import { AgentStorage } from '../src/agent-storage';
+
+/** Composition-root responsibility for direct-construction tests. */
+function migratedDb(db: import('sql.js').Database): import('sql.js').Database {
+  migrate(db, PLANS_MANIFEST, {});
+  return db;
+}
+
 import type { AgentSource } from '../src/harness-task-dispatcher';
 import { HarnessTaskDispatcher, type HarnessThreadRunner } from '../src/harness-task-dispatcher';
 
@@ -98,7 +107,7 @@ describe('HarnessTaskDispatcher', () => {
   });
 
   it('resolves an agent by capability match from the agent store', async () => {
-    const storage = new AgentStorage(new SQL.Database());
+    const storage = new AgentStorage(migratedDb(new SQL.Database()));
     const runner = new StubRunner('completed');
     const dispatcher = new HarnessTaskDispatcher({ runner, storage, environment: ENV });
     const result = await dispatcher.dispatch(task({ requiredCapabilities: ['code-generation'] }), PROJECT);
@@ -107,7 +116,7 @@ describe('HarnessTaskDispatcher', () => {
   });
 
   it('falls back to the developer role when no capability matches', async () => {
-    const storage = new AgentStorage(new SQL.Database());
+    const storage = new AgentStorage(migratedDb(new SQL.Database()));
     const runner = new StubRunner('completed');
     const dispatcher = new HarnessTaskDispatcher({ runner, storage, environment: ENV });
     const result = await dispatcher.dispatch(task({ requiredCapabilities: ['quantum-computing'] }), PROJECT);

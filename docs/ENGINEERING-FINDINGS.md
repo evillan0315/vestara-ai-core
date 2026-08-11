@@ -53,6 +53,9 @@ The four knowledge artifacts answer different questions:
 | ENG-003 | Test doubles reveal hidden runtime assumptions | Verified | Route test suites (fake req/res) | API observability milestone |
 | ENG-004 | Behavioral compatibility is a public contract | Verified | Dispatcher regression (27 failures) | API observability milestone |
 | ENG-005 | Metrics based only on Content-Length blind spot streamed responses | Observed | `responseBytes: 0` on streamed endpoints | API observability milestone |
+| ENG-007 | Tool risk and information risk are independent | Verified | Browser tool governance metadata tests | Browser / computer-use tool providers (PCS-026) |
+| ENG-008 | Computer use should produce evidence through existing protocols | Verified | Browser tools emit harness evidence artifacts | Browser / computer-use tool providers (PCS-026) |
+| ENG-009 | Executor state must be scoped to the actor/task boundary | Verified | Session-isolation test (per agent:task pages) | Browser information stewardship enforcement (PCS-026) |
 
 ---
 
@@ -295,6 +298,185 @@ API observability milestone (commit `72f1849`)
 ### Confidence
 
 Observed
+
+---
+
+## ENG-007 — Tool risk and information risk are independent
+
+### Title
+
+A browser action may be operationally read-only while retrieving or persisting
+confidential information.
+
+### Problem
+
+Browser tools were classified by *mutation* risk alone. `browser.snapshot` and
+`browser.screenshot` are low-risk from the browser's perspective — they change
+nothing — yet they can capture and persist sensitive business information
+(personal data, billing pages, restricted routes).
+
+### Observation
+
+During the browser / computer-use provider milestone, the six-tool surface split
+cleanly into read-only actions (navigate/snapshot/screenshot) and interactions
+(click/type). But "read-only" only described what the *browser* observed. The
+evidence artifact produced by a screenshot carries the same retention weight as
+a file or command artifact, so an operationally benign capture could become a
+stewardship liability. Governance metadata — origin, route, classification,
+derived information risk, redaction status, retention policy, and requesting
+agent — was added to every browser evidence artifact so the information axis is
+recorded even when the mutation axis is empty.
+
+### Finding
+
+Low mutation risk does not imply low information risk. Risk must be evaluated
+along two axes:
+
+```text
+Action risk        observe / interact / mutate
+Information risk   public / internal / confidential / restricted / regulated
+```
+
+A screenshot can be operationally read-only while still being high-risk
+information access.
+
+### Engineering Principle
+
+Evaluate browser tools through both capability policy (what the agent may do)
+and information stewardship policy (what the agent may capture and retain).
+
+### Recommendation
+
+Carry information classification on the session (per-origin policies as the next
+step) and persist it on every evidence artifact so downstream retention,
+redaction, and access decisions have the context they need without re-deriving
+it from content.
+
+### Related Evidence
+
+`packages/tools/browser/src/session.ts` — `EvidenceGovernance` + classification
+→ information-risk derivation; `governance` block on every browser tool evidence
+artifact; governance metadata assertions in
+`packages/tools/browser/__tests__/browser.test.ts`
+
+### Related Milestone
+
+Browser / computer-use tool providers (PCS-026, 2026-08-05)
+
+### Confidence
+
+Verified
+
+---
+
+## ENG-008 — Computer use should produce evidence through existing protocols
+
+### Title
+
+Browser interaction remains governable when screenshots and observations flow
+into the same evidence pipeline as filesystem, command, and verification
+artifacts.
+
+### Problem
+
+A new execution surface (browser automation) risks inventing a parallel audit
+path — its own storage, its own review surface, its own governance vocabulary.
+
+### Observation
+
+Adding browser tools as Tool Runtime providers meant they were governed by the
+same approval policy as shell and filesystem tools, and their outputs became
+`EvidenceArtifact`s (`screenshot`, `custom`) consumed by the harness alongside
+command, test, and filesystem evidence. Screenshots from `browser.screenshot`
+enter the existing content-addressed evidence pipeline instead of a separate
+browser-specific store.
+
+### Finding
+
+Browser/computer-use behavior is only trustworthy when its observations are
+indistinguishable in *accountability* from any other tool's output — same
+contract, same governance metadata, same retention.
+
+### Engineering Principle
+
+New execution providers should extend shared evidence contracts rather than
+introduce isolated audit paths.
+
+### Recommendation
+
+Keep browser actions as `VestaraTool` providers emitting harness `EvidenceArtifact`s
+with per-artifact governance metadata. Only extend the shared evidence protocol
+when a genuinely new evidence kind (e.g., interaction replay) is required — and
+define it in the evidence contracts, not in the provider.
+
+### Related Evidence
+
+`packages/tools/browser/src/tools.ts` — six `VestaraTool`s emitting harness
+evidence; registration in `apps/api/src/workspace-context.ts` `createAgentTools`;
+evidence pipeline integration (PCS-026)
+
+### Related Milestone
+
+Browser / computer-use tool providers (PCS-026, 2026-08-05)
+
+### Confidence
+
+Verified
+
+---
+
+## ENG-009 — Executor state must be scoped to the actor/task boundary
+
+### Title
+
+Shared execution surfaces leak state across actors unless isolation is explicit.
+
+### Problem
+
+The browser session was created once per ToolRuntime instance and shared by
+every agent thread; a single page carried navigation, cookies, and form state
+across concurrent agents and tasks.
+
+### Observation
+
+During the session-isolation pass, a session key (`agentId:taskId`) was threaded
+through driver → session → tools, so each agent:task owned an isolated page.
+`browser.close` then released only the calling agent's page, and the browser
+process shut down when the last page closed — releasing exactly the caller's
+scope, never a shared one.
+
+### Finding
+
+A shared executor is shared mutable state. Any provider that holds runtime state
+(browser session, shell, database connection, cloud client) must scope that
+state to the actor and task that created it, or the first agent's session leaks
+into the second agent's work — including its governance metadata.
+
+### Engineering Principle
+
+Executor state is scoped to the requesting actor and task. Cross-actor reuse is
+explicit and opt-in, never implicit.
+
+### Recommendation
+
+Key persistent provider state by an isolation key derived from the harness
+context (`agentId`, `taskId`), and expose a release action that closes only the
+caller's scope. Treat "no state shared between tasks" as the default contract
+for every future provider.
+
+### Related Evidence
+
+`packages/tools/browser/src/session.ts` — `sessionKey`, page-per-key map in
+`PlaywrightBrowserDriver`, scoped `close(key)`; session-isolation test in
+`packages/tools/browser/__tests__/browser.test.ts`
+
+### Related Milestone
+
+Browser information stewardship enforcement (PCS-026, 2026-08-05)
+
+### Confidence
+
+Verified
 
 ---
 

@@ -32,25 +32,8 @@ export class ParentProjectStore {
 
   constructor(db: Database) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS orchestrated_parent_projects (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        goal TEXT NOT NULL,
-        repo_path TEXT NOT NULL,
-        workspace_id TEXT NOT NULL,
-        status TEXT NOT NULL DEFAULT 'running',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_opp_workspace ON orchestrated_parent_projects(workspace_id);
-      CREATE TABLE IF NOT EXISTS orchestrated_parent_children (
-        parent_id TEXT NOT NULL,
-        repo_path TEXT NOT NULL,
-        child_project_id TEXT NOT NULL,
-        PRIMARY KEY (parent_id, repo_path)
-      );
-    `);
+    // Schema is owned by the migration chain (orchestration-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async createParent(input: {

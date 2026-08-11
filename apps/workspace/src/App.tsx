@@ -20,10 +20,14 @@ const TerminalPage = lazy(() => import('./pages/Terminal'));
 const OpsCenter = lazy(() => import('./pages/OpsCenter'));
 const OrchestrationPage = lazy(() => import('./pages/Orchestration'));
 const EvidencePage = lazy(() => import('./pages/Evidence'));
+const QualificationPage = lazy(() => import('./pages/Qualification'));
+const QualificationDetailPage = lazy(() => import('./pages/QualificationDetail'));
+const QualificationActivityPage = lazy(() => import('./pages/QualificationActivity'));
 const WorkersPage = lazy(() => import('./pages/Workers'));
 const ProjectsPage = lazy(() => import('./pages/Projects'));
 const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 const Activities = lazy(() => import('./pages/Activities'));
+const ActivityRoomPage = lazy(() => import('./pages/activity/ActivityRoomPage'));
 const ApiBuilder = lazy(() => import('./pages/ApiBuilder'));
 const Docs = lazy(() => import('./pages/Docs'));
 const Diagnostics = lazy(() => import('./pages/Diagnostics'));
@@ -56,10 +60,14 @@ const PAGES: Record<string, ComponentType> = {
   ops: OpsCenter,
   orchestration: OrchestrationPage,
   evidence: EvidencePage,
+  qualification: QualificationPage,
+  'qualification-detail': QualificationDetailPage,
+  'qualification-activity': QualificationActivityPage,
   workers: WorkersPage,
   projects: ProjectsPage,
   requests: FeatureRequests,
   activities: Activities,
+  activity: ActivityRoomPage,
   'api-builder': ApiBuilder,
   docs: Docs,
   diagnostics: Diagnostics,

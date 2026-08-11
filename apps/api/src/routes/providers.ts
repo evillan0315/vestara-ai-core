@@ -133,6 +133,50 @@ async function configurations(ctx: WorkspaceContext): Promise<ProviderConfig[]> 
   return [...byId.values()].sort((left, right) => left.name.localeCompare(right.name));
 }
 
+/**
+ * Providers discovered from the OpenCode runtime (`api/opencode/providers`
+ * source). Returns `null` when the runtime is unreachable so callers fall back
+ * to the persisted provider-manager configuration. Models come from the
+ * runtime's provider discovery — never hardcoded.
+ */
+async function runtimeProviderConfigs(ctx: WorkspaceContext): Promise<ProviderConfig[] | null> {
+  try {
+    const providers = await ctx.opencodeRuntime.listProviders();
+    if (!providers || providers.length === 0) return null;
+    const now = new Date().toISOString();
+    return providers.map((provider) => ({
+      id: provider.id,
+      name: provider.name ?? provider.id,
+      enabled: true,
+      baseUrl: undefined,
+      apiKeyEnv: undefined,
+      models: (provider.models ?? []).map((id) => ({
+        id,
+        name: id,
+        enabled: true,
+        contextWindow: 128_000,
+        maxOutput: 8_192,
+        capabilities: { chat: true, streaming: true, functionCalling: true, vision: false },
+      })),
+      revision: 1,
+      createdAt: now,
+      updatedAt: now,
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/** True when a provider id was discovered from the OpenCode runtime. */
+async function isRuntimeProvider(ctx: WorkspaceContext, id: string): Promise<boolean> {
+  try {
+    const providers = await ctx.opencodeRuntime.listProviders();
+    return providers.some((provider) => provider.id === id);
+  } catch {
+    return false;
+  }
+}
+
 async function saveConfigurations(ctx: WorkspaceContext, providers: ProviderConfig[]): Promise<void> {
   const data = await manifest(ctx);
   data.providers = providers;
@@ -256,7 +300,22 @@ export async function handleProvidersRoute(
   ctx: WorkspaceContext,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/providers') {
-    json(res, 200, { providers: (await configurations(ctx)).map((provider) => publicProvider(ctx, provider)) });
+    const runtime = await runtimeProviderConfigs(ctx);
+    if (runtime) {
+      json(res, 200, {
+        source: 'opencode-runtime',
+        providers: runtime.map((provider) => ({
+          ...publicProvider(ctx, provider),
+          status: 'available',
+          source: 'opencode-runtime' as const,
+        })),
+      });
+      return true;
+    }
+    json(res, 200, {
+      source: 'configuration',
+      providers: (await configurations(ctx)).map((provider) => publicProvider(ctx, provider)),
+    });
     return true;
   }
 
@@ -268,6 +327,16 @@ export async function handleProvidersRoute(
   const singleProviderMatch = p.match(/^\/api\/providers\/([^/]+)$/);
   if (singleProviderMatch && method === 'GET') {
     const id = decodeURIComponent(singleProviderMatch[1]);
+    if (await isRuntimeProvider(ctx, id)) {
+      const runtime = await runtimeProviderConfigs(ctx);
+      const provider = runtime?.find((candidate) => candidate.id === id);
+      if (provider) {
+        json(res, 200, {
+          provider: { ...publicProvider(ctx, provider), status: 'available', source: 'opencode-runtime' },
+        });
+        return true;
+      }
+    }
     const provider = (await configurations(ctx)).find((candidate) => candidate.id === id);
     if (!provider) json(res, 404, { code: 'provider-not-found', error: `Provider not found: ${id}` });
     else json(res, 200, { provider: publicProvider(ctx, provider) });
@@ -285,6 +354,18 @@ export async function handleProvidersRoute(
       return true;
     }
     if (action === 'test') {
+      if (await isRuntimeProvider(ctx, id)) {
+        try {
+          const health = await ctx.opencodeRuntime.health();
+          json(res, 200, { providerId: id, status: health.healthy ? 'healthy' : 'unhealthy', health });
+        } catch (error) {
+          json(res, 422, {
+            code: 'connection-failed',
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+        return true;
+      }
       try {
         const health = await ctx.providerManager.health(id);
         json(res, 200, { providerId: id, status: health?.status ?? 'unhealthy', health });
@@ -297,6 +378,19 @@ export async function handleProvidersRoute(
       return true;
     }
     if (action === 'discover-models') {
+      if (await isRuntimeProvider(ctx, id)) {
+        const runtime = await runtimeProviderConfigs(ctx);
+        const provider = runtime?.find((candidate) => candidate.id === id);
+        if (!provider) {
+          json(res, 409, { code: 'provider-not-found', error: 'Runtime provider is no longer discovered' });
+          return true;
+        }
+        json(res, 200, {
+          provider: { ...publicProvider(ctx, provider), status: 'available', source: 'opencode-runtime' },
+          discovered: provider.models.length,
+        });
+        return true;
+      }
       const provider = ctx.providerManager.getProvider(id);
       if (!provider) {
         json(res, 409, { code: 'provider-disabled', error: 'Enable the provider before discovering models' });
@@ -321,6 +415,26 @@ export async function handleProvidersRoute(
       return true;
     }
     const enabled = action === 'enable';
+    // Runtime providers are governed by the OpenCode server; enable/disable is
+    // an advisory metadata override only and never rewrites runtime state.
+    if (await isRuntimeProvider(ctx, id)) {
+      const runtime = await runtimeProviderConfigs(ctx);
+      const provider = runtime?.find((candidate) => candidate.id === id);
+      if (!provider) {
+        json(res, 404, { code: 'provider-not-found', error: `Provider not found: ${id}` });
+        return true;
+      }
+      json(res, 200, {
+        provider: {
+          ...publicProvider(ctx, provider),
+          status: enabled ? 'available' : 'disabled',
+          enabled,
+          source: 'opencode-runtime',
+          note: 'availability governed by the OpenCode runtime',
+        },
+      });
+      return true;
+    }
     const affectedAssignments = enabled ? [] : routingAssignments(ctx, id);
     if (affectedAssignments.length) {
       json(res, 409, {
