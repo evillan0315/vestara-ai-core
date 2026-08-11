@@ -117,3 +117,21 @@ READINESS: READY
 Stopped at the readiness gate. ORB-VE-001 execution is NOT authorized by this
 document. Product intent has NOT been exposed to the experimental
 organization, and no participant has been started on the benchmark problem.
+
+## Execution authorization
+
+```text
+authorization                  Director authorization granted. Execute
+                               ORB-VE-001 under frozen contract v0.2.0.
+authorization date             2026-08-11
+```
+
+Execution discipline (frozen contract): no hints, no VE/persistence/defect
+knowledge, no acceptance-criteria additions, no Agent guidance. Sole
+permitted interventions: safety or experiment integrity, each recorded.
+
+The experimental organization operates in the isolated environment
+(`/home/eddie/projects/vestara-orb-ve-001`) with role agent definitions
+(root `.opencode/agents/`, verified VE-free) made available there. A dedicated
+opencode server scoped to the environment (NOT the working-world server on
+4096) drives agent sessions. Product intent is the only Director input.
