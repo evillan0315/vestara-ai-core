@@ -1056,3 +1056,43 @@ automatic revision loop:
 The Activity Room's convergence visualization must render these semantics —
 ownership, justified re-entry, evidence change, retry bounds, termination — and
 must never visualize an unbounded token-burning loop as healthy progress.
+
+## Post-ORB milestone — real participant + live execution projection (verified)
+
+**Final pre-design substrate slice.** The left Participants panel reflects the
+actual organization, not decoration. Execution state is separate from
+acceptance state.
+
+```text
+commit      69f9db2
+SSE boundary   classifyOpenCodeExecutionEvent (pure): OpenCode SSE (message
+               deltas, heartbeats, session idle/error, tool events) →
+               Vestara execution events (active/reasoning/completed/failed/
+               stalled semantics). The room consumes Vestara form, not
+               OpenCode's schema — future runtimes feed the same form.
+participants  GET /api/workflow/:id/participants: real stage/agent/thread per
+               workflow, derived from durable state (threads + room records),
+               executionState (queued/waiting/reasoning/active/completed/failed)
+               separate from acceptanceState (satisfied/not-satisfied/
+               conditional/indeterminate/unset).
+bridge fix    room resolved lazily per event (durable room initializes after
+               bridge wiring at boot); pre-created stages project as WAITING.
+```
+
+**Proven against a real workflow** (not mocked): the room projected
+`workflow.started` and stage-turn activity; participants transitioned live:
+
+```text
+Planner    completed   (turn started → completed)
+Developer  active → failed   (its turn ran the full 30-minute maximum-duration
+                              ceiling and was aborted — a real boundary surfaced)
+Verifier/Reviewer  waiting (never started; the chain stopped at the failure)
+```
+
+The participant projection faithfully rendered a REAL organizational outcome
+including the failure transition. 13 new tests (SSE normalizer + participant
+projection + bridge wiring); suites green; build green; biome clean.
+
+**This completes the pre-design semantic substrate.** Visual design now has real
+concepts to render: active/conditional/evidence/uncertainty/waiting are no
+longer invented — they are derived organizational state.
