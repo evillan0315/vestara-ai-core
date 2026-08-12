@@ -8,6 +8,8 @@
     "build:references": "node scripts/workspace-architecture.mjs --generate && tsc -b tsconfig.references.json",
     "dependencies:check": "node scripts/workspace-architecture.mjs --check",
     "check:source-artifacts": "node scripts/check-source-artifacts.mjs",
+    "agents:sync": "node scripts/agents-sync.mjs",
+    "agents:check": "node scripts/agents-sync.mjs --check",
     "references:generate": "node scripts/workspace-architecture.mjs --generate",
     "watch": "tsc -b -w",
     "clean": "tsc -b --clean",

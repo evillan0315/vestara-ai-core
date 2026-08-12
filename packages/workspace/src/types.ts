@@ -480,7 +480,8 @@ export type AgentRole =
   | 'performance-agent'
   | 'documentation-agent'
   | 'refactoring-agent'
-  | 'release-agent';
+  | 'release-agent'
+  | 'context';
 
 export type AgentSkillName =
   | 'task-decomposition'
@@ -556,6 +557,23 @@ export interface AgentPermission {
   approvalRequired: boolean;
 }
 
+/** OpenCode native permission grant used by generated `.opencode/agents/*.md`. */
+export type OpenCodePermissionGrant = 'allow' | 'deny';
+
+export interface OpenCodePermissions {
+  edit: OpenCodePermissionGrant;
+  bash: OpenCodePermissionGrant;
+  read: OpenCodePermissionGrant;
+  write: OpenCodePermissionGrant;
+  glob: OpenCodePermissionGrant;
+  grep: OpenCodePermissionGrant;
+  list: OpenCodePermissionGrant;
+  task: OpenCodePermissionGrant;
+  external_directory: OpenCodePermissionGrant;
+}
+
+export type AgentMode = 'primary' | 'subagent';
+
 export type AgentType = 'workspace' | 'registry';
 
 export interface AgentDefinition {
@@ -570,10 +588,26 @@ export interface AgentDefinition {
   model?: string;
   /** Native OpenCode runtime agent (e.g. build/planner/reviewer) this agent maps to. */
   runtimeAgent?: string;
+  /** OpenCode agent mode: primary agent vs spawned subagent. */
+  mode?: AgentMode;
+  /** Permission grant rendered into the generated OpenCode agent `.md`. */
+  opencodePermissions?: OpenCodePermissions;
   teamId?: string;
   color?: string;
   status: 'active' | 'disabled';
   createdAt: string;
+}
+
+/**
+ * A canonical agent definition from the unified registry. Extends
+ * `AgentDefinition` with the OpenCode-specific fields required to generate
+ * `.opencode/agents/*.md` from a single source of truth.
+ */
+export interface CanonicalAgent extends AgentDefinition {
+  mode: AgentMode;
+  opencodePermissions: OpenCodePermissions;
+  /** System prompt body written into the generated OpenCode agent `.md`. */
+  opencodePrompt: string;
 }
 
 export interface AgentTeam {

@@ -1,0 +1,264 @@
+---
+title: Unified Agent Platform — Single Source of Truth for Workspace and OpenCode Agents
+version: 1
+status: proposed
+owner: vestara
+last-reviewed: 2026-08-12
+next-review: 2026-09-12
+---
+
+# Unified Agent Platform
+
+## Status: PROPOSED → IMPLEMENTED (changes uncommitted)
+
+> Implementation landed 2026-08-12. After committing, set frontmatter
+> `status: accepted` and record the immutable commit SHA per docs governance
+> (the `docs:govern` contract for implemented/verified docs).
+
+> Scope decision (2026-08-12): the agent roster is **converged to 5 core
+> agents** — `context`, `developer`, `planner`, `reviewer`, `verifier`
+> (Agent Tester was removed from the roster on 2026-08-12; its test-running
+> responsibility is folded into `verifier`). The 12 workspace-only roles
+> currently in `seedBuiltIn()` (`agent-storage.ts`) are dropped from the
+> canonical registry; the 5 remaining agents each have exactly one OpenCode
+> native twin, so the workspace catalog and the OpenCode runtime describe the
+> *same* identities.
+
+## Purpose
+
+Today Vestara defines agents in **two disconnected places** with weak linkage:
+
+1. **Workspace catalog** — `packages/workspace/src/agent-storage.ts`
+   `seedBuiltIn()` hardcodes 17 `AgentDefinition` rows written into
+   `plans.db`. These carry rich `capabilities[]`, `permissions[]`, model, and
+   color, but are currently **disabled** by `VESTARA_DISABLE_AGENT_SEED=1` in
+   the systemd unit.
+2. **OpenCode native agents** — `.opencode/agents/*.md` (six files:
+   `vestara-context`, `vestara-developer`, `vestara-planner`,
+   `vestara-reviewer`, `vestara-verifier`). These are what
+   the agent harness **actually executes**. They are static markdown and are
+   maintained as **duplicate copies** in both the repository root and
+   `vestara-ai-core/` (per `AGENTS.md`, OpenCode agents live in `.opencode/`
+   in both locations).
+
+The only connection is `AgentDefinition.runtimeAgent`, which is consumed
+**only** by `apps/api/src/routes/agents.ts` to merge the two lists for the
+`/api/agents` response. Execution never resolves a workspace agent to its
+OpenCode counterpart, OpenCode agents are read-only via
+`opencodeRuntime.listAgents()` (no programmatic upsert), and names diverge
+(`agent-developer` vs `vestara-developer`).
+
+This plan introduces a **single canonical agent registry** and a codegen/sync
+step so the workspace catalog **and** the OpenCode `.md` files are derived from
+the same definition. No agent is hand-maintained in two places.
+
+## Goals
+
+- One source of truth for every agent (id, name, role, description, model,
+  provider, mode, permissions, capabilities, color, runtimeAgent).
+- OpenCode `.md` files are **generated**, never hand-edited; both the root and
+  `vestara-ai-core` copies are produced by the same script (eliminates drift).
+- A workspace agent and its OpenCode twin share one identity, linked by
+  `runtimeAgent`; harness execution resolves that link.
+- Unified permission model: one permission definition governs both the
+  workspace `permissions[]` shape and the OpenCode `permission:` block.
+- CI fails if either generated artifact (`.opencode/agents/*.md`) or the DB
+  seed drifts from the registry.
+
+## Canonical roster (5 core agents)
+
+Each row is a single registry entry; its `runtimeAgent` names the generated
+OpenCode twin.
+
+| role / id | OpenCode twin | mode | model | permissions (summary) |
+|---|---|---|---|---|
+| `context` (`agent-context`) | `vestara-context` | primary | `opencode/deepseek-v4-flash-free` | read/glob/grep/list/bash allow; edit/write deny |
+| `developer` (`agent-developer`) | `vestara-developer` | primary | same | all allow |
+| `planner` (`agent-planner`) | `vestara-planner` | primary | same | read/glob/grep/list allow; edit/write/bash deny |
+| `reviewer` (`agent-reviewer`) | `vestara-reviewer` | subagent | same | read/bash/glob/grep/list allow; edit/write deny |
+| `verifier` (`agent-verifier`) | `vestara-verifier` | subagent | same | read/bash/glob/grep/list allow; edit/write deny |
+
+The 11 dropped roles — `architect`, `documenter`, `dashboard-curator`,
+`dashboard-dev`, `conversation-dev`, `analyst`, `security`, `performance`,
+`documentation`, `refactoring`, `release`, `workspace-ui-tester` — are removed
+from the registry. Existing rows in `plans.db` for these ids are migrated out
+(see Migration).
+
+## Architecture
+
+```text
+packages/workspace/src/agents.registry.ts   (CANONICAL — single source of truth)
+        │
+        ├──► pnpm agents:sync
+        │        ├── writes .opencode/agents/<role>.md   (root + vestara-ai-core)
+        │        └── seeds plans.db agents table        (replaces seedBuiltIn)
+        ▼
+AgentStorage.listAgents()  ──►  apps/api/src/routes/agents.ts  ──►  /api/agents
+        │
+        ▼
+AgentHarnessRuntime.run(agentId)  ──► resolve runtimeAgent ──► OpenCode native agent
+```
+
+## Design
+
+### 1. Canonical registry
+
+New file `packages/workspace/src/agents.registry.ts` exporting a typed
+`CANONICAL_AGENTS: AgentDefinition[]` (the 5 above). Extend `AgentDefinition`
+(`packages/workspace/src/types.ts`) with the fields OpenCode needs so a single
+object drives both outputs:
+
+- `mode: 'primary' | 'subagent'` (maps to OpenCode `mode`).
+- `opencodePermissions` shape matching the `permission:` block
+  (`edit/bash/read/write/glob/grep/list`) — or derive it from the existing
+  `permissions[]` via a mapping helper.
+
+The existing `runtimeAgent` field becomes mandatory and must equal the
+generated OpenCode agent file name (without `.md`).
+
+### 2. Sync / codegen — `pnpm agents:sync`
+
+A script (e.g. `scripts/agents-sync.ts`, wired into `package.json` scripts and
+runnable via `pnpm agents:sync`) that:
+
+- reads `CANONICAL_AGENTS`,
+- renders `.opencode/agents/<role>.md` from a template (frontmatter:
+  `description`, `mode`, `model`, `permission:`), writing to **both**
+  `<root>/.opencode/agents/` and `vestara-ai-core/.opencode/agents/`,
+- (re)seeds the `plans.db` `agents` table from the same array, replacing the
+  current `seedBuiltIn()` body,
+- is idempotent and deterministic (stable file ordering, no timestamps).
+
+`seedBuiltIn()` should delegate to the registry (or be deleted in favor of the
+sync step writing the DB). The `VESTARA_DISABLE_AGENT_SEED` flag is retained as
+a dev escape hatch but defaults to seeding on.
+
+### 3. Execution linkage
+
+`AgentHarnessRuntime` (`packages/agent-harness/src/index.ts`) and
+`AgentRuntime.getAgent`/`run` (`packages/workspace/src/agent-runtime.ts`) must
+resolve an agent's OpenCode native counterpart via `runtimeAgent` when invoking
+the OpenCode runtime, so the workspace `agent-developer` and the OpenCode
+`vestara-developer` are guaranteed to be the same identity at execution time
+(currently the link is display-only).
+
+### 4. Permission unification
+
+One permission definition per agent (in the registry) is mapped both to the
+workspace `permissions[]` model and to the OpenCode `permission:` block in the
+generated `.md`. Changing a permission in the registry changes both outputs on
+the next `agents:sync`.
+
+### 5. CI guard — `pnpm agents:check`
+
+A read-only check (mirrors the contract guard in `AGENTS.md`) that regenerates
+the `.opencode/agents/*.md` from the registry and diffs against the committed
+files; fails on drift. Wired into `.github/workflows/ci.yml` after the
+contract guard.
+
+## Migration steps
+
+1. Add `agents.registry.ts` with the 5 canonical agents; extend `AgentDefinition`
+   with `mode` + OpenCode permission shape.
+2. Write `scripts/agents-sync.ts`; wire `pnpm agents:sync` and `pnpm agents:check`.
+3. Replace `seedBuiltIn()` (`agent-storage.ts`) with registry-driven seeding;
+   keep `VESTARA_DISABLE_AGENT_SEED` as a dev flag.
+4. Update `routes/agents.ts` merge logic to rely on the registry
+   `runtimeAgent`/role consistently.
+5. Wire harness execution (`agent-harness`, `agent-runtime`) to resolve the
+   OpenCode agent via `runtimeAgent`.
+6. Run `agents:sync` to regenerate `.opencode/agents/*.md` in **both** root and
+   `vestara-ai-core`; remove the now-generated hand-written copies.
+7. Migrate existing `plans.db`: delete rows for the 11 dropped role ids
+   (`agent-architect`, `agent-documenter`, …); keep the 5 core ids (upsert to
+   registry values). Provide a one-time migration in `agent-storage.ts`.
+8. Remove `VESTARA_DISABLE_AGENT_SEED=1` from the systemd unit once the 5-agent
+   seed is verified (or keep it only for isolated test deployments).
+9. Add `pnpm agents:check` to CI; run `pnpm lint:check && pnpm build && pnpm test`.
+10. Govern the doc: when implemented, record the immutable implementation
+    commit SHA and move status `proposed → accepted`.
+
+## Risks / considerations
+
+- **Two-repo duplication**: OpenCode reads `.opencode/agents` from the cwd, so
+  both root and `vestara-ai-core` copies must be generated and kept identical.
+  Sync writes both; `agents:check` validates both.
+- **Backward compatibility**: any persisted `plans.db` rows, sessions, or task
+  dispatchers (`harness-task-dispatcher.ts`) referencing the 11 dropped ids must
+  be migrated or they will dangle. Audit references before deletion.
+- **Model pinning**: all 6 currently use `opencode/deepseek-v4-flash-free`;
+  the registry makes this a single editable field.
+- **OpenCode read-only API**: `opencodeRuntime.listAgents()` cannot upsert, so
+  the `.md` files remain the ingestion path — codegen is the only safe way to
+  keep them in sync.
+
+## Open questions
+
+- Should the registry live as TypeScript (`agents.registry.ts`) or a
+  portable `agents.catalog.json` consumed by both the Node sync script and any
+  future non-Node tooling? (Recommended: `.ts` for type safety now, with a
+  JSON-serializable shape.)
+- Do the 5 core agents need distinct `color`/branding, or is the existing
+  minimal set sufficient for the converged roster?
+
+## Implementation
+
+Landed 2026-08-12 (uncommitted). Summary of what changed and what was deferred.
+
+### Changed
+
+- **`packages/workspace/src/agents.registry.ts`** (new) — `CANONICAL_AGENTS`
+  (the 5 core agents), `DROPPED_BUILT_IN_AGENT_IDS` (the 13 removed ids), and
+  `BUILT_IN_CREATED_AT`. Each canonical agent carries `mode`,
+  `opencodePermissions`, and `opencodePrompt` so the OpenCode `.md` is fully
+  derived from this one file.
+- **`packages/workspace/src/types.ts`** — added `OpenCodePermissionGrant`,
+  `OpenCodePermissions`, `AgentMode`; extended `AgentDefinition` with `mode?`
+  and `opencodePermissions?`; added `'context'` to the `AgentRole` union;
+  added the `CanonicalAgent` interface.
+- **`packages/workspace/src/agent-storage.ts`** — `seedBuiltIn()` now seeds from
+  `CANONICAL_AGENTS` (registry-driven) into an empty catalog only; it never
+  mutates a populated catalog (custom agents or a migrated forensic fixture are
+  left intact). `VESTARA_DISABLE_AGENT_SEED` is retained as the dev escape hatch.
+- **`scripts/agents-sync.mjs`** (new) — renders `.opencode/agents/<runtimeAgent>.md`
+  for the 5 canonical agents into **both** `vestara-ai-core/.opencode/agents/` and
+  the root repo `.opencode/agents/`. Supports `--check` (CI guard, fails on drift).
+- **`opencode.json`** (root + `vestara-ai-core`) — removed the duplicate `agent:`
+  block from both. OpenCode agents are now defined **only** in
+  `.opencode/agents/*.md` (generated by `agents:sync`), eliminating a second
+  hand-maintained copy that had drifted (it still listed the removed
+  `vestara-tester`). These files retain only `$schema` and `model`.
+  Runs directly under Node via the already-present `typescript` package (no `tsx`
+  dependency).
+- **`package.json`** — added `agents:sync` and `agents:check`.
+- **`.opencode/agents/*.md`** (both repos) — regenerated from the registry;
+  the previous hand-written duplicates are now generated artifacts.
+- **`packages/workspace/__tests__/agent-capability.test.ts`** — switched the
+  read-only-agent fixture from the dropped `agent-architect` to the kept
+  `agent-context`.
+
+### Verification
+
+- `pnpm lint:check` — clean.
+- `pnpm build` — clean (96 workspace projects).
+- `pnpm test` — 2168 passed; the only 2 failures are **pre-existing and
+  environmental** (`architecture-runtime` loads ADRs and `documentation`
+  validates the Blueprint proposal — both read `vestara-blueprint/`, a separate
+  frozen repo that is not part of this change).
+- `pnpm agents:check` — OK (5 canonical agents in sync across both repos).
+
+### Deferred / operational follow-ups
+
+- **Execution linkage**: `/api/agents` already merges the workspace catalog with
+  the OpenCode native agents via `runtimeAgent`, so the two are linked in the
+  API surface. Resolving `runtimeAgent` explicitly when `AgentRuntime.run()`
+  invokes the OpenCode runtime is a deeper harness change and was left as a
+  follow-up to avoid destabilizing the durable harness loop.
+- **Seed flag**: production currently runs with `VESTARA_DISABLE_AGENT_SEED=1`
+  (agent list empty). To activate the 5 canonical agents, remove that assignment
+  from the systemd unit; the catalog will seed fresh from the registry.
+- **DB migration of an old 17-agent `plans.db`**: because `seedBuiltIn()` no
+  longer mutates a populated catalog, a previously seeded (old) `plans.db`
+  should be cleared/reseeded to drop the 13 removed agents. The current
+  deployment's empty catalog makes this a no-op on activation.
+
