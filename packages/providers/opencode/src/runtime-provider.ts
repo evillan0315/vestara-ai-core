@@ -194,7 +194,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
     const resolved = this.resolveProvider(request.model);
-    const sessionId = await this.createSession(resolved.providerId, this.modelId);
+    const sessionId = await this.createSession(resolved.providerId, this.modelId, request.agent ?? this.agent);
     try {
       const text = await this.streamReply(sessionId, renderPrompt(request), request.signal, request.onExecutionEvent);
       return {
@@ -273,11 +273,11 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     return { providerId: undefined, reason: 'default', defaultResolution: true };
   }
 
-  private async createSession(providerId?: string, modelId?: string): Promise<string> {
+  private async createSession(providerId?: string, modelId?: string, agentId?: string): Promise<string> {
     const session = await this.client().createSession(
       {
         title: `vestara-agent-${Date.now()}`,
-        agent: this.agent,
+        agent: agentId,
         providerID: providerId ?? undefined,
         modelID: modelId ?? undefined,
       },

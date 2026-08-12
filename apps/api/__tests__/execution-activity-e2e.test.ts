@@ -220,3 +220,66 @@ describe('harness execution-activity → bridge → room (real wiring)', () => {
     expect(kinds).toContainEqual(['agent-message', 'model-response']);
   });
 });
+
+describe('session-stream coalescing (replay of captured live events)', () => {
+  it('coalesces per-character deltas into one readable narrative, keeping semantic events distinct', async () => {
+    const { SessionStreamAccumulator } = await import('../src/session-stream.js');
+    const room = createActivityRoom();
+    const streams = new SessionStreamAccumulator();
+    const eventBus = new (await import('@vestara/event-bus')).InProcessEventBus();
+    const threadStore = {
+      getThread() {
+        return { metadata: { workflowId: 'wf-replay', agentId: 'agent-developer', role: 'developer' } };
+      },
+    };
+    const { startActivityRoomOrganizationalBridge } = await import(
+      '../src/bridges/activity-room-organizational-bridge.js'
+    );
+    startActivityRoomOrganizationalBridge({
+      eventBus: eventBus as never,
+      threadStore: threadStore as never,
+      room,
+      streams,
+    });
+
+    const emit = (type: string, payload: Record<string, unknown>) =>
+      eventBus.emit({ type, source: 'agent-harness', actor: { id: 'agent-developer', role: 'agent' }, payload });
+
+    // 120 per-character deltas (like "streaming 1 chars" before the fix)
+    for (let i = 0; i < 120; i++) {
+      await emit('opencode.execution.activity', {
+        threadId: 'thread-dev',
+        turnId: 'turn-dev',
+        type: 'agent.progress',
+        state: 'reasoning',
+        activity: 'H',
+        at: `2026-08-12T10:00:${String(i % 60).padStart(2, '0')}.000Z`,
+        sessionId: 'ses-dev',
+      });
+    }
+    // A semantic boundary: tool invocation finalizes the narrative.
+    await emit('opencode.execution.activity', {
+      threadId: 'thread-dev',
+      turnId: 'turn-dev',
+      type: 'tool.started',
+      state: 'active',
+      activity: 'filesystem.write proof.md',
+      at: '2026-08-12T10:02:00.000Z',
+      sessionId: 'ses-dev',
+    });
+    await new Promise((resolve) => setTimeout(resolve, 30));
+
+    const { records } = await room.store.list({});
+    const narrative = records.filter((r) => r.kind === 'agent-message' && r.messageKind === 'message');
+    const tools = records.filter((r) => r.kind === 'agent-message' && r.messageKind === 'tool-call');
+    // NOT 120 tiny cards: one coalesced narrative + the distinct tool record.
+    expect(narrative).toHaveLength(1);
+    if (narrative[0]?.kind === 'agent-message') {
+      expect(narrative[0].content).toBe('H'.repeat(120));
+    }
+    expect(tools).toHaveLength(1);
+    if (tools[0]?.kind === 'agent-message') {
+      expect(tools[0].toolName).toContain('filesystem.write');
+    }
+  });
+});

@@ -4,10 +4,22 @@ import AgentListItem, { type PresenceGroup, presenceOf } from './AgentListItem';
 import { formatRelative } from './activity-formatters';
 import type { ActivityRecord } from './activity-types';
 
+export interface WorkflowParticipant {
+  workflowId: string;
+  role: string;
+  agentId: string;
+  threadId: string;
+  executionState: string;
+  lastActivityAt?: string;
+  lastActivity?: string;
+}
+
 interface ActivitySidebarProps {
   records: readonly ActivityRecord[];
   selectedAgentId: string | undefined;
   onSelectAgent: (agentId: string | undefined) => void;
+  /** Real participants of the selected workflow; falls back to the agent catalog. */
+  participants?: readonly WorkflowParticipant[];
 }
 
 const SECTION_LABELS: Array<{ key: PresenceGroup; label: string }> = [
@@ -16,6 +28,18 @@ const SECTION_LABELS: Array<{ key: PresenceGroup; label: string }> = [
   { key: 'idle', label: 'Idle' },
   { key: 'failed', label: 'Failed' },
 ];
+
+const STATE_COLOR: Record<string, string> = {
+  active: 'text-(--vestara-green)',
+  reasoning: 'text-(--vestara-amber)',
+  preparing: 'text-(--vestara-amber)',
+  waiting: 'text-(--vestara-text-muted)',
+  queued: 'text-(--vestara-text-muted)',
+  completed: 'text-(--vestara-green)',
+  failed: 'text-(--vestara-red)',
+  cancelled: 'text-(--vestara-red)',
+  stalled: 'text-(--vestara-red)',
+};
 
 function lastActivityFor(records: readonly ActivityRecord[], agentId: string): string | undefined {
   let latest: ActivityRecord | undefined;
@@ -27,7 +51,7 @@ function lastActivityFor(records: readonly ActivityRecord[], agentId: string): s
   return latest ? formatRelative(latest.timestamp) : undefined;
 }
 
-export default function ActivitySidebar({ records, selectedAgentId, onSelectAgent }: ActivitySidebarProps) {
+export default function ActivitySidebar({ records, selectedAgentId, onSelectAgent, participants }: ActivitySidebarProps) {
   const telemetry = useTelemetryStore();
 
   const agents = useMemo(
@@ -74,7 +98,7 @@ export default function ActivitySidebar({ records, selectedAgentId, onSelectAgen
               : 'bg-transparent border-transparent hover:bg-(--vestara-accent-bg)'
           }`}
         >
-          <span className="text-xs font-medium text-(--vestara-text-2)">All Agents</span>
+          <span className="text-xs font-medium text-(--vestara-text-2)">{participants && participants.length > 0 ? 'Workflow Participants' : 'All Agents'}</span>
           <span className="text-[10px] text-(--vestara-text-muted)">
             {activeCount} active{waitingCount > 0 ? ` · ${waitingCount} waiting` : ''}
           </span>
@@ -82,7 +106,29 @@ export default function ActivitySidebar({ records, selectedAgentId, onSelectAgen
       </div>
 
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
-        {agents.length === 0 ? (
+        {participants && participants.length > 0 ? (
+          participants.map((participant) => (
+            <div key={participant.threadId} className="space-y-0.5">
+              <div className="px-3 py-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-(--vestara-text-2)">
+                    {participant.role[0].toUpperCase() + participant.role.slice(1)}
+                  </span>
+                  <span className={`text-[10px] ${STATE_COLOR[participant.executionState] ?? 'text-(--vestara-text-muted)'}`}>
+                    {participant.executionState}
+                  </span>
+                </div>
+                <div className="mt-0.5 text-[10px] text-(--vestara-text-muted)">{participant.agentId}</div>
+                {participant.lastActivityAt && (
+                  <div className="mt-1 text-[9px] text-(--vestara-text-dim)">
+                    Last activity: {formatRelative(participant.lastActivityAt)}
+                    {participant.lastActivity ? ` — ${participant.lastActivity.slice(0, 40)}` : ''}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))
+        ) : agents.length === 0 ? (
           <p className="px-3 text-[10px] text-(--vestara-text-muted)">No participants yet.</p>
         ) : (
           SECTION_LABELS.map(({ key, label }) => {

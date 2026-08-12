@@ -74,6 +74,8 @@ export interface CompletionRequest {
   signal?: AbortSignal;
   /** Streaming execution events (runtime-normalized) as the turn progresses. */
   onExecutionEvent?: (event: ProviderExecutionEvent) => void;
+  /** The runtime agent (e.g. vestara-planner) to run the completion as. */
+  agent?: string;
 }
 
 /** Runtime-normalized execution event emitted while a completion runs. */

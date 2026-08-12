@@ -293,14 +293,14 @@ describe('multi-agent workflow routes', () => {
     expect(snapshot.projection.status).toBe('completed');
     // Swimlanes span the stage agents whose stages actually ran, not a single thread.
     const laneAgents = snapshot.projection.swimlanes.map((lane) => lane.agentId);
-    expect(laneAgents).toContain('agent-planner');
-    expect(laneAgents).toContain('agent-developer');
-    expect(laneAgents).toContain('agent-verifier');
+    expect(laneAgents).toContain('vestara-planner');
+    expect(laneAgents).toContain('vestara-developer');
+    expect(laneAgents).toContain('vestara-verifier');
     // Stage ownership is attributed to the owning agent per role.
     const byId = new Map(snapshot.projection.stages.map((stage) => [stage.id, stage]));
-    expect(byId.get('planning')?.agentId).toBe('agent-planner');
-    expect(byId.get('execution')?.agentId).toBe('agent-developer');
-    expect(byId.get('verification')?.agentId).toBe('agent-verifier');
+    expect(byId.get('planning')?.agentId).toBe('vestara-planner');
+    expect(byId.get('execution')?.agentId).toBe('vestara-developer');
+    expect(byId.get('verification')?.agentId).toBe('vestara-verifier');
   }, 20000);
 
   it('returns 400 when a workflow is started without a goal', async () => {

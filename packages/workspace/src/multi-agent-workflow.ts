@@ -65,7 +65,7 @@ export interface MultiAgentWorkflowOptions {
 const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   {
     role: 'planner',
-    agentId: 'agent-planner',
+    agentId: 'vestara-planner',
     instruction:
       'Analyze the goal, inspect the workspace, and produce a concrete implementation plan. ' +
       'After your plan, declare the acceptance boundary: list the observable acceptance ' +
@@ -74,12 +74,12 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   },
   {
     role: 'developer',
-    agentId: 'agent-developer',
+    agentId: 'vestara-developer',
     instruction: 'Implement the plan: create or update files, run builds and tests, and report what changed.',
   },
   {
     role: 'verifier',
-    agentId: 'agent-verifier',
+    agentId: 'vestara-verifier',
     instruction:
       'Verify the implementation: run the verification profile, check the changed files, and report findings. ' +
       'Distinguish implementation-quality verification from behavioral acceptance: state, for each acceptance ' +
@@ -88,7 +88,7 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   },
   {
     role: 'reviewer',
-    agentId: 'agent-reviewer',
+    agentId: 'vestara-reviewer',
     instruction:
       'Review the diff and verification results. Approve or request revisions with specific feedback. ' +
       'Review against the acceptance boundary (objective and obligations), not only diff correctness. ' +

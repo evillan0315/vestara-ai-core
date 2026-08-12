@@ -173,20 +173,54 @@ export async function handleWorkflowRoute(
     return true;
   }
 
+  // Live session narrative — coalesced per-participant stream output.
+  // The id may be a thread id OR the workflow id.
+  const liveStreamMatch = p.match(/^\/api\/workflow\/([^/]+)\/live-stream$/);
+  if (method === 'GET' && liveStreamMatch) {
+    const id = decodeURIComponent(liveStreamMatch[1]);
+    const asThread = ctx.agentThreadStore.getThread(id as TaskThreadId);
+    const workflowId = asThread
+      ? isMultiAgent(ctx, asThread.id)
+        ? workflowIdForThread(ctx, asThread.id)
+        : asThread.id
+      : id;
+    const live = ctx.activityRoomStreams
+      .live()
+      .filter((item) => {
+        const t = ctx.agentThreadStore.getThread(item.threadId as TaskThreadId);
+        return t?.metadata?.workflowId === workflowId;
+      })
+      .map((item) => ({
+        threadId: item.threadId,
+        role: item.role,
+        agentId: item.agentId,
+        sessionId: item.sessionId,
+        text: item.text,
+        lastActivityAt: item.lastActivityAt,
+      }));
+    json(res, 200, { workflowId, live });
+    return true;
+  }
+
   // Participants — the real agents in the real workflow with current state.
+  // The id may be a thread id OR the workflow id itself.
   const participantsMatch = p.match(/^\/api\/workflow\/([^/]+)\/participants$/);
   if (method === 'GET' && participantsMatch) {
-    const threadId = decodeURIComponent(participantsMatch[1]) as TaskThreadId;
-    const thread = ctx.agentThreadStore.getThread(threadId);
-    if (!thread) {
-      json(res, 404, { error: 'Thread not found' });
-      return true;
-    }
-    const workflowId = isMultiAgent(ctx, threadId) ? workflowIdForThread(ctx, threadId) : threadId;
+    const id = decodeURIComponent(participantsMatch[1]);
+    const asThread = ctx.agentThreadStore.getThread(id as TaskThreadId);
+    const workflowId = asThread
+      ? isMultiAgent(ctx, asThread.id)
+        ? workflowIdForThread(ctx, asThread.id)
+        : asThread.id
+      : id;
     const threads = ctx.agentThreadStore
       .listThreads()
       .filter((candidate) => candidate.metadata?.workflowId === workflowId)
       .sort((left, right) => Number(left.metadata?.stageIndex ?? 0) - Number(right.metadata?.stageIndex ?? 0));
+    if (threads.length === 0) {
+      json(res, 404, { error: 'WORKFLOW_NOT_FOUND', message: `No workflow participants for ${id}.` });
+      return true;
+    }
     const threadIds = new Set<string>(threads.map((candidate) => candidate.id));
     const { records } = await getActivityRoom().store.list({});
     const workflowRecords = [...records].reverse().filter((record) => {

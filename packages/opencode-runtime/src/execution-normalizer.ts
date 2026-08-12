@@ -69,7 +69,9 @@ export function classifyOpenCodeExecutionEvent(
     return {
       type: 'agent.progress',
       executionState: 'reasoning',
-      activity: delta && delta.trim().length > 0 ? `streaming ${delta.trim().length} chars` : 'streaming',
+      // The actual streamed text — the accumulator coalesces deltas into a
+      // readable narrative. Never per-character telemetry.
+      activity: delta ?? '',
       at: now,
       sessionId,
     };

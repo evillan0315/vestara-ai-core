@@ -5,7 +5,7 @@ import ActivityComposer from './ActivityComposer';
 import ActivityCorrectionDialog from './ActivityCorrectionDialog';
 import ActivityDetailModal from './ActivityDetailModal';
 import ActivityScopeSelector from './ActivityScopeSelector';
-import ActivitySidebar from './ActivitySidebar';
+import ActivitySidebar, { type WorkflowParticipant } from './ActivitySidebar';
 import ActivityStatePanel from './ActivityStatePanel';
 import ActivityStream from './ActivityStream';
 import VisualEditMode from './VisualEditMode';
@@ -20,6 +20,15 @@ const STATE_LABELS: Record<ActivityConnectionState, { label: string; color: stri
   error: { label: 'Resynchronizing', color: 'bg-(--vestara-amber)' },
 };
 
+interface LiveStreamItem {
+  threadId: string;
+  role: string;
+  agentId: string;
+  sessionId?: string;
+  text: string;
+  lastActivityAt: string;
+}
+
 export default function ActivityRoomPage() {
   const stream = useActivityStream();
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
@@ -27,6 +36,8 @@ export default function ActivityRoomPage() {
   const [referencedRecord, setReferencedRecord] = useState<ActivityRecord | null>(null);
   const [correctionTarget, setCorrectionTarget] = useState<ActivityRecord | null>(null);
   const [visualEdit, setVisualEdit] = useState(false);
+  const [participants, setParticipants] = useState<readonly WorkflowParticipant[] | undefined>(undefined);
+  const [liveStream, setLiveStream] = useState<readonly LiveStreamItem[]>([]);
 
   const selectAgent = useCallback((agentId: string | undefined) => setSelectedAgentId(agentId), []);
   const openDetail = useCallback((record: ActivityRecord) => setDetailRecord(record), []);
@@ -41,6 +52,36 @@ export default function ActivityRoomPage() {
   useEffect(() => {
     void hydrateVisualConfig();
   }, []);
+
+  // The selected workflow's real organization: participants + live narrative.
+  const workflowId = stream.scope.workflowId;
+  useEffect(() => {
+    if (!workflowId) {
+      setParticipants(undefined);
+      setLiveStream([]);
+      return;
+    }
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [pRes, lRes] = await Promise.all([
+          fetch(`/api/workflow/${encodeURIComponent(workflowId)}/participants`),
+          fetch(`/api/workflow/${encodeURIComponent(workflowId)}/live-stream`),
+        ]);
+        if (cancelled) return;
+        if (pRes.ok) setParticipants(((await pRes.json()) as { participants?: WorkflowParticipant[] }).participants);
+        if (lRes.ok) setLiveStream(((await lRes.json()) as { live?: LiveStreamItem[] }).live ?? []);
+      } catch {
+        // keep prior state on transient failure
+      }
+    };
+    void load();
+    const timer = setInterval(() => void load(), 2000);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+    };
+  }, [workflowId]);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">
@@ -96,7 +137,7 @@ export default function ActivityRoomPage() {
       <div className="flex min-h-0 flex-1 gap-4">
         <aside className="w-72 shrink-0 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3">
           <div className="mb-2 px-3 text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Participants</div>
-          <ActivitySidebar records={stream.records} selectedAgentId={selectedAgentId} onSelectAgent={selectAgent} />
+          <ActivitySidebar records={stream.records} selectedAgentId={selectedAgentId} onSelectAgent={selectAgent} participants={participants} />
         </aside>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3">
@@ -107,6 +148,21 @@ export default function ActivityRoomPage() {
             <ActivityScopeSelector records={stream.records} scope={stream.scope} onScopeChange={stream.applyScope} />
           </div>
           <ActivityStatePanel />
+          {liveStream.length > 0 && (
+            <div className="mb-2 max-h-32 overflow-y-auto rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3">
+              <div className="mb-1 text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Live session</div>
+              <div className="space-y-1">
+                {liveStream.map((item) => (
+                  <div key={item.threadId} className="text-[10px] leading-snug">
+                    <span className="font-medium text-(--vestara-text-2)">
+                      {item.role[0].toUpperCase() + item.role.slice(1)} — Live
+                    </span>
+                    <span className="block whitespace-pre-wrap text-(--vestara-text-muted)">{item.text.slice(-600)}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <ActivityStream
             records={stream.records}
             selectedAgentId={selectedAgentId}

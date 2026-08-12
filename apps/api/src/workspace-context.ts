@@ -127,6 +127,7 @@ import { type OpenCodeRuntimeService, openCodeRuntimeService } from './opencode-
 import { runToolLoop } from './routes/chat';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
+import { SessionStreamAccumulator } from './session-stream';
 import { VerifierResultsStore } from './verifier/verifier-results-store';
 import { WorkerSocketServer } from './worker/worker-socket-server';
 
@@ -148,6 +149,8 @@ export interface WorkspaceContext {
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
   changeProjector: ChangeEventProjector;
+  /** Live session-stream accumulator (coalesced per-participant narrative). */
+  activityRoomStreams: SessionStreamAccumulator;
   workerSocketServer?: WorkerSocketServer;
   workerRegistry?: WorkerRegistry;
   workerStore?: WorkerStore;
@@ -881,9 +884,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       );
     },
   });
+  const activityRoomStreams = new SessionStreamAccumulator();
   const unsubscribeActivityRoomBridge = startActivityRoomOrganizationalBridge({
     eventBus: kernel.eventBus,
     threadStore: agentThreadStore,
+    streams: activityRoomStreams,
   });
   // Phase 4 (engineering-os-roadmap item 4) — durable engineering memory:
   // project harness.* events from completed threads into the memory runtime.
@@ -1327,6 +1332,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentHarness,
     harnessSession,
     multiAgentWorkflow,
+    activityRoomStreams,
     changeProjector,
     engineeringVerification,
     engineeringEvents,

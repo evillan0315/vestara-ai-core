@@ -549,6 +549,7 @@ export class AgentHarnessRuntime {
           messages: this.messages(thread.id, context),
           tools: [...this.options.tools.definitions()],
           signal: active.controller.signal,
+          agent: active.agentId || undefined,
           onExecutionEvent: (event) => {
             // Correlate runtime execution activity to this participant/thread
             // and publish it for the Activity Room bridge to project.
