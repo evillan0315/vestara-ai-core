@@ -123,6 +123,33 @@ describe('OpenCodeRuntimeProvider', () => {
     expect(client.abortSession).toHaveBeenCalledWith('session-1', expect.anything());
   });
 
+  it('requests json_schema format and returns validated structured output', async () => {
+    const { client } = mockClient();
+    client.listMessages.mockResolvedValueOnce([
+      {
+        role: 'assistant',
+        text: '',
+        structuredOutput: { plan: 'add the endpoint', risk: 'low' },
+        parts: [],
+      },
+    ]);
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    const response = await provider.complete({
+      model: 'x',
+      messages: [{ role: 'user', content: 'plan it' }],
+      jsonSchema: { type: 'object', properties: { plan: { type: 'string' } } },
+    });
+
+    // The prompt_async body must carry the json_schema format.
+    const sendCall = client.sendMessageAsync.mock.calls[0];
+    expect(sendCall[1].format).toEqual({
+      type: 'json_schema',
+      schema: { type: 'object', properties: { plan: { type: 'string' } } },
+    });
+    expect(response.structuredOutput).toEqual({ plan: 'add the endpoint', risk: 'low' });
+  });
+
   it('is unaffected by provider discovery order', async () => {
     const a = mockClient({ providers: [{ id: 'opencode' }, { id: 'opencode-go' }] });
     const b = mockClient({ providers: [{ id: 'opencode-go' }, { id: 'opencode' }] });

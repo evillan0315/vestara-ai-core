@@ -76,6 +76,12 @@ export interface CompletionRequest {
   onExecutionEvent?: (event: ProviderExecutionEvent) => void;
   /** The runtime agent (e.g. vestara-planner) to run the completion as. */
   agent?: string;
+  /**
+   * Request structured JSON output: the provider forces the model to return
+   * validated JSON matching this schema. When set, `CompletionResponse` carries
+   * the parsed result in `structuredOutput`.
+   */
+  jsonSchema?: Record<string, unknown>;
 }
 
 /** Runtime-normalized execution event emitted while a completion runs. */
@@ -100,6 +106,8 @@ export interface CompletionResponse {
   provider: string;
   content: string;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
+  /** Parsed structured output when `CompletionRequest.jsonSchema` was set. */
+  structuredOutput?: unknown;
   usage: {
     promptTokens: number;
     completionTokens: number;

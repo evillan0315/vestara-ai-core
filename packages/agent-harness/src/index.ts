@@ -573,7 +573,13 @@ export class AgentHarnessRuntime {
         turn,
         'model-response',
         this.options.provider.id,
-        { content: response.content, model: response.model, provider: response.provider, usage: response.usage },
+        {
+          content: response.content,
+          model: response.model,
+          provider: response.provider,
+          usage: response.usage,
+          ...(response.structuredOutput !== undefined ? { structuredOutput: response.structuredOutput } : {}),
+        },
         correlationId,
       );
       await this.emit('harness.model.completed', this.identity(thread.id, turn.id, correlationId), {

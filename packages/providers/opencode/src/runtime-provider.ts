@@ -196,12 +196,20 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const resolved = this.resolveProvider(request.model);
     const sessionId = await this.createSession(resolved.providerId, this.modelId, request.agent ?? this.agent);
     try {
-      const text = await this.streamReply(sessionId, renderPrompt(request), request.signal, request.onExecutionEvent);
+      const format = request.jsonSchema ? { type: 'json_schema' as const, schema: request.jsonSchema } : undefined;
+      const { text, structuredOutput } = await this.streamReply(
+        sessionId,
+        renderPrompt(request),
+        format,
+        request.signal,
+        request.onExecutionEvent,
+      );
       return {
         id: `ocrt-${Date.now()}`,
         model: resolved.providerId ?? request.model,
         provider: this.id,
         content: text,
+        structuredOutput,
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: Math.round(Date.now() - started),
         resolution: {
@@ -302,9 +310,10 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   private async streamReply(
     sessionId: string,
     prompt: string,
+    format: { type: 'json_schema'; schema: Record<string, unknown> } | undefined,
     externalSignal?: AbortSignal,
     onExecutionEvent?: (event: ProviderExecutionEvent) => void,
-  ): Promise<string> {
+  ): Promise<{ text: string; structuredOutput?: unknown }> {
     const controller = new AbortController();
     const onExternalAbort = () => controller.abort();
     if (externalSignal?.aborted) onExternalAbort();
@@ -322,7 +331,11 @@ export class OpenCodeRuntimeProvider implements AIProvider {
       }, this.streamIdleTimeoutMs);
     };
     try {
-      await this.client().sendMessageAsync(sessionId, { parts: [{ type: 'text', text: prompt }] }, context);
+      await this.client().sendMessageAsync(
+        sessionId,
+        { parts: [{ type: 'text', text: prompt }], ...(format ? { format } : {}) },
+        context,
+      );
       armIdle();
       maxTimer = setTimeout(() => {
         terminationReason = 'max-duration';
@@ -360,18 +373,22 @@ export class OpenCodeRuntimeProvider implements AIProvider {
           }
         }
       } catch (error) {
-        if (externalSignal?.aborted) return ''; // caller cancellation → harness classifies cancelled
+        if (externalSignal?.aborted) return { text: '' }; // caller cancellation → harness classifies cancelled
         if (terminationReason === 'stalled') throw stalledTurnError(this.streamIdleTimeoutMs);
         if (terminationReason === 'max-duration') throw maxDurationTurnError(this.streamMaxDurationMs);
         throw error; // genuine stream failure (connection/network)
       }
       if (terminationReason === 'stalled') throw stalledTurnError(this.streamIdleTimeoutMs);
       if (terminationReason === 'max-duration') throw maxDurationTurnError(this.streamMaxDurationMs);
-      if (!text && terminal !== 'idle') {
-        text = await this.lastMessageText(sessionId).catch(() => '');
+      if (format || (!text && terminal !== 'idle')) {
+        const data = await this.lastMessageData(sessionId).catch(() => undefined);
+        if (data) {
+          text = text || data.text;
+          if (format) return { text, structuredOutput: data.structuredOutput };
+        }
       }
       if (!text && terminal !== 'idle') throw connectionLostError();
-      return text;
+      return { text };
     } finally {
       clearTimeout(idleTimer);
       clearTimeout(maxTimer);
@@ -380,10 +397,14 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     }
   }
 
-  private async lastMessageText(sessionId: string): Promise<string> {
+  /** Fetch the last non-user assistant message (text + structured output). */
+  private async lastMessageData(sessionId: string): Promise<{ text: string; structuredOutput?: unknown }> {
     const messages = await this.client().listMessages(sessionId, { workspaceId: this.workspaceId, sessionId });
-    const last = [...messages].reverse().find((message) => message.role !== 'user' && message.text?.trim());
-    return last?.text ?? '';
+    const last = [...messages]
+      .reverse()
+      .find((message) => message.role !== 'user' && (message.text?.trim() || message.structuredOutput));
+    if (!last) return { text: '' };
+    return { text: last.text ?? '', structuredOutput: last.structuredOutput };
   }
 }
 
