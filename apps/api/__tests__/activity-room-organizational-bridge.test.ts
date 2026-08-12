@@ -26,6 +26,8 @@ function fakeEventBus() {
 const threadStore = {
   getThread(id: string) {
     if (id === 'thread-1') return { metadata: { workflowId: 'wf-1', agentId: 'agent-planner', role: 'planner' } };
+    if (id === 'thread-dev')
+      return { metadata: { workflowId: 'wf-dev', agentId: 'agent-developer', role: 'developer' } };
     return undefined;
   },
 };
@@ -89,6 +91,44 @@ describe('activity-room organizational bridge', () => {
     if (turn?.kind === 'agent-message') {
       expect(turn.agentId).toBe('agent-planner');
       expect(turn.workflowId).toBe('wf-1');
+    }
+
+    unsubscribe();
+  });
+
+  it('projects correlated live execution activity (tool + progress) for the right participant', async () => {
+    const room = createActivityRoom();
+    const bus = fakeEventBus();
+    const unsubscribe = startActivityRoomOrganizationalBridge({
+      eventBus: bus as never,
+      threadStore: threadStore as never,
+      room,
+    });
+
+    await bus.emit({
+      id: 'evt-exec-1',
+      type: 'opencode.execution.activity',
+      timestamp: '2026-08-12T10:05:00.000Z',
+      actor: { id: 'agent-developer', role: 'developer' },
+      payload: {
+        threadId: 'thread-dev',
+        turnId: 'turn-dev',
+        type: 'tool.started',
+        state: 'active',
+        activity: 'filesystem.write theme.tsx',
+        at: '2026-08-12T10:05:00.000Z',
+        sessionId: 'ses-dev',
+      },
+    });
+    await flush();
+
+    const { records } = await room.store.list({});
+    const toolRecord = records.find((record) => record.kind === 'agent-message');
+    if (toolRecord?.kind === 'agent-message') {
+      expect(toolRecord.agentId).toBe('agent-developer');
+      expect(toolRecord.messageKind).toBe('tool-call');
+      expect(toolRecord.toolName).toContain('filesystem.write');
+      expect(toolRecord.workflowId).toBe('wf-dev');
     }
 
     unsubscribe();

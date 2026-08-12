@@ -80,7 +80,9 @@ function mockClient(options?: {
 function createCallModel(calls: Array<{ method: string; body?: unknown }>): unknown {
   const createCall = calls.find((c) => c.method === 'createSession');
   expect(createCall).toBeDefined();
-  return (createCall?.body as { model?: unknown } | undefined)?.model;
+  const body = (createCall?.body as { providerID?: string; modelID?: string } | undefined) ?? {};
+  if (body.providerID === undefined && body.modelID === undefined) return undefined;
+  return { providerID: body.providerID, modelID: body.modelID };
 }
 
 describe('OpenCodeRuntimeProvider', () => {
@@ -158,7 +160,7 @@ describe('OpenCodeRuntimeProvider', () => {
 
     const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
 
-    expect(createCallModel(calls)).toEqual({ providerID: 'opencode' });
+    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
     expect(response.resolution).toEqual({
       providerId: 'opencode',
       reason: 'preferred',
@@ -192,7 +194,7 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toEqual({ providerID: 'opencode' });
+    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
     expect(response.resolution).toEqual({
       providerId: 'opencode',
       reason: 'explicit-model',
@@ -287,6 +289,34 @@ describe('OpenCodeRuntimeProvider', () => {
   });
 
   describe('execution-liveness contract', () => {
+    it('streams normalized execution events through onExecutionEvent', async () => {
+      const { client } = mockClient({
+        stream: (signal: AbortSignal) =>
+          (async function* stream() {
+            yield { type: 'message.part.delta', payload: { sessionID: 'session-1', delta: 'Inspecting…' } };
+            yield { type: 'tool.started', payload: { sessionID: 'session-1', toolName: 'filesystem.write' } };
+            yield { type: 'session.idle', payload: { sessionID: 'session-1' } };
+            void signal;
+          })(),
+      });
+      const provider = new OpenCodeRuntimeProvider({
+        client: client as never,
+        streamIdleTimeoutMs: 30_000,
+        streamMaxDurationMs: 30_000,
+      });
+      const emitted: Array<{ type: string; activity?: string }> = [];
+      await provider.complete({
+        model: 'x',
+        messages: [{ role: 'user', content: 'hi' }],
+        onExecutionEvent: (event) => emitted.push(event),
+      });
+
+      expect(emitted.map((e) => e.type)).toContain('agent.progress');
+      expect(emitted.map((e) => e.type)).toContain('tool.started');
+      const tool = emitted.find((e) => e.type === 'tool.started');
+      expect(tool?.activity).toContain('filesystem.write');
+    });
+
     it('terminates a turn that produces no events beyond the idle window as STALLED', async () => {
       const { client } = mockClient({
         stream: abortAwareStream([

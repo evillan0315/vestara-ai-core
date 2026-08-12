@@ -72,6 +72,24 @@ export interface CompletionRequest {
   tools?: ToolDefinition[];
   /** Caller-controlled cancellation: when aborted, the provider terminates the turn. */
   signal?: AbortSignal;
+  /** Streaming execution events (runtime-normalized) as the turn progresses. */
+  onExecutionEvent?: (event: ProviderExecutionEvent) => void;
+}
+
+/** Runtime-normalized execution event emitted while a completion runs. */
+export interface ProviderExecutionEvent {
+  readonly type:
+    | 'agent.activity'
+    | 'agent.progress'
+    | 'tool.started'
+    | 'tool.completed'
+    | 'agent.completed'
+    | 'agent.failed'
+    | 'agent.cancelled';
+  readonly state: string;
+  readonly activity?: string;
+  readonly at: string;
+  readonly sessionId?: string;
 }
 
 export interface CompletionResponse {

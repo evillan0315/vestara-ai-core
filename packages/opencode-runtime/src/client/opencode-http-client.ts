@@ -146,10 +146,21 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     _context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
+    // The runtime's /session endpoint selects the provider/model via TOP-LEVEL
+    // providerID/modelID fields; a nested `model` object is rejected (400).
+    const providerID = input.providerID ?? input.model?.providerID;
+    const modelID = input.modelID ?? input.model?.id;
+    const body = {
+      directory: input.directory,
+      title: input.title,
+      agent: input.agent,
+      ...(providerID ? { providerID } : {}),
+      ...(modelID ? { modelID } : {}),
+    };
     return this.requestJson({
       path: '/session',
       method: 'POST',
-      body: input,
+      body,
       timeoutMs: this.config.requestTimeoutMs,
       signal,
     }) as Promise<OpenCodeSession>;

@@ -64,7 +64,11 @@ export class InProcessEventBus implements EventBus {
 
   async emit(event: EmitEvent): Promise<void> {
     const fullEvent: VestaraEvent = {
-      id: event.metadata?.correlationId ?? `evt-${Date.now()}-${++eventCounter}`,
+      // Every event gets a unique id; correlationId lives in metadata. Using
+      // correlationId as the event id collides across events in one turn
+      // (e.g. multiple tool/progress events), silently dropping later records
+      // from the Activity Room projection.
+      id: `evt-${Date.now()}-${++eventCounter}`,
       type: event.type,
       version: event.version ?? 1,
       timestamp: new Date().toISOString(),

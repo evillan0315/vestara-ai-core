@@ -45,6 +45,23 @@ const HARNESS_EVENT_TYPES = new Set([
   'harness.model.completed',
 ]);
 
+/** Live runtime execution activity correlated to a participant/thread. */
+const EXECUTION_ACTIVITY_TYPE = 'opencode.execution.activity';
+
+/** Maps a normalized Vestara execution event type to a harness activity type. */
+function executionActivityToSourceType(type: string): string | undefined {
+  switch (type) {
+    case 'tool.started':
+      return 'harness.tool.started';
+    case 'tool.completed':
+      return 'harness.tool.completed';
+    case 'agent.progress':
+      return 'harness.model-response';
+    default:
+      return undefined; // activity/heartbeat and terminal events are not projected here
+  }
+}
+
 export function startActivityRoomOrganizationalBridge(options: ActivityRoomOrganizationalBridgeOptions): () => void {
   return options.eventBus.subscribe('*', async (evt) => {
     try {
@@ -91,6 +108,32 @@ function projectSourceEvent(
       turnId: typeof evt.payload.turnId === 'string' ? evt.payload.turnId : undefined,
       correlationId: typeof evt.payload.correlationId === 'string' ? evt.payload.correlationId : undefined,
       payload: evt.payload,
+    };
+  }
+  if (type === EXECUTION_ACTIVITY_TYPE) {
+    const innerType = typeof evt.payload.type === 'string' ? evt.payload.type : '';
+    const sourceType = executionActivityToSourceType(innerType);
+    if (!sourceType) return undefined; // heartbeat/narrative-noise and terminal events
+    const threadId = typeof evt.payload.threadId === 'string' ? evt.payload.threadId : undefined;
+    const thread = threadId ? options.threadStore.getThread(threadId) : undefined;
+    const workflowId = thread?.metadata?.workflowId;
+    const activity = typeof evt.payload.activity === 'string' ? evt.payload.activity : undefined;
+    const toolName = innerType.startsWith('tool.') ? activity : undefined;
+    return {
+      id: evt.id,
+      type: sourceType,
+      at: typeof evt.payload.at === 'string' ? evt.payload.at : evt.timestamp,
+      actorId: evt.actor?.id ?? 'agent-harness',
+      authority: 'agent',
+      workflowId: typeof workflowId === 'string' ? workflowId : undefined,
+      threadId,
+      turnId: typeof evt.payload.turnId === 'string' ? evt.payload.turnId : undefined,
+      correlationId: typeof evt.payload.correlationId === 'string' ? evt.payload.correlationId : undefined,
+      payload: {
+        ...evt.payload,
+        toolName,
+        content: innerType === 'agent.progress' ? activity : undefined,
+      },
     };
   }
   return undefined;

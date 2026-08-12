@@ -124,6 +124,10 @@ export interface CreateOpenCodeSessionInput {
   readonly directory?: string;
   readonly title?: string;
   readonly agent?: string;
+  /** Provider selection. Sent as TOP-LEVEL fields (the server rejects nested `model`). */
+  readonly providerID?: string;
+  readonly modelID?: string;
+  /** Backward-compatible alias for `providerID`. */
   readonly model?: { readonly providerID?: string; readonly id?: string };
 }
 

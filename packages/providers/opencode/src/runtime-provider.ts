@@ -18,6 +18,7 @@
  */
 
 import {
+  classifyOpenCodeExecutionEvent,
   type OpenCodeClient,
   OpenCodeHttpClient,
   OpenCodeIntegrationError,
@@ -29,6 +30,7 @@ import type {
   CompletionRequest,
   CompletionResponse,
   ProviderCapabilities,
+  ProviderExecutionEvent,
   ProviderHealthStatus,
   ProviderStatus,
   StreamChunk,
@@ -42,6 +44,8 @@ export interface OpenCodeRuntimeProviderOptions {
   readonly workspaceId?: string;
   /** Prefer this discovered provider id when creating sessions (default: none — runtime default). */
   readonly preferredProviderId?: string;
+  /** Model id within the preferred provider (default: none — provider default). */
+  readonly modelId?: string;
   /** Native runtime agent (e.g. build/planner/reviewer) the sessions run as (default: runtime default). */
   readonly agent?: string;
   /**
@@ -85,6 +89,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   private readonly timeoutMs: number;
   private readonly workspaceId: string;
   private readonly preferredProviderId?: string;
+  private readonly modelId?: string;
   private readonly agent?: string;
   private readonly streamIdleTimeoutMs: number;
   private readonly streamMaxDurationMs: number;
@@ -101,6 +106,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.workspaceId = options.workspaceId ?? 'vestara';
     this.preferredProviderId = options.preferredProviderId ?? process.env.OPENCODE_RUNTIME_PROVIDER_ID;
+    this.modelId = options.modelId ?? process.env.OPENCODE_RUNTIME_MODEL_ID;
     this.agent = options.agent ?? process.env.OPENCODE_RUNTIME_AGENT;
     this.streamIdleTimeoutMs = positiveInt(
       options.streamIdleTimeoutMs,
@@ -188,9 +194,9 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
     const resolved = this.resolveProvider(request.model);
-    const sessionId = await this.createSession(resolved.providerId);
+    const sessionId = await this.createSession(resolved.providerId, this.modelId);
     try {
-      const text = await this.streamReply(sessionId, renderPrompt(request), request.signal);
+      const text = await this.streamReply(sessionId, renderPrompt(request), request.signal, request.onExecutionEvent);
       return {
         id: `ocrt-${Date.now()}`,
         model: resolved.providerId ?? request.model,
@@ -267,12 +273,13 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     return { providerId: undefined, reason: 'default', defaultResolution: true };
   }
 
-  private async createSession(providerId?: string): Promise<string> {
+  private async createSession(providerId?: string, modelId?: string): Promise<string> {
     const session = await this.client().createSession(
       {
         title: `vestara-agent-${Date.now()}`,
         agent: this.agent,
-        model: providerId ? { providerID: providerId } : undefined,
+        providerID: providerId ?? undefined,
+        modelID: modelId ?? undefined,
       },
       { workspaceId: this.workspaceId },
     );
@@ -292,7 +299,12 @@ export class OpenCodeRuntimeProvider implements AIProvider {
    * cancellation returns an empty completion so the harness classifies it as
    * cancelled rather than provider-failed.
    */
-  private async streamReply(sessionId: string, prompt: string, externalSignal?: AbortSignal): Promise<string> {
+  private async streamReply(
+    sessionId: string,
+    prompt: string,
+    externalSignal?: AbortSignal,
+    onExecutionEvent?: (event: ProviderExecutionEvent) => void,
+  ): Promise<string> {
     const controller = new AbortController();
     const onExternalAbort = () => controller.abort();
     if (externalSignal?.aborted) onExternalAbort();
@@ -321,6 +333,19 @@ export class OpenCodeRuntimeProvider implements AIProvider {
       try {
         for await (const event of stream) {
           armIdle();
+          // Normalize the upstream SSE event into a Vestara execution event and
+          // stream it out for live observation (never binds the room to
+          // OpenCode's schema).
+          const normalized = classifyOpenCodeExecutionEvent(event);
+          if (normalized) {
+            onExecutionEvent?.({
+              type: normalized.type,
+              state: normalized.executionState,
+              activity: normalized.activity,
+              at: normalized.at,
+              sessionId: normalized.sessionId ?? sessionId,
+            });
+          }
           if (sessionOf(event) !== sessionId) continue;
           if (event.type === 'session.idle') {
             terminal = 'idle';

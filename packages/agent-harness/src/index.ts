@@ -549,6 +549,13 @@ export class AgentHarnessRuntime {
           messages: this.messages(thread.id, context),
           tools: [...this.options.tools.definitions()],
           signal: active.controller.signal,
+          onExecutionEvent: (event) => {
+            // Correlate runtime execution activity to this participant/thread
+            // and publish it for the Activity Room bridge to project.
+            void this.emit('opencode.execution.activity', this.identity(thread.id, turn.id, correlationId), {
+              ...event,
+            });
+          },
         } satisfies CompletionRequest);
       } catch (error) {
         return this.finish(
