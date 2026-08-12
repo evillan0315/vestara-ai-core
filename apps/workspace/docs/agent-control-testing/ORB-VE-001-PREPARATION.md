@@ -1000,3 +1000,59 @@ behavior genuinely exists and sufficient evidence (browser-observable) is
 produced, the verifier/reviewer correctly concluded readiness, and the §16
 durable-reload obligations are established by the run's own artifact + live
 evidence. Frozen before comparison/remediation; Runs 1–4 immutable.
+
+## Post-ORB semantic substrate — Activity Room observability (verified)
+
+**Route chosen before visual design:** the room must answer what the
+organization believes, why, what remains unresolved, and what evidence supports
+that state — not merely what agents are doing. Machine-consumed organizational
+state is structured state emitted by the organization; prose is explanation,
+never truth.
+
+```text
+1. acceptance declaration authority   commit 2bea72d (parser + orchestrator)
+   parser selects the FINAL well-formed declaration (Run 4 evidence);
+   placeholder/reasoning blocks are not declarations.
+2. structured organizational events   orchestrator emits workflow.started,
+                                      acceptance.boundary, workflow.completed
+                                      (with the boundary + conditional).
+3. Activity Room projection           new 'acceptance' activity kind +
+                                      OrganizationalProjector: objective,
+                                      obligations, material uncertainties,
+                                      conditional. Execution state (completed)
+                                      kept distinct from epistemic state
+                                      (conditional).
+4. bridge feeds the durable room      harness stage turns + org events project
+                                      as ActivitySourceEvents.
+5. API surface                        GET /api/workflow/:id/acceptance.
+```
+
+Focused verification: 16 projection tests (declaration authority incl. the Run 4
+placeholder-draft scenario, acceptance/workflow projection) + 1 bridge wiring
+test proving the room projects workflow start, acceptance boundary, and harness
+turns. activity-projection/workspace/api suites green; build green; biome clean.
+
+## Convergence / revision semantics — recorded contract (NOT implemented)
+
+Run 4 exposed Reviewer requesting revisions while the organization terminated.
+The following is a recorded contract, deliberately NOT implemented as an
+automatic revision loop:
+
+- **What justifies another iteration:** newly produced evidence that materially
+  changes an acceptance obligation's status (not repetition of the same work).
+- **Who owns the unresolved condition:** the workflow's responsibility resolver —
+  a revision request creates an unresolved condition owned by the role that must
+  produce the missing evidence, not an unbounded Developer loop.
+- **What evidence must change:** the specific obligation(s) the revision targets;
+  re-entry is justified only when the artifact + evidence set is expected to
+  change.
+- **When retry is justified:** bounded by changed evidence; never by re-running
+  the same turn with the same evidence.
+- **When the organization stops:** when acceptance is established, materially
+  conditional with no justified re-entry, or the retry bound is reached.
+- **When Director authority is necessary:** when the unresolved condition cannot
+  be resolved by organizational evidence (authority/scope/perceptual judgment).
+
+The Activity Room's convergence visualization must render these semantics —
+ownership, justified re-entry, evidence change, retry bounds, termination — and
+must never visualize an unbounded token-burning loop as healthy progress.
