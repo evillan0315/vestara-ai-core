@@ -1096,3 +1096,52 @@ projection + bridge wiring); suites green; build green; biome clean.
 **This completes the pre-design semantic substrate.** Visual design now has real
 concepts to render: active/conditional/evidence/uncertainty/waiting are no
 longer invented — they are derived organizational state.
+
+## Activity Room — live OpenCode session streaming milestone (proven)
+
+**Narrow milestone:** real workflow → OpenCode session → SSE → Vestara
+normalization → Activity Room live stream. No Visual Edit / ORB rerun; the
+task was creating one proof file.
+
+```text
+runtime        OpenCode Go + DeepSeek V4 Flash (OPENCODE_RUNTIME_PROVIDER_ID=
+               opencode-go, OPENCODE_RUNTIME_MODEL_ID=deepseek-v4-flash)
+contract       CompletionRequest.onExecutionEvent — providers stream
+               normalized execution events; OpenCodeRuntimeProvider classifies
+               SSE (deltas/heartbeats/tool/session) via
+               classifyOpenCodeExecutionEvent; harness correlates to the
+               participant (threadId/turnId) and publishes
+               opencode.execution.activity; the bridge projects into the room.
+correlation    workspaceId → workflowId → stageId → agentId → threadId →
+               sessionId (never inferred from timing on a global stream).
+two real defects fixed during the proof:
+  1. OpenCode /session requires TOP-LEVEL providerID/modelID (nested `model`
+     was rejected 400) — opencode-go + deepseek-v4-flash was unusable before.
+  2. EventBus used metadata.correlationId as the event id — every event in a
+     turn shared one id, silently dropping later records.
+```
+
+**Live proof (in vestara-ai-core):** one tiny real workflow (create
+`.vestara/tmp/activity-room-live-proof.md` containing a fixed line) on
+OpenCode Go + DeepSeek V4 Flash. Observed live:
+
+```text
+participants    planner waiting→reasoning→completed · developer reasoning→
+                completed · verifier reasoning→completed · reviewer→completed
+                (~2 minutes total; acceptance derived 'satisfied' at terminal)
+room stream     758 correlated progress records streamed live (agent.progress
+                from OpenCode SSE deltas), plus workflow.started/completed and
+                stage turn records; proof file created with the exact content.
+```
+
+Verification evidence: provider streaming test, bridge correlation test, and a
+real harness-emission e2e test (harness turn → eventBus → bridge → room);
+303+ tests green; build green; biome clean. No credentials printed, logged,
+persisted, or exposed; the runtime/model choice is an execution optimization
+only and does not change Activity Room semantics.
+
+Known limitations: progress narrative is projected at delta granularity (verbose
+for a dense stream — a UI-level coalescing decision belongs to the visual phase);
+tool events project when the runtime emits them (this model created the file
+without an exposed `tool.started`); acceptance 'satisfied' is the organization's
+derived state and remains subject to external §16 evaluation.
