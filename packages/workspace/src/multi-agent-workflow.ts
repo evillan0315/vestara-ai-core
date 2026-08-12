@@ -207,6 +207,17 @@ export class MultiAgentWorkflowOrchestrator {
       });
     });
 
+    // Structured organizational event: the workflow started with a derived stage plan.
+    this.session.harness.eventBus?.emit({
+      type: 'workflow.started',
+      source: 'multi-agent-workflow',
+      payload: {
+        workflowId,
+        goal: input.goal,
+        stages: stages.map((stage) => ({ role: stage.role, agentId: stage.agentId })),
+      },
+    });
+
     return { workflowId, goal: input.goal, stages };
   }
 
@@ -233,6 +244,15 @@ export class MultiAgentWorkflowOrchestrator {
     const boundary = this.acceptanceBoundaries.get(workflowId);
     this.session.harness.eventBus?.emit({
       type: 'multi-agent-workflow.completed',
+      source: 'multi-agent-workflow',
+      payload: {
+        workflowId,
+        conditional: boundary?.conditional === true,
+        acceptance: boundary,
+      },
+    });
+    this.session.harness.eventBus?.emit({
+      type: 'workflow.completed',
       source: 'multi-agent-workflow',
       payload: {
         workflowId,
@@ -290,7 +310,17 @@ export class MultiAgentWorkflowOrchestrator {
     if (!declaration) return;
     const current = this.acceptanceBoundaries.get(workflowId);
     if (!current) return;
-    this.acceptanceBoundaries.set(workflowId, refineAcceptanceBoundary(current, { ...declaration, derivedBy: role }));
+    const refined = refineAcceptanceBoundary(current, { ...declaration, derivedBy: role });
+    this.acceptanceBoundaries.set(workflowId, refined);
+    // Structured organizational event: the acceptance boundary was derived.
+    this.session.harness.eventBus?.emit({
+      type: 'acceptance.boundary',
+      source: 'multi-agent-workflow',
+      payload: {
+        workflowId,
+        boundary: refined,
+      },
+    });
   }
 
   private lastModelResponse(threadId: TaskThreadId): string | undefined {

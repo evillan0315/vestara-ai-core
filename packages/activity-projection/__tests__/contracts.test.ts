@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { sourceEvent } from './helpers';
 
 describe('activity contracts', () => {
-  it('declares exactly the five initial activity kinds', () => {
-    expect(ACTIVITY_KINDS).toEqual(['workflow', 'task', 'agent-message', 'test', 'verification']);
+  it('declares the supported activity kinds including organizational acceptance', () => {
+    expect(ACTIVITY_KINDS).toEqual(['workflow', 'task', 'agent-message', 'test', 'verification', 'acceptance']);
   });
 
   it('maps user authority to a human actor', () => {

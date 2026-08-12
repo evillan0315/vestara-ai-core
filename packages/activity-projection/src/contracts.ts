@@ -58,7 +58,7 @@ export interface ActivityBase {
   readonly correctionOf?: string;
 }
 
-export type ActivityKind = 'workflow' | 'task' | 'agent-message' | 'test' | 'verification';
+export type ActivityKind = 'workflow' | 'task' | 'agent-message' | 'test' | 'verification' | 'acceptance';
 
 /** Who a human message is addressed to (AAR-001E). Only `all-agents` and a
  * single `agent` are required initially. */
@@ -156,12 +156,31 @@ export interface TestActivity extends ActivityBase {
   readonly outputExcerpt?: string;
 }
 
+/**
+ * The acceptance boundary as observable organizational state (post-ORB). The
+ * room projects what the organization currently believes it must satisfy, why
+ * (objective + derived obligations), what remains unresolved (material
+ * uncertainties), and whether acceptance is conditional. Execution state
+ * (`completed` stages) and epistemic state (`conditional` acceptance) are
+ * deliberately kept distinct.
+ */
+export interface AcceptanceActivity extends ActivityBase {
+  readonly kind: 'acceptance';
+  readonly workflowId: string;
+  readonly objective: string;
+  readonly obligations: readonly string[];
+  readonly materialUncertainties: readonly string[];
+  readonly conditional: boolean;
+  readonly derivedBy: string;
+}
+
 export type ActivityRecord =
   | WorkflowActivity
   | TaskActivity
   | AgentMessageActivity
   | TestActivity
-  | VerificationActivity;
+  | VerificationActivity
+  | AcceptanceActivity;
 
 /** All activity kinds currently supported by the projection layer. */
 export const ACTIVITY_KINDS: readonly ActivityKind[] = [
@@ -170,4 +189,5 @@ export const ACTIVITY_KINDS: readonly ActivityKind[] = [
   'agent-message',
   'test',
   'verification',
+  'acceptance',
 ] as const;

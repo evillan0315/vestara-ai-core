@@ -51,5 +51,10 @@ export function severityOf(record: ActivityRecord): ActivitySeverity {
           return 'info';
       }
     }
+    case 'acceptance': {
+      if (record.conditional) return 'warning';
+      if (record.materialUncertainties.length > 0) return 'warning';
+      return 'info';
+    }
   }
 }

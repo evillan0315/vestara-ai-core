@@ -1,6 +1,7 @@
 import type { ActivityRecord } from './contracts';
 import { ActivityProjectorRegistry } from './projector';
 import { AgentMessageProjector } from './projectors/agent-message-projector';
+import { OrganizationalProjector } from './projectors/organizational-projector';
 import { TaskProjector } from './projectors/task-projector';
 import { TestProjector } from './projectors/test-projector';
 import { VerificationProjector } from './projectors/verification-projector';
@@ -16,6 +17,7 @@ export const DEFAULT_PROJECTORS = [
   new AgentMessageProjector(),
   new TestProjector(),
   new VerificationProjector(),
+  new OrganizationalProjector(),
 ] as const;
 
 export interface ActivityProjectionServiceOptions {
@@ -111,6 +113,8 @@ function withSequence(record: ActivityRecord, sequence: number): ActivityRecord 
     case 'test':
       return { ...record, sequence };
     case 'verification':
+      return { ...record, sequence };
+    case 'acceptance':
       return { ...record, sequence };
   }
 }

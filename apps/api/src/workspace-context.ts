@@ -116,6 +116,7 @@ import {
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
+import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
@@ -775,7 +776,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   };
   const harnessVerifier: HarnessVerifier = {
-    async verify({ thread, turn, replay, environment }) {
+    async verify({ thread, replay, environment }) {
       const changedFiles: string[] = [];
       for (const item of replay.items) {
         if (item.kind !== 'tool-call') continue;
@@ -879,6 +880,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         }, 75),
       );
     },
+  });
+  const unsubscribeActivityRoomBridge = startActivityRoomOrganizationalBridge({
+    eventBus: kernel.eventBus,
+    threadStore: agentThreadStore,
   });
   // Phase 4 (engineering-os-roadmap item 4) — durable engineering memory:
   // project harness.* events from completed threads into the memory runtime.
@@ -1386,6 +1391,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       clearInterval(heartbeat);
       unsub();
       unsubscribeHarnessBridge();
+      unsubscribeActivityRoomBridge();
       unsubscribeEngineeringMemory();
       workspaceUiWatcher?.stop();
       notificationService?.stop();

@@ -220,6 +220,54 @@ describe('AcceptanceBoundary (pure)', () => {
     expect(parsed?.uncertainties).toHaveLength(1);
     expect(parseAcceptanceDeclaration('no block here')).toBeUndefined();
   });
+
+  it('selects the final well-formed declaration, not a leading placeholder draft', () => {
+    // Run 4 scenario: a placeholder template block appears before the final
+    // concrete declaration. The placeholder must NOT be treated as a
+    // declaration; the final concrete one is authoritative.
+    const output = [
+      'ACCEPTANCE BOUNDARY',
+      '- obligation: <observable obligation 1>',
+      '- uncertainty: <material uncertainty>',
+      'END ACCEPTANCE BOUNDARY',
+      'then reasoning about the format…',
+      'ACCEPTANCE BOUNDARY',
+      '- obligation: the generated configuration is active after restart',
+      '- uncertainty: whether "restart" means process restart or service reload',
+      'END ACCEPTANCE BOUNDARY',
+    ].join('\n');
+
+    const parsed = parseAcceptanceDeclaration(output);
+    expect(parsed?.obligations).toEqual(['the generated configuration is active after restart']);
+    expect(parsed?.uncertainties).toEqual(['whether "restart" means process restart or service reload']);
+  });
+
+  it('ignores reasoning-only and placeholder-only blocks entirely', () => {
+    const output = [
+      'ACCEPTANCE BOUNDARY',
+      '- obligation: ...',
+      '- uncertainty: ...',
+      'END ACCEPTANCE BOUNDARY',
+      'ACCEPTANCE BOUNDARY',
+      'the obligations are derived from the objective; the boundary may be conditional',
+      'END ACCEPTANCE BOUNDARY',
+    ].join('\n');
+    expect(parseAcceptanceDeclaration(output)).toBeUndefined();
+  });
+
+  it('treats a later real declaration as authoritative over an earlier real one', () => {
+    const output = [
+      'ACCEPTANCE BOUNDARY',
+      '- obligation: first draft obligation',
+      'END ACCEPTANCE BOUNDARY',
+      'refined reasoning…',
+      'ACCEPTANCE BOUNDARY',
+      '- obligation: final obligation after reasoning',
+      'END ACCEPTANCE BOUNDARY',
+    ].join('\n');
+    const parsed = parseAcceptanceDeclaration(output);
+    expect(parsed?.obligations).toEqual(['final obligation after reasoning']);
+  });
 });
 
 describe('AcceptanceBoundary (orchestrator integration — generic, no ORB knowledge)', () => {

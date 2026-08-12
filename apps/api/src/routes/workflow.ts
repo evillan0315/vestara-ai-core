@@ -152,6 +152,25 @@ export async function handleWorkflowRoute(
     return true;
   }
 
+  // Acceptance boundary — the observable organizational acceptance contract.
+  const acceptanceMatch = p.match(/^\/api\/workflow\/([^/]+)\/acceptance$/);
+  if (method === 'GET' && acceptanceMatch) {
+    const threadId = decodeURIComponent(acceptanceMatch[1]) as TaskThreadId;
+    const thread = ctx.agentThreadStore.getThread(threadId);
+    if (!thread) {
+      json(res, 404, { error: 'Thread not found' });
+      return true;
+    }
+    const workflowId = isMultiAgent(ctx, threadId) ? workflowIdForThread(ctx, threadId) : threadId;
+    const boundary = ctx.multiAgentWorkflow.acceptanceBoundary(workflowId);
+    if (!boundary) {
+      json(res, 404, { error: 'ACCEPTANCE_BOUNDARY_NOT_FOUND', message: `No acceptance boundary for ${workflowId}.` });
+      return true;
+    }
+    json(res, 200, { workflowId, boundary });
+    return true;
+  }
+
   // Temporal replay: reconstruct the projection at a past event sequence.
   const atMatch = p.match(/^\/api\/workflow\/([^/]+)\/at$/);
   if (method === 'GET' && atMatch) {

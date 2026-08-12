@@ -120,20 +120,46 @@ export function renderAcceptanceBoundary(boundary: AcceptanceBoundary): string {
  *   - uncertainty: <material uncertainty affecting acceptance>
  *   END ACCEPTANCE BOUNDARY
  *
- * Returns undefined when the block is absent — the boundary then remains
- * anchored to the objective alone.
+ * Declaration authority semantics (established from ORB Run 4 evidence):
+ *   • a block is a declaration only if it carries at least one real (non-
+ *     placeholder) obligation or uncertainty — the format template and
+ *     reasoning drafts are NOT declarations;
+ *   • among the well-formed declarations, the FINAL one is authoritative
+ *     (the interpreting participant's closing declaration after reasoning).
+ *
+ * Returns undefined when no well-formed declaration exists — the boundary then
+ * remains anchored to the objective alone.
  */
 export function parseAcceptanceDeclaration(output: string): AcceptanceDeclaration | undefined {
-  const match = output.match(/ACCEPTANCE BOUNDARY\s*\n([\s\S]*?)\nEND ACCEPTANCE BOUNDARY/);
-  if (!match) return undefined;
+  const blocks = [...output.matchAll(/ACCEPTANCE BOUNDARY\s*\n([\s\S]*?)\nEND ACCEPTANCE BOUNDARY/g)];
+  if (blocks.length === 0) return undefined;
+  const declarations: AcceptanceDeclaration[] = [];
+  for (const match of blocks) {
+    const declaration = parseDeclarationBlock(match[1]);
+    if (declaration && isRealDeclaration(declaration)) declarations.push(declaration);
+  }
+  if (declarations.length === 0) return undefined;
+  return declarations[declarations.length - 1];
+}
+
+function parseDeclarationBlock(block: string): AcceptanceDeclaration | undefined {
   const obligations: string[] = [];
   const uncertainties: string[] = [];
-  for (const line of match[1].split('\n')) {
+  for (const line of block.split('\n')) {
     const trimmed = line.trim();
     const obligation = trimmed.match(/^[-*]\s*obligation:\s*(.+)$/);
     const uncertainty = trimmed.match(/^[-*]\s*uncertainty:\s*(.+)$/);
     if (obligation) obligations.push(obligation[1].trim());
     if (uncertainty) uncertainties.push(uncertainty[1].trim());
   }
+  if (obligations.length === 0 && uncertainties.length === 0) return undefined;
   return { obligations, uncertainties };
+}
+
+/** A declaration is real only if it carries content, not the format template. */
+function isRealDeclaration(declaration: AcceptanceDeclaration): boolean {
+  const placeholder = /<[^>]*>|observable obligation|material uncertainty|^\.{3,}$/i;
+  const hasRealObligation = (declaration.obligations ?? []).some((text) => !placeholder.test(text));
+  const hasRealUncertainty = (declaration.uncertainties ?? []).some((text) => !placeholder.test(text));
+  return hasRealObligation || hasRealUncertainty;
 }
