@@ -87,6 +87,13 @@ export type {
 } from './evidence/execution-evidence';
 export { renderOpenCodeExecutionEvidence, summarizeOpenCodeExecution } from './evidence/execution-evidence';
 export type {
+  OpenCodeExecutionEventLike,
+  VestaraExecutionEvent,
+  VestaraExecutionEventType,
+  VestaraExecutionState,
+} from './execution-normalizer';
+export { classifyOpenCodeExecutionEvent } from './execution-normalizer';
+export type {
   OpenCodePermissionDecisionInput,
   OpenCodePermissionRecord,
   PermissionRegistry,

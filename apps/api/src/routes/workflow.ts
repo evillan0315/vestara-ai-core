@@ -15,6 +15,8 @@ import {
   projectWorkflowAcrossThreads,
   workflowEnvelopes,
 } from '@vestara/workflow-projections';
+import { getActivityRoom } from '../activity-room';
+import { projectWorkflowParticipants } from '../participants';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -168,6 +170,36 @@ export async function handleWorkflowRoute(
       return true;
     }
     json(res, 200, { workflowId, boundary });
+    return true;
+  }
+
+  // Participants — the real agents in the real workflow with current state.
+  const participantsMatch = p.match(/^\/api\/workflow\/([^/]+)\/participants$/);
+  if (method === 'GET' && participantsMatch) {
+    const threadId = decodeURIComponent(participantsMatch[1]) as TaskThreadId;
+    const thread = ctx.agentThreadStore.getThread(threadId);
+    if (!thread) {
+      json(res, 404, { error: 'Thread not found' });
+      return true;
+    }
+    const workflowId = isMultiAgent(ctx, threadId) ? workflowIdForThread(ctx, threadId) : threadId;
+    const threads = ctx.agentThreadStore
+      .listThreads()
+      .filter((candidate) => candidate.metadata?.workflowId === workflowId)
+      .sort((left, right) => Number(left.metadata?.stageIndex ?? 0) - Number(right.metadata?.stageIndex ?? 0));
+    const threadIds = new Set<string>(threads.map((candidate) => candidate.id));
+    const { records } = await getActivityRoom().store.list({});
+    const workflowRecords = [...records].reverse().filter((record) => {
+      const rid = (record as { threadId?: string }).threadId;
+      return rid !== undefined && threadIds.has(rid);
+    });
+    const projection = projectWorkflowParticipants({
+      workflowId,
+      threads,
+      records: workflowRecords,
+      boundary: ctx.multiAgentWorkflow.acceptanceBoundary(workflowId),
+    });
+    json(res, 200, projection);
     return true;
   }
 

@@ -46,9 +46,11 @@ const HARNESS_EVENT_TYPES = new Set([
 ]);
 
 export function startActivityRoomOrganizationalBridge(options: ActivityRoomOrganizationalBridgeOptions): () => void {
-  const room = options.room ?? getActivityRoom();
   return options.eventBus.subscribe('*', async (evt) => {
     try {
+      // Resolve lazily per event: the durable room is initialized after the
+      // bridge is wired at boot, and routes/bridge must share the same instance.
+      const room = options.room ?? getActivityRoom();
       const event = projectSourceEvent(evt, options);
       if (event) await room.service.project(event);
     } catch {

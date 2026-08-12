@@ -14,6 +14,17 @@
  *   Runtime: Kernel Lifecycle
  */
 
+export type {
+  AcceptanceBoundary,
+  AcceptanceDeclaration,
+  AcceptanceObligation,
+} from './acceptance-boundary';
+export {
+  parseAcceptanceDeclaration,
+  refineAcceptanceBoundary,
+  renderAcceptanceBoundary,
+  seedAcceptanceBoundary,
+} from './acceptance-boundary';
 export { AccuracyStorage } from './accuracy-storage';
 export type {
   AgentCapabilityDefinition,
