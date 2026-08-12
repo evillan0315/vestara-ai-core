@@ -19,19 +19,35 @@ export {
 export { OpenCodeHttpClient } from './client/opencode-http-client';
 export type {
   CreateOpenCodeSessionInput,
+  InitOpenCodeSessionInput,
   OpenCodeEvent,
+  OpenCodeFileChange,
+  OpenCodeFileChangeStatus,
+  OpenCodeFileContent,
+  OpenCodeFileQuery,
+  OpenCodeFindFileQuery,
+  OpenCodeFindMatch,
+  OpenCodeFindSymbolQuery,
+  OpenCodeFindTextQuery,
   OpenCodeHealth,
+  OpenCodeJsonSchema,
   OpenCodeMessage,
   OpenCodeMessageResult,
+  OpenCodeOutputFormat,
   OpenCodeProject,
   OpenCodePromptPart,
   OpenCodeRequestContext,
   OpenCodeSession,
   OpenCodeSessionBinding,
   OpenCodeSessionStatus,
+  OpenCodeShellResult,
+  OpenCodeSymbol,
+  RevertOpenCodeSessionInput,
   RunOpenCodeCommandInput,
+  RunOpenCodeShellInput,
   SendOpenCodeMessageAsyncInput,
   SendOpenCodeMessageInput,
+  SummarizeOpenCodeSessionInput,
   VestaraPermissionDecision,
 } from './client/opencode-types';
 export type {
@@ -93,6 +109,7 @@ export type {
   VestaraExecutionState,
 } from './execution-normalizer';
 export { classifyOpenCodeExecutionEvent } from './execution-normalizer';
+export { normalizeFileStatus, normalizeFindMatches, normalizeSymbols } from './file-normalizers';
 export type {
   OpenCodePermissionDecisionInput,
   OpenCodePermissionRecord,

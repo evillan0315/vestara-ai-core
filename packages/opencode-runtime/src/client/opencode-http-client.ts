@@ -4,6 +4,7 @@
 
 import type { OpenCodeRuntimeConfig } from '../config';
 import { normalizeAgents, normalizeCommands, normalizeProviders } from '../discovery-normalizers';
+import { normalizeFileStatus, normalizeFindMatches, normalizeSymbols } from '../file-normalizers';
 import { normalizeDiff, normalizeMessages, normalizeTodos } from '../session-normalizers';
 import type { OpenCodeClient } from './opencode-client';
 import {
@@ -16,10 +17,18 @@ import {
 } from './opencode-errors';
 import type {
   CreateOpenCodeSessionInput,
+  InitOpenCodeSessionInput,
   OpenCodeAgentSummary,
   OpenCodeCommandSummary,
   OpenCodeDiffFile,
   OpenCodeEvent,
+  OpenCodeFileChange,
+  OpenCodeFileContent,
+  OpenCodeFileQuery,
+  OpenCodeFindFileQuery,
+  OpenCodeFindMatch,
+  OpenCodeFindSymbolQuery,
+  OpenCodeFindTextQuery,
   OpenCodeHealth,
   OpenCodeMessage,
   OpenCodeMessageResult,
@@ -29,11 +38,16 @@ import type {
   OpenCodeRequestContext,
   OpenCodeSession,
   OpenCodeSessionStatusInfo,
+  OpenCodeShellResult,
+  OpenCodeSymbol,
   OpenCodeTodo,
   OpenCodeVcsInfo,
+  RevertOpenCodeSessionInput,
   RunOpenCodeCommandInput,
+  RunOpenCodeShellInput,
   SendOpenCodeMessageAsyncInput,
   SendOpenCodeMessageInput,
+  SummarizeOpenCodeSessionInput,
   VestaraPermissionDecision,
 } from './opencode-types';
 
@@ -299,6 +313,8 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.messageID) body.messageID = input.messageID;
     if (input.agent) body.agent = input.agent;
     if (input.system) body.system = input.system;
+    if (input.format) body.format = input.format;
+    if (input.noReply !== undefined) body.noReply = input.noReply;
     if (input.model) {
       body.model = { providerID: input.model.providerId, modelID: input.model.modelId };
     }
@@ -362,6 +378,197 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     return true;
   }
 
+  // ── Session lifecycle extensions ───────────────────────────
+
+  async initSession(
+    sessionId: string,
+    input: InitOpenCodeSessionInput,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const body: Record<string, unknown> = {};
+    if (input.messageID) body.messageID = input.messageID;
+    if (input.providerID) body.providerID = input.providerID;
+    if (input.modelID) body.modelID = input.modelID;
+    await this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/init`,
+      method: 'POST',
+      body,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async shareSession(
+    sessionId: string,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession> {
+    return this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/share`,
+      method: 'POST',
+      body: {},
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    }) as Promise<OpenCodeSession>;
+  }
+
+  async unshareSession(
+    sessionId: string,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession> {
+    return this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/share`,
+      method: 'DELETE',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    }) as Promise<OpenCodeSession>;
+  }
+
+  async summarizeSession(
+    sessionId: string,
+    input: SummarizeOpenCodeSessionInput,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    const body: Record<string, unknown> = {};
+    if (input.auto !== undefined) body.auto = input.auto;
+    if (input.providerID) body.providerID = input.providerID;
+    if (input.modelID) body.modelID = input.modelID;
+    await this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/summarize`,
+      method: 'POST',
+      body,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async revertSession(
+    sessionId: string,
+    input: RevertOpenCodeSessionInput,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession> {
+    const body: Record<string, unknown> = { messageID: input.messageID };
+    if (input.partID) body.partID = input.partID;
+    return this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/revert`,
+      method: 'POST',
+      body,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    }) as Promise<OpenCodeSession>;
+  }
+
+  async unrevertSession(
+    sessionId: string,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession> {
+    return this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/unrevert`,
+      method: 'POST',
+      body: {},
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    }) as Promise<OpenCodeSession>;
+  }
+
+  async runShell(
+    sessionId: string,
+    input: RunOpenCodeShellInput,
+    _context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeShellResult> {
+    const body: Record<string, unknown> = { command: input.command };
+    if (input.agent) body.agent = input.agent;
+    if (input.messageID) body.messageID = input.messageID;
+    if (input.model) body.model = { providerID: input.model.providerId, modelID: input.model.modelId };
+    const raw = await this.requestJson({
+      path: `/session/${encodeURIComponent(sessionId)}/shell`,
+      method: 'POST',
+      body,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return this.normalizeShellResult(sessionId, raw);
+  }
+
+  // ── File / find surface ────────────────────────────────────
+
+  async findText(query: OpenCodeFindTextQuery, signal?: AbortSignal): Promise<OpenCodeFindMatch[]> {
+    const raw = await this.requestJson({
+      path: this.withQuery('/find', { pattern: query.pattern, directory: query.directory, workspace: query.workspace }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    });
+    return normalizeFindMatches(raw);
+  }
+
+  async findFiles(query: OpenCodeFindFileQuery, signal?: AbortSignal): Promise<string[]> {
+    const raw = await this.requestJson({
+      path: this.withQuery('/find/file', {
+        query: query.query,
+        dirs: query.dirs,
+        type: query.type,
+        limit: query.limit,
+        directory: query.directory,
+        workspace: query.workspace,
+      }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    });
+    return Array.isArray(raw) ? raw.filter((item): item is string => typeof item === 'string') : [];
+  }
+
+  async findSymbols(query: OpenCodeFindSymbolQuery, signal?: AbortSignal): Promise<OpenCodeSymbol[]> {
+    const raw = await this.requestJson({
+      path: this.withQuery('/find/symbol', {
+        query: query.query,
+        directory: query.directory,
+        workspace: query.workspace,
+      }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    });
+    return normalizeSymbols(raw);
+  }
+
+  async readFile(query: OpenCodeFileQuery, signal?: AbortSignal): Promise<OpenCodeFileContent> {
+    return this.requestJson({
+      path: this.withQuery('/file/content', {
+        path: query.path,
+        directory: query.directory,
+        workspace: query.workspace,
+      }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    }) as Promise<OpenCodeFileContent>;
+  }
+
+  async fileStatus(query: OpenCodeFileQuery | undefined, signal?: AbortSignal): Promise<OpenCodeFileChange[]> {
+    const raw = await this.requestJson({
+      path: this.withQuery('/file/status', {
+        directory: query?.directory,
+        workspace: query?.workspace,
+      }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    });
+    return normalizeFileStatus(raw);
+  }
+
   // ── Events ────────────────────────────────────────────────────────────
 
   async *openEventStream(_context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
@@ -396,6 +603,23 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   }
 
   // ── Shared request plumbing ───────────────────────────────────────────
+
+  /** Append URL-encoded query params, omitting `undefined`/empty values. */
+  private withQuery(path: string, params: Record<string, string | number | boolean | undefined>): string {
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params)) {
+      if (value !== undefined && value !== '') search.set(key, String(value));
+    }
+    const query = search.toString();
+    return query ? `${path}?${query}` : path;
+  }
+
+  private normalizeShellResult(sessionId: string, raw: unknown): OpenCodeShellResult {
+    if (!raw || typeof raw !== 'object') return { info: undefined, parts: [] };
+    const record = raw as Record<string, unknown>;
+    const messages = normalizeMessages([record]);
+    return { info: messages[0], parts: messages[0]?.parts ?? [] };
+  }
 
   private async requestJson(options: RequestOptions): Promise<unknown> {
     const controller = new AbortController();

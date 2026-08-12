@@ -158,6 +158,8 @@ export interface OpenCodeMessage {
   readonly model?: string;
   readonly text: string;
   readonly parts: readonly OpenCodeMessagePart[];
+  /** Parsed structured output when the prompt requested a `json_schema` format. */
+  readonly structuredOutput?: unknown;
   readonly createdAt?: string;
 }
 
@@ -167,6 +169,11 @@ export interface SendOpenCodeMessageAsyncInput {
   readonly agent?: string;
   readonly model?: { readonly providerId: string; readonly modelId: string };
   readonly system?: string;
+  /** Request validated structured output. When set, the model emits a
+   * `structured_output` part via the StructuredOutput tool. */
+  readonly format?: OpenCodeOutputFormat;
+  /** Inject context only, without triggering an AI response. */
+  readonly noReply?: boolean;
 }
 
 export interface RunOpenCodeCommandInput {
@@ -191,4 +198,113 @@ export interface OpenCodeEvent {
   readonly type: string;
   readonly timestamp?: string;
   readonly payload?: Record<string, unknown>;
+}
+
+// ─── Structured output ──────────────────────────────────────
+
+/** JSON Schema document (OpenCode `JSONSchema`). Kept opaque for the client. */
+export type OpenCodeJsonSchema = Record<string, unknown>;
+
+/**
+ * OpenCode `OutputFormat`. Requesting `json_schema` forces the model to produce
+ * validated JSON (via the StructuredOutput tool) matching the given schema.
+ */
+export type OpenCodeOutputFormat =
+  | { readonly type: 'text' }
+  | { readonly type: 'json_schema'; readonly schema: OpenCodeJsonSchema; readonly retryCount?: number };
+
+// ─── Session lifecycle extensions ───────────────────────────
+
+export interface InitOpenCodeSessionInput {
+  readonly messageID?: string;
+  readonly modelID?: string;
+  readonly providerID?: string;
+}
+
+export interface SummarizeOpenCodeSessionInput {
+  readonly auto?: boolean;
+  readonly modelID?: string;
+  readonly providerID?: string;
+}
+
+export interface RevertOpenCodeSessionInput {
+  readonly messageID: string;
+  readonly partID?: string;
+}
+
+export interface RunOpenCodeShellInput {
+  readonly command: string;
+  readonly agent?: string;
+  readonly messageID?: string;
+  readonly model?: { readonly providerId: string; readonly modelId: string };
+}
+
+/** Result of `session.shell` — an assistant message and its parts. */
+export interface OpenCodeShellResult {
+  readonly info?: OpenCodeMessage;
+  readonly parts?: readonly OpenCodeMessagePart[];
+}
+
+// ─── File / find surface ────────────────────────────────────
+
+/** `find.text` result — normalized from upstream snake_case to camelCase. */
+export interface OpenCodeFindMatch {
+  readonly path: string;
+  readonly lines?: string;
+  readonly lineNumber?: number;
+  readonly absoluteOffset?: number;
+  readonly submatches?: readonly { readonly text?: string; readonly start?: number; readonly end?: number }[];
+}
+
+export interface OpenCodeSymbol {
+  readonly name: string;
+  readonly kind: number;
+  readonly location: { readonly uri: string; readonly range?: unknown };
+}
+
+export interface OpenCodeFileContent {
+  readonly type: 'text' | 'binary';
+  readonly content: string;
+  readonly encoding?: 'base64';
+  readonly mimeType?: string;
+  readonly diff?: string;
+  readonly patch?: unknown;
+}
+
+export type OpenCodeFileChangeStatus = 'added' | 'deleted' | 'modified';
+
+export interface OpenCodeFileChange {
+  readonly path: string;
+  readonly added: number;
+  readonly removed: number;
+  readonly status: OpenCodeFileChangeStatus;
+}
+
+// ─── File / find query inputs ───────────────────────────────
+
+export interface OpenCodeFindTextQuery {
+  readonly pattern: string;
+  readonly directory?: string;
+  readonly workspace?: string;
+}
+
+export interface OpenCodeFindFileQuery {
+  readonly query: string;
+  readonly dirs?: string;
+  readonly type?: string;
+  readonly limit?: number;
+  readonly directory?: string;
+  readonly workspace?: string;
+}
+
+export interface OpenCodeFindSymbolQuery {
+  readonly query: string;
+  readonly directory?: string;
+  readonly workspace?: string;
+}
+
+export interface OpenCodeFileQuery {
+  readonly path: string;
+  readonly directory?: string;
+  readonly workspace?: string;
 }

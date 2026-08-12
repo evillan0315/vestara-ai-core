@@ -4,10 +4,18 @@
 
 import type {
   CreateOpenCodeSessionInput,
+  InitOpenCodeSessionInput,
   OpenCodeAgentSummary,
   OpenCodeCommandSummary,
   OpenCodeDiffFile,
   OpenCodeEvent,
+  OpenCodeFileChange,
+  OpenCodeFileContent,
+  OpenCodeFileQuery,
+  OpenCodeFindFileQuery,
+  OpenCodeFindMatch,
+  OpenCodeFindSymbolQuery,
+  OpenCodeFindTextQuery,
   OpenCodeHealth,
   OpenCodeMessage,
   OpenCodeMessageResult,
@@ -17,11 +25,16 @@ import type {
   OpenCodeRequestContext,
   OpenCodeSession,
   OpenCodeSessionStatusInfo,
+  OpenCodeShellResult,
+  OpenCodeSymbol,
   OpenCodeTodo,
   OpenCodeVcsInfo,
+  RevertOpenCodeSessionInput,
   RunOpenCodeCommandInput,
+  RunOpenCodeShellInput,
   SendOpenCodeMessageAsyncInput,
   SendOpenCodeMessageInput,
+  SummarizeOpenCodeSessionInput,
   VestaraPermissionDecision,
 } from './opencode-types';
 
@@ -112,6 +125,52 @@ export interface OpenCodeClient {
     context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<boolean>;
+
+  // Session lifecycle extensions
+  initSession(
+    sessionId: string,
+    input: InitOpenCodeSessionInput,
+    context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
+
+  shareSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession>;
+
+  unshareSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession>;
+
+  summarizeSession(
+    sessionId: string,
+    input: SummarizeOpenCodeSessionInput,
+    context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
+
+  revertSession(
+    sessionId: string,
+    input: RevertOpenCodeSessionInput,
+    context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSession>;
+
+  unrevertSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession>;
+
+  runShell(
+    sessionId: string,
+    input: RunOpenCodeShellInput,
+    context: OpenCodeRequestContext,
+    signal?: AbortSignal,
+  ): Promise<OpenCodeShellResult>;
+
+  // File / find surface
+  findText(query: OpenCodeFindTextQuery, signal?: AbortSignal): Promise<OpenCodeFindMatch[]>;
+
+  findFiles(query: OpenCodeFindFileQuery, signal?: AbortSignal): Promise<string[]>;
+
+  findSymbols(query: OpenCodeFindSymbolQuery, signal?: AbortSignal): Promise<OpenCodeSymbol[]>;
+
+  readFile(query: OpenCodeFileQuery, signal?: AbortSignal): Promise<OpenCodeFileContent>;
+
+  fileStatus(query?: OpenCodeFileQuery, signal?: AbortSignal): Promise<OpenCodeFileChange[]>;
 
   openEventStream(context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent>;
 }

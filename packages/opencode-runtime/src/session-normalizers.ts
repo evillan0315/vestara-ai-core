@@ -19,6 +19,7 @@ export function normalizeMessages(raw: unknown): OpenCodeMessage[] {
         agent: typeof info.agent === 'string' ? info.agent : undefined,
         model: typeof info.model === 'string' ? info.model : undefined,
         text: extractMessageText(info, parts),
+        structuredOutput: info.structured_output,
         parts: parts.map((part) => ({
           id: typeof part.id === 'string' ? part.id : undefined,
           type: typeof part.type === 'string' ? part.type : 'text',
