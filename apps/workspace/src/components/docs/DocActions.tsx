@@ -12,6 +12,7 @@ import PrintRoundedIcon from '@mui/icons-material/PrintRounded';
 import PushPinRoundedIcon from '@mui/icons-material/PushPinRounded';
 import ArtifactActionsMenu from '../artifacts/ArtifactActionsMenu';
 import { inspectEntity } from '../graph/GraphContext';
+import { copyToClipboard } from '../../lib/platform';
 
 interface DocActionsProps {
   docPath: string | null;
@@ -28,7 +29,7 @@ interface DocActionsProps {
 
 async function copyText(text: string): Promise<void> {
   try {
-    await navigator.clipboard.writeText(text);
+    await copyToClipboard(text);
   } catch {
     /* clipboard unavailable */
   }

@@ -5,6 +5,7 @@ import type {
   ActivityStreamMessage,
   MessageTarget,
 } from '@vestara/activity-projection';
+import { resolveWsUrl } from './clientConfig';
 
 // ─── History API ───────────────────────────────────────────────
 
@@ -180,8 +181,7 @@ class ActivitySocketClient {
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       return;
     }
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/ws/activity`;
+    const url = resolveWsUrl('/ws/activity');
     this.setState('connecting');
     try {
       this.ws = new WebSocket(url);

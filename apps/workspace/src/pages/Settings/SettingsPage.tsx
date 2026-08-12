@@ -12,6 +12,7 @@ import {
 } from './settings-client.js';
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
 import { Button, input, SettingsRow, SettingsSection, Source, Status, surface, Toggle } from './settings-ui.js';
+import { ApiEndpointField } from './ApiEndpointField.js';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -20,7 +21,7 @@ interface SettingsData {
   history: EventStoreStatusDto;
 }
 
-const SECTIONS: Array<{ id: SettingsSectionId | 'overview'; label: string; description: string; code: string }> = [
+const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection'; label: string; description: string; code: string }> = [
   { id: 'overview', label: 'Overview', description: 'Configuration and system health', code: 'OV' },
   { id: 'general', label: 'General', description: 'Workspace identity and interface', code: 'GN' },
   { id: 'runtime', label: 'Runtime', description: 'Runtime services and operations', code: 'RT' },
@@ -33,6 +34,7 @@ const SECTIONS: Array<{ id: SettingsSectionId | 'overview'; label: string; descr
   { id: 'notifications', label: 'Notifications', description: 'Operational notifications', code: 'NT' },
   { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', code: 'TM' },
   { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', code: 'AD' },
+  { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', code: 'CN' },
 ];
 
 function Overview({ data }: { data: SettingsData }) {
@@ -552,12 +554,13 @@ export default function SettingsPage() {
       {error ? (
         <div role="alert" className={`rounded-[var(--vestara-radius-lg)] p-5 ${surface}`}>
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
-          <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">{error}</p>
-          <div className="mt-4">
-            <Button primary onClick={() => void load()}>
-              Retry connection
-            </Button>
-          </div>
+           <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">{error}</p>
+           <div className="mt-4 space-y-4">
+             <ApiEndpointField onApplied={load} />
+             <Button primary onClick={() => void load()}>
+               Retry connection
+             </Button>
+           </div>
         </div>
       ) : !data ? (
         <LoadingState />
@@ -568,6 +571,7 @@ export default function SettingsPage() {
           <Route path="general" element={<General configuration={data.configuration} onChanged={changed} />} />
           <Route path="runtime" element={<Runtime runtime={data.runtime} refresh={load} />} />
           <Route path="cli" element={<CliIntegration initial={data.cli} />} />
+          <Route path="connection" element={<ApiEndpointField onApplied={load} />} />
           <Route path="history" element={<History initial={data.history} />} />
           {(
             [

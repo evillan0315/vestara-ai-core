@@ -59,7 +59,7 @@ export function verifyAppliedChange(
   ).length;
   const totalInstances = document.querySelectorAll('[data-ve-instance]').length;
 
-  const behavioralChecks = [
+  const behavioralChecks: Array<{ check: string; status: 'ok' | 'failed' }> = [
     { check: 'Target still rendered', status: el !== null ? 'ok' : 'failed' },
     { check: 'Message still inspectable (action present)', status: el !== null && el.querySelector('button') ? 'ok' : 'failed' },
     { check: 'Stream layout intact (elements present)', status: totalInstances > 0 ? 'ok' : 'failed' },

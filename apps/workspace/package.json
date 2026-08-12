@@ -7,6 +7,8 @@
   "scripts": {
     "dev": "vite dev",
     "build": "tsc -b && vite build",
+    "desktop": "VITE_API_URL=${VITE_API_URL:-http://127.0.0.1:3001} tauri build",
+    "desktop:dev": "tauri dev",
     "preview": "vite preview",
     "format": "biome format --write",
     "test": "vitest run",
@@ -25,6 +27,9 @@
     "@emotion/styled": "^11.14.0",
     "@mui/icons-material": "^6.4.0",
     "@mui/material": "^6.4.0",
+    "@tauri-apps/api": "^2.11.1",
+    "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
+    "@tauri-apps/plugin-notification": "^2.3.3",
     "@vestara/activity-projection": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/execution-center": "workspace:*",
@@ -47,6 +52,7 @@
   "devDependencies": {
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@tauri-apps/cli": "^2.11.4",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/pngjs": "^6.0.5",

@@ -25,11 +25,11 @@ export interface AppNotification {
   metadata: Record<string, unknown>;
 }
 
-const API_BASE = '/api';
+import { resolveHttpUrl } from './clientConfig';
 
 async function apiFetch<T>(path: string, options?: RequestInit): Promise<T | null> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(resolveHttpUrl(path), {
       headers: { 'Content-Type': 'application/json' },
       ...options,
     });

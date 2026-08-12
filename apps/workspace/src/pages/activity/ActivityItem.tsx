@@ -182,6 +182,8 @@ function titleOf(record: ActivityRecord): string {
       return `${record.passed} passed, ${record.failed} failed`;
     case 'verification':
       return `Verification ${record.outcome}`;
+    default:
+      return record.id;
   }
 }
 

@@ -44,6 +44,8 @@ function contentLine(record: ActivityRecord): string {
       return record.reason || `Verification ${record.outcome}`;
     case 'test':
       return `${record.passed} passed, ${record.failed} failed`;
+    default:
+      return record.id;
   }
 }
 

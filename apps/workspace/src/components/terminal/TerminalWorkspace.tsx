@@ -4,6 +4,7 @@ import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from 
 import { TerminalStatusBar } from './TerminalStatusBar';
 import { TerminalTabs } from './TerminalTabs';
 import { useTerminalSessions } from './useTerminalSessions';
+import { resolveWsUrl } from '../../lib/clientConfig';
 
 export default function TerminalWorkspace() {
   const {
@@ -41,8 +42,7 @@ export default function TerminalWorkspace() {
   }, []);
 
   const connectWs = useCallback(() => {
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${window.location.host}/ws`);
+    const ws = new WebSocket(resolveWsUrl('/ws'));
     wsRef.current = ws;
 
     ws.onopen = () => {

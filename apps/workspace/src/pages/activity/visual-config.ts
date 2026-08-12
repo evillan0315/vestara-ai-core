@@ -32,7 +32,7 @@ export interface AppliedChange {
 
 let overrides: Record<string, VisualOverride> = {};
 let lastChange: AppliedChange | null = null;
-let cached = { overrides, lastChange };
+let cached: { overrides: Record<string, VisualOverride>; lastChange: AppliedChange | null } = { overrides, lastChange };
 const listeners = new Set<() => void>();
 
 function emit(): void {

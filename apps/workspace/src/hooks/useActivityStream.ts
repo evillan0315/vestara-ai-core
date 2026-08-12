@@ -101,6 +101,7 @@ export function useActivityStream(): ActivityStreamSnapshot {
 
   const deliver = useCallback(
     async (tempId: string, existing: ActivityRecord) => {
+      if (existing.kind !== 'agent-message') return;
       setSendStates((previous) => ({ ...previous, [tempId]: 'sending' }));
       try {
         const record = await postActivityMessage({

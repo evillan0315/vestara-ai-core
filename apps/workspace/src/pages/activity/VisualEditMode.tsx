@@ -108,11 +108,10 @@ export default function VisualEditMode() {
     setProposalOpen(false);
   }, [selection]);
 
-  const operations = [
-    alignment !== null && { operation: 'alignment', value: alignment },
-    density !== null && { operation: 'density', value: density },
-    presentation !== null && { operation: 'presentation', value: presentation },
-  ].filter((entry): entry is { operation: string; value: string } => Boolean(entry));
+  const operations: Array<{ operation: 'alignment' | 'density' | 'presentation'; value: Alignment | Density | Presentation }> = [];
+  if (alignment !== null) operations.push({ operation: 'alignment', value: alignment });
+  if (density !== null) operations.push({ operation: 'density', value: density });
+  if (presentation !== null) operations.push({ operation: 'presentation', value: presentation });
 
   const proposal =
     selection !== null

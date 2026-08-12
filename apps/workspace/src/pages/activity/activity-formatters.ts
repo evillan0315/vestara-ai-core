@@ -102,6 +102,8 @@ export function severityOfRecord(record: ActivityRecord): ActivitySeverity {
         default:
           return 'info';
       }
+    default:
+      return 'info';
   }
 }
 
