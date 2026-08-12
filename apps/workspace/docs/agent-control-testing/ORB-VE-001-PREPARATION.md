@@ -1145,3 +1145,41 @@ for a dense stream — a UI-level coalescing decision belongs to the visual phas
 tool events project when the runtime emits them (this model created the file
 without an exposed `tool.started`); acceptance 'satisfied' is the organization's
 derived state and remains subject to external §16 evaluation.
+
+## Activity Room — readable live stream + real workflow agents (proven)
+
+**Correction to the stream projection layer** (not the transport): OpenCode
+deltas are coalesced, semantic events stay distinct.
+
+```text
+RAW SSE (transport truth)
+  → normalized execution events (runtime truth)
+  → session-stream accumulator (coalesced human-readable live narrative)
+  → Activity Room (readable, non-authoritative session output)
+```
+
+- **SessionStreamAccumulator**: deltas append to a live mutable item per
+  participant; finalized into ONE record on semantic boundaries. 120
+  per-character deltas → 1 narrative, not 120 cards.
+- **Live stream surface**: `GET /api/workflow/:id/live-stream` returns the
+  coalesced narrative; the Activity Room page renders a "Live session" panel.
+- **Semantic events distinct**: tool activity, stage transitions, completion,
+  failures remain structured records.
+- **Participants panel**: renders the selected workflow's REAL participants and
+  derived states (waiting/reasoning/active/completed), not the static catalog.
+- **Workflow agents aligned with the real OpenCode agents**: DEFAULT_STAGES use
+  vestara-planner/vestara-developer/vestara-verifier/vestara-reviewer; the
+  harness threads the agent into the session; opencode.json + .opencode/agents
+  recreate the workflow agents (Planner, Developer, Verifier, Reviewer, Tester,
+  Context). Runtime exposure verified to match.
+
+**Live proof (vestara-ai-core, one tiny workflow, OpenCode Go + DeepSeek V4
+Flash):** participants transitioned waiting→reasoning→completed with the real
+agents; the proof file was created; the room held 24 coalesced durable records
+(16 readable narratives, 5 turns, 2 model responses, 1 workflow) — not
+per-character cards. Replay-driven test: 120 deltas → 1 narrative + distinct
+tool record. 517 tests green; build green; biome clean.
+
+Known limitation: progress narrative coalesces per semantic segment (the visual
+phase can choose the exact finalize cadence). Visual redesign remains deferred
+until this corrected live experience is reviewed.
