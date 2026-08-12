@@ -6,7 +6,7 @@ import { useToasts } from '../components/Toast';
 import { WorkflowRail } from '../components/workflow/WorkflowRail';
 import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
 import { useEventStream } from '../lib/useEventStream';
-import { type WorkflowProjection, workflowApi } from '../lib/workflow';
+import { type MultiAgentWorkflowTemplateId, type WorkflowProjection, workflowApi } from '../lib/workflow';
 import { workspaceSocket } from '../lib/ws';
 import AgentRegistryModal from './Agents/AgentRegistryModal';
 import { AgentStatusBadge } from './Agents/AgentStatusBadge';
@@ -55,6 +55,7 @@ export default function AgentsPage() {
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
   const [workflowGoal, setWorkflowGoal] = useState('');
+  const [workflowTemplate, setWorkflowTemplate] = useState<MultiAgentWorkflowTemplateId>('default');
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [startingWorkflow, setStartingWorkflow] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -319,7 +320,7 @@ export default function AgentsPage() {
     if (!workflowGoal.trim()) return;
     setStartingWorkflow(true);
     try {
-      const result = await workflowApi.start(workflowGoal.trim());
+      const result = await workflowApi.start(workflowGoal.trim(), undefined, workflowTemplate);
       if (!result) {
         addToast({ type: 'error', message: 'Failed to start multi-agent workflow' });
         return;
@@ -406,6 +407,15 @@ export default function AgentsPage() {
             Multi-Agent Workflow — planner → developer → verifier → reviewer
           </div>
           <div className="flex items-center gap-2">
+            <select
+              value={workflowTemplate}
+              onChange={(e) => setWorkflowTemplate(e.target.value as MultiAgentWorkflowTemplateId)}
+              className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg px-2 py-1.5 text-[10px] outline-none focus:border-(--vestara-accent-border-active) cursor-pointer shrink-0"
+              title="Workflow template (preset stage plan)"
+            >
+              <option value="default">Standard pipeline</option>
+              <option value="agent-control-restructure">Restructure Agent Control</option>
+            </select>
             <input
               value={workflowGoal}
               onChange={(e) => setWorkflowGoal(e.target.value)}

@@ -311,4 +311,27 @@ describe('multi-agent workflow routes', () => {
     });
     expect(res.status).toBe(400);
   });
+
+  it('starts a workflow from the agent-control-restructure template', async () => {
+    const startRes = await fetch(`${baseUrl}/api/workflows`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: 'Restructure the Agent Control page',
+        workflow: 'agent-control-restructure',
+      }),
+    });
+    expect(startRes.status).toBe(201);
+    const started = (await startRes.json()) as {
+      workflowId: string;
+      stages: Array<{ role: string; agentId: string }>;
+    };
+    expect(started.stages.map((stage) => stage.role)).toEqual(['planner', 'developer', 'verifier', 'reviewer']);
+    expect(started.stages.map((stage) => stage.agentId)).toEqual([
+      'vestara-planner',
+      'vestara-developer',
+      'vestara-verifier',
+      'vestara-reviewer',
+    ]);
+  });
 });

@@ -96,6 +96,80 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
   },
 ];
 
+/**
+ * Named multi-agent workflow templates. Each is a curated, goal-tailored stage
+ * plan (role + agent + instruction) startable from the Workspace WorkflowRail.
+ * `'default'` is the generic pipeline used when no template is requested.
+ */
+export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure';
+
+export interface MultiAgentWorkflowTemplate {
+  readonly id: MultiAgentWorkflowTemplateId;
+  readonly name: string;
+  readonly description: string;
+  readonly stages: readonly MultiAgentStageSpec[];
+}
+
+export const MULTI_AGENT_WORKFLOW_TEMPLATES: Record<MultiAgentWorkflowTemplateId, MultiAgentWorkflowTemplate> = {
+  default: {
+    id: 'default',
+    name: 'Standard pipeline',
+    description: 'planner → developer → verifier → reviewer.',
+    stages: DEFAULT_STAGES,
+  },
+  'agent-control-restructure': {
+    id: 'agent-control-restructure',
+    name: 'Restructure Agent Control',
+    description:
+      'Refactor the Agent Control Center page (apps/workspace/src/pages/Agents.tsx) from a monolithic ' +
+      'component into focused, testable sub-components without changing behavior.',
+    stages: [
+      {
+        role: 'planner',
+        agentId: 'vestara-planner',
+        instruction:
+          'Analyze apps/workspace/src/pages/Agents.tsx and its supporting components under ' +
+          'apps/workspace/src/pages/Agents/. Produce a concrete restructure plan that decomposes the ' +
+          'monolithic page into focused, testable sub-components (header/stat cards, filters, category ' +
+          'list, expanded agent panel, execution history, teams, live activity) with a clear state ' +
+          'ownership map. Preserve all existing behavior, class names, and props. Do NOT introduce new ' +
+          'feature behavior — this is a structural refactor only. Declare the acceptance boundary: list ' +
+          'the observable obligations (page renders identically, tests pass, no dead state) and any ' +
+          'uncertainties.',
+      },
+      {
+        role: 'developer',
+        agentId: 'vestara-developer',
+        instruction:
+          'Execute the Agent Control restructure plan: extract the identified sub-components, move ' +
+          'co-located state into the owning components, and keep the page composition in ' +
+          'Agents.tsx. Do not change visible behavior, styling, class names, or API contracts. Keep ' +
+          'existing tests green and add focused tests for any extracted component that was previously ' +
+          'untested. Run the workspace build and the affected tests, and report what changed.',
+      },
+      {
+        role: 'verifier',
+        agentId: 'vestara-verifier',
+        instruction:
+          'Verify the Agent Control restructure: run the workspace build and the affected component tests, ' +
+          'check the changed files for correctness, and confirm no dead state or unused imports remain. ' +
+          'Distinguish implementation-quality verification from behavioral acceptance: state, for each ' +
+          'acceptance obligation, whether available evidence establishes it, or NOT ESTABLISHED. ' +
+          'Build/lint/test/diff results support implementation conclusions only.',
+      },
+      {
+        role: 'reviewer',
+        agentId: 'vestara-reviewer',
+        instruction:
+          'Review the Agent Control restructure diff and verification results. Approve or request ' +
+          'revisions. Confirm the refactor preserved behavior (identical rendered output and props) and ' +
+          'did not creep scope into new features. Review against the acceptance boundary, not only diff ' +
+          'correctness. Flag any change that weakens or substitutes the acceptance object.',
+      },
+    ],
+  },
+};
+
 let workflowCounter = 0;
 
 function nextWorkflowId(): string {
@@ -147,6 +221,19 @@ export class MultiAgentWorkflowOrchestrator {
           : stage.agentId;
       return { ...stage, agentId, instruction: `${stage.instruction}\n\nGoal: ${goal}` };
     });
+  }
+
+  /**
+   * Resolve the stage plan for a named workflow template. Unknown or missing
+   * templates fall back to the standard `default` pipeline so callers can
+   * request a template defensively.
+   */
+  stagesForTemplate(
+    templateId: MultiAgentWorkflowTemplateId | undefined,
+    goal: string,
+  ): readonly MultiAgentStageSpec[] {
+    const template = MULTI_AGENT_WORKFLOW_TEMPLATES[templateId ?? 'default'] ?? MULTI_AGENT_WORKFLOW_TEMPLATES.default;
+    return template.stages.map((stage) => ({ ...stage, instruction: `${stage.instruction}\n\nGoal: ${goal}` }));
   }
 
   get harness(): AgentHarnessRuntime {

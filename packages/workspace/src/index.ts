@@ -129,12 +129,15 @@ export { MilestoneService } from './milestone-service';
 export { MonitorService } from './monitor-service';
 export {
   type ChangeProjectorLike,
+  MULTI_AGENT_WORKFLOW_TEMPLATES,
   type MultiAgentStageRecord,
   type MultiAgentStageSpec,
   type MultiAgentWorkflowOptions,
   MultiAgentWorkflowOrchestrator,
   type MultiAgentWorkflowStart,
   type MultiAgentWorkflowStartInput,
+  type MultiAgentWorkflowTemplate,
+  type MultiAgentWorkflowTemplateId,
 } from './multi-agent-workflow';
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';

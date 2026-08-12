@@ -15,6 +15,7 @@ import {
   projectWorkflowAcrossThreads,
   workflowEnvelopes,
 } from '@vestara/workflow-projections';
+import type { MultiAgentWorkflowTemplateId } from '@vestara/workspace';
 import { getActivityRoom } from '../activity-room';
 import { projectWorkflowParticipants } from '../participants';
 import type { WorkspaceContext } from '../workspace-context';
@@ -130,7 +131,13 @@ export async function handleWorkflowRoute(
       return true;
     }
     const agentIds = body.agentIds;
-    const stages = ctx.multiAgentWorkflow.stagesFromGoal(goal, agentIds);
+    // Optional named workflow template (e.g. 'agent-control-restructure')
+    // selects a curated stage plan; absent → the standard pipeline.
+    const template = body.workflow as MultiAgentWorkflowTemplateId | undefined;
+    const stages =
+      template === undefined
+        ? ctx.multiAgentWorkflow.stagesFromGoal(goal, agentIds)
+        : ctx.multiAgentWorkflow.stagesForTemplate(template, goal);
     const workflow = await ctx.multiAgentWorkflow.start({ goal, stages });
     json(res, 201, workflow);
     return true;

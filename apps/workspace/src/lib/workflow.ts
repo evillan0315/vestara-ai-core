@@ -131,6 +131,8 @@ export interface WorkflowStartResult {
   stages: Array<{ role: string; agentId: string; threadId: string }>;
 }
 
+export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure';
+
 export const workflowApi = {
   workflow: (threadId: string) =>
     fetchJSON<{ projection: WorkflowProjection }>(`/api/workflow/${encodeURIComponent(threadId)}`),
@@ -145,8 +147,8 @@ export const workflowApi = {
       `/api/workflow/${encodeURIComponent(threadId)}/events?after=${after}`,
     ),
 
-  start: (goal: string, agentIds?: Record<string, string>) =>
-    postJSON<WorkflowStartResult>('/api/workflows', { goal, agentIds }),
+  start: (goal: string, agentIds?: Record<string, string>, workflow?: MultiAgentWorkflowTemplateId) =>
+    postJSON<WorkflowStartResult>('/api/workflows', { goal, agentIds, workflow }),
 };
 
 export function threadIdFromWorkflow(workflow: WorkflowProjection): string {
