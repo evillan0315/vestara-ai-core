@@ -3,13 +3,12 @@ description: "Analyze, prioritize, recommend — never write code."
 mode: primary
 model: opencode/deepseek-v4-flash-free
 permission:
-  edit: deny
-  bash: deny
   read: allow
-  write: deny
+  edit: deny
   glob: allow
   grep: allow
   list: allow
+  bash: deny
   task: allow
   external_directory: deny
 ---

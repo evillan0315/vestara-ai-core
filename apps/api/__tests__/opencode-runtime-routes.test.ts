@@ -154,7 +154,7 @@ describe('api/providers on the OpenCode runtime', () => {
 });
 
 describe('api/agents on the OpenCode runtime', () => {
-  it('merges runtime agents into the catalog when reachable', async () => {
+  it('annotates governed agents with their runtime twin but never adds runtime-only agents', async () => {
     const ctx = await buildCtx();
     const { res, status, body } = fakeResponse();
     await handleAgentsRoute('GET', '/api/agents', fakeRequest(), res, ctx);
@@ -165,11 +165,13 @@ describe('api/agents on the OpenCode runtime', () => {
       runtime: { reachable: boolean };
     };
     expect(data.runtime.reachable).toBe(true);
-    // stored agent annotated with the runtime agent + a runtime-derived build agent
+    // governed agent annotated with its native twin, still sourced as workspace
     const planner = data.agents.find((a) => a.id === 'agent-1');
     expect(planner?.runtimeAgent).toBe('planner');
-    expect(planner?.source).toBe('runtime');
-    expect(data.agents.some((a) => a.id === 'runtime-build')).toBe(true);
+    expect(planner?.source).toBe('workspace');
+    // runtime-only agents (build) are NOT injected — OpenCode does not govern
+    expect(data.agents.some((a) => a.id === 'runtime-build')).toBe(false);
+    expect(data.agents.some((a) => a.id.startsWith('runtime-'))).toBe(false);
   });
 
   it('returns the stored catalog when the runtime is unreachable', async () => {

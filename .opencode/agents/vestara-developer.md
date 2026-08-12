@@ -3,13 +3,12 @@ description: "Implement approved tasks — never invent scope."
 mode: primary
 model: opencode/deepseek-v4-flash-free
 permission:
-  edit: allow
-  bash: allow
   read: allow
-  write: allow
+  edit: allow
   glob: allow
   grep: allow
   list: allow
+  bash: allow
   task: allow
   external_directory: deny
 ---

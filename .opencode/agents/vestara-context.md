@@ -3,13 +3,12 @@ description: "Discover repository state before planning begins."
 mode: primary
 model: opencode/deepseek-v4-flash-free
 permission:
-  edit: deny
-  bash: allow
   read: allow
-  write: deny
+  edit: deny
   glob: allow
   grep: allow
   list: allow
+  bash: allow
   task: allow
   external_directory: deny
 ---

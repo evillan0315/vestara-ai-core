@@ -23,21 +23,33 @@ const { CANONICAL_AGENTS } = await import(dataUrl);
 function renderMd(agent) {
   const p = agent.opencodePermissions;
   const model = agent.model?.startsWith('opencode/') ? agent.model : `opencode/${agent.model ?? ''}`;
+  // OpenCode permission keys. Note: no `write` key — writes/edits/patches are
+  // gated by `edit`. Optional single-tool keys are emitted only when set.
+  const permissionKeys = [
+    'read',
+    'edit',
+    'glob',
+    'grep',
+    'list',
+    'bash',
+    'task',
+    'external_directory',
+    'todowrite',
+    'webfetch',
+    'websearch',
+    'lsp',
+    'skill',
+    'question',
+    'doom_loop',
+  ];
+  const permissionLines = permissionKeys.filter((k) => p[k] !== undefined).map((k) => `  ${k}: ${p[k]}`);
   const frontmatter = [
     '---',
     `description: "${agent.description ?? ''}"`,
     `mode: ${agent.mode}`,
     `model: ${model}`,
     'permission:',
-    `  edit: ${p.edit}`,
-    `  bash: ${p.bash}`,
-    `  read: ${p.read}`,
-    `  write: ${p.write}`,
-    `  glob: ${p.glob}`,
-    `  grep: ${p.grep}`,
-    `  list: ${p.list}`,
-    `  task: ${p.task}`,
-    `  external_directory: ${p.external_directory}`,
+    ...permissionLines,
     '---',
     '',
     agent.opencodePrompt.trim(),
@@ -96,7 +108,9 @@ function syncOpencodeJson(label, file) {
   const obj = JSON.parse(readFileSync(file, 'utf8'));
   if (!('agent' in obj)) return;
   if (CHECK) {
-    console.error(`[agents:check] DRIFT in ${file} — unexpected \`agent\` block (agents live in .opencode/agents/*.md)`);
+    console.error(
+      `[agents:check] DRIFT in ${file} — unexpected \`agent\` block (agents live in .opencode/agents/*.md)`,
+    );
     process.exitCode = 1;
     return;
   }
@@ -120,10 +134,14 @@ for (const [label, file] of opencodeJsonTargets) {
 
 if (CHECK) {
   if (process.exitCode === 1) {
-    console.error('[agents:check] FAILED — .opencode/agents/*.md or opencode.json drifted from the canonical registry.');
+    console.error(
+      '[agents:check] FAILED — .opencode/agents/*.md or opencode.json drifted from the canonical registry.',
+    );
     process.exit(1);
   }
-  console.log(`[agents:check] OK — ${CANONICAL_AGENTS.length} canonical agents in sync across both repos; opencode.json agent blocks clear.`);
+  console.log(
+    `[agents:check] OK — ${CANONICAL_AGENTS.length} canonical agents in sync across both repos; opencode.json agent blocks clear.`,
+  );
 } else {
   console.log(`[agents:sync] Done. ${total} agent file(s) written (${CANONICAL_AGENTS.length} per repo × 2 repos).`);
 }

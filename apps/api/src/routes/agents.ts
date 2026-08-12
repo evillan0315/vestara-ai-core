@@ -5,11 +5,14 @@ import type { WorkspaceContext } from '../workspace-context';
 import { getActor, json, readBody } from './types';
 
 /**
- * Merge the stored workspace agents with the OpenCode runtime's native agents
- * (`api/opencode/agents` source). Runtime agents yield/annotate workspace agents
- * via their `runtimeAgent` name; custom workspace agents are never deleted.
+ * Annotate Vestara-governed workspace agents with their OpenCode runtime twin.
+ *
+ * Vestara is the single source of truth for agents. The OpenCode runtime is a
+ * rendering/execution target only — it never introduces agents of its own. Each
+ * stored agent is matched to its native twin by `runtimeAgent` (or `role`) and
+ * annotated, but any runtime agent without a Vestara counterpart is ignored.
  * Returns `null` when the runtime is unreachable so callers fall back to the
- * stored catalog.
+ * stored catalog unchanged.
  */
 async function runtimeSyncedAgents(ctx: WorkspaceContext, stored: any[]): Promise<any[] | null> {
   let runtimeAgents: Array<{ name: string; description?: string; mode?: string; native?: boolean }>;
@@ -19,53 +22,17 @@ async function runtimeSyncedAgents(ctx: WorkspaceContext, stored: any[]): Promis
     return null;
   }
   if (!runtimeAgents.length) return stored;
-  const now = new Date().toISOString();
-  const byRuntimeAgent = new Map(
-    stored
-      .filter((agent) => typeof agent.runtimeAgent === 'string' && agent.runtimeAgent)
-      .map((agent) => [agent.runtimeAgent as string, agent]),
-  );
-  const byRole = new Map(
-    stored
-      .filter((agent) => typeof agent.role === 'string' && agent.role)
-      .map((agent) => [agent.role as string, agent]),
-  );
-  const merged = [...stored.map((agent) => ({ ...agent, source: 'workspace' }))];
-  for (const runtimeAgent of runtimeAgents) {
-    const existing = byRuntimeAgent.get(runtimeAgent.name) ?? byRole.get(runtimeAgent.name);
-    if (existing) {
-      const index = merged.findIndex((agent) => agent.id === existing.id);
-      if (index >= 0) {
-        merged[index] = {
-          ...existing,
-          runtimeAgent: existing.runtimeAgent ?? runtimeAgent.name,
-          source: 'runtime',
-        };
-      }
-      continue;
-    }
-    merged.push({
-      id: `runtime-${runtimeAgent.name}`,
-      name: runtimeAgent.name,
-      role: runtimeAgent.name,
-      agentType: 'workspace',
-      description: runtimeAgent.description ?? `OpenCode runtime agent`,
-      capabilities: [],
-      permissions: [
-        { resource: 'repository', action: 'read', approvalRequired: false },
-        { resource: 'knowledge', action: 'read', approvalRequired: false },
-      ],
-      provider: '',
-      model: '',
-      runtimeAgent: runtimeAgent.name,
-      teamId: '',
-      color: '#6b7280',
-      status: 'active',
-      createdAt: now,
-      source: 'runtime',
-    });
-  }
-  return merged;
+  const runtimeByName = new Map(runtimeAgents.map((agent) => [agent.name, agent]));
+  return stored.map((agent) => {
+    const twin =
+      (typeof agent.runtimeAgent === 'string' && runtimeByName.get(agent.runtimeAgent)) ||
+      (typeof agent.role === 'string' && runtimeByName.get(agent.role));
+    return {
+      ...agent,
+      source: 'workspace',
+      ...(twin ? { runtimeAgent: agent.runtimeAgent ?? twin.name } : {}),
+    };
+  });
 }
 
 export async function handleAgentsRoute(
@@ -78,7 +45,8 @@ export async function handleAgentsRoute(
   if (method === 'GET' && p === '/api/agents') {
     try {
       const stored = await ctx.agents.listAgents();
-      const merged = (await runtimeSyncedAgents(ctx, stored)) ?? stored;
+      const synced = await runtimeSyncedAgents(ctx, stored);
+      const merged = synced ?? stored;
       const enriched = await Promise.all(
         merged.map(async (a) => ({
           ...a,
@@ -90,7 +58,7 @@ export async function handleAgentsRoute(
       json(res, 200, {
         agents: enriched,
         executions: await ctx.agents.listExecutions(),
-        runtime: { reachable: merged.length > 0 && merged.some((a) => a.source === 'runtime') },
+        runtime: { reachable: synced !== null },
       });
     } catch (err: any) {
       json(res, 500, { error: err.message });

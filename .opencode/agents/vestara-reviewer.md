@@ -3,13 +3,12 @@ description: "Review implementations — never modify code."
 mode: subagent
 model: opencode/deepseek-v4-flash-free
 permission:
-  edit: deny
-  bash: allow
   read: allow
-  write: deny
+  edit: deny
   glob: allow
   grep: allow
   list: allow
+  bash: allow
   task: allow
   external_directory: deny
 ---

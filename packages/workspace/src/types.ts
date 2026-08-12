@@ -557,22 +557,38 @@ export interface AgentPermission {
   approvalRequired: boolean;
 }
 
-/** OpenCode native permission grant used by generated `.opencode/agents/*.md`. */
-export type OpenCodePermissionGrant = 'allow' | 'deny';
+/** OpenCode native permission action: `ask` prompts, `allow` permits, `deny` blocks. */
+export type OpenCodePermissionGrant = 'ask' | 'allow' | 'deny';
 
+/**
+ * OpenCode native tool permissions rendered into generated `.opencode/agents/*.md`.
+ *
+ * Keys mirror OpenCode's permission surface. There is deliberately no `write`
+ * key: writes, edits, and patches are all gated by `edit`. The optional keys
+ * (`todowrite`, `webfetch`, `websearch`, `lsp`, `skill`, `question`,
+ * `doom_loop`) gate single tools and are omitted from the generated `.md` when
+ * unset.
+ */
 export interface OpenCodePermissions {
-  edit: OpenCodePermissionGrant;
-  bash: OpenCodePermissionGrant;
   read: OpenCodePermissionGrant;
-  write: OpenCodePermissionGrant;
+  edit: OpenCodePermissionGrant;
   glob: OpenCodePermissionGrant;
   grep: OpenCodePermissionGrant;
   list: OpenCodePermissionGrant;
+  bash: OpenCodePermissionGrant;
   task: OpenCodePermissionGrant;
   external_directory: OpenCodePermissionGrant;
+  todowrite?: OpenCodePermissionGrant;
+  webfetch?: OpenCodePermissionGrant;
+  websearch?: OpenCodePermissionGrant;
+  lsp?: OpenCodePermissionGrant;
+  skill?: OpenCodePermissionGrant;
+  question?: OpenCodePermissionGrant;
+  doom_loop?: OpenCodePermissionGrant;
 }
 
-export type AgentMode = 'primary' | 'subagent';
+/** Aligns with OpenCode AgentConfig.mode enum: "subagent" | "primary" | "all". */
+export type AgentMode = 'primary' | 'subagent' | 'all';
 
 export type AgentType = 'workspace' | 'registry';
 
