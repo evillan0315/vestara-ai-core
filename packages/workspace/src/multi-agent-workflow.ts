@@ -471,4 +471,20 @@ export class MultiAgentWorkflowOrchestrator {
     const payload = userMessage?.payload as { content?: unknown } | undefined;
     return typeof payload?.content === 'string' ? payload.content : 'Continue the workflow';
   }
+
+  /**
+   * Wake an idle workflow toward the addressed agent. Safe: it only resumes the
+   * chain when no sibling thread is actively running, so it never interrupts a
+   * turn in progress. Used by @mention scheduling (a human @mention while the
+   * workflow is waiting should let the addressed agent begin/continue).
+   */
+  async resumeIfIdle(workflowId: string): Promise<{ resumed: boolean; threadId: string | null }> {
+    const runningStates = new Set(['preparing', 'reasoning', 'awaiting-tool', 'executing-tool', 'verifying']);
+    for (const sibling of this.siblingThreads(workflowId)) {
+      const state = this.session.harness.snapshot(sibling.id as TaskThreadId).state;
+      if (runningStates.has(state)) return { resumed: false, threadId: null };
+    }
+    const threadId = await this.resume(workflowId);
+    return { resumed: threadId !== null, threadId };
+  }
 }

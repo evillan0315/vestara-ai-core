@@ -1,17 +1,27 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ActivityItem from './ActivityItem';
-import type { ActivityRecord, ActivityScope, PendingSendState } from './activity-types';
+import { collapseToolRuns, formatTime, hierarchyCategory, matchesDensity, type ActivityCategory } from './activity-formatters';
+import type { ActivityDensity, ActivityProjectionRecord, ActivityRecord, ActivityScope, PendingSendState } from './activity-types';
 
-/** Bounded render window so high event volume never floods the DOM. */
-const RENDER_WINDOW = 300;
+/** Bounded render window (STREAM-PERF-001): this is *bounded windowing* (the
+ * latest N rows are mounted), not true viewport virtualization (only visible
+ * rows mounted). With compact projected rows this performs well; true
+ * virtualization can follow if profiling shows it is necessary. */
+const RENDER_WINDOW = 50;
 
 interface ActivityStreamProps {
-  records: readonly ActivityRecord[];
+  records: readonly ActivityProjectionRecord[];
   selectedAgentId: string | undefined;
   stateLabel: string;
   loading: boolean;
   scope: ActivityScope;
   unread: number;
+  density: ActivityDensity;
+  freshIds?: ReadonlySet<string>;
+  onLoadOlder?: () => void;
+  loadingOlder?: boolean;
+  /** Older records requested via pagination; widens the render window upward. */
+  olderLoaded?: number;
   onClearUnread: () => void;
   onReportViewport: (atBottom: boolean) => void;
   onOpenDetail?: (record: ActivityRecord) => void;
@@ -38,6 +48,11 @@ export default function ActivityStream({
   loading,
   scope,
   unread,
+  density,
+  freshIds,
+  onLoadOlder,
+  loadingOlder,
+  olderLoaded = 0,
   onClearUnread,
   onReportViewport,
   onOpenDetail,
@@ -48,19 +63,25 @@ export default function ActivityStream({
 }: ActivityStreamProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
-  const [showOlder, setShowOlder] = useState(false);
 
   const visible = useMemo(() => {
     return records.filter((record) => {
+      if (!matchesDensity(record, density)) return false;
       if (!matchesScope(record, scope)) return false;
       if (selectedAgentId === undefined) return true;
       return matchesAgent(record, selectedAgentId);
     });
-  }, [records, selectedAgentId, scope]);
+  }, [records, selectedAgentId, scope, density]);
 
-  const clipped = visible.length > RENDER_WINDOW;
-  const rendered = clipped && !showOlder ? visible.slice(visible.length - RENDER_WINDOW) : visible;
-  const hiddenCount = visible.length - rendered.length;
+  // Viewport-bounded window (STREAM-PERF-001): render the latest rows; widen
+  // upward by the number of older records the user explicitly requested.
+  const rendered = visible.slice(-(RENDER_WINDOW + olderLoaded));
+  const hasMore = visible.length > rendered.length;
+
+  // Aggregate consecutive low-level tool events from the same agent into a
+  // single operational row ("Developer · 12 operations") so the timeline never
+  // renders a long run of tool chatter as individual rows.
+  const collapsed = useMemo(() => collapseToolRuns(rendered), [rendered]);
 
   // Map each record to any correction that references it (append-only; the
   // original is never mutated, it is marked corrected).
@@ -135,30 +156,36 @@ export default function ActivityStream({
           </div>
         ) : (
           <>
-            {clipped && (
+            {hasMore && onLoadOlder && (
               <div className="flex items-center justify-center py-1">
                 <button
                   type="button"
-                  onClick={() => setShowOlder(true)}
-                  className="rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1 text-[9px] text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
+                  onClick={() => void onLoadOlder()}
+                  disabled={loadingOlder}
+                  className="rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1 text-[9px] text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer disabled:opacity-50"
                 >
-                  Show {hiddenCount} older records
+                  {loadingOlder ? 'Loading older…' : 'Load older history'}
                 </button>
               </div>
             )}
-            {rendered.map((record) => (
-              <ActivityItem
-                key={record.id}
-                record={record}
-                selectedAgentId={selectedAgentId}
-                onOpenDetail={onOpenDetail}
-                onReference={onReference}
-                onCorrect={onCorrect}
-                correctedBy={correctionsByTarget.get(record.id)}
-                sendState={sendStates?.[record.id]}
-                onRetry={onRetry ? () => onRetry(record.id) : undefined}
-              />
-            ))}
+            {collapsed.map((entry, index) =>
+              entry.kind === 'tools' ? (
+                <AggregatedToolRow key={`tools-${entry.agentId}-${index}`} agentId={entry.agentId} count={entry.count} lastTool={entry.lastTool} timestamp={entry.timestamp} />
+              ) : (
+                <ActivityItem
+                  key={entry.record.id}
+                  record={entry.record}
+                  selectedAgentId={selectedAgentId}
+                  category={hierarchyCategory(entry.record)}
+                  onOpenDetail={onOpenDetail}
+                  onReference={onReference}
+                  onCorrect={onCorrect}
+                  correctedBy={correctionsByTarget.get(entry.record.id)}
+                  sendState={sendStates?.[entry.record.id]}
+                  onRetry={onRetry ? () => onRetry(entry.record.id) : undefined}
+                />
+              ),
+            )}
           </>
         )}
       </div>
@@ -186,6 +213,32 @@ export default function ActivityStream({
           {stateLabel}
         </span>
       </div>
+    </div>
+  );
+}
+
+/** Compact aggregated row for a run of consecutive tool operations. */
+function AggregatedToolRow({
+  agentId,
+  count,
+  lastTool,
+  timestamp,
+}: {
+  agentId: string;
+  count: number;
+  lastTool: string;
+  timestamp: string;
+}) {
+  const name = agentId.toLowerCase().startsWith('vestara-')
+    ? agentId.slice('vestara-'.length).replace(/-/g, ' ')
+    : agentId.replace(/-/g, ' ');
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 text-[10px] text-(--vestara-text-muted)">
+      <span className="shrink-0 font-medium text-(--vestara-text-2)">{name}</span>
+      <span className="shrink-0 text-(--vestara-text-dim)">⌘</span>
+      <span className="truncate">{lastTool || `tool operation`}</span>
+      <span className="ml-auto shrink-0 text-[9px] text-(--vestara-text-dim)">{count} operation{count > 1 ? 's' : ''}</span>
+      <span className="shrink-0 text-[9px] text-(--vestara-text-dim)">{formatTime(timestamp)}</span>
     </div>
   );
 }

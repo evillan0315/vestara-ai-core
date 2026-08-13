@@ -50,15 +50,33 @@ describe('Activity Room WebSocket transport (AAR-001B)', () => {
         const parsed = JSON.parse(data.toString()) as Record<string, unknown>;
         if (parsed.op === 'activity-subscribe') {
           const afterSequence = typeof parsed.afterSequence === 'number' ? parsed.afterSequence : 0;
-          void room.store.list({ afterSequence, limit: 1000 }).then((page) => {
-            if (ws.readyState !== WebSocket.OPEN) return;
-            for (const record of page.records) {
-              ws.send(JSON.stringify({ type: 'activity.appended', sequence: record.sequence, activity: record }));
+          attachedId = `activity-${Math.random().toString(36).slice(2)}`;
+          // Mirror the gateway handler: attach at the true latest sequence FIRST
+          // (so appends during replay stream live), then page the full missed
+          // history instead of truncating at a single 1000-record window.
+          void (async () => {
+            let frontier = afterSequence;
+            try {
+              frontier = await room.store.lastSequence();
+            } catch {
+              /* ignore */
             }
-            const last = page.records.at(-1)?.sequence ?? afterSequence;
-            attachedId = `activity-${Math.random().toString(36).slice(2)}`;
-            room.hub.attach(attachedId, { send: (message) => ws.send(JSON.stringify(message)) }, last);
-          });
+            if (ws.readyState === WebSocket.OPEN) {
+              room.hub.attach(attachedId, { send: (message) => ws.send(JSON.stringify(message)) }, frontier);
+            }
+            let cursor = afterSequence;
+            for (;;) {
+              const page = await room.store.list({ afterSequence: cursor, limit: 1000 });
+              if (page.records.length === 0) break;
+              if (ws.readyState !== WebSocket.OPEN) return;
+              for (const record of page.records) {
+                ws.send(JSON.stringify({ type: 'activity.appended', sequence: record.sequence, activity: record }));
+              }
+              const next = page.nextSequence;
+              if (next === undefined) break;
+              cursor = next;
+            }
+          })();
         }
       });
       ws.on('close', () => {
@@ -158,6 +176,24 @@ describe('Activity Room WebSocket transport (AAR-001B)', () => {
     const serialized = JSON.stringify(client.messages);
     expect(serialized).not.toMatch(/sk-[A-Za-z0-9]{20,}/);
     expect(serialized).toContain('[REDACTED]');
+    client.ws.close();
+  });
+
+  it('delivers live broadcasts when missed history exceeds the 1000-record replay window', async () => {
+    room = createActivityRoom();
+    // Seed more records than the per-page limit so replay must page and the hub
+    // checkpoint must be the true frontier (not the 1000th record's sequence).
+    for (let i = 0; i < 1500; i++) {
+      await room.service.project(taskEvent(`ws-bulk-${i}`, `task-bulk-${i}`));
+    }
+    const client = await openClient(0);
+    // Replay must deliver more than a single page.
+    await waitFor(async () => appended(client.messages).length >= 1000);
+    // A record appended after subscribe must still arrive. With the old
+    // single-window replay the hub checkpoint lagged the frontier and this
+    // record was held as an out-of-order gap and silently dropped.
+    await room.service.project(taskEvent('ws-live', 'task-live'));
+    await waitFor(async () => appended(client.messages).includes(1501));
     client.ws.close();
   });
 });

@@ -20,6 +20,8 @@ interface ActivitySidebarProps {
   onSelectAgent: (agentId: string | undefined) => void;
   /** Real participants of the selected workflow; falls back to the agent catalog. */
   participants?: readonly WorkflowParticipant[];
+  /** Unread (pending-observation) human-message count per agent id. */
+  unreadByAgent?: Readonly<Record<string, number>>;
 }
 
 const SECTION_LABELS: Array<{ key: PresenceGroup; label: string }> = [
@@ -51,7 +53,13 @@ function lastActivityFor(records: readonly ActivityRecord[], agentId: string): s
   return latest ? formatRelative(latest.timestamp) : undefined;
 }
 
-export default function ActivitySidebar({ records, selectedAgentId, onSelectAgent, participants }: ActivitySidebarProps) {
+export default function ActivitySidebar({
+  records,
+  selectedAgentId,
+  onSelectAgent,
+  participants,
+  unreadByAgent,
+}: ActivitySidebarProps) {
   const telemetry = useTelemetryStore();
 
   const agents = useMemo(
@@ -83,12 +91,17 @@ export default function ActivitySidebar({ records, selectedAgentId, onSelectAgen
     return grouped;
   }, [agents]);
 
-  const activeCount = agents.filter((agent) => presenceOf(agent.status) === 'active').length;
-  const waitingCount = agents.filter((agent) => presenceOf(agent.status) === 'waiting').length;
+  const activeCount = participants
+    ? participants.filter((participant) => ['active', 'running', 'reasoning'].includes(participant.executionState))
+        .length
+    : agents.filter((agent) => presenceOf(agent.status) === 'active').length;
+  const waitingCount = participants
+    ? participants.filter((participant) => ['waiting', 'queued', 'pending'].includes(participant.executionState)).length
+    : agents.filter((agent) => presenceOf(agent.status) === 'waiting').length;
 
   return (
     <div className="flex h-full flex-col gap-3">
-      <div className="px-3">
+      <div className="px-1 sm:px-3">
         <button
           type="button"
           onClick={() => onSelectAgent(undefined)}
@@ -98,7 +111,9 @@ export default function ActivitySidebar({ records, selectedAgentId, onSelectAgen
               : 'bg-transparent border-transparent hover:bg-(--vestara-accent-bg)'
           }`}
         >
-          <span className="text-xs font-medium text-(--vestara-text-2)">{participants && participants.length > 0 ? 'Workflow Participants' : 'All Agents'}</span>
+          <span className="text-xs font-medium text-(--vestara-text-2)">
+            {participants && participants.length > 0 ? 'Workflow Participants' : 'All Agents'}
+          </span>
           <span className="text-[10px] text-(--vestara-text-muted)">
             {activeCount} active{waitingCount > 0 ? ` · ${waitingCount} waiting` : ''}
           </span>
@@ -108,25 +123,45 @@ export default function ActivitySidebar({ records, selectedAgentId, onSelectAgen
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-1">
         {participants && participants.length > 0 ? (
           participants.map((participant) => (
-            <div key={participant.threadId} className="space-y-0.5">
-              <div className="px-3 py-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-medium text-(--vestara-text-2)">
-                    {participant.role[0].toUpperCase() + participant.role.slice(1)}
-                  </span>
-                  <span className={`text-[10px] ${STATE_COLOR[participant.executionState] ?? 'text-(--vestara-text-muted)'}`}>
+            <button
+              key={participant.threadId}
+              type="button"
+              onClick={() => onSelectAgent(selectedAgentId === participant.agentId ? undefined : participant.agentId)}
+              className={`w-full px-3 py-2 rounded-lg border text-left transition-colors cursor-pointer ${
+                selectedAgentId === participant.agentId
+                  ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)'
+                  : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg) hover:border-(--vestara-accent-border-hover)'
+              }`}
+              aria-pressed={selectedAgentId === participant.agentId}
+            >
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-(--vestara-text-2)">
+                  {participant.role[0].toUpperCase() + participant.role.slice(1)}
+                </span>
+                <span className="flex items-center gap-1.5">
+                  {(unreadByAgent?.[participant.agentId] ?? 0) > 0 && (
+                    <span
+                      className="flex h-4 min-w-4 items-center justify-center rounded-full bg-(--vestara-amber) px-1 text-[9px] font-semibold text-black"
+                      title={`${unreadByAgent?.[participant.agentId]} unread human message(s)`}
+                    >
+                      {unreadByAgent?.[participant.agentId]}
+                    </span>
+                  )}
+                  <span
+                    className={`text-[10px] ${STATE_COLOR[participant.executionState] ?? 'text-(--vestara-text-muted)'}`}
+                  >
                     {participant.executionState}
                   </span>
-                </div>
-                <div className="mt-0.5 text-[10px] text-(--vestara-text-muted)">{participant.agentId}</div>
-                {participant.lastActivityAt && (
-                  <div className="mt-1 text-[9px] text-(--vestara-text-dim)">
-                    Last activity: {formatRelative(participant.lastActivityAt)}
-                    {participant.lastActivity ? ` — ${participant.lastActivity.slice(0, 40)}` : ''}
-                  </div>
-                )}
+                </span>
               </div>
-            </div>
+              <div className="mt-0.5 text-[10px] text-(--vestara-text-muted)">{participant.agentId}</div>
+              {participant.lastActivityAt && (
+                <div className="mt-1 text-[9px] text-(--vestara-text-dim)">
+                  Last activity: {formatRelative(participant.lastActivityAt)}
+                  {participant.lastActivity ? ` — ${participant.lastActivity.slice(0, 40)}` : ''}
+                </div>
+              )}
+            </button>
           ))
         ) : agents.length === 0 ? (
           <p className="px-3 text-[10px] text-(--vestara-text-muted)">No participants yet.</p>

@@ -142,7 +142,7 @@ describe('Activity messaging (AAR-001E)', () => {
     // copy of the message remains and the sending state clears.
     await waitFor(() => expect(screen.getAllByText('Hello agents')).toHaveLength(1));
     await waitFor(() => expect(screen.queryByText('Sending…')).toBeNull());
-    expect(screen.getByText(/Sequence 3 · 3 records/)).toBeTruthy();
+    expect(screen.getAllByText(/3 records/).length).toBeGreaterThan(0);
   });
 
   it('sends to the selected agent and mentions open a target menu', async () => {
@@ -150,8 +150,8 @@ describe('Activity messaging (AAR-001E)', () => {
     await waitFor(() => expect(screen.getByText('project phase changed')).toBeTruthy());
 
     // Select the engineer in the sidebar, then the composer targets them.
-    fireEvent.click(screen.getByText('Engineer'));
-    expect(screen.getByText(/To engineer/)).toBeTruthy();
+    fireEvent.click(screen.getByText('Developer'));
+    expect(screen.getByText(/To developer/)).toBeTruthy();
 
     fireEvent.change(screen.getByLabelText('Message composer'), { target: { value: 'Direct question' } });
     fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
@@ -159,7 +159,7 @@ describe('Activity messaging (AAR-001E)', () => {
     await waitFor(() =>
       expect(fetchImpl).toHaveBeenCalledWith(
         '/api/messages',
-        expect.objectContaining({ body: expect.stringContaining('"agentId":"engineer"') }),
+        expect.objectContaining({ body: expect.stringContaining('"agentId":"developer"') }),
       ),
     );
 

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchEffectiveState, type EffectiveState } from '../../lib/activity';
+import type { ActivityScope } from './activity-types';
 
 /**
  * Effective state — the projection of durable history (Direction 2).
@@ -7,26 +8,42 @@ import { fetchEffectiveState, type EffectiveState } from '../../lib/activity';
  * activity semantics, or the raw stream. "Nothing needs your attention" is a
  * useful positive state, not an empty one. Always derived, never authoritative.
  */
-export default function ActivityStatePanel() {
+export default function ActivityStatePanel({ scope }: { scope: ActivityScope }) {
   const [state, setState] = useState<EffectiveState | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
     let disposed = false;
-    void fetchEffectiveState().then((next) => {
-      if (!disposed) setState(next);
+    setState(null);
+    setStatus('loading');
+    void fetchEffectiveState(scope).then((next) => {
+      if (disposed) return;
+      setState(next);
+      setStatus(next === null ? 'error' : 'ready');
     });
     return () => {
       disposed = true;
     };
-  }, []);
+  }, [scope]);
 
-  const attentionSummary = state === null ? 'Computing…' : state.needsAttention > 0
+  const attentionSummary = status === 'loading' ? 'Checking attention…' : status === 'error' ? 'Unavailable' : state !== null && state.needsAttention > 0
     ? `${state.needsAttention} item(s) need your attention`
     : 'Nothing needs your attention';
 
+  // Attention Bar tone: healthy (green), attention (amber), approval (blue),
+  // blocked (red) — "routine stays quiet, exceptional becomes prominent".
+  const approvals = state?.open.filter((item) => item.effect === 'authorization').length ?? 0;
+  const tone = status === 'loading'
+    ? { label: 'Checking…', icon: '◐', cls: 'border-(--vestara-accent-border) text-(--vestara-text-muted)' }
+    : status === 'error'
+      ? { label: 'Unavailable', icon: '✕', cls: 'border-(--vestara-red)/40 bg-(--vestara-red)/5 text-(--vestara-red)' }
+      : state && state.needsAttention > 0
+        ? { label: approvals > 0 ? 'Approval required' : 'Attention required', icon: approvals > 0 ? '●' : '⚠', cls: 'border-(--vestara-amber)/40 bg-(--vestara-amber)/5 text-(--vestara-amber)' }
+        : { label: 'Healthy', icon: '✓', cls: 'border-(--vestara-green)/40 bg-(--vestara-green)/5 text-(--vestara-green)' };
+
   return (
-    <div className="shrink-0 rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2">
+    <div className={`shrink-0 rounded-xl border px-3 py-2 ${tone.cls}`}>
       <button
         type="button"
         onClick={() => setExpanded((value) => !value)}
@@ -34,16 +51,20 @@ export default function ActivityStatePanel() {
         aria-expanded={expanded}
       >
         <span className="flex items-center gap-2">
-          <span className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Effective state</span>
-          <span className={`text-[10px] ${state !== null && state.needsAttention > 0 ? 'text-(--vestara-amber)' : 'text-(--vestara-green)'}`}>
-            {attentionSummary}
+          <span className="text-[9px] font-semibold uppercase tracking-widest opacity-90">Effective state{scope.workflowId || scope.sessionId ? ' · scoped' : ''}</span>
+          <span className="text-[10px] font-medium">
+            {tone.icon} {tone.label} — {attentionSummary}
           </span>
         </span>
-        <span className="text-[9px] text-(--vestara-text-dim)">{expanded ? 'Hide' : 'Details'} · derived from history</span>
+        <span className="text-[9px] opacity-70">{expanded ? 'Hide' : 'Details'} · derived from history</span>
       </button>
 
-      {expanded && state !== null && (
+      {expanded && (
         <div className="mt-2 space-y-1.5">
+          {status === 'loading' && <p className="text-[10px] text-(--vestara-text-muted)">Derived state is being refreshed for this scope.</p>}
+          {status === 'error' && <p className="text-[10px] text-(--vestara-amber)">Derived state is temporarily unavailable. Activity history is still available below.</p>}
+          {state !== null && (
+            <>
           {state.corrections.length > 0 && (
             <div>
               <div className="text-[8px] uppercase tracking-wider text-(--vestara-text-dim)">Corrections</div>
@@ -79,6 +100,8 @@ export default function ActivityStatePanel() {
                 </div>
               ))}
             </div>
+          )}
+            </>
           )}
         </div>
       )}

@@ -146,27 +146,36 @@ describe('Activity hardening (AAR-001G)', () => {
     await waitFor(() => expect(screen.getByTestId('unread').textContent).toBe('0'));
   });
 
-  it('virtualizes a large stream behind a "show older" control', async () => {
+  it('bounds a large stream behind a "load older" pagination control', async () => {
     const many = Array.from({ length: 320 }, (_, index) => record(`activity:bulk-${index}`, `bulk ${index}`));
-    fetchImpl?.mockImplementation(async () => ({
-      ok: true,
-      json: async () => ({
-        records: many,
-        firstSequence: 1,
-        lastSequence: many.length,
-        nextSequence: many.length + 1,
-      }),
-    }));
+    // Mirror the server: the initial fetch is the LATEST bounded window
+    // (seq 71–320), and beforeSequence returns the adjacent older page.
+    fetchImpl?.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const before = Number(new URL(url, 'http://x').searchParams.get('beforeSequence') ?? 0);
+      const page = before ? many.filter((r) => r.sequence < before).slice(-250) : many.slice(-250);
+      return {
+        ok: true,
+        json: async () => ({
+          records: page,
+          firstSequence: 1,
+          lastSequence: many.length,
+          nextSequence: many.length + 1,
+        }),
+      };
+    });
 
     renderRoom();
-    await waitFor(() => expect(screen.getByText(/^320 records$/)).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^250 records$/)).toBeTruthy());
 
-    // The newest record is rendered, the oldest is clipped behind the control.
+    // The newest record is rendered; older records are clipped behind the control.
     expect(screen.getByText('bulk 319')).toBeTruthy();
-    expect(screen.queryByText('bulk 0')).toBeNull();
-    expect(screen.getByText('Show 20 older records')).toBeTruthy();
+    expect(screen.queryByText('bulk 200')).toBeNull();
+    expect(screen.getByText('Load older history')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Show 20 older records'));
-    await waitFor(() => expect(screen.getByText('bulk 0')).toBeTruthy());
+    fireEvent.click(screen.getByText('Load older history'));
+    // The window widens upward so the previously clipped older page is reachable.
+    await waitFor(() => expect(screen.getByText('bulk 200')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText(/^320 records$/)).toBeTruthy());
   }, 15000);
 });

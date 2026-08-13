@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { VestaraModal } from '../../components/ui/VestaraModal';
+import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer';
 import {
   actorInitials,
   effectAccent,
@@ -10,10 +11,10 @@ import {
   severityAccent,
   severityOfRecord,
 } from './activity-formatters';
-import type { ActivityRecord } from './activity-types';
+import type { ActivityProjectionRecord, ActivityRecord } from './activity-types';
 
 interface ActivityDetailModalProps {
-  record: ActivityRecord | null;
+  record: ActivityProjectionRecord | null;
   onClose: () => void;
   /** Records available to resolve related/corrected ids to readable titles. */
   records?: readonly ActivityRecord[];
@@ -114,24 +115,57 @@ function technicalRows(record: ActivityRecord): Array<{ label: string; value: st
   return rows;
 }
 
-export default function ActivityDetailModal({ record, onClose, records }: ActivityDetailModalProps) {
+export default function ActivityDetailModal({ record: recordProp, onClose, records }: ActivityDetailModalProps) {
+  const [fullRecord, setFullRecord] = useState<ActivityRecord | null>(null);
+
+  // Lazy detail hydration (STREAM-PERF): the list serves truncated projections;
+  // when a record is flagged `hasDetails`, fetch the full raw record on demand.
   useEffect(() => {
-    if (record === null) return;
+    if (recordProp === null) {
+      setFullRecord(null);
+      return;
+    }
+    if (!recordProp.hasDetails) {
+      setFullRecord(recordProp);
+      return;
+    }
+    let disposed = false;
+    setFullRecord(null);
+    fetch(`/api/activity-room/${encodeURIComponent(recordProp.id)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (disposed) return;
+        setFullRecord(((data as { record?: ActivityRecord })?.record ?? recordProp) as ActivityRecord);
+      })
+      .catch(() => {
+        if (!disposed) setFullRecord(recordProp);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [recordProp]);
+
+  useEffect(() => {
+    if (recordProp === null) return;
     const onKey = (event: KeyboardEvent): void => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [record, onClose]);
+  }, [recordProp, onClose]);
 
-  if (record === null) return null;
+  if (recordProp === null) return null;
+  const record = fullRecord ?? recordProp;
+  const loadingDetails = recordProp.hasDetails === true && fullRecord === null;
 
   const severity = severityOfRecord(record);
   const rows = technicalRows(record);
   const checks = record.kind === 'verification' ? record.checks : undefined;
-  const contextParts = [record.workflowId && `Workflow ${record.workflowId}`, record.sessionId && `Session ${record.sessionId}`, record.taskId && `Task ${record.taskId}`].filter(
-    Boolean,
-  );
+  const contextParts = [
+    record.workflowId && `Workflow ${record.workflowId}`,
+    record.sessionId && `Session ${record.sessionId}`,
+    record.taskId && `Task ${record.taskId}`,
+  ].filter(Boolean);
 
   return (
     <VestaraModal onClose={onClose} ariaLabel={`${kindLabel(record.kind)} activity details`} className="max-w-2xl">
@@ -142,7 +176,7 @@ export default function ActivityDetailModal({ record, onClose, records }: Activi
           <button
             type="button"
             onClick={onClose}
-            className="ml-auto flex h-6 w-6 items-center justify-center rounded-md border border-(--vestara-accent-border) text-xs text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
+             className="ml-auto flex h-11 w-11 items-center justify-center rounded-md border border-(--vestara-accent-border) text-xs text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
             aria-label="Close details"
           >
             ✕
@@ -171,7 +205,12 @@ export default function ActivityDetailModal({ record, onClose, records }: Activi
           </div>
 
           <div className="mt-2 rounded-lg border-l-2 bg-(--vestara-accent-bg) px-3 py-2" style={{ borderLeftColor: severityAccent(severity) }}>
-            <div className="text-[12px] leading-relaxed text-(--vestara-text)">{contentLine(record)}</div>
+            {loadingDetails && (
+              <p className="mb-1 text-[10px] text-(--vestara-text-muted)">Loading full details…</p>
+            )}
+            <div className="text-[12px] leading-relaxed text-(--vestara-text)">
+              <MarkdownRenderer content={contentLine(record)} />
+            </div>
             {contextParts.length > 0 && (
               <div className="mt-1 text-[9px] text-(--vestara-text-dim)">{contextParts.join(' · ')}</div>
             )}

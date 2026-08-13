@@ -2,11 +2,17 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
-import type { ActivityOrganizationalEffect, AgentMessageActivity, MessageTarget } from '@vestara/activity-projection';
+import type {
+  ActivityOrganizationalEffect,
+  ActivityRecord,
+  AgentMessageActivity,
+  MessageTarget,
+} from '@vestara/activity-projection';
 import { projectEffectiveState, toActivityBatch } from '@vestara/activity-projection';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
+import * as messageReceipts from '../message-receipts';
 import type { WorkspaceContext } from '../workspace-context';
 
 const ACTIVITY_KIND_VALUES = new Set(['workflow', 'task', 'agent-message', 'test', 'verification']);
@@ -28,6 +34,24 @@ const EFFECT_VALUES = new Set<ActivityOrganizationalEffect>([
 const MAX_LIMIT = 1000;
 const DEFAULT_LIMIT = 100;
 const MAX_MESSAGE_LENGTH = 4000;
+/** Inline preview budget for timeline records (STREAM-PERF: raw details are lazy). */
+const PREVIEW_BUDGET = 400;
+
+/**
+ * Project a stored record for the timeline list: large agent content is
+ * truncated to a preview budget and flagged `hasDetails`, so the primary
+ * timeline never transfers/renders 30 KB transcripts. The full raw record is
+ * served on demand by `GET /api/activity-room/:id`.
+ */
+export function projectActivity(record: ActivityRecord): ActivityRecord & { hasDetails?: boolean } {
+  if (record.kind !== 'agent-message') return record;
+  const content = record.content ?? '';
+  if (content.length <= PREVIEW_BUDGET) return record;
+  const slice = content.slice(0, PREVIEW_BUDGET);
+  const boundary = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf(' '));
+  const cut = boundary > PREVIEW_BUDGET * 0.5 ? slice.slice(0, boundary) : slice;
+  return { ...record, content: `${cut}…`, hasDetails: true };
+}
 
 function integer(value: string | null): number | undefined {
   if (value === null) return undefined;
@@ -82,12 +106,20 @@ export async function handleActivityRoomRoute(
   room: ActivityRoom = getActivityRoom(),
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/activity-room') {
-    const page = await room.store.list(parseActivityQuery(url));
+    const query = parseActivityQuery(url);
+    // STREAM-PERF-001: initial load is the LATEST bounded window, not the oldest
+    // history. Explicit cursors (beforeSequence/afterSequence) pass through.
+    let effective = query;
+    if (query.afterSequence === undefined && query.beforeSequence === undefined) {
+      const last = await room.store.lastSequence();
+      effective = { ...query, afterSequence: Math.max(0, last - (query.limit ?? DEFAULT_LIMIT)) };
+    }
+    const page = await room.store.list(effective);
     const batch = toActivityBatch(page.records);
     json(res, 200, {
       firstSequence: batch.firstSequence,
       lastSequence: batch.lastSequence,
-      records: batch.records,
+      records: batch.records.map(projectActivity),
       nextSequence: page.nextSequence,
     });
     return true;
@@ -96,7 +128,7 @@ export async function handleActivityRoomRoute(
   // Effective state — a live recompute over the durable history (Direction 2).
   // History is authoritative; this projection is derived and never persisted.
   if (method === 'GET' && p === '/api/activity-room/state') {
-    const page = await room.store.list({});
+    const page = await room.store.list(parseActivityQuery(url));
     json(res, 200, projectEffectiveState(page.records));
     return true;
   }
@@ -141,13 +173,51 @@ export async function handleActivityRoomRoute(
   }
 
   if (method === 'POST' && p === '/api/messages') {
-    await sendActivityMessage(room, req, res, undefined);
+    const body = await parseBody(req);
+    if (await handleMessageCommand(ctx, res, body)) return true;
+    const record = await sendActivityMessage(room, res, undefined, body);
+    if (record) {
+      registerReceiptsForMessage(ctx, record);
+      void maybeWakeAddressedAgent(ctx, record);
+    }
     return true;
   }
 
   const direct = p.match(/^\/api\/agents\/([^/]+)\/messages$/);
   if (method === 'POST' && direct !== null) {
-    await sendActivityMessage(room, req, res, decodeURIComponent(direct[1]));
+    const agentId = decodeURIComponent(direct[1]);
+    const body = await parseBody(req);
+    const record = await sendActivityMessage(room, res, agentId, body);
+    if (record) {
+      registerReceiptsForMessage(ctx, record, agentId);
+      void maybeWakeAddressedAgent(ctx, record, agentId);
+    }
+    return true;
+  }
+
+  // Message delivery/observation receipts (the human → agent trust model).
+  const receiptsMatch = p.match(/^\/api\/activity-room\/messages\/([^/]+)\/receipts$/);
+  if (method === 'GET' && receiptsMatch !== null) {
+    const messageId = decodeURIComponent(receiptsMatch[1]);
+    const record = await room.store.get(messageId);
+    if (record === null) {
+      json(res, 404, { error: { code: 'NOT_FOUND', message: `Message not found: ${messageId}` } });
+      return true;
+    }
+    json(res, 200, { messageId, receipts: messageReceipts.receiptsForMessage(messageId) });
+    return true;
+  }
+
+  // Aggregated message receipts + unread counts for a workflow (used for the
+  // participant unread badges and the attention bar).
+  const workflowReceiptsMatch = p.match(/^\/api\/activity-room\/workflows\/([^/]+)\/message-receipts$/);
+  if (method === 'GET' && workflowReceiptsMatch !== null) {
+    const workflowId = decodeURIComponent(workflowReceiptsMatch[1]);
+    json(res, 200, {
+      workflowId,
+      receiptsByMessage: messageReceipts.receiptsForWorkflow(workflowId),
+      unreadByAgent: messageReceipts.unreadCountsForWorkflow(workflowId),
+    });
     return true;
   }
 
@@ -177,6 +247,55 @@ function readBody(req: http.IncomingMessage): Promise<string> {
   });
 }
 
+/** Read + parse the request body once (callers must not read the stream again). */
+async function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  try {
+    const raw = await readBody(req);
+    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+  } catch {
+    return {};
+  }
+}
+
+/**
+ * Workflow control-plane commands (`/resume`, `/verify`, `/pause`, `/stop`)
+ * are intercepted here rather than becoming conversational messages. `resume`
+ * and `verify` continue the workflow chain; pause/stop are acknowledged (full
+ * in-flight cancellation is not yet available). Returns true when handled.
+ */
+async function handleMessageCommand(
+  ctx: WorkspaceContext,
+  res: http.ServerResponse,
+  body: Record<string, unknown>,
+): Promise<boolean> {
+  const content = typeof body.content === 'string' ? body.content.trim() : '';
+  const match = /^\/(resume|verify|pause|stop)(\s|$)/i.exec(content);
+  if (!match) return false;
+  const command = match[1].toLowerCase();
+  const workflowId = typeof body.workflowId === 'string' ? body.workflowId : '';
+  if ((command === 'resume' || command === 'verify') && !workflowId) {
+    json(res, 400, { error: { code: 'MISSING_WORKFLOW', message: `/workflowId is required for /${command}` } });
+    return true;
+  }
+  if (command === 'resume' || command === 'verify') {
+    try {
+      const resumedThreadId = await ctx.multiAgentWorkflow.resume(workflowId);
+      json(res, 200, { ok: true, command, workflowId, resumedThreadId });
+    } catch (error) {
+      json(res, 500, {
+        error: { code: 'CONTROL_FAILED', message: error instanceof Error ? error.message : 'Failed to resume' },
+      });
+    }
+    return true;
+  }
+  json(res, 200, {
+    ok: false,
+    command,
+    message: `/${command} is not yet supported for running workflows.`,
+  });
+  return true;
+}
 function stringField(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
 }
@@ -209,33 +328,26 @@ function parseTargets(value: unknown): readonly MessageTarget[] | undefined {
 /** Validates and appends a human message, broadcasting it to the room. */
 async function sendActivityMessage(
   room: ActivityRoom,
-  req: http.IncomingMessage,
   res: http.ServerResponse,
   directAgentId: string | undefined,
-): Promise<void> {
-  let body: unknown;
-  try {
-    body = JSON.parse((await readBody(req)) || '{}') as unknown;
-  } catch {
+  body: Record<string, unknown>,
+): Promise<AgentMessageActivity | null> {
+  if (Object.keys(body).length === 0) {
     json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body must be valid JSON' } });
-    return;
-  }
-  if (body === null || typeof body !== 'object') {
-    json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body must be an object' } });
-    return;
+    return null;
   }
 
-  const record = body as Record<string, unknown>;
+  const record = body;
   const content = stringField(record.content);
   if (content === undefined) {
     json(res, 400, { error: { code: 'EMPTY_CONTENT', message: 'content is required' } });
-    return;
+    return null;
   }
   if (content.length > MAX_MESSAGE_LENGTH) {
     json(res, 400, {
       error: { code: 'CONTENT_TOO_LONG', message: `content exceeds ${MAX_MESSAGE_LENGTH} characters` },
     });
-    return;
+    return null;
   }
 
   let targets: readonly MessageTarget[];
@@ -247,7 +359,7 @@ async function sendActivityMessage(
       json(res, 400, {
         error: { code: 'INVALID_TARGETS', message: 'targets must be [all-agents] or [agent { agentId }]' },
       });
-      return;
+      return null;
     }
     targets = parsed;
   }
@@ -258,7 +370,7 @@ async function sendActivityMessage(
   for (const activityId of referenced) {
     if ((await room.store.get(activityId)) === null) {
       json(res, 400, { error: { code: 'UNKNOWN_REFERENCE', message: `Referenced activity not found: ${activityId}` } });
-      return;
+      return null;
     }
   }
 
@@ -281,7 +393,7 @@ async function sendActivityMessage(
     json(res, 400, {
       error: { code: 'UNKNOWN_CORRECTION_TARGET', message: `Corrected activity not found: ${correctionOf}` },
     });
-    return;
+    return null;
   }
   const effectiveEffect = effect ?? (correctionOf !== undefined ? 'intervention' : undefined);
 
@@ -309,11 +421,60 @@ async function sendActivityMessage(
   };
 
   try {
-    const appended = await room.service.appendActivity(message);
+    const appended = (await room.service.appendActivity(message)) as AgentMessageActivity;
     json(res, 201, { record: appended });
+    return appended;
   } catch (error) {
     json(res, 500, {
       error: { code: 'APPEND_FAILED', message: error instanceof Error ? error.message : 'Failed to append message' },
     });
+    return null;
+  }
+}
+
+/**
+ * Seed delivery receipts for a human message across the workflow's participant
+ * agents. Direct agent messages address only that agent; otherwise addressing
+ * follows @mentions parsed from the content.
+ */
+function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageActivity, forcedAgentId?: string): void {
+  const workflowId = record.workflowId;
+  const participantAgentIds: string[] = [];
+  const agentRoles = new Map<string, string>();
+  if (workflowId) {
+    for (const thread of ctx.agentThreadStore.listThreads()) {
+      if (thread.metadata?.workflowId !== workflowId) continue;
+      const agentId = String(thread.metadata?.agentId ?? '');
+      if (!agentId) continue;
+      participantAgentIds.push(agentId);
+      agentRoles.set(agentId, String(thread.metadata?.role ?? ''));
+    }
+  }
+  if (participantAgentIds.length === 0 && forcedAgentId) participantAgentIds.push(forcedAgentId);
+  const forced = forcedAgentId ? new Set([forcedAgentId]) : undefined;
+  messageReceipts.registerMessage(record, participantAgentIds, agentRoles, forced);
+}
+
+/**
+ * @mention scheduling: when a human message is addressed to an agent and the
+ * workflow is idle (no turn in progress), wake the chain so the addressed
+ * agent can begin/continue. Best-effort and never interrupts an active run.
+ */
+async function maybeWakeAddressedAgent(
+  ctx: WorkspaceContext,
+  record: AgentMessageActivity,
+  forcedAgentId?: string,
+): Promise<void> {
+  const workflowId = record.workflowId;
+  if (!workflowId) return;
+  const content = record.content ?? '';
+  // Wake when the message addresses someone (a direct agent message or an
+  // @mention in the content); broadcast-only messages leave the chain as-is.
+  const mentioned = /\B@[\w-]+/.test(content);
+  if (!mentioned && forcedAgentId === undefined) return;
+  try {
+    await ctx.multiAgentWorkflow.resumeIfIdle(workflowId);
+  } catch {
+    /* waking is best-effort */
   }
 }

@@ -44,7 +44,13 @@ export class SqliteActivityStore implements ActivityStore {
     const rows = this.db.exec('SELECT payload_json FROM activity_events ORDER BY sequence, id')[0]?.values ?? [];
     const records = (rows as unknown[][]).map((row) => JSON.parse(String(row[0])) as ActivityRecord);
     const matches = records.filter((record) => matchesQuery(record, query));
-    const limited = query.limit !== undefined && query.limit >= 0 ? matches.slice(0, query.limit) : matches;
+    // beforeSequence = backward cursor pagination (latest N below the cursor).
+    const limited =
+      query.limit !== undefined && query.limit >= 0
+        ? query.beforeSequence !== undefined
+          ? matches.slice(-query.limit)
+          : matches.slice(0, query.limit)
+        : matches;
     const last = limited.at(-1);
     return {
       records: limited,

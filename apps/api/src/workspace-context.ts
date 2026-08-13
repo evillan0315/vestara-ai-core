@@ -8,6 +8,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
+import type { AgentMessageActivity } from '@vestara/activity-projection';
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
@@ -116,6 +117,7 @@ import {
   WorkspaceUiWatcher,
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
+import { getActivityRoom } from './activity-room';
 import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
@@ -123,6 +125,7 @@ import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
 import { resolveVisualScenarios } from './evidence/visual-scenarios.js';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
+import * as messageReceipts from './message-receipts';
 import { type OpenCodeRuntimeService, openCodeRuntimeService } from './opencode-runtime-service';
 import { runToolLoop } from './routes/chat';
 import { restoreProviderConfigurations } from './routes/providers';
@@ -770,6 +773,21 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         `Workspace: ${environment.workspaceRoot}`,
         `Policies: network=${environment.networkPolicy} filesystem=${environment.filesystemPolicy} process=${environment.processPolicy}`,
       ];
+      // Inject recent human messages so agents observe broadcast messages and
+      // are addressed by @mentions. Messages without an @mention are observed
+      // (shared workflow context); a mention names the intended responder.
+      const agentId = String((thread.metadata as { agentId?: unknown })?.agentId ?? '');
+      const role = String((thread.metadata as { role?: unknown })?.role ?? '');
+      const humanMessages = await recentHumanMessages(thread);
+      if (humanMessages.length > 0) {
+        lines.push('Recent human messages (observe all; respond when ADDRESSED):');
+        for (const message of humanMessages) {
+          const addressed = messageReceipts.messageTargetsAgent(message.content, agentId, role);
+          // Record delivery/observation so the Activity Room can show receipts.
+          if (agentId) messageReceipts.markMessageObserved(message.id, agentId);
+          lines.push(`- [${addressed ? 'ADDRESSED' : 'observed'}] ${message.actor.displayName}: ${message.content}`);
+        }
+      }
       const recentResults = replay.items.filter((item) => item.kind === 'tool-result').slice(-8);
       for (const item of recentResults) {
         const p = item.payload as { toolName?: unknown; status?: unknown };
@@ -778,6 +796,24 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       return lines.join('\n');
     },
   };
+
+  // Recent human activity messages for the thread's workflow. Broadcast messages
+  // are observed by every participant; an @mention addresses a specific agent.
+  function recentHumanMessages(thread: {
+    metadata: Readonly<Record<string, unknown>>;
+  }): Promise<AgentMessageActivity[]> {
+    const workflowId = String(thread.metadata.workflowId ?? '');
+    if (!workflowId) return Promise.resolve([]);
+    return getActivityRoom()
+      .store.list({ workflowId, kind: 'agent-message', limit: 50 })
+      .then((page) =>
+        page.records.filter(
+          (record): record is AgentMessageActivity => record.kind === 'agent-message' && record.actor.type === 'human',
+        ),
+      )
+      .catch(() => []);
+  }
+
   const harnessVerifier: HarnessVerifier = {
     async verify({ thread, replay, environment }) {
       const changedFiles: string[] = [];

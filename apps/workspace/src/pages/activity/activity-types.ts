@@ -7,6 +7,13 @@ import type {
 
 export type { ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity, MessageTarget };
 
+/**
+ * A timeline record as served by the Activity Room list. Large agent content is
+ * truncated to a preview budget server-side; when `hasDetails` is true the full
+ * raw record is available via `GET /api/activity-room/:id` (lazy hydration).
+ */
+export type ActivityProjectionRecord = ActivityRecord & { hasDetails?: boolean };
+
 export type ActivityKind = ActivityRecord['kind'];
 
 /** UI connection state for the Activity stream. */
@@ -14,6 +21,9 @@ export type ActivityConnectionState = 'connecting' | 'live' | 'reconnecting' | '
 
 /** Lifecycle of a locally-sent (optimistic) human message. */
 export type PendingSendState = 'sending' | 'failed';
+
+/** Viewing density for the Activity Room timeline. */
+export type ActivityDensity = 'summary' | 'operational' | 'raw';
 
 export interface ActivityMessageInput {
   content: string;
@@ -41,19 +51,25 @@ export function scopeIsEmpty(scope: ActivityScope): boolean {
 
 export interface ActivityStreamSnapshot {
   state: ActivityConnectionState;
-  records: readonly ActivityRecord[];
+  records: readonly ActivityProjectionRecord[];
   latestSequence: number;
   paused: boolean;
   error?: string;
   sendStates: Readonly<Record<string, PendingSendState>>;
   scope: ActivityScope;
   unread: number;
+  freshIds: ReadonlySet<string>;
   pause: () => void;
   resume: () => void;
   clear: () => void;
   sendMessage: (input: ActivityMessageInput) => Promise<void>;
   retrySend: (messageId: string) => Promise<void>;
   applyScope: (scope: ActivityScope) => void;
+  retry: () => void;
+  loadOlder: () => Promise<void>;
+  loadingOlder: boolean;
+  olderLoaded: number;
+  oldestSequence?: number;
   clearUnread: () => void;
   reportViewport: (atBottom: boolean) => void;
 }

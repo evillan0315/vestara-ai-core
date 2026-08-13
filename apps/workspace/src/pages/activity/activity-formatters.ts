@@ -1,4 +1,124 @@
-import type { ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity } from './activity-types';
+import type { ActivityDensity, ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity } from './activity-types';
+
+/**
+ * Activity hierarchy — coarse category used to group the stream into an
+ * engineering-operations timeline (WORKFLOW / PLAN / AGENT / TOOL / TEST /
+ * REVIEW / VERIFY / EVIDENCE) rather than a flat list of messages.
+ */
+export type ActivityCategory =
+  | 'WORKFLOW'
+  | 'PLAN'
+  | 'AGENT'
+  | 'TOOL'
+  | 'TEST'
+  | 'REVIEW'
+  | 'VERIFY'
+  | 'EVIDENCE'
+  | 'HUMAN';
+
+export function hierarchyCategory(record: ActivityRecord): ActivityCategory {
+  switch (record.kind) {
+    case 'workflow':
+      return 'WORKFLOW';
+    case 'test':
+      return 'TEST';
+    case 'verification':
+      return 'VERIFY';
+    case 'task':
+      return 'PLAN';
+    case 'agent-message': {
+      if (record.actor.type === 'human') return 'HUMAN';
+      switch (record.messageKind) {
+        case 'tool-call':
+        case 'tool-result':
+          return 'TOOL';
+        case 'approval-request':
+        case 'approval-decision':
+          return 'REVIEW';
+        default:
+          return record.effect === 'finding' || record.effect === 'recommendation' ? 'REVIEW' : 'AGENT';
+      }
+    }
+    default:
+      return 'AGENT';
+  }
+}
+
+const CATEGORY_META: Record<ActivityCategory, { icon: string; accent: string }> = {
+  WORKFLOW: { icon: '◈', accent: 'var(--vestara-blue)' },
+  PLAN: { icon: '▣', accent: 'var(--vestara-violet, #a78bfa)' },
+  AGENT: { icon: '●', accent: 'var(--vestara-text-2)' },
+  TOOL: { icon: '⌘', accent: 'var(--vestara-text-dim)' },
+  TEST: { icon: '✓', accent: 'var(--vestara-green)' },
+  REVIEW: { icon: '⚠', accent: 'var(--vestara-amber)' },
+  VERIFY: { icon: '⚖', accent: 'var(--vestara-blue)' },
+  EVIDENCE: { icon: '◆', accent: 'var(--vestara-green)' },
+  HUMAN: { icon: '✎', accent: 'var(--vestara-accent-text)' },
+};
+
+export function categoryIcon(category: ActivityCategory): string {
+  return CATEGORY_META[category]?.icon ?? '◇';
+}
+
+export function categoryAccent(category: ActivityCategory): string {
+  return CATEGORY_META[category]?.accent ?? 'var(--vestara-text-dim)';
+}
+
+export type CollapsedStreamEntry =
+  | { kind: 'record'; record: ActivityRecord }
+  | { kind: 'tools'; agentId: string; count: number; lastTool: string; timestamp: string };
+
+/**
+ * Aggregate consecutive low-level tool events from the same agent into a single
+ * operational row so a long run of tool chatter never renders as many rows.
+ */
+export function collapseToolRuns(records: readonly ActivityRecord[]): CollapsedStreamEntry[] {
+  const out: CollapsedStreamEntry[] = [];
+  let run: { agentId: string; count: number; lastTool: string; timestamp: string } | null = null;
+  for (const record of records) {
+    if (hierarchyCategory(record) === 'TOOL' && record.kind === 'agent-message') {
+      const agentId = String(record.agentId ?? record.actor.id ?? 'agent');
+      const toolName = String(record.toolName ?? record.content ?? '').slice(0, 60);
+      if (run && run.agentId === agentId) {
+        run.count += 1;
+        run.lastTool = toolName;
+        run.timestamp = record.timestamp;
+      } else {
+        if (run) out.push({ kind: 'tools', ...run });
+        run = { agentId, count: 1, lastTool: toolName, timestamp: record.timestamp };
+      }
+    } else {
+      if (run) {
+        out.push({ kind: 'tools', ...run });
+        run = null;
+      }
+      out.push({ kind: 'record', record });
+    }
+  }
+  if (run) out.push({ kind: 'tools', ...run });
+  return out;
+}
+
+/**
+ * Whether a record is shown at a given density. Summary shows milestones,
+ * decisions, errors, verification, approvals, findings and human messages.
+ * Operational (default) adds tool/file/test activity. Raw shows everything.
+ */
+export function matchesDensity(record: ActivityRecord, density: ActivityDensity): boolean {
+  if (density === 'raw') return true;
+  const category = hierarchyCategory(record);
+  if (density === 'summary') {
+    if (category === 'HUMAN' || category === 'WORKFLOW' || category === 'VERIFY' || category === 'REVIEW') return true;
+    if (record.kind === 'agent-message') {
+      if (record.messageKind === 'approval-request' || record.messageKind === 'approval-decision') return true;
+      if (record.effect === 'finding' || record.effect === 'decision' || record.effect === 'authorization') return true;
+      if (record.risk === 'high' || record.risk === 'critical') return true;
+    }
+    return false;
+  }
+  // operational: hide raw tool/event chatter
+  return category !== 'TOOL';
+}
 
 const KIND_LABELS: Record<string, string> = {
   workflow: 'Workflow',

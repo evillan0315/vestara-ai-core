@@ -70,7 +70,14 @@ export class InMemoryActivityStore implements ActivityStore {
   async list(query: ActivityQuery = {}): Promise<ActivityPage> {
     const matches = this.records.filter((record) => matchesQuery(record, query));
     matches.sort(compareRecords);
-    const limited = query.limit !== undefined && query.limit >= 0 ? matches.slice(0, query.limit) : matches;
+    // beforeSequence = backward cursor pagination: return the latest N below the
+    // cursor (the page just before the oldest loaded), not the oldest N overall.
+    const limited =
+      query.limit !== undefined && query.limit >= 0
+        ? query.beforeSequence !== undefined
+          ? matches.slice(-query.limit)
+          : matches.slice(0, query.limit)
+        : matches;
     const last = limited.at(-1);
     return {
       records: limited.map(cloneRecord),

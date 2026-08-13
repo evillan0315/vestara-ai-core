@@ -1,5 +1,7 @@
 import {
   actorInitials,
+  categoryAccent,
+  categoryIcon,
   effectAccent,
   effectLabel,
   formatRelative,
@@ -8,22 +10,27 @@ import {
   severityAccent,
   severityOfRecord,
 } from './activity-formatters';
-import type { ActivityRecord, PendingSendState } from './activity-types';
+import type { ActivityProjectionRecord, ActivityRecord, PendingSendState } from './activity-types';
+import type { ActivityCategory } from './activity-formatters';
 import { overrideStyle, useVisualConfig } from './visual-config';
+import { useEffect, useState } from 'react';
 import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import PublishedWithChangesOutlinedIcon from '@mui/icons-material/PublishedWithChangesOutlined';
 import Tooltip from '@mui/material/Tooltip';
+import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer';
 
 interface ActivityItemProps {
-  record: ActivityRecord;
+  record: ActivityProjectionRecord;
   selectedAgentId?: string;
-  onOpenDetail?: (record: ActivityRecord) => void;
-  onReference?: (record: ActivityRecord) => void;
-  onCorrect?: (record: ActivityRecord) => void;
-  correctedBy?: ActivityRecord;
+  onOpenDetail?: (record: ActivityProjectionRecord) => void;
+  onReference?: (record: ActivityProjectionRecord) => void;
+  onCorrect?: (record: ActivityProjectionRecord) => void;
+  correctedBy?: ActivityProjectionRecord;
   sendState?: PendingSendState;
   onRetry?: () => void;
+  /** Hierarchy category label shown for this record. */
+  category?: ActivityCategory;
 }
 
 /**
@@ -41,6 +48,7 @@ export default function ActivityItem({
   correctedBy,
   sendState,
   onRetry,
+  category,
 }: ActivityItemProps) {
   const severity = severityOfRecord(record);
   const { overrides } = useVisualConfig();
@@ -48,7 +56,9 @@ export default function ActivityItem({
   const isChatMessage = record.kind === 'agent-message' && (record.effect === undefined || record.effect === 'message');
   const isHumanChat = isChatMessage && record.actor.type === 'human';
   const isSystemActivity = !isChatMessage;
-  const title = titleOf(record);
+  const fullTitle = titleOf(record);
+  const title = isChatMessage ? preview(fullTitle) : fullTitle;
+  const contentTruncated = isChatMessage && fullTitle.length > MAX_PREVIEW;
   const summary = summaryOf(record);
   const context = contextOf(record);
 
@@ -85,11 +95,31 @@ export default function ActivityItem({
             <span className="shrink-0 text-[8px]">
               {kindIcon(record.kind)} {kindLabel(record.kind)}
             </span>
+            {category && (
+              <span className="shrink-0 text-[8px] font-semibold tracking-wider" style={{ color: categoryAccent(category) }}>
+                {categoryIcon(category)} {category}
+              </span>
+            )}
           </div>
 
-          <div className={`mt-0.5 text-[11px] leading-snug ${isSystemActivity ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text)'}`}>{title}</div>
-          {summary && <div className="text-[10px] leading-relaxed text-(--vestara-text-muted)">{summary}</div>}
+          <div className={`mt-0.5 text-[11px] leading-snug ${isSystemActivity ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text)'}`}>
+            {isChatMessage ? <MarkdownRenderer content={title} /> : title}
+          </div>
+          {contentTruncated && onOpenDetail && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onOpenDetail(record);
+              }}
+              className="mt-0.5 text-[9px] font-medium text-(--vestara-accent-text) hover:underline cursor-pointer"
+            >
+              View full output →
+            </button>
+          )}
+          {summary && <div className="text-[10px] leading-relaxed text-(--vestara-text-muted)">{preview(summary)}</div>}
           {context && <div className="mt-0.5 text-[9px] text-(--vestara-text-dim)">{context}</div>}
+          {isHumanChat && <MessageReceipts messageId={record.id} />}
           {selectedAgentId === undefined && isChatMessage && (
             <div className="text-[9px] text-(--vestara-text-dim)">→ {record.agentId}</div>
           )}
@@ -117,7 +147,7 @@ export default function ActivityItem({
             </div>
           )}
 
-          <div className={`mt-1 flex items-center gap-2 transition-opacity group-hover:opacity-100 ${isSystemActivity ? 'justify-center' : 'opacity-0 focus-within:opacity-100'}`}>
+          <div className={`mt-1 flex items-center gap-2 transition-opacity ${isSystemActivity ? 'justify-center' : 'opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100'}`}>
             {onOpenDetail && (
               <Tooltip title="Inspect activity">
                 <button
@@ -126,7 +156,7 @@ export default function ActivityItem({
                     event.stopPropagation();
                     onOpenDetail(record);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
+                   className="flex h-11 w-11 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
                   aria-label={`Inspect ${kindLabel(record.kind)} activity`}
                 >
                   <VisibilityOutlinedIcon sx={{ fontSize: 19 }} />
@@ -141,7 +171,7 @@ export default function ActivityItem({
                     event.stopPropagation();
                     onReference(record);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
+                   className="flex h-11 w-11 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
                   aria-label={`Reference ${kindLabel(record.kind)} activity`}
                 >
                   <LinkOutlinedIcon sx={{ fontSize: 19 }} />
@@ -156,7 +186,7 @@ export default function ActivityItem({
                     event.stopPropagation();
                     onCorrect(record);
                   }}
-                  className="flex h-8 w-8 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
+                   className="flex h-11 w-11 items-center justify-center rounded-md text-(--vestara-text-dim) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) focus-visible:bg-(--vestara-accent-bg) focus-visible:text-(--vestara-text) cursor-pointer"
                   aria-label={`Correct ${kindLabel(record.kind)} activity`}
                 >
                   <PublishedWithChangesOutlinedIcon sx={{ fontSize: 19 }} />
@@ -168,6 +198,19 @@ export default function ActivityItem({
       </div>
     </div>
   );
+}
+
+/** Preview budget for inline timeline content (STREAM-PERF: full output is lazy). */
+const MAX_PREVIEW = 400;
+
+/** Chat-message preview: caps stream content so long messages don't flood the timeline. */
+function preview(value: string): string {
+  if (value.length <= MAX_PREVIEW) return value;
+  const slice = value.slice(0, MAX_PREVIEW);
+  // Cut at a word/line boundary to avoid rendering a broken token mid-way.
+  const boundary = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf(' '));
+  const cut = boundary > MAX_PREVIEW * 0.5 ? slice.slice(0, boundary) : slice;
+  return `${cut}…`;
 }
 
 function titleOf(record: ActivityRecord): string {
@@ -207,4 +250,55 @@ function contextOf(record: ActivityRecord): string {
   if (record.workflowId) parts.push(`Workflow ${record.workflowId}`);
   if (record.taskId) parts.push(`Task ${record.taskId}`);
   return parts.join(' · ');
+}
+
+interface MessageReceipt {
+  messageId: string;
+  agentId: string;
+  state: 'pending' | 'observed' | 'addressed' | 'responding' | 'failed';
+  observedAt?: string;
+}
+
+/**
+ * Delivery/observation receipts for a human message: shows which workflow
+ * agents have received (broadcast) or are addressed (@mention). Quiet by
+ * default — it is the exceptional state (addressed) that is emphasized.
+ */
+function MessageReceipts({ messageId }: { messageId: string }) {
+  const [receipts, setReceipts] = useState<MessageReceipt[] | null>(null);
+  useEffect(() => {
+    let disposed = false;
+    fetch(`/api/activity-room/messages/${encodeURIComponent(messageId)}/receipts`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (disposed) return;
+        setReceipts(Array.isArray((data as { receipts?: MessageReceipt[] })?.receipts) ? (data as { receipts: MessageReceipt[] }).receipts : null);
+      })
+      .catch(() => {
+        if (!disposed) setReceipts(null);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [messageId]);
+  if (!receipts || receipts.length === 0) return null;
+  const addressed = receipts.filter((receipt) => receipt.state === 'addressed');
+  const observed = receipts.filter((receipt) => receipt.state === 'observed' || receipt.state === 'responding');
+  const pending = receipts.filter((receipt) => receipt.state === 'pending');
+  const nameOf = (agentId: string): string => {
+    const lower = agentId.toLowerCase();
+    if (lower.startsWith('vestara-')) return lower.slice('vestara-'.length).replace(/-/g, ' ');
+    return agentId.replace(/-/g, ' ');
+  };
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[9px] text-(--vestara-text-dim)">
+      {addressed.map((receipt) => (
+        <span key={receipt.agentId} className="font-medium" style={{ color: 'var(--vestara-accent-text)' }}>
+          ● {nameOf(receipt.agentId)} — addressed
+        </span>
+      ))}
+      {observed.length > 0 && <span>✓ {observed.length} agent{observed.length > 1 ? 's' : ''} observed</span>}
+      {pending.length > 0 && <span className="text-(--vestara-amber)">◐ {pending.length} pending</span>}
+    </div>
+  );
 }

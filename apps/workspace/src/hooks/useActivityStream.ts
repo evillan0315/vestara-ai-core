@@ -4,12 +4,15 @@ import { activitySocket, fetchActivityHistory, postActivityMessage } from '../li
 import type {
   ActivityConnectionState,
   ActivityMessageInput,
+  ActivityProjectionRecord,
   ActivityScope,
   ActivityStreamSnapshot,
   PendingSendState,
 } from '../pages/activity/activity-types';
 
 const INITIAL_LIMIT = 100;
+/** Bounded historical window (STREAM-PERF-001: no full-history eager hydration). */
+const HISTORY_WINDOW = 250;
 
 function readScopeFromUrl(): ActivityScope {
   const params = new URLSearchParams(window.location.search);
@@ -37,18 +40,25 @@ function compareRecords(left: ActivityRecord, right: ActivityRecord): number {
 }
 
 export function useActivityStream(): ActivityStreamSnapshot {
-  const [records, setRecords] = useState<ActivityRecord[]>([]);
+  const [records, setRecords] = useState<ActivityProjectionRecord[]>([]);
   const [latestSequence, setLatestSequence] = useState(0);
   const [socketState, setSocketState] = useState(activitySocket.getState());
   const [paused, setPaused] = useState(false);
   const [error, setError] = useState<string>();
   const [unread, setUnread] = useState(0);
+  // Ids that arrived live over the socket (vs. loaded history), so the stream
+  // can animate them (typewriter) without replaying history on every reload.
+  const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(new Set());
 
   const latestSequenceRef = useRef(0);
   const pausedRef = useRef(false);
-  const pendingRef = useRef<ActivityRecord[]>([]);
+  const pendingRef = useRef<ActivityProjectionRecord[]>([]);
+  const socketBufferRef = useRef<ActivityProjectionRecord[]>([]);
+  const flushTimerRef = useRef<number | null>(null);
   const atBottomRef = useRef(true);
   const unreadRef = useRef(0);
+  const loadingOlderRef = useRef(false);
+  const olderLoadedRef = useRef(0);
 
   const bumpUnread = useCallback(() => {
     unreadRef.current += 1;
@@ -60,6 +70,10 @@ export function useActivityStream(): ActivityStreamSnapshot {
     setUnread(0);
   }, []);
 
+  const markFresh = useCallback((id: string) => {
+    setFreshIds((previous) => (previous.has(id) ? previous : new Set(previous).add(id)));
+  }, []);
+
   const reportViewport = useCallback(
     (atBottom: boolean) => {
       atBottomRef.current = atBottom;
@@ -69,19 +83,18 @@ export function useActivityStream(): ActivityStreamSnapshot {
   );
 
   const apply = useCallback(
-    (record: ActivityRecord) => {
+    (record: ActivityProjectionRecord) => {
       setRecords((previous) => (previous.some((entry) => entry.id === record.id) ? previous : [...previous, record]));
       if (record.sequence > latestSequenceRef.current) {
         latestSequenceRef.current = record.sequence;
         setLatestSequence(record.sequence);
       }
-      if (!atBottomRef.current) bumpUnread();
     },
-    [bumpUnread],
+    [],
   );
 
   /** Replaces an optimistic (temp-id) record with the server's final record. */
-  const replaceRecord = useCallback((tempId: string, record: ActivityRecord) => {
+  const replaceRecord = useCallback((tempId: string, record: ActivityProjectionRecord) => {
     setRecords((previous) => {
       const exists = previous.some((entry) => entry.id === record.id);
       const withoutTemp = previous.filter((entry) => entry.id !== tempId);
@@ -114,7 +127,7 @@ export function useActivityStream(): ActivityStreamSnapshot {
           correctionOf: existing.correctionOf,
           actor: { displayName: existing.actor.displayName, role: existing.actor.role },
         });
-        replaceRecord(tempId, record);
+        replaceRecord(tempId, record as ActivityProjectionRecord);
         setSendStates((previous) => {
           const next = { ...previous };
           delete next[tempId];
@@ -136,7 +149,7 @@ export function useActivityStream(): ActivityStreamSnapshot {
             ?.agentId ?? 'all-agents');
       const displayName = input.actor?.displayName?.trim() || 'You';
       const actorRole = input.actor?.role?.trim() || undefined;
-      const optimistic: ActivityRecord = {
+      const optimistic: ActivityProjectionRecord = {
         id: tempId,
         sequence: latestSequenceRef.current + 1,
         timestamp: new Date().toISOString(),
@@ -165,7 +178,7 @@ export function useActivityStream(): ActivityStreamSnapshot {
     [apply, deliver],
   );
 
-  const recordsRef = useRef<ActivityRecord[]>([]);
+  const recordsRef = useRef<ActivityProjectionRecord[]>([]);
   recordsRef.current = records;
 
   const retrySend = useCallback(
@@ -178,11 +191,21 @@ export function useActivityStream(): ActivityStreamSnapshot {
   );
 
   const applyBatch = useCallback(
-    (batch: readonly ActivityRecord[]) => {
+    (batch: readonly ActivityProjectionRecord[]) => {
+      if (batch.length === 0) return;
       const sorted = [...batch].sort(compareRecords);
-      for (const record of sorted) apply(record);
+      setRecords((previous) => {
+        const known = new Set(previous.map((entry) => entry.id));
+        const additions = sorted.filter((entry) => !known.has(entry.id));
+        return additions.length === 0 ? previous : [...previous, ...additions];
+      });
+      const last = sorted[sorted.length - 1];
+      if (last.sequence > latestSequenceRef.current) {
+        latestSequenceRef.current = last.sequence;
+        setLatestSequence(last.sequence);
+      }
     },
-    [apply],
+    [],
   );
 
   const applyPending = useCallback(() => {
@@ -210,27 +233,98 @@ export function useActivityStream(): ActivityStreamSnapshot {
     setLatestSequence(0);
     latestSequenceRef.current = 0;
     pendingRef.current = [];
+    socketBufferRef.current = [];
+    setFreshIds(new Set());
+    olderLoadedRef.current = 0;
+    setOlderLoaded(0);
+    if (flushTimerRef.current !== null) {
+      window.clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
   }, []);
 
   const recoverFrom = useCallback(
     async (afterSequence: number) => {
-      const history = await fetchActivityHistory({ afterSequence, limit: 1000 });
-      applyBatch(history.records);
+      const history = await fetchActivityHistory({ afterSequence, limit: HISTORY_WINDOW });
+      if (history.error) {
+        setError(history.error);
+        return;
+      }
+      applyBatch(history.records as ActivityProjectionRecord[]);
     },
     [applyBatch],
   );
 
   const [scope, setScope] = useState<ActivityScope>(() => readScopeFromUrl());
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [olderLoaded, setOlderLoaded] = useState(0);
   const initialScopeRef = useRef(scope);
+  const scopeRequestRef = useRef(0);
+
+  /** Oldest loaded sequence — when undefined we have no history yet. */
+  const oldestSequence = records.length > 0 ? Math.min(...records.map((r) => r.sequence)) : undefined;
+
+  const loadOlder = useCallback(async () => {
+    const current = recordsRef.current;
+    if (current.length === 0 || loadingOlderRef.current) return;
+    const oldest = Math.min(...current.map((r) => r.sequence));
+    loadingOlderRef.current = true;
+    setLoadingOlder(true);
+    const history = await fetchActivityHistory({ ...scopeRef.current, beforeSequence: oldest, limit: HISTORY_WINDOW });
+    loadingOlderRef.current = false;
+    setLoadingOlder(false);
+    if (history.error) {
+      setError(history.error);
+      return;
+    }
+    const known = new Set(current.map((r) => r.id));
+    const older = history.records.filter((r) => !known.has(r.id));
+    if (older.length === 0) return;
+    // Older history prepends (kept ascending by sequence).
+    const sorted = [...older].sort(compareRecords);
+    setRecords((previous) => [...sorted, ...previous]);
+    // Track how many older records were requested so the timeline can widen
+    // its render window upward (the default window stays viewport-bounded).
+    olderLoadedRef.current += older.length;
+    setOlderLoaded(olderLoadedRef.current);
+  }, []);
 
   const applyScope = useCallback(
     (next: ActivityScope) => {
+      const requestId = ++scopeRequestRef.current;
       setScope(next);
       writeScopeToUrl(next);
-      void fetchActivityHistory({ ...next, limit: 1000 }).then((history) => applyBatch(history.records));
+      setRecords([]);
+      setLatestSequence(0);
+      latestSequenceRef.current = 0;
+      clearUnread();
+      pendingRef.current = [];
+      socketBufferRef.current = [];
+      setFreshIds(new Set());
+      olderLoadedRef.current = 0;
+      setOlderLoaded(0);
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      void fetchActivityHistory({ ...next, limit: HISTORY_WINDOW }).then((history) => {
+        if (requestId !== scopeRequestRef.current) return;
+        if (history.error) {
+          setError(history.error);
+          return;
+        }
+        setError(undefined);
+        applyBatch(history.records);
+      });
     },
-    [applyBatch],
+    [applyBatch, clearUnread],
   );
+
+  const retry = useCallback(() => {
+    applyScope(scope);
+  }, [applyScope, scope]);
 
   useEffect(() => {
     let disposed = false;
@@ -238,14 +332,29 @@ export function useActivityStream(): ActivityStreamSnapshot {
     const handleMessage = (message: ActivityStreamMessage) => {
       if (disposed) return;
       if (message.type === 'activity.appended') {
+        const activity = message.activity as ActivityProjectionRecord;
         if (pausedRef.current) {
-          if (!pendingRef.current.some((record) => record.id === message.activity.id)) {
-            pendingRef.current.push(message.activity);
+          if (!pendingRef.current.some((record) => record.id === activity.id)) {
+            pendingRef.current.push(activity);
           }
           bumpUnread();
           return;
         }
-        apply(message.activity);
+        // Unread is decided at receipt (not at delayed apply), so the debounce
+        // cannot miscount records that arrive while the user is scrolled up.
+        if (!atBottomRef.current) bumpUnread();
+        markFresh(activity.id);
+        // Buffer live arrivals and flush as a small debounced batch, so bursts
+        // (tool/token ticks, large replays) coalesce into fewer React renders.
+        socketBufferRef.current.push(activity);
+        if (flushTimerRef.current === null) {
+          flushTimerRef.current = window.setTimeout(() => {
+            flushTimerRef.current = null;
+            const buffered = socketBufferRef.current;
+            socketBufferRef.current = [];
+            applyBatch(buffered);
+          }, 40);
+        }
         return;
       }
       if (message.type === 'activity.resync-required') {
@@ -266,7 +375,12 @@ export function useActivityStream(): ActivityStreamSnapshot {
     void (async () => {
       const history = await fetchActivityHistory({ ...initialScopeRef.current, limit: INITIAL_LIMIT });
       if (disposed) return;
-      applyBatch(history.records);
+      if (history.error) {
+        setError(history.error);
+        return;
+      }
+      setError(undefined);
+      applyBatch(history.records as ActivityProjectionRecord[]);
       const checkpoint = Math.max(latestSequenceRef.current, history.lastSequence);
       activitySocket.subscribe(checkpoint);
     })();
@@ -276,8 +390,13 @@ export function useActivityStream(): ActivityStreamSnapshot {
       offMessage();
       offState();
       activitySocket.disconnect();
+      if (flushTimerRef.current !== null) {
+        window.clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
+      socketBufferRef.current = [];
     };
-  }, [apply, applyBatch, recoverFrom]);
+  }, [apply, applyBatch, recoverFrom, markFresh]);
 
   const state: ActivityConnectionState = paused
     ? 'paused'
@@ -300,12 +419,18 @@ export function useActivityStream(): ActivityStreamSnapshot {
     sendStates,
     scope,
     unread,
+    freshIds,
     pause,
     resume,
     clear,
     sendMessage,
     retrySend,
     applyScope,
+    retry,
+    loadOlder,
+    loadingOlder,
+    olderLoaded,
+    oldestSequence,
     clearUnread,
     reportViewport,
   };

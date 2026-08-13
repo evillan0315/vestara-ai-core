@@ -20,13 +20,13 @@ const workflowRecord: ActivityRecord = {
   evidenceRefs: [],
 };
 
-const engineerMessage: ActivityRecord = {
+const developerMessage: ActivityRecord = {
   id: 'activity:evt-2:agent-message',
   sequence: 2,
   timestamp: '2026-08-06T12:00:01.000Z',
-  actor: { type: 'agent', id: 'engineer', displayName: 'engineer', role: 'agent' },
+  actor: { type: 'agent', id: 'developer', displayName: 'developer', role: 'agent' },
   kind: 'agent-message',
-  agentId: 'engineer',
+  agentId: 'developer',
   messageKind: 'message',
   content: 'Fixed the failing check',
   evidenceRefs: [],
@@ -63,7 +63,7 @@ beforeEach(() => {
     vi.fn(async () => ({
       ok: true,
       json: async () => ({
-        records: [workflowRecord, engineerMessage],
+        records: [workflowRecord, developerMessage],
         firstSequence: 1,
         lastSequence: 2,
         nextSequence: 3,
@@ -81,12 +81,12 @@ describe('Activity Room page', () => {
   it('renders the two-column layout with seeded activity and participants', async () => {
     renderRoom();
     expect(screen.getByText('Activity Room')).toBeTruthy();
-    expect(screen.getByText('Participants')).toBeTruthy();
+    expect(screen.getAllByText('Participants').length).toBeGreaterThan(0);
 
     await waitFor(() => expect(screen.getByText('project phase changed')).toBeTruthy());
     expect(screen.getByText('Fixed the failing check')).toBeTruthy();
 
-    expect(screen.getByText('Engineer')).toBeTruthy();
+    expect(screen.getByText('Developer')).toBeTruthy();
     expect(screen.getByText('Planner')).toBeTruthy();
     expect(screen.getAllByText('All Agents').length).toBeGreaterThan(0);
   });
@@ -96,7 +96,7 @@ describe('Activity Room page', () => {
     await waitFor(() => expect(screen.getByText('Fixed the failing check')).toBeTruthy());
     expect(screen.getByText('project phase changed')).toBeTruthy();
 
-    fireEvent.click(screen.getByText('Engineer'));
+    fireEvent.click(screen.getByText('Developer'));
 
     await waitFor(() => expect(screen.queryByText('project phase changed')).toBeNull());
     expect(screen.getByText('Fixed the failing check')).toBeTruthy();
@@ -115,5 +115,30 @@ describe('Activity Room page', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Resume' }));
     await waitFor(() => expect(screen.getAllByText('Live').length).toBeGreaterThan(0));
+  });
+
+  it('exposes visual edit as an accessible pressed toggle', async () => {
+    renderRoom();
+    await waitFor(() => expect(screen.getByText('project phase changed')).toBeTruthy());
+
+    const toggle = screen.getByRole('button', { name: 'Visual Edit' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+
+    fireEvent.click(toggle);
+    expect(screen.getByRole('button', { name: 'Visual Edit: On' }).getAttribute('aria-pressed')).toBe('true');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Visual Edit: On' }));
+    expect(screen.getByRole('button', { name: 'Visual Edit' }).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('clears the local activity view without affecting the connection state', async () => {
+    renderRoom();
+    await waitFor(() => expect(screen.getByText('project phase changed')).toBeTruthy());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }));
+
+    await waitFor(() => expect(screen.getByText('No activity yet.')).toBeTruthy());
+    expect(screen.queryByText('project phase changed')).toBeNull();
+    expect(screen.getAllByText('Live').length).toBeGreaterThan(0);
   });
 });

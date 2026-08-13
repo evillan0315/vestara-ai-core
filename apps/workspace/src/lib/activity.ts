@@ -26,6 +26,7 @@ export interface ActivityHistoryResponse {
   nextSequence?: number;
   firstSequence: number;
   lastSequence: number;
+  error?: string;
 }
 
 export async function fetchActivityHistory(params: ActivityHistoryParams = {}): Promise<ActivityHistoryResponse> {
@@ -36,7 +37,7 @@ export async function fetchActivityHistory(params: ActivityHistoryParams = {}): 
   const query = qs.toString();
   try {
     const res = await fetch(`/api/activity-room${query ? `?${query}` : ''}`);
-    if (!res.ok) return { records: [], nextSequence: undefined, firstSequence: 0, lastSequence: 0 };
+    if (!res.ok) return { records: [], nextSequence: undefined, firstSequence: 0, lastSequence: 0, error: `Unable to load activity (HTTP ${res.status}).` };
     const data = (await res.json()) as Partial<ActivityHistoryResponse>;
     return {
       records: data.records ?? [],
@@ -45,7 +46,7 @@ export async function fetchActivityHistory(params: ActivityHistoryParams = {}): 
       lastSequence: data.lastSequence ?? 0,
     };
   } catch {
-    return { records: [], nextSequence: undefined, firstSequence: 0, lastSequence: 0 };
+    return { records: [], nextSequence: undefined, firstSequence: 0, lastSequence: 0, error: 'Unable to load activity. Check the connection and retry.' };
   }
 }
 
@@ -106,13 +107,16 @@ export interface EffectiveState {
 }
 
 /** Recomputes the effective state from the durable history (derived, never stored). */
-export async function fetchEffectiveState(): Promise<EffectiveState> {
-  const empty: EffectiveState = { computedAt: '', corrections: [], open: [], units: [], needsAttention: 0 };
+export async function fetchEffectiveState(scope: Pick<ActivityHistoryParams, 'workflowId' | 'sessionId'> = {}): Promise<EffectiveState | null> {
   try {
-    const res = await fetch('/api/activity-room/state');
-    if (!res.ok) return empty;
+    const qs = new URLSearchParams();
+    if (scope.workflowId !== undefined) qs.set('workflowId', scope.workflowId);
+    if (scope.sessionId !== undefined) qs.set('sessionId', scope.sessionId);
+    const query = qs.toString();
+    const res = await fetch(`/api/activity-room/state${query ? `?${query}` : ''}`);
+    if (!res.ok) return null;
     const data = (await res.json()) as Partial<EffectiveState>;
-    if (!Array.isArray(data.corrections) || !Array.isArray(data.open) || !Array.isArray(data.units)) return empty;
+    if (!Array.isArray(data.corrections) || !Array.isArray(data.open) || !Array.isArray(data.units)) return null;
     return {
       computedAt: typeof data.computedAt === 'string' ? data.computedAt : '',
       corrections: data.corrections,
@@ -121,7 +125,7 @@ export async function fetchEffectiveState(): Promise<EffectiveState> {
       needsAttention: typeof data.needsAttention === 'number' ? data.needsAttention : data.open.length,
     };
   } catch {
-    return empty;
+    return null;
   }
 }
 
