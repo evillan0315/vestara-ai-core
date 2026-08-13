@@ -101,7 +101,7 @@ const DEFAULT_STAGES: readonly MultiAgentStageSpec[] = [
  * plan (role + agent + instruction) startable from the Workspace WorkflowRail.
  * `'default'` is the generic pipeline used when no template is requested.
  */
-export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure';
+export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure' | 'activity-room-premium-redesign';
 
 export interface MultiAgentWorkflowTemplate {
   readonly id: MultiAgentWorkflowTemplateId;
@@ -165,6 +165,109 @@ export const MULTI_AGENT_WORKFLOW_TEMPLATES: Record<MultiAgentWorkflowTemplateId
           'revisions. Confirm the refactor preserved behavior (identical rendered output and props) and ' +
           'did not creep scope into new features. Review against the acceptance boundary, not only diff ' +
           'correctness. Flag any change that weakens or substitutes the acceptance object.',
+      },
+    ],
+  },
+  'activity-room-premium-redesign': {
+    id: 'activity-room-premium-redesign',
+    name: 'Activity Room Premium Redesign',
+    description:
+      'Reusable Visual Target proving case: redesign the Activity Room (apps/workspace/src/pages/activity/) ' +
+      'toward the premium operations-room wireframe contract (context → plan → develop → review → verify → ' +
+      'visual review → observe → complete), preserving all protected behaviors. Model policy: plan, develop, ' +
+      'review, and verify stages require strong coding/reasoning models (DeepSeek V4 Flash / MiMo V2.5 via the ' +
+      'OpenCode runtime), not the free tier.',
+    stages: [
+      {
+        role: 'context',
+        agentId: 'vestara-context',
+        instruction:
+          'Visual Analyst (CONTEXT phase). Inspect the existing Activity Room implementation ' +
+          '(apps/workspace/src/pages/activity/, apps/workspace/src/hooks/useActivityStream.ts, ' +
+          'apps/workspace/src/lib/activity.ts, apps/api/src/routes/activity-room.ts, ' +
+          'packages/activity-projection/src/) and produce a machine-readable VisualDesignSpec covering: ' +
+          'layout regions with target dimensions (participant rail 230–260px, inspector 300–340px, ' +
+          'workflow browser ~280px, Live Now 48–64px), component inventory, typography/spacing/surface ' +
+          'rules, semantic colors (gold=identity/selection, blue=execution, cyan=tools/files, ' +
+          'purple=planning, green=success/verification, amber=review/waiting, red=failure), responsive ' +
+          'rules (1440px+ three columns; 1024–1439px inspector drawer; 768–1023px participants drawer; ' +
+          '<768px single column with sheets and sticky composer), and the protected behaviors that must ' +
+          'never change. Do NOT propose implementation details; the spec is the contract.',
+      },
+      {
+        role: 'planner',
+        agentId: 'vestara-planner',
+        instruction:
+          'UX Architect (PLAN phase). Map the VisualDesignSpec onto the existing component tree. ' +
+          'Decompose the redesign into independently verifiable slices: AR-01 workflow-scoped data ' +
+          'architecture, AR-02 Workflow Browser (lightweight summaries only, never full activity per ' +
+          'workflow), AR-03 selected workflow header + lifecycle, AR-04 health/attention strip, AR-05 ' +
+          'participant projections (one current projection per agent, never stacked messages), AR-06 ' +
+          'Live Now bar (48–64px, no raw transcripts), AR-07 operational activity projection (never raw ' +
+          'agent reasoning inline), AR-08 filtering/date/sorting that change server query scope, AR-09 ' +
+          'event inspector (contextual, collapsible), AR-10 functional composer + message receipts ' +
+          '(broadcast observed vs @mention addressed), AR-11 responsive behavior, AR-12 performance ' +
+          'verification, AR-13 visual convergence, AR-14 final integrated verification. For each slice: ' +
+          'scope, files, protected behaviors, and acceptance criteria. Declare the acceptance boundary ' +
+          '(observable obligations + material uncertainties).',
+      },
+      {
+        role: 'developer',
+        agentId: 'vestara-developer',
+        instruction:
+          'Implement the Activity Room Premium Redesign in bounded slices per the plan, in order. ' +
+          'PROTECTED BEHAVIORS (never regress): compose box + broadcast visibility to participating ' +
+          'agents, @agent routing, message/observation receipts, workflow filtering, live telemetry, ' +
+          'pause/resume, visual audit, and stream performance (bounded latest window, 400-char ' +
+          'projections, lazy detail hydration, coalesced live updates, cursor pagination, one shared ' +
+          'subscription). Work in small increments; after each slice run the workspace build, the app ' +
+          'typecheck (pnpm build does NOT typecheck apps/workspace — run npx tsc --noEmit -p ' +
+          'apps/workspace/tsconfig.json), lint, and affected tests, and record change evidence. Never ' +
+          'implement the whole wireframe in one invocation; the plan defines the slice boundaries.',
+      },
+      {
+        role: 'verifier',
+        agentId: 'vestara-verifier',
+        instruction:
+          'Verify the Activity Room redesign (VERIFY phase): TypeScript (app typecheck via npx tsc ' +
+          '--noEmit -p apps/workspace/tsconfig.json, which pnpm build does not cover), tests, E2E, ' +
+          'messaging/receipts behavior, stream performance (bounded windows, projections, lazy details, ' +
+          'coalescing, pagination), and screenshot/visual comparison against the target. For each ' +
+          'acceptance obligation state ESTABLISHED or NOT ESTABLISHED with evidence. Build/lint/test ' +
+          'results support implementation conclusions only; they do not by themselves establish product ' +
+          'acceptance.',
+      },
+      {
+        role: 'reviewer',
+        agentId: 'vestara-reviewer',
+        instruction:
+          'Review the redesign (REVIEW + VISUAL REVIEW phases) against: the plan slice boundaries ' +
+          '(catch scope drift), the UX contract (hierarchy: workflow header → attention strip → ' +
+          'participant rail → live now → operational timeline → inspector → raw → composer → browser), ' +
+          'the architecture, the protected behaviors, and the visual target (reference image vs actual ' +
+          'application screenshot at the same viewport). Produce actionable findings in VISUAL-NNN ' +
+          'format with specific discrepancies (dimensions, spacing, color semantics, component density). ' +
+          'Approve or request revisions. A claim that work is complete is not evidence.',
+      },
+      {
+        role: 'developer',
+        agentId: 'vestara-developer',
+        instruction:
+          'Remediation pass: address each reviewer finding from the previous review (plan/UX/visual), ' +
+          're-run the workspace build, app typecheck, lint, and affected tests after each fix, and ' +
+          'record change evidence. Do not introduce new scope while remediating.',
+      },
+      {
+        role: 'reviewer',
+        agentId: 'vestara-reviewer',
+        instruction:
+          'Observer (OBSERVE + COMPLETE phases). Evaluate the whole workflow: are findings converging ' +
+          'across passes, are failures repeated, are agents contradicting each other, is evidence ' +
+          'sufficient, is there scope drift? If the loop is not converging (no meaningful improvement ' +
+          'between passes), escalate to a human — do not keep polishing. If the evidence policy is ' +
+          'satisfied (protected behaviors verified, tests pass, visual target reached or explicitly ' +
+          'deferred with rationale), confirm completion for human approval. Completion is NEVER ' +
+          'established by a developer assertion; it requires evidence.',
       },
     ],
   },

@@ -334,4 +334,38 @@ describe('multi-agent workflow routes', () => {
       'vestara-reviewer',
     ]);
   });
+
+  it('starts a workflow from the activity-room-premium-redesign template', async () => {
+    const startRes = await fetch(`${baseUrl}/api/workflows`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: 'Redesign the Activity Room toward the premium operations-room wireframe',
+        workflow: 'activity-room-premium-redesign',
+      }),
+    });
+    expect(startRes.status).toBe(201);
+    const started = (await startRes.json()) as {
+      workflowId: string;
+      stages: Array<{ role: string; agentId: string }>;
+    };
+    expect(started.stages.map((stage) => stage.role)).toEqual([
+      'context',
+      'planner',
+      'developer',
+      'verifier',
+      'reviewer',
+      'developer',
+      'reviewer',
+    ]);
+    expect(started.stages.map((stage) => stage.agentId)).toEqual([
+      'vestara-context',
+      'vestara-planner',
+      'vestara-developer',
+      'vestara-verifier',
+      'vestara-reviewer',
+      'vestara-developer',
+      'vestara-reviewer',
+    ]);
+  });
 });

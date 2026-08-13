@@ -131,7 +131,10 @@ export interface WorkflowStartResult {
   stages: Array<{ role: string; agentId: string; threadId: string }>;
 }
 
-export type MultiAgentWorkflowTemplateId = 'default' | 'agent-control-restructure';
+export type MultiAgentWorkflowTemplateId =
+  | 'default'
+  | 'agent-control-restructure'
+  | 'activity-room-premium-redesign';
 
 export const workflowApi = {
   workflow: (threadId: string) =>
