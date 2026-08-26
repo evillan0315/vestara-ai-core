@@ -4,7 +4,7 @@
  * Mirrors apps/api/src/routes/external-runtime.ts and @vestara/external-runtime.
  */
 
-export type ExternalRuntimeType = 'opencode' | 'claude-code' | 'openai-codex' | 'unknown';
+export type ExternalRuntimeType = 'opencode' | 'claude-code' | 'openai-codex' | 'gemini' | 'unknown';
 export type ExternalRuntimeIntegrationLevel = 'discovery-only' | 'snapshot' | 'live-observation' | 'vestara-launched' | 'full-observation';
 
 export interface ExternalRuntimeInstance {

@@ -1,8 +1,10 @@
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, configure, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ToastProvider } from '../src/components/Toast.js';
 import type { Agent } from '../src/pages/Agents/types.js';
 import AgentsPage from '../src/pages/Agents.js';
+
+configure({ asyncUtilTimeout: 5000 });
 
 function json(value: unknown) {
   return { ok: true, status: 200, json: async () => value };

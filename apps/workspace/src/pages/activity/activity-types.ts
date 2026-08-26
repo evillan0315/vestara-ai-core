@@ -49,6 +49,48 @@ export function scopeIsEmpty(scope: ActivityScope): boolean {
   return scope.workflowId === undefined && scope.sessionId === undefined;
 }
 
+/** Real participant of the selected workflow (AR-01 model, from participants projection). */
+export interface WorkflowParticipant {
+  workflowId: string;
+  role: string;
+  agentId: string;
+  threadId: string;
+  executionState: string;
+  lastActivityAt?: string;
+  lastActivity?: string;
+}
+
+/** One coalesced per-participant live narrative line (AR-01 model, never a transcript). */
+export interface LiveStreamItem {
+  threadId: string;
+  role: string;
+  agentId: string;
+  sessionId?: string;
+  text: string;
+  lastActivityAt: string;
+}
+
+/** Aggregated workflow receipts: unread counts per agent + per-message receipts. */
+export interface WorkflowReceipts {
+  receiptsByMessage?: unknown;
+  unreadByAgent: Readonly<Record<string, number>>;
+}
+
+/** Lifecycle of a workflow-scoped auxiliary source (AR-01). */
+export type AuxiliarySourceStatus = 'idle' | 'loading' | 'ready' | 'stale' | 'error';
+
+/**
+ * A first-class, cancellable, stateful auxiliary source. `stale` means a prior
+ * success is still displayed but the latest refresh failed — never silently
+ * labeled current. `idle` means the source is not relevant for the scope.
+ */
+export interface AuxiliarySource<T> {
+  status: AuxiliarySourceStatus;
+  data?: T;
+  error?: string;
+  updatedAt?: number;
+}
+
 export interface ActivityStreamSnapshot {
   state: ActivityConnectionState;
   records: readonly ActivityProjectionRecord[];

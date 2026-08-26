@@ -5,12 +5,12 @@
  * Artifacts · History · Actions. Any module can open it via `useGraph().openInspector(id)`.
  */
 
-import CloseRoundedIcon from '@mui/icons-material/CloseRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { EntityKind } from '../../lib/graph';
 import { parseEntityId } from '../../lib/graph';
+import { Drawer } from '../ui/Drawer';
 import { useGraph } from './GraphContext';
 
 type Tab =
@@ -161,63 +161,50 @@ export function Inspector() {
   ];
 
   return (
-    <div className="graph-inspector" role="dialog" aria-label={`Inspector: ${entity?.label ?? inspector.entityId}`}>
-      <div className="graph-inspector-panel">
-        <div className="graph-inspector-header">
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <span className="text-[13px] font-semibold text-zinc-100 truncate">
-                {entity?.label ?? inspector.entityId}
-              </span>
-              {entity?.status && (
-                <span className={`graph-status-chip ${toneClass(tone(entity.status))}`}>{entity.status}</span>
-              )}
-            </div>
-            <div className="flex items-center gap-2 mt-0.5">
-              {kind && <KindBadge kind={kind as EntityKind} />}
-              <code className="graph-entity-id">{inspector.entityId}</code>
-            </div>
-          </div>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              className="graph-icon-btn"
-              onClick={() => void graph.refreshInspector()}
-              title="Refresh"
-              aria-label="Refresh inspector"
-            >
-              <RefreshRoundedIcon fontSize="inherit" />
-            </button>
-            <button
-              type="button"
-              className="graph-icon-btn"
-              onClick={graph.closeInspector}
-              title="Close"
-              aria-label="Close inspector"
-            >
-              <CloseRoundedIcon fontSize="inherit" />
-            </button>
-          </div>
+    <Drawer
+      open={inspector.open && Boolean(entityId)}
+      onClose={graph.closeInspector}
+      position="right"
+      defaultSize="medium"
+      storageKey="graph-inspector"
+      title={entity?.label ?? inspector.entityId ?? 'Inspector'}
+      header={
+        <div className="flex min-w-0 items-center gap-2">
+          {kind && <KindBadge kind={kind as EntityKind} />}
+          <code className="graph-entity-id">{inspector.entityId}</code>
+          {entity?.status && (
+            <span className={`graph-status-chip ${toneClass(tone(entity.status))}`}>{entity.status}</span>
+          )}
+          <button
+            type="button"
+            className="graph-icon-btn"
+            onClick={() => void graph.refreshInspector()}
+            title="Refresh"
+            aria-label="Refresh inspector"
+          >
+            <RefreshRoundedIcon fontSize="inherit" />
+          </button>
         </div>
+      }
+    >
+      <div className="graph-inspector-tabs" role="tablist">
+        {tabs.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === t.id}
+            className={`graph-inspector-tab ${tab === t.id ? 'graph-inspector-tab-active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-        <div className="graph-inspector-tabs" role="tablist">
-          {tabs.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              className={`graph-inspector-tab ${tab === t.id ? 'graph-inspector-tab-active' : ''}`}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="graph-inspector-body">
-          {inspector.loading && !entity && <p className="graph-empty animate-pulse">Loading entity…</p>}
-          {!inspector.loading && !entity && <p className="graph-empty">Entity not found in the graph.</p>}
+      <div className="graph-inspector-body">
+        {inspector.loading && !entity && <p className="graph-empty animate-pulse">Loading entity…</p>}
+        {!inspector.loading && !entity && <p className="graph-empty">Entity not found in the graph.</p>}
 
           {entity && tab === 'overview' && (
             <div>
@@ -438,7 +425,6 @@ export function Inspector() {
             </div>
           )}
         </div>
-      </div>
-    </div>
+    </Drawer>
   );
 }

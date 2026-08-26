@@ -7,10 +7,13 @@ import type {
   ActivityMessageInput,
   ActivityOrganizationalEffect,
   ActivityRecord,
+  ActivityScope,
   PendingSendState,
 } from './activity-types';
 
 interface ActivityComposerProps {
+  /** The room's active scope — the message is delivered into it when set. */
+  scope: ActivityScope;
   targetAgentId: string | undefined;
   onTargetChange: (agentId: string | undefined) => void;
   onSend: (input: ActivityMessageInput) => void;
@@ -32,6 +35,7 @@ const EFFECT_OPTIONS: Array<{ value: ActivityOrganizationalEffect; label: string
 ];
 
 export default function ActivityComposer({
+  scope,
   targetAgentId,
   onTargetChange,
   onSend,
@@ -91,6 +95,10 @@ export default function ActivityComposer({
     if (content.length === 0) return;
     onSend({
       content,
+      // Deliver into the active scope so the message is visible to the workflow
+      // and carries observable receipt state (AAR-001E delivery contract).
+      workflowId: scope.workflowId,
+      sessionId: scope.sessionId,
       targets: [targetAgentId === undefined ? { type: 'all-agents' } : { type: 'agent', agentId: targetAgentId }],
       referencedActivityIds: referencedRecord ? [referencedRecord.id] : undefined,
       ...(effect !== 'message' ? { effect } : {}),
@@ -130,6 +138,11 @@ export default function ActivityComposer({
               <GroupOutlinedIcon sx={{ fontSize: 13 }} />
               To {targetAgentId === undefined ? 'All Agents' : targetAgentId}
             </span>
+            {scope.workflowId !== undefined && (
+              <span className="flex items-center gap-1 text-(--vestara-text-dim)" title="Delivery scope — messages are delivered into this workflow">
+                in {scope.workflowId}
+              </span>
+            )}
             <label className="flex items-center gap-1">
               Effect
               <select

@@ -50,6 +50,8 @@ let fetchImpl: ReturnType<typeof vi.fn> | undefined;
 
 function serverRecord(payload: {
   content: string;
+  workflowId?: string;
+  sessionId?: string;
   referencedActivityIds?: string[];
   effect?: string;
   correctionOf?: string;
@@ -64,6 +66,8 @@ function serverRecord(payload: {
     messageKind: 'message',
     content: payload.content,
     evidenceRefs: [],
+    ...(payload.workflowId !== undefined ? { workflowId: payload.workflowId } : {}),
+    ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
     ...(payload.referencedActivityIds !== undefined ? { referencedActivityIds: payload.referencedActivityIds } : {}),
     ...(payload.effect !== undefined ? { effect: payload.effect as ActivityRecord['effect'] } : {}),
     ...(payload.correctionOf !== undefined ? { correctionOf: payload.correctionOf } : {}),
@@ -87,6 +91,8 @@ beforeEach(() => {
     if (init?.method === 'POST' && url === '/api/messages') {
       const body = JSON.parse(String(init.body)) as {
         content: string;
+        workflowId?: string;
+        sessionId?: string;
         referencedActivityIds?: string[];
         effect?: string;
         correctionOf?: string;
@@ -112,6 +118,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  window.history.replaceState(null, '', '/activity');
 });
 
 describe('Activity messaging (AAR-001E)', () => {
@@ -215,6 +222,55 @@ describe('Activity messaging (AAR-001E)', () => {
 
     await waitFor(() => expect(screen.getByText('Failed to send.')).toBeTruthy());
     expect(screen.getByText('Message failed to send.')).toBeTruthy();
+  });
+
+  it('delivers a composed message into the active workflow scope', async () => {
+    // A message composed while the room is scoped to a workflow must be delivered
+    // into that workflow: stamped on the wire, visible in the scoped stream, and
+    // announced by the composer so delivery is observable (AAR-001E).
+    window.history.replaceState(null, '', '/activity?workflowId=wfo-1');
+
+    const scopedWorkflow: ActivityRecord = { ...workflowRecord, workflowId: 'wfo-1' };
+    fetchImpl?.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (init?.method === 'POST' && url === '/api/messages') {
+        const body = JSON.parse(String(init.body)) as { content: string; workflowId?: string; sessionId?: string };
+        return { ok: true, json: async () => ({ record: serverRecord(body) }) };
+      }
+      if (url.includes('workflowId=wfo-1')) {
+        return {
+          ok: true,
+          json: async () => ({
+            records: [scopedWorkflow],
+            firstSequence: 1,
+            lastSequence: 1,
+            nextSequence: 2,
+          }),
+        };
+      }
+      return { ok: true, json: async () => ({ records: [], firstSequence: 0, lastSequence: 0, nextSequence: 1 }) };
+    });
+
+    renderRoom();
+    await waitFor(() => expect(screen.getByText('project phase changed')).toBeTruthy());
+    // The composer announces the delivery scope.
+    expect(screen.getByText(/in wfo-1/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('Message composer'), { target: { value: 'Scoped hello' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Send message' }));
+
+    // The wire payload carries the workflow scope.
+    await waitFor(() =>
+      expect(fetchImpl).toHaveBeenCalledWith(
+        '/api/messages',
+        expect.objectContaining({ body: expect.stringContaining('"workflowId":"wfo-1"') }),
+      ),
+    );
+
+    // The sent message remains visible in the scoped stream — it is NOT filtered
+    // out by the scope guard because it belongs to the active workflow.
+    await waitFor(() => expect(screen.getAllByText('Scoped hello').length).toBeGreaterThan(0));
+    expect(screen.getByText(/workflow wfo-1/)).toBeTruthy();
   });
 
   it('sends an organizational effect and renders it as a badge on the message', async () => {

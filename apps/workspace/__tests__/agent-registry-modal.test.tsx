@@ -64,7 +64,9 @@ describe('AgentRegistryModal', () => {
   it('sources workspace-agent providers and models from the OpenCode runtime', async () => {
     renderModal();
 
-    await waitFor(() => expect(screen.getByText('OpenCode runtime', { exact: false })).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getAllByText('OpenCode runtime', { exact: false }).length).toBeGreaterThan(0),
+    );
 
     const provider = comboboxWith('opencode-go');
     expect(provider).toBeDefined();

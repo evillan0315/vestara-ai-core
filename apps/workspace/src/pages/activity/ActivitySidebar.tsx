@@ -2,22 +2,16 @@ import { useMemo } from 'react';
 import { useTelemetryStore } from '../../contexts/TelemetryContext';
 import AgentListItem, { type PresenceGroup, presenceOf } from './AgentListItem';
 import { formatRelative } from './activity-formatters';
-import type { ActivityRecord } from './activity-types';
+import type { ActivityRecord, WorkflowParticipant } from './activity-types';
 
-export interface WorkflowParticipant {
-  workflowId: string;
-  role: string;
-  agentId: string;
-  threadId: string;
-  executionState: string;
-  lastActivityAt?: string;
-  lastActivity?: string;
-}
+export type { WorkflowParticipant };
 
 interface ActivitySidebarProps {
   records: readonly ActivityRecord[];
   selectedAgentId: string | undefined;
   onSelectAgent: (agentId: string | undefined) => void;
+  /** Open the detailed agent drawer for an agent id. */
+  onOpenAgent?: (agentId: string) => void;
   /** Real participants of the selected workflow; falls back to the agent catalog. */
   participants?: readonly WorkflowParticipant[];
   /** Unread (pending-observation) human-message count per agent id. */
@@ -57,6 +51,7 @@ export default function ActivitySidebar({
   records,
   selectedAgentId,
   onSelectAgent,
+  onOpenAgent,
   participants,
   unreadByAgent,
 }: ActivitySidebarProps) {
@@ -126,7 +121,10 @@ export default function ActivitySidebar({
             <button
               key={participant.threadId}
               type="button"
-              onClick={() => onSelectAgent(selectedAgentId === participant.agentId ? undefined : participant.agentId)}
+              onClick={() => {
+                onSelectAgent(selectedAgentId === participant.agentId ? undefined : participant.agentId);
+                onOpenAgent?.(participant.agentId);
+              }}
               className={`w-full px-3 py-2 rounded-lg border text-left transition-colors cursor-pointer ${
                 selectedAgentId === participant.agentId
                   ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)'
@@ -179,7 +177,10 @@ export default function ActivitySidebar({
                       agent={agent}
                       selected={selectedAgentId === agent.id}
                       lastActivity={lastActivityFor(records, agent.id)}
-                      onSelect={(agentId) => onSelectAgent(agentId)}
+                      onSelect={(agentId) => {
+                        onSelectAgent(agentId);
+                        onOpenAgent?.(agentId);
+                      }}
                     />
                   ))}
                 </div>

@@ -14,7 +14,7 @@
  */
 
 import type { ResolvedConfiguration } from '@vestara/configuration';
-import type { ThemeMode, ThemeSettings } from './theme';
+import type { CustomTheme, ThemeMode, ThemeSettings } from './theme';
 
 export interface HydratedTheme {
   mode?: ThemeMode;
@@ -24,6 +24,7 @@ export interface HydratedTheme {
 
 const APPEARANCE_THEME_KEY = 'appearance.theme';
 const GENERAL_THEME_KEY = 'general.theme';
+const CUSTOM_THEMES_KEY = 'vestara-custom-themes';
 
 /**
  * Derive the approved visual configuration from resolved workspace settings.
@@ -57,6 +58,53 @@ export async function persistAppearanceSettings(settings: ThemeSettings): Promis
 /** Persist the approved theme mode durably (general.theme). */
 export async function persistThemeMode(mode: ThemeMode): Promise<boolean> {
   return putSetting('general', GENERAL_THEME_KEY, mode);
+}
+
+/** Persist custom themes to localStorage and server. */
+export async function persistCustomThemes(themes: CustomTheme[]): Promise<void> {
+  try {
+    localStorage.setItem(CUSTOM_THEMES_KEY, JSON.stringify(themes));
+  } catch {}
+  await putSetting('appearance', CUSTOM_THEMES_KEY, JSON.stringify(themes));
+}
+
+/** Load custom themes from localStorage. */
+export function loadCustomThemes(): CustomTheme[] {
+  try {
+    const raw = localStorage.getItem(CUSTOM_THEMES_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed as CustomTheme[];
+      }
+    }
+  } catch {}
+  return [];
+}
+
+/** Hydrate custom themes from server settings. */
+export async function hydrateCustomThemes(): Promise<CustomTheme[]> {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return [];
+    const configuration = (await res.json()) as ResolvedConfiguration;
+    for (const setting of configuration.settings) {
+      if (setting.key === CUSTOM_THEMES_KEY && typeof setting.value === 'string' && setting.value) {
+        try {
+          const parsed = JSON.parse(setting.value);
+          if (Array.isArray(parsed)) {
+            localStorage.setItem(CUSTOM_THEMES_KEY, setting.value);
+            return parsed as CustomTheme[];
+          }
+        } catch {
+          // invalid stored themes — ignore
+        }
+      }
+    }
+  } catch {
+    // API unavailable — return empty
+  }
+  return [];
 }
 
 async function putSetting(section: string, key: string, value: unknown): Promise<boolean> {

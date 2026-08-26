@@ -1,4 +1,4 @@
-import type { WorkflowParticipant } from './ActivitySidebar';
+import type { WorkflowParticipant } from './activity-types';
 
 const STATE_DOT: Record<string, string> = {
   completed: 'bg-(--vestara-green)',

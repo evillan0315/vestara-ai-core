@@ -5,6 +5,7 @@ import type {
   ActivityStreamMessage,
   MessageTarget,
 } from '@vestara/activity-projection';
+import type { LiveStreamItem, WorkflowParticipant, WorkflowReceipts } from '../pages/activity/activity-types';
 import { resolveWsUrl } from './clientConfig';
 
 // ─── History API ───────────────────────────────────────────────
@@ -86,6 +87,14 @@ export async function postActivityMessage(payload: ActivityMessagePayload): Prom
 
 // ─── Effective state (Direction 2) ─────────────────────────────
 
+export interface EffectiveUnitState {
+  workflowId?: string;
+  sessionId?: string;
+  latestEffect?: ActivityOrganizationalEffect;
+  lastActivity: string;
+  recordCount: number;
+}
+
 export interface EffectiveState {
   computedAt: string;
   corrections: Array<{
@@ -96,36 +105,99 @@ export interface EffectiveState {
     originalContent: string;
   }>;
   open: Array<{ id: string; effect: string; actor: string; content: string }>;
-  units: Array<{
-    workflowId?: string;
-    sessionId?: string;
-    latestEffect?: string;
-    lastActivity: string;
-    recordCount: number;
-  }>;
+  units: EffectiveUnitState[];
   needsAttention: number;
 }
 
-/** Recomputes the effective state from the durable history (derived, never stored). */
-export async function fetchEffectiveState(scope: Pick<ActivityHistoryParams, 'workflowId' | 'sessionId'> = {}): Promise<EffectiveState | null> {
+/**
+ * Recomputes the effective state from the durable history (derived, never
+ * stored). Returns a typed result with the error string surfaced — the caller
+ * decides how to present `stale` vs `error`, never guessing on a silent null.
+ */
+export async function fetchEffectiveStateResult(
+  scope: Pick<ActivityHistoryParams, 'workflowId' | 'sessionId'> = {},
+): Promise<{ data?: EffectiveState; error?: string }> {
+  const qs = new URLSearchParams();
+  if (scope.workflowId !== undefined) qs.set('workflowId', scope.workflowId);
+  if (scope.sessionId !== undefined) qs.set('sessionId', scope.sessionId);
+  const query = qs.toString();
   try {
-    const qs = new URLSearchParams();
-    if (scope.workflowId !== undefined) qs.set('workflowId', scope.workflowId);
-    if (scope.sessionId !== undefined) qs.set('sessionId', scope.sessionId);
-    const query = qs.toString();
     const res = await fetch(`/api/activity-room/state${query ? `?${query}` : ''}`);
-    if (!res.ok) return null;
+    if (!res.ok) return { error: `Unable to load effective state (HTTP ${res.status}).` };
     const data = (await res.json()) as Partial<EffectiveState>;
-    if (!Array.isArray(data.corrections) || !Array.isArray(data.open) || !Array.isArray(data.units)) return null;
+    if (!Array.isArray(data.corrections) || !Array.isArray(data.open) || !Array.isArray(data.units)) {
+      return { error: 'Effective state response was malformed.' };
+    }
     return {
-      computedAt: typeof data.computedAt === 'string' ? data.computedAt : '',
-      corrections: data.corrections,
-      open: data.open,
-      units: data.units,
-      needsAttention: typeof data.needsAttention === 'number' ? data.needsAttention : data.open.length,
+      data: {
+        computedAt: typeof data.computedAt === 'string' ? data.computedAt : '',
+        corrections: data.corrections,
+        open: data.open,
+        units: data.units,
+        needsAttention: typeof data.needsAttention === 'number' ? data.needsAttention : data.open.length,
+      },
     };
   } catch {
-    return null;
+    return { error: 'Unable to load effective state. Check the connection and retry.' };
+  }
+}
+
+/** Signature-compatible wrapper (kept for existing callers); error is surfaced. */
+export async function fetchEffectiveState(
+  scope: Pick<ActivityHistoryParams, 'workflowId' | 'sessionId'> = {},
+): Promise<EffectiveState | null> {
+  const result = await fetchEffectiveStateResult(scope);
+  return result.data ?? null;
+}
+
+export interface WorkflowParticipantsResult {
+  data?: readonly WorkflowParticipant[];
+  error?: string;
+}
+
+/** Real participants of the selected workflow (derived server-side, never local). */
+export async function fetchWorkflowParticipants(workflowId: string): Promise<WorkflowParticipantsResult> {
+  try {
+    const res = await fetch(`/api/workflow/${encodeURIComponent(workflowId)}/participants`);
+    if (!res.ok) return { error: `Unable to load participants (HTTP ${res.status}).` };
+    const data = (await res.json()) as { participants?: WorkflowParticipant[] };
+    return { data: data.participants ?? [] };
+  } catch {
+    return { error: 'Unable to load participants. Check the connection and retry.' };
+  }
+}
+
+export interface WorkflowLiveStreamResult {
+  data?: readonly LiveStreamItem[];
+  error?: string;
+}
+
+/** Coalesced per-participant live narrative for the workflow (never a transcript). */
+export async function fetchWorkflowLiveStream(workflowId: string): Promise<WorkflowLiveStreamResult> {
+  try {
+    const res = await fetch(`/api/workflow/${encodeURIComponent(workflowId)}/live-stream`);
+    if (!res.ok) return { error: `Unable to load live narrative (HTTP ${res.status}).` };
+    const data = (await res.json()) as { live?: LiveStreamItem[] };
+    return { data: data.live ?? [] };
+  } catch {
+    return { error: 'Unable to load live narrative. Check the connection and retry.' };
+  }
+}
+
+export interface WorkflowReceiptsResult {
+  data?: WorkflowReceipts;
+  error?: string;
+}
+
+/** Aggregated workflow message receipts + per-agent unread counts. */
+export async function fetchWorkflowReceipts(workflowId: string): Promise<WorkflowReceiptsResult> {
+  try {
+    const res = await fetch(`/api/activity-room/workflows/${encodeURIComponent(workflowId)}/message-receipts`);
+    if (!res.ok) return { error: `Unable to load message receipts (HTTP ${res.status}).` };
+    const data = (await res.json()) as { receiptsByMessage?: unknown; unreadByAgent?: Record<string, number> };
+    return { data: { receiptsByMessage: data.receiptsByMessage, unreadByAgent: data.unreadByAgent ?? {} } };
+  } catch {
+    return { error: 'Unable to load message receipts. Check the connection and retry.' };
   }
 }
 

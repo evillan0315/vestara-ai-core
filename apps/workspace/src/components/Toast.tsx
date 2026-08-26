@@ -188,7 +188,6 @@ const EVENT_ICONS: Record<string, { type: Toast['type']; label: string }> = {
   'agent.deleted': { type: 'error', label: 'Agent deleted' },
   'project:created': { type: 'info', label: 'Project created' },
   'task:created': { type: 'info', label: 'Task created' },
-  'system.heartbeat': { type: 'info', label: 'Heartbeat' },
   'system.error': { type: 'error', label: 'System error' },
   'orchestration.plan.generated': { type: 'info', label: 'Plan generated' },
   'orchestration.project.completed': { type: 'success', label: 'Project completed' },

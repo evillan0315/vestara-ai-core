@@ -37,3 +37,27 @@ export interface Execution {
   completedAt?: string;
   result?: string;
 }
+
+export interface ExecutionSummary {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  successRate: number;
+}
+
+export interface AgentStats {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  avgDuration: number;
+}
+
+export interface HarnessSessionEntry {
+  id: string;
+  workflowId?: string;
+  goal?: string;
+  status: string;
+  createdAt: string;
+}

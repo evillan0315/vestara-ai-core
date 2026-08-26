@@ -147,6 +147,12 @@ export function useActivityStream(): ActivityStreamSnapshot {
         ? 'all-agents'
         : (input.targets.find((target): target is { type: 'agent'; agentId: string } => target.type === 'agent')
             ?.agentId ?? 'all-agents');
+      // Delivery scope (AAR-001E): a message composed in a scoped room belongs
+      // to that workflow/session even when the caller omits it. Without a scope
+      // the message is persisted globally — invisible in the scoped stream and
+      // history, seeded with no delivery receipts, and never observed by agents.
+      const workflowId = input.workflowId ?? scopeRef.current.workflowId;
+      const sessionId = input.sessionId ?? scopeRef.current.sessionId;
       const displayName = input.actor?.displayName?.trim() || 'You';
       const actorRole = input.actor?.role?.trim() || undefined;
       const optimistic: ActivityProjectionRecord = {
@@ -163,8 +169,8 @@ export function useActivityStream(): ActivityStreamSnapshot {
         agentId,
         messageKind: 'message',
         content: input.content,
-        workflowId: input.workflowId,
-        sessionId: input.sessionId,
+        workflowId,
+        sessionId,
         evidenceRefs: [],
         ...(input.effect !== undefined ? { effect: input.effect } : {}),
         ...(input.correctionOf !== undefined ? { correctionOf: input.correctionOf } : {}),

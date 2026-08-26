@@ -33,6 +33,7 @@ const RUNTIME_COLOR: Record<string, string> = {
   opencode: 'text-(--vestara-amber)',
   'claude-code': 'text-(--vestara-purple)',
   'openai-codex': 'text-(--vestara-green)',
+  gemini: 'text-(--vestara-blue)',
   vestara: 'text-(--vestara-blue)',
 };
 

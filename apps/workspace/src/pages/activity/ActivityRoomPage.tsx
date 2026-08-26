@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useActivityStream } from '../../hooks/useActivityStream';
+import { useActivityRoomModel } from '../../hooks/useActivityRoomModel';
 import ActivityComposer from './ActivityComposer';
 import ActivityCorrectionDialog from './ActivityCorrectionDialog';
 import ActivityDetailModal from './ActivityDetailModal';
@@ -7,8 +7,15 @@ import ActivityScopeSelector from './ActivityScopeSelector';
 import ActivitySidebar, { type WorkflowParticipant } from './ActivitySidebar';
 import ActivityStatePanel from './ActivityStatePanel';
 import ActivityStream from './ActivityStream';
+import ActivityWorkflowBrowser from './ActivityWorkflowBrowser';
+import AgentDetailDrawer from './AgentDetailDrawer';
 import ExecutionPulse from './ExecutionPulse';
-import type { ActivityConnectionState, ActivityDensity, ActivityRecord } from './activity-types';
+import type {
+  ActivityConnectionState,
+  ActivityDensity,
+  ActivityRecord,
+  AuxiliarySourceStatus,
+} from './activity-types';
 import VisualEditMode from './VisualEditMode';
 import { hydrateVisualConfig } from './visual-config';
 
@@ -21,34 +28,37 @@ const STATE_LABELS: Record<ActivityConnectionState, { label: string; color: stri
   error: { label: 'Resynchronizing', color: 'bg-(--vestara-amber)' },
 };
 
-interface LiveStreamItem {
-  threadId: string;
-  role: string;
-  agentId: string;
-  sessionId?: string;
-  text: string;
-  lastActivityAt: string;
+const STATUS_WEIGHT: Record<AuxiliarySourceStatus, number> = {
+  idle: 0,
+  ready: 1,
+  loading: 2,
+  stale: 3,
+  error: 4,
+};
+
+function worstStatus(statuses: readonly AuxiliarySourceStatus[]): AuxiliarySourceStatus {
+  let worst: AuxiliarySourceStatus = 'idle';
+  for (const status of statuses) {
+    if (STATUS_WEIGHT[status] > STATUS_WEIGHT[worst]) worst = status;
+  }
+  return worst;
 }
 
-type AuxiliaryStatus = 'loading' | 'ready' | 'stale' | 'error';
-
 export default function ActivityRoomPage() {
-  const stream = useActivityStream();
+  const model = useActivityRoomModel();
+  const stream = model.stream;
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [detailRecord, setDetailRecord] = useState<ActivityRecord | null>(null);
   const [referencedRecord, setReferencedRecord] = useState<ActivityRecord | null>(null);
   const [correctionTarget, setCorrectionTarget] = useState<ActivityRecord | null>(null);
   const [visualEdit, setVisualEdit] = useState(false);
-  const [participants, setParticipants] = useState<readonly WorkflowParticipant[] | undefined>(undefined);
-  const [liveStream, setLiveStream] = useState<readonly LiveStreamItem[]>([]);
-  const [auxiliaryStatus, setAuxiliaryStatus] = useState<AuxiliaryStatus>('loading');
-  const [auxiliaryError, setAuxiliaryError] = useState<string>();
   const [participantsOpen, setParticipantsOpen] = useState(false);
-  const [auxiliaryRefresh, setAuxiliaryRefresh] = useState(0);
   const [density, setDensity] = useState<ActivityDensity>('operational');
-  const [unreadByAgent, setUnreadByAgent] = useState<Readonly<Record<string, number>>>({});
+  const [drawerAgentId, setDrawerAgentId] = useState<string | null>(null);
 
   const selectAgent = useCallback((agentId: string | undefined) => setSelectedAgentId(agentId), []);
+  const openAgentDrawer = useCallback((agentId: string) => setDrawerAgentId(agentId), []);
+  const closeAgentDrawer = useCallback(() => setDrawerAgentId(null), []);
   const openDetail = useCallback((record: ActivityRecord) => setDetailRecord(record), []);
   const closeDetail = useCallback(() => setDetailRecord(null), []);
   const referenceRecord = useCallback((record: ActivityRecord) => setReferencedRecord(record), []);
@@ -67,59 +77,11 @@ export default function ActivityRoomPage() {
     void hydrateVisualConfig();
   }, []);
 
-  // The selected workflow's real organization: participants + live narrative.
   const workflowId = stream.scope.workflowId;
-  useEffect(() => {
-    if (!workflowId) {
-      setParticipants(undefined);
-      setLiveStream([]);
-      setAuxiliaryStatus('ready');
-      setAuxiliaryError(undefined);
-      return;
-    }
-    let cancelled = false;
-    setParticipants(undefined);
-    setLiveStream([]);
-    setUnreadByAgent({});
-    setAuxiliaryStatus('loading');
-    setAuxiliaryError(undefined);
-    const load = async () => {
-      try {
-        const [pRes, lRes, rRes] = await Promise.all([
-          fetch(`/api/workflow/${encodeURIComponent(workflowId)}/participants`),
-          fetch(`/api/workflow/${encodeURIComponent(workflowId)}/live-stream`),
-          fetch(`/api/activity-room/workflows/${encodeURIComponent(workflowId)}/message-receipts`),
-        ]);
-        if (cancelled) return;
-        if (!pRes.ok || !lRes.ok) {
-          setAuxiliaryStatus('stale');
-          setAuxiliaryError('Workflow context could not be refreshed. Showing the timeline without it.');
-          return;
-        }
-        setParticipants(((await pRes.json()) as { participants?: WorkflowParticipant[] }).participants ?? []);
-        setLiveStream(((await lRes.json()) as { live?: LiveStreamItem[] }).live ?? []);
-        if (rRes.ok) {
-          const receipts = (await rRes.json()) as { unreadByAgent?: Record<string, number> };
-          setUnreadByAgent(receipts.unreadByAgent ?? {});
-        }
-        setAuxiliaryStatus('ready');
-        setAuxiliaryError(undefined);
-      } catch {
-        if (!cancelled) {
-          setAuxiliaryStatus('error');
-          setAuxiliaryError('Workflow context is unavailable.');
-        }
-      }
-    };
-    void load();
-    const timer = setInterval(() => {
-      if (document.visibilityState === 'visible') void load();
-    }, 2000);
-    return () => {
-      cancelled = true;
-      clearInterval(timer);
-    };
-  }, [workflowId, auxiliaryRefresh]);
+  const participants = model.participants.data;
+  const liveStream = model.liveStream.data ?? [];
+  const unreadByAgent = model.receipts.data?.unreadByAgent;
+  const auxiliaryStatus = workflowId ? worstStatus([model.participants.status, model.liveStream.status, model.receipts.status]) : 'ready';
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
@@ -189,7 +151,9 @@ export default function ActivityRoomPage() {
 
       <div className="rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <ActivityScopeSelector records={stream.records} scope={stream.scope} onScopeChange={stream.applyScope} />
+          <div className="md:hidden">
+            <ActivityScopeSelector records={stream.records} scope={stream.scope} onScopeChange={stream.applyScope} />
+          </div>
           <div className="flex items-center gap-1 rounded-lg border border-(--vestara-accent-border) p-0.5" role="group" aria-label="Timeline density">
             {(['summary', 'operational', 'raw'] as const).map((d) => (
               <button
@@ -216,7 +180,11 @@ export default function ActivityRoomPage() {
         </div>
       </div>
 
-      {participants && participants.length > 0 && <ExecutionPulse participants={participants} />}
+      {participants && participants.length > 0 && (
+        <div className="md:hidden">
+          <ExecutionPulse participants={participants} />
+        </div>
+      )}
 
       {workflowId && auxiliaryStatus !== 'ready' && (
         <div
@@ -227,26 +195,42 @@ export default function ActivityRoomPage() {
           }`}
           role="status"
         >
-          {auxiliaryStatus === 'loading' ? 'Loading workflow participants and live context…' : auxiliaryError}
+          {auxiliaryStatus === 'loading'
+            ? 'Loading workflow participants and live context…'
+            : auxiliaryStatus === 'stale'
+              ? 'Workflow context could not be refreshed. Showing the timeline without it.'
+              : 'Workflow context is unavailable.'}
           {auxiliaryStatus !== 'loading' && (
-            <button type="button" onClick={() => setAuxiliaryRefresh((value) => value + 1)} className="ml-2 underline cursor-pointer">
+            <button type="button" onClick={model.retryAuxiliary} className="ml-2 underline cursor-pointer">
               Retry
             </button>
           )}
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1 flex-col gap-3 lg:flex-row lg:gap-4">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 md:flex-row md:gap-4">
         <aside className="hidden max-h-56 shrink-0 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3 lg:block lg:max-h-none lg:w-72">
           <div className="mb-2 px-2 text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Participants</div>
           <ActivitySidebar
             records={stream.records}
             selectedAgentId={selectedAgentId}
             onSelectAgent={selectAgent}
+            onOpenAgent={openAgentDrawer}
             participants={participants}
             unreadByAgent={unreadByAgent}
           />
         </aside>
+
+        <ActivityWorkflowBrowser
+          records={stream.records}
+          scope={stream.scope}
+          onScopeChange={stream.applyScope}
+          units={model.effectiveState.data?.units ?? []}
+          status={model.effectiveState.status}
+          onRetry={model.retryAuxiliary}
+          participants={participants}
+          className="hidden shrink-0 md:block md:w-[280px]"
+        />
 
         <main className="flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
@@ -257,7 +241,7 @@ export default function ActivityRoomPage() {
               {stream.paused ? `${stream.unread} buffered` : stateInfo.label}
             </span>
           </div>
-          <ActivityStatePanel scope={stream.scope} />
+          <ActivityStatePanel scope={stream.scope} source={model.effectiveState} onRetry={model.retryAuxiliary} />
           {liveStream.length > 0 && (
             <div className="mb-2 flex items-center gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5">
               <span className="flex items-center gap-1.5 whitespace-nowrap text-[9px] font-semibold uppercase tracking-widest text-(--vestara-green)">
@@ -302,6 +286,7 @@ export default function ActivityRoomPage() {
             onRetry={stream.retrySend}
           />
           <ActivityComposer
+            scope={stream.scope}
             targetAgentId={selectedAgentId}
             onTargetChange={selectAgent}
             onSend={stream.sendMessage}
@@ -349,6 +334,7 @@ export default function ActivityRoomPage() {
                 selectAgent(id);
                 setParticipantsOpen(false);
               }}
+              onOpenAgent={openAgentDrawer}
               participants={participants}
               unreadByAgent={unreadByAgent}
             />
@@ -361,6 +347,12 @@ export default function ActivityRoomPage() {
         <ActivityCorrectionDialog target={correctionTarget} onClose={closeCorrection} onSend={stream.sendMessage} />
       )}
       {visualEdit && <VisualEditMode />}
+      <AgentDetailDrawer
+        open={drawerAgentId !== null}
+        agentId={drawerAgentId}
+        participant={(participants ?? []).find((participant) => participant.agentId === drawerAgentId) ?? null}
+        onClose={closeAgentDrawer}
+      />
     </div>
   );
 }

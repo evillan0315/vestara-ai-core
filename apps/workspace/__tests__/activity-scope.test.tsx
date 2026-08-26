@@ -107,18 +107,18 @@ describe('Activity scope (AAR-001F)', () => {
     renderRoom();
     await waitFor(() => expect(screen.getByText('phase A changed')).toBeTruthy());
 
-    expect(screen.getByRole('button', { name: 'All activity' })).toBeTruthy();
-    expect(screen.getByLabelText('Scope to workflow')).toBeTruthy();
-    expect(screen.getByLabelText('Scope to session')).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'wfo-1' })).toBeTruthy();
-    expect(screen.getByRole('option', { name: 'wfo-2' })).toBeTruthy();
+    expect(screen.getAllByRole('button', { name: 'All activity' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('Scope to workflow').length).toBeGreaterThan(0);
+    expect(screen.getAllByLabelText('Scope to session').length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'wfo-1' }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole('option', { name: 'wfo-2' }).length).toBeGreaterThan(0);
   });
 
   it('scopes the stream to a workflow and refetches scoped history', async () => {
     renderRoom();
     await waitFor(() => expect(screen.getByText('phase A changed')).toBeTruthy());
 
-    const select = screen.getByLabelText('Scope to workflow');
+    const select = screen.getAllByLabelText('Scope to workflow')[0];
     fireEvent.change(select, { target: { value: 'wfo-1' } });
 
     // The scoped history fetch includes the workflow filter.
@@ -135,7 +135,7 @@ describe('Activity scope (AAR-001F)', () => {
     renderRoom();
     await waitFor(() => expect(screen.getByText('phase A changed')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('Scope to workflow'), { target: { value: 'wfo-1' } });
+    fireEvent.change(screen.getAllByLabelText('Scope to workflow')[0], { target: { value: 'wfo-1' } });
 
     await waitFor(() => expect(window.location.search).toContain('workflowId=wfo-1'));
   });
@@ -144,10 +144,10 @@ describe('Activity scope (AAR-001F)', () => {
     renderRoom();
     await waitFor(() => expect(screen.getByText('phase A changed')).toBeTruthy());
 
-    fireEvent.change(screen.getByLabelText('Scope to workflow'), { target: { value: 'wfo-1' } });
+    fireEvent.change(screen.getAllByLabelText('Scope to workflow')[0], { target: { value: 'wfo-1' } });
     await waitFor(() => expect(screen.queryByText('phase B completed')).toBeNull());
 
-    fireEvent.click(screen.getByRole('button', { name: 'All activity' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'All activity' })[0]);
     await waitFor(() => expect(screen.getByText('phase B completed')).toBeTruthy());
     expect(window.location.search).not.toContain('workflowId');
   });
