@@ -122,8 +122,8 @@ export async function runToolLoop(options: {
   return { content: final.content ?? '', toolResults };
 }
 
-function systemPromptFor(
-  ctx: WorkspaceContext,
+function _systemPromptFor(
+  _ctx: WorkspaceContext,
   route: { agentName?: string; role?: string },
   profile: { name: string; language: string; framework?: string; fileCount: number; packageCount: number },
 ): string {
@@ -143,7 +143,7 @@ function systemPromptFor(
     .join('\n');
 }
 
-async function resolveChatRoute(
+async function _resolveChatRoute(
   ctx: WorkspaceContext,
   agentId: unknown,
   requestedRole: unknown,

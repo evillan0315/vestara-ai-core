@@ -16,9 +16,10 @@
  *   change.summary.updated     aggregate additions/deletions/count
  */
 
-import { execFileSync } from 'node:child_process';
+import { execFile } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { promisify } from 'node:util';
 import { contentHash } from '@vestara/diff-engine';
 import type { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import type { TaskThreadId } from '@vestara/types';
@@ -60,19 +61,21 @@ export interface ChangeSummary {
 
 const ignoredDirectories = new Set(['.git', 'node_modules', 'dist', 'coverage', '.vestara']);
 
+const run = promisify(execFile);
+
 /** All workspace-relative files (skipping generated/ignored directories). */
-export function listWorkspaceFiles(root: string): string[] {
+export async function listWorkspaceFiles(root: string): Promise<string[]> {
   const out: string[] = [];
-  const walk = (dir: string): void => {
+  const walk = async (dir: string): Promise<void> => {
     let entries;
     try {
-      entries = fs.readdirSync(dir, { withFileTypes: true });
+      entries = await fs.promises.readdir(dir, { withFileTypes: true });
     } catch {
       return;
     }
     for (const entry of entries) {
       if (entry.isDirectory()) {
-        if (!ignoredDirectories.has(entry.name)) walk(path.join(dir, entry.name));
+        if (!ignoredDirectories.has(entry.name)) await walk(path.join(dir, entry.name));
         continue;
       }
       if (!entry.isFile()) continue;
@@ -81,23 +84,26 @@ export function listWorkspaceFiles(root: string): string[] {
       out.push(path.relative(root, full));
     }
   };
-  walk(root);
+  await walk(root);
   return out.sort();
 }
 
-export function captureFilesystemState(root: string): { gitHead: string; files: ChangeBaselineFile[] } {
+export async function captureFilesystemState(root: string): Promise<{
+  gitHead: string;
+  files: ChangeBaselineFile[];
+}> {
   let gitHead = '';
   try {
-    gitHead = execFileSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).trim();
+    gitHead = (await run('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' })).stdout.trim();
   } catch {
     gitHead = 'NO-GIT';
   }
   const files: ChangeBaselineFile[] = [];
-  for (const file of listWorkspaceFiles(root)) {
+  for (const file of await listWorkspaceFiles(root)) {
     try {
       const full = path.resolve(root, file);
       if (!full.startsWith(`${path.resolve(root)}${path.sep}`) && path.resolve(root) !== full) continue;
-      const hash = contentHash(fs.readFileSync(full));
+      const hash = contentHash(await fs.promises.readFile(full));
       files.push({ path: file, hash });
     } catch {
       /* file may have been removed between list and read */
@@ -107,13 +113,15 @@ export function captureFilesystemState(root: string): { gitHead: string; files: 
 }
 
 /** Diff stats per file from `git diff --numstat HEAD`. */
-export function gitDiffStats(root: string): DiffStat[] {
+export async function gitDiffStats(root: string): Promise<DiffStat[]> {
   try {
-    const output = execFileSync('git', ['diff', '--numstat', 'HEAD', '--'], {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    }).trim();
+    const output = (
+      await run('git', ['diff', '--numstat', 'HEAD', '--'], {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+      })
+    ).stdout.trim();
     if (!output) return [];
     return output
       .split('\n')
@@ -132,13 +140,15 @@ export function gitDiffStats(root: string): DiffStat[] {
 }
 
 /** Unified diff against HEAD (used by the streaming TUI diff projection). */
-export function gitUnifiedDiff(root: string): string {
+export async function gitUnifiedDiff(root: string): Promise<string> {
   try {
-    return execFileSync('git', ['diff', '--no-ext-diff', '--no-color', 'HEAD', '--'], {
-      cwd: root,
-      encoding: 'utf8',
-      maxBuffer: 10 * 1024 * 1024,
-    });
+    return (
+      await run('git', ['diff', '--no-ext-diff', '--no-color', 'HEAD', '--'], {
+        cwd: root,
+        encoding: 'utf8',
+        maxBuffer: 10 * 1024 * 1024,
+      })
+    ).stdout;
   } catch {
     return '';
   }
@@ -223,7 +233,7 @@ export class ChangeEventProjector {
 
   /** Capture a baseline for a thread so later diffs are relative to it. */
   async captureBaseline(input: { threadId: TaskThreadId; taskId?: string; agentId?: string }): Promise<void> {
-    const state = captureFilesystemState(this.options.root);
+    const state = await captureFilesystemState(this.options.root);
     const baseline: WorkspaceBaseline = {
       root: this.options.root,
       gitHead: state.gitHead,
@@ -244,9 +254,12 @@ export class ChangeEventProjector {
     agentId?: string;
   }): Promise<FileChangeDetection[]> {
     const baseline = this.latestBaseline(input.threadId);
-    const current = captureFilesystemState(this.options.root);
+    const current = await captureFilesystemState(this.options.root);
     const baselineFiles = baseline ? baseline.files : [];
-    const detections = mergeDiffStats(detectChanges(baselineFiles, current.files), gitDiffStats(this.options.root));
+    const detections = mergeDiffStats(
+      detectChanges(baselineFiles, current.files),
+      await gitDiffStats(this.options.root),
+    );
     const summary = summarizeChanges(detections);
 
     // Idempotent: a read/GET must not emit duplicate change events.
@@ -264,7 +277,7 @@ export class ChangeEventProjector {
     }
     this.append('change.diff.updated', input, {
       files: detections,
-      diff: gitUnifiedDiff(this.options.root),
+      diff: await gitUnifiedDiff(this.options.root),
       summary: summary.summary,
     });
     this.append('change.summary.updated', input, summary);

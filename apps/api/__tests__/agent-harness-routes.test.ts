@@ -5,7 +5,7 @@ import type { AgentHarnessRuntime } from '@vestara/agent-harness';
 import { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import { InProcessEventBus } from '@vestara/event-bus';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
-import type { AIModel, AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
+import type { AIModel, AIProvider, CompletionResponse } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemWriteTool, type ToolPolicyEvaluator, ToolRuntime, type VestaraTool } from '@vestara/tool-runtime';

@@ -20,6 +20,7 @@
  */
 
 import type * as http from 'node:http';
+import { HarnessExecutionAdapter } from '@vestara/workspace';
 import * as collect from '../diagnostics/collect';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
@@ -218,31 +219,34 @@ export async function handleDiagnosticsRoute(
       json(res, 400, { error: 'snapshot is required' });
       return true;
     }
-    const provider = ctx.kernel.providerManager?.getProvider('opencode') ?? null;
-    if (!provider) {
-      json(res, 503, { error: 'AI provider not available' });
-      return true;
-    }
     const brief = summarizeSnapshot(snapshot);
-    const systemPrompt = [
+    // Route through the same agent harness + OpenCode runtime that workflows
+    // use (not a direct cloud provider completion). The analysis is assigned to
+    // a Vestara agent (context by default; reviewer/other via `agentId`) and
+    // runs as a real agent turn on the OpenCode runtime.
+    const agentId =
+      typeof body.agentId === 'string' && body.agentId.trim().length > 0 ? body.agentId.trim() : 'vestara-context';
+    const instruction = [
       'You are Vestara, an observability engineer.',
       'Diagnose the following development environment diagnostic snapshot.',
       'Identify problems, their likely causes, and concrete fixes.',
       'Be specific and actionable. Use short markdown.',
+      '',
+      `Diagnostic snapshot:\n"""\n${brief}\n"""\n\nQuestion: ${question}`,
     ].join('\n');
     try {
-      const result = await provider.complete({
-        model: body.model || 'nemotron-3-ultra-free',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Diagnostic snapshot:\n"""\n${brief}\n"""\n\nQuestion: ${question}` },
-        ],
-        temperature: 0.3,
-        maxTokens: 2048,
+      const result = await new HarnessExecutionAdapter(ctx.harnessSession).execute({
+        agentId,
+        instruction,
+        goal: `Diagnostics: ${question.slice(0, 120)}`,
       });
-      json(res, 200, { answer: result.content || 'No response.' });
+      if (result.status !== 'completed') {
+        json(res, 502, { error: `Agent ${agentId} did not complete the analysis (${result.status}).` });
+        return true;
+      }
+      json(res, 200, { answer: result.output ?? 'No response.', agentId, status: result.status });
     } catch (err: any) {
-      json(res, 500, { error: err.message });
+      json(res, 500, { error: err instanceof Error ? err.message : String(err) });
     }
     return true;
   }

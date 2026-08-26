@@ -100,6 +100,8 @@ import {
   MemoryService,
   MilestoneService,
   MultiAgentWorkflowOrchestrator,
+  OrderService,
+  OrderStorage,
   PLANS_MANIFEST,
   PlanningService,
   PlanStorage,
@@ -201,6 +203,7 @@ export interface WorkspaceContext {
   notificationService?: NotificationService;
   milestones?: MilestoneService;
   projects?: ProjectService;
+  orders?: OrderService;
   activityStore?: ActivityLogStore;
   telemetry: TelemetryRuntime;
   documentation: DocumentationService;
@@ -881,13 +884,17 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     // Agents execute through the OpenCode runtime (same mechanism as the
     // governed live trials): a runtime session per turn, replies streamed over
     // the /event SSE endpoint until session.idle. Provider/model are discovered
-    // from the runtime (`/api/opencode/providers`), never hardcoded.
+    // from the runtime (`/api/opencode/providers`), never hardcoded. The
+    // resolver aligns each agent turn with the provider/model/runtime agent the
+    // agent was configured with in the Agent Control modal (agent registry
+    // first, then the global routing selection for the role).
     provider: new OpenCodeRuntimeProvider(),
     model: 'opencode-runtime',
     tools: agentTools,
     context: harnessContext,
     verifier: harnessVerifier,
     eventBus: kernel.eventBus,
+    resolveAgentExecution: resolveAgentExecutionFor(agents, routingStore),
   });
   const workflowPublishTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const unsubscribeHarnessBridge = createHarnessEngineeringEventBridge({
@@ -1154,6 +1161,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // Initialize project management
   const projectStorage = new ProjectStorage(db);
   const projects = new ProjectService({ storage: projectStorage, eventBus: kernel.eventBus });
+
+  // Initialize order management
+  const orderStorage = new OrderStorage(db);
+  const orders = new OrderService({ storage: orderStorage, eventBus: kernel.eventBus });
 
   // Initialize activity log for domain event streaming
   const activityStore = new ActivityLogStore({ logger: kernel.logger });
@@ -1425,6 +1436,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     notificationService,
     milestones,
     projects,
+    orders,
     activityStore,
     publish,
     onMilestoneUpdate,
@@ -1511,6 +1523,68 @@ function gitHeadCommit(repoPath: string): string {
       .trim();
   } catch {
     return 'a'.repeat(40);
+  }
+}
+
+/**
+ * Agent execution resolver for the harness: aligns each agent turn with the
+ * provider/model/runtime agent the agent was configured with in the Agent
+ * Control modal. Resolution order:
+ *   1. the agent's own provider/model/runtimeAgent (Agent Registry);
+ *   2. the global routing selection for the agent's role;
+ *   3. no override → the harness/runtime default provider/model.
+ * The agent is matched by id, runtime agent name, or role so governed
+ * workflow stages (which address agents by their OpenCode twin name, e.g.
+ * `vestara-planner`) resolve to their stored configuration.
+ */
+function resolveAgentExecutionFor(agents: AgentStorage, routingStore: FileRoutingStore) {
+  return async (input: {
+    readonly agentId: string;
+  }): Promise<{ providerId?: string; modelId?: string; runtimeAgent?: string } | undefined> => {
+    try {
+      const stored = await agents.listAgents();
+      const agent = stored.find(
+        (candidate) =>
+          candidate.id === input.agentId ||
+          candidate.runtimeAgent === input.agentId ||
+          candidate.role === input.agentId,
+      );
+      if (agent?.model) {
+        return {
+          providerId: agent.provider || undefined,
+          modelId: agent.model,
+          runtimeAgent: agent.runtimeAgent || undefined,
+        };
+      }
+      const roles = routingStore.get().selection?.roles as
+        | Partial<Record<string, { providerId?: string; modelId?: string }>>
+        | undefined;
+      const role = agent?.role;
+      if (role) {
+        const ref = roles?.[normalizeRoutingRole(role)];
+        if (ref?.modelId) {
+          return { providerId: ref.providerId || undefined, modelId: ref.modelId };
+        }
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  };
+}
+
+/** Map agent role names onto the routing-selection role keys. */
+function normalizeRoutingRole(role: string): string {
+  switch (role) {
+    case 'planning':
+      return 'planner';
+    case 'documenter':
+    case 'documentation-agent':
+      return 'documentation';
+    case 'security-agent':
+      return 'reviewer';
+    default:
+      return role;
   }
 }
 

@@ -30,6 +30,11 @@ export const AuditAction = {
   LOGIN: 'user.login',
   OPENCODE_PERMISSION_APPROVE: 'opencode.permission.approve',
   OPENCODE_PERMISSION_REJECT: 'opencode.permission.reject',
+  ORDER_CREATE: 'order.create',
+  ORDER_UPDATE: 'order.update',
+  ORDER_CANCEL: 'order.cancel',
+  ORDER_STATUS_CHANGE: 'order.status_change',
+  ORDER_PAYMENT_CHANGE: 'order.payment_change',
 } as const;
 
 /** Extract the client IP from the request. */

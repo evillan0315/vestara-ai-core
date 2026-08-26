@@ -12,6 +12,7 @@ import type { SqliteEngineeringEventStore } from '@vestara/engineering-event-sto
 import type { ExternalRuntimeIntelligenceAdapter } from '@vestara/external-runtime';
 import {
   createClaudeCodeAdapter,
+  createGeminiAdapter,
   createOpenAICodexAdapter,
   createOpencodeAdapter,
   type ExternalAgentRuntimeAdapter,
@@ -60,6 +61,7 @@ export class ExternalRuntimeService {
     this.registry.registerAdapter(createOpencodeAdapter());
     this.registry.registerAdapter(createClaudeCodeAdapter());
     this.registry.registerAdapter(createOpenAICodexAdapter());
+    this.registry.registerAdapter(createGeminiAdapter());
 
     this.registry.observe({ onEvent: (event) => this.ingest(event) });
   }
@@ -226,7 +228,7 @@ export class ExternalRuntimeService {
           return agent.name ?? agent.id ?? instanceId;
         }),
       );
-      changes.push(...diffStringList(previous.effective?.['agents'], current.effective?.['agents'], instanceId));
+      changes.push(...diffStringList(previous.effective?.agents, current.effective?.agents, instanceId));
     }
 
     const affectedSessions = this.listSessions()
@@ -844,7 +846,7 @@ export function permissionEntityLink(instanceId: string, key: string): string {
   return entityId('capability', `permission/${instanceId}/${key}`);
 }
 
-export function sessionEntityLink(instanceId: string, sessionId: string): string {
+export function sessionEntityLink(_instanceId: string, sessionId: string): string {
   return entityId('session', `external/${sessionId}`);
 }
 
@@ -944,7 +946,7 @@ function diffArray(
   return changes;
 }
 
-function diffStringList(previous: unknown, current: unknown, instanceId: string): DriftChange[] {
+function diffStringList(previous: unknown, current: unknown, _instanceId: string): DriftChange[] {
   if (!Array.isArray(previous) || !Array.isArray(current)) return [];
   return diffArray('agents', previous, current, (value) => {
     const candidate = value as { name?: string; id?: string };

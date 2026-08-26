@@ -2,7 +2,7 @@ import type * as http from 'node:http';
 import type { WebSocket } from 'ws';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
-import { getActor, json, readBody } from './types';
+import { json, readBody } from './types';
 
 export async function handleMiscRoute(
   method: string,
@@ -10,8 +10,8 @@ export async function handleMiscRoute(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
-  port: number,
-  url: URL,
+  _port: number,
+  _url: URL,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/health') {
     json(res, 200, {
@@ -116,7 +116,7 @@ export async function handleMiscRoute(
       return true;
     }
     const lines: string[] = [];
-    const fakeWs = {
+    const _fakeWs = {
       send: (s: string) => {
         try {
           const m = JSON.parse(s);

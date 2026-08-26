@@ -182,7 +182,7 @@ export function collectCpu(): {
   };
 }
 
-function countPhysicalCores(): number {
+export function countPhysicalCores(): number {
   const lines = readLines('/proc/cpuinfo');
   const ids = new Set<string>();
   for (const line of lines) {

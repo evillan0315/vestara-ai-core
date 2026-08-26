@@ -8,7 +8,7 @@
  */
 
 import type { EngineeringTruthEventInput, SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
-import type { EmitEvent, EventBus } from '@vestara/event-bus';
+import type { EventBus } from '@vestara/event-bus';
 import type { VestaraEvent } from '@vestara/shared';
 import type { TelemetryRuntime } from '@vestara/telemetry';
 

@@ -36,9 +36,9 @@ describe('EngineeringGraphService', () => {
     const svc = new EngineeringGraphService(mockCtx());
     const stats = await svc.stats();
     expect(stats.nodes).toBeGreaterThan(0);
-    expect(stats.kinds['repository']).toBe(1);
-    expect(stats.kinds['document'] ?? 0).toBeGreaterThan(0);
-    expect(stats.kinds['plan']).toBeUndefined(); // no plans in the empty mock
+    expect(stats.kinds.repository).toBe(1);
+    expect(stats.kinds.document ?? 0).toBeGreaterThan(0);
+    expect(stats.kinds.plan).toBeUndefined(); // no plans in the empty mock
   });
 
   it('resolves the repository entity and searches it', async () => {

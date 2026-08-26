@@ -7,8 +7,10 @@
  * logged, heartbeat-protected, and size-limited.
  */
 
+import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { Socket } from 'node:net';
+import * as path from 'node:path';
 import type { ActivityService } from '@vestara/activity-log';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
@@ -40,6 +42,7 @@ import { handleMiscRoute } from './routes/misc';
 import { handleNotificationsRoute } from './routes/notifications';
 import { handleOpenCodeRoute } from './routes/opencode';
 import { handleOrchestrationRoute } from './routes/orchestration';
+import { handleOrdersRoute } from './routes/orders';
 import { handlePlansRoute } from './routes/plans';
 import { handleProjectsRoute } from './routes/projects';
 import { handleProvidersRoute } from './routes/providers';
@@ -47,6 +50,7 @@ import { handleQualificationRoute } from './routes/qualification';
 import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
+import { handleThemeBuilderRoute } from './routes/settings-theme-builder';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelemetryRoute } from './routes/telemetry';
 import { handleTuiRoute } from './routes/tui';
@@ -65,7 +69,13 @@ export const SHUTDOWN_GRACE_MS = 10_000;
 // Long-running/streaming endpoints opt out of the short normal deadline.
 // Note: `/api/changesets` are frequently-large bodies; leave default. Only
 // explicitly streaming routes lengthen the deadline.
-const STREAMING_PREFIXES = ['/api/conversations/', '/api/chat/', '/api/agent-threads/', '/api/orchestration/stream'];
+const STREAMING_PREFIXES = [
+  '/api/conversations/',
+  '/api/chat/',
+  '/api/agent-threads/',
+  '/api/orchestration/stream',
+  '/api/diagnostics/analyze',
+];
 
 export interface ApiServerOptions {
   requestTimeoutMs?: number;
@@ -153,6 +163,7 @@ export const ROUTE_DEFS: RouteDef[] = [
     handler: handleWorkspaceRoute,
   },
   { prefixes: ['/api/providers'], handler: handleProvidersRoute },
+  { prefixes: ['/api/settings/theme-builder'], handler: handleThemeBuilderRoute },
   { prefixes: ['/api/worktrees'], handler: handleWorktreeRoute },
   { prefixes: ['/api/workflows'], handler: handleWorkflowRoute },
   { prefixes: ['/api/qualification'], handler: handleQualificationRoute },
@@ -172,6 +183,7 @@ export const ROUTE_DEFS: RouteDef[] = [
     handler: handlePlansRoute,
   },
   { prefixes: ['/api/projects', '/api/sprints'], handler: handleProjectsRoute },
+  { prefixes: ['/api/orders'], handler: handleOrdersRoute },
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
   { prefixes: ['/api/activity-log', '/api/activity'], handler: handleActivityRoute },
   { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },
@@ -186,6 +198,42 @@ export const ROUTE_DEFS: RouteDef[] = [
 
 function buildGroups(): RouteGroup[] {
   return ROUTE_DEFS.flatMap((def) => def.prefixes.map((prefix) => ({ prefix, handler: def.handler })));
+}
+
+/**
+ * Serve the built Workspace UI (apps/workspace/dist) for non-API GET requests.
+ * The compiled API lives at `apps/api/dist/index.js`, so the UI build is two
+ * levels up under `apps/workspace/dist`. Requests that do not map to a real
+ * asset fall back to index.html (SPA client-side routing).
+ */
+const UI_DIST = path.resolve(__dirname, '..', '..', '..', 'apps', 'workspace', 'dist');
+
+const UI_CONTENT_TYPES: Record<string, string> = {
+  '.css': 'text/css; charset=utf-8',
+  '.html': 'text/html; charset=utf-8',
+  '.ico': 'image/x-icon',
+  '.js': 'text/javascript; charset=utf-8',
+  '.json': 'application/json; charset=utf-8',
+  '.map': 'application/json; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.png': 'image/png',
+  '.svg': 'image/svg+xml',
+  '.txt': 'text/plain; charset=utf-8',
+  '.woff2': 'font/woff2',
+};
+
+function serveWorkspaceUi(res: http.ServerResponse, pathname: string): boolean {
+  const decoded = decodeURIComponent(pathname);
+  const rel = decoded === '/' || decoded === '' ? '/index.html' : decoded;
+  const filePath = path.normalize(path.join(UI_DIST, rel));
+  const isSafe = filePath === UI_DIST || filePath.startsWith(`${UI_DIST}${path.sep}`);
+  const isFile = isSafe && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
+  const target = isFile ? filePath : path.join(UI_DIST, 'index.html');
+  if (!fs.existsSync(target)) return false;
+  const ext = path.extname(target).toLowerCase();
+  res.writeHead(200, { 'content-type': UI_CONTENT_TYPES[ext] ?? 'application/octet-stream' });
+  fs.createReadStream(target).pipe(res);
+  return true;
 }
 
 export function createServer(
@@ -418,6 +466,14 @@ export function createServer(
           return;
         }
 
+        // Serve the built Workspace UI for non-API GET requests (SPA fallback).
+        if (method === 'GET' && !pathname.startsWith('/api') && !pathname.startsWith('/ws')) {
+          if (serveWorkspaceUi(res, pathname)) {
+            complete(res.statusCode ?? 200, responseBytes);
+            return;
+          }
+        }
+
         try {
           await dispatcher.dispatch(method, pathname, req, res, ctx, port, url);
         } catch (err) {
@@ -616,15 +672,38 @@ export function createServer(
           typeof message.afterSequence === 'number' && Number.isFinite(message.afterSequence)
             ? Math.max(0, Math.floor(message.afterSequence))
             : 0;
-        void activityRoom.store.list({ afterSequence, limit: 1000 }).then((page) => {
-          if (ws.readyState !== WebSocket.OPEN) return;
-          for (const record of page.records) {
-            wsSend(ws, { type: 'activity.appended', sequence: record.sequence, activity: record });
+        attachedId = `activity-${connectionIdOf(ws)}`;
+        // Attach the hub at the true latest sequence FIRST so records appended
+        // while we replay history are delivered live (never held as a gap). The
+        // replay below backfills everything up to that frontier through the same
+        // `activity.appended` envelope, so clients see a gap-free stream.
+        void (async () => {
+          let frontier = afterSequence;
+          try {
+            frontier = await activityRoom.store.lastSequence();
+          } catch {
+            /* fall back to the subscriber checkpoint */
           }
-          const last = page.records.at(-1)?.sequence ?? afterSequence;
-          attachedId = `activity-${connectionIdOf(ws)}`;
-          activityRoom.hub.attach(attachedId, { send: (streamMessage) => wsSend(ws, streamMessage) }, last);
-        });
+          if (ws.readyState === WebSocket.OPEN) {
+            activityRoom.hub.attach(attachedId, { send: (streamMessage) => wsSend(ws, streamMessage) }, frontier);
+          }
+          // Replay missed history up to the frontier, paging past the 1000-record
+          // window. The previous single `limit: 1000` query truncated replay and
+          // left the hub checkpoint below the real frontier, so every live event
+          // was treated as an out-of-order gap and silently dropped.
+          let cursor = afterSequence;
+          for (;;) {
+            const page = await activityRoom.store.list({ afterSequence: cursor, limit: 1000 });
+            if (page.records.length === 0) break;
+            if (ws.readyState !== WebSocket.OPEN) return;
+            for (const record of page.records) {
+              wsSend(ws, { type: 'activity.appended', sequence: record.sequence, activity: record });
+            }
+            const next = page.nextSequence;
+            if (next === undefined) break;
+            cursor = next;
+          }
+        })();
         return;
       }
       if (message.op === 'activity-unsubscribe') {

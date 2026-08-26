@@ -1,8 +1,50 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import type * as http from 'node:http';
+import { join } from 'node:path';
+import { CANONICAL_AGENTS } from '@vestara/workspace';
 import { AuditAction, logAudit } from '../audit-log';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
 import { getActor, json, readBody } from './types';
+
+/** Render a canonical agent to an OpenCode `.md` file with YAML frontmatter. */
+function renderAgentMd(agent: (typeof CANONICAL_AGENTS)[number]): string {
+  const p = agent.opencodePermissions;
+  const model = agent.model?.startsWith('opencode/') ? agent.model : `opencode/${agent.model ?? ''}`;
+  const permissionKeys = [
+    'read',
+    'edit',
+    'glob',
+    'grep',
+    'list',
+    'bash',
+    'task',
+    'external_directory',
+    'todowrite',
+    'webfetch',
+    'websearch',
+    'lsp',
+    'skill',
+    'question',
+    'doom_loop',
+  ];
+  const permissionLines = permissionKeys
+    .filter((k) => p[k as keyof typeof p] !== undefined)
+    .map((k) => `  ${k}: ${p[k as keyof typeof p]}`);
+  const frontmatter = [
+    '---',
+    `description: "${agent.description ?? ''}"`,
+    `mode: ${agent.mode}`,
+    `model: ${model}`,
+    'permission:',
+    ...permissionLines,
+    '---',
+    '',
+    agent.opencodePrompt.trim(),
+    '',
+  ];
+  return frontmatter.join('\n');
+}
 
 /**
  * Annotate Vestara-governed workspace agents with their OpenCode runtime twin.
@@ -316,6 +358,44 @@ export async function handleAgentsRoute(
       };
       await ctx.agents.saveMemory(entry);
       json(res, 201, { entry });
+    } catch (err: any) {
+      json(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // ── POST /api/agents/sync — sync canonical agents to .opencode/agents/*.md ──
+  if (method === 'POST' && p === '/api/agents/sync') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    try {
+      const actor = getActor(req, ctx);
+      const repoPath = ctx.repoPath;
+      const agentsDir = join(repoPath, '.opencode', 'agents');
+      mkdirSync(agentsDir, { recursive: true });
+
+      const written: string[] = [];
+      for (const agent of CANONICAL_AGENTS) {
+        const name = agent.runtimeAgent ?? agent.role;
+        const file = join(agentsDir, `${name}.md`);
+        writeFileSync(file, renderAgentMd(agent));
+        written.push(`${name}.md`);
+      }
+
+      logAudit(
+        ctx.audit,
+        req,
+        actor.id,
+        actor.name,
+        AuditAction.AGENT_UPDATE,
+        'agents-sync',
+        'all',
+        `synced ${written.length} agents`,
+      );
+      json(res, 200, {
+        synced: written.length,
+        files: written,
+        agents: CANONICAL_AGENTS.map((a) => ({ id: a.id, name: a.name, role: a.role, runtimeAgent: a.runtimeAgent })),
+      });
     } catch (err: any) {
       json(res, 500, { error: err.message });
     }

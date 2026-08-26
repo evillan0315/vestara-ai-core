@@ -114,9 +114,9 @@ function readFrontmatter(raw: string): { title: string | null; tags: string[]; a
     const m = line.match(/^([a-zA-Z][\w-]*)\s*:\s*(.*)$/);
     if (m) meta[m[1].toLowerCase()] = m[2].trim().replace(/^["']|["']$/g, '');
   }
-  const title = meta['title']?.trim() || null;
-  const tags = splitList(meta['tags']);
-  const aliases = splitList(meta['aliases']);
+  const title = meta.title?.trim() || null;
+  const tags = splitList(meta.tags);
+  const aliases = splitList(meta.aliases);
   return { title, tags, aliases };
 }
 

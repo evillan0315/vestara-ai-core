@@ -131,17 +131,21 @@ describe('Activity Room history API', () => {
     expect(records.map((record) => record.sequence)).toEqual([3, 4]);
   });
 
-  it('pages deterministically with a limit and nextSequence cursor', async () => {
+  it('pages deterministically with a limit and sequence cursors', async () => {
     const room = await seedRoom();
+    // STREAM-PERF-001: the cursor-less default read is the LATEST bounded window.
     const first = await get(room, '/api/activity-room?limit=2');
     const firstBody = first.body as { records: { sequence: number }[]; nextSequence: number; lastSequence: number };
-    expect(firstBody.records.map((record) => record.sequence)).toEqual([1, 2]);
-    expect(firstBody.lastSequence).toBe(2);
-    const cursor = firstBody.nextSequence;
-    expect(cursor).toBe(3);
-    const second = await get(room, `/api/activity-room?afterSequence=${cursor - 1}&limit=2`);
-    const secondRecords = (second.body as { records: { sequence: number }[] }).records;
-    expect(secondRecords.map((record) => record.sequence)).toEqual([3, 4]);
+    expect(firstBody.records.map((record) => record.sequence)).toEqual([3, 4]);
+    expect(firstBody.lastSequence).toBe(4);
+    // beforeSequence pages into the adjacent older window.
+    const older = await get(room, '/api/activity-room?beforeSequence=3&limit=2');
+    const olderRecords = (older.body as { records: { sequence: number }[] }).records;
+    expect(olderRecords.map((record) => record.sequence)).toEqual([1, 2]);
+    // afterSequence resumes forward from a boundary.
+    const newer = await get(room, '/api/activity-room?afterSequence=2&limit=2');
+    const newerRecords = (newer.body as { records: { sequence: number }[] }).records;
+    expect(newerRecords.map((record) => record.sequence)).toEqual([3, 4]);
   });
 
   it('filters by workflow and agent', async () => {

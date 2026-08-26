@@ -175,9 +175,8 @@ export async function handleActivityRoomRoute(
   if (method === 'POST' && p === '/api/messages') {
     const body = await parseBody(req);
     if (await handleMessageCommand(ctx, res, body)) return true;
-    const record = await sendActivityMessage(room, res, undefined, body);
+    const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
-      registerReceiptsForMessage(ctx, record);
       void maybeWakeAddressedAgent(ctx, record);
     }
     return true;
@@ -187,10 +186,9 @@ export async function handleActivityRoomRoute(
   if (method === 'POST' && direct !== null) {
     const agentId = decodeURIComponent(direct[1]);
     const body = await parseBody(req);
-    const record = await sendActivityMessage(room, res, agentId, body);
+    const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
-      registerReceiptsForMessage(ctx, record, agentId);
-      void maybeWakeAddressedAgent(ctx, record, agentId);
+      void maybeWakeAddressedAgent(ctx, record);
     }
     return true;
   }
@@ -327,6 +325,7 @@ function parseTargets(value: unknown): readonly MessageTarget[] | undefined {
 
 /** Validates and appends a human message, broadcasting it to the room. */
 async function sendActivityMessage(
+  ctx: WorkspaceContext,
   room: ActivityRoom,
   res: http.ServerResponse,
   directAgentId: string | undefined,
@@ -422,6 +421,14 @@ async function sendActivityMessage(
 
   try {
     const appended = (await room.service.appendActivity(message)) as AgentMessageActivity;
+    // Seed delivery/observation receipts BEFORE the response is written, so the
+    // sender's first receipt fetch (and the live WS item) already observes them.
+    // Best-effort: a receipt-seeding failure must not fail an appended message.
+    try {
+      registerReceiptsForMessage(ctx, appended, directAgentId);
+    } catch {
+      /* receipt seeding is best-effort */
+    }
     json(res, 201, { record: appended });
     return appended;
   } catch (error) {
@@ -434,14 +441,18 @@ async function sendActivityMessage(
 
 /**
  * Seed delivery receipts for a human message across the workflow's participant
- * agents. Direct agent messages address only that agent; otherwise addressing
- * follows @mentions parsed from the content.
+ * agents. A message explicitly targeted at one agent (a composer agent target
+ * or the direct `/api/agents/:id/messages` route) addresses that agent; an
+ * @mention in the content addresses the mentioned agent; a broadcast leaves
+ * every participant pending until their harness turn observes the message.
  */
 function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageActivity, forcedAgentId?: string): void {
   const workflowId = record.workflowId;
   const participantAgentIds: string[] = [];
   const agentRoles = new Map<string, string>();
-  if (workflowId) {
+  // The thread store is optional in tests; without it receipts simply seed from
+  // the explicit target/mention rather than the full participant roster.
+  if (workflowId && ctx?.agentThreadStore) {
     for (const thread of ctx.agentThreadStore.listThreads()) {
       if (thread.metadata?.workflowId !== workflowId) continue;
       const agentId = String(thread.metadata?.agentId ?? '');
@@ -451,27 +462,23 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
     }
   }
   if (participantAgentIds.length === 0 && forcedAgentId) participantAgentIds.push(forcedAgentId);
-  const forced = forcedAgentId ? new Set([forcedAgentId]) : undefined;
-  messageReceipts.registerMessage(record, participantAgentIds, agentRoles, forced);
+  const forced = new Set<string>();
+  if (forcedAgentId) forced.add(forcedAgentId);
+  // An explicit agent target (composer sidebar target) addresses that agent
+  // even without an @mention in the content.
+  if (record.agentId !== undefined && record.agentId !== 'all-agents') forced.add(record.agentId);
+  messageReceipts.registerMessage(record, participantAgentIds, agentRoles, forced.size > 0 ? forced : undefined);
 }
 
 /**
- * @mention scheduling: when a human message is addressed to an agent and the
- * workflow is idle (no turn in progress), wake the chain so the addressed
- * agent can begin/continue. Best-effort and never interrupts an active run.
+ * Deliver a workflow-scoped human message to the workflow's agents. A broadcast
+ * is observed by every participant (each agent's next harness turn injects it
+ * via the context assembler); an @mention additionally names the intended
+ * responder. Waking is best-effort and never interrupts an active run.
  */
-async function maybeWakeAddressedAgent(
-  ctx: WorkspaceContext,
-  record: AgentMessageActivity,
-  forcedAgentId?: string,
-): Promise<void> {
+async function maybeWakeAddressedAgent(ctx: WorkspaceContext, record: AgentMessageActivity): Promise<void> {
   const workflowId = record.workflowId;
   if (!workflowId) return;
-  const content = record.content ?? '';
-  // Wake when the message addresses someone (a direct agent message or an
-  // @mention in the content); broadcast-only messages leave the chain as-is.
-  const mentioned = /\B@[\w-]+/.test(content);
-  if (!mentioned && forcedAgentId === undefined) return;
   try {
     await ctx.multiAgentWorkflow.resumeIfIdle(workflowId);
   } catch {

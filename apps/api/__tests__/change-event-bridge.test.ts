@@ -35,13 +35,13 @@ function commitAll(dir: string, message: string): void {
 }
 
 describe('change projection pure functions', () => {
-  it('captures workspace files with content hashes and git head', () => {
+  it('captures workspace files with content hashes and git head', async () => {
     const dir = tmpRepo();
     fs.writeFileSync(path.join(dir, 'a.txt'), 'hello');
     fs.mkdirSync(path.join(dir, 'sub'));
     fs.writeFileSync(path.join(dir, 'sub', 'b.txt'), 'world');
     commitAll(dir, 'baseline');
-    const state = captureFilesystemState(dir);
+    const state = await captureFilesystemState(dir);
     expect(state.gitHead).toMatch(/^[0-9a-f]{40}$/);
     const files = new Map(state.files.map((file) => [file.path, file.hash]));
     expect(files.has('a.txt')).toBe(true);
@@ -123,12 +123,12 @@ describe('ChangeEventProjector', () => {
     events.close();
   });
 
-  it('merges git numstat into projected changes on a real repo', () => {
+  it('merges git numstat into projected changes on a real repo', async () => {
     const dir = tmpRepo();
     fs.writeFileSync(path.join(dir, 'count.ts'), 'line1\nline2\nline3\n');
     commitAll(dir, 'base');
     fs.writeFileSync(path.join(dir, 'count.ts'), 'line1\nline2\nline3\nline4\nline5\n');
-    const stats = gitDiffStats(dir);
+    const stats = await gitDiffStats(dir);
     const count = stats.find((stat) => stat.path === 'count.ts');
     expect(count).toBeDefined();
     expect(count!.additions).toBe(2);

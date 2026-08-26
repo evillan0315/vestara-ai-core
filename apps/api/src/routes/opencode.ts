@@ -19,7 +19,6 @@ import {
   type OpenCodePromptPart,
   type OpenCodeRequestContext,
   type OpenCodeSessionBinding,
-  permissionDeniedError,
   renderCompatibilityEvidence,
   renderOpenCodeExecutionEvidence,
   requirePendingPermission,
@@ -594,7 +593,7 @@ export async function handleOpenCodeRoute(
         todos,
         aborted,
       });
-      const summaryText = renderOpenCodeExecutionEvidence(evidence);
+      const _summaryText = renderOpenCodeExecutionEvidence(evidence);
       const commit = gitHeadCommit(_ctx.repoPath);
       const bundle = await _ctx.evidencePipeline.buildBundle({
         executionId,

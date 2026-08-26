@@ -58,7 +58,7 @@ export class OpenCodeRuntimeService {
   /** True when the runtime is configured and reachable. */
   async reachable(): Promise<boolean> {
     try {
-      const client = this.client();
+      const _client = this.client();
       await ensureOpencodeServer();
       noteOpencodeUsed();
       return true;

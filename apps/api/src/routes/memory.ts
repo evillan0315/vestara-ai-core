@@ -1,11 +1,11 @@
 import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
-import { json, readBody } from './types';
+import { json } from './types';
 
 export async function handleMemoryRoute(
   method: string,
   p: string,
-  req: http.IncomingMessage,
+  _req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
   url: URL,
