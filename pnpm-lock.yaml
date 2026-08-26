@@ -11,6 +11,9 @@ importers:
       sql.js:
         specifier: ^1.14.1
         version: 1.14.1
+      zod:
+        specifier: ^3.25.76
+        version: 3.25.76
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.5.5
@@ -274,9 +277,15 @@ importers:
       '@vestara/tui':
         specifier: workspace:*
         version: link:../../packages/tui
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../../packages/types
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -348,12 +357,18 @@ importers:
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../../packages/configuration
+      '@vestara/design-system':
+        specifier: workspace:*
+        version: link:../../packages/design-system
       '@vestara/execution-center':
         specifier: workspace:*
         version: link:../../packages/execution-center
       '@vestara/settings-framework':
         specifier: workspace:*
         version: link:../../packages/settings-framework
+      '@vestara/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       '@vitejs/plugin-react-swc':
         specifier: ^4.3.2
         version: 4.3.2(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
