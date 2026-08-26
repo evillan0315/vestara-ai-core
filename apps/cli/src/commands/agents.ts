@@ -1,5 +1,5 @@
 import { openSharedDb } from '../lib/db.js';
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 export async function runAgentsList(): Promise<void> {
   console.log();
@@ -14,7 +14,7 @@ export async function runAgentsList(): Promise<void> {
     const execs = await store.listExecutions();
     const schedules = await store.listSchedules().catch(() => []);
     const teams = await store.listTeams().catch(() => []);
-    const ROLE_COLORS: Record<string, string> = {
+    const _ROLE_COLORS: Record<string, string> = {
       architect: '#8b5cf6',
       developer: '#3b82f6',
       verifier: '#10b981',

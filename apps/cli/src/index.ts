@@ -19,6 +19,7 @@ import {
   runDoctorTeams,
   runDoctorWorkspace,
 } from './commands/doctor.js';
+import { runHello } from './commands/hello.js';
 import { runHelpCommand } from './commands/help-cmd.js';
 import { runBootCommand, runHostCommand } from './commands/host.js';
 import { runMarketplace } from './commands/marketplace.js';
@@ -46,8 +47,7 @@ import { createCliContext } from './context/cli-context.js';
 import { CommandRegistry } from './lib/command-registry.js';
 import { isInteractiveTerminal } from './lib/interface-resolver.js';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStatus } from './output/format.js';
-
-const VERSION = '0.3.0';
+import { VERSION } from './version.js';
 
 async function launchTui(endpoint?: string, repoPath?: string, forceDev = false): Promise<void> {
   const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
@@ -158,6 +158,7 @@ function printHelp(): void {
   console.log(`${GRAY}Usage: vestara <command> [options]${RESET}`);
   console.log();
   console.log(`  ${BOLD}Commands${RESET}`);
+  console.log(`    ${GREEN}hello${RESET}              ${GRAY}Print a hello world message${RESET}`);
   console.log(
     `    ${GREEN}docs${RESET} [sub]         ${GRAY}Documentation automation (scan|findings|plan|review|verify|baseline|check)${RESET}`,
   );
@@ -227,6 +228,7 @@ function printHelp(): void {
 
 function registerCommands(registry: CommandRegistry): void {
   registry.register('docs', (args) => runDocs(args));
+  registry.register('hello', () => runHello());
   registry.register('brief', (args) => runBrief(args));
   registry.register('screenshots', (args) => runScreenshots(args));
   registry.register('runtime', (args) => runRuntimeCommand(args));
@@ -356,6 +358,10 @@ export async function main() {
 
   if (args[0] === 'docs') {
     await runDocs(args.slice(1));
+    return;
+  }
+  if (args[0] === 'hello') {
+    await runHello();
     return;
   }
   if (args[0] === 'brief') {

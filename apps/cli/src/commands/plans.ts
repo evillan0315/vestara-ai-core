@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { openSharedDb } from '../lib/db.js';
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 export async function runPlansList(cliArgs?: string[]): Promise<void> {
   const useJson = cliArgs?.includes('--json');
@@ -78,7 +78,7 @@ export async function runPlansList(cliArgs?: string[]): Promise<void> {
       const doneTasks = plan.tasks?.filter((t: any) => t.status === 'completed').length ?? 0;
       console.log(`  ${statusIcon} ${BOLD}${plan.title}${RESET}  ${GRAY}(${plan.id})${RESET}`);
       if (plan.goal && plan.goal !== plan.title)
-        console.log(`       ${plan.goal.length > 100 ? plan.goal.slice(0, 97) + '...' : plan.goal}`);
+        console.log(`       ${plan.goal.length > 100 ? `${plan.goal.slice(0, 97)}...` : plan.goal}`);
       console.log(`       Status: ${plan.status}  ·  Tasks: ${doneTasks}/${taskCount}`);
       console.log();
     }

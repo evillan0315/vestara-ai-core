@@ -1,5 +1,5 @@
 import { openSharedDb } from '../lib/db.js';
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 export async function runListWorkflows(): Promise<void> {
   console.log();

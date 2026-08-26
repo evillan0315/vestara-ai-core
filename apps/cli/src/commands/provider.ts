@@ -1,5 +1,5 @@
 import * as path from 'node:path';
-import type { ModelConfig, ProviderConfig, WorkspaceManifestData } from '@vestara/workspace';
+import type { ProviderConfig, WorkspaceManifestData } from '@vestara/workspace';
 
 const GOLD = '\x1b[33m';
 const GREEN = '\x1b[32m';

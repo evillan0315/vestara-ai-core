@@ -42,7 +42,7 @@ export async function runProjectsList(): Promise<void> {
       console.log(`  ${statusIcon} ${BOLD}${project.name}${RESET}  ${GRAY}(${project.id})${RESET}`);
       if (project.description)
         console.log(
-          `       ${project.description.length > 100 ? project.description.slice(0, 97) + '...' : project.description}`,
+          `       ${project.description.length > 100 ? `${project.description.slice(0, 97)}...` : project.description}`,
         );
       console.log(
         `       Status: ${GREEN}${project.status}${RESET}  ·  Priority: ${project.priority}  ·  Tasks: ${stats.done}/${stats.total}  ·  Sprints: ${sprints.length} (${activeSprints} active)`,

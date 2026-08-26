@@ -1,10 +1,10 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { ArchitectureRuntime } from '@vestara/architecture-runtime';
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, GREEN, RED, RESET } from '../output/format.js';
 
 function resolveAdrDir(): string {
-  const envDir = process.env['VESTARA_BLUEPRINT_DIR'];
+  const envDir = process.env.VESTARA_BLUEPRINT_DIR;
   if (envDir) return path.join(envDir, '00-governance', 'adr');
 
   const fromCwd = path.resolve(process.cwd(), '..', 'vestara-blueprint', '00-governance', 'adr');

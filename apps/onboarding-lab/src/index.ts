@@ -13,7 +13,6 @@
  *   node apps/onboarding-lab/dist/index.js
  */
 
-import * as path from 'node:path';
 import {
   DefaultMicrophoneProvider,
   DefaultSpeakerProvider,
@@ -22,12 +21,11 @@ import {
 } from '@vestara/audio';
 import { DefaultConversationService } from '@vestara/conversation';
 import { OllamaProvider, ProviderRouter } from '@vestara/conversation-runtime';
-import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
 import { VestaraSTTService, WhisperSTTProvider } from '@vestara/stt';
 import { PiperTTSProvider, VestaraTTSService } from '@vestara/tts';
-import { WorkspaceRuntimeService, WorkspaceToolProvider } from '@vestara/workspace';
+import { WorkspaceRuntimeService } from '@vestara/workspace';
 
 const GOLD = '\x1b[33m';
 const GREEN = '\x1b[32m';
@@ -375,7 +373,11 @@ async function testContext(cwd: string): Promise<{ name: string; ok: boolean; de
   }
 }
 
-main().catch((err) => {
-  console.error(`${RED}Fatal:${RESET}`, err.message);
-  process.exit(1);
-});
+// Run the lab only when executed directly (`node dist/index.js`), so importing
+// the module is side-effect free and the entry point can be exercised by tests.
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`${RED}Fatal:${RESET}`, err.message);
+    process.exit(1);
+  });
+}

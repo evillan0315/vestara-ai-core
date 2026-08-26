@@ -29,11 +29,7 @@ import { DefaultStateRuntime } from '@vestara/state-runtime';
 import { VestaraSTTService, WhisperSTTProvider } from '@vestara/stt';
 import { createShellTool } from '@vestara/tools-shell';
 import { PiperTTSProvider, VestaraTTSService } from '@vestara/tts';
-import {
-  WorkspaceContextProvider,
-  WorkspaceRuntimeService,
-  type WorkspaceRuntimeServiceHealth,
-} from '@vestara/workspace';
+import { WorkspaceRuntimeService, type WorkspaceRuntimeServiceHealth } from '@vestara/workspace';
 import { CliRuntime } from '../runtime/cli-runtime.js';
 
 export interface CliContext {
