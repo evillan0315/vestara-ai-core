@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { TokenEditor } from '../TokenEditor/TokenEditor';
-import { ThemePreview } from '../ThemePreview/ThemePreview';
-import { PresetGallery } from '../PresetGallery/PresetGallery';
-import { ImportExport } from '../ImportExport/ImportExport';
-import { focus } from '../../../settings-ui';
+import { TokenEditor } from './TokenEditor/TokenEditor';
+import { ThemePreview } from './ThemePreview/ThemePreview';
+import { PresetGallery } from './PresetGallery/PresetGallery';
+import { ImportExport } from './ImportExport/ImportExport';
+import { focus } from '../../settings-ui';
 
 type ThemeBuilderTab = 'editor' | 'preview' | 'presets' | 'import-export';
 

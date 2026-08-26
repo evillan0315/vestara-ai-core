@@ -5,7 +5,7 @@ import { PresetGallery } from './PresetGallery/PresetGallery';
 import { ThemePreview } from './ThemePreview/ThemePreview';
 import { TokenEditor } from './TokenEditor/TokenEditor';
 import { ImportExport } from './ImportExport/ImportExport';
-import { surface } from '../../../settings-ui';
+import { surface } from '../../settings-ui';
 
 const SIDEBAR_WIDTH = 280;
 const PREVIEW_WIDTH = 400;
