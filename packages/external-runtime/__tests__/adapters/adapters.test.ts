@@ -3,6 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ClaudeCodeAdapter } from '../../src/adapters/claude-code.js';
+import { GeminiAdapter } from '../../src/adapters/gemini.js';
 import { OpenAICodexAdapter } from '../../src/adapters/openai-codex.js';
 import { OpencodeAdapter } from '../../src/adapters/opencode.js';
 import {
@@ -11,7 +12,7 @@ import {
   parseJsonc,
   parseSkillMarkdown,
 } from '../../src/adapters/opencode-config.js';
-import { redact, wasRedacted } from '../../src/redact.js';
+import { redact } from '../../src/redact.js';
 
 let tmp: string | null = null;
 
@@ -89,8 +90,8 @@ describe('opencode config parsing', () => {
     expect(buildAgent).toBeDefined();
     expect(buildAgent?.mode).toBe('primary');
     expect(buildAgent?.model?.modelId).toBe('openai/gpt-4o');
-    expect(buildAgent?.tools['read']).toBe(true);
-    expect(buildAgent?.tools['bash']).toBe(false);
+    expect(buildAgent?.tools.read).toBe(true);
+    expect(buildAgent?.tools.bash).toBe(false);
     expect(buildAgent?.permissions[0]?.capability).toBe('bash');
     expect(buildAgent?.permissions[0]?.decision).toBe('ask');
     expect(result.skills.some((s) => s.name === 'build')).toBe(true);
@@ -170,6 +171,15 @@ describe('adapter discovery (mocked executable)', () => {
     const adapter = new OpenAICodexAdapter();
     const result = await adapter.detect({ workspacePath: '/tmp/nonexistent', timeoutMs: 500 });
     expect(result.runtimeType).toBe('openai-codex');
+  });
+
+  it('GeminiAdapter detects when executable is present', async () => {
+    const adapter = new GeminiAdapter();
+    const result = await adapter.detect({ workspacePath: '/tmp/nonexistent', timeoutMs: 500 });
+    expect(result.runtimeType).toBe('gemini');
+    if (result.detected) {
+      expect(result.executablePath).toBeTruthy();
+    }
   });
 });
 

@@ -81,7 +81,7 @@ function tsTypeFor(schema: Record<string, unknown>, seen: Set<string>): string {
   if (Array.isArray(schema.enum)) {
     // Enum evolution tolerance: known values plus a safe `unknown:` escape.
     const known = schema.enum.map((value) => JSON.stringify(String(value))).join(' | ');
-    return `${known} | \`unknown:${'${string}'}\``;
+    return `${known} | \`unknown:\${string}\``;
   }
   switch (type) {
     case 'string':

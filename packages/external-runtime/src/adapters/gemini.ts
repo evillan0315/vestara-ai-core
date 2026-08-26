@@ -1,10 +1,10 @@
 /**
- * Claude Code adapter — secondary external runtime.
+ * Google Gemini CLI adapter — secondary external runtime.
  *
- * Passive discovery, structured JSON output support for Vestara-launched
- * sessions, and optional hook integration. Does not depend on undocumented
- * internal storage. Never parses human-formatted terminal output when a
- * structured format is available.
+ * Passive discovery, `settings.json` inspection, and structured headless
+ * execution via `gemini -p` with JSON output for Vestara-launched sessions.
+ * Never parses human-formatted terminal output when a structured format is
+ * available; never mutates Gemini state.
  */
 
 import * as path from 'node:path';
@@ -32,54 +32,54 @@ import type {
 } from '../types';
 import { ExternalAdapterError } from '../types';
 
-export const CLAUDE_CAPABILITIES: readonly ExternalRuntimeCapability[] = [
+export const GEMINI_CAPABILITIES: readonly ExternalRuntimeCapability[] = [
   'installation-discovery',
   'version-discovery',
   'configuration-discovery',
   'session-launch',
   'structured-execution',
+  'session-discovery',
   'message-observation',
   'tool-observation',
   'command-observation',
   'file-observation',
   'cost-observation',
   'model-observation',
-  'mcp-observation',
 ];
 
-export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
-  readonly runtimeType = 'claude-code' as const;
-  readonly capabilities = CLAUDE_CAPABILITIES;
+export class GeminiAdapter implements ExternalAgentRuntimeAdapter {
+  readonly runtimeType = 'gemini' as const;
+  readonly capabilities = GEMINI_CAPABILITIES;
 
   capabilityStatus(_instance: ExternalRuntimeInstance): readonly AdapterCapabilityStatus[] {
-    return CLAUDE_CAPABILITIES.map((capability) => ({ capability, available: true }));
+    return GEMINI_CAPABILITIES.map((capability) => ({ capability, available: true }));
   }
 
   async detect(context: ExternalRuntimeDetectionContext): Promise<ExternalRuntimeDetectionResult> {
-    const executablePath = which('claude');
+    const executablePath = which('gemini');
     if (!executablePath)
       return {
-        runtimeType: 'claude-code',
+        runtimeType: 'gemini',
         detected: false,
         runningProcesses: [],
-        message: 'claude executable not found',
+        message: 'gemini executable not found',
       };
     const versionResult = await execFileSafe(executablePath, ['--version'], { timeoutMs: context.timeoutMs ?? 3000 });
     return {
-      runtimeType: 'claude-code',
+      runtimeType: 'gemini',
       detected: true,
       executablePath,
-      version: versionResult.ok ? versionResult.stdout.trim().slice(0, 60) : undefined,
+      version: versionResult.ok ? versionResult.stdout.trim().split('\n')[0]?.slice(0, 60) : undefined,
       runningProcesses: [],
     };
   }
 
   async connect(target: ExternalRuntimeTarget): Promise<ExternalRuntimeConnection> {
-    if (!target.executablePath) throw new ExternalAdapterError('not-detected', 'claude-code', 'no claude executable');
+    if (!target.executablePath) throw new ExternalAdapterError('not-detected', 'gemini', 'no gemini executable');
     return {
-      id: `cc-conn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      id: `gm-conn-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       runtimeInstanceId: target.executablePath,
-      runtimeType: 'claude-code',
+      runtimeType: 'gemini',
       connectedAt: new Date().toISOString(),
       mode: 'launch',
     };
@@ -88,41 +88,41 @@ export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
   async disconnect(_connectionId: string): Promise<void> {}
 
   async getHealth(connectionId: string): Promise<ExternalRuntimeHealth> {
-    const executable = connectionId.startsWith('/') ? connectionId : which('claude');
+    const executable = connectionId.startsWith('/') ? connectionId : which('gemini');
     if (!executable)
-      return { status: 'unreachable', checkedAt: new Date().toISOString(), detail: 'claude executable missing' };
+      return { status: 'unreachable', checkedAt: new Date().toISOString(), detail: 'gemini executable missing' };
     const res = await execFileSafe(executable, ['--version'], { timeoutMs: 2000 });
     return {
       status: res.ok ? 'ok' : 'degraded',
-      version: res.ok ? res.stdout.trim().slice(0, 40) : undefined,
+      version: res.ok ? res.stdout.trim().split('\n')[0]?.slice(0, 40) : undefined,
       checkedAt: new Date().toISOString(),
     };
   }
 
   async getRuntimeSnapshot(_connectionId: string): Promise<ExternalRuntimeInstance> {
-    throw new ExternalAdapterError('unsupported-capability', 'claude-code', 'snapshot is managed by the registry');
+    throw new ExternalAdapterError('unsupported-capability', 'gemini', 'snapshot is managed by the registry');
   }
 
   async getConfiguration(connectionId: string): Promise<ExternalRuntimeConfigurationSnapshot> {
     const workspacePath = this.workspacePath;
     const home = homeDir();
-    const sources: ExternalConfigurationSource[] = [];
     const now = new Date().toISOString();
+    const sources: ExternalConfigurationSource[] = [];
 
-    const candidates: Array<{ rel: string; scope: 'global' | 'workspace' }> = [
-      { rel: 'CLAUDE.md', scope: 'workspace' },
-      { rel: '.claude/settings.json', scope: 'workspace' },
-      { rel: path.join(home, '.claude', 'settings.json'), scope: 'global' },
+    const candidates: Array<{ abs: string; scope: 'global' | 'workspace' }> = [
+      { abs: path.join(home, '.gemini', 'settings.json'), scope: 'global' },
+      { abs: path.join(home, '.gemini', 'settings.local.json'), scope: 'global' },
     ];
+    const workspaceSettings = resolveInsideRoot(workspacePath, '.gemini/settings.json');
+    if (workspaceSettings) candidates.push({ abs: workspaceSettings, scope: 'workspace' });
+
     for (const cfg of candidates) {
-      const abs = cfg.scope === 'workspace' ? resolveInsideRoot(workspacePath, cfg.rel) : cfg.rel;
-      if (!abs) continue;
-      const text = readFileSafe(abs);
+      const text = readFileSafe(cfg.abs);
       sources.push({
-        id: `cc-config-${cfg.scope}-${path.basename(abs)}`,
+        id: `gm-config-${cfg.scope}-${path.basename(cfg.abs)}`,
         runtimeInstanceId: connectionId,
-        runtimeType: 'claude-code',
-        path: abs,
+        runtimeType: 'gemini',
+        path: cfg.abs,
         scope: cfg.scope,
         exists: text !== null,
         precedence: cfg.scope === 'workspace' ? 20 : 10,
@@ -133,9 +133,9 @@ export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
     }
 
     return {
-      id: `cc-config-${Date.now()}`,
+      id: `gm-config-${Date.now()}`,
       runtimeInstanceId: connectionId,
-      runtimeType: 'claude-code',
+      runtimeType: 'gemini',
       sources,
       effective: {},
       effectiveValues: [],
@@ -144,14 +144,16 @@ export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
   }
 
   async listSessions(_connectionId: string, _query?: ExternalSessionQuery): Promise<readonly ExternalSessionSummary[]> {
+    // Gemini stores sessions under ~/.gemini by project; read-only listing is
+    // deliberately not parsed until a stable structured format exists.
     return [];
   }
 
   async getSession(_connectionId: string, sessionId: string): Promise<ExternalSessionDetails> {
     return {
-      id: `cc-session-${sessionId}`,
+      id: `gm-session-${sessionId}`,
       runtimeInstanceId: _connectionId,
-      runtimeType: 'claude-code',
+      runtimeType: 'gemini',
       externalSessionId: sessionId,
       status: 'unknown',
       integrationLevel: 'vestara-launched',
@@ -166,51 +168,44 @@ export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
     };
   }
 
-  /**
-   * Launch a structured Claude Code session with stream-json output.
-   * Uses explicit environment correlation and abort-safe execution.
-   */
+  /** Structured `gemini -p` headless execution with JSON output. */
   async launchSession(connectionId: string, request: ExternalSessionLaunchRequest): Promise<ExternalLaunchedSession> {
-    const executable = connectionId.startsWith('/') ? connectionId : which('claude');
-    if (!executable) throw new ExternalAdapterError('not-detected', 'claude-code', 'no claude executable');
+    const executable = connectionId.startsWith('/') ? connectionId : which('gemini');
+    if (!executable) throw new ExternalAdapterError('not-detected', 'gemini', 'no gemini executable');
 
-    const env = {
-      ...(request.environment ?? {}),
-      ...(request.correlationIds ?? {}),
-    };
-    const result = await execFileSafe(executable, ['-p', request.task, '--output-format', 'stream-json'], {
+    const env = { ...(request.environment ?? {}), ...(request.correlationIds ?? {}) };
+    const args = ['-p', request.task, '--output-format', 'json', '--skip-trust'];
+    if (request.modelId) args.push('--model', request.modelId);
+    const result = await execFileSafe(executable, args, {
       cwd: request.cwd,
       env,
-      timeoutMs: request.timeoutMs ?? 60_000,
+      timeoutMs: request.timeoutMs ?? 120_000,
     });
-    if (!result.ok) throw new ExternalAdapterError('stream-failed', 'claude-code', result.stderr.slice(0, 300));
+    if (!result.ok) throw new ExternalAdapterError('stream-failed', 'gemini', result.stderr.slice(0, 300));
 
-    // stream-json emits a final JSON line with the result object.
-    const sessionId = extractSessionId(result.stdout);
     return {
-      id: `cc-launch-${Date.now()}`,
+      id: `gm-launch-${Date.now()}`,
       runtimeInstanceId: connectionId,
-      runtimeType: 'claude-code',
-      externalSessionId: sessionId,
+      runtimeType: 'gemini',
       launchedAt: new Date().toISOString(),
       status: result.ok ? 'completed' : 'failed',
     };
   }
 
   async subscribe(connectionId: string, observer: ExternalRuntimeEventObserver): Promise<ExternalRuntimeSubscription> {
-    const id = `cc-sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+    const id = `gm-sub-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
     observer({
       id: `ext-${Date.now()}`,
       schemaVersion: 1,
       category: 'runtime',
       type: 'external-runtime.disconnected',
-      runtimeType: 'claude-code',
+      runtimeType: 'gemini',
       runtimeInstanceId: connectionId,
       ingestedAt: new Date().toISOString(),
-      payload: { detail: 'live events require Claude Code hooks; not configured' },
+      payload: { detail: 'live events require Gemini hooks; not configured' },
       provenance: 'unknown',
       observationLevel: 'partial',
-      idempotencyKey: `cc-nostream-${id}`,
+      idempotencyKey: `gm-nostream-${id}`,
     });
     return { id, runtimeInstanceId: connectionId, unsubscribe: () => {} };
   }
@@ -218,8 +213,8 @@ export class ClaudeCodeAdapter implements ExternalAgentRuntimeAdapter {
   public workspacePath = '';
 }
 
-export function createClaudeCodeAdapter(): ClaudeCodeAdapter {
-  const adapter = new ClaudeCodeAdapter();
+export function createGeminiAdapter(): GeminiAdapter {
+  const adapter = new GeminiAdapter();
   const originalConnect = adapter.connect.bind(adapter);
   adapter.connect = async (target) => {
     adapter.workspacePath = target.workspacePath;
@@ -238,17 +233,4 @@ function parseJsonLoose(text: string): unknown {
   } catch {
     return { note: 'unparsed file' };
   }
-}
-
-function extractSessionId(stdout: string): string | undefined {
-  for (const line of stdout.split('\n')) {
-    if (!line.startsWith('data:')) continue;
-    try {
-      const parsed = JSON.parse(line.slice(5));
-      if (parsed.sessionId || parsed.session_id) return String(parsed.sessionId ?? parsed.session_id);
-    } catch {
-      /* skip */
-    }
-  }
-  return undefined;
 }

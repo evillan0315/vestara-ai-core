@@ -20,7 +20,7 @@ function fakeBus() {
 function fakeClient(events: unknown[], { errorOnFirst = false, holdOpen = false } = {}) {
   let reads = 0;
   return {
-    openEventStream: vi.fn(async function* (context: unknown, signal?: AbortSignal) {
+    openEventStream: vi.fn(async function* (_context: unknown, signal?: AbortSignal) {
       if (errorOnFirst && reads === 0) {
         reads += 1;
         throw new Error('upstream down');

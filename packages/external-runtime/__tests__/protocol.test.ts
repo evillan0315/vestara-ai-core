@@ -160,7 +160,7 @@ function fakeAdapter(
       effectiveValues: [],
       capturedAt: new Date().toISOString(),
     }),
-    subscribe: async (_c, observer: ExternalRuntimeEventObserver) => ({
+    subscribe: async (_c, _observer: ExternalRuntimeEventObserver) => ({
       id: 'sub',
       runtimeInstanceId: runtimeType,
       unsubscribe: () => {},

@@ -8,7 +8,7 @@
 
 // ─── Runtime identity ──────────────────────────────────────────
 
-export type ExternalRuntimeType = 'opencode' | 'claude-code' | 'openai-codex' | 'unknown';
+export type ExternalRuntimeType = 'opencode' | 'claude-code' | 'openai-codex' | 'gemini' | 'unknown';
 
 export type ExternalRuntimeConnectionStatus =
   | 'discovered'

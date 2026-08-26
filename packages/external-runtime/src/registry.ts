@@ -10,7 +10,6 @@
 
 import type { ExternalAgentRuntimeAdapter } from './adapter';
 import type {
-  AdapterCapabilityStatus,
   ExternalRuntimeCapability,
   ExternalRuntimeConnection,
   ExternalRuntimeConnectionStatus,
@@ -361,7 +360,7 @@ export class ExternalRuntimeRegistry {
     const out: ExternalSessionSummary[] = [];
     for (const tracked of this.connections.values()) {
       const adapter = this.adapters.get(tracked.instance.runtimeType);
-      if (!adapter || !adapter.capabilities.includes('session-discovery')) continue;
+      if (!adapter?.capabilities.includes('session-discovery')) continue;
       try {
         const sessions = await adapter.listSessions(tracked.id, query);
         out.push(...sessions);
@@ -375,7 +374,7 @@ export class ExternalRuntimeRegistry {
   async getSession(sessionId: string) {
     for (const tracked of this.connections.values()) {
       const adapter = this.adapters.get(tracked.instance.runtimeType);
-      if (!adapter || !adapter.capabilities.includes('session-details')) continue;
+      if (!adapter?.capabilities.includes('session-details')) continue;
       try {
         const session = await adapter.getSession(tracked.id, sessionId);
         if (session) return session;
@@ -427,6 +426,8 @@ function displayNameFor(runtimeType: ExternalRuntimeType): string {
       return 'Claude Code';
     case 'openai-codex':
       return 'OpenAI Codex';
+    case 'gemini':
+      return 'Gemini CLI';
     default:
       return 'External Runtime';
   }

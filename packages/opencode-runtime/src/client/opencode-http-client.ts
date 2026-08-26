@@ -614,7 +614,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     return query ? `${path}?${query}` : path;
   }
 
-  private normalizeShellResult(sessionId: string, raw: unknown): OpenCodeShellResult {
+  private normalizeShellResult(_sessionId: string, raw: unknown): OpenCodeShellResult {
     if (!raw || typeof raw !== 'object') return { info: undefined, parts: [] };
     const record = raw as Record<string, unknown>;
     const messages = normalizeMessages([record]);

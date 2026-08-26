@@ -10,7 +10,7 @@ import type { CorrelationEvidence, ExternalCorrelationMethod, ExternalSessionCor
 
 export interface CorrelationInput {
   runtimeInstanceId: string;
-  runtimeType: 'opencode' | 'claude-code' | 'openai-codex';
+  runtimeType: 'opencode' | 'claude-code' | 'openai-codex' | 'gemini';
   externalSessionId: string;
   workspaceId: string;
   planId?: string;

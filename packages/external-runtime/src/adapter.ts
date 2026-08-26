@@ -22,7 +22,6 @@ import type {
   ExternalRuntimeConnection,
   ExternalRuntimeDetectionContext,
   ExternalRuntimeDetectionResult,
-  ExternalRuntimeEvent,
   ExternalRuntimeEventObserver,
   ExternalRuntimeHealth,
   ExternalRuntimeInstance,

@@ -9,12 +9,14 @@
  * returned as plain text so the harness records it as the durable outcome.
  *
  * Provider/model are NOT hardcoded: available providers are discovered from the
- * runtime (`listProviders`, the same source as `GET /api/opencode/providers`)
- * and the session is created without forcing a model — the runtime's configured
- * default provider/model runs the agent. Credentials resolve from the
- * environment at construction and are never persisted or logged. A missing
- * credential or unreachable server surfaces as a provider failure — never a
- * crash and never a secret leak.
+ * runtime (`listProviders`, the same source as `GET /api/opencode/providers`).
+ * A slash-qualified completion model (`provider/model`) selects that provider
+ * and its model on the created session; a bare model id passes the model with
+ * the runtime's default provider; and the provider sentinel leaves both to the
+ * runtime's configured default. Credentials resolve from the environment at
+ * construction and are never persisted or logged. A missing credential or
+ * unreachable server surfaces as a provider failure — never a crash and never
+ * a secret leak.
  */
 
 import {
@@ -194,7 +196,14 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
     const resolved = this.resolveProvider(request.model);
-    const sessionId = await this.createSession(resolved.providerId, this.modelId, request.agent ?? this.agent);
+    // The session carries the caller's explicit model when one was requested
+    // (a `provider/model` id resolves the provider separately); otherwise it
+    // falls back to this provider's configured model / the runtime default.
+    const sessionId = await this.createSession(
+      resolved.providerId,
+      explicitModelOf(request.model, this.id) ?? this.modelId,
+      request.agent ?? this.agent,
+    );
     try {
       const format = request.jsonSchema ? { type: 'json_schema' as const, schema: request.jsonSchema } : undefined;
       const { text, structuredOutput } = await this.streamReply(
@@ -429,6 +438,22 @@ function explicitProviderOf(modelId: string | undefined): string | undefined {
   if (slash <= 0) return undefined;
   const provider = modelId.slice(0, slash);
   return provider.length > 0 ? provider : undefined;
+}
+
+/**
+ * Extract the bare model id a completion requests. A slash-qualified id
+ * (`provider/model`) and a bare model id are both explicit model selections;
+ * the provider sentinel (this provider's own id, `opencode-runtime`) and an
+ * unqualified empty string mean "let the runtime choose the default model".
+ */
+function explicitModelOf(modelId: string | undefined, sentinel: string): string | undefined {
+  if (!modelId || modelId === sentinel) return undefined;
+  const slash = modelId.indexOf('/');
+  if (slash < 0) return modelId;
+  const provider = modelId.slice(0, slash);
+  const model = modelId.slice(slash + 1);
+  if (!provider || !model) return undefined;
+  return model;
 }
 
 function sessionOf(event: { payload?: Record<string, unknown> }): string | undefined {

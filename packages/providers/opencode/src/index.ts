@@ -19,7 +19,6 @@ import type {
   ProviderHealthStatus,
   ProviderStatus,
   StreamChunk,
-  ToolDefinition,
 } from '@vestara/shared';
 import { DefaultStreamProcessor } from '@vestara/stream';
 

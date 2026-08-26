@@ -62,7 +62,7 @@ export class InMemoryPermissionRegistry implements PermissionRegistry {
 
   decide(id: string, input: OpenCodePermissionDecisionInput): OpenCodePermissionRecord | undefined {
     const record = this.records.get(id);
-    if (!record || record.status !== 'pending') return undefined;
+    if (record?.status !== 'pending') return undefined;
     const decided: OpenCodePermissionRecord = {
       ...record,
       status: input.decision === 'approve' ? 'approved' : 'rejected',

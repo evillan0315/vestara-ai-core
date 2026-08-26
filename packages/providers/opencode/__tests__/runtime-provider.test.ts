@@ -102,7 +102,7 @@ describe('OpenCodeRuntimeProvider', () => {
     const provider = new OpenCodeRuntimeProvider({ client: client as never });
 
     const response = await provider.complete({
-      model: 'whatever',
+      model: 'opencode-runtime',
       messages: [
         { role: 'system', content: 'You are a planner.' },
         { role: 'user', content: 'Design the change.' },
@@ -112,8 +112,8 @@ describe('OpenCodeRuntimeProvider', () => {
     expect(response.content).toBe('Plan: add the endpoint');
     expect(response.provider).toBe('opencode-runtime');
     // Discovery order must not determine execution identity: the session is
-    // created without forcing a provider, so the runtime's configured default
-    // governs.
+    // created without forcing a provider or model, so the runtime's configured
+    // default governs.
     expect(createCallModel(calls)).toBeUndefined();
     expect(response.resolution).toEqual({
       providerId: undefined,
@@ -157,8 +157,8 @@ describe('OpenCodeRuntimeProvider', () => {
     const pb = new OpenCodeRuntimeProvider({ client: b.client as never });
 
     const [ra, rb] = await Promise.all([
-      pa.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
-      pb.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] }),
+      pa.complete({ model: 'opencode-runtime', messages: [{ role: 'user', content: 'hi' }] }),
+      pb.complete({ model: 'opencode-runtime', messages: [{ role: 'user', content: 'hi' }] }),
     ]);
 
     expect(ra.resolution).toEqual(rb.resolution);
@@ -173,7 +173,7 @@ describe('OpenCodeRuntimeProvider', () => {
     const { client, calls } = mockClient({ providers: [{ id: 'zhipuai' }, { id: 'deepseek' }] });
     const provider = new OpenCodeRuntimeProvider({ client: client as never });
 
-    await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+    await provider.complete({ model: 'opencode-runtime', messages: [{ role: 'user', content: 'hi' }] });
 
     expect(createCallModel(calls)).toBeUndefined();
     const createCall = calls.find((c) => c.method === 'createSession');
@@ -185,7 +185,10 @@ describe('OpenCodeRuntimeProvider', () => {
     const { client, calls } = mockClient();
     const provider = new OpenCodeRuntimeProvider({ client: client as never, preferredProviderId: 'opencode' });
 
-    const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+    const response = await provider.complete({
+      model: 'opencode-runtime',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
 
     expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
     expect(response.resolution).toEqual({
@@ -202,7 +205,10 @@ describe('OpenCodeRuntimeProvider', () => {
       preferredProviderId: 'nonexistent-provider',
     });
 
-    const response = await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'hi' }] });
+    const response = await provider.complete({
+      model: 'opencode-runtime',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
 
     expect(createCallModel(calls)).toBeUndefined();
     expect(response.resolution).toEqual({
@@ -221,11 +227,30 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
+    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: 'deepseek-v4-flash-free' });
     expect(response.resolution).toEqual({
       providerId: 'opencode',
       reason: 'explicit-model',
       defaultResolution: false,
+    });
+  });
+
+  it('passes a bare model id to the session while leaving the provider to the runtime default', async () => {
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({ client: client as never });
+
+    const response = await provider.complete({
+      model: 'deepseek-v4-flash-free',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    // The model is honored; no provider is forced so the runtime's configured
+    // default provider executes it.
+    expect(createCallModel(calls)).toEqual({ providerID: undefined, modelID: 'deepseek-v4-flash-free' });
+    expect(response.resolution).toEqual({
+      providerId: undefined,
+      reason: 'default',
+      defaultResolution: true,
     });
   });
 
@@ -238,7 +263,7 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toBeUndefined();
+    expect(createCallModel(calls)).toEqual({ providerID: undefined, modelID: 'some-model' });
     expect(response.resolution).toEqual({
       providerId: undefined,
       reason: 'explicit-unresolvable',
@@ -252,7 +277,7 @@ describe('OpenCodeRuntimeProvider', () => {
     const provider = new OpenCodeRuntimeProvider({ client: client as never });
 
     const response = await provider.complete({
-      model: 'whatever',
+      model: 'opencode-runtime',
       messages: [{ role: 'user', content: 'hi' }],
     });
 

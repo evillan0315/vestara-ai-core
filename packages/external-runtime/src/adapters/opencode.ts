@@ -7,11 +7,9 @@
  * when OpenCode is not installed.
  */
 
-import * as fs from 'node:fs';
-import * as path from 'node:path';
 import type { ExternalAgentRuntimeAdapter, ExternalRuntimeIntelligenceAdapter } from '../adapter';
 import { redact } from '../redact';
-import { execFileSafe, listDirSafe, readFileSafe, resolveInsideHome, which } from '../safe-process';
+import { execFileSafe, which } from '../safe-process';
 import type {
   AdapterCapabilityStatus,
   ExternalRuntimeCapability,
@@ -57,7 +55,7 @@ export const OPENCODE_CAPABILITIES: readonly ExternalRuntimeCapability[] = [
   'plugin-observation',
 ];
 
-const KNOWN_EXECUTABLES = ['opencode'];
+const _KNOWN_EXECUTABLES = ['opencode'];
 
 function homeDir(): string {
   return process.env.HOME ?? process.env.USERPROFILE ?? '';
@@ -450,12 +448,12 @@ export class OpencodeAdapter implements ExternalAgentRuntimeAdapter, ExternalRun
 
   private normalizeEvent(connectionId: string, raw: unknown): ExternalRuntimeEvent {
     const rec = (raw ?? {}) as Record<string, unknown>;
-    const type = String(rec['type'] ?? 'external-runtime.event');
+    const type = String(rec.type ?? 'external-runtime.event');
     const externalSessionId =
-      typeof rec['sessionID'] === 'string'
-        ? rec['sessionID']
-        : typeof rec['sessionId'] === 'string'
-          ? String(rec['sessionId'])
+      typeof rec.sessionID === 'string'
+        ? rec.sessionID
+        : typeof rec.sessionId === 'string'
+          ? String(rec.sessionId)
           : undefined;
     const payload = redact({ ...(rec as Record<string, unknown>) }) as Record<string, unknown>;
     return {
@@ -465,15 +463,15 @@ export class OpencodeAdapter implements ExternalAgentRuntimeAdapter, ExternalRun
       type,
       runtimeType: 'opencode',
       runtimeInstanceId: connectionId,
-      externalEventId: typeof rec['id'] === 'string' ? String(rec['id']) : undefined,
+      externalEventId: typeof rec.id === 'string' ? String(rec.id) : undefined,
       externalSessionId,
-      externalTimestamp: typeof rec['time'] === 'string' ? String(rec['time']) : undefined,
+      externalTimestamp: typeof rec.time === 'string' ? String(rec.time) : undefined,
       ingestedAt: new Date().toISOString(),
-      sequence: typeof rec['seq'] === 'number' ? Number(rec['seq']) : undefined,
+      sequence: typeof rec.seq === 'number' ? Number(rec.seq) : undefined,
       payload,
       provenance: 'runtime-reported',
       observationLevel: 'observed',
-      idempotencyKey: `${String(rec['id'] ?? '')}:${type}`,
+      idempotencyKey: `${String(rec.id ?? '')}:${type}`,
     };
   }
 }
@@ -508,29 +506,29 @@ function categoryFor(
 
 function normalizeSessionList(data: unknown, connectionId: string): readonly ExternalSessionSummary[] {
   const rec = (data ?? {}) as Record<string, unknown>;
-  const sessions = Array.isArray(rec['sessions']) ? rec['sessions'] : Array.isArray(rec['data']) ? rec['data'] : [];
+  const sessions = Array.isArray(rec.sessions) ? rec.sessions : Array.isArray(rec.data) ? rec.data : [];
   const now = new Date().toISOString();
   return (sessions as Record<string, unknown>[]).map((s) => {
-    const id = String(s['id'] ?? '');
+    const id = String(s.id ?? '');
     return {
       id: `oc-session-${id}`,
       runtimeInstanceId: connectionId,
       runtimeType: 'opencode',
       externalSessionId: id,
-      title: typeof s['title'] === 'string' ? String(s['title']) : undefined,
+      title: typeof s.title === 'string' ? String(s.title) : undefined,
       status: sessionStatusOf(s),
       integrationLevel: 'live-observation',
-      agentId: typeof s['agent'] === 'string' ? String(s['agent']) : undefined,
-      providerId: typeof s['provider'] === 'string' ? String(s['provider']) : undefined,
-      modelId: typeof s['model'] === 'string' ? String(s['model']) : undefined,
+      agentId: typeof s.agent === 'string' ? String(s.agent) : undefined,
+      providerId: typeof s.provider === 'string' ? String(s.provider) : undefined,
+      modelId: typeof s.model === 'string' ? String(s.model) : undefined,
       startedAt:
-        typeof s['time'] === 'object' && typeof (s['time'] as { created?: unknown })['created'] === 'number'
-          ? new Date(Number((s['time'] as { created: number })['created'])).toISOString()
+        typeof s.time === 'object' && typeof (s.time as { created?: unknown }).created === 'number'
+          ? new Date(Number((s.time as { created: number }).created)).toISOString()
           : now,
       lastActivityAt: now,
-      filesChanged: typeof s['files'] === 'number' ? Number(s['files']) : undefined,
-      toolCount: typeof s['toolCalls'] === 'number' ? Number(s['toolCalls']) : undefined,
-      commandCount: typeof s['commands'] === 'number' ? Number(s['commands']) : undefined,
+      filesChanged: typeof s.files === 'number' ? Number(s.files) : undefined,
+      toolCount: typeof s.toolCalls === 'number' ? Number(s.toolCalls) : undefined,
+      commandCount: typeof s.commands === 'number' ? Number(s.commands) : undefined,
       permissionState: 'none',
     };
   });
@@ -560,7 +558,7 @@ function normalizeSessionDetail(data: unknown, connectionId: string, sessionId: 
 }
 
 function sessionStatusOf(rec: Record<string, unknown>): ExternalSessionSummary['status'] {
-  const status = String(rec['status'] ?? '').toLowerCase();
+  const status = String(rec.status ?? '').toLowerCase();
   if (status.includes('complete') || status.includes('done')) return 'completed';
   if (status.includes('fail') || status.includes('error')) return 'failed';
   if (status.includes('abort') || status.includes('cancel')) return 'aborted';

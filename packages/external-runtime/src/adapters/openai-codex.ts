@@ -9,8 +9,7 @@
 
 import * as path from 'node:path';
 import type { ExternalAgentRuntimeAdapter } from '../adapter';
-import { redact } from '../redact';
-import { execFileSafe, readFileSafe, resolveInsideHome, resolveInsideRoot, sha1, which } from '../safe-process';
+import { execFileSafe, readFileSafe, resolveInsideRoot, sha1, which } from '../safe-process';
 import type {
   AdapterCapabilityStatus,
   ExternalConfigurationSource,
@@ -20,7 +19,6 @@ import type {
   ExternalRuntimeConnection,
   ExternalRuntimeDetectionContext,
   ExternalRuntimeDetectionResult,
-  ExternalRuntimeEvent,
   ExternalRuntimeEventObserver,
   ExternalRuntimeHealth,
   ExternalRuntimeInstance,

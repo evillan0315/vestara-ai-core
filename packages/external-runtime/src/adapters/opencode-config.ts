@@ -6,7 +6,6 @@
  * influences agent behavior.
  */
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { redact } from '../redact';
 import { listDirSafe, readFileSafe, resolveInsideHome, resolveInsideRoot, sha1 } from '../safe-process';
@@ -84,11 +83,11 @@ export function parseAgentMarkdown(
   runtimeInstanceId: string,
   filePath: string,
   text: string,
-  scope: ExternalConfigurationScope,
+  _scope: ExternalConfigurationScope,
 ): ExternalAgentDefinition {
   const fm = parseFrontmatter(text);
   const body = stripFrontmatter(text);
-  const modeRaw = String(fm['mode'] ?? 'all').toLowerCase();
+  const modeRaw = String(fm.mode ?? 'all').toLowerCase();
   const mode: ExternalAgentMode =
     modeRaw === 'primary'
       ? 'primary'
@@ -97,8 +96,8 @@ export function parseAgentMarkdown(
         : modeRaw === 'built-in'
           ? 'built-in'
           : 'all';
-  const model = fm['model'] ? { modelId: String(fm['model']) } : undefined;
-  const tools = asRecord(parseJsoncSafe(fm['tools'])) ?? {};
+  const model = fm.model ? { modelId: String(fm.model) } : undefined;
+  const tools = asRecord(parseJsoncSafe(fm.tools)) ?? {};
   const enabledToolMap: Record<string, boolean> = {};
   for (const [key, value] of Object.entries(tools)) enabledToolMap[key] = Boolean(value);
 
@@ -109,8 +108,8 @@ export function parseAgentMarkdown(
     runtimeInstanceId,
     runtimeType: 'opencode',
     externalAgentId: id,
-    name: String(fm['name'] ?? path.basename(filePath, '.md')),
-    description: fm['description'] ? String(fm['description']) : undefined,
+    name: String(fm.name ?? path.basename(filePath, '.md')),
+    description: fm.description ? String(fm.description) : undefined,
     mode,
     sourcePath: filePath,
     model,
@@ -119,8 +118,8 @@ export function parseAgentMarkdown(
     tools: enabledToolMap,
     permissions: permissionRules,
     options: {},
-    hidden: Boolean(fm['hidden']),
-    builtIn: Boolean(fm['builtIn']),
+    hidden: Boolean(fm.hidden),
+    builtIn: Boolean(fm.builtIn),
     enabled: true,
     provenance: 'file',
     discoveredAt: new Date().toISOString(),
@@ -131,7 +130,7 @@ export function parseAgentMarkdown(
 
 function parsePermissionRules(fm: Readonly<Record<string, unknown>>): readonly ExternalPermissionRule[] {
   const rules: ExternalPermissionRule[] = [];
-  const permissions = asRecord(parseJsoncSafe(fm['permissions']));
+  const permissions = asRecord(parseJsoncSafe(fm.permissions));
   if (permissions) {
     for (const [capability, value] of Object.entries(permissions)) {
       const decision = String(value).toLowerCase();
@@ -188,10 +187,10 @@ export function parseSkillMarkdown(
     runtimeInstanceId,
     runtimeType: 'opencode',
     externalSkillId: id,
-    name: String(fm['name'] ?? path.basename(baseDir)),
-    description: String(fm['description'] ?? ''),
-    license: fm['license'] ? String(fm['license']) : undefined,
-    compatibility: fm['compatibility'] ? String(fm['compatibility']) : undefined,
+    name: String(fm.name ?? path.basename(baseDir)),
+    description: String(fm.description ?? ''),
+    license: fm.license ? String(fm.license) : undefined,
+    compatibility: fm.compatibility ? String(fm.compatibility) : undefined,
     metadata: collectMetadata(fm),
     sourcePath: filePath,
     sourceScope: scope,
@@ -344,14 +343,14 @@ export function discoverOpencodeConfig(ctx: OpencodeConfigParseContext): Opencod
         runtimeInstanceId,
         runtimeType: 'opencode',
         name,
-        description: fm['description'] ? String(fm['description']) : undefined,
+        description: fm.description ? String(fm.description) : undefined,
         sourcePath: absFile,
         sourceScope: scope,
-        agentId: fm['agent'] ? String(fm['agent']) : undefined,
-        model: fm['model'] ? { modelId: String(fm['model']) } : undefined,
+        agentId: fm.agent ? String(fm.agent) : undefined,
+        model: fm.model ? { modelId: String(fm.model) } : undefined,
         templateHash,
         redactedTemplate: redact(stripFrontmatter(text).slice(0, 256)) as string,
-        createsSubtask: Boolean(fm['subtask']),
+        createsSubtask: Boolean(fm.subtask),
         enabled: true,
         discoveredAt: now,
         updatedAt: now,
@@ -433,11 +432,11 @@ function ingestConfig(
   const { runtimeInstanceId, providers, models, mcpServers, plugins, permissionRules, sourceId } = sink;
   const now = new Date().toISOString();
 
-  const providerConfig = asRecord(config['provider']);
+  const providerConfig = asRecord(config.provider);
   if (providerConfig) {
     for (const [providerId, value] of Object.entries(providerConfig)) {
       const providerBlock = asRecord(value);
-      const modelsBlock = providerBlock ? asRecord(providerBlock['models']) : null;
+      const modelsBlock = providerBlock ? asRecord(providerBlock.models) : null;
       const providerModels: ExternalModelDefinition[] = modelsBlock
         ? Object.keys(modelsBlock).map((modelId) => ({
             id: `${providerId}/${modelId}`,
@@ -452,13 +451,12 @@ function ingestConfig(
         runtimeInstanceId,
         runtimeType: 'opencode',
         providerId,
-        displayName:
-          providerBlock && typeof providerBlock['name'] === 'string' ? String(providerBlock['name']) : undefined,
+        displayName: providerBlock && typeof providerBlock.name === 'string' ? String(providerBlock.name) : undefined,
         configured,
         credentialSource: configured ? 'environment' : 'unknown',
         baseUrl:
-          providerBlock && typeof providerBlock['baseURL'] === 'string'
-            ? redactUrl(String(providerBlock['baseURL']))
+          providerBlock && typeof providerBlock.baseURL === 'string'
+            ? redactUrl(String(providerBlock.baseURL))
             : undefined,
         models: providerModels,
         discoveredAt: now,
@@ -467,7 +465,7 @@ function ingestConfig(
     }
   }
 
-  const mcpConfig = asRecord(config['mcp']) ?? asRecord(config['mcpServers']);
+  const mcpConfig = asRecord(config.mcp) ?? asRecord(config.mcpServers);
   if (mcpConfig) {
     for (const [name, value] of Object.entries(mcpConfig)) {
       const server = asRecord(value);
@@ -478,10 +476,10 @@ function ingestConfig(
         name,
         transport: transportFor(server),
         local: isLocalServer(server),
-        command: server && typeof server['command'] === 'string' ? String(server['command']) : undefined,
-        redactedArgs: server && Array.isArray(server['args']) ? server['args'].map((a) => redact(a as string)) : [],
+        command: server && typeof server.command === 'string' ? String(server.command) : undefined,
+        redactedArgs: server && Array.isArray(server.args) ? server.args.map((a) => redact(a as string)) : [],
         redactedEnvironment: [],
-        url: server && typeof server['url'] === 'string' ? redactUrl(String(server['url'])) : undefined,
+        url: server && typeof server.url === 'string' ? redactUrl(String(server.url)) : undefined,
         enabled: true,
         connectionState: 'configured',
         availableTools: [],
@@ -491,9 +489,9 @@ function ingestConfig(
     }
   }
 
-  const pluginsConfig = asRecord(config['plugin']);
+  const pluginsConfig = asRecord(config.plugin);
   if (pluginsConfig) {
-    for (const [name, value] of Object.entries(pluginsConfig)) {
+    for (const [name, _value] of Object.entries(pluginsConfig)) {
       plugins.push({
         id: `${sourceId}:plugin:${name}`,
         runtimeInstanceId,
@@ -510,7 +508,7 @@ function ingestConfig(
     }
   }
 
-  const permissionsConfig = asRecord(config['permission']);
+  const permissionsConfig = asRecord(config.permission);
   if (permissionsConfig) {
     for (const [capability, decision] of Object.entries(permissionsConfig)) {
       const d = String(decision).toLowerCase();
@@ -531,13 +529,13 @@ function redactUrl(url: string): string {
 
 function transportFor(server: Readonly<Record<string, unknown>> | null): ExternalMcpServer['transport'] {
   if (!server) return 'unknown';
-  if (server['url']) return String(server['url']).startsWith('http') ? 'http' : 'unknown';
+  if (server.url) return String(server.url).startsWith('http') ? 'http' : 'unknown';
   return 'stdio';
 }
 
 function isLocalServer(server: Readonly<Record<string, unknown>> | null): boolean {
   if (!server) return true;
-  const url = server['url'];
+  const url = server.url;
   if (typeof url === 'string') return url.startsWith('http://localhost') || url.startsWith('http://127.0.0.1');
   return true;
 }
