@@ -52,7 +52,7 @@
     },
     {
       "path": "05-ai-core/provider-architecture.md",
-      "beforeChecksum": "151bde598f04882300571c5f36d3fe32aa9f05d136bab3aab7210089ebeb4209",
+      "beforeChecksum": "da897cab30778f9b8733b965b9a95534f23ad664967f91d20e38a8a42ca163fa",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"
@@ -152,7 +152,7 @@
     },
     {
       "path": "20-roadmaps/provider-platform-roadmap.md",
-      "beforeChecksum": "be04c7da066e021996fdc043dc70e712779aeb98c92180b69374ccbe7e69ab60",
+      "beforeChecksum": "54e458b59861d079db9cc5b1a2c0c2fdb276ef15d81015acdaf3e8c1d0cf1800",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"

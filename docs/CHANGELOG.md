@@ -3,6 +3,28 @@
 
 ---
 
+## [AR-P1.5/1] — 2026-08-26 — Authority Contracts (Target Boundaries)
+
+### Added
+
+- **AR-P1.5 Authority Contracts** (`docs/AR-P1.5-AUTHORITY-CONTRACTS.md`):
+  canonical boundary specification for AR-P2 implementation. Defines 6
+  authority invariants (I-1…I-6), complete identity model with 13 ID types
+  and ER diagram, 5 authority contracts (Conversation, Routing, Workflow,
+  Runtime Session, Activity Projection), `ExecutionResolverFacade` design,
+  evidence correlation via `correlationId`, migration dependency tiers
+  (Tier 0…5), 8 unresolved architectural decisions (UD-1…UD-8), and AR-P2
+  entry criteria (C-1…C-8).
+- **AR-P1 Audit** (`docs/AR-P1-AUDIT.md`): end-to-end ownership audit with
+  10-transition call graph, 18-capability state ownership matrix, and
+  recommended target boundaries.
+- **Package READMEs** for 8 packages missing ADR-022 layout compliance:
+  `activity-projection`, `design-system`, `native-installer`,
+  `opencode-runtime`, `repository-evidence`, `sqlite-migrations`,
+  `tui-renderer`, `verification-evidence`.
+
+---
+
 ## [3.9.40] — 2026-08-07 — api/agents + api/providers on the OpenCode Runtime
 
 ### Added

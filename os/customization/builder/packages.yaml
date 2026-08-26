@@ -7,9 +7,16 @@ base:
   - plymouth-themes
   - ca-certificates
   - nodejs
+  - npm
 profiles:
   headless: []
   developer:
     - fonts-jetbrains-mono
   desktop: []
   recovery: []
+external-runtime:
+  # Installed as global npm packages on the image; discovered at runtime by
+  # packages/external-runtime (codex / claude / gemini executables).
+  - '@openai/codex'
+  - '@anthropic-ai/claude-code'
+  - '@google/gemini-cli'

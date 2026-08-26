@@ -15,10 +15,20 @@ pnpm docs:drift          # package/documentation drift report
 pnpm docs:evidence       # evidence manifest validation
 pnpm docs:impact ADR-001 # references and impact report
 pnpm docs:govern         # strict validation, links, and evidence
+pnpm generate-docs       # TypeDoc API reference and package catalog
 ```
 
 Reports are written to `docs/generated/` and are ignored from source control.
 The source contracts live in `docs/schemas/`.
+
+## API reference
+
+`pnpm generate-docs` discovers every package entrypoint at
+`packages/**/src/index.ts`, generates the TypeDoc site in `docs/api/`, and
+writes the package dependency catalog to `docs/api/PACKAGE_CATALOG.md`. The
+output is intentionally ignored because it is generated from source; run the
+command after changing a public package export and serve `docs/api/index.html`
+locally to review the result.
 
 ## Verification metadata
 

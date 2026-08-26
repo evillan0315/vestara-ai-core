@@ -15,7 +15,7 @@
 | Document | Description |
 |----------|-------------|
 | [PCS.md](PCS.md) | Product Capability Specification |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Pipeline design and stages |
+| [AI-OS architecture](../../AI-OS-ARCHITECTURE.md) | Runtime architecture and stages |
 | [DATA-MODEL.md](DATA-MODEL.md) | RepositoryWorkspace domain model |
 | [CLI.md](CLI.md) | CLI contract |
 | [ATS.md](ATS.md) | Acceptance criteria |

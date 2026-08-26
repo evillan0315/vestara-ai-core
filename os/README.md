@@ -133,3 +133,42 @@ Rollback is explicit and non-destructive:
 ```bash
 sudo systemctl disable --now opencode-server.service
 ```
+
+## External coding-agent runtimes
+
+Vestara observes OpenAI Codex, Claude Code, and Google Gemini CLI as external
+engineering workers through `@vestara/external-runtime` (API adapters, runtime
+registry, workforce UI). Discovery is passive: the adapters look up the
+`codex`, `claude`, and `gemini` executables on `PATH`, so the CLIs must be
+installed on the host or baked into the image.
+
+### Install on a running host
+
+```bash
+sudo scripts/provision-external-agents.sh
+```
+
+The script installs the three CLIs as global npm packages, ensures the `vestara`
+service account exists, and appends the npm bin directory to
+`/etc/vestara/vestara.env` (sourced by `vestara-api.service`). It is
+non-interactive, idempotent, and never touches host power operations.
+
+### Bake into the OS image
+
+`scripts/build-vestara-image.sh` installs the three CLIs via global npm inside
+the image chroot, so the built image discovers them at runtime. The intended
+package set is declared in `os/customization/builder/packages.yaml` under
+`external-runtime`.
+
+### Verify discovery
+
+Start the API and query the external-runtime surface:
+
+```bash
+curl -s http://127.0.0.1:3001/api/external-runtime/runtimes
+vestara provider list          # model providers (not the same surface)
+```
+
+Discovered runtimes appear in the Workspace UI under Workforce / External
+Runtimes with an integration level that reflects what was actually exercised.
+

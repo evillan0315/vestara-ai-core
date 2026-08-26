@@ -37,7 +37,7 @@ an orphan branch: no parent, no reachable VE commit, single-branch history.
 
 ## Contamination controls (ORB-VE-001 §6)
 
-Isolated experimental environment: `/home/eddie/projects/vestara-orb-ve-001`
+Isolated experimental environment: `${ORB_BASE_PATH}`
 (single-branch clone of `orb-ve-001-baseline`).
 
 ```text
@@ -131,7 +131,7 @@ knowledge, no acceptance-criteria additions, no Agent guidance. Sole
 permitted interventions: safety or experiment integrity, each recorded.
 
 The experimental organization operates in the isolated environment
-(`/home/eddie/projects/vestara-orb-ve-001`) with role agent definitions
+(`${ORB_BASE_PATH}`) with role agent definitions
 (root `.opencode/agents/`, verified VE-free) made available there. A dedicated
 opencode server scoped to the environment (NOT the working-world server on
 4096) drives agent sessions. Product intent is the only Director input.
@@ -257,7 +257,7 @@ unrelated.
 ```text
 baseline      orb-ve-001-baseline-r2 @ 4ec0a07 (orphan, experimental)
               = Run 1 synthetic baseline + provider resolution remediation
-environment   /home/eddie/projects/vestara-orb-ve-001-r2
+environment   ${ORB_R2_PATH}
               single-branch, 0 remotes, 2100 tracked files
 residue       VE/ORB/reference-execution markers: 0
 build         tsc -b, 95 projects, exit 0
@@ -284,7 +284,7 @@ immutability    Run 1 remains immutable experimental evidence and must not be
                 altered or reclassified by Run 2.
 ```
 
-Run 2 executes in `/home/eddie/projects/vestara-orb-ve-001-r2` (baseline
+Run 2 executes in `${ORB_R2_PATH}` (baseline
 `orb-ve-001-baseline-r2 @ 4ec0a07`). Run 1 (3999/4097) is left untouched.
 
 ## Run 2 — run log (execution — frozen v0.2.0)
@@ -361,7 +361,7 @@ against a real opencode server under the liveness contract (5.6s).
 ```text
 baseline      orb-ve-001-baseline-r3 @ 8ec4cf3 (orphan, experimental)
               = Run 2 baseline + execution-liveness remediation
-environment   /home/eddie/projects/vestara-orb-ve-001-r3
+environment   ${ORB_R3_PATH}
               single-branch, 0 remotes, 2100 tracked files
 residue       VE/ORB/reference-execution markers: 0
 build         tsc -b, 95 projects, exit 0
@@ -387,7 +387,7 @@ immutability    Run 1 and Run 2 remain immutable, independently attributable
                 experimental evidence.
 ```
 
-Run 3 executes in `/home/eddie/projects/vestara-orb-ve-001-r3` (baseline
+Run 3 executes in `${ORB_R3_PATH}` (baseline
 `orb-ve-001-baseline-r3 @ 8ec4cf3`). Runs 1 and 2 are left untouched.
 
 ## Run 3 — run log (execution — frozen v0.2.0)
@@ -636,7 +636,7 @@ uncertainty marks the terminal state conditional but does not pause the chain
 ```text
 baseline      orb-ve-001-baseline-r4 @ 7daec20 (orphan, experimental)
               = Run 3 baseline + acceptance-boundary remediation only
-environment   /home/eddie/projects/vestara-orb-ve-001-r4
+environment   ${ORB_R4_PATH}
               single-branch, 0 remotes, 2102 tracked files
 residue       VE/ORB/reference-execution markers: 0
 build         tsc -b, 95 projects, exit 0
@@ -676,7 +676,7 @@ reporting       after termination, freeze before comparison/remediation.
                 behavioral evaluation.
 ```
 
-Run 4 executes in `/home/eddie/projects/vestara-orb-ve-001-r4` (baseline
+Run 4 executes in `${ORB_R4_PATH}` (baseline
 `orb-ve-001-baseline-r4 @ 7daec20`). Runs 1–3 left untouched.
 
 ## Run 4 — run log + frozen result (execution — frozen v0.2.0)
@@ -896,7 +896,7 @@ Activity Room finding remain separate. **No Run 5 preparation.**
 ```text
 baseline      orb-ve-001-baseline-r5 @ 0067931 (orphan, experimental)
               = Run 4 baseline + reachable durable appearance remediation ONLY
-environment   /home/eddie/projects/vestara-orb-ve-001-r5
+environment   ${ORB_R5_PATH}
               single-branch, 0 remotes, 2104 tracked files
 residue       VE/ORB/reference-execution markers: 0
 build         tsc -b, 95 projects, exit 0
@@ -938,7 +938,7 @@ reporting       after termination, freeze before evaluation/remediation.
                 frozen result has been reviewed.
 ```
 
-Run 5 executes in `/home/eddie/projects/vestara-orb-ve-001-r5` (baseline
+Run 5 executes in `${ORB_R5_PATH}` (baseline
 `orb-ve-001-baseline-r5 @ 0067931`). Runs 1–4 left untouched.
 
 ## Run 5 — run log + frozen result (execution — frozen v0.2.0)

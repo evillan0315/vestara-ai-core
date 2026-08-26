@@ -11,6 +11,21 @@ pnpm --filter @vestara/workspace-ui test
 pnpm --filter @vestara/workspace-ui build
 ```
 
+Run the standalone Tauri desktop shell during development. Start the API in a
+separate terminal first:
+
+```bash
+pnpm build
+pnpm dev:api
+pnpm --filter @vestara/workspace-ui desktop:dev
+```
+
+Create a production desktop bundle with
+`pnpm --filter @vestara/workspace-ui desktop`. Configure a non-local API with
+`VITE_API_URL` at build/development time or later under **Settings > API
+Endpoint**. See the [desktop guide](docs/DESKTOP.md) for prerequisites and
+troubleshooting.
+
 Vitest owns component, queue-policy, and visual-framework unit tests. The
 Playwright entrypoint at `tests/visual/visual.spec.ts` is intentionally excluded
 from Vitest and runs through the `screenshots*` scripts.
