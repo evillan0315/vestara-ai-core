@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useThemeBuilder } from '../../../../../lib/theme-builder-context';
+import { useThemeBuilder } from '../../../../lib/theme-builder-context';
 import { Button, focus } from '../../../settings-ui';
 
 export function ThemeBuilderHeader() {
