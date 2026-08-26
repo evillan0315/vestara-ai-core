@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { ContentAddressedEvidenceStore, ImmutableEvidenceManifestStore } from '@vestara/engineering-event-store';
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { CommandEvidenceCollector, FilesystemChangeCollector, SourceDiffCollector } from '../src/collectors';
 import { ConfidenceEngine, levelFor } from '../src/confidence';
 import { EvidencePipeline } from '../src/pipeline';

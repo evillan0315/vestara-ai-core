@@ -5,7 +5,7 @@
 // a structured verdict. It never touches the filesystem, network, or
 // renderer; all logic is deterministic and unit-testable.
 
-import type { EvidenceKind, VerificationConfidence, VerificationEvidenceBundle } from '../types';
+import type { EvidenceKind, VerificationConfidence } from '../types';
 
 export type VerifierVerdictStatus = 'VERIFIED' | 'UNVERIFIED' | 'FAILED' | 'INDETERMINATE';
 

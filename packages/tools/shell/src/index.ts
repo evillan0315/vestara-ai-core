@@ -138,7 +138,7 @@ export class GovernedShellExecuteTool implements VestaraTool<GovernedShellInput,
       const record = requireObject(input);
       const command = requireString(record, 'command');
       const workdir = optionalString(record, 'workdir');
-      const timeoutValue = record['timeoutMs'];
+      const timeoutValue = record.timeoutMs;
       if (timeoutValue !== undefined && (typeof timeoutValue !== 'number' || !Number.isFinite(timeoutValue)))
         throw new Error('Tool input timeoutMs must be a finite number');
       return { command, workdir, timeoutMs: timeoutValue };

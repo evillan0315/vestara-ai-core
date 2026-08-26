@@ -6,7 +6,7 @@ import { BuildEvidenceCollector, TestEvidenceCollector } from '../src/collectors
 import type { EvidenceCollectionRequest } from '../src/types';
 
 const directories: string[] = [];
-function temp(name: string): string {
+function _temp(name: string): string {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), `vestara-evidence-${name}-`));
   directories.push(dir);
   return dir;
