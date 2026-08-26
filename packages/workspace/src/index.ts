@@ -42,6 +42,7 @@ export { AgentService } from './agent-service';
 export { AgentStorage } from './agent-storage';
 export type { WorkflowInstance, WorkflowStepDef, WorkflowStepResult } from './agent-workflow-service';
 export { AgentWorkflowService } from './agent-workflow-service';
+export { CANONICAL_AGENTS } from './agents.registry';
 export { AnalyticsService } from './analytics-service';
 export type { AuditEntry } from './audit-store';
 export { AuditStore } from './audit-store';
@@ -139,6 +140,16 @@ export {
   type MultiAgentWorkflowTemplate,
   type MultiAgentWorkflowTemplateId,
 } from './multi-agent-workflow';
+export { OrderService } from './order-service';
+export { OrderStorage } from './order-storage';
+export type {
+  Address,
+  Order,
+  OrderItem,
+  OrderPriority,
+  OrderStatus,
+  PaymentStatus,
+} from './order-types';
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';
 export { OSSystemService } from './os-service';

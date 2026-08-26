@@ -1,9 +1,5 @@
 import * as path from 'node:path';
-import type {
-  VestaraPackageContributions,
-  VestaraPackageManifest,
-  VestaraPermissionRequest,
-} from '@vestara/extension-contracts';
+import type { VestaraPackageContributions, VestaraPackageManifest } from '@vestara/extension-contracts';
 import {
   type ExtensionLoader,
   type ExtensionPermissionApprover,
@@ -13,7 +9,6 @@ import {
 import { afterAll, describe, expect, it } from 'vitest';
 import {
   LocalMarketplaceRegistry,
-  type MarketplaceAsset,
   MarketplaceInstallError,
   type MarketplaceRegistry,
   MarketplaceService,

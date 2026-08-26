@@ -7,7 +7,6 @@
  * is guaranteed by the node runtime.
  */
 
-import { now } from '../db';
 import type {
   OrchestratedProject,
   TaskDispatcher,
@@ -85,7 +84,7 @@ export class WorkerCluster implements TaskDispatcher {
 
   private async withNode<T>(
     task: WorkflowTask,
-    project: OrchestratedProject,
+    _project: OrchestratedProject,
     run: (dispatcher: RemoteWorkerDispatcher) => Promise<T>,
   ): Promise<T> {
     // Reap leases that expired during node loss before selecting (PCS-027 §7).

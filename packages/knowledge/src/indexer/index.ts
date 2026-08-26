@@ -3,7 +3,7 @@ import type { Logger } from '@vestara/logger';
 import type { ChunkEngine } from '../chunking/index.js';
 import type { DocumentParser } from '../parser/index.js';
 import type { KnowledgeStorage } from '../storage/index.js';
-import type { IndexReport, KnowledgeChunk, KnowledgeDocument, SearchResult } from '../types/index.js';
+import type { IndexReport, KnowledgeChunk, KnowledgeDocument } from '../types/index.js';
 
 // ═══════════════════════════════════════════════════════════════
 // FILESYSTEM INDEXER

@@ -6,7 +6,7 @@ export class RepositoryContextSource implements ContextSource {
   readonly name = 'repository';
 
   async contribute(
-    request: string,
+    _request: string,
     workspaceName: string,
     workspacePath: string,
     _userId: string,

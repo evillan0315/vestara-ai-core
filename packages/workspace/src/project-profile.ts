@@ -310,7 +310,7 @@ export class ProjectProfileService {
       '.svelte',
     ]);
 
-    const totalFiles = Object.values(byExtension).reduce((a, b) => a + b, 0);
+    const _totalFiles = Object.values(byExtension).reduce((a, b) => a + b, 0);
     const langMap = new Map<string, number>();
 
     for (const [ext, count] of Object.entries(byExtension)) {
@@ -345,10 +345,9 @@ export class ProjectProfileService {
     const frameworks: DetectedFramework[] = [];
     const fileSet = new Set(files.map((f) => f.toLowerCase()));
 
-    if (deps['next'])
-      frameworks.push({ name: 'Next.js', version: deps['next'], category: 'fullstack', confidence: 'high' });
-    if (deps['react']) {
-      const version = deps['react'];
+    if (deps.next) frameworks.push({ name: 'Next.js', version: deps.next, category: 'fullstack', confidence: 'high' });
+    if (deps.react) {
+      const version = deps.react;
       const cleanVersion = version?.replace(/^[\^~>=<]/, '');
       const is19 = cleanVersion && (cleanVersion.startsWith('19.') || cleanVersion.startsWith('19 '));
       frameworks.push({
@@ -358,53 +357,53 @@ export class ProjectProfileService {
         confidence: deps['react-dom'] ? 'high' : 'medium',
       });
     }
-    if (deps['vue'] || deps['vue-router'])
-      frameworks.push({ name: 'Vue.js', version: deps['vue'], category: 'frontend', confidence: 'high' });
-    if (deps['svelte'] || deps['@sveltejs/kit'])
+    if (deps.vue || deps['vue-router'])
+      frameworks.push({ name: 'Vue.js', version: deps.vue, category: 'frontend', confidence: 'high' });
+    if (deps.svelte || deps['@sveltejs/kit'])
       frameworks.push({
         name: 'Svelte',
-        version: deps['svelte'] ?? deps['@sveltejs/kit'],
+        version: deps.svelte ?? deps['@sveltejs/kit'],
         category: 'frontend',
         confidence: 'high',
       });
     if (deps['solid-js'])
       frameworks.push({ name: 'Solid', version: deps['solid-js'], category: 'frontend', confidence: 'high' });
-    if (deps['angular'] || deps['@angular/core'])
+    if (deps.angular || deps['@angular/core'])
       frameworks.push({
         name: 'Angular',
-        version: deps['angular'] ?? deps['@angular/core'],
+        version: deps.angular ?? deps['@angular/core'],
         category: 'frontend',
         confidence: 'high',
       });
-    if (deps['electron'])
-      frameworks.push({ name: 'Electron', version: deps['electron'], category: 'frontend', confidence: 'high' });
+    if (deps.electron)
+      frameworks.push({ name: 'Electron', version: deps.electron, category: 'frontend', confidence: 'high' });
 
-    if (deps['express'])
-      frameworks.push({ name: 'Express', version: deps['express'], category: 'backend', confidence: 'high' });
-    if (deps['fastify'] || deps['@fastify/fastify'])
+    if (deps.express)
+      frameworks.push({ name: 'Express', version: deps.express, category: 'backend', confidence: 'high' });
+    if (deps.fastify || deps['@fastify/fastify'])
       frameworks.push({
         name: 'Fastify',
-        version: deps['fastify'] ?? deps['@fastify/fastify'],
+        version: deps.fastify ?? deps['@fastify/fastify'],
         category: 'backend',
         confidence: 'high',
       });
-    if (deps['@nestjs/core'] || deps['nest'])
+    if (deps['@nestjs/core'] || deps.nest)
       frameworks.push({
         name: 'NestJS',
-        version: deps['@nestjs/core'] ?? deps['nest'],
+        version: deps['@nestjs/core'] ?? deps.nest,
         category: 'backend',
         confidence: 'high',
       });
-    if (deps['flask']) frameworks.push({ name: 'Flask', category: 'backend', confidence: 'medium' });
-    if (deps['django']) frameworks.push({ name: 'Django', category: 'backend', confidence: 'medium' });
+    if (deps.flask) frameworks.push({ name: 'Flask', category: 'backend', confidence: 'medium' });
+    if (deps.django) frameworks.push({ name: 'Django', category: 'backend', confidence: 'medium' });
 
-    if (deps['vite'] || fileSet.has('vite.config.ts') || fileSet.has('vite.config.js')) {
+    if (deps.vite || fileSet.has('vite.config.ts') || fileSet.has('vite.config.js')) {
       const viteIdx = frameworks.findIndex((f) => f.name === 'Vite');
       if (viteIdx >= 0) frameworks[viteIdx].confidence = 'high';
       else frameworks.push({ name: 'Vite', category: 'frontend', confidence: 'high' });
     }
-    if (deps['tailwindcss']) {
-      frameworks.push({ name: 'Tailwind CSS', version: deps['tailwindcss'], category: 'frontend', confidence: 'high' });
+    if (deps.tailwindcss) {
+      frameworks.push({ name: 'Tailwind CSS', version: deps.tailwindcss, category: 'frontend', confidence: 'high' });
     }
     if (deps['@mui/material'] || deps['@material-ui/core']) {
       frameworks.push({ name: 'Material UI', category: 'frontend', confidence: 'high' });
@@ -438,25 +437,25 @@ export class ProjectProfileService {
     const fileSet = new Set(files.map((f) => f.toLowerCase()));
     const tooling: DetectedTooling = {};
 
-    if (deps['typescript'] || fileSet.has('tsconfig.json')) tooling.buildTool = 'tsc';
-    if (deps['vite']) tooling.buildTool = 'vite';
-    if (deps['webpack'] || deps['webpack-cli']) tooling.buildTool = 'webpack';
-    if (deps['esbuild']) tooling.buildTool = 'esbuild';
-    if (deps['rollup']) tooling.buildTool = 'rollup';
-    if (deps['turbo']) tooling.buildTool = 'turborepo';
-    if (deps['nx']) tooling.buildTool = 'nx';
+    if (deps.typescript || fileSet.has('tsconfig.json')) tooling.buildTool = 'tsc';
+    if (deps.vite) tooling.buildTool = 'vite';
+    if (deps.webpack || deps['webpack-cli']) tooling.buildTool = 'webpack';
+    if (deps.esbuild) tooling.buildTool = 'esbuild';
+    if (deps.rollup) tooling.buildTool = 'rollup';
+    if (deps.turbo) tooling.buildTool = 'turborepo';
+    if (deps.nx) tooling.buildTool = 'nx';
 
-    if (deps['vitest']) tooling.testFramework = 'vitest';
-    else if (deps['jest']) tooling.testFramework = 'jest';
-    else if (deps['mocha']) tooling.testFramework = 'mocha';
-    else if (deps['playwright']) tooling.testFramework = 'playwright';
-    else if (deps['cypress']) tooling.testFramework = 'cypress';
-    else if (deps['pytest']) tooling.testFramework = 'pytest';
+    if (deps.vitest) tooling.testFramework = 'vitest';
+    else if (deps.jest) tooling.testFramework = 'jest';
+    else if (deps.mocha) tooling.testFramework = 'mocha';
+    else if (deps.playwright) tooling.testFramework = 'playwright';
+    else if (deps.cypress) tooling.testFramework = 'cypress';
+    else if (deps.pytest) tooling.testFramework = 'pytest';
     else if (deps['@playwright/test']) tooling.testFramework = 'playwright';
 
-    if (deps['eslint']) tooling.linter = 'eslint';
-    if (deps['biome']) tooling.linter = tooling.formatter = 'biome';
-    if (deps['prettier']) tooling.formatter = 'prettier';
+    if (deps.eslint) tooling.linter = 'eslint';
+    if (deps.biome) tooling.linter = tooling.formatter = 'biome';
+    if (deps.prettier) tooling.formatter = 'prettier';
 
     return tooling;
   }

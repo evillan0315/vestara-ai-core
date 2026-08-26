@@ -9,7 +9,7 @@ const ROLE_TASK_PATTERNS: Array<{ patterns: RegExp[]; role: string }> = [
     role: 'developer',
   },
   { patterns: [/frontend|ui|component|page|form|dashboard|view/i], role: 'developer' },
-  { patterns: [/test|spec|unit|integration|e2e|coverage/i], role: 'tester' },
+  { patterns: [/test|spec|unit|integration|e2e|coverage/i], role: 'verifier' },
   { patterns: [/review|audit|inspect/i], role: 'reviewer' },
   { patterns: [/security|permission|auth|vulnerability|compliance/i], role: 'security' },
   { patterns: [/document|doc|guide|readme|changelog/i], role: 'documentation' },

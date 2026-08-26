@@ -67,7 +67,7 @@ describe('IntentManager lifecycle', () => {
   it('lists intents and exposes info', () => {
     const manager = new IntentManager();
     const a = manager.submit({ goal: 'One', owner: 'r1' });
-    const b = manager.submit({ goal: 'Two', owner: 'r2' });
+    const _b = manager.submit({ goal: 'Two', owner: 'r2' });
     expect(manager.list()).toHaveLength(2);
     expect(manager.getInfo(a.id)).not.toBeNull();
     expect(manager.listByStatus('submitted')).toHaveLength(2);

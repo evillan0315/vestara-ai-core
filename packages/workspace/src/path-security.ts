@@ -42,16 +42,16 @@ const ALWAYS_DENIED_FILES = [
 ];
 
 export class PathSecurity {
-  private workspaceRoot: string;
+  private _workspaceRoot: string;
   private homeDir: string;
 
   constructor(workspaceRoot: string) {
-    this.workspaceRoot = path.resolve(workspaceRoot);
+    this._workspaceRoot = path.resolve(workspaceRoot);
     this.homeDir = os.homedir();
   }
 
   validatePath(requestedPath: string): PathValidation {
-    const resolvedPath = path.resolve(this.workspaceRoot, requestedPath);
+    const resolvedPath = path.resolve(this._workspaceRoot, requestedPath);
 
     // Block always-denied system paths (checked before any other rule)
     for (const prefix of ALWAYS_DENIED_PREFIXES) {
@@ -82,7 +82,7 @@ export class PathSecurity {
 
     // Block always-denied files at workspace root
     const fileName = path.basename(resolvedPath);
-    if (ALWAYS_DENIED_FILES.includes(fileName) && path.dirname(resolvedPath) === this.workspaceRoot) {
+    if (ALWAYS_DENIED_FILES.includes(fileName) && path.dirname(resolvedPath) === this._workspaceRoot) {
       return {
         allowed: false,
         reason: `Access denied to sensitive file: ${fileName}`,
@@ -92,7 +92,7 @@ export class PathSecurity {
     }
 
     // Paths outside workspace root require confirmation
-    if (!resolvedPath.startsWith(this.workspaceRoot)) {
+    if (!resolvedPath.startsWith(this._workspaceRoot)) {
       return {
         allowed: true,
         reason: 'Path is outside workspace root — user confirmation required',
@@ -102,7 +102,7 @@ export class PathSecurity {
     }
 
     // Path traversal check: reject paths that would escape workspace via ..
-    const relative = path.relative(this.workspaceRoot, resolvedPath);
+    const relative = path.relative(this._workspaceRoot, resolvedPath);
     if (relative.startsWith('..')) {
       return {
         allowed: false,
@@ -127,7 +127,11 @@ export class PathSecurity {
     return result.resolvedPath;
   }
 
+  get workspaceRoot(): string {
+    return this._workspaceRoot;
+  }
+
   get allowedPrefixes(): string[] {
-    return [this.workspaceRoot];
+    return [this._workspaceRoot];
   }
 }

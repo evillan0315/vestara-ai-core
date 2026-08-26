@@ -302,10 +302,9 @@ export class EngineeringGraph {
       else if (label.includes(q)) score += 50;
       if (id.includes(q)) score += 40;
       if (fields.includes('tags')) for (const t of entity.tags ?? []) if (t.toLowerCase().includes(q)) score += 25;
-      if (fields.includes('status') && entity.status && entity.status.toLowerCase().includes(q)) score += 15;
-      if (fields.includes('owner') && entity.owner && entity.owner.toLowerCase().includes(q)) score += 15;
-      if (fields.includes('description') && entity.description && entity.description.toLowerCase().includes(q))
-        score += 10;
+      if (fields.includes('status') && entity.status?.toLowerCase().includes(q)) score += 15;
+      if (fields.includes('owner') && entity.owner?.toLowerCase().includes(q)) score += 15;
+      if (fields.includes('description') && entity.description?.toLowerCase().includes(q)) score += 10;
       if (fields.includes('meta')) {
         for (const v of Object.values(entity.meta ?? {})) {
           if (typeof v === 'string' && v.toLowerCase().includes(q)) {
@@ -324,7 +323,7 @@ export class EngineeringGraph {
 
   insights(): GraphInsight[] {
     const out: GraphInsight[] = [];
-    const stats = this.stats();
+    const _stats = this.stats();
 
     // Orphaned entities (no relationships at all).
     const orphans: string[] = [];
@@ -455,11 +454,11 @@ export class EngineeringGraph {
     }
 
     const orphanPct = stats.nodes > 0 ? (orphans / stats.nodes) * 100 : 0;
-    const docs = stats.kinds['document'] ?? 0;
-    const plans = stats.kinds['plan'] ?? 0;
-    const tasks = stats.kinds['task'] ?? 0;
-    const artifacts = stats.kinds['artifact'] ?? 0;
-    const verifications = stats.kinds['verification'] ?? 0;
+    const docs = stats.kinds.document ?? 0;
+    const plans = stats.kinds.plan ?? 0;
+    const tasks = stats.kinds.task ?? 0;
+    const artifacts = stats.kinds.artifact ?? 0;
+    const verifications = stats.kinds.verification ?? 0;
     const docsCoverage = plans > 0 ? Math.min(100, Math.round((docs / Math.max(1, plans)) * 50)) : 0;
     const verificationCoverage = artifacts > 0 ? Math.min(100, Math.round((verifications / artifacts) * 100)) : 0;
 

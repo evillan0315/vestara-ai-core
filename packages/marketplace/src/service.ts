@@ -1,8 +1,4 @@
-import type {
-  ExtensionTrustLevel,
-  VestaraPermissionRequest,
-  VestaraPermissionScope,
-} from '@vestara/extension-contracts';
+import type { ExtensionTrustLevel, VestaraPermissionScope } from '@vestara/extension-contracts';
 import {
   digestPackageDirectory,
   type InstalledExtension,
@@ -175,12 +171,12 @@ export class MarketplaceService {
     };
   }
 
-  async listInstalled(workspaceId?: string): Promise<readonly InstalledMarketplaceAsset[]> {
+  async listInstalled(_workspaceId?: string): Promise<readonly InstalledMarketplaceAsset[]> {
     await this.ensureScanned();
     return projectInstalled(this.manager.list(), this.assetsById(), this.context);
   }
 
-  async listUpdates(workspaceId?: string): Promise<readonly MarketplaceUpdateCandidate[]> {
+  async listUpdates(_workspaceId?: string): Promise<readonly MarketplaceUpdateCandidate[]> {
     await this.ensureScanned();
     const updates = detectUpdates(this.manager.list(), this.assetsById(), this.context);
     await this.emit('marketplace.update.detected', { count: updates.length });

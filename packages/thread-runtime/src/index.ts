@@ -119,12 +119,18 @@ function numberValue(value: unknown): number {
 }
 
 export class FileThreadStore implements ThreadStore {
+  private persistTimer: ReturnType<typeof setTimeout> | undefined;
+  private readonly persistDebounceMs: number;
+
   private constructor(
     private readonly db: Database,
     private readonly dbPath: string,
-  ) {}
+    persistDebounceMs: number,
+  ) {
+    this.persistDebounceMs = persistDebounceMs;
+  }
 
-  static async open(dbPath: string): Promise<FileThreadStore> {
+  static async open(dbPath: string, options?: { persistDebounceMs?: number }): Promise<FileThreadStore> {
     const initSqlJs = (await import('sql.js')).default;
     const sqlJsDir = path.dirname(require.resolve('sql.js'));
     const SQL = await initSqlJs({ locateFile: (file: string) => path.join(sqlJsDir, file) });
@@ -136,7 +142,8 @@ export class FileThreadStore implements ThreadStore {
         fs.writeFileSync(path.resolve(dbPath), Buffer.from(migrated.export()));
       },
     });
-    return new FileThreadStore(raw, path.resolve(dbPath));
+    const debounceMs = options?.persistDebounceMs ?? positiveInt(process.env.VESTARA_THREAD_PERSIST_DEBOUNCE_MS, 250);
+    return new FileThreadStore(raw, path.resolve(dbPath), debounceMs);
   }
 
   createThread(input: CreateThreadInput): TaskThread {
@@ -335,11 +342,36 @@ export class FileThreadStore implements ThreadStore {
   }
 
   close(): void {
-    this.persist();
+    this.flushPersist();
     this.db.close();
   }
 
+  /**
+   * Coalesce writes: mark the DB dirty and schedule a single export+write
+   * after the debounce window. Many rapid mutations (e.g. workflow start) then
+   * flush as ONE full-DB write instead of one synchronous export per mutation,
+   * which otherwise blocks the event loop for minutes. In-memory reads remain
+   * immediately consistent; durability only lags by the debounce window.
+   */
   private persist(): void {
+    if (this.persistTimer) return;
+    this.persistTimer = setTimeout(() => {
+      this.persistTimer = undefined;
+      try {
+        this.flushPersist();
+      } catch {
+        // Never let a failed background flush take the process down; the next
+        // mutation re-schedules.
+      }
+    }, this.persistDebounceMs);
+  }
+
+  /** Synchronously export the in-memory DB and atomically replace the file. */
+  private flushPersist(): void {
+    if (this.persistTimer) {
+      clearTimeout(this.persistTimer);
+      this.persistTimer = undefined;
+    }
     fs.mkdirSync(path.dirname(this.dbPath), { recursive: true });
     const temporaryPath = `${this.dbPath}.tmp`;
     fs.writeFileSync(temporaryPath, Buffer.from(this.db.export()));
@@ -429,3 +461,11 @@ export class FileThreadStore implements ThreadStore {
   }
 }
 export { THREAD_MANIFEST } from './migrations';
+
+function positiveInt(...candidates: Array<number | string | undefined>): number {
+  for (const candidate of candidates) {
+    const parsed = typeof candidate === 'number' ? candidate : Number(candidate);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.round(parsed);
+  }
+  return 250;
+}

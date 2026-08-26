@@ -31,6 +31,23 @@ export interface HarnessContextAssembler {
   }): Promise<string>;
 }
 
+/**
+ * Per-agent execution override resolved before an agent turn contacts the
+ * provider. When an override is returned, the turn executes under the
+ * selected provider/model and (optionally) a different native runtime agent
+ * than the caller-provided `agentId`.
+ */
+export interface AgentExecutionOverride {
+  readonly providerId?: string;
+  readonly modelId?: string;
+  /** Native runtime agent (e.g. vestara-planner) the turn runs as. */
+  readonly runtimeAgent?: string;
+}
+
+export type AgentExecutionResolver = (input: {
+  readonly agentId: string;
+}) => Promise<AgentExecutionOverride | undefined>;
+
 export interface HarnessVerifier {
   verify(input: {
     readonly thread: TaskThread;
@@ -56,6 +73,13 @@ export interface AgentHarnessOptions {
   /** Enable interruptive steering — steer messages abort active tool execution (default: true).
    *  Note: steering during inference is always processed in the next iteration. */
   readonly interruptiveSteering?: boolean;
+  /**
+   * Resolves the provider/model/runtime-agent an agent turn executes under.
+   * Called once per turn; when it returns an override the turn uses that
+   * provider/model, otherwise the harness runs with its configured default
+   * model and the caller-provided agent id.
+   */
+  readonly resolveAgentExecution?: AgentExecutionResolver;
 }
 
 export interface StartThreadInput {
@@ -157,6 +181,17 @@ function parseToolInput(value: string): unknown {
 
 function terminalOutcome(state: AgentRunState): boolean {
   return state === 'completed' || state === 'failed' || state === 'blocked' || state === 'cancelled';
+}
+
+/**
+ * Compose the provider model string for a turn from its execution override:
+ * `provider/model` when both are set (the OpenCode runtime provider parses the
+ * slash-qualified form), the bare model id when only a model is set, and the
+ * harness default when no override applies.
+ */
+function executionModel(override: AgentExecutionOverride | undefined, fallback: string): string {
+  if (!override?.modelId) return fallback;
+  return override.providerId ? `${override.providerId}/${override.modelId}` : override.modelId;
 }
 
 export interface CompactedContext {
@@ -526,6 +561,11 @@ export class AgentHarnessRuntime {
     let turn = this.requireTurn(turnId);
     const thread = this.requireThread(turn.threadId);
     await this.transition(turn, 'preparing', correlationId);
+    // Resolve the agent's execution override once per turn (the provider/model
+    // the agent was configured with in the Agent Control modal). Resolution is
+    // intentionally per-turn so resume/approval-continuation inherit the same
+    // provider/model without re-wiring each entry point.
+    const executionOverride = await this.resolveExecutionOverride(active.agentId);
     const context = await this.options.context.assemble({
       thread,
       turn,
@@ -545,11 +585,11 @@ export class AgentHarnessRuntime {
       let response: CompletionResponse;
       try {
         response = await this.options.provider.complete({
-          model: this.options.model,
+          model: executionModel(executionOverride, this.options.model),
           messages: this.messages(thread.id, context),
           tools: [...this.options.tools.definitions()],
           signal: active.controller.signal,
-          agent: active.agentId || undefined,
+          agent: executionOverride?.runtimeAgent || active.agentId || undefined,
           onExecutionEvent: (event) => {
             // Correlate runtime execution activity to this participant/thread
             // and publish it for the Activity Room bridge to project.
@@ -623,6 +663,11 @@ export class AgentHarnessRuntime {
       if (after.outcome) return { thread: this.requireThread(thread.id), turn: after, outcome: after.outcome };
     }
     return this.finish(turn, 'blocked', 'Harness iteration limit reached', 'iteration-limit', correlationId);
+  }
+
+  /** Resolve the per-agent execution override (provider/model/runtime agent). */
+  private resolveExecutionOverride(agentId: string): Promise<AgentExecutionOverride | undefined> {
+    return Promise.resolve(this.options.resolveAgentExecution?.({ agentId }));
   }
 
   /**

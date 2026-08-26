@@ -114,6 +114,9 @@ export class HarnessSession {
 
   /** Re-link and sync any active harness threads after a restart. */
   async restoreActiveSessions(): Promise<HarnessRunRecord[]> {
+    if (process.env.VESTARA_SKIP_SESSION_RESTORE === '1') {
+      return [];
+    }
     const records: HarnessRunRecord[] = [];
     for (const thread of this.options.harness.listThreads()) {
       const agentId = String(thread.metadata?.agentId ?? 'agent');
@@ -285,7 +288,7 @@ export class HarnessExecutionAdapter {
       agentId: request.agentId,
       environment: this.session.environment,
     });
-    const session = await this.session.syncFromReplay(thread.id);
+    const _session = await this.session.syncFromReplay(thread.id);
     const state = result.turn.state;
     const terminal: AgentExecutionResult['status'] =
       state === 'completed' || state === 'failed' || state === 'blocked' || state === 'cancelled' ? state : 'failed';
@@ -294,9 +297,24 @@ export class HarnessExecutionAdapter {
       turnId: result.turn.id,
       runId: record.runId || this.session.harness.snapshot(thread.id).runId,
       status: terminal,
-      output: session?.timeline.at(-1)?.step ?? result.turn.outcome?.summary,
+      output: lastModelResponse(this.session.harness, thread.id) ?? result.turn.outcome?.summary,
     };
   }
+}
+
+/**
+ * The model's actual final answer is stored as the last `model-response` item
+ * on the harness thread (the timeline `step` is only a label like "final").
+ */
+function lastModelResponse(harness: AgentHarnessRuntime, threadId: string): string | undefined {
+  const items = harness.replay(threadId as TaskThreadId).items;
+  for (let index = items.length - 1; index >= 0; index--) {
+    const item = items[index];
+    if (item.kind !== 'model-response') continue;
+    const content = (item.payload as { content?: unknown }).content;
+    if (typeof content === 'string' && content.trim().length > 0) return content;
+  }
+  return undefined;
 }
 
 export type { AgentExecutionEngine };

@@ -87,7 +87,7 @@ describe('EngineeringGraph', () => {
   });
 
   it('extracts bounded subgraphs', () => {
-    const { graph, plan, taskA, file } = makeGraph();
+    const { graph, plan, taskA } = makeGraph();
     const sub = graph.subgraph(plan.id, 1);
     expect(sub.entities.map((e) => e.id)).toEqual(expect.arrayContaining([plan.id, taskA.id]));
     expect(sub.relationships.length).toBeGreaterThan(0);

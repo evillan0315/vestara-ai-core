@@ -22,6 +22,7 @@ export interface WorkspaceContext {
 
 export class WorkspaceContextProvider implements ContextAssembler {
   private context: WorkspaceContext | null = null;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: injected via setGitService for runtime wiring.
   private gitService: GitService | null = null;
   private fallbackPrompt: string;
   private _tools: ToolDefinition[] = [];
@@ -146,7 +147,7 @@ export class WorkspaceContextProvider implements ContextAssembler {
     }
 
     parts.push('');
-    parts.push('Files indexed: ' + ctx.indexedFiles);
+    parts.push(`Files indexed: ${ctx.indexedFiles}`);
     parts.push('</workspace_context>');
     parts.push('You are helpful, concise, and precise.');
 

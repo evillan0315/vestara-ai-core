@@ -26,7 +26,7 @@ import { Runtime, type RuntimeConfig } from '@vestara/runtime';
 import { FilesystemService } from './fs-service';
 import { GitService } from './git-service';
 import { type ProjectProfile, ProjectProfileService } from './project-profile';
-import { type WorkspaceContext, WorkspaceContextProvider } from './workspace-context-provider';
+import { WorkspaceContextProvider } from './workspace-context-provider';
 import { WorkspaceIndex } from './workspace-index';
 import { WorkspaceToolProvider } from './workspace-tool-provider';
 import { WorkspaceWatcher } from './workspace-watcher';

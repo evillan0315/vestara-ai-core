@@ -17,7 +17,7 @@ const WORKFLOWS: Record<string, WorkflowDef> = {
       [{ role: 'architect', task: 'Analyze requirements and create architecture plan' }],
       [{ role: 'developer', task: 'Implement the planned changes' }],
       [
-        { role: 'tester', task: 'Generate and run tests for the implementation' },
+        { role: 'verifier', task: 'Generate and run tests for the implementation' },
         { role: 'reviewer', task: 'Review the implementation for quality and correctness' },
       ],
     ],
@@ -46,7 +46,7 @@ const WORKFLOWS: Record<string, WorkflowDef> = {
     parallelGroups: [
       [{ role: 'analyst', task: 'Identify refactoring opportunities and technical debt' }],
       [{ role: 'refactoring-agent', task: 'Apply refactoring improvements' }],
-      [{ role: 'tester', task: 'Verify no regressions after refactoring' }],
+      [{ role: 'verifier', task: 'Verify no regressions after refactoring' }],
     ],
   },
   release: {

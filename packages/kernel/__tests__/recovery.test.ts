@@ -1,6 +1,6 @@
 import type { Job } from '@vestara/job';
 import { Scheduler } from '@vestara/scheduler';
-import type { JobId, JobResult, RuntimeConfig, WorkerId } from '@vestara/types';
+import type { JobResult, RuntimeConfig } from '@vestara/types';
 import { Worker } from '@vestara/worker';
 import { afterEach, describe, expect, it } from 'vitest';
 import { FailureBudget } from '../src/failure-budget';

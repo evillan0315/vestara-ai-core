@@ -567,7 +567,7 @@ export class FilesystemRuntime {
 
   approve(approvalId: string): boolean {
     const op = this.pendingApprovals.get(approvalId);
-    if (!op || op.approvalStatus !== 'pending') return false;
+    if (op?.approvalStatus !== 'pending') return false;
     op.approvalStatus = 'approved';
     this.emit(op.agentId, 'completed', 'decide', `Approved: ${op.type} ${op.path}`);
     return true;

@@ -183,10 +183,11 @@ function detectEntryPoints(rootDir: string, files: string[]): EntryPoint[] {
           if (pkg.bin || pkg.main) {
             const rel = `${appDir}/${entry}/src/index.ts`;
             const relMain = `${appDir}/${entry}/src/main.ts`;
+            const type: EntryPoint['type'] = pkg.bin ? 'cli' : appDir === 'apps' ? 'app' : 'library';
             if (files.includes(rel) && !entryPoints.some((e) => e.path === rel)) {
-              entryPoints.push({ path: rel, type: 'app', source: 'convention', confidence: 0 });
+              entryPoints.push({ path: rel, type, source: 'convention', confidence: 0 });
             } else if (files.includes(relMain) && !entryPoints.some((e) => e.path === relMain)) {
-              entryPoints.push({ path: relMain, type: 'app', source: 'convention', confidence: 0 });
+              entryPoints.push({ path: relMain, type, source: 'convention', confidence: 0 });
             }
           }
         } catch {
@@ -473,7 +474,7 @@ function scoreEntryPointConfidence(ep: EntryPoint, _files: string[], rootDir: st
   }
 
   // Type bonus
-  if (ep.type === 'app' || ep.type === 'api') score += 0.1;
+  if (ep.type === 'app' || ep.type === 'api' || ep.type === 'library') score += 0.1;
   else if (ep.type === 'cli') score += 0.15;
 
   // Convention match bonus: common src/index.ts patterns

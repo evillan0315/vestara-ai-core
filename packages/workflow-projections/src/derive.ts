@@ -11,7 +11,7 @@ import type { EngineeringTruthEvent } from '@vestara/engineering-event-store';
 import type { ThreadItem } from '@vestara/types';
 import { WORKFLOW_STAGES, type WorkflowStageId, type WorkflowStageProjection, type WorkflowStageStatus } from './types';
 
-const INVESTIGATION_TOOLS = /read|search|grep|view|list|reference|filesystem\.read|filesystem\.search/;
+const _INVESTIGATION_TOOLS = /read|search|grep|view|list|reference|filesystem\.read|filesystem\.search/;
 const EXECUTION_TOOLS =
   /write|create|update|delete|rename|move|copy|patch|shell|bash|exec|run|git|test|build|lint|format|filesystem\.write|filesystem\.update|filesystem\.create/;
 const PLANNING_TOOLS = /plan/;

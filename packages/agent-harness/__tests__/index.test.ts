@@ -279,4 +279,73 @@ describe('AgentHarnessRuntime', () => {
     expect(harness.replay(thread.id).items.at(-1)?.kind).toBe('final-outcome');
     store.close();
   });
+
+  it('runs a turn under the provider/model/runtime-agent resolved for the agent', async () => {
+    const { dbPath, environment } = setup();
+    const tools = new ToolRuntime();
+    const requests: CompletionRequest[] = [];
+    const store = await FileThreadStore.open(dbPath);
+    const harness = new AgentHarnessRuntime({
+      store,
+      provider: provider(async (request) => {
+        requests.push(request);
+        return response('Resolved provider/model executed.');
+      }),
+      model: model.id,
+      tools,
+      context,
+      verifier,
+      resolveAgentExecution: async ({ agentId }) => {
+        if (agentId === 'planner-01') {
+          return { providerId: 'opencode', modelId: 'deepseek-v4-flash-free', runtimeAgent: 'vestara-planner' };
+        }
+        return undefined;
+      },
+    });
+    const thread = harness.createThread({ taskId: 'TASK-R1', title: 'Resolve exec', environment });
+
+    await harness.run({
+      threadId: thread.id,
+      instruction: 'Plan the change',
+      agentId: 'planner-01',
+      environment,
+    });
+
+    // The agent's configured model is composed as provider/model and the native
+    // runtime agent replaces the caller-provided Vestara agent id.
+    expect(requests[0]?.model).toBe('opencode/deepseek-v4-flash-free');
+    expect(requests[0]?.agent).toBe('vestara-planner');
+    store.close();
+  });
+
+  it('uses the harness default model and caller agent when the resolver returns nothing', async () => {
+    const { dbPath, environment } = setup();
+    const tools = new ToolRuntime();
+    const requests: CompletionRequest[] = [];
+    const store = await FileThreadStore.open(dbPath);
+    const harness = new AgentHarnessRuntime({
+      store,
+      provider: provider(async (request) => {
+        requests.push(request);
+        return response('Default execution.');
+      }),
+      model: model.id,
+      tools,
+      context,
+      verifier,
+      resolveAgentExecution: async () => undefined,
+    });
+    const thread = harness.createThread({ taskId: 'TASK-R2', title: 'Default exec', environment });
+
+    await harness.run({
+      threadId: thread.id,
+      instruction: 'Do the work',
+      agentId: 'developer-05',
+      environment,
+    });
+
+    expect(requests[0]?.model).toBe(model.id);
+    expect(requests[0]?.agent).toBe('developer-05');
+    store.close();
+  });
 });

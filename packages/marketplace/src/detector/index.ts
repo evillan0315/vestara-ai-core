@@ -10,7 +10,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { VestaraPackageManifest } from '@vestara/extension-contracts';
-import { digestPackageDirectory, VESTARA_PACKAGE_MANIFEST } from '@vestara/extension-runtime';
+import { VESTARA_PACKAGE_MANIFEST } from '@vestara/extension-runtime';
 import type { MarketplaceAsset, MarketplaceAssetVersionSummary } from '../asset';
 import type { MarketplaceCatalog } from '../catalog';
 import { isStable } from '../versions';

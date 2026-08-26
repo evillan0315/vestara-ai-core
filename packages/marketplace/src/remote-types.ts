@@ -1,5 +1,5 @@
 import type { VestaraPackageManifest } from '@vestara/extension-contracts';
-import type { MarketplaceAsset, MarketplaceCompatibilitySummary, MarketplaceVerificationSummary } from './asset';
+import type { MarketplaceAsset, MarketplaceCompatibilitySummary } from './asset';
 
 /**
  * Wire format served by a remote registry's index endpoint. The remote index

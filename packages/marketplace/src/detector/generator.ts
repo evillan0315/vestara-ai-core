@@ -69,7 +69,7 @@ export function generateManifest(
 
   // Write vestara-package.json
   const manifestPath = path.join(packageDir, VESTARA_PACKAGE_MANIFEST);
-  fs.writeFileSync(manifestPath, JSON.stringify(finalManifest, null, 2) + '\n', 'utf8');
+  fs.writeFileSync(manifestPath, `${JSON.stringify(finalManifest, null, 2)}\n`, 'utf8');
 
   return { manifest: finalManifest, packageDir, manifestPath };
 }

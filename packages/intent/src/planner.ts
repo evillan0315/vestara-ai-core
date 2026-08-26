@@ -126,7 +126,7 @@ export class Planner {
     };
   }
 
-  planFor(intent: Intent, options?: PlanOptions): ExecPlan {
+  planFor(intent: Intent, _options?: PlanOptions): ExecPlan {
     const constraints = [...intent.constraints];
     const maxJobs = this.maxJobsFromConstraints(constraints);
     return this.plan(intent.goal, { maxJobs });

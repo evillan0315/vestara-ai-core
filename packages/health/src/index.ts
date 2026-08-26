@@ -47,6 +47,23 @@ export interface HealthCheckResult {
   latency: number;
 }
 
+const HEALTH_CHECK_TIMEOUT_MS = 5_000;
+
+async function withHealthTimeout<T>(name: string, fn: () => Promise<T>): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(
+      () => reject(new Error(`Health check "${name}" timed out after ${HEALTH_CHECK_TIMEOUT_MS}ms`)),
+      HEALTH_CHECK_TIMEOUT_MS,
+    );
+  });
+  try {
+    return await Promise.race([fn(), timeout]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 export class DefaultHealthManager implements HealthManager {
   private registry: ServiceRegistry;
   private logger?: Logger;
@@ -89,7 +106,7 @@ export class DefaultHealthManager implements HealthManager {
 
       const start = performance.now();
       try {
-        const health = await service.health();
+        const health = await withHealthTimeout(info.id, () => service.health());
         checks.push({
           serviceId: info.id,
           status: health.status,
@@ -112,7 +129,7 @@ export class DefaultHealthManager implements HealthManager {
     for (const [name, check] of this.customChecks) {
       const start = performance.now();
       try {
-        const result = await check();
+        const result = await withHealthTimeout(name, () => check());
         checks.push({
           serviceId: name,
           status: result.status,

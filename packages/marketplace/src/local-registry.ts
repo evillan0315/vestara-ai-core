@@ -5,7 +5,6 @@ import { digestPackageDirectory, readManifest, satisfies, VESTARA_PACKAGE_MANIFE
 import type { MarketplaceAsset, MarketplaceAssetVersion, MarketplaceAssetVersionSummary } from './asset';
 import type { MarketplaceCategory } from './catalog';
 import { key } from './catalog';
-import type { RuntimeCompatibilityContext } from './compatibility';
 import { errorMessage } from './errors';
 import type {
   MarketplaceAssetReference,

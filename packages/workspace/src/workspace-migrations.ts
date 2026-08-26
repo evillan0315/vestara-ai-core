@@ -182,6 +182,23 @@ const BASELINE_DDL = `
       CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id, status);
       CREATE INDEX IF NOT EXISTS idx_tasks_sprint ON tasks(sprint_id);
       CREATE INDEX IF NOT EXISTS idx_sprints_project ON sprints(project_id);
+      CREATE TABLE IF NOT EXISTS orders (
+        id TEXT PRIMARY KEY, customer_id TEXT, customer_email TEXT, customer_name TEXT,
+        status TEXT DEFAULT 'pending', priority TEXT DEFAULT 'normal',
+        subtotal REAL DEFAULT 0, tax REAL DEFAULT 0, shipping REAL DEFAULT 0, discount REAL DEFAULT 0,
+        total REAL DEFAULT 0, currency TEXT DEFAULT 'USD', payment_status TEXT DEFAULT 'pending',
+        payment_method TEXT DEFAULT '', shipping_address TEXT DEFAULT '{}', billing_address TEXT DEFAULT '{}',
+        notes TEXT DEFAULT '', metadata TEXT DEFAULT '{}',
+        created_at TEXT, updated_at TEXT, confirmed_at TEXT, shipped_at TEXT, delivered_at TEXT, cancelled_at TEXT
+      );
+      CREATE TABLE IF NOT EXISTS order_items (
+        id TEXT PRIMARY KEY, order_id TEXT, product_id TEXT, product_name TEXT, product_sku TEXT DEFAULT '',
+        quantity INTEGER DEFAULT 1, unit_price REAL DEFAULT 0, total_price REAL DEFAULT 0,
+        tax REAL DEFAULT 0, discount REAL DEFAULT 0, metadata TEXT DEFAULT '{}'
+      );
+      CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+      CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
+      CREATE INDEX IF NOT EXISTS idx_order_items_order ON order_items(order_id);
     `;
 
 export const WORKSPACE_DOMAIN_MIGRATIONS: readonly MigrationStep[] = [
@@ -317,6 +334,45 @@ export const WORKSPACE_DOMAIN_MIGRATIONS: readonly MigrationStep[] = [
         'end_date',
         'created_at',
         'completed_at',
+      ]),
+      fingerprint('orders', [
+        'id',
+        'customer_id',
+        'customer_email',
+        'customer_name',
+        'status',
+        'priority',
+        'subtotal',
+        'tax',
+        'shipping',
+        'discount',
+        'total',
+        'currency',
+        'payment_status',
+        'payment_method',
+        'shipping_address',
+        'billing_address',
+        'notes',
+        'metadata',
+        'created_at',
+        'updated_at',
+        'confirmed_at',
+        'shipped_at',
+        'delivered_at',
+        'cancelled_at',
+      ]),
+      fingerprint('order_items', [
+        'id',
+        'order_id',
+        'product_id',
+        'product_name',
+        'product_sku',
+        'quantity',
+        'unit_price',
+        'total_price',
+        'tax',
+        'discount',
+        'metadata',
       ]),
     ],
     up: (db: Database) => {

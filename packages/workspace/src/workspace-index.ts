@@ -105,7 +105,7 @@ export class WorkspaceIndex {
   }
 
   async scan(): Promise<void> {
-    const startTime = performance.now();
+    const _startTime = performance.now();
     this.entries.clear();
     this.byExtension.clear();
     this.directories = [];

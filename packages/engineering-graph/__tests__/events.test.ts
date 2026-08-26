@@ -1,12 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  applyEvent,
-  diffStates,
-  EngineeringEventStore,
-  entityId,
-  executeGraphQuery,
-  type GraphEvent,
-} from '../src/index.js';
+import { diffStates, EngineeringEventStore, entityId, executeGraphQuery, type GraphEvent } from '../src/index.js';
 
 function plan(id: string, status: string) {
   return { id: entityId('plan', id), kind: 'plan' as const, label: `Plan ${id}`, status };

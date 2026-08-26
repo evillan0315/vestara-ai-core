@@ -17,7 +17,7 @@ export class HistoryRecorder {
     return record;
   }
 
-  recordFailure(decisionId: string, reason: string): HistoryRecord {
+  recordFailure(decisionId: string, _reason: string): HistoryRecord {
     const record: HistoryRecord = {
       decisionId,
       recordedAt: new Date().toISOString(),

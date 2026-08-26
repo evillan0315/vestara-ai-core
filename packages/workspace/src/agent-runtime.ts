@@ -37,6 +37,7 @@ export interface CapabilityExecutionResult {
 
 export class AgentRuntime {
   private storage: AgentStorage;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: permission engine is constructed eagerly and reserved for capability gating.
   private permission: AgentPermissionEngine;
   private provider?: AIProvider;
   private capabilities?: AgentCapabilityManager;

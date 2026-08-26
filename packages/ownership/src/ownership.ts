@@ -85,6 +85,7 @@ export class OwnershipRegistry {
  */
 export class ResourceLockManager {
   private readonly _locks: Map<string, LockState> = new Map();
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained for parity with the injected registry; ownership checks live on OwnershipRegistry.
   private readonly _ownership: OwnershipRegistry;
   private readonly _defaultTimeoutMs: number;
   private readonly _allowReentrant: boolean;

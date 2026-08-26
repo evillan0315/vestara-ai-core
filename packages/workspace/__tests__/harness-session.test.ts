@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { AIModel, AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
+import type { AIModel, AIProvider, CompletionResponse } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import type { VestaraTool } from '@vestara/tool-runtime';
@@ -18,7 +18,6 @@ function migratedDb(db: import('sql.js').Database): import('sql.js').Database {
 }
 
 import { HarnessExecutionAdapter, HarnessSession } from '../src/harness-session.js';
-import type { ExecutionSession } from '../src/types.js';
 
 const directories: string[] = [];
 

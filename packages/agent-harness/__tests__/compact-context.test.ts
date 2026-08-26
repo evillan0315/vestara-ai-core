@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type CompactedContext, compactContext } from '../src/index.js';
+import { compactContext } from '../src/index.js';
 
 type Item = Parameters<typeof compactContext>[0][number];
 

@@ -233,7 +233,7 @@ export class GitService {
     for (const block of fileBlocks) {
       if (!block.trim()) continue;
       const lines = block.split('\n');
-      const headerLine = lines.find((l) => l.startsWith('--- a/') || l.startsWith('+++ b/'));
+      const _headerLine = lines.find((l) => l.startsWith('--- a/') || l.startsWith('+++ b/'));
       const pathMatch = block.match(/^\+\+\+ b\/(.+)/m);
       const filePath = pathMatch ? pathMatch[1] : 'unknown';
 
@@ -247,13 +247,13 @@ export class GitService {
           currentHunk = {
             header: line,
             content: '',
-            oldStart: parseInt(hunkMatch[1]),
-            oldLines: parseInt(hunkMatch[2] || '1'),
-            newStart: parseInt(hunkMatch[3]),
-            newLines: parseInt(hunkMatch[4] || '1'),
+            oldStart: parseInt(hunkMatch[1], 10),
+            oldLines: parseInt(hunkMatch[2] || '1', 10),
+            newStart: parseInt(hunkMatch[3], 10),
+            newLines: parseInt(hunkMatch[4] || '1', 10),
           };
         } else if (currentHunk) {
-          currentHunk.content += line + '\n';
+          currentHunk.content += `${line}\n`;
         }
       }
       if (currentHunk) hunks.push(currentHunk);
@@ -298,7 +298,7 @@ export class GitService {
     const entries: GitBlameEntry[] = [];
     const lines = raw.split('\n');
     let current: Partial<GitBlameEntry> = {};
-    let lineNum = 0;
+    let _lineNum = 0;
 
     for (const line of lines) {
       if (!line.trim()) continue;
@@ -310,9 +310,9 @@ export class GitService {
         }
         current = {
           commit: headerMatch[1],
-          line: parseInt(headerMatch[2]),
+          line: parseInt(headerMatch[2], 10),
         };
-        lineNum = 0;
+        _lineNum = 0;
         continue;
       }
 
@@ -321,7 +321,7 @@ export class GitService {
       } else if (line.startsWith('author-mail ')) {
         current.email = line.slice(12).replace(/[<>]/g, '');
       } else if (line.startsWith('author-time ')) {
-        current.date = new Date(parseInt(line.slice(11)) * 1000).toISOString();
+        current.date = new Date(parseInt(line.slice(11), 10) * 1000).toISOString();
       } else if (line.startsWith('\t')) {
         current.content = line.slice(1);
       }

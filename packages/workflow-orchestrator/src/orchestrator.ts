@@ -1052,7 +1052,7 @@ export class WorkflowOrchestrator {
       projectId: project.id,
       planId: testing.planId,
       taskId: testing.id,
-      agentId: test.agentId ?? 'tester',
+      agentId: test.agentId ?? 'verifier',
       body: { status: test.status, report: test.report ?? {} },
     });
     await this.events.append({
@@ -1066,7 +1066,7 @@ export class WorkflowOrchestrator {
     this.telemetry({
       projectId: project.id,
       taskId: testing.id,
-      agent: test.agentId ?? 'tester',
+      agent: test.agentId ?? 'verifier',
       status: test.status === 'passed' ? 'completed' : 'failed',
       operation: 'test',
       task: testing.summary,

@@ -79,7 +79,7 @@ function sameSet(left: readonly string[], right: readonly string[]): boolean {
   return true;
 }
 
-function tokensOf(report: Pick<BehaviorReport, 'tokens'>): number {
+function _tokensOf(report: Pick<BehaviorReport, 'tokens'>): number {
   return report.tokens.total;
 }
 

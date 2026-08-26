@@ -4,7 +4,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { WorkflowOrchestrator } from '../src/orchestrator';
 import { type ApprovalPolicy, DefaultRiskApprovalPolicy, TokenBudget } from '../src/policies';
-import { DEFAULT_RETRY_POLICY, type RetryPolicy } from '../src/retry-policy';
+import type { RetryPolicy } from '../src/retry-policy';
 import { ArtifactStore, FileLockRegistry, PlanStore, ProjectStore, TaskStore } from '../src/stores';
 import type { CreateTaskInput } from '../src/stores/task-store';
 import type {

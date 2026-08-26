@@ -11,15 +11,9 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { MultiRepoOrchestrator } from '../src/multi-repo';
 import { ORCHESTRATION_MANIFEST } from '../src/orchestration-migrations';
 import { WorkflowOrchestrator } from '../src/orchestrator';
-import { DEFAULT_RETRY_POLICY, type RetryPolicy } from '../src/retry-policy';
+import type { RetryPolicy } from '../src/retry-policy';
 import { ArtifactStore, FileLockRegistry, ParentProjectStore, PlanStore, ProjectStore, TaskStore } from '../src/stores';
-import type {
-  OrchestrationEvent,
-  OrchestrationEventSink,
-  TaskDispatcher,
-  TaskDispatchResult,
-  WorkflowTask,
-} from '../src/types';
+import type { OrchestrationEvent, OrchestrationEventSink, TaskDispatcher, TaskDispatchResult } from '../src/types';
 
 let SQL: { Database: new (data?: Uint8Array | null) => Database };
 

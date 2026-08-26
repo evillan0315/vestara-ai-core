@@ -15,7 +15,7 @@ export function dbGet(db: any, sql: string, params?: any[]): any {
     const r = stmt.step() ? stmt.getAsObject() : null;
     stmt.free();
     return r;
-  } catch (err) {
+  } catch (_err) {
     return null;
   }
 }

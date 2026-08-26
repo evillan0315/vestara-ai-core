@@ -10,7 +10,7 @@ export class MemoryContextSource implements ContextSource {
   }
 
   async contribute(
-    request: string,
+    _request: string,
     workspaceName: string,
     _workspacePath: string,
     userId: string,

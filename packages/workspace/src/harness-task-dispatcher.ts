@@ -160,7 +160,7 @@ export class HarnessTaskDispatcher implements TaskDispatcher {
 
   /** Run tests for a task (PCS-025 §3.6). Pass/fail parsed from agent output. */
   async test(task: WorkflowTask, project: OrchestratedProject): Promise<TaskTestResult> {
-    const agentId = await this.resolveRoleAgent('tester', ['testing', 'test']);
+    const agentId = await this.resolveRoleAgent('verifier', ['testing', 'test', 'verify']);
     const output = await this.runAgentTurn(
       agentId,
       `Run and evaluate tests for task "${task.summary}" in project "${project.name}". Respond with PASS or FAIL.`,

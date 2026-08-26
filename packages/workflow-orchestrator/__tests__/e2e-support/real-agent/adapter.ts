@@ -149,7 +149,7 @@ function roleToAgent(role: string): string | undefined {
 }
 
 function sessionOf(event: { payload?: Record<string, unknown> }): string | undefined {
-  const value = event.payload?.['sessionID'];
+  const value = event.payload?.sessionID;
   return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 

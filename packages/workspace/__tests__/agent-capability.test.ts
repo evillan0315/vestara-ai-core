@@ -13,7 +13,7 @@ import type { AgentDefinition } from '../src/types';
 
 let db: any;
 let developer: AgentDefinition;
-let architect: AgentDefinition;
+let context: AgentDefinition;
 
 beforeAll(async () => {
   const initSqlJs = (await import('sql.js')).default;
@@ -22,7 +22,7 @@ beforeAll(async () => {
   migrate(db, PLANS_MANIFEST, {});
   const storage = new AgentStorage(db);
   developer = (await storage.getAgent('agent-developer'))!;
-  architect = (await storage.getAgent('agent-architect'))!;
+  context = (await storage.getAgent('agent-context'))!;
 });
 
 function tmpDir(): string {
@@ -50,7 +50,7 @@ describe('AgentCapabilityManager', () => {
 
   it('denies read-only agents write capabilities', () => {
     const m = setup();
-    const caps = m.getCapabilitiesForAgent(architect).map((c) => c.name);
+    const caps = m.getCapabilitiesForAgent(context).map((c) => c.name);
     expect(caps).toContain('filesystem.read');
     expect(caps).not.toContain('filesystem.write');
     expect(caps).not.toContain('filesystem.delete');
@@ -141,7 +141,7 @@ describe('AgentCapabilityManager', () => {
 
   it('blocks agents without modify permission from writing', async () => {
     const m = setup();
-    const result = await m.execute(architect, 'filesystem.write', {
+    const result = await m.execute(context, 'filesystem.write', {
       path: 'should-not-exist.ts',
       content: 'x',
       reason: 'test',
@@ -204,7 +204,7 @@ describe('AgentRuntime capability integration', () => {
     const dir = tmpDir();
     const manager = new AgentCapabilityManager({ filesystem: new FilesystemRuntime({ rootDir: dir }) });
     const runtime = new AgentRuntime({ storage: new AgentStorage(db), capabilities: manager });
-    const result = await runtime.executeCapability('agent-architect', 'filesystem.write', {
+    const result = await runtime.executeCapability('agent-context', 'filesystem.write', {
       path: 'x.ts',
       content: 'x',
       reason: 'test',
