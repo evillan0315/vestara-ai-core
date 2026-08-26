@@ -115,7 +115,7 @@ function syncOpencodeJson(label, file) {
     return;
   }
   delete obj.agent;
-  writeFileSync(file, JSON.stringify(obj, null, 2) + '\n');
+  writeFileSync(file, `${JSON.stringify(obj, null, 2)}\n`);
   console.log(`[agents:sync] ${label}: stripped \`agent\` block from ${file}`);
 }
 

@@ -189,7 +189,7 @@ check "Bulk indexing adjusts SQLite synchronous mode" "grep -q 'synchronous = OF
 check "Index benchmark exists" "test -x '$ROOT/scripts/benchmark-index.sh'"
 
 echo "--- v3.8 — Development Lifecycle & Governance ---"
-for role in context planner engineer reviewer verifier; do
+for role in context planner developer reviewer verifier; do
   check "Vestara $role agent exists" "test -f '$ROOT/../.opencode/agents/vestara-$role.md'"
 done
 check "Lifecycle skill exists" "test -f '$ROOT/../.opencode/skills/vestara-lifecycle/SKILL.md'"

@@ -67,6 +67,11 @@ chmod 755 "$WORK/root/usr/sbin/policy-rc.d"
 chroot "$WORK/root" /usr/bin/apt-get update
 chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
 chroot "$WORK/root" groupadd --system vestara || true; chroot "$WORK/root" useradd --system --gid vestara --home-dir /var/lib/vestara --shell /usr/sbin/nologin vestara || true
+
+# Install external coding-agent CLIs (OpenAI Codex, Claude Code, Gemini CLI)
+# as global npm packages so external-runtime discovery finds them on the image.
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/npm install -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli
+
 rsync -a --delete --exclude '.git/' --exclude '.env' "$ROOT/" "$WORK/root/opt/vestara/"
 chroot "$WORK/root" install -d -o vestara -g vestara -m 0750 /opt/vestara/.vestara
 install -d -m 0755 "$WORK/root/etc/systemd/system" "$WORK/root/etc/systemd/system/vestara.target.wants" "$WORK/root/etc/systemd/system/multi-user.target.wants"

@@ -102,7 +102,7 @@ function writePackage(dir: string, seed: FixtureSeed): VestaraPackageManifest {
     fs.writeFileSync(
       path.join(dir, seed.runtime),
       [
-        'const manifest = { id: ' + JSON.stringify(seed.id) + ', version: ' + JSON.stringify(seed.version) + ' };',
+        `const manifest = { id: ${JSON.stringify(seed.id)}, version: ${JSON.stringify(seed.version)} };`,
         'export default {',
         '  manifest,',
         '  activate: async () => {},',
