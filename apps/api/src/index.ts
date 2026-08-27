@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import type { WorkspaceEvent } from '@vestara/events';
 import { initActivityRoom } from './activity-room';
 import { startOpencodeSupervisor } from './opencode-supervisor';
+import { initM11AActivityRoom } from './routes/activity-room-m11a';
 import { type ApiServer, createServer } from './server';
 import { createWorkspaceContext } from './workspace-context';
 
@@ -54,6 +55,7 @@ async function main(): Promise<void> {
   console.log(`[api] opening workspace at ${repoPath}...`);
   const ctx = await createWorkspaceContext(repoPath, publish);
   await initActivityRoom(repoPath);
+  await initM11AActivityRoom(repoPath);
 
   // Idle-based OpenCode stop + on-demand restart (releases ~526 MB when idle).
   if (process.env.VESTARA_OPENCODE_SUPERVISOR !== '0') {

@@ -1,0 +1,575 @@
+/**
+ * ARX-015 M11A — Production Activity Room Read API
+ *
+ * Read-only API boundary over frozen M9/M10 contracts.
+ * Authority flow: M8 workflow truth → M9 durable activity → M10 projection → M11A API
+ *
+ * Endpoints:
+ *   GET /api/activity-room/v1/snapshot          — Room snapshot + authoritative cursor
+ *   GET /api/activity-room/v1/activities        — Bounded/paginated historical activity retrieval
+ *   GET /api/activity-room/v1/activities/:id    — Individual ActivityRecord retrieval
+ *   GET /api/activity-room/v1/activities/aggregate/:id — Aggregate drill-down
+ *   GET /api/activity-room/v1/participants      — Participant projection
+ *   GET /api/activity-room/v1/attention         — Attention projection
+ *   GET /api/activity-room/v1/workflow-summary  — Workflow summary projection
+ *
+ * All endpoints are read-only. No mutation of M8, M9, or M10 state.
+ * No exposure of SQLite schema, OpenCode internals, or provider internals.
+ */
+
+import { randomUUID } from 'node:crypto';
+import * as fs from 'node:fs';
+import type * as http from 'node:http';
+import * as path from 'node:path';
+import { DurableActivityStore, ProjectionRuntime } from '@vestara/activity-projection';
+import type {
+  ActivityCursor,
+  ActivityEvent,
+  ActivityQuery,
+  ActivityRecord,
+  ActivityRecordId,
+  ActivityRoomProjection,
+  ActivityStore,
+  AttentionEntry,
+  ParticipantProjection,
+  WorkflowSummary,
+} from '@vestara/types';
+import { json } from '../http/response';
+import type { WorkspaceContext } from '../workspace-context';
+
+// ─── Configuration ────────────────────────────────────────────────
+
+const MAX_LIMIT = 100;
+const DEFAULT_LIMIT = 50;
+const MAX_CURSOR_AGE_MS = 5 * 60 * 1000; // 5 minutes
+
+// ─── M11A Room State ────────────────────────────────────────────
+
+interface M11ARoomState {
+  store: ActivityStore;
+  runtime: ProjectionRuntime;
+  lastProjection: ActivityRoomProjection | null;
+  lastProjectionAt: number;
+}
+
+/** In-memory singleton for process lifetime. */
+let m11aRoom: M11ARoomState | null = null;
+
+/**
+ * Initialize the M11A Activity Room for a repo.
+ * Opens the M9 SQLite database and creates the M10 ProjectionRuntime.
+ * Called once at API boot before any route uses the room.
+ */
+export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomState> {
+  const initSqlJs = (await import('sql.js')).default;
+  const SQL = await initSqlJs();
+  const dbPath = path.join(repoPath, '.vestara', 'm9-activity.db');
+
+  let db: any;
+  try {
+    if (fs.existsSync(dbPath)) {
+      db = new SQL.Database(fs.readFileSync(dbPath));
+    }
+  } catch {
+    /* corrupt or unreadable — start fresh */
+  }
+  db = db ?? new SQL.Database();
+
+  // Ensure M9 schema exists
+  db.run(`
+    CREATE TABLE IF NOT EXISTS m9_activity_events (
+      activity_id TEXT PRIMARY KEY,
+      event_id TEXT NOT NULL UNIQUE,
+      sequence_number INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      timestamp TEXT NOT NULL,
+      execution_id TEXT,
+      trace_id TEXT,
+      request_id TEXT,
+      workflow_run_id TEXT,
+      task_id TEXT,
+      agent_assignment_id TEXT,
+      repository_binding_id TEXT,
+      runtime_session_binding_id TEXT,
+      ai_binding_id TEXT,
+      actor_type TEXT NOT NULL,
+      actor_id TEXT,
+      actor_display_name TEXT NOT NULL,
+      source TEXT NOT NULL,
+      payload_json TEXT NOT NULL,
+      visibility TEXT NOT NULL DEFAULT 'all'
+    );
+    CREATE INDEX IF NOT EXISTS idx_m9_sequence ON m9_activity_events(sequence_number);
+    CREATE INDEX IF NOT EXISTS idx_m9_event_id ON m9_activity_events(event_id);
+    CREATE INDEX IF NOT EXISTS idx_m9_workflow_run ON m9_activity_events(workflow_run_id);
+    CREATE INDEX IF NOT EXISTS idx_m9_execution ON m9_activity_events(execution_id);
+    CREATE INDEX IF NOT EXISTS idx_m9_task ON m9_activity_events(task_id);
+    CREATE INDEX IF NOT EXISTS idx_m9_type ON m9_activity_events(type);
+    CREATE INDEX IF NOT EXISTS idx_m9_timestamp ON m9_activity_events(timestamp);
+  `);
+
+  // Auto-persist on write operations
+  const origExec = db.exec.bind(db);
+  db.exec = (sql: string) => {
+    const result = origExec(sql);
+    const trimmed = sql.trim().toUpperCase();
+    if (
+      trimmed.startsWith('INSERT') ||
+      trimmed.startsWith('UPDATE') ||
+      trimmed.startsWith('DELETE') ||
+      trimmed.startsWith('CREATE') ||
+      trimmed.startsWith('DROP')
+    ) {
+      persistDb(db, dbPath);
+    }
+    return result;
+  };
+
+  const store = new DurableActivityStore(db);
+  const runtime = new ProjectionRuntime();
+
+  // Build initial projection
+  const records = await store.rebuild();
+  const projection = runtime.rebuild(records);
+
+  m11aRoom = {
+    store,
+    runtime,
+    lastProjection: projection,
+    lastProjectionAt: Date.now(),
+  };
+
+  return m11aRoom;
+}
+
+/** Process-lifetime singleton shared by routes. */
+export function getM11ARoom(): M11ARoomState {
+  if (!m11aRoom) {
+    throw new Error('M11A Activity Room not initialized. Call initM11AActivityRoom first.');
+  }
+  return m11aRoom;
+}
+
+function persistDb(db: any, dbPath: string): void {
+  try {
+    const data = db.export();
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fs.writeFileSync(dbPath, Buffer.from(data));
+  } catch {
+    /* best-effort */
+  }
+}
+
+// ─── Query Parsing & Validation ──────────────────────────────────
+
+function integer(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function stringValue(value: string | null): string | undefined {
+  return value !== null && value.length > 0 ? value : undefined;
+}
+
+/** Parse and validate query parameters into ActivityQuery. */
+function parseActivityQuery(url: URL): ActivityQuery {
+  const params = url.searchParams;
+  const limit = integer(params.get('limit'));
+  const afterSeq = integer(params.get('afterSequence'));
+  const beforeSeq = integer(params.get('beforeSequence'));
+  const afterTimestamp = stringValue(params.get('afterTimestamp'));
+  const beforeTimestamp = stringValue(params.get('beforeTimestamp'));
+  const workflowRunId = stringValue(params.get('workflowRunId'));
+  const executionId = stringValue(params.get('executionId'));
+  const taskId = stringValue(params.get('taskId'));
+  const actorType = stringValue(params.get('actorType'));
+  const actorId = stringValue(params.get('actorId'));
+  const type = stringValue(params.get('type'));
+  const source = stringValue(params.get('source'));
+
+  // Validate limit
+  const validatedLimit = limit !== undefined ? Math.max(1, Math.min(MAX_LIMIT, limit)) : DEFAULT_LIMIT;
+
+  // Validate cursor parameters
+  if (afterSeq !== undefined && afterSeq < 0) {
+    throw new Error('afterSequence must be non-negative');
+  }
+  if (beforeSeq !== undefined && beforeSeq < 0) {
+    throw new Error('beforeSequence must be non-negative');
+  }
+  if (afterSeq !== undefined && beforeSeq !== undefined && afterSeq >= beforeSeq) {
+    throw new Error('afterSequence must be less than beforeSequence');
+  }
+
+  // Build cursor if afterSequence provided
+  let after: ActivityCursor | undefined;
+  if (afterSeq !== undefined) {
+    after = {
+      sequenceNumber: afterSeq,
+      eventId: '',
+      timestamp: '',
+    };
+  }
+
+  return {
+    workflowRunId: workflowRunId as ActivityQuery['workflowRunId'],
+    executionId: executionId as ActivityQuery['executionId'],
+    taskId: taskId as ActivityQuery['taskId'],
+    actor: actorType as ActivityQuery['actor'],
+    actorId,
+    type: type as ActivityQuery['type'],
+    source: source as ActivityQuery['source'],
+    after,
+    before: beforeTimestamp,
+    afterTimestamp,
+    limit: validatedLimit,
+  };
+}
+
+// ─── Response Helpers ────────────────────────────────────────────
+
+/** Sanitize ActivityRecord for API response (strip internal fields). */
+function sanitizeRecord(record: ActivityRecord): Record<string, unknown> {
+  return {
+    activityId: String(record.activityId),
+    eventId: record.eventId,
+    sequenceNumber: record.sequenceNumber,
+    type: record.type,
+    timestamp: record.timestamp,
+    executionId: record.executionId,
+    traceId: record.traceId,
+    requestId: record.requestId,
+    workflowRunId: record.workflowRunId,
+    taskId: record.taskId,
+    agentAssignmentId: record.agentAssignmentId,
+    repositoryBindingId: record.repositoryBindingId,
+    runtimeSessionBindingId: record.runtimeSessionBindingId,
+    aiBindingId: record.aiBindingId,
+    actor: record.actor,
+    actorId: record.actorId,
+    source: record.source,
+    payload: record.payload,
+    visibility: record.visibility,
+  };
+}
+
+/** Sanitize StreamItem for API response. */
+function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<string, unknown> {
+  return {
+    streamItemId: item.streamItemId,
+    activityId: item.activityId,
+    sequenceNumber: item.sequenceNumber,
+    kind: item.kind,
+    importance: item.importance,
+    actor: item.actor,
+    content: item.content,
+    timestamp: item.timestamp,
+    workflowRunId: item.workflowRunId,
+    executionId: item.executionId,
+    taskId: item.taskId,
+    aggregated: item.aggregated
+      ? {
+          count: item.aggregated.count,
+          kind: item.aggregated.kind,
+          summary: item.aggregated.summary,
+          referencedActivityIds: item.aggregated.referencedActivityIds,
+          sequenceRange: item.aggregated.sequenceRange,
+        }
+      : undefined,
+  };
+}
+
+/** Sanitize ParticipantProjection for API response. */
+function sanitizeParticipant(p: ParticipantProjection): Record<string, unknown> {
+  return {
+    participantId: p.participantId,
+    type: p.type,
+    displayName: p.displayName,
+    membership: p.membership,
+    presence: p.presence,
+    workState: p.workState,
+    currentAssignment: p.currentAssignment,
+    joinedAt: p.joinedAt,
+    lastActivityAt: p.lastActivityAt,
+  };
+}
+
+/** Sanitize AttentionEntry for API response. */
+function sanitizeAttention(a: AttentionEntry): Record<string, unknown> {
+  return {
+    attentionId: a.attentionId,
+    reason: a.reason,
+    severity: a.severity,
+    message: a.message,
+    actor: a.actor,
+    workflowRunId: a.workflowRunId,
+    taskId: a.taskId,
+    timestamp: a.timestamp,
+    acknowledged: a.acknowledged,
+  };
+}
+
+/** Sanitize WorkflowSummary for API response. */
+function sanitizeWorkflowSummary(w: WorkflowSummary): Record<string, unknown> {
+  return {
+    workflowRunId: w.workflowRunId,
+    executionId: w.executionId,
+    status: w.status,
+    taskCount: w.taskCount,
+    completedTasks: w.completedTasks,
+    failedTasks: w.failedTasks,
+    currentTask: w.currentTask,
+    startedAt: w.startedAt,
+    lastActivityAt: w.lastActivityAt,
+  };
+}
+
+// ─── Route Handler ───────────────────────────────────────────────
+
+/**
+ * M11A Activity Room Read API.
+ * All endpoints are read-only. No mutation of M8, M9, or M10 state.
+ */
+export async function handleM11AActivityRoomRoute(
+  method: string,
+  p: string,
+  req: http.IncomingMessage,
+  res: http.ServerResponse,
+  ctx: WorkspaceContext,
+  _port: number,
+  url: URL,
+): Promise<boolean> {
+  const room = getM11ARoom();
+
+  // ─── GET /api/activity-room/v1/snapshot ──────────────────────
+  // Room snapshot + authoritative cursor
+  if (method === 'GET' && p === '/api/activity-room/v1/snapshot') {
+    // Refresh projection if stale
+    if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
+      const records = await room.store.rebuild();
+      room.lastProjection = room.runtime.rebuild(records);
+      room.lastProjectionAt = Date.now();
+    }
+
+    const projection = room.lastProjection!;
+    json(res, 200, {
+      room: projection.room,
+      participants: projection.participants.map(sanitizeParticipant),
+      stream: projection.stream.map(sanitizeStreamItem).slice(0, 50), // Bounded preview
+      workflowSummary: projection.workflowSummary ? sanitizeWorkflowSummary(projection.workflowSummary) : null,
+      attention: projection.attention.map(sanitizeAttention),
+      contextualCapabilities: projection.contextualCapabilities,
+      // Explicit cursor for reconnect
+      cursor: projection.room.cursor,
+    });
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/activities ────────────────────
+  // Bounded/paginated historical activity retrieval
+  if (method === 'GET' && p === '/api/activity-room/v1/activities') {
+    try {
+      const query = parseActivityQuery(url);
+      const page = await room.store.query(query);
+
+      json(res, 200, {
+        records: page.map(sanitizeRecord),
+        count: page.length,
+        limit: query.limit ?? DEFAULT_LIMIT,
+        // Cursor for next page
+        nextCursor:
+          page.length > 0
+            ? {
+                sequenceNumber: page[page.length - 1].sequenceNumber,
+                eventId: page[page.length - 1].eventId,
+                timestamp: page[page.length - 1].timestamp,
+              }
+            : null,
+      });
+    } catch (error) {
+      json(res, 400, {
+        error: { code: 'INVALID_QUERY', message: error instanceof Error ? error.message : 'Invalid query parameters' },
+      });
+    }
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/activities/after ──────────────
+  // Cursor-based pagination (M9 sequence-based)
+  if (method === 'GET' && p === '/api/activity-room/v1/activities/after') {
+    try {
+      const params = url.searchParams;
+      const afterSeq = integer(params.get('afterSequence'));
+      const afterEventId = stringValue(params.get('afterEventId'));
+      const afterTimestamp = stringValue(params.get('afterTimestamp'));
+      const limit = integer(params.get('limit')) ?? DEFAULT_LIMIT;
+
+      if (afterSeq === undefined && !afterTimestamp) {
+        json(res, 400, {
+          error: { code: 'MISSING_CURSOR', message: 'afterSequence or afterTimestamp required' },
+        });
+        return true;
+      }
+
+      const cursor: ActivityCursor = {
+        sequenceNumber: afterSeq ?? 0,
+        eventId: afterEventId ?? '',
+        timestamp: afterTimestamp ?? new Date(0).toISOString(),
+      };
+
+      const records = await room.store.getAfter(cursor);
+      const limited = records.slice(0, limit);
+
+      json(res, 200, {
+        records: limited.map(sanitizeRecord),
+        count: limited.length,
+        limit,
+        nextCursor:
+          limited.length > 0
+            ? {
+                sequenceNumber: limited[limited.length - 1].sequenceNumber,
+                eventId: limited[limited.length - 1].eventId,
+                timestamp: limited[limited.length - 1].timestamp,
+              }
+            : null,
+      });
+    } catch (error) {
+      json(res, 400, {
+        error: {
+          code: 'INVALID_CURSOR',
+          message: error instanceof Error ? error.message : 'Invalid cursor parameters',
+        },
+      });
+    }
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/activities/:id ────────────────
+  // Individual ActivityRecord retrieval
+  if (method === 'GET' && p.match(/^\/api\/activity-room\/v1\/activities\/[^/]+$/)) {
+    const activityId = decodeURIComponent(p.split('/').pop()!);
+    const record = await room.store.getByEventId(activityId);
+
+    if (!record) {
+      json(res, 404, {
+        error: { code: 'NOT_FOUND', message: `Activity not found: ${activityId}` },
+      });
+      return true;
+    }
+
+    json(res, 200, { record: sanitizeRecord(record) });
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/activities/aggregate/:id ──────
+  // Aggregate drill-down using referencedActivityIds / sequenceRange
+  if (method === 'GET' && p.match(/^\/api\/activity-room\/v1\/activities\/aggregate\/[^/]+$/)) {
+    const streamItemId = decodeURIComponent(p.split('/').pop()!);
+
+    // Fetch recent records to find the aggregated stream item
+    const recentRecords = await room.store.query({ limit: 500 });
+    const projection = room.runtime.rebuild(recentRecords);
+
+    const aggregatedItem = projection.stream.find((s) => s.aggregated !== undefined && s.streamItemId === streamItemId);
+
+    if (!aggregatedItem || !aggregatedItem.aggregated) {
+      json(res, 404, {
+        error: { code: 'NOT_FOUND', message: `Aggregated activity not found: ${streamItemId}` },
+      });
+      return true;
+    }
+
+    // Retrieve all underlying M9 records via referencedActivityIds
+    const referencedIds = aggregatedItem.aggregated.referencedActivityIds;
+    const underlyingRecords: ActivityRecord[] = [];
+
+    for (const refId of referencedIds) {
+      const record = await room.store.getByEventId(refId);
+      if (record) {
+        underlyingRecords.push(record);
+      }
+    }
+
+    // Also support sequenceRange fallback
+    let rangeRecords: ActivityRecord[] = [];
+    if (underlyingRecords.length === 0 && aggregatedItem.aggregated.sequenceRange) {
+      const { first, last } = aggregatedItem.aggregated.sequenceRange;
+      rangeRecords = (await room.store.query({ limit: last - first + 1 })).filter(
+        (r) => r.sequenceNumber >= first && r.sequenceNumber <= last,
+      );
+    }
+
+    const allUnderlying = [...underlyingRecords, ...rangeRecords];
+    const uniqueRecords = Array.from(new Map(allUnderlying.map((r) => [r.sequenceNumber, r])).values()).sort(
+      (a, b) => a.sequenceNumber - b.sequenceNumber,
+    );
+
+    json(res, 200, {
+      aggregate: {
+        streamItemId: aggregatedItem.streamItemId,
+        count: aggregatedItem.aggregated.count,
+        kind: aggregatedItem.aggregated.kind,
+        summary: aggregatedItem.aggregated.summary,
+        sequenceRange: aggregatedItem.aggregated.sequenceRange,
+      },
+      underlyingRecords: uniqueRecords.map(sanitizeRecord),
+      count: uniqueRecords.length,
+    });
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/participants ──────────────────
+  // Participant projection
+  if (method === 'GET' && p === '/api/activity-room/v1/participants') {
+    if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
+      const records = await room.store.rebuild();
+      room.lastProjection = room.runtime.rebuild(records);
+      room.lastProjectionAt = Date.now();
+    }
+
+    const projection = room.lastProjection!;
+    json(res, 200, {
+      participants: projection.participants.map(sanitizeParticipant),
+      count: projection.participants.length,
+    });
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/attention ─────────────────────
+  // Attention projection
+  if (method === 'GET' && p === '/api/activity-room/v1/attention') {
+    if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
+      const records = await room.store.rebuild();
+      room.lastProjection = room.runtime.rebuild(records);
+      room.lastProjectionAt = Date.now();
+    }
+
+    const projection = room.lastProjection!;
+    json(res, 200, {
+      attention: projection.attention.map(sanitizeAttention),
+      count: projection.attention.length,
+    });
+    return true;
+  }
+
+  // ─── GET /api/activity-room/v1/workflow-summary ──────────────
+  // Workflow summary projection
+  if (method === 'GET' && p === '/api/activity-room/v1/workflow-summary') {
+    if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
+      const records = await room.store.rebuild();
+      room.lastProjection = room.runtime.rebuild(records);
+      room.lastProjectionAt = Date.now();
+    }
+
+    const projection = room.lastProjection!;
+    if (projection.workflowSummary) {
+      json(res, 200, { workflowSummary: sanitizeWorkflowSummary(projection.workflowSummary) });
+    } else {
+      json(res, 200, { workflowSummary: null });
+    }
+    return true;
+  }
+
+  return false;
+}

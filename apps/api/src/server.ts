@@ -22,6 +22,7 @@ import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
 import { handleActivityRoute } from './routes/activity';
 import { handleActivityRoomRoute } from './routes/activity-room';
+import { handleM11AActivityRoomRoute } from './routes/activity-room-m11a';
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
@@ -187,6 +188,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
   { prefixes: ['/api/activity-log', '/api/activity'], handler: handleActivityRoute },
   { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },
+  { prefixes: ['/api/activity-room/v1'], handler: handleM11AActivityRoomRoute },
   { prefixes: ['/api/agent-threads'], handler: handleAgentHarnessRoute },
   { prefixes: ['/api/notifications'], handler: handleNotificationsRoute },
   { prefixes: ['/api/approvals', '/api/artifacts', '/api/memory'], handler: memAdapter },
