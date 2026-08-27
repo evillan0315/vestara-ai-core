@@ -23,6 +23,7 @@ import { createDispatcher, type RouteGroup } from './http/router';
 import { handleActivityRoute } from './routes/activity';
 import { handleActivityRoomRoute } from './routes/activity-room';
 import { handleM11AActivityRoomRoute } from './routes/activity-room-m11a';
+import { createM11BTransport, type M11BTransport } from './routes/activity-room-m11b.js';
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
@@ -565,6 +566,30 @@ export function createServer(
     ctx.workerSocketServer.attach(workerWss);
   }
   const activityWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+  const m11bWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+
+  // M11B transport will be initialized after server creation
+  let m11bTransport: M11BTransport | null = null;
+
+  // Initialize M11B transport asynchronously
+  (async () => {
+    try {
+      const { getM11ARoom } = await import('./routes/activity-room-m11a.js');
+      const m11aRoom = getM11ARoom();
+      m11bTransport = createM11BTransport({
+        room: m11aRoom,
+        path: '/ws/activity-room/v1',
+        maxPayload: 1 * 1024 * 1024,
+        heartbeatIntervalMs: 30_000,
+        bufferCapacity: 128,
+      });
+      m11bTransport.attach(m11bWss);
+      m11bTransport.startHeartbeat();
+      console.log('[M11B] Realtime transport initialized on /ws/activity-room/v1');
+    } catch (error) {
+      console.warn('[M11B] Failed to initialize transport (M11A room may not be ready):', error);
+    }
+  })();
 
   server.on('upgrade', (req, socket, head) => {
     let pathname = '/';
@@ -584,6 +609,10 @@ export function createServer(
     }
     if (pathname === '/ws/activity') {
       activityWss.handleUpgrade(req, socket, head, (ws) => activityWss.emit('connection', ws, req));
+      return;
+    }
+    if (pathname === '/ws/activity-room/v1') {
+      m11bWss.handleUpgrade(req, socket, head, (ws) => m11bWss.emit('connection', ws, req));
       return;
     }
     socket.destroy();

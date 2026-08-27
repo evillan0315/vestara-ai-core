@@ -21,21 +21,76 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
-import { DurableActivityStore, ProjectionRuntime } from '@vestara/activity-projection';
+import {
+  ActivityStreamConnection,
+  ActivityStreamHub,
+  DurableActivityStore,
+  type ActivityRecord as ProjectionActivityRecord,
+  ProjectionRuntime,
+} from '@vestara/activity-projection';
 import type {
   ActivityCursor,
   ActivityEvent,
   ActivityQuery,
-  ActivityRecord,
   ActivityRecordId,
   ActivityRoomProjection,
   ActivityStore,
   AttentionEntry,
+  ActivityRecord as M9ActivityRecord,
   ParticipantProjection,
   WorkflowSummary,
 } from '@vestara/types';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
+
+// ─── Projection ActivityRecord (for hub) ────────────────────────
+
+/** Convert M9 ActivityRecord to Projection ActivityRecord for hub broadcasting. */
+function toProjectionRecord(record: M9ActivityRecord): ProjectionActivityRecord {
+  // The projection contracts use 'kind' instead of 'type', and have different structure
+  // Map the M9 fields to projection fields
+  const kindMap: Record<string, ProjectionActivityRecord['kind']> = {
+    'workflow.started': 'workflow',
+    'workflow.completed': 'workflow',
+    'workflow.failed': 'workflow',
+    'workflow.cancelled': 'workflow',
+    'task.runnable': 'task',
+    'task.started': 'task',
+    'task.completed': 'task',
+    'task.failed': 'task',
+    'task.cancelled': 'task',
+    'agent.assigned': 'agent-message',
+    'agent.started': 'agent-message',
+    'agent.progress': 'agent-message',
+    'agent.waiting': 'agent-message',
+    'agent.completed': 'agent-message',
+    'agent.failed': 'agent-message',
+    'agent.cancelled': 'agent-message',
+    'human.message': 'agent-message',
+    'system.event': 'workflow',
+  };
+
+  return {
+    id: String(record.activityId),
+    sequence: record.sequenceNumber,
+    timestamp: record.timestamp,
+    actor: {
+      type: record.actor.type,
+      id: record.actor.id,
+      displayName: record.actor.displayName,
+      ...(record.actorId ? { role: record.actorId } : {}),
+    },
+    kind: kindMap[record.type] ?? 'workflow',
+    agentId: record.actor.type === 'agent' ? record.actor.id : undefined,
+    messageKind: 'message',
+    content: record.payload?.message ?? '',
+    workflowId: record.workflowRunId,
+    sessionId: undefined,
+    evidenceRefs: [],
+    ...(record.payload?.error ? { effect: 'intervention' as const } : {}),
+    ...(record.payload?.output ? { output: record.payload.output } : {}),
+  } as ProjectionActivityRecord;
+}
 
 // ─── Configuration ────────────────────────────────────────────────
 
@@ -45,9 +100,10 @@ const MAX_CURSOR_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 // ─── M11A Room State ────────────────────────────────────────────
 
-interface M11ARoomState {
+export interface M11ARoomState {
   store: ActivityStore;
   runtime: ProjectionRuntime;
+  hub: ActivityStreamHub;
   lastProjection: ActivityRoomProjection | null;
   lastProjectionAt: number;
 }
@@ -127,6 +183,10 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
 
   const store = new DurableActivityStore(db);
   const runtime = new ProjectionRuntime();
+  const hub = new ActivityStreamHub({
+    earliestAvailableSequence: 1,
+    bufferCapacity: 128,
+  });
 
   // Build initial projection
   const records = await store.rebuild();
@@ -135,9 +195,13 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
   m11aRoom = {
     store,
     runtime,
+    hub,
     lastProjection: projection,
     lastProjectionAt: Date.now(),
   };
+
+  // Start background watcher for new records (M11B realtime transport)
+  startActivityWatcher(m11aRoom);
 
   return m11aRoom;
 }
@@ -158,6 +222,48 @@ function persistDb(db: any, dbPath: string): void {
   } catch {
     /* best-effort */
   }
+}
+
+/** Background watcher: polls M9 store for new records and broadcasts via hub. */
+function startActivityWatcher(room: M11ARoomState): void {
+  let lastKnownSequence = 0;
+
+  // Initialize with current last sequence
+  room.store
+    .lastSequence()
+    .then((seq) => {
+      lastKnownSequence = seq ?? 0;
+    })
+    .catch(() => {
+      lastKnownSequence = 0;
+    });
+
+  const interval = setInterval(async () => {
+    try {
+      const currentSequence = await room.store.lastSequence();
+      if (currentSequence === undefined || currentSequence <= lastKnownSequence) return;
+
+      // Fetch new records
+      const cursor: ActivityCursor = {
+        sequenceNumber: lastKnownSequence,
+        eventId: '',
+        timestamp: '',
+      };
+      const newRecords = await room.store.getAfter(cursor);
+
+      if (newRecords.length > 0) {
+        // Broadcast each new record in order (convert to projection format)
+        for (const record of newRecords) {
+          room.hub.broadcast(toProjectionRecord(record));
+        }
+        lastKnownSequence = newRecords[newRecords.length - 1].sequenceNumber;
+      }
+    } catch (error) {
+      console.error('[M11A] Activity watcher error:', error);
+    }
+  }, 500); // Poll every 500ms
+
+  interval.unref?.();
 }
 
 // ─── Query Parsing & Validation ──────────────────────────────────
@@ -230,7 +336,7 @@ function parseActivityQuery(url: URL): ActivityQuery {
 // ─── Response Helpers ────────────────────────────────────────────
 
 /** Sanitize ActivityRecord for API response (strip internal fields). */
-function sanitizeRecord(record: ActivityRecord): Record<string, unknown> {
+function sanitizeRecord(record: M9ActivityRecord): Record<string, unknown> {
   return {
     activityId: String(record.activityId),
     eventId: record.eventId,
@@ -482,7 +588,7 @@ export async function handleM11AActivityRoomRoute(
 
     // Retrieve all underlying M9 records via referencedActivityIds
     const referencedIds = aggregatedItem.aggregated.referencedActivityIds;
-    const underlyingRecords: ActivityRecord[] = [];
+    const underlyingRecords: M9ActivityRecord[] = [];
 
     for (const refId of referencedIds) {
       const record = await room.store.getByEventId(refId);
@@ -492,7 +598,7 @@ export async function handleM11AActivityRoomRoute(
     }
 
     // Also support sequenceRange fallback
-    let rangeRecords: ActivityRecord[] = [];
+    let rangeRecords: M9ActivityRecord[] = [];
     if (underlyingRecords.length === 0 && aggregatedItem.aggregated.sequenceRange) {
       const { first, last } = aggregatedItem.aggregated.sequenceRange;
       rangeRecords = (await room.store.query({ limit: last - first + 1 })).filter(
