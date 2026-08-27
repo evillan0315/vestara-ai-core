@@ -20,6 +20,10 @@ export type {
 export { ACTIVITY_KINDS } from './contracts';
 export type { EffectiveCorrection, EffectiveOpenItem, EffectiveState, EffectiveUnitState } from './effective-state';
 export { projectEffectiveState } from './effective-state';
+export { fromAgentLifecycle, fromHumanMessage, fromWorkflowEvent } from './m9-adapter';
+export { SqliteActivityStore as DurableActivityStore } from './m9-sqlite-store';
+export { IdempotentActivityStore } from './m9-store';
+export { ProjectionRuntime } from './m10-projection-runtime';
 export { ACTIVITY_MANIFEST, ACTIVITY_MIGRATIONS } from './migrations';
 export { type ActivityProjector, ActivityProjectorRegistry } from './projector';
 export { AgentMessageProjector } from './projectors/agent-message-projector';
