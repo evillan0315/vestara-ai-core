@@ -84,6 +84,10 @@ export interface StreamItem {
     readonly count: number;
     readonly kind: StreamItemKind;
     readonly summary: string;
+    /** Deterministic references to underlying M9 record activity IDs for drill-down. */
+    readonly referencedActivityIds: readonly string[];
+    /** Sequence range [first, last] for M9 cursor-based retrieval. */
+    readonly sequenceRange: { readonly first: number; readonly last: number };
   };
 }
 

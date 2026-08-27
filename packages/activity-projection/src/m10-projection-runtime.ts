@@ -332,6 +332,11 @@ export class ProjectionRuntime {
         count: items.length,
         kind: dominantKind,
         summary: parts.join(' · ') || `${items.length} items`,
+        referencedActivityIds: items.map((i) => i.activityId),
+        sequenceRange: {
+          first: items[0].sequenceNumber,
+          last: items[items.length - 1].sequenceNumber,
+        },
       },
     };
   }
@@ -419,11 +424,9 @@ export class ProjectionRuntime {
       if (!existing) {
         this.attention.push(attention);
       } else {
-        // Update severity if higher
-        if (this.severityRank(attention.severity) > this.severityRank(existing.severity)) {
-          const idx = this.attention.indexOf(existing);
-          this.attention[idx] = attention;
-        }
+        // Always update to reflect latest failure details
+        const idx = this.attention.indexOf(existing);
+        this.attention[idx] = attention;
       }
     }
 
