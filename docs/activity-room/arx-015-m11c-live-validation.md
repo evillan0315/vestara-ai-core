@@ -123,11 +123,13 @@ The M11B watcher polls every 500ms and broadcasts new records via the hub. WebSo
 
 During testing, the WebSocket connection was established and subscribed, but the watcher's `lastKnownSequence` was initialized to the current max sequence at boot. New records created after boot are detected and broadcast, but the test window was too narrow to capture the broadcast.
 
-This is a timing issue, not a correctness issue. The broadcast mechanism works — the subscriber catches up to the frontier during attach, and the hub forwards live broadcasts to attached subscribers.
+**Classification: OBSERVATION.** The test did not capture a live broadcast. The mechanism may be correct, but this evidence establishes a verification gap, not correctness. The broadcast path (watcher → hub → subscriber) is architecturally sound but unverified under live conditions. Requires a dedicated test with controlled timing to confirm.
 
 ### Projection Cache TTL
 
 The M10 projection is cached for 5 minutes (`MAX_CURSOR_AGE_MS`). The snapshot endpoint returns the cached projection unless it's stale. This means new records may not appear in the snapshot immediately — they appear in the activities endpoint (which reads directly from M9) but the snapshot projection is rebuilt on-demand when stale.
+
+**Classification: OBSERVATION.** Whether 5-minute staleness produces acceptable Activity Room freshness is a product/UX acceptance question, not a correctness question. The code behaves as designed; whether it meets production acceptance criteria is a separate decision.
 
 ## Invariant Checklist
 

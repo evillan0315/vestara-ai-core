@@ -369,3 +369,9 @@ If all five hold, providers are proven as replaceable implementations — not fo
 5. All conversation benchmarks meet targets
 6. Offline mode provides identical flow (quality may differ)
 7. ConversationSession persists and references workspace artifacts
+
+---
+
+## See Also
+
+- **Authority Event Catalog** — The canonical domain event catalog (emitting authority, bus type, payload, consumers) is maintained in [`docs/AR-P1.5-AUTHORITY-CONTRACTS.md` Appendix A](AR-P1.5-AUTHORITY-CONTRACTS.md#appendix-a--event-catalog-canonical-version-ar-p151). That catalog is the authoritative source for workspace-wide event semantics; the events listed above in this document are onboarding-specific subsets.
