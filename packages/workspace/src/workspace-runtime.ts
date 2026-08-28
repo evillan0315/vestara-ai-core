@@ -623,10 +623,10 @@ export class WorkspaceRuntime {
       type,
       source: 'workspace-runtime',
       payload,
+      // ARX-015 M2: workspace.identity.id is not an execution identity.
+      // Workspace lifecycle events have no execution context — correlation absent (fail-closed).
       metadata: {
-        correlationId: this.workspace.identity?.id ?? 'unknown',
         causationId: 'workspace-runtime',
-        retryCount: 0,
         ttl: 30000,
       },
     });

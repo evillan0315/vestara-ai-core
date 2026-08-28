@@ -321,8 +321,14 @@ function parseOriginPolicies(raw: string | undefined): OriginPolicy[] {
 }
 
 export async function createWorkspaceContext(repoPath: string, publish: PublishFn): Promise<WorkspaceContext> {
+  const T0 = process.hrtime.bigint();
+  const log = (phase: string) => {
+    const ms = Math.round(Number(process.hrtime.bigint() - T0) / 1_000_000);
+    console.log(`[boot:ctx] ${phase} — ${ms}ms`);
+  };
   const abs = path.resolve(repoPath);
   const kernel = new DefaultKernel();
+  log('kernel-created');
   const hostRuntime = new HostRuntime();
   const bootRuntime = new BootRuntime({
     store: new FileBootStateStore(path.join(abs, '.vestara', 'os', 'boot-state.json')),
@@ -386,6 +392,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     ],
     dataPolicies: ['metadata-only', 'source-allowed'],
   });
+  log('providers-registered');
   await kernel.boot({
     providers: [
       { manager: providerManager, providerId: 'opencode' },
@@ -405,6 +412,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       },
     ],
   });
+  log('kernel-booted');
   hostRuntime.setEventBus(kernel.eventBus);
   hostRuntime.setPermissionManager(kernel.permissions);
   bootRuntime.setEventBus(kernel.eventBus);
@@ -421,6 +429,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   });
 
   await runtime.open(abs);
+  log('runtime-opened');
   await bootRuntime.advance('runtime-composed', sessionSafeId(runtime));
   const session = runtime.getSession();
   const workspaceDir = session.workspaceDir;
@@ -446,6 +455,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     new FilesystemChangeCollector(),
     new SourceDiffCollector(),
   ];
+  log('evidence-stores');
   const screenshotBase = process.env.VESTARA_SCREENSHOT_URL;
   const visualScenarios = resolveVisualScenarios(process.env);
   if (screenshotBase && visualScenarios.scenarios.length > 0) {
@@ -501,6 +511,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   });
   worktreeRuntime.recover();
+  log('worktree-opened');
   const routingStore = new FileRoutingStore(
     path.join(workspaceDir, 'routing.json'),
     { profileId: 'balanced', roles: {} },
@@ -516,6 +527,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       persist: (migrated) => persistDb(migrated, dbPath),
     });
   });
+  log('plans-db-opened');
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);
   const plans = new PlanStorage(db);
@@ -763,6 +775,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     logger: kernel.logger,
     store: conversationStore,
   });
+  log('conversation-service');
 
   // ── Agent Harness — the durable single-turn execution loop. The composition
   // root owns its dependencies; the harness itself never touches SQLite or the
@@ -896,6 +909,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     eventBus: kernel.eventBus,
     resolveAgentExecution: resolveAgentExecutionFor(agents, routingStore),
   });
+  log('agent-harness');
   const workflowPublishTimers = new Map<string, ReturnType<typeof setTimeout>>();
   const unsubscribeHarnessBridge = createHarnessEngineeringEventBridge({
     eventBus: kernel.eventBus,
@@ -927,6 +941,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       );
     },
   });
+  log('harness-bridge');
   const activityRoomStreams = new SessionStreamAccumulator();
   const unsubscribeActivityRoomBridge = startActivityRoomOrganizationalBridge({
     eventBus: kernel.eventBus,
@@ -941,6 +956,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     eventBus: kernel.eventBus,
   });
   await engineeringMemory.initialize();
+  log('memory-initialized');
   const unsubscribeEngineeringMemory = createEngineeringMemoryProjection({
     eventBus: kernel.eventBus,
     memory: engineeringMemory,
@@ -1087,6 +1103,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       detail: error instanceof Error ? error.message : String(error),
     });
   });
+  log('workflow-orchestrator');
   const historyImport = importThreadHistory({
     threads: agentThreadStore,
     events: engineeringEvents,
@@ -1119,6 +1136,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       payload: { ...decision },
     });
   }
+  log('thread-recovery');
   const settings = new WorkspaceConfigurationService(abs, session.fingerprint.id);
   const capabilityManager = new AgentCapabilityManager({ filesystem: filesystemRuntime });
 
@@ -1255,7 +1273,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     eventBus: kernel.eventBus,
   });
   await documentation.initialize();
+  log('documentation-initialized');
   await documentation.start();
+  log('documentation-started');
 
   const unsub = kernel.eventBus.subscribe(
     '*',
@@ -1354,14 +1374,18 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   } else {
     console.log('[api] UI tester auto-trigger DISABLED (set VESTARA_UI_TESTER_AUTOTRIGGER=1 to enable)');
   }
+  log('pre-diagnose');
 
   const diagnosis = await kernel.diagnose();
+  log('kernel-diagnosed');
   if (diagnosis.health.overall === 'unhealthy') {
     await bootRuntime.enterRecovery('Kernel service health verification failed');
     throw new Error('Vestara OS-0 entered recovery: kernel service health verification failed');
   }
+
   await bootRuntime.advance('health-verified', diagnosis.health.overall);
   await bootRuntime.advance('workspace-ready', session.fingerprint.id);
+  log('boot-advanced');
 
   const context: WorkspaceContext = {
     kernel,
@@ -1505,6 +1529,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   graphService.addEntitySource(source.entitySource);
   graphService.addRelationshipSource(source.relationshipSource);
 
+  log('context-return');
   return context;
 }
 
