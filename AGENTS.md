@@ -70,3 +70,29 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 ## Style
 
 Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Local imports need `.js` extension (nodenext). Parameterized SQL only.
+
+## Execution Governance
+
+**Investigate broadly. Mutate narrowly. Record adjacent findings. Return to acceptance criteria. Stop at the authorization boundary.**
+
+### Investigation Scope vs Mutation Scope
+
+An authorized task grants:
+
+- **Investigation scope** (broad, read-oriented): search, read, trace, log, measure, profile. Investigation is never restricted by the task boundary — understanding the system is always permitted.
+- **Mutation scope** (narrow, explicit): the specific files, packages, configurations, or behaviors the task authorizes changing. Discovery of a problem does not confer mutation authority for that problem.
+
+A finding discovered during authorized investigation is classified, not immediately acted upon:
+
+| Classification | Meaning | Action |
+|----------------|---------|--------|
+| **BLOCKER** | Current task cannot legitimately complete without addressing this | Stop, report to authorizer, await expanded authorization |
+| **ADJACENT** | Real issue discovered during investigation, but not required by the current task's acceptance criteria | Record in evidence, continue with authorized task |
+| **OBSERVATION** | Suspicious signal with insufficient evidence to classify | Record with confidence level, continue |
+
+### Boundary Rules
+
+1. **Discovery does not confer mutation authority.** Finding a bug, performance issue, or design flaw during authorized work does not authorize fixing it unless it blocks the current task's acceptance criteria.
+2. **Record, don't fix.** Adjacent findings are documented with evidence (file, line, reproduction, impact) and reported at the task boundary. They become candidates for future authorized tasks.
+3. **Return to acceptance criteria.** After recording an adjacent finding, continue executing the authorized task. Do not context-switch into the adjacent problem.
+4. **Stop at the authorization boundary.** When acceptance criteria are satisfied, commit evidence, push, and stop. Do not expand scope without explicit re-authorization.
