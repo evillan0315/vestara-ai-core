@@ -51,6 +51,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
       { to: '/diagnostics', title: 'Diagnostics', icon: <InsightsRoundedIcon fontSize="small" /> },
       { to: '/activities', title: 'Activities', icon: <ReceiptLongRoundedIcon fontSize="small" /> },
       { to: '/activity', title: 'Activity Room', icon: <ForumRoundedIcon fontSize="small" /> },
+      { to: '/activity-v2', title: 'Activity Room (M11C)', icon: <ForumRoundedIcon fontSize="small" /> },
       { to: '/ops', title: 'Operations', icon: <TuneRoundedIcon fontSize="small" /> },
     ],
   },

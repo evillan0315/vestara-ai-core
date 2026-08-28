@@ -28,6 +28,7 @@ const ProjectsPage = lazy(() => import('./pages/Projects'));
 const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 const Activities = lazy(() => import('./pages/Activities'));
 const ActivityRoomPage = lazy(() => import('./pages/activity/ActivityRoomPage'));
+const M11CActivityRoomPage = lazy(() => import('./pages/activity/M11CActivityRoomPage'));
 const ApiBuilder = lazy(() => import('./pages/ApiBuilder'));
 const Docs = lazy(() => import('./pages/Docs'));
 const Diagnostics = lazy(() => import('./pages/Diagnostics'));
@@ -68,6 +69,7 @@ const PAGES: Record<string, ComponentType> = {
   requests: FeatureRequests,
   activities: Activities,
   activity: ActivityRoomPage,
+  'activity-v2': M11CActivityRoomPage,
   'api-builder': ApiBuilder,
   docs: Docs,
   diagnostics: Diagnostics,
