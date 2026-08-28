@@ -164,7 +164,7 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
     CREATE INDEX IF NOT EXISTS idx_m9_timestamp ON m9_activity_events(timestamp);
   `);
 
-  // Auto-persist on write operations
+  // Auto-persist on write operations (both db.exec and db.run)
   const origExec = db.exec.bind(db);
   db.exec = (sql: string) => {
     const result = origExec(sql);
@@ -179,6 +179,15 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
       persistDb(db, dbPath);
     }
     return result;
+  };
+
+  const origRun = db.run.bind(db);
+  db.run = (sql: string, params?: any[]) => {
+    origRun(sql, params);
+    const trimmed = sql.trim().toUpperCase();
+    if (trimmed.startsWith('INSERT') || trimmed.startsWith('UPDATE') || trimmed.startsWith('DELETE')) {
+      persistDb(db, dbPath);
+    }
   };
 
   const store = new DurableActivityStore(db);
