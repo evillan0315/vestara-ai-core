@@ -118,18 +118,38 @@ export class HarnessSession {
       return [];
     }
     const records: HarnessRunRecord[] = [];
-    for (const thread of this.options.harness.listThreads()) {
+    const threads = this.options.harness.listThreads();
+
+    // Batch-load all execution sessions once (O(1)) instead of per-thread (O(n²)).
+    // Build a Map keyed by workflowId for O(1) lookups.
+    const allSessions = await this.options.storage.listExecutionSessions(10_000);
+    const sessionsByWorkflow = new Map<string, ExecutionSession>();
+    for (const s of allSessions) {
+      if (s.workflowId) sessionsByWorkflow.set(s.workflowId, s);
+    }
+
+    for (const thread of threads) {
       const agentId = String(thread.metadata?.agentId ?? 'agent');
       const goal = thread.title;
-      const existing = await this.sessionForThread(thread.id);
+      const workflowId = `${THREAD_LINK_PREFIX}${thread.id}`;
+      const existing = sessionsByWorkflow.get(workflowId) ?? null;
+
       let record: HarnessRunRecord;
+      let session: ExecutionSession;
       if (existing) {
         const snapshot = this.options.harness.snapshot(thread.id);
         record = { sessionId: existing.id, threadId: thread.id, agentId, runId: snapshot.runId, goal: existing.goal };
+        session = existing;
       } else {
         record = await this.createForRun({ threadId: thread.id, goal, agentId });
+        session = (await this.options.storage.getExecutionSession(record.sessionId)) as ExecutionSession;
       }
-      await this.syncFromReplay(thread.id);
+
+      // Inline syncFromReplay — avoids a second per-thread listExecutionSessions call.
+      const replay = this.options.harness.replay(thread.id as TaskThreadId);
+      const updated = this.project(replay, session);
+      await this.options.storage.saveExecutionSession(updated);
+
       records.push(record);
     }
     return records;
