@@ -1,5 +1,5 @@
 /**
- * AR-REC-C2 I1-3/I1-4/I1-5: InteractionService
+ * AR-REC-C2 I1-3/I1-4/I1-5 / CORRECTION: InteractionService
  *
  * Producer-neutral application boundary for structured interactions.
  * Lives in @vestara/interaction-app, NOT in @vestara/api.
@@ -11,6 +11,7 @@
  *   - validateResponseForInteraction() structural validation
  *   - Record at most one InteractionResponse
  *   - Publish interaction facts after committed persistence
+ *   - C2: Verify projection delivery before acknowledging publication
  *
  * Does NOT own:
  *   - ChoiceId → handler/operation mapping
@@ -20,29 +21,52 @@
  *   - Agent wake-up
  *   - Generic metadata/payload/context
  *   - Market/agent/workflow-specific logic
+ *
+ * C2 ownership boundary:
+ *   - InteractionService coordinates: persist → emit → verify → acknowledge
+ *   - The adapter (InteractionEventBusAdapter) is a thin EventBus passthrough
+ *   - Delivery verification uses PublicationDeliveryVerifier (port)
+ *   - M9IngestionBridge does NOT call back to the adapter
+ *   - No reverse dependency from projection to application
  */
 
-import type { InteractionPersistencePort, InteractionPublicationPort } from '@vestara/interaction-persistence';
+import type {
+  InteractionPersistencePort,
+  InteractionPublicationPort,
+  PublicationDeliveryVerifier,
+} from '@vestara/interaction-persistence';
 import type { InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
 import { validateInteraction, validateResponseForInteraction } from '@vestara/types';
 
 export interface InteractionServiceOptions {
   readonly persistence: InteractionPersistencePort;
   readonly publication: InteractionPublicationPort;
+  /**
+   * C2 correction: Verifies that a semantic event was delivered to the projection.
+   * After emit, InteractionService checks this before marking published.
+   * If absent, the legacy behavior applies (markPublished immediately after emit).
+   */
+  readonly deliveryVerifier?: PublicationDeliveryVerifier;
 }
 
 export class InteractionService {
   private readonly persistence: InteractionPersistencePort;
   private readonly publication: InteractionPublicationPort;
+  private readonly deliveryVerifier?: PublicationDeliveryVerifier;
 
   constructor(options: InteractionServiceOptions) {
     this.persistence = options.persistence;
     this.publication = options.publication;
+    this.deliveryVerifier = options.deliveryVerifier;
   }
 
   /**
    * I1-3: Persist an interaction and create a pending publication marker.
    * Both happen in the same transaction via the persistence adapter.
+   *
+   * C2 correction: After emit, verify projection delivery before marking published.
+   * If deliveryVerifier is provided and verification fails, the publication
+   * remains pending and a delivery error is thrown.
    */
   async present(interaction: StructuredInteraction): Promise<void> {
     // Validate structural invariants
@@ -67,14 +91,16 @@ export class InteractionService {
       choices: interaction.choices,
     });
 
-    // Mark publication as delivered
-    await this.persistence.markPublished(eventId);
+    // C2: Verify delivery before acknowledging publication
+    await this.verifyAndAcknowledge(eventId);
   }
 
   /**
    * I1-4: Record a response to an interaction.
    * Atomic: resolve interaction → validate choice → insert response → create publication marker.
    * The database uniqueness constraint is the concurrency authority.
+   *
+   * C2 correction: After emit, verify projection delivery before marking published.
    */
   async recordResponse(interactionId: InteractionId, response: InteractionResponse): Promise<InteractionResponse> {
     // Resolve interaction
@@ -106,10 +132,31 @@ export class InteractionService {
       correlationId: recorded.correlationId,
     });
 
-    // Mark publication as delivered
-    await this.persistence.markPublished(eventId);
+    // C2: Verify delivery before acknowledging publication
+    await this.verifyAndAcknowledge(eventId);
 
     return recorded;
+  }
+
+  /**
+   * C2 correction: Verify projection delivery and acknowledge publication.
+   *
+   * If a deliveryVerifier is provided:
+   *   - Check if the projection has the event (getByEventId)
+   *   - If present: mark published
+   *   - If absent: throw (publication remains pending for recovery)
+   *
+   * If no deliveryVerifier is provided (legacy/backward-compatible):
+   *   - Mark published immediately (assumes delivery succeeded)
+   */
+  private async verifyAndAcknowledge(eventId: string): Promise<void> {
+    if (this.deliveryVerifier) {
+      const delivered = await this.deliveryVerifier.wasDelivered(eventId);
+      if (!delivered) {
+        throw new Error(`Projection delivery failed for ${eventId}`);
+      }
+    }
+    await this.persistence.markPublished(eventId);
   }
 
   /**

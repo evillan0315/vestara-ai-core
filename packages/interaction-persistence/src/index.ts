@@ -1,7 +1,8 @@
 /**
  * AR-REC-C2: Interaction Persistence Package
  *
- * Exports the port interfaces, publication port, EventBus adapter, and SQLite adapter.
+ * Exports the port interfaces, publication port, delivery verification port,
+ * EventBus adapter, and SQLite adapter.
  * The interaction-persistence package is consumed by interaction-app.
  */
 
@@ -18,4 +19,5 @@ export type {
   InteractionRespondedPayload,
 } from './interaction-publication-port';
 export { INTERACTION_MANIFEST, INTERACTION_MIGRATIONS } from './migrations';
+export type { PublicationDeliveryVerifier } from './publication-delivery-verifier';
 export { SqliteInteractionStore } from './sqlite-store';

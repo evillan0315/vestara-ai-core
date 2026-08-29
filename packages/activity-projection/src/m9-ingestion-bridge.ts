@@ -305,6 +305,9 @@ export class M9IngestionBridge {
   /**
    * Normalize and append a single EventBus event to M9.
    * Failures are logged and do not propagate (I1-6).
+   *
+   * F2 correction: Uses semantic eventId from payload for interaction events,
+   * ensuring stable deduplication across normal and recovery publication.
    */
   private async ingest(event: VestaraEvent): Promise<void> {
     try {
@@ -312,12 +315,14 @@ export class M9IngestionBridge {
       if (activityEvent === null) {
         return;
       }
-      // Override eventId with deterministic value from EventBus event (I1-3)
-      // Adapters generate non-deterministic IDs (Date.now + counter),
-      // but M9 deduplication requires same EventBus event → same eventId.
+      // F2 correction: For interaction events, use the semantic eventId from the
+      // payload (e.g. "interaction:presented:${interactionId}") instead of the
+      // auto-generated delivery id ("interaction:presented:evt-XXXX"). This ensures
+      // the same semantic fact produces the same M9 eventId across normal and
+      // recovery publication, enabling idempotent deduplication.
       const deterministicEvent: ActivityEvent = {
         ...activityEvent,
-        eventId: `${event.type}:${event.id}`,
+        eventId: this.getSemanticEventId(event, activityEvent),
       };
       await this.store.append(deterministicEvent);
     } catch (err) {
@@ -328,6 +333,20 @@ export class M9IngestionBridge {
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  /**
+   * F2 correction: Derive the M9 eventId.
+   * For interaction events, use the stable semantic identity from the payload.
+   * For all other events, preserve the existing delivery-based identity.
+   */
+  private getSemanticEventId(event: VestaraEvent, activityEvent: ActivityEvent): string {
+    if (event.type === 'interaction:presented' || event.type === 'interaction:responded') {
+      // The adapter puts the semantic eventId (e.g. "interaction:presented:${interactionId}")
+      // in the payload. Use it directly for stable deduplication.
+      return (event.payload.eventId as string) || `${event.type}:${event.id}`;
+    }
+    return `${event.type}:${event.id}`;
   }
 
   /**

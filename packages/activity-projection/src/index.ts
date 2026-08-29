@@ -27,6 +27,7 @@ export {
   fromInteractionResponded,
   fromWorkflowEvent,
 } from './m9-adapter';
+export { M9DeliveryVerifier } from './m9-delivery-verifier';
 export { M9IngestionBridge, type M9IngestionBridgeOptions } from './m9-ingestion-bridge';
 export { SqliteActivityStore as DurableActivityStore } from './m9-sqlite-store';
 export { IdempotentActivityStore } from './m9-store';

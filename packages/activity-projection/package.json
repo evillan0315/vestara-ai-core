@@ -10,6 +10,8 @@
     "test": "vitest run"
   },
   "devDependencies": {
+    "@vestara/interaction-app": "workspace:*",
+    "@vestara/interaction-persistence": "workspace:*",
     "vitest": "^4.1.10"
   },
   "dependencies": {
