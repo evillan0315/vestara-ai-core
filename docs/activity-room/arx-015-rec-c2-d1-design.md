@@ -194,6 +194,7 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_interaction_responses_response_id
 **Schema invariants:**
 - `interaction_responses.interaction_id` — PRIMARY KEY enforces at most one response per interaction.
 - `interaction_responses.response_id` — UNIQUE index enforces globally unique response identity. The response identity is globally unique authoritative identity, encoded explicitly in the schema.
+- `interaction_publication_ledger` — publication state marker only. Does NOT store interaction content. `published_at IS NULL` = needs publication.
 
 ### Response Identity
 
@@ -969,116 +970,130 @@ The application package depends upward on types and persistence, and downward on
 
 The interaction persistence follows the `FileThreadStore` pattern: open DB, run migration, ready for on-demand queries. No startup replay, no O(n) reconstruction.
 
-### Reconciliation: Bounded Indexed Strategy
+### Reconciliation: Durable Publication Ledger
 
-**Goal**: Committed interaction facts that were not projected (publication failed before process death) must eventually become projected after recoverable failure.
+**Contradiction in prior design**: `LIMIT 100 + continue until empty` is paginated O(n), not bounded O(100). Either (a) stops after 100, leaving older facts permanently unprojected, or (b) continues until exhausted, scanning all historical facts against M9. Neither simultaneously satisfies: no unbounded startup reconciliation AND eventual recovery of every committed-but-unpublished fact.
 
-**What C2 MUST NOT implement**: Boot → load every interaction → query M9 individually for every interaction. This is O(n) / N+1 and must be avoided.
+**Selected mechanism**: Durable publication ledger — a lightweight table that tracks which interaction facts have been committed for publication and which have been confirmed delivered to M9.
 
-**Selected strategy**: Bounded reconciliation via indexed timestamp scan + single M9 batch query.
+**Why this is the minimum**: The ledger is a 3-column table (event_id, interaction_id, published_at) with one index. It is not a transactional outbox (no retry queue, no payload, no state machine). It is not an execution queue. It is a publication state marker. The interaction tables remain authoritative interaction facts. The ledger is delivery/recovery responsibility only.
 
-#### Query Shape
-
-```sql
--- Find interactions created in the last 24 hours that may need reconciliation
--- (bounded by time window, not total interaction count)
-SELECT interaction_id, created_at
-FROM interactions
-WHERE created_at > datetime('now', '-1 day')
-ORDER BY created_at ASC
-LIMIT 100;
-```
+### Publication Ledger Schema
 
 ```sql
--- Find responses recorded in the last 24 hours that may need reconciliation
-SELECT r.interaction_id, r.responded_at
-FROM interaction_responses r
-WHERE r.responded_at > datetime('now', '-1 day')
-ORDER BY r.responded_at ASC
-LIMIT 100;
+CREATE TABLE IF NOT EXISTS interaction_publication_ledger (
+  event_id TEXT PRIMARY KEY,          -- deterministic: 'interaction:presented:${id}' or 'interaction:responded:${id}'
+  interaction_id TEXT NOT NULL,       -- back-reference for recovery payload reconstruction
+  published_at TEXT                   -- NULL = needs publication; timestamp = confirmed delivered
+);
+
+CREATE INDEX IF NOT EXISTS idx_publication_ledger_pending
+  ON interaction_publication_ledger(published_at)
+  WHERE published_at IS NULL;        -- partial index: only unpublished entries
 ```
 
-#### Indexes Used
+**Invariants**:
+- `event_id` is the deterministic, globally unique identity for each publication fact.
+- `published_at IS NULL` means "committed for publication, not yet confirmed delivered."
+- `published_at` is set to an ISO timestamp after M9 confirms receipt (EventBus emission + M9 append succeeds).
+- The ledger does NOT store interaction content, choices, responses, or any authoritative data. It is a publication state marker only.
 
-```sql
--- Already defined in schema:
-CREATE INDEX IF NOT EXISTS idx_interactions_conversation
-  ON interactions(conversation_id);
+### Transaction Boundary
 
--- New index required for reconciliation:
-CREATE INDEX IF NOT EXISTS idx_interactions_created_at
-  ON interactions(created_at);
+```
+InteractionService.present(interaction):
+  BEGIN TRANSACTION;
+    INSERT INTO interactions (...)          -- authoritative fact
+    INSERT INTO interaction_publication_ledger (event_id, interaction_id, published_at)
+      VALUES ('interaction:presented:${id}', ?, NULL);  -- publication marker
+  COMMIT;
+  → EventBus.emit('interaction:presented', { eventId, ... })
+  → on M9 ack: UPDATE interaction_publication_ledger SET published_at = ? WHERE event_id = ?;
 
-CREATE INDEX IF NOT EXISTS idx_interaction_responses_responded_at
-  ON interaction_responses(responded_at);
+InteractionService.recordResponse(interactionId, response):
+  BEGIN TRANSACTION;
+    INSERT INTO interaction_responses (...)  -- authoritative fact
+    INSERT INTO interaction_publication_ledger (event_id, interaction_id, published_at)
+      VALUES ('interaction:responded:${id}', ?, NULL);  -- publication marker
+  COMMIT;
+  → EventBus.emit('interaction:responded', { eventId, ... })
+  → on M9 ack: UPDATE interaction_publication_ledger SET published_at = ? WHERE event_id = ?;
 ```
 
-#### Reconciliation Algorithm
+The fact + its publication marker are committed atomically. Publication is a separate step after commit. The ledger entry is the durable bridge between "fact committed" and "publication confirmed."
+
+### Crash Window Analysis
+
+| Window | What Happens | Durable State | Recovery |
+|--------|-------------|---------------|----------|
+| **A. Crash before authoritative commit** | Transaction never committed | No interaction, no ledger entry | Nothing to recover. Client retries. |
+| **B. Crash after commit, before publication becomes recoverable** | Transaction committed, ledger entry exists with `published_at = NULL` | Interaction + response durably stored. Ledger entry `published_at = NULL`. | Recovery finds `WHERE published_at IS NULL`, republishes. |
+| **C. Crash after publication becomes recoverable, before EventBus emission** | Ledger entry `published_at = NULL`. EventBus.emit never called. | Same as B. | Same as B. |
+| **D. Crash after EventBus emission, before M9 ack / ledger update** | EventBus.emit called. M9 may or may not have received. Ledger entry `published_at = NULL`. | Ledger entry still `published_at = NULL`. | Recovery finds entry, republishes. M9 deduplicates via deterministic eventId. Safe. |
+| **E. Duplicate recovery publication** | Recovery republishes an event that M9 already received. | M9 ignores duplicate eventId (UNIQUE constraint). Ledger entry updated to `published_at = now`. | No durable side effects. Idempotent. |
+
+**No committed authoritative fact may become permanently unprojectable.** Every crash window either (a) leaves no durable state (window A), or (b) leaves a ledger entry with `published_at = NULL` that recovery will find and republish (windows B–E).
+
+### Recovery Query/Algorithm
 
 ```
 On API startup (async, after API is serving):
 
-1. Query interactions.created_at index: last 24h, LIMIT 100
-   → batch of { interactionId, createdAt }
+1. Query pending publications:
+   SELECT event_id, interaction_id
+   FROM interaction_publication_ledger
+   WHERE published_at IS NULL
+   ORDER BY rowid ASC
+   LIMIT 100;
 
-2. For each interactionId in batch:
-   → Compute deterministic eventId: 'interaction:presented:${interactionId}'
-   → Check M9: does this eventId exist? (single indexed query)
-   → If not: republish 'interaction:presented' via EventBus
+2. For each pending entry:
+   → Reconstruct publication payload from interaction/interaction_responses tables
+   → Compute deterministic eventId (already stored in ledger)
+   → EventBus.emit(eventType, { eventId, ... })
+   → On M9 ack: UPDATE interaction_publication_ledger SET published_at = ? WHERE event_id = ?;
 
-3. Query interaction_responses.responded_at index: last 24h, LIMIT 100
-   → batch of { interactionId, respondedAt }
+3. If batch was full (100 items), schedule next batch after 100ms delay
+   → Continue until batch is empty (no more pending entries)
+   → Each batch is independent, bounded work
 
-4. For each interactionId in batch:
-   → Compute deterministic eventId: 'interaction:responded:${interactionId}'
-   → Check M9: does this eventId exist? (single indexed query)
-   → If not: republish 'interaction:responded' via EventBus
-
-5. If batch was full (100 items), schedule next batch starting from last timestamp
-   → Continue until batch is empty
-   → Maximum bounded work: ceil(n/100) batches, each O(1) indexed
+4. Retry behavior:
+   → If M9 is temporarily unavailable: skip this batch, retry on next startup cycle
+   → If EventBus emission fails: skip this entry, retry on next startup cycle
+   → No infinite retry loop. Each startup cycle processes at most 100 entries.
 ```
 
-**Alternative (simpler, selected for C2)**: Since interaction volume is expected low (hundreds, not thousands) in early production, and M9 deduplicates via deterministic eventId, a single-pass reconciliation is acceptable:
+### When Publication Is Considered Delivered
 
-```
-On API startup (async, after API is serving):
+Publication is delivered when:
+1. EventBus.emit() succeeds (event entered EventBus), AND
+2. M9 handler processes the event (M9.append() succeeds, eventId stored)
 
-1. Query: SELECT interaction_id FROM interactions ORDER BY created_at DESC LIMIT 100;
-   → bounded by LIMIT, not total count
+The ledger entry is updated to `published_at = timestamp` after both steps succeed. If either step fails, the entry remains `published_at = NULL` and will be retried.
 
-2. For each interactionId:
-   → eventId = 'interaction:presented:${interactionId}'
-   → M9.checkEventId(eventId)  -- single indexed query
-   → If missing: EventBus.emit('interaction:presented', { eventId, ... })
+### Behavior When M9 Is Temporarily Unavailable
 
-3. Query: SELECT interaction_id FROM interaction_responses ORDER BY responded_at DESC LIMIT 100;
-   → bounded by LIMIT, not total count
+- Recovery batch skips entries where M9 is unavailable.
+- Ledger entries remain `published_at = NULL`.
+- Next startup cycle retries.
+- No data loss. No permanent unprojection.
 
-4. For each interactionId:
-   → eventId = 'interaction:responded:${interactionId}'
-   → M9.checkEventId(eventId)
-   → If missing: EventBus.emit('interaction:responded', { eventId, ... })
-```
+### Behavior After API Restart
 
-**Complexity**: O(1) per interaction (indexed M9 lookup), O(100) total interactions scanned (bounded by LIMIT). No N+1 over unbounded set. Total work bounded by `min(interaction_count, 100)`.
+- Startup recovery finds all `WHERE published_at IS NULL` entries.
+- Processes them in bounded batches (LIMIT 100).
+- Historical facts with `published_at` set are never re-examined.
+- Only genuinely pending work is processed.
 
-#### Boot-Critical?
+### Performance
 
-**NO.** Reconciliation runs asynchronously after API is serving. Interactions created during reconciliation window may temporarily lack projection, but are served correctly from the interaction persistence store. Publication failure is recoverable, not fatal.
-
-#### How Missing Presentations/Responses Are Detected
-
-- M9 stores events by `eventId`. Reconciliation computes deterministic `eventId` from `interactionId` and checks M9 directly.
-- If `eventId` is absent from M9 → the fact was committed but not projected → republish.
-- If `eventId` is present → projection succeeded → skip.
-
-#### How Deterministic Event IDs Make Republishing Safe
-
-- `eventId('interaction:presented:${id}')` is deterministic and immutable.
-- M9 `append()` uses `eventId` as deduplication key (UNIQUE constraint in M9 schema).
-- Republishing the same event is idempotent — M9 ignores duplicate `eventId`.
-- No conditional publish, no outbox, no two-phase commit required.
+| Metric | Complexity |
+|--------|-----------|
+| Per-batch recovery query | O(1) — partial index on `published_at IS NULL` |
+| Per-entry publication | O(1) — deterministic eventId, M9 indexed dedup |
+| Total outstanding recovery work | O(pending) — scales with genuinely pending publications, not total interactions |
+| Historical dataset size | Irrelevant — ledger queries only unpublished entries |
+| Example: 1,000,000 historical interactions, 3 pending | Recovery work ≈ 3, not ≈ 1,000,000 |
+| Boot-critical? | **NO** — async after API serving |
 
 ---
 
@@ -1138,7 +1153,7 @@ On API startup (async, after API is serving):
 | 2 | `packages/interaction-persistence/src/interaction-persistence-port.ts` | CREATE | `InteractionPersistencePort` interface |
 | 3 | `packages/interaction-persistence/src/interaction-publication-port.ts` | CREATE | `InteractionPublicationPort` interface |
 | 4 | `packages/interaction-persistence/src/sqlite-store.ts` | CREATE | `SqliteInteractionStore` concrete implementation |
-| 5 | `packages/interaction-persistence/src/migrations.ts` | CREATE | `INTERACTION_MANIFEST` migration (interactions + interaction_responses tables, with reconciliation indexes) |
+| 5 | `packages/interaction-persistence/src/migrations.ts` | CREATE | `INTERACTION_MANIFEST` migration (interactions + interaction_responses + interaction_publication_ledger tables) |
 | 6 | `packages/interaction-persistence/package.json` | CREATE | Package manifest |
 | 7 | `packages/interaction-persistence/tsconfig.json` | CREATE | TypeScript config |
 | 8 | `packages/interaction-app/src/index.ts` | CREATE | Exports `InteractionService` |
@@ -1157,7 +1172,7 @@ On API startup (async, after API is serving):
 | 16 | `packages/interaction-app/src/__tests__/interaction-service.test.ts` | Service logic tests (validate, persist, publish coordination) |
 | 17 | `packages/interaction-app/src/__tests__/interaction-restart-proof.test.ts` | Restart persistence verification |
 | 18 | `packages/interaction-app/src/__tests__/interaction-concurrent-proof.test.ts` | Concurrent response race proof |
-| 19 | `packages/interaction-app/src/__tests__/interaction-retry-proof.test.ts` | HTTP retry / idempotent response proof |
+| 19 | `packages/interaction-app/src/__tests__/interaction-publication-recovery.test.ts` | Publication ledger recovery proof (crash windows B–E, pending query, idempotent republish) |
 
 ### PROJECTION (M9 integration)
 
@@ -1191,7 +1206,7 @@ On API startup (async, after API is serving):
 | 3 | ActivityType extension | Medium | RESOLVED — Extend `ActivityType` enum with `interaction.presented` / `interaction.responded` |
 | 4 | Auth context extraction mechanism | Medium | CLASSIFIED — Must follow existing route auth patterns; gap if Activity Room lacks auth middleware |
 | 5 | `conversationId` optional field usage | Low | RESOLVED — Optional, producer provides if context exists |
-| 6 | Publication failure recovery | Medium | RESOLVED — Bounded reconciliation scan (LIMIT 100, indexed timestamps, async after boot) |
+| 6 | Publication failure recovery | Medium | RESOLVED — Durable publication ledger with `published_at IS NULL` marker. Recovery queries pending entries directly (O(pending), not O(total)). Crash windows B–E analyzed. |
 | 7 | Event identity for retry | Medium | RESOLVED — Deterministic: `interaction:presented:${interactionId}` / `interaction:responded:${interactionId}` |
 | 8 | Response identity global uniqueness | Medium | RESOLVED — `response_id` is globally unique authoritative identity, explicit UNIQUE index in schema |
 
@@ -1234,7 +1249,7 @@ The D1 design establishes the minimum production architecture for the interactio
 
 2. **Application boundary**: `InteractionService` (in `@vestara/interaction-app`) — validates, persists, publishes. Does not interpret choices or execute operations. Includes `present()` for producer submission and `recordResponse()` for human response.
 
-3. **Persistence**: Dedicated SQLite (`SqliteInteractionStore`) — self-managed, own file (`.vestara/interactions.db`), own migration. Two tables: `interactions` (immutable presentation fact) + `interaction_responses` (immutable response fact, PRIMARY KEY on interaction_id + UNIQUE on response_id).
+3. **Persistence**: Dedicated SQLite (`SqliteInteractionStore`) — self-managed, own file (`.vestara/interactions.db`), own migration. Three tables: `interactions` (immutable presentation fact) + `interaction_responses` (immutable response fact, PRIMARY KEY on interaction_id + UNIQUE on response_id) + `interaction_publication_ledger` (publication state marker only).
 
 4. **Response identity**: `response_id` is globally unique authoritative identity, explicit in schema via UNIQUE index. HTTP retry after lost response may produce new responseId; server derives fresh on each attempt. Same interaction + same choice → idempotent (200, existing response). Same interaction + different choice → conflict (409, existing response preserved). No idempotency-key subsystem required.
 
@@ -1242,9 +1257,9 @@ The D1 design establishes the minimum production architecture for the interactio
 
 6. **Lifecycle**: Derived from authoritative facts (response existence check). No persisted lifecycle column. No UPDATE during response recording.
 
-7. **Publication**: After-commit EventBus emission via `InteractionPublicationPort` callback. Deterministic eventId (`interaction:presented:${id}` / `interaction:responded:${id}`) ensures M9 idempotent projection.
+7. **Publication**: After-commit EventBus emission via `InteractionPublicationPort` callback. Deterministic eventId (`interaction:presented:${id}` / `interaction:responded:${id}`) ensures M9 idempotent projection. Durable publication ledger tracks delivery state; `published_at IS NULL` marks pending publications.
 
-8. **Reconciliation**: Bounded indexed strategy (LIMIT 100, timestamp-indexed scans, async after boot). O(1) per interaction checked, O(100) total interactions scanned. No O(n) / N+1 startup regression. M9 deterministic eventId deduplication makes republishing safe.
+8. **Recovery**: Durable publication ledger — `interaction_publication_ledger` table with `event_id`, `interaction_id`, `published_at`. Recovery queries `WHERE published_at IS NULL` directly (O(pending), not O(total)). Crash windows A–E analyzed: no committed authoritative fact may become permanently unprojectable. Recovery is async after boot, non-boot-critical. Bounded batches (LIMIT 100), scheduled incrementally.
 
 9. **Transport**: `POST /api/interactions/:id/response` with minimal body `{ selectedChoiceId, correlationId? }`. Server derives responseId, respondedAt, participant identity from auth context. Client cannot impersonate participants.
 
