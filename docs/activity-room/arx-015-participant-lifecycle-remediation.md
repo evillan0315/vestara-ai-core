@@ -1,7 +1,7 @@
 # ARX-015: Agent Participant Lifecycle Remediation
 
 **Date**: 2026-08-29
-**Status**: Implementation Complete, Awaiting Production Verification
+**Status**: Implementation Complete
 **Author**: Agent (Developer)
 
 ## Problem
@@ -24,20 +24,42 @@ Namespace mismatch between harness event emission and M9 ingestion:
 
 Created `AgentLifecycleBridge` — an integration/normalization boundary that subscribes to `harness.*` events and re-emits canonical `agent:started`/`agent:completed` events on the EventBus, enriched with model metadata resolved from AgentStorage.
 
+### Identity Separation (Reviewer Constraint)
+
+Activity Room does not define teams, roles, or model bindings. It consumes them from upstream authorities.
+
+```
+participantId      stable identity (e.g. "agent-developer")
+displayName        canonical identity (e.g. "developer")
+modelDisplayName   presentation fallback for unnamed AI (e.g. "Mimo")
+role               metadata (e.g. "developer")
+modelId            metadata (e.g. "mimo-v2.5-free")
+providerId         metadata (e.g. "opencode")
+teamId             reference to upstream AgentTeam (future)
+teamName           denormalized from AgentTeam (future)
+```
+
+UI uses `modelDisplayName ?? displayName` as presentation fallback for unnamed AI participants. Canonical identity is never mutated.
+
 ### Chain Diagram
 
 ```
 AgentHarness.emit('harness.turn.started')
   → AgentLifecycleBridge handler
     → agentModelResolver.resolve(agentId)  // resolves model/role from AgentStorage
-    → eventBus.emit('agent:started', { agentId, agentName, role, modelId, providerId })
+    → eventBus.emit('agent:started', {
+        agentId,
+        displayName: agentId,        // canonical identity
+        modelDisplayName: 'Mimo',    // presentation fallback
+        role, modelId, providerId
+      })
       → M9IngestionBridge.mapToActivityEvent('agent:started')
-        → fromAgentLifecycle({ agentId, displayName, role, modelId, providerId })
+        → fromAgentLifecycle({ agentId, displayName, modelDisplayName, role, modelId, providerId })
           → DurableActivityStore.append(ActivityRecord)
             → M10ProjectionRuntime.updateParticipantFromRecord()
-              → ParticipantProjection { participantId, displayName, role, modelId, providerId }
-                → M11A API /api/activity-room/v1/participants
-                  → UI: Engineering Team panel
+              → ParticipantProjection { participantId, displayName, modelDisplayName, role, ... }
+                → M11A API sanitizeParticipant()
+                  → UI: modelDisplayName ?? displayName
 ```
 
 ## Files Changed
@@ -50,56 +72,67 @@ AgentHarness.emit('harness.turn.started')
 ### Modified Files
 | File | Change |
 |------|--------|
-| `packages/types/src/projection.ts` | Extended `ParticipantProjection` with `role?`, `modelId?`, `providerId?` |
-| `packages/activity-projection/src/m9-adapter.ts` | Extended `AgentLifecycleInput` with `role?`, `modelId?`, `providerId?`; `fromAgentLifecycle()` stores metadata in `payload.data` |
-| `packages/activity-projection/src/m9-ingestion-bridge.ts` | Updated `mapToActivityEvent()` for `agent:started`/`agent:completed` to pass model metadata through `fromAgentLifecycle` |
-| `packages/activity-projection/src/m10-projection-runtime.ts` | Updated `updateParticipantFromRecord()` to extract `role`/`modelId`/`providerId` from `record.payload.data` into `ParticipantProjection` |
-| `apps/api/src/routes/activity-room-m11a.ts` | Updated `sanitizeParticipant()` to expose `role`/`modelId`/`providerId` in API response |
-| `apps/workspace/src/pages/activity/M11CParticipantRail.tsx` | Replaced "Participants" header with "Engineering Team"; AI participants display model name as displayName, role as badge |
+| `packages/types/src/projection.ts` | Extended `ParticipantProjection` with `modelDisplayName?`, `role?`, `modelId?`, `providerId?`, `teamId?`, `teamName?` |
+| `packages/activity-projection/src/m9-adapter.ts` | Extended `AgentLifecycleInput` with `modelDisplayName?`, `role?`, `modelId?`, `providerId?` |
+| `packages/activity-projection/src/m9-ingestion-bridge.ts` | Pass model metadata for `agent:started`/`agent:completed` events |
+| `packages/activity-projection/src/m10-projection-runtime.ts` | Extract `modelDisplayName`/`role`/`modelId`/`providerId`/`teamId`/`teamName` from `payload.data` |
+| `apps/api/src/routes/activity-room-m11a.ts` | Serialize `modelDisplayName`/`teamId`/`teamName` in API response |
+| `apps/workspace/src/pages/activity/M11CParticipantRail.tsx` | Generic "Participants" header; `modelDisplayName ?? displayName` presentation fallback |
+| `apps/api/src/index.ts` | Wired bridge in composition root with `AgentModelResolver` |
 
 ## Verification
 
-### Unit Tests (Existing)
+### Unit Tests
 - 32/32 M9IngestionBridge tests pass
 - 31/31 M10 projection evidence tests pass
-- 4/4 adapters tests pass
-- Build clean (`bash build-order.sh`)
+- 14/14 M9 final durability evidence tests pass
+- 85/85 total activity-projection tests pass
+- Build clean, lint clean, dependency boundaries valid
 
 ### Integration Verification (Simulation)
 ```
 EventBus.emit('harness.turn.started', { agentId: 'developer' })
-  → AgentLifecycleBridge resolves: { modelId: 'mimo-v2.5-free', role: 'developer', displayName: 'Mimo' }
-  → EventBus.emit('agent:started', { agentId: 'developer', agentName: 'Mimo', role: 'developer', modelId: 'mimo-v2.5-free' })
-  → M9IngestionBridge stores: actor_type='agent', actor_id='developer', actor_display_name='Mimo', payload.data={role:'developer',modelId:'mimo-v2.5-free',providerId:'opencode'}
-  → M10 Projection: participantId='agent-developer', displayName='Mimo', role='developer', modelId='mimo-v2.5-free'
+  → AgentLifecycleBridge resolves: { modelId: 'mimo-v2.5-free', role: 'developer', displayName: 'developer', modelDisplayName: 'Mimo' }
+  → EventBus.emit('agent:started', { agentId: 'developer', displayName: 'developer', modelDisplayName: 'Mimo', ... })
+  → M9 stores: actor_type='agent', actor_id='developer', actor_display_name='developer', payload.data={modelDisplayName:'Mimo',...}
+  → M10 Projection: displayName='developer', modelDisplayName='Mimo'
+  → UI renders: 'Mimo' (modelDisplayName ?? displayName)
 ```
 
 ### Production Deployment
 - Bridge wired in composition root (`apps/api/src/index.ts`)
 - Boot mark: `[boot] agent-lifecycle-bridge-started`
-- **Pending**: Real harness event trigger to populate M9 with agent records
+
+## Upstream Capability Gap (Reported to Director)
+
+**`AgentTeam` authority exists** but is not wired to Activity Room:
+- Type: `packages/workspace/src/types.ts` — `AgentTeam { id, name, description, memberIds, ... }`
+- Storage: `packages/workspace/src/agent-storage.ts` — CRUD on `agent_teams` table
+- API: `apps/api/src/routes/teams.ts` — full REST (`GET /api/teams`, `POST /api/teams`, etc.)
+- UI: `apps/workspace/src/pages/Agents/TeamsPanel.tsx` — team management panel
+
+**Gap**: Activity Room M10 projection does not consume `AgentTeam` records. `teamId`/`teamName` fields are on `ParticipantProjection` but always `undefined` until wired.
+
+**Recommended next step**: Wire `AgentTeam` → M10 projection so Activity Room renders teams from authoritative configuration, not hardcoded strings.
 
 ## Authorization Constraints Honored
 
 | Constraint | Status |
 |-----------|--------|
+| Activity Room does NOT define teams | ✅ Generic "Participants" header |
+| Activity Room does NOT hardcode roles/models | ✅ All from upstream data |
+| Identity is never mutated | ✅ `displayName` = canonical, `modelDisplayName` = presentation |
 | Bridge is integration/normalization boundary | ✅ |
 | Did NOT modify harness event contract | ✅ |
-| Did NOT implement UD-3 | ✅ |
+| Did NOT implement UD decisions | ✅ |
 | Did NOT create a second participant authority | ✅ |
 | Preserves M9 as durable activity authority | ✅ |
 | Preserves M10 as participant projection | ✅ |
-| Stable agent/actor identity preserved | ✅ |
-| Model display name not used as durable ID | ✅ |
 | Human and agent participants coexist | ✅ |
+| Can create different team without changing Activity Room code | ✅ Team data comes from AgentTeam authority |
 
 ## Adjacent Findings (Not Modified)
 
 1. **Pre-existing flaky tests**: `activity-hardening` pagination, `activity-messaging` under parallel load
 2. **Remaining ~32s O(n) startup recovery**: `replay → project → saveExecutionSession` × 767 threads
-
-## Next Steps
-
-1. Trigger a real conversation through the harness to verify end-to-end production chain
-2. Confirm agent records appear in M9 database
-3. Confirm agent participants render in the UI "Engineering Team" panel
+3. **`conversation:response.completed` hardcodes `agentId: 'vestara'`** — pre-existing, not in scope

@@ -28,6 +28,7 @@ export interface AgentModelResolver {
         modelId?: string;
         role?: string;
         displayName?: string;
+        modelDisplayName?: string;
       }
     | undefined
   >;
@@ -72,8 +73,9 @@ export function createAgentLifecycleBridge(options: AgentLifecycleBridgeOptions)
       // Resolve model metadata from agent configuration
       const resolved = await options.agentModelResolver.resolve({ agentId });
 
-      const displayName = resolved?.displayName || capitalize(agentId);
-      const role = resolved?.role || agentId;
+      // displayName = canonical identity (agentId for unnamed agents)
+      // modelDisplayName = presentation-only model name (for unnamed AI fallback)
+      const modelDisplayName = resolved?.modelDisplayName || resolved?.displayName;
 
       // Emit canonical agent lifecycle event for M9 bridge ingestion
       await options.eventBus
@@ -83,8 +85,9 @@ export function createAgentLifecycleBridge(options: AgentLifecycleBridgeOptions)
           actor: { id: agentId, role: 'agent' },
           payload: {
             agentId,
-            agentName: displayName,
-            role,
+            displayName: agentId,
+            modelDisplayName,
+            role: resolved?.role || agentId,
             modelId: resolved?.modelId,
             providerId: resolved?.providerId,
             task: (payload as Record<string, unknown>).instruction ?? (payload as Record<string, unknown>).task,
@@ -119,8 +122,4 @@ function mapHarnessToLifecycle(type: string): 'started' | 'completed' | 'failed'
   if (type === 'harness.outcome.cancelled') return 'cancelled';
   if (type === 'harness.model.started') return 'progress';
   return null;
-}
-
-function capitalize(s: string): string {
-  return s.charAt(0).toUpperCase() + s.slice(1);
 }

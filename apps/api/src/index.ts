@@ -103,7 +103,8 @@ async function main(): Promise<void> {
               providerId: agent.provider || undefined,
               modelId: agent.model || undefined,
               role: agent.role || agentId,
-              displayName: agent.name || agent.model || agentId,
+              displayName: agent.name || agentId,
+              modelDisplayName: agent.model || agent.name || agentId,
             };
           }
         } catch {

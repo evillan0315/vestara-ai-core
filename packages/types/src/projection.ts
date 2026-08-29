@@ -104,8 +104,20 @@ export interface ParticipantProjection {
   /** Participant type. */
   readonly type: ActivityActorType;
 
-  /** Display name (model name for agents, user name for humans). */
+  /**
+   * Canonical display name — participant identity when available.
+   * For unnamed agents this is the stable agentId; for named agents
+   * it is their chosen name. For humans it is the user name.
+   */
   readonly displayName: string;
+
+  /**
+   * Presentation-only model display name (e.g. "Mimo", "DeepSeek").
+   * Separate from canonical identity. UI uses `modelDisplayName ?? displayName`
+   * as a fallback for unnamed AI participants.
+   * Undefined for humans.
+   */
+  readonly modelDisplayName?: string;
 
   /** Agent role (e.g. 'developer', 'reviewer'). Undefined for humans. */
   readonly role?: string;
@@ -115,6 +127,19 @@ export interface ParticipantProjection {
 
   /** Resolved provider ID. Undefined for humans. */
   readonly providerId?: string;
+
+  /**
+   * Team membership reference — comes from upstream AgentTeam authority,
+   * NOT from Activity Room. Undefined when no team authority is wired.
+   * Activity Room does not define or own team membership.
+   */
+  readonly teamId?: string;
+
+  /**
+   * Team display name — denormalized from AgentTeam for presentation.
+   * Activity Room consumes this; it does not define it.
+   */
+  readonly teamName?: string;
 
   /** Durable membership state. */
   readonly membership: MembershipState;

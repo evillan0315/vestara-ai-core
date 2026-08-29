@@ -348,12 +348,13 @@ export class M9IngestionBridge {
     if (type === 'agent:started') {
       return fromAgentLifecycle({
         agentId: (event.payload.agentId as string) || 'unknown',
-        displayName: (event.payload.agentName as string) || (event.payload.agentId as string) || 'Agent',
+        displayName: (event.payload.agentId as string) || 'Agent',
         lifecycleType: 'started',
         role: (event.payload.role as string) || undefined,
         modelId: (event.payload.modelId as string) || undefined,
+        modelDisplayName: (event.payload.modelDisplayName as string) || undefined,
         providerId: (event.payload.providerId as string) || undefined,
-        message: `${(event.payload.agentName as string) || 'Agent'} started ${(event.payload.task as string) || 'task'}`,
+        message: `${(event.payload.modelDisplayName as string) || (event.payload.agentId as string) || 'Agent'} started ${(event.payload.task as string) || 'task'}`,
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });
@@ -361,12 +362,13 @@ export class M9IngestionBridge {
     if (type === 'agent:completed') {
       return fromAgentLifecycle({
         agentId: (event.payload.agentId as string) || 'unknown',
-        displayName: (event.payload.agentName as string) || (event.payload.agentId as string) || 'Agent',
+        displayName: (event.payload.agentId as string) || 'Agent',
         lifecycleType: 'completed',
         role: (event.payload.role as string) || undefined,
         modelId: (event.payload.modelId as string) || undefined,
+        modelDisplayName: (event.payload.modelDisplayName as string) || undefined,
         providerId: (event.payload.providerId as string) || undefined,
-        message: `${(event.payload.agentName as string) || 'Agent'} completed`,
+        message: `${(event.payload.modelDisplayName as string) || (event.payload.agentId as string) || 'Agent'} completed`,
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });

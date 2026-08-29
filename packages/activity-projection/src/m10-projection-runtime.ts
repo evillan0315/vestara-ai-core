@@ -139,15 +139,21 @@ export class ProjectionRuntime {
     const data = record.payload.data as Record<string, unknown> | undefined;
     const role = typeof data?.role === 'string' ? data.role : undefined;
     const modelId = typeof data?.modelId === 'string' ? data.modelId : undefined;
+    const modelDisplayName = typeof data?.modelDisplayName === 'string' ? data.modelDisplayName : undefined;
     const providerId = typeof data?.providerId === 'string' ? data.providerId : undefined;
+    const teamId = typeof data?.teamId === 'string' ? data.teamId : undefined;
+    const teamName = typeof data?.teamName === 'string' ? data.teamName : undefined;
 
     if (existing) {
       // Update existing participant — preserve stable identity, update metadata
       this.participants.set(participantId, {
         ...existing,
+        modelDisplayName: modelDisplayName ?? existing.modelDisplayName,
         role: role ?? existing.role,
         modelId: modelId ?? existing.modelId,
         providerId: providerId ?? existing.providerId,
+        teamId: teamId ?? existing.teamId,
+        teamName: teamName ?? existing.teamName,
         membership: membership ?? existing.membership,
         workState: workState ?? existing.workState,
         currentAssignment: assignment ?? existing.currentAssignment,
@@ -159,9 +165,12 @@ export class ProjectionRuntime {
         participantId,
         type: actor.type,
         displayName: actor.displayName,
+        modelDisplayName,
         role,
         modelId,
         providerId,
+        teamId,
+        teamName,
         membership: membership ?? 'joined',
         presence: 'offline', // presence resolved independently
         workState: workState ?? 'available',
