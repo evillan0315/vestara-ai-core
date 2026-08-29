@@ -18,22 +18,22 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { ApprovalRequestPayload, PolicyDecision } from '../src/harness';
 import type {
+  ChoiceId,
   InteractionChoice,
   InteractionId,
   InteractionLifecycle,
   InteractionResponse,
-  ChoiceId,
-  StructuredInteraction,
   InteractionValidationError,
+  StructuredInteraction,
 } from '../src/interaction';
 import {
-  isStructuredInteraction,
   isInteractionResponse,
+  isStructuredInteraction,
   validateInteraction,
   validateResponseForInteraction,
 } from '../src/interaction';
-import type { ApprovalRequestPayload, PolicyDecision } from '../src/harness';
 
 // ─── Helper: Create Test Fixtures ────────────────────────────
 

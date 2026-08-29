@@ -22,7 +22,13 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { Unsubscribe, VestaraEvent } from '@vestara/shared';
 import type { ActivityEvent, ActivityStore, WorkflowRunId } from '@vestara/types';
-import { fromAgentLifecycle, fromHumanMessage, fromWorkflowEvent } from './m9-adapter';
+import {
+  fromAgentLifecycle,
+  fromHumanMessage,
+  fromInteractionPresented,
+  fromInteractionResponded,
+  fromWorkflowEvent,
+} from './m9-adapter';
 
 // ─── Event Disposition (I1-5) ──────────────────────────────
 
@@ -109,6 +115,18 @@ const PATTERN_DISPOSITIONS: readonly PatternDisposition[] = [
     pattern: 'orchestration.*',
     disposition: 'INGEST',
     reason: 'Orchestration event — durable Activity Room fact',
+  },
+  {
+    pattern: 'interaction:presented',
+    disposition: 'INGEST',
+    reason: 'Interaction presented — durable Activity Room fact',
+    adapter: 'fromInteractionPresented',
+  },
+  {
+    pattern: 'interaction:responded',
+    disposition: 'INGEST',
+    reason: 'Interaction responded — durable Activity Room fact',
+    adapter: 'fromInteractionResponded',
   },
 
   // ─── IGNORE: Operational-only, not Activity Room facts ─────
@@ -467,6 +485,39 @@ export class M9IngestionBridge {
           message: 'Applied change set to disk',
         },
       };
+    }
+
+    // ─── Interaction events → fromInteractionPresented/Responded ──
+    if (type === 'interaction:presented') {
+      return fromInteractionPresented({
+        eventId: (event.payload.eventId as string) || event.id,
+        interactionId: (event.payload.interactionId as string) || 'unknown',
+        conversationId: event.payload.conversationId as string | undefined,
+        presentingParticipantId:
+          (event.payload.presentingParticipantId as string) || (event.actor?.id as string) || 'system',
+        presentingParticipantName: (event.payload.presentingParticipantName as string) || 'System',
+        createdAt: event.timestamp,
+        content: (event.payload.content as string) || '',
+        choices:
+          (event.payload.choices as readonly {
+            readonly choiceId: string;
+            readonly label: string;
+            readonly description?: string;
+          }[]) || [],
+      });
+    }
+    if (type === 'interaction:responded') {
+      return fromInteractionResponded({
+        eventId: (event.payload.eventId as string) || event.id,
+        interactionId: (event.payload.interactionId as string) || 'unknown',
+        responseId: (event.payload.responseId as string) || 'unknown',
+        selectedChoiceId: (event.payload.selectedChoiceId as string) || 'unknown',
+        respondingParticipantId:
+          (event.payload.respondingParticipantId as string) || (event.actor?.id as string) || 'local',
+        respondingParticipantName: (event.payload.respondingParticipantName as string) || 'User',
+        respondedAt: event.timestamp,
+        correlationId: event.payload.correlationId as string | undefined,
+      });
     }
 
     // Unknown type — skip

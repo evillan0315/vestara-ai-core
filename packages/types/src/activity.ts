@@ -61,7 +61,10 @@ export type ActivityType =
   // Human interaction
   | 'human.message'
   // System
-  | 'system.event';
+  | 'system.event'
+  // Interaction (AR-REC-C2)
+  | 'interaction.presented'
+  | 'interaction.responded';
 
 /**
  * Actor who generated the activity.
@@ -148,7 +151,13 @@ export interface MembershipEvent {
  * Source system that produced the event.
  * Normalized to Vestara concepts, not OpenCode internals.
  */
-export type ActivitySource = 'workflow-engine' | 'agent-harness' | 'human-input' | 'runtime-session' | 'system';
+export type ActivitySource =
+  | 'workflow-engine'
+  | 'agent-harness'
+  | 'human-input'
+  | 'runtime-session'
+  | 'system'
+  | 'interaction-app';
 
 /**
  * Visibility scope for an activity record.

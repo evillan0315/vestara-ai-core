@@ -222,9 +222,7 @@ export interface InteractionValidationError {
  *   - Persistence deduplication
  *   - Relational integrity between response and interaction (use validateResponseForInteraction)
  */
-export function validateInteraction(
-  interaction: StructuredInteraction,
-): readonly InteractionValidationError[] {
+export function validateInteraction(interaction: StructuredInteraction): readonly InteractionValidationError[] {
   const errors: InteractionValidationError[] = [];
 
   if (interaction.choices.length < 1) {
@@ -273,9 +271,7 @@ export function validateResponseForInteraction(
     });
   }
 
-  const choiceExists = interaction.choices.some(
-    (c) => c.choiceId === response.selectedChoiceId,
-  );
+  const choiceExists = interaction.choices.some((c) => c.choiceId === response.selectedChoiceId);
   if (!choiceExists) {
     errors.push({
       invariant: 'selected-choice-exists',

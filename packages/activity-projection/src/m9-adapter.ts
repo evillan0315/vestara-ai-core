@@ -263,3 +263,80 @@ export function fromAgentLifecycle(input: AgentLifecycleInput): ActivityEvent {
     payload,
   };
 }
+
+// ─── Interaction → ActivityEvent (AR-REC-C2 I1-7) ──────────
+
+export interface InteractionPresentedInput {
+  readonly eventId: string;
+  readonly interactionId: string;
+  readonly conversationId?: string;
+  readonly presentingParticipantId: string;
+  readonly presentingParticipantName: string;
+  readonly createdAt: string;
+  readonly content: string;
+  readonly choices: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+}
+
+/**
+ * Convert an interaction:presented event into a durable ActivityEvent.
+ * Normalized to Vestara concepts — no producer-specific leakage.
+ */
+export function fromInteractionPresented(input: InteractionPresentedInput): ActivityEvent {
+  return {
+    eventId: input.eventId,
+    type: 'interaction.presented',
+    timestamp: input.createdAt,
+    actor: {
+      type: 'system',
+      id: input.presentingParticipantId,
+      displayName: input.presentingParticipantName,
+    },
+    source: 'interaction-app',
+    payload: {
+      message: input.content,
+      data: {
+        interactionId: input.interactionId,
+        conversationId: input.conversationId,
+        choices: input.choices,
+      },
+    },
+  };
+}
+
+export interface InteractionRespondedInput {
+  readonly eventId: string;
+  readonly interactionId: string;
+  readonly responseId: string;
+  readonly selectedChoiceId: string;
+  readonly respondingParticipantId: string;
+  readonly respondingParticipantName: string;
+  readonly respondedAt: string;
+  readonly correlationId?: string;
+}
+
+/**
+ * Convert an interaction:responded event into a durable ActivityEvent.
+ * Normalized to Vestara concepts — no producer-specific leakage.
+ */
+export function fromInteractionResponded(input: InteractionRespondedInput): ActivityEvent {
+  return {
+    eventId: input.eventId,
+    type: 'interaction.responded',
+    timestamp: input.respondedAt,
+    actor: {
+      type: 'human',
+      id: input.respondingParticipantId,
+      displayName: input.respondingParticipantName,
+    },
+    source: 'interaction-app',
+    payload: {
+      message: `Responded to interaction with choice ${input.selectedChoiceId}`,
+      data: {
+        interactionId: input.interactionId,
+        responseId: input.responseId,
+        selectedChoiceId: input.selectedChoiceId,
+        correlationId: input.correlationId,
+      },
+    },
+  };
+}

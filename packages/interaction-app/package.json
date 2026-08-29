@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/interaction-app",
+  "description": "Producer-neutral interaction application boundary (InteractionService)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@vestara/interaction-persistence": "workspace:*",
+    "@vestara/types": "workspace:*"
+  }
+}
