@@ -31,7 +31,7 @@ export default function AgentsPage() {
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [syncing, setSyncing] = useState(false);
-  const [filters, setFilters] = useState<AgentFiltersState>({ search: '', status: 'all', team: 'all' });
+  const [filters, setFilters] = useState<AgentFiltersState>({ search: '', status: 'all', team: 'all', sort: 'name-asc', capabilities: [] });
   const { events } = useEventStream();
   const { addToast } = useToasts();
 
@@ -82,26 +82,16 @@ export default function AgentsPage() {
     });
   }, [agents]);
 
-  const filteredAgents = useMemo(
-    () =>
-      allAgentSlots.filter((a) => {
-        if (filters.status === 'active' && a.status !== 'active') return false;
-        if (filters.status === 'disabled' && a.status !== 'disabled') return false;
-        if (filters.team !== 'all' && a.teamId !== filters.team) return false;
-        if (filters.search.trim()) {
-          const q = filters.search.toLowerCase();
-          if (
-            !a.name.toLowerCase().includes(q) &&
-            !a.role.toLowerCase().includes(q) &&
-            !(a.description || '').toLowerCase().includes(q) &&
-            !(a.capabilities || []).some((c: string) => c.toLowerCase().includes(q))
-          )
-            return false;
-        }
-        return true;
-      }),
-    [allAgentSlots, filters],
-  );
+  const allCapabilities = useMemo(() => {
+    const caps = new Set<string>();
+    for (const slot of ALL_AGENT_SLOTS) {
+      for (const c of slot.defaultCapabilities || []) caps.add(c);
+    }
+    for (const a of agents) {
+      for (const c of a.capabilities || []) caps.add(c);
+    }
+    return Array.from(caps);
+  }, [agents]);
 
   const agentStats = useMemo(() => {
     const stats: Record<string, AgentStats> = {};
@@ -126,6 +116,62 @@ export default function AgentsPage() {
     }
     return stats;
   }, [agents, executions]);
+
+  const filteredAgents = useMemo(() => {
+    const filtered = allAgentSlots.filter((a) => {
+      if (filters.status === 'active' && a.status !== 'active') return false;
+      if (filters.status === 'disabled' && a.status !== 'disabled') return false;
+      if (filters.team !== 'all' && a.teamId !== filters.team) return false;
+      if (filters.capabilities.length > 0) {
+        const agentCaps = a.capabilities || [];
+        if (!filters.capabilities.some((c) => agentCaps.includes(c))) return false;
+      }
+      if (filters.search.trim()) {
+        const q = filters.search.toLowerCase();
+        if (
+          !a.name.toLowerCase().includes(q) &&
+          !a.role.toLowerCase().includes(q) &&
+          !(a.description || '').toLowerCase().includes(q) &&
+          !(a.capabilities || []).some((c: string) => c.toLowerCase().includes(q))
+        )
+          return false;
+      }
+      return true;
+    });
+
+    const sorted = [...filtered];
+    switch (filters.sort) {
+      case 'name-asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'last-execution':
+        sorted.sort((a, b) => {
+          const aLast = executions.find((e) => e.agentId === a.id)?.startedAt ?? '';
+          const bLast = executions.find((e) => e.agentId === b.id)?.startedAt ?? '';
+          return bLast.localeCompare(aLast);
+        });
+        break;
+      case 'success-rate':
+        sorted.sort((a, b) => {
+          const aStats = agentStats[a.id];
+          const bStats = agentStats[b.id];
+          const aRate = aStats?.total ? aStats.completed / aStats.total : 0;
+          const bRate = bStats?.total ? bStats.completed / bStats.total : 0;
+          return bRate - aRate;
+        });
+        break;
+      case 'status':
+        sorted.sort((a, b) => {
+          const order = { active: 0, unregistered: 1, disabled: 2 };
+          return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
+        });
+        break;
+    }
+    return sorted;
+  }, [allAgentSlots, filters, executions, agentStats]);
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
@@ -281,6 +327,7 @@ export default function AgentsPage() {
         teams={teams}
         resultCount={filteredAgents.length}
         totalSlots={ALL_AGENT_SLOTS.length}
+        allCapabilities={allCapabilities}
         onChange={setFilters}
       />
 
@@ -300,10 +347,10 @@ export default function AgentsPage() {
       />
 
       {/* Sidebar panels */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
         <LiveActivityPanel events={events} />
         <TeamsPanel teams={teams} agents={agents} onLoad={load} onOpenTeamCreator={() => setShowTeamCreator(true)} />
-        <ExecutionSummaryPanel execSummary={execSummary} executionsCount={executions.length} />
+        <ExecutionSummaryPanel execSummary={execSummary} executionsCount={executions.length} executions={executions} />
       </div>
 
       {/* Modals */}

@@ -1,5 +1,5 @@
 import type * as http from 'node:http';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { handleDiagnosticsRoute } from '../src/routes/diagnostics.js';
 
 const MINIMAL_CTX = {
@@ -188,7 +188,7 @@ describe('diagnostics routes', () => {
     });
 
     it('respects limit parameter', async () => {
-      const { res, status, body } = makeResponse();
+      const { res, status } = makeResponse();
       const req = makeRequest({ method: 'GET', url: '/api/diagnostics/processes?limit=10' });
 
       const handled = await handleDiagnosticsRoute('GET', '/api/diagnostics/processes', req, res, MINIMAL_CTX as any);
@@ -368,7 +368,7 @@ describe('diagnostics routes', () => {
     });
 
     it('filters by category', async () => {
-      const { res, status, body } = makeResponse();
+      const { res, status } = makeResponse();
       const req = makeRequest({ method: 'GET', url: '/api/diagnostics/events?category=agent' });
 
       const handled = await handleDiagnosticsRoute('GET', '/api/diagnostics/events', req, res, MINIMAL_CTX as any);
@@ -378,7 +378,7 @@ describe('diagnostics routes', () => {
     });
 
     it('filters by query', async () => {
-      const { res, status, body } = makeResponse();
+      const { res, status } = makeResponse();
       const req = makeRequest({ method: 'GET', url: '/api/diagnostics/events?q=test' });
 
       const handled = await handleDiagnosticsRoute('GET', '/api/diagnostics/events', req, res, MINIMAL_CTX as any);
@@ -388,7 +388,7 @@ describe('diagnostics routes', () => {
     });
 
     it('respects limit parameter', async () => {
-      const { res, status, body } = makeResponse();
+      const { res, status } = makeResponse();
       const req = makeRequest({ method: 'GET', url: '/api/diagnostics/events?limit=10' });
 
       const handled = await handleDiagnosticsRoute('GET', '/api/diagnostics/events', req, res, MINIMAL_CTX as any);
@@ -433,7 +433,7 @@ describe('diagnostics routes', () => {
     });
 
     it('accepts snapshot and question', async () => {
-      const { res, status, body } = makeResponse();
+      const { res, status } = makeResponse();
       const req = makeRequest({
         method: 'POST',
         url: '/api/diagnostics/analyze',

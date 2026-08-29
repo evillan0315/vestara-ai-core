@@ -27,6 +27,22 @@ export const CATEGORY_COLORS: Record<string, string> = {
   Specialized: '#6366f1',
 };
 
+export const CATEGORY_ICONS: Record<string, string> = {
+  Development: '⌘',
+  Verification: '✓',
+  Analysis: '◈',
+  Infrastructure: '⚙',
+  Specialized: '★',
+};
+
+export const CATEGORY_DESCRIPTIONS: Record<string, string> = {
+  Development: 'Code generation, architecture, planning',
+  Verification: 'Testing, review, quality assurance',
+  Analysis: 'Metrics, performance, documentation',
+  Infrastructure: 'Release, refactoring, deployment',
+  Specialized: 'Conversation, dashboard, custom roles',
+};
+
 export const ROLE_COLORS: Record<string, string> = {
   architect: '#8b5cf6',
   developer: '#3b82f6',

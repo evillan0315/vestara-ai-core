@@ -5,6 +5,7 @@
 import type {
   CreateOpenCodeSessionInput,
   InitOpenCodeSessionInput,
+  OpenCodeActiveSessionInfo,
   OpenCodeAgentSummary,
   OpenCodeCommandSummary,
   OpenCodeDiffFile,
@@ -19,11 +20,16 @@ import type {
   OpenCodeHealth,
   OpenCodeMessage,
   OpenCodeMessageResult,
+  OpenCodeModelRef,
   OpenCodePathInfo,
   OpenCodeProject,
   OpenCodeProviderSummary,
+  OpenCodeQuestionInfo,
+  OpenCodeQuestionReply,
+  OpenCodeQuestionRequest,
   OpenCodeRequestContext,
   OpenCodeSession,
+  OpenCodeSessionHistory,
   OpenCodeSessionStatusInfo,
   OpenCodeShellResult,
   OpenCodeSymbol,
@@ -173,4 +179,48 @@ export interface OpenCodeClient {
   fileStatus(query?: OpenCodeFileQuery, signal?: AbortSignal): Promise<OpenCodeFileChange[]>;
 
   openEventStream(context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent>;
+
+  // ── M6: Session lifecycle extensions ──────────────────────
+
+  /** List all currently active (running) sessions. */
+  listActiveSessions(signal?: AbortSignal): Promise<Record<string, OpenCodeActiveSessionInfo>>;
+
+  /** Retrieve the conversation context for a session (all messages). */
+  getSessionContext(sessionId: string, signal?: AbortSignal): Promise<OpenCodeMessage[]>;
+
+  /** Retrieve paginated durable event history for a session. */
+  getSessionHistory(
+    sessionId: string,
+    options?: { readonly limit?: number; readonly after?: string },
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSessionHistory>;
+
+  /** Switch the active agent on a running session. */
+  switchSessionAgent(sessionId: string, agent: string, signal?: AbortSignal): Promise<boolean>;
+
+  /** Switch the model on a running session. */
+  switchSessionModel(sessionId: string, model: OpenCodeModelRef, signal?: AbortSignal): Promise<boolean>;
+
+  /** Compact the session context (summarize and truncate history). */
+  compactSession(sessionId: string, signal?: AbortSignal): Promise<boolean>;
+
+  /** Interrupt the currently running session without aborting it. */
+  interruptSession(sessionId: string, signal?: AbortSignal): Promise<boolean>;
+
+  /** Wait for the session to finish its current operation. */
+  waitSession(sessionId: string, signal?: AbortSignal): Promise<boolean>;
+
+  /** List pending questions for a session. */
+  listQuestions(sessionId: string, signal?: AbortSignal): Promise<OpenCodeQuestionRequest[]>;
+
+  /** Reply to a pending question with selected answers. */
+  replyToQuestion(
+    sessionId: string,
+    requestId: string,
+    reply: OpenCodeQuestionReply,
+    signal?: AbortSignal,
+  ): Promise<boolean>;
+
+  /** Reject a pending question. */
+  rejectQuestion(sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean>;
 }

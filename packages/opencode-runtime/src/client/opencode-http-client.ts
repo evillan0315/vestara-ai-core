@@ -18,6 +18,7 @@ import {
 import type {
   CreateOpenCodeSessionInput,
   InitOpenCodeSessionInput,
+  OpenCodeActiveSessionInfo,
   OpenCodeAgentSummary,
   OpenCodeCommandSummary,
   OpenCodeDiffFile,
@@ -32,11 +33,15 @@ import type {
   OpenCodeHealth,
   OpenCodeMessage,
   OpenCodeMessageResult,
+  OpenCodeModelRef,
   OpenCodePathInfo,
   OpenCodeProject,
   OpenCodeProviderSummary,
+  OpenCodeQuestionReply,
+  OpenCodeQuestionRequest,
   OpenCodeRequestContext,
   OpenCodeSession,
+  OpenCodeSessionHistory,
   OpenCodeSessionStatusInfo,
   OpenCodeShellResult,
   OpenCodeSymbol,
@@ -507,6 +512,150 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   // ── File / find surface ────────────────────────────────────
 
+  // ── M6: Session lifecycle extensions ──────────────────────
+
+  async listActiveSessions(signal?: AbortSignal): Promise<Record<string, OpenCodeActiveSessionInfo>> {
+    const raw = await this.requestJson({
+      path: '/api/session/active',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    });
+    return this.unwrapData(raw) as Record<string, OpenCodeActiveSessionInfo>;
+  }
+
+  async getSessionContext(sessionId: string, signal?: AbortSignal): Promise<OpenCodeMessage[]> {
+    const raw = await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/context`,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return normalizeMessages(this.unwrapData(raw));
+  }
+
+  async getSessionHistory(
+    sessionId: string,
+    options?: { readonly limit?: number; readonly after?: string },
+    signal?: AbortSignal,
+  ): Promise<OpenCodeSessionHistory> {
+    const path = this.withQuery(`/api/session/${encodeURIComponent(sessionId)}/history`, {
+      limit: options?.limit !== undefined ? String(options.limit) : undefined,
+      after: options?.after,
+    });
+    const raw = await this.requestJson({
+      path,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    // SessionHistory is NOT wrapped in data — it has { data: [...], hasMore: bool } at top level.
+    if (raw && typeof raw === 'object' && 'data' in (raw as Record<string, unknown>)) {
+      const record = raw as Record<string, unknown>;
+      return {
+        data: normalizeSessionDurableEvents(record.data),
+        hasMore: Boolean(record.hasMore),
+      };
+    }
+    return { data: [], hasMore: false };
+  }
+
+  async switchSessionAgent(sessionId: string, agent: string, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/agent`,
+      method: 'POST',
+      body: { agent },
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async switchSessionModel(sessionId: string, model: OpenCodeModelRef, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/model`,
+      method: 'POST',
+      body: { model },
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async compactSession(sessionId: string, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/compact`,
+      method: 'POST',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async interruptSession(sessionId: string, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/interrupt`,
+      method: 'POST',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async waitSession(sessionId: string, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/wait`,
+      method: 'POST',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async listQuestions(sessionId: string, signal?: AbortSignal): Promise<OpenCodeQuestionRequest[]> {
+    const raw = await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/question`,
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return normalizeQuestions(this.unwrapData(raw));
+  }
+
+  async replyToQuestion(
+    sessionId: string,
+    requestId: string,
+    reply: OpenCodeQuestionReply,
+    signal?: AbortSignal,
+  ): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reply`,
+      method: 'POST',
+      body: { answers: reply.answers },
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  async rejectQuestion(sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean> {
+    await this.requestJson({
+      path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reject`,
+      method: 'POST',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+      sessionId,
+    });
+    return true;
+  }
+
+  // ── File / find surface ────────────────────────────────────
+
   async findText(query: OpenCodeFindTextQuery, signal?: AbortSignal): Promise<OpenCodeFindMatch[]> {
     const raw = await this.requestJson({
       path: this.withQuery('/find', { pattern: query.pattern, directory: query.directory, workspace: query.workspace }),
@@ -604,6 +753,14 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   // ── Shared request plumbing ───────────────────────────────────────────
 
+  /** Unwrap a `{ data: T }` envelope, returning `data` or a fallback. */
+  private unwrapData(raw: unknown, fallback: unknown = []): unknown {
+    if (raw && typeof raw === 'object' && 'data' in (raw as Record<string, unknown>)) {
+      return (raw as Record<string, unknown>).data;
+    }
+    return fallback;
+  }
+
   /** Append URL-encoded query params, omitting `undefined`/empty values. */
   private withQuery(path: string, params: Record<string, string | number | boolean | undefined>): string {
     const search = new URLSearchParams();
@@ -619,6 +776,25 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     const record = raw as Record<string, unknown>;
     const messages = normalizeMessages([record]);
     return { info: messages[0], parts: messages[0]?.parts ?? [] };
+  }
+
+  private normalizeMessageResult(sessionId: string, raw: unknown): OpenCodeMessageResult {
+    if (!raw || typeof raw !== 'object') {
+      return { sessionId, finished: true };
+    }
+    const record = raw as Record<string, unknown>;
+    const text =
+      typeof record.text === 'string'
+        ? record.text
+        : typeof record.content === 'string'
+          ? (record.content as string)
+          : undefined;
+    return {
+      sessionId,
+      messageId: typeof record.id === 'string' ? (record.id as string) : undefined,
+      text,
+      finished: Boolean(record.finished ?? true),
+    };
   }
 
   private async requestJson(options: RequestOptions): Promise<unknown> {
@@ -657,25 +833,67 @@ export class OpenCodeHttpClient implements OpenCodeClient {
       options.signal?.removeEventListener('abort', onOuterAbort);
     }
   }
+}
 
-  private normalizeMessageResult(sessionId: string, raw: unknown): OpenCodeMessageResult {
-    if (!raw || typeof raw !== 'object') {
-      return { sessionId, finished: true };
-    }
-    const record = raw as Record<string, unknown>;
-    const text =
-      typeof record.text === 'string'
-        ? record.text
-        : typeof record.content === 'string'
-          ? (record.content as string)
-          : undefined;
-    return {
-      sessionId,
-      messageId: typeof record.id === 'string' ? (record.id as string) : undefined,
-      text,
-      finished: Boolean(record.finished ?? true),
-    };
-  }
+// ── M6 normalizers (module-level, pure) ─────────────────────
+
+function normalizeSessionDurableEvents(
+  raw: unknown,
+): readonly import('./opencode-types').OpenCodeSessionDurableEvent[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((event) => ({
+      id: typeof event.id === 'string' ? event.id : `evt-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      type: typeof event.type === 'string' ? event.type : 'unknown',
+      timestamp: typeof event.timestamp === 'string' ? event.timestamp : undefined,
+      properties:
+        event.properties && typeof event.properties === 'object'
+          ? (event.properties as Record<string, unknown>)
+          : undefined,
+    }));
+}
+
+function normalizeQuestions(raw: unknown): OpenCodeQuestionRequest[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
+    .map((q) => ({
+      id: typeof q.id === 'string' ? q.id : '',
+      sessionID: typeof q.sessionID === 'string' ? q.sessionID : '',
+      questions: Array.isArray(q.questions)
+        ? q.questions
+            .filter((qi): qi is Record<string, unknown> => Boolean(qi) && typeof qi === 'object')
+            .map((qi) => ({
+              question: typeof qi.question === 'string' ? qi.question : '',
+              header: typeof qi.header === 'string' ? qi.header : '',
+              options: Array.isArray(qi.options)
+                ? qi.options
+                    .filter((opt): opt is Record<string, unknown> => Boolean(opt) && typeof opt === 'object')
+                    .map((opt) => ({
+                      label: typeof opt.label === 'string' ? opt.label : '',
+                      description: typeof opt.description === 'string' ? opt.description : undefined,
+                    }))
+                : [],
+              custom: typeof qi.custom === 'boolean' ? qi.custom : undefined,
+              multiple: typeof qi.multiple === 'boolean' ? qi.multiple : undefined,
+            }))
+        : [],
+      tool:
+        q.tool && typeof q.tool === 'object'
+          ? {
+              name:
+                typeof (q.tool as Record<string, unknown>).name === 'string'
+                  ? ((q.tool as Record<string, unknown>).name as string)
+                  : '',
+              callID:
+                typeof (q.tool as Record<string, unknown>).callID === 'string'
+                  ? ((q.tool as Record<string, unknown>).callID as string)
+                  : undefined,
+            }
+          : undefined,
+    }))
+    .filter((q) => q.id.length > 0 && q.sessionID.length > 0);
 }
 
 function mapHttpStatus(status: number, sessionId: string | undefined): Error {

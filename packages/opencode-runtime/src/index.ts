@@ -1,5 +1,6 @@
 // @vestara/opencode-runtime — controlled integration boundary for OpenCode.
 
+export { OpenCodeAdapterBoundary, type RawHttpResponse } from './client/opencode-adapter-boundary';
 export type { OpenCodeClient } from './client/opencode-client';
 export type { OpenCodeErrorPayload, OpenCodeIntegrationErrorCode } from './client/opencode-errors';
 export {
@@ -20,6 +21,7 @@ export { OpenCodeHttpClient } from './client/opencode-http-client';
 export type {
   CreateOpenCodeSessionInput,
   InitOpenCodeSessionInput,
+  OpenCodeActiveSessionInfo,
   OpenCodeEvent,
   OpenCodeFileChange,
   OpenCodeFileChangeStatus,
@@ -33,12 +35,19 @@ export type {
   OpenCodeJsonSchema,
   OpenCodeMessage,
   OpenCodeMessageResult,
+  OpenCodeModelRef,
   OpenCodeOutputFormat,
   OpenCodeProject,
   OpenCodePromptPart,
+  OpenCodeQuestionInfo,
+  OpenCodeQuestionOption,
+  OpenCodeQuestionReply,
+  OpenCodeQuestionRequest,
   OpenCodeRequestContext,
   OpenCodeSession,
   OpenCodeSessionBinding,
+  OpenCodeSessionDurableEvent,
+  OpenCodeSessionHistory,
   OpenCodeSessionStatus,
   OpenCodeShellResult,
   OpenCodeSymbol,
@@ -130,5 +139,11 @@ export {
 export type { OpenCodeConnectionState, OpenCodeRuntimeHealth, OpenCodeRuntimeHooks } from './runtime/opencode-runtime';
 export { OpenCodeRuntime } from './runtime/opencode-runtime';
 export { normalizeDiff, normalizeMessages, normalizeTodos } from './session-normalizers';
+export type { RuntimeSessionRegistry } from './sessions/runtime-session-registry';
+export {
+  DEFAULT_CONTINUITY_POLICY,
+  DEFAULT_MAX_PHYSICAL_SESSIONS,
+  InMemoryRuntimeSessionRegistry,
+} from './sessions/runtime-session-registry';
 export type { OwnershipContext, OwnershipResult, SessionRegistry } from './sessions/session-registry';
 export { InMemorySessionRegistry, requireSessionOwnership } from './sessions/session-registry';

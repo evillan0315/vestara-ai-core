@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { AgentCard } from './AgentCard';
-import { CATEGORY_COLORS, CATEGORY_ORDER, ROLE_CATEGORIES } from './constants';
+import { CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, CATEGORY_ICONS, CATEGORY_ORDER, ROLE_CATEGORIES } from './constants';
 import type { Agent, AgentStats, Execution, HarnessSessionEntry, Team } from './types';
 
 interface AgentCategoryListProps {
@@ -59,6 +59,23 @@ export function AgentCategoryList({
     return groups;
   }, [agents]);
 
+  const allCollapsed = CATEGORY_ORDER.every(
+    (cat) => collapsedCategories[cat] === true || !groupedAgents[cat]?.length,
+  );
+  const allExpanded = CATEGORY_ORDER.every(
+    (cat) => collapsedCategories[cat] !== true || !groupedAgents[cat]?.length,
+  );
+
+  const toggleAll = () => {
+    const next: Record<string, boolean> = {};
+    const newState = !allCollapsed;
+    for (const cat of CATEGORY_ORDER) {
+      if (groupedAgents[cat]?.length) next[cat] = newState;
+    }
+    setCollapsedCategories(next);
+    localStorage.setItem('vestara-agent-collapsed-categories', JSON.stringify(next));
+  };
+
   if (agents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
@@ -71,6 +88,15 @@ export function AgentCategoryList({
 
   return (
     <>
+      <div className="flex justify-end mb-2">
+        <button
+          type="button"
+          onClick={toggleAll}
+          className="text-[9px] px-2 py-1 text-(--vestara-text-muted) hover:text-(--vestara-text-2) border border-(--vestara-accent-border) rounded-md transition-colors cursor-pointer"
+        >
+          {allCollapsed ? 'Expand All' : 'Collapse All'}
+        </button>
+      </div>
       {CATEGORY_ORDER.map((cat) => {
         const catAgents = groupedAgents[cat];
         if (!catAgents || catAgents.length === 0) return null;
@@ -83,19 +109,26 @@ export function AgentCategoryList({
             <button
               type="button"
               onClick={() => toggleCategory(cat)}
-              className="flex items-center gap-2 w-full px-1 py-1.5 mb-1 cursor-pointer group"
+              className="flex items-center gap-2 w-full px-2 py-2 mb-1 cursor-pointer group rounded-md transition-colors hover:bg-(--vestara-accent-bg)"
+              style={{ borderLeft: `2px solid ${catColor}` }}
             >
-              <div
-                className="w-2 h-2 rounded-full shrink-0 transition-transform"
-                style={{ backgroundColor: catColor }}
-              />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-(--vestara-text-2)">
-                {cat}
+              <span className="text-sm shrink-0" style={{ color: catColor }}>
+                {CATEGORY_ICONS[cat] || '●'}
               </span>
-              <span className="text-[9px] text-(--vestara-text-dim)">
-                {catAgents.length} · {activeCount} active
-              </span>
-              <span className="ml-auto text-(--vestara-text-dim) text-[11px] transition-transform group-hover:text-(--vestara-text-2)">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-(--vestara-text-2)">
+                    {cat}
+                  </span>
+                  <span className="text-[9px] text-(--vestara-text-dim)">
+                    {catAgents.length} · {activeCount} active
+                  </span>
+                </div>
+                <div className="text-[9px] text-(--vestara-text-dim) truncate">
+                  {CATEGORY_DESCRIPTIONS[cat]}
+                </div>
+              </div>
+              <span className="text-(--vestara-text-dim) text-[11px] transition-transform group-hover:text-(--vestara-text-2) shrink-0">
                 {isCollapsed ? '▸' : '▾'}
               </span>
             </button>

@@ -125,7 +125,8 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:created',
       source: 'conversation-service',
       payload: { conversationId: id, userId, title: conversation.title },
-      metadata: { correlationId: id },
+      // ARX-015 M2: conversationId is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
 
     this.logger?.info('Conversation created', {
@@ -157,7 +158,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:message.sent',
       source: 'conversation-service',
       payload: { conversationId, messageId: userMessage.id, content },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     this.logger?.info('Message sent', {
@@ -173,7 +174,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:provider.request.started',
       source: 'conversation-service',
       payload: { conversationId, model: request.model },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     const startTime = performance.now();
@@ -199,7 +200,7 @@ export class DefaultConversationService implements ConversationService {
           latency: response.latency,
           tokens: response.usage.totalTokens,
         },
-        metadata: { correlationId: conversationId },
+        metadata: {},
       });
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Provider call failed';
@@ -209,7 +210,7 @@ export class DefaultConversationService implements ConversationService {
         type: 'conversation:provider.error',
         source: 'conversation-service',
         payload: { conversationId, error: msg },
-        metadata: { correlationId: conversationId },
+        metadata: {},
       });
     }
 
@@ -241,7 +242,7 @@ export class DefaultConversationService implements ConversationService {
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
       },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     this.logger?.info('Response completed', {
@@ -279,7 +280,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:message.sent',
       source: 'conversation-service',
       payload: { conversationId, messageId: userMessage.id, content },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     // Build context
@@ -289,7 +290,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:provider.request.started',
       source: 'conversation-service',
       payload: { conversationId, model: request.model },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     let fullContent = '';
@@ -354,7 +355,7 @@ export class DefaultConversationService implements ConversationService {
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
       },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
 
     yield new DefaultStreamProcessor().complete({
@@ -376,7 +377,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:archived',
       source: 'conversation-service',
       payload: { conversationId, messageCount: conversation.messages.length },
-      metadata: { correlationId: conversationId },
+      metadata: {},
     });
   }
 

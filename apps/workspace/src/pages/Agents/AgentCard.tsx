@@ -1,8 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useToasts } from '../../components/Toast';
 import { harnessApi } from '../../lib/agent-harness';
-import AgentExecutionHistory from './AgentExecutionHistory';
-import AgentHarnessSessions from './AgentHarnessSessions';
+import { AgentCardTabs } from './AgentCardTabs';
 import { AgentStatusBadge } from './AgentStatusBadge';
 import { getAgentColor } from './constants';
 import type { Agent, AgentStats, Execution, HarnessSessionEntry, Team } from './types';
@@ -69,8 +68,6 @@ export function AgentCard({
     setRunning(true);
     setRunOutput(null);
     try {
-      // Harness execution path: a durable thread + ExecutionSession are created
-      // immediately; progress flows through the harness event stream.
       const created = await harnessApi.createRun(agent.id, { instruction: runTask });
       if (!created?.threadId) throw new Error('Harness run not created');
       const terminal = await pollHarnessThread(created.threadId, 120_000);
@@ -103,7 +100,7 @@ export function AgentCard({
       }}
     >
       {/* Header row */}
-      <div className="p-3 flex items-center gap-3 cursor-pointer" onClick={() => isRegistered && onToggle()}>
+      <div className="p-2 sm:p-3 flex items-center gap-2 sm:gap-3 cursor-pointer" onClick={() => isRegistered && onToggle()}>
         <div className="relative shrink-0">
           <div
             className="w-3 h-3 rounded-full"
@@ -119,68 +116,91 @@ export function AgentCard({
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
             <span
-              className={`text-sm font-semibold truncate ${isRegistered ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'}`}
+              className={`text-xs sm:text-sm font-semibold truncate ${isRegistered ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'}`}
             >
               {agent.name}
             </span>
-            <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium shrink-0">
+            <span className="text-[7px] sm:text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium shrink-0">
               {agent.role}
             </span>
             <AgentStatusBadge status={agent.status} />
           </div>
           {agent.description && (
             <div
-              className={`text-[10px] truncate mt-0.5 ${isRegistered ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text-dim)'}`}
+              className={`text-[9px] sm:text-[10px] truncate mt-0.5 ${isRegistered ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text-dim)'}`}
             >
               {agent.description}
             </div>
           )}
-          <div className="flex items-center gap-2 mt-0.5">
-            {agent.provider && <span className="text-[9px] text-(--vestara-text-dim)">{agent.provider}</span>}
-            {agent.model && <span className="text-[9px] text-(--vestara-text-dim) font-mono">{agent.model}</span>}
+          <div className="flex items-center gap-1.5 sm:gap-2 mt-0.5">
+            {agent.provider && <span className="text-[8px] sm:text-[9px] text-(--vestara-text-dim) hidden sm:inline">{agent.provider}</span>}
+            {agent.model && <span className="text-[8px] sm:text-[9px] text-(--vestara-text-dim) font-mono hidden sm:inline">{agent.model}</span>}
             {stats.total > 0 && (
-              <span className="text-[9px] text-(--vestara-text-dim)">
-                {stats.completed}/{stats.total} tasks
+              <span className="text-[8px] sm:text-[9px] text-(--vestara-text-dim)">
+                {stats.completed}/{stats.total}
               </span>
             )}
             {stats.running > 0 && (
-              <span className="text-[9px] text-amber-400 animate-pulse font-semibold">{stats.running} running</span>
+              <span className="text-[8px] sm:text-[9px] text-amber-400 animate-pulse font-semibold">{stats.running} active</span>
             )}
           </div>
         </div>
         <div className="flex gap-1 shrink-0">
+          {isRegistered && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onToggle();
+              }}
+              className="min-w-[32px] min-h-[32px] sm:min-w-0 sm:min-h-0 text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-1 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-md hover:bg-amber-400/20 transition-colors cursor-pointer font-medium"
+            >
+              Run
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
               onEdit();
             }}
-            className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+            className="min-w-[32px] min-h-[32px] sm:min-w-0 sm:min-h-0 text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) text-(--vestara-accent-text) rounded-md hover:bg-(--vestara-accent-border)/20 transition-colors cursor-pointer font-medium"
           >
             {isRegistered ? 'Edit' : 'Register'}
           </button>
           {isRegistered && (
-            <>
+            <div className="relative group">
               <button
                 onClick={(e) => {
                   e.stopPropagation();
-                  onToggleStatus();
                 }}
-                className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                className="min-w-[32px] min-h-[32px] sm:min-w-0 sm:min-h-0 text-[8px] sm:text-[9px] px-1.5 sm:px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-dim) rounded-md hover:text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
               >
-                {agent.status === 'active' ? 'Disable' : 'Enable'}
+                ⋯
               </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onDelete();
-                }}
-                className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-md hover:bg-red-400/10 transition-colors cursor-pointer"
-              >
-                Delete
-              </button>
-            </>
+              <div className="absolute right-0 top-full mt-1 z-10 hidden group-hover:block">
+                <div className="bg-zinc-900 border border-(--vestara-accent-border) rounded-lg shadow-lg py-1 min-w-[100px]">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleStatus();
+                    }}
+                    className="w-full text-left text-[10px] px-3 py-1.5 text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                  >
+                    {agent.status === 'active' ? 'Disable' : 'Enable'}
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete();
+                    }}
+                    className="w-full text-left text-[10px] px-3 py-1.5 text-red-400 hover:bg-red-400/10 transition-colors cursor-pointer"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
         </div>
       </div>
@@ -211,66 +231,21 @@ export function AgentCard({
         </div>
       )}
 
-      {/* Expanded execution history */}
+      {/* Expanded content with tabs */}
       {isExpanded && (
-        <div className="px-3 pb-3 pt-2 border-t border-(--vestara-accent-border)">
-          <div className="flex gap-4 mb-3">
-            <div className="flex-1">
-              <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                Capabilities
-              </div>
-              <div className="flex flex-wrap gap-1">
-                {(agent.capabilities || []).map((c: string) => (
-                  <span
-                    key={c}
-                    className="text-[9px] px-1.5 py-0.5 bg-zinc-800 text-(--vestara-text-2) rounded-md border border-(--vestara-accent-border)/50"
-                  >
-                    {c}
-                  </span>
-                ))}
-                {(!agent.capabilities || agent.capabilities.length === 0) && (
-                  <span className="text-[9px] text-(--vestara-text-dim) italic">No capabilities defined</span>
-                )}
-              </div>
-            </div>
-            {team && (
-              <div className="shrink-0">
-                <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                  Team
-                </div>
-                <span className="text-[9px] px-1.5 py-0.5 rounded-md" style={{ backgroundColor: color + '20', color }}>
-                  {team.name}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <AgentExecutionHistory executions={agentExecutions} onOpenExecution={onOpenExecution} />
-
-          <div className="mt-2 flex gap-2">
-            <input
-              value={runTask}
-              onChange={(e) => setRunTask(e.target.value)}
-              placeholder="Assign a task to this agent..."
-              className="flex-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-600 outline-none focus:border-(--vestara-accent-border-active)"
-              onKeyDown={(e) => e.key === 'Enter' && void runAgent()}
-            />
-            <button
-              onClick={() => void runAgent()}
-              disabled={running || !runTask.trim()}
-              className="text-[10px] px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer font-medium"
-            >
-              {running ? 'Running...' : 'Run'}
-            </button>
-          </div>
-          {runOutput && (
-            <div className="mt-1.5 text-[10px] text-(--vestara-text-2) bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-2">
-              {runOutput}
-            </div>
-          )}
-
-          <AgentHarnessSessions sessions={harnessSessions} onLoad={onLoad} />
-        </div>
+        <AgentCardTabs
+          agent={agent}
+          team={team}
+          executions={agentExecutions}
+          harnessSessions={harnessSessions}
+          onOpenExecution={onOpenExecution}
+          onLoad={onLoad}
+          runTask={runTask}
+          onRunTaskChange={setRunTask}
+          running={running}
+          runOutput={runOutput}
+          onRun={runAgent}
+        />
       )}
     </div>
   );

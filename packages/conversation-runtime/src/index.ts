@@ -156,7 +156,8 @@ export class DefaultConversationEngine extends Runtime {
         profileId: this._profile?.id,
         isFirstBoot: this.isFirstBoot,
       },
-      metadata: { correlationId: this._session.id },
+      // ARX-015 M2: No execution context at session start — correlation absent (fail-closed)
+      metadata: {},
     });
 
     this.logger?.info('Session started', { sessionId: this._session.id, isFirstBoot: this.isFirstBoot });
@@ -193,7 +194,8 @@ export class DefaultConversationEngine extends Runtime {
         responseLength: result.response.content.length,
         latency: result.latency,
       },
-      metadata: { correlationId: this._conversationId },
+      // ARX-015 M2: conversationId is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
 
     return {
@@ -262,7 +264,8 @@ export class DefaultConversationEngine extends Runtime {
       type: 'conversation:session.ended',
       source: 'conversation-engine',
       payload: { sessionId: this._session?.id },
-      metadata: { correlationId: this._session?.id ?? 'unknown' },
+      // ARX-015 M2: Session lifecycle has no execution context — correlation absent (fail-closed)
+      metadata: {},
     });
 
     this._session = null;
@@ -307,7 +310,8 @@ export class DefaultConversationEngine extends Runtime {
           userName: profile.name ?? 'Unknown',
           profileId: profile.id,
         },
-        metadata: { correlationId: this._session?.id ?? 'unknown' },
+        // ARX-015 M2: Profile creation has no execution context — correlation absent (fail-closed)
+        metadata: {},
       });
 
       return profile;
@@ -338,7 +342,8 @@ export class DefaultConversationEngine extends Runtime {
           profileId: result.id,
           field: Object.keys(update).join(', '),
         },
-        metadata: { correlationId: this._session?.id ?? 'unknown' },
+        // ARX-015 M2: Profile update has no execution context — correlation absent (fail-closed)
+        metadata: {},
       });
 
       return result;

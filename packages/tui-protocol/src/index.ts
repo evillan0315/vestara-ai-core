@@ -8,7 +8,7 @@ export interface StreamEnvelope<TEvent extends TuiDomainEvent = TuiDomainEvent> 
   readonly threadId: string;
   readonly taskId?: string;
   readonly agentId?: string;
-  readonly correlationId: string;
+  readonly correlationId?: string;
   readonly causationId?: string;
   readonly event: TEvent;
 }

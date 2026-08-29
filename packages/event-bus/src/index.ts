@@ -17,7 +17,9 @@ export type EmitEvent = {
   source: string;
   payload: Record<string, unknown>;
   actor?: { id: string; role: 'user' | 'system' | 'agent' };
-  metadata?: Partial<VestaraEvent['metadata']>;
+  metadata?: Partial<
+    Pick<VestaraEvent['metadata'], 'correlationId' | 'causationId' | 'executionId' | 'requestId' | 'traceId' | 'ttl'>
+  >;
 };
 
 export interface EventBus {
@@ -78,6 +80,9 @@ export class InProcessEventBus implements EventBus {
       metadata: {
         correlationId: event.metadata?.correlationId ?? `cor-${Date.now()}`,
         causationId: event.metadata?.causationId,
+        executionId: event.metadata?.executionId,
+        requestId: event.metadata?.requestId,
+        traceId: event.metadata?.traceId,
         retryCount: 0,
         ttl: event.metadata?.ttl ?? 60,
       },

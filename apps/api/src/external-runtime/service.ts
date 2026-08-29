@@ -439,7 +439,7 @@ export function buildSessionTimeline(
   storedEvents: readonly {
     type: string;
     at: string;
-    correlationId: string;
+    correlationId?: string;
     payload: Readonly<Record<string, unknown>>;
   }[],
 ): { items: TimelineItem[]; sources: SessionTimelineSources } {

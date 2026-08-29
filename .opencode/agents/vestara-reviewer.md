@@ -1,7 +1,7 @@
 ---
 description: "Review implementations — never modify code."
 mode: subagent
-model: opencode/deepseek-v4-flash-free
+model: opencode/mimo-v2.5-free
 permission:
   read: allow
   edit: deny

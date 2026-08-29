@@ -214,9 +214,9 @@ export class OpenCodeEventBridge {
         version: 1,
         source: 'opencode-event-bridge',
         payload: event as unknown as Record<string, unknown>,
-        metadata: {
-          correlationId: event.sessionId ? `opencode:${event.sessionId}` : undefined,
-        },
+        // ARX-015 M2: sessionId is not an execution identity. OpenCode session events
+        // without an explicit execution context remain uncorrelated (fail-closed).
+        metadata: {},
       });
       this.publishedEvents += 1;
     } catch {

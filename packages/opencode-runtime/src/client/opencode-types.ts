@@ -280,6 +280,71 @@ export interface OpenCodeFileChange {
   readonly status: OpenCodeFileChangeStatus;
 }
 
+// ─── M6: Session lifecycle types ────────────────────────────
+
+/** Active session status returned by `GET /session/active`. */
+export interface OpenCodeActiveSessionInfo {
+  readonly type: 'running';
+}
+
+/** Model reference for switching models on a session. */
+export interface OpenCodeModelRef {
+  readonly id: string;
+  readonly providerID: string;
+  readonly variant?: string;
+}
+
+/** Cursor-paginated session history entry. */
+export interface OpenCodeSessionDurableEvent {
+  readonly id: string;
+  readonly type: string;
+  readonly timestamp?: string;
+  readonly properties?: Record<string, unknown>;
+}
+
+/** Paginated session history response. */
+export interface OpenCodeSessionHistory {
+  readonly data: readonly OpenCodeSessionDurableEvent[];
+  readonly hasMore: boolean;
+}
+
+/** Question option within a question request. */
+export interface OpenCodeQuestionOption {
+  readonly label: string;
+  readonly description?: string;
+}
+
+/** Individual question within a question request. */
+export interface OpenCodeQuestionInfo {
+  readonly question: string;
+  readonly header: string;
+  readonly options: readonly OpenCodeQuestionOption[];
+  readonly custom?: boolean;
+  readonly multiple?: boolean;
+}
+
+/** Tool context for a question request. */
+export interface OpenCodeQuestionTool {
+  readonly name: string;
+  readonly callID?: string;
+}
+
+/** Pending question from an OpenCode session. */
+export interface OpenCodeQuestionRequest {
+  readonly id: string;
+  readonly sessionID: string;
+  readonly questions: readonly OpenCodeQuestionInfo[];
+  readonly tool?: OpenCodeQuestionTool;
+}
+
+/** Answer to a question — array of selected labels per question. */
+export type OpenCodeQuestionAnswer = readonly string[];
+
+/** Reply body for answering questions. */
+export interface OpenCodeQuestionReply {
+  readonly answers: readonly OpenCodeQuestionAnswer[];
+}
+
 // ─── File / find query inputs ───────────────────────────────
 
 export interface OpenCodeFindTextQuery {

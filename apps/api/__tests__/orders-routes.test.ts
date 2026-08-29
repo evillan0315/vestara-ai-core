@@ -1,6 +1,6 @@
 import { EventEmitter } from 'node:events';
 import type * as http from 'node:http';
-import type { Address, Order, OrderItem, OrderStatus, User } from '@vestara/workspace';
+import type { Order, OrderItem, OrderStatus, User } from '@vestara/workspace';
 import { afterEach, describe, expect, it } from 'vitest';
 // The route handler is exercised against its compiled output: `routes/types.ts`
 // calls `require('../auth')`, which does not exist in vitest's ESM transform.
@@ -91,7 +91,7 @@ function makeOrder(patch: Partial<Order> = {}): Order {
   };
 }
 
-function makeItem(patch: Partial<OrderItem> = {}): OrderItem {
+function _makeItem(patch: Partial<OrderItem> = {}): OrderItem {
   return {
     id: ITEM_ID,
     orderId: ORDER_ID,

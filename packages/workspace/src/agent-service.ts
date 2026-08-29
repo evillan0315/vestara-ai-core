@@ -94,7 +94,8 @@ export class AgentService {
         type: 'agent:completed',
         source: 'agent-service',
         payload: { agentId, task, executionId: result.execution.id, agentName: agent.name },
-        metadata: { correlationId: result.execution.id },
+        // ARX-015 M2: execution.id IS an execution identity — derive correlation canonically
+        metadata: { correlationId: `cor-${result.execution.id}` },
       });
       return { success: true, message: result.message, execution: result.execution, agent };
     } catch (err: any) {

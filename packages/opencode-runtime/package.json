@@ -16,7 +16,8 @@
   "dependencies": {
     "@vestara/events": "workspace:*",
     "@vestara/event-bus": "workspace:*",
-    "@vestara/runtime": "workspace:*"
+    "@vestara/runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
   },
   "devDependencies": {
     "tsx": "^4.19.2",

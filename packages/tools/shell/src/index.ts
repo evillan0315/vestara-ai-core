@@ -49,12 +49,19 @@ const SHELL_DEF: ToolDefinition = {
   },
 };
 
-export function createShellTool(): Tool {
+export function createShellTool(workspaceRoot?: string): Tool {
   return {
     definition: SHELL_DEF,
     async execute(request: ActionRequest) {
       const command = request.parameters.command as string;
-      const workdir = (request.parameters.workdir as string) ?? process.cwd();
+      // ARX-015 M5B: Use provided workspace root, NOT process.cwd() as authority
+      const workdir = (request.parameters.workdir as string) ?? workspaceRoot ?? (request as any).workspaceRoot;
+      if (!workdir) {
+        throw new Error(
+          'Shell tool requires a working directory. ' +
+            'ARX-015 M5B: process.cwd() is not an authority for repository execution.',
+        );
+      }
       const timeout = (request.parameters.timeout as number) ?? 30000;
 
       try {

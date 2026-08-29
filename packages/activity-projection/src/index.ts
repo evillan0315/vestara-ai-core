@@ -21,6 +21,7 @@ export { ACTIVITY_KINDS } from './contracts';
 export type { EffectiveCorrection, EffectiveOpenItem, EffectiveState, EffectiveUnitState } from './effective-state';
 export { projectEffectiveState } from './effective-state';
 export { fromAgentLifecycle, fromHumanMessage, fromWorkflowEvent } from './m9-adapter';
+export { M9IngestionBridge, type M9IngestionBridgeOptions } from './m9-ingestion-bridge';
 export { SqliteActivityStore as DurableActivityStore } from './m9-sqlite-store';
 export { IdempotentActivityStore } from './m9-store';
 export { ProjectionRuntime } from './m10-projection-runtime';

@@ -190,7 +190,8 @@ export class Runtime {
       version: 1,
       source: `runtime:${this.type}`,
       payload: { ...payload, runtimeId: this.id, severity },
-      metadata: { correlationId: `cor-${Date.now()}`, retryCount: 0, ttl: 60 },
+      // ARX-015 M2: Runtime lifecycle events have no execution context — correlation absent (fail-closed)
+      metadata: { ttl: 60 },
     });
   }
 

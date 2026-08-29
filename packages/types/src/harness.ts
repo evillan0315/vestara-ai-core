@@ -4,6 +4,7 @@ import type {
   ApprovalRequestId,
   CausationId,
   CorrelationId,
+  RepositoryBindingId,
   TaskThreadId,
   ThreadItemId,
   ToolCallId,
@@ -49,6 +50,8 @@ export interface AgentEnvironment {
   readonly id: AgentEnvironmentId;
   readonly kind: 'local' | 'sandbox' | 'container' | 'cloud' | 'remote';
   readonly workspaceRoot: string;
+  /** ARX-015 M5: Authoritative repository binding linking this environment to a repository. */
+  readonly repositoryBindingId?: RepositoryBindingId;
   readonly networkPolicy: 'deny' | 'restricted' | 'allow';
   readonly filesystemPolicy: 'read-only' | 'workspace-write' | 'unrestricted';
   readonly processPolicy: 'deny' | 'restricted' | 'allow';

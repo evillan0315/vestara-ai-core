@@ -22,8 +22,21 @@ export interface EngineeringTruthEventInput {
   readonly turnId?: string;
   readonly toolCallId?: string;
   readonly verificationRunId?: string;
-  readonly correlationId: string;
+  /** ARX-015 M2: Canonical execution identity. Source of truth for correlationId derivation. */
+  readonly executionId?: string;
+  /** ARX-015 M2: Transport/request identity. Single HTTP/WS request lifecycle. */
+  readonly requestId?: string;
+  /**
+   * Execution correlation. Always derived from executionId via resolveCorrelationId().
+   * ARX-015 M2: Optional — absent when no execution context exists (fail-closed).
+   * Prefer absent over misleading correlation.
+   */
+  readonly correlationId?: string;
   readonly causationId?: string;
+  /** ARX-015 M1: Distributed trace identifier. Created at top-level entry points. */
+  readonly traceId?: string;
+  /** ARX-015 M1: Single execution attempt of a workflow project. */
+  readonly workflowRunId?: string;
   readonly payload: Readonly<Record<string, unknown>>;
 }
 
@@ -43,8 +56,31 @@ export interface EngineeringEventQuery {
   readonly turnId?: string;
   readonly toolCallId?: string;
   readonly verificationRunId?: string;
+  readonly executionId?: string;
+  readonly requestId?: string;
   readonly correlationId?: string;
+  readonly traceId?: string;
+  readonly workflowRunId?: string;
   readonly limit?: number;
+}
+
+/**
+ * ARX-015 M1: Resolve a correlation ID from an execution ID.
+ * The correlation ID is always derived from the execution ID.
+ * This ensures INV-ID-1: correlationId is always derived from executionId.
+ *
+ * Fail-closed: returns undefined when executionId is unavailable or empty,
+ * never manufacturing a misleading correlation from non-execution identities.
+ *
+ * @param executionId - The execution ID to derive the correlation ID from
+ * @returns The derived correlation ID in the format `cor-{executionId}`, or undefined
+ *          when executionId is absent/empty (prefer absent over misleading)
+ */
+export function resolveCorrelationId(executionId: string | undefined): string | undefined {
+  if (!executionId || executionId.trim().length === 0) {
+    return undefined;
+  }
+  return `cor-${executionId}`;
 }
 
 export interface EvidenceManifestInput {
@@ -194,8 +230,9 @@ export class SqliteEngineeringEventStore {
       this.db.run(
         `INSERT INTO engineering_events
          (seq, id, at, type, source, actor_id, authority, workspace_id, environment_id, task_id, thread_id,
-          turn_id, tool_call_id, verification_run_id, correlation_id, causation_id, payload_json, previous_hash, hash)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          turn_id, tool_call_id, verification_run_id, correlation_id, causation_id, trace_id, workflow_run_id,
+          payload_json, previous_hash, hash, execution_id, request_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           event.seq,
           event.id,
@@ -211,11 +248,15 @@ export class SqliteEngineeringEventStore {
           event.turnId ?? null,
           event.toolCallId ?? null,
           event.verificationRunId ?? null,
-          event.correlationId,
+          event.correlationId ?? '',
           event.causationId ?? null,
+          event.traceId ?? null,
+          event.workflowRunId ?? null,
           canonical(event.payload),
           event.previousHash,
           event.hash,
+          event.executionId ?? null,
+          event.requestId ?? null,
         ],
       );
       this.db.run('COMMIT');
@@ -264,7 +305,11 @@ export class SqliteEngineeringEventStore {
       ['turn_id', query.turnId],
       ['tool_call_id', query.toolCallId],
       ['verification_run_id', query.verificationRunId],
+      ['execution_id', query.executionId],
+      ['request_id', query.requestId],
       ['correlation_id', query.correlationId],
+      ['trace_id', query.traceId],
+      ['workflow_run_id', query.workflowRunId],
     ] as const) {
       if (value !== undefined) {
         clauses.push(`${column} = ?`);
@@ -731,11 +776,15 @@ function eventFromRow(row: readonly unknown[]): EngineeringTruthEvent {
     turnId: row[11] ? String(row[11]) : undefined,
     toolCallId: row[12] ? String(row[12]) : undefined,
     verificationRunId: row[13] ? String(row[13]) : undefined,
-    correlationId: String(row[14]),
+    correlationId: row[14] && String(row[14]).length > 0 ? String(row[14]) : undefined,
     causationId: row[15] ? String(row[15]) : undefined,
     payload: JSON.parse(String(row[16])) as Readonly<Record<string, unknown>>,
     previousHash: String(row[17]),
     hash: String(row[18]),
+    traceId: row[19] ? String(row[19]) : undefined,
+    workflowRunId: row[20] ? String(row[20]) : undefined,
+    executionId: row[21] ? String(row[21]) : undefined,
+    requestId: row[22] ? String(row[22]) : undefined,
   };
 }
 

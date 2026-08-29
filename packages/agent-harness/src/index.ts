@@ -21,6 +21,42 @@ import type {
 } from '@vestara/types';
 
 export type { EventBus } from '@vestara/event-bus';
+export {
+  createFallbackBinding,
+  guardAiInvocation,
+} from './ai-invocation-guard.js';
+export type {
+  AgentRoutingConfig,
+  AiInvocationServiceConfig,
+  AiInvocationServiceEvent,
+  AiServiceInvocationRequest,
+  AiServiceInvocationResult,
+  DefaultRoutingConfig,
+  RoleRoutingConfig,
+} from './ai-invocation-service.js';
+export { AiInvocationService } from './ai-invocation-service.js';
+export {
+  extractBindingLineage,
+  resolveAiBinding,
+  verifyBindingIntegrity,
+} from './ai-resolution.js';
+export {
+  createBudgetState,
+  evaluateOperation,
+  matchOperationPattern,
+  resolveEffectivePolicy,
+  trackDuration,
+  trackOperation,
+  trackTokens,
+} from './execution-policy.js';
+export type {
+  GuardedProviderContext,
+  GuardedProviderEvent,
+} from './guarded-provider.js';
+export {
+  AiInvocationDeniedError,
+  GuardedAIProvider,
+} from './guarded-provider.js';
 
 export interface HarnessContextAssembler {
   assemble(input: {

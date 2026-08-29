@@ -1,6 +1,5 @@
-import * as fs from 'node:fs';
 import * as os from 'node:os';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   type CpuSnapshot,
   collectCpu,

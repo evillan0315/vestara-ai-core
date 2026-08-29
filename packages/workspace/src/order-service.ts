@@ -73,7 +73,8 @@ export class OrderService {
       type: 'order:created',
       source: 'order-service',
       payload: { orderId: order.id, customerId: order.customerId, total: order.total },
-      metadata: { correlationId: order.id },
+      // ARX-015 M2: order.id is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
 
     return order;
@@ -99,7 +100,8 @@ export class OrderService {
         type: 'order:status_changed',
         source: 'order-service',
         payload: { orderId: id, previousStatus: existing.status, newStatus: status },
-        metadata: { correlationId: id },
+        // ARX-015 M2: order.id is not an execution identity — correlation absent (fail-closed)
+        metadata: {},
       });
     }
 
@@ -118,7 +120,8 @@ export class OrderService {
         type: 'order:payment_changed',
         source: 'order-service',
         payload: { orderId: id, previousStatus: existing.paymentStatus, newStatus: paymentStatus },
-        metadata: { correlationId: id },
+        // ARX-015 M2: order.id is not an execution identity — correlation absent (fail-closed)
+        metadata: {},
       });
     }
 

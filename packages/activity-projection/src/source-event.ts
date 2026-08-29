@@ -93,7 +93,9 @@ export function fromOrchestrationEvent(event: OrchestrationEventLike): ActivityS
     authority: 'system',
     workflowId: projectId,
     taskId,
-    correlationId: projectId ? `orchestration:${projectId}:${type}` : undefined,
+    // ARX-015 M2: projectId is not an execution identity. Orchestration events
+    // without an explicit execution context remain uncorrelated (fail-closed).
+    correlationId: undefined,
     payload,
   };
 }

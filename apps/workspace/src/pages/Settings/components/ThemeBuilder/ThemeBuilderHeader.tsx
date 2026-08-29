@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useThemeBuilder } from '../../../../lib/theme-builder-context';
-import { Button, focus } from '../../../settings-ui';
+import { Button, focus } from '../../settings-ui';
 
 export function ThemeBuilderHeader() {
   const { editingTheme, customThemes, saveTheme, resetEditingTheme, applyThemeToPreview } = useThemeBuilder();
