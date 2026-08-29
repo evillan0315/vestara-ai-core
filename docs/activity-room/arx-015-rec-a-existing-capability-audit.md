@@ -13,7 +13,7 @@
 
 Vestara already has substantial machinery for recommendations and governed decisions. The audit reveals **not a greenfield**, but a **gap analysis against existing infrastructure**. Key finding: three of the four AR-REC domain scenarios can be implemented largely by wiring existing capabilities together, not by building from scratch.
 
-**Recommendation for AR-REC-B**: **PROCEED with REDUCED scope.** Build a thin `Recommendation` domain object that composes existing machinery (SuggestionService, attention system, ConversationContext, approval pipeline, Engineering Event Store, dormant `decisions` table). Do not rebuild persistence, authorization, or event infrastructure.
+**Recommendation for AR-REC-B**: **PROCEED WITH REDUCED SCOPE.** Vestara needs a bounded structured recommendation/choice interaction capability. The minimum owning abstraction remains an AR-REC-B design decision. AR-REC re-enters existing governed Vestara processing after a human choice. Existing approval pipelines remain independently authoritative and participate only when downstream execution encounters their established approval boundary.
 
 ---
 
@@ -85,7 +85,7 @@ Tool invocation
 - `pendingApprovals()` — discovers unresolved approvals
 - `BudgetExhaustedException` — cannot bypass via approval if budget exhausted
 
-**Assessment**: This is the **authorization boundary** for execution. AR-REC should compose at this boundary — a decision to execute a recommendation routes through the existing approval pipeline, not around it.
+**Assessment**: This is the **authorization boundary** for execution. AR-REC does not abstract over this boundary. After a human choice expresses intent, governed continuation re-enters existing Vestara processing. Existing approval pipelines participate only when downstream execution encounters their established approval boundary — not as a structural part of every recommendation.
 
 ### 1.3 Task-Level Approval Pipeline
 
@@ -214,7 +214,7 @@ CREATE TABLE IF NOT EXISTS decisions (
 )
 ```
 
-**Assessment**: This is the **exact schema** AR-REC needs for decision persistence. It already has `recommendation`, `alternatives`, `rationale`, `confidence`, `accepted`, `accepted_by`, `accepted_at`. AR-REC-B should wire this table into the `SuggestionService` / `Recommendation` flow rather than creating a new schema.
+**Assessment**: Historical design evidence / persistence reuse candidate. The schema carries `recommendation`, `alternatives` (JSON), `rationale`, `confidence`, `accepted`, `accepted_by`, `accepted_at`. However, `accepted INTEGER DEFAULT 0` is oriented toward binary acceptance even though `alternatives` is JSON. AR-REC requires generic N-option interaction semantics — whether this table's structure is compatible with N-option decisions, or whether AR-REC-B needs a different persistence shape, must be determined during AR-REC-B design rather than assumed from this dormant schema. Do not modify or wire this table from AR-REC-A evidence alone.
 
 ### 1.7 Engineering Event Store — Audit Trail
 
@@ -239,7 +239,7 @@ Multi-policy composition with conflict resolution:
 - Conflict resolution: `deny-overrides`, `allow-overrides`, `priority-ordered`, `most-restrictive`, etc.
 - `PolicyDecisionRecord` type exists but has **no persistence store**
 
-**Assessment**: Policy engine is the **governance composition layer**. AR-REC should evaluate recommendations against the policy engine, not build a parallel governance system.
+**Assessment**: Policy engine is the **governance composition layer**. AR-REC does not build a parallel governance system. Existing genuine approval requests remain unchanged and may still be presented through Activity Room in the future because their authority originates from the existing governance subsystem, not from Activity Room or the recommendation contract.
 
 ---
 
@@ -266,50 +266,46 @@ User dismisses suggestion
 
 **Missing**: No approval gate, no decision record, no governance check, no recommendation presentation in Activity Room.
 
-### 2.2 Desired Flow — Recommendation → Decision → Execution (With Governance)
+### 2.2 Desired Flow — Recommendation → Human Choice → Governed Continuation
 
 ```
 Agent generates recommendation (via suggestion, attention, or conversation)
-  → RecommendationService.present({
-      title, description, rationale, confidence,
-      options: [{ label, description, impact }],
-      source: { type, id },
-      governanceLevel: 'choice' | 'approval' | 'authorization'
-    })
-    → Recommendation persisted to decisions table
-    → recommendation:presented event emitted
-    → M9 ingestion bridge projects to Activity Room
-    → UI renders recommendation card in stream
+  → Present recommendation to human (title, description, rationale, options)
+  → UI renders recommendation card in Activity Room
 
 Human reviews recommendation
   → UI presents option selection (ClarifyOptions / Decision pattern)
   → Human selects option
-    → Decision recorded to decisions table
-    → decision.recorded event emitted to Engineering Event Store
-    → M9 ingestion bridge projects decision to Activity Room
+    → Human choice/intent is recorded (for audit trail)
 
-If governance required (governanceLevel = 'approval' | 'authorization'):
-  → Route through existing approval pipeline
-    → createPendingApproval() → awaiting-approval state
-    → decideApproval() → approved | rejected
-      → If approved: execute recommendation
-      → If rejected: record rejection
-
-If execution required:
-  → Route through execution policy
-    → evaluateOperation() → disposition
-      → If 'allow': execute
-      → If 'require-approval': pause for approval
-      → If 'deny': reject with reason
+  → Governed continuation begins
+    → Current-state / policy evaluation runs
+      → Protected operation discovered?
+        │
+     no │       yes
+        ↓        ↓
+   continue   Existing governance/approval authority
+              (only if required by downstream execution)
 ```
+
+**Critical invariant**: A recommendation choice expresses human intent within an interaction. It does not grant operational approval unless an existing authoritative governance contract explicitly establishes that the interaction is itself an approval request.
+
+Therefore a generic recommendation choice MUST NOT independently produce:
+- `approvalGranted` or approval exceptions
+- Harness approval decisions
+- Workflow approval decisions
+- Policy `allow` decisions
+- Equivalent authority
+
+Existing genuine approval requests remain unchanged and may still be presented through Activity Room in the future because their authority originates from the existing governance subsystem, not from Activity Room or the recommendation contract.
 
 ### 2.3 Existing Bridges (Wiring Points)
 
 | Bridge | Event Flow | AR-REC Use |
 |--------|-----------|------------|
-| M9 Ingestion Bridge | EventBus → M9 DurableActivityStore | Consume `recommendation:presented`, `decision.recorded` |
+| M9 Ingestion Bridge | EventBus → M9 DurableActivityStore | AR-REC-B must determine whether existing events can carry recommendation/choice semantics |
 | AgentLifecycleBridge | `harness.*` → `agent:started/completed` | Reference pattern for new bridge |
-| HarnessEngineeringEventBridge | `harness.*` → EngineeringEventStore | Emit `decision.recorded` for audit trail |
+| HarnessEngineeringEventBridge | `harness.*` → EngineeringEventStore | Existing audit trail — AR-REC-B determines whether this carries choice semantics |
 | ConversationResponseBridge | `conversation:response.completed` → M9 | Already ingests conversation responses |
 
 ---
@@ -321,14 +317,14 @@ If execution required:
 | Suggestions | `SuggestionStorage` (in-memory sql.js) | `scaffold.db` | REUSE — extend with `accept()` method |
 | Dismissed suggestions | `SuggestionStorage.dismissed_suggestions` | `scaffold.db` | REUSE — already tracks dismissals |
 | Suggestion feedback | `SuggestionStorage.suggestion_feedback` | `scaffold.db` | EXTEND — add `decision` field |
-| **Decision records** | **DORMANT `decisions` table** | `scaffold.db` | **WIRE** — activate dormant schema |
+| **Decision records** | **DORMANT `decisions` table** | `scaffold.db` | **REUSE CANDIDATE** — N-option compatibility TBD during AR-REC-B |
 | Approval decisions | `FileThreadStore` (agent-harness) | `threads/` | REUSE — route through existing approval |
 | Task approval | `TaskStore` (orchestration) | `plans.db` | REUSE — route through existing approval |
 | Engineering events | `SqliteEngineeringEventStore` | `engineering-events.db` | REUSE — emit audit events |
 | Activity records | `SqliteActivityStore` (M9) | `vestara-activity.db` | REUSE — project via M9 bridge |
 | Attention items | `InMemoryAttentionItem` | In-memory | EXTEND — add decision link |
 
-**Key insight**: The dormant `decisions` table in `scaffold.db` already has the exact schema AR-REC needs. No new database, no new table, no new store class required — just wiring.
+**Key insight**: The dormant `decisions` table in `scaffold.db` is a historical design evidence / persistence reuse candidate. Its `accepted`/`accepted_by`/`accepted_at` representation appears oriented toward binary acceptance even though `alternatives` is JSON. AR-REC requires generic N-option interaction semantics — compatibility must be determined during AR-REC-B rather than assumed from this dormant schema.
 
 ---
 
@@ -341,18 +337,20 @@ If execution required:
 | `orchestration.task.approval-resolved` | OrchestrationDispatch | INGEST | REUSE — captures governance approvals |
 | `orchestration.task.review.decided` | OrchestrationReview | INGEST | REUSE — captures review decisions |
 | `harness.approval.resolved` | AgentHarness | Via harness bridge | REUSE — captures tool approvals |
-| **`recommendation:presented`** | **NEW** | **ADD to PATTERN_DISPOSITIONS** | **CREATE** — notification that recommendation exists |
-| **`decision.recorded`** | **NEW** | **ADD to PATTERN_DISPOSITIONS** | **CREATE** — audit trail for decision |
+| **Semantic need: recommendation presentation** | **TBD** | **TBD** | AR-REC-B must determine whether existing events can carry this semantic or a new event is required |
+| **Semantic need: human choice/decision recording** | **TBD** | **TBD** | AR-REC-B must determine whether existing events can carry this semantic or a new event is required |
 
-**Existing events that AR-REC can compose with**:
+**Existing events that AR-REC can reuse or extend**:
 - `conversation:response.completed` — already ingested, captures human conversational choices
 - `orchestration.task.approval-resolved` — already ingested, captures governance approvals
 - `orchestration.task.review.decided` — already ingested, captures review decisions
 - `harness.approval.resolved` — captured via harness bridge, captures tool approvals
 
-**New events needed** (minimal):
-- `recommendation:presented` — notification that a recommendation exists (for Activity Room display)
-- `decision.recorded` — audit trail for the decision outcome (for Engineering Event Store)
+**Semantic needs identified** (implementation not frozen):
+- Recommendation presentation — durable representation that a recommendation exists and is presented to a human
+- Human choice/decision recording — durable representation of what the human chose and when
+
+AR-REC-B must determine whether existing Activity, conversation, or engineering event contracts can carry these semantics, or whether new canonical events are actually necessary. Do not freeze event names or assume new event namespaces from AR-REC-A evidence alone.
 
 ---
 
@@ -360,20 +358,20 @@ If execution required:
 
 ### 5.1 Authorization Layers (Distributed)
 
-| Layer | File | Authority | AR-REC Composition |
+| Layer | File | Authority | AR-REC Relationship |
 |-------|------|-----------|-------------------|
-| **Execution Policy** | `execution-policy.ts` | `allow \| require-approval \| deny` per operation | Route execution through existing gate |
-| **AI Invocation Guard** | `ai-invocation-guard.ts` | Provider/model binding validation | No change needed |
-| **Orchestration Policy** | `policies.ts` | Task-level approval triggers | Route task execution through existing gate |
-| **Policy Engine** | `default-policy-engine.ts` | Multi-policy composition with conflict resolution | Evaluate recommendations against policy engine |
+| **Execution Policy** | `execution-policy.ts` | `allow \| require-approval \| deny` per operation | Independently authoritative — AR-REC does not abstract over this |
+| **AI Invocation Guard** | `ai-invocation-guard.ts` | Provider/model binding validation | Independently authoritative — AR-REC does not modify this |
+| **Orchestration Policy** | `policies.ts` | Task-level approval triggers | Independently authoritative — AR-REC does not abstract over this |
+| **Policy Engine** | `default-policy-engine.ts` | Multi-policy composition with conflict resolution | Independently authoritative — AR-REC does not build a parallel system |
 
 ### 5.2 Three Distinctions Verified
 
-| Distinction | Existing Mechanism | File | AR-REC Composition |
+| Distinction | Existing Mechanism | File | AR-REC Relationship |
 |------------|-------------------|------|-------------------|
-| **Human conversational choice** | `ClarifyOptions` / `Decision` in ConversationContext | `conversation/src/types.ts:98-113` | Use for presenting options |
-| **Governance approval** | `createPendingApproval()` → `decideApproval()` | `agent-harness/src/index.ts:383-419` | Route through for governance-level recommendations |
-| **Execution authorization** | `evaluateOperation()` → disposition | `execution-policy.ts:212` | Route through for execution-level recommendations |
+| **Human conversational choice** | `ClarifyOptions` / `Decision` in ConversationContext | `conversation/src/types.ts:98-113` | AR-REC uses this for presenting options and capturing human intent |
+| **Governance approval** | `createPendingApproval()` → `decideApproval()` | `agent-harness/src/index.ts:383-419` | Independently authoritative — AR-REC does not abstract over this |
+| **Execution authorization** | `evaluateOperation()` → disposition | `execution-policy.ts:212` | Independently authoritative — AR-REC does not abstract over this |
 
 ### 5.3 AR-REC-GOV Invariant Compliance
 
@@ -469,35 +467,44 @@ Any source (SuggestionService, Attention, Conversation, Orchestration)
 
 | Scenario | Existing Machinery | Reuse | Extend | Gap |
 |----------|-------------------|-------|--------|-----|
-| **Workspace advisor** | SuggestionService | SuggestionService (generate, dismiss, track) | Add `accept()` with decision recording | Decision record persistence (wire dormant table) |
-| **Task governance** | OrchestrationDispatch + ApprovalPolicy | Task approval pipeline, change plan review | Add recommendation pre-step before task dispatch | Recommendation presentation UI |
-| **Permission-level governance** | ExecutionPolicy + AIInvocationGuard | Tool approval pipeline, risk-level gating | Add recommendation layer before tool invocation | Recommendation → approval routing |
-| **Human-choice governance** | ConversationContext + ClarifyOptions | Structured response types, option presentation | Add decision recording, governance routing | Decision persistence, governance check |
+| **Workspace advisor** | SuggestionService | SuggestionService (generate, dismiss, track) | Add human-choice capture with decision recording | Decision record persistence (dormant table reuse candidate) |
+| **Task governance** | OrchestrationDispatch + ApprovalPolicy | Task approval pipeline, change plan review | Add recommendation presentation before task dispatch | Recommendation presentation UI |
+| **Permission-level governance** | ExecutionPolicy + AIInvocationGuard | Tool approval pipeline, risk-level gating | Add recommendation presentation before tool invocation | Recommendation → intent capture |
+| **Human-choice governance** | ConversationContext + ClarifyOptions | Structured response types, option presentation | Add decision recording, governed continuation | Decision persistence, governance boundary check |
 
 ### 8.2 Cross-Domain Generality Assessment
 
 | Domain | Can AR-REC serve it? | What exists | What's needed |
 |--------|---------------------|-------------|---------------|
 | **Workspace** | ✅ Yes | SuggestionService, attention items | Recommendation wrapper, decision recording |
-| **Orchestration** | ✅ Yes | Task approval, change plan review | Recommendation pre-step, UI presentation |
-| **Execution** | ✅ Yes | Tool approval, risk-level gating | Recommendation → approval routing |
-| **Conversation** | ✅ Yes | ClarifyOptions, Decision types | Decision persistence, governance routing |
+| **Orchestration** | ✅ Yes | Task approval, change plan review | Recommendation presentation, intent capture |
+| **Execution** | ✅ Yes | Tool approval, risk-level gating | Recommendation presentation, intent capture |
+| **Conversation** | ✅ Yes | ClarifyOptions, Decision types | Decision persistence, governed continuation |
 
-**Assessment**: AR-REC is **genuinely cross-domain**. All four scenarios can be served by a thin `Recommendation` domain object that composes existing machinery. No scenario requires building from scratch.
+**Assessment**: AR-REC is **genuinely cross-domain**. All four scenarios can be served by a bounded structured recommendation/choice interaction capability. No scenario requires building from scratch. The minimum owning abstraction remains an AR-REC-B design decision.
 
 ### 8.3 Recommendation: AR-REC-B Scope
 
-**PROCEED with REDUCED scope**. The audit reveals:
+**PROCEED WITH REDUCED SCOPE — Vestara needs a bounded structured recommendation/choice interaction capability. The minimum owning abstraction remains an AR-REC-B design decision.**
 
-1. **Persistence**: Wire dormant `decisions` table — no new schema, no new store class
-2. **Events**: Add `recommendation:presented` and `decision.recorded` — 2 new event types, not 10
-3. **Authorization**: Compose at existing boundaries — no new governance layer
+The audit reveals:
+
+1. **Persistence**: Dormant `decisions` table is a reuse candidate — N-option compatibility must be determined during AR-REC-B
+2. **Events**: Two semantic needs identified (recommendation presentation, human choice recording) — whether existing events can carry these semantics or new events are required is an AR-REC-B decision
+3. **Authorization**: Existing approval pipelines are independently authoritative — AR-REC does not abstract over them
 4. **UI**: Extend existing components — 3 new components (cards), not a full design system
-5. **Domain object**: Thin `Recommendation` type that wraps SuggestionService output
+5. **Domain object**: The minimum owning abstraction is an AR-REC-B design decision
+
+**AR-REC-B must compare at minimum**:
+- Bounded extension of existing Activity interaction records
+- Bounded extension of conversation/message ingress
+- Small generic structured-interaction envelope
+- Thin first-class Recommendation contract
+
+**Do not authorize** from AR-REC-A evidence alone: RecommendationService, DecisionService, new store, or new event namespace. AR-REC-B must determine the minimum correct abstraction.
 
 **What AR-REC-B should NOT build**:
-- New persistence store (use dormant `decisions` table)
-- New authorization layer (compose at existing boundaries)
+- New authorization layer (existing approval pipelines remain independently authoritative)
 - New event bus (use existing InProcessEventBus)
 - New UI design system (extend existing components)
 - New governance engine (use existing policy engine)
@@ -512,7 +519,9 @@ No anomalies, blockers, or deviation signals detected during audit execution. Al
 
 ## Deliverable 10: Recommendation for AR-REC-B
 
-### Decision: **PROCEED with REDUCED scope**
+### Decision: **PROCEED WITH REDUCED SCOPE**
+
+Vestara needs a bounded structured recommendation/choice interaction capability. The minimum owning abstraction remains an AR-REC-B design decision.
 
 ### Rationale
 
@@ -522,19 +531,22 @@ The audit demonstrates that Vestara already has:
 - Conversation structured responses (ClarifyOptions, Decision)
 - Attention system for observation/instruction display
 - Engineering Event Store for immutable audit trail
-- Dormant `decisions` table with exact required schema
+- Dormant `decisions` table as historical design evidence / persistence reuse candidate
 - Policy engine for multi-policy governance composition
 - UI primitives (modal, drawer, alert, toast, approve/deny patterns)
 
-**AR-REC-B should build**: A thin `Recommendation` domain object that:
-1. Wraps SuggestionService output with multi-choice options
-2. Wires the dormant `decisions` table for persistence
-3. Adds 2 event types (`recommendation:presented`, `decision.recorded`)
-4. Extends M9 ingestion bridge to consume new events
-5. Adds 3 UI components (RecommendationCard, OptionSelectionCard, DecisionOutcomeBadge)
-6. Routes decisions through existing governance layers
+**AR-REC-B must determine**:
+1. The minimum owning abstraction (Activity extension, conversation extension, generic envelope, or first-class Recommendation contract)
+2. Whether existing events can carry recommendation presentation and human choice semantics, or new canonical events are required
+3. Whether the dormant `decisions` table is compatible with N-option interaction semantics
+4. How governed continuation re-enters existing Vestara processing after a human choice
 
-**AR-REC-B should NOT build**: New persistence, new authorization, new event bus, new design system, new governance engine.
+**AR-REC-B must NOT build**:
+- New authorization layer (existing approval pipelines remain independently authoritative)
+- New event bus (use existing InProcessEventBus)
+- New UI design system (extend existing components)
+- New governance engine (use existing policy engine)
+- Anything that produces `approvalGranted`, approval exceptions, Harness approval decisions, Workflow approval decisions, or policy `allow` decisions from a generic recommendation choice
 
 ### Expected Reduction
 
@@ -542,19 +554,18 @@ The audit demonstrates that Vestara already has:
 |-------------------|------------------------|-----------|
 | ~1200 lines across 35 files | ~600 lines across 18 files | ~50% |
 | 4 milestones (REC-A through REC-D) | 2 milestones (REC-B + REC-C) | ~50% |
-| New persistence layer | Wire existing dormant table | ~80% persistence reduction |
-| New authorization layer | Compose at existing boundaries | ~90% authorization reduction |
+| New persistence layer | Dormant table reuse candidate | ~80% persistence reduction |
+| New authorization layer | Existing pipelines remain independently authoritative | ~90% authorization reduction |
 | New UI design system | Extend existing components | ~70% UI reduction |
 
 ### AR-REC-B Authorization Request
 
 Request authorization for AR-REC-B with the audit-adjusted scope:
-1. Wire dormant `decisions` table via `SuggestionService` extension
-2. Add `recommendation:presented` and `decision.recorded` events
-3. Extend M9 ingestion bridge for new event patterns
-4. Create 3 UI components (RecommendationCard, OptionSelectionCard, DecisionOutcomeBadge)
-5. Add `composeParticipants()` integration for recommendation display
-6. Evidence tests for all new behaviors
+1. Determine the minimum owning abstraction (Activity extension, conversation extension, generic envelope, or first-class Recommendation contract)
+2. Determine whether existing events can carry recommendation presentation and human choice semantics
+3. Determine dormant `decisions` table compatibility with N-option semantics
+4. Create bounded UI components for recommendation presentation and choice capture
+5. Evidence tests for all new behaviors
 
 ---
 
