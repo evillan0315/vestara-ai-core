@@ -6,6 +6,7 @@ export * from './events';
 export * from './execution-policy';
 export * from './harness';
 export * from './ids';
+export * from './interaction';
 export * from './intent';
 export * from './job';
 export * from './metadata';
