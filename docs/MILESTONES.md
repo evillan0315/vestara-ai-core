@@ -2243,6 +2243,57 @@ vestara provider status ollama
 
 ---
 
+## Activity Room Production UX Milestone
+
+### AR-UI — Activity Room Production Team Experience ✅ Complete
+
+**Objective**: Dedicated Activity Room Production UX milestone, separate from AR-P2 and explicitly constrained so none of the work changes Harness, Workflow, Orchestration, Agent execution, routing, or runtime semantics. Turn `/activity-v2` into a production collaboration surface where the user can see the real team, understand current activity, inspect/configure participants through existing authorities, choose a conversational target, and send messages into the existing Vestara execution path.
+
+**Architectural rule**: Activity Room observes and presents existing Vestara capabilities. It does not redefine how they execute.
+
+- No Harness behavior changes.
+- No Workflow behavior changes.
+- No Orchestration changes.
+- No Agent execution changes.
+- No runtime/session changes.
+- No routing intelligence changes.
+- No AR-P2 work.
+
+**Status**: ✅ Approved (Planning Complete — Awaiting Implementation)
+
+**Key artifacts**:
+
+- Blueprint: `vestara-blueprint/06-workspace/activity-room-production-ux-milestone.md`
+- Implementation detail: `docs/activity-room/arx-015-ux-production-milestone.md`
+- Architecture review: `docs/activity-room/arx-015-architecture-review.md` (Revision 2)
+
+**Implementation batches**:
+
+| Batch | Phases | Goal |
+|-------|--------|------|
+| AR-UI-A | 0–2 | Authoritative Team roster |
+| AR-UI-B | 3–6 | Presence, work counters, activity, tooltip |
+| AR-UI-C | 7–13 | Reusable Participant Drawer |
+| AR-UI-D | 14–16 | Composer targeting + realtime integration |
+| AR-UI-E | 17–20 | UX polish, performance, verification, certification |
+
+**Production boundary (frozen invariant)**:
+
+> Activity Room may read authoritative Vestara state, compose presentation/read models, invoke already-supported configuration mutations, and submit messages through existing ingress. Activity Room MUST NOT change or reproduce Harness, Workflow, Orchestration, Agent execution, routing, runtime/session, governance, or authorization semantics. Missing backend capability is reported as a dependency or adjacent finding — not invented inside the UI.
+
+**Capabilities**: Authoritative Team grouping · Authoritative Agent/Human roster · Model/name-first conversational identity · Runtime status visualization · Active work counters · Latest activity previews · Participant tooltips · Reusable detailed participant Drawer · Supported Agent configuration editing · Provider → Model dependent selection · Execution/task/activity inspection · Team/participant targeting in the composer · Responsive/realtime updates · Reconnect/resync correctness · Production performance and UX verification.
+
+**Final human acceptance scenario**:
+
+```text
+Open Vestara → Activity Room → See Engineering Team → See Mimo working
+→ Hover Mimo → Inspect Mimo → See current work → Close Drawer
+→ To: Engineering Team → "Install agent control" → Send
+→ Existing Vestara execution path takes over
+```
+
+---
+
 ## Summary Dashboard
 
 | Era | Version | Theme | Status |
@@ -2266,6 +2317,7 @@ vestara provider status ollama
 | API Builder UI | v7.8 | API Builder UI/UX Enhancement (live endpoints, history persistence, env vars, code snippets, keyboard shortcuts, response tree view, tabs) | ✅ Complete |
 | Dashboard UI | v7.9 | Dashboard & Settings UI Consistency (MUI→Tailwind, CSS variable fixes) | ✅ Complete |
 | CLI/API Alignment | v7.10 | CLI/API Runtime Alignment (boot sequence, context pattern, lifecycle management) | ✅ Complete |
+| **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
