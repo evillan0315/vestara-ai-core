@@ -1,0 +1,921 @@
+# ARX-015 AR-REC-C1 — Interaction Integration Architecture Audit
+
+> **Status**: COMPLETE  
+> **Authorized by**: Director  
+> **Executed by**: vestara-developer  
+> **Date**: 2026-08-29  
+> **Frozen baseline**: AR-REC-A at `355922b`, AR-REC-B at `5dc54ba`  
+> **Mutation scope**: Audit documentation/evidence only. No production code, contracts, schemas, stores, routes, events, UI components, or behavioral changes.  
+> **Primary question**: Given only an `interactionId` and opaque `choiceId`, how can Vestara recover sufficient authoritative provenance to safely continue processing?
+
+---
+
+## Executive Summary
+
+The AR-REC-C1 audit examines every existing Vestara subsystem that could produce, store, project, ingest, or respond to structured interactions. The audit finds:
+
+**No existing substrate stores "a set of choices + presenting source" that can be looked up by `interactionId`.** The AR-REC-B `StructuredInteraction` contract is defined in `@vestara/types` but is never instantiated by any production code. All existing producer subsystems (SuggestionService, Conversation/Message, Harness Approval, Orchestration Dispatch) use their own data shapes and lifecycle. None produces or consumes `StructuredInteraction`.
+
+**The gap is narrow but real.** The minimum integration surface is:
+1. A new **interaction store** (in-memory or persisted) that holds `StructuredInteraction` objects keyed by `InteractionId`
+2. A new **ingress path** (endpoint or WebSocket message type) that accepts `InteractionResponse` and validates it against the stored interaction
+3. A new **EventBus event type** (`interaction.presented`, `interaction.responded`) for downstream awareness
+
+Three candidate integration architectures are evaluated. **Candidate A (Interaction Store + Existing Ingress)** is recommended as the minimum viable integration: a new `InteractionStore` class in `@vestara/activity-projection` (or `@vestara/types`), a new `POST /api/interactions/:id/response` endpoint in `apps/api`, and new `interaction.*` EventBus events for M9 projection — all without modifying existing subsystem contracts.
+
+---
+
+## C1-0: Audit Scope
+
+This audit examines:
+
+| Subsystem | Examined For |
+|-----------|-------------|
+| SuggestionService | Producer of interaction-like objects, reuse candidate |
+| Conversation/Message | Message lifecycle, structured response support |
+| Agent Harness | Approval pipeline, decision patterns |
+| Orchestration Dispatch | Task-level approval, policy evaluation |
+| M9 ActivityStore | Projection infrastructure, persistence substrate |
+| M9 IngestionBridge | Event normalization, EventBus integration |
+| M10 ProjectionRuntime | Participant projection, attention |
+| Engineering Event Store | Durable evidence, append-only event log |
+| EventBus (InProcessEventBus) | Pattern matching, event routing |
+| Activity Room API (M11A) | Read surface, composeParticipants |
+| Activity Room WebSocket (M11B) | Real-time transport, hub |
+| Activity Room Legacy | `/api/messages`, `/api/activity-room` |
+| Activity Room M11C Page | UI rendering, message submission |
+| DecisionService | Decision lifecycle (dormant) |
+| Scaffold Migrations | Dormant `decisions` table |
+| PolicyEngine | Approval policies |
+| Harness Approval Pipeline | Tool-level approval |
+
+---
+
+## C1-1: Contract Inventory
+
+### AR-REC-B Frozen Contract (`packages/types/src/interaction.ts`)
+
+| Type | Purpose | Status |
+|------|---------|--------|
+| `InteractionId` | Stable branded identity | Defined, exported, unused in production |
+| `ChoiceId` | Stable branded choice identity | Defined, exported, unused in production |
+| `InteractionChoice` | Choice with label + description | Defined, unused |
+| `StructuredInteraction` | Presented interaction envelope | Defined, unused |
+| `InteractionResponse` | Human response to interaction | Defined, unused |
+| `InteractionLifecycle` | `'presented' \| 'responded' \| 'expired'` | Defined, unused |
+| `isStructuredInteraction()` | Type guard | Defined, unused |
+| `isInteractionResponse()` | Type guard | Defined, unused |
+| `validateInteraction()` | Structural validation (non-empty choices, unique IDs) | Defined, unused |
+| `validateResponseForInteraction()` | Relationship validation (interactionId match, choice exists) | Defined, unused |
+
+**Key finding**: The contract is complete and self-contained but has zero production consumers. No subsystem creates, stores, or retrieves `StructuredInteraction` objects. No endpoint accepts `InteractionResponse`.
+
+### Existing Analogous Contracts
+
+| Contract | Location | Analogy | Gap vs StructuredInteraction |
+|----------|----------|---------|------------------------------|
+| `Suggestion` | `packages/workspace/src/suggestion-service.ts:12-34` | Single recommendation, no multi-choice | No `InteractionId`, no `InteractionChoice[]`, no response capture |
+| `Message` | `packages/shared/src/conversation-types.ts:22-33` | Text message in conversation | No structured choices, no response capture, no lifecycle |
+| `ApprovalRequest` | `packages/agent-harness/src/index.ts:1199-1224` | Tool execution approval | Domain-specific (tool-call), not reusable for arbitrary interactions |
+| `PolicyDecision` | `packages/agent-harness/src/execution-policy.ts:49-67` | Risk assessment result | Consumed by Harness, not exposed as interaction |
+| `AttentionItem` | `packages/workspace/src/attention-system.ts:69-79` | Notification/attention signal | No choices, no response capture |
+
+---
+
+## C1-2: Producer / Origin Audit
+
+### SuggestionService
+
+**File**: `packages/workspace/src/suggestion-service.ts`  
+**Status**: REUSE/EXTEND  
+
+**Current lifecycle**:
+```
+deterministicSuggest() → Suggestion[]
+aiSuggest() → Suggestion[]
+  → storage.store(suggestion)          // persists to dismissed_suggestions / suggestion_feedback
+  → getActiveSuggestions(workspace)    // non-dismissed
+  → dismiss(id)                        // mark dismissed
+  → trackAction(id, action)            // record action taken
+  → executeSuggestion(id)              // run suggestion.command
+```
+
+**Gaps vs StructuredInteraction**:
+- No `InteractionId` — Suggestion uses `string id`
+- No `InteractionChoice[]` — singular recommendation, not multi-choice
+- No response capture — `trackAction` stores `action: string`, not a structured `InteractionResponse`
+- No lifecycle state — no `presented/responded/expired`
+- No provenance — no `presentingParticipantId`, `respondingParticipantId`
+- `executeSuggestion` is a direct execution authority — violates REC-GOV-01
+
+**Assessment**: SuggestionService is the **highest-value reuse candidate** but cannot directly produce `StructuredInteraction` without extension. A wrapper that:
+1. Generates `StructuredInteraction` from Suggestion data (mapping `Suggestion.title` → `content`, creating `InteractionChoice[]` from suggested actions)
+2. Stores the interaction in a new `InteractionStore`
+3. Captures `InteractionResponse` on human selection
+4. Delegates to existing SuggestionService for execution
+
+...would allow SuggestionService to become an interaction producer without modifying its core contract.
+
+### ConversationService / Message
+
+**File**: `packages/shared/src/conversation-types.ts:22-33`, `packages/conversation/src/index.ts`  
+**Status**: NO STRUCTURED RESPONSES IN CURRENT CODEBASE  
+
+**Message type**:
+```typescript
+interface Message {
+  id: string;
+  conversationId: string;
+  role: MessageRole;           // 'system' | 'user' | 'assistant' | 'tool'
+  content: string;             // freeform text only
+  provider?: string;
+  model?: string;
+  tokens?: number;
+  cost?: number;
+  latency?: number;
+  createdAt: string;
+}
+```
+
+**Key finding**: `Message.content` is `string` — freeform text. There is no `structuredResponse` field, no `interactionId` reference, no choice selection data. The Activity Room composer sends messages via `POST /api/messages` with `{ content, agentId? }` body. No existing mechanism attaches a structured response to a message.
+
+**Assessment**: Conversation/Message cannot serve as the interaction store. It is presentation infrastructure. An interaction response could be sent as a message, but the structured data would need to live elsewhere.
+
+### Agent Harness Approval Pipeline
+
+**File**: `packages/agent-harness/src/index.ts` (lines 1080-1290)  
+**Status**: DOMAIN-SPECIFIC, NOT REUSABLE FOR AR-REC  
+
+**Approval lifecycle**:
+```
+createPendingApproval(toolCall, 'tool-call')
+  → ApprovalRequest { approvalId, agentId, correlationId, createdAt }
+  → decideApproval(approvalId, 'approved' | 'rejected')
+  → re-execute tool call or skip
+```
+
+**Key invariant**: `actor: { id: identity.agentId || 'agent-harness', role: 'system' }` — role is always `'system'`. The Harness is always the presenter. Human is always the decider.
+
+**Gaps vs StructuredInteraction**:
+- Domain-specific: tied to tool execution, not arbitrary interactions
+- Binary decision: `approved | rejected`, not N-option choices
+- No `InteractionId` — uses `ApprovalRequestId`
+- No `InteractionChoice[]` — single approval decision
+- Actor identity is always `role: 'system'` — cannot represent agent-originated interactions with agent-specific provenance
+
+**Assessment**: The Harness approval pipeline is **independently authoritative** and remains so. AR-REC interactions that trigger tool execution will re-enter the Harness approval boundary (REC-GOV-03). The Harness is NOT the interaction store.
+
+### Orchestration Dispatch (Task Approval)
+
+**File**: `packages/workflow-orchestrator/src/orchestration-dispatch.ts`  
+**Status**: DOMAIN-SPECIFIC, NOT REUSABLE  
+
+**Task approval lifecycle**:
+```
+orchestrate() → assign()
+  → evaluateContext() → approvalPolicy.evaluate(task, changePlan)
+    → if policy triggers approval:
+      → task enters 'awaiting-approval' state
+      → external approval required
+```
+
+**Gaps**: Binary approval, no N-option choices, no `InteractionId`, no structured response capture.
+
+**Assessment**: Same as Harness — independently authoritative, not the interaction store.
+
+### DecisionService (Dormant)
+
+**File**: `packages/workspace/src/types.ts` (inferred from scaffold migrations)  
+**Status**: DORMANT — schema exists, zero wiring  
+
+**Scaffold migration** (`packages/workspace/src/scaffold-migrations.ts:81-89`):
+```sql
+CREATE TABLE IF NOT EXISTS decisions (
+  id TEXT PRIMARY KEY,
+  conversation_id TEXT,
+  recommendation_id TEXT,
+  selected_option_id TEXT,
+  decided_by TEXT,
+  decided_at TEXT,
+  metadata TEXT
+);
+```
+
+**Key finding**: This table has the right shape for decision persistence but:
+1. Zero wiring — no code reads from or writes to this table
+2. Binary pattern — `recommendation_id` + `selected_option_id` suggests 1:1 recommendation→decision
+3. No interaction store — decisions table references `recommendation_id` but there is no corresponding `recommendations` or `interactions` table
+4. No lifecycle — no `presented/responded/expired` state tracking
+5. `metadata TEXT` — generic extension bag, which AR-REC-B explicitly rejected
+
+**Assessment**: Historical design evidence. The `decisions` table could potentially be reused for decision persistence, but it lacks the interaction store (the "presented choices + presenting source" substrate). The `metadata` field violates AR-REC-B's no-extension-bag invariant.
+
+---
+
+## C1-3: Interaction Ownership / State Audit
+
+### What Exists
+
+| Artifact | Status | Can Store StructuredInteraction? |
+|----------|--------|----------------------------------|
+| `InteractionId` (type) | Defined in `@vestara/types` | N/A — it's a type, not a store |
+| `StructuredInteraction` (type) | Defined in `@vestara/types` | N/A — it's a type, not a store |
+| `InteractionResponse` (type) | Defined in `@vestara/types` | N/A — it's a type, not a store |
+| `InteractionLifecycle` (type) | Defined in `@vestara/types` | N/A — it's a type, not a store |
+| `decisions` table | Schema in scaffold migrations | Partial — stores decisions, not interactions |
+| `dismissed_suggestions` table | Active in SuggestionService | No — stores dismissal state, not interactions |
+| `suggestion_feedback` table | Active in SuggestionService | No — stores action feedback, not interactions |
+| `m9_activity_events` table | Active in M9 SQLite store | No — stores ActivityEvents, not StructuredInteractions |
+| `engineering_events` table | Active in Engineering Event Store | No — stores raw events, not structured interactions |
+
+### What Does NOT Exist
+
+**There is no interaction store.** No table, no in-memory map, no persistence layer holds `StructuredInteraction` objects keyed by `InteractionId`. This is the primary gap the C2 integration must address.
+
+The `validateResponseForInteraction()` function in `packages/types/src/interaction.ts:263-287` requires both the `InteractionResponse` AND the `StructuredInteraction` to validate. Without a store that can retrieve the interaction by `interactionId`, this validation function cannot be called in production.
+
+---
+
+## C1-4: Persistence Substrate Audit
+
+### Candidate 1: M9 DurableActivityStore
+
+**File**: `packages/activity-projection/src/m9-sqlite-store.ts`  
+**Schema**: `m9_activity_events` with `event_id TEXT NOT NULL UNIQUE`  
+**Dedup**: Database-level UNIQUE constraint on `event_id`  
+**Operations**: `append`, `query`, `getAfter`, `getByEventId`, `replay`, `rebuild`, `getCursor`, `lastSequence`
+
+**Assessment**: M9 is projection/read-model infrastructure. It stores `ActivityEvent` objects (from `@vestara/types`), not `StructuredInteraction` objects. M9's schema is fixed — adding an interaction store would require either:
+- A new table (extending M9's scope, which is a governance concern)
+- Using `payload.data` JSON field to carry interaction data (possible but semantically wrong — M9 becomes authoritative for interactions)
+
+**Verdict**: REUSE for projection (rendering interactions in Activity Room). NOT the canonical interaction store.
+
+### Candidate 2: Engineering Event Store
+
+**File**: `packages/engineering-event-store/src/index.ts`  
+**Schema**: `engineering_events` with `id TEXT NOT NULL UNIQUE`  
+**Dedup**: Database-level UNIQUE constraint on `id`  
+**Operations**: `appendEvent`, `queryEvents`, `getEventById`, `replayEvents`
+
+**Assessment**: Append-only, hash-chained event log. Could store `interaction.presented` and `interaction.responded` events. However:
+- Events are raw `{ id, type, data, timestamp, metadata }` — no structured query by `interactionId`
+- Would require application-level indexing to retrieve interaction by ID
+- Engineering Event Store is evidence infrastructure, not query infrastructure
+
+**Verdict**: GOOD for durable evidence/audit trail. NOT suitable as primary interaction lookup store.
+
+### Candidate 3: In-Memory Store (New)
+
+**Assessment**: A new `InteractionStore` class with `Map<InteractionId, StructuredInteraction>` for active interactions, backed by either M9 or Engineering Event Store for durability. Fast lookup by `InteractionId`. No schema migration required.
+
+**Verdict**: RECOMMENDED as primary interaction store. Durability via EventBus events → M9/Engineering Event Store.
+
+### Candidate 4: Decisions Table (Dormant)
+
+**Assessment**: The `decisions` table in scaffold migrations stores decision responses but NOT the original interactions (the "presented choices"). Cannot look up an interaction by `InteractionId` from this table alone.
+
+**Verdict**: NOT suitable as primary interaction store. Could be reused for decision persistence (the "response" side).
+
+### Candidate 5: SuggestionService Storage
+
+**Assessment**: Stores `Suggestion` objects, not `StructuredInteraction`. Different shape, different lifecycle.
+
+**Verdict**: NOT suitable. Reuse candidate at the service layer, not the storage layer.
+
+### Candidate 6: FileThreadStore
+
+**Assessment**: Stores conversation threads. Different domain, different shape.
+
+**Verdict**: NOT suitable.
+
+### Candidate 7: PolicyEngine
+
+**Assessment**: Evaluates policies, does not store interactions.
+
+**Verdict**: NOT suitable.
+
+### Candidate 8: AttentionService
+
+**Assessment**: In-process only, no persistence, no structured choices.
+
+**Verdict**: NOT suitable.
+
+### Candidate 9: ConversationService
+
+**Assessment**: Stores conversations/messages. Different domain.
+
+**Verdict**: NOT suitable.
+
+### Summary
+
+| Candidate | Primary Store? | Evidence Trail? | Projection? | Recommendation |
+|-----------|---------------|----------------|-------------|----------------|
+| M9 DurableActivityStore | ❌ | ⚠️ (via events) | ✅ | Projection only |
+| Engineering Event Store | ❌ | ✅ | ❌ | Evidence trail only |
+| In-Memory Store (new) | ✅ | ❌ | ❌ | Primary lookup |
+| Decisions Table (dormant) | ❌ | ⚠️ | ❌ | Decision persistence |
+| SuggestionService Storage | ❌ | ❌ | ❌ | Not suitable |
+| FileThreadStore | ❌ | ❌ | ❌ | Not suitable |
+| PolicyEngine | ❌ | ❌ | ❌ | Not suitable |
+| AttentionService | ❌ | ❌ | ❌ | Not suitable |
+| ConversationService | ❌ | ❌ | ❌ | Not suitable |
+
+---
+
+## C1-5: Event and Projection Audit
+
+### Current EventBus Events
+
+**File**: `packages/activity-projection/src/m9-ingestion-bridge.ts:43-192`
+
+INGEST patterns (→ M9 projection):
+- `conversation:created`, `conversation:response.completed`, `conversation:session.started`
+- `plan:created`, `plan:approved`
+- `changeset:created`, `changeset:applied`
+- `verification:started`, `verification:completed`
+- `agent:started`, `agent:completed`
+- `orchestration.*`
+
+IGNORE patterns (→ not Activity Room facts):
+- `workspace:discover.completed`, `workspace:fingerprint.completed`, etc.
+- `memory:indexed`, `user:profile.created`, `user:profile.updated`
+
+DEFER patterns (→ future):
+- `workspace:opened`, `workspace:indexed`, `workspace:updated`
+
+### Missing Events for AR-REC
+
+| Event | Purpose | Current Status |
+|-------|---------|---------------|
+| `interaction.presented` | Interaction created and presented to human | **MISSING** |
+| `interaction.responded` | Human selected a choice | **MISSING** |
+| `interaction.expired` | Interaction lifecycle expired | **MISSING** |
+| `interaction.superseded` | Interaction replaced by newer one | **MISSING** |
+
+### EventB routing note
+
+**File**: `packages/event-bus/src/index.ts:158-165`
+
+`InProcessEventBus` uses pattern matching: exact match or prefix glob (`orchestration.*` matches `orchestration.task.started`). The pattern `agent.*` would match `agent.started` and `agent.completed` but would NOT match `agent:started` (dot vs colon separator). New `interaction.*` events would need consistent separator convention.
+
+### M10 Projection Impact
+
+**File**: `packages/activity-projection/src/m10-projection-runtime.ts`
+
+M10 projects ActivityRecords into participant-level summaries. `updateParticipantFromRecord()` (line 144) derives `ParticipantProjection` from ActivityRecords. If interactions are projected as ActivityRecords (via M9), M10 will automatically derive participant-level summary data.
+
+**Assessment**: No M10 changes needed if interactions flow through M9 as ActivityEvents. M10 already handles any ActivityRecord type.
+
+---
+
+## C1-6: Human Response Ingress Audit
+
+### Current Ingress Points
+
+| Endpoint | Method | Body | Can Accept InteractionResponse? |
+|----------|--------|------|--------------------------------|
+| `POST /api/messages` | POST | `{ content: string, agentId?: string }` | ❌ No structured fields |
+| `POST /api/agents/:id/messages` | POST | `{ content: string, agentId?: string }` | ❌ No structured fields |
+| `POST /api/conversations` | POST | `{ title: string }` | ❌ Creates conversation, not response |
+| `POST /api/conversations/:id/messages` | POST | `{ content: string }` | ❌ Freeform text only |
+| WebSocket `/ws/activity-room/v1` | WS | `M11BMessage` union | ❌ No interaction response type |
+
+### Activity Room Composer (UI)
+
+**File**: `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx`
+
+The Activity Room composer sends messages via:
+```typescript
+POST /api/messages { content: string, agentId?: string }
+```
+
+No `interactionId`, no `selectedChoiceId`, no structured response fields.
+
+**Assessment**: A new ingress point is needed. Options:
+1. New `POST /api/interactions/:id/response` endpoint (cleanest separation)
+2. Extend `POST /api/messages` with optional `interactionId` + `selectedChoiceId` fields (least disruption)
+3. New WebSocket message type in M11B (real-time, but adds complexity)
+
+### WebSocket Transport (M11B)
+
+**File**: `apps/api/src/routes/activity-room-m11b.ts`
+
+M11B handles `M11BMessage` union type: `join-room`, `leave-room`, `ping`. No interaction response type exists. The WebSocket is binary/JSON protocol with buffer capacity 128.
+
+**Assessment**: Could add `interaction-response` message type to M11B. However, this would couple real-time transport to interaction semantics. A REST endpoint is simpler for initial integration.
+
+---
+
+## C1-7: Server-Side Resolution
+
+### validateResponseForInteraction
+
+**File**: `packages/types/src/interaction.ts:263-287`
+
+```typescript
+function validateResponseForInteraction(
+  response: InteractionResponse,
+  interaction: StructuredInteraction,
+): readonly InteractionValidationError[]
+```
+
+This function validates:
+1. `response.interactionId === interaction.interactionId`
+2. `response.selectedChoiceId` exists in `interaction.choices`
+
+**Critical gap**: This function requires BOTH the response AND the interaction to be passed in. Without an interaction store, the server cannot retrieve the interaction by `interactionId` to validate against.
+
+### Resolution Chain (Proposed)
+
+```
+Human submits InteractionResponse via POST /api/interactions/:id/response
+  → Server retrieves StructuredInteraction from InteractionStore by interactionId
+  → validateResponseForInteraction(response, interaction)
+  → If invalid: return 400 with validation errors
+  → If valid: persist response, emit interaction.responded event
+  → Downstream governance re-evaluates current state (REC-GOV-08)
+```
+
+### Existing Analogous Resolution
+
+**Harness Approval Resolution** (`packages/agent-harness/src/index.ts:1260-1289`):
+```
+decideApproval(approvalId, decision)
+  → Retrieve ApprovalRequest from in-memory Map
+  → Validate decision is 'approved' | 'rejected'
+  → Execute callback if approved
+  → Remove from pending approvals
+```
+
+The Harness uses an in-memory `Map<string, PendingApproval>`. This is the same pattern needed for interaction resolution.
+
+---
+
+## C1-8: Operational Idempotency / Retry Audit
+
+### M9 Deduplication
+
+**File**: `packages/activity-projection/src/m9-sqlite-store.ts:36`
+
+```sql
+event_id TEXT NOT NULL UNIQUE
+```
+
+M9 deduplicates by `event_id` at the database level. Same `event_id` → same `ActivityRecord`. This provides idempotent ingestion.
+
+### Engineering Event Store Dedup
+
+**File**: `packages/engineering-event-store/src/migrations.ts:13`
+
+```sql
+id TEXT NOT NULL UNIQUE
+```
+
+Same pattern — database-level uniqueness on `id`.
+
+### Interaction Response Idempotency
+
+**Gap**: No existing mechanism prevents duplicate `InteractionResponse` submissions for the same `interactionId`. Without an interaction store:
+1. Cannot check if a response already exists for the interaction
+2. Cannot enforce "one response per interaction" invariant
+3. Cannot detect double-click / retry duplicates
+
+**Resolution**: The new `InteractionStore` must support:
+- `hasResponse(interactionId: InteractionId): boolean` — check if response already recorded
+- `getResponse(interactionId: InteractionId): InteractionResponse | undefined` — retrieve existing response
+- Database-level uniqueness constraint if persisted (e.g., `interaction_id UNIQUE` in a responses table)
+
+### Correlation ID
+
+The `InteractionResponse.correlationId` field provides application-level dedup:
+```typescript
+correlationId?: string;  // for safe replay
+```
+
+This is a client-generated value for safe replay. The server must check `correlationId` uniqueness to reject duplicate submissions.
+
+---
+
+## C1-9: Staleness and Validity Boundary
+
+### Mechanical Validity (Detectable by InteractionStore)
+
+| Condition | Detection | Resolution |
+|-----------|-----------|------------|
+| Interaction does not exist | Store lookup returns undefined | Return 404 |
+| Interaction already has response | `hasResponse(interactionId)` | Return 409 Conflict |
+| `selectedChoiceId` not in interaction choices | `validateResponseForInteraction` | Return 400 |
+| `interactionId` mismatch | `validateResponseForInteraction` | Return 400 |
+| Response already recorded with same `correlationId` | Correlation lookup | Return 409 |
+
+### Domain Validity (Must Remain with Downstream Systems)
+
+| Condition | Who Detects | Resolution |
+|-----------|-------------|------------|
+| Interaction is stale (state changed since presentation) | Downstream authority (REC-GOV-08) | Reject or re-evaluate |
+| Selected choice is no longer valid | Downstream authority | Reject with explanation |
+| Actor is not authorized to respond | Downstream authority | Reject with authorization error |
+| Interaction expired by policy | Downstream authority | Reject with staleness error |
+
+**Key invariant (REC-GOV-08)**: "A decision created against state at T1 may be acted upon at T2 only after the appropriate downstream authority evaluates current state." The interaction store handles mechanical validity only. Domain validity is the responsibility of whatever system receives the interaction response.
+
+---
+
+## C1-10: Governed Continuation
+
+### Current Continuation Paths
+
+After a human interacts with Activity Room, the system needs to "continue processing" — route the human's intent to the appropriate downstream authority.
+
+**Path 1: Freeform Message → Agent Wake** (`apps/api/src/routes/activity-room.ts:175-183`)
+```
+POST /api/messages → sendActivityMessage() → maybeWakeAddressedAgent()
+```
+This is the existing path for freeform messages. An interaction response could be sent as a message, but the structured data (which choice was selected) would be lost.
+
+**Path 2: Approval Decision → Tool Re-execution** (`packages/agent-harness/src/index.ts:1260-1289`)
+```
+decideApproval(approvalId, 'approved') → re-execute tool call
+```
+Domain-specific to tool execution. Not reusable for arbitrary interactions.
+
+**Path 3: Task Approval → Orchestration Resume** (`packages/workflow-orchestrator/src/orchestration-dispatch.ts`)
+```
+approval received → resume task execution
+```
+Domain-specific to task orchestration. Not reusable.
+
+### Required New Path
+
+```
+InteractionResponse received
+  → Validate against stored interaction
+  → Persist response
+  → Emit interaction.responded event
+  → Route to appropriate downstream authority based on interaction provenance
+  → Downstream authority re-evaluates current state (REC-GOV-08)
+  → Governed continuation
+```
+
+**The routing decision** — "which downstream authority processes this interaction response" — depends on `presentingParticipantId` or `conversationId` from the original `StructuredInteraction`. This is a C2 concern, not C1.
+
+---
+
+## C1-11: Runtime Call Graphs
+
+### Graph 1: Interaction Presentation (Agent → Human)
+
+```
+Agent generates recommendation
+  → SuggestionService.deterministicSuggest() / aiSuggest()
+    → Returns Suggestion[]
+  → [NEW] InteractionAdapter.createInteraction(suggestion)
+    → Maps Suggestion → StructuredInteraction
+    → interactionStore.store(interaction)
+    → EventBus.emit('interaction.presented', { interactionId, ... })
+  → [NEW] M9IngestionBridge handles 'interaction.presented'
+    → fromInteractionPresented() adapter
+    → M9.append(activityEvent)
+  → Activity Room UI renders interaction
+    → M11CActivityRoomPage receives ActivityRecord via WebSocket
+    → Renders InteractionCard with choices
+```
+
+**Missing edges**:
+1. No `InteractionAdapter` exists
+2. No `interactionStore` exists
+3. No `interaction.presented` event exists
+4. No `fromInteractionPresented` adapter exists
+5. No `InteractionCard` UI component exists
+
+### Graph 2: Interaction Response (Human → System)
+
+```
+Human clicks choice in Activity Room UI
+  → [NEW] POST /api/interactions/:id/response
+    → { responseId, interactionId, selectedChoiceId, respondingParticipantId, ... }
+  → [NEW] InteractionStore.retrieve(interactionId)
+  → [NEW] validateResponseForInteraction(response, interaction)
+  → [NEW] InteractionStore.recordResponse(interactionId, response)
+  → [NEW] EventBus.emit('interaction.responded', { interactionId, responseId, ... })
+  → [NEW] M9IngestionBridge handles 'interaction.responded'
+    → fromInteractionResponded() adapter
+    → M9.append(activityEvent)
+  → [NEW] Downstream routing based on interaction provenance
+    → maybeWakeAddressedAgent() or other continuation
+```
+
+**Missing edges**:
+1. No `POST /api/interactions/:id/response` endpoint exists
+2. No `InteractionStore.retrieve()` exists
+3. No `InteractionStore.recordResponse()` exists
+4. No `interaction.responded` event exists
+5. No `fromInteractionResponded` adapter exists
+6. No downstream routing logic exists
+
+### Graph 3: Tool Approval (Existing, Independent)
+
+```
+Agent invokes tool
+  → Harness.resolveEffectivePolicy()
+    → disposition: 'require-approval'
+  → Harness.createPendingApproval(toolCall, 'tool-call')
+    → ApprovalRequest { approvalId, ... }
+    → EventBus.emit('approval.requested', ...)
+  → Human approves
+    → POST /api/approvals/:id (or similar)
+    → Harness.decideApproval(approvalId, 'approved')
+    → Re-execute tool call
+```
+
+**Note**: This path is independent of AR-REC. After a human interaction response triggers governed continuation, if the downstream authority encounters a tool approval boundary, the Harness pipeline handles it separately.
+
+### Graph 4: Task Approval (Existing, Independent)
+
+```
+Task dispatched
+  → OrchestrationDispatch.assign()
+    → approvalPolicy.evaluate(task, changePlan)
+    → If approval required: task enters 'awaiting-approval'
+  → External approval received
+    → Task resumes execution
+```
+
+**Note**: Independent of AR-REC. Task approval is a separate governance boundary.
+
+### Graph 5: Freeform Message → Agent Wake (Existing)
+
+```
+Human types message in Activity Room
+  → POST /api/messages { content, agentId? }
+    → sendActivityMessage() → creates ActivityRecord
+    → maybeWakeAddressedAgent(ctx, record)
+      → Checks if agent is idle
+      → Wakes agent if needed
+```
+
+**Note**: This is the existing path. Interaction responses could piggyback on this path by sending a message with the interaction context, but structured data would be lost.
+
+### Graph 6: M9 Ingestion (Existing)
+
+```
+EventBus event emitted
+  → M9IngestionBridge.onEvent()
+    → Pattern matches against PATTERN_DISPOSITIONS
+    → If INGEST: normalize via adapter → M9.append()
+    → If IGNORE: skip
+    → If DEFER: skip
+  → M9 stores ActivityRecord
+  → M10 ProjectionRuntime projects into ParticipantProjection
+  → WebSocket broadcasts to connected clients
+```
+
+**Note**: If `interaction.presented` and `interaction.responded` events are added to `PATTERN_DISPOSITIONS`, M9 will automatically project them.
+
+### Graph 7: WebSocket Broadcast (Existing)
+
+```
+M9.append() → new ActivityRecord
+  → M10 ProjectionRuntime.updateParticipantFromRecord()
+  → M11B background activity watcher polls M9 every 500ms
+    → Detects new records
+    → Broadcasts via hub to connected WebSocket clients
+  → Activity Room UI receives update
+    → Renders new activity in stream
+```
+
+---
+
+## C1-12: Ownership Matrix
+
+| Capability | Current Owner | AR-REC Needs | Gap |
+|-----------|--------------|-------------|-----|
+| Interaction identity | Nobody (type only) | InteractionStore | NEW: store + CRUD |
+| Choice identity | Nobody (type only) | InteractionStore | NEW: embedded in interaction |
+| Interaction presentation | SuggestionService (partial) | InteractionAdapter + InteractionStore | NEW: adapter + store |
+| Interaction persistence | Nobody | InteractionStore + M9 | NEW: in-memory + M9 projection |
+| Interaction lifecycle | Nobody | InteractionStore | NEW: presented/responded/expired |
+| Response capture | Nobody | POST endpoint + InteractionStore | NEW: endpoint + store |
+| Response validation | `validateResponseForInteraction` (unused) | InteractionStore + endpoint | NEW: wire validation |
+| Response idempotency | Nobody | InteractionStore | NEW: correlation check |
+| Staleness detection | Nobody | Downstream authorities | DEFER: C2 concern |
+| Governance re-entry | Existing Harness/Orchestration | Existing (unchanged) | NONE |
+| Activity Room rendering | M11C + M10 | InteractionCard component | NEW: UI component |
+| Evidence trail | M9 + Engineering Event Store | M9 + Engineering Event Store | NONE (add events) |
+| Participant projection | M10 ProjectionRuntime | M10 (unchanged) | NONE |
+| Real-time transport | M11B WebSocket | M11B (unchanged) | NONE |
+
+---
+
+## C1-13: Candidate Integration Architectures
+
+### Candidate A: Interaction Store + Existing Ingress (RECOMMENDED)
+
+**Components**:
+1. New `InteractionStore` class in `@vestara/activity-projection` (or new package)
+   - In-memory `Map<InteractionId, StructuredInteraction>` for active interactions
+   - Response tracking: `Map<InteractionId, InteractionResponse>`
+   - `store(interaction)`, `retrieve(interactionId)`, `recordResponse(interactionId, response)`, `hasResponse(interactionId)`
+2. New `POST /api/interactions/:id/response` endpoint in `apps/api`
+   - Accepts `InteractionResponse` body
+   - Validates via `validateResponseForInteraction`
+   - Persists to InteractionStore
+   - Emits `interaction.responded` event
+3. New EventBus events: `interaction.presented`, `interaction.responded`, `interaction.expired`
+4. New M9 adapters: `fromInteractionPresented`, `fromInteractionResponded`
+5. New M9 pattern dispositions for `interaction.*`
+6. New `InteractionAdapter` class: maps `Suggestion` → `StructuredInteraction`
+7. New UI component: `InteractionCard` for Activity Room rendering
+
+**Pros**:
+- Clean separation: new store, new endpoint, new events
+- No modification to existing subsystems (SuggestionService, Harness, Conversation)
+- AR-REC-B contract used directly (no new types)
+- M9 projection works automatically via new adapters
+- Follows existing patterns (M9 ingestion bridge, EventBus events)
+
+**Cons**:
+- New package/class to maintain
+- Requires new UI component
+- In-memory store loses data on restart (mitigated by M9 persistence)
+
+### Candidate B: Extend Message with Structured Response
+
+**Components**:
+1. Extend `Message` type with optional `structuredResponse?: InteractionResponse`
+2. Extend `POST /api/messages` with optional `interactionId` + `selectedChoiceId`
+3. ConversationService handles response validation
+4. M9 already projects messages
+
+**Pros**:
+- Minimal new infrastructure
+- Reuses existing message flow
+- M9 projection works automatically
+
+**Cons**:
+- Modifies existing `Message` contract (violates "no modification to existing subsystems")
+- Couples conversation messaging to interaction semantics
+- Cannot look up interaction by `interactionId` without a separate store
+- Violates ownership boundary: Conversation owns messaging, StructuredInteraction owns interaction semantics
+
+### Candidate C: Extend SuggestionService Directly
+
+**Components**:
+1. Add `InteractionId` field to `Suggestion` type
+2. Add `choices: InteractionChoice[]` to `Suggestion`
+3. Add `recordResponse(suggestionId, response)` method
+4. SuggestionService becomes the interaction store
+
+**Pros**:
+- Builds on existing service
+- No new store class
+
+**Cons**:
+- SuggestionService owns suggestion lifecycle, not interaction semantics
+- Couples suggestion generation to interaction persistence
+- Cannot represent interactions that originate outside SuggestionService
+- Violates AR-REC-B: "Interaction identity/choices/responses should not depend on SuggestionService ownership"
+
+### Candidate D: Dormant Decisions Table + New Interactions Table
+
+**Components**:
+1. Create `interactions` table (mirroring AR-REC-B types)
+2. Wire dormant `decisions` table for response persistence
+3. New API endpoints for interaction CRUD + response submission
+
+**Pros**:
+- Durable persistence from day one
+- Reuses dormant schema
+
+**Cons**:
+- Schema-first approach without service layer
+- No in-memory fast path
+- New table requires migration
+- More complex than in-memory store for initial integration
+
+### Recommendation
+
+**Candidate A** is recommended. It provides the cleanest separation, follows existing patterns (M9 ingestion bridge, EventBus events), and does not modify any existing subsystem contracts. The in-memory store is sufficient for initial integration; durability via M9 can be added in a later phase.
+
+---
+
+## C1-14: C2 Minimum Wiring Recommendation
+
+### Minimum Required for C2
+
+Based on the C1 audit, the minimum wiring for C2 (Integration Wiring) is:
+
+1. **InteractionStore** (new class)
+   - In-memory store with `Map<InteractionId, StructuredInteraction>` + `Map<InteractionId, InteractionResponse>`
+   - Methods: `store`, `retrieve`, `recordResponse`, `hasResponse`, `getResponse`
+   - Location: `packages/activity-projection/src/interaction-store.ts` (or new package)
+
+2. **POST /api/interactions/:id/response** (new endpoint)
+   - Accepts `InteractionResponse` body
+   - Validates via `validateResponseForInteraction`
+   - Persists to InteractionStore
+   - Emits `interaction.responded` event
+   - Location: `apps/api/src/routes/interactions.ts`
+
+3. **EventBus events** (new)
+   - `interaction.presented` — emitted when interaction is stored
+   - `interaction.responded` — emitted when response is recorded
+   - `interaction.expired` — emitted when interaction lifecycle expires
+
+4. **M9 adapters** (new)
+   - `fromInteractionPresented(event)` → `ActivityEvent`
+   - `fromInteractionResponded(event)` → `ActivityEvent`
+   - Location: `packages/activity-projection/src/m9-adapter.ts` (extend)
+
+5. **M9 pattern dispositions** (extend)
+   - Add `interaction.presented` → INGEST
+   - Add `interaction.responded` → INGEST
+   - Location: `packages/activity-projection/src/m9-ingestion-bridge.ts`
+
+6. **InteractionAdapter** (new)
+   - Maps `Suggestion` → `StructuredInteraction`
+   - Location: `packages/workspace/src/interaction-adapter.ts` (or new package)
+
+7. **UI: InteractionCard** (new)
+   - Renders `StructuredInteraction` with choice buttons
+   - Emits `InteractionResponse` on selection
+   - Location: `apps/workspace/src/components/activity/InteractionCard.tsx`
+
+### What NOT to Wire in C2
+
+- Domain-specific routing (which downstream authority processes the response) — C2 concern
+- Staleness detection (domain validity) — C2 concern
+- Lifecycle management (expiration, superseding) — C2 concern
+- Attention integration — C2 concern
+- Cross-domain generality verification — C2 concern
+
+---
+
+## C1-15: Evidence and References
+
+### Source Files Examined
+
+| File | Lines | Finding |
+|------|-------|---------|
+| `packages/types/src/interaction.ts` | 1-299 | AR-REC-B frozen contract, complete, unused |
+| `packages/types/src/interaction-architecture.ts` | 1-~100 | B1 Architecture Selection Record |
+| `packages/types/__tests__/interaction-contract.test.ts` | 1-~500 | 65 verification tests |
+| `packages/workspace/src/suggestion-service.ts` | 1-641 | Primary reuse candidate, no interaction support |
+| `packages/shared/src/conversation-types.ts` | 1-89 | Message is text-only, no structured responses |
+| `packages/conversation/src/index.ts` | 1-~500 | ConversationService, message lifecycle |
+| `packages/agent-harness/src/index.ts` | 1-~1300 | Approval pipeline, domain-specific |
+| `packages/agent-harness/src/execution-policy.ts` | 1-~100 | PolicyDecision, risk assessment |
+| `packages/workflow-orchestrator/src/orchestration-dispatch.ts` | 1-~500 | Task approval, domain-specific |
+| `packages/workflow-orchestrator/src/policies.ts` | 1-~100 | DefaultRiskApprovalPolicy |
+| `packages/workspace/src/attention-system.ts` | 1-~300 | AttentionItem, in-process only |
+| `packages/workspace/src/scaffold-migrations.ts` | 1-~150 | Dormant decisions table |
+| `packages/engineering-event-store/src/index.ts` | 1-~550 | Append-only event log |
+| `packages/activity-projection/src/m9-sqlite-store.ts` | 1-~300 | M9 SQLite store, dedup by event_id |
+| `packages/activity-projection/src/m9-ingestion-bridge.ts` | 1-~510 | EventBus → M9 normalization |
+| `packages/activity-projection/src/m9-adapter.ts` | 1-~300 | M9 adapters (no interaction adapter) |
+| `packages/activity-projection/src/m10-projection-runtime.ts` | 1-~200 | Participant projection |
+| `packages/event-bus/src/index.ts` | 1-~250 | InProcessEventBus pattern matching |
+| `packages/policy-engine/src/default-policy-engine.ts` | 1-~200 | PolicyEngine |
+| `apps/api/src/index.ts` | 1-~500 | API boot, composition root |
+| `apps/api/src/routes/activity-room-m11a.ts` | 1-~400 | M11A API, composeParticipants |
+| `apps/api/src/routes/activity-room-m11b.ts` | 1-~400 | M11B WebSocket transport |
+| `apps/api/src/routes/activity-room.ts` | 1-~490 | Legacy Activity Room API |
+| `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` | 1-~600 | Main Activity Room page |
+
+### Commits Referenced
+
+| Commit | Description |
+|--------|-------------|
+| `355922b` | AR-REC-A frozen baseline |
+| `5dc54ba` | AR-REC-B frozen baseline |
+| `d545736` | Agent participant lifecycle bridge |
+| `31a3995` | Identity separation fix |
+| `b890b91` | Agent/Team Authority Integration |
+| `51635e9` | Bulk commit (102 files) |
+| `16d5d41` | Startup latency remediation |
+| `433b7eb` | M9IngestionBridge + smoke proof |
+
+---
+
+## Conclusion
+
+The AR-REC-C1 audit establishes that:
+
+1. **The AR-REC-B contract is complete but has zero production consumers.** No subsystem creates, stores, or retrieves `StructuredInteraction` objects.
+
+2. **No existing substrate stores "a set of choices + presenting source" that can be looked up by `interactionId`.** This is the primary gap.
+
+3. **The minimum integration surface is narrow**: a new `InteractionStore`, a new API endpoint, new EventBus events, new M9 adapters, and a new UI component.
+
+4. **Existing subsystems (SuggestionService, Harness, Conversation) remain independently authoritative.** AR-REC interactions do not replace or modify them.
+
+5. **Governed continuation re-enters existing Vestara processing.** After a human response, the appropriate downstream authority (Harness, Orchestration, or future authority) re-evaluates current state.
+
+6. **Three candidate architectures were evaluated.** Candidate A (Interaction Store + Existing Ingress) is recommended as the minimum viable integration.
+
+**AR-REC-C2 remains NOT AUTHORIZED.** This audit provides the evidence base for a future C2 authorization decision.
+
+---
+
+> **Audit complete. No production code, contracts, schemas, stores, routes, events, UI components, or behavioral changes were made.**
