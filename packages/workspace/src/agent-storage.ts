@@ -1,3 +1,4 @@
+import { CANONICAL_AGENTS } from './agents.registry';
 import type {
   AgentDefinition,
   AgentExecution,
@@ -37,438 +38,29 @@ export class AgentStorage {
   private db: any;
 
   constructor(db: any) {
+    // Schema evolution is owned by the migration chain, executed by each
+    // entrypoint's composition root (API workspace-context, CLI openSharedDb)
+    // BEFORE any storage constructs. AgentStorage does not mutate schema.
     this.db = db;
-    this.ensureSchema();
     this.seedBuiltIn();
   }
 
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS agents (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        role TEXT,
-        description TEXT DEFAULT '',
-        capabilities TEXT DEFAULT '[]',
-        permissions TEXT DEFAULT '[]',
-        provider TEXT DEFAULT '',
-        model TEXT DEFAULT '',
-        team_id TEXT DEFAULT '',
-        color TEXT DEFAULT '',
-        status TEXT DEFAULT 'active',
-        created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_executions (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT,
-        task TEXT,
-        input_artifacts TEXT DEFAULT '[]',
-        output_artifacts TEXT DEFAULT '[]',
-        status TEXT DEFAULT 'queued',
-        started_at TEXT,
-        completed_at TEXT,
-        result TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_teams (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        description TEXT DEFAULT '',
-        leader_agent_id TEXT DEFAULT '',
-        member_ids TEXT DEFAULT '[]',
-        shared_context TEXT DEFAULT '',
-        active_workflow_id TEXT DEFAULT '',
-        created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS agent_schedules (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT NOT NULL,
-        task TEXT NOT NULL,
-        frequency TEXT DEFAULT 'once',
-        cron_expression TEXT DEFAULT '',
-        next_run_at TEXT,
-        last_run_at TEXT,
-        last_status TEXT DEFAULT '',
-        enabled INTEGER DEFAULT 1,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_sched_agent ON agent_schedules(agent_id);
-      CREATE INDEX IF NOT EXISTS idx_sched_next ON agent_schedules(next_run_at);
-      CREATE INDEX IF NOT EXISTS idx_exec_agent ON agent_executions(agent_id);
-      CREATE INDEX IF NOT EXISTS idx_exec_status ON agent_executions(status);
-      CREATE TABLE IF NOT EXISTS agent_memory (
-        id TEXT PRIMARY KEY,
-        agent_id TEXT NOT NULL,
-        type TEXT DEFAULT 'observation',
-        summary TEXT DEFAULT '',
-        detail TEXT DEFAULT '',
-        tags TEXT DEFAULT '[]',
-        confidence REAL DEFAULT 0.5,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_memory_agent ON agent_memory(agent_id);
-      CREATE TABLE IF NOT EXISTS execution_sessions (
-        id TEXT PRIMARY KEY,
-        goal TEXT NOT NULL,
-        workflow_id TEXT DEFAULT '',
-        assigned_agent_ids TEXT DEFAULT '[]',
-        plan_ids TEXT DEFAULT '[]',
-        change_set_ids TEXT DEFAULT '[]',
-        verification_ids TEXT DEFAULT '[]',
-        logs TEXT DEFAULT '[]',
-        timeline TEXT DEFAULT '[]',
-        approvals TEXT DEFAULT '[]',
-        metrics TEXT DEFAULT '{}',
-        status TEXT DEFAULT 'queued',
-        created_at TEXT,
-        completed_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_exs_status ON execution_sessions(status);
-    `);
-  }
-
   private seedBuiltIn(): void {
+    // Opt-out: when VESTARA_DISABLE_AGENT_SEED=1 the built-in agent catalog is
+    // not auto-created, leaving the agent list empty (e.g. for a clean slate).
+    // Reversible: unset the variable to restore default seeding.
+    if (process.env.VESTARA_DISABLE_AGENT_SEED === '1') return;
+
+    // Only seed into an empty catalog. A populated catalog (custom agents, a
+    // migrated forensic fixture, or a previously seeded roster) is left intact
+    // so we never silently mutate existing agent data. The converged six core
+    // agents are defined in `agents.registry.ts`; stale agents removed from that
+    // registry (see DROPPED_BUILT_IN_AGENT_IDS) are cleaned up by clearing and
+    // reseeding plans.db, which is the expected upgrade path.
     const existing = dbGet(this.db, 'SELECT COUNT(*) as c FROM agents');
     if (existing && existing.c > 0) return;
 
-    const now = new Date().toISOString();
-    const builtIn: AgentDefinition[] = [
-      {
-        id: 'agent-architect',
-        name: 'Architect',
-        role: 'architect',
-        description: 'Architecture analysis, design review, dependency analysis',
-        capabilities: ['architecture-analysis', 'design-review', 'dependency-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-          { resource: 'plan', action: 'create', approvalRequired: true },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#8b5cf6',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-developer',
-        name: 'Developer',
-        role: 'developer',
-        description: 'Code generation, refactoring, bug fixing',
-        capabilities: ['code-generation', 'refactoring', 'bug-fixing'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'repository', action: 'modify', approvalRequired: false },
-          { resource: 'plan', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#3b82f6',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-verifier',
-        name: 'Verifier',
-        role: 'verifier',
-        description: 'Testing, diagnostics, quality analysis',
-        capabilities: ['testing', 'diagnostics', 'quality-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'read', approvalRequired: false },
-          { resource: 'verification', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#10b981',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-documenter',
-        name: 'Documenter',
-        role: 'documenter',
-        description: 'Documentation, summarization, knowledge management',
-        capabilities: ['documentation', 'summarization', 'knowledge-management'],
-        permissions: [
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#f59e0b',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-dashboard-curator',
-        name: 'Dashboard Curator',
-        role: 'dashboard-curator',
-        description:
-          'Monitors workspace development progress, auto-advances milestones, updates the dashboard with feature detection and velocity tracking',
-        capabilities: [
-          'dashboard-monitoring',
-          'progress-tracking',
-          'milestone-management',
-          'feature-detection',
-          'development-velocity',
-          'summarization',
-          'knowledge-management',
-        ],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-          { resource: 'plan', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#06b6d4',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-dashboard-dev',
-        name: 'Dashboard Developer',
-        role: 'frontend',
-        description:
-          'Builds and maintains the Workspace Dashboard UI with React, Tailwind CSS, real-time data visualization, and activity stream integration',
-        capabilities: [
-          'react-development',
-          'ui-development',
-          'tailwind-css',
-          'dashboard-design',
-          'data-visualization',
-          'code-generation',
-          'refactoring',
-          'testing',
-        ],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'repository', action: 'modify', approvalRequired: false },
-          { resource: 'changeset', action: 'create', approvalRequired: false },
-          { resource: 'plan', action: 'create', approvalRequired: true },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#ec4899',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-conversation-dev',
-        name: 'Conversation Developer',
-        role: 'conversation',
-        description:
-          'Designs and develops conversational onboarding flows, voice interaction pipelines, STT/TTS integration, and user profile enrichment',
-        capabilities: [
-          'conversation-design',
-          'voice-ux',
-          'prompt-engineering',
-          'stt-integration',
-          'tts-integration',
-          'vad-integration',
-          'audio-pipeline',
-          'code-generation',
-          'testing',
-        ],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'repository', action: 'modify', approvalRequired: false },
-          { resource: 'changeset', action: 'create', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-          { resource: 'plan', action: 'create', approvalRequired: true },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#6366f1',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-planner',
-        name: 'Planner',
-        role: 'planning',
-        description: 'Transforms goals into structured plans with tasks, milestones, and resource estimates',
-        capabilities: [
-          'planning',
-          'dependency-analysis',
-          'architecture-analysis',
-          'summarization',
-          'knowledge-management',
-        ],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-          { resource: 'plan', action: 'create', approvalRequired: true },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#eab308',
-        status: 'active',
-        createdAt: now,
-      },
-      // ── Specialized Engineering Agents ──
-      {
-        id: 'agent-analyst',
-        name: 'Repository Analyst',
-        role: 'analyst',
-        description: 'Deep repository understanding, codebase insights, dependency mapping',
-        capabilities: ['architecture-analysis', 'dependency-analysis', 'quality-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#8b5cf6',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-reviewer',
-        name: 'Reviewer',
-        role: 'reviewer',
-        description: 'Code review, change set validation, quality gate enforcement',
-        capabilities: ['design-review', 'quality-analysis', 'testing'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'read', approvalRequired: false },
-          { resource: 'verification', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#10b981',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-tester',
-        name: 'Tester',
-        role: 'tester',
-        description: 'Test generation, test execution, coverage analysis',
-        capabilities: ['testing', 'diagnostics', 'quality-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'read', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#06b6d4',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-security',
-        name: 'Security Agent',
-        role: 'security-agent',
-        description: 'Security analysis, vulnerability detection, compliance checking',
-        capabilities: ['security-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#ef4444',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-performance',
-        name: 'Performance Agent',
-        role: 'performance-agent',
-        description: 'Performance optimization, benchmarking, bottleneck detection',
-        capabilities: ['performance-optimization'],
-        permissions: [{ resource: 'repository', action: 'read', approvalRequired: false }],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#f59e0b',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-documentation',
-        name: 'Documentation Agent',
-        role: 'documentation-agent',
-        description: 'API documentation, guide generation, knowledge base maintenance',
-        capabilities: ['documentation', 'summarization', 'knowledge-management'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'read', approvalRequired: false },
-          { resource: 'knowledge', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#22c55e',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-refactoring',
-        name: 'Refactoring Agent',
-        role: 'refactoring-agent',
-        description: 'Code quality improvement, technical debt reduction, pattern migration',
-        capabilities: ['refactoring', 'architecture-analysis', 'quality-analysis'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'repository', action: 'modify', approvalRequired: false },
-          { resource: 'changeset', action: 'create', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#ec4899',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-release',
-        name: 'Release Agent',
-        role: 'release-agent',
-        description: 'Release management, versioning, changelog generation, deployment coordination',
-        capabilities: ['release-management', 'summarization', 'knowledge-management'],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'read', approvalRequired: false },
-          { resource: 'verification', action: 'read', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#a78bfa',
-        status: 'active',
-        createdAt: now,
-      },
-      {
-        id: 'agent-workspace-ui-tester',
-        name: 'Workspace UI Tester',
-        role: 'continuous-tester',
-        description:
-          'Monitors workspace-ui file changes and milestone updates, then runs pnpm test + build automatically',
-        capabilities: [
-          'testing',
-          'diagnostics',
-          'quality-analysis',
-          'development-velocity',
-          'dashboard-monitoring',
-          'ci-integration',
-        ],
-        permissions: [
-          { resource: 'repository', action: 'read', approvalRequired: false },
-          { resource: 'changeset', action: 'read', approvalRequired: false },
-        ],
-        provider: 'opencode',
-        model: 'deepseek-v4-flash-free',
-        color: '#14b8a6',
-        status: 'active',
-        createdAt: now,
-      },
-    ];
-
-    for (const agent of builtIn) {
+    for (const agent of CANONICAL_AGENTS) {
       this.saveAgent(agent).catch(() => {});
     }
   }
@@ -477,17 +69,19 @@ export class AgentStorage {
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO agents
-       (id, name, role, description, capabilities, permissions, provider, model, team_id, color, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, role, agent_type, description, capabilities, permissions, provider, model, runtime_agent, team_id, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         agent.id,
         agent.name,
         agent.role,
+        agent.agentType ?? 'workspace',
         agent.description ?? '',
         JSON.stringify(agent.capabilities),
         JSON.stringify(agent.permissions),
         agent.provider ?? '',
         agent.model ?? '',
+        agent.runtimeAgent ?? '',
         agent.teamId ?? '',
         agent.color ?? '',
         agent.status,
@@ -742,11 +336,13 @@ export class AgentStorage {
       id: row.id,
       name: row.name,
       role: row.role,
+      agentType: row.agent_type || 'workspace',
       description: row.description || undefined,
       capabilities: JSON.parse(row.capabilities ?? '[]'),
       permissions: JSON.parse(row.permissions ?? '[]'),
-      provider: row.provider || undefined,
-      model: row.model || undefined,
+      provider: row.provider ?? undefined,
+      model: row.model ?? undefined,
+      runtimeAgent: row.runtime_agent ?? undefined,
       teamId: row.team_id || undefined,
       color: row.color || undefined,
       status: row.status,

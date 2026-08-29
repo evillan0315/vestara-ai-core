@@ -41,6 +41,12 @@ const BUILTIN_WORKFLOWS: Record<string, { name: string; steps: WorkflowStepDef[]
   },
 };
 
+/**
+ * @deprecated Superseded by ADR-118 / PCS-025 multi-agent orchestration
+ * (`@vestara/workflow-orchestrator`). This is the single hard-coded sequential
+ * `feature` prototype (architect → developer → verifier) with in-memory state
+ * only; it is retained for reference and not referenced by any API route.
+ */
 export class AgentWorkflowService {
   private planStorage?: PlanStorage;
   private csStorage?: ChangeSetStorage;

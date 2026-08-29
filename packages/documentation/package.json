@@ -1,0 +1,23 @@
+{
+  "name": "@vestara/documentation",
+  "version": "0.1.0",
+  "private": true,
+  "documentation": {
+    "owner": "documentation-automation"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/documentation/__tests__"
+  },
+  "dependencies": {
+    "@vestara/engineering-graph": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/runtime": "workspace:*",
+    "@vestara/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
-import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { runAgentsList } from './commands/agents.js';
 import { runArchitecture, runBlueprintVerify } from './commands/architecture.js';
 import { runBenchmarkConversation } from './commands/benchmark.js';
+import { runBrief } from './commands/brief.js';
 import { runCompletions } from './commands/completions.js';
 import { runContext } from './commands/context.js';
 import { runGoldenPath } from './commands/demo.js';
+import { runDocs } from './commands/docs.js';
 import {
   runDoctor,
   runDoctorAgents,
@@ -18,7 +19,10 @@ import {
   runDoctorTeams,
   runDoctorWorkspace,
 } from './commands/doctor.js';
+import { runHello } from './commands/hello.js';
 import { runHelpCommand } from './commands/help-cmd.js';
+import { runBootCommand, runHostCommand } from './commands/host.js';
+import { runMarketplace } from './commands/marketplace.js';
 import { runMetrics } from './commands/metrics.js';
 import { runModelsList } from './commands/models.js';
 import { runOps } from './commands/ops.js';
@@ -31,15 +35,118 @@ import {
   runPlanUpdateStatus,
 } from './commands/plans.js';
 import { runProjectsList } from './commands/projects.js';
+import { runRouting } from './commands/routing.js';
+import { runRuntimeCommand } from './commands/runtime.js';
+import { runScreenshots } from './commands/screenshots.js';
 import { runBackgroundServices, runListSessions, runListWorkflows, runStartSession } from './commands/session.js';
 import { runSystemStatus } from './commands/status.js';
+import { runSuggest } from './commands/suggest.js';
 import { runTeamsAssign, runTeamsCreate, runTeamsList } from './commands/teams.js';
 import type { CliContext } from './context/cli-context.js';
 import { createCliContext } from './context/cli-context.js';
 import { CommandRegistry } from './lib/command-registry.js';
+import { isInteractiveTerminal } from './lib/interface-resolver.js';
 import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStatus } from './output/format.js';
+import { VERSION } from './version.js';
 
-const VERSION = '0.3.0';
+async function launchTui(endpoint?: string, repoPath?: string, forceDev = false): Promise<void> {
+  const resolvedEndpoint = endpoint ?? process.env.VESTARA_API_URL ?? 'http://127.0.0.1:3001';
+  const resolvedRepo = repoPath ?? process.env.VESTARA_REPO ?? process.cwd();
+  let ownedApi: import('./lib/owned-api.js').OwnedApiProcess | undefined;
+  if (!(await runtimeAvailable(resolvedEndpoint)) && !endpoint && !process.env.VESTARA_API_URL) {
+    const { spawnOwnedApi } = await import('./lib/owned-api.js');
+    ownedApi = spawnOwnedApi(resolvedRepo);
+    for (let attempt = 0; attempt < 50 && !(await runtimeAvailable(resolvedEndpoint)); attempt++)
+      await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  try {
+    if (forceDev || process.env.VESTARA_TUI_DEV === '1') {
+      await spawnBunTui(resolvedEndpoint, resolvedRepo);
+    } else {
+      await spawnInstalledTui(resolvedEndpoint, resolvedRepo);
+    }
+  } finally {
+    ownedApi?.kill();
+    ownedApi?.detach();
+  }
+}
+
+/**
+ * Spawn the installed Marketplace TUI executable directly. Resolves the
+ * platform-specific artifact from the installed package; no Bun dependency.
+ */
+async function spawnInstalledTui(endpoint: string, repoPath: string): Promise<void> {
+  const { defaultPackagesRoot, resolveInterface } = await import('./lib/interface-resolver.js');
+  const resolution = resolveInterface({ packagesRoot: defaultPackagesRoot() });
+  if (resolution.kind === 'tui') {
+    await spawnExecutable(resolution.executable.path, endpoint, repoPath);
+    return;
+  }
+  if (resolution.kind === 'unavailable') {
+    console.error(`${RED}${resolution.error}${RESET}`);
+    process.exitCode = 1;
+    return;
+  }
+  // Not installed — fall back to the in-repo Bun launch (development path).
+  console.log(`${GRAY}Marketplace TUI not installed; using in-repo development launch.${RESET}`);
+  await spawnBunTui(endpoint, repoPath);
+}
+
+/**
+ * Spawn the OpenTUI-based TUI as an isolated Bun process. OpenTUI's native
+ * renderer only runs under Bun; it must never be imported into the Node CLI
+ * process. Used for development and as a fallback when no packaged executable
+ * is installed.
+ */
+async function spawnBunTui(endpoint: string, repoPath: string): Promise<void> {
+  const tuiEntry = path.resolve(__dirname, '..', '..', '..', 'packages', 'tui', 'dist', 'index.js');
+  await spawnExecutable('bun', endpoint, repoPath, ['run', tuiEntry]);
+}
+
+/** Spawn the TUI binary with signal forwarding and stdio inheritance. */
+function spawnExecutable(
+  executablePath: string,
+  endpoint: string,
+  repoPath: string,
+  extraArgs: readonly string[] = [],
+): Promise<void> {
+  const { spawn } = require('node:child_process') as typeof import('node:child_process');
+  const child = spawn(executablePath, [...extraArgs, '--endpoint', endpoint, '--repo', repoPath], {
+    cwd: repoPath,
+    env: {
+      ...process.env,
+      VESTARA_API_URL: endpoint,
+      VESTARA_REPO: repoPath,
+    },
+    stdio: 'inherit',
+  });
+  const forward = (signal: NodeJS.Signals) => {
+    if (child.exitCode === null) child.kill(signal);
+  };
+  process.on('SIGINT', () => forward('SIGINT'));
+  process.on('SIGTERM', () => forward('SIGTERM'));
+  process.on('SIGHUP', () => forward('SIGHUP'));
+  return new Promise<void>((resolve, reject) => {
+    child.once('exit', (code, signal) => {
+      if (code === 0) resolve();
+      else reject(new Error(`Vestara TUI exited with ${signal ?? code}`));
+    });
+    child.once('error', reject);
+  }).finally(() => {
+    process.off('SIGINT', () => forward('SIGINT'));
+    process.off('SIGTERM', () => forward('SIGTERM'));
+    process.off('SIGHUP', () => forward('SIGHUP'));
+  });
+}
+
+async function runtimeAvailable(endpoint: string): Promise<boolean> {
+  try {
+    const response = await fetch(new URL('/api/health', endpoint), { signal: AbortSignal.timeout(300) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
 
 function printVersion(): void {
   console.log(`vestara v${VERSION}`);
@@ -51,8 +158,24 @@ function printHelp(): void {
   console.log(`${GRAY}Usage: vestara <command> [options]${RESET}`);
   console.log();
   console.log(`  ${BOLD}Commands${RESET}`);
+  console.log(`    ${GREEN}hello${RESET}              ${GRAY}Print a hello world message${RESET}`);
   console.log(
-    `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace (default: ., --force to re-open)${RESET}`,
+    `    ${GREEN}docs${RESET} [sub]         ${GRAY}Documentation automation (scan|findings|plan|review|verify|baseline|check)${RESET}`,
+  );
+  console.log(
+    `    ${GREEN}screenshots${RESET} [sub]  ${GRAY}Visual regression automation (run|update|report|clean|check)${RESET}`,
+  );
+  console.log(
+    `    ${GREEN}runtime${RESET} [sub]      ${GRAY}Connect to the shared Workspace Runtime API (status|health)${RESET}`,
+  );
+  console.log(`    ${GREEN}host${RESET} status        ${GRAY}Inspect the OS-0 host boundary${RESET}`);
+  console.log(`    ${GREEN}boot${RESET} status        ${GRAY}Show durable OS-0 boot progress${RESET}`);
+  console.log(
+    `    ${GREEN}routing${RESET} [sub]      ${GRAY}Engineering routing (show|catalog|profile|preview)${RESET}`,
+  );
+  console.log(`    ${GREEN}console${RESET}             ${GRAY}Open the interactive Engineering Console${RESET}`);
+  console.log(
+    `    ${GREEN}open${RESET} [path]        ${GRAY}Open a workspace and enter the TUI (default: ., --force to re-open)${RESET}`,
   );
   console.log(`    ${GREEN}validate${RESET} [path]    ${GRAY}CAP-001 workspace orientation${RESET}`);
   console.log(`    ${GREEN}status${RESET} [--json]    ${GRAY}System health overview${RESET}`);
@@ -60,6 +183,7 @@ function printHelp(): void {
     `    ${GREEN}doctor${RESET} [sub]       ${GRAY}Diagnostics (audio|conversation|agents|teams|models|workspace|all)${RESET}`,
   );
   console.log(`    ${GREEN}agents${RESET}             ${GRAY}List all registered agents${RESET}`);
+  console.log(`    ${GREEN}brief${RESET} [--hours=N]  ${GRAY}Overnight brief — what happened while offline${RESET}`);
   console.log(`    ${GREEN}teams${RESET} [sub]        ${GRAY}Team management (create|assign|list)${RESET}`);
   console.log(
     `    ${GREEN}session${RESET} <sub>      ${GRAY}Session management (workflows|start|list|background)${RESET}`,
@@ -84,6 +208,10 @@ function printHelp(): void {
   );
   console.log(`    ${GREEN}blueprint${RESET} verify    ${GRAY}Architecture Knowledge Graph integrity check${RESET}`);
   console.log(
+    `    ${GREEN}marketplace${RESET} [sub]  ${GRAY}Engineering Exchange (search|list|info|installed|updates|install|update|uninstall|verify|rescan)${RESET}`,
+    `    ${GREEN}suggest${RESET} [path]       ${GRAY}Show AI implementation suggestions for an open workspace${RESET}`,
+  );
+  console.log(
     `    ${GREEN}ops${RESET} [sub]           ${GRAY}Engineering telemetry (feed|status|timeline|demo)${RESET}`,
   );
   console.log(`    ${GREEN}completions${RESET} [shell] ${GRAY}Generate shell completion script${RESET}`);
@@ -92,13 +220,21 @@ function printHelp(): void {
   console.log(`  ${BOLD}Options${RESET}`);
   console.log(`    -h, --help        ${GRAY}Show this help message${RESET}`);
   console.log(`    -v, --version     ${GRAY}Show version number${RESET}`);
-  console.log(`    -w, --watch       ${GRAY}Start REPL with watch mode${RESET}`);
+  console.log(`    -w, --watch       ${GRAY}Start the TUI with live runtime events${RESET}`);
   console.log(`    --json            ${GRAY}Output status in JSON format${RESET}`);
   console.log(`    --brief           ${GRAY}Compact one-line status output${RESET}`);
   console.log();
 }
 
 function registerCommands(registry: CommandRegistry): void {
+  registry.register('docs', (args) => runDocs(args));
+  registry.register('hello', () => runHello());
+  registry.register('brief', (args) => runBrief(args));
+  registry.register('screenshots', (args) => runScreenshots(args));
+  registry.register('runtime', (args) => runRuntimeCommand(args));
+  registry.register('host', (args) => runHostCommand(args));
+  registry.register('boot', (args) => runBootCommand(args));
+  registry.register('routing', (args) => runRouting(args));
   registry.register('status', (args) => runSystemStatus(args));
   registry.register('agents', () => runAgentsList());
   registry.register('teams', async (args) => {
@@ -194,10 +330,12 @@ function registerCommands(registry: CommandRegistry): void {
     }
     console.log(`${GOLD}Usage: vestara demo golden-path${RESET}`);
   });
+  registry.register('marketplace', (args) => runMarketplace(args));
+  registry.register('suggest', (args) => runSuggest(args[0] ?? undefined, args.includes('--json')));
 }
 
 export async function main() {
-  const args = process.argv.slice(2);
+  let args = process.argv.slice(2);
   const registry = new CommandRegistry();
   registerCommands(registry);
 
@@ -215,6 +353,52 @@ export async function main() {
   }
   if (args[0] === '--version' || args[0] === '-v') {
     printVersion();
+    return;
+  }
+
+  if (args[0] === 'docs') {
+    await runDocs(args.slice(1));
+    return;
+  }
+  if (args[0] === 'hello') {
+    await runHello();
+    return;
+  }
+  if (args[0] === 'brief') {
+    await runBrief(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'screenshots') {
+    await runScreenshots(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'runtime') {
+    await runRuntimeCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'host') {
+    await runHostCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'boot') {
+    await runBootCommand(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'routing') {
+    await runRouting(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'console' || args[0] === 'tui') {
+    const endpointIndex = args.indexOf('--endpoint');
+    const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
+    const forceDev = args.includes('--dev');
+    await launchTui(endpoint, undefined, forceDev);
     return;
   }
 
@@ -297,6 +481,16 @@ export async function main() {
     return;
   }
 
+  if (args[0] === 'marketplace') {
+    await runMarketplace(args.slice(1));
+    return;
+  }
+
+  if (args[0] === 'suggest') {
+    await runSuggest(args[1] ?? undefined, args.includes('--json'));
+    return;
+  }
+
   if (args[0] === 'session') {
     if (args[1] === 'workflows') {
       await runListWorkflows();
@@ -332,7 +526,8 @@ export async function main() {
   if (args[0] === 'open') {
     const force = args.includes('--force');
     const pathArgs = args.slice(1).filter((a) => a !== '--force');
-    let repoPath = pathArgs[0];
+    const explicitPath = pathArgs[0];
+    let repoPath = explicitPath;
     if (!repoPath) {
       try {
         const initSqlJs = (await import('sql.js')).default;
@@ -349,6 +544,10 @@ export async function main() {
     }
     const { runOpen } = await import('./commands/open.js');
     await runOpen(repoPath, force);
+    // The TUI is the canonical interactive surface — open lands in it after
+    // the workspace is (re-)indexed. The API picks up the repo via VESTARA_REPO
+    // (defaulting to process.cwd()); only an explicit path overrides it.
+    await launchTui(undefined, explicitPath ? path.resolve(explicitPath) : undefined);
     return;
   }
 
@@ -543,11 +742,35 @@ export async function main() {
     return;
   }
 
+  // `--no-tui` disables the interactive TUI (CI / scripting).
+  if (args.includes('--no-tui')) {
+    args = args.filter((arg) => arg !== '--no-tui');
+    if (args.length === 0) {
+      console.log(`${GRAY}Interactive TUI disabled (--no-tui). Run 'vestara --help' for commands.${RESET}`);
+      return;
+    }
+  }
+
   // Unknown command
   if (args.length > 0 && args[0] !== '--watch' && args[0] !== '-w') {
     console.log(`${RED}Unknown command: ${args[0]}${RESET}`);
     console.log(`${GRAY}Run 'vestara --help' to see available commands.${RESET}\n`);
     process.exitCode = 1;
+    return;
+  }
+
+  // The TUI is the canonical interactive surface. The legacy command handlers
+  // below remain temporarily as an internal migration layer, but readline is
+  // never entered from the public CLI.
+  if (process.env.VESTARA_INTERNAL_LEGACY_REPL !== '1') {
+    const endpointIndex = args.indexOf('--endpoint');
+    const endpoint = endpointIndex >= 0 ? args[endpointIndex + 1] : undefined;
+    const interactive = isInteractiveTerminal();
+    if (!interactive) {
+      console.log(`${GRAY}Noninteractive terminal: running standard CLI. Use 'vestara tui' to force the TUI.${RESET}`);
+      return;
+    }
+    await launchTui(endpoint);
     return;
   }
 
@@ -753,7 +976,7 @@ export async function startRepl(ctx: CliContext): Promise<void> {
     }
     if (input === 'history') {
       if (conversationId && conversationService) {
-        const conv = conversationService.getConversation(conversationId);
+        const conv = await conversationService.getConversation(conversationId);
         if (conv) {
           console.log(`${GRAY}Conversation: ${conv.title} (${conv.messages.length} messages)${RESET}`);
           for (const msg of conv.messages) {

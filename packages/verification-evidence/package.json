@@ -1,0 +1,15 @@
+{
+  "name": "@vestara/verification-evidence",
+  "description": "Verification evidence kernel — immutable evidence snapshots, comparability evaluation, derived deltas, and justified conclusions (ADR-012)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/verification-evidence/__tests__"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

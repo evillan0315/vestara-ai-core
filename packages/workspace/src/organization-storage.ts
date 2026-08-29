@@ -5,6 +5,8 @@
  *   PCS: PCS-012 — Multi-Repository Intelligence
  */
 
+import { migrate } from '@vestara/sqlite-migrations';
+import { ORGANIZATION_MANIFEST } from './scaffold-migrations';
 import type { Organization, OrganizationRepository } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -40,25 +42,7 @@ export class OrganizationStorage {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS organizations (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        description TEXT,
-        repositories TEXT DEFAULT '[]',
-        created_at TEXT,
-        updated_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS organization_relations (
-        id TEXT PRIMARY KEY,
-        source_repo TEXT,
-        target_repo TEXT,
-        type TEXT,
-        description TEXT,
-        created_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_orgrel_source ON organization_relations(source_repo);
-    `);
+    migrate(this.db, ORGANIZATION_MANIFEST);
   }
 
   async create(name: string, description: string): Promise<Organization> {

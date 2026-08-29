@@ -15,6 +15,8 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationSummary, Message } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
+import { STATE_MANIFEST } from './migrations';
 
 let SQL: any = null;
 
@@ -80,18 +82,6 @@ class SqliteConversationStore implements ConversationStore {
 
   constructor(db: any) {
     this.db = db;
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS conversations (
-        id TEXT PRIMARY KEY, user_id TEXT DEFAULT 'local', title TEXT,
-        status TEXT DEFAULT 'active', created_at TEXT, updated_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS messages (
-        id TEXT PRIMARY KEY, conversation_id TEXT, role TEXT, content TEXT,
-        provider TEXT, model TEXT, tokens INTEGER DEFAULT 0,
-        latency INTEGER DEFAULT 0, created_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_msgs_conv ON messages(conversation_id, created_at);
-    `);
   }
 
   async saveConversation(conv: Conversation): Promise<void> {
@@ -171,7 +161,6 @@ class SqliteSettingsStore implements SettingsStore {
 
   constructor(db: any) {
     this.db = db;
-    db.exec('CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at TEXT)');
   }
 
   async get(key: string): Promise<string | null> {
@@ -222,6 +211,11 @@ export class DefaultStateRuntime implements StateRuntime {
     }
 
     this.db = new SQL.Database(buf);
+    migrate(this.db, STATE_MANIFEST, {
+      persist: (migrated) => {
+        fs.writeFileSync(this.dbPath, Buffer.from(migrated.export()));
+      },
+    });
     this.conversations = new SqliteConversationStore(this.db);
     this.settings = new SqliteSettingsStore(this.db);
     this.logger?.info('State runtime initialized', { path: this.dbPath });

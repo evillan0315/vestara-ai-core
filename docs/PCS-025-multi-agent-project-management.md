@@ -6,10 +6,24 @@
 |-------|-------|
 | ID | PCS-025 |
 | Name | Multi-Agent Project Management Workflow |
-| Status | Draft (design only — no implementation) |
+| Status | Implemented — orchestration core (Phase 1), review/test stages, Approval Gateway, parallel waves, token budgets, event-sourced reconcile (Phases 1–3) |
 | Owner | Chief Architect |
 | Prerequisite | PCS-003 Planning, PCS-004 Implement, PCS-005 Verify, PCS-007 Agent Runtime, PCS-011 Agent Execution, PCS-017 Execution Engine, PCS-024 Agent Filesystem Capabilities |
 | Scope | Multi-agent project lifecycle: creation → implementation → review → verify → complete |
+
+> **Implementation status (2026-08-03)**: Phases 1–3 are delivered —
+> `packages/workflow-orchestrator/` provides `WorkflowOrchestrator`,
+> project/plan/task state machines, `TaskStore`/`ArtifactStore`/
+> `FileLockRegistry`, bounded retry/revision policy, task-graph waves,
+> idempotent resume, reviewer/tester stages with bounded revision loops,
+> the high-risk-change Approval Gateway, parallel task waves with file-lock
+> contention handling, token budgets, and event-sourced reconcile/rebuild.
+> Tasks execute through the harness
+> (`packages/workspace/src/harness-task-dispatcher.ts`); `orchestration.*` events
+> project into the engineering event store; `/api/orchestration/*` exposes the
+> lifecycle. See `docs/PCS-025-phase-1-implementation-plan.md` §11 for the
+> delivery record. Remote workers (v10.0) are complete; multi-repo projects
+> remain future.
 
 > **Canonical reference**: the architectural model (WorkflowOrchestrator, event bus,
 > agent/task lifecycles, artifact model, state machines, file locking, capability
@@ -487,36 +501,63 @@ User        Orchestrator   Analyst   Planner   Architect   Developer   Reviewer 
 
 ## 17. Implementation Roadmap
 
-**Phase 1 — Orchestration core**
+**Phase 1 — Orchestration core — ✅ implemented (partial)**
 `WorkflowOrchestrator` + project/plan/task state machines; `TaskStore`, `ArtifactStore`,
-`FileLockRegistry`; event catalog extension; retry policy; `TaskGraph` from plan DAG;
-migrate `AgentWorkflowService` prototype into the orchestrator; resume from checkpoint.
-Acceptance: single sequential project completes with `verification.passed` + full audit log.
+`FileLockRegistry`; event catalog extension (`orchestration.*` via
+`apps/api/src/bridges/orchestration-event-bridge.ts`); retry policy; task-graph waves
+from plan DAG (`task-graph.ts`); resume from persisted checkpoint. The legacy
+`AgentWorkflowService` prototype is deprecated (superseded). Tasks execute through the
+harness (`HarnessTaskDispatcher`).
+Acceptance (pending full pass): single sequential project completes with
+`verification.passed` + full audit log.
 
-**Phase 2 — Review, test, approval**
-`ReviewService`, `TestService`; capability-based task assignment (replace keyword
-matching); Approval Gateway for plan + high-risk changes; revision loops (bounded);
-parallel task waves with file locking + conflict detection; observability dashboard
-(§18).
+**Phase 2 — Review, test, approval — ✅ complete**
+Capability-based task assignment (replace keyword matching) is delivered:
+`HarnessTaskDispatcher` resolves task → agent through `@vestara/capabilities`
+(`DefaultCapabilityResolver` over the builtin taxonomy, supporting exact,
+wildcard, and implied matches; `packages/workspace/src/harness-task-dispatcher.ts`).
+Reviewer + tester stages with bounded revision loops (`TaskDispatcher.review/test`,
+`needs-review → reviewing → approved | changes-requested → assigned | rejected →
+blocked`, revision cap from the retry policy); Approval Gateway for high-risk
+changes (`DefaultRiskApprovalPolicy` + `awaiting-approval` task state +
+`resolveTaskApproval`, plan approval via the `pending-approval` phase); parallel
+task waves with file-lock contention handling (`maxParallelTasks`, bounded
+lock-wait then block); observability (§18).
 
-**Phase 3 — Distributed + hardening**
-`remote` workers; multi-repo projects; token/cost budgets; replayable event-sourced
-history; migration to an append-only `AuditStore`-backed execution log; failure
-injection tests; load tests for large task graphs.
+**Phase 3 — Distributed + hardening — ✅ delivered (foundations; network transport future)**
+Delivered: token/cost budgets (`TokenBudget` — blocks dispatch once exhausted);
+event-sourced `reconcile(projectId, events)` (rebuild expected task state from the
+event log and diff against stores); full event-sourced `rebuild(projectId, events,
+context)` — `task.created` events now carry the task definition so the event log
+reconstructs project, plan, and tasks with their statuses; **multi-repo parent
+orchestration** (`MultiRepoOrchestrator` — one `WorkflowOrchestrator` per repo,
+a parent project aggregates per-repo sub-projects with aggregate status and
+metrics); **remote worker contract** (`WorkerPool` — bounded worker pool with
+`runWithConcurrency`; `SubprocessTaskDispatcher` executes each task in an
+isolated child process over IPC, with a pluggable executor module); failure-
+injection + load tests (flaky dispatchers, large task DAGs). Network transport
+for remote workers remains future; any transport implements the `TaskDispatcher`
+contract.
 
 ---
 
 ## 18. Observability
 
-Leverage existing `TelemetryRuntime.trackOp`, `ActivityLogStore`, and `AuditStore`,
-plus new per-project dashboards:
+Implemented (2026-08-03): the orchestrator emits a telemetry callback on every
+lifecycle operation (`onTelemetry` — dispatch, review, test, approval, task
+completion, with agent/status/duration) wired to `TelemetryRuntime.track`, and
+exposes per-project + workspace aggregates via `metrics(projectId)` /
+`listMetrics(workspaceId)` and `GET /api/orchestration/[projects/:id/]metrics`.
+The Workspace "Orchestration" page (`/orchestration`) lists projects with phase/
+status/task metrics and renders the Approval Gateway queue with approve/deny.
+Plus new per-project dashboards:
 
 | Metric | Source |
 |--------|--------|
-| Agent execution duration / per phase | `ExecutionJob` events + telemetry |
-| Failures + retries per task/agent | `Task.failed`, `task.retrying`, audit |
+| Agent execution duration / per phase | `onTelemetry` + `TelemetryRuntime` |
+| Failures + retries per task/agent | `Task.failed`, `task.retrying`, task `attemptCount` |
 | Task throughput (completed/sec per worker) | telemetry aggregation |
-| Approval bottlenecks (time in `pending-approval`) | `approval.requested/granted` timestamps |
+| Approval bottlenecks (time in `awaiting-approval`) | `task.approval-requested/resolved` timestamps |
 | Success rate per agent / per plan | execution history |
 | Cost + token usage per agent/project | provider usage + `TelemetryRuntime` |
 | File lock contention (`file.lock.conflict` count) | lock registry events |

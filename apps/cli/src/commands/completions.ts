@@ -11,10 +11,13 @@ export async function runCompletions(shell?: string): Promise<void> {
     'session',
     'metrics',
     'benchmark',
+    'screenshots',
     'demo',
     'config',
     'models',
     'provider',
+    'routing',
+    'console',
     'plans',
     'projects',
     'completions',
@@ -25,8 +28,20 @@ export async function runCompletions(shell?: string): Promise<void> {
   const SESSION_SUBS = ['workflows', 'start', 'list', 'background'];
   const CONFIG_SUBS = ['get', 'set', 'reset'];
   const PROVIDER_SUBS = ['list', 'status'];
+  const ROUTING_SUBS = [
+    'show',
+    'catalog',
+    'profile',
+    'preview',
+    'assignments',
+    'assign',
+    'assignment-status',
+    'record-side-effect',
+    'reassign',
+  ];
   const BENCHMARK_SUBS = ['conversation'];
   const DEMO_SUBS = ['golden-path'];
+  const SCREENSHOT_SUBS = ['run', 'update', 'report', 'clean', 'check'];
   const D = '$';
 
   if (!shell || shell === 'bash') {
@@ -45,8 +60,10 @@ _vestara_completions() {
     session)   COMPREPLY=( $(compgen -W "${SESSION_SUBS.join(' ')}" -- "${D}cur") ) ;;
     config)    COMPREPLY=( $(compgen -W "${CONFIG_SUBS.join(' ')}" -- "${D}cur") ) ;;
     provider)  COMPREPLY=( $(compgen -W "${PROVIDER_SUBS.join(' ')}" -- "${D}cur") ) ;;
+    routing)   COMPREPLY=( $(compgen -W "${ROUTING_SUBS.join(' ')}" -- "${D}cur") ) ;;
     benchmark) COMPREPLY=( $(compgen -W "${BENCHMARK_SUBS.join(' ')}" -- "${D}cur") ) ;;
     demo)      COMPREPLY=( $(compgen -W "${DEMO_SUBS.join(' ')}" -- "${D}cur") ) ;;
+    screenshots) COMPREPLY=( $(compgen -W "${SCREENSHOT_SUBS.join(' ')} --viewport --theme --routes --base-url --tolerance --max-diff --wait-network --ci --json" -- "${D}cur") ) ;;
     status)    COMPREPLY=( $(compgen -W "--json --brief" -- "${D}cur") ) ;;
     completions) COMPREPLY=( $(compgen -W "bash zsh" -- "${D}cur") ) ;;
   esac
@@ -64,8 +81,10 @@ _vestara_teams_subs=(${TEAMS_SUBS.join(' ')})
 _vestara_session_subs=(${SESSION_SUBS.join(' ')})
 _vestara_config_subs=(${CONFIG_SUBS.join(' ')})
 _vestara_provider_subs=(${PROVIDER_SUBS.join(' ')})
+_vestara_routing_subs=(${ROUTING_SUBS.join(' ')})
 _vestara_benchmark_subs=(${BENCHMARK_SUBS.join(' ')})
 _vestara_demo_subs=(${DEMO_SUBS.join(' ')})
+_vestara_screenshot_subs=(${SCREENSHOT_SUBS.join(' ')})
 _vestara() {
   local context state state_descr line; typeset -A opt_args
   _arguments -C \\
@@ -83,8 +102,10 @@ _vestara() {
         session) _describe -t subs 'subcommand' _vestara_session_subs ;;
         config) _describe -t subs 'subcommand' _vestara_config_subs ;;
         provider) _describe -t subs 'subcommand' _vestara_provider_subs ;;
+        routing) _describe -t subs 'subcommand' _vestara_routing_subs ;;
         benchmark) _describe -t subs 'subcommand' _vestara_benchmark_subs ;;
         demo) _describe -t subs 'subcommand' _vestara_demo_subs ;;
+        screenshots) _describe -t subs 'subcommand' _vestara_screenshot_subs ;;
         completions) _describe -t subs 'shell' 'bash zsh' ;;
       esac ;;
   esac

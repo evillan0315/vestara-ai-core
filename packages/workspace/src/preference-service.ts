@@ -53,13 +53,6 @@ export class PreferenceService {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS preferences (
-        key TEXT PRIMARY KEY,
-        value TEXT,
-        updated_at TEXT
-      );
-    `);
     // Seed defaults
     for (const [key, value] of Object.entries(DEFAULTS)) {
       const existing = dbGet(this.db, 'SELECT value FROM preferences WHERE key = ?', [key]);

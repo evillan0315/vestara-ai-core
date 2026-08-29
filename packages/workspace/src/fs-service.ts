@@ -82,7 +82,7 @@ export class FilesystemService {
   }
 
   get workspaceRoot(): string {
-    return this.security['workspaceRoot'];
+    return this.security.workspaceRoot;
   }
 
   pwd(): string {
@@ -117,7 +117,7 @@ export class FilesystemService {
 
   tree(relativePath: string = '.', depth: number = 2): TreeEntry[] {
     const resolved = this.security.assertWithinWorkspace(relativePath);
-    const result: TreeEntry[] = [];
+    const _result: TreeEntry[] = [];
 
     const buildTree = (dirPath: string, relPath: string, currentDepth: number): TreeEntry[] => {
       if (currentDepth > depth) return [];
@@ -175,8 +175,8 @@ export class FilesystemService {
   glob(pattern: string): string[] {
     const resolvedRoot = this.security.assertWithinWorkspace('.');
     const results: string[] = [];
-    const parts = pattern.replace(/\\/g, '/').split('/');
-    const hasGlobstar = pattern.includes('**');
+    const _parts = pattern.replace(/\\/g, '/').split('/');
+    const _hasGlobstar = pattern.includes('**');
     const hasWildcard = pattern.includes('*') || pattern.includes('?');
 
     if (!hasWildcard) {

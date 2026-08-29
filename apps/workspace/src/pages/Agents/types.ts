@@ -1,12 +1,17 @@
+export type AgentType = 'workspace' | 'registry';
+
 export interface Agent {
   id: string;
   name: string;
   role: string;
+  agentType: AgentType;
   description?: string;
   capabilities: string[];
   permissions: any[];
   provider?: string;
   model?: string;
+  /** Native OpenCode runtime agent (e.g. build/planner/reviewer) this agent maps to. */
+  runtimeAgent?: string;
   teamId?: string;
   color?: string;
   status: string;
@@ -31,4 +36,28 @@ export interface Execution {
   startedAt: string;
   completedAt?: string;
   result?: string;
+}
+
+export interface ExecutionSummary {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  successRate: number;
+}
+
+export interface AgentStats {
+  total: number;
+  completed: number;
+  failed: number;
+  running: number;
+  avgDuration: number;
+}
+
+export interface HarnessSessionEntry {
+  id: string;
+  workflowId?: string;
+  goal?: string;
+  status: string;
+  createdAt: string;
 }

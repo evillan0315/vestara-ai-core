@@ -41,36 +41,8 @@ export class KnowledgeGraphStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS knowledge_nodes (
-        id TEXT PRIMARY KEY,
-        type TEXT,
-        name TEXT,
-        description TEXT,
-        source_artifacts TEXT DEFAULT '[]',
-        created_at TEXT,
-        updated_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_kn_type ON knowledge_nodes(type);
-      CREATE INDEX IF NOT EXISTS idx_kn_name ON knowledge_nodes(name);
-
-      CREATE TABLE IF NOT EXISTS knowledge_relations (
-        id TEXT PRIMARY KEY,
-        source_id TEXT,
-        target_id TEXT,
-        type TEXT,
-        created_at TEXT,
-        FOREIGN KEY (source_id) REFERENCES knowledge_nodes(id),
-        FOREIGN KEY (target_id) REFERENCES knowledge_nodes(id)
-      );
-      CREATE INDEX IF NOT EXISTS idx_kr_source ON knowledge_relations(source_id);
-      CREATE INDEX IF NOT EXISTS idx_kr_target ON knowledge_relations(target_id);
-      CREATE INDEX IF NOT EXISTS idx_kr_type ON knowledge_relations(type);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async upsertNode(node: KnowledgeNode): Promise<void> {

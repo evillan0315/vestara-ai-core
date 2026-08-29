@@ -27,7 +27,12 @@ export default defineConfig({
     alias: aliases,
   },
   test: {
-    include: ['packages/*/__tests__/**/*.test.ts', 'apps/*/__tests__/**/*.test.ts'],
+    include: [
+      'packages/*/__tests__/**/*.test.ts',
+      'packages/{providers,tools}/*/__tests__/**/*.test.ts',
+      'apps/*/__tests__/**/*.test.ts',
+      'apps/workspace/tests/visual/__tests__/**/*.test.ts',
+    ],
     testTimeout: 15000,
   },
 });

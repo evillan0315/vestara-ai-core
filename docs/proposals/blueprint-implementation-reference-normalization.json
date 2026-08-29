@@ -1,0 +1,177 @@
+{
+  "id": "doc-proposal-blueprint-implementation-refs-2026-08-01",
+  "authority": "architecture",
+  "status": "proposed",
+  "generatedAt": "2026-08-01",
+  "requiresHumanApproval": true,
+  "targetRepository": "vestara-blueprint",
+  "implementationRepository": "evillan0315/vestara-ai-core",
+  "rationale": "Replace symbolic implementation-ref prose with existing repository-relative evidence paths. Remove implementation references from explicitly not-started capabilities. No Blueprint file is modified by this proposal artifact.",
+  "proposals": [
+    {
+      "path": "04-platform/01-platform-overview.md",
+      "beforeChecksum": "25bd663ed13ab0e92fd7a24a2d2174d1809dacb725cc6e1d76b64acd293b9fca",
+      "operation": "remove",
+      "field": "implementation-ref",
+      "reason": "The document is superseded and its current symbolic reference does not identify evidence.",
+      "confidence": "direct"
+    },
+    {
+      "path": "04-platform/engineering-event-architecture.md",
+      "beforeChecksum": "4ad0cd069a3b7585fb1435e30a4f22b836cb2bb1f1be7a8674aca1979b638231",
+      "operation": "replace",
+      "implementationRefs": ["packages/engineering-graph/src/events.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "04-platform/engineering-operating-system.md",
+      "beforeChecksum": "25099b4aefc01177c53a84af0cc49c320ba259a454d32d5d59924b7f0c131e94",
+      "operation": "replace",
+      "implementationRefs": [
+        "packages/workspace/src/workspace-runtime.ts",
+        "packages/kernel/src/index.ts",
+        "packages/workspace/src/agent-runtime.ts",
+        "packages/agent-harness/src/index.ts",
+        "packages/thread-runtime/src/index.ts",
+        "packages/tool-runtime/src/index.ts",
+        "packages/engineering-graph/src/index.ts"
+      ],
+      "confidence": "direct"
+    },
+    {
+      "path": "05-ai-core/engineering-orchestration.md",
+      "beforeChecksum": "905e3ebe7e86335d251b7144972dd0678286cc20e00256ab273d74a31ec31516",
+      "operation": "replace",
+      "implementationRefs": [
+        "packages/workspace/src/workspace-runtime.ts",
+        "packages/kernel/src/index.ts",
+        "packages/workspace/src/agent-runtime.ts",
+        "packages/workspace/src/session-orchestrator.ts"
+      ],
+      "confidence": "direct"
+    },
+    {
+      "path": "05-ai-core/provider-architecture.md",
+      "beforeChecksum": "da897cab30778f9b8733b965b9a95534f23ad664967f91d20e38a8a42ca163fa",
+      "operation": "replace",
+      "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "05-ai-core/trust-and-confidence.md",
+      "beforeChecksum": "dc046cc6758d26b4ac2d6be4aba03dc404a421c9870a305323d62cedb934c371",
+      "operation": "replace",
+      "implementationRefs": [
+        "packages/trust/src/index.ts",
+        "packages/permission/src/index.ts",
+        "packages/verification/src/index.ts"
+      ],
+      "confidence": "inferred",
+      "requiresClaimReview": true
+    },
+    {
+      "path": "06-workspace/cli-workspace-integration.md",
+      "beforeChecksum": "24f641b6c908c427f6faafbfa71b54cd06bf2d187efbee01f705ca8761f50585",
+      "operation": "replace",
+      "implementationRefs": ["apps/cli/src/index.ts", "apps/api/src/index.ts", "apps/workspace/src/main.tsx"],
+      "confidence": "direct"
+    },
+    {
+      "path": "06-workspace/engineering-session.md",
+      "beforeChecksum": "82a511bd1d8a4b06d7da7831235f905cbd05c5b31a71b008aa7b0471cc61002d",
+      "operation": "replace",
+      "implementationRefs": ["packages/workspace/src/types.ts", "packages/workspace/src/session-orchestrator.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "06-workspace/inspector.md",
+      "beforeChecksum": "9ae30437a95c49f208a8e9afb56d21886e422146e4be0891de1ffcb67ddf8f92",
+      "operation": "replace",
+      "implementationRefs": ["apps/workspace/src/components/graph/Inspector.tsx"],
+      "confidence": "direct"
+    },
+    {
+      "path": "06-workspace/settings-architecture.md",
+      "beforeChecksum": "839487994189510bee1a156a737a1b914ade3bdc14a95c62483e763da0ad9070",
+      "operation": "replace",
+      "implementationRefs": ["apps/workspace/src/pages/Settings/SettingsPage.tsx", "apps/workspace/src/lib/theme.tsx"],
+      "confidence": "direct"
+    },
+    {
+      "path": "07-operating-system/provider-installation.md",
+      "beforeChecksum": "f0fac7e3f2049ca5e945fc708d787d2e788bd9de75748ee8856c0aa205032744",
+      "operation": "remove",
+      "field": "implementation-ref",
+      "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
+      "confidence": "direct"
+    },
+    {
+      "path": "10-developer-platform/extension-platform.md",
+      "beforeChecksum": "d4084a5b55d6472ea307891e588515e10a662103f8b31ee7dba7d9d5a0b3d80a",
+      "operation": "remove",
+      "field": "implementation-ref",
+      "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
+      "confidence": "direct"
+    },
+    {
+      "path": "12-data/engineering-event-store.md",
+      "beforeChecksum": "846303045de0ec6dc9d824420f36cbb2d823ac278d4995e9c2f16448f21fab50",
+      "operation": "replace",
+      "implementationRefs": ["packages/engineering-graph/src/events.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "14-engineering/evidence-based-verification.md",
+      "beforeChecksum": "9a449b51b50690a710f3cefd66cc17927e3f89e21184cff1e9781705676c6ac1",
+      "operation": "replace",
+      "implementationRefs": ["packages/verification/src/index.ts", "packages/evaluation/src/index.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "14-engineering/visual-verification.md",
+      "beforeChecksum": "8c52c83ead910e509a685ac06634bc862e0fb8a42149e86b7a4f11d4c4df5542",
+      "operation": "replace",
+      "implementationRefs": ["apps/workspace/tests/visual/visual.spec.ts", "apps/workspace/playwright.config.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "20-roadmaps/engineering-os-roadmap.md",
+      "beforeChecksum": "8a49547eefc015ada0ba92c717304b85dc914a4dbdc76708989b631ed2125ac8",
+      "operation": "replace",
+      "implementationRefs": ["packages/workspace/src/workspace-runtime.ts", "packages/kernel/src/index.ts"],
+      "confidence": "inferred",
+      "requiresClaimReview": true
+    },
+    {
+      "path": "20-roadmaps/extension-platform-roadmap.md",
+      "beforeChecksum": "529327ffe1398aecd5c657783d298e619d38973da4c1dccb35d658d5789a3929",
+      "operation": "remove",
+      "field": "implementation-ref",
+      "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
+      "confidence": "direct"
+    },
+    {
+      "path": "20-roadmaps/provider-platform-roadmap.md",
+      "beforeChecksum": "54e458b59861d079db9cc5b1a2c0c2fdb276ef15d81015acdaf3e8c1d0cf1800",
+      "operation": "replace",
+      "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
+      "confidence": "direct"
+    },
+    {
+      "path": "99-appendix/capability-maturity-matrix.md",
+      "beforeChecksum": "76673d37f09f09032da52f161b3c1eecf1913a836007dd4cebfaafbb9d1fbad5",
+      "operation": "replace",
+      "implementationRefs": ["docs/CAPABILITY-REGISTRY.md", "docs/IMPLEMENTATION_STATUS.md"],
+      "confidence": "inferred",
+      "requiresClaimReview": true
+    },
+    {
+      "path": "99-appendix/implementation-alignment.md",
+      "beforeChecksum": "a8904479452d74cd301d694d25ded5f09659556ef44492cb5e4c874fb317684c",
+      "operation": "replace",
+      "implementationRefs": ["scripts/workspace-architecture.mjs", "docs/IMPLEMENTATION_STATUS.md"],
+      "confidence": "inferred",
+      "requiresClaimReview": true
+    }
+  ]
+}

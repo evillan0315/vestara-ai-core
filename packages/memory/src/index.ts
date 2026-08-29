@@ -104,7 +104,7 @@ let SQL: any = null;
 async function getDb(): Promise<any> {
   if (SQL) return SQL;
   const { getSql } = await import('@vestara/shared');
-  SQL = await getDb();
+  SQL = await getSql();
   return SQL;
 }
 
@@ -470,3 +470,6 @@ export class DefaultMemoryRuntime extends Runtime implements MemoryRuntime {
     };
   }
 }
+
+export type { EngineeringMemoryProjectionOptions } from './engineering-memory-projection';
+export { createEngineeringMemoryProjection, deriveMemory } from './engineering-memory-projection';

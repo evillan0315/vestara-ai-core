@@ -17,7 +17,7 @@ import { DefaultKernel } from '@vestara/kernel';
 import { OpenCodeProvider } from '@vestara/provider-opencode';
 import { DefaultProviderManager } from '@vestara/provider-runtime';
 import { WorkspaceRuntime } from '@vestara/workspace';
-import { BOLD, GOLD, GRAY, GREEN, RED, RESET, renderStep } from '../output/format.js';
+import { BOLD, GOLD, GRAY, RED, RESET, renderStep } from '../output/format.js';
 
 export async function runOpen(openPath: string, force = false): Promise<void> {
   // If workspace already exists and --force was not passed, warn and exit
@@ -191,11 +191,8 @@ export async function runOpen(openPath: string, force = false): Promise<void> {
       // Monitor is optional — works without file watching
     }
 
-    // Start workspace-aware REPL
-    const { startWorkspaceRepl } = await import('../repl-workspace.js');
-    await startWorkspaceRepl(kernel, runtime, opencode);
-
-    // Cleanup on exit
+    // Interactive work continues in the canonical TUI. `open` remains a
+    // finite workspace command and never takes ownership of terminal input.
     if (unsubscribeEvents) {
       unsubscribeEvents();
     }

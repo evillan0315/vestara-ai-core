@@ -58,6 +58,11 @@
 ## Errors
 
 - Toast or inline alert on failed mutations
+- Display no more than one toast at a time; queued notifications must not stack visually
+- Keep the active toast stable and prioritize queued errors ahead of queued informational or success messages
+- Collapse identical type/message notifications received within three seconds and show the repetition count
+- Bound the transient queue to five notifications and give every displayed toast a full five-second visibility window
+- Treat toasts as transient presentation only; persistent history and read state belong to the notification center
 - Never block navigation on a single failed fetch
 - 401/403 → return to auth placeholder with message
 

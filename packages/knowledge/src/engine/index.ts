@@ -9,7 +9,7 @@ import { type ChunkEngine, DefaultChunkEngine } from '../chunking/index.js';
 import { DefaultKnowledgeIndexer, type KnowledgeIndexer } from '../indexer/index.js';
 import { DefaultDocumentParser, type DocumentParser } from '../parser/index.js';
 import type { KnowledgeStorage } from '../storage/index.js';
-import type { IndexReport, KnowledgeChunk, KnowledgeDocument, ProjectInfo, SearchResult } from '../types/index.js';
+import type { IndexReport, ProjectInfo, SearchResult } from '../types/index.js';
 
 export interface KnowledgeEngine {
   readonly storage: KnowledgeStorage;

@@ -2,7 +2,7 @@ import type * as http from 'node:http';
 import { AuditAction, logAudit } from '../audit-log';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
-import { actorOf, getActor, json, readBody } from './types';
+import { getActor, json, readBody } from './types';
 
 export async function handleProjectsRoute(
   method: string,

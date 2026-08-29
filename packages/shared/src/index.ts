@@ -16,4 +16,5 @@ export * from './registry.js';
 export * from './router.js';
 export { dbAll, dbGet, dbRun, getSql } from './sql.js';
 export * from './stream.js';
+export * from './theme-builder-schemas.js';
 export * from './tool.js';

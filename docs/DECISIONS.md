@@ -20,6 +20,25 @@
 
 ---
 
+## Unresolved Architectural Decisions (UD-1…UD-8)
+
+> Logged per AR-P1.5 §10 entry criterion C-4. Each UD carries a **recommendation** that AR-P2 should follow, but the final decision requires EngineeringGovernance + EvidenceGovernance + DocumentationGovernance approval before the dependent migration tier begins.
+
+| Date | ID | Decision | Recommendation | Rationale | Blocks |
+|------|----|----------|----------------|-----------|--------|
+| 2026-08-26 | UD-1 | Where does `runtime_session_bindings` live? | **A** — extend `THREAD_MANIFEST` in `agent-harness.db` | Co-location gives single-file atomicity, keeps harness resume simple, no 2PC. Separate file only if harness and runtime scale independently (not yet). | M2a |
+| 2026-08-26 | UD-2 | Is `conversationId` ever `workflowId`-scoped? | **B (add nullable FK)** — add `workflowId` column to `conversations` | Enables `GET /api/activity-room?workflowId=X` to return both activity and bridged conversation without coupling stores. Queries that ignore workflow unaffected. | M5a |
+| 2026-08-26 | UD-3 | Participant store location | **A** — table in `activity.db` | Participants are derived from threads + workflow tasks but consumed primarily by activity projections (receipts, mentions). `activity.db` keeps Activity Authority's consumer contracts co-located. | M3a |
+| 2026-08-26 | UD-4 | Routing catalog durability | **A** — persist catalog snapshot to `providers.json` | Required for I-1; otherwise catalog inconsistency across restarts causes "selected but now unknown provider" 422 without audit. | M1 |
+| 2026-08-26 | UD-5 | Per-turn vs per-workflow session affinity | **A** — keep per-turn `create→abort` for AR-P2 | Evidence correlation per turn is already complex; defer affinity pooling to post-AR-P2 experiment with explicit policy flag. | M2b vs future |
+| 2026-08-26 | UD-6 | Human message canonical ingress | **B** — keep both, canonicalize at bridge | Fewer breaking changes; UI can continue two chat boxes until UX decides. Activity remains derived but observes chat via bridge. | M5a |
+| 2026-08-26 | UD-7 | Approval/acceptance authority | **A** — keep orchestrator as approval authority | Avoids migrating acceptance semantics now; activity `acceptance` remains the projection; orchestrator emits `acceptance.boundary`. | (none) |
+| 2026-08-26 | UD-8 | Legacy `/ws` event stream deprecation timeline | **A** — freeze `/ws` as compat, deprecation header after AR-P2 T1 | Avoids coupling two failure modes (general WS vs activity ordered stream). | M5b |
+
+**Status:** `pending` — awaiting governance sign-off before corresponding migration tier begins.
+
+---
+
 ## How to Add a Decision
 
 1. Is this an **architectural** decision (changes a frozen contract)? → **ADR process** in `vestara-blueprint/00-governance/04-decision-log.md`

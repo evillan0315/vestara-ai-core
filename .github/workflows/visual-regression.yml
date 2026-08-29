@@ -1,0 +1,79 @@
+name: Visual Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: visual-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        working-directory: apps/workspace
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Build workspace UI
+        run: pnpm --filter @vestara/workspace-ui build
+
+      - name: Run screenshot tests
+        run: pnpm screenshots:ci
+        continue-on-error: true
+        id: screenshots
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: visual-regression-report
+          path: |
+            apps/workspace/tests/visual/reports/**
+            apps/workspace/tests/visual/diff/**
+            apps/workspace/tests/visual/current/**
+            apps/workspace/tests/visual/baselines/**
+          if-no-files-found: ignore
+
+      - name: Comment report summary on PR
+        if: github.event_name == 'pull_request' && steps.screenshots.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'apps/workspace/tests/visual/reports/visual-regression.md';
+            const summary = fs.existsSync(path)
+              ? fs.readFileSync(path, 'utf8').slice(0, 6000)
+              : 'Visual regression run produced no report.';
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `## Visual Regression\n\n${summary}`,
+            });
+
+      - name: Fail PR on regression
+        if: steps.screenshots.outcome == 'failure'
+        run: |
+          echo "Visual regression failures detected."
+          echo "Review the uploaded artifact, then run \`pnpm screenshots:update\` to approve new baselines."
+          exit 1

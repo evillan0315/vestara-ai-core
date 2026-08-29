@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/intent",
+  "description": "Intent model and planner — translates goals into ordered execution plans (ADR-026)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/state-machine": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

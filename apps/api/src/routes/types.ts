@@ -1,4 +1,15 @@
+/**
+ * Shared HTTP primitives for route handlers.
+ *
+ * Backwards-compatible surface for existing route modules: keeps the original
+ * `json`, `CORS`, `readBody`, `getActor`, and `actorOf` signatures while
+ * delegating to the hardened `http/` implementations where relevant.
+ */
+
 import type * as http from 'node:http';
+import { ApiError, normalizeError } from '../http/api-error';
+import { readBody as hardenedReadBody } from '../http/body';
+import { CORS_HEADERS, json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 
 export type RouteHandler = (
@@ -9,25 +20,12 @@ export type RouteHandler = (
   port: number,
 ) => Promise<boolean>;
 
-export const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Vestara-Actor',
-};
+export const CORS: Record<string, string> = { ...CORS_HEADERS };
 
-export function json(res: http.ServerResponse, status: number, body: unknown): void {
-  const data = JSON.stringify(body);
-  res.writeHead(status, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data), ...CORS });
-  res.end(data);
-}
+export { ApiError, json, normalizeError };
 
 export function readBody(req: http.IncomingMessage): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const chunks: Buffer[] = [];
-    req.on('data', (c: Buffer) => chunks.push(c));
-    req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')));
-    req.on('error', reject);
-  });
+  return hardenedReadBody(req);
 }
 
 export function actorOf(req: http.IncomingMessage): string {

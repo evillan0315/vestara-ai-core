@@ -1,6 +1,6 @@
 import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
-import { actorOf, getActor, json, readBody } from './types';
+import { json, readBody } from './types';
 
 export async function handleSessionsRoute(
   method: string,
@@ -8,7 +8,7 @@ export async function handleSessionsRoute(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
-  port: number,
+  _port: number,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/sessions') {
     json(res, 200, { sessions: await ctx.sessions.listSessions() });

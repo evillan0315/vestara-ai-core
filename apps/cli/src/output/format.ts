@@ -13,5 +13,5 @@ export function renderStatus(success: boolean, label: string, detail?: string): 
 }
 
 export function renderStep(success: boolean, label: string, detail?: string): void {
-  process.stdout.write(renderStatus(success, label, detail) + '\n');
+  process.stdout.write(`${renderStatus(success, label, detail)}\n`);
 }

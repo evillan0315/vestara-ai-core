@@ -22,3 +22,10 @@ vestara-state.db
 # OS files
 .DS_Store
 Thumbs.db
+
+# Visual regression artifacts (baselines under .artifacts/baselines are committed)
+tests/visual/.artifacts/current/
+tests/visual/.artifacts/diff/
+tests/visual/.artifacts/reports/
+tests/visual/.artifacts/auth/
+tests/visual/.artifacts/routes/

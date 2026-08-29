@@ -11,6 +11,12 @@ export interface VestaraEvent {
   metadata: {
     correlationId: string;
     causationId?: string;
+    /** ARX-015 M2: Canonical execution identity. Source of truth for correlationId. */
+    executionId?: string;
+    /** ARX-015 M2: Transport/request identity. Single HTTP/WS request lifecycle. */
+    requestId?: string;
+    /** ARX-015 M2: Distributed causal trace. Groups events across processes. */
+    traceId?: string;
     retryCount: number;
     ttl: number;
   };

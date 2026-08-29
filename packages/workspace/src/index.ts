@@ -14,6 +14,17 @@
  *   Runtime: Kernel Lifecycle
  */
 
+export type {
+  AcceptanceBoundary,
+  AcceptanceDeclaration,
+  AcceptanceObligation,
+} from './acceptance-boundary';
+export {
+  parseAcceptanceDeclaration,
+  refineAcceptanceBoundary,
+  renderAcceptanceBoundary,
+  seedAcceptanceBoundary,
+} from './acceptance-boundary';
 export { AccuracyStorage } from './accuracy-storage';
 export type {
   AgentCapabilityDefinition,
@@ -24,12 +35,14 @@ export type {
 } from './agent-capability';
 export { AgentCapabilityManager, capabilityDefinitions } from './agent-capability-manager';
 export { AgentCoordinator } from './agent-coordinator';
+export { AGENT_MANIFEST, AGENT_MIGRATIONS, PLANS_MANIFEST } from './agent-migrations';
 export { AgentPermissionEngine } from './agent-permission';
 export { AgentRuntime } from './agent-runtime';
 export { AgentService } from './agent-service';
 export { AgentStorage } from './agent-storage';
 export type { WorkflowInstance, WorkflowStepDef, WorkflowStepResult } from './agent-workflow-service';
 export { AgentWorkflowService } from './agent-workflow-service';
+export { CANONICAL_AGENTS } from './agents.registry';
 export { AnalyticsService } from './analytics-service';
 export type { AuditEntry } from './audit-store';
 export { AuditStore } from './audit-store';
@@ -44,6 +57,18 @@ export { CollaborationStorage } from './collaboration-storage';
 export { DecisionService } from './decision-service';
 export { DecisionStorage } from './decision-storage';
 export { DesktopService } from './desktop-service';
+export {
+  type BehaviorReport,
+  type ComparisonDimension,
+  compareBehavior,
+  type DualPathComparison,
+  diffChangedFiles,
+  type EngineId,
+  type TerminalStatus,
+  terminalEquivalent,
+  UsageTracker,
+  type Verdict,
+} from './dual-path';
 export { EngineeringMemory } from './engineering-memory';
 export { EnterpriseService } from './enterprise-service';
 export { EnterpriseStorage } from './enterprise-storage';
@@ -81,6 +106,20 @@ export type {
   GitStatusEntry,
 } from './git-service';
 export { GitService } from './git-service';
+export {
+  type AgentExecutionRequest,
+  type AgentExecutionResult,
+  HarnessExecutionAdapter,
+  type HarnessRunRecord,
+  HarnessSession,
+  type HarnessSessionOptions,
+} from './harness-session';
+export {
+  createDefaultAssignmentResolver,
+  HarnessTaskDispatcher,
+  type HarnessTaskDispatcherOptions,
+  type HarnessThreadRunner,
+} from './harness-task-dispatcher';
 export { HelpService } from './help-service';
 export { ImpactStorage } from './impact-storage';
 export { ImplementationService } from './implementation-service';
@@ -89,6 +128,28 @@ export { MemoryService } from './memory-service';
 export type { Milestone, MilestoneStatus } from './milestone-service';
 export { MilestoneService } from './milestone-service';
 export { MonitorService } from './monitor-service';
+export {
+  type ChangeProjectorLike,
+  MULTI_AGENT_WORKFLOW_TEMPLATES,
+  type MultiAgentStageRecord,
+  type MultiAgentStageSpec,
+  type MultiAgentWorkflowOptions,
+  MultiAgentWorkflowOrchestrator,
+  type MultiAgentWorkflowStart,
+  type MultiAgentWorkflowStartInput,
+  type MultiAgentWorkflowTemplate,
+  type MultiAgentWorkflowTemplateId,
+} from './multi-agent-workflow';
+export { OrderService } from './order-service';
+export { OrderStorage } from './order-storage';
+export type {
+  Address,
+  Order,
+  OrderItem,
+  OrderPriority,
+  OrderStatus,
+  PaymentStatus,
+} from './order-types';
 export { OrganizationService } from './organization-service';
 export { OrganizationStorage } from './organization-storage';
 export { OSSystemService } from './os-service';
@@ -147,6 +208,12 @@ export { DuplicateRuntimeError, RuntimeGroup } from './runtime/runtime-group';
 export type { RuntimeRegistration, WorkspaceDefinition } from './runtime/workspace-definition';
 export { WorkspaceFactory } from './runtime/workspace-factory';
 export { WorkspaceComposition } from './runtime/workspace-runtime';
+export type {
+  WorkspaceRuntimeClient,
+  WorkspaceRuntimeClientOptions,
+  WorkspaceRuntimeClientStatus,
+} from './runtime-client';
+export { HttpWorkspaceRuntimeClient } from './runtime-client';
 export type { HealthCheckResult, ServiceContract, ServiceStatus } from './service-contract';
 export {
   AgentDaemonService,
@@ -170,6 +237,7 @@ export type {
   AgentPermission,
   AgentRole,
   AgentTeam,
+  AgentType,
   AgentWorkflow,
   Approval,
   ChangeSet,
@@ -232,6 +300,7 @@ export type { IndexEntry, IndexNode, IndexOptions } from './workspace-index';
 export { WorkspaceIndex } from './workspace-index';
 export type { ModelConfig, ProviderConfig, WorkspaceManifestData } from './workspace-manifest';
 export { WorkspaceManifest } from './workspace-manifest';
+export { WORKSPACE_DOMAIN_MANIFEST, WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 export { WorkspacePersistence } from './workspace-persistence';
 export { WorkspaceRuntime } from './workspace-runtime';
 export type { WorkspaceRuntimeServiceConfig, WorkspaceRuntimeServiceHealth } from './workspace-runtime-service';

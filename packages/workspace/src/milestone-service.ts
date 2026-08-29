@@ -363,7 +363,8 @@ export class MilestoneService {
       type: 'milestone:completed',
       source: 'milestone-service',
       payload: { version: m.version, name: m.name, era: m.era },
-      metadata: { correlationId: `milestone-${version}` },
+      // ARX-015 M2: milestone-version is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
 
     return m;

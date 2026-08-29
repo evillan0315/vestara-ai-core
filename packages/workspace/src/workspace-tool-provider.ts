@@ -6,7 +6,7 @@
  */
 
 import type { Tool } from '@vestara/action';
-import type { ActionRequest, PermissionLevel, ToolDefinition, ToolResult } from '@vestara/shared';
+import type { PermissionLevel, ToolDefinition } from '@vestara/shared';
 import type { FilesystemService } from './fs-service';
 import type { GitService } from './git-service';
 import type { WorkspaceIndex } from './workspace-index';
@@ -47,6 +47,7 @@ function def(
 export class WorkspaceToolProvider {
   private fs: FilesystemService;
   private git: GitService;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: index is injected for future search-backed tools.
   private index: WorkspaceIndex;
 
   constructor(fs: FilesystemService, git: GitService, index: WorkspaceIndex) {

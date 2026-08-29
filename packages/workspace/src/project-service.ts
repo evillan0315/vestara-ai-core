@@ -29,7 +29,8 @@ export class ProjectService {
       type: 'project:created',
       source: 'project-service',
       payload: { projectId: project.id, name: project.name },
-      metadata: { correlationId: project.id },
+      // ARX-015 M2: project.id is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
     return project;
   }
@@ -72,7 +73,8 @@ export class ProjectService {
       type: 'task:created',
       source: 'project-service',
       payload: { taskId: task.id, projectId, title },
-      metadata: { correlationId: task.id },
+      // ARX-015 M2: task.id is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
     return task;
   }

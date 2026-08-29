@@ -16,6 +16,7 @@ import {
   SprintsSection,
   SuggestionsSection,
   SystemSection,
+  WorkflowLifecycleSection,
 } from './sections';
 import type { DashboardData } from './useDashboardData';
 
@@ -47,6 +48,14 @@ export function useSectionRenderer({
           data.workspace ? (
             <RepoHealthSection workspace={data.workspace} execStats={data.execStats} dragSection={dragSection} />
           ) : null,
+        'workflow-lifecycle': () => (
+          <WorkflowLifecycleSection
+            harnessThreads={data.harnessThreads}
+            workflowProjections={data.workflowProjections}
+            execSessions={data.execSessions}
+            dragSection={dragSection}
+          />
+        ),
         'analyze-feature': () => <AnalyzeFeatureSection dragSection={dragSection} />,
         projects: () => <ProjectsSection projects={data.projects} dragSection={dragSection} onRefresh={data.refresh} />,
         plans: () => <PlansSection plans={data.plans} dragSection={dragSection} onRefresh={data.refresh} />,

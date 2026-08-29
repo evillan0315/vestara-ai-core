@@ -11,8 +11,12 @@
   },
   "dependencies": {
     "@vestara/action": "workspace:*",
+    "@vestara/agent-harness": "workspace:*",
+    "@vestara/capabilities": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
+    "@vestara/conversation-runtime": "workspace:*",
+    "@vestara/configuration": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/filesystem-runtime": "workspace:*",
     "@vestara/knowledge": "workspace:*",
@@ -20,10 +24,16 @@
     "@vestara/memory": "workspace:*",
     "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
-    "@vestara/understanding": "workspace:*"
+    "@vestara/sqlite-migrations": "workspace:*",
+    "@vestara/thread-runtime": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "@vestara/understanding": "workspace:*",
+    "@vestara/workflow-orchestrator": "workspace:*",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
-    "vitest": "^4.1.10",
-    "@types/sql.js": "^1.4.11"
+    "@types/sql.js": "^1.4.11",
+    "@types/ws": "^8.5.0",
+    "vitest": "^4.1.10"
   }
 }

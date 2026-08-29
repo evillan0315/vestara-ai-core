@@ -3,9 +3,9 @@ id: "adr-004"
 adr: "ADR-004"
 title: "Multi-Agent Workflow"
 category: "implementation"
-version: 1.0
+version: 1.1
 date: "2026-07-31"
-status: "proposed"
+status: "accepted"
 author: "@chief-architect"
 deciders: ["@chief-architect", "@engineering-manager", "@product-manager"]
 tags: ["workflow", "orchestration", "agents", "events", "state-machine"]
@@ -14,6 +14,8 @@ referenced_by:
     target: "docs/Architecture/Agent-Orchestration.md"
   - type: "blueprint"
     target: "PCS-025 Multi-Agent Project Management"
+  - type: "implementation"
+    target: "docs/PCS-025-phase-1-implementation-plan.md"
 influences:
   - "AI Engineer"
   - "Backend Engineer"
@@ -68,8 +70,14 @@ See PCS-025 for the full design; this ADR records the decision and rationale.
 - New agent roles register via `AgentDefinition` + capability declarations without
   orchestrator changes.
 - Remote workers can implement the existing `remote` `WorkerType` contract.
-- Status: proposed — implementation is staged per the PCS-025 roadmap (Phase 1
-  orchestration core → Phase 2 review/test/approval → Phase 3 distributed).
+- Status: accepted (2026-08-03). PCS-025 Phase 1 orchestration core is delivered:
+  `WorkflowOrchestrator` + project/plan/task state machines, task/artifact/
+  file-lock stores, bounded retry/revision policy, task-graph waves, and
+  idempotent resume in `packages/workflow-orchestrator/`, executing tasks through
+  the harness (`packages/workspace/src/harness-task-dispatcher.ts`) with
+  `orchestration.*` events in the engineering event store and `/api/orchestration/*`
+  routes. Phase 2 (review/test/approval, parallel waves) and Phase 3 (distributed)
+  remain.
 
 ---
 

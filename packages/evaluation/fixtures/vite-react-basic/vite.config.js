@@ -1,4 +1,4 @@
-var __importDefault = (this && this.__importDefault) || ((mod) => (mod && mod.__esModule ? mod : { default: mod }));
+var __importDefault = (this && this.__importDefault) || ((mod) => (mod?.__esModule ? mod : { default: mod }));
 Object.defineProperty(exports, '__esModule', { value: true });
 const plugin_react_1 = __importDefault(require('@vitejs/plugin-react'));
 const vite_1 = require('vite');

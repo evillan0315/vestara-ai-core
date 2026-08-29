@@ -1,0 +1,15 @@
+{
+  "name": "@vestara/opportunity-registry",
+  "description": "Evidence-driven engineering discovery registry — preserves out-of-scope engineering opportunities as evidence-backed records; never authorizes execution",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/opportunity-registry/__tests__"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

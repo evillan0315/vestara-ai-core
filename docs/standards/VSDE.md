@@ -92,6 +92,81 @@ tests/
 
 The documentation structure mirrors the code structure. Each CSP maps to one package area.
 
+## Public Package Documentation Standard
+
+Every non-private workspace package must provide `README.md`, `ARCHITECTURE.md`,
+`TESTING.md`, and `API.md`. The README is the package entrypoint and must contain
+governed metadata plus these sections:
+
+```text
+Overview
+Responsibilities
+Architecture
+Public API
+Lifecycle
+Failure behavior
+Health behavior
+Security and permissions
+Usage
+Testing
+Verification
+Dependencies
+Ownership
+Related ADRs
+Related documentation
+```
+
+Required README frontmatter is:
+
+```yaml
+---
+id: DOC-PKG-<PACKAGE>-001
+kind: readme
+authority: implementation
+status: current
+owner: <team-or-service>
+version: 1.0.0
+last-reviewed: 2026-08-01
+next-review: 2026-11-01
+implementation-ref: packages/<package>/src/index.ts
+verification-status: verified
+---
+```
+
+`verification-status: verified` is valid only when the README links to real
+test or verification evidence. Public API claims must map to the package barrel,
+and architecture claims must identify their implementation references and
+related ADRs. A package with no related ADR must say so instead of inventing one.
+
+The executable source of this contract is
+`packages/documentation/src/requirements.ts`. The verified reference
+implementation is
+[`packages/documentation/README.md`](../../packages/documentation/README.md).
+Changes to either require corresponding tests.
+
+### Semantic validation
+
+Presence is necessary but insufficient. Executable documentation validation
+must also prove:
+
+- Every declared `implementation-ref` resolves to an existing path inside its configured repository.
+- Every explicit `owner` matches `package.json.documentation.owner` or an entry in that repository's `docs/documentation-owners.json` registry.
+- Package document versions match the package manifest version.
+- `next-review` is valid, follows `last-reviewed`, and has not expired; expired current documents are projected as stale.
+- `verification-status: verified` points to an existing test, evidence, or verification target.
+- Package API documents name every symbol exported by the package barrel.
+- Filtered pnpm commands name scripts declared by the selected package or application.
+- Related ADR links resolve to decisions whose status is `accepted` or `current`.
+- Declared document `kind` and `authority` agree with deterministic path and repository classification.
+
+Semantic rules are deterministic and provider-neutral. Existing migration debt
+may be recorded in the documentation baseline, but new violations fail the CI
+gate. Mutation tests against `@vestara/settings-framework` deliberately corrupt
+one claim at a time and must prove every rule detects the mismatch.
+
+The approved-owner registry is attribution policy, not authentication. Changes
+to it require review and must not be used to silently legitimize unknown owners.
+
 ## AI Integration
 
 ```

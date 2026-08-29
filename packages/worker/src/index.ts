@@ -117,9 +117,20 @@ export abstract class Worker extends Runtime {
   protected abstract run(job: Job): Promise<JobResult>;
 }
 
+export type { SubprocessResult } from './process-runner';
+export { runCommand } from './process-runner';
 export { AIWorker } from './workers/ai-worker';
+export type { CIWorkerOptions } from './workers/ci-worker';
 export { CIWorker } from './workers/ci-worker';
+export type { DockerWorkerOptions } from './workers/docker-worker';
 export { DockerWorker } from './workers/docker-worker';
 export { HumanWorker } from './workers/human-worker';
+export type { MCPWorkerOptions } from './workers/mcp-worker';
 export { MCPWorker } from './workers/mcp-worker';
+export type {
+  RemoteDispatchInput,
+  RemoteDispatchResult,
+  RemoteJobDispatcher,
+  RemoteWorkerOptions,
+} from './workers/remote-worker';
 export { RemoteWorker } from './workers/remote-worker';

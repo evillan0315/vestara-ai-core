@@ -1,0 +1,25 @@
+# Minimal Vestara GRUB theme template.
+# Add a reviewed desktop image and menu styling when branding assets exist.
+desktop-color: "#0b1020"
+title-text: "Vestara AI OS"
++ image {
++  file: "logo.png"
++  left: 10%
++  top: 10%
++}
+
++ label {
+  text: "Vestara AI OS"
+  color: "#e5e7eb"
+  font: "DejaVu Sans Bold 28"
+  top: 28%
+  left: 10%
+}
+
++ label {
+  text: "Engineering workspace environment"
+  color: "#93c5fd"
+  font: "DejaVu Sans 14"
+  top: 35%
+  left: 10%
+}

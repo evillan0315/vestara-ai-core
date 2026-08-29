@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "id": "vestara.tui",
+  "name": "Vestara Terminal Workspace",
+  "version": "0.1.0",
+  "description": "Vestara's full-screen terminal TUI — a standalone OpenTUI executable for the Engineering Console",
+  "type": "tui",
+  "publisher": {
+    "id": "vestara",
+    "name": "Vestara"
+  },
+  "compatibility": {
+    "vestara": ">=0.3.0",
+    "operatingSystems": ["linux", "macos", "win32"],
+    "architectures": ["x64", "arm64"]
+  },
+  "entrypoints": {
+    "runtime": "dist/index.js",
+    "executable": {
+      "targets": {
+        "linux-x64": "bin/vestara-tui-linux-x64",
+        "linux-arm64": "bin/vestara-tui-linux-arm64",
+        "darwin-x64": "bin/vestara-tui-darwin-x64",
+        "darwin-arm64": "bin/vestara-tui-darwin-arm64",
+        "win32-x64": "bin/vestara-tui-win32-x64.exe"
+      },
+      "checksums": {}
+    }
+  },
+  "capabilities": ["tui:render", "tui:command"],
+  "permissions": [
+    {
+      "capability": "network:connect",
+      "scope": "system",
+      "resources": ["http://127.0.0.1:3001"],
+      "approval": "automatic",
+      "reason": "Connect to the shared Vestara API for conversations, telemetry, and workflow data"
+    }
+  ],
+  "dependencies": [],
+  "contributions": {},
+  "isolation": "process",
+  "integrity": {
+    "algorithm": "sha256",
+    "digest": "pending"
+  }
+}

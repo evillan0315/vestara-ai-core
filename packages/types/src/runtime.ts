@@ -5,6 +5,8 @@ export type RuntimeType =
   | 'runtime'
   | 'system'
   | 'kernel'
+  | 'host'
+  | 'boot'
   | 'workspace'
   | 'agent'
   | 'ai-agent'
@@ -35,7 +37,8 @@ export type RuntimeType =
   | 'config'
   | 'health'
   | 'worker-pool'
-  | 'dashboard';
+  | 'dashboard'
+  | 'tui';
 
 export type RuntimeCategory = 'core' | 'extension' | 'custom';
 

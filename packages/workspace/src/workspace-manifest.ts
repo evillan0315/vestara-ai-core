@@ -43,6 +43,8 @@ export interface ProviderConfig {
   apiKeyEnv?: string;
   enabled: boolean;
   models: ModelConfig[];
+  /** Optimistic-concurrency revision for provider mutations. Absent on legacy manifests. */
+  revision?: number;
   createdAt: string;
   updatedAt: string;
 }

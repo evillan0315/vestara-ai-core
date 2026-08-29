@@ -5,7 +5,6 @@ import type {
   ModelInfo,
   ProviderHealth,
   StreamChunk,
-  ToolDefinition,
 } from '@vestara/shared';
 
 export interface OpenAICompatConfig {
@@ -43,7 +42,7 @@ export class OpenAICompatibleProvider implements ConversationProvider {
     const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
     const body: Record<string, unknown> = {
       model: request.model ?? this._model,
@@ -110,7 +109,7 @@ export class OpenAICompatibleProvider implements ConversationProvider {
     const apiKey = this.config.apiKey ?? process.env.OPENAI_API_KEY;
 
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
 
     const body: Record<string, unknown> = {
       model: request.model ?? this._model,
@@ -243,7 +242,7 @@ export class OpenAICompatibleProvider implements ConversationProvider {
         this._available = res.ok;
       } else {
         const headers: Record<string, string> = {};
-        if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+        if (apiKey) headers.Authorization = `Bearer ${apiKey}`;
         const res = await fetch(`${baseUrl}/models`, { headers, signal: AbortSignal.timeout(5000) });
         this._available = res.ok;
       }

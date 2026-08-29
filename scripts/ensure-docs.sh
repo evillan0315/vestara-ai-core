@@ -152,6 +152,10 @@ while IFS= read -r pkg_dir; do
   npmpkg=$(grep '"name":' "$pkg_json" 2>/dev/null | head -1 | sed 's/.*"name": "*\([^"]*\)".*/\1/')
   deps=$(grep -A100 '"dependencies":' "$pkg_json" 2>/dev/null | grep '"@vestara/' | sed 's/.*"\(.*\)":.*/\1/' | tr '\n' ' ' | sed 's/  */ /g' || true)
   role="${PACKAGE_ROLES[$key]:-library}"
+  docs_path="../../docs/"
+  if [ "$parent_dir" = "providers" ] || [ "$parent_dir" = "tools" ]; then
+    docs_path="../../../docs/"
+  fi
 
   readme_content="# ${npmpkg:-$pkg_name}"
   [ -n "$desc" ] && readme_content="${readme_content}
@@ -173,8 +177,7 @@ pnpm --filter @vestara/${key} build
 \`${deps}\`"
   readme_content="${readme_content}
 
-See [docs/](../docs/) for capability specifications and architecture.
-"
+See [docs/](${docs_path}) for capability specifications and architecture."
 
   create "$pkg_dir/README.md" "$readme_content"
 

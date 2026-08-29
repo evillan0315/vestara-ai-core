@@ -21,21 +21,9 @@ export class UserStore {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
     this.seedDefaultUser();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS users (
-        id TEXT PRIMARY KEY,
-        username TEXT UNIQUE NOT NULL,
-        role TEXT NOT NULL DEFAULT 'admin',
-        token TEXT UNIQUE NOT NULL,
-        created_at TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_users_token ON users(token);
-    `);
   }
 
   private seedDefaultUser(): void {

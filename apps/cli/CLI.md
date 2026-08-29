@@ -25,6 +25,90 @@ the full runtime (kernel, providers, conversation engine, audio services).
 
 ## CLI Commands
 
+### `vestara console` / `vestara tui`
+
+Launch the Ink-based engineering Console. The API must be running and stdin/
+stdout must be attached to an interactive terminal.
+
+```bash
+pnpm dev:api
+pnpm console
+```
+
+The Console supports streaming prompts, multiline input, bracketed paste,
+history, transcript scrolling, help and command-palette overlays, and governed
+routing reassignment confirmations. `Ctrl+C` cancels active work before exiting
+an idle Console.
+
+---
+
+### `vestara routing <subcommand>`
+
+Inspect and govern role/agent/provider/model routing through shared versioned
+runtime state.
+
+| Subcommand | Behavior |
+|------------|----------|
+| `show` | Show current profile, revision, and role defaults |
+| `catalog` | List profiles and provider-scoped model candidates |
+| `profile <id>` | Change the routing profile with optimistic concurrency |
+| `preview <role> <agent-id>` | Resolve and explain effective routing |
+| `assignments` | List governed task assignments |
+| `assign <task> <role> <agent> <provider> <model>` | Create an assignment |
+| `assignment-status <task> <state> <revision>` | Change assignment state |
+| `record-side-effect <task> <revision>` | Record that execution produced side effects |
+| `reassign <task> <revision> <agent> <provider> <model> --reason <text>` | Govern active reassignment (`--approve` after pause) |
+
+```bash
+vestara routing catalog
+vestara routing profile strict-engineering
+vestara routing preview developer developer-07
+vestara routing assignments
+```
+
+Routing identity is provider-scoped (`providerId/modelId`). A revision conflict
+must be reviewed and retried. Reassignment after recorded side effects pauses
+the task and requires explicit approval; approval does not resume work.
+
+---
+
+### `vestara screenshots <subcommand> [options]`
+
+Run the Workspace UI screenshot and visual-regression framework through the CLI. `run` compares against
+committed baselines; baseline mutation requires the explicit `update` subcommand.
+
+| Subcommand | Behavior |
+|------------|----------|
+| `run` | Capture and compare screenshots (default) |
+| `update` | Intentionally update selected baselines |
+| `report` | Regenerate JSON, Markdown, and HTML reports |
+| `clean` | Remove generated artifacts while preserving baselines |
+| `check` | Type-check the visual automation framework |
+
+```bash
+vestara screenshots run --viewport desktop
+vestara screenshots run --routes dashboard,docs --theme dark
+vestara screenshots update --routes settings
+vestara screenshots check --json
+```
+
+| Option | Constraint |
+|--------|------------|
+| `--viewport` | `mobile`, `tablet`, or `desktop` |
+| `--theme` | `dark` or `light` |
+| `--routes` | Comma-separated route IDs |
+| `--base-url` | HTTP(S) Workspace URL |
+| `--tolerance` | Pixel threshold from `0` to `1` |
+| `--max-diff` | Maximum differing percentage from `0` to `100` |
+| `--stability-ms` | Additional settle time from `0` to `60000` ms |
+| `--role` | Screenshot identity role ID |
+| `--wait-network` | Wait for network-idle before capture |
+| `--ci` | Enable Playwright CI behavior |
+| `--workspace` | Path used to locate `vestara-ai-core` |
+| `--json` | Emit the structured child-process result |
+
+---
+
 ### `vestara open [path]`
 
 Open a workspace at the given path (default `.`). Creates `.vestara/` manifest and storage
@@ -537,6 +621,37 @@ REPL is available with commands across every subsystem.
 
 ---
 
+### `vestara marketplace <subcommand>`
+
+Marketplace (Engineering Exchange) — discover, install, update, and verify engineering
+assets from local registry directories. Installation mechanics delegate to
+`@vestara/extension-runtime`; the marketplace owns catalog, search, resolution, and update
+projections. Operates directly on the filesystem (no API dependency).
+
+| Subcommand | Behavior |
+|------------|----------|
+| `search <query>` | Search assets (`--type T`, `--publisher P`, `--tag T`, `--limit N`, `--sort name\|updated\|version`) |
+| `list` | List all catalog assets |
+| `info <package>` | Asset details: versions, dependencies, permissions, verification |
+| `installed` | Installed packages with state and update status |
+| `updates` | Available updates (compatible and incompatible) |
+| `install <package>[@version]` | Install and activate (`--dry-run`, `--yes`) |
+| `update <package>` | Update to the latest compatible version (`--dry-run`, `--yes`) |
+| `uninstall <package>` | Uninstall (`--yes`) |
+| `verify <package>` | Recompute and compare the package digest |
+| `rescan` | Rescan local registry directories |
+
+Supports `--json` for machine-readable output. `--dry-run` prints the full resolution plan
+(versions, dependencies, permissions) without installing. Packages declaring permissions
+require interactive confirmation unless `--yes` is given.
+
+Discovery sources (read-only, in order): `<workspace>/.vestara/marketplace/`,
+`<workspace>/.vestara/packages/`, `~/.config/vestara/marketplace/`, and any paths in
+`$VESTARA_MARKETPLACE_ROOTS`. Installed packages and their versions persist under
+`<workspace>/.vestara/extensions/` (see Data Storage).
+
+---
+
 ## Data Storage
 
 The CLI persists data in `.vestara/` under the workspace root:
@@ -549,5 +664,10 @@ The CLI persists data in `.vestara/` under the workspace root:
 | `knowledge/` | Indexed knowledge graph |
 | `memory/` | Event memory |
 | `prefs.db` | User preferences |
+| `routing.json` | Versioned routing profile and role defaults |
+| `routing-assignments.json` | Governed task assignments and side-effect evidence |
+| `marketplace/` | Discoverable package sources (read-only) |
+| `extensions/extensions.json` | Installed package state (extension-runtime durable store) |
+| `extensions/packages/` | Installed package payloads (immutable versions) |
 
 Default provider is **OpenCode** (`@vestara/provider-opencode`) — works without API keys.

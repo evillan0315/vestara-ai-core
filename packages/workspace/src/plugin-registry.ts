@@ -5,6 +5,8 @@
  *   PCS: PCS-014 — Plugin Ecosystem
  */
 
+import { migrate } from '@vestara/sqlite-migrations';
+import { PLUGIN_MANIFEST } from './scaffold-migrations';
 import type { PluginDefinition, PluginExecution } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -41,27 +43,7 @@ export class PluginRegistry {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS plugins (
-        id TEXT PRIMARY KEY,
-        name TEXT, version TEXT, publisher TEXT,
-        description TEXT,
-        permissions TEXT DEFAULT '[]',
-        hooks TEXT DEFAULT '[]',
-        status TEXT DEFAULT 'active',
-        created_at TEXT
-      );
-      CREATE TABLE IF NOT EXISTS plugin_executions (
-        id TEXT PRIMARY KEY,
-        plugin_id TEXT,
-        hook TEXT,
-        status TEXT,
-        duration INTEGER,
-        message TEXT,
-        timestamp TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_pe_plugin ON plugin_executions(plugin_id);
-    `);
+    migrate(this.db, PLUGIN_MANIFEST);
   }
 
   private seedBuiltIn(): void {

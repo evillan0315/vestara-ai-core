@@ -1,0 +1,18 @@
+{
+  "name": "@vestara/decision-pipeline",
+  "description": "ADR-035 decision pipeline — invariant chain Permission → Policy → Execution → Verification → Trust → History",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/agent-harness",
+  "description": "Durable model, tool, observation, approval, and verification loop for Vestara agents",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/agent-harness/__tests__"
+  },
+  "dependencies": {
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/thread-runtime": "workspace:*",
+    "@vestara/tool-runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

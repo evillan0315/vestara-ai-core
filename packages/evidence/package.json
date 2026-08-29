@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/evidence",
+  "description": "Engineering evidence pipeline — collectors, content-addressed evidence, immutable manifests, verification bundles, replay descriptors, and derived confidence (PCS-026)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/engineering-event-store": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "pngjs": "^7.0.0"
+  },
+  "devDependencies": {
+    "@types/pngjs": "^6.0.5",
+    "vitest": "^4.1.10"
+  }
+}

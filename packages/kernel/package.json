@@ -11,17 +11,25 @@
   },
   "dependencies": {
     "@vestara/configuration": "workspace:*",
+    "@vestara/decision-pipeline": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/health": "workspace:*",
+    "@vestara/intent": "workspace:*",
     "@vestara/job": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/metrics": "workspace:*",
+    "@vestara/ownership": "workspace:*",
     "@vestara/permissions": "workspace:*",
+    "@vestara/policy-engine": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
     "@vestara/scheduler": "workspace:*",
     "@vestara/service-registry": "workspace:*",
     "@vestara/shared": "workspace:*",
+    "@vestara/trust": "workspace:*",
     "@vestara/types": "workspace:*",
-    "@vestara/worker": "workspace:*"
+    "@vestara/verification": "workspace:*",
+    "@vestara/worker": "workspace:*",
+    "@vestara/widget-runtime": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

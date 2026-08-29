@@ -1,7 +1,6 @@
 import type * as http from 'node:http';
-import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
-import { actorOf, getActor, json, readBody } from './types';
+import { json, readBody } from './types';
 
 export async function handleMilestonesRoute(
   method: string,
@@ -9,11 +8,11 @@ export async function handleMilestonesRoute(
   req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
-  port: number,
+  _port: number,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/milestones') {
     if (ctx.milestones) {
-      const existingVersions = new Set(ctx.milestones.list().map((m: any) => m.version));
+      const _existingVersions = new Set(ctx.milestones.list().map((m: any) => m.version));
       json(res, 200, {
         milestones: ctx.milestones.list(),
         byEra: ctx.milestones.getByEra(),

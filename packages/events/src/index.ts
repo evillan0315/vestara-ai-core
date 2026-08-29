@@ -13,7 +13,8 @@ export type EventCategory =
   | 'system'
   | 'agent'
   | 'memory'
-  | 'profile';
+  | 'profile'
+  | 'documentation';
 
 export type WorkspaceEventActorType = 'user' | 'agent' | 'system';
 
@@ -130,6 +131,24 @@ export const DOMAIN_EVENT_CATEGORIES: Record<string, EventCategory> = {
   'memory.queried': 'memory',
   'user.profile.created': 'profile',
   'user.profile.updated': 'profile',
+  'documentation.inventory-started': 'documentation',
+  'documentation.inventory-completed': 'documentation',
+  'documentation.finding-created': 'documentation',
+  'documentation.impact-analyzed': 'documentation',
+  'documentation.plan-created': 'documentation',
+  'documentation.task-created': 'documentation',
+  'documentation.task-assigned': 'documentation',
+  'documentation.proposal-created': 'documentation',
+  'documentation.validation-started': 'documentation',
+  'documentation.validation-completed': 'documentation',
+  'documentation.verification-started': 'documentation',
+  'documentation.verification-completed': 'documentation',
+  'documentation.approval-requested': 'documentation',
+  'documentation.proposal-approved': 'documentation',
+  'documentation.proposal-rejected': 'documentation',
+  'documentation.published': 'documentation',
+  'documentation.failed': 'documentation',
+  'documentation.drift-detected': 'documentation',
 };
 
 export function categorizeEvent(type: string): EventCategory {

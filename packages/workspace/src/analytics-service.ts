@@ -6,6 +6,8 @@
  *   Product Principle: Measure Capabilities, Not Components
  */
 
+import { migrate } from '@vestara/sqlite-migrations';
+import { ANALYTICS_MANIFEST } from './scaffold-migrations';
 import type { WorkspaceSession } from './workspace-session';
 
 export interface HealthSnapshot {
@@ -36,17 +38,7 @@ export class AnalyticsService {
   }
 
   private ensureSchema(): void {
-    this.store.exec(`
-      CREATE TABLE IF NOT EXISTS health_snapshots (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        timestamp TEXT,
-        overall REAL,
-        code_quality REAL,
-        test_coverage REAL,
-        dependency_health REAL,
-        documentation REAL
-      );
-    `);
+    migrate(this.store, ANALYTICS_MANIFEST);
   }
 
   private load(): void {

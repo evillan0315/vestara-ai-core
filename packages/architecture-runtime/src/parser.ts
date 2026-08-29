@@ -106,14 +106,14 @@ export function parseFrontmatter(raw: string): AdrFrontmatter | null {
   const yaml = match[1];
   const parsed = parseYamlBlock(yaml);
 
-  const dependsOnRaw = parsed['depends_on'] ?? [];
+  const dependsOnRaw = parsed.depends_on ?? [];
   const dependsOn = Array.isArray(dependsOnRaw)
     ? dependsOnRaw.map((d: any) =>
         typeof d === 'string' ? { id: d, relationship: undefined } : { id: d.id, relationship: d.relationship },
       )
     : [];
 
-  const referencedByRaw = parsed['referenced_by'] ?? [];
+  const referencedByRaw = parsed.referenced_by ?? [];
   const referencedBy = Array.isArray(referencedByRaw)
     ? referencedByRaw.map((r: any) =>
         typeof r === 'string'
@@ -123,21 +123,21 @@ export function parseFrontmatter(raw: string): AdrFrontmatter | null {
     : [];
 
   return {
-    id: String(parsed['id'] ?? ''),
-    adr: String(parsed['adr'] ?? ''),
-    title: String(parsed['title'] ?? ''),
-    category: String(parsed['category'] ?? ''),
-    version: Number(parsed['version'] ?? 0),
-    date: String(parsed['date'] ?? ''),
-    status: String(parsed['status'] ?? ''),
-    author: String(parsed['author'] ?? ''),
-    deciders: Array.isArray(parsed['deciders']) ? parsed['deciders'] : [],
-    consulted: Array.isArray(parsed['consulted']) ? parsed['consulted'] : [],
-    informed: Array.isArray(parsed['informed']) ? parsed['informed'] : [],
-    tags: Array.isArray(parsed['tags']) ? parsed['tags'] : [],
+    id: String(parsed.id ?? ''),
+    adr: String(parsed.adr ?? ''),
+    title: String(parsed.title ?? ''),
+    category: String(parsed.category ?? ''),
+    version: Number(parsed.version ?? 0),
+    date: String(parsed.date ?? ''),
+    status: String(parsed.status ?? ''),
+    author: String(parsed.author ?? ''),
+    deciders: Array.isArray(parsed.deciders) ? parsed.deciders : [],
+    consulted: Array.isArray(parsed.consulted) ? parsed.consulted : [],
+    informed: Array.isArray(parsed.informed) ? parsed.informed : [],
+    tags: Array.isArray(parsed.tags) ? parsed.tags : [],
     depends_on: dependsOn,
     referenced_by: referencedBy,
-    influences: Array.isArray(parsed['influences']) ? parsed['influences'] : [],
+    influences: Array.isArray(parsed.influences) ? parsed.influences : [],
   };
 }
 

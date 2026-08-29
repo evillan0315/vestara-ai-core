@@ -145,7 +145,7 @@ export class DefaultStreamProcessor implements StreamProcessor {
           provider: options.provider,
           model: options.model,
         },
-        metadata: { correlationId: options.conversationId },
+        metadata: {},
       });
     }
 
@@ -167,7 +167,7 @@ export class DefaultStreamProcessor implements StreamProcessor {
               conversationId: options.conversationId,
               chunk,
             },
-            metadata: { correlationId: options.conversationId },
+            metadata: {},
           });
         }
 
@@ -183,7 +183,7 @@ export class DefaultStreamProcessor implements StreamProcessor {
             conversationId: options.conversationId,
             chunks: seq,
           },
-          metadata: { correlationId: options.conversationId },
+          metadata: {},
         });
       }
 
@@ -204,7 +204,7 @@ export class DefaultStreamProcessor implements StreamProcessor {
             conversationId: options.conversationId,
             error: msg,
           },
-          metadata: { correlationId: options.conversationId },
+          metadata: {},
         });
       }
 
@@ -244,7 +244,8 @@ class EventEmittingProcessor implements StreamProcessor {
             conversationId: this.streamOptions.conversationId,
             ...payload,
           },
-          metadata: { correlationId: this.streamOptions.conversationId },
+          // ARX-015 M2: conversationId is not an execution identity — correlation absent (fail-closed)
+          metadata: {},
         })
         .catch(() => {});
     }

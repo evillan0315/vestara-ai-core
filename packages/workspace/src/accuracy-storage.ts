@@ -1,3 +1,5 @@
+import { migrate } from '@vestara/sqlite-migrations';
+import { ACCURACY_MANIFEST } from './scaffold-migrations';
 import type { PredictionAccuracy } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -25,20 +27,7 @@ export class AccuracyStorage {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS prediction_accuracy (
-        id TEXT PRIMARY KEY,
-        assessment_id TEXT,
-        change_set_id TEXT,
-        verification_id TEXT,
-        predicted_health_delta REAL,
-        actual_health_delta REAL,
-        error REAL,
-        absolute_error REAL,
-        recorded_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_pa_assessment ON prediction_accuracy(assessment_id);
-    `);
+    migrate(this.db, ACCURACY_MANIFEST);
   }
 
   async save(pa: PredictionAccuracy): Promise<void> {

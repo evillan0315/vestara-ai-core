@@ -1,19 +1,3 @@
-/**
- * @vestara/knowledge — Knowledge Runtime (Brain 3)
- *
- * Document ingestion, indexing, search, and retrieval-augmented
- * generation. Understands repositories, documentation, and files
- * as structured knowledge — not just raw text.
- *
- * Architecture Traceability:
- *   Blueprint: 05-ai-core/BRAIN-ARCHITECTURE.md → Brain 3
- *   Specification: AI-CON-002 → Knowledge Engine
- *   Foundation: VESTARA-OBJECT-MODEL.md → VOM-Knowledge
- */
-
-import type { EventBus } from '@vestara/event-bus';
-import type { Logger } from '@vestara/logger';
-
 // ═══════════════════════════════════════════════════════════════
 // TYPES
 // ═══════════════════════════════════════════════════════════════

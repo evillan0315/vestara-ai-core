@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useToasts } from '../Toast';
+import { VestaraModal } from '../ui/VestaraModal';
 
 interface Props {
   open: boolean;
@@ -35,25 +36,25 @@ export default function CreateArtifactModal({ open, onClose, onCreated }: Props)
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Escape') onClose(); if (e.key === 'Enter' && !loading) handleCreate(); }}>
-        <h3 className="text-sm font-semibold text-zinc-200 mb-4">Create Artifact</h3>
+    <VestaraModal onClose={onClose} className="max-w-md">
+      <div className="p-5">
+        <h3 className="text-sm font-semibold text-(--vestara-text) mb-4">Create Artifact</h3>
         <div className="space-y-3">
           <div>
-            <label className="text-xs text-zinc-400 block mb-1">Goal / Description</label>
+            <label className="text-xs text-(--vestara-text-2) block mb-1">Goal / Description</label>
             <textarea value={goal} onChange={(e) => { setGoal(e.target.value); setError(''); }} placeholder="Describe the artifact goal..." autoFocus rows={3}
-              className="w-full bg-zinc-800 border border-zinc-700 text-zinc-200 rounded-lg p-2 text-xs outline-none focus:border-blue-500 placeholder-zinc-600 resize-none" />
+              className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg p-2 text-xs outline-none focus:border-(--vestara-accent-border-active) placeholder:(--vestara-text-dim) resize-none" />
           </div>
-          {error && <p className="text-[10px] text-red-400">{error}</p>}
+          {error && <p className="text-[10px] text-(--vestara-red)">{error}</p>}
           <div className="flex items-center gap-2 justify-end pt-1">
-            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-zinc-700 text-zinc-400 hover:bg-zinc-800 cursor-pointer">Cancel</button>
+            <button onClick={onClose} className="text-xs px-3 py-1.5 rounded-lg border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) cursor-pointer transition-colors">Cancel</button>
             <button onClick={handleCreate} disabled={loading || !goal.trim()}
-              className="text-xs px-4 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-500 disabled:opacity-40 cursor-pointer font-medium">
+              className="text-xs px-4 py-1.5 rounded-lg bg-(--vestara-accent) text-white hover:opacity-90 disabled:opacity-40 cursor-pointer font-medium">
               {loading ? 'Creating...' : 'Create'}
             </button>
           </div>
         </div>
       </div>
-    </div>
+    </VestaraModal>
   );
 }

@@ -15,6 +15,7 @@
     "@vestara/conversation": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/logger": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
     "sql.js": "^1.14.1"
   },
   "devDependencies": {

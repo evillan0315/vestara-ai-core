@@ -17,7 +17,9 @@ export type EmitEvent = {
   source: string;
   payload: Record<string, unknown>;
   actor?: { id: string; role: 'user' | 'system' | 'agent' };
-  metadata?: Partial<VestaraEvent['metadata']>;
+  metadata?: Partial<
+    Pick<VestaraEvent['metadata'], 'correlationId' | 'causationId' | 'executionId' | 'requestId' | 'traceId' | 'ttl'>
+  >;
 };
 
 export interface EventBus {
@@ -64,7 +66,11 @@ export class InProcessEventBus implements EventBus {
 
   async emit(event: EmitEvent): Promise<void> {
     const fullEvent: VestaraEvent = {
-      id: event.metadata?.correlationId ?? `evt-${Date.now()}-${++eventCounter}`,
+      // Every event gets a unique id; correlationId lives in metadata. Using
+      // correlationId as the event id collides across events in one turn
+      // (e.g. multiple tool/progress events), silently dropping later records
+      // from the Activity Room projection.
+      id: `evt-${Date.now()}-${++eventCounter}`,
       type: event.type,
       version: event.version ?? 1,
       timestamp: new Date().toISOString(),
@@ -74,6 +80,9 @@ export class InProcessEventBus implements EventBus {
       metadata: {
         correlationId: event.metadata?.correlationId ?? `cor-${Date.now()}`,
         causationId: event.metadata?.causationId,
+        executionId: event.metadata?.executionId,
+        requestId: event.metadata?.requestId,
+        traceId: event.metadata?.traceId,
         retryCount: 0,
         ttl: event.metadata?.ttl ?? 60,
       },

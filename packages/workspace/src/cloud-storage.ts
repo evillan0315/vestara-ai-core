@@ -5,6 +5,8 @@
  *   PCS: PCS-015 — Cloud Execution Environment
  */
 
+import { migrate } from '@vestara/sqlite-migrations';
+import { CLOUD_MANIFEST } from './scaffold-migrations';
 import type { CloudJob, CloudWorker } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -41,19 +43,7 @@ export class CloudStorage {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS cloud_jobs (
-        id TEXT PRIMARY KEY, type TEXT, target TEXT,
-        status TEXT DEFAULT 'pending', worker_type TEXT,
-        submitted_at TEXT, completed_at TEXT, result TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_cj_status ON cloud_jobs(status);
-      CREATE TABLE IF NOT EXISTS cloud_workers (
-        id TEXT PRIMARY KEY, name TEXT, type TEXT,
-        status TEXT DEFAULT 'idle', current_job TEXT,
-        resources TEXT DEFAULT '{}'
-      );
-    `);
+    migrate(this.db, CLOUD_MANIFEST);
   }
 
   private seedWorkers(): void {

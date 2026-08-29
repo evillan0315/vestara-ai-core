@@ -1,4 +1,4 @@
-import { BOLD, GOLD, GRAY, GREEN, RESET } from '../output/format.js';
+import { GRAY, RESET } from '../output/format.js';
 
 export async function runMetrics(): Promise<void> {
   const memUsage = process.memoryUsage();

@@ -66,6 +66,8 @@ export default function Dashboard() {
   const [showWorkflowPicker, setShowWorkflowPicker] = useState(false);
   const [workflowGoal, setWorkflowGoal] = useState('');
   const [workflowType, setWorkflowType] = useState('feature');
+  const [wfStarting, setWfStarting] = useState(false);
+  const [wfError, setWfError] = useState<string | null>(null);
   const [showSectionPicker, setShowSectionPicker] = useState(false);
   const [newEventFlash, setNewEventFlash] = useState(false);
   const autoRefInterval = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -116,16 +118,22 @@ export default function Dashboard() {
 
   const startWorkflow = async () => {
     if (!workflowGoal.trim()) return;
+    setWfStarting(true);
+    setWfError(null);
     try {
-      await fetch('/api/sessions/executions/start', {
+      const res = await fetch('/api/sessions/executions/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ goal: workflowGoal, workflow: workflowType }),
       });
+      if (!res.ok) throw new Error(`Workflow start failed (${res.status})`);
       setShowWorkflowPicker(false);
       setWorkflowGoal('');
-    } catch {
-      // Workflow start failed silently
+      await data.refresh();
+    } catch (caught) {
+      setWfError(caught instanceof Error ? caught.message : 'Unable to start the workflow');
+    } finally {
+      setWfStarting(false);
     }
   };
 
@@ -297,6 +305,56 @@ export default function Dashboard() {
           data.refresh();
         }}
       />
+
+      {showWorkflowPicker && (
+        <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-6" onClick={() => setShowWorkflowPicker(false)}>
+          <div
+            className="w-full max-w-lg rounded-xl border border-(--vestara-accent-border) bg-[var(--vestara-accent-bg)] p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-sm font-semibold text-(--vestara-text)">Start a New Workflow</h3>
+            <p className="mt-1 text-[11px] text-(--vestara-text-muted)">
+              Create an execution session that runs through the agent pipeline.
+            </p>
+            <input
+              type="text"
+              value={workflowGoal}
+              onChange={(e) => setWorkflowGoal(e.target.value)}
+              placeholder="What should this workflow accomplish?"
+              className="mt-3 w-full rounded-md border border-(--vestara-accent-border) bg-zinc-900 px-3 py-2 text-sm text-(--vestara-text) outline-none focus:border-(--vestara-accent-border-active)"
+            />
+            <select
+              value={workflowType}
+              onChange={(e) => setWorkflowType(e.target.value)}
+              className="mt-2 w-full rounded-md border border-(--vestara-accent-border) bg-zinc-900 px-3 py-2 text-sm text-(--vestara-text)"
+            >
+              {data.workflows.map((wf) => (
+                <option key={wf.id} value={wf.id}>
+                  {wf.label} · {wf.steps} step(s)
+                </option>
+              ))}
+            </select>
+            {wfError && <p className="mt-2 text-[11px] text-red-300">{wfError}</p>}
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowWorkflowPicker(false)}
+                className="rounded-md border border-(--vestara-accent-border) px-3 py-1.5 text-xs text-(--vestara-text-2) hover:text-zinc-300"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void startWorkflow()}
+                disabled={wfStarting}
+                className="rounded-md bg-(--vestara-accent) px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {wfStarting ? 'Starting…' : 'Start workflow'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

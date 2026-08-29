@@ -5,6 +5,7 @@
 set -e
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MILESTONE="${1:-all}"
 PASS=0
 FAIL=0
 TOTAL=0
@@ -83,7 +84,7 @@ else
 fi
 
 # Stale compiled artifacts in __tests__ dirs
-STALE=$(find "$ROOT/packages" "$ROOT/apps" -path '*/__tests__/*.js' -not -path '*/node_modules/*' 2>/dev/null | head -10)
+STALE=$(find "$ROOT/packages" "$ROOT/apps" -path '*/__tests__/*.js' -not -path '*/node_modules/*' -not -path '*/dist/*' 2>/dev/null | head -10)
 if [ -z "$STALE" ]; then
   pass "No stale compiled artifacts in __tests__ directories"
 else
@@ -147,6 +148,62 @@ else
   skip "tsconfig.tsbuildinfo not checked (run pnpm build first)"
 fi
 
+# ── v3.1 — Codebase Cleanup ────────────────────────────────────────────────
+echo "--- v3.1 — Codebase Cleanup ---"
+check "Non-mutating lint gate is defined" "grep -q '\"lint:check\"' '$ROOT/package.json'"
+check "Pre-commit quality script exists and is executable" "test -x '$ROOT/scripts/pre-commit.sh'"
+check "Git pre-commit hook exists and is executable" "test -x '$ROOT/.githooks/pre-commit'"
+
+# ── v3.2 — Documentation Generation ────────────────────────────────────────
+echo "--- v3.2 — Documentation Generation ---"
+check "TypeDoc configuration exists" "test -f '$ROOT/typedoc.json'"
+check "Documentation generator discovers workspace entrypoints" "grep -q 'ENTRY_POINTS' '$ROOT/scripts/generate-docs.sh'"
+check "Generated API documentation exists" "test -f '$ROOT/docs/api/index.html'"
+check "Generated package catalog exists" "test -f '$ROOT/docs/api/PACKAGE_CATALOG.md'"
+
+# ── v3.3 — Pipeline Integration & Benchmarks ───────────────────────────────
+echo "--- v3.3 — Pipeline Integration Tests & Benchmarks ---"
+check "Workspace runtime integration tests exist" "test -f '$ROOT/packages/workspace/__tests__/workspace-runtime-service.test.ts'"
+check "Pipeline benchmark exists" "test -x '$ROOT/scripts/benchmark.sh'"
+check "Pipeline benchmark command is defined" "grep -q '\"benchmark\"' '$ROOT/package.json'"
+
+# ── v3.4 — Repository Hygiene ──────────────────────────────────────────────
+echo "--- v3.4 — Repository Hygiene ---"
+check "Bug report template exists" "test -f '$ROOT/.github/ISSUE_TEMPLATE/bug-report.md'"
+check "Feature request template exists" "test -f '$ROOT/.github/ISSUE_TEMPLATE/feature-request.md'"
+check "Pull request template exists" "test -f '$ROOT/.github/PULL_REQUEST_TEMPLATE.md'"
+check "Contributor and security policies exist" "test -f '$ROOT/CONTRIBUTING.md' && test -f '$ROOT/SECURITY.md' && test -f '$ROOT/CODE_OF_CONDUCT.md'"
+
+# ── v3.5–v3.8 — Product quality capabilities ───────────────────────────────
+echo "--- v3.5 — AI-Powered Suggestions ---"
+check "Suggestion service is exported" "grep -q \"export { SuggestionService }\" '$ROOT/packages/workspace/src/index.ts'"
+check "Suggest command is registered" "grep -Rq 'runSuggest' '$ROOT/apps/cli/src/index.ts'"
+
+echo "--- v3.6 — End-to-End Workflow Tests ---"
+check "Deterministic workspace lifecycle is integration-tested" "grep -q \"stops gracefully\" '$ROOT/packages/workspace/__tests__/workspace-runtime-service.test.ts'"
+check "Implementation and verification services have tests" "test -f '$ROOT/packages/workspace/__tests__/implementation-service.test.ts' || grep -Rq \"ImplementationService\" '$ROOT/packages/workspace/__tests__'"
+
+echo "--- v3.7 — Knowledge Performance Optimization ---"
+check "Knowledge bulkSave is implemented" "grep -q 'bulkSave' '$ROOT/packages/knowledge/src/storage/index.ts'"
+check "Bulk indexing adjusts SQLite synchronous mode" "grep -q 'synchronous = OFF' '$ROOT/packages/knowledge/src/storage/index.ts'"
+check "Index benchmark exists" "test -x '$ROOT/scripts/benchmark-index.sh'"
+
+echo "--- v3.8 — Development Lifecycle & Governance ---"
+for role in context planner developer reviewer verifier; do
+  check "Vestara $role agent exists" "test -f '$ROOT/../.opencode/agents/vestara-$role.md'"
+done
+check "Lifecycle skill exists" "test -f '$ROOT/../.opencode/skills/vestara-lifecycle/SKILL.md'"
+check "Development lifecycle foundation document exists" "test -f '$ROOT/docs/foundation/02-development-lifecycle.md'"
+
+if [[ "$MILESTONE" == v3* ]]; then
+  echo ""
+  echo "=== v3 Summary ==="
+  echo "Total checks: $TOTAL"
+  echo "Passed:       $PASS"
+  echo "Failed:       $FAIL"
+  [ "$FAIL" -eq 0 ] && exit 0 || exit 1
+fi
+
 # ── v8.0 — Runtime Model ─────────────────────────────────────────────
 echo "--- v8.0 — Runtime Model ---"
 
@@ -158,13 +215,31 @@ check "ADR-027 documented (Ownership & Locking)" "grep -q 'ADR-027' '$ROOT/../ve
 check "ADR-028 documented (Verification & Trust)" "grep -q 'ADR-028' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
 check "ADR-029 documented (Recovery & Failure Budget)" "grep -q 'ADR-029' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
 check "ADR-030 documented (Kernel Architecture)" "grep -q 'ADR-030' '$ROOT/../vestara-blueprint/00-governance/04-decision-log.md' 2>/dev/null"
-check "Blueprint v2.0 (07 updated)" "grep -q 'version: .2.0.0' '$ROOT/../vestara-blueprint/00-governance/07-ai-operating-system-architecture.md' 2>/dev/null"
+check "Blueprint v2.0 (07 updated)" "grep -Eq 'version: \".?2\\.[01]' '$ROOT/../vestara-blueprint/00-governance/07-ai-operating-system-architecture.md' 2>/dev/null"
 check "@vestara/subsystem package exists" "test -d '$ROOT/packages/subsystem/src'"
 check "@vestara/subsystem builds" "ls '$ROOT/packages/subsystem/dist/index.js' 2>/dev/null | grep -q ."
 check "@vestara/widget-runtime package exists" "test -d '$ROOT/packages/widget-runtime/src'"
 check "@vestara/widget-runtime builds" "ls '$ROOT/packages/widget-runtime/dist/index.js' 2>/dev/null | grep -q ."
 check "Recovery Manager in kernel" "grep -q 'class DefaultRecoveryManager' '$ROOT/packages/kernel/src/recovery-manager.ts' 2>/dev/null"
-check "Scheduler in kernel" "grep -q 'class DefaultScheduler' '$ROOT/packages/kernel/src/scheduler.ts' 2>/dev/null"
+check "Scheduler in kernel" "grep -q 'Scheduler as JobScheduler' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null || grep -q 'new Scheduler()' '$ROOT/packages/kernel/src/index.ts' 2>/dev/null"
+
+# ── v8.5 — Subsystem Migration (ADR-022 standard layout) ─────────────────────
+echo "--- v8.5 — Subsystem Migration (ADR-022 standard layout) ---"
+MISSING_LAYOUT=()
+while IFS= read -r pkg; do
+  name=$(basename "$pkg")
+  [ -f "$pkg/package.json" ] || continue
+  [ -f "$pkg/tsconfig.json" ] || MISSING_LAYOUT+=("$name:tsconfig")
+  [ -f "$pkg/README.md" ] || MISSING_LAYOUT+=("$name:README")
+  if [ -d "$pkg/src" ] && ! ls "$pkg/src"/index.* >/dev/null 2>&1; then
+    MISSING_LAYOUT+=("$name:src/index")
+  fi
+done < <(for d in "$ROOT"/packages/*/ "$ROOT"/packages/providers/*/ "$ROOT"/packages/tools/*/; do echo "$d"; done)
+if [ ${#MISSING_LAYOUT[@]} -eq 0 ]; then
+  pass "All packages conform to the ADR-022 standard layout"
+else
+  fail "Non-conforming packages: ${MISSING_LAYOUT[*]}"
+fi
 
 echo ""
 echo "=== Summary ==="

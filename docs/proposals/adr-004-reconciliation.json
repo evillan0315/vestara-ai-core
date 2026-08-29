@@ -1,0 +1,24 @@
+{
+  "id": "doc-proposal-adr-004-reconciliation-2026-08-01",
+  "status": "decided",
+  "resolution": {
+    "decision": "accept",
+    "decidedAt": "2026-08-03",
+    "decidedBy": "@chief-architect (via @engineering-manager / @product-manager)",
+    "note": "ADR-004 moved proposed → accepted with PCS-025 orchestration implemented (packages/workflow-orchestrator/, harness-backed execution, orchestration.* events, /api/orchestration/* routes). Phases 1-3 (review/test, Approval Gateway, parallel waves, token budgets, event-sourced reconcile) are complete; ADR-118 (blueprint) mirrors the acceptance."
+  },
+  "authority": "architecture",
+  "requiresHumanApproval": true,
+  "target": "docs/ADR/ADR-004-multi-agent-workflow.md",
+  "targetChecksum": "3f9dc1265617f58817bba767f07b97ab7a1613bdbf8cddd2ab08f9115696f9a3",
+  "dependentDocument": "docs/PCS-025-multi-agent-project-management.md",
+  "dependentChecksum": "ae22a1c20e43cdf3caaf24d4d71d871abb009e4816ba8bf4d58754f44aaadfd3",
+  "finding": "PCS-025 identifies ADR-004 as governing architecture while ADR-004 remains proposed.",
+  "requiredDecision": {
+    "accept": "Human deciders approve ADR-004 after confirming implementation and verification evidence; update ADR status and decision date through ADR governance.",
+    "reject": "Keep ADR-004 proposed or reject it, and revise PCS-025 so it does not present ADR-004 as accepted governing architecture.",
+    "supersede": "Create and accept a replacement ADR, then update PCS-025 and ADR-004 supersession metadata."
+  },
+  "deciders": ["@chief-architect", "@engineering-manager", "@product-manager"],
+  "automationPolicy": "Documentation automation must not choose or apply this decision."
+}

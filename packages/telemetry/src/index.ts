@@ -49,10 +49,6 @@ export class TelemetryRuntime {
     };
   }
 
-  private update(): AgentState | undefined {
-    return undefined;
-  }
-
   private persist(event: TelemetryEvent): void {
     const agent = this.agents.get(event.agent);
     if (!agent) return;

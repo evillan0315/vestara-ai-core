@@ -2,7 +2,7 @@ import type { MemoryRuntime } from '@vestara/memory';
 import { ProductEventTranslator } from '../runtime/product-events';
 import { ContextAssembler } from './context-assembler';
 import { MemoryContextSource } from './planning-context';
-import type { PlanningContext, ProjectPlanner } from './project-planner';
+import type { ProjectPlanner } from './project-planner';
 import { ProjectWorkflow } from './project-workflow';
 
 export interface CreateProjectResult {

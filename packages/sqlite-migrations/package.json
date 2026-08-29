@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/sqlite-migrations",
+  "description": "Versioned, transactional, idempotent SQLite migrations for sql.js databases",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "sql.js": "^1.14.1",
+    "vitest": "^4.1.10"
+  }
+}

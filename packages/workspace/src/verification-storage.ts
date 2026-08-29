@@ -42,25 +42,8 @@ export class VerificationStorage {
 
   constructor(db: any) {
     this.db = db;
-    this.ensureSchema();
-  }
-
-  private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS verification_reports (
-        id TEXT PRIMARY KEY,
-        workspace_id TEXT,
-        plan_id TEXT,
-        change_set_id TEXT,
-        status TEXT DEFAULT 'pending',
-        checks TEXT DEFAULT '[]',
-        summary TEXT DEFAULT '{"total":0,"passed":0,"failed":0,"skipped":0}',
-        created_at TEXT,
-        completed_at TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_vr_cs ON verification_reports(change_set_id);
-      CREATE INDEX IF NOT EXISTS idx_vr_workspace ON verification_reports(workspace_id);
-    `);
+    // Schema is owned by the migration chain (workspace-migrations.ts),
+    // executed by the entrypoint composition root before storages construct.
   }
 
   async create(changeSetId: string, planId: string, workspaceId: string): Promise<VerificationReport> {

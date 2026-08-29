@@ -10,14 +10,16 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@vestara/audio": "workspace:*",
     "@vestara/context": "workspace:*",
     "@vestara/conversation": "workspace:*",
     "@vestara/conversation-runtime": "workspace:*",
-    "@vestara/audio": "workspace:*",
+    "@vestara/kernel": "workspace:*",
+    "@vestara/provider-opencode": "workspace:*",
+    "@vestara/provider-runtime": "workspace:*",
     "@vestara/stt": "workspace:*",
     "@vestara/tts": "workspace:*",
-    "@vestara/provider-runtime": "workspace:*",
-    "@vestara/provider-opencode": "workspace:*"
+    "@vestara/workspace": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

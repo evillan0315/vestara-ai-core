@@ -1,6 +1,6 @@
 {
   "name": "@vestara/tools-memory",
-  "description": "Memory graph query tool (stub)",
+  "description": "Memory graph query tool — search and store memories through the MemoryRuntime (ToolRuntime adapter)",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
@@ -10,8 +10,11 @@
     "build": "tsc"
   },
   "dependencies": {
+    "@vestara/action": "workspace:*",
+    "@vestara/memory": "workspace:*",
     "@vestara/shared": "workspace:*",
-    "@vestara/action": "workspace:*"
+    "@vestara/tool-runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

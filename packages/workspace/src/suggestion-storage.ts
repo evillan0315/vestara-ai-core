@@ -1,21 +1,12 @@
+import { migrate } from '@vestara/sqlite-migrations';
+import { SUGGESTION_MANIFEST } from './scaffold-migrations';
+
 export class SuggestionStorage {
   private db: any;
 
   constructor(db: any) {
     this.db = db;
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS dismissed_suggestions (
-        id TEXT PRIMARY KEY,
-        dismissed_at TEXT NOT NULL,
-        reason TEXT DEFAULT ''
-      );
-      CREATE TABLE IF NOT EXISTS suggestion_feedback (
-        id TEXT PRIMARY KEY,
-        suggestion_id TEXT,
-        action TEXT NOT NULL,
-        created_at TEXT NOT NULL
-      );
-    `);
+    migrate(this.db, SUGGESTION_MANIFEST);
   }
 
   async isDismissed(id: string): Promise<boolean> {

@@ -49,8 +49,9 @@ function makeMockConversationService(responseText = 'Mock response') {
       yield { id: 'chunk-2', type: 'complete' as const, metadata: { sequence: 1, timestamp: '' } };
     },
     closeConversation: async () => {},
-    listConversations: () => [],
-    getConversation: () => null,
+    listConversations: async () => [],
+    getConversation: async () => null,
+    deleteConversation: async () => {},
   };
 }
 

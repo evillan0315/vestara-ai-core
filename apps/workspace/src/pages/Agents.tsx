@@ -2,24 +2,22 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import ExecutionDetailModal from '../components/ExecutionDetailModal';
 import { useToasts } from '../components/Toast';
 import { useEventStream } from '../lib/useEventStream';
+import { type MultiAgentWorkflowTemplateId, workflowApi } from '../lib/workflow';
 import { workspaceSocket } from '../lib/ws';
-import type { Agent, Team, Execution } from './Agents/types';
-import { ROLE_CATEGORIES, CATEGORY_ORDER, CATEGORY_COLORS, ROLE_COLORS, ALL_AGENT_SLOTS } from './Agents/constants';
-import { AgentStatusBadge } from './Agents/AgentStatusBadge';
+import { AgentCategoryList } from './Agents/AgentCategoryList';
+import AgentControlHeader from './Agents/AgentControlHeader';
+import { AgentFilters, type AgentFiltersState } from './Agents/AgentFilters';
 import AgentRegistryModal from './Agents/AgentRegistryModal';
-import TeamCreatorModal from './Agents/TeamCreatorModal';
+import { apiFetch } from './Agents/api';
 import { ExecutionChart } from './Agents/charts/ExecutionChart';
-import Pagination from '../components/Pagination';
-
-const API = '';
-
-async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const res = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json' }, ...options });
-  if (!res.ok) throw new Error(`API error: ${res.status}`);
-  return res.json();
-}
-
-const getColor = (a: Agent) => a.color || ROLE_COLORS[a.role] || '#6b7280';
+import { ALL_AGENT_SLOTS } from './Agents/constants';
+import ExecutionSummaryPanel from './Agents/ExecutionSummaryPanel';
+import LiveActivityPanel from './Agents/LiveActivityPanel';
+import RuntimeStatusBar from './Agents/RuntimeStatusBar';
+import TeamCreatorModal from './Agents/TeamCreatorModal';
+import TeamsPanel from './Agents/TeamsPanel';
+import type { Agent, AgentStats, Execution, ExecutionSummary, HarnessSessionEntry, Team } from './Agents/types';
+import WorkflowPanel from './Agents/WorkflowPanel';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
@@ -27,40 +25,13 @@ export default function AgentsPage() {
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
-  const [runTask, setRunTask] = useState('');
-  const [running, setRunning] = useState(false);
-  const [runOutput, setRunOutput] = useState<string | null>(null);
+  const [harnessSessions, setHarnessSessions] = useState<HarnessSessionEntry[]>([]);
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
-  const [filterStatus, setFilterStatus] = useState<string>('all');
-  const [filterTeam, setFilterTeam] = useState<string>('all');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [executionFilter, setExecutionFilter] = useState<string>('all');
-  const [activityPage, setActivityPage] = useState(1);
-  const [teamsPage, setTeamsPage] = useState(1);
-  const [execPage, setExecPage] = useState(1);
-  const ACTIVITY_PAGE_SIZE = 8;
-  const TEAMS_PAGE_SIZE = 4;
-  const EXEC_PAGE_SIZE = 6;
-  const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
-  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('vestara-agent-collapsed-categories') || '{}');
-    } catch {
-      return {};
-    }
-  });
-
-  const toggleCategory = (cat: string) => {
-    setCollapsedCategories((prev) => {
-      const next = { ...prev, [cat]: !prev[cat] };
-      localStorage.setItem('vestara-agent-collapsed-categories', JSON.stringify(next));
-      return next;
-    });
-  };
-  const [teamMemberSearch, setTeamMemberSearch] = useState<Record<string, string>>({});
-  const [saving, setSaving] = useState(false);
+  const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [filters, setFilters] = useState<AgentFiltersState>({ search: '', status: 'all', team: 'all', sort: 'name-asc', capabilities: [] });
   const { events } = useEventStream();
   const { addToast } = useToasts();
 
@@ -71,12 +42,18 @@ export default function AgentsPage() {
       setExecutions(data.executions);
       const teamData = await apiFetch<{ teams: Team[] }>('/api/teams').catch(() => ({ teams: [] }));
       setTeams(teamData.teams);
+      const sessionData = await apiFetch<{
+        sessions: Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>;
+      }>('/api/sessions/executions').catch(() => null);
+      if (sessionData?.sessions)
+        setHarnessSessions(sessionData.sessions.filter((s) => (s.workflowId ?? '').startsWith('thread:')));
     } catch {}
   }, []);
 
   useEffect(() => {
-    load();
+    void load();
   }, [load]);
+
   useEffect(() => {
     const off = workspaceSocket.onEvent((evt) => {
       if (evt.type.startsWith('agent.') || evt.type === 'agent.started' || evt.type === 'agent.completed') load();
@@ -84,13 +61,12 @@ export default function AgentsPage() {
     return off;
   }, [load]);
 
-  const agentEvents = events.filter((e) => e.actor.type === 'agent');
-
-  const allAgentSlots = useMemo(() => {
+  const allAgentSlots = useMemo<Agent[]>(() => {
     return ALL_AGENT_SLOTS.map((slot) => {
       const registered = agents.find((a) => a.role === slot.role);
       return (
-        registered || {
+        registered ||
+        ({
           id: `slot-${slot.role}`,
           name: slot.defaultName,
           role: slot.role,
@@ -99,53 +75,26 @@ export default function AgentsPage() {
           permissions: [],
           status: 'unregistered',
           color: slot.color,
+          agentType: 'workspace',
           createdAt: '',
-        }
+        } as Agent)
       );
     });
   }, [agents]);
 
-  const filteredAgents = useMemo(
-    () =>
-      allAgentSlots.filter((a: any) => {
-        if (filterStatus === 'active' && a.status !== 'active') return false;
-        if (filterStatus === 'disabled' && a.status !== 'disabled') return false;
-        if (filterTeam !== 'all' && a.teamId !== filterTeam) return false;
-        if (searchQuery.trim()) {
-          const q = searchQuery.toLowerCase();
-          if (
-            !a.name.toLowerCase().includes(q) &&
-            !a.role.toLowerCase().includes(q) &&
-            !(a.description || '').toLowerCase().includes(q) &&
-            !(a.capabilities || []).some((c: string) => c.toLowerCase().includes(q))
-          )
-            return false;
-        }
-        return true;
-      }),
-    [allAgentSlots, filterStatus, filterTeam, searchQuery],
-  );
-
-  const agentExecutions = useMemo(() => {
-    if (!selectedAgent) return [];
-    return executions.filter(
-      (e) =>
-        e.agentId === selectedAgent.id ||
-        selectedAgent.name.toLowerCase().includes(e.agentId.split('-').pop()?.toLowerCase() || '') ||
-        e.agentId.includes(selectedAgent.role),
-    );
-  }, [selectedAgent, executions]);
-
-  const filteredAgentExecs = useMemo(() => {
-    if (executionFilter === 'all') return agentExecutions;
-    return agentExecutions.filter((e) => e.status === executionFilter);
-  }, [agentExecutions, executionFilter]);
+  const allCapabilities = useMemo(() => {
+    const caps = new Set<string>();
+    for (const slot of ALL_AGENT_SLOTS) {
+      for (const c of slot.defaultCapabilities || []) caps.add(c);
+    }
+    for (const a of agents) {
+      for (const c of a.capabilities || []) caps.add(c);
+    }
+    return Array.from(caps);
+  }, [agents]);
 
   const agentStats = useMemo(() => {
-    const stats: Record<
-      string,
-      { total: number; completed: number; failed: number; running: number; avgDuration: number }
-    > = {};
+    const stats: Record<string, AgentStats> = {};
     for (const a of agents) {
       const exs = executions.filter(
         (e) =>
@@ -168,30 +117,66 @@ export default function AgentsPage() {
     return stats;
   }, [agents, executions]);
 
-  const runAgent = async (agentId: string) => {
-    if (!runTask.trim()) return;
-    setRunning(true);
-    setRunOutput(null);
-    try {
-      const result = await apiFetch<{ execution: Execution; message: string }>(`/api/agents/${agentId}/run`, {
-        method: 'POST',
-        body: JSON.stringify({ task: runTask }),
-      });
-      setRunOutput(result.message);
-      load();
-      addToast({ type: 'info', message: `Task started on agent` });
-    } catch (err: any) {
-      setRunOutput(`Error: ${err.message}`);
-      addToast({ type: 'error', message: `Failed to run task: ${err.message}` });
+  const filteredAgents = useMemo(() => {
+    const filtered = allAgentSlots.filter((a) => {
+      if (filters.status === 'active' && a.status !== 'active') return false;
+      if (filters.status === 'disabled' && a.status !== 'disabled') return false;
+      if (filters.team !== 'all' && a.teamId !== filters.team) return false;
+      if (filters.capabilities.length > 0) {
+        const agentCaps = a.capabilities || [];
+        if (!filters.capabilities.some((c) => agentCaps.includes(c))) return false;
+      }
+      if (filters.search.trim()) {
+        const q = filters.search.toLowerCase();
+        if (
+          !a.name.toLowerCase().includes(q) &&
+          !a.role.toLowerCase().includes(q) &&
+          !(a.description || '').toLowerCase().includes(q) &&
+          !(a.capabilities || []).some((c: string) => c.toLowerCase().includes(q))
+        )
+          return false;
+      }
+      return true;
+    });
+
+    const sorted = [...filtered];
+    switch (filters.sort) {
+      case 'name-asc':
+        sorted.sort((a, b) => a.name.localeCompare(b.name));
+        break;
+      case 'name-desc':
+        sorted.sort((a, b) => b.name.localeCompare(a.name));
+        break;
+      case 'last-execution':
+        sorted.sort((a, b) => {
+          const aLast = executions.find((e) => e.agentId === a.id)?.startedAt ?? '';
+          const bLast = executions.find((e) => e.agentId === b.id)?.startedAt ?? '';
+          return bLast.localeCompare(aLast);
+        });
+        break;
+      case 'success-rate':
+        sorted.sort((a, b) => {
+          const aStats = agentStats[a.id];
+          const bStats = agentStats[b.id];
+          const aRate = aStats?.total ? aStats.completed / aStats.total : 0;
+          const bRate = bStats?.total ? bStats.completed / bStats.total : 0;
+          return bRate - aRate;
+        });
+        break;
+      case 'status':
+        sorted.sort((a, b) => {
+          const order = { active: 0, unregistered: 1, disabled: 2 };
+          return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
+        });
+        break;
     }
-    setRunning(false);
-  };
+    return sorted;
+  }, [allAgentSlots, filters, executions, agentStats]);
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
-      await fetch(`${API}/api/agents/${agent.id}`, {
+      await apiFetch(`/api/agents/${agent.id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: agent.status === 'active' ? 'disabled' : 'active' }),
       });
       addToast({ type: 'success', message: `${agent.name} ${agent.status === 'active' ? 'disabled' : 'enabled'}` });
@@ -204,7 +189,7 @@ export default function AgentsPage() {
   const deleteAgent = async (id: string) => {
     if (!window.confirm('Delete this agent?')) return;
     try {
-      await fetch(`${API}/api/agents/${id}`, { method: 'DELETE' });
+      await apiFetch(`/api/agents/${id}`, { method: 'DELETE' });
       if (selectedAgent?.id === id) setSelectedAgent(null);
       addToast({ type: 'success', message: 'Agent deleted' });
       load();
@@ -218,16 +203,14 @@ export default function AgentsPage() {
       const clean = Object.fromEntries(Object.entries(agent).filter(([_, v]) => v !== undefined));
       const isNewRegistration = editAgent?.id?.startsWith('slot-') || editAgent?.status === 'unregistered';
       if (editAgent && !isNewRegistration) {
-        await fetch(`${API}/api/agents/${editAgent.id}`, {
+        await apiFetch(`/api/agents/${editAgent.id}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(clean),
         });
         addToast({ type: 'success', message: `Agent "${clean.name || editAgent.name}" updated` });
       } else {
-        await fetch(`${API}/api/agents`, {
+        await apiFetch('/api/agents', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...clean, name: clean.name || 'New Agent' }),
         });
         addToast({ type: 'success', message: `Agent "${clean.name || 'New Agent'}" registered` });
@@ -250,7 +233,55 @@ export default function AgentsPage() {
     }
   };
 
-  const execSummary = useMemo(() => {
+  const startWorkflow = async (goal: string, template: MultiAgentWorkflowTemplateId): Promise<boolean> => {
+    try {
+      const result = await workflowApi.start(goal, undefined, template);
+      if (!result) {
+        addToast({ type: 'error', message: 'Failed to start multi-agent workflow' });
+        return false;
+      }
+      addToast({ type: 'success', message: `Workflow started: ${result.workflowId}` });
+      setShowWorkflowPanel(false);
+      load();
+      return true;
+    } catch (err: any) {
+      addToast({ type: 'error', message: `Failed to start workflow: ${err.message}` });
+      return false;
+    }
+  };
+
+  const syncAgents = async () => {
+    setSyncing(true);
+    try {
+      const result = await apiFetch<{ synced: number; files: string[]; agents: Array<{ id: string; name: string; role: string; runtimeAgent: string }> }>('/api/agents/sync', { method: 'POST' });
+      addToast({ type: 'success', message: `Synced ${result.synced} agents to .opencode/agents/` });
+      load();
+    } catch (err: any) {
+      addToast({ type: 'error', message: `Sync failed: ${err.message}` });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const openEditAgent = (agent: Agent) => {
+    const isRegistered = agent.status !== 'unregistered';
+    const slot = ALL_AGENT_SLOTS.find((s) => s.role === agent.role);
+    setEditAgent(
+      isRegistered
+        ? agent
+        : ({
+            ...agent,
+            name: slot?.defaultName || agent.name,
+            description: slot?.defaultDescription || '',
+            capabilities: slot?.defaultCapabilities || [],
+            color: slot?.color || agent.color,
+            runtimeAgent: 'build',
+          } as any),
+    );
+    setShowRegistry(true);
+  };
+
+  const execSummary = useMemo<ExecutionSummary>(() => {
     const total = executions.filter((e) => e.status !== 'running' && e.status !== 'queued').length || 1;
     const completed = executions.filter((e) => e.status === 'completed').length;
     const failed = executions.filter((e) => e.status === 'failed').length;
@@ -258,662 +289,68 @@ export default function AgentsPage() {
     return { total, completed, failed, running, successRate: Math.round((completed / total) * 100) };
   }, [executions]);
 
-  const groupedAgents = useMemo(() => {
-    const groups: Record<string, typeof filteredAgents> = {};
-    for (const cat of CATEGORY_ORDER) groups[cat] = [];
-    for (const agent of filteredAgents) {
-      const cat = ROLE_CATEGORIES[agent.role] || 'Specialized';
-      if (!groups[cat]) groups[cat] = [];
-      groups[cat].push(agent);
-    }
-    return groups;
-  }, [filteredAgents]);
-
-  const anyActive = (agents: typeof filteredAgents) => agents.some((a: any) => a.status === 'active');
-
   return (
     <div className="w-full">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">Agent Control Center</h1>
-          <p className="text-[10px] text-(--vestara-text-muted) mt-1">
-            {agents.filter((a) => a.status === 'active').length} active · {agents.length}/{ALL_AGENT_SLOTS.length}{' '}
-            registered · {teams.length} teams · {executions.length} executions
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => {
-              setEditAgent(null);
-              setShowRegistry(true);
-            }}
-            className="text-xs px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 transition-colors cursor-pointer font-medium"
-          >
-            + Add Agent
-          </button>
-          <button
-            onClick={() => setShowTeamCreator(true)}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-          >
-            + Team
-          </button>
-          <button
-            onClick={load}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-            title="Refresh"
-          >
-            ↻
-          </button>
-        </div>
-      </div>
+      <AgentControlHeader
+        agentsCount={agents.length}
+        activeCount={agents.filter((a) => a.status === 'active').length}
+        totalSlots={ALL_AGENT_SLOTS.length}
+        teamsCount={teams.length}
+        executionsCount={executions.length}
+        execSummary={execSummary}
+        onAddAgent={() => {
+          setEditAgent(null);
+          setShowRegistry(true);
+        }}
+        onAddTeam={() => setShowTeamCreator(true)}
+        onToggleWorkflow={() => setShowWorkflowPanel((current) => !current)}
+        onRefresh={load}
+        onSyncAgents={syncAgents}
+        syncing={syncing}
+      />
 
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
-        <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
-          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Registered</div>
-          <div className="text-lg font-bold text-(--vestara-text) mt-1">
-            {agents.length}/{ALL_AGENT_SLOTS.length}
-          </div>
-        </div>
-        <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
-          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Active</div>
-          <div className="text-lg font-bold text-green-400 mt-1">
-            {agents.filter((a) => a.status === 'active').length}
-          </div>
-        </div>
-        <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
-          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Executions</div>
-          <div className="flex items-baseline gap-2 mt-1">
-            <span className="text-lg font-bold text-blue-400">{executions.length}</span>
-            {execSummary.running > 0 && (
-              <span className="text-[10px] text-amber-400">{execSummary.running} active</span>
-            )}
-          </div>
-        </div>
-        <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
-          <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-wider">Success Rate</div>
-          <div
-            className={`text-lg font-bold mt-1 ${execSummary.successRate >= 80 ? 'text-green-400' : execSummary.successRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}
-          >
-            {execSummary.successRate}%
-          </div>
-        </div>
-      </div>
+      <WorkflowPanel open={showWorkflowPanel} onStart={startWorkflow} />
+
+      <RuntimeStatusBar />
 
       {/* Execution chart */}
       <div className="mb-5 max-w-xs">
-        <ExecutionChart total={execSummary.total} completed={execSummary.completed} failed={execSummary.failed} running={execSummary.running} />
+        <ExecutionChart
+          total={execSummary.total}
+          completed={execSummary.completed}
+          failed={execSummary.failed}
+          running={execSummary.running}
+        />
       </div>
 
-      {/* Filters */}
-      <div className="flex items-center gap-3 mb-4 text-xs flex-wrap">
-        <div className="relative flex-1 min-w-[180px] max-w-xs">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[11px]">🔍</span>
-          <input
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search by name, role, capability..."
-            className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg pl-7 pr-2 py-1.5 text-xs text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          <span className="text-[9px] text-(--vestara-text-muted) uppercase">Status</span>
-          {['all', 'active', 'disabled'].map((s) => (
-            <button
-              key={s}
-              onClick={() => setFilterStatus(s)}
-              className={`text-[10px] px-2 py-1 rounded-md cursor-pointer transition-colors ${filterStatus === s ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) text-(--vestara-text) font-medium' : 'text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg)'}`}
-            >
-              {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
-            </button>
-          ))}
-        </div>
-        <select
-          value={filterTeam}
-          onChange={(e) => setFilterTeam(e.target.value)}
-          className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg px-2 py-1 text-[10px] outline-none focus:border-(--vestara-accent-border-active) cursor-pointer"
-        >
-          <option value="all">All Teams</option>
-          {teams.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-        <span className="text-[10px] text-(--vestara-text-dim)">
-          {filteredAgents.length} of {ALL_AGENT_SLOTS.length}
-        </span>
-      </div>
+      <AgentFilters
+        teams={teams}
+        resultCount={filteredAgents.length}
+        totalSlots={ALL_AGENT_SLOTS.length}
+        allCapabilities={allCapabilities}
+        onChange={setFilters}
+      />
 
-      {/* Agent list by category */}
-      {filteredAgents.length === 0 && (
-        <div className="flex flex-col items-center justify-center py-14 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
-          <div className="text-2xl mb-2 opacity-30">☰</div>
-          <p className="text-sm text-(--vestara-text-2) b-1">No agents found</p>
-          <p className="text-xs text-(--vestara-text-dim)">Adjust your filters or register a new agent</p>
-        </div>
-      )}
-      {CATEGORY_ORDER.map((cat) => {
-        const catAgents = groupedAgents[cat];
-        if (!catAgents || catAgents.length === 0) return null;
-        const isCollapsed = collapsedCategories[cat] === true;
-        const catColor = CATEGORY_COLORS[cat] || '#6b7280';
-        const activeCount = catAgents.filter((a: any) => a.status === 'active').length;
-        return (
-          <div key={cat} className="mb-4">
-            {/* Category header */}
-            <button
-              type="button"
-              onClick={() => toggleCategory(cat)}
-              className="flex items-center gap-2 w-full px-1 py-1.5 mb-1 cursor-pointer group"
-            >
-              <div
-                className="w-2 h-2 rounded-full shrink-0 transition-transform"
-                style={{ backgroundColor: catColor }}
-              />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.15em] text-(--vestara-text-2)">
-                {cat}
-              </span>
-              <span className="text-[9px] text-(--vestara-text-dim)">
-                {catAgents.length} · {activeCount} active
-              </span>
-              <span className="ml-auto text-(--vestara-text-dim) text-[11px] transition-transform group-hover:text-(--vestara-text-2)">
-                {isCollapsed ? '▸' : '▾'}
-              </span>
-            </button>
-            {!isCollapsed && (
-              <div className="space-y-2">
-                {catAgents.map((agent: any) => {
-          const isRegistered = agent.status !== 'unregistered';
-          const color = getColor(agent);
-          const team = teams.find((t) => t.id === agent.teamId);
-          const stats = agentStats[agent.id] || { total: 0, completed: 0, failed: 0, running: 0, avgDuration: 0 };
-          const isExpanded = selectedAgent?.id === agent.id;
-          return (
-            <div
-              key={agent.id}
-              className={`rounded-lg border transition-all ${isExpanded ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active)' : isRegistered ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) hover:border-(--vestara-accent-border-active)' : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border)/50 opacity-60'}`}
-              style={{
-                borderLeftColor: isRegistered ? color : undefined,
-                borderLeftWidth: isRegistered ? '3px' : undefined,
-              }}
-            >
-              {/* Header row */}
-              <div
-                className="p-3 flex items-center gap-3 cursor-pointer"
-                onClick={() => isRegistered && setSelectedAgent(isExpanded ? null : agent)}
-              >
-                <div className="relative shrink-0">
-                  <div
-                    className="w-3 h-3 rounded-full"
-                    style={{
-                      backgroundColor: isRegistered ? (agent.status === 'active' ? color : '#52525b') : '#27272a',
-                    }}
-                  />
-                  {stats.running > 0 && (
-                    <div
-                      className="absolute inset-0 w-3 h-3 rounded-full animate-ping opacity-40"
-                      style={{ backgroundColor: color }}
-                    />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-sm font-semibold truncate ${isRegistered ? 'text-(--vestara-text)' : 'text-(--vestara-text-muted)'}`}
-                    >
-                      {agent.name}
-                    </span>
-                    <span className="text-[8px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase font-medium shrink-0">
-                      {agent.role}
-                    </span>
-                    <AgentStatusBadge status={agent.status} />
-                  </div>
-                  {agent.description && (
-                    <div className={`text-[10px] truncate mt-0.5 ${isRegistered ? 'text-(--vestara-text-muted)' : 'text-(--vestara-text-dim)'}`}>
-                      {agent.description}
-                    </div>
-                  )}
-                  <div className="flex items-center gap-2 mt-0.5">
-                    {agent.provider && <span className="text-[9px] text-(--vestara-text-dim)">{agent.provider}</span>}
-                    {agent.model && <span className="text-[9px] text-(--vestara-text-dim) font-mono">{agent.model}</span>}
-                    {stats.total > 0 && (
-                      <span className="text-[9px] text-(--vestara-text-dim)">
-                        {stats.completed}/{stats.total} tasks
-                      </span>
-                    )}
-                    {stats.running > 0 && (
-                      <span className="text-[9px] text-amber-400 animate-pulse font-semibold">
-                        {stats.running} running
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex gap-1 shrink-0">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      const slot = ALL_AGENT_SLOTS.find((s) => s.role === agent.role);
-                      setEditAgent(
-                        isRegistered
-                          ? agent
-                          : ({
-                              ...agent,
-                              name: slot?.defaultName || agent.name,
-                              description: slot?.defaultDescription || '',
-                              capabilities: slot?.defaultCapabilities || [],
-                              color: slot?.color || agent.color,
-                              provider: 'opencode',
-                              model: 'deepseek-v4-flash-free',
-                            } as any),
-                      );
-                      setShowRegistry(true);
-                    }}
-                    className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-                  >
-                    {isRegistered ? 'Edit' : 'Register'}
-                  </button>
-                  {isRegistered && (
-                    <>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleAgentStatus(agent);
-                        }}
-                        className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-                      >
-                        {agent.status === 'active' ? 'Disable' : 'Enable'}
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          deleteAgent(agent.id);
-                        }}
-                        className="text-[9px] px-2 py-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-md hover:bg-red-400/10 transition-colors cursor-pointer"
-                      >
-                        Delete
-                      </button>
-                    </>
-                  )}
-                </div>
-              </div>
-
-              {/* Stats bar */}
-              {stats.total > 0 && (
-                <div className="px-3 pb-2">
-                  <div className="flex-1 bg-(--vestara-accent-bg) rounded-full h-1.5 flex overflow-hidden">
-                    {stats.completed > 0 && (
-                      <div
-                        className="h-1.5 bg-green-500 transition-all"
-                        style={{ width: `${(stats.completed / stats.total) * 100}%` }}
-                      />
-                    )}
-                    {stats.failed > 0 && (
-                      <div
-                        className="h-1.5 bg-red-500 transition-all"
-                        style={{ width: `${(stats.failed / stats.total) * 100}%` }}
-                      />
-                    )}
-                    {stats.running > 0 && (
-                      <div
-                        className="h-1.5 bg-amber-400 animate-pulse transition-all"
-                        style={{ width: `${(stats.running / stats.total) * 100}%` }}
-                      />
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Expanded execution history */}
-              {isExpanded && (
-                <div className="px-3 pb-3 pt-2 border-t border-(--vestara-accent-border)">
-                  <div className="flex gap-4 mb-3">
-                    <div className="flex-1">
-                      <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                        Capabilities
-                      </div>
-                      <div className="flex flex-wrap gap-1">
-                        {(agent.capabilities || []).map((c: string) => (
-                          <span
-                            key={c}
-                            className="text-[9px] px-1.5 py-0.5 bg-zinc-800 text-(--vestara-text-2) rounded-md border border-(--vestara-accent-border)/50"
-                          >
-                            {c}
-                          </span>
-                        ))}
-                        {(!agent.capabilities || agent.capabilities.length === 0) && (
-                          <span className="text-[9px] text-(--vestara-text-dim) italic">No capabilities defined</span>
-                        )}
-                      </div>
-                    </div>
-                    {team && (
-                      <div className="shrink-0">
-                        <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-1.5">
-                          Team
-                        </div>
-                        <span
-                          className="text-[9px] px-1.5 py-0.5 rounded-md"
-                          style={{ backgroundColor: getColor(agent) + '20', color: getColor(agent) }}
-                        >
-                          {team.name}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center justify-between mb-1.5">
-                    <div className="text-[9px] font-semibold text-(--vestara-text-muted) uppercase tracking-wider">
-                      Tasks ({agentExecutions.length})
-                    </div>
-                    <select
-                      value={executionFilter}
-                      onChange={(e) => setExecutionFilter(e.target.value)}
-                      className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-md text-[9px] px-1.5 py-0.5 outline-none cursor-pointer"
-                    >
-                      <option value="all">All</option>
-                      <option value="completed">Done</option>
-                      <option value="failed">Failed</option>
-                      <option value="running">Active</option>
-                    </select>
-                  </div>
-
-                  <div className="space-y-0.5 max-h-40 overflow-y-auto">
-                    {filteredAgentExecs.length === 0 && (
-                      <p className="text-[10px] text-(--vestara-text-dim) py-2 text-center italic">No executions</p>
-                    )}
-                    {filteredAgentExecs.slice((execPage - 1) * EXEC_PAGE_SIZE, execPage * EXEC_PAGE_SIZE).map((ex) => {
-                      const duration = ex.completedAt
-                        ? Math.round((new Date(ex.completedAt).getTime() - new Date(ex.startedAt).getTime()) / 1000)
-                        : null;
-                      return (
-                        <div
-                          key={ex.id}
-                          onClick={() => setSelectedExecution(ex)}
-                          className="flex items-center gap-2 py-1 px-1.5 rounded-md hover:bg-(--vestara-accent-bg) transition-colors text-[10px] cursor-pointer"
-                        >
-                          <span
-                            className={`shrink-0 ${ex.status === 'completed' ? 'text-green-500' : ex.status === 'failed' ? 'text-red-500' : 'text-amber-400'}`}
-                          >
-                            {ex.status === 'completed' ? '✔' : ex.status === 'failed' ? '✗' : '◉'}
-                          </span>
-                          <span className="text-(--vestara-text) truncate flex-1">{ex.task}</span>
-                          <span className="text-(--vestara-text-muted) shrink-0">
-                            {new Date(ex.startedAt).toLocaleTimeString()} {duration !== null && `· ${duration}s`}
-                          </span>
-                          <span
-                            className={`text-[8px] px-1 py-0.5 rounded uppercase font-medium ${ex.status === 'completed' ? 'bg-green-400/10 text-green-400' : ex.status === 'failed' ? 'bg-red-400/10 text-red-400' : 'bg-amber-400/10 text-amber-400'}`}
-                          >
-                            {ex.status}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-
-                  {filteredAgentExecs.length > EXEC_PAGE_SIZE && (
-                    <div className="border-t border-(--vestara-accent-border) pt-1.5 mt-1.5">
-                      <Pagination current={execPage} total={filteredAgentExecs.length} pageSize={EXEC_PAGE_SIZE} onChange={setExecPage} />
-                    </div>
-                  )}
-
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      value={runTask}
-                      onChange={(e) => setRunTask(e.target.value)}
-                      placeholder="Assign a task to this agent..."
-                      className="flex-1 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text) placeholder-zinc-600 outline-none focus:border-(--vestara-accent-border-active)"
-                      onKeyDown={(e) => e.key === 'Enter' && runAgent(agent.id)}
-                    />
-                    <button
-                      onClick={() => runAgent(agent.id)}
-                      disabled={running || !runTask.trim()}
-                      className="text-[10px] px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer font-medium"
-                    >
-                      {running ? 'Running...' : 'Run'}
-                    </button>
-                  </div>
-                  {runOutput && (
-                    <div className="mt-1.5 text-[10px] text-(--vestara-text-2) bg-zinc-800/50 border border-(--vestara-accent-border)/50 rounded-lg p-2">
-                      {runOutput}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          );
-        })}
-              </div>
-            )}
-          </div>
-        );
-      })}
+      <AgentCategoryList
+        agents={filteredAgents}
+        teams={teams}
+        executions={executions}
+        agentStats={agentStats}
+        selectedAgent={selectedAgent}
+        harnessSessions={harnessSessions}
+        onSelectAgent={setSelectedAgent}
+        onEditAgent={openEditAgent}
+        onToggleStatus={(agent) => void toggleAgentStatus(agent)}
+        onDeleteAgent={(id) => void deleteAgent(id)}
+        onOpenExecution={setSelectedExecution}
+        onLoad={load}
+      />
 
       {/* Sidebar panels */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-6">
-        {/* Live Activity */}
-        <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
-          <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <span className="w-1 h-3 rounded-full bg-blue-500/60" /> Live Activity
-            <span className="text-(--vestara-text-dim) font-normal">({agentEvents.length})</span>
-          </h3>
-          <div className="max-h-48 overflow-y-auto space-y-1">
-            {agentEvents.slice(0, 80).length === 0 ? (
-              <p className="text-[10px] text-(--vestara-text-dim) py-3 text-center italic">No agent activity yet</p>
-            ) : (
-              agentEvents.slice((activityPage - 1) * ACTIVITY_PAGE_SIZE, activityPage * ACTIVITY_PAGE_SIZE).map((e, i) => (
-                <div key={e.id || i} className="flex items-start gap-2 py-1 px-1 rounded hover:bg-(--vestara-accent-bg) transition-colors">
-                  <span className="text-blue-400 shrink-0 mt-0.5 text-[11px]">●</span>
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-(--vestara-text-2) truncate">{e.message}</div>
-                    <div className="text-[8px] text-(--vestara-text-dim) truncate">{e.actor.name} · {new Date(e.timestamp).toLocaleTimeString()}</div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-          {agentEvents.length > ACTIVITY_PAGE_SIZE && (
-            <div className="border-t border-(--vestara-accent-border) pt-2 mt-2">
-              <Pagination current={activityPage} total={agentEvents.length} pageSize={ACTIVITY_PAGE_SIZE} onChange={setActivityPage} />
-            </div>
-          )}
-        </div>
-
-        {/* Teams */}
-        <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider flex items-center gap-1.5">
-              <span className="w-1 h-3 rounded-full bg-purple-500/60" /> Teams
-              <span className="text-(--vestara-text-dim) font-normal">({teams.length})</span>
-            </h3>
-            <button
-              onClick={() => setShowTeamCreator(true)}
-              className="text-[9px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) transition-colors cursor-pointer"
-            >
-              + New
-            </button>
-          </div>
-          {teams.length === 0 ? (
-            <p className="text-[10px] text-(--vestara-text-dim) py-3 text-center italic">No teams yet</p>
-          ) : (
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {teams.map((team) => {
-                const isExpandedT = expandedTeam === team.id;
-                const leader = agents.find((a) => a.id === team.leaderAgentId);
-                const members = agents.filter((a) => team.memberIds.includes(a.id) || a.teamId === team.id);
-                const search = teamMemberSearch[team.id] || '';
-                const unassigned = agents.filter(
-                  (a) =>
-                    a.status === 'active' &&
-                    !team.memberIds.includes(a.id) &&
-                    a.teamId !== team.id &&
-                    a.id !== team.leaderAgentId,
-                );
-                const addMember = async (agentId: string) => {
-                  await fetch(`/api/teams/${team.id}/members`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ add: [agentId] }),
-                  });
-                  load();
-                };
-                const removeMember = async (agentId: string) => {
-                  await fetch(`/api/teams/${team.id}/members`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ remove: [agentId] }),
-                  });
-                  load();
-                };
-                const setLeader = async (agentId: string) => {
-                  await fetch(`/api/teams/${team.id}/members`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ leaderAgentId: agentId }),
-                  });
-                  load();
-                };
-                const deleteTeamFn = async () => {
-                  if (!window.confirm(`Delete team "${team.name}"?`)) return;
-                  await fetch(`/api/teams/${team.id}`, { method: 'DELETE' });
-                  load();
-                };
-                return (
-                  <div key={team.id} className="border border-(--vestara-accent-border) rounded-lg overflow-hidden">
-                    <div
-                      className="p-2.5 bg-(--vestara-accent-bg) flex items-center justify-between cursor-pointer hover:bg-(--vestara-accent-bg) transition-colors"
-                      onClick={() => setExpandedTeam(isExpandedT ? null : team.id)}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-[11px] text-(--vestara-text) font-medium truncate">{team.name}</div>
-                        <div className="text-[8px] text-(--vestara-text-muted) flex items-center gap-1">
-                          {members.length} members{leader ? ` · leader: ${leader.name}` : ''}
-                        </div>
-                      </div>
-                      <span
-                        className={`text-(--vestara-text-muted) text-[10px] shrink-0 transition-transform ${isExpandedT ? 'rotate-180' : ''}`}
-                      >
-                        ▼
-                      </span>
-                    </div>
-                    {isExpandedT && (
-                      <div className="p-2.5 space-y-2 border-t border-(--vestara-accent-border)">
-                        <div className="space-y-1">
-                          {members.map((m) => (
-                            <div
-                              key={m.id}
-                              className="flex items-center gap-2 text-[10px] group py-0.5 px-1 rounded hover:bg-(--vestara-accent-bg) transition-colors"
-                            >
-                              <span
-                                className="w-1.5 h-1.5 rounded-full shrink-0"
-                                style={{ backgroundColor: getColor(m) }}
-                              />
-                              <span className="text-(--vestara-text) flex-1 truncate">{m.name}</span>
-                              <span className="text-[8px] text-(--vestara-text-dim)">{m.role}</span>
-                              <button
-                                onClick={() => setLeader(m.id)}
-                                className="text-[8px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                                title="Set as leader"
-                              >
-                                👑
-                              </button>
-                              <button
-                                onClick={() => removeMember(m.id)}
-                                className="text-[8px] text-(--vestara-text-muted) hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                              >
-                                ✕
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                        {unassigned.length > 0 && (
-                          <div>
-                            <input
-                              value={search}
-                              onChange={(e) => setTeamMemberSearch((prev) => ({ ...prev, [team.id]: e.target.value }))}
-                              placeholder="Add agent..."
-                              className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-md text-[9px] px-2 py-1 text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
-                            />
-                            <div className="mt-1 space-y-0.5 max-h-24 overflow-y-auto">
-                              {unassigned
-                                .filter((a) => !search || a.name.toLowerCase().includes(search.toLowerCase()))
-                                .slice(0, 5)
-                                .map((a) => (
-                                  <button
-                                    key={a.id}
-                                    onClick={() => addMember(a.id)}
-                                    className="w-full flex items-center gap-2 text-[9px] text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) rounded-md px-1.5 py-1 transition-colors cursor-pointer"
-                                  >
-                                    <span
-                                      className="w-1.5 h-1.5 rounded-full shrink-0"
-                                      style={{ backgroundColor: getColor(a) }}
-                                    />
-                                    <span className="truncate">{a.name}</span>
-                                    <span className="text-(--vestara-text-dim) ml-auto text-[11px]">+</span>
-                                  </button>
-                                ))}
-                            </div>
-                          </div>
-                        )}
-                        <div className="flex gap-1 pt-1 border-t border-(--vestara-accent-border)">
-                          <button
-                            onClick={deleteTeamFn}
-                            className="text-[8px] px-2 py-0.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-red-400 rounded-md hover:bg-red-400/10 transition-colors cursor-pointer"
-                          >
-                            Delete
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Execution Summary */}
-        <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
-          <h3 className="text-[10px] font-semibold text-(--vestara-text-2) uppercase tracking-wider mb-2 flex items-center gap-1.5">
-            <span className="w-1 h-3 rounded-full bg-green-500/60" /> Execution Summary
-          </h3>
-          <div className="space-y-1.5 text-[11px]">
-            <div className="flex items-center justify-between">
-              <span className="text-(--vestara-text-muted)">Completed</span>
-              <span className="text-green-400 font-medium">{execSummary.completed}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-(--vestara-text-muted)">Failed</span>
-              <span className="text-red-400 font-medium">{execSummary.failed}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-(--vestara-text-muted)">Running</span>
-              <span className="text-amber-400 font-medium">{execSummary.running}</span>
-            </div>
-            {executions.length > 0 && (
-              <div className="pt-1">
-                <div className="w-full bg-(--vestara-accent-bg) rounded-full h-2 flex overflow-hidden">
-                  <div
-                    className="h-2 bg-green-500 transition-all"
-                    style={{ width: `${(execSummary.completed / execSummary.total) * 100}%` }}
-                  />
-                  <div
-                    className="h-2 bg-red-500 transition-all"
-                    style={{ width: `${(execSummary.failed / execSummary.total) * 100}%` }}
-                  />
-                  <div
-                    className="h-2 bg-amber-400 transition-all"
-                    style={{ width: `${(execSummary.running / executions.length) * 100}%` }}
-                  />
-                </div>
-                <div className="flex items-center justify-between text-[9px] text-(--vestara-text-dim) mt-1">
-                  <span>{execSummary.total} finished</span>
-                  <span>{execSummary.successRate}% success</span>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">
+        <LiveActivityPanel events={events} />
+        <TeamsPanel teams={teams} agents={agents} onLoad={load} onOpenTeamCreator={() => setShowTeamCreator(true)} />
+        <ExecutionSummaryPanel execSummary={execSummary} executionsCount={executions.length} executions={executions} />
       </div>
 
       {/* Modals */}
@@ -939,5 +376,3 @@ export default function AgentsPage() {
     </div>
   );
 }
-
-

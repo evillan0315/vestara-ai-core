@@ -1,0 +1,28 @@
+[Unit]
+Description=Vestara OS-0 API and Runtime Host
+Documentation=file:/opt/vestara/os/README.md
+After=network-online.target vestara-host.service
+Wants=network-online.target
+Requires=vestara-host.service
+
+[Service]
+Type=simple
+User=vestara
+Group=vestara
+WorkingDirectory=/opt/vestara
+EnvironmentFile=-/etc/vestara/vestara.env
+Environment=NODE_ENV=production
+Environment=VESTARA_API_PORT=3001
+ExecStart=/usr/bin/node /opt/vestara/apps/api/dist/index.js
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/vestara /opt/vestara/.vestara
+
+[Install]
+WantedBy=vestara.target

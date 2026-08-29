@@ -1,8 +1,81 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import type * as http from 'node:http';
+import { join } from 'node:path';
+import { CANONICAL_AGENTS } from '@vestara/workspace';
 import { AuditAction, logAudit } from '../audit-log';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
-import { actorOf, getActor, json, readBody } from './types';
+import { getActor, json, readBody } from './types';
+
+/** Render a canonical agent to an OpenCode `.md` file with YAML frontmatter. */
+function renderAgentMd(agent: (typeof CANONICAL_AGENTS)[number]): string {
+  const p = agent.opencodePermissions;
+  const model = agent.model?.startsWith('opencode/') ? agent.model : `opencode/${agent.model ?? ''}`;
+  const permissionKeys = [
+    'read',
+    'edit',
+    'glob',
+    'grep',
+    'list',
+    'bash',
+    'task',
+    'external_directory',
+    'todowrite',
+    'webfetch',
+    'websearch',
+    'lsp',
+    'skill',
+    'question',
+    'doom_loop',
+  ];
+  const permissionLines = permissionKeys
+    .filter((k) => p[k as keyof typeof p] !== undefined)
+    .map((k) => `  ${k}: ${p[k as keyof typeof p]}`);
+  const frontmatter = [
+    '---',
+    `description: "${agent.description ?? ''}"`,
+    `mode: ${agent.mode}`,
+    `model: ${model}`,
+    'permission:',
+    ...permissionLines,
+    '---',
+    '',
+    agent.opencodePrompt.trim(),
+    '',
+  ];
+  return frontmatter.join('\n');
+}
+
+/**
+ * Annotate Vestara-governed workspace agents with their OpenCode runtime twin.
+ *
+ * Vestara is the single source of truth for agents. The OpenCode runtime is a
+ * rendering/execution target only — it never introduces agents of its own. Each
+ * stored agent is matched to its native twin by `runtimeAgent` (or `role`) and
+ * annotated, but any runtime agent without a Vestara counterpart is ignored.
+ * Returns `null` when the runtime is unreachable so callers fall back to the
+ * stored catalog unchanged.
+ */
+async function runtimeSyncedAgents(ctx: WorkspaceContext, stored: any[]): Promise<any[] | null> {
+  let runtimeAgents: Array<{ name: string; description?: string; mode?: string; native?: boolean }>;
+  try {
+    runtimeAgents = await ctx.opencodeRuntime.listAgents();
+  } catch {
+    return null;
+  }
+  if (!runtimeAgents.length) return stored;
+  const runtimeByName = new Map(runtimeAgents.map((agent) => [agent.name, agent]));
+  return stored.map((agent) => {
+    const twin =
+      (typeof agent.runtimeAgent === 'string' && runtimeByName.get(agent.runtimeAgent)) ||
+      (typeof agent.role === 'string' && runtimeByName.get(agent.role));
+    return {
+      ...agent,
+      source: 'workspace',
+      ...(twin ? { runtimeAgent: agent.runtimeAgent ?? twin.name } : {}),
+    };
+  });
+}
 
 export async function handleAgentsRoute(
   method: string,
@@ -13,16 +86,22 @@ export async function handleAgentsRoute(
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/agents') {
     try {
-      const agents = await ctx.agents.listAgents();
+      const stored = await ctx.agents.listAgents();
+      const synced = await runtimeSyncedAgents(ctx, stored);
+      const merged = synced ?? stored;
       const enriched = await Promise.all(
-        agents.map(async (a) => ({
+        merged.map(async (a) => ({
           ...a,
           stats: await ctx.agentService
-            .getAgentStats(a.id)
+            .getAgentStats(String(a.id))
             .catch(() => ({ total: 0, completed: 0, failed: 0, running: 0, successRate: 0 })),
         })),
       );
-      json(res, 200, { agents: enriched, executions: await ctx.agents.listExecutions() });
+      json(res, 200, {
+        agents: enriched,
+        executions: await ctx.agents.listExecutions(),
+        runtime: { reachable: synced !== null },
+      });
     } catch (err: any) {
       json(res, 500, { error: err.message });
     }
@@ -35,16 +114,25 @@ export async function handleAgentsRoute(
       const raw = await readBody(req);
       const body = raw ? JSON.parse(raw) : {};
       const actor = getActor(req, ctx);
-      if (!body.name?.trim()) {
+      const name = typeof body.name === 'string' ? body.name.trim() : '';
+      if (!name) {
         json(res, 400, { error: 'name is required' });
+        return true;
+      }
+      const id = typeof body.id === 'string' ? body.id.trim() : '';
+      const stored = await ctx.agents.listAgents();
+      const normalizedId = id || `agent-${Date.now()}`;
+      if (stored.some((agent: any) => agent.id === normalizedId)) {
+        json(res, 409, { error: `Agent id already exists: ${normalizedId}` });
         return true;
       }
       const now = new Date().toISOString();
       const agent: any = {
-        id: body.id || `agent-${Date.now()}`,
-        name: body.name.trim(),
+        id: normalizedId,
+        name,
         role: body.role || 'custom',
-        description: body.description || '',
+        agentType: body.agentType || 'workspace',
+        description: typeof body.description === 'string' ? body.description : '',
         capabilities: body.capabilities || ([] as any[]),
         permissions:
           body.permissions ||
@@ -54,6 +142,7 @@ export async function handleAgentsRoute(
           ] as any[]),
         provider: body.provider || '',
         model: body.model || '',
+        runtimeAgent: body.runtimeAgent || '',
         teamId: body.teamId || '',
         color: body.color || '#6b7280',
         status: 'active',
@@ -72,7 +161,12 @@ export async function handleAgentsRoute(
   if (method === 'GET' && agentMatch) {
     try {
       const id = decodeURIComponent(agentMatch[1]);
-      const agent = await ctx.agents.getAgent(id);
+      let agent = await ctx.agents.getAgent(id);
+      if (!agent) {
+        const synced = await runtimeSyncedAgents(ctx, await ctx.agents.listAgents());
+        const match = synced?.find((candidate) => candidate.id === id);
+        if (match) agent = match as unknown as Awaited<ReturnType<WorkspaceContext['agents']['getAgent']>>;
+      }
       if (!agent) {
         json(res, 404, { error: 'agent not found' });
         return true;
@@ -91,10 +185,12 @@ export async function handleAgentsRoute(
   }
 
   if (method === 'PUT' && agentMatch) {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
     try {
       const id = decodeURIComponent(agentMatch[1]);
       const raw = await readBody(req);
       const body = raw ? JSON.parse(raw) : {};
+      const actor = getActor(req, ctx);
       const existing = await ctx.agents.getAgent(id);
       if (!existing) {
         json(res, 404, { error: 'agent not found' });
@@ -105,6 +201,7 @@ export async function handleAgentsRoute(
         return true;
       }
       const cleanBody = Object.fromEntries(Object.entries(body).filter(([_, v]) => v !== undefined && v !== null));
+      if (typeof cleanBody.name === 'string') cleanBody.name = cleanBody.name.trim();
       await ctx.agents.saveAgent({
         ...existing,
         ...cleanBody,
@@ -113,6 +210,16 @@ export async function handleAgentsRoute(
         capabilities: (cleanBody.capabilities ?? existing.capabilities) as any,
         permissions: (cleanBody.permissions ?? existing.permissions) as any,
       });
+      logAudit(
+        ctx.audit,
+        req,
+        actor.id,
+        actor.name,
+        AuditAction.AGENT_UPDATE,
+        'agent',
+        id,
+        JSON.stringify({ changed: Object.keys(cleanBody) }),
+      );
       json(res, 200, { agent: { ...existing, ...cleanBody, id } });
     } catch (err: any) {
       json(res, 500, { error: err.message });
@@ -121,9 +228,13 @@ export async function handleAgentsRoute(
   }
 
   if (method === 'DELETE' && agentMatch) {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
     try {
       const id = decodeURIComponent(agentMatch[1]);
+      const actor = getActor(req, ctx);
+      const existing = await ctx.agents.getAgent(id);
       await ctx.agents.deleteAgent(id);
+      logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.AGENT_DELETE, 'agent', id, existing?.name);
       json(res, 200, { deleted: true });
     } catch (err: any) {
       json(res, 500, { error: err.message });
@@ -169,7 +280,13 @@ export async function handleAgentsRoute(
         return true;
       }
       logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.AGENT_RUN, 'agent', agentId, body.task.slice(0, 200));
-      json(res, 200, { execution: result.execution, agent: result.agent, message: result.message });
+      json(res, 200, {
+        execution: result.execution,
+        agent: result.agent,
+        message: result.message,
+        // The harness executes agents through the OpenCode runtime.
+        runtime: { engine: 'opencode-runtime' },
+      });
     } catch (err: any) {
       json(res, 500, { error: err.message });
     }
@@ -241,6 +358,44 @@ export async function handleAgentsRoute(
       };
       await ctx.agents.saveMemory(entry);
       json(res, 201, { entry });
+    } catch (err: any) {
+      json(res, 500, { error: err.message });
+    }
+    return true;
+  }
+
+  // ── POST /api/agents/sync — sync canonical agents to .opencode/agents/*.md ──
+  if (method === 'POST' && p === '/api/agents/sync') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    try {
+      const actor = getActor(req, ctx);
+      const repoPath = ctx.repoPath;
+      const agentsDir = join(repoPath, '.opencode', 'agents');
+      mkdirSync(agentsDir, { recursive: true });
+
+      const written: string[] = [];
+      for (const agent of CANONICAL_AGENTS) {
+        const name = agent.runtimeAgent ?? agent.role;
+        const file = join(agentsDir, `${name}.md`);
+        writeFileSync(file, renderAgentMd(agent));
+        written.push(`${name}.md`);
+      }
+
+      logAudit(
+        ctx.audit,
+        req,
+        actor.id,
+        actor.name,
+        AuditAction.AGENT_UPDATE,
+        'agents-sync',
+        'all',
+        `synced ${written.length} agents`,
+      );
+      json(res, 200, {
+        synced: written.length,
+        files: written,
+        agents: CANONICAL_AGENTS.map((a) => ({ id: a.id, name: a.name, role: a.role, runtimeAgent: a.runtimeAgent })),
+      });
     } catch (err: any) {
       json(res, 500, { error: err.message });
     }

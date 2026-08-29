@@ -10,9 +10,11 @@
     "build": "tsc"
   },
   "dependencies": {
-    "@vestara/logger": "workspace:*",
     "@vestara/event-bus": "workspace:*",
-    "sql.js": "^1.14.1"
+    "@vestara/logger": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "sql.js": "^1.14.1",
+    "@vestara/sqlite-migrations": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

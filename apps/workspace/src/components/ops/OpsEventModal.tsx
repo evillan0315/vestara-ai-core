@@ -1,4 +1,5 @@
 import type { LiveEvent } from '../../lib/useEventStream';
+import { VestaraModal } from '../ui/VestaraModal';
 
 interface OpsEventModalProps {
   event: LiveEvent;
@@ -7,12 +8,9 @@ interface OpsEventModalProps {
 
 export default function OpsEventModal({ event, onClose }: OpsEventModalProps) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
-      <div
-        className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-4xl mx-4 shadow-2xl max-h-[80vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between mb-4">
+    <VestaraModal onClose={onClose} className="max-w-4xl max-h-[80vh] flex flex-col">
+      <div className="flex flex-col flex-1 min-h-0 p-5">
+        <div className="flex items-center justify-between mb-4 shrink-0">
           <h3 className="text-sm font-semibold text-(--vestara-text)">Event Details</h3>
           <button
             onClick={onClose}
@@ -21,7 +19,7 @@ export default function OpsEventModal({ event, onClose }: OpsEventModalProps) {
             ✕
           </button>
         </div>
-        <div className="space-y-3 flex-1 pr-1" style={{ overflowY: 'scroll' }}>
+        <div className="space-y-3 flex-1 min-h-0 pr-1 overflow-y-auto">
           <div className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs">
             <div>
               <span className="text-(--vestara-text-muted) text-[10px]">Type</span>
@@ -67,6 +65,6 @@ export default function OpsEventModal({ event, onClose }: OpsEventModalProps) {
           )}
         </div>
       </div>
-    </div>
+    </VestaraModal>
   );
 }

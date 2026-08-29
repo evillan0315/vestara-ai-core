@@ -70,6 +70,15 @@ No business logic in the UI. Reasoning, planning, execution, and governance stay
 - Session create / run requests
 - Live observation of agent and artifact state
 
+## Transient notification policy
+
+The UI may derive transient toast presentation from workspace events, but it
+must not create a second notification domain or persistence model. The toast
+host displays one item at a time, bounds its queue to five, preserves the active
+item, prioritizes waiting errors, and collapses identical type/message events
+received within three seconds. Persistent history, read state, categories, and
+pagination remain owned by the notification service and API.
+
 ## Technology
 
 | Layer | Choice |

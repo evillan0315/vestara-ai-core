@@ -24,9 +24,36 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - run: pnpm dependencies:check
+
+      - name: OpenCode contract guard
+        run: |
+          pnpm --filter @vestara/opencode-runtime opencode:spec:generate
+          if git diff --exit-code -- packages/opencode-runtime/src/generated/opencode-contracts.ts; then
+            echo "Generated contracts in sync with pinned schema."
+          else
+            echo "Generated contracts are stale — run pnpm opencode:spec:update."
+            exit 1
+          fi
+          pnpm --filter @vestara/opencode-runtime opencode:spec:check --candidate openapi/opencode.openapi.json
+
       - run: bash build-order.sh
 
+      - run: pnpm lint:check
+
       - run: pnpm test
+
+      - name: Documentation drift gate
+        run: pnpm documentation:check
+
+      - name: Upload documentation baseline evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: documentation-baseline
+          path: |
+            docs/documentation-baseline.json
+            docs/documentation-ci-report.json
 
       - name: Benchmark comparison
         run: |
@@ -35,3 +62,31 @@ jobs:
           echo ""
           echo "Running indexing benchmarks..."
           pnpm benchmark-index 2>&1 | tail -10
+
+  desktop-build:
+    runs-on: ubuntu-22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: latest
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev build-essential curl wget file libxdo-dev libssl-dev libayatana-appindicator3-dev librsvg2-dev pkg-config patchelf
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Build Workspace UI desktop shell
+        run: pnpm build && pnpm --filter @vestara/workspace-ui desktop

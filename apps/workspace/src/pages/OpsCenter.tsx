@@ -3,6 +3,9 @@ import OpsEventModal from '../components/ops/OpsEventModal';
 import OpsExecutionsModal from '../components/ops/OpsExecutionsModal';
 import StatCard from '../components/dashboard/StatCard';
 import AgentTelemetryCard from '../components/ops/AgentTelemetryCard';
+import { HarnessThreadTimeline } from '../components/execution/harness-timeline';
+import { VestaraModal } from '../components/ui/VestaraModal';
+import { harnessApi, threadIdFromSession } from '../lib/agent-harness';
 import { useEventStream } from '../lib/useEventStream';
 import { useTelemetryStore } from '../contexts/TelemetryContext';
 import { workspaceSocket } from '../lib/ws';
@@ -57,6 +60,8 @@ export default function OpsCenter() {
   const FEED_PAGE_SIZE = 20;
   const AGENTS_PAGE_SIZE = 8;
   const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
+  const [sessions, setSessions] = useState<Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>>([]);
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
   const { connected, events, loading: eventsLoading } = useEventStream();
   const telemetry = useTelemetryStore();
 
@@ -68,6 +73,7 @@ export default function OpsCenter() {
       ]);
       setAgents(a.agents ?? []);
       setExecutions(a.executions ?? []);
+      setSessions(e.sessions ?? []);
     } catch {}
     setLoading(false);
   }, []);
@@ -117,8 +123,13 @@ export default function OpsCenter() {
     if (!wfGoal.trim()) return;
     setWfRunning(true);
     try {
-      await fetch('/api/sessions/executions/start', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ goal: wfGoal, workflowType: wfType }) });
-      setShowWorkflowModal(false); setWfGoal(''); setTimeout(() => load(), 1000);
+      // Harness execution path: a durable thread + ExecutionSession are created
+      // immediately; progress flows through the harness event stream.
+      const created = await harnessApi.createRun('orchestrator', { instruction: wfGoal, title: wfType });
+      if (!created?.threadId) throw new Error('Workflow run not created');
+      setShowWorkflowModal(false);
+      setWfGoal('');
+      setTimeout(() => load(), 1000);
     } catch {}
     setWfRunning(false);
   };
@@ -187,6 +198,35 @@ export default function OpsCenter() {
             onPageChange={setExecutionsPage}
           />
 
+          {/* Harness Workflow Sessions */}
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-semibold text-(--vestara-text-muted) uppercase tracking-wider">
+                Harness Sessions <span className="text-(--vestara-text-dim)">({sessions.length})</span>
+              </h3>
+            </div>
+            {sessions.length === 0 && <p className="text-[10px] text-(--vestara-text-muted)">No harness sessions yet. Start a workflow to create one.</p>}
+            <div className="space-y-1">
+              {sessions.map((s) => {
+                const threadId = threadIdFromSession(s.workflowId);
+                return (
+                  <div key={s.id}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedSession(selectedSession === s.id ? null : s.id)}
+                      className="w-full text-left flex items-center gap-2 py-1 text-[11px] text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${s.status === 'running' ? 'bg-(--vestara-green) animate-pulse' : 'bg-zinc-600'}`} />
+                      <span className="truncate flex-1">{s.goal || s.id}</span>
+                      <span className="text-[9px] text-(--vestara-text-muted)">{s.status}</span>
+                    </button>
+                    {selectedSession === s.id && threadId && <HarnessThreadTimeline threadId={threadId} />}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
           {/* Activity Feed */}
           <ActivityFeed
             events={events}
@@ -227,8 +267,8 @@ export default function OpsCenter() {
       {selectedEvent && <OpsEventModal event={selectedEvent} onClose={() => setSelectedEvent(null)} />}
 
       {showWorkflowModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowWorkflowModal(false)}>
-          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-xl p-5 w-full max-w-md mx-4 shadow-2xl" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => { if (e.key === 'Enter' && wfGoal.trim()) startWorkflow(); if (e.key === 'Escape') setShowWorkflowModal(false); }}>
+        <VestaraModal onClose={() => setShowWorkflowModal(false)} className="max-w-md">
+          <div className="p-5">
             <h3 className="text-sm font-semibold text-(--vestara-text) mb-4">Start Workflow</h3>
             <div className="space-y-3">
               <div>
@@ -249,7 +289,7 @@ export default function OpsCenter() {
               </button>
             </div>
           </div>
-        </div>
+        </VestaraModal>
       )}
     </div>
   );

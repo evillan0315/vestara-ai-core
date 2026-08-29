@@ -480,7 +480,8 @@ export type AgentRole =
   | 'performance-agent'
   | 'documentation-agent'
   | 'refactoring-agent'
-  | 'release-agent';
+  | 'release-agent'
+  | 'context';
 
 export type AgentSkillName =
   | 'task-decomposition'
@@ -556,19 +557,73 @@ export interface AgentPermission {
   approvalRequired: boolean;
 }
 
+/** OpenCode native permission action: `ask` prompts, `allow` permits, `deny` blocks. */
+export type OpenCodePermissionGrant = 'ask' | 'allow' | 'deny';
+
+/**
+ * OpenCode native tool permissions rendered into generated `.opencode/agents/*.md`.
+ *
+ * Keys mirror OpenCode's permission surface. There is deliberately no `write`
+ * key: writes, edits, and patches are all gated by `edit`. The optional keys
+ * (`todowrite`, `webfetch`, `websearch`, `lsp`, `skill`, `question`,
+ * `doom_loop`) gate single tools and are omitted from the generated `.md` when
+ * unset.
+ */
+export interface OpenCodePermissions {
+  read: OpenCodePermissionGrant;
+  edit: OpenCodePermissionGrant;
+  glob: OpenCodePermissionGrant;
+  grep: OpenCodePermissionGrant;
+  list: OpenCodePermissionGrant;
+  bash: OpenCodePermissionGrant;
+  task: OpenCodePermissionGrant;
+  external_directory: OpenCodePermissionGrant;
+  todowrite?: OpenCodePermissionGrant;
+  webfetch?: OpenCodePermissionGrant;
+  websearch?: OpenCodePermissionGrant;
+  lsp?: OpenCodePermissionGrant;
+  skill?: OpenCodePermissionGrant;
+  question?: OpenCodePermissionGrant;
+  doom_loop?: OpenCodePermissionGrant;
+}
+
+/** Aligns with OpenCode AgentConfig.mode enum: "subagent" | "primary" | "all". */
+export type AgentMode = 'primary' | 'subagent' | 'all';
+
+export type AgentType = 'workspace' | 'registry';
+
 export interface AgentDefinition {
   id: string;
   name: string;
   role: AgentRole;
+  agentType: AgentType;
   description?: string;
   capabilities: AgentCapability[];
   permissions: AgentPermission[];
   provider?: string;
   model?: string;
+  /** Native OpenCode runtime agent (e.g. build/planner/reviewer) this agent maps to. */
+  runtimeAgent?: string;
+  /** OpenCode agent mode: primary agent vs spawned subagent. */
+  mode?: AgentMode;
+  /** Permission grant rendered into the generated OpenCode agent `.md`. */
+  opencodePermissions?: OpenCodePermissions;
   teamId?: string;
   color?: string;
   status: 'active' | 'disabled';
   createdAt: string;
+}
+
+/**
+ * A canonical agent definition from the unified registry. Extends
+ * `AgentDefinition` with the OpenCode-specific fields required to generate
+ * `.opencode/agents/*.md` from a single source of truth.
+ */
+export interface CanonicalAgent extends AgentDefinition {
+  mode: AgentMode;
+  opencodePermissions: OpenCodePermissions;
+  /** System prompt body written into the generated OpenCode agent `.md`. */
+  opencodePrompt: string;
 }
 
 export interface AgentTeam {

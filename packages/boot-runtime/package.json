@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/boot-runtime",
+  "description": "Durable boot-stage coordination and recovery state for Vestara OS-0",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/boot-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

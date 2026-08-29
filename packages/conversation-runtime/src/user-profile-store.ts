@@ -1,5 +1,7 @@
 import type { Logger } from '@vestara/logger';
 import type { UserProfile, UserProfileUpdate } from '@vestara/shared';
+import { migrate } from '@vestara/sqlite-migrations';
+import { USER_PROFILE_MANIFEST } from './migrations';
 
 let SQL: any = null;
 
@@ -39,9 +41,9 @@ export class SqliteUserProfileStore {
   async initialize(): Promise<void> {
     if (this.initialized) return;
     const sql = await getDb();
+    const fs = await import('node:fs');
     if (this.dbPath) {
       try {
-        const fs = await import('node:fs');
         const buffer = fs.readFileSync(this.dbPath);
         this.db = new sql.Database(buffer);
       } catch {
@@ -51,22 +53,11 @@ export class SqliteUserProfileStore {
       this.db = new sql.Database();
     }
 
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS user_profiles (
-        id TEXT PRIMARY KEY,
-        name TEXT,
-        role TEXT,
-        experience TEXT,
-        preferred_stack TEXT,
-        communication_style TEXT DEFAULT 'balanced',
-        goals TEXT,
-        preferences TEXT DEFAULT '{}',
-        created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL,
-        conversation_count INTEGER DEFAULT 0,
-        last_session_id TEXT
-      )
-    `);
+    migrate(this.db, USER_PROFILE_MANIFEST, {
+      persist: (migrated) => {
+        if (this.dbPath) fs.writeFileSync(this.dbPath, Buffer.from(migrated.export()));
+      },
+    });
     this.initialized = true;
     this.logger?.info('UserProfileStore initialized');
   }

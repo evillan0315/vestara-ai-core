@@ -7,6 +7,13 @@ export function generateEventId(): EventId {
   return `evt-${Date.now()}-${++eventCounter}` as EventId;
 }
 
+/**
+ * @deprecated ARX-015 M2: Do not generate correlation IDs from timestamps/counters.
+ * Use resolveCorrelationId(executionId) from @vestara/engineering-event-store instead.
+ * If no execution context exists, leave correlationId undefined.
+ * This function is retained only for backward compatibility with legacy producers.
+ * Will be removed when all producers are migrated to execution-scoped correlation.
+ */
 export function generateCorrelationId(): CorrelationId {
   return `cor-${Date.now()}-${++eventCounter}` as CorrelationId;
 }

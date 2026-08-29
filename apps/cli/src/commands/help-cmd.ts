@@ -1,7 +1,42 @@
-import { BOLD, CYAN, GOLD, GRAY, GREEN, RESET } from '../output/format.js';
+import { BOLD, GOLD, GRAY, RESET } from '../output/format.js';
 
 export async function runHelpCommand(cmd: string): Promise<void> {
   const helpMap: Record<string, { desc: string; usage: string; subs?: string; examples: string[] }> = {
+    runtime: {
+      desc: 'Connect to the active Workspace API without starting a separate runtime.',
+      usage: 'vestara runtime <status|health> [--endpoint URL] [--json]',
+      subs: 'status | health',
+      examples: ['vestara runtime status --json', 'vestara runtime health'],
+    },
+    routing: {
+      desc: 'Inspect and update shared engineering agent/provider/model routing.',
+      usage: 'vestara routing <show|catalog|profile|preview> [options]',
+      subs: 'show | catalog | profile | preview | assignments | assign | assignment-status | record-side-effect | reassign',
+      examples: [
+        'vestara routing show',
+        'vestara routing catalog',
+        'vestara routing profile strict-engineering',
+        'vestara routing preview developer developer-01',
+        'vestara routing assignments',
+        'vestara routing reassign TASK-1 3 developer-02 opencode model-x --reason "provider unavailable"',
+      ],
+    },
+    console: {
+      desc: 'Open the Ink-based interactive Engineering Console connected to the active Workspace Runtime.',
+      usage: 'vestara console [--endpoint URL]',
+      examples: ['vestara console', 'vestara console --endpoint http://127.0.0.1:3001'],
+    },
+    screenshots: {
+      desc: 'Run governed Playwright screenshot capture and visual-regression checks for the Workspace UI.',
+      usage: 'vestara screenshots <run|update|report|clean|check> [options]',
+      subs: 'run | update | report | clean | check',
+      examples: [
+        'vestara screenshots run --viewport desktop',
+        'vestara screenshots run --routes dashboard,docs --theme dark',
+        'vestara screenshots update --routes settings',
+        'vestara screenshots check --json',
+      ],
+    },
     open: {
       desc: 'Open a workspace, initializing .vestara/ manifest and storage directories.',
       usage: 'vestara open [path]',

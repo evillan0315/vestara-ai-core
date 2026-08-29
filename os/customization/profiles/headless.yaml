@@ -1,0 +1,12 @@
+id: headless
+description: Terminal-first server profile with no graphical display manager.
+display_manager: none
+desktop: none
+login: terminal
+boot_splash: plymouth
+services:
+  - vestara.target
+  - vestara-api-reload.path
+branding:
+  wallpaper: none
+  sound: false

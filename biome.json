@@ -3,7 +3,16 @@
   "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
   "files": {
     "ignoreUnknown": false,
-    "includes": ["**", "!**/dist", "!**/node_modules", "!**/.vestara", "!apps/workspace"]
+    "includes": [
+      "**",
+      "!**/dist",
+      "!**/node_modules",
+      "!**/.vestara",
+      "!apps/workspace",
+      "!packages/evaluation/fixtures",
+      "!packages/opencode-runtime/openapi",
+      "!packages/opencode-runtime/src/generated"
+    ]
   },
   "formatter": {
     "enabled": true,

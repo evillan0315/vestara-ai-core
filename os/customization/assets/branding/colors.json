@@ -1,0 +1,17 @@
+{
+  "background": ["#07090D", "#0B0F14", "#111827"],
+  "surface": ["#151B23", "#1C2430"],
+  "accent": ["#D4AF37", "#F2C14E", "#FFD700"],
+  "secondary": ["#38BDF8", "#A78BFA", "#64748B"],
+  "status": {
+    "healthy": "#34D399",
+    "running": "#22D3EE",
+    "warning": "#F59E0B",
+    "error": "#EF4444",
+    "offline": "#71717A"
+  },
+  "typography": {
+    "ui": "Inter",
+    "terminal": "JetBrains Mono"
+  }
+}

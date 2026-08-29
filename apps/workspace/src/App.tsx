@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react';
+import { type ComponentType, createElement, lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { TelemetryProvider } from './contexts/TelemetryContext';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
-import { TelemetryProvider } from './contexts/TelemetryContext';
+import { APP_ROUTES } from './routes';
 
 const Login = lazy(() => import('./pages/Login'));
 const Overview = lazy(() => import('./pages/Overview'));
@@ -17,54 +18,127 @@ const ChatPage = lazy(() => import('./pages/ChatPage'));
 const Memory = lazy(() => import('./pages/Memory'));
 const TerminalPage = lazy(() => import('./pages/Terminal'));
 const OpsCenter = lazy(() => import('./pages/OpsCenter'));
+const OrchestrationPage = lazy(() => import('./pages/Orchestration'));
+const EvidencePage = lazy(() => import('./pages/Evidence'));
+const QualificationPage = lazy(() => import('./pages/Qualification'));
+const QualificationDetailPage = lazy(() => import('./pages/QualificationDetail'));
+const QualificationActivityPage = lazy(() => import('./pages/QualificationActivity'));
+const WorkersPage = lazy(() => import('./pages/Workers'));
 const ProjectsPage = lazy(() => import('./pages/Projects'));
 const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 const Activities = lazy(() => import('./pages/Activities'));
+const ActivityRoomPage = lazy(() => import('./pages/activity/ActivityRoomPage'));
+const M11CActivityRoomPage = lazy(() => import('./pages/activity/M11CActivityRoomPage'));
 const ApiBuilder = lazy(() => import('./pages/ApiBuilder'));
 const Docs = lazy(() => import('./pages/Docs'));
+const Diagnostics = lazy(() => import('./pages/Diagnostics'));
+const Execution = lazy(() => import('./pages/Execution'));
+const Graph = lazy(() => import('./pages/Graph'));
+const Marketplace = lazy(() => import('./pages/Marketplace/MarketplaceLayout'));
+const ExternalRuntimes = lazy(() => import('./pages/ExternalRuntimes'));
+const OpenCode = lazy(() => import('./pages/OpenCode'));
+const OpenCodeSessions = lazy(() => import('./pages/OpenCodeSessions'));
+const OpenCodeNewSession = lazy(() => import('./pages/OpenCodeNewSession'));
+const OpenCodeSessionDetail = lazy(() => import('./pages/OpenCodeSessionDetail'));
+const OpenCodePermissions = lazy(() => import('./pages/OpenCodePermissions'));
+const Workforce = lazy(() => import('./pages/Workforce'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
+const RoutingPage = lazy(() => import('./pages/Routing'));
+
+/** Route id → lazy page component. Keys match APP_ROUTES ids. */
+const PAGES: Record<string, ComponentType> = {
+  login: Login,
+  overview: Overview,
+  dashboard: Dashboard,
+  sessions: SessionList,
+  'session-detail': SessionView,
+  artifacts: Artifacts,
+  agents: Agents,
+  chat: ChatPage,
+  memory: Memory,
+  terminal: TerminalPage,
+  ops: OpsCenter,
+  orchestration: OrchestrationPage,
+  evidence: EvidencePage,
+  qualification: QualificationPage,
+  'qualification-detail': QualificationDetailPage,
+  'qualification-activity': QualificationActivityPage,
+  workers: WorkersPage,
+  projects: ProjectsPage,
+  requests: FeatureRequests,
+  activities: Activities,
+  activity: ActivityRoomPage,
+  'activity-v2': M11CActivityRoomPage,
+  'api-builder': ApiBuilder,
+  docs: Docs,
+  diagnostics: Diagnostics,
+  execution: Execution,
+  graph: Graph,
+  marketplace: Marketplace,
+  'external-runtimes': ExternalRuntimes,
+  opencode: OpenCode,
+  'opencode-sessions': OpenCodeSessions,
+  'opencode-new-session': OpenCodeNewSession,
+  'opencode-session-detail': OpenCodeSessionDetail,
+  'opencode-permissions': OpenCodePermissions,
+  workforce: Workforce,
+  settings: SettingsPage,
+  routing: RoutingPage,
+  'not-found': NotFound,
+};
 
 function LazyPage({ children }: { children: React.ReactNode }) {
   return (
     <ErrorBoundary>
-      <Suspense fallback={<div className="w-full py-16 text-center text-(--vestara-text-muted) animate-pulse">Loading...</div>}>
+      <Suspense
+        fallback={<div className="w-full py-16 text-center text-(--vestara-text-muted) animate-pulse">Loading...</div>}
+      >
         {children}
       </Suspense>
     </ErrorBoundary>
   );
 }
 
+function pageFor(routeId: string) {
+  const Page = PAGES[routeId];
+  return Page ? <LazyPage>{createElement(Page)}</LazyPage> : null;
+}
+
 export default function App() {
+  const publicRoutes = APP_ROUTES.filter((r) => r.layout === 'public');
+  const shellRoutes = APP_ROUTES.filter((r) => r.layout === 'shell');
+
   return (
     <ErrorBoundary>
       <ThemeProvider>
         <TelemetryProvider>
           <ToastProvider>
-          <Routes>
-            <Route path="/login" element={<LazyPage><Login /></LazyPage>} />
-            <Route element={<ShellLayout />}>
-              <Route path="/" element={<Navigate to="/dashboard" replace />} />
-              <Route path="/overview" element={<LazyPage><Overview /></LazyPage>} />
-              <Route path="/dashboard" element={<LazyPage><Dashboard /></LazyPage>} />
-              <Route path="/sessions" element={<LazyPage><SessionList /></LazyPage>} />
-              <Route path="/sessions/:id" element={<LazyPage><SessionView /></LazyPage>} />
-              <Route path="/artifacts" element={<LazyPage><Artifacts /></LazyPage>} />
-              <Route path="/agents" element={<LazyPage><Agents /></LazyPage>} />
-              <Route path="/chat" element={<LazyPage><ChatPage /></LazyPage>} />
-              <Route path="/memory" element={<LazyPage><Memory /></LazyPage>} />
-              <Route path="/terminal" element={<LazyPage><TerminalPage /></LazyPage>} />
-              <Route path="/ops" element={<LazyPage><OpsCenter /></LazyPage>} />
-              <Route path="/projects" element={<LazyPage><ProjectsPage /></LazyPage>} />
-              <Route path="/requests" element={<LazyPage><FeatureRequests /></LazyPage>} />
-              <Route path="/activities" element={<LazyPage><Activities /></LazyPage>} />
-              <Route path="/api-builder" element={<LazyPage><ApiBuilder /></LazyPage>} />
-              <Route path="/docs" element={<LazyPage><Docs /></LazyPage>} />
-              <Route path="/settings/*" element={<LazyPage><SettingsPage /></LazyPage>} />
-              <Route path="*" element={<LazyPage><NotFound /></LazyPage>} />
-            </Route>
-          </Routes>
-        </ToastProvider>
+            <Routes>
+              {publicRoutes.map((r) => (
+                <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+              ))}
+              <Route element={<ShellLayout />}>
+                {shellRoutes
+                  .filter((r) => !r.catchAll)
+                  .map((r) =>
+                    r.redirect ? (
+                      <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
+                    ) : (
+                      <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                    ),
+                  )}
+                <Route
+                  path="*"
+                  element={
+                    <LazyPage>
+                      <NotFound />
+                    </LazyPage>
+                  }
+                />
+              </Route>
+            </Routes>
+          </ToastProvider>
         </TelemetryProvider>
       </ThemeProvider>
     </ErrorBoundary>

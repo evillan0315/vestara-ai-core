@@ -1,3 +1,5 @@
+import { migrate } from '@vestara/sqlite-migrations';
+import { DECISION_MANIFEST } from './scaffold-migrations';
 import type { Decision } from './types';
 
 function dbRun(db: any, sql: string, params?: any[]): void {
@@ -25,15 +27,7 @@ export class DecisionStorage {
   }
 
   private ensureSchema(): void {
-    this.db.exec(`
-      CREATE TABLE IF NOT EXISTS decisions (
-        id TEXT PRIMARY KEY, workspace_id TEXT, plan_id TEXT, assessment_id TEXT,
-        created_at TEXT, recommendation TEXT, alternatives TEXT DEFAULT '[]',
-        rationale TEXT, confidence REAL, accepted INTEGER DEFAULT 0,
-        accepted_by TEXT, accepted_at TEXT, model_version TEXT
-      );
-      CREATE INDEX IF NOT EXISTS idx_dec_ws ON decisions(workspace_id);
-    `);
+    migrate(this.db, DECISION_MANIFEST);
   }
 
   async save(d: Decision): Promise<void> {

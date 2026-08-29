@@ -1,6 +1,6 @@
 {
   "name": "@vestara/tools-shell",
-  "description": "Shell execution tool (stub)",
+  "description": "Governed shell execution tool — bounded subprocess execution with approval-gated risk (ToolRuntime adapter)",
   "version": "0.1.0",
   "private": true,
   "main": "./dist/index.js",
@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@vestara/shared": "workspace:*",
-    "@vestara/action": "workspace:*"
+    "@vestara/action": "workspace:*",
+    "@vestara/tool-runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

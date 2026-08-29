@@ -1,0 +1,39 @@
+{
+  "name": "@vestara/tui",
+  "description": "Vestara terminal TUI — an isolated Bun executable built on React + OpenTUI with a shared design system and renderer contract",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "bun run dist/index.js",
+    "test": "vitest run --root ../.. packages/tui/__tests__ && bun test --timeout 20000 test/"
+  },
+  "dependencies": {
+    "@vestara/design-system": "workspace:*",
+    "@vestara/tui-protocol": "workspace:*",
+    "@vestara/tui-renderer": "workspace:*",
+    "clipboardy": "4.0.0",
+    "react": "19.2.4",
+    "ws": "^8.19.0"
+  },
+  "devDependencies": {
+    "@opentui/core": "0.4.5",
+    "@opentui/core-linux-x64-musl": "0.4.5",
+    "@opentui/react": "0.4.5",
+    "@types/react": "19.2.14",
+    "@types/ws": "^8.18.1",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "bun": ">=1.2.0"
+  }
+}

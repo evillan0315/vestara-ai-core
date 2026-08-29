@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { BOARD_COLUMNS, PRIORITY_COLORS, STATUS_COLORS, STATUS_OPTIONS } from './contanst';
 import type { ProjectData, SprintData, TaskData } from './types';
+import { VestaraModal } from '../../components/ui/VestaraModal';
 
 function progressColor(pct: number): string {
   if (pct >= 70) return '#10b981';
@@ -300,63 +301,55 @@ export default function ProjectsPage() {
 
       {/* New project modal */}
       {showNew && (
-        <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
-          onClick={() => setShowNew(false)}
-        >
-          <div
-             className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg w-full max-w-7xl mx-auto shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
-              <h2 className="text-sm font-semibold text-(--vestara-text) flex items-center gap-2">
-                <span className="text-accent">+</span> New Project
-              </h2>
-              <button
-                onClick={() => setShowNew(false)}
-                className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm"
-              >
-                ✕
-              </button>
+        <VestaraModal onClose={() => setShowNew(false)} className="max-w-7xl">
+          <div className="flex items-center justify-between p-4 border-b border-(--vestara-accent-border)">
+            <h2 className="text-sm font-semibold text-(--vestara-text) flex items-center gap-2">
+              <span className="text-(--vestara-accent-text)">+</span> New Project
+            </h2>
+            <button
+              onClick={() => setShowNew(false)}
+              className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="p-4 space-y-3">
+            <div>
+              <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Name</label>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Project name..."
+                className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-(--vestara-accent-border-active)"
+                onKeyDown={(e) => e.key === 'Enter' && createProject()}
+              />
             </div>
-            <div className="p-4 space-y-3">
-              <div>
-                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Name</label>
-                <input
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  placeholder="Project name..."
-                  className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-accent"
-                  onKeyDown={(e) => e.key === 'Enter' && createProject()}
-                />
-              </div>
-              <div>
-                <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Description</label>
-                <input
-                  value={newDescription}
-                  onChange={(e) => setNewDescription(e.target.value)}
-                  placeholder="Optional description..."
-                  className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-accent"
-                />
-              </div>
-            </div>
-            <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
-              <button
-                onClick={createProject}
-                disabled={!newName.trim()}
-                className="flex-1 text-[10px] px-3 py-1.5 accent-btn rounded-lg disabled:opacity-30 cursor-pointer"
-              >
-                Create
-              </button>
-              <button
-                onClick={() => setShowNew(false)}
-                className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) cursor-pointer"
-              >
-                Cancel
-              </button>
+            <div>
+              <label className="text-[9px] text-(--vestara-text-2) uppercase tracking-widest mb-1 block">Description</label>
+              <input
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+                placeholder="Optional description..."
+                className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1.5 text-sm text-(--vestara-text) outline-none focus:border-(--vestara-accent-border-active)"
+              />
             </div>
           </div>
-        </div>
+          <div className="flex gap-2 p-4 border-t border-(--vestara-accent-border)">
+            <button
+              onClick={createProject}
+              disabled={!newName.trim()}
+              className="flex-1 text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) text-(--vestara-accent-text) rounded-lg disabled:opacity-30 cursor-pointer font-medium"
+            >
+              Create
+            </button>
+            <button
+              onClick={() => setShowNew(false)}
+              className="text-[10px] px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:text-(--vestara-text) cursor-pointer transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </VestaraModal>
       )}
 
       {projects.length === 0 && !showNew && (

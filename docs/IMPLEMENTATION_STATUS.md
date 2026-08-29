@@ -34,6 +34,9 @@
 | **v2.2** | **Auto-Indexing & Knowledge Propagation** | **✅ Complete** | **2026-07-23** |
 | **v2.3** | **Repository Health Scoring** | **✅ Complete** | **2026-07-23** |
 | **v2.4** | **Predictive Engineering** | **✅ Complete** | **2026-07-23** |
+| **v2.5** | **Marketplace Foundation (catalog, local registry, search, resolution, CLI)** | **✅ Complete** | **2026-08-02** |
+| **v2.6** | **Marketplace Workspace Experience (API, UI, operation center)** | **✅ Complete** | **2026-08-02** |
+| **v2.8** | **Marketplace Remote Registries, Publishing, Signatures & Version Tracking** | **✅ Complete** | **2026-08-03** |
 | **v2.7** | **Outcome Verification** | **✅ Complete** | **2026-07-23** |
 | **v3.0** | **Quality Infrastructure** | **✅ Complete** | **2026-07-24** |
 | **v3.1** | **Codebase Cleanup** | **✅ Complete** | **2026-07-24** |
@@ -56,6 +59,9 @@
 | **v5.1** | **Observability** | **✅ Complete** | **2026-07-24** |
 | **v5.2** | **Provider & Model Selection** | **✅ Complete** | **2026-07-24** |
 | **v5.3** | **Agent Workflow Orchestration** | **✅ Complete** | **2026-07-24** |
+| **v5.4** | **Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1)** | **✅ Complete** | **2026-08-03** |
+| **v5.5** | **Engineering Evidence Pipeline (PCS-026)** | **✅ Complete** | **2026-08-03** |
+| **v5.6** | **Distributed Worker Cluster (PCS-027)** | **✅ Complete** | **2026-08-03** |
 | **v6.0** | **Interactive Dashboard (Agents & Suggestions)** | **✅ Complete** | **2026-07-24** |
 | **v6.1** | **In-Browser CLI Terminal** | **✅ Complete** | **2026-07-25** |
 | **v6.2** | **Chatbot Assistant Panel** | **✅ Complete** | **2026-07-24** |
@@ -70,13 +76,52 @@
 | **v7.7** | **Workspace UI Tester Automation** | **✅ Complete** | **2026-07-26** |
 | **v7.8** | **API Builder UI/UX Enhancement** | **✅ Complete** | **2026-07-26** |
 | **v8.0** | **OS Architecture — Complete Specification** | **✅ Complete** | **2026-07-27** |
-| **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **🔶 In Progress** | **2026-07-27** |
-| **v8.2** | **Job, Worker, Intent Systems** | **📋 Planned** | **2026-08-15** |
-| **v8.3** | **Ownership, Verification, Trust Engine** | **📋 Planned** | **2026-09-01** |
-| **v8.4** | **Recovery & Full Kernel Composition** | **📋 Planned** | **2026-09-15** |
-| **v8.5** | **Subsystem Migration — all packages to standard layout** | **📋 Planned** | **2026-10-01** |
-| **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **📋 Planned** | **2026-10-15** |
-| **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **📋 Planned** | **2026-11-01** |
+| **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **✅ Complete** | **2026-07-27** |
+| **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |
+| **v8.3** | **Ownership, Verification, Trust Engine** | **✅ Complete** | **2026-08-03** |
+| **v8.4** | **Recovery & Full Kernel Composition** | **✅ Complete** | **2026-08-03** |
+| **v8.5** | **Subsystem Migration — all packages to standard layout** | **✅ Complete** | **2026-08-03** |
+| **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **✅ Complete** | **2026-08-03** |
+| **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **✅ Complete** | **2026-08-03** |
+
+> **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
+> `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
+> PCS-025 multi-agent orchestration is tracked under **v5.4** (complete): `WorkflowOrchestrator`,
+> project/plan/task state machines, task/artifact/file-lock stores, bounded
+> retry/revision policy, task-graph waves, checkpoint/resume, harness-backed task
+> dispatch, capability-based assignment, reviewer/tester stages with bounded
+> revision loops, high-risk-change Approval Gateway, parallel task waves with
+> file-lock contention handling, token budgets, event-sourced reconcile, bounded
+> verification re-open, `orchestration.*` events, and `/api/orchestration/*`
+> routes. Remote workers (v10.0) are complete; multi-repo projects remain future.
+
+> **Note**: **v5.5 "Engineering Evidence Pipeline"** (2026-08-03) is complete:
+> `packages/evidence/` provides collectors (command/test/build/filesystem/source
+> diff), content-addressed artifacts, immutable manifests, replay, derived
+> confidence, visual comparison + human-reviewed baselines with an
+> approve/reject governance API, and bundle corrections via `supersedes`.
+> **v5.6 "Distributed Worker Cluster"** (2026-08-03) is complete: PCS-027 node
+> registration, heartbeats, capability scheduling (wildcard opt-in), lease
+> reaping, executionId idempotency, WebSocket transport, evidence on remote
+> results, and the Workspace Workers view. Shared-token auth on `/ws/worker`
+> (§9) and multi-node hardening remain explicit future work.
+
+> **Note**: **v2.8 "Marketplace Remote Registries, Publishing, Signatures &
+> Version Tracking"** (2026-08-03) adds the ADR-115 future-work capabilities to
+> `@vestara/marketplace`: `RemoteMarketplaceRegistry` (JSON registry-index fetch,
+> caching, health, injectable archive fetcher for local install),
+> `MarketplacePublisher` (validate + digest + optional Ed25519 sign + rewrite),
+> Ed25519 signature enforcement wired through `signatureValidated`, and
+> `MarketplaceVersionTracker` (persisted installed-version store with
+> once-per-update `marketplace.update.notification` events and dismissal). CLI:
+> `vestara marketplace publish|keys|registry|track`.
+
+> **Note**: **v8.5 "Subsystem Migration"** (2026-08-03) brings every workspace
+> package into the ADR-022 standard layout (`__tests__/`, `src/index.*`,
+> `package.json`, `tsconfig.json`, `README.md`). The five packages added during
+> the v8.x series (intent, ownership, decision-pipeline, evidence,
+> workflow-orchestrator) received READMEs; the milestone script now enforces the
+> layout in `scripts/milestone-status.sh`.
 
 ---
 
@@ -122,16 +167,43 @@ Core Runtime (v1 frozen)
 Semantic Layer (v1 stable)
   @vestara/capabilities taxonomy     → ✅ Complete (90+ builtins, hierarchy, relationships, matcher, catalog)
 
-Scheduler (next)
-  @vestara/scheduler                 → 📋 Planned
-  @vestara/assignment                → 📋 Planned (if needed)
+Scheduler (v8.2)
+  @vestara/scheduler                 → ✅ Complete (capability + capacity matching to Workers)
+  @vestara/assignment                → ✅ Not needed — worker selection is owned by @vestara/scheduler
 
-Kernel v2 (next)
-  Kernel boot order (16-step)        → 📋 Planned
-  @vestara/intent                    → 📋 Planned
-  @vestara/verification              → 📋 Planned
-  @vestara/recovery                  → 📋 Planned
-  @vestara/trust                     → 📋 Planned
+Kernel v2 (v8.2–v8.4)
+  Kernel boot order (16-step)        → ✅ Complete (Runtime-layer composition reconciled in v8.4; Interface Layer is the embedding host's responsibility)
+  @vestara/intent                    → ✅ Complete (goal → ExecutionPlan of jobs, ADR-026)
+  @vestara/verification              → ✅ Complete (pipeline, build/test/lint/custom runners; composed at kernel boot)
+  @vestara/recovery                  → ✅ Complete (DefaultRecoveryManager in kernel)
+  @vestara/trust                     → ✅ Package complete (engine, model, repository)
+
+Ownership & Decision (v8.3)
+  @vestara/ownership                 → ✅ Complete (OwnershipRegistry, ResourceLockManager — ADR-027)
+  @vestara/decision-pipeline         → ✅ Complete (DecisionContext + Permission→Policy→Execution→Verification→Trust→History — ADR-035)
+  Kernel wiring                      → ✅ Complete (ownership + locks + decision pipeline at boot; permission stage wired, policy/execution/verification/trust stages registered by embedding hosts)
+
+Recovery & Kernel Composition (v8.4)
+  FailureBudget                      → ✅ Complete (windowed error-rate budget: healthy/consuming/exhausted, ADR-029)
+  Worker quarantine                  → ✅ Complete (per-worker budget, quarantine/release, auto-release expiry)
+  Verification Engine at boot        → ✅ Complete (@vestara/verification composed)
+  Trust Engine at boot               → ✅ Complete (@vestara/trust composed)
+  Boot composition                   → ✅ Complete (Runtime-layer steps reconciled to ADR-030 16-step order)
+
+Dashboard (v9.0)
+  @vestara/widget-runtime            → ✅ Complete (manifests, lifecycle, DashboardRuntime)
+  Kernel dashboard client            → ✅ Complete (dashboardRuntime composed from kernel eventBus/logger at boot)
+  Widget manifests via BootOptions   → ✅ Complete (registered with priority/location ordering)
+
+Remote Worker (v10.0)
+  DockerWorker                       → ✅ Complete (docker run via child_process, dependency-light)
+  CIWorker                           → ✅ Complete (subprocess shell command executor)
+  MCPWorker                          → ✅ Complete (minimal stdio JSON-RPC MCP client)
+  RemoteWorker                       → ✅ Complete (injected RemoteJobDispatcher or HTTP POST to remoteUrl)
+
+Durable Engineering Memory (Phase 4)
+  EngineeringMemoryProjection        → ✅ Complete (harness.* events → long-term memories via @vestara/memory)
+  API wiring                         → ✅ Complete (projection at composition root alongside the harness event bridge)
 ```
 
 ---
@@ -150,9 +222,11 @@ Kernel v2 (next)
 | `events` update | Standard event envelope, catalog types | types | ✅ Complete |
 | `job` | Job lifecycle with JobSpec, retry/rollback/verification policies | types, state-machine | ✅ Complete (v1 frozen) |
 | `worker` | Worker extends Runtime: capability advertisement, execution contract | types, runtime, job | ✅ Complete (v1 stable) |
+| `intent` | Intent model + planner: goal → ExecutionPlan of jobs (ADR-026) | types, state-machine | ✅ Complete |
+| `ownership` | Resource ownership + keyed write locks with timeout/deadlock prevention (ADR-027) | types | ✅ Complete |
+| `decision-pipeline` | DecisionContext + invariant chain Permission→Policy→Execution→Verification→Trust→History (ADR-035) | types | ✅ Complete |
 | `capabilities` | Canonical capability taxonomy, matching catalog, hierarchy, profiles | types | ✅ Complete (90+ builtins) |
-| `intent` | Intent model, planner, execution plans | types, events, job | 📋 Planned |
-| `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | 📋 Planned |
+| `verification` | Verification engine, policy enforcement, trust scoring | types, events, job | ✅ Complete |
 
 ---
 
@@ -217,16 +291,16 @@ Boot Order (16 steps):
 | `events-server` | Event streaming server for workspace signals | workspace | ✅ Complete |
 | `os-controller` | OS integration: systemd, desktop, service management | workspace | ✅ Complete |
 | `apps/api` | HTTP+WS gateway for Workspace UI | events, kernel, workspace, provider-runtime, provider-opencode, event-bus | ✅ Complete |
-| `apps/cli` | CLI: REPL + doctor + golden path + open | kernel, shared, workspace, state-runtime, context, conversation, provider-runtime, provider-opencode, events-server | ✅ Complete |
+| `apps/cli` | CLI: REPL, diagnostics, documentation, and governed screenshot automation | kernel, shared, workspace, state-runtime, context, conversation, documentation, provider-runtime, provider-opencode, events-server | ✅ Complete |
 
 ## Stub / Empty Packages
 
 | Package | Status |
 | --------- | -------- |
-| `tools/shell` | 🔶 STUB (exports version only) |
-| `tools/memory` | 🔶 STUB (exports version only) |
-| `tools/knowledge` | 🔶 STUB (exports version only) |
-| `tools/project` | 🔶 STUB (exports version only) |
+| `tools/shell` | ✅ Complete (governed shell execution tool, ToolRuntime adapter) |
+| `tools/memory` | ✅ Complete (memory graph query tool, ToolRuntime adapter) |
+| `tools/knowledge` | ✅ Complete (knowledge search tool, ToolRuntime adapter) |
+| `tools/project` | ✅ Complete (project analysis tool, ToolRuntime adapter) |
 | `agent-runtime/` | 📁 Directory exists, no package.json |
 | `conversation-runtime/` | 📁 Directory exists, no package.json |
 | `knowledge-runtime/` | 📁 Directory exists, no package.json |
@@ -298,12 +372,12 @@ Run: `pnpm vestara open .`
 
 | Check | Status |
 | ------- | -------- |
-| `bash build-order.sh` | ✅ All 29 packages + 4 apps compile |
+| `bash build-order.sh` | ✅ All workspace packages + apps compile |
 | TypeScript strict mode | ✅ Enabled |
-| Linter | ✅ Biome, 202 files clean, zero errors |
-| Formatter | ✅ Biome, 202 files formatted, no fixes pending |
-| CI | 🔶 Not configured for code |
-| Tests | ✅ 50 test files, 489 tests passing |
+| Linter | ✅ Biome clean (zero errors) |
+| Formatter | ✅ Biome formatted (no fixes pending) |
+| CI | ✅ Configured — `.github/workflows/ci.yml` runs deps-check, build, lint, full test suite, documentation drift gate, and benchmarks |
+| Tests | ✅ 171 test files, 1397 tests passing |
 | `.gitignore` | ✅ Configured at vestara-ai-core root |
 | **v4.0 packages** | **✅ 4 new packages: audio, stt, tts, conversation-runtime** |
 | **v4.0+ CLI commands** | **✅ status, doctor, doctor audio, doctor conversation, doctor agents, doctor teams, benchmark conversation, conversation-audit, agents, teams** |

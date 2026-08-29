@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/activity-projection",
+  "description": "Typed, append-only activity projection for the Activity Room (AAR-001)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "sql.js": "^1.14.1"
+  }
+}

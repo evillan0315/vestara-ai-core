@@ -1,6 +1,6 @@
 // ─── Kernel ──────────────────────────────────────────────────
 
-import type { HealthStatus, ServiceStatus } from './lifecycle.js';
+import type { ServiceStatus } from './lifecycle.js';
 
 export type KernelStatus = 'powered-off' | 'booting' | 'running' | 'degraded' | 'draining' | 'stopped';
 

@@ -11,8 +11,15 @@ echo "=== Generating API documentation ==="
 # Ensure output dir exists
 mkdir -p docs/api
 
-# Run TypeDoc
-npx typedoc --options typedoc.json 2>&1 | tail -5
+# Discover every live package entrypoint. The checked-in TypeDoc options hold
+# presentation policy; executable package coverage comes from the workspace.
+mapfile -t ENTRY_POINTS < <(find packages -mindepth 3 -maxdepth 4 -path '*/src/index.ts' -not -path '*/dist/*' | sort)
+if [ ${#ENTRY_POINTS[@]} -eq 0 ]; then
+  echo "No package entrypoints found" >&2
+  exit 1
+fi
+npx typedoc --options typedoc.json "${ENTRY_POINTS[@]}" 2>&1 | tail -5
+echo "Documented ${#ENTRY_POINTS[@]} package entrypoints"
 
 # Generate package dependency summary
 echo ""

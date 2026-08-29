@@ -384,7 +384,8 @@ export class SuggestionService {
       type: 'suggestion:action',
       source: 'suggestion-service',
       payload: { suggestionId, action },
-      metadata: { correlationId: suggestionId },
+      // ARX-015 M2: suggestionId is not an execution identity — correlation absent (fail-closed)
+      metadata: {},
     });
   }
 

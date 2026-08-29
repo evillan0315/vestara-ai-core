@@ -1,6 +1,6 @@
 import type * as http from 'node:http';
 import type { WorkspaceContext } from '../workspace-context';
-import { actorOf, getActor, json, readBody } from './types';
+import { json, readBody } from './types';
 
 const featureRequests: Array<{
   id: string;

@@ -79,3 +79,16 @@ export type {
 export { SettingsSchemas, ValidationEngine } from './validation-engine.js';
 export type { MigrationFunction, MigrationResult, MigrationStep, VersionRecord } from './versioning-engine.js';
 export { VersioningEngine, VersionUtils } from './versioning-engine.js';
+
+// ─── Modules ──────────────────────────────────────────────────
+
+export {
+  registerThemeBuilderModule,
+  THEME_BUILDER_MODULE_ID,
+  THEME_BUILDER_MODULE_PATH,
+  themeBuilderEntries,
+  themeBuilderModule,
+  themeBuilderPermissions,
+  themeBuilderRoutes,
+  themeBuilderSections,
+} from './modules/theme-builder.js';

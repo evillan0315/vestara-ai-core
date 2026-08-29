@@ -1,0 +1,41 @@
+{
+  "name": "@vestara/tui-renderer",
+  "description": "Renderer contract and OpenTUI adapter for the Vestara terminal TUI — the only package that depends on OpenTUI",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "import": "./dist/contract.js"
+    },
+    "./jsx-runtime": {
+      "types": "./dist/jsx-runtime.d.ts",
+      "import": "./dist/jsx-runtime.js"
+    },
+    "./jsx-dev-runtime": {
+      "types": "./dist/jsx-dev-runtime.d.ts",
+      "import": "./dist/jsx-dev-runtime.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/tui-renderer/__tests__"
+  },
+  "dependencies": {
+    "@opentui/core": "0.4.5",
+    "@opentui/react": "0.4.5",
+    "@vestara/design-system": "workspace:*",
+    "react": "19.2.4"
+  },
+  "devDependencies": {
+    "@types/react": "19.2.14",
+    "vitest": "^4.1.10"
+  }
+}

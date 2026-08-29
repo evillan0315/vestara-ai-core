@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/worktree-runtime",
+  "description": "Durable Git worktree leases and file ownership for isolated agent execution",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/worktree-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/sqlite-migrations": "workspace:*",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/sql.js": "^1.4.11",
+    "vitest": "^4.1.10"
+  }
+}

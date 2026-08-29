@@ -8,11 +8,11 @@
  *   PCS: PCS-010 — Workspace UI
  */
 
-const API_BASE = '';
+import { resolveHttpUrl } from './clientConfig';
 
 async function fetchJSON(path: string, options?: RequestInit): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE}${path}`, {
+    const res = await fetch(resolveHttpUrl(path), {
       headers: { 'Content-Type': 'application/json' },
       ...options,
     });

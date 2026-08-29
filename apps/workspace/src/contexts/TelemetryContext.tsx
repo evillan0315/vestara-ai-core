@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { getAgents } from '../lib/api';
 import { workspaceSocket } from '../lib/ws';
 import type { WorkspaceEvent } from '../lib/ws';
 
@@ -56,8 +57,8 @@ export interface TelemetryStore {
 
 const DEFAULT_AGENTS: Array<{ id: string; name: string }> = [
   { id: 'context', name: 'Context' },
+  { id: 'developer', name: 'Developer' },
   { id: 'planner', name: 'Planner' },
-  { id: 'engineer', name: 'Engineer' },
   { id: 'reviewer', name: 'Reviewer' },
   { id: 'verifier', name: 'Verifier' },
 ];
@@ -67,7 +68,7 @@ const STATUS_WEIGHT: Record<string, number> = {
   working: 3, verifying: 3, reviewing: 3, failed: 4,
 };
 
-const AGENT_ORDER = ['context', 'planner', 'engineer', 'reviewer', 'verifier'];
+const AGENT_ORDER = ['context', 'developer', 'planner', 'reviewer', 'verifier'];
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -136,6 +137,25 @@ export function TelemetryProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    // Source the agent catalog from the real registry (Vestara is the single
+    // source of truth) rather than a hardcoded list. Live status updates from
+    // the socket still apply on top; the corrected DEFAULT_AGENTS remain only
+    // as an offline fallback if the registry fetch fails.
+    void getAgents()
+      .then((real) => {
+        if (real.length === 0) return;
+        const next = new Map<string, AgentState>();
+        for (const agent of real) {
+          const existing = agentsRef.current.get(agent.id);
+          next.set(agent.id, existing ?? makeAgent(agent.id, agent.name || agent.id));
+        }
+        agentsRef.current = next;
+        setTick((t) => t + 1);
+      })
+      .catch(() => {
+        /* keep the corrected fallback catalog */
+      });
+
     const unsub = workspaceSocket.onEvent((wsEvent: WorkspaceEvent) => {
       const ev = toEvent(wsEvent);
       if (!ev) return;

@@ -1,0 +1,30 @@
+[Unit]
+Description=Vestara OpenCode Headless Server
+Documentation=file:/home/eddie/projects/vestara/vestara-ai-core/os/README.md
+After=network-online.target
+Wants=network-online.target
+PartOf=vestara.target
+Before=vestara-api.service
+
+[Service]
+Type=simple
+User=vestara
+Group=vestara
+WorkingDirectory=/opt/vestara
+EnvironmentFile=-/etc/vestara/vestara.env
+Environment=OPENCODE_SERVER_USERNAME=vestara
+ExecStart=/opt/vestara/.opencode/bin/opencode serve --hostname 127.0.0.1 --port 4096
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillSignal=SIGTERM
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+# opencode writes its database, tool installs, and credentials under the
+# service account's state/config directories. Grant those narrow paths while
+# keeping the host otherwise read-only.
+ReadWritePaths=/var/lib/vestara /var/lib/vestara/.local/share/opencode /var/lib/vestara/.local/state/opencode /var/lib/vestara/.config/opencode
+
+[Install]
+WantedBy=vestara.target

@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/execution-center",
+  "description": "Execution Center domain — DTOs and pure projections (queue, metrics, timeline, trace) for the engineering execution surface",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

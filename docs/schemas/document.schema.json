@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Vestara Governed Document",
+  "type": "object",
+  "required": ["title", "version", "status", "owner", "last-reviewed", "next-review"],
+  "properties": {
+    "id": { "type": "string" },
+    "title": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "status": { "enum": ["draft", "proposed", "approved", "implemented", "verified", "superseded", "deprecated"] },
+    "owner": { "type": "string", "minLength": 1 },
+    "last-reviewed": { "type": "string", "format": "date" },
+    "next-review": { "type": "string", "format": "date" },
+    "implementation-repository": { "type": "string" },
+    "implementation-commit": { "type": "string", "pattern": "^[0-9a-f]{7,64}$" },
+    "verification-run-id": { "type": "string" },
+    "evidence-manifest": { "type": "string" }
+  }
+}

@@ -1,3 +1,5 @@
+import { resolveWsUrl } from './clientConfig';
+
 export type ConnectionState = 'connecting' | 'open' | 'closed' | 'error';
 
 export interface WorkspaceEvent {
@@ -28,8 +30,7 @@ class WorkspaceSocket {
       return;
     }
 
-    const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
-    const url = `${proto}://${window.location.host}/ws`;
+    const url = resolveWsUrl('/ws');
     this.setState('connecting');
 
     try {

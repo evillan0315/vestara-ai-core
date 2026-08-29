@@ -1,0 +1,22 @@
+[Unit]
+Description=Vestara OS-0 Host Preflight
+Documentation=file:/opt/vestara/os/README.md
+After=local-fs.target
+Before=vestara-api.service
+
+[Service]
+Type=oneshot
+User=vestara
+Group=vestara
+WorkingDirectory=/opt/vestara
+EnvironmentFile=-/etc/vestara/vestara.env
+ExecStart=/usr/bin/node /opt/vestara/apps/cli/dist/index.js host status --json
+RemainAfterExit=yes
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/vestara
+
+[Install]
+WantedBy=vestara.target

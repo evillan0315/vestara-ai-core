@@ -13,6 +13,8 @@ export const AuditAction = {
   SETTINGS_UPDATE: 'settings.update',
   SETTINGS_DELETE: 'settings.delete',
   AGENT_CREATE: 'agent.create',
+  AGENT_UPDATE: 'agent.update',
+  AGENT_DELETE: 'agent.delete',
   AGENT_RUN: 'agent.run',
   PLAN_CREATE: 'plan.create',
   PLAN_UPDATE: 'plan.update',
@@ -26,6 +28,13 @@ export const AuditAction = {
   USER_CREATE: 'user.create',
   USER_ROTATE_TOKEN: 'user.rotate-token',
   LOGIN: 'user.login',
+  OPENCODE_PERMISSION_APPROVE: 'opencode.permission.approve',
+  OPENCODE_PERMISSION_REJECT: 'opencode.permission.reject',
+  ORDER_CREATE: 'order.create',
+  ORDER_UPDATE: 'order.update',
+  ORDER_CANCEL: 'order.cancel',
+  ORDER_STATUS_CHANGE: 'order.status_change',
+  ORDER_PAYMENT_CHANGE: 'order.payment_change',
 } as const;
 
 /** Extract the client IP from the request. */

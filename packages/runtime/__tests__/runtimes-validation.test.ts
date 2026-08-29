@@ -250,3 +250,84 @@ describe('Runtime validation — PluginRuntime', () => {
     expect(plugin.error).toContain('lacks system:configure permission');
   });
 });
+
+describe('Runtime validation — TuiRuntime', () => {
+  const SPAWN_OPTS = {
+    packageId: 'vestara.tui',
+    packageVersion: '0.1.0',
+    executablePath: '/usr/bin/true',
+    shutdownTimeoutMs: 500,
+  };
+
+  it('extends Runtime with an initial snapshot', () => {
+    const { Runtime } = require('../dist/index.js');
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const tui = new TuiRuntime({ id: 'tui-1' as any, type: 'tui' });
+    expect(tui).toBeInstanceOf(Runtime);
+    expect(tui.processSnapshot.state).toBe('created');
+    expect(tui.spawnCount).toBe(0);
+    expect(tui.hasActiveProcess).toBe(false);
+  });
+
+  it('launches only while the runtime is running', async () => {
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const tui = new TuiRuntime({ id: 'tui-2' as any, type: 'tui' });
+    await expect(tui.launch(SPAWN_OPTS)).rejects.toThrow('must be running');
+  });
+
+  it('launches a real process and reports lifecycle events', async () => {
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const events: string[] = [];
+    const tui = new TuiRuntime(
+      { id: 'tui-3' as any, type: 'tui' },
+      {
+        onEvent: (type: string) => events.push(type),
+        onSpawned: () => {},
+      },
+    );
+    await tui.initialize();
+    const snapshot = await tui.launch({ ...SPAWN_OPTS, executablePath: '/bin/sh', args: ['-c', 'sleep 0.2'] });
+    expect(snapshot.pid).toBeDefined();
+    expect(snapshot.state).toBe('running');
+    expect(tui.hasActiveProcess).toBe(true);
+    expect(tui.spawnCount).toBe(1);
+    expect(events).toEqual(
+      expect.arrayContaining(['tui.runtime.resolving', 'tui.runtime.starting', 'tui.runtime.started']),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(tui.hasActiveProcess).toBe(false);
+    expect(tui.processSnapshot.exitCode).toBe(0);
+  });
+
+  it('stops a running process gracefully on runtime stop', async () => {
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const tui = new TuiRuntime({ id: 'tui-4' as any, type: 'tui' });
+    await tui.initialize();
+    await tui.launch({ ...SPAWN_OPTS, executablePath: '/bin/sh', args: ['-c', 'sleep 10'] });
+    expect(tui.hasActiveProcess).toBe(true);
+    await tui.stop();
+    expect(tui.state).toBe('stopped');
+    expect(tui.hasActiveProcess).toBe(false);
+    expect(tui.processSnapshot.stoppedAt).toBeDefined();
+  });
+
+  it('supports forced termination', async () => {
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const tui = new TuiRuntime({ id: 'tui-5' as any, type: 'tui' });
+    await tui.initialize();
+    await tui.launch({ ...SPAWN_OPTS, executablePath: '/bin/sh', args: ['-c', 'sleep 10'] });
+    expect(tui.hasActiveProcess).toBe(true);
+    tui.forceTerminate();
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(tui.hasActiveProcess).toBe(false);
+    expect(tui.processSnapshot.exitCode).not.toBe(0);
+  });
+
+  it('marks the runtime unavailable with a failure', async () => {
+    const { TuiRuntime } = require('../dist/runtimes/tui-runtime.js');
+    const tui = new TuiRuntime({ id: 'tui-6' as any, type: 'tui' });
+    tui.markUnavailable('no executable for linux-arm');
+    expect(tui.processSnapshot.failure?.code).toBe('unavailable');
+    expect(tui.processSnapshot.failure?.message).toContain('linux-arm');
+  });
+});

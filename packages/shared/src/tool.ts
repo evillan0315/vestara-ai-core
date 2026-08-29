@@ -6,8 +6,6 @@
 
 export type PermissionLevel = 'read-only' | 'user-confirm' | 'admin-only';
 
-import type { StreamChunk } from './stream.js';
-
 export interface ToolDefinition {
   id: string;
   name: string;

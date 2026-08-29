@@ -71,23 +71,47 @@ const WRITE_FILE_DEF: ToolDefinition = {
   },
 };
 
-function resolvePath(requestedPath: string): string {
+/**
+ * Resolve a filesystem tool path against a workspace root.
+ *
+ * ARX-015 M5B: Replaces process.cwd() authority with explicit workspace root.
+ * The workspace root should come from RepositoryBinding.canonicalPath.
+ *
+ * @param workspaceRoot - The authoritative workspace root (from binding)
+ * @param requestedPath - The path from the tool request
+ * @returns Resolved absolute path
+ */
+function resolvePath(workspaceRoot: string, requestedPath: string): string {
+  const nodePath = require('node:path');
   // Path traversal protection: reject paths with '..'
   if (requestedPath.includes('..')) {
     throw new Error('Path traversal detected: ".." not allowed');
   }
-  // Resolve relative to current working directory
-  const resolved = require('node:path').resolve(process.cwd(), requestedPath);
+  // Resolve relative to workspace root (NOT process.cwd())
+  const resolved = nodePath.resolve(workspaceRoot, requestedPath);
+  // Verify the resolved path is within the workspace root
+  const relative = nodePath.relative(workspaceRoot, resolved);
+  if (relative.startsWith('..') || nodePath.isAbsolute(relative)) {
+    throw new Error(`Path escapes workspace root: ${requestedPath} resolves to ${resolved}`);
+  }
   return resolved;
 }
 
-export function createReadFileTool(): Tool {
+export function createReadFileTool(workspaceRoot?: string): Tool {
   return {
     definition: READ_FILE_DEF,
     async execute(request: ActionRequest) {
       const path = request.parameters.path as string;
+      // ARX-015 M5B: Use provided workspace root, NOT process.cwd()
+      const root = workspaceRoot ?? (request as any).workspaceRoot;
+      if (!root) {
+        throw new Error(
+          'Filesystem tool requires a workspace root. ' +
+            'ARX-015 M5B: process.cwd() is not an authority for repository execution.',
+        );
+      }
       try {
-        const resolved = resolvePath(path);
+        const resolved = resolvePath(root, path);
         const fs = await import('node:fs');
         const content = fs.readFileSync(resolved, 'utf-8');
         return {
@@ -106,14 +130,22 @@ export function createReadFileTool(): Tool {
   };
 }
 
-export function createWriteFileTool(): Tool {
+export function createWriteFileTool(workspaceRoot?: string): Tool {
   return {
     definition: WRITE_FILE_DEF,
     async execute(request: ActionRequest) {
       const path = request.parameters.path as string;
       const content = request.parameters.content as string;
+      // ARX-015 M5B: Use provided workspace root, NOT process.cwd()
+      const root = workspaceRoot ?? (request as any).workspaceRoot;
+      if (!root) {
+        throw new Error(
+          'Filesystem tool requires a workspace root. ' +
+            'ARX-015 M5B: process.cwd() is not an authority for repository execution.',
+        );
+      }
       try {
-        const resolved = resolvePath(path);
+        const resolved = resolvePath(root, path);
         const fs = await import('node:fs');
         fs.writeFileSync(resolved, content, 'utf-8');
         return {

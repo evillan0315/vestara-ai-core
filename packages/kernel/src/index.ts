@@ -15,10 +15,13 @@
  */
 
 import type { ConfigurationProvider } from '@vestara/configuration';
+import type { DecisionPipeline } from '@vestara/decision-pipeline';
 import type { EventBus } from '@vestara/event-bus';
 import type { HealthManager } from '@vestara/health';
+import type { IntentManager } from '@vestara/intent';
 import type { Logger } from '@vestara/logger';
 import type { MetricsCollector } from '@vestara/metrics';
+import type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
 import type { PermissionManager } from '@vestara/permissions';
 import type { ProviderManager } from '@vestara/provider-runtime';
 import type { Scheduler as JobScheduler } from '@vestara/scheduler';
@@ -32,6 +35,10 @@ import type {
   SystemDiagnosis,
   VestaraService,
 } from '@vestara/shared';
+import type { DefaultTrustEngine } from '@vestara/trust';
+import type { JobPriority } from '@vestara/types';
+import type { DefaultVerificationEngine } from '@vestara/verification';
+import type { DashboardRuntime, WidgetManifest } from '@vestara/widget-runtime';
 import type { Worker } from '@vestara/worker';
 import type { JobManager } from './job-manager';
 import type { RecoveryManager } from './recovery-manager';
@@ -51,6 +58,8 @@ export interface BootOptions {
     providerId: string;
   }>;
   workers?: Worker[];
+  /** Widget manifests composed into the kernel dashboard client at boot. */
+  widgets?: WidgetManifest[];
 }
 
 export interface VestaraKernel {
@@ -69,6 +78,13 @@ export interface VestaraKernel {
   readonly jobScheduler: JobScheduler;
   readonly workerManager: WorkerManager;
   readonly jobManager: JobManager;
+  readonly intentManager: IntentManager;
+  readonly ownershipRegistry: OwnershipRegistry;
+  readonly resourceLockManager: ResourceLockManager;
+  readonly decisionPipeline: DecisionPipeline;
+  readonly verificationEngine: DefaultVerificationEngine;
+  readonly trustEngine: DefaultTrustEngine;
+  readonly dashboardRuntime: DashboardRuntime;
   readonly permissions: PermissionManager;
 
   boot(options?: BootOptions): Promise<BootReport>;
@@ -92,6 +108,13 @@ export class DefaultKernel implements VestaraKernel {
   private _jobScheduler!: JobScheduler;
   private _workerManager!: WorkerManager;
   private _jobManager!: JobManager;
+  private _intentManager!: IntentManager;
+  private _ownershipRegistry!: OwnershipRegistry;
+  private _resourceLockManager!: ResourceLockManager;
+  private _decisionPipeline!: DecisionPipeline;
+  private _verificationEngine!: DefaultVerificationEngine;
+  private _trustEngine!: DefaultTrustEngine;
+  private _dashboardRuntime!: DashboardRuntime;
   private _providerManager: ProviderManager | null = null;
 
   readonly id = 'kernel';
@@ -180,6 +203,41 @@ export class DefaultKernel implements VestaraKernel {
     return this._jobManager;
   }
 
+  get intentManager(): IntentManager {
+    if (!this._intentManager) throw new Error('Kernel not booted: intent manager not available');
+    return this._intentManager;
+  }
+
+  get ownershipRegistry(): OwnershipRegistry {
+    if (!this._ownershipRegistry) throw new Error('Kernel not booted: ownership registry not available');
+    return this._ownershipRegistry;
+  }
+
+  get resourceLockManager(): ResourceLockManager {
+    if (!this._resourceLockManager) throw new Error('Kernel not booted: resource lock manager not available');
+    return this._resourceLockManager;
+  }
+
+  get decisionPipeline(): DecisionPipeline {
+    if (!this._decisionPipeline) throw new Error('Kernel not booted: decision pipeline not available');
+    return this._decisionPipeline;
+  }
+
+  get verificationEngine(): DefaultVerificationEngine {
+    if (!this._verificationEngine) throw new Error('Kernel not booted: verification engine not available');
+    return this._verificationEngine;
+  }
+
+  get trustEngine(): DefaultTrustEngine {
+    if (!this._trustEngine) throw new Error('Kernel not booted: trust engine not available');
+    return this._trustEngine;
+  }
+
+  get dashboardRuntime(): DashboardRuntime {
+    if (!this._dashboardRuntime) throw new Error('Kernel not booted: dashboard runtime not available');
+    return this._dashboardRuntime;
+  }
+
   get permissions(): PermissionManager {
     if (!this._permissions) throw new Error('Kernel not booted: permissions not available');
     return this._permissions;
@@ -265,6 +323,120 @@ export class DefaultKernel implements VestaraKernel {
       const { DefaultJobManager } = await import('./job-manager.js');
       this._jobManager = new DefaultJobManager(this._jobScheduler);
 
+      // Step 12b: Intent Manager (goal → execution plan of jobs)
+      const { IntentManager } = await import('@vestara/intent');
+      this._intentManager = new IntentManager();
+
+      // Step 12c: Ownership & Resource Locking (ADR-027)
+      const { OwnershipRegistry, ResourceLockManager } = await import('@vestara/ownership');
+      this._ownershipRegistry = new OwnershipRegistry();
+      this._resourceLockManager = new ResourceLockManager(this._ownershipRegistry);
+
+      // Step 12d: Decision Pipeline (ADR-035) — the invariant chain
+      // Permission → Policy → Execution → Verification → Trust. All stages are
+      // wired at boot from the kernel's composed engines.
+      const { DecisionPipeline, executionStage, permissionStage, policyStage, trustStage, verificationStage } =
+        await import('@vestara/decision-pipeline');
+      const { DefaultPolicyEngine } = await import('@vestara/policy-engine');
+      const policyEngine = new DefaultPolicyEngine();
+      this._decisionPipeline = new DecisionPipeline([
+        permissionStage({
+          check: (input) => {
+            const allowed = this._permissions.check({
+              actor: input.actor,
+              operation: input.operation as never,
+              targetType: input.targetType,
+              targetId: input.targetId,
+            });
+            return {
+              allowed,
+              role: this._permissions.getEffectiveRole(input.actor, input.targetType, input.targetId) ?? 'unknown',
+              reason: allowed ? 'allowed' : 'denied',
+            };
+          },
+        }),
+        policyStage({
+          evaluate: async (input) => {
+            const decision = await policyEngine.evaluate({
+              policies: [],
+              context: {
+                user: { id: input.actor, role: 'runtime', groups: [] },
+                workspace: { id: input.targetId, name: input.targetType },
+                system: {
+                  currentHour: new Date().getHours(),
+                  currentDayOfWeek: new Date().getDay(),
+                  environment: 'local',
+                },
+                metadata: { operation: input.operation, targetType: input.targetType },
+              },
+            });
+            return {
+              result: decision.result === 'deny' ? 'deny' : 'allow',
+              reason: decision.reason ?? 'policy evaluation',
+              matchedPolicies: decision.matchedPolicies.map((policy) => policy.policyId),
+            };
+          },
+        }),
+        executionStage({
+          execute: async (input) => {
+            const job = new (await import('@vestara/job')).Job({
+              id: `pipe-${input.requestId}` as never,
+              owner: input.actor as never,
+              runtime: this.id as never,
+              spec: { type: input.operation as never, priority: 3 as JobPriority },
+            });
+            const result = await this._jobManager.submit(job);
+            return {
+              status: result.status === 'scheduled' || result.status === 'queued' ? 'succeeded' : 'failed',
+              summary: `Job ${job.id} ${result.status}${result.assignedWorker ? ` on ${result.assignedWorker}` : ''}`,
+            };
+          },
+        }),
+        verificationStage({
+          verify: async (input) => {
+            const result = await this._verificationEngine.verify({
+              id: input.requestId,
+              jobId: input.targetId,
+              checks: [],
+            });
+            return {
+              status: result.status,
+              summary: result.summary,
+              checks: result.checkResults.map((check) => check.checkId),
+            };
+          },
+        }),
+        trustStage({
+          score: async (input) => {
+            const snapshot = this._trustEngine.getTrustSnapshot(input.sourceId, (input.sourceType as never) ?? 'agent');
+            return snapshot
+              ? { score: snapshot.overall.value, confidence: snapshot.overall.confidence }
+              : { score: 0.5, confidence: 0 };
+          },
+        }),
+      ]);
+
+      // Step 12e: Verification Engine (ADR-028) — deterministic evidence collection.
+      const { DefaultVerificationEngine } = await import('@vestara/verification');
+      this._verificationEngine = new DefaultVerificationEngine();
+
+      // Step 12f: Trust Engine (ADR-028) — probabilistic reputation over evidence.
+      const { DefaultTrustEngine } = await import('@vestara/trust');
+      this._trustEngine = new DefaultTrustEngine();
+
+      // Step 12g: Dashboard Runtime (ADR-021) — composed as a client of the
+      // kernel's event bus, logger, and service registry.
+      const { DashboardRuntime, WidgetLifecycleManager } = await import('@vestara/widget-runtime');
+      const lifecycleManager = new WidgetLifecycleManager({
+        eventBus: this._eventBus,
+        logger: this._logger,
+      });
+      this._dashboardRuntime = new DashboardRuntime({
+        eventBus: this._eventBus,
+        logger: this._logger,
+        lifecycleManager,
+      });
+
       // Register kernel itself with a proper health() implementation.
       // Methods are on the prototype so we bind them explicitly.
       const kernelService: VestaraService = {
@@ -296,6 +468,11 @@ export class DefaultKernel implements VestaraKernel {
         }
       }
 
+      // Step 13b: Register widget manifests into the dashboard client
+      if (options.widgets && options.widgets.length > 0) {
+        this._dashboardRuntime.registerManifests(options.widgets);
+        this._logger.info(`Widget manifests registered: ${options.widgets.length}`);
+      }
       // Step 14: Register user-provided services
       if (options.services) {
         for (const { service, capabilities, dependencies } of options.services) {
@@ -553,11 +730,25 @@ export class DefaultKernel implements VestaraKernel {
   }
 }
 
+export type { DecisionPipeline } from '@vestara/decision-pipeline';
+export type { IntentManager } from '@vestara/intent';
+export { IntentManager as KernelIntentManager } from '@vestara/intent';
+export type { OwnershipRegistry, ResourceLockManager } from '@vestara/ownership';
+export type { DefaultTrustEngine } from '@vestara/trust';
+export type { DefaultVerificationEngine } from '@vestara/verification';
+export type { DashboardRuntime, WidgetManifest } from '@vestara/widget-runtime';
+export type {
+  FailureBudgetConfig,
+  FailureBudgetMitigation,
+  FailureBudgetState,
+  FailureBudgetStatus,
+} from './failure-budget';
+export { FailureBudget } from './failure-budget';
 export type { JobManager } from './job-manager';
 export { DefaultJobManager } from './job-manager';
 export type { RecoveryAttempt, RecoveryManager, RecoveryPolicy } from './recovery-manager';
 export { DefaultRecoveryManager } from './recovery-manager';
 export type { ScheduledTask, TaskExecution, TaskPriority, TaskScheduler, TaskStatus } from './task-scheduler';
 export { DefaultTaskScheduler } from './task-scheduler';
-export type { WorkerManager } from './worker-manager';
+export type { QuarantinedWorker, WorkerManager, WorkerQuarantineOptions } from './worker-manager';
 export { DefaultWorkerManager } from './worker-manager';

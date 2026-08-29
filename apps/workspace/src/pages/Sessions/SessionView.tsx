@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import SessionTimeline from '../../components/SessionTimeline';
 import WorkflowPipeline from '../../components/WorkflowPipeline';
 import type { ExecutionSession } from './types';
@@ -13,31 +13,40 @@ function formatDuration(seconds: number): string {
 
 export default function SessionView() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [session, setSession] = useState<any | null>(null);
   const [exSession, setExSession] = useState<ExecutionSession | null>(null);
   const [agents, setAgents] = useState<Array<{ id: string; name: string; role: string; color?: string }>>([]);
   const [approvals, setApprovals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [workflows, setWorkflows] = useState<Array<{ id: string; label: string; steps: number }>>([]);
+  const [wfGoal, setWfGoal] = useState('');
+  const [wfType, setWfType] = useState('feature');
+  const [wfRunning, setWfRunning] = useState(false);
+  const [wfError, setWfError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      const [sessionData, exsData, agentsData, approvalsData, wfData] = await Promise.all([
+        fetch(`/api/sessions/${id || 'current'}`).then((r) => r.json()).catch(() => ({ session: null })),
+        fetch('/api/sessions/executions').then((r) => r.json()).catch(() => ({ sessions: [] })),
+        fetch('/api/agents').then((r) => r.json()).catch(() => ({ agents: [] })),
+        fetch('/api/approvals').then((r) => r.json()).catch(() => ({ approvals: [] })),
+        fetch('/api/workflows').then((r) => r.json()).catch(() => ({ workflows: [] })),
+      ]);
+      setSession(sessionData.session);
+      const sessions = exsData.sessions || [];
+      setExSession(sessions.find((s: any) => s.id === id) || sessions[0] || null);
+      setAgents(agentsData.agents ?? []);
+      setApprovals(approvalsData.approvals ?? []);
+      setWorkflows(wfData.workflows ?? []);
+    } catch {}
+    setLoading(false);
+  }, [id]);
 
   useEffect(() => {
-    const load = async () => {
-      try {
-        const [sessionData, exsData, agentsData, approvalsData] = await Promise.all([
-          fetch(`/api/sessions/${id || 'current'}`).then((r) => r.json()).catch(() => ({ session: null })),
-          fetch('/api/sessions/executions').then((r) => r.json()).catch(() => ({ sessions: [] })),
-          fetch('/api/agents').then((r) => r.json()).catch(() => ({ agents: [] })),
-          fetch('/api/approvals').then((r) => r.json()).catch(() => ({ approvals: [] })),
-        ]);
-        setSession(sessionData.session);
-        const sessions = exsData.sessions || [];
-        setExSession(sessions.find((s: any) => s.id === id) || sessions[0] || null);
-        setAgents(agentsData.agents ?? []);
-        setApprovals(approvalsData.approvals ?? []);
-      } catch {}
-      setLoading(false);
-    };
-    load();
-  }, [id]);
+    void load();
+  }, [load]);
 
   const display = exSession || session;
   const agentMap = useMemo(() => {
@@ -71,6 +80,32 @@ export default function SessionView() {
       </div>
     );
   if (!display) return <div className="w-full px-4 py-16 text-center text-zinc-600">Session not found</div>;
+
+  const createWorkflow = async () => {
+    const goal = (wfGoal.trim() || session?.objective || display.goal || '').trim();
+    if (!goal) {
+      setWfError('A goal is required.');
+      return;
+    }
+    setWfRunning(true);
+    setWfError(null);
+    try {
+      const res = await fetch('/api/sessions/executions/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ goal, workflow: wfType }),
+      });
+      if (!res.ok) throw new Error(`Workflow start failed (${res.status})`);
+      const data = (await res.json()) as { session?: { id: string } };
+      const createdId = data.session?.id;
+      await load();
+      if (createdId) navigate(`/sessions/${createdId}`);
+    } catch (caught) {
+      setWfError(caught instanceof Error ? caught.message : 'Unable to start the workflow');
+    } finally {
+      setWfRunning(false);
+    }
+  };
 
   const agentList = (display.timeline || []).map((t: any) => ({
     ...t,
@@ -118,6 +153,49 @@ export default function SessionView() {
                 <div className="h-1.5 rounded-full transition-all" style={{ width: `${Math.round((display.metrics.completedSteps / display.metrics.totalSteps) * 100)}%`, backgroundColor: 'var(--vestara-accent)' }} />
               </div>
             )}
+          </div>
+
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
+            <h3 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+              <span className="w-1 h-3.5 rounded-full bg-violet-500/60 shrink-0" /> Start a New Workflow
+            </h3>
+            <p className="text-[11px] text-(--vestara-text-muted) mb-3">
+              Kick off a new governed workflow from this session. It runs through the agent pipeline and appears in the
+              timeline below when it completes.
+            </p>
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={wfGoal}
+                onChange={(event) => setWfGoal(event.target.value)}
+                disabled={wfRunning}
+                placeholder={session?.objective || display.goal || 'What should this workflow accomplish?'}
+                className="w-full rounded-md border border-(--vestara-accent-border) bg-zinc-900 px-2 py-1.5 text-xs text-(--vestara-text) outline-none focus:border-(--vestara-accent-border-active)"
+              />
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={wfType}
+                  onChange={(event) => setWfType(event.target.value)}
+                  disabled={wfRunning}
+                  className="rounded-md border border-(--vestara-accent-border) bg-zinc-900 px-2 py-1.5 text-xs text-(--vestara-text)"
+                >
+                  {workflows.map((wf) => (
+                    <option key={wf.id} value={wf.id}>
+                      {wf.label} · {wf.steps} step(s)
+                    </option>
+                  ))}
+                </select>
+                <button
+                  type="button"
+                  onClick={() => void createWorkflow()}
+                  disabled={wfRunning}
+                  className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {wfRunning ? 'Starting workflow…' : 'Start workflow'}
+                </button>
+              </div>
+            </div>
+            {wfError && <p className="mt-2 text-[11px] text-red-300">{wfError}</p>}
           </div>
 
           {uniqueAgents.length > 0 && (

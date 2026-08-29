@@ -10,7 +10,11 @@
     "resolveJsonModule": true,
     "declaration": true,
     "sourceMap": true,
-    "noEmit": false
+    "noEmit": false,
+    "baseUrl": ".",
+    "paths": {
+      "sql.js": ["./types/sql-js.d.ts"]
+    }
   },
   "exclude": ["node_modules", "dist"]
 }

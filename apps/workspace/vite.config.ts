@@ -2,7 +2,7 @@
 
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
@@ -27,5 +27,8 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     css: true,
+    // Playwright owns tests/visual/*.spec.*; exclude both the sources and the
+    // stale compiled artifacts so vitest never executes them.
+    exclude: [...configDefaults.exclude, 'tests/visual/**/*.spec.ts', 'tests/visual/**/*.spec.js'],
   },
 });
