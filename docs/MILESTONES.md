@@ -2302,6 +2302,77 @@ Then verify composer generality:
 
 ---
 
+### AR-REC — Contextual Recommendations & Governed Decisions ✅ Complete
+
+**Objective**: Distinct extension from AR-UI. Allow agents and other Vestara capabilities to surface context-aware suggestions, alternatives, discoveries, conflicts, efficiencies, and questions inside Activity Room, while allowing humans to respond through structured decisions that remain fully governed. This capability must remain generic — Marketplace discovery is an initial use case, not the architecture.
+
+**Architectural rule**: Activity Room presents recommendations, captures decisions, and displays resulting state. It does not become an orchestration or governance authority.
+
+- No operation dispatcher.
+- No prose-to-authority conversion.
+- No hardcoded domain knowledge.
+- Presentation labels have no authority.
+- Decisions are contextual, not reusable capability tokens.
+- Current state must be revalidated by downstream authority.
+- New capabilities participate without Activity Room source changes.
+
+**Status**: ✅ Approved (Planning Complete — Awaiting Implementation)
+
+**Key artifacts**:
+
+- Blueprint: `vestara-blueprint/06-workspace/activity-room-recommendation-governed-decisions-milestone.md`
+- Implementation detail: `docs/activity-room/arx-015-recommendation-governed-decisions-milestone.md`
+- Architecture review: `docs/activity-room/arx-015-architecture-review.md` (Revision 2)
+
+**Implementation batches**:
+
+| Batch | Phases | Goal |
+|-------|--------|------|
+| AR-REC-A | R0 | Existing capability + governance audit |
+| AR-REC-B | R1–R2 | Recommendation/Decision contracts |
+| AR-REC-C | R3–R4 | Shared UI + Activity Stream presentation |
+| AR-REC-D | R5–R6 | Governed decision submission + generic contextual UX |
+| AR-REC-E | R7–R10 | Marketplace scenario + cross-domain/lifecycle/attention |
+| AR-REC-F | R11–R13 | Security, resilience, performance, production certification |
+
+**Frozen invariants (REC-GOV-01 through REC-GOV-10)**:
+
+> Recommendation ≠ Authority. Decision ≠ Direct Execution. Governance Always Applies. No Operation Dispatcher. Presentation Labels Have No Authority. No Prose-to-Authority Conversion. Decisions Are Contextual. Current State Must Be Revalidated. Activity Room Remains Projection + Interaction. No Hardcoded Domain Knowledge.
+
+**Definition of Done**:
+
+> An existing or future Vestara capability can surface a grounded recommendation containing arbitrary contextual decision options. Activity Room can render that recommendation using shared, theme-consistent components without understanding its domain. A human can select an option and Activity Room can submit that decision through an existing governed interaction boundary without possessing or deriving executable authority. Existing governance determines the meaning, authorization, validity and operational consequences of the decision. Resulting activity is projected back into Activity Room with sufficient provenance. New recommendation-producing capabilities can be introduced without modifying Activity Room source code.
+
+**Final human acceptance scenario**:
+
+```text
+User: "Build a new UI component for a dashboard."
+→ Vestara discovers existing alternative
+→ Activity Room: "I found existing components that may fit this request."
+→ [ Check existing options ] [ Continue building ]
+→ Select "Check existing options"
+→ Activity Room: "I found several possible options."
+→ [ Compare options ] [ Use existing option ] [ Continue building ]
+→ Select one
+→ Existing governance evaluates the intent
+→ Resulting activity projected back
+
+Then verify:
+→ Activity Room did not interpret "build"
+→ Activity Room did not query Marketplace because of a keyword
+→ Activity Room did not select an Agent
+→ Activity Room did not create a Workflow
+→ Activity Room did not bypass permissions
+→ Activity Room did not infer executable behavior from option label
+→ Recommendation provenance preserved
+→ Decision provenance preserved
+→ Duplicate submission safe
+→ Historical decisions cannot be replayed as authority
+→ A completely unrelated recommendation renders through exactly the same UI
+```
+
+---
+
 ## Summary Dashboard
 
 | Era | Version | Theme | Status |
@@ -2326,6 +2397,7 @@ Then verify composer generality:
 | Dashboard UI | v7.9 | Dashboard & Settings UI Consistency (MUI→Tailwind, CSS variable fixes) | ✅ Complete |
 | CLI/API Alignment | v7.10 | CLI/API Runtime Alignment (boot sequence, context pattern, lifecycle management) | ✅ Complete |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
+| **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
