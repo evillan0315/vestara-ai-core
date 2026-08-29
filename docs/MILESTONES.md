@@ -2281,6 +2281,10 @@ vestara provider status ollama
 
 > Activity Room may read authoritative Vestara state, compose presentation/read models, invoke already-supported configuration mutations, and submit messages through existing ingress. Activity Room MUST NOT change or reproduce Harness, Workflow, Orchestration, Agent execution, routing, runtime/session, governance, or authorization semantics. Missing backend capability is reported as a dependency or adjacent finding — not invented inside the UI.
 
+**Composer generality invariant**:
+
+> The Activity Room composer is a general human/AI interaction surface, not a command-specific frontend. It MUST NOT contain keyword-specific behavior, workflow-specific UI logic, agent-role routing tables, Marketplace-package assumptions, or execution-specific branching. New Agents, Teams, Marketplace capabilities, models and workflows must be able to participate without requiring Activity Room source changes. The most important acceptance criterion: Vestara should be able to become more capable without Activity Room needing to learn what every new capability means.
+
 **Capabilities**: Authoritative Team grouping · Authoritative Agent/Human roster · Model/name-first conversational identity · Runtime status visualization · Active work counters · Latest activity previews · Participant tooltips · Reusable detailed participant Drawer · Supported Agent configuration editing · Provider → Model dependent selection · Execution/task/activity inspection · Team/participant targeting in the composer · Responsive/realtime updates · Reconnect/resync correctness · Production performance and UX verification.
 
 **Final human acceptance scenario**:
@@ -2288,8 +2292,12 @@ vestara provider status ollama
 ```text
 Open Vestara → Activity Room → See Engineering Team → See Mimo working
 → Hover Mimo → Inspect Mimo → See current work → Close Drawer
-→ To: Engineering Team → "Install agent control" → Send
-→ Existing Vestara execution path takes over
+→ To: Engineering Team → "Build a new UI component for a dashboard" → Send
+→ Existing Vestara execution path takes over → Activity Room watches consequences unfold
+
+Then verify composer generality:
+→ To: Mimo → "Check this component implementation." → Same generic path
+→ To: Security Team → "Review the dashboard authentication flow." → Same generic path
 ```
 
 ---

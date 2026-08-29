@@ -19,6 +19,50 @@
 
 ---
 
+## Composer Generality Invariant
+
+The Activity Room composer is a general human/AI interaction surface, not a command-specific frontend.
+
+It MUST NOT contain keyword-specific behavior, workflow-specific UI logic, agent-role routing tables, Marketplace-package assumptions, or execution-specific branching.
+
+Messages such as `"Install agent control"` and `"Build a new UI component for a dashboard"` must travel through the same generic Activity Room interaction path.
+
+Activity Room supplies only the conversational message and currently supported authoritative context/target information.
+
+Interpretation, capability discovery, agent selection, workflow selection, orchestration and execution remain responsibilities of existing Vestara systems.
+
+New Agents, Teams, Marketplace capabilities, models and workflows must be able to participate without requiring Activity Room source changes.
+
+### Interaction Envelope
+
+When the user sends a message, Activity Room produces a clean interaction envelope:
+
+```text
+Message
+  text: "Build a new UI component for a dashboard"
+
+
+Context
+  conversation: current conversation
+  workspace: current workspace
+  target: Engineering Team
+  sender: current human
+```
+
+Then it crosses the existing ingress boundary. Activity Room's responsibility ends at producing this envelope.
+
+### The To: Control Is Conversation Targeting
+
+The `To:` control identifies the conversational target through whatever canonical ingress contract Vestara already supports. Selecting a team or participant does not trigger Activity Room to decide execution order, agent selection, or workflow sequencing.
+
+### Future-Proofing
+
+New Agents, Teams, Marketplace capabilities, models and workflows must be able to participate without requiring Activity Room source changes. The composer must not accumulate `if message.includes(...)` branches.
+
+> **The most important acceptance criterion: Vestara should be able to become more capable without Activity Room needing to learn what every new capability means.**
+
+---
+
 ## Objective
 
 Deliver a production-ready Activity Room experience that turns `/activity-v2` into a production collaboration surface where the user can see the real team, understand current activity, inspect/configure participants through existing authorities, choose a conversational target, and send messages into the existing Vestara execution path.
@@ -147,7 +191,7 @@ Invariant: `role ≠ color ≠ model ≠ participant identity`
 | **Correctness** | Team, Agent, execution and activity information correspond to authoritative sources |
 | **Resilience** | Refresh, restart, reconnect, empty state, partial API failure and stale data handled |
 | **Performance** | Bounded startup/render/event/memory behavior has evidence |
-| **Architecture** | Zero hardcoded domain config, zero modifications to Harness/Workflow/Orchestration/Agent execution semantics |
+| **Architecture** | Zero hardcoded domain config, zero keyword-specific composer behavior, zero modifications to Harness/Workflow/Orchestration/Agent execution semantics. New capabilities participate without Activity Room source changes |
 | **Human usability** | Can sit in Activity Room and operate Vestara without developer tools |
 
 ---
@@ -173,14 +217,32 @@ Close Drawer
      ↓
 To: Engineering Team
      ↓
-"Install agent control"
+"Build a new UI component for a dashboard"
      ↓
 Send
      ↓
 Existing Vestara execution path takes over
+     ↓
+Activity Room watches consequences unfold
+```
+
+Then verify composer generality:
+
+```text
+To: Mimo
+"Check this component implementation."
+     ↓
+Same generic interaction path (no keyword routing)
+
+To: Security Team
+"Review the dashboard authentication flow."
+     ↓
+Same generic interaction path (no workflow branching)
 ```
 
 If that works reliably, we've crossed an important threshold.
+
+The most important acceptance criterion: **Vestara should be able to become more capable without Activity Room needing to learn what every new capability means.**
 
 ---
 
