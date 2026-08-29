@@ -6,10 +6,15 @@
  * - B3: No executable semantics in contract
  * - B4: Lifecycle modeling
  * - B5: Approval separation in types
+ * - Structural validation (choices non-empty, unique IDs, response-interaction relationship)
  * - B8: Canonical text ingress preserved
  * - B9: Cross-domain generality proof
  * - B10: Negative architecture tests
  * - B12: Verification evidence
+ *
+ * Distinguishes:
+ * - Contract guarantees (typed identities, relational validation, N-option, no executable semantics)
+ * - Deferred operational guarantees (persistence idempotency, reconnect, replay, stale evaluation)
  */
 
 import { describe, expect, it } from 'vitest';
@@ -20,8 +25,14 @@ import type {
   InteractionResponse,
   ChoiceId,
   StructuredInteraction,
+  InteractionValidationError,
 } from '../src/interaction';
-import { isStructuredInteraction, isInteractionResponse } from '../src/interaction';
+import {
+  isStructuredInteraction,
+  isInteractionResponse,
+  validateInteraction,
+  validateResponseForInteraction,
+} from '../src/interaction';
 import type { ApprovalRequestPayload, PolicyDecision } from '../src/harness';
 
 // ─── Helper: Create Test Fixtures ────────────────────────────
@@ -136,13 +147,14 @@ describe('B2: StructuredInteraction contract', () => {
     expect(withoutConv.conversationId).toBeUndefined();
   });
 
-  it('supports optional metadata', () => {
-    const withMeta = makeInteraction({
-      metadata: { 'vestara.category': 'workspace' },
-    });
-    const withoutMeta = makeInteraction();
-    expect(withMeta.metadata?.['vestara.category']).toBe('workspace');
-    expect(withoutMeta.metadata).toBeUndefined();
+  it('has no generic metadata or extension bag', () => {
+    const interaction = makeInteraction();
+    expect('metadata' in interaction).toBe(false);
+    expect('payload' in interaction).toBe(false);
+    expect('context' in interaction).toBe(false);
+    expect('data' in interaction).toBe(false);
+    expect('extensions' in interaction).toBe(false);
+    expect('attributes' in interaction).toBe(false);
   });
 });
 
@@ -275,16 +287,14 @@ describe('B3: No executable semantics in contract', () => {
     expect('execute' in response).toBe(false);
   });
 
-  it('metadata does not contain executable payloads', () => {
-    const interaction = makeInteraction({
-      metadata: {
-        'vestara.category': 'workspace',
-        'vestara.source': 'suggestion-service',
-      },
-    });
-    // Metadata values are display-only strings, not handlers
-    expect(typeof interaction.metadata?.['vestara.category']).toBe('string');
-    expect(typeof interaction.metadata?.['vestara.source']).toBe('string');
+  it('contract has no generic metadata, payload, or extension bag', () => {
+    const interaction = makeInteraction();
+    expect('metadata' in interaction).toBe(false);
+    expect('payload' in interaction).toBe(false);
+    expect('context' in interaction).toBe(false);
+    expect('data' in interaction).toBe(false);
+    expect('extensions' in interaction).toBe(false);
+    expect('attributes' in interaction).toBe(false);
   });
 });
 
@@ -437,10 +447,8 @@ describe('B9: Cross-domain generality', () => {
         { choiceId: 'c2' as ChoiceId, label: 'Show details' },
         { choiceId: 'c3' as ChoiceId, label: 'Continue building' },
       ],
-      metadata: { 'vestara.domain': 'marketplace' },
     });
     expect(interaction.choices.length).toBe(3);
-    expect(interaction.metadata?.['vestara.domain']).toBe('marketplace');
   });
 
   it('Engineering: "Two reasonable implementation approaches"', () => {
@@ -451,7 +459,6 @@ describe('B9: Cross-domain generality', () => {
         { choiceId: 'c2' as ChoiceId, label: 'Use approach B' },
         { choiceId: 'c3' as ChoiceId, label: 'Explain the trade-offs' },
       ],
-      metadata: { 'vestara.domain': 'engineering' },
     });
     expect(interaction.choices.length).toBe(3);
   });
@@ -464,7 +471,6 @@ describe('B9: Cross-domain generality', () => {
         { choiceId: 'c2' as ChoiceId, label: 'Compare' },
         { choiceId: 'c3' as ChoiceId, label: 'Keep current plan' },
       ],
-      metadata: { 'vestara.domain': 'configuration' },
     });
     expect(interaction.choices.length).toBe(3);
   });
@@ -478,7 +484,6 @@ describe('B9: Cross-domain generality', () => {
         { choiceId: 'c2' as ChoiceId, label: 'Run diagnostics' },
         { choiceId: 'c3' as ChoiceId, label: 'Ignore for now' },
       ],
-      metadata: { 'vestara.domain': 'quantum-physics' },
     });
     expect(interaction.choices.length).toBe(3);
     // No Activity Room source changes needed — contract is domain-neutral
@@ -555,17 +560,23 @@ describe('B10: Negative architecture tests — cannot occur', () => {
     expect('policyDecision' in response).toBe(false);
   });
 
-  it('replayed response cannot cause repeated mutation', () => {
-    // Response is a value type — replaying creates the same value
-    // Idempotency is enforced by the response contract, not by the type
+  it('contract provides identity/correlation primitives for idempotency (deferred to consumer)', () => {
+    // Contract guarantee: responses carry stable typed identities and correlationId
+    // Deferred: persistence deduplication, replay suppression, exactly-once processing
     const interaction = makeInteraction();
-    const response1 = makeResponse(interaction, 0);
-    const response2 = makeResponse(interaction, 0);
-    // Both responses reference the same interaction and choice
-    expect(response1.interactionId).toBe(response2.interactionId);
-    expect(response1.selectedChoiceId).toBe(response2.selectedChoiceId);
-    // But they have different responseIds (unique instances)
-    expect(response1.responseId).not.toBe(response2.responseId);
+    const response = makeResponse(interaction, 0);
+    // Contract provides: responseId (stable identity), correlationId (deduplication key)
+    expect(response.responseId).toBeDefined();
+    expect(typeof response.responseId).toBe('string');
+    // Consumer must implement: deduplication by (interactionId, respondingParticipantId) or correlationId
+  });
+
+  it('contract provides identity primitives for reconnect (deferred to consumer)', () => {
+    // Contract guarantee: response references originating interaction by stable interactionId
+    // Deferred: reconnect recovery, session re-establishment, stale-state evaluation
+    const interaction = makeInteraction();
+    const response = makeResponse(interaction, 0);
+    expect(response.interactionId).toBe(interaction.interactionId);
   });
 
   it('stale response cannot become permanent authority', () => {
@@ -610,5 +621,101 @@ describe('B5: Type incompatibility verification', () => {
     const interaction = makeInteraction();
     expect('decision' in interaction).toBe(false);
     expect('changesRequested' in interaction).toBe(false);
+  });
+});
+
+// ─── Structural Validation ───────────────────────────────────
+
+describe('Structural validation: validateInteraction', () => {
+  it('rejects zero choices', () => {
+    const interaction = makeInteraction({ choices: [] });
+    const errors = validateInteraction(interaction);
+    expect(errors.length).toBe(1);
+    expect(errors[0].invariant).toBe('choices-non-empty');
+  });
+
+  it('accepts one choice', () => {
+    const interaction = makeInteraction({
+      choices: [{ choiceId: 'c1' as ChoiceId, label: 'Only option' }],
+    });
+    const errors = validateInteraction(interaction);
+    expect(errors.length).toBe(0);
+  });
+
+  it('accepts N choices', () => {
+    const choices: InteractionChoice[] = Array.from({ length: 5 }, (_, i) => ({
+      choiceId: `c${i}` as ChoiceId,
+      label: `Option ${i + 1}`,
+    }));
+    const interaction = makeInteraction({ choices });
+    const errors = validateInteraction(interaction);
+    expect(errors.length).toBe(0);
+  });
+
+  it('rejects duplicate ChoiceIds', () => {
+    const interaction = makeInteraction({
+      choices: [
+        { choiceId: 'c1' as ChoiceId, label: 'Option A' },
+        { choiceId: 'c1' as ChoiceId, label: 'Option B' },
+      ],
+    });
+    const errors = validateInteraction(interaction);
+    expect(errors.length).toBe(1);
+    expect(errors[0].invariant).toBe('choice-ids-unique');
+  });
+
+  it('accepts unique ChoiceIds', () => {
+    const interaction = makeInteraction({
+      choices: [
+        { choiceId: 'c1' as ChoiceId, label: 'Option A' },
+        { choiceId: 'c2' as ChoiceId, label: 'Option B' },
+        { choiceId: 'c3' as ChoiceId, label: 'Option C' },
+      ],
+    });
+    const errors = validateInteraction(interaction);
+    expect(errors.length).toBe(0);
+  });
+});
+
+describe('Structural validation: validateResponseForInteraction', () => {
+  it('rejects response for wrong interaction', () => {
+    const interaction1 = makeInteraction();
+    const interaction2 = makeInteraction();
+    const response = makeResponse(interaction1, 0);
+    // Override to reference wrong interaction
+    const wrongResponse = { ...response, interactionId: interaction2.interactionId };
+    const errors = validateResponseForInteraction(wrongResponse, interaction1);
+    expect(errors.length).toBe(1);
+    expect(errors[0].invariant).toBe('response-interaction-mismatch');
+  });
+
+  it('rejects unknown selected ChoiceId', () => {
+    const interaction = makeInteraction();
+    const response = makeResponse(interaction, 0);
+    // Override to reference non-existent choice
+    const wrongResponse = { ...response, selectedChoiceId: 'nonexistent' as ChoiceId };
+    const errors = validateResponseForInteraction(wrongResponse, interaction);
+    expect(errors.length).toBe(1);
+    expect(errors[0].invariant).toBe('selected-choice-exists');
+  });
+
+  it('accepts valid response with correct interaction and choice', () => {
+    const interaction = makeInteraction();
+    const response = makeResponse(interaction, 0);
+    const errors = validateResponseForInteraction(response, interaction);
+    expect(errors.length).toBe(0);
+  });
+
+  it('accepts valid response with any choice index', () => {
+    const interaction = makeInteraction({
+      choices: [
+        { choiceId: 'c1' as ChoiceId, label: 'A' },
+        { choiceId: 'c2' as ChoiceId, label: 'B' },
+        { choiceId: 'c3' as ChoiceId, label: 'C' },
+      ],
+    });
+    const response = makeResponse(interaction, 2);
+    const errors = validateResponseForInteraction(response, interaction);
+    expect(errors.length).toBe(0);
   });
 });

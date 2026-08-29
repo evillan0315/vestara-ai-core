@@ -35,24 +35,27 @@
 /**
  * Candidate B: Conversation/Message Extension
  *
- * REJECTED — Would make conversation persistence → governance authority.
+ * REJECTED — Semantic ownership and coupling violation.
  *
  * Evidence:
- * - Conversation/Message types in shared/src/conversation-types.ts are message-oriented
- * - Message has: id, conversationId, role, content, provider, model, tokens, cost, latency
- * - No structured interaction fields (choices, selection, response)
- * - ConversationService owns lifecycle: create, sendMessage, receiveResponse, close
- * - Adding recommendation/choice to Message would turn every conversation into a
- *   potential governance authority
- * - Recommendations might not always be in a conversation context
+ * - Message owns communication content/history (shared/src/conversation-types.ts:22-33)
+ * - StructuredInteraction owns independently addressable interaction semantics
+ * - Interactions may originate outside Conversation (Activity Room, future consumers)
+ * - Interaction identity/choices/responses should not depend on Conversation ownership
+ * - Conversation may later reference/carry an interaction without becoming its canonical owner
+ * - Candidate C remains reusable across Conversation, Activity Room, and future unknown consumers
+ *
+ * Ownership boundary:
+ *   Conversation owns messaging. StructuredInteraction owns interaction semantics.
+ *   Governance owns authority.
  *
  * Trade-offs:
  * + ConversationContext already conceptually supports structured responses
  * + Human text messaging already flows through conversation
  * - Would require Message to carry choice identity, selection, response
- * - Would make conversation persistence a governance authority
- * - Not all recommendations originate from conversations
- * - Violates: "without turning conversation persistence into a new governance authority"
+ * - Couples interaction semantics to Conversation lifecycle
+ * - Not all interactions originate from conversations
+ * - Prevents reuse by Activity Room, future consumers independent of Conversation
  */
 
 /**
@@ -125,7 +128,7 @@
  *
  * Rejected alternatives:
  * - A (Activity-record extension): Would make M9 projection → command owner
- * - B (Conversation/message extension): Would make conversation persistence → governance authority
+ * - B (Conversation/message extension): Semantic ownership/coupling — interaction identity must not depend on Conversation ownership
  * - D (First-class Recommendation): Too specific for minimum abstraction
  *
  * Invariants preserved:
@@ -134,4 +137,17 @@
  * - Decision does not bypass governance
  * - Activity Room MUST NOT interpret choices as executable operations
  * - No parallel governance system created
+ *
+ * Persistence and events:
+ * - No new persistence at B stage — contract is a type; persistence is an integration concern
+ * - No new events at B stage — contract defines type structure; event integration is a later concern
+ * - Persistence, projection/event integration, and transport integration are later integration
+ *   concerns requiring explicit authorization and ownership selection
+ * - A following milestone does not acquire those responsibilities merely because it follows B
+ *
+ * Participant identity:
+ * - Participant IDs follow existing Vestara string conventions (ActivityActor.id,
+ *   ParticipantProjection.participantId)
+ * - Authoritative identity validation remains an integration responsibility
+ * - AR-REC-B does not introduce a new participant identity subsystem
  */

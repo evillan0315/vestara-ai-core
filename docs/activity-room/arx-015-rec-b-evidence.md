@@ -30,7 +30,7 @@ The core semantics are: **one party presents options, another party selects**. T
 
 **A (Activity-record extension)**: Would make M9 projection → command owner. Activity records are projection/read-model infrastructure (activity.ts:9-16), not command authority. Making M9 own recommendation semantics would make Activity Room → authority. Violates: "M9 remains projection/read-model infrastructure unless evidence establishes otherwise."
 
-**B (Conversation/message extension)**: Would make conversation persistence → governance authority. Message types in shared/src/conversation-types.ts are message-oriented (id, conversationId, role, content). Adding recommendation/choice would turn every conversation into a potential governance authority. Not all recommendations originate from conversations. Violates: "without turning conversation persistence into a new governance authority."
+**B (Conversation/message extension)**: Semantic ownership and coupling violation. Message owns communication content/history. StructuredInteraction owns independently addressable interaction semantics. Interactions may originate outside Conversation. Interaction identity/choices/responses should not depend on Conversation ownership. Candidate C remains reusable across Conversation, Activity Room, and future unknown consumers. Conversation may later reference/carry an interaction without becoming its canonical owner. Ownership boundary: Conversation owns messaging. StructuredInteraction owns interaction semantics. Governance owns authority.
 
 **D (First-class Recommendation)**: Too specific for the minimum abstraction. "Recommendation" implies domain-specific intent. The actual pattern is generic: present options, capture selection. A first-class Recommendation would need rationale, confidence, source, impact — higher-level concerns that don't belong in the minimum contract. Violates: "choose the smallest abstraction that owns the semantics truthfully."
 
@@ -42,21 +42,22 @@ The core semantics are: **one party presents options, another party selects**. T
 | Canonical identity | ✅ InteractionId, ChoiceId (branded, stable) |
 | Provenance | ✅ PresentingParticipantId, RespondingParticipantId |
 | Correlation/causation | ✅ interactionId, correlationId |
-| Persistence | ⚠️ No new store — contract is a type, persistence is AR-REC-C concern |
-| Idempotency | ✅ Response is idempotent by contract design |
-| Replay safety | ✅ Same choice = same intent, different responseId |
-| Stale-response | ✅ Lifecycle type supports expired state |
-| N-option support | ✅ choices: readonly InteractionChoice[] |
+| Persistence | ⚠️ No new store — persistence is a later integration concern requiring explicit authorization |
+| Idempotency | ⚠️ Contract provides identity/correlation primitives; persistence idempotency is a consumer concern |
+| Replay safety | ⚠️ Contract provides stable identities; replay suppression is a consumer concern |
+| Stale-response | ⚠️ Lifecycle type supports expired state; stale evaluation against current state is a consumer concern |
+| N-option support | ✅ choices: readonly InteractionChoice[] + validateInteraction enforces choices.length >= 1 |
+| Structural validation | ✅ validateInteraction (choices non-empty, unique IDs) + validateResponseForInteraction (relationship integrity) |
 | Backward compat | ✅ Plain text messages not affected |
 | Activity Room projection | ✅ Contract can be projected without M9 becoming authoritative |
-| Engineering Event evidence | ⚠️ No new events — AR-REC-B defines contract, events are AR-REC-C concern |
-| Governance separation | ✅ Type guards prevent confusion with approval DTOs |
+| Engineering Event evidence | ⚠️ No new events — event integration is a later concern requiring explicit authorization |
+| Governance separation | ✅ Type guards + structural validation prevent confusion with approval DTOs |
 | Cross-domain reuse | ✅ Works for marketplace, engineering, configuration, unknown domains |
-| Future capability support | ✅ Domain-neutral, metadata extensible |
+| Future capability support | ✅ Domain-neutral, no generic metadata escape hatch |
 | Migration cost | ✅ Zero — new types, no existing code modified |
 | Duplication | ✅ No overlap with existing contracts |
 | Dependency direction | ✅ @vestara/types has no external dependencies |
-| Implementation surface | ✅ 2 type files, 1 test file, ~200 lines of types |
+| Implementation surface | ✅ 2 type files, 1 test file, ~250 lines of types |
 
 ---
 
@@ -69,19 +70,18 @@ The core semantics are: **one party presents options, another party selects**. T
 | `packages/types/src/interaction.ts` | **CREATED** | Canonical interaction contract types |
 | `packages/types/src/interaction-architecture.ts` | **CREATED** | B1 Architecture Selection Record |
 | `packages/types/src/index.ts` | **MODIFIED** | Added export for interaction types |
-| `packages/types/__tests__/interaction-contract.test.ts` | **CREATED** | 55 verification tests |
+| `packages/types/__tests__/interaction-contract.test.ts` | **CREATED** | 65 verification tests |
 
 ### Contract Types
 
 **StructuredInteraction** — A presented interaction with ordered choices:
 - `interactionId: InteractionId` — stable identity
 - `conversationId?: string` — optional conversation correlation
-- `presentingParticipantId: string` — who presented
+- `presentingParticipantId: string` — who presented (follows existing Vestara string conventions)
 - `presentingParticipantName: string` — display name
 - `createdAt: Timestamp` — creation time
 - `content: string` — human-readable prompt
-- `choices: readonly InteractionChoice[]` — ordered choice collection
-- `metadata?: Record<string, unknown>` — extensible, display-only
+- `choices: readonly InteractionChoice[]` — ordered choice collection (no generic metadata/extension bag)
 
 **InteractionChoice** — A single choice within an interaction:
 - `choiceId: ChoiceId` — stable opaque identity (correlation, not authority)
@@ -110,6 +110,7 @@ The contract explicitly DOES NOT contain:
 - `command`, `shellCommand`, `operation`, `execute`, `handler`, `endpoint`, `route`
 - `toolCall`, `approvalGranted`, `policyOverride`, `permissionOverride`
 - Runtime execution, installation, removal, deployment, mutation
+- Any generic metadata, payload, context, data, or extension bag
 - Any field that could become an escape hatch for executable semantics
 
 **Verified by**: 4 tests in "B3: No executable semantics in contract" describe block.
@@ -121,10 +122,22 @@ The contract explicitly DOES NOT contain:
 Lifecycle is derived from facts, not persisted as execution state:
 - `StructuredInteraction` has no `lifecycle`, `state`, or `status` field
 - Lifecycle is derived from whether a response exists
-- A response is idempotent: replaying does not create a second decision
 - A stale recommendation must not become permanent execution capability
 
-**Verified by**: 4 tests in "B4: Lifecycle states" describe block.
+**Contract guarantees** (verified by tests):
+- Stable typed identities (responseId, interactionId, selectedChoiceId)
+- Opaque choice identity (choiceId is correlation, not label)
+- Relational validation (validateResponseForInteraction)
+- N-option support (validateInteraction enforces choices.length >= 1)
+
+**Deferred operational guarantees** (require consumer/persistence implementation):
+- Persistence idempotency
+- Retry/reconnect deduplication
+- Replay suppression
+- Stale-response evaluation against current system state
+- Downstream governed continuation
+
+**Verified by**: 4 tests in "B4: Lifecycle states" + 2 tests in "B10: Negative architecture tests" (idempotency/reconnect primitives).
 
 ---
 
@@ -134,9 +147,10 @@ The type architecture makes accidental substitution difficult:
 - `StructuredInteraction` is structurally incompatible with `ApprovalRequestPayload`
 - `InteractionResponse` is structurally incompatible with `PolicyDecision`
 - `InteractionResponse` does not have `approve`/`reject` semantics — it has `selectedChoiceId`
-- Type guards (`isStructuredInteraction`, `isInteractionResponse`) prevent confusion
+- Type guards (`isStructuredInteraction`, `isInteractionResponse`) prevent shape confusion
+- Structural validation (`validateInteraction`, `validateResponseForInteraction`) enforces relational invariants
 
-**Verified by**: 5 tests in "B5: Approval separation" and "B5: Type incompatibility verification" describe blocks.
+**Verified by**: 5 tests in "B5: Approval separation" + 5 tests in "B5: Type incompatibility verification" + 9 tests in "Structural validation" describe blocks.
 
 ---
 
@@ -146,10 +160,9 @@ The type architecture makes accidental substitution difficult:
 
 Rationale:
 - The contract is a type definition, not a persistence schema
-- M9 remains projection/read-model infrastructure (not command authority)
-- Engineering Event Store may provide immutable evidence but must not become command authority
-- Persistence responsibility is an AR-REC-C concern
-- The contract can be projected to M9 or stored independently — that's a wiring decision
+- Persistence, projection/event integration, and transport integration are later integration concerns requiring explicit authorization and ownership selection
+- A following milestone does not acquire those responsibilities merely because it follows B
+- The contract can be projected to M9 or stored independently — that's a wiring decision requiring explicit authorization
 
 ---
 
@@ -159,8 +172,8 @@ Rationale:
 
 Rationale:
 - The contract defines the type structure, not the event contract
-- Whether recommendation presentation and human choice require existing events with additional typed data, new canonical events, or no new events is an AR-REC-C concern
-- AR-REC-B implements the minimum canonical contract; events are a separate concern
+- Whether interaction presentation and human choice require existing events with additional typed data, new canonical events, or no new events is a later integration concern requiring explicit authorization
+- AR-REC-B implements the minimum canonical contract; event integration is a separate concern requiring explicit authorization
 
 ---
 
@@ -204,11 +217,11 @@ Explicitly proved that none of these can occur through the new contract alone:
 | Activity Room → Harness execution | ✅ PASS — no harnessExecution/threadId field |
 | Activity Room → Marketplace install | ✅ PASS — no install/package field |
 | Activity Room → Policy allow | ✅ PASS — no policyAllow field |
-| replayed response → repeated mutation | ✅ PASS — idempotent by design |
+| replayed response → repeated mutation | ✅ PASS — contract provides identity/correlation primitives (deferred to consumer) |
 | stale response → permanent authority | ✅ PASS — no authority/permission field |
 | unknown choice → arbitrary payload execution | ✅ PASS — no payload/execution field |
 
-**Verified by**: 11 tests in "B10: Negative architecture tests" describe block.
+**Verified by**: 13 tests in "B10: Negative architecture tests" describe block.
 
 ---
 
@@ -217,7 +230,7 @@ Explicitly proved that none of these can occur through the new contract alone:
 ### Test Results
 
 ```
- packages/types/__tests__/interaction-contract.test.ts (55 tests)
+ packages/types/__tests__/interaction-contract.test.ts (65 tests)
    B2: StructuredInteraction contract          10 passed
    B2: InteractionResponse contract             6 passed
    B2: N-option support                         4 passed
@@ -227,11 +240,13 @@ Explicitly proved that none of these can occur through the new contract alone:
    Type guards                                  4 passed
    B8: Text ingress backward compatibility      3 passed
    B9: Cross-domain generality                  4 passed
-   B10: Negative architecture tests            11 passed
+   B10: Negative architecture tests            13 passed
    B5: Type incompatibility verification        2 passed
+   Structural validation: validateInteraction   5 passed
+   Structural validation: validateResponse      4 passed
 
  Test Files  1 passed (1)
-      Tests  55 passed (55)
+      Tests  65 passed (65)
 ```
 
 ### Build Verification
@@ -257,42 +272,46 @@ Generic Structured-Interaction Contract (Candidate C)
 
 ### Why Each Alternative Was Rejected
 - **A**: Would make M9 projection → command owner
-- **B**: Would make conversation persistence → governance authority
+- **B**: Semantic ownership/coupling — interaction identity must not depend on Conversation ownership
 - **D**: Too specific for minimum abstraction
 
 ### Exact Production Files Changed
-1. `packages/types/src/interaction.ts` — CRE created: canonical contract types
+1. `packages/types/src/interaction.ts` — CREATED: canonical contract types + validation
 2. `packages/types/src/interaction-architecture.ts` — CREATED: B1 selection record
 3. `packages/types/src/index.ts` — MODIFIED: added `export * from './interaction'`
-4. `packages/types/__tests__/interaction-contract.test.ts` — CREATED: 55 verification tests
+4. `packages/types/__tests__/interaction-contract.test.ts` — CREATED: 65 verification tests
 
 ### Contracts Introduced
 - `InteractionId` — branded string, stable identity
 - `ChoiceId` — branded string, stable opaque choice identity
 - `InteractionChoice` — choice with ID, label, optional description
-- `StructuredInteraction` — presented interaction with ordered choices
+- `StructuredInteraction` — presented interaction with ordered choices (no generic metadata/extension bag)
 - `InteractionResponse` — human response referencing interaction and selected choice
 - `InteractionLifecycle` — `'presented' | 'responded' | 'expired'`
-- `isStructuredInteraction()` — type guard
-- `isInteractionResponse()` — type guard
+- `InteractionValidationError` — validation error type
+- `isStructuredInteraction()` — type guard (shape validation)
+- `isInteractionResponse()` — type guard (shape validation)
+- `validateInteraction()` — structural validation (choices non-empty, unique IDs)
+- `validateResponseForInteraction()` — relational validation (response-interaction relationship)
 
 ### Persistence Decision
-No new persistence. Contract is a type; persistence is AR-REC-C concern.
+No new persistence. Contract is a type; persistence is a later integration concern requiring explicit authorization and ownership selection.
 
 ### Event Decision
-No new events. Contract defines type structure; events are AR-REC-C concern.
+No new events. Contract defines type structure; event integration is a later concern requiring explicit authorization and ownership selection.
 
 ### Backward-Compatibility Result
 Plain text messages unaffected. No keyword routing. No existing code modified.
 
 ### Governance-Separation Evidence
-- Type guards prevent confusion with approval DTOs
+- Type guards prevent shape confusion with approval DTOs
+- Structural validation enforces relational invariants
 - Contract has no executable semantics
 - Choice identity is correlation, not authority
 - Response does not produce approvalGranted or equivalent
 
 ### Tests and Verification Results
-55/55 tests pass. Build clean. Existing tests unaffected.
+65/65 tests pass. Build clean. Existing tests unaffected.
 
 ### Adjacent Findings
 None discovered during AR-REC-B execution.

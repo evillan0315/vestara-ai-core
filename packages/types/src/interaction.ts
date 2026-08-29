@@ -62,7 +62,7 @@ export interface InteractionChoice {
  *   - No command, shellCommand, operation, execute, handler, endpoint, route
  *   - No toolCall, approvalGranted, policyOverride, permissionOverride
  *   - No client-defined executable payloads
- *   - Opaque metadata is constrained (see InteractionMetadata)
+ *   - No generic metadata, payload, context, data, or extension bag
  */
 export interface StructuredInteraction {
   /** Stable identity for this interaction. Immutable. */
@@ -97,20 +97,6 @@ export interface StructuredInteraction {
    * Order is significant for presentation but does not imply priority or authority.
    */
   readonly choices: readonly InteractionChoice[];
-
-  /**
-   * Optional bounded metadata for extensibility.
-   *
-   * Authority semantics: This field MUST NOT contain executable semantics.
-   * It may carry domain-specific presentation hints (e.g., "category: workspace")
-   * but these are display-only and do not confer authority.
-   *
-   * Constraints:
-   *   - Keys MUST be namespaced (e.g., "vestara.category")
-   *   - Values MUST be JSON primitive or structured data (no functions, no handlers)
-   *   - Total size SHOULD be bounded (< 4KB recommended)
-   */
-  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 // ─── Interaction Response ────────────────────────────────────
@@ -121,11 +107,18 @@ export interface StructuredInteraction {
  * Represents: the human selected a choice. This is a fact — an intent expression.
  * It does NOT represent approval, authorization, or execution permission.
  *
- * Response semantics:
- *   - A response is idempotent: replaying does not create a second decision
- *   - A response references the originating interaction by interactionId
- *   - A response identifies the selected choice by choiceId (opaque, not label)
- *   - A response records the responding participant for provenance
+ * Contract guarantees:
+ *   - Stable typed identities (responseId, interactionId, selectedChoiceId)
+ *   - Opaque choice identity (choiceId is correlation, not label)
+ *   - Relational reference (response references originating interaction)
+ *   - Provenance (respondingParticipantId for identity)
+ *
+ * Deferred operational guarantees (require consumer/persistence implementation):
+ *   - Persistence idempotency
+ *   - Retry/reconnect deduplication
+ *   - Replay suppression
+ *   - Stale-response evaluation against current system state
+ *   - Downstream governed continuation
  */
 export interface InteractionResponse {
   /** Stable identity for this response. Immutable. */
@@ -205,12 +198,101 @@ export function isInteractionResponse(value: unknown): value is InteractionRespo
   );
 }
 
+// ─── Structural Validation ───────────────────────────────────
+
+/**
+ * Validation error for interaction contract invariants.
+ */
+export interface InteractionValidationError {
+  /** The invariant that was violated. */
+  readonly invariant: string;
+  /** Human-readable description. */
+  readonly message: string;
+}
+
+/**
+ * Validate structural invariants of a StructuredInteraction.
+ *
+ * Invariants enforced:
+ *   - choices.length >= 1
+ *   - every ChoiceId within the interaction is unique
+ *
+ * Does NOT validate:
+ *   - Consumer-specific business rules
+ *   - Persistence deduplication
+ *   - Relational integrity between response and interaction (use validateResponseForInteraction)
+ */
+export function validateInteraction(
+  interaction: StructuredInteraction,
+): readonly InteractionValidationError[] {
+  const errors: InteractionValidationError[] = [];
+
+  if (interaction.choices.length < 1) {
+    errors.push({
+      invariant: 'choices-non-empty',
+      message: `Interaction must have at least 1 choice, got ${interaction.choices.length}`,
+    });
+  }
+
+  const seen = new Set<string>();
+  for (const choice of interaction.choices) {
+    if (seen.has(choice.choiceId)) {
+      errors.push({
+        invariant: 'choice-ids-unique',
+        message: `Duplicate ChoiceId: ${choice.choiceId}`,
+      });
+    }
+    seen.add(choice.choiceId);
+  }
+
+  return errors;
+}
+
+/**
+ * Validate that an InteractionResponse is structurally valid for a given interaction.
+ *
+ * Invariants enforced:
+ *   - response.interactionId matches the interaction being answered
+ *   - response.selectedChoiceId exists in that interaction's choices
+ *
+ * Does NOT validate:
+ *   - Whether the interaction is still in 'presented' lifecycle state
+ *   - Whether the responding participant is authorized
+ *   - Persistence deduplication or replay suppression
+ */
+export function validateResponseForInteraction(
+  response: InteractionResponse,
+  interaction: StructuredInteraction,
+): readonly InteractionValidationError[] {
+  const errors: InteractionValidationError[] = [];
+
+  if (response.interactionId !== interaction.interactionId) {
+    errors.push({
+      invariant: 'response-interaction-mismatch',
+      message: `Response interactionId (${response.interactionId}) does not match interaction (${interaction.interactionId})`,
+    });
+  }
+
+  const choiceExists = interaction.choices.some(
+    (c) => c.choiceId === response.selectedChoiceId,
+  );
+  if (!choiceExists) {
+    errors.push({
+      invariant: 'selected-choice-exists',
+      message: `Response selectedChoiceId (${response.selectedChoiceId}) does not exist in interaction choices`,
+    });
+  }
+
+  return errors;
+}
+
 // ─── Exclusion声明 ───────────────────────────────────────────
 //
 // This contract explicitly DOES NOT contain:
 //   - command, shellCommand, operation, execute, handler, endpoint, route
 //   - toolCall, approvalGranted, policyOverride, permissionOverride
 //   - runtime execution, installation, removal, deployment, mutation
+//   - any generic metadata, payload, context, data, or extension bag
 //   - any field that could become an escape hatch for executable semantics
 //
 // A choice expresses human intent. It does not grant operational approval.
