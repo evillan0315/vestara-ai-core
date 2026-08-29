@@ -48,7 +48,7 @@ The design MUST stop before producer-specific interpretation, governance, or exe
 | Service + port/adapter | `ActivityProjectionService` + `ActivityStore` interface | Port interface + concrete impl, service orchestrates |
 | Bridge (EventBus → store) | `M9IngestionBridge`, `AgentLifecycleBridge` | Subscribes to EventBus, normalizes, persists |
 
-### Selected Pattern: Persistence Port + Application Service
+### Selected Pattern: Persistence Port + Application Service in Producer-Neutral Package
 
 Following the `ActivityProjectionService` + `ActivityStore` pattern (the most disciplined pattern in the codebase):
 
@@ -59,10 +59,53 @@ SqliteInteractionStore (concrete)
 
 InteractionService (application boundary)
   owns: validation, persistence coordination, publication
-  receives: InteractionPersistencePort, EventBus (or callback)
+  receives: InteractionPersistencePort, InteractionPublicationPort
 ```
 
 **Rationale**: This is the smallest abstraction whose responsibility is truthful. The port interface allows test substitution (in-memory mock). The service coordinates the full lifecycle without becoming a domain authority.
+
+### Package Boundary: Producer-Neutral Application Package
+
+`InteractionService` must NOT live in `@vestara/api`. HTTP is a transport consumer of the interaction capability, not its owner. Future producers (agent harness, workflow orchestrator, marketplace) must not depend on `@vestara/api` to call `InteractionService.present()`.
+
+**Selected layout**: `packages/interaction-app/`
+
+```
+packages/interaction-app/
+  src/
+    index.ts              ← exports InteractionService + InteractionPersistencePort + InteractionPublicationPort
+    interaction-service.ts ← InteractionService class
+    interaction-persistence-port.ts ← port interface
+    interaction-publication-port.ts ← publication port interface
+    __tests__/
+      interaction-service.test.ts
+  package.json
+  tsconfig.json
+```
+
+**Dependency direction** (immutable):
+
+```
+apps/api ──────────────────┐
+                           ↓
+               @vestara/interaction-app (InteractionService)
+                           ↑
+future producers ──────────┘
+
+@vestara/interaction-app
+       ↓
+@vestara/interaction-persistence (port + SQLite impl)
+       ↓
+durable adapter (.vestara/interactions.db)
+
+@vestara/interaction-app
+       ↓
+InteractionPublicationPort → EventBus adapter
+       ↓
+M9 (consumes facts independently)
+```
+
+`@vestara/interaction-app` depends on `@vestara/interaction-persistence` (port + impl) and `@vestara/types` (frozen B contract). `@vestara/api` depends on `@vestara/interaction-app`. Future producers depend on `@vestara/interaction-app`. `@vestara/activity-projection` does NOT depend on either interaction package — it only consumes EventBus events.
 
 ### What InteractionService Owns
 
@@ -134,8 +177,8 @@ CREATE INDEX IF NOT EXISTS idx_interactions_conversation
   ON interactions(conversation_id);
 
 CREATE TABLE IF NOT EXISTS interaction_responses (
-  interaction_id TEXT PRIMARY KEY UNIQUE,  -- atomic one-response enforcement
-  response_id TEXT NOT NULL,
+  interaction_id TEXT PRIMARY KEY,     -- UNIQUE per interaction: at most one response
+  response_id TEXT NOT NULL,           -- server-derived, globally unique identity
   selected_choice_id TEXT NOT NULL,
   responding_participant_id TEXT NOT NULL,
   responding_participant_name TEXT NOT NULL,
@@ -143,7 +186,109 @@ CREATE TABLE IF NOT EXISTS interaction_responses (
   correlation_id TEXT,
   FOREIGN KEY (interaction_id) REFERENCES interactions(interaction_id)
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_interaction_responses_response_id
+  ON interaction_responses(response_id);
 ```
+
+**Schema invariants:**
+- `interaction_responses.interaction_id` — PRIMARY KEY enforces at most one response per interaction.
+- `interaction_responses.response_id` — UNIQUE index enforces globally unique response identity. The response identity is globally unique authoritative identity, encoded explicitly in the schema.
+
+### Response Identity
+
+- **Response identity** (`response_id`): Server-derived, globally unique. Encoded in schema via `UNIQUE` index.
+- **HTTP retry identity**: Not the same as response identity. An HTTP retry after a lost response may produce a new `responseId` (server derives fresh on each attempt). The retry identity is the request itself, not the durable response.
+
+### Deterministic Response/Retry/Conflict Semantics
+
+**Case 1: Same interaction + same response identity**
+```
+Request: POST /api/interactions/:id/response { selectedChoiceId: 'A' }
+  → server derives responseId = uuid()
+  → INSERT INTO interaction_responses (...) VALUES (..., responseId, ...)
+
+Retry (lost response, client resubmits same selectedChoiceId):
+  → server derives NEW responseId = uuid()
+  → INSERT attempt → UNIQUE(interaction_id) violation → response already exists
+  → SELECT existing response WHERE interaction_id = ?
+  → return existing response (200)
+  → No durable side effects from retry
+```
+
+**Case 2: Same interaction + different response identity (conflict)**
+```
+Request A: POST /api/interactions/:id/response { selectedChoiceId: 'A' }
+  → INSERT succeeds → 200
+
+Request B: POST /api/interactions/:id/response { selectedChoiceId: 'B' }
+  → INSERT attempt → UNIQUE(interaction_id) violation → response already exists
+  → SELECT existing response WHERE interaction_id = ?
+  → existing response has selectedChoiceId = 'A' ≠ 'B'
+  → return 409 Conflict (existing response body included)
+```
+
+**Case 3: Same response identity + different interaction**
+```
+Request A: POST /api/interactions/:id1/response { selectedChoiceId: 'A' }
+  → responseId = uuid-X → INSERT succeeds → 200
+
+Request B: POST /api/interactions/:id2/response { selectedChoiceId: 'A' }
+  → responseId = uuid-Y → INSERT succeeds → 200
+  → Different interaction, different response, both valid
+```
+
+**Case 4: Same response identity + different interaction (identity collision)**
+```
+Request A: POST /api/interactions/:id1/response { selectedChoiceId: 'A' }
+  → responseId = uuid-X → INSERT succeeds → 200
+
+Request B: POST /api/interactions/:id2/response { selectedChoiceId: 'B' }
+  → responseId = uuid-X (collision) → UNIQUE(response_id) violation
+  → server derives new responseId = uuid-Y → INSERT succeeds → 200
+  → No durable side effects, different response recorded
+```
+
+**Case 5: HTTP retry after lost response (same selectedChoiceId, new responseId)**
+```
+Client sends: POST /api/interactions/:id/response { selectedChoiceId: 'A' }
+  → server derives responseId = uuid-X → INSERT succeeds → 200
+  → response lost in transit
+
+Client retries: POST /api/interactions/:id/response { selectedChoiceId: 'A' }
+  → server derives NEW responseId = uuid-Y
+  → INSERT attempt → UNIQUE(interaction_id) violation → already responded
+  → SELECT existing response WHERE interaction_id = ?
+  → existing response has selectedChoiceId = 'A' (same choice)
+  → return existing response (200) — idempotent from client perspective
+```
+
+**Case 6: HTTP retry after lost response (different selectedChoiceId, new responseId)**
+```
+Client sends: POST /api/interactions/:id/response { selectedChoiceId: 'A' }
+  → server derives responseId = uuid-X → INSERT succeeds → 200
+  → response lost in transit
+
+Client changes mind, retries: POST /api/interactions/:id/response { selectedChoiceId: 'B' }
+  → server derives NEW responseId = uuid-Y
+  → INSERT attempt → UNIQUE(interaction_id) violation → already responded
+  → SELECT existing response WHERE interaction_id = ?
+  → existing response has selectedChoiceId = 'A' ≠ 'B'
+  → return 409 Conflict (existing response body included)
+  → Original authoritative response (A) preserved
+```
+
+**Summary table:**
+
+| Scenario | SelectedChoiceId match? | Durable side effects | HTTP status |
+|----------|------------------------|---------------------|-------------|
+| Same interaction, same choice, retry | Yes | None (idempotent) | 200 (existing response) |
+| Same interaction, different choice | No | None (conflict) | 409 (existing response) |
+| Concurrent race, same choice | Yes | One wins, one rolls back | 200 (winner), 409 (loser) |
+| Concurrent race, different choice | No | One wins, one rolls back | 200 (winner), 409 (loser) |
+| Response identity collision | N/A | New responseId derived | 200 (new response) |
+
+**`correlationId`** remains non-authoritative unless separately proven. It is stored but does not affect response semantics.
 
 ### Lifecycle: Derived, Not Persisted
 
@@ -729,28 +874,26 @@ A successful response with **zero resulting domain execution** is expected C2 be
 @vestara/types
   ↑ (imports contract types)
 @vestara/interaction-persistence
-  ↑ (imports InteractionPersistencePort, SqliteInteractionStore)
+  ↑ (imports InteractionPersistencePort, InteractionPublicationPort, SqliteInteractionStore)
+@vestara/interaction-app
+  ↑ (imports InteractionService, exposes service to consumers)
 @vestara/api (apps/api)
-  ↑ (imports types for request/response shapes)
-API route handlers
+  ↑ (imports InteractionService for route handlers)
+API route handlers call service.present() / service.recordResponse()
 
 @vestara/activity-projection
   ↑ (imports PATTERN_DISPOSITIONS, m9-adapter)
 M9IngestionBridge (existing, extends)
-
-@vestara/api (apps/api)
-  ↑ (imports InteractionService)
-API route handlers call service.present() / service.recordResponse()
 ```
 
-**Key invariant**: `@vestara/interaction-persistence` depends inward on `@vestara/types` (contracts). `@vestara/api` depends on the persistence package for the port/impl. `@vestara/activity-projection` does NOT depend on `@vestara/interaction-persistence` — it only consumes EventBus events.
+**Key invariant**: `@vestara/interaction-app` depends inward on `@vestara/interaction-persistence` (port + impl) and `@vestara/types` (contracts). `@vestara/api` depends on `@vestara/interaction-app`. Future producers (agent harness, workflow, marketplace) depend on `@vestara/interaction-app`. `@vestara/activity-projection` does NOT depend on `@vestara/interaction-persistence` or `@vestara/interaction-app` — it only consumes EventBus events.
 
 ### Runtime Data Flow
 
 ```
-Producer (synthetic/test)
-  → InteractionService.present(interaction)
-    → InteractionPersistencePort.put(interaction)     [persist]
+Producer (agent harness / workflow / API route)
+  → @vestara/interaction-app: InteractionService.present(interaction)
+    → @vestara/interaction-persistence: InteractionPersistencePort.put(interaction)     [persist]
     → InteractionPublicationPort.onInteractionPresented()  [publish]
       → EventBus.emit('interaction:presented', { eventId: 'interaction:presented:${id}', ... })
         → M9IngestionBridge handler (subscribed to 'interaction:presented')
@@ -763,8 +906,8 @@ Producer (synthetic/test)
 Human clicks choice
   → POST /api/interactions/:id/response { selectedChoiceId }
     → Auth context → participant identity
-    → InteractionService.recordResponse(interactionId, response)
-      → InteractionPersistencePort.recordResponse()  [persist atomically]
+    → @vestara/interaction-app: InteractionService.recordResponse(interactionId, response)
+      → @vestara/interaction-persistence: InteractionPersistencePort.recordResponse()  [persist atomically]
       → InteractionPublicationPort.onInteractionResponded()  [publish]
         → EventBus.emit('interaction:responded', { eventId: 'interaction:responded:${id}', ... })
           → M9IngestionBridge handler
@@ -790,14 +933,14 @@ types/contracts (frozen B contract)
   ↑
 interaction persistence (port + SQLite impl)
   ↑
-interaction application boundary (InteractionService)
+interaction application (InteractionService)
   ↓
 publication port (callback → EventBus)
   ↓
 EventBus → M9 bridge (existing) → M9 → M10/M11
 ```
 
-The application boundary depends upward on types and persistence, and downward on publication. M9 depends downward on facts (via EventBus), not upward on interaction authority. The persistence adapter depends inward on contracts, not outward on the application layer.
+The application package depends upward on types and persistence, and downward on publication. M9 depends downward on facts (via EventBus), not upward on interaction authority. The persistence adapter depends inward on contracts, not outward on the application layer. Future producers depend on `@vestara/interaction-app`, not on `@vestara/api`.
 
 ---
 
@@ -811,7 +954,7 @@ The application boundary depends upward on types and persistence, and downward o
 | Active interactions preloaded? | **NO** — loaded lazily via `get(interactionId)`. Active interaction count expected small. |
 | Database initialization cost | Low — CREATE TABLE IF NOT EXISTS + index creation. Same as other SQLite stores. |
 | M9 projection cost | Low — one ActivityRecord per interaction event. Same cost as existing events. |
-| Boot-critical? | **NO** — interaction persistence can initialize asynchronously after API starts serving. |
+| Boot-critical? | **NO** — interaction persistence initializes synchronously (fast), reconciliation runs async after API is serving. |
 
 ### Runtime Performance
 
@@ -825,6 +968,117 @@ The application boundary depends upward on types and persistence, and downward o
 ### No New Startup Replay Loop
 
 The interaction persistence follows the `FileThreadStore` pattern: open DB, run migration, ready for on-demand queries. No startup replay, no O(n) reconstruction.
+
+### Reconciliation: Bounded Indexed Strategy
+
+**Goal**: Committed interaction facts that were not projected (publication failed before process death) must eventually become projected after recoverable failure.
+
+**What C2 MUST NOT implement**: Boot → load every interaction → query M9 individually for every interaction. This is O(n) / N+1 and must be avoided.
+
+**Selected strategy**: Bounded reconciliation via indexed timestamp scan + single M9 batch query.
+
+#### Query Shape
+
+```sql
+-- Find interactions created in the last 24 hours that may need reconciliation
+-- (bounded by time window, not total interaction count)
+SELECT interaction_id, created_at
+FROM interactions
+WHERE created_at > datetime('now', '-1 day')
+ORDER BY created_at ASC
+LIMIT 100;
+```
+
+```sql
+-- Find responses recorded in the last 24 hours that may need reconciliation
+SELECT r.interaction_id, r.responded_at
+FROM interaction_responses r
+WHERE r.responded_at > datetime('now', '-1 day')
+ORDER BY r.responded_at ASC
+LIMIT 100;
+```
+
+#### Indexes Used
+
+```sql
+-- Already defined in schema:
+CREATE INDEX IF NOT EXISTS idx_interactions_conversation
+  ON interactions(conversation_id);
+
+-- New index required for reconciliation:
+CREATE INDEX IF NOT EXISTS idx_interactions_created_at
+  ON interactions(created_at);
+
+CREATE INDEX IF NOT EXISTS idx_interaction_responses_responded_at
+  ON interaction_responses(responded_at);
+```
+
+#### Reconciliation Algorithm
+
+```
+On API startup (async, after API is serving):
+
+1. Query interactions.created_at index: last 24h, LIMIT 100
+   → batch of { interactionId, createdAt }
+
+2. For each interactionId in batch:
+   → Compute deterministic eventId: 'interaction:presented:${interactionId}'
+   → Check M9: does this eventId exist? (single indexed query)
+   → If not: republish 'interaction:presented' via EventBus
+
+3. Query interaction_responses.responded_at index: last 24h, LIMIT 100
+   → batch of { interactionId, respondedAt }
+
+4. For each interactionId in batch:
+   → Compute deterministic eventId: 'interaction:responded:${interactionId}'
+   → Check M9: does this eventId exist? (single indexed query)
+   → If not: republish 'interaction:responded' via EventBus
+
+5. If batch was full (100 items), schedule next batch starting from last timestamp
+   → Continue until batch is empty
+   → Maximum bounded work: ceil(n/100) batches, each O(1) indexed
+```
+
+**Alternative (simpler, selected for C2)**: Since interaction volume is expected low (hundreds, not thousands) in early production, and M9 deduplicates via deterministic eventId, a single-pass reconciliation is acceptable:
+
+```
+On API startup (async, after API is serving):
+
+1. Query: SELECT interaction_id FROM interactions ORDER BY created_at DESC LIMIT 100;
+   → bounded by LIMIT, not total count
+
+2. For each interactionId:
+   → eventId = 'interaction:presented:${interactionId}'
+   → M9.checkEventId(eventId)  -- single indexed query
+   → If missing: EventBus.emit('interaction:presented', { eventId, ... })
+
+3. Query: SELECT interaction_id FROM interaction_responses ORDER BY responded_at DESC LIMIT 100;
+   → bounded by LIMIT, not total count
+
+4. For each interactionId:
+   → eventId = 'interaction:responded:${interactionId}'
+   → M9.checkEventId(eventId)
+   → If missing: EventBus.emit('interaction:responded', { eventId, ... })
+```
+
+**Complexity**: O(1) per interaction (indexed M9 lookup), O(100) total interactions scanned (bounded by LIMIT). No N+1 over unbounded set. Total work bounded by `min(interaction_count, 100)`.
+
+#### Boot-Critical?
+
+**NO.** Reconciliation runs asynchronously after API is serving. Interactions created during reconciliation window may temporarily lack projection, but are served correctly from the interaction persistence store. Publication failure is recoverable, not fatal.
+
+#### How Missing Presentations/Responses Are Detected
+
+- M9 stores events by `eventId`. Reconciliation computes deterministic `eventId` from `interactionId` and checks M9 directly.
+- If `eventId` is absent from M9 → the fact was committed but not projected → republish.
+- If `eventId` is present → projection succeeded → skip.
+
+#### How Deterministic Event IDs Make Republishing Safe
+
+- `eventId('interaction:presented:${id}')` is deterministic and immutable.
+- M9 `append()` uses `eventId` as deduplication key (UNIQUE constraint in M9 schema).
+- Republishing the same event is idempotent — M9 ignores duplicate `eventId`.
+- No conditional publish, no outbox, no two-phase commit required.
 
 ---
 
@@ -880,45 +1134,51 @@ The interaction persistence follows the `FileThreadStore` pattern: open DB, run 
 
 | # | File/Package | Action | Purpose |
 |---|-------------|--------|---------|
-| 1 | `packages/interaction-persistence/src/index.ts` | CREATE | `InteractionPersistencePort` interface + `InteractionService` (includes `present()` and `recordResponse()`) |
-| 2 | `packages/interaction-persistence/src/sqlite-store.ts` | CREATE | `SqliteInteractionStore` concrete implementation |
-| 3 | `packages/interaction-persistence/src/migrations.ts` | CREATE | `INTERACTION_MANIFEST` migration (interactions + interaction_responses tables) |
-| 4 | `packages/interaction-persistence/package.json` | CREATE | Package manifest |
-| 5 | `packages/interaction-persistence/tsconfig.json` | CREATE | TypeScript config |
-| 6 | `apps/api/src/routes/interactions.ts` | CREATE | `POST /api/interactions` + `POST /api/interactions/:id/response` (transport boundary) |
-| 7 | `apps/api/src/workspace-context.ts` | MODIFY | Wire InteractionService into WorkspaceContext, add startup reconciliation |
-| 8 | `apps/api/src/server.ts` | MODIFY | Register interaction routes |
+| 1 | `packages/interaction-persistence/src/index.ts` | CREATE | Exports `InteractionPersistencePort`, `InteractionPublicationPort`, `SqliteInteractionStore` |
+| 2 | `packages/interaction-persistence/src/interaction-persistence-port.ts` | CREATE | `InteractionPersistencePort` interface |
+| 3 | `packages/interaction-persistence/src/interaction-publication-port.ts` | CREATE | `InteractionPublicationPort` interface |
+| 4 | `packages/interaction-persistence/src/sqlite-store.ts` | CREATE | `SqliteInteractionStore` concrete implementation |
+| 5 | `packages/interaction-persistence/src/migrations.ts` | CREATE | `INTERACTION_MANIFEST` migration (interactions + interaction_responses tables, with reconciliation indexes) |
+| 6 | `packages/interaction-persistence/package.json` | CREATE | Package manifest |
+| 7 | `packages/interaction-persistence/tsconfig.json` | CREATE | TypeScript config |
+| 8 | `packages/interaction-app/src/index.ts` | CREATE | Exports `InteractionService` |
+| 9 | `packages/interaction-app/src/interaction-service.ts` | CREATE | `InteractionService` class — validates, persists, publishes |
+| 10 | `packages/interaction-app/package.json` | CREATE | Package manifest (depends on `@vestara/interaction-persistence`, `@vestara/types`) |
+| 11 | `packages/interaction-app/tsconfig.json` | CREATE | TypeScript config |
+| 12 | `apps/api/src/routes/interactions.ts` | CREATE | `POST /api/interactions` + `POST /api/interactions/:id/response` (transport boundary) |
+| 13 | `apps/api/src/workspace-context.ts` | MODIFY | Wire InteractionService into WorkspaceContext, add async reconciliation on boot |
+| 14 | `apps/api/src/server.ts` | MODIFY | Register interaction routes |
 
 ### TEST (verification)
 
 | # | File | Purpose |
 |---|------|---------|
-| 9 | `packages/interaction-persistence/src/__tests__/interaction-persistence.test.ts` | Persistence port tests (put, get, recordResponse, getResponse, hasResponse) |
-| 10 | `packages/interaction-persistence/src/__tests__/interaction-service.test.ts` | Service logic tests (validate, persist, publish coordination) |
-| 11 | `packages/interaction-persistence/src/__tests__/interaction-store.test.ts` | SQLite store integration tests (atomic response, UNIQUE constraint) |
-| 12 | `packages/interaction-persistence/src/__tests__/interaction-restart-proof.test.ts` | Restart persistence verification |
-| 13 | `packages/interaction-persistence/src/__tests__/interaction-concurrent-proof.test.ts` | Concurrent response race proof |
+| 15 | `packages/interaction-persistence/src/__tests__/interaction-store.test.ts` | SQLite store tests (put, get, recordResponse, getResponse, hasResponse, UNIQUE constraint) |
+| 16 | `packages/interaction-app/src/__tests__/interaction-service.test.ts` | Service logic tests (validate, persist, publish coordination) |
+| 17 | `packages/interaction-app/src/__tests__/interaction-restart-proof.test.ts` | Restart persistence verification |
+| 18 | `packages/interaction-app/src/__tests__/interaction-concurrent-proof.test.ts` | Concurrent response race proof |
+| 19 | `packages/interaction-app/src/__tests__/interaction-retry-proof.test.ts` | HTTP retry / idempotent response proof |
 
 ### PROJECTION (M9 integration)
 
 | # | File | Action | Purpose |
 |---|------|--------|---------|
-| 14 | `packages/types/src/activity.ts` | MODIFY | Extend `ActivityType` with `'interaction.presented' \| 'interaction.responded'` |
-| 15 | `packages/activity-projection/src/m9-adapter.ts` | MODIFY | Add `fromInteractionPresented` + `fromInteractionResponded` adapters |
-| 16 | `packages/activity-projection/src/m9-ingestion-bridge.ts` | MODIFY | Add `interaction:presented` + `interaction:responded` to `PATTERN_DISPOSITIONS` |
+| 20 | `packages/types/src/activity.ts` | MODIFY | Extend `ActivityType` with `'interaction.presented' \| 'interaction.responded'` |
+| 21 | `packages/activity-projection/src/m9-adapter.ts` | MODIFY | Add `fromInteractionPresented` + `fromInteractionResponded` adapters |
+| 22 | `packages/activity-projection/src/m9-ingestion-bridge.ts` | MODIFY | Add `interaction:presented` + `interaction:responded` to `PATTERN_DISPOSITIONS` |
 
 ### NOT REQUIRED (for C2)
 
 | # | Component | Why Not Required |
 |---|-----------|-----------------|
-| 17 | InteractionCard UI component | LATER UI |
-| 18 | SuggestionService adapter | DEFER |
-| 19 | Agent/Harness integration | UNRESOLVED C2 boundary |
-| 20 | Workflow/Orchestration integration | UNRESOLVED C2 boundary |
-| 21 | Marketplace integration | UNRESOLVED C2 boundary |
-| 22 | M10 changes | Not required — M10 handles any ActivityRecord |
-| 23 | M11 changes | Not required — M11B broadcasts any projected record |
-| 24 | `InteractionPresentationPort` | Removed — redundant with InteractionService.present() |
+| 23 | InteractionCard UI component | LATER UI |
+| 24 | SuggestionService adapter | DEFER |
+| 25 | Agent/Harness integration | UNRESOLVED C2 boundary |
+| 26 | Workflow/Orchestration integration | UNRESOLVED C2 boundary |
+| 27 | Marketplace integration | UNRESOLVED C2 boundary |
+| 28 | M10 changes | Not required — M10 handles any ActivityRecord |
+| 29 | M11 changes | Not required — M11B broadcasts any projected record |
+| 30 | `InteractionPresentationPort` | Removed — redundant with InteractionService.present() |
 
 ---
 
@@ -927,12 +1187,13 @@ The interaction persistence follows the `FileThreadStore` pattern: open DB, run 
 | # | Question | Impact | Status |
 |---|----------|--------|--------|
 | 1 | Exact canonical event names | Low | RESOLVED — `interaction:presented` / `interaction:responded` (recommended, freeze after C2 authorizer confirms) |
-| 2 | InteractionService package location | Low | RESOLVED — `packages/interaction-persistence` |
+| 2 | InteractionService package location | Low | RESOLVED — `packages/interaction-app` (producer-neutral) |
 | 3 | ActivityType extension | Medium | RESOLVED — Extend `ActivityType` enum with `interaction.presented` / `interaction.responded` |
 | 4 | Auth context extraction mechanism | Medium | CLASSIFIED — Must follow existing route auth patterns; gap if Activity Room lacks auth middleware |
 | 5 | `conversationId` optional field usage | Low | RESOLVED — Optional, producer provides if context exists |
-| 6 | Publication failure recovery | Medium | RESOLVED — Startup reconciliation scan of unprojected facts |
+| 6 | Publication failure recovery | Medium | RESOLVED — Bounded reconciliation scan (LIMIT 100, indexed timestamps, async after boot) |
 | 7 | Event identity for retry | Medium | RESOLVED — Deterministic: `interaction:presented:${interactionId}` / `interaction:responded:${interactionId}` |
+| 8 | Response identity global uniqueness | Medium | RESOLVED — `response_id` is globally unique authoritative identity, explicit UNIQUE index in schema |
 
 ---
 
@@ -969,23 +1230,27 @@ The interaction persistence follows the `FileThreadStore` pattern: open DB, run 
 
 The D1 design establishes the minimum production architecture for the interaction authority:
 
-1. **Application boundary**: `InteractionService` — validates, persists, publishes. Does not interpret choices or execute operations. Includes `present()` for producer submission and `recordResponse()` for human response.
+1. **Package boundary**: Two producer-neutral packages. `@vestara/interaction-app` (InteractionService) is consumed by `apps/api` and future producers. `@vestara/interaction-persistence` (port + SQLite impl) is consumed by `@vestara/interaction-app`. `@vestara/activity-projection` does NOT depend on either interaction package.
 
-2. **Persistence**: Dedicated SQLite (`SqliteInteractionStore`) — self-managed, own file (`.vestara/interactions.db`), own migration. Two tables: `interactions` (immutable presentation fact) + `interaction_responses` (immutable response fact, UNIQUE on interaction_id).
+2. **Application boundary**: `InteractionService` (in `@vestara/interaction-app`) — validates, persists, publishes. Does not interpret choices or execute operations. Includes `present()` for producer submission and `recordResponse()` for human response.
 
-3. **Atomic response**: SQLite transaction + UNIQUE constraint is the final concurrency authority. No prior SELECT as gate. Losing concurrent request rolls back completely with no durable side effects.
+3. **Persistence**: Dedicated SQLite (`SqliteInteractionStore`) — self-managed, own file (`.vestara/interactions.db`), own migration. Two tables: `interactions` (immutable presentation fact) + `interaction_responses` (immutable response fact, PRIMARY KEY on interaction_id + UNIQUE on response_id).
 
-4. **Lifecycle**: Derived from authoritative facts (response existence check). No persisted lifecycle column. No UPDATE during response recording.
+4. **Response identity**: `response_id` is globally unique authoritative identity, explicit in schema via UNIQUE index. HTTP retry after lost response may produce new responseId; server derives fresh on each attempt. Same interaction + same choice → idempotent (200, existing response). Same interaction + different choice → conflict (409, existing response preserved). No idempotency-key subsystem required.
 
-5. **Publication**: After-commit EventBus emission via `InteractionPublicationPort` callback. Startup reconciliation scan repairs committed-but-unpublished facts. Deterministic eventId (`interaction:presented:${id}` / `interaction:responded:${id}`) ensures M9 idempotent projection.
+5. **Atomic response**: SQLite transaction + UNIQUE constraint is the final concurrency authority. No prior SELECT as gate. Losing concurrent request rolls back completely with no durable side effects.
 
-6. **M9 projection**: Extend `ActivityType` enum with `interaction.presented` / `interaction.responded`. Adapters normalize facts into ActivityRecords. M9 remains downstream, never authoritative.
+6. **Lifecycle**: Derived from authoritative facts (response existence check). No persisted lifecycle column. No UPDATE during response recording.
 
-7. **Transport**: `POST /api/interactions/:id/response` with minimal body `{ selectedChoiceId, correlationId? }`. Server derives responseId, respondedAt, participant identity from auth context. Client cannot impersonate participants.
+7. **Publication**: After-commit EventBus emission via `InteractionPublicationPort` callback. Deterministic eventId (`interaction:presented:${id}` / `interaction:responded:${id}`) ensures M9 idempotent projection.
 
-8. **Continuation boundary**: C2 stops at response recording + publication. Zero domain execution. Producer-specific interpretation of opaque ChoiceId remains UNRESOLVED C2 boundary.
+8. **Reconciliation**: Bounded indexed strategy (LIMIT 100, timestamp-indexed scans, async after boot). O(1) per interaction checked, O(100) total interactions scanned. No O(n) / N+1 startup regression. M9 deterministic eventId deduplication makes republishing safe.
 
-9. **Implementation surface**: 16 files (8 REQUIRED, 5 TEST, 3 PROJECTION). No speculative refactors. `InteractionPresentationPort` removed as redundant.
+9. **Transport**: `POST /api/interactions/:id/response` with minimal body `{ selectedChoiceId, correlationId? }`. Server derives responseId, respondedAt, participant identity from auth context. Client cannot impersonate participants.
+
+10. **Continuation boundary**: C2 stops at response recording + publication. Zero domain execution. Producer-specific interpretation of opaque ChoiceId remains UNRESOLVED C2 boundary.
+
+11. **Implementation surface**: 22 files (14 REQUIRED, 5 TEST, 3 PROJECTION). Two new packages (`interaction-persistence`, `interaction-app`). No speculative refactors.
 
 **AR-REC-C2 implementation remains NOT AUTHORIZED.**
 
