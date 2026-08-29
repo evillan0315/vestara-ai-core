@@ -2,14 +2,20 @@
  * ARX-015 M11A — Production Activity Room Read API
  *
  * Read-only API boundary over frozen M9/M10 contracts.
- * Authority flow: M8 workflow truth → M9 durable activity → M10 projection → M11A API
+ * Authority flow:
+ *   Agent/Team authority (AgentStorage) → team membership, agent identity, AI binding
+ *   M8 workflow truth → M9 durable activity → M10 projection → lifecycle state
+ *   → M11A composition → Workspace UI
+ *
+ * Activity Room is a generic consumer of participant/team information.
+ * It does NOT define teams, roles, or model bindings.
  *
  * Endpoints:
  *   GET /api/activity-room/v1/snapshot          — Room snapshot + authoritative cursor
  *   GET /api/activity-room/v1/activities        — Bounded/paginated historical activity retrieval
  *   GET /api/activity-room/v1/activities/:id    — Individual ActivityRecord retrieval
  *   GET /api/activity-room/v1/activities/aggregate/:id — Aggregate drill-down
- *   GET /api/activity-room/v1/participants      — Participant projection
+ *   GET /api/activity-room/v1/participants      — Participant projection (authority + lifecycle)
  *   GET /api/activity-room/v1/attention         — Attention projection
  *   GET /api/activity-room/v1/workflow-summary  — Workflow summary projection
  *
@@ -446,6 +452,116 @@ function sanitizeWorkflowSummary(w: WorkflowSummary): Record<string, unknown> {
   };
 }
 
+// ─── Authority Composition ────────────────────────────────────────
+
+/**
+ * Compose Activity Room participants from two authoritative sources:
+ *
+ * 1. M10 projection (lifecycle-derived): runtime presence, work state, current assignment
+ * 2. Agent/Team authority (config-driven): agent identity, team membership, AI binding
+ *
+ * Agent/Team authority answers "who belongs in the room/team."
+ * M10/lifecycle state answers "what is happening to/with that participant."
+ *
+ * Activity Room does NOT define teams, roles, or model bindings.
+ * It consumes them from upstream AgentStorage/AgentTeam authorities.
+ */
+async function composeParticipants(
+  ctx: WorkspaceContext,
+  room: M11ARoomState,
+): Promise<readonly ParticipantProjection[]> {
+  // 1. Get lifecycle-derived participants from M10 projection
+  if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
+    const records = await room.store.rebuild();
+    room.lastProjection = room.runtime.rebuild(records);
+    room.lastProjectionAt = Date.now();
+  }
+  const lifecycleParticipants = room.lastProjection?.participants ?? [];
+
+  // Build lookup: participantId → lifecycle participant
+  const lifecycleById = new Map<string, ParticipantProjection>();
+  for (const p of lifecycleParticipants) {
+    lifecycleById.set(p.participantId, p);
+  }
+
+  // 2. Get agent/team authority from AgentStorage
+  const allAgents = await ctx.agents.listAgents();
+  const allTeams = await ctx.agents.listTeams();
+
+  // Build team membership map: agentId → { teamId, teamName }
+  const teamByAgentId = new Map<string, { teamId: string; teamName: string }>();
+  for (const team of allTeams) {
+    // team.memberIds contains agent IDs
+    for (const agentId of team.memberIds) {
+      if (!teamByAgentId.has(agentId)) {
+        teamByAgentId.set(agentId, { teamId: team.id, teamName: team.name });
+      }
+    }
+    // Also check agent-side back-reference (teamId on agent definition)
+    for (const agent of allAgents) {
+      if (agent.teamId === team.id && !teamByAgentId.has(agent.id)) {
+        teamByAgentId.set(agent.id, { teamId: team.id, teamName: team.name });
+      }
+    }
+  }
+
+  // 3. Build composed participant list
+  const composed: ParticipantProjection[] = [];
+  const seenIds = new Set<string>();
+
+  // 3a. Add all configured agents from AgentStorage
+  for (const agent of allAgents) {
+    const participantId = `agent-${agent.id}`;
+    const teamMembership = teamByAgentId.get(agent.id);
+    const lifecycle = lifecycleById.get(participantId);
+
+    if (lifecycle) {
+      // Agent has lifecycle history — enrich with team/agent authority metadata
+      composed.push({
+        ...lifecycle,
+        // Enrich canonical identity from agent authority if available
+        displayName: agent.id,
+        modelDisplayName: agent.model || agent.name || undefined,
+        role: agent.role || lifecycle.role,
+        modelId: agent.model || lifecycle.modelId,
+        providerId: agent.provider || lifecycle.providerId,
+        // Team membership from AgentTeam authority
+        teamId: teamMembership?.teamId ?? lifecycle.teamId,
+        teamName: teamMembership?.teamName ?? lifecycle.teamName,
+      });
+    } else {
+      // Agent configured but has no lifecycle history — render with idle state
+      composed.push({
+        participantId,
+        type: 'agent' as const,
+        displayName: agent.id,
+        modelDisplayName: agent.model || agent.name || undefined,
+        role: agent.role || undefined,
+        modelId: agent.model || undefined,
+        providerId: agent.provider || undefined,
+        teamId: teamMembership?.teamId,
+        teamName: teamMembership?.teamName,
+        membership: 'joined' as const,
+        presence: 'offline' as const,
+        workState: 'available' as const,
+        joinedAt: agent.createdAt,
+        lastActivityAt: agent.createdAt,
+      });
+    }
+    seenIds.add(participantId);
+  }
+
+  // 3b. Add human participants from lifecycle projection (not in AgentStorage)
+  for (const p of lifecycleParticipants) {
+    if (p.type === 'human' && !seenIds.has(p.participantId)) {
+      composed.push(p);
+      seenIds.add(p.participantId);
+    }
+  }
+
+  return composed;
+}
+
 // ─── Route Handler ───────────────────────────────────────────────
 
 /**
@@ -474,9 +590,10 @@ export async function handleM11AActivityRoomRoute(
     }
 
     const projection = room.lastProjection!;
+    const participants = await composeParticipants(ctx, room);
     json(res, 200, {
       room: projection.room,
-      participants: projection.participants.map(sanitizeParticipant),
+      participants: participants.map(sanitizeParticipant),
       stream: projection.stream.map(sanitizeStreamItem).slice(0, 50), // Bounded preview
       workflowSummary: projection.workflowSummary ? sanitizeWorkflowSummary(projection.workflowSummary) : null,
       attention: projection.attention.map(sanitizeAttention),
@@ -641,18 +758,12 @@ export async function handleM11AActivityRoomRoute(
   }
 
   // ─── GET /api/activity-room/v1/participants ──────────────────
-  // Participant projection
+  // Participant projection — composed from Agent/Team authority + lifecycle state
   if (method === 'GET' && p === '/api/activity-room/v1/participants') {
-    if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
-      const records = await room.store.rebuild();
-      room.lastProjection = room.runtime.rebuild(records);
-      room.lastProjectionAt = Date.now();
-    }
-
-    const projection = room.lastProjection!;
+    const participants = await composeParticipants(ctx, room);
     json(res, 200, {
-      participants: projection.participants.map(sanitizeParticipant),
-      count: projection.participants.length,
+      participants: participants.map(sanitizeParticipant),
+      count: participants.length,
     });
     return true;
   }
