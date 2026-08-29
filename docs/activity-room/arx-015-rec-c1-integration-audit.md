@@ -17,11 +17,13 @@ The AR-REC-C1 audit examines every existing Vestara subsystem that could produce
 **No existing substrate stores "a set of choices + presenting source" that can be looked up by `interactionId`.** The AR-REC-B `StructuredInteraction` contract is defined in `@vestara/types` but is never instantiated by any production code. All existing producer subsystems (SuggestionService, Conversation/Message, Harness Approval, Orchestration Dispatch) use their own data shapes and lifecycle. None produces or consumes `StructuredInteraction`.
 
 **The gap is narrow but real.** The minimum integration surface is:
-1. A new **interaction store** (in-memory or persisted) that holds `StructuredInteraction` objects keyed by `InteractionId`
-2. A new **ingress path** (endpoint or WebSocket message type) that accepts `InteractionResponse` and validates it against the stored interaction
-3. A new **EventBus event type** (`interaction.presented`, `interaction.responded`) for downstream awareness
+1. A new **durable interaction persistence authority** that holds `StructuredInteraction` objects keyed by `InteractionId`, with atomic one-response-per-interaction enforcement
+2. A new **narrow structured response ingress** that accepts `InteractionResponse` and validates it against the stored interaction
+3. A **projection/audit publication mechanism** for downstream awareness (M9, evidence trail)
 
-Three candidate integration architectures are evaluated. **Candidate A (Interaction Store + Existing Ingress)** is recommended as the minimum viable integration: a new `InteractionStore` class in `@vestara/activity-projection` (or `@vestara/types`), a new `POST /api/interactions/:id/response` endpoint in `apps/api`, and new `interaction.*` EventBus events for M9 projection — all without modifying existing subsystem contracts.
+**Governed continuation is an UNRESOLVED C2 integration boundary.** The `presentingParticipantId`, `conversationId`, and `selectedChoiceId` provide provenance/correlation but do not themselves contain domain meaning. The producer/originating capability must retain or be able to recover its own authoritative domain-specific correlation necessary to interpret the opaque choice. C1 does not yet establish how every producer satisfies this requirement.
+
+Three candidate integration architectures are evaluated. **Candidate A (Durable Interaction Authority + Narrow Response Ingress)** is recommended as the minimum viable integration: a durable interaction persistence implementation, a new response endpoint, and a projection/audit publication mechanism — all without modifying existing subsystem contracts. In-memory storage is reference/development-only; production requires durable persistence satisfying restart recovery and atomic response uniqueness.
 
 ---
 
@@ -267,9 +269,9 @@ The `validateResponseForInteraction()` function in `packages/types/src/interacti
 
 ### Candidate 3: In-Memory Store (New)
 
-**Assessment**: A new `InteractionStore` class with `Map<InteractionId, StructuredInteraction>` for active interactions, backed by either M9 or Engineering Event Store for durability. Fast lookup by `InteractionId`. No schema migration required.
+**Assessment**: A new in-memory `Map<InteractionId, StructuredInteraction>` for active interactions. Fast lookup by `InteractionId`. No schema migration required.
 
-**Verdict**: RECOMMENDED as primary interaction store. Durability via EventBus events → M9/Engineering Event Store.
+**Verdict**: RECOMMENDED as reference/development interface only. **NOT production-ready.** Fails: API restart (data lost), process crash (no recovery), delayed human response (interaction gone), replay/reprojection (no durable events), horizontal/multi-process (process-scoped). Production requires a durable interaction persistence implementation satisfying restart recovery and atomic response uniqueness. SQLite is a strong implementation candidate given existing local Vestara architecture, but C1 does not make a storage technology authoritative unless evidence proves that requirement.
 
 ### Candidate 4: Decisions Table (Dormant)
 
@@ -313,8 +315,8 @@ The `validateResponseForInteraction()` function in `packages/types/src/interacti
 |-----------|---------------|----------------|-------------|----------------|
 | M9 DurableActivityStore | ❌ | ⚠️ (via events) | ✅ | Projection only |
 | Engineering Event Store | ❌ | ✅ | ❌ | Evidence trail only |
-| In-Memory Store (new) | ✅ | ❌ | ❌ | Primary lookup |
-| Decisions Table (dormant) | ❌ | ⚠️ | ❌ | Decision persistence |
+| In-Memory Store (new) | ⚠️ Reference only | ❌ | ❌ | Development/reference only, NOT production |
+| Decisions Table (dormant) | ❌ | ⚠️ | ❌ | Decision persistence (partial) |
 | SuggestionService Storage | ❌ | ❌ | ❌ | Not suitable |
 | FileThreadStore | ❌ | ❌ | ❌ | Not suitable |
 | PolicyEngine | ❌ | ❌ | ❌ | Not suitable |
@@ -346,12 +348,14 @@ DEFER patterns (→ future):
 
 ### Missing Events for AR-REC
 
-| Event | Purpose | Current Status |
-|-------|---------|---------------|
-| `interaction.presented` | Interaction created and presented to human | **MISSING** |
-| `interaction.responded` | Human selected a choice | **MISSING** |
-| `interaction.expired` | Interaction lifecycle expired | **MISSING** |
-| `interaction.superseded` | Interaction replaced by newer one | **MISSING** |
+| Semantic Fact | Purpose | Current Status |
+|---------------|---------|---------------|
+| Interaction presented | Interaction created and presented to human — required projection/audit fact | **ABSENT** |
+| Interaction responded | Human selected a choice — required projection/audit fact | **ABSENT** |
+| Interaction expired | Interaction lifecycle expired — required projection/audit fact | **ABSENT** |
+| Interaction superseded | Interaction replaced by newer one — required projection/audit fact | **ABSENT** |
+
+**Classification**: These are required projection/audit semantic facts. The exact EventBus contract names and publishing implementation are C2 design decisions. Existing M9 ingestion architecture provides strong evidence that canonical events are a likely integration mechanism, but C1 does not authorize or freeze exact event names. M9 remains downstream projection.
 
 ### EventB routing note
 
@@ -429,13 +433,17 @@ This function validates:
 ### Resolution Chain (Proposed)
 
 ```
-Human submits InteractionResponse via POST /api/interactions/:id/response
-  → Server retrieves StructuredInteraction from InteractionStore by interactionId
+Human submits InteractionResponse via narrow response ingress
+  → Server retrieves StructuredInteraction from durable persistence by interactionId
   → validateResponseForInteraction(response, interaction)
   → If invalid: return 400 with validation errors
-  → If valid: persist response, emit interaction.responded event
-  → Downstream governance re-evaluates current state (REC-GOV-08)
+  → If valid: persist response fact atomically (one response per interaction)
+  → [END OF INTERACTION PERSISTENCE AUTHORITY]
+  → Projection/audit publication mechanism makes fact available for M9/evidence
+  → M9 projects into Activity Room
 ```
+
+**The API endpoint is transport and MUST NOT become authoritative event owner.** The interaction persistence authority records the response fact. The exact application/domain publishing owner for projection/audit publication is a C2 design decision.
 
 ### Existing Analogous Resolution
 
@@ -448,7 +456,7 @@ decideApproval(approvalId, decision)
   → Remove from pending approvals
 ```
 
-The Harness uses an in-memory `Map<string, PendingApproval>`. This is the same pattern needed for interaction resolution.
+The Harness uses an in-memory `Map<string, PendingApproval>` for its own domain-specific approval pipeline. This is an existing pattern for in-process lookup, but the interaction persistence authority requires durable persistence (not in-memory) for production.
 
 ---
 
@@ -476,30 +484,25 @@ Same pattern — database-level uniqueness on `id`.
 
 ### Interaction Response Idempotency
 
-**Gap**: No existing mechanism prevents duplicate `InteractionResponse` submissions for the same `interactionId`. Without an interaction store:
+**Gap**: No existing mechanism prevents duplicate `InteractionResponse` submissions for the same `interactionId`. Without a durable interaction persistence:
 1. Cannot check if a response already exists for the interaction
-2. Cannot enforce "one response per interaction" invariant
+2. Cannot enforce "one authoritative response per interaction" invariant
 3. Cannot detect double-click / retry duplicates
 
-**Resolution**: The new `InteractionStore` must support:
-- `hasResponse(interactionId: InteractionId): boolean` — check if response already recorded
-- `getResponse(interactionId: InteractionId): InteractionResponse | undefined` — retrieve existing response
-- Database-level uniqueness constraint if persisted (e.g., `interaction_id UNIQUE` in a responses table)
+**Production requirement**: One authoritative response per interaction, unless a future explicitly authorized product contract changes that invariant. `UNIQUE(interaction_id)` or equivalent durable atomic enforcement is a valid C2 candidate.
 
-### Correlation ID
+**Idempotency classification**:
+- Same interaction + same authoritative response identity → candidate idempotent retry
+- Same interaction + conflicting response identity → candidate conflict
+- Exact transactional behavior remains C2 design
 
-The `InteractionResponse.correlationId` field provides application-level dedup:
-```typescript
-correlationId?: string;  // for safe replay
-```
-
-This is a client-generated value for safe replay. The server must check `correlationId` uniqueness to reject duplicate submissions.
+**Note on `correlationId`**: The `InteractionResponse.correlationId` field exists in the frozen B contract as provenance/correlation. C1 does not make correlation-based uniqueness a separate production requirement merely because `correlationId` exists. `correlationId` remains provenance/correlation unless a later contract explicitly defines dedup semantics for it.
 
 ---
 
 ## C1-9: Staleness and Validity Boundary
 
-### Mechanical Validity (Detectable by InteractionStore)
+### Mechanical Validity (Detectable by Durable Persistence)
 
 | Condition | Detection | Resolution |
 |-----------|-----------|------------|
@@ -522,43 +525,54 @@ This is a client-generated value for safe replay. The server must check `correla
 
 ---
 
-## C1-10: Governed Continuation
+## C1-10: Governed Continuation — UNRESOLVED C2 BOUNDARY
 
-### Current Continuation Paths
+### Status: UNRESOLVED
 
-After a human interacts with Activity Room, the system needs to "continue processing" — route the human's intent to the appropriate downstream authority.
+Governed continuation is an **UNRESOLVED C2 integration boundary**, not a solved existing path.
+
+### What is established
+
+The interaction persistence authority's responsibility ends at:
+1. Persisting the response fact (one response per interaction)
+2. Making the fact available for projection/audit
+
+The `presentingParticipantId`, `conversationId`, and `selectedChoiceId` provide provenance/correlation but do not themselves contain domain meaning. `selectedChoiceId` is an opaque correlation key — it does not encode executable semantics.
+
+### What is NOT established
+
+**The producer/originating capability must retain or be able to recover its own authoritative domain-specific correlation necessary to interpret the opaque choice.** This correlation MUST NOT be moved into Activity Room or encoded into generic interaction fields such as `command`, `operation`, `handler`, `route`, `payload`, `metadata`, `context`, or equivalent executable/domain escape hatches.
+
+C1 does not yet establish how every producer satisfies this requirement. Therefore governed continuation remains an UNRESOLVED C2 integration boundary.
+
+### What C1 explicitly does NOT propose
+
+- Changes to Harness, Workflow, Agents, Orchestration, or other producers
+- Operation dispatchers, command routers, choiceId→handler maps
+- Choice label→behavior maps, generic capability executors
+- Activity Room execution paths
+
+### Existing continuation paths (independent, not repurposed)
 
 **Path 1: Freeform Message → Agent Wake** (`apps/api/src/routes/activity-room.ts:175-183`)
 ```
 POST /api/messages → sendActivityMessage() → maybeWakeAddressedAgent()
 ```
-This is the existing path for freeform messages. An interaction response could be sent as a message, but the structured data (which choice was selected) would be lost.
+Existing path for freeform messages. Not repurposed for interaction responses.
 
 **Path 2: Approval Decision → Tool Re-execution** (`packages/agent-harness/src/index.ts:1260-1289`)
 ```
 decideApproval(approvalId, 'approved') → re-execute tool call
 ```
-Domain-specific to tool execution. Not reusable for arbitrary interactions.
+Domain-specific to tool execution. Independently authoritative.
 
 **Path 3: Task Approval → Orchestration Resume** (`packages/workflow-orchestrator/src/orchestration-dispatch.ts`)
 ```
 approval received → resume task execution
 ```
-Domain-specific to task orchestration. Not reusable.
+Domain-specific to task orchestration. Independently authoritative.
 
-### Required New Path
-
-```
-InteractionResponse received
-  → Validate against stored interaction
-  → Persist response
-  → Emit interaction.responded event
-  → Route to appropriate downstream authority based on interaction provenance
-  → Downstream authority re-evaluates current state (REC-GOV-08)
-  → Governed continuation
-```
-
-**The routing decision** — "which downstream authority processes this interaction response" — depends on `presentingParticipantId` or `conversationId` from the original `StructuredInteraction`. This is a C2 concern, not C1.
+These paths exist independently. C1 does not establish that any of them can safely receive an opaque `ChoiceId` and interpret it without the originating capability retaining its own domain-specific correlation.
 
 ---
 
@@ -570,49 +584,44 @@ InteractionResponse received
 Agent generates recommendation
   → SuggestionService.deterministicSuggest() / aiSuggest()
     → Returns Suggestion[]
-  → [NEW] InteractionAdapter.createInteraction(suggestion)
+  → [C2] InteractionAdapter.createInteraction(suggestion)
     → Maps Suggestion → StructuredInteraction
-    → interactionStore.store(interaction)
-    → EventBus.emit('interaction.presented', { interactionId, ... })
-  → [NEW] M9IngestionBridge handles 'interaction.presented'
-    → fromInteractionPresented() adapter
+    → [C2] Durable persistence stores interaction
+    → [C2] Projection/audit publication mechanism makes fact available
+  → [C2] M9IngestionBridge handles interaction-presented fact
+    → [C2] fromInteractionPresented() adapter
     → M9.append(activityEvent)
   → Activity Room UI renders interaction
     → M11CActivityRoomPage receives ActivityRecord via WebSocket
-    → Renders InteractionCard with choices
+    → [C2] Renders interaction with choices
 ```
 
-**Missing edges**:
-1. No `InteractionAdapter` exists
-2. No `interactionStore` exists
-3. No `interaction.presented` event exists
-4. No `fromInteractionPresented` adapter exists
-5. No `InteractionCard` UI component exists
+**Missing edges** (all C2 design decisions):
+1. No durable interaction persistence exists
+2. No projection/audit publication mechanism exists
+3. No M9 adapter for interaction facts exists
+4. No interaction presentation UI component exists
 
 ### Graph 2: Interaction Response (Human → System)
 
 ```
 Human clicks choice in Activity Room UI
-  → [NEW] POST /api/interactions/:id/response
+  → [C2] Narrow structured response ingress
     → { responseId, interactionId, selectedChoiceId, respondingParticipantId, ... }
-  → [NEW] InteractionStore.retrieve(interactionId)
-  → [NEW] validateResponseForInteraction(response, interaction)
-  → [NEW] InteractionStore.recordResponse(interactionId, response)
-  → [NEW] EventBus.emit('interaction.responded', { interactionId, responseId, ... })
-  → [NEW] M9IngestionBridge handles 'interaction.responded'
-    → fromInteractionResponded() adapter
-    → M9.append(activityEvent)
-  → [NEW] Downstream routing based on interaction provenance
-    → maybeWakeAddressedAgent() or other continuation
+  → [C2] Durable persistence retrieves StructuredInteraction by interactionId
+  → [C2] validateResponseForInteraction(response, interaction)
+  → [C2] Durable persistence records response fact atomically
+  → [END OF INTERACTION PERSISTENCE AUTHORITY]
+  → [C2] Projection/audit publication mechanism makes fact available
+  → [C2] M9 projects into Activity Room
+  → [UNRESOLVED] Governed continuation — producer retains domain-specific correlation
 ```
 
-**Missing edges**:
-1. No `POST /api/interactions/:id/response` endpoint exists
-2. No `InteractionStore.retrieve()` exists
-3. No `InteractionStore.recordResponse()` exists
-4. No `interaction.responded` event exists
-5. No `fromInteractionResponded` adapter exists
-6. No downstream routing logic exists
+**Missing edges** (all C2 design decisions):
+1. No durable interaction persistence exists
+2. No narrow structured response ingress exists
+3. No projection/audit publication mechanism exists
+4. Governed continuation is UNRESOLVED — originating capability must interpret opaque ChoiceId using its own domain-specific correlation
 
 ### Graph 3: Tool Approval (Existing, Independent)
 
@@ -671,7 +680,7 @@ EventBus event emitted
   → WebSocket broadcasts to connected clients
 ```
 
-**Note**: If `interaction.presented` and `interaction.responded` events are added to `PATTERN_DISPOSITIONS`, M9 will automatically project them.
+**Note**: Existing M9 ingestion architecture provides strong evidence that canonical events are a likely integration mechanism for interaction projection. C2 would add interaction-related patterns to `PATTERN_DISPOSITIONS` and corresponding adapters. Exact event names are C2 design decisions.
 
 ### Graph 7: WebSocket Broadcast (Existing)
 
@@ -691,54 +700,48 @@ M9.append() → new ActivityRecord
 
 | Capability | Current Owner | AR-REC Needs | Gap |
 |-----------|--------------|-------------|-----|
-| Interaction identity | Nobody (type only) | InteractionStore | NEW: store + CRUD |
-| Choice identity | Nobody (type only) | InteractionStore | NEW: embedded in interaction |
-| Interaction presentation | SuggestionService (partial) | InteractionAdapter + InteractionStore | NEW: adapter + store |
-| Interaction persistence | Nobody | InteractionStore + M9 | NEW: in-memory + M9 projection |
-| Interaction lifecycle | Nobody | InteractionStore | NEW: presented/responded/expired |
-| Response capture | Nobody | POST endpoint + InteractionStore | NEW: endpoint + store |
-| Response validation | `validateResponseForInteraction` (unused) | InteractionStore + endpoint | NEW: wire validation |
-| Response idempotency | Nobody | InteractionStore | NEW: correlation check |
-| Staleness detection | Nobody | Downstream authorities | DEFER: C2 concern |
+| Interaction identity | Nobody (type only) | Durable persistence authority | NEW: persistence + lookup |
+| Choice identity | Nobody (type only) | Durable persistence authority | NEW: embedded in interaction |
+| Interaction presentation | SuggestionService (partial) | Producer + persistence authority | NEW: producer integration + persistence |
+| Interaction persistence | Nobody | Durable persistence authority | NEW: durable persistence (not in-memory) |
+| Interaction lifecycle | Nobody | Derived from facts | NEW: presented/responded/expired derivation |
+| Response capture | Nobody | Narrow structured response ingress | NEW: transport boundary |
+| Response validation | `validateResponseForInteraction` (unused) | Persistence authority + ingress | NEW: wire validation |
+| Response idempotency | Nobody | Atomic one-response-per-interaction | NEW: durable constraint |
+| Staleness detection | Nobody | Downstream authorities | UNRESOLVED: C2 boundary |
 | Governance re-entry | Existing Harness/Orchestration | Existing (unchanged) | NONE |
-| Activity Room rendering | M11C + M10 | InteractionCard component | NEW: UI component |
-| Evidence trail | M9 + Engineering Event Store | M9 + Engineering Event Store | NONE (add events) |
+| Activity Room rendering | M11C + M10 | [C2] Interaction presentation component | NEW: UI component (LATER UI) |
+| Evidence trail | M9 + Engineering Event Store | M9 + Engineering Event Store | NONE (add patterns) |
 | Participant projection | M10 ProjectionRuntime | M10 (unchanged) | NONE |
 | Real-time transport | M11B WebSocket | M11B (unchanged) | NONE |
+| Projection/audit publication | Nobody | Publication mechanism | NEW: exact owner is C2 design decision |
+| Governed continuation | Nobody | Producer retains domain correlation | UNRESOLVED: C2 boundary |
 
 ---
 
 ## C1-13: Candidate Integration Architectures
 
-### Candidate A: Interaction Store + Existing Ingress (RECOMMENDED)
+### Candidate A: Durable Interaction Authority + Narrow Response Ingress (RECOMMENDED)
 
-**Components**:
-1. New `InteractionStore` class in `@vestara/activity-projection` (or new package)
-   - In-memory `Map<InteractionId, StructuredInteraction>` for active interactions
-   - Response tracking: `Map<InteractionId, InteractionResponse>`
-   - `store(interaction)`, `retrieve(interactionId)`, `recordResponse(interactionId, response)`, `hasResponse(interactionId)`
-2. New `POST /api/interactions/:id/response` endpoint in `apps/api`
-   - Accepts `InteractionResponse` body
-   - Validates via `validateResponseForInteraction`
-   - Persists to InteractionStore
-   - Emits `interaction.responded` event
-3. New EventBus events: `interaction.presented`, `interaction.responded`, `interaction.expired`
-4. New M9 adapters: `fromInteractionPresented`, `fromInteractionResponded`
-5. New M9 pattern dispositions for `interaction.*`
-6. New `InteractionAdapter` class: maps `Suggestion` → `StructuredInteraction`
-7. New UI component: `InteractionCard` for Activity Room rendering
+**Capabilities/Responsibilities**:
+1. **Durable interaction persistence authority** — stores `StructuredInteraction` objects keyed by `InteractionId`, with restart recovery
+2. **Atomic one-response-per-interaction enforcement** — `UNIQUE(interaction_id)` or equivalent durable constraint
+3. **Authoritative interaction lookup by InteractionId** — O(1) retrieval for validation
+4. **Narrow structured response ingress** — transport boundary that accepts `InteractionResponse`, validates structurally, delegates to persistence
+5. **Projection/audit publication mechanism** — makes interaction facts available for M9 and evidence trail (exact ownership is C2 design decision)
+6. **M9 normalization/projection support** — adapters and pattern dispositions for M9 ingestion
 
 **Pros**:
-- Clean separation: new store, new endpoint, new events
+- Clean separation: persistence authority, transport boundary, publication mechanism
 - No modification to existing subsystems (SuggestionService, Harness, Conversation)
 - AR-REC-B contract used directly (no new types)
-- M9 projection works automatically via new adapters
-- Follows existing patterns (M9 ingestion bridge, EventBus events)
+- M9 projection works via existing ingestion architecture patterns
+- Follows existing patterns (M9 ingestion bridge, durable persistence)
 
 **Cons**:
-- New package/class to maintain
-- Requires new UI component
-- In-memory store loses data on restart (mitigated by M9 persistence)
+- New persistence implementation to maintain
+- Requires LATER UI component for Activity Room rendering
+- Governed continuation remains UNRESOLVED C2 boundary
 
 ### Candidate B: Extend Message with Structured Response
 
@@ -796,59 +799,54 @@ M9.append() → new ActivityRecord
 
 ### Recommendation
 
-**Candidate A** is recommended. It provides the cleanest separation, follows existing patterns (M9 ingestion bridge, EventBus events), and does not modify any existing subsystem contracts. The in-memory store is sufficient for initial integration; durability via M9 can be added in a later phase.
+**Candidate A** is recommended. It provides the cleanest separation, follows existing patterns (M9 ingestion bridge, durable persistence), and does not modify any existing subsystem contracts. Production requires a durable interaction persistence implementation satisfying restart recovery and atomic response uniqueness. In-memory storage is reference/development-only.
 
 ---
 
 ## C1-14: C2 Minimum Wiring Recommendation
 
-### Minimum Required for C2
+### REQUIRED Capabilities/Responsibilities
 
-Based on the C1 audit, the minimum wiring for C2 (Integration Wiring) is:
+These are the minimum capabilities C2 must provide. C1 describes capabilities/responsibilities before premature concrete class freezing.
 
-1. **InteractionStore** (new class)
-   - In-memory store with `Map<InteractionId, StructuredInteraction>` + `Map<InteractionId, InteractionResponse>`
-   - Methods: `store`, `retrieve`, `recordResponse`, `hasResponse`, `getResponse`
-   - Location: `packages/activity-projection/src/interaction-store.ts` (or new package)
+| # | Capability | Architectural Requirement |
+|---|-----------|--------------------------|
+| 1 | **Durable interaction persistence authority** | Stores `StructuredInteraction` objects keyed by `InteractionId`. Satisfies: restart recovery, delayed human response, replay/reprojection. Production requires durable persistence, not in-memory. |
+| 2 | **Authoritative interaction lookup by InteractionId** | O(1) retrieval for structural validation. Satisfies: `validateResponseForInteraction` can be called in production. |
+| 3 | **Atomic one-response-per-interaction enforcement** | `UNIQUE(interaction_id)` or equivalent durable constraint. Satisfies: production idempotency, double-click/retry protection. |
+| 4 | **Narrow structured response ingress** | Transport boundary that accepts `InteractionResponse`, validates structurally, delegates to persistence. Satisfies: human response capture without modifying existing ingress paths. |
+| 5 | **Projection/audit publication mechanism** | Makes interaction facts available for M9 projection and evidence trail. Satisfies: Activity Room rendering, audit/certification. |
+| 6 | **M9 normalization/projection support** | Adapters and pattern dispositions for M9 ingestion. Satisfies: Activity Room renders interactions via existing M9/M10/M11B pipeline. |
 
-2. **POST /api/interactions/:id/response** (new endpoint)
-   - Accepts `InteractionResponse` body
-   - Validates via `validateResponseForInteraction`
-   - Persists to InteractionStore
-   - Emits `interaction.responded` event
-   - Location: `apps/api/src/routes/interactions.ts`
+### UNRESOLVED C2 Design Decisions
 
-3. **EventBus events** (new)
-   - `interaction.presented` — emitted when interaction is stored
-   - `interaction.responded` — emitted when response is recorded
-   - `interaction.expired` — emitted when interaction lifecycle expires
+These items are identified as required but their exact implementation is a C2 design decision:
 
-4. **M9 adapters** (new)
-   - `fromInteractionPresented(event)` → `ActivityEvent`
-   - `fromInteractionResponded(event)` → `ActivityEvent`
-   - Location: `packages/activity-projection/src/m9-adapter.ts` (extend)
+| # | Item | Why Unresolved |
+|---|------|---------------|
+| 1 | **Application/domain boundary responsible for publication** | C1 establishes the semantic need to publish authoritative interaction facts for projection, but must leave the exact application/domain publishing owner for C2 design. The API endpoint is transport and MUST NOT become authoritative event owner. |
+| 2 | **Producer-specific opaque-choice interpretation/continuation** | The producer/originating capability must retain or be able to recover its own authoritative domain-specific correlation necessary to interpret the opaque choice. C1 does not establish how every producer satisfies this. |
+| 3 | **Exact canonical event names/contracts** | C1 classifies "interaction presented" and "interaction responded" as required projection/audit semantic facts. The exact EventBus contract names are C2 design decisions. Existing M9 ingestion architecture provides strong evidence that canonical events are a likely integration mechanism. |
 
-5. **M9 pattern dispositions** (extend)
-   - Add `interaction.presented` → INGEST
-   - Add `interaction.responded` → INGEST
-   - Location: `packages/activity-projection/src/m9-ingestion-bridge.ts`
+### DEFER
 
-6. **InteractionAdapter** (new)
-   - Maps `Suggestion` → `StructuredInteraction`
-   - Location: `packages/workspace/src/interaction-adapter.ts` (or new package)
+| # | Item | Why Deferred |
+|---|------|-------------|
+| 1 | **SuggestionService adapter** | Maps existing SuggestionService output to StructuredInteraction format. Not required for initial interaction flow — only needed when SuggestionService becomes an interaction producer. |
 
-7. **UI: InteractionCard** (new)
-   - Renders `StructuredInteraction` with choice buttons
-   - Emits `InteractionResponse` on selection
-   - Location: `apps/workspace/src/components/activity/InteractionCard.tsx`
+### LATER UI
+
+| # | Item | Why Later |
+|---|------|----------|
+| 1 | **InteractionCard / recommendation presentation** | Renders `StructuredInteraction` with choice buttons. Required for full Activity Room UI, but not for API-level interaction flow. |
 
 ### What NOT to Wire in C2
 
-- Domain-specific routing (which downstream authority processes the response) — C2 concern
-- Staleness detection (domain validity) — C2 concern
-- Lifecycle management (expiration, superseding) — C2 concern
-- Attention integration — C2 concern
-- Cross-domain generality verification — C2 concern
+- Domain-specific routing (which downstream authority processes the response) — UNRESOLVED
+- Staleness detection (domain validity) — UNRESOLVED
+- Lifecycle management (expiration, superseding) — UNRESOLVED
+- Attention integration — LATER
+- Cross-domain generality verification — LATER
 
 ---
 
@@ -902,17 +900,26 @@ Based on the C1 audit, the minimum wiring for C2 (Integration Wiring) is:
 
 The AR-REC-C1 audit establishes that:
 
-1. **The AR-REC-B contract is complete but has zero production consumers.** No subsystem creates, stores, or retrieves `StructuredInteraction` objects.
+1. **Vestara requires a small durable interaction authority** capable of resolving immutable `StructuredInteraction` objects by `InteractionId` and durably recording at most one `InteractionResponse`. Existing substrates do not truthfully own this responsibility.
 
-2. **No existing substrate stores "a set of choices + presenting source" that can be looked up by `interactionId`.** This is the primary gap.
+2. **No existing substrate stores "a set of choices + presenting source" that can be looked up by `interactionId`.** This is the primary gap. The AR-REC-B contract is complete but has zero production consumers.
 
-3. **The minimum integration surface is narrow**: a new `InteractionStore`, a new API endpoint, new EventBus events, new M9 adapters, and a new UI component.
+3. **Production requires a durable interaction persistence implementation** satisfying restart recovery and atomic response uniqueness. In-memory storage is reference/development-only. SQLite is a strong implementation candidate given existing local Vestara architecture.
 
-4. **Existing subsystems (SuggestionService, Harness, Conversation) remain independently authoritative.** AR-REC interactions do not replace or modify them.
+4. **M9 remains downstream projection.** The interaction persistence authority is separate from M9. M9 projects interaction facts for Activity Room rendering via existing ingestion architecture patterns.
 
-5. **Governed continuation re-enters existing Vestara processing.** After a human response, the appropriate downstream authority (Harness, Orchestration, or future authority) re-evaluates current state.
+5. **A narrow structured response ingress is required** — a transport boundary that accepts `InteractionResponse`, validates structurally, and delegates to persistence. The API endpoint is transport and MUST NOT become authoritative event owner.
 
-6. **Three candidate architectures were evaluated.** Candidate A (Interaction Store + Existing Ingress) is recommended as the minimum viable integration.
+6. **Projection/audit publication mechanism is required** but exact publication ownership and event contracts are C2 design decisions.
+
+7. **Governed continuation is an UNRESOLVED C2 integration boundary.** The producer/originating capability must retain or be able to recover its own authoritative domain-specific correlation necessary to interpret the opaque choice. This correlation MUST NOT be moved into Activity Room or encoded into generic interaction fields. C1 does not establish how every producer satisfies this requirement.
+
+8. **Three candidate architectures were evaluated.** Candidate A (Durable Interaction Authority + Narrow Response Ingress) is recommended as the minimum viable integration.
+
+**Unresolved C2 boundaries**:
+- Application/domain boundary responsible for publication
+- Producer-specific opaque-choice interpretation/continuation
+- Exact canonical event names/contracts
 
 **AR-REC-C2 remains NOT AUTHORIZED.** This audit provides the evidence base for a future C2 authorization decision.
 
