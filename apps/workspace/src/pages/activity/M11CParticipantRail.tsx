@@ -1,11 +1,15 @@
 /**
- * M11C Projection-Driven Participant Rail
+ * M11C Projection-Driven Engineering Team Panel
  *
- * Renders participants from M10 ParticipantProjection (via M11A API).
- * Zero hardcoded participants. Membership, presence, and work state
- * are displayed independently.
+ * Renders participants from M10 ParticipantProjection (via M11A API) as
+ * team members. The first/default team is "Engineering Team".
  *
- * Humans and agents share the same component contract.
+ * For AI participants, the display name is the resolved model name
+ * (e.g. "Mimo", "DeepSeek"). Role is metadata shown on detail, not
+ * the conversational identity.
+ *
+ * Zero hardcoded participants. Humans and agents share the same
+ * component contract.
  */
 
 import type { ParticipantProjection } from '@vestara/types';
@@ -73,11 +77,11 @@ export default function M11CParticipantRail({
       <div className="flex h-full flex-col gap-3">
         <div className="px-1 sm:px-3">
           <div className="w-full px-3 py-2 text-left text-xs font-medium text-(--vestara-text-2)">
-            Participants
+            Engineering Team
           </div>
         </div>
         <div className="min-h-0 flex-1 px-3">
-          <p className="text-[10px] text-(--vestara-text-muted)">No participants yet.</p>
+          <p className="text-[10px] text-(--vestara-text-muted)">No team members yet.</p>
         </div>
       </div>
     );
@@ -98,7 +102,7 @@ export default function M11CParticipantRail({
               : 'bg-transparent border-transparent hover:bg-(--vestara-accent-bg)'
           }`}
         >
-          <span className="text-xs font-medium text-(--vestara-text-2)">Participants</span>
+          <span className="text-xs font-medium text-(--vestara-text-2)">Engineering Team</span>
           <span className="text-[10px] text-(--vestara-text-muted)">
             {activeCount} online{workingCount > 0 ? ` · ${workingCount} working` : ''}
           </span>
@@ -150,11 +154,11 @@ function ParticipantRow({
         <div className="flex items-center gap-2 min-w-0">
           {/* Presence dot */}
           <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-          {/* Name */}
+          {/* Name — model name for agents, user name for humans */}
           <span className="text-xs font-medium text-(--vestara-text-2) truncate">
             {participant.displayName}
           </span>
-          {/* Type badge (human/agent) */}
+          {/* Type badge — metadata, not conversational identity */}
           <span
             className={`shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase ${
               isHuman
@@ -164,6 +168,12 @@ function ParticipantRow({
           >
             {isHuman ? 'Human' : 'Agent'}
           </span>
+          {/* Role badge — metadata */}
+          {!isHuman && participant.role && (
+            <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium bg-(--vestara-violet)/10 text-(--vestara-violet)">
+              {participant.role}
+            </span>
+          )}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {membershipLabel && (

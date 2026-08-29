@@ -11,6 +11,7 @@ import * as path from 'node:path';
 import { M9IngestionBridge } from '@vestara/activity-projection';
 import type { WorkspaceEvent } from '@vestara/events';
 import { initActivityRoom } from './activity-room';
+import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
 import { startOpencodeSupervisor } from './opencode-supervisor';
 import { getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
 import { type ApiServer, createServer } from './server';
@@ -86,6 +87,33 @@ async function main(): Promise<void> {
   });
   m9Bridge.start();
   bootMark('m9-bridge-started');
+
+  // ARX-015: Agent lifecycle bridge — maps harness.* → canonical agent:started/completed
+  // for M9 ingestion. Resolves model metadata from AgentStorage so participants
+  // display the assigned model name rather than a generic role label.
+  const unsubAgentLifecycle = createAgentLifecycleBridge({
+    eventBus: ctx.kernel.eventBus,
+    agentModelResolver: {
+      async resolve({ agentId }) {
+        try {
+          const stored = await ctx.agents.listAgents();
+          const agent = stored.find((a) => a.id === agentId || a.runtimeAgent === agentId || a.role === agentId);
+          if (agent) {
+            return {
+              providerId: agent.provider || undefined,
+              modelId: agent.model || undefined,
+              role: agent.role || agentId,
+              displayName: agent.name || agent.model || agentId,
+            };
+          }
+        } catch {
+          /* best-effort */
+        }
+        return undefined;
+      },
+    },
+  });
+  bootMark('agent-lifecycle-bridge-started');
 
   // Idle-based OpenCode stop + on-demand restart (releases ~526 MB when idle).
   if (process.env.VESTARA_OPENCODE_SUPERVISOR !== '0') {

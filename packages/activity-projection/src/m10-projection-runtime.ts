@@ -135,10 +135,19 @@ export class ProjectionRuntime {
     const workState = this.deriveWorkState(record);
     const assignment = this.deriveAssignment(record);
 
+    // Extract model/role metadata from payload.data (set by AgentLifecycleBridge)
+    const data = record.payload.data as Record<string, unknown> | undefined;
+    const role = typeof data?.role === 'string' ? data.role : undefined;
+    const modelId = typeof data?.modelId === 'string' ? data.modelId : undefined;
+    const providerId = typeof data?.providerId === 'string' ? data.providerId : undefined;
+
     if (existing) {
-      // Update existing participant
+      // Update existing participant — preserve stable identity, update metadata
       this.participants.set(participantId, {
         ...existing,
+        role: role ?? existing.role,
+        modelId: modelId ?? existing.modelId,
+        providerId: providerId ?? existing.providerId,
         membership: membership ?? existing.membership,
         workState: workState ?? existing.workState,
         currentAssignment: assignment ?? existing.currentAssignment,
@@ -150,6 +159,9 @@ export class ProjectionRuntime {
         participantId,
         type: actor.type,
         displayName: actor.displayName,
+        role,
+        modelId,
+        providerId,
         membership: membership ?? 'joined',
         presence: 'offline', // presence resolved independently
         workState: workState ?? 'available',

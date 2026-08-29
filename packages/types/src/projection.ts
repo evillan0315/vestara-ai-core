@@ -104,8 +104,17 @@ export interface ParticipantProjection {
   /** Participant type. */
   readonly type: ActivityActorType;
 
-  /** Display name. */
+  /** Display name (model name for agents, user name for humans). */
   readonly displayName: string;
+
+  /** Agent role (e.g. 'developer', 'reviewer'). Undefined for humans. */
+  readonly role?: string;
+
+  /** Resolved model ID (e.g. 'mimo-v2.5-free'). Undefined for humans. */
+  readonly modelId?: string;
+
+  /** Resolved provider ID. Undefined for humans. */
+  readonly providerId?: string;
 
   /** Durable membership state. */
   readonly membership: MembershipState;
