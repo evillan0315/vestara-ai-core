@@ -975,7 +975,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     persistence: interactionStore,
     publication: interactionBusAdapter,
   });
-  const unsubscribeHarnessApprovalBridge = createHarnessApprovalInteractionBridge({
+  const harnessApprovalBridgeDisposal = createHarnessApprovalInteractionBridge({
     eventBus: kernel.eventBus,
     interactionService: bridgeInteractionService,
     harness: agentHarness,
@@ -1496,7 +1496,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsubscribeHarnessBridge();
       unsubscribeActivityRoomBridge();
       unsubscribeEngineeringMemory();
-      unsubscribeHarnessApprovalBridge();
+      harnessApprovalBridgeDisposal.dispose();
       workspaceUiWatcher?.stop();
       notificationService?.stop();
       persistDb(db, dbPath);

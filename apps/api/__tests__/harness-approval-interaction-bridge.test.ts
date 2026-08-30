@@ -90,9 +90,9 @@ describe('AR-REC-C2 I3-I2 — Harness Approval Interaction Bridge', () => {
       expect(eventBus.subscribe).toHaveBeenCalledWith('interaction:responded', expect.any(Function));
     });
 
-    it('returns an unsubscribe function', () => {
-      const unsubscribe = createBridge();
-      expect(typeof unsubscribe).toBe('function');
+    it('returns a disposal handle with dispose method', () => {
+      const disposal = createBridge();
+      expect(typeof disposal.dispose).toBe('function');
     });
   });
 
@@ -512,10 +512,10 @@ describe('AR-REC-C2 I3-I2 — Harness Approval Interaction Bridge', () => {
     });
   });
 
-  describe('unsubscribe', () => {
-    it('returns a function that can be called without error', () => {
-      const unsubscribe = createBridge();
-      expect(() => unsubscribe()).not.toThrow();
+  describe('dispose', () => {
+    it('returns a disposal handle that can be called without error', () => {
+      const disposal = createBridge();
+      expect(() => disposal.dispose()).not.toThrow();
     });
   });
 });
