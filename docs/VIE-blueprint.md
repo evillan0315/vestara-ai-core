@@ -944,4 +944,148 @@ If Vestara can eventually take that ordinary human sentence, determine what it n
 
 ---
 
+## Appendix: Future Capability-Request UX Scenario
+
+> **FUTURE ENHANCEMENT — DESIGN TARGET ONLY. No implementation authorization. Activity Room production readiness remains the prerequisite.**
+
+This is a concrete future Activity Room capability-request UX scenario derived from actual Vestara development experience. It fits what we've learned without needing to implement it now.
+
+The important part is that this is not merely a prettier version of OpenCode's permission dialog. Vestara has enough context to make the approval meaningful.
+
+### Example Interaction
+
+> **MiMo — Capability request**
+> I need temporary write access to `vestara-blueprint/21-research/**` to record the VIE research blueprint.
+>
+> Scope: VIE documentation task only
+> Requested capability: filesystem read/write
+> Requested by: MiMo / Developer
+> Runtime: OpenCode
+>
+> **[ Allow once ] [ Allow for task ] [ Reject ]**
+
+### Architecture
+
+```
+Agent encounters protected operation
+              ↓
+     Capability request
+              ↓
+      Vestara Governance
+              ↓
+  Evaluate current policy/context
+              ↓
+           ASK
+              ↓
+        Activity Room
+              ↓
+        Human Decision
+       /       |       \
+ Allow once  For task   Reject
+      ↓         ↓          ↓
+      └──── Authorization ─┘
+                ↓
+      Scoped Capability Grant
+                ↓
+        Runtime Adapter
+                ↓
+   OpenCode / Codex / Claude Code
+                ↓
+       Runtime Enforcement
+                ↓
+       Bounded Operation
+                ↓
+       Audit / Evidence
+                ↓
+       Grant expiration
+```
+
+### Invariants
+
+These invariants prevent this future feature from becoming a dangerous generic "yes button":
+
+1. **The human approves a specific capability against a specific resource and scope**, not the model's arbitrary future actions.
+2. **The Activity Room records the decision but does not grant filesystem permissions itself.** Vestara's authorization/governance authority creates the grant.
+3. **A runtime adapter translates that grant** into whatever the selected runtime can enforce.
+4. **If the runtime cannot enforce the requested scope, Vestara must not pretend that it can.**
+5. **Grants should expire** according to their declared lifetime rather than silently becoming permanent.
+
+### Button Semantics
+
+```
+ALLOW ONCE
+────────────────────────
+Agent:      MiMo
+Capability: filesystem.write
+Resource:   specific requested resource
+Use:        one authorized operation
+Expiry:     consumed / timeout
+
+ALLOW FOR TASK
+────────────────────────
+Agent:      MiMo
+Capability: filesystem.write
+Resource:   approved task scope
+Task:       VIE documentation
+Expiry:     task completion / cancellation / timeout
+
+REJECT
+────────────────────────
+No grant produced.
+Task remains blocked or must find
+an authorized alternative.
+```
+
+**Allow always** should be approached with much more caution. OpenCode can offer that because it owns its own runtime permission experience. Vestara has broader agents, workflows, repositories and runtimes. Persistent grants deserve a separate permission-management decision rather than being the convenient third button beside a temporary request.
+
+### Connection to AR-REC
+
+```
+MiMo recommends/request access
+             ≠
+MiMo receives access
+
+Human selects "Allow for task"
+             ≠
+filesystem operation executes
+
+Human decision
+             ↓
+authorization validation
+             ↓
+scoped grant
+             ↓
+runtime enforcement
+             ↓
+operation
+             ↓
+verification/evidence
+```
+
+Our current AR-REC work is already teaching us how the **human-decision portion** of this future experience should behave without Activity Room becoming the permission authority.
+
+### Runtime-Neutral Grants
+
+```
+                   Vestara Grant
+                        │
+             filesystem.write
+             resource: X
+             scope: task Y
+                        │
+          ┌─────────────┼─────────────┐
+          ↓             ↓             ↓
+      OpenCode       Codex       Claude Code
+       adapter       adapter        adapter
+          ↓             ↓             ↓
+       native        native         native
+     enforcement   enforcement    enforcement
+```
+
+### Acceptance Scenario
+
+> **An agent needs access outside its current execution boundary. It explains why. Vestara asks the human in Activity Room. The human grants narrowly scoped authority. Vestara translates that authority into a runtime-enforceable capability. The agent continues without restarting its work, and the grant expires automatically.**
+
+---
+
 *End of VIE blueprint. Documentation only. No implementation authorized.*
