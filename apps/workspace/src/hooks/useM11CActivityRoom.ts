@@ -57,6 +57,15 @@ export interface M11CStreamItem {
   readonly aggregated?: M11AStreamItem['aggregated'];
   /** Whether this item arrived live (for animation). */
   readonly fresh: boolean;
+  /** Interaction presentation data (only when kind === 'interaction'). */
+  readonly interaction?: {
+    readonly interactionId: string;
+    readonly lifecycle: 'presented' | 'responded';
+    readonly choices?: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+    readonly selectedChoiceId?: string;
+    readonly respondingParticipantId?: string;
+    readonly respondingParticipantName?: string;
+  };
 }
 
 export interface M11CActivityRoom {
@@ -140,6 +149,7 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     taskId: item.taskId,
     aggregated: item.aggregated,
     fresh: false,
+    interaction: item.interaction,
   };
 }
 
@@ -164,16 +174,20 @@ function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean = true)
     'agent.cancelled': 'activity',
     'human.message': 'conversation',
     'system.event': 'log',
+    'interaction.presented': 'interaction',
+    'interaction.responded': 'interaction',
   };
 
   // Derive importance from kind (simplified — full mapping lives in M10)
   const kind = kindMap[activity.type] ?? 'activity';
   const importance: M11CStreamItem['importance'] =
     kind === 'conversation' ? 'primary' :
+    kind === 'interaction' && activity.type === 'interaction.presented' ? 'primary' :
+    kind === 'interaction' && activity.type === 'interaction.responded' ? 'secondary' :
     kind === 'log' || kind === 'telemetry' ? 'muted' :
     'secondary';
 
-  return {
+  const base: M11CStreamItem = {
     id: activity.activityId,
     sequence: activity.sequenceNumber,
     timestamp: activity.timestamp,
@@ -191,6 +205,35 @@ function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean = true)
     taskId: activity.taskId,
     fresh,
   };
+
+  // Carry interaction data for live arrival
+  if (kind === 'interaction' && activity.payload?.data) {
+    const data = activity.payload.data as Record<string, unknown>;
+    const interactionId = typeof data.interactionId === 'string' ? data.interactionId : undefined;
+    if (interactionId) {
+      const lifecycle = activity.type === 'interaction.responded' ? 'responded' as const : 'presented' as const;
+      const choices = Array.isArray(data.choices)
+        ? (data.choices as readonly { choiceId: string; label: string; description?: string }[])
+        : undefined;
+      const selectedChoiceId = typeof data.selectedChoiceId === 'string' ? data.selectedChoiceId : undefined;
+      const respondingParticipantId = lifecycle === 'responded' ? activity.actor.id : undefined;
+      const respondingParticipantName = lifecycle === 'responded' ? activity.actor.displayName : undefined;
+
+      return {
+        ...base,
+        interaction: {
+          interactionId,
+          lifecycle,
+          ...(choices ? { choices } : {}),
+          ...(selectedChoiceId ? { selectedChoiceId } : {}),
+          ...(respondingParticipantId ? { respondingParticipantId } : {}),
+          ...(respondingParticipantName ? { respondingParticipantName } : {}),
+        },
+      };
+    }
+  }
+
+  return base;
 }
 
 function compareBySequence(a: M11CStreamItem, b: M11CStreamItem): number {

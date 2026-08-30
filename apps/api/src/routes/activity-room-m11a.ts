@@ -74,6 +74,8 @@ function toProjectionRecord(record: M9ActivityRecord): ProjectionActivityRecord 
     'agent.cancelled': 'agent-message',
     'human.message': 'agent-message',
     'system.event': 'workflow',
+    'interaction.presented': 'agent-message',
+    'interaction.responded': 'agent-message',
   };
 
   return {
@@ -396,6 +398,20 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
           summary: item.aggregated.summary,
           referencedActivityIds: item.aggregated.referencedActivityIds,
           sequenceRange: item.aggregated.sequenceRange,
+        }
+      : undefined,
+    interaction: item.interaction
+      ? {
+          interactionId: item.interaction.interactionId,
+          lifecycle: item.interaction.lifecycle,
+          ...(item.interaction.choices ? { choices: item.interaction.choices } : {}),
+          ...(item.interaction.selectedChoiceId ? { selectedChoiceId: item.interaction.selectedChoiceId } : {}),
+          ...(item.interaction.respondingParticipantId
+            ? { respondingParticipantId: item.interaction.respondingParticipantId }
+            : {}),
+          ...(item.interaction.respondingParticipantName
+            ? { respondingParticipantName: item.interaction.respondingParticipantName }
+            : {}),
         }
       : undefined,
   };

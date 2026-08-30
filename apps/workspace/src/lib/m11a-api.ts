@@ -46,6 +46,14 @@ export interface M11AStreamItem {
     readonly referencedActivityIds: readonly string[];
     readonly sequenceRange: { readonly first: number; readonly last: number };
   };
+  readonly interaction?: {
+    readonly interactionId: string;
+    readonly lifecycle: 'presented' | 'responded';
+    readonly choices?: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+    readonly selectedChoiceId?: string;
+    readonly respondingParticipantId?: string;
+    readonly respondingParticipantName?: string;
+  };
 }
 
 export interface M11AActivityRecord {

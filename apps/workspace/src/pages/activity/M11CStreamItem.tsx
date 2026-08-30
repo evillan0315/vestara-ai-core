@@ -12,6 +12,8 @@
 
 import { useCallback } from 'react';
 import type { M11CStreamItem as StreamItemType } from '../../hooks/useM11CActivityRoom';
+import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
+import { InteractionCard } from '../../components/interaction/InteractionCard';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -52,6 +54,7 @@ const KIND_ICON: Record<string, string> = {
   diagnostic: '⚠',
   evidence: '✓',
   telemetry: '📊',
+  interaction: '⚖',
 };
 
 const ACTOR_TYPE_STYLE: Record<string, string> = {
@@ -126,6 +129,47 @@ export default function M11CStreamItemComponent({
           </span>
         </div>
       </button>
+    );
+  }
+
+  // ─── Interaction Item (R4: render through R3 InteractionCard) ──
+  if (item.kind === 'interaction' && item.interaction) {
+    // Reconstruct StructuredInteraction from projected data
+    const interaction: StructuredInteraction = {
+      interactionId: item.interaction.interactionId as InteractionId,
+      presentingParticipantId: item.actor.id,
+      presentingParticipantName: item.actor.displayName,
+      createdAt: item.timestamp,
+      content: item.content,
+      choices: item.interaction.choices ?? [],
+    };
+
+    // Reconstruct InteractionResponse if responded
+    const response: InteractionResponse | undefined =
+      item.interaction.lifecycle === 'responded' && item.interaction.selectedChoiceId
+        ? {
+            responseId: `resp-${item.id}` as import('@vestara/types').Brand<string, 'ResponseId'>,
+            interactionId: item.interaction.interactionId as InteractionId,
+            selectedChoiceId: item.interaction.selectedChoiceId as ChoiceId,
+            respondingParticipantId: item.interaction.respondingParticipantId ?? item.actor.id,
+            respondingParticipantName: item.interaction.respondingParticipantName ?? item.actor.displayName,
+            respondedAt: item.timestamp,
+          }
+        : undefined;
+
+    return (
+      <InteractionCard
+        interaction={interaction}
+        response={response}
+        onSelect={() => {
+          // R4: opaque callback — no execution semantics assigned
+          // Response submission belongs to R5
+        }}
+        resolved={item.interaction.lifecycle === 'responded'}
+        importance={item.importance}
+        fresh={item.fresh}
+        ariaLabel={`${item.interaction.lifecycle === 'presented' ? 'Interaction' : 'Response'}: ${item.content.slice(0, 80)}`}
+      />
     );
   }
 

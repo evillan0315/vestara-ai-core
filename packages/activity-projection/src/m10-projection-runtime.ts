@@ -231,7 +231,7 @@ export class ProjectionRuntime {
     const importance = this.classifyImportance(record, kind);
     const activityIdStr = String(record.activityId);
 
-    return {
+    const base: import('@vestara/types').StreamItem = {
       streamItemId: `si-${activityIdStr}`,
       activityId: activityIdStr,
       sequenceNumber: record.sequenceNumber,
@@ -244,6 +244,35 @@ export class ProjectionRuntime {
       executionId: record.executionId,
       taskId: record.taskId,
     };
+
+    // Carry interaction presentation data for kind === 'interaction'
+    if (kind === 'interaction' && record.payload.data) {
+      const data = record.payload.data as Record<string, unknown>;
+      const interactionId = typeof data.interactionId === 'string' ? data.interactionId : undefined;
+      if (interactionId) {
+        const lifecycle = record.type === 'interaction.responded' ? ('responded' as const) : ('presented' as const);
+        const choices = Array.isArray(data.choices)
+          ? (data.choices as readonly { choiceId: string; label: string; description?: string }[])
+          : undefined;
+        const selectedChoiceId = typeof data.selectedChoiceId === 'string' ? data.selectedChoiceId : undefined;
+        const respondingParticipantId = lifecycle === 'responded' ? record.actor.id : undefined;
+        const respondingParticipantName = lifecycle === 'responded' ? record.actor.displayName : undefined;
+
+        return {
+          ...base,
+          interaction: {
+            interactionId,
+            lifecycle,
+            ...(choices ? { choices } : {}),
+            ...(selectedChoiceId ? { selectedChoiceId } : {}),
+            ...(respondingParticipantId ? { respondingParticipantId } : {}),
+            ...(respondingParticipantName ? { respondingParticipantName } : {}),
+          },
+        };
+      }
+    }
+
+    return base;
   }
 
   private classifyKind(record: ActivityRecord): StreamItemKind {
@@ -267,6 +296,9 @@ export class ProjectionRuntime {
         return 'diagnostic';
       case 'system.event':
         return record.payload.data ? 'evidence' : 'telemetry';
+      case 'interaction.presented':
+      case 'interaction.responded':
+        return 'interaction';
       default:
         return 'log';
     }
@@ -286,6 +318,10 @@ export class ProjectionRuntime {
 
     // Agent assigned/completed is secondary
     if (record.type === 'agent.assigned' || record.type === 'agent.completed') return 'secondary';
+
+    // Interaction: presented is primary (decision needed), responded is secondary
+    if (record.type === 'interaction.presented') return 'primary';
+    if (record.type === 'interaction.responded') return 'secondary';
 
     // Progress, logs, telemetry are muted
     if (kind === 'progress' || kind === 'log' || kind === 'telemetry') return 'muted';

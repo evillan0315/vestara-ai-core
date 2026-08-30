@@ -38,7 +38,8 @@ export type StreamItemKind =
   | 'log' // detailed runtime logs
   | 'diagnostic' // error/failure details
   | 'evidence' // test results, verification output
-  | 'telemetry'; // system metrics, performance data
+  | 'telemetry' // system metrics, performance data
+  | 'interaction'; // structured interactions (presented/responded)
 
 /**
  * Projection importance for visual muting in M11.
@@ -88,6 +89,22 @@ export interface StreamItem {
     readonly referencedActivityIds: readonly string[];
     /** Sequence range [first, last] for M9 cursor-based retrieval. */
     readonly sequenceRange: { readonly first: number; readonly last: number };
+  };
+
+  /** Interaction presentation data (only when kind === 'interaction'). */
+  readonly interaction?: {
+    /** Stable identity for the originating StructuredInteraction. */
+    readonly interactionId: string;
+    /** Whether this is a presented or responded event. */
+    readonly lifecycle: 'presented' | 'responded';
+    /** Opaque choice options from the presenting producer. */
+    readonly choices?: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+    /** Selected choice identity (only when lifecycle === 'responded'). */
+    readonly selectedChoiceId?: string;
+    /** Responding participant identity (only when lifecycle === 'responded'). */
+    readonly respondingParticipantId?: string;
+    /** Responding participant display name (only when lifecycle === 'responded'). */
+    readonly respondingParticipantName?: string;
   };
 }
 
