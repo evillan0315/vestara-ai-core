@@ -37,6 +37,8 @@ import {
 import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
 import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import { HostRuntime } from '@vestara/host-runtime';
+import { InteractionService } from '@vestara/interaction-app';
+import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
 import { DefaultKernel } from '@vestara/kernel';
 import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
 import {
@@ -122,6 +124,7 @@ import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { getActivityRoom } from './activity-room';
 import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
+import { createHarnessApprovalInteractionBridge } from './bridges/harness-approval-interaction-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
 import { resolveVisualScenarios } from './evidence/visual-scenarios.js';
@@ -963,6 +966,28 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     logger: kernel.logger,
     userId: session.fingerprint.id,
   });
+  // AR-REC-C2 I3-I2: Harness Approval ↔ Interaction Bridge
+  // Wires Harness tool-call approvals to the generic Interaction system.
+  const interactionDbPath = path.join(abs, '.vestara', 'interactions.db');
+  const interactionStore = await SqliteInteractionStore.open(interactionDbPath);
+  const interactionBusAdapter = new InteractionEventBusAdapter(kernel.eventBus);
+  const bridgeInteractionService = new InteractionService({
+    persistence: interactionStore,
+    publication: interactionBusAdapter,
+  });
+  const unsubscribeHarnessApprovalBridge = createHarnessApprovalInteractionBridge({
+    eventBus: kernel.eventBus,
+    interactionService: bridgeInteractionService,
+    harness: agentHarness,
+    threadResolver: {
+      getThread: (threadId: string) => {
+        const thread = agentHarness.listThreads().find((t) => t.id === threadId);
+        return thread ? { id: thread.id, title: thread.title } : undefined;
+      },
+    },
+    listThreadIds: () => agentHarness.listThreads().map((t) => t.id),
+  });
+  log('harness-approval-bridge');
   const harnessSession = new HarnessSession({
     harness: agentHarness,
     storage: agents,
@@ -1471,6 +1496,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsubscribeHarnessBridge();
       unsubscribeActivityRoomBridge();
       unsubscribeEngineeringMemory();
+      unsubscribeHarnessApprovalBridge();
       workspaceUiWatcher?.stop();
       notificationService?.stop();
       persistDb(db, dbPath);

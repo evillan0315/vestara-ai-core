@@ -20,17 +20,13 @@
  * The endpoint MUST NOT interpret what a choiceId means or cause domain execution.
  */
 
-import type * as http from 'node:http';
 import { randomUUID } from 'node:crypto';
+import type * as http from 'node:http';
 import * as path from 'node:path';
-import { ResponseConflictError } from '@vestara/interaction-app';
-import { InteractionService } from '@vestara/interaction-app';
-import {
-  InteractionEventBusAdapter,
-  SqliteInteractionStore,
-} from '@vestara/interaction-persistence';
-import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
 import { M9DeliveryVerifier } from '@vestara/activity-projection';
+import { InteractionService, ResponseConflictError } from '@vestara/interaction-app';
+import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
+import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
 import { getM11ARoom } from './activity-room-m11a';

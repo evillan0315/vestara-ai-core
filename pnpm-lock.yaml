@@ -550,6 +550,12 @@ importers:
       '@vestara/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@vestara/interaction-app':
+        specifier: workspace:*
+        version: link:../interaction-app
+      '@vestara/interaction-persistence':
+        specifier: workspace:*
+        version: link:../interaction-persistence
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared

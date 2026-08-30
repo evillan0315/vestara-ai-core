@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@vestara/event-bus": "workspace:*",
+    "@vestara/interaction-app": "workspace:*",
+    "@vestara/interaction-persistence": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/thread-runtime": "workspace:*",
     "@vestara/tool-runtime": "workspace:*",

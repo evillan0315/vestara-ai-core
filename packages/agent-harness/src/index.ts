@@ -57,6 +57,21 @@ export {
   AiInvocationDeniedError,
   GuardedAIProvider,
 } from './guarded-provider.js';
+export type {
+  HarnessApprovalReader,
+  ThreadInfo,
+  ThreadResolver,
+} from './harness-approval-interaction-adapter.js';
+export {
+  approvalInteractionId,
+  approvalToInteraction,
+  CHOICE_APPROVE,
+  CHOICE_REJECT,
+  findUncontinuedApprovals,
+  interactionApprovalId,
+  interpretApprovalResponse,
+  resolveFromInteractionResponse,
+} from './harness-approval-interaction-adapter.js';
 
 export interface HarnessContextAssembler {
   assemble(input: {

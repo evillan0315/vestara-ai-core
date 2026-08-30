@@ -22,11 +22,10 @@
  */
 
 import * as fs from 'node:fs';
-import * as http from 'node:http';
+import type * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ResponseConflictError } from '@vestara/interaction-app';
-import { InteractionService } from '@vestara/interaction-app';
+import { InteractionService, ResponseConflictError } from '@vestara/interaction-app';
 import type {
   InteractionPresentedPayload,
   InteractionPublicationPort,
@@ -77,7 +76,7 @@ interface MockResponse {
 }
 
 function createMockRes(): { res: http.ServerResponse; getResponse: () => MockResponse } {
-  let captured: MockResponse = { statusCode: 0, body: null };
+  const captured: MockResponse = { statusCode: 0, body: null };
   const res = {
     writeHead: (status: number, _headers?: Record<string, string>) => {
       captured.statusCode = status;
@@ -249,9 +248,7 @@ describe('POST /api/interactions/:interactionId/responses', () => {
       respondedAt: new Date().toISOString(),
     };
 
-    await expect(service.recordResponse(interaction.interactionId, response)).rejects.toThrow(
-      'validation failed',
-    );
+    await expect(service.recordResponse(interaction.interactionId, response)).rejects.toThrow('validation failed');
   });
 
   it('same-choice retry → returns existing response (idempotent)', async () => {
@@ -494,17 +491,23 @@ describe('POST /api/interactions/:interactionId/responses — strict body valida
 
   async function dispatchRoute(body: unknown, headers: Record<string, string> = {}): Promise<MockResponse> {
     const bodyStr = JSON.stringify(body);
-    const req = Object.assign(new (require('stream').Readable)({
-      read() { this.push(bodyStr); this.push(null); },
-    }), {
-      headers: {
-        'content-type': 'application/json',
-        'content-length': Buffer.byteLength(bodyStr).toString(),
-        ...headers,
+    const req = Object.assign(
+      new (require('stream').Readable)({
+        read() {
+          this.push(bodyStr);
+          this.push(null);
+        },
+      }),
+      {
+        headers: {
+          'content-type': 'application/json',
+          'content-length': Buffer.byteLength(bodyStr).toString(),
+          ...headers,
+        },
+        method: 'POST',
+        url: `/api/interactions/${interaction.interactionId}/responses`,
       },
-      method: 'POST',
-      url: `/api/interactions/${interaction.interactionId}/responses`,
-    }) as unknown as http.IncomingMessage;
+    ) as unknown as http.IncomingMessage;
 
     const { res: mockRes, getResponse } = createMockRes();
     // Route handler's singleton uses ctx.repoPath + '/.vestara/interactions.db'
@@ -636,16 +639,22 @@ describe('POST /api/interactions/:interactionId/responses — strict body valida
   });
 
   it('non-JSON body → 400', async () => {
-    const req = Object.assign(new (require('stream').Readable)({
-      read() { this.push('not json'); this.push(null); },
-    }), {
-      headers: {
-        'content-type': 'text/plain',
-        'content-length': '9',
+    const req = Object.assign(
+      new (require('stream').Readable)({
+        read() {
+          this.push('not json');
+          this.push(null);
+        },
+      }),
+      {
+        headers: {
+          'content-type': 'text/plain',
+          'content-length': '9',
+        },
+        method: 'POST',
+        url: `/api/interactions/${interaction.interactionId}/responses`,
       },
-      method: 'POST',
-      url: `/api/interactions/${interaction.interactionId}/responses`,
-    }) as unknown as http.IncomingMessage;
+    ) as unknown as http.IncomingMessage;
 
     const { res: mockRes, getResponse } = createMockRes();
     const ctx = createMockCtx({ eventBus });
@@ -713,7 +722,16 @@ describe('POST /api/interactions/:interactionId/responses — real HTTP dispatch
     const { SqliteInteractionStore: Store } = await import('@vestara/interaction-persistence');
     const { InteractionService: Svc } = await import('@vestara/interaction-app');
     const store = await Store.open(path.join(tmpDir, '.vestara', 'interactions.db'));
-    const pub = { presented: [], responded: [], async onInteractionPresented(p: any) { pub.presented.push(p); }, async onInteractionResponded(p: any) { pub.responded.push(p); } };
+    const pub = {
+      presented: [],
+      responded: [],
+      async onInteractionPresented(p: any) {
+        pub.presented.push(p);
+      },
+      async onInteractionResponded(p: any) {
+        pub.responded.push(p);
+      },
+    };
     const svc = new Svc({ persistence: store, publication: pub });
 
     const interactionId = `int-http-${Date.now()}`;
