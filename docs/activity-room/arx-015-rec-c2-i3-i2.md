@@ -1,8 +1,8 @@
 # AR-REC-C2 I3-I2 Evidence: Harness Approval Producer Implementation
 
-**Commit**: `d9788e0` (implementation), `f853fd4` (evidence), `I3-I2-C1` (recovery correction)
+**Frozen**: `d9788e0` (implementation), `f853fd4` (evidence), `a683c76` (C1 recovery correction)
 **Date**: 2026-08-30
-**Status**: COMPLETE (with C1 correction)
+**Status**: FROZEN
 
 ## Summary
 
@@ -235,3 +235,24 @@ if (existingDecision) {
 | One failing approval does not block other recoverable approvals | Recovery test 6 |
 | Same-choice HTTP retry remains idempotent | Recovery test 7 |
 | No generic interaction component gains Harness semantics | Recovery test 8 |
+
+## Frozen Milestone State
+
+**Frozen at**: `d9788e0`, `f853fd4`, `a683c76`
+
+### Accepted Conclusions
+
+1. Agent Harness tool-call approval is the first real AR-REC producer.
+2. Harness retains approval semantics and continuation authority.
+3. Activity Room remains presentation/decision-response surface only.
+4. Interaction infrastructure remains domain-neutral.
+5. EventBus provides the fast continuation path.
+6. Harness durable pending state + durable InteractionResponse provide recovery authority.
+7. Producer-local bounded reconciliation provides transient-failure recovery without requiring restart.
+8. Reconciliation failure is observable.
+9. Generic interaction infrastructure does not become a continuation queue or producer dispatcher.
+10. Existing Harness arbitrary-tool replay safety remains INDETERMINATE because of the pre-existing ThreadStore persistence debounce crash window.
+
+### Adjacent Findings (Carried Forward)
+
+- **Harness arbitrary-tool replay safety**: INDETERMINATE. Pre-existing ThreadStore `persist()` debounce (250ms) crash window. Not fixed under AR-REC. Evidence only.
