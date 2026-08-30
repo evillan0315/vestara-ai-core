@@ -30,17 +30,19 @@ import {
   SqliteInteractionStore,
 } from '@vestara/interaction-persistence';
 import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
-import { getM11ARoom } from './activity-room-m11a';
 import { M9DeliveryVerifier } from '@vestara/activity-projection';
+import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
+import { getM11ARoom } from './activity-room-m11a';
 import { json, readBody } from './types';
 
 // ─── Lazy Singleton ─────────────────────────────────────────
 
 let interactionService: InteractionService | null = null;
+let interactionServiceRepoPath: string | null = null;
 
 async function getInteractionService(ctx: WorkspaceContext): Promise<InteractionService> {
-  if (interactionService) return interactionService;
+  if (interactionService && interactionServiceRepoPath === ctx.repoPath) return interactionService;
 
   const dbPath = path.join(ctx.repoPath, '.vestara', 'interactions.db');
   const store = await SqliteInteractionStore.open(dbPath);
@@ -60,6 +62,7 @@ async function getInteractionService(ctx: WorkspaceContext): Promise<Interaction
     publication: adapter,
     deliveryVerifier: verifier,
   });
+  interactionServiceRepoPath = ctx.repoPath;
   return interactionService;
 }
 
@@ -79,11 +82,10 @@ export async function handleInteractionsRoute(
   const interactionId = decodeURIComponent(match[1] as string) as InteractionId;
 
   // Auth: existing requireRole guard (editor minimum for mutation)
-  const { requireRole } = require('../auth');
   const actor = requireRole(req, ctx, 'editor', res);
   if (!actor) return true;
 
-  // Body validation
+  // Body validation — strict allowlist: exactly { "choiceId": "..." }
   let body: unknown;
   try {
     body = await readBody(req);
@@ -95,6 +97,12 @@ export async function handleInteractionsRoute(
 
   if (typeof body !== 'object' || body === null || Array.isArray(body)) {
     json(res, 400, { error: 'Request body must be a JSON object.' });
+    return true;
+  }
+
+  const bodyKeys = Object.keys(body as Record<string, unknown>);
+  if (bodyKeys.length !== 1 || !('choiceId' in (body as Record<string, unknown>))) {
+    json(res, 400, { error: 'Request body must contain exactly { "choiceId": "..." }' });
     return true;
   }
 

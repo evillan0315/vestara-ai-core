@@ -396,9 +396,9 @@ describe('POST /api/interactions/:interactionId/responses', () => {
     expect(publication.responded[0].selectedChoiceId).toBe('opt-a');
   });
 
-  it('unexpected executable fields in request body are silently ignored', async () => {
-    // The route handler only extracts choiceId from the body.
-    // Any other fields (command, operation, handler, etc.) are ignored.
+  it('strict body: { choiceId } accepted', async () => {
+    // Service layer accepts valid response — the route handler is responsible for
+    // strict body validation. This test verifies the service path works.
     const response: InteractionResponse = {
       responseId: `resp-${Date.now()}` as InteractionResponse['responseId'],
       interactionId: interaction.interactionId,
@@ -409,12 +409,7 @@ describe('POST /api/interactions/:interactionId/responses', () => {
     };
 
     const result = await service.recordResponse(interaction.interactionId, response);
-    // The response should only contain the expected fields
-    expect(result).not.toHaveProperty('command');
-    expect(result).not.toHaveProperty('operation');
-    expect(result).not.toHaveProperty('handler');
-    expect(result).not.toHaveProperty('approval');
-    expect(result).not.toHaveProperty('workflow');
+    expect(result.selectedChoiceId).toBe('opt-a');
   });
 
   it('publication failure after commit does not create second response', async () => {
@@ -459,5 +454,334 @@ describe('POST /api/interactions/:interactionId/responses', () => {
 
     const retry = await failingService.recordResponse(interaction.interactionId, retryResponse);
     expect(retry.responseId).toBe(response.responseId);
+  });
+});
+
+// ─── Route-Level Strict Body Validation Tests ──────────────
+// Tests the POST handler's body validation via direct dispatch.
+
+describe('POST /api/interactions/:interactionId/responses — strict body validation', () => {
+  let dbPath: string;
+  let store: SqliteInteractionStore;
+  let service: InteractionService;
+  let interaction: StructuredInteraction;
+  let eventBus: any;
+
+  let dbDir: string;
+  let testDbPath: string;
+
+  beforeEach(async () => {
+    dbPath = tmpDb();
+    dbDir = path.join(dbPath + '-dir', '.vestara');
+    testDbPath = path.join(dbDir, 'interactions.db');
+    fs.mkdirSync(dbDir, { recursive: true });
+    store = await SqliteInteractionStore.open(testDbPath);
+    const publication = new MockPublicationPort();
+    service = new InteractionService({ persistence: store, publication });
+    interaction = makeInteraction();
+    await service.present(interaction);
+
+    // Mock event bus for the lazy singleton
+    eventBus = { emit: async () => {}, on: () => () => {} };
+  });
+
+  afterEach(() => {
+    if (fs.existsSync(testDbPath)) fs.unlinkSync(testDbPath);
+    if (fs.existsSync(dbDir) && fs.readdirSync(dbDir).length === 0) fs.rmdirSync(dbDir);
+    const parentDir = path.dirname(dbDir);
+    if (fs.existsSync(parentDir) && fs.readdirSync(parentDir).length === 0) fs.rmdirSync(parentDir);
+  });
+
+  async function dispatchRoute(body: unknown, headers: Record<string, string> = {}): Promise<MockResponse> {
+    const bodyStr = JSON.stringify(body);
+    const req = Object.assign(new (require('stream').Readable)({
+      read() { this.push(bodyStr); this.push(null); },
+    }), {
+      headers: {
+        'content-type': 'application/json',
+        'content-length': Buffer.byteLength(bodyStr).toString(),
+        ...headers,
+      },
+      method: 'POST',
+      url: `/api/interactions/${interaction.interactionId}/responses`,
+    }) as unknown as http.IncomingMessage;
+
+    const { res: mockRes, getResponse } = createMockRes();
+    // Route handler's singleton uses ctx.repoPath + '/.vestara/interactions.db'
+    // dbDir is already '.../.vestara', so repoPath = parent of .vestara
+    const repoPath = path.dirname(dbDir);
+    const ctx = createMockCtx({ eventBus, repoPath });
+
+    // Inject the service into the module-level singleton
+    // We do this by directly setting the closure variable via the route module
+    // Since we can't access the module variable directly, we test through the
+    // service we created — the route handler will use its own singleton.
+    // For testing purposes, we verify the body validation behavior by examining
+    // the handler's response.
+
+    // Override the module-level singleton by importing and patching
+    const interactionsModule = await import('../src/routes/interactions.js');
+    // The singleton is module-scoped; we can't set it directly.
+    // Instead, we test body validation by checking the response status.
+
+    await interactionsModule.handleInteractionsRoute(
+      'POST',
+      `/api/interactions/${interaction.interactionId}/responses`,
+      req,
+      mockRes,
+      ctx,
+    );
+
+    return getResponse();
+  }
+
+  it('{ choiceId } → accepted (201 or 200)', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a' });
+    expect(res.statusCode).toBe(201);
+  });
+
+  it('{ choiceId, command } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', command: 'rm -rf' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, respondingParticipantId } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', respondingParticipantId: 'admin' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, respondingParticipantName } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', respondingParticipantName: 'Admin' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, responseId } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', responseId: 'forged-id' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, respondedAt } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', respondedAt: '2020-01-01' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, correlationId } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', correlationId: 'cor-123' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, arbitraryFutureField } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', futureField: 'value' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, operation } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', operation: 'approve' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, handler } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', handler: 'start-workflow' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, workflow } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', workflow: 'deploy' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, capability } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', capability: 'execute' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, execution } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', execution: 'run' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, approval } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', approval: 'granted' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, authorization } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', authorization: 'admin' });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, metadata } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', metadata: {} });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{ choiceId, context } → 400', async () => {
+    const res = await dispatchRoute({ choiceId: 'opt-a', context: {} });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('{} (empty body) → 400', async () => {
+    const res = await dispatchRoute({});
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('no body (null) → 400', async () => {
+    const res = await dispatchRoute(null);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('array body → 400', async () => {
+    const res = await dispatchRoute(['opt-a']);
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('non-JSON body → 400', async () => {
+    const req = Object.assign(new (require('stream').Readable)({
+      read() { this.push('not json'); this.push(null); },
+    }), {
+      headers: {
+        'content-type': 'text/plain',
+        'content-length': '9',
+      },
+      method: 'POST',
+      url: `/api/interactions/${interaction.interactionId}/responses`,
+    }) as unknown as http.IncomingMessage;
+
+    const { res: mockRes, getResponse } = createMockRes();
+    const ctx = createMockCtx({ eventBus });
+
+    const interactionsModule = await import('../src/routes/interactions.js');
+    await interactionsModule.handleInteractionsRoute(
+      'POST',
+      `/api/interactions/${interaction.interactionId}/responses`,
+      req,
+      mockRes,
+      ctx,
+    );
+
+    const res = getResponse();
+    expect(res.statusCode).toBe(400);
+  });
+});
+
+// ─── Real HTTP Server Integration Test ─────────────────────
+// Proves the full dispatch path: HTTP → server → router → handler → service → persistence.
+
+describe('POST /api/interactions/:interactionId/responses — real HTTP dispatch', () => {
+  let tmpDir: string;
+  let server: any;
+  let port: number;
+
+  beforeEach(async () => {
+    tmpDir = path.join(os.tmpdir(), `interaction-http-test-${Date.now()}`);
+    fs.mkdirSync(path.join(tmpDir, '.vestara'), { recursive: true });
+  });
+
+  afterEach(async () => {
+    if (server) {
+      await new Promise<void>((resolve) => server.close(() => resolve()));
+    }
+    // Clean up temp dir
+    try {
+      const files = fs.readdirSync(path.join(tmpDir, '.vestara'));
+      for (const f of files) fs.unlinkSync(path.join(tmpDir, '.vestara', f));
+      fs.rmdirSync(path.join(tmpDir, '.vestara'));
+      fs.rmdirSync(tmpDir);
+    } catch {
+      /* best-effort */
+    }
+  });
+
+  it('full HTTP dispatch: present → respond → verify', async () => {
+    // Import createServer from the compiled API
+    const { createServer } = await import('../src/server.js');
+
+    // Minimal context — the route handler only needs eventBus and repoPath
+    const ctx = {
+      repoPath: tmpDir,
+      workspaceDir: path.join(tmpDir, '.vestara'),
+      runtime: { currentStatus: 'ready' },
+      orchestrator: null,
+      eventBus: { emit: async () => {}, on: () => () => {} },
+    };
+
+    server = createServer(ctx as any, 0);
+    await server.listen(0);
+    port = server.address().port;
+
+    // Present an interaction via the service (simulating what a producer does)
+    const { SqliteInteractionStore: Store } = await import('@vestara/interaction-persistence');
+    const { InteractionService: Svc } = await import('@vestara/interaction-app');
+    const store = await Store.open(path.join(tmpDir, '.vestara', 'interactions.db'));
+    const pub = { presented: [], responded: [], async onInteractionPresented(p: any) { pub.presented.push(p); }, async onInteractionResponded(p: any) { pub.responded.push(p); } };
+    const svc = new Svc({ persistence: store, publication: pub });
+
+    const interactionId = `int-http-${Date.now()}`;
+    await svc.present({
+      interactionId: interactionId as InteractionId,
+      presentingParticipantId: 'test-producer',
+      presentingParticipantName: 'Test Producer',
+      createdAt: new Date().toISOString(),
+      content: 'HTTP integration test',
+      choices: [
+        { choiceId: 'yes' as ChoiceId, label: 'Yes' },
+        { choiceId: 'no' as ChoiceId, label: 'No' },
+      ],
+    });
+
+    // Test 1: Valid response → 201
+    const res1 = await fetch(`http://127.0.0.1:${port}/api/interactions/${interactionId}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'yes' }),
+    });
+    expect(res1.status).toBe(201);
+    const body1 = await res1.json();
+    expect(body1.response.selectedChoiceId).toBe('yes');
+    expect(body1.response.interactionId).toBe(interactionId);
+    expect(body1.response.respondingParticipantId).toBeDefined();
+    expect(body1.response.responseId).toBeDefined();
+
+    // Test 2: Same-choice retry → 200 (idempotent)
+    const res2 = await fetch(`http://127.0.0.1:${port}/api/interactions/${interactionId}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'yes' }),
+    });
+    expect(res2.status).toBe(200);
+    const body2 = await res2.json();
+    expect(body2.response.responseId).toBe(body1.response.responseId);
+
+    // Test 3: Different-choice conflict → 409
+    const res3 = await fetch(`http://127.0.0.1:${port}/api/interactions/${interactionId}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'no' }),
+    });
+    expect(res3.status).toBe(409);
+
+    // Test 4: Unknown interaction → 404
+    const res4 = await fetch(`http://127.0.0.1:${port}/api/interactions/nonexistent/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'yes' }),
+    });
+    expect(res4.status).toBe(404);
+
+    // Test 5: Unknown properties → 400
+    const res5 = await fetch(`http://127.0.0.1:${port}/api/interactions/${interactionId}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ choiceId: 'yes', command: 'rm -rf' }),
+    });
+    expect(res5.status).toBe(400);
+
+    // Test 6: Empty body → 400
+    const res6 = await fetch(`http://127.0.0.1:${port}/api/interactions/${interactionId}/responses`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({}),
+    });
+    expect(res6.status).toBe(400);
   });
 });
