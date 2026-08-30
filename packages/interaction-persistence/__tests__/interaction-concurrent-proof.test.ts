@@ -115,6 +115,8 @@ describe('Interaction Concurrent Response Proof', () => {
     const responseB = makeResponse(interaction.interactionId, 'opt-a' as ChoiceId);
 
     // Submit both concurrently with same choice
+    // At the persistence level, one succeeds and one fails (UNIQUE constraint).
+    // The application layer (InteractionService) classifies the failure as idempotent.
     const results = await Promise.allSettled([
       store.recordResponse(interaction.interactionId, responseA),
       store.recordResponse(interaction.interactionId, responseB),
@@ -123,8 +125,9 @@ describe('Interaction Concurrent Response Proof', () => {
     const succeeded = results.filter((r) => r.status === 'fulfilled');
     const failed = results.filter((r) => r.status === 'rejected');
 
-    // One succeeds, one fails (UNIQUE constraint on response_id or interaction_id)
-    expect(succeeded.length + failed.length).toBe(2);
+    // One succeeds, one fails at persistence level (UNIQUE constraint)
+    expect(succeeded).toHaveLength(1);
+    expect(failed).toHaveLength(1);
 
     // Verify exactly one response
     const response = await store.getResponse(interaction.interactionId);

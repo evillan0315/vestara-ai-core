@@ -37,6 +37,7 @@ import type {
 } from '@vestara/interaction-persistence';
 import type { InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
 import { validateInteraction, validateResponseForInteraction } from '@vestara/types';
+import { ResponseConflictError } from './response-conflict-error';
 
 export interface InteractionServiceOptions {
   readonly persistence: InteractionPersistencePort;
@@ -96,11 +97,24 @@ export class InteractionService {
   }
 
   /**
-   * I1-4: Record a response to an interaction.
+   * I1-4 / I2-C1: Record a response to an interaction.
+   *
    * Atomic: resolve interaction → validate choice → insert response → create publication marker.
    * The database uniqueness constraint is the concurrency authority.
    *
+   * C1 correction: Classify duplicate responses:
+   *   - Same interaction + same choice → idempotent return of existing authoritative response
+   *   - Same interaction + different choice → ResponseConflictError
+   *
    * C2 correction: After emit, verify projection delivery before marking published.
+   *
+   * Algorithmic shape:
+   *   1. Validate immutable interaction/choice
+   *   2. Attempt authoritative response transaction (UNIQUE constraint)
+   *   3. On success → publish/verify/acknowledge normally
+   *   4. On uniqueness conflict → retrieve existing response → compare selectedChoiceId
+   *      - Same → return existing (idempotent, no publication)
+   *      - Different → throw ResponseConflictError
    */
   async recordResponse(interactionId: InteractionId, response: InteractionResponse): Promise<InteractionResponse> {
     // Resolve interaction
@@ -115,9 +129,27 @@ export class InteractionService {
       throw new Error(`Response validation failed: ${errors.map((e) => e.message).join(', ')}`);
     }
 
-    // Record response + publication marker (atomic via persistence adapter)
+    // Attempt authoritative response transaction
     // UNIQUE constraint enforces at most one response per interaction
-    const recorded = await this.persistence.recordResponse(interactionId, response);
+    let recorded: InteractionResponse;
+    try {
+      recorded = await this.persistence.recordResponse(interactionId, response);
+    } catch (insertErr) {
+      // Uniqueness conflict — classify: idempotent (same choice) vs conflict (different choice)
+      const existing = await this.persistence.getResponse(interactionId);
+      if (!existing) {
+        // Response does not exist despite UNIQUE failure — propagate unexpected error
+        throw insertErr;
+      }
+      if (existing.response.selectedChoiceId === response.selectedChoiceId) {
+        // Same choice — idempotent return of existing authoritative response.
+        // Do NOT re-emit, do NOT create new publication entry, do NOT modify existing response.
+        // The original publication owns pending/recovery if it was not yet delivered.
+        return existing.response;
+      }
+      // Different choice — semantic conflict
+      throw new ResponseConflictError(interactionId, response.selectedChoiceId, existing.response.selectedChoiceId);
+    }
 
     // Publish after committed persistence
     const eventId = `interaction:responded:${interactionId}`;
