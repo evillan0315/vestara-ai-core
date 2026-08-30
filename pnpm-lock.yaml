@@ -93,6 +93,12 @@ importers:
       '@vestara/host-runtime':
         specifier: workspace:*
         version: link:../../packages/host-runtime
+      '@vestara/interaction-app':
+        specifier: workspace:*
+        version: link:../../packages/interaction-app
+      '@vestara/interaction-persistence':
+        specifier: workspace:*
+        version: link:../../packages/interaction-persistence
       '@vestara/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel

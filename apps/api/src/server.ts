@@ -33,6 +33,7 @@ import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
 import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
+import { handleInteractionsRoute } from './routes/interactions';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
 import { handleGraphRoute } from './routes/graph';
@@ -186,6 +187,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   },
   { prefixes: ['/api/projects', '/api/sprints'], handler: handleProjectsRoute },
   { prefixes: ['/api/orders'], handler: handleOrdersRoute },
+  { prefixes: ['/api/interactions'], handler: handleInteractionsRoute },
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
   { prefixes: ['/api/activity-log', '/api/activity'], handler: handleActivityRoute },
   { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },

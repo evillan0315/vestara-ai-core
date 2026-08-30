@@ -33,6 +33,8 @@
     "@vestara/external-runtime": "workspace:*",
     "@vestara/filesystem-runtime": "workspace:*",
     "@vestara/host-runtime": "workspace:*",
+    "@vestara/interaction-app": "workspace:*",
+    "@vestara/interaction-persistence": "workspace:*",
     "@vestara/kernel": "workspace:*",
     "@vestara/marketplace": "workspace:*",
     "@vestara/memory": "workspace:*",

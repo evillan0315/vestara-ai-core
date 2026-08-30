@@ -6,6 +6,7 @@ export { handleConversationsRoute } from './conversations';
 export { handleEvidenceRoute } from './evidence';
 export { featureRequests, handleFeatureRequestsRoute } from './feature-requests';
 export { handleHostRoute } from './host';
+export { handleInteractionsRoute } from './interactions';
 export { handleMemoryRoute } from './memory';
 export { handleMilestonesRoute } from './milestones';
 export { handleMiscRoute } from './misc';
