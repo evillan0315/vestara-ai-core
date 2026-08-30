@@ -13,13 +13,15 @@
  * system, or UI-owned workflow state is introduced.
  */
 
-import type { AttentionEntry, ParticipantProjection, WorkflowSummary } from '@vestara/types';
+import type { AttentionEntry, InteractionResponse, ParticipantProjection, WorkflowSummary } from '@vestara/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type M11AActivityRecord,
   type M11AStreamItem,
+  classifySubmissionError,
   fetchM11AActivities,
   fetchM11ASnapshot,
+  submitInteractionResponse,
 } from '../lib/m11a-api';
 import { type M11BClient, type M11BConnectionState, m11bClient } from '../lib/m11b-client';
 
@@ -41,6 +43,24 @@ const LIVE_BATCH_MS = 40;
 
 /** UI connection state extending M11B's with local pause. */
 export type M11CConnectionState = 'connecting' | 'live' | 'reconnecting' | 'offline' | 'paused' | 'error';
+
+/**
+ * AR-REC-R6: Ephemeral submission UX state.
+ *
+ * This is frontend presentation state only. It MUST NOT become interaction
+ * lifecycle authority. Durable projected interaction state always wins.
+ *
+ * Ownership boundary:
+ *   - Transient: this type (lost on refresh, component-scoped)
+ *   - Durable: InteractionResponse in SQLite via InteractionService
+ *   - Lifecycle: interaction:responded event via M9→M10→M11B
+ */
+export type SubmissionState =
+  | { readonly status: 'idle' }
+  | { readonly status: 'submitting'; readonly interactionId: string; readonly choiceId: string }
+  | { readonly status: 'accepted'; readonly interactionId: string; readonly response: InteractionResponse }
+  | { readonly status: 'failure'; readonly interactionId: string; readonly error: string; readonly retryable: boolean }
+  | { readonly status: 'stale'; readonly interactionId: string };
 
 /** A stream item — either from M11A snapshot or live delivery. */
 export interface M11CStreamItem {
@@ -131,6 +151,12 @@ export interface M11CActivityRoom {
 
   /** Clear local view and re-fetch snapshot. */
   readonly clear: () => void;
+
+  /** AR-REC-R6: Current ephemeral submission state. */
+  readonly submission: SubmissionState;
+
+  /** AR-REC-R6: Submit a response to an interaction. Emits opaque ChoiceId to R5 ingress. */
+  readonly submitResponse: (interactionId: string, choiceId: string) => Promise<void>;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -258,6 +284,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const [error, setError] = useState<string | undefined>(undefined);
   const [paused, setPaused] = useState(false);
   const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(new Set());
+  const [submission, setSubmission] = useState<SubmissionState>({ status: 'idle' });
 
   // ─── Refs ───────────────────────────────────────────────
   const latestSequenceRef = useRef(0);
@@ -398,11 +425,88 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     }, 100);
   }, [clear]);
 
+  // ─── AR-REC-R6: Interaction Response Submission ──────────
+
+  /**
+   * Submit a human response to a structured interaction.
+   *
+   * Data flow:
+   *   DecisionOption → ChoiceId → onSelect → submitResponse
+   *   → POST /api/interactions/:id/responses { choiceId }
+   *   → InteractionService → durable InteractionResponse
+   *   → interaction:responded → M9→M10→M11B → durable presented state
+   *
+   * Race condition handling:
+   *   - Order A: HTTP success → transient accepted → live responded → durable wins
+   *   - Order B: live responded → durable wins → HTTP callback → no regression
+   *   - Near-simultaneous: convergence via submission interactionId check
+   *
+   * Convergence invariant:
+   *   Once lifecycle === 'responded' is observed in the stream for this
+   *   interactionId, transient state is cleared regardless of HTTP timing.
+   */
+  const submitResponse = useCallback(async (interactionId: string, choiceId: string) => {
+    // Double-click suppression (UX only — server UNIQUE constraint is authority)
+    if (submission.status === 'submitting' && submission.interactionId === interactionId) {
+      return;
+    }
+
+    setSubmission({ status: 'submitting', interactionId, choiceId });
+
+    try {
+      const result = await submitInteractionResponse(interactionId, choiceId);
+
+      // Check if durable state already arrived via live event (Order B convergence)
+      const streamHasResponded = stream.some(
+        (item) =>
+          item.interaction?.interactionId === interactionId && item.interaction?.lifecycle === 'responded',
+      );
+
+      if (streamHasResponded) {
+        // Durable state already wins — clear transient, don't show accepted
+        setSubmission({ status: 'idle' });
+      } else {
+        // HTTP success before live event (Order A) — show accepted transiently
+        setSubmission({ status: 'accepted', interactionId, response: result.response });
+      }
+    } catch (err) {
+      // Check if durable state arrived despite error (Order B convergence)
+      const streamHasResponded = stream.some(
+        (item) =>
+          item.interaction?.interactionId === interactionId && item.interaction?.lifecycle === 'responded',
+      );
+
+      if (streamHasResponded) {
+        // Durable state already wins — ignore transient error
+        setSubmission({ status: 'idle' });
+        return;
+      }
+
+      const classified = classifySubmissionError(err);
+      setSubmission({
+        status: 'failure',
+        interactionId,
+        error: classified.message,
+        retryable: classified.retryable,
+      });
+    }
+  }, [submission, stream]);
+
   // ─── Live Activity Handler ──────────────────────────────
 
   const handleLiveActivity = useCallback(
     (activity: M11AActivityRecord, sequence: number) => {
       const item = streamItemFromLive(activity, true);
+
+      // AR-REC-R6: Convergence — when durable responded arrives, clear transient submission
+      if (
+        activity.type === 'interaction.responded' &&
+        submission.status !== 'idle' &&
+        submission.interactionId === item.interaction?.interactionId
+      ) {
+        // Durable state wins — clear transient submission
+        setSubmission({ status: 'idle' });
+      }
 
       if (pausedRef.current) {
         // Buffer while paused
@@ -431,7 +535,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
       updateSequence(sequence);
     },
-    [bumpUnread, mergeStream, updateSequence],
+    [bumpUnread, mergeStream, updateSequence, submission],
   );
 
   // ─── WebSocket Lifecycle ────────────────────────────────
@@ -579,5 +683,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     clearUnread,
     retry,
     clear,
+    submission,
+    submitResponse,
   };
 }

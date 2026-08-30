@@ -10,6 +10,7 @@ import type {
   ActivityRecord as M9ActivityRecord,
   ActivityRoomProjection,
   AttentionEntry,
+  InteractionResponse,
   ParticipantProjection,
   WorkflowSummary,
 } from '@vestara/types';
@@ -191,4 +192,75 @@ export async function fetchM11AAttention(): Promise<readonly AttentionEntry[]> {
 
 export async function fetchM11AWorkflowSummary(): Promise<WorkflowSummary | null> {
   return m11aFetch<WorkflowSummary | null>('/api/activity-room/v1/workflow-summary');
+}
+
+// ─── Interaction Response Submission (R6) ───────────────────
+
+/**
+ * AR-REC-R6: Submit a human response to a structured interaction.
+ *
+ * Consumes the frozen R5 HTTP contract exactly:
+ *   POST /api/interactions/:interactionId/responses
+ *   Body: { "choiceId": "..." }
+ *
+ * Server-derived provenance (not sent by client):
+ *   - respondingParticipantId (from auth)
+ *   - respondingParticipantName (from auth)
+ *   - responseId (server-generated UUID)
+ *   - respondedAt (server time)
+ *
+ * Response semantics:
+ *   - 201: first response accepted
+ *   - 200: same-choice retry (idempotent)
+ *   - 409: conflict (different choice already recorded)
+ *   - 404: interaction not found
+ *   - 400: validation failure
+ *   - 500: server error
+ */
+export async function submitInteractionResponse(
+  interactionId: string,
+  choiceId: string,
+): Promise<{ readonly response: InteractionResponse }> {
+  return m11aFetch<{ readonly response: InteractionResponse }>(
+    `/api/interactions/${encodeURIComponent(interactionId)}/responses`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ choiceId }),
+    },
+  );
+}
+
+// ─── Submission Error Types (R6) ────────────────────────────
+
+/**
+ * Typed error for interaction response submission failures.
+ * Maps HTTP status codes to structured error information.
+ */
+export interface InteractionSubmissionError {
+  readonly kind: 'validation' | 'not-found' | 'conflict' | 'server' | 'network';
+  readonly message: string;
+  readonly retryable: boolean;
+}
+
+/**
+ * Parse an HTTP error from submitInteractionResponse into a typed
+ * InteractionSubmissionError for UI feedback.
+ */
+export function classifySubmissionError(error: unknown): InteractionSubmissionError {
+  const msg = error instanceof Error ? error.message : String(error);
+
+  if (msg.includes('HTTP 400') || msg.includes('validation')) {
+    return { kind: 'validation', message: msg, retryable: false };
+  }
+  if (msg.includes('HTTP 404') || msg.includes('not found')) {
+    return { kind: 'not-found', message: 'Interaction is no longer available', retryable: false };
+  }
+  if (msg.includes('HTTP 409') || msg.includes('conflict')) {
+    return { kind: 'conflict', message: 'A response has already been recorded', retryable: false };
+  }
+  if (msg.includes('HTTP 500') || msg.includes('Internal')) {
+    return { kind: 'server', message: 'Server error — please try again', retryable: true };
+  }
+  // Network / fetch failure
+  return { kind: 'network', message: 'Network error — please try again', retryable: true };
 }

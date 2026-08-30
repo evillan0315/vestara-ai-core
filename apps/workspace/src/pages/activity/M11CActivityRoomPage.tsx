@@ -186,6 +186,8 @@ export default function M11CActivityRoomPage() {
             onOpenDetail={handleOpenDetail}
             onDrillDown={handleDrillDown}
             selectedParticipantId={selectedParticipantId}
+            submission={room.submission}
+            onSubmitResponse={room.submitResponse}
           />
 
           {/* Composer (visual/non-mutating for M11C) */}

@@ -11,9 +11,10 @@
  */
 
 import { useCallback } from 'react';
-import type { M11CStreamItem as StreamItemType } from '../../hooks/useM11CActivityRoom';
+import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
+import type { InteractionFeedbackState } from '../../components/interaction/InteractionAsyncFeedback';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -21,6 +22,10 @@ interface M11CStreamItemProps {
   readonly item: StreamItemType;
   readonly onOpenDetail?: (item: StreamItemType) => void;
   readonly onDrillDown?: (aggregateId: string, referencedIds: readonly string[]) => void;
+  /** AR-REC-R6: Ephemeral submission state for interaction responses. */
+  readonly submission?: SubmissionState;
+  /** AR-REC-R6: Submit a response to an interaction. */
+  readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
 }
 
 // ─── Visual Config ───────────────────────────────────────────
@@ -90,6 +95,8 @@ export default function M11CStreamItemComponent({
   item,
   onOpenDetail,
   onDrillDown,
+  submission,
+  onSubmitResponse,
 }: M11CStreamItemProps) {
   const styles = IMPORTANCE_STYLES[item.importance] ?? IMPORTANCE_STYLES.secondary;
   const icon = KIND_ICON[item.kind] ?? '◈';
@@ -157,15 +164,47 @@ export default function M11CStreamItemComponent({
           }
         : undefined;
 
+    // AR-REC-R6: Derive feedback state from ephemeral submission state
+    const feedback: InteractionFeedbackState | undefined = (() => {
+      if (!submission || submission.interactionId !== item.interaction.interactionId) {
+        return undefined;
+      }
+      switch (submission.status) {
+        case 'submitting':
+          return { status: 'submitting' as const };
+        case 'accepted':
+          return { status: 'accepted' as const, response: submission.response };
+        case 'failure':
+          return { status: 'failure' as const, error: submission.error, retryable: submission.retryable };
+        case 'stale':
+          return { status: 'stale' as const };
+        default:
+          return undefined;
+      }
+    })();
+
+    // AR-REC-R6: Disable choices during submission (UX only — server is authority)
+    const isSubmitting = submission?.status === 'submitting' && submission.interactionId === item.interaction.interactionId;
+    const isResolved = item.interaction.lifecycle === 'responded';
+
+    // AR-REC-R6: Wire onSelect to submitResponse (opaque ChoiceId → R5 ingress)
+    const handleSelect = useCallback(
+      (choiceId: ChoiceId) => {
+        if (onSubmitResponse && !isResolved && !isSubmitting) {
+          void onSubmitResponse(item.interaction!.interactionId, choiceId);
+        }
+      },
+      [onSubmitResponse, item.interaction, isResolved, isSubmitting],
+    );
+
     return (
       <InteractionCard
         interaction={interaction}
         response={response}
-        onSelect={() => {
-          // R4: opaque callback — no execution semantics assigned
-          // Response submission belongs to R5
-        }}
-        resolved={item.interaction.lifecycle === 'responded'}
+        onSelect={handleSelect}
+        feedback={feedback}
+        resolved={isResolved}
+        disabled={isSubmitting || isResolved}
         importance={item.importance}
         fresh={item.fresh}
         ariaLabel={`${item.interaction.lifecycle === 'presented' ? 'Interaction' : 'Response'}: ${item.content.slice(0, 80)}`}

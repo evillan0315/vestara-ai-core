@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { M11CStreamItem as StreamItemType } from '../../hooks/useM11CActivityRoom';
+import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import M11CStreamItemComponent from './M11CStreamItem';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -49,6 +49,10 @@ interface M11CActivityStreamProps {
   readonly onDrillDown?: (aggregateId: string, referencedIds: readonly string[]) => void;
   /** Currently selected participant (for filtering). */
   readonly selectedParticipantId?: string;
+  /** AR-REC-R6: Ephemeral submission state for interaction responses. */
+  readonly submission?: SubmissionState;
+  /** AR-REC-R6: Submit a response to an interaction. */
+  readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -66,6 +70,8 @@ export default function M11CActivityStream({
   onOpenDetail,
   onDrillDown,
   selectedParticipantId,
+  submission,
+  onSubmitResponse,
 }: M11CActivityStreamProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
@@ -184,6 +190,8 @@ export default function M11CActivityStream({
                 item={item}
                 onOpenDetail={onOpenDetail}
                 onDrillDown={onDrillDown}
+                submission={submission}
+                onSubmitResponse={onSubmitResponse}
               />
             ))}
           </>
