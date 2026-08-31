@@ -81,8 +81,11 @@ describe('GlobalAssistant — Slice 1: Shell Mount', () => {
     });
 
     // After click, label changes to "Close assistant"
-    const closeButton = screen.getByRole('button', { name: /close assistant/i });
-    expect(closeButton.getAttribute('aria-expanded')).toBe('true');
+    // Multiple buttons may match; find the launcher (has aria-expanded)
+    const closeButtons = screen.getAllByRole('button', { name: /close assistant/i });
+    const launcher = closeButtons.find((b) => b.getAttribute('aria-expanded') !== null);
+    expect(launcher).toBeDefined();
+    expect(launcher!.getAttribute('aria-expanded')).toBe('true');
   });
 
   it('does not import Activity Room modules', async () => {

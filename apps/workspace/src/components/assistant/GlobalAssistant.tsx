@@ -15,6 +15,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { FloatingPanel } from './FloatingPanel';
 
 // ─── Launcher ─────────────────────────────────────────────────
 
@@ -36,7 +37,6 @@ function AssistantLauncher({
       aria-expanded={panelOpen}
       className="fixed bottom-6 right-6 z-[90] flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/90 text-zinc-900 shadow-lg transition-all hover:bg-amber-400 hover:shadow-xl hover:scale-105 active:scale-95 cursor-pointer"
     >
-      {/* Lightning bolt icon */}
       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
       </svg>
@@ -48,7 +48,9 @@ function AssistantLauncher({
 
 export function GlobalAssistant() {
   const [panelOpen, setPanelOpen] = useState(false);
+  const [panelMinimized, setPanelMinimized] = useState(false);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
+  const focusOnMountRef = useRef<HTMLElement | null>(null);
 
   // GA-2: conversation state (eager — list fetches on mount)
   const assistant = useAssistantConversation();
@@ -57,7 +59,24 @@ export function GlobalAssistant() {
   const surface = useSurfaceContext();
 
   const togglePanel = useCallback(() => {
-    setPanelOpen((prev) => !prev);
+    setPanelOpen((prev) => {
+      if (prev) {
+        // Closing: focus returns to launcher
+        setTimeout(() => launcherRef.current?.focus(), 0);
+      }
+      return !prev;
+    });
+    setPanelMinimized(false);
+  }, []);
+
+  const minimizePanel = useCallback(() => {
+    setPanelMinimized(true);
+    // Focus returns to launcher
+    setTimeout(() => launcherRef.current?.focus(), 0);
+  }, []);
+
+  const restorePanel = useCallback(() => {
+    setPanelMinimized(false);
   }, []);
 
   return (
@@ -65,11 +84,24 @@ export function GlobalAssistant() {
       <AssistantLauncher
         launcherRef={launcherRef}
         onClick={togglePanel}
-        panelOpen={panelOpen}
+        panelOpen={panelOpen && !panelMinimized}
       />
 
-      {/* Phase 2: Floating panel renders here when panelOpen */}
-      {/* Phase 3: Conversation presentation inside panel */}
+      <FloatingPanel
+        open={panelOpen}
+        minimized={panelMinimized}
+        workspaceId={surface.workspace.id}
+        onMinimize={minimizePanel}
+        onClose={togglePanel}
+        launcherRef={launcherRef}
+        focusOnMountRef={focusOnMountRef}
+      >
+        {/* Phase 3: Conversation presentation */}
+        {/* Placeholder for Slice 3 */}
+        <div className="flex h-full items-center justify-center p-4 text-xs text-zinc-600">
+          Assistant ready
+        </div>
+      </FloatingPanel>
     </>
   );
 }
