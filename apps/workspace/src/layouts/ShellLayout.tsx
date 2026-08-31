@@ -3,6 +3,7 @@ import { Outlet } from 'react-router-dom';
 import { GraphProvider } from '../components/graph/GraphContext';
 import { GraphSearch } from '../components/graph/GraphSearch';
 import { Inspector } from '../components/graph/Inspector';
+import { GlobalAssistant } from '../components/assistant/GlobalAssistant';
 import { SurfaceContextProvider } from '../contexts/SurfaceContext';
 import AppHeader from '../components/layout/AppHeader/AppHeader';
 import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
@@ -73,6 +74,7 @@ export default function ShellLayout() {
         </div>
         <Inspector />
         <GraphSearch />
+        <GlobalAssistant />
       </SurfaceContextProvider>
     </GraphProvider>
   );
