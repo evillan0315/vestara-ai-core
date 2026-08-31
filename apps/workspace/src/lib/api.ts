@@ -144,6 +144,21 @@ export async function getWorkspace(): Promise<WorkspaceData | null> {
   };
 }
 
+/**
+ * Fetch workspace identity (id + name) from the workspace manifest.
+ * GET /api/workspace returns { status, fingerprint, profile, presentation }.
+ * Used by SurfaceContext for bounded workspace scope reference.
+ */
+export async function getWorkspaceIdentity(): Promise<{ id: string; name: string } | null> {
+  const data = await fetchJSON('/api/workspace');
+  if (!data) return null;
+  const fp = data.fingerprint ?? {};
+  return {
+    id: fp.id ?? 'unknown',
+    name: fp.name ?? 'unknown',
+  };
+}
+
 /** Fetch engineering sessions. GET /api/sessions → { sessions } */
 export async function getSessions(): Promise<SessionData[]> {
   const data = await fetchJSON('/api/sessions');
