@@ -16,6 +16,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { FloatingPanel } from './FloatingPanel';
+import { ConversationPanel } from './ConversationPanel';
 
 // ─── Launcher ─────────────────────────────────────────────────
 
@@ -75,10 +76,6 @@ export function GlobalAssistant() {
     setTimeout(() => launcherRef.current?.focus(), 0);
   }, []);
 
-  const restorePanel = useCallback(() => {
-    setPanelMinimized(false);
-  }, []);
-
   return (
     <>
       <AssistantLauncher
@@ -96,11 +93,7 @@ export function GlobalAssistant() {
         launcherRef={launcherRef}
         focusOnMountRef={focusOnMountRef}
       >
-        {/* Phase 3: Conversation presentation */}
-        {/* Placeholder for Slice 3 */}
-        <div className="flex h-full items-center justify-center p-4 text-xs text-zinc-600">
-          Assistant ready
-        </div>
+        <ConversationPanel assistant={assistant} focusOnMountRef={focusOnMountRef} />
       </FloatingPanel>
     </>
   );
