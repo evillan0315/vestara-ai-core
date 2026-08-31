@@ -1,9 +1,10 @@
-# VESTARA-INTELLIGENCE M-B1 — GA-2 Independent Conversation Preflight
+# VESTARA-INTELLIGENCE M-B1 — GA-2 Independent Conversation Preflight (Corrected)
 
 **Date:** 2026-08-31
-**Phase:** GA-2 (Independent Conversation) — Preflight
+**Phase:** GA-2 (Independent Conversation) — Preflight (Bounded Correction)
 **Status:** Zero-mutation preflight (no source/test/schema/persistence/API/UI/config/behavior changes)
 **Governing Specification:** VESTARA-INTELLIGENCE Architecture Review (frozen `2661a54`)
+**Correction Scope:** Lifecycle policy, authority boundaries, ContextAssembler relationship, provider/model compatibility. No architectural reversal.
 
 ---
 
@@ -138,31 +139,32 @@ Delete → hard DELETE from store → [removed from memory and DB]
 
 | Option | Continuity | Workspace Restart | Multi-Client | History | Assessment |
 |--------|-----------|-------------------|--------------|---------|------------|
-| One conversation per Workspace | Across pages | Survives | Shared | Full | ✅ Best fit |
-| Multiple explicit conversations | Per topic | Survives | Shared | Per-topic | Over-engineered for GA-2 |
+| One conversation per Workspace | Across pages | Survives | Shared | Full | INITIAL UI POLICY — not GA-2 contract |
+| Multiple explicit conversations | Per topic | Survives | Shared | Per-topic | ✅ Supported by ConversationService |
 | One per browser/session | Lost on close | Lost | Isolated | Session-only | No persistence |
 | Continue existing Vestara conversations | N/A | N/A | N/A | Existing | Conflict with Chat page |
 
-### Recommendation: One Active Conversation per Workspace
+### Disposition: INITIAL UI POLICY, Not Contract Requirement
 
-**One active conversation per Workspace** with the ability to archive and create new ones.
+**"One active conversation per Workspace" is an INITIAL UI POLICY, not a GA-2 contract requirement or conversation authority semantic.**
 
-Rationale:
-- **Continuity across page navigation**: Conversation persists in ConversationService (SQLite). Navigating away from Chat does not destroy it.
-- **Workspace restart**: Conversation survives restart (SQLite persistence at `{workspaceDir}/conversations/conversations.db`).
-- **Future Assistant Workspace expansion**: A single conversation per workspace scales to multi-turn dialog without complexity.
-- **Conversation history**: Full message history available via `getConversation(id)`.
-- **Model/provider changes**: `SendOptions.model` is per-message — model can change mid-conversation.
-- **Multiple browser clients**: SQLite is single-process. Multiple tabs share the same API server → same ConversationService instance. Concurrent access has no guarantees (see §J).
-- **Bounded context**: Conversation history provides bounded context for the AI. ContextAssembler builds prompt from message history.
-- **Degraded Activity Room**: Activity Room failure does not affect ConversationService (separate DB, separate service).
+| Concept | Classification | Owner |
+|---------|---------------|-------|
+| Conversation identity | Existing authority | ConversationService (`conv-{ts}-{counter}`) |
+| Conversation lifecycle | Existing authority | ConversationService (create/active/archived/deleted) |
+| Client-selected conversation | Presentation state | GA-2 adapter (selectedConversationId) |
+| Assistant presentation policy | UI policy | GA-1 (future) — may choose to surface one conversation |
+
+**GA-2 supports Workspace → zero..N Assistant conversations.** The ConversationService already supports this — `listConversations(userId)` returns all conversations, `createConversation()` creates new ones. There is no "one active conversation" constraint in the service.
+
+**The initial GA-1 UI may choose to surface one currently selected conversation.** That is a presentation decision, not a conversation authority. GA-2's adapter must not encode UI convenience as conversation authority.
 
 ### Conversation Identity for Assistant
 
 The Assistant does NOT need a special conversation type. It reuses the existing `Conversation` model:
-- `userId` = the human actor (from `useAuth().actor` or API auth context)
+- `userId` = the human actor (from API auth context)
 - `title` = auto-generated or user-provided
-- `status` = `'active'` for the current conversation, `'archived'` for completed ones
+- `status` = `'active'` for ongoing conversations, `'archived'` for completed ones
 
 **No new conversation authority.** GA-2 is a thin adapter that exposes existing ConversationService through the Assistant UI.
 
@@ -428,31 +430,31 @@ When the provider/model is unavailable:
 | ConversationService | **REUSE** | Existing service, fully independent |
 | ConversationStore (SQLite) | **REUSE** | Existing persistence, workspace-scoped |
 | Conversation API routes | **REUSE** | `POST /api/conversations`, `POST /api/conversations/:id/stream` |
-| ContextAssembler | **REUSE** | Builds prompt from conversation history |
+| ContextAssembler | **REUSE** | Builds prompt from conversation history — no extension |
 | ProviderExecutor | **REUSE** | AI provider invocation |
 | EventBus | **REUSE** | Optional event publication |
-| Surface Context association | **ADAPTER** | Thin adapter: attach ephemeral context to API calls |
-| Global Assistant UI | **ADAPTER** | New UI surface using existing ConversationService API |
-| useConversation hook | **ADAPTER** | React hook wrapping ConversationService API for Assistant UI |
+| useAssistantConversation | **ADAPTER** (new) | React hook wrapping ConversationService API for Assistant UI |
+| Surface Context association | **DEFER TO GA-1/CTX** | ContextAssembler has no slot for external context; do not modify |
 
 ### What GA-2 Creates
 
 | Artifact | Type | Purpose |
 |----------|------|---------|
-| `apps/workspace/src/contexts/AssistantContext.tsx` | **ADAPTER** (new) | Manages assistant conversation state (active conversation ID, creation, selection) |
-| `apps/workspace/src/hooks/useAssistantConversation.ts` | **ADAPTER** (new) | React hook wrapping conversation API calls (create, send, stream, list) |
-| Type tests | **NEW** | Contract verification |
+| `apps/workspace/src/hooks/useAssistantConversation.ts` | **ADAPTER** (new) | React hook: create, send, stream, list, select conversation |
+| Type/hook tests | **NEW** | Contract verification |
 
 ### What GA-2 Does NOT Create
 
 | Not Created | Reason |
 |------------|--------|
+| AssistantContext provider | Client state is per-component, not global context (see §M) |
 | New conversation store/service | REUSE existing ConversationService |
 | New API endpoints | REUSE existing conversation routes |
 | New persistence layer | REUSE existing SQLite store |
 | New AI invocation path | REUSE existing ProviderExecutor |
 | New routing logic | REUSE existing ProviderManager |
-| Activity Room integration | Independent — no integration needed |
+| Surface Context integration | DEFER — ContextAssembler has no slot (see §N.4) |
+| Archive/delete behavior | No REST endpoint exists; do not invent (see §N.3) |
 
 ---
 
@@ -467,17 +469,18 @@ When the provider/model is unavailable:
 | Workspace initialization | REUSE `WorkspaceContext.conversationService` | None — same instance |
 | Polling | None — SSE streaming via `POST /api/conversations/:id/stream` | None |
 | New runtime sessions | None — ConversationService is already initialized per workspace | None |
-| Model invocation | None during GA-2 preflight — future CTX-1+ | None |
+| Model invocation | None during GA-2 preflight — future GA-1/CTX | None |
+| ContextAssembler | REUSE as-is — no extension for Surface Context | None |
 
 ### Unavoidable Additional Work
 
 | Work | Cost | Justification |
 |------|------|---------------|
 | Creating conversation on first message | One `POST /api/conversations` call | Required — conversation must exist before messages |
-| Surface Context attachment | One field per API call | Ephemeral, no persistence cost |
-| Assistant UI rendering | React component | Required for user interaction |
+| Listing conversations | One `GET /api/conversations` call | Required — show conversation history |
+| Selecting conversation | Client state (useState) | Per-component, no global context needed |
 
-**GA-2 adds zero persistence overhead, zero polling, and zero new runtime sessions.** It is purely a UI adapter over existing infrastructure.
+**GA-2 adds zero persistence overhead, zero polling, zero new runtime sessions, and zero ContextAssembler modifications.** It is purely a UI adapter over existing infrastructure.
 
 ---
 
@@ -489,13 +492,126 @@ When the provider/model is unavailable:
 | 2 | **OBSERVATION** | Chat page and CLI REPL already demonstrate ConversationService usage independent of Activity Room. GA-2 follows the same pattern. |
 | 3 | **OBSERVATION** | `projectId` in Conversation type is declared but never set — dead schema. Workspace scoping is implicit via DB file path. |
 | 4 | **OBSERVATION** | `ConversationStatus = 'deleted'` is never used — `listConversations` filter for `status !== 'deleted'` is dead code. |
-| 5 | **OBSERVATION** | No close/archive REST endpoint exists — `closeConversation()` method is unreachable via HTTP. |
+| 5 | **OBSERVATION** | No close/archive REST endpoint exists — `closeConversation()` method is unreachable via HTTP. Archive removed from GA-2 scope. |
 | 6 | **OBSERVATION** | No delete event is published — deletion is silent. |
 | 7 | **ADJACENT** | `addMessage` performs INSERT + UPDATE without transaction wrapper — crash between them leaves inconsistent state. |
 | 8 | **ADJACENT** | Full DB dump on every mutation (`_persist()`) — O(n) write cost grows with database size. |
 | 9 | **OBSERVATION** | No concurrency controls — concurrent `sendMessage()` on same conversation can interleave messages. Sufficient for single-client GA-2 usage. |
 | 10 | **OBSERVATION** | `generateId('conv')` uses `messageCounter` (not `conversationCounter`) — misleading variable name. |
 | 11 | **OBSERVATION** | M11C Activity Room only accepts structured interaction responses, not free-form messages — different ingress model from legacy Activity Room. |
+| 12 | **CORRECTION** | "One active conversation per Workspace" is INITIAL UI POLICY, not GA-2 contract requirement. GA-2 supports zero..N conversations. |
+| 13 | **CORRECTION** | AssistantContext removed from GA-2 scope. Client state (selectedConversationId) is per-component, not global context. ConversationService remains lifecycle authority. |
+| 14 | **CORRECTION** | Archive/delete removed from GA-2 scope — no REST endpoint exists; do not invent lifecycle semantics. |
+| 15 | **CORRECTION** | Surface Context attachment DEFERRED to GA-1/CTX — ContextAssembler has no slot for external context; conversation API accepts only `message` + `model`. |
+| 16 | **OBSERVATION** | `DefaultContextAssembler` builds prompt from: system prompt + last 20 conversation messages + current user message. No external context injection. GA-2 must not extend it. |
+| 17 | **CORRECTION** | Human message persistence is decoupled from provider invocation — user message persisted eagerly (line 155/277), provider failure caught and embedded in response (not rolled back). Process crash between persist and response leaves orphaned user message. Existing behavior, not a GA-2 blocker. |
+| 18 | **ADJACENT** | Conversation API accepts `body.model` → `SendOptions.model` → `ContextAssembler`. Callers can select model directly. This predates M4 authority semantics. GA-2 documents this as architectural compatibility finding; does not fix it. |
+
+---
+
+## O. ContextAssembler Relationship (Correction §5)
+
+### Current ContextAssembler Behavior
+
+**Interface:** `packages/context/src/index.ts:23-25`
+```ts
+buildContext(conversation: Conversation, userMessage: string, options?: ContextOptions): CompletionRequest
+```
+
+**ContextOptions:** `{ systemPrompt?, model?, temperature?, maxTokens? }` — generation parameters only.
+
+**DefaultContextAssembler builds:**
+1. System message (from `options.systemPrompt` or hardcoded default)
+2. Last 20 conversation messages (sliced from `conversation.messages`)
+3. Current user message
+
+**No external context slot.** The interface accepts only `Conversation` + `string` + `ContextOptions`. There is no parameter for Surface Context, workspace state, UI state, metadata, or any contextual envelope.
+
+### GA-2 Must Not Extend ContextAssembler
+
+GA-2 owns conversation continuity, not reasoning-context assembly. Extending ContextAssembler to accept Surface Context would:
+- Create a new context injection authority
+- Conflict with future CTX-1+ Context Intelligence
+- Violate the architecture review (INV-CTX-1: relevance does not confer authority)
+
+**Surface Context integration is DEFERRED to GA-1/CTX.** When Context Intelligence is ready to consume Surface Context, it will extend the ContextAssembler interface through its own authorized phase.
+
+---
+
+## P. Human Message / Provider Failure Atomicity (Correction §6)
+
+### Current Behavior (Production Evidence)
+
+**`sendMessage()` sequence (lines 140-256):**
+1. User message created and pushed to in-memory conversation (line 153)
+2. **User message persisted to store** (line 155: `store?.addMessage`)
+3. Event `conversation:message.sent` emitted (line 157)
+4. Context built via ContextAssembler (line 171)
+5. Provider called (line 187: `providerExecutor.complete`)
+6. On failure: error caught, embedded in response content (lines 205-215)
+7. Assistant response message created and persisted (line 233)
+8. Event `conversation:response.completed` emitted (line 235)
+
+**`sendMessageStream()` sequence (lines 258-366):**
+1. User message created and pushed to in-memory conversation (line 275)
+2. **User message persisted to store** (line 277: `store?.addMessage`)
+3. Event `conversation:message.sent` emitted (line 279)
+4. Context built (line 287)
+5. Provider stream iterated (line 303)
+6. On failure: error chunk yielded, full content set to error string (lines 324-328)
+7. Assistant response message created and persisted (line 346)
+8. Final complete chunk yielded (line 361)
+
+### Atomicity Classification
+
+| Property | Status | Detail |
+|----------|--------|--------|
+| User message persisted before provider call | ✅ Yes | Lines 155/277 — eager persistence |
+| Provider failure rolls back user message | ❌ No | Error caught, embedded in response; user message stays |
+| Process crash leaves orphaned user message | ⚠️ Possible | Crash between line 155 and line 233/346 |
+| Transaction wrapping | ❌ No | No SQLite transaction around the pair |
+| Error response persisted | ✅ Yes | Error text becomes assistant message content |
+
+### GA-2 Impact
+
+**Not a blocker.** The existing behavior already supports the desired degraded state:
+
+```
+Conversation HEALTHY → human message PERSISTED → provider UNAVAILABLE
+```
+
+The human message is durable. The provider failure is caught and recorded as an assistant message with error content. The conversation does not disappear. GA-2 does not need to change this behavior.
+
+**Adjacent finding:** The orphaned-message-on-crash gap is pre-existing architecture. It is not introduced by GA-2 and is not in scope for correction.
+
+---
+
+## Q. Provider/Model Compatibility (Correction §7)
+
+### Current Model Selection Path
+
+```
+POST /api/conversations/:id/messages
+  body.model (optional string)
+    → SendOptions.model (optional string)
+      → ContextAssembler.buildContext() → CompletionRequest.model
+        → ProviderExecutor.complete(request)
+          → ProviderManager.resolveConversationRoute(request.model)
+```
+
+### Observation
+
+The conversation API accepts `body.model` and forwards it directly to the provider. The caller selects the model. `SendOptions.model` is optional — if absent, `DefaultContextAssembler` defaults to `'deepseek-v4-flash-free'`.
+
+This predates M4 (ProviderManager/EngineeringRoutingRuntime) authority semantics. The conversation API was designed for direct model selection, not governed routing.
+
+### GA-2 Impact
+
+**GA-2 documents this as an architectural compatibility finding.** The conversation API's model selection path may conflict with M4's routing authority if M4 intends to be the sole model-selection authority.
+
+**GA-2 does not fix this.** GA-2 reuses the existing API as-is. If M4 authority requires governing conversation model selection, that is a future architectural decision — not a GA-2 correction.
+
+**Classification:** ADJACENT — real finding, not blocking GA-2, candidate for future architectural hardening.
 
 ---
 
@@ -504,15 +620,19 @@ When the provider/model is unavailable:
 | Field | Value |
 |-------|-------|
 | **ConversationService authority** | Fully independent. Single writer. Write-through persistence. 7 event types. |
-| **Recommended conversation model** | One active conversation per Workspace. Reuses existing Conversation model. |
+| **Conversation model** | Workspace → zero..N conversations. "One active" is UI policy, not contract. |
 | **Persistence ownership** | ConversationService → SqliteConversationStore → `{workspaceDir}/conversations/conversations.db` |
 | **Canonical ingress** | Existing `POST /api/conversations/:id/stream` (SSE) — already independent of Activity Room |
-| **Surface Context association** | Ephemeral turn input — attached to API call, not persisted in conversation history |
+| **AssistantContext** | REMOVED — client state (selectedConversationId) is per-component, not global context |
+| **Archive/delete** | REMOVED — no REST endpoint exists; do not invent lifecycle semantics |
+| **Surface Context association** | DEFERRED to GA-1/CTX — ContextAssembler has no slot for external context |
+| **ContextAssembler** | REUSE as-is — builds prompt from system + last 20 messages + current message. No extension. |
+| **Human message/provider atomicity** | Decoupled — user message persisted eagerly, provider failure caught (not rolled back). Existing behavior. |
+| **Provider/model compatibility** | Callers pass `model` via SendOptions — predates M4. Documented as architectural finding. |
 | **Activity Room independence** | ✅ Proven — zero shared dependencies, zero shared persistence |
-| **Provider/model boundary** | ConversationService passes through; ProviderManager/ProviderExecutor own resolution |
 | **Multi-client** | Single-process sufficient for GA-2. No distributed sync needed. |
-| **Degraded AI** | Conversation persists even when provider unavailable. Human message accepted, AI response deferred. |
-| **Canonical incident** | GA-2 enables conversation + message persistence. AI response available (provider not WASM-dependent). Diagnostic/work initiation belongs to GA-1/DIAG-1+/Governance. |
-| **Proposed adapter** | REUSE ConversationService + ADAPTER for Assistant UI + ADAPTER for Surface Context attachment |
+| **Degraded AI** | Conversation persists when provider unavailable. Human message accepted, AI response deferred. |
+| **Canonical incident** | GA-2 enables conversation + message persistence. AI response available (provider not WASM-dependent). |
+| **Proposed adapter** | REUSE ConversationService + ADAPTER useAssistantConversation hook |
 | **Blockers** | None |
-| **Recommended GA-2 slices** | GA-2a: AssistantContext (conversation state management). GA-2b: useAssistantConversation (API adapter hook). GA-2c: Type/hook tests. |
+| **Corrected GA-2 slices** | GA-2a: useAssistantConversation hook (API adapter). GA-2b: Type/hook tests. |
