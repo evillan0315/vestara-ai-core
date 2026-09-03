@@ -10,7 +10,7 @@ import { AgentFilters, type AgentFiltersState } from './Agents/AgentFilters';
 import AgentRegistryModal from './Agents/AgentRegistryModal';
 import { apiFetch } from './Agents/api';
 import { ExecutionChart } from './Agents/charts/ExecutionChart';
-import { ALL_AGENT_SLOTS } from './Agents/constants';
+// ALL_AGENT_SLOTS removed — agents are sourced dynamically from GET /api/agents
 import ExecutionSummaryPanel from './Agents/ExecutionSummaryPanel';
 import LiveActivityPanel from './Agents/LiveActivityPanel';
 import RuntimeStatusBar from './Agents/RuntimeStatusBar';
@@ -61,32 +61,9 @@ export default function AgentsPage() {
     return off;
   }, [load]);
 
-  const allAgentSlots = useMemo<Agent[]>(() => {
-    return ALL_AGENT_SLOTS.map((slot) => {
-      const registered = agents.find((a) => a.role === slot.role);
-      return (
-        registered ||
-        ({
-          id: `slot-${slot.role}`,
-          name: slot.defaultName,
-          role: slot.role,
-          description: 'Not registered — add via Agent Registry',
-          capabilities: [],
-          permissions: [],
-          status: 'unregistered',
-          color: slot.color,
-          agentType: 'workspace',
-          createdAt: '',
-        } as Agent)
-      );
-    });
-  }, [agents]);
-
+  // Agents sourced dynamically from GET /api/agents — no hardcoded slots
   const allCapabilities = useMemo(() => {
     const caps = new Set<string>();
-    for (const slot of ALL_AGENT_SLOTS) {
-      for (const c of slot.defaultCapabilities || []) caps.add(c);
-    }
     for (const a of agents) {
       for (const c of a.capabilities || []) caps.add(c);
     }
@@ -118,7 +95,7 @@ export default function AgentsPage() {
   }, [agents, executions]);
 
   const filteredAgents = useMemo(() => {
-    const filtered = allAgentSlots.filter((a) => {
+    const filtered = agents.filter((a) => {
       if (filters.status === 'active' && a.status !== 'active') return false;
       if (filters.status === 'disabled' && a.status !== 'disabled') return false;
       if (filters.team !== 'all' && a.teamId !== filters.team) return false;
@@ -165,13 +142,13 @@ export default function AgentsPage() {
         break;
       case 'status':
         sorted.sort((a, b) => {
-          const order = { active: 0, unregistered: 1, disabled: 2 };
-          return (order[a.status as keyof typeof order] ?? 3) - (order[b.status as keyof typeof order] ?? 3);
+          const order: Record<string, number> = { active: 0, disabled: 2 };
+          return (order[a.status] ?? 3) - (order[b.status] ?? 3);
         });
         break;
     }
     return sorted;
-  }, [allAgentSlots, filters, executions, agentStats]);
+  }, [agents, filters, executions, agentStats]);
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
@@ -201,7 +178,7 @@ export default function AgentsPage() {
   const saveAgent = async (agent: Partial<Agent>) => {
     try {
       const clean = Object.fromEntries(Object.entries(agent).filter(([_, v]) => v !== undefined));
-      const isNewRegistration = editAgent?.id?.startsWith('slot-') || editAgent?.status === 'unregistered';
+      const isNewRegistration = !editAgent?.id;
       if (editAgent && !isNewRegistration) {
         await apiFetch(`/api/agents/${editAgent.id}`, {
           method: 'PUT',
@@ -264,20 +241,7 @@ export default function AgentsPage() {
   };
 
   const openEditAgent = (agent: Agent) => {
-    const isRegistered = agent.status !== 'unregistered';
-    const slot = ALL_AGENT_SLOTS.find((s) => s.role === agent.role);
-    setEditAgent(
-      isRegistered
-        ? agent
-        : ({
-            ...agent,
-            name: slot?.defaultName || agent.name,
-            description: slot?.defaultDescription || '',
-            capabilities: slot?.defaultCapabilities || [],
-            color: slot?.color || agent.color,
-            runtimeAgent: 'build',
-          } as any),
-    );
+    setEditAgent(agent);
     setShowRegistry(true);
   };
 
@@ -294,7 +258,7 @@ export default function AgentsPage() {
       <AgentControlHeader
         agentsCount={agents.length}
         activeCount={agents.filter((a) => a.status === 'active').length}
-        totalSlots={ALL_AGENT_SLOTS.length}
+        totalSlots={agents.length}
         teamsCount={teams.length}
         executionsCount={executions.length}
         execSummary={execSummary}
@@ -326,7 +290,7 @@ export default function AgentsPage() {
       <AgentFilters
         teams={teams}
         resultCount={filteredAgents.length}
-        totalSlots={ALL_AGENT_SLOTS.length}
+        totalSlots={agents.length}
         allCapabilities={allCapabilities}
         onChange={setFilters}
       />
@@ -358,6 +322,7 @@ export default function AgentsPage() {
         <AgentRegistryModal
           agent={editAgent}
           teams={teams}
+          roleSuggestions={agents.map((a) => a.role)}
           onSave={saveAgent}
           onClose={() => {
             setShowRegistry(false);

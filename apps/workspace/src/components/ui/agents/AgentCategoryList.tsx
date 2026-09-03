@@ -1,36 +1,29 @@
 import { useMemo, useState } from 'react';
-import { deriveCategory, CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, CATEGORY_ICONS, CATEGORY_ORDER } from '../../components/ui/agents';
-import { AgentCard } from './AgentCard';
-import type { Agent, AgentStats, Execution, HarnessSessionEntry, Team } from './types';
+import { CATEGORY_COLORS, CATEGORY_DESCRIPTIONS, CATEGORY_ICONS, CATEGORY_ORDER, deriveCategory } from './deriveCategory';
+import type { AgentIdentity } from './types';
 
-interface AgentCategoryListProps {
-  agents: Agent[];
-  teams: Team[];
-  executions: Execution[];
-  agentStats: Record<string, AgentStats>;
-  selectedAgent: Agent | null;
-  harnessSessions: HarnessSessionEntry[];
-  onSelectAgent: (agent: Agent | null) => void;
-  onEditAgent: (agent: Agent) => void;
-  onToggleStatus: (agent: Agent) => void;
-  onDeleteAgent: (id: string) => void;
-  onOpenExecution: (execution: Execution) => void;
-  onLoad: () => void;
+export interface AgentCategoryListProps {
+  agents: AgentIdentity[];
+  selectedAgentId?: string;
+  onSelectAgent?: (agentId: string) => void;
+  renderAgent?: (agent: AgentIdentity, isExpanded: boolean) => React.ReactNode;
 }
 
+/**
+ * Groups agents by derived category with collapsible sections.
+ *
+ * Uses deriveCategory() instead of hardcoded ROLE_CATEGORIES.
+ * Unknown roles gracefully fall to "Specialized."
+ *
+ * The renderAgent slot allows each consumer to provide context-specific
+ * agent rendering (e.g., Agent Control passes expanded card with tabs,
+ * Activity Room passes simple summary).
+ */
 export function AgentCategoryList({
   agents,
-  teams,
-  executions,
-  agentStats,
-  selectedAgent,
-  harnessSessions,
+  selectedAgentId,
   onSelectAgent,
-  onEditAgent,
-  onToggleStatus,
-  onDeleteAgent,
-  onOpenExecution,
-  onLoad,
+  renderAgent,
 }: AgentCategoryListProps) {
   const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>(() => {
     try {
@@ -49,7 +42,7 @@ export function AgentCategoryList({
   };
 
   const groupedAgents = useMemo(() => {
-    const groups: Record<string, typeof agents> = {};
+    const groups: Record<string, AgentIdentity[]> = {};
     for (const cat of CATEGORY_ORDER) groups[cat] = [];
     for (const agent of agents) {
       const cat = deriveCategory(agent.role);
@@ -79,8 +72,8 @@ export function AgentCategoryList({
   if (agents.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-14 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
-        <div className="text-2xl mb-2 opacity-30">☰</div>
-        <p className="text-sm text-(--vestara-text-2) b-1">No agents found</p>
+        <div className="text-2xl mb-2 opacity-30">&#9776;</div>
+        <p className="text-sm text-(--vestara-text-2)">No agents found</p>
         <p className="text-xs text-(--vestara-text-dim)">Adjust your filters or register a new agent</p>
       </div>
     );
@@ -113,7 +106,7 @@ export function AgentCategoryList({
               style={{ borderLeft: `2px solid ${catColor}` }}
             >
               <span className="text-sm shrink-0" style={{ color: catColor }}>
-                {CATEGORY_ICONS[cat] || '●'}
+                {CATEGORY_ICONS[cat] || '\u25cf'}
               </span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
@@ -121,7 +114,7 @@ export function AgentCategoryList({
                     {cat}
                   </span>
                   <span className="text-[9px] text-(--vestara-text-dim)">
-                    {catAgents.length} · {activeCount} active
+                    {catAgents.length} &middot; {activeCount} active
                   </span>
                 </div>
                 <div className="text-[9px] text-(--vestara-text-dim) truncate">
@@ -129,37 +122,44 @@ export function AgentCategoryList({
                 </div>
               </div>
               <span className="text-(--vestara-text-dim) text-[11px] transition-transform group-hover:text-(--vestara-text-2) shrink-0">
-                {isCollapsed ? '▸' : '▾'}
+                {isCollapsed ? '\u25b8' : '\u25be'}
               </span>
             </button>
             {!isCollapsed && (
               <div className="space-y-2">
                 {catAgents.map((agent) => {
-                  const isExpanded = selectedAgent?.id === agent.id;
-                  const team = teams.find((t) => t.id === agent.teamId);
-                  const stats = agentStats[agent.id] || {
-                    total: 0,
-                    completed: 0,
-                    failed: 0,
-                    running: 0,
-                    avgDuration: 0,
-                  };
+                  const isExpanded = selectedAgentId === agent.id;
                   return (
-                    <AgentCard
-                      key={agent.id}
-                      agent={agent}
-                      isExpanded={isExpanded}
-                      team={team}
-                      stats={stats}
-                      executions={executions}
-                      harnessSessions={harnessSessions}
-                      onToggle={() => onSelectAgent(isExpanded ? null : agent)}
-                      onEdit={() => onEditAgent(agent)}
-                      onToggleStatus={() => onToggleStatus(agent)}
-                      onDelete={() => onDeleteAgent(agent.id)}
-                      onOpenExecution={onOpenExecution}
-                      onLoad={onLoad}
-                    />
+                    <div key={agent.id}>
+                      {renderAgent
+                        ? renderAgent(agent, isExpanded)
+                        : /* Default: simple clickable row */
+                          <button
+                            type="button"
+                            onClick={() => onSelectAgent?.(agent.id)}
+                            className="w-full text-left px-3 py-2 rounded-md hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
+                          >
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-semibold text-(--vestara-text)">
+                                {agent.name}
+                              </span>
+                              <span className="text-[7px] px-1 py-0.5 rounded bg-zinc-800 text-(--vestara-text-2) uppercase">
+                                {agent.role}
+                              </span>
+                              {agent.status && (
+                                <span className="text-[8px] text-(--vestara-text-dim)">
+                                  {agent.status}
+                                </span>
+                              )}
+                            </div>
+                            {agent.description && (
+                              <div className="text-[9px] text-(--vestara-text-dim) truncate mt-0.5">
+                                {agent.description}
+                              </div>
+                            )}
+                          </button>
+                      }
+                    </div>
                   );
                 })}
               </div>

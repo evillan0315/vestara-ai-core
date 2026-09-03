@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useToasts } from '../../components/Toast';
+import { AgentStatusBadge, getAgentColor } from '../../components/ui/agents';
 import { harnessApi } from '../../lib/agent-harness';
 import { AgentCardTabs } from './AgentCardTabs';
-import { AgentStatusBadge } from './AgentStatusBadge';
-import { getAgentColor } from './constants';
 import type { Agent, AgentStats, Execution, HarnessSessionEntry, Team } from './types';
 
 const TERMINAL_STATES = ['completed', 'failed', 'blocked', 'cancelled'];

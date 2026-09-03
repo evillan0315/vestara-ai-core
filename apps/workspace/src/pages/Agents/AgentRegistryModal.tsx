@@ -7,6 +7,7 @@ interface AgentRegistryModalProps {
   teams: Team[];
   onSave: (a: Partial<Agent>) => void;
   onClose: () => void;
+  roleSuggestions?: string[];
 }
 
 interface ProviderOption {
@@ -33,19 +34,12 @@ async function fetchJSON<T>(path: string): Promise<T | null> {
   }
 }
 
-const ROLES = [
-  'architect', 'developer', 'verifier', 'reviewer', 'tester', 'documenter',
-  'analyst', 'security-agent', 'performance-agent', 'documentation-agent',
-  'refactoring-agent', 'release-agent', 'conversation', 'planner', 'frontend',
-  'dashboard-curator',
-];
+// ROLES removed — role is freeform input with datalist suggestions from persisted agents
+// Import shared form classes from components/ui/agents
+import { inputClass, labelClass } from '../../components/ui/agents';
 
-const inputClass =
-  'w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg px-2.5 py-1.5 text-xs text-(--vestara-text-2) placeholder:text-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active) transition-colors';
-const labelClass = 'text-[10px] text-(--vestara-text-muted) uppercase tracking-wider block mb-1';
-
-export default function AgentRegistryModal({ agent, teams, onSave, onClose }: AgentRegistryModalProps) {
-  const isNewRegistration = !agent?.id || agent?.id?.startsWith('slot-') || agent?.status === 'unregistered';
+export default function AgentRegistryModal({ agent, teams, onSave, onClose, roleSuggestions }: AgentRegistryModalProps) {
+  const isNewRegistration = !agent?.id;
   const [step, setStep] = useState<1 | 2>(1);
   const [name, setName] = useState(agent?.name || '');
   const [role, setRole] = useState(agent?.role || 'custom');
@@ -252,16 +246,22 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose }: Ag
                 </div>
                 <div>
                   <label className={labelClass}>Role <span className="text-red-400">*</span></label>
-                  <select
+                  <input
+                    type="text"
                     value={role}
                     onChange={(e) => { setRole(e.target.value); if (errors.role) setErrors((p) => ({ ...p, role: '' })); }}
                     onBlur={() => handleBlur('role')}
-                    className={`${inputClass} cursor-pointer ${errors.role && touched.role ? 'border-red-400' : ''}`}
-                  >
-                    {ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                  </select>
+                    placeholder="e.g. developer, banana-engineer"
+                    list="role-suggestions"
+                    className={`${inputClass} ${errors.role && touched.role ? 'border-red-400' : ''}`}
+                  />
+                  {roleSuggestions && roleSuggestions.length > 0 && (
+                    <datalist id="role-suggestions">
+                      {[...new Set(roleSuggestions)].map((r) => (
+                        <option key={r} value={r} />
+                      ))}
+                    </datalist>
+                  )}
                   {errors.role && touched.role && (
                     <p className="text-[10px] text-red-400 mt-1">{errors.role}</p>
                   )}
