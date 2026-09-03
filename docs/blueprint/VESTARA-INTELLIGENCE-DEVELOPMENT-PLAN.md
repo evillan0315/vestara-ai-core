@@ -1,12 +1,12 @@
 # Vestara Intelligence Platform — Development Plan
 
 **Date:** 2026-08-30
-**Status:** Planning Complete — Awaiting Review
+**Status:** Planning Complete — GA-4 Added
 **Architecture Review:** `docs/blueprint/VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md`
 **Track:** VESTARA-INTELLIGENCE
 **Authoritative Repository:** `vestara-ai-core`
-**Phase Count:** 39 leaf phases (corrected from initial proposal's 26)
-**Milestone Count:** 8 milestones (M-B1 through M-B8)
+**Phase Count:** 40 leaf phases (+1 GA-4)
+**Milestone Count:** 9 milestones (M-B1 through M-B8 + M-B1.5)
 
 ---
 
@@ -16,13 +16,13 @@
 
 | Program | Phases | IDs |
 |---------|--------|-----|
-| A — Global Access | 4 | GA-0, GA-1, GA-2, GA-3 |
+| A — Global Access | 5 | GA-0, GA-1, GA-2, GA-3, GA-4 |
 | B — Observability | 5 | OBS-0, OBS-1, OBS-2, OBS-3, OBS-4 |
 | C — Diagnostics | 5 | DIAG-0, DIAG-1, DIAG-2, DIAG-3, DIAG-4 |
 | D — Context Intelligence | 11 | CTX-0 through CTX-10 |
 | E — Engineering Autonomy | 7 | ENG-0 through ENG-6 |
 | F — Learning & Efficiency | 7 | EFF-0 through EFF-6 |
-| **Total** | **39** | |
+| **Total** | **40** | |
 
 The initial proposal stated "26 phases." This is a counting inconsistency. The canonical count is 39.
 
@@ -34,7 +34,10 @@ The initial proposal stated "26 phases." This is a counting inconsistency. The c
 M-B1 ─── Foundation & Access ──────────────────────────────────────────┐
 │  GA-0, GA-1, GA-2, GA-3, DIAG-0                                     │
 │                                                                      │
-├──→ M-B2 ─── Diagnostics & Observability Foundation ──────────────────┤
+├──→ M-B1.5 ── Global Agent Identity ─────────────────────────────────┤
+│    │  GA-4                                                           │
+│    │                                                                 │
+│    ├──→ M-B2 ─── Diagnostics & Observability Foundation ────────────┤
 │    │  DIAG-1, DIAG-2, DIAG-3, DIAG-4, OBS-0, OBS-1, OBS-4          │
 │    │                                                                 │
 │    ├──→ M-B3 ─── Temporal Evidence & Findings ──────────────────────┤
@@ -105,6 +108,75 @@ DIAG-0 → DIAG-1 → OBS-1 → CTX-1 → CTX-2 → CTX-3 → ENG-0 → ENG-1 �
 | G-MB1-8 | **GA-ACCEPT-SELF-MAINTENANCE-001 relevance:** GA-0 audit documents the authorities that were manually consulted during the M11C WASM incident | Audit document references incident |
 
 **Canonical scenario checkpoint:** GA-0 authority audit must document which authorities were consulted during the M11C incident and what evidence was available vs manually reconstructed.
+
+---
+
+### M-B1.5 — Global Agent Identity
+
+**ID:** VESTARA-INTELLIGENCE-MB1.5
+**Title:** Global Agent Identity & Assistant Registration
+**Objective:** Establish Global Agent as Vestara's cross-workspace agent identity type. Register `agent-assistant` as the canonical system-owned Global Agent. Define lifecycle, conversation provenance, and workspace invocation binding. Must not create a new execution authority.
+**Phases:** 1 (GA-4)
+**Depends On:** M-B1 (GA-0 authority audit, GA-3 Surface Context)
+**Blocks:** Authoritative Global Assistant AI-policy/runtime binding (not unrelated M4 work)
+
+#### Phase Detail
+
+| Phase | Program | Title | What | Depends On |
+|-------|---------|-------|------|-----------|
+| GA-4 | A | Global Agent Identity | Define `AgentScope` (workspace/registry) and `AgentOrigin` (system/user). Register `agent-assistant` as canonical system-owned Global Agent with `agentType: 'registry'`. Define system-agent lifecycle (deletion protection, identity mutation protection). Evaluate Conversation provenance representation (candidate: `agentId` on Conversation, open through preflight). Define workspace invocation binding. Design AI policy integration point (`assistant-default`). Prove genericity with arbitrary Global Agent fixtures (user-created, registry-scoped). Preserve agent identity vs runtime-agent identity distinction. | GA-0, GA-3 |
+
+#### Acceptance Gates
+
+| Gate | Criterion | Verification |
+|------|-----------|-------------|
+| G-MB15-1 | `AgentScope` and `AgentOrigin` types defined | Type test: types exist with correct values |
+| G-MB15-2 | `agent-assistant` registered exactly once | Test: `listAgents()` returns exactly one `agent-assistant` |
+| G-MB15-3 | `agent-assistant` has `agentType: 'registry'`, `origin: 'system'` | Type test: fields correct |
+| G-MB15-4 | System agent deletion is rejected | Test: `deleteAgent('agent-assistant')` throws/rejects |
+| G-MB15-5 | System agent `id` mutation is rejected | Test: `saveAgent({ ...agent, id: 'changed' })` rejects for system agents |
+| G-MB15-6 | `agent-assistant` has NO hardcoded provider/model | Code review: `provider` and `model` are `undefined` |
+| G-MB15-7 | Conversation provenance representation evaluated | Design doc: candidate representations assessed against existing actor/participant contracts |
+| G-MB15-8 | Conversation provenance does not route through Harness | Code review: no Harness/AgentRuntime imports in ConversationService |
+| G-MB15-9 | Registration causes 0 AI execution | Test: register/load/list agent → 0 provider requests, 0 sessions, 0 tool calls |
+| G-MB15-10 | Genericity demonstrated by arbitrary Global Agent fixtures | Test: create user-created registry-scoped agent with `agentType: 'registry'`, `origin: 'user'`. NOT by registering `agent-observer` (conceptual candidate only, owned by future Observer milestone). |
+| G-MB15-11 | Arbitrary Global Agent (user-created, registry scope) works | Test: create agent with `agentType: 'registry'`, `origin: 'user'` |
+| G-MB15-12 | Existing workspace agents unchanged | Test: all 5 canonical workspace agents still function |
+| G-MB15-13 | Activity Room participant model permits `agent-assistant` | Code review: `participantId` pattern works for registry agents |
+| G-MB15-14 | AI policy integration point defined (type/interface only) | Type test: `assistant-default` policy type exists |
+| G-MB15-15 | Agent identity vs runtime-agent identity preserved | Code review: no runtime identity created for `agent-assistant` in GA-4 |
+| G-MB15-16 | All existing tests pass | `pnpm lint:check && pnpm build && pnpm test` |
+
+#### Named Invariants
+
+| ID | Invariant |
+|----|-----------|
+| GA-I1 | Global availability does not confer global authority. |
+| GA-I2 | Registration establishes identity, not execution. |
+| GA-I3 | Agent identity does not own provider credentials or transport. |
+| GA-I4 | Global identity becomes workspace-scoped at invocation. |
+| GA-I5 | System-agent behavior derives from policy, not frontend hardcoding. |
+
+#### Slice Breakdown
+
+| Slice | What | Evidence |
+|-------|------|----------|
+| GA-4.0 | Authority & existing-state audit | Audit document |
+| GA-4.1 | `AgentScope`, `AgentOrigin` types | Type tests |
+| GA-4.2 | `agent-assistant` registration + bootstrap | Registration tests |
+| GA-4.3 | System-agent lifecycle (deletion/mutation protection) | Lifecycle tests |
+| GA-4.4 | Conversation provenance evaluation | Design doc + type tests |
+| GA-4.5 | AI policy integration type | Type tests |
+| GA-4.6 | Genericity tests (arbitrary agents, fixtures) | Genericity tests |
+| GA-4.7 | Non-execution verification | Zero-execution tests |
+
+#### Relationship to Other Milestones
+
+- **Extends M-B1:** GA-4 follows GA-0 (authority audit) and GA-3 (Surface Context). M-B1 phases are accepted and frozen; GA-4 does not modify them.
+- **Blocks Assistant AI Configuration:** GA-4 establishes identity; AI Configuration resolves provider/model/transport for the Assistant specifically.
+- **Does NOT block unrelated M4 work:** Provider catalog, credential management, routing infrastructure may proceed independently.
+- **Independent from M-B2–M-B8:** Programs B–F do not depend on Global Agent identity.
+- **Independent from Harness:** GA-4 does not modify AgentHarnessRuntime or agent execution.
 
 ---
 
@@ -401,6 +473,7 @@ Sequential, one milestone at a time. No concurrent implementation.
 
 ```
 M-B1 → verify/evidence → accept →
+M-B1.5 → verify/evidence → accept →
 M-B2 → verify/evidence → accept →
 M-B3 → verify/evidence → accept →
 M-B4 → integration checkpoint →

@@ -484,7 +484,260 @@ Programs B (Observability), C (Diagnostics), D (Context Intelligence), E (Engine
 
 ---
 
-## 18. Unresolved Architectural Decisions
+## 18. Global Agent Identity — GA-4 Architecture
+
+### 18.1 Objective
+
+Establish Global Agent as Vestara's cross-workspace agent identity type and establish `agent-assistant` as the canonical system-owned Global Agent representing the Global Assistant.
+
+**Canonical distinction:**
+
+```
+Global Agent     = identity + cross-workspace availability
+Workspace Context = invocation scope
+AI Configuration  = provider + model resolution
+Governance        = permissions + capability authority
+Runtime Adapter   = execution mechanism
+```
+
+**Primary invariant:** Global availability does not confer global authority.
+
+### 18.2 Existing Contract Evidence
+
+| Contract | Location | Current State |
+|----------|----------|---------------|
+| `AgentType` | `packages/workspace/src/types.ts:593` | `'workspace' \| 'registry'` — `registry` defined but unused |
+| `AgentDefinition` | `packages/workspace/src/types.ts:595-615` | Has `agentType`, `provider`, `model`, `runtimeAgent`, `role`, `status` |
+| `AgentStorage` | `packages/workspace/src/agent-storage.ts` | CRUD on `agents` table. Seeds `CANONICAL_AGENTS` when empty. |
+| Canonical agents | `packages/workspace/src/agents.registry.ts` | 5 agents, all `agentType: 'workspace'`. No `registry` agents. |
+| Conversation types | `packages/shared/src/conversation-types.ts` | No `agentId` field. Conversations are user-scoped. |
+| Activity Room participant | `apps/api/src/routes/activity-room-m11a.ts:601` | `participantId = agent-${agent.id}` pattern |
+| Agent execution resolution | `apps/api/src/workspace-context.ts:1580-1639` | Resolves by `id`, `runtimeAgent`, or `role` |
+
+### 18.3 Scope vs Origin (Orthogonal Concepts)
+
+```
+AgentScope (existing AgentType)
+├── workspace    — workspace-scoped availability
+└── registry     — cross-workspace availability
+
+AgentOrigin (new field)
+├── system       — canonical Vestara-owned identity
+├── user         — user-created identity
+└── marketplace  — future (external marketplace agents)
+```
+
+**Semantic:** `scope ≠ ownership/origin`. A registry-scoped agent can be system-owned or user-owned. A workspace-scoped agent is always user-owned (or system-seeded workspace agents).
+
+### 18.4 Canonical Vestara Assistant Identity
+
+```typescript
+{
+  id: 'agent-assistant',       // canonical AgentDefinition.id (not runtime identity)
+  name: 'Vestara Assistant',
+  agentType: 'registry',      // cross-workspace availability
+  origin: 'system',           // Vestara-owned canonical identity
+  role: 'assistant',          // new role value
+  status: 'active',
+  capabilities: ['conversation', 'context-access', 'surface-context'],
+  provider: undefined,        // resolved through AI Configuration + M4
+  model: undefined,           // resolved through AI Configuration + M4
+  runtimeAgent: undefined,    // reserved — do not create runtime identity prematurely
+}
+```
+
+**Identity vs runtime-agent distinction:**
+
+```
+AgentDefinition.id    runtimeAgent
+agent-developer   →   vestara-developer
+agent-planner     →   vestara-planner
+agent-assistant   →   (reserved, not created in GA-4)
+```
+
+Vestara agent identity and runtime-agent identity are separate authorities. GA-4 establishes the canonical agent identity (`agent-assistant`). A runtime representation (`vestara-assistant`) may later be created if an authorized runtime capability requires one. Do not create a runtime identity merely because the Assistant becomes a Global Agent.
+
+**Explicitly NOT hardcoded:**
+- `provider = opencode`
+- `model = mimo-v2.5-free`
+- API credentials
+- `transport = runtime`
+
+**Integration point:** `assistant-default` AI policy whose effective provider/model/transport is resolved through AI Configuration + M4.
+
+### 18.5 System-Agent Lifecycle
+
+| Property | Behavior | Derivation |
+|----------|----------|------------|
+| Deletion protection | System agents cannot be deleted | `origin === 'system'` → `deleteAgent()` rejects |
+| Identity mutation | System agent `id` cannot change | `origin === 'system'` → `id` field immutable |
+| Scope mutation | Scope can change (workspace ↔ registry) | Allowed with migration |
+| Disable/enable | Allowed | `updateAgentStatus()` works for system agents |
+| User-configurable fields | `color`, `status`, `capabilities` (additive) | Policy-defined subset |
+| Bootstrap/reconciliation | Deterministic seeding when missing | `seedBuiltIn()` pattern extended |
+
+**Invariant:** System-agent behavior derives from policy, not frontend hardcoding.
+
+### 18.6 Conversation Identity
+
+**Design question:** How do ordinary Global Assistant conversations reference `agent-assistant` for canonical identity/provenance while remaining owned by ConversationService?
+
+**Candidate representation (not frozen):**
+
+```typescript
+// packages/shared/src/conversation-types.ts
+interface Conversation {
+  // ... existing fields ...
+  agentId?: string;           // optional, references AgentDefinition.id
+}
+```
+
+**Open through implementation preflight:** GA-4 must establish canonical Assistant provenance while evaluating whether the existing actor/participant identity contracts (Activity Room `ParticipantProjection`, `ActivityActor`) provide a more general representation. Do not broaden GA-4 into a Conversation redesign.
+
+**Ownership invariant:** Conversation remains ConversationService-owned. Any provenance reference establishes identity, not execution authority.
+
+```
+ConversationService
+  ↓ owns
+Conversation
+  ↓ references (provenance only)
+agent-assistant (Global Agent identity)
+  ↓ does NOT route through
+AgentRuntime / Harness
+```
+
+**Explicitly rejected:**
+```
+Conversation → agent-assistant → AgentRuntime → Harness
+```
+
+Registration establishes identity, not execution.
+
+### 18.7 Workspace Invocation Binding
+
+A Global Agent becomes bounded when invoked:
+
+```
+agent-assistant
+      ↓ invocation
+      ├── workspaceId         (which workspace)
+      ├── conversationId      (which conversation)
+      ├── principal/human     (who invoked)
+      ├── Surface Context     (what context is available)
+      └── effective permissions (what is allowed)
+```
+
+**Invariant:** A Global Agent is globally available; its invocation is not globally authorized.
+
+### 18.8 AI Policy Integration Boundary
+
+```
+agent-assistant
+      ↓
+assistant-default (AI policy reference)
+      ↓
+AI Configuration (M4)
+      ↓
+ResolvedAiBinding
+      ↓
+runtime/provider execution
+```
+
+**GA-4 establishes the identity.** The AI Configuration milestone resolves provider/model/transport. GA-4 must not create another routing authority.
+
+### 18.9 Registration Non-Execution Invariant
+
+Creating, registering, loading, or listing Global Agents causes:
+- 0 WorkflowRuns
+- 0 Harness executions
+- 0 provider requests
+- 0 OpenCode runtime sessions
+- 0 tool executions
+
+Reading/listing Global Agents must not initialize expensive execution infrastructure.
+
+### 18.10 Canonical Bootstrap
+
+| State | Behavior |
+|-------|----------|
+| Missing canonical identity | Create deterministically |
+| Already correct | No-op |
+| User-configurable state | Preserve according to policy |
+| Incompatible identity | Explicit migration/conflict |
+
+**Invariant:** No unconditional boot-time overwrite.
+
+### 18.11 Genericity Analysis
+
+The Global Agent mechanism must support arbitrary agents beyond `agent-assistant`:
+
+- `agent-assistant` — canonical system assistant (production)
+- `agent-observer` — **genericity fixture/conceptual candidate only.** NOT registered, bootstrapped, or persisted in GA-4. Observer identity remains owned by its future authorized implementation milestone.
+- User-created workspace agents — existing behavior preserved
+- Future marketplace agents — scope=registry, origin=marketplace
+
+**GA-4 genericity evidence:** Must include arbitrary Global Agent fixtures (user-created, registry-scoped) so genericity is NOT demonstrated solely by another Vestara system-agent concept.
+
+**Test:** If the mechanism only works for `agent-assistant`, it is insufficiently generic.
+
+### 18.12 Activity Room Compatibility
+
+The same canonical `agent-assistant` identity can later appear as an Activity Room participant without creating a second identity:
+
+```typescript
+// Activity Room participant
+{
+  participantId: 'agent-agent-assistant',  // follows existing pattern: agent-${agent.id}
+  type: 'agent',
+  displayName: 'Vestara Assistant',
+  role: 'assistant',
+  // ... membership, presence, workState
+}
+```
+
+No Activity Room integration in GA-4. Prove the identity model permits it.
+
+### 18.13 Named Invariants
+
+| ID | Invariant | Scope |
+|----|-----------|-------|
+| **GA-I1** | Global availability does not confer global authority. | GA-4 universal |
+| **GA-I2** | Registration establishes identity, not execution. | GA-4 universal |
+| **GA-I3** | Agent identity does not own provider credentials or transport. | GA-4 + AI Configuration boundary |
+| **GA-I4** | Global identity becomes workspace-scoped at invocation. | GA-4.7 |
+| **GA-I5** | System-agent behavior derives from policy, not frontend hardcoding. | GA-4.4 |
+
+### 18.14 Dependency on Future Milestones
+
+```
+M-B1 [FROZEN]
+      ↓
+M-B1.5 Global Agent Identity (GA-4)
+      ↓
+Assistant AI Configuration / M4 binding
+      ↓
+runtime-backed Assistant execution
+```
+
+**M-B1.5 blocks:** Authoritative Global Assistant AI-policy/runtime binding. The Assistant cannot receive provider/model/transport configuration until its identity is established.
+
+**M-B1.5 does NOT block:** Unrelated M4 work (provider catalog, credential management, routing infrastructure) that does not depend on Assistant identity.
+
+**GA-4 does NOT implement:**
+- Provider/model resolution (AI Configuration milestone)
+- Conversation → runtime transport (OpenCode runtime reconciliation)
+- Direct Zen quarantine (provider/runtime concern)
+
+**GA-4 establishes:**
+- Identity model for `agent-assistant`
+- Registration and lifecycle semantics
+- Conversation provenance reference (representation open through preflight)
+- Workspace invocation binding
+- AI policy integration point
+
+---
+
+## 19. Unresolved Architectural Decisions
 
 | ID | Question | Options | Recommendation | Blocks |
 |----|----------|---------|---------------|--------|
