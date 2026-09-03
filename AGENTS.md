@@ -10,7 +10,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 
 - Node 22+ and pnpm required (CI pins Node 22).
 - Build **before** `pnpm test` or any `pnpm vestara` / `pnpm dev:api` command — tests resolve `@vestara/*` from `dist/` via aliases in `vitest.config.ts:8-23` and CLI/API run from `dist/`. Stale `dist/` causes misleading failures.
-- `pnpm build` regenerates `tsconfig.reference.json` per project + `tsconfig.references.json` root. Never hand-edit them; run `pnpm dependencies:check` to validate.
+- `pnpm build` regenerates `tsconfig.reference.json` per project + root `tsconfig.references.json` (both gitignored — never hand-edit); run `pnpm dependencies:check` to validate.
 - `pnpm clean` / `tsc -b --clean` to wipe build. `pnpm watch` for `tsc -b -w`.
 
 ## Monorepo Boundaries
@@ -19,6 +19,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 - `apps/console` is an empty stub; the Console is `pnpm console` → `node apps/cli/dist/index.js console`.
 - `apps/onboarding-lab` is a dev test rig, not a runtime entrypoint.
 - `packages/*` + `packages/providers/*` + `packages/tools/*` are runtime libraries. `packages/kernel` coordinates lifecycle/providers.
+- `os/` is OS-0 host integration (systemd units, Plymouth, image builder) — not a runtime package, not in pnpm workspaces.
 - Import only `@vestara/<pkg>` (no deep imports like `@vestara/foo/bar`) and declare every internal dep in `package.json` — enforced by `scripts/workspace-architecture.mjs`.
 
 ## Key Commands
@@ -34,9 +35,9 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 | Source artifacts | `pnpm check:source-artifacts` |
 | Agent sync/check | `pnpm agents:sync` / `pnpm agents:check` |
 | Dev (API+UI) | `pnpm dev` (API in background on 3001, UI on 5173; kills API when UI exits) |
-| API only | `pnpm dev:api` (`node apps/api/dist/index.js`) |
+| API only | `pnpm dev:api` (`node --env-file=.env apps/api/dist/index.js`) |
 | UI only | `pnpm --filter @vestara/workspace-ui dev` |
-| Visual regression | `pnpm screenshots:ci` (check) / `pnpm screenshots:update` (approve baselines) |
+| Visual regression | `pnpm screenshots:ci` (Playwright check) / `pnpm screenshots:update` (approve baselines) |
 | OpenCode contracts | `pnpm --filter @vestara/opencode-runtime opencode:spec:generate` |
 
 Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck` script).
@@ -44,16 +45,18 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 ## Testing Quirks
 
 - `vitest.config.ts:30-35` discovers `packages/*/__tests__/**`, `packages/{providers,tools}/*/__tests__/**`, `apps/*/__tests__/**`, `apps/workspace/tests/visual/__tests__/**`. Playwright owns `apps/workspace/tests/visual/**/*.spec.*` — vitest excludes them.
+- Test timeout is 15s (`vitest.config.ts:36`). Slow tests may need investigation rather than timeout bumps.
 - Aliases resolve `@vestara/*` → `packages/*/dist` — rebuild after source changes.
 - `pnpm test:e2e:workflow` is a vitest suite (`packages/workflow-orchestrator/__tests__/e2e`). `pnpm test:e2e:workflow:real-agent` (`scripts/wfo-e2e-002b-live.ts`) hits real LLMs via `.env` — not part of `pnpm test`, don't run casually.
 - DB tests use in-memory `sql.js`; shim is `types/sql-js.d.ts`.
+- `screenshots:check` is a visual-test typecheck (`tsc -p tsconfig.visual.json`), not a test run.
 - Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}` (`biome.json:8-14`).
 
 ## Guardrails to Not Break
 
 - **Boundaries** (`scripts/workspace-architecture.mjs`): packages must not depend on `apps/*`; packages must not depend on `@vestara/workspace` (except `@vestara/evaluation`); no deep internal imports; no undeclared internal deps; no dependency cycles.
-- **Source artifacts** (`.gitignore:7-8`, `scripts/check-source-artifacts.mjs`): `*.js`/`*.d.ts`/`*.js.map` are ignored but a stale `src/index.js` shadows `src/index.ts` in vitest — run `pnpm check:source-artifacts` and delete strays.
-- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit `.opencode/agents/*.md` or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
+- **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `src/` or `__tests__/` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
+- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier`. Rendered to `.opencode/agents/*.md` in this repo **and** the parent repo via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
 - **Docs governance**: `pnpm docs:validate` / `pnpm docs:govern` (strict), `pnpm documentation:check` (CI). Don't add instruction files better stored via `opencode.json` `instructions`.
 
 ## CI (`/.github/workflows/ci.yml`)
@@ -63,36 +66,24 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 ## Runtime Env
 
 - API: `http://127.0.0.1:3001`, UI: `http://127.0.0.1:5173` (Vite proxies `/api`+`/ws` → API, `apps/workspace/vite.config.ts:10-20`).
-- `VESTARA_API_PORT` (API listen), `VESTARA_REPO` (workspace path; otherwise walks up for `.vestara/workspace.json`), `VITE_API_URL` (desktop/remote UI base URL, no trailing `/api`).
-- Parent `../vite.config.ts` is stale (probes 3000) — ignore. `.env` is gitignored and holds credentials for live agent trials; never commit it.
+- `VESTARA_API_PORT` (API listen, default 3001), `VESTARA_REPO` (workspace path; otherwise walks up for `.vestara/workspace.json`), `VITE_API_URL` (build-time desktop/remote UI base URL — code appends `/api`, trailing slashes trimmed).
+- `pnpm dev:api` loads `.env` (`--env-file=.env`); `pnpm dev` does not (runs bare `node apps/api/dist/index.js`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
 - Never edit `.vestara/` runtime state. Pre-commit hook (`.githooks/pre-commit` → `scripts/pre-commit.sh` → `biome --staged` + `pnpm test`) is not enabled via `core.hooksPath` in this checkout.
 
 ## Style
 
-Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Local imports need `.js` extension (nodenext). Parameterized SQL only.
+Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) — do not add `.js` extensions. Parameterized SQL only (`prepare` + `bind`, no string interpolation).
 
 ## Execution Governance
 
 **Investigate broadly. Mutate narrowly. Record adjacent findings. Return to acceptance criteria. Stop at the authorization boundary.**
 
-### Investigation Scope vs Mutation Scope
-
-An authorized task grants:
-
-- **Investigation scope** (broad, read-oriented): search, read, trace, log, measure, profile. Investigation is never restricted by the task boundary — understanding the system is always permitted.
-- **Mutation scope** (narrow, explicit): the specific files, packages, configurations, or behaviors the task authorizes changing. Discovery of a problem does not confer mutation authority for that problem.
-
-A finding discovered during authorized investigation is classified, not immediately acted upon:
+An authorized task grants broad **investigation scope** (search, read, trace — never restricted) but narrow **mutation scope** (only explicitly authorized files/behaviors). Classify discoveries, don't act on them:
 
 | Classification | Meaning | Action |
 |----------------|---------|--------|
-| **BLOCKER** | Current task cannot legitimately complete without addressing this | Stop, report to authorizer, await expanded authorization |
-| **ADJACENT** | Real issue discovered during investigation, but not required by the current task's acceptance criteria | Record in evidence, continue with authorized task |
-| **OBSERVATION** | Suspicious signal with insufficient evidence to classify | Record with confidence level, continue |
+| **BLOCKER** | Task cannot complete without addressing this | Stop, report, await expanded authorization |
+| **ADJACENT** | Real issue, not required by acceptance criteria | Record with evidence, continue |
+| **OBSERVATION** | Suspicious signal, insufficient evidence | Record with confidence level, continue |
 
-### Boundary Rules
-
-1. **Discovery does not confer mutation authority.** Finding a bug, performance issue, or design flaw during authorized work does not authorize fixing it unless it blocks the current task's acceptance criteria.
-2. **Record, don't fix.** Adjacent findings are documented with evidence (file, line, reproduction, impact) and reported at the task boundary. They become candidates for future authorized tasks.
-3. **Return to acceptance criteria.** After recording an adjacent finding, continue executing the authorized task. Do not context-switch into the adjacent problem.
-4. **Stop at the authorization boundary.** When acceptance criteria are satisfied, commit evidence, push, and stop. Do not expand scope without explicit re-authorization.
+Discovery does not confer mutation authority. When acceptance criteria are satisfied, stop — do not expand scope without re-authorization.
