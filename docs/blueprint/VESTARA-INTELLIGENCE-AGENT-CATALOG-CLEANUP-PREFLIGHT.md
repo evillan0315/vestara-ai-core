@@ -574,3 +574,146 @@ The following dropped agents have production references that survive in code and
 - **What is NOT mutated:** `agent_executions` (22 rows), `agent_memory` (23 rows), `agent_schedules` (0 rows), `execution_sessions` (600+ rows), `CANONICAL_AGENTS`, provider/model routing, Activity Room records
 
 *Corrected cleanup preflight complete. No production code was changed. All decisions are based on source inspection of vestara-ai-core at commit `c7d7106` and database evidence from `.vestara/plans/plans.db`.*
+
+---
+
+## 17. Mutation Execution Record
+
+**Authorization:** Director-authorized bounded catalog cleanup
+**Execution date:** 2026-09-03
+**Baseline:** `c7d7106` (M-B1.5 frozen)
+
+### 17.1 Before State
+
+| Metric | Value |
+|--------|-------|
+| Agent count | 15 |
+| Execution count | 23 |
+| Memory count | 23 |
+| Session count | 779 |
+| Schedule count | 0 |
+| Team `team-1787978561148` | `leader_agent_id=''`, `member_ids='[]'` |
+
+**Before agent rows:**
+
+| `id` | `name` | `role` | `model` | `team_id` | `runtime_agent` |
+|------|--------|--------|---------|-----------|-----------------|
+| `agent-planner` | Planner | planning | deepseek-v4-flash-free | *(empty)* | vestara-planner |
+| `agent-context` | Context | context | mimo-v2.5-free | *(empty)* | vestara-context |
+| `agent-verifier` | Verifier | verifier | deepseek-v4-flash-free | team-1787978561148 | vestara-verifier |
+| `agent-reviewer` | Reviewer | reviewer | nemotron-3-ultra-free | team-1787978561148 | vestara-reviewer |
+| `agent-developer` | Developer | developer | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| `agent-1787781308249` | Planner | planner | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| `agent-1787781354162` | Repository Analyst | analyst | mimo-v2.5-free | team-1787978561148 | vestara-context |
+| `agent-1787819315794` | Security Agent | security-agent | nemotron-3-ultra-free | *(empty)* | build |
+| `agent-1787819502373` | Architect | architect | nemotron-3-ultra-free | *(empty)* | general |
+| `agent-1787835308017` | Performance Agent | performance-agent | deepseek-v4-flash-free | *(empty)* | build |
+| `agent-1787837563476` | Reviewer | reviewer | mimo-v2.5-free | *(empty)* | build |
+| `agent-1787978779626` | Developer | developer | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| `agent-1788442451252` | Developer | developer | mimo-v2.5-free | team-1787978561148 | build |
+| `agent-1788442465552` | Developer | developer | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| `agent-1788442474275` | Developer | developer | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+
+### 17.2 Phase 1: Clear team_id
+
+**SQL executed:**
+```sql
+UPDATE agents SET team_id = '' WHERE id IN (
+  'agent-1787781308249',
+  'agent-1787781354162',
+  'agent-1787978779626',
+  'agent-1788442451252',
+  'agent-1788442465552',
+  'agent-1788442474275'
+)
+AND team_id = 'team-1787978561148';
+```
+
+**Rows affected:** 6 (all 6 noncanonical agents that referenced the team)
+
+**After Phase 1 team_id state:**
+
+| Agent | `team_id` before | `team_id` after |
+|-------|------------------|-----------------|
+| `agent-1787781308249` | team-1787978561148 | *(empty)* |
+| `agent-1787781354162` | team-1787978561148 | *(empty)* |
+| `agent-1787978779626` | team-1787978561148 | *(empty)* |
+| `agent-1788442451252` | team-1787978561148 | *(empty)* |
+| `agent-1788442465552` | team-1787978561148 | *(empty)* |
+| `agent-1788442474275` | team-1787978561148 | *(empty)* |
+
+**Canonical agents with team_id retained (not mutated):**
+
+| Agent | `team_id` (unchanged) |
+|-------|----------------------|
+| `agent-verifier` | team-1787978561148 |
+| `agent-reviewer` | team-1787978561148 |
+| `agent-developer` | team-1787978561148 |
+
+### 17.3 Phase 2: Delete noncanonical agents
+
+**SQL executed:**
+```sql
+DELETE FROM agents WHERE id IN (
+  'agent-1787781308249',
+  'agent-1787781354162',
+  'agent-1787819315794',
+  'agent-1787819502373',
+  'agent-1787835308017',
+  'agent-1787837563476',
+  'agent-1787978779626',
+  'agent-1788442451252',
+  'agent-1788442465552',
+  'agent-1788442474275'
+);
+```
+
+**Rows affected:** 10
+
+### 17.4 After State
+
+| Metric | Before | After | Delta |
+|--------|--------|-------|-------|
+| Agent count | 15 | 5 | -10 |
+| Execution count | 23 | 23 | 0 |
+| Memory count | 23 | 23 | 0 |
+| Session count | 779 | 779 | 0 |
+| Schedule count | 0 | 0 | 0 |
+| Team `team-1787978561148` | `leader=''`, `members=[]` | `leader=''`, `members=[]` | 0 |
+| DB file size | 1,212,416 bytes | 1,220,608 bytes | +8,192 bytes |
+
+**After agent rows:**
+
+| `id` | `name` | `role` | `model` | `team_id` | `runtime_agent` |
+|------|--------|--------|---------|-----------|-----------------|
+| `agent-planner` | Planner | planning | deepseek-v4-flash-free | *(empty)* | vestara-planner |
+| `agent-context` | Context | context | mimo-v2.5-free | *(empty)* | vestara-context |
+| `agent-verifier` | Verifier | verifier | deepseek-v4-flash-free | team-1787978561148 | vestara-verifier |
+| `agent-reviewer` | Reviewer | reviewer | nemotron-3-ultra-free | team-1787978561148 | vestara-reviewer |
+| `agent-developer` | Developer | developer | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+
+### 17.5 Verification Results
+
+| Verification | Expected | Actual | Status |
+|-------------|----------|--------|--------|
+| Agent count | 5 | 5 | PASS |
+| Agent IDs | canonical 5 | canonical 5 | PASS |
+| Cleanup candidate count | 0 | 0 | PASS |
+| Execution count | unchanged (23) | 23 | PASS |
+| Memory count | unchanged (23) | 23 | PASS |
+| Session count | unchanged (779) | 779 | PASS |
+| Schedule count | unchanged (0) | 0 | PASS |
+| Team record | unchanged (empty) | unchanged | PASS |
+| Canonical five definitions | unchanged | unchanged | PASS |
+| `GET /api/agents` returns only canonical 5 | 5 agents | 5 agents | PASS |
+| No deleted identities reappear via API | 0 found | 0 found | PASS |
+
+### 17.6 API Cache Note
+
+**ADJACENT-MUTATION-001:** The API process caches the sql.js database in memory. Mutations to the database file via external processes (e.g., the mutation script) are NOT reflected in the running API's in-memory state until the process is restarted. The API must be restarted after database mutations for the changes to take effect. This is a known sql.js in-process architecture characteristic.
+
+**Resolution applied:** API process was restarted after mutation to verify the endpoint reflects the post-mutation state.
+
+---
+
+*Mutation execution complete. All verification conditions satisfied.*
