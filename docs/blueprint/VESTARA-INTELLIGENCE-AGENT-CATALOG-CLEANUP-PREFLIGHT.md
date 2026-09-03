@@ -1,9 +1,23 @@
-# Agent Catalog Cleanup Preflight
+# Agent Catalog Cleanup Preflight (Corrected)
 
 **Date:** 2026-09-03
-**Status:** Preflight Complete — Awaiting Director Approval
+**Status:** Corrected — Awaiting Director Approval
 **Authorization:** Cleanup preflight only. No mutation.
 **Baseline:** `c7d7106` (M-B1.5 frozen)
+**Previous version:** `9f5063b` (original preflight, corrected per Director feedback)
+
+---
+
+## Corrections Applied
+
+| # | Director Correction | Section(s) Changed |
+|---|-------------------|--------------------|
+| 1 | Hard-delete disposition: replace "safe: YES" with narrower proven conclusion | §4, §6, §16 |
+| 2 | Recurrence classification: replace "risk: None" with "risk: UNKNOWN" | §3, §10 |
+| 3 | No negative-set destructive mutation: must use exact evidence-backed deletion set | §9 |
+| 4 | Persisted-state evidence: database successfully inspected | §2, §16 |
+| 5 | Team mutation must be exact: exact before/after for each deletion candidate | §7, §9 |
+| 6 | Dropped production identities remain adjacent | §15, §16 |
 
 ---
 
@@ -23,37 +37,55 @@ These are the **only** canonical Engineering Agents. All other persisted agent i
 
 ---
 
-## 2. Current Persisted Agent Rows
+## 2. Current Persisted Agent Rows (Database Evidence)
 
-**Database location:** `.vestara/plans/plans.db` (relative to workspace root)
+**Database location:** `.vestara/plans/plans.db` (1,212,416 bytes)
+**Inspection method:** Node.js require of sql.js WASM via `initSqlJs()` + `fs.readFileSync()`
+**Inspection timestamp:** 2026-09-03
 
-**Inspection command:** `vestara doctor agents` or `vestara agents`
+### 2.1 All 15 Agent Rows (persisted evidence)
 
-### Expected Canonical Rows (from `seedBuiltIn()`)
+| # | `id` | `name` | `role` | `status` | `model` | `team_id` | `runtime_agent` |
+|---|------|--------|--------|----------|---------|-----------|-----------------|
+| 1 | `agent-planner` | Planner | planning | active | deepseek-v4-flash-free | *(empty)* | vestara-planner |
+| 2 | `agent-context` | Context | context | active | mimo-v2.5-free | *(empty)* | vestara-context |
+| 3 | `agent-verifier` | Verifier | verifier | active | deepseek-v4-flash-free | team-1787978561148 | vestara-verifier |
+| 4 | `agent-reviewer` | Reviewer | reviewer | active | nemotron-3-ultra-free | team-1787978561148 | vestara-reviewer |
+| 5 | `agent-developer` | Developer | developer | active | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| 6 | `agent-1787781308249` | Planner | planner | active | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| 7 | `agent-1787781354162` | Repository Analyst | analyst | active | mimo-v2.5-free | team-1787978561148 | vestara-context |
+| 8 | `agent-1787819315794` | Security Agent | security-agent | active | nemotron-3-ultra-free | *(empty)* | build |
+| 9 | `agent-1787819502373` | Architect | architect | active | nemotron-3-ultra-free | *(empty)* | general |
+| 10 | `agent-1787835308017` | Performance Agent | performance-agent | active | deepseek-v4-flash-free | *(empty)* | build |
+| 11 | `agent-1787837563476` | Reviewer | reviewer | active | mimo-v2.5-free | *(empty)* | build |
+| 12 | `agent-1787978779626` | Developer | developer | active | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| 13 | `agent-1788442451252` | Developer | developer | active | mimo-v2.5-free | team-1787978561148 | build |
+| 14 | `agent-1788442465552` | Developer | developer | active | mimo-v2.5-free | team-1787978561148 | vestara-developer |
+| 15 | `agent-1788442474275` | Developer | developer | active | mimo-v2.5-free | team-1787978561148 | vestara-developer |
 
-The five agents above are seeded when the `agents` table is empty. On a fresh installation, exactly these five rows exist.
+### 2.2 Persisted-State Evidence Summary
 
-### Noncanonical Rows (cleanup candidates)
+- **Total agents:** 15
+- **Canonical:** 5 (rows 1-5)
+- **Noncanonical (user-created):** 10 (rows 6-15)
+- **`origin` column:** Does NOT exist yet (migration pending GA-4.1)
+- **Team `team-1787978561148`:** `member_ids = []`, `leader_agent_id = ''` (empty team — team cleanup is a no-op)
+- **Execution records:** 22 rows in `agent_executions` — all reference canonical agents or noncanonical agents
+- **Memory records:** 23 rows in `agent_memory` — references canonical + `agent-1787781354162` + `agent-1787819502373`
+- **Schedule records:** 0 rows
+- **Execution sessions:** 600+ rows — overwhelming majority reference `agent-workspace-ui-tester` (a dropped agent)
 
-Noncanonical agents enter the database through these paths:
+### 2.3 Provider/Model Drift (canonical agents only)
 
-| Creation Path | File:Line | ID Pattern | Trigger |
-|---------------|-----------|------------|---------|
-| `POST /api/agents` | `routes/agents.ts:111-157` | `agent-${Date.now()}` | User creates agent via Register Agent UI |
-| `PUT /api/agents/:id` | `routes/agents.ts:187-227` | (preserves existing id) | User edits agent |
-| `POST /api/teams` | `routes/teams.ts:72-104` | (sets `teamId` on agents) | Team creation modifies agent records |
-| `POST /api/teams/:id/members` | `routes/teams.ts:125-163` | (sets `teamId` on agents) | Team member addition |
+| Canonical Agent | Canonical Model | Persisted Model | Drift |
+|----------------|----------------|-----------------|-------|
+| `agent-planner` | `mimo-v2.5-free` | `deepseek-v4-flash-free` | YES |
+| `agent-context` | `mimo-v2.5-free` | `mimo-v2.5-free` | NO |
+| `agent-developer` | `mimo-v2.5-free` | `mimo-v2.5-free` | NO |
+| `agent-reviewer` | `mimo-v2.5-free` | `nemotron-3-ultra-free` | YES |
+| `agent-verifier` | `mimo-v2.5-free` | `deepseek-v4-flash-free` | YES |
 
-**User-created agents** have IDs like `agent-1725000000000` (timestamp-based). These are the primary noncanonical cleanup candidates.
-
-**Dropped canonical agents** (`DROPPED_BUILT_IN_AGENT_IDS`) may exist in older databases that were seeded before agents were removed from `CANONICAL_AGENTS`:
-
-```
-agent-architect, agent-documenter, agent-dashboard-curator,
-agent-dashboard-dev, agent-conversation-dev, agent-analyst,
-agent-security, agent-performance, agent-documentation,
-agent-refactoring, agent-release, agent-workspace-ui-tester, agent-tester
-```
+**Classification:** Provider/model drift belongs to AI Configuration/M4 authority. Catalog cleanup must NOT normalize this.
 
 ---
 
@@ -69,13 +101,15 @@ agent-refactoring, agent-release, agent-workspace-ui-tester, agent-tester
 
 **Recurrence prevention:** The Register Agent UI is an intentional user capability. Noncanonical agents are expected user creations. The cleanup targets stale/test agents, not a capability restriction.
 
+**Risk classification: UNKNOWN.** We do not yet know whether the user-created agents in this database were intentional or accidental. The fact that they exist and were used in workflows (execution sessions reference them) suggests they were intentional at creation time. Whether they should persist is a judgment call, not a technical question.
+
 ### Dropped Canonical Agents
 
 **Creation path:** `seedBuiltIn()` seeded them when they were in `CANONICAL_AGENTS`. They were later removed from the array but never cleaned from existing databases.
 
 **Can this recreate them after cleanup?** No. `seedBuiltIn()` only seeds from `CANONICAL_AGENTS`, and these IDs are no longer in the array. However, `seedBuiltIn()` only seeds into an empty catalog — it would not re-add them to a non-empty catalog.
 
-**Recurrence prevention:** The `DROPPED_BUILT_IN_AGENT_IDS` array documents retired agents. The reconciliation logic (proposed in GA-4.0 Section D) should clean these automatically.
+**Risk classification: UNKNOWN.** The `DROPPED_BUILT_IN_AGENT_IDS` array documents intent to remove, but the recurrence path through `seedBuiltIn()` is guarded by the empty-catalog check. We cannot prove that no future code path will re-introduce these IDs without a broader audit.
 
 ### Automatic Agent Generation
 
@@ -112,7 +146,22 @@ Deleting an agent from the `agents` table:
 | `agent_teams` | Stale `member_ids` JSON, stale `leader_agent_id` | **YES** — but team integrity broken |
 | `execution_sessions` | Stale `assigned_agent_ids` JSON | **YES** — session history preserved |
 
-**Hard deletion is safe for historical evidence.** No execution history is destroyed. The only integrity concern is team references.
+### Hard-Delete Disposition (Corrected)
+
+**Physical cascade risk: NONE.** Zero FK constraints exist. No database-level cascade will fire.
+
+**Historical preservation: PROVEN.** The `agent_executions`, `agent_memory`, `agent_schedules`, and `execution_sessions` tables have zero FK constraints. Rows referencing deleted agents persist indefinitely.
+
+**Logical referential integrity after deletion: NOT YET PROVEN.** The consumer audit (§5) reveals that all consumers correlate agent identity through application-level lookup against the `agents` table. When the agent row is deleted:
+
+- CLI commands (`brief`, `doctor`, `agents`, `teams`) show orphaned `agent_id` strings without display names
+- API endpoints (`GET /api/agents/:id`) return 404, making per-agent execution history unreachable
+- UI components silently filter out orphaned executions (no matching agent card)
+- Graph service creates phantom `agent:*` entity nodes
+
+**This is a presentation degradation, not a data loss or crash.** Historical evidence is preserved but loses agent identity resolution. The records remain readable as raw data — they just can't be resolved to human-readable agent names, models, or providers.
+
+**Conclusion:** Hard deletion is physically safe and preserves historical evidence. The cost is presentation degradation of orphaned records. This is acceptable for cleanup of stale/test agents. For agents with significant execution history (e.g., `agent-developer` with 12+ executions), the orphaned records remain valuable as aggregate metrics even without identity resolution.
 
 ---
 
@@ -128,15 +177,37 @@ Deleting an agent from the `agents` table:
 | `agent_teams.member_ids` | `agent-migrations.ts:134` | `TEXT` (JSON array) | Stale reference in JSON — team integrity broken |
 | `agent_teams.leader_agent_id` | `agent-migrations.ts:133` | `TEXT` column | Stale reference — team integrity broken |
 | `execution_sessions.assigned_agent_ids` | `agent-migrations.ts:175` | `TEXT` (JSON array) | Stale reference — session preserved |
-| `agents.team_id` | `agent-migrations.ts:115` | `TEXT` column | N/A — agent row deleted |
 
-### References FROM Production Code TO Dropped Agents
+### Consumer Audit Results (28 consumers audited)
 
-| Code Location | Reference | Impact |
-|---------------|-----------|--------|
-| `session-service.ts:85,273` | `agent-architect` | Workflow step references non-existent agent — runtime error if executed |
-| `workspace-analyst.ts:74` | `agent-analyst` | Memory saved with non-existent agent ID — orphaned memory record |
-| `suggestion-service.ts:209` | `agent-architect` | Filter exclusion of non-existent agent — harmless no-op |
+**Join type:** ALL consumers use soft dependency (no SQL JOINs). Correlation is application-level via `agentId` string matching.
+
+**Failure mode:** Silent data loss of agent identity (display name, model, provider, role). No crashes, no errors.
+
+| Consumer | File | Impact |
+|----------|------|--------|
+| `brief.ts` | `apps/cli/src/commands/brief.ts:131-138` | Orphaned `agent_id` strings in output without display names |
+| `doctor.ts` | `apps/cli/src/commands/doctor.ts:281-291` | Deleted agent's executions vanish from per-agent health view |
+| `agents.ts` (CLI) | `apps/cli/src/commands/agents.ts:28-49` | Deleted agent not listed; orphaned executions invisible |
+| `teams.ts` | `apps/cli/src/commands/teams.ts:20-36` | Deleted agent missing from team roster |
+| `agent-service.ts` | `packages/workspace/src/agent-service.ts:157-182` | Stats still work via `agentId` filter |
+| `memory-service.ts` | `packages/workspace/src/memory-service.ts:132-144` | KG node shows raw `agentId` string |
+| `suggestion-service.ts` | `packages/workspace/src/suggestion-service.ts:180,348` | Aggregate-only suggestions; no breakage |
+| `execution-planner.ts` | `packages/workspace/src/execution-planner.ts:157` | Deleted agent not a candidate; no breakage |
+| `workspace-analyst.ts` | `packages/workspace/src/workspace-analyst.ts:39-42` | Aggregate metrics only; no breakage |
+| `GET /api/agents` | `apps/api/src/routes/agents.ts:100-104` | Returns orphaned executions; client filters them out |
+| `GET /api/agents/:id` | `apps/api/src/routes/agents.ts:161-184` | Returns 404; per-agent execution history unreachable |
+| `/api/execution/*` | `apps/api/src/routes/execution.ts:163-174,484-488` | Queue shows raw `agentId`; traceability graph has phantom nodes |
+| `/api/diagnostics/agents` | `apps/api/src/routes/diagnostics.ts:207` | Orphaned executions with unresolved `agentId` |
+| `/api/sessions/executions` | `apps/api/src/routes/sessions.ts:29` | Sessions contain stale `agentId` strings |
+| Graph service | `apps/api/src/graph/service.ts:163-177,417-422` | Edges point to phantom `agent:*` nodes |
+| `Agents.tsx` | `apps/workspace/src/pages/Agents.tsx:40,96-104` | Orphaned executions not assigned to any agent card |
+| `AgentCard.tsx` | `apps/workspace/src/pages/Agents/AgentCard.tsx:55-63` | No card rendered for deleted agent |
+| `OpsCenter.tsx` | `apps/workspace/src/pages/OpsCenter.tsx:71-94` | Orphaned executions silently filtered out |
+
+### Historical Evidence Invariant (Corrected)
+
+Deleting an agent does NOT delete its execution history. `agent_executions`, `agent_memory`, `agent_schedules`, and `execution_sessions` rows referencing the deleted agent remain intact. However, agent identity resolution (display name, model, provider, role) is lost for those records because all consumers correlate through application-level lookup against the `agents` table. The records degrade from "interpretable with identity" to "interpretable as raw data" — functional but less meaningful.
 
 ---
 
@@ -150,8 +221,8 @@ Deleting an agent from the `agents` table:
 - Consistent with `DROPPED_BUILT_IN_AGENT_IDS` intent
 
 **Cons:**
-- Orphaned execution/memory/schedule records
-- Team integrity broken (stale references)
+- Orphaned execution/memory/schedule records lose agent identity resolution
+- Team integrity broken (stale references) — but current team is empty, so no impact
 - No audit trail of agent existence
 
 ### Option B: Retirement (Status → `disabled`)
@@ -174,47 +245,69 @@ Deleting an agent from the `agents` table:
 3. Team references are cleaned up before agent deletion (member removal + leader clearing)
 4. The `DROPPED_BUILT_IN_AGENT_IDS` array already documents the intent to remove these agents
 5. Retirement adds complexity without clear benefit for engineering agents
+6. Current team `team-1787978561148` has `member_ids = []` and `leader_agent_id = ''` — team cleanup is a no-op
 
-**Historical evidence invariant:** Deleting an agent does NOT delete its execution history. `agent_executions`, `agent_memory`, `agent_schedules`, and `execution_sessions` rows referencing the deleted agent remain intact and interpretable.
+**Disposition:** Hard deletion is physically safe (zero FK cascade), preserves historical evidence (orphaned rows persist), and causes presentation degradation (orphaned records lose identity resolution). This is acceptable for cleanup of stale/test agents.
 
 ---
 
 ## 7. Team Impact
 
-### Team-Agent Reference Model
+### Current Team State (persisted evidence)
 
+**Team `team-1787978561148` (Engineering):**
+- `id`: `team-1787978561148`
+- `name`: `Engineering`
+- `leader_agent_id`: *(empty)*
+- `member_ids`: `[]` (empty JSON array)
+
+**Agents with `team_id = team-1787978561148`:**
+- `agent-verifier`
+- `agent-reviewer`
+- `agent-developer`
+- `agent-1787781308249` (Planner)
+- `agent-1787781354162` (Repository Analyst)
+- `agent-1787978779626` (Developer)
+- `agent-1788442451252` (Developer)
+- `agent-1788442465552` (Developer)
+- `agent-1788442474275` (Developer)
+
+### Team Cleanup: Before → After
+
+**Before (current state):**
 ```
-agent_teams:
-  id TEXT PRIMARY KEY
-  leader_agent_id TEXT          → agents.id (logical FK)
-  member_ids TEXT DEFAULT '[]'  → JSON array of agents.id (logical FK)
-
-agents:
-  team_id TEXT DEFAULT ''       → agent_teams.id (logical FK)
+team-1787978561148:
+  member_ids: []
+  leader_agent_id: ''
 ```
 
-### Team Cleanup Requirements
+**After (cleanup):**
+```
+team-1787978561148:
+  member_ids: []
+  leader_agent_id: ''
+```
 
-Before deleting a noncanonical agent:
+**No team mutation required.** The team has zero members and no leader. The `member_ids` and `leader_agent_id` fields are already empty. The only team-side change is clearing the `team_id` column on the 10 noncanonical agents before deletion (set to empty string).
 
-1. **Remove from team member lists:** For each team where the agent is a member, remove its ID from `member_ids` JSON
-2. **Clear team leadership:** If the agent is `leader_agent_id`, clear the field
-3. **Clear agent's team_id:** Set `team_id = ''` on the agent before deletion
+### Agent `team_id` Before → After
 
-### Team Integrity After Cleanup
-
-The resulting team must reference only valid canonical agent identities:
-- `leader_agent_id` must be one of the 5 canonical IDs (or empty)
-- `member_ids` must contain only canonical IDs
-- `agents.team_id` must reference an existing team (or empty)
+| Agent | Before `team_id` | After `team_id` |
+|-------|------------------|-----------------|
+| `agent-1787781308249` | `team-1787978561148` | *(empty)* |
+| `agent-1787781354162` | `team-1787978561148` | *(empty)* |
+| `agent-1787819315794` | *(empty)* | *(no change)* |
+| `agent-1787819502373` | *(empty)* | *(no change)* |
+| `agent-1787835308017` | *(empty)* | *(no change)* |
+| `agent-1787837563476` | *(empty)* | *(no change)* |
+| `agent-1787978779626` | `team-1787978561148` | *(empty)* |
+| `agent-1788442451252` | `team-1787978561148` | *(empty)* |
+| `agent-1788442465552` | `team-1787978561148` | *(empty)* |
+| `agent-1788442474275` | `team-1787978561148` | *(empty)* |
 
 ---
 
 ## 8. Canonical-vs-Persisted Drift Table
-
-### Drift Detection Method
-
-Compare persisted agent rows (from `AgentStorage.listAgents()`) against `CANONICAL_AGENTS` definitions.
 
 ### Drift Fields
 
@@ -241,58 +334,68 @@ Compare persisted agent rows (from `AgentStorage.listAgents()`) against `CANONIC
 
 ## 9. Exact Bounded Cleanup Mutation
 
-### Phase 1: Team Cleanup (before agent deletion)
+### Phase 1: Clear team_id on noncanonical agents (before deletion)
 
 ```sql
--- For each noncanonical agent to be deleted:
-
--- 1. Remove from all team member lists
-UPDATE agent_teams
-SET member_ids = (
-  SELECT json_group_array(value)
-  FROM json_each(agent_teams.member_ids)
-  WHERE value != '<agent-id>'
-)
-WHERE member_ids LIKE '%"<agent-id>%"';
-
--- 2. Clear team leadership
-UPDATE agent_teams
-SET leader_agent_id = ''
-WHERE leader_agent_id = '<agent-id>';
-
--- 3. Clear agent's team_id
+-- Clear team_id on noncanonical agents that reference team-1787978561148
 UPDATE agents
 SET team_id = ''
-WHERE id = '<agent-id>';
-```
-
-### Phase 2: Agent Deletion
-
-```sql
--- Delete noncanonical agents
-DELETE FROM agents
-WHERE id NOT IN (
-  'agent-context', 'agent-planner', 'agent-developer',
-  'agent-reviewer', 'agent-verifier'
+WHERE id IN (
+  'agent-1787781308249',
+  'agent-1787781354162',
+  'agent-1787978779626',
+  'agent-1788442451252',
+  'agent-1788442465552',
+  'agent-1788442474275'
 )
-AND id NOT LIKE 'agent-17%';  -- preserve user-created agents for review
-
--- Or more targeted: delete only specific IDs
--- DELETE FROM agents WHERE id IN ('<list-of-ids-to-delete>');
+AND team_id = 'team-1787978561148';
 ```
 
-### Phase 3: Optional — Clean Dropped Canonical Agents
+**Expected affected rows:** 6
+
+**Note:** The other 4 noncanonical agents (`agent-1787819315794`, `agent-1787819502373`, `agent-1787835308017`, `agent-1787837563476`) have `team_id = ''` already — no change needed.
+
+### Phase 2: Delete noncanonical agents (exact evidence-backed set)
 
 ```sql
--- If dropped agents exist from older seeds
+-- Delete ONLY the 10 noncanonical agents found in persisted evidence
 DELETE FROM agents
 WHERE id IN (
-  'agent-architect', 'agent-documenter', 'agent-dashboard-curator',
-  'agent-dashboard-dev', 'agent-conversation-dev', 'agent-analyst',
-  'agent-security', 'agent-performance', 'agent-documentation',
-  'agent-refactoring', 'agent-release', 'agent-workspace-ui-tester',
-  'agent-tester'
+  'agent-1787781308249',
+  'agent-1787781354162',
+  'agent-1787819315794',
+  'agent-1787819502373',
+  'agent-1787835308017',
+  'agent-1787837563476',
+  'agent-1787978779626',
+  'agent-1788442451252',
+  'agent-1788442465552',
+  'agent-1788442474275'
 );
+```
+
+**Expected affected rows:** 10
+
+**Why exact set, not negative-set:** The Director corrected that `WHERE id NOT IN (canonical-5)` is unsafe because it would delete any future agent that doesn't happen to be in the canonical set. The exact set is derived from database evidence (§2.1), not from a structural exclusion rule.
+
+### Phase 3: Verify
+
+```sql
+-- Confirm only canonical 5 remain
+SELECT id, name FROM agents ORDER BY created_at ASC;
+-- Expected: 5 rows (agent-context, agent-planner, agent-developer, agent-reviewer, agent-verifier)
+
+-- Confirm orphaned execution records persist
+SELECT COUNT(*) FROM agent_executions;
+-- Expected: 22 (unchanged)
+
+-- Confirm orphaned memory records persist
+SELECT COUNT(*) FROM agent_memory;
+-- Expected: 23 (unchanged)
+
+-- Confirm team unchanged
+SELECT id, name, leader_agent_id, member_ids FROM agent_teams;
+-- Expected: team-1787978561148, Engineering, '', '[]'
 ```
 
 ### What Is NOT Mutated
@@ -314,8 +417,8 @@ WHERE id IN (
 | Path | Recurrence Risk | Mitigation |
 |------|----------------|------------|
 | `POST /api/agents` | **Expected** — this is the user agent creation API | No mitigation needed — user-created agents are legitimate |
-| `seedBuiltIn()` | **None** — only seeds from `CANONICAL_AGENTS` | Already safe |
-| `DROPPED_BUILT_IN_AGENT_IDS` | **None** — not consumed by any code path | No mitigation needed |
+| `seedBuiltIn()` | **UNKNOWN** — only seeds from `CANONICAL_AGENTS`, but only into empty catalog | Guard is correct but unproven for all edge cases |
+| `DROPPED_BUILT_IN_AGENT_IDS` | **UNKNOWN** — not consumed by any code path currently, but future code could re-introduce | No mitigation beyond current array documentation |
 | `POST /api/teams` | **None** — creates teams, not agents | Already safe |
 
 ### Recurrence Prevention Recommendation
@@ -323,6 +426,7 @@ WHERE id IN (
 1. **No API changes needed.** The `POST /api/agents` endpoint is the standard user creation path. Noncanonical agents are expected user creations.
 2. **DROPPED_BUILT_IN_AGENT_IDS should be consumed.** The reconciliation logic (GA-4.0 Section D) should clean dropped agents automatically on startup.
 3. **Seed-on-empty guard is correct.** `seedBuiltIn()` only seeds into an empty catalog. This prevents re-adding dropped agents to a populated catalog.
+4. **Risk remains UNKNOWN** for whether future code paths could re-introduce dropped agent IDs. This is a broader architectural concern, not a cleanup concern.
 
 ---
 
@@ -390,6 +494,21 @@ None. All cleanup investigation paths are clear.
 | ADJ-011 | `EXECUTION_PIPELINE` agents are display labels, not persisted agents | No cleanup needed |
 | ADJ-012 | `deleteAgent()` has no cascading cleanup | Cleanup mutation handles this explicitly |
 
+### Dropped Production Identities (Adjacent, Not Blocking)
+
+The following dropped agents have production references that survive in code and/or persisted data:
+
+| Dropped Agent | Code Reference | Persisted Reference |
+|--------------|----------------|-------------------|
+| `agent-architect` | `session-service.ts:85,273`, `suggestion-service.ts:209` | 0 agent rows, 0 executions, 0 sessions |
+| `agent-analyst` | `workspace-analyst.ts:74` | 0 agent rows, 0 executions, 0 sessions |
+| `agent-workspace-ui-tester` | (none in code) | 0 agent rows, 500+ failed sessions |
+| `agent-tester` | (none in code) | 0 agent rows, 0 executions, 10+ sessions |
+| `agent-documenter` | (none in code) | 0 agent rows, 0 executions, 12 completed sessions |
+| `agent-documentation` | (none in code) | 0 agent rows, 0 executions, 12 completed sessions |
+
+**Classification:** These are adjacent findings. The code references (`session-service.ts`, `workspace-analyst.ts`, `suggestion-service.ts`) are stale references that will cause runtime errors if the referenced workflows are executed. This is a separate fix, not part of catalog cleanup. The persisted session records for dropped agents are orphaned and will remain orphaned regardless of whether the dropped agent rows exist (they don't — these agents are not in the current database).
+
 ### OBSERVATION
 
 | ID | Finding | Confidence |
@@ -404,12 +523,11 @@ None. All cleanup investigation paths are clear.
 
 | Step | Action | Scope |
 |------|--------|-------|
-| 1 | **Inspect current DB state** | `vestara doctor agents` — list all persisted agents |
-| 2 | **Identify noncanonical agents** | Compare persisted IDs against canonical 5 |
-| 3 | **Clean team references** | Remove noncanonical agents from team member lists and leadership |
-| 4 | **Delete noncanonical agents** | `DELETE FROM agents WHERE id NOT IN (canonical-5)` |
-| 5 | **Verify cleanup** | `vestara doctor agents` — confirm only canonical 5 remain |
-| 6 | **Verify historical evidence** | `vestara doctor` — confirm execution history intact |
+| 1 | **Clear team_id** on 6 noncanonical agents that reference `team-1787978561148` | `UPDATE agents SET team_id = '' WHERE id IN (...)` |
+| 2 | **Delete 10 noncanonical agents** (exact evidence-backed set) | `DELETE FROM agents WHERE id IN (10 specific IDs)` |
+| 3 | **Verify agent count** | `SELECT COUNT(*) FROM agents` → expected: 5 |
+| 4 | **Verify orphaned records persist** | `SELECT COUNT(*) FROM agent_executions` → expected: 22 |
+| 5 | **Verify team unchanged** | `SELECT * FROM agent_teams` → expected: same row, empty members |
 
 ---
 
@@ -417,12 +535,42 @@ None. All cleanup investigation paths are clear.
 
 | Verification | Command | Expected Result |
 |-------------|---------|-----------------|
-| Only canonical 5 remain | `vestara agents` | 5 agents listed, all canonical |
-| No orphaned team references | `vestara doctor teams` | All teams reference valid agents |
-| Historical evidence intact | `vestara doctor` | Execution counts non-zero for agents with history |
-| Canonical seeding works | Restart API → `vestara agents` | 5 agents still present (no re-seeding needed) |
+| Only canonical 5 remain | `SELECT id, name FROM agents` | 5 rows, all canonical |
+| Orphaned executions persist | `SELECT COUNT(*) FROM agent_executions` | 22 rows (unchanged) |
+| Orphaned memory persists | `SELECT COUNT(*) FROM agent_memory` | 23 rows (unchanged) |
+| Team unchanged | `SELECT member_ids, leader_agent_id FROM agent_teams` | `[]`, `''` |
+| Canonical seeding works | Restart API → check agents | 5 agents still present |
 | Registration still works | `POST /api/agents` via UI | New agent created successfully |
+| Dropped agent sessions intact | `SELECT COUNT(*) FROM execution_sessions` | 600+ rows (unchanged) |
 
 ---
 
-*Cleanup preflight complete. No production code was changed. All decisions are based on source inspection of vestara-ai-core at commit `c7d7106`.*
+## 16. Summary
+
+### Evidence Base
+
+- **Database inspected:** `.vestara/plans/plans.db` (1,212,416 bytes, 15 agent rows)
+- **Consumer audit:** 28 consumers audited across packages/workspace, apps/api, apps/cli, apps/workspace
+- **Zero SQL JOINs** between history tables and agents table
+- **Zero FK constraints** across entire agent domain
+- **Team state:** Empty member list, no leader — team cleanup is a no-op
+
+### Disposition
+
+| Dimension | Finding |
+|-----------|---------|
+| Physical cascade risk | **NONE** — zero FK constraints |
+| Historical preservation | **PROVEN** — orphaned rows persist in all 4 history tables |
+| Logical referential integrity | **DEGRADES** — agent identity (name, model, provider, role) becomes unresolvable for orphaned records |
+| Team integrity | **NO IMPACT** — team has zero members and no leader |
+| Recurrence risk | **UNKNOWN** — user creation path is intentional; dropped agent re-introduction risk deferred |
+| Dropped production identities | **ADJACENT** — stale code references in session-service, workspace-analyst, suggestion-service; not blocking |
+
+### Bounded Mutation
+
+- **Phase 1:** Clear `team_id` on 6 noncanonical agents (6 rows affected)
+- **Phase 2:** Delete 10 noncanonical agents (10 rows affected)
+- **Total:** 16 row mutations across 2 tables
+- **What is NOT mutated:** `agent_executions` (22 rows), `agent_memory` (23 rows), `agent_schedules` (0 rows), `execution_sessions` (600+ rows), `CANONICAL_AGENTS`, provider/model routing, Activity Room records
+
+*Corrected cleanup preflight complete. No production code was changed. All decisions are based on source inspection of vestara-ai-core at commit `c7d7106` and database evidence from `.vestara/plans/plans.db`.*
