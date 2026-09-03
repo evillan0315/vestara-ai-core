@@ -154,53 +154,43 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   // ── Sessions ──────────────────────────────────────────────────────────
 
-  async listSessions(_context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession[]> {
-    return this.requestJson({ path: '/session', timeoutMs: this.config.requestTimeoutMs, signal }) as Promise<
-      OpenCodeSession[]
-    >;
+  async listSessions(context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession[]> {
+    return this.requestJson({
+      path: this.withQuery('/session', { directory: context.directory }),
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    }) as Promise<OpenCodeSession[]>;
   }
 
   async createSession(
     input: CreateOpenCodeSessionInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
-    // The runtime's /session endpoint selects the provider/model via TOP-LEVEL
-    // providerID/modelID fields; a nested `model` object is rejected (400).
-    const providerID = input.providerID ?? input.model?.providerID;
-    const modelID = input.modelID ?? input.model?.id;
-    const body = {
-      directory: input.directory,
-      title: input.title,
-      agent: input.agent,
-      ...(providerID ? { providerID } : {}),
-      ...(modelID ? { modelID } : {}),
-    };
+    // OpenCode session creation: directory goes in query, title in body.
+    // Agent/model are NOT session-creation properties — they belong in message sending.
+    const path = this.withQuery('/session', { directory: context.directory });
     return this.requestJson({
-      path: '/session',
+      path,
       method: 'POST',
-      body,
+      body: { title: input.title },
       timeoutMs: this.config.requestTimeoutMs,
       signal,
     }) as Promise<OpenCodeSession>;
   }
 
-  async getSession(
-    sessionId: string,
-    _context: OpenCodeRequestContext,
-    signal?: AbortSignal,
-  ): Promise<OpenCodeSession> {
+  async getSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<OpenCodeSession> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}`, { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
     }) as Promise<OpenCodeSession>;
   }
 
-  async deleteSession(sessionId: string, _context: OpenCodeRequestContext, signal?: AbortSignal): Promise<boolean> {
+  async deleteSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<boolean> {
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}`, { directory: context.directory }),
       method: 'DELETE',
       timeoutMs: this.config.requestTimeoutMs,
       signal,
@@ -212,11 +202,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async renameSession(
     sessionId: string,
     title: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}`, { directory: context.directory }),
       method: 'PATCH',
       body: { title },
       timeoutMs: this.config.requestTimeoutMs,
@@ -226,11 +216,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   }
 
   async getSessionStatus(
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<Record<string, OpenCodeSessionStatusInfo>> {
     return this.requestJson({
-      path: '/session/status',
+      path: this.withQuery('/session/status', { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
     }) as Promise<Record<string, OpenCodeSessionStatusInfo>>;
@@ -238,11 +228,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async getSessionTodos(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeTodo[]> {
     const raw = await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/todo`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/todo`, { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
@@ -252,11 +242,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async getSessionChildren(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession[]> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/children`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/children`, { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
@@ -265,11 +255,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async getSessionDiff(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeDiffFile[]> {
     const raw = await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/diff`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/diff`, { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
@@ -280,13 +270,20 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async sendMessage(
     sessionId: string,
     input: SendOpenCodeMessageInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeMessageResult> {
+    // OpenCode message sending: agent/model in body, directory in query.
+    const body: Record<string, unknown> = { parts: input.parts };
+    if (input.agent) body.agent = input.agent;
+    if (input.model) body.model = input.model;
+    const path = this.withQuery(`/session/${encodeURIComponent(sessionId)}/message`, {
+      directory: context.directory,
+    });
     const result = await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/message`,
+      path,
       method: 'POST',
-      body: { parts: input.parts },
+      body,
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
@@ -296,11 +293,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async listMessages(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeMessage[]> {
     const raw = await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/message`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/message`, { directory: context.directory }),
       timeoutMs: this.config.requestTimeoutMs,
       signal,
       sessionId,
@@ -311,7 +308,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async sendMessageAsync(
     sessionId: string,
     input: SendOpenCodeMessageAsyncInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<void> {
     const body: Record<string, unknown> = { parts: input.parts };
@@ -323,8 +320,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.model) {
       body.model = { providerID: input.model.providerId, modelID: input.model.modelId };
     }
+    const path = this.withQuery(`/session/${encodeURIComponent(sessionId)}/prompt_async`, {
+      directory: context.directory,
+    });
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/prompt_async`,
+      path,
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -336,14 +336,14 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async runCommand(
     sessionId: string,
     input: RunOpenCodeCommandInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<void> {
     const body: Record<string, unknown> = { command: input.command };
     if (input.arguments !== undefined) body.arguments = input.arguments;
     if (input.agent) body.agent = input.agent;
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/command`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/command`, { directory: context.directory }),
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -352,9 +352,9 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     });
   }
 
-  async abortSession(sessionId: string, _context: OpenCodeRequestContext, signal?: AbortSignal): Promise<boolean> {
+  async abortSession(sessionId: string, context: OpenCodeRequestContext, signal?: AbortSignal): Promise<boolean> {
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/abort`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/abort`, { directory: context.directory }),
       method: 'POST',
       body: {},
       timeoutMs: this.config.requestTimeoutMs,
@@ -368,12 +368,15 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     sessionId: string,
     permissionId: string,
     decision: VestaraPermissionDecision,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<boolean> {
     const response = decision.decision === 'approve' ? (decision.scope === 'session' ? 'always' : 'once') : 'reject';
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/permissions/${encodeURIComponent(permissionId)}`,
+      path: this.withQuery(
+        `/session/${encodeURIComponent(sessionId)}/permissions/${encodeURIComponent(permissionId)}`,
+        { directory: context.directory },
+      ),
       method: 'POST',
       body: { response },
       timeoutMs: this.config.requestTimeoutMs,
@@ -388,7 +391,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async initSession(
     sessionId: string,
     input: InitOpenCodeSessionInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<boolean> {
     const body: Record<string, unknown> = {};
@@ -396,7 +399,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.providerID) body.providerID = input.providerID;
     if (input.modelID) body.modelID = input.modelID;
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/init`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/init`, { directory: context.directory }),
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -408,11 +411,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async shareSession(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/share`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/share`, { directory: context.directory }),
       method: 'POST',
       body: {},
       timeoutMs: this.config.requestTimeoutMs,
@@ -423,11 +426,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async unshareSession(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/share`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/share`, { directory: context.directory }),
       method: 'DELETE',
       timeoutMs: this.config.requestTimeoutMs,
       signal,
@@ -438,7 +441,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async summarizeSession(
     sessionId: string,
     input: SummarizeOpenCodeSessionInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<boolean> {
     const body: Record<string, unknown> = {};
@@ -446,7 +449,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.providerID) body.providerID = input.providerID;
     if (input.modelID) body.modelID = input.modelID;
     await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/summarize`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/summarize`, { directory: context.directory }),
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -459,13 +462,13 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async revertSession(
     sessionId: string,
     input: RevertOpenCodeSessionInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     const body: Record<string, unknown> = { messageID: input.messageID };
     if (input.partID) body.partID = input.partID;
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/revert`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/revert`, { directory: context.directory }),
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -476,11 +479,11 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   async unrevertSession(
     sessionId: string,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     return this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/unrevert`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/unrevert`, { directory: context.directory }),
       method: 'POST',
       body: {},
       timeoutMs: this.config.requestTimeoutMs,
@@ -492,7 +495,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async runShell(
     sessionId: string,
     input: RunOpenCodeShellInput,
-    _context: OpenCodeRequestContext,
+    context: OpenCodeRequestContext,
     signal?: AbortSignal,
   ): Promise<OpenCodeShellResult> {
     const body: Record<string, unknown> = { command: input.command };
@@ -500,7 +503,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.messageID) body.messageID = input.messageID;
     if (input.model) body.model = { providerID: input.model.providerId, modelID: input.model.modelId };
     const raw = await this.requestJson({
-      path: `/session/${encodeURIComponent(sessionId)}/shell`,
+      path: this.withQuery(`/session/${encodeURIComponent(sessionId)}/shell`, { directory: context.directory }),
       method: 'POST',
       body,
       timeoutMs: this.config.requestTimeoutMs,
@@ -720,13 +723,14 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   // ── Events ────────────────────────────────────────────────────────────
 
-  async *openEventStream(_context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
+  async *openEventStream(context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
     const headers = {
       Authorization: basicAuthHeader(this.config.username, this.config.password),
       Accept: 'text/event-stream',
       'X-Vestara-Source': 'opencode-runtime',
     };
-    const response = await fetch(`${this.baseUrl}/event`, { headers, signal });
+    const url = this.withQuery(`${this.baseUrl}/event`, { directory: context.directory });
+    const response = await fetch(url, { headers, signal });
     if (!response.ok || !response.body) {
       throw mapHttpStatus(response.status, undefined);
     }

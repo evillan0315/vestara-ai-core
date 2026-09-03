@@ -290,10 +290,7 @@ export async function handleOpenCodeRoute(
               };
             })()
           : undefined;
-      const session = await client.createSession(
-        { directory, title, agent, model: model?.providerID && model.id ? model : undefined },
-        workspaceContext(_ctx),
-      );
+      const session = await client.createSession({ title }, workspaceContext(_ctx));
       const binding = sessionRegistry.bind({
         openCodeSessionId: session.id,
         vestaraSessionId: _ctx.runtime.getSession?.().fingerprint?.id ?? 'workspace-session',
@@ -715,6 +712,7 @@ function workspaceIdOf(_ctx: WorkspaceContext): string {
 function workspaceContext(_ctx: WorkspaceContext): OpenCodeRequestContext {
   return {
     workspaceId: workspaceIdOf(_ctx),
+    directory: _ctx.workspaceDir,
     correlationId: `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
   };
 }

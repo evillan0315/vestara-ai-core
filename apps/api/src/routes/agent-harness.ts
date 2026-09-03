@@ -42,7 +42,7 @@ export async function handleAgentHarnessRoute(
       return true;
     }
     const environment = resolveEnvironment(ctx, body);
-    const title = typeof body.title === 'string' ? body.title : agentId;
+    const title = typeof body.title === 'string' ? body.title : instruction;
     const taskId = typeof body.taskId === 'string' ? body.taskId : `task-${Date.now()}`;
     const thread = harness.createThread({ taskId, title, environment, metadata: { agentId, runSource: 'api' } });
     // Associate a durable ExecutionSession with this harness thread so the run

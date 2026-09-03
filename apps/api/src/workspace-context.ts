@@ -904,7 +904,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     // resolver aligns each agent turn with the provider/model/runtime agent the
     // agent was configured with in the Agent Control modal (agent registry
     // first, then the global routing selection for the role).
-    provider: new OpenCodeRuntimeProvider(),
+    provider: new OpenCodeRuntimeProvider({ directory: workspaceDir }),
     model: 'opencode-runtime',
     tools: agentTools,
     context: harnessContext,

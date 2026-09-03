@@ -641,6 +641,7 @@ export class AgentHarnessRuntime {
           tools: [...this.options.tools.definitions()],
           signal: active.controller.signal,
           agent: executionOverride?.runtimeAgent || active.agentId || undefined,
+          title: thread.title,
           onExecutionEvent: (event) => {
             // Correlate runtime execution activity to this participant/thread
             // and publish it for the Activity Room bridge to project.

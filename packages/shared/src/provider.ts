@@ -76,6 +76,8 @@ export interface CompletionRequest {
   onExecutionEvent?: (event: ProviderExecutionEvent) => void;
   /** The runtime agent (e.g. vestara-planner) to run the completion as. */
   agent?: string;
+  /** Semantic title for the execution session (e.g. task title, workflow title). */
+  title?: string;
   /**
    * Request structured JSON output: the provider forces the model to return
    * validated JSON matching this schema. When set, `CompletionResponse` carries

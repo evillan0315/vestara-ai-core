@@ -108,6 +108,8 @@ export interface OpenCodeSessionBinding {
 
 export interface OpenCodeRequestContext {
   readonly workspaceId: string;
+  /** Canonical filesystem directory for the workspace — used as OpenCode query parameter for project resolution. */
+  readonly directory?: string;
   readonly executionId?: string;
   readonly agentId?: string;
   readonly sessionId?: string;
@@ -121,19 +123,24 @@ export type OpenCodePromptPart =
   | { readonly type: 'file'; readonly path: string; readonly content?: string };
 
 export interface CreateOpenCodeSessionInput {
-  readonly directory?: string;
+  /** Session title — semantic task/workflow name. */
   readonly title?: string;
+}
+
+export interface SendMessageInput {
+  /** Runtime agent (e.g. vestara-developer) to run the completion as. */
   readonly agent?: string;
-  /** Provider selection. Sent as TOP-LEVEL fields (the server rejects nested `model`). */
-  readonly providerID?: string;
-  readonly modelID?: string;
-  /** Backward-compatible alias for `providerID`. */
-  readonly model?: { readonly providerID?: string; readonly id?: string };
+  /** Provider/model selection for this message. */
+  readonly model?: { readonly providerID: string; readonly modelID: string };
+  /** Message parts (text, file, etc). */
+  readonly parts: readonly OpenCodePromptPart[];
 }
 
 export interface SendOpenCodeMessageInput {
   readonly parts: readonly OpenCodePromptPart[];
   readonly sessionId?: string;
+  readonly agent?: string;
+  readonly model?: { readonly providerID: string; readonly modelID: string };
 }
 
 export interface OpenCodeMessageResult {

@@ -44,6 +44,8 @@ export interface OpenCodeRuntimeProviderOptions {
   readonly client?: OpenCodeClient;
   readonly timeoutMs?: number;
   readonly workspaceId?: string;
+  /** Canonical filesystem directory for the workspace — required for OpenCode to resolve agent definitions and project config. */
+  readonly directory?: string;
   /** Prefer this discovered provider id when creating sessions (default: none — runtime default). */
   readonly preferredProviderId?: string;
   /** Model id within the preferred provider (default: none — provider default). */
@@ -90,6 +92,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   private clientError?: unknown;
   private readonly timeoutMs: number;
   private readonly workspaceId: string;
+  private readonly directory?: string;
   private readonly preferredProviderId?: string;
   private readonly modelId?: string;
   private readonly agent?: string;
@@ -107,6 +110,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     this.externalClient = options.client;
     this.timeoutMs = options.timeoutMs ?? 300_000;
     this.workspaceId = options.workspaceId ?? 'vestara';
+    this.directory = options.directory;
     this.preferredProviderId = options.preferredProviderId ?? process.env.OPENCODE_RUNTIME_PROVIDER_ID;
     this.modelId = options.modelId ?? process.env.OPENCODE_RUNTIME_MODEL_ID;
     this.agent = options.agent ?? process.env.OPENCODE_RUNTIME_AGENT;
@@ -196,14 +200,8 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
     const resolved = this.resolveProvider(request.model);
-    // The session carries the caller's explicit model when one was requested
-    // (a `provider/model` id resolves the provider separately); otherwise it
-    // falls back to this provider's configured model / the runtime default.
-    const sessionId = await this.createSession(
-      resolved.providerId,
-      explicitModelOf(request.model, this.id) ?? this.modelId,
-      request.agent ?? this.agent,
-    );
+    // Session creation: only title + directory (via context). No agent/model.
+    const sessionId = await this.createSession(request.title);
     try {
       const format = request.jsonSchema ? { type: 'json_schema' as const, schema: request.jsonSchema } : undefined;
       const { text, structuredOutput } = await this.streamReply(
@@ -212,6 +210,11 @@ export class OpenCodeRuntimeProvider implements AIProvider {
         format,
         request.signal,
         request.onExecutionEvent,
+        // Execution binding: agent + model sent with the message, not the session.
+        request.agent ?? this.agent,
+        resolved.providerId && (explicitModelOf(request.model, this.id) ?? this.modelId)
+          ? { providerID: resolved.providerId, modelID: explicitModelOf(request.model, this.id) ?? this.modelId! }
+          : undefined,
       );
       return {
         id: `ocrt-${Date.now()}`,
@@ -230,7 +233,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     } finally {
       // Sessions are created per invocation so agent turns never share history.
       await this.client()
-        .abortSession(sessionId, { workspaceId: this.workspaceId, sessionId })
+        .abortSession(sessionId, { workspaceId: this.workspaceId, directory: this.directory, sessionId })
         .catch(() => {});
     }
   }
@@ -290,15 +293,10 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     return { providerId: undefined, reason: 'default', defaultResolution: true };
   }
 
-  private async createSession(providerId?: string, modelId?: string, agentId?: string): Promise<string> {
+  private async createSession(title?: string): Promise<string> {
     const session = await this.client().createSession(
-      {
-        title: `vestara-agent-${Date.now()}`,
-        agent: agentId,
-        providerID: providerId ?? undefined,
-        modelID: modelId ?? undefined,
-      },
-      { workspaceId: this.workspaceId },
+      { title },
+      { workspaceId: this.workspaceId, directory: this.directory },
     );
     return session.id;
   }
@@ -322,12 +320,14 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     format: { type: 'json_schema'; schema: Record<string, unknown> } | undefined,
     externalSignal?: AbortSignal,
     onExecutionEvent?: (event: ProviderExecutionEvent) => void,
+    agent?: string,
+    model?: { providerID: string; modelID: string },
   ): Promise<{ text: string; structuredOutput?: unknown }> {
     const controller = new AbortController();
     const onExternalAbort = () => controller.abort();
     if (externalSignal?.aborted) onExternalAbort();
     else externalSignal?.addEventListener('abort', onExternalAbort, { once: true });
-    const context = { workspaceId: this.workspaceId, sessionId };
+    const context = { workspaceId: this.workspaceId, directory: this.directory, sessionId };
     const stream = this.client().openEventStream(context, controller.signal);
     let idleTimer: ReturnType<typeof setTimeout> | undefined;
     let maxTimer: ReturnType<typeof setTimeout> | undefined;
@@ -342,7 +342,12 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     try {
       await this.client().sendMessageAsync(
         sessionId,
-        { parts: [{ type: 'text', text: prompt }], ...(format ? { format } : {}) },
+        {
+          parts: [{ type: 'text', text: prompt }],
+          ...(format ? { format } : {}),
+          ...(agent ? { agent } : {}),
+          ...(model ? { model: { providerId: model.providerID, modelId: model.modelID } } : {}),
+        },
         context,
       );
       armIdle();
