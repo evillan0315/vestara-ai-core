@@ -14,3 +14,4 @@ export * from './types';
 export * from './verifier';
 export * from './visual';
 export * from './visual-collector';
+export * from './visual-ingest';

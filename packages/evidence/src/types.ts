@@ -44,6 +44,25 @@ export type EvidenceKind =
   | 'screenshot'
   | 'visual-comparison';
 
+// ─── Visual artifact metadata (EVIDENCE-UX-002 M1) ────────────────
+//
+// Descriptive presentation metadata for image evidence, recorded from
+// inspected image bytes at ingest/collect time. Never artifact identity
+// (the content digest is), never verification authority (the verifier
+// verdict is), never filesystem authority (digests resolve server-side).
+
+/** Image media types with byte-level inspection support (M1). SVG is excluded. */
+export type SupportedVisualMediaType = 'image/png' | 'image/jpeg' | 'image/webp';
+
+export interface VisualArtifactMetadata {
+  /** Intrinsic pixel width inspected from image content (never filename). */
+  readonly width: number;
+  /** Intrinsic pixel height inspected from image content (never filename). */
+  readonly height: number;
+  /** MIME determined from magic bytes (never extension). Mirrors the artifact mediaType. */
+  readonly mediaType: SupportedVisualMediaType;
+}
+
 export interface EvidenceReference {
   readonly ref: string; // content-addressed digest (sha256)
   readonly kind: EvidenceKind;
@@ -52,6 +71,11 @@ export interface EvidenceReference {
   readonly summary: string;
   readonly provenance: EvidenceProvenance;
   readonly relatedTo?: readonly string[];
+  /**
+   * Descriptive visual metadata (EVIDENCE-UX-002 M1). Presentation hint only —
+   * identity remains `ref`, authority remains provenance + verifier verdict.
+   */
+  readonly visual?: VisualArtifactMetadata;
 }
 
 export interface EvidenceProvenance {
@@ -143,6 +167,12 @@ export interface EvidenceItem {
   readonly summary: string;
   readonly operation?: string;
   readonly relatedTo?: readonly string[];
+  /**
+   * Item-level metadata passthrough (EVIDENCE-UX-002 M1). The pipeline merges
+   * this into the manifest artifact `metadata` without affecting the content
+   * digest. Visual collectors use `{ visual: VisualArtifactMetadata }`.
+   */
+  readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
 export interface EvidenceCollectionResult {

@@ -61,7 +61,8 @@
     "screenshots:report": "pnpm --filter @vestara/workspace-ui screenshots:report",
     "screenshots:clean": "pnpm --filter @vestara/workspace-ui screenshots:clean",
     "screenshots:check": "pnpm --filter @vestara/workspace-ui screenshots:check",
-    "marketplace:fixtures:seed": "tsx scripts/marketplace-fixtures/seed.ts"
+    "marketplace:fixtures:seed": "tsx scripts/marketplace-fixtures/seed.ts",
+    "evidence:ingest-visual": "tsx scripts/evidence-ingest-visual.ts"
   },
   "workspaces": [
     "packages/*",

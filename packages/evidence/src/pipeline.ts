@@ -23,6 +23,7 @@ import type {
   VerificationCheckResult,
   VerificationEvidenceBundle,
 } from './types';
+import { readVisualMetadata } from './visual-ingest';
 
 export interface EvidencePipelineOptions {
   readonly artifacts: ContentAddressedEvidenceStore;
@@ -89,14 +90,21 @@ export class EvidencePipeline {
     // 1. Collect + normalize evidence from the configured collectors.
     const items = await this.collect(input);
 
-    // 2. Content-address every item.
+    // 2. Content-address every item. Item metadata rides alongside the bytes
+    //    and never affects the digest (digests hash bytes only). Pipeline
+    //    fields stay authoritative over colliding item metadata keys.
     const placed = items.map((item) => {
       const ref = this.artifacts.put({
         content: item.content,
         mediaType: item.mediaType,
         kind: item.kind,
         summary: item.summary,
-        metadata: { operation: item.operation, relatedTo: item.relatedTo, producer: this.producer },
+        metadata: {
+          ...item.metadata,
+          operation: item.operation,
+          relatedTo: item.relatedTo,
+          producer: this.producer,
+        },
       });
       return { item, ref };
     });
@@ -118,7 +126,9 @@ export class EvidencePipeline {
       correlationId: input.correlationId ?? input.executionId,
     });
 
-    // 4. Evidence references with provenance.
+    // 4. Evidence references with provenance. Validated visual metadata passes
+    //    through as a descriptive hint; identity stays `ref`, authority stays
+    //    provenance + verifier verdict.
     const evidenceRefs: EvidenceReference[] = placed.map(({ item, ref }) => {
       const provenance: EvidenceProvenance = {
         producer: this.producer,
@@ -129,6 +139,7 @@ export class EvidencePipeline {
         contentHash: ref.digest,
         relatedTo: item.relatedTo,
       };
+      const visual = readVisualMetadata(item.metadata);
       return {
         ref: ref.digest,
         kind: item.kind,
@@ -137,6 +148,7 @@ export class EvidencePipeline {
         summary: item.summary,
         provenance,
         relatedTo: item.relatedTo,
+        ...(visual ? { visual } : {}),
       };
     });
 
