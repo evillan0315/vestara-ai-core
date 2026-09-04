@@ -45,6 +45,7 @@ const Workforce = lazy(() => import('./pages/Workforce'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 const SettingsPage = lazy(() => import('./pages/Settings/SettingsPage'));
 const RoutingPage = lazy(() => import('./pages/Routing'));
+const M4aDemo = lazy(() => import('./pages/M4aDemo'));
 
 /** Route id → lazy page component. Keys match APP_ROUTES ids. */
 const PAGES: Record<string, ComponentType> = {
@@ -85,6 +86,7 @@ const PAGES: Record<string, ComponentType> = {
   workforce: Workforce,
   settings: SettingsPage,
   routing: RoutingPage,
+  'm4a-demo': M4aDemo,
   'not-found': NotFound,
 };
 

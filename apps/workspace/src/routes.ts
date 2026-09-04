@@ -194,6 +194,19 @@ export const APP_ROUTES: AppRoute[] = [
     layout: 'shell',
     catchAll: true,
   },
+
+  {
+    // GA-UX-PREMIUM M4A: contract-fixture visual acceptance harness.
+    // enabled: false — deterministic fixtures, never a live-diff claim; kept
+    // out of the CI visual-regression baseline set on purpose.
+    id: 'm4a-demo',
+    path: '/m4a-demo',
+    title: 'M4A Code Edit Fixture Demo',
+    requiresAuth: false,
+    enabled: false,
+    layout: 'shell',
+    hideFromNav: true,
+  },
 ];
 
 /** Resolve a route pattern to a concrete URL, substituting sample params. */

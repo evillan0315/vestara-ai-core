@@ -14,7 +14,8 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
-import type { AssistantToolOperation } from '../../hooks/useAssistantConversation';
+import type { AssistantToolOperation, StructuredEditOperation } from '../../hooks/useAssistantConversation';
+import { AssistantCodeEdit } from './AssistantCodeEdit';
 
 // ─── Categories ─────────────────────────────────────────────────
 
@@ -169,6 +170,12 @@ export function AssistantToolCard({ operation }: AssistantToolCardProps) {
 
 export interface AssistantExecutionTimelineProps {
   operations: AssistantToolOperation[];
+  /**
+   * Structured edit projections (GA-UX-PREMIUM M4A). A structured edit
+   * supersedes the generic M2 row for the same operation identity (one
+   * operation, one presentation); standalone structured edits render too.
+   */
+  structuredEdits?: readonly StructuredEditOperation[];
   /** Collapsed once response generation begins; user-expandable. */
   expanded: boolean;
   onToggle: () => void;
@@ -182,10 +189,20 @@ export interface AssistantExecutionTimelineProps {
  * lifecycle changes announce through the existing bounded `role="status"`
  * line owned by ActiveTurn, never per-card live regions.
  */
-export function AssistantExecutionTimeline({ operations, expanded, onToggle }: AssistantExecutionTimelineProps) {
-  if (operations.length === 0) return null;
+export function AssistantExecutionTimeline({
+  operations,
+  structuredEdits = [],
+  expanded,
+  onToggle,
+}: AssistantExecutionTimelineProps) {
+  if (operations.length === 0 && structuredEdits.length === 0) return null;
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
+
+  const supersededOpIds = new Set(structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined));
+  const standaloneEdits = structuredEdits.filter((edit) => edit.supersedesOpId === undefined);
+  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length;
+  const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
 
   return (
     <div data-testid="assistant-timeline" className="min-w-0 mb-1">
@@ -194,20 +211,27 @@ export function AssistantExecutionTimeline({ operations, expanded, onToggle }: A
         data-testid="assistant-timeline-toggle"
         onClick={onToggle}
         aria-expanded={expanded}
-        aria-label={expanded ? `Hide ${count} ${noun}` : `Show ${count} ${noun}`}
+        aria-label={expanded ? `Hide ${visibleCount} ${visibleNoun}` : `Show ${visibleCount} ${visibleNoun}`}
         className="flex min-w-0 items-center gap-1.5 rounded-md px-0.5 py-0.5 text-left text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
       >
         <span aria-hidden="true" className="text-zinc-600 text-[10px]">
           {expanded ? '▾' : '▸'}
         </span>
         <span className="truncate">
-          {count} {noun}
+          {visibleCount} {visibleNoun}
         </span>
       </button>
       {expanded && (
         <div className="mt-0.5 border-l border-zinc-800 pl-2.5 ml-[3px] min-w-0">
-          {operations.map((op) => (
-            <AssistantToolCard key={op.id} operation={op} />
+          {operations.map((op) => {
+            if (supersededOpIds.has(op.id)) {
+              const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);
+              return edit ? <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} /> : null;
+            }
+            return <AssistantToolCard key={op.id} operation={op} />;
+          })}
+          {standaloneEdits.map((edit) => (
+            <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} />
           ))}
         </div>
       )}

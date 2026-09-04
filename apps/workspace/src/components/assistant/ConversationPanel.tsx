@@ -31,6 +31,7 @@ import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import type {
   AssistantToolOperation,
   OptimisticHumanTurn,
+  StructuredEditOperation,
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
@@ -213,14 +214,16 @@ function ActiveTurn({
   text,
   status,
   operations,
+  structuredEdits,
 }: {
   text: string;
   status?: string | null;
   operations?: AssistantToolOperation[];
+  structuredEdits?: readonly StructuredEditOperation[];
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
-  const hasOps = ops.length > 0;
+  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0;
   // Timeline collapse discipline (M2): expanded while executing, collapsed
   // once response generation begins. User-expandable while streaming.
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -244,9 +247,15 @@ function ActiveTurn({
           </span>
         </div>
         {/* M2: tool start replaces the Thinking text block with the execution
-            timeline — one clear active state, never Thinking + Reading twice. */}
+            timeline — one clear active state, never Thinking + Reading twice.
+            M4A: structured edit projections supersede the generic edit row. */}
         {hasOps && (
-          <AssistantExecutionTimeline operations={ops} expanded={timelineExpanded} onToggle={toggleTimeline} />
+          <AssistantExecutionTimeline
+            operations={ops}
+            structuredEdits={structuredEdits}
+            expanded={timelineExpanded}
+            onToggle={toggleTimeline}
+          />
         )}
         {isThinking && !hasOps ? (
           // Thinking state: identity + status row only, no response chrome.
@@ -768,6 +777,7 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
                 text={assistant.streamingText}
                 status={assistant.streamStatus}
                 operations={assistant.toolOperations ?? []}
+                structuredEdits={assistant.structuredEdits ?? []}
               />
             )}
           </div>

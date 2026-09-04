@@ -156,7 +156,27 @@ export interface UseAssistantConversationReturn {
    * Presentation only — cleared on send/select/abort, never persisted.
    */
   toolOperations: AssistantToolOperation[];
+  /**
+   * Structured edit projections (GA-UX-PREMIUM M4A). Parallel to
+   * `toolOperations`; consumed by AssistantCodeEdit. When a structured edit's
+   * `operationId` matches a generic operation's identity, the rich surface
+   * supersedes the generic row (one operation, one presentation). Cleared with
+   * toolOperations on send/select/abort.
+   */
+  structuredEdits: StructuredEditOperation[];
   abortStream: () => void;
+}
+
+export interface StructuredEditOperation {
+  /** Stable upstream operation identity (OpenCode callID / namespaced edit id). */
+  operationId: string;
+  /** The authoritative `assistant.execution.v1` edit detail (patch/hunks/unavailable). */
+  detail: AssistantExecutionDetail;
+  /**
+   * Client op id of the generic M2 operation this edit supersedes, when the
+   * operationIds correlate (same identity). Absent → standalone structured edit.
+   */
+  supersedesOpId?: string;
 }
 
 let clientTurnCounter = 0;
@@ -305,9 +325,23 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // GA-UX-PREMIUM M3: authoritative `operationId` → client op id correlation
   // (transient, per active turn; cleared with toolOperations).
   const operationIdMapRef = useRef<Map<string, string>>(new Map());
+  // ── Structured edit projections (GA-UX-PREMIUM M4A, transient) ──
+  const [structuredEdits, setStructuredEdits] = useState<StructuredEditOperation[]>([]);
+  /** Upsert a structured edit by operationId (later evidence replaces earlier). */
+  const upsertStructuredEdit = useCallback((detail: AssistantExecutionDetail) => {
+    if (detail.kind !== 'edit') return;
+    const operationId = detail.operationId;
+    const supersedesOpId = operationIdMapRef.current.get(operationId);
+    setStructuredEdits((prev) => {
+      const existing = prev.find((entry) => entry.operationId === operationId);
+      const next: StructuredEditOperation = { operationId, detail, supersedesOpId };
+      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
+    });
+  }, []);
   const clearToolOperations = () => {
     operationIdMapRef.current.clear();
     setToolOperations([]);
+    setStructuredEdits([]);
   };
   const abortRef = useRef<AbortController | null>(null);
   const streamIdRef = useRef(0); // stale-stream guard
@@ -505,6 +539,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
               } else if (eventType === 'status') {
                 // Bounded operational status replaces Thinking…/previous status
                 setStreamStatus(eventContent || null);
+                // GA-UX-PREMIUM M4A: structured edit projections ride the
+                // status channel (file.edited / turn-end diff enrichment).
+                const execution = parseExecutionDetail(data?.event?.execution);
+                if (execution) upsertStructuredEdit(execution);
               } else if (eventType === 'tool') {
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
                 setStreamStatus(
@@ -533,6 +571,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 setStreamStatus('Preparing response…');
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
                 const execution = parseExecutionDetail(data?.event?.execution);
+                if (execution) upsertStructuredEdit(execution);
                 setToolOperations((prev) =>
                   execution?.operationId
                     ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
@@ -599,7 +638,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         busyRef.current = false;
       }
     },
-    [loadMessages, refreshList],
+    [loadMessages, refreshList, upsertStructuredEdit],
   );
 
   // ── Send message + stream response ──
@@ -753,6 +792,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     streamStatus,
     streamError,
     toolOperations,
+    structuredEdits,
     abortStream,
   };
 }
