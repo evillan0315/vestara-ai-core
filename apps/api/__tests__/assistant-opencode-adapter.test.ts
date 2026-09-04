@@ -222,7 +222,18 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
   it('turn-end enrichment: session diff and todos surface as bounded status details', async () => {
     const chunks = await collectTurn(
       eventClient([sseEvent('e1', 'session.status', { status: { type: 'idle' } })], {
-        diff: [{ path: 'packages/foo/src/index.ts', operation: 'modified', additions: 4, deletions: 2, hunks: [] }],
+        diff: [
+          {
+            path: 'packages/foo/src/index.ts',
+            operation: 'modified',
+            additions: 4,
+            deletions: 2,
+            hunks: [
+              { oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx\n+ add\n- del' },
+              { oldStart: 20, oldLines: 1, newStart: 21, newLines: 1, content: ' tail' },
+            ],
+          },
+        ],
         todos: [{ content: 'Investigate M3', status: 'pending' }],
       }),
     );
@@ -234,11 +245,43 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       expect(edit!.detail!.file).toBe('packages/foo/src/index.ts');
       expect(edit!.detail!.diffProvenance).toBe('runtime-provided');
       expect(edit!.detail!.additions).toBe(4);
+      // GA-UX-PREMIUM M3.1: runtime hunks ride the contract (bounded, order preserved).
+      expect(edit!.detail!.hunks).toHaveLength(2);
+      expect(edit!.detail!.hunks![0]).toEqual({
+        oldStart: 10,
+        oldLines: 3,
+        newStart: 10,
+        newLines: 3,
+        content: ' ctx\n+ add\n- del',
+      });
+      expect(edit!.detail!.hunks![1]!.oldStart).toBe(20);
+      expect(edit!.detail!.hunksTruncated).toBeUndefined();
     }
     expect(task).toBeDefined();
     if (task!.detail!.kind === 'task-snapshot') {
       expect(task!.detail!.source).toBe('opencode');
       expect(task!.detail!.todos[0]!.title).toBe('Investigate M3');
+    }
+  });
+
+  it('turn-end enrichment bounds oversized hunks and flags truncation', async () => {
+    const chunks = await collectTurn(
+      eventClient([sseEvent('e1', 'session.status', { status: { type: 'idle' } })], {
+        diff: [
+          {
+            path: 'packages/foo/src/index.ts',
+            operation: 'modified',
+            additions: 100,
+            deletions: 100,
+            hunks: [{ oldStart: 1, content: 'z'.repeat(5000) }],
+          },
+        ],
+      }),
+    );
+    const edit = chunks.find((c) => c.detail?.kind === 'edit');
+    if (edit!.detail!.kind === 'edit') {
+      expect(edit!.detail!.hunks![0]!.content.length).toBeLessThanOrEqual(1000);
+      expect(edit!.detail!.hunksTruncated).toBe(true);
     }
   });
 

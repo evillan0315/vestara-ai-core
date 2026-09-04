@@ -291,3 +291,209 @@ describe('normalizeAssistantExecutionDetail — §15 contract matrix', () => {
     expect(isAssistantExecutionDetail({ ...BASE, version: 99 })).toBe(false);
   });
 });
+
+// ─── GA-UX-PREMIUM M3.1 — edit hunk projection contract repair ───
+
+const EDIT_BASE = {
+  ...BASE,
+  kind: 'edit',
+  state: 'completed',
+  file: 'apps/workspace/src/components/assistant/ConversationPanel.tsx',
+  operation: 'modified',
+  additions: 5,
+  deletions: 4,
+  diffProvenance: 'runtime-provided',
+} as const;
+
+const HUNK = { oldStart: 497, oldLines: 4, newStart: 497, newLines: 4, content: ' context\n+added\n-removed' } as const;
+
+describe('M3.1 — bounded runtime hunk projection', () => {
+  it('one hunk survives normalization with all fields preserved', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    expect(d!.kind).toBe('edit');
+    if (d!.kind === 'edit') {
+      expect(d!.hunks).toEqual([HUNK]);
+      expect(d!.hunksTruncated).toBeUndefined();
+    }
+  });
+
+  it('multiple hunks preserve upstream order', () => {
+    const d = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      hunks: [
+        { oldStart: 1, oldLines: 2, newStart: 1, newLines: 2, content: ' a' },
+        { oldStart: 40, oldLines: 3, newStart: 41, newLines: 3, content: ' b' },
+      ],
+    });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks!.map((h) => h.oldStart)).toEqual([1, 40]);
+      expect(d!.hunks![0]!.content).toBe(' a');
+      expect(d!.hunks![1]!.content).toBe(' b');
+    }
+  });
+
+  it('content is preserved verbatim when under bounds (leading diff markers intact)', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [{ content: '  ctx\n+ add\n- del\n' }] });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks![0]!.content).toBe('  ctx\n+ add\n- del\n');
+    }
+  });
+
+  it('line metadata (oldStart/oldLines/newStart/newLines) is preserved when supplied', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks![0]).toMatchObject({
+        oldStart: 497,
+        oldLines: 4,
+        newStart: 497,
+        newLines: 4,
+      });
+    }
+  });
+
+  it('absent line fields remain absent (never manufactured)', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [{ content: 'x' }] });
+    if (d!.kind === 'edit') {
+      const hunk = d!.hunks![0]!;
+      // undefined values serialize away — nothing is manufactured as 0/1/prev+1.
+      expect(hunk.oldStart).toBeUndefined();
+      expect(hunk.oldLines).toBeUndefined();
+      expect(hunk.newStart).toBeUndefined();
+      expect(hunk.newLines).toBeUndefined();
+      expect(hunk.content).toBe('x');
+      expect(JSON.stringify(hunk)).not.toContain('oldStart');
+      expect(JSON.stringify(hunk)).not.toContain('newLines');
+    }
+  });
+
+  it('hunk count is bounded (excess dropped, truncation flagged)', () => {
+    const many = Array.from({ length: 60 }, (_, i) => ({ oldStart: i, content: 'x' }));
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: many });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks!.length).toBe(50);
+      expect(d!.hunksTruncated).toBe(true);
+    }
+  });
+
+  it('per-hunk content is bounded', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [{ content: 'y'.repeat(1500) }] });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks![0]!.content.length).toBe(1000);
+      expect(d!.hunksTruncated).toBe(true);
+    }
+  });
+
+  it('aggregate hunk content is bounded', () => {
+    const big = Array.from({ length: 20 }, () => ({ content: 'z'.repeat(500) }));
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: big });
+    if (d!.kind === 'edit') {
+      const total = d!.hunks!.reduce((n, h) => n + h.content.length, 0);
+      expect(total).toBeLessThanOrEqual(8000);
+      expect(d!.hunksTruncated).toBe(true);
+    }
+  });
+
+  it('hunksTruncated is false (absent) for a complete projection', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (d!.kind === 'edit') {
+      expect(d!.hunksTruncated).toBeUndefined();
+    }
+  });
+
+  it('hunksTruncated is true whenever evidence is lost', () => {
+    for (const payload of [
+      { ...EDIT_BASE, hunks: Array.from({ length: 60 }, () => ({ content: 'x' })) },
+      { ...EDIT_BASE, hunks: [{ content: 'y'.repeat(1500) }] },
+      { ...EDIT_BASE, hunks: Array.from({ length: 20 }, () => ({ content: 'z'.repeat(500) })) },
+      { ...EDIT_BASE, hunks: [{ content: 42 as unknown }] },
+      { ...EDIT_BASE, hunks: [{ content: 'ok' }, 'not-an-object'] },
+    ]) {
+      const d = normalizeAssistantExecutionDetail(payload);
+      if (d!.kind === 'edit') expect(d!.hunksTruncated).toBe(true);
+    }
+  });
+
+  it('additions/deletions/operation/path remain unchanged by hunk projection', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (d!.kind === 'edit') {
+      expect(d!.additions).toBe(5);
+      expect(d!.deletions).toBe(4);
+      expect(d!.operation).toBe('modified');
+      expect(d!.file).toBe('apps/workspace/src/components/assistant/ConversationPanel.tsx');
+    }
+  });
+
+  it('diffProvenance stays runtime-provided; beforeAfterProvenance stays unavailable', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (d!.kind === 'edit') {
+      expect(d!.diffProvenance).toBe('runtime-provided');
+      expect(d!.beforeAfterProvenance).toBe('unavailable');
+    }
+  });
+
+  it('arbitrary upstream hunk/runtime fields are excluded', () => {
+    const d = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      hunks: [{ oldStart: 1, content: 'x', secret: 'TOP-SECRET', raw: { a: 1 }, hiddenReasoning: 'r' }],
+      systemPrompt: 'S',
+    });
+    const json = JSON.stringify(d);
+    expect(json).not.toContain('TOP-SECRET');
+    expect(json).not.toContain('hiddenReasoning');
+    expect(json).not.toContain('systemPrompt');
+    if (d!.kind === 'edit') {
+      expect('secret' in d!.hunks![0]!).toBe(false);
+      expect('raw' in d!.hunks![0]!).toBe(false);
+    }
+  });
+
+  it('existing M3 edit payloads without hunks remain valid', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE });
+    expect(d!.kind).toBe('edit');
+    if (d!.kind === 'edit') {
+      expect(d!.hunks).toBeUndefined();
+      expect(d!.hunksTruncated).toBeUndefined();
+    }
+  });
+
+  it('unknown execution versions still degrade safely with hunk payloads', () => {
+    expect(normalizeAssistantExecutionDetail({ ...EDIT_BASE, version: 99, hunks: [HUNK] })).toBeUndefined();
+    expect(
+      normalizeAssistantExecutionDetail({ ...EDIT_BASE, contract: 'assistant.execution.v2', hunks: [HUNK] }),
+    ).toBeUndefined();
+  });
+
+  it('malformed content (not a string) drops the hunk and flags truncation', () => {
+    const d = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      hunks: [{ content: 42 }, { oldStart: 5, content: ' ok' }],
+    });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks).toEqual([{ oldStart: 5, content: ' ok' }]);
+      expect(d!.hunksTruncated).toBe(true);
+    }
+  });
+
+  it('invalid numeric line metadata degrades to absent (never fabricated)', () => {
+    const d = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      hunks: [{ oldStart: -1, oldLines: '3', newStart: NaN, content: 'x' }],
+    });
+    if (d!.kind === 'edit') {
+      const hunk = d!.hunks![0]!;
+      expect(hunk.oldStart).toBeUndefined();
+      expect(hunk.oldLines).toBeUndefined();
+      expect(hunk.newStart).toBeUndefined();
+      expect(hunk.content).toBe('x');
+      expect(d!.hunksTruncated).toBeUndefined(); // invalid metadata is not evidence loss
+    }
+  });
+
+  it('validator accepts valid hunk payloads and rejects malformed ones (no generic-record weakening)', () => {
+    expect(isAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] })).toBe(true);
+    expect(isAssistantExecutionDetail({ ...EDIT_BASE, hunks: [{ content: 'x' }] })).toBe(true);
+    expect(isAssistantExecutionDetail({ ...EDIT_BASE, hunks: 'not-an-array' })).toBe(true); // absent → valid, no hunks
+    expect(isAssistantExecutionDetail({ ...EDIT_BASE, file: '' })).toBe(false);
+    expect(isAssistantExecutionDetail({ ...EDIT_BASE, operationId: '' })).toBe(false);
+  });
+});

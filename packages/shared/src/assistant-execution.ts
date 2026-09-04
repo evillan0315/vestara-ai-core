@@ -54,6 +54,15 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
   permissionResources: 20,
   /** Max todos surfaced per task snapshot. */
   todoItems: 20,
+  /**
+   * Max hunks per edit projection (GA-UX-PREMIUM M3.1). Prevents a huge
+   * repository diff from becoming an unbounded Conversation SSE payload.
+   */
+  hunkCount: 50,
+  /** Max chars per hunk content (unified-diff text). */
+  hunkContent: 1_000,
+  /** Max aggregate hunk content chars across all hunks of one edit projection. */
+  hunkContentTotal: 8_000,
 } as const;
 
 // ─── Common envelope ──────────────────────────────────────────
@@ -92,6 +101,22 @@ export interface ToolExecutionDetail extends AssistantExecutionBase {
   readonly durationMs?: number;
 }
 
+/**
+ * One unified-diff hunk from the runtime (GA-UX-PREMIUM M3.1).
+ *
+ * Values are PRESERVED from the upstream `OpenCodeDiffHunk` when supplied;
+ * absent line fields stay `undefined` — never manufactured (no 0, no
+ * previous+1, no array index). `content` is the diff text (context /
+ * additions / deletions lines) and is bounded.
+ */
+export interface AssistantEditHunk {
+  readonly oldStart?: number;
+  readonly oldLines?: number;
+  readonly newStart?: number;
+  readonly newLines?: number;
+  readonly content: string;
+}
+
 export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly kind: 'edit';
   /** Repository-relative target path (never a bare absolute external path). */
@@ -99,6 +124,14 @@ export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly operation?: 'added' | 'modified' | 'deleted' | 'renamed';
   readonly additions?: number;
   readonly deletions?: number;
+  /** Runtime-provided unified-diff hunks (OpenCode session diff), bounded. */
+  readonly hunks?: readonly AssistantEditHunk[];
+  /**
+   * True when any configured bound caused loss of upstream hunk evidence
+   * (hunk count, per-hunk content, or aggregate content truncation) — the
+   * projection is then NOT the complete upstream diff.
+   */
+  readonly hunksTruncated?: boolean;
   readonly diffProvenance: 'runtime-provided' | 'unavailable';
   readonly beforeAfterProvenance: 'unavailable';
 }
@@ -210,6 +243,63 @@ const KNOWN_STATES: readonly AssistantExecutionState[] = ['running', 'completed'
 const KNOWN_REPLIES = ['once', 'always', 'reject'] as const;
 
 /**
+ * Bound + allowlist upstream diff hunks (GA-UX-PREMIUM M3.1).
+ *
+ * - Constructs new hunk objects from allowlisted fields only; arbitrary
+ *   runtime fields are never forwarded.
+ * - Line metadata is preserved when it is a non-negative integer; absent or
+ *   invalid values become `undefined` — never manufactured (no 0/1/prev+1).
+ * - `content` must be a string; it is bounded by slice (leading diff markers
+ *   and spaces are significant and never trimmed).
+ * - Deterministic truncation: hunk count, per-hunk content, and aggregate
+ *   content are all bounded; any loss sets `truncated`.
+ */
+function boundedHunks(value: unknown): { items: readonly AssistantEditHunk[] | undefined; truncated: boolean } {
+  // Absent (not an array) → no hunks field at all: legacy M3 payloads stay valid.
+  if (!Array.isArray(value)) return { items: undefined, truncated: false };
+  let truncated = false;
+  let aggregate = 0;
+  const items: AssistantEditHunk[] = [];
+  for (const raw of value) {
+    if (items.length >= ASSISTANT_EXECUTION_BOUNDS.hunkCount) {
+      truncated = true;
+      break;
+    }
+    if (!raw || typeof raw !== 'object') {
+      truncated = true; // malformed hunk → evidence lost
+      continue;
+    }
+    const record = raw as Record<string, unknown>;
+    if (typeof record.content !== 'string') {
+      truncated = true; // content not a string → evidence lost
+      continue;
+    }
+    const content =
+      record.content.length > ASSISTANT_EXECUTION_BOUNDS.hunkContent
+        ? ((truncated = true), record.content.slice(0, ASSISTANT_EXECUTION_BOUNDS.hunkContent))
+        : record.content;
+    if (aggregate + content.length > ASSISTANT_EXECUTION_BOUNDS.hunkContentTotal) {
+      truncated = true;
+      break; // aggregate bound hit — remaining hunks are dropped
+    }
+    aggregate += content.length;
+    items.push({
+      oldStart: boundedDiffLine(record.oldStart),
+      oldLines: boundedDiffLine(record.oldLines),
+      newStart: boundedDiffLine(record.newStart),
+      newLines: boundedDiffLine(record.newLines),
+      content,
+    });
+  }
+  return { items, truncated };
+}
+
+/** Non-negative integer line metadata; anything else (absent/invalid) → undefined. */
+function boundedDiffLine(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/**
  * Normalize an unknown payload into a safe `AssistantExecutionDetail`.
  *
  * Constructs a NEW object from allowlisted fields only — never clones the
@@ -269,6 +359,7 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
       const operation = ['added', 'modified', 'deleted', 'renamed'].includes(record.operation as string)
         ? (record.operation as 'added' | 'modified' | 'deleted' | 'renamed')
         : undefined;
+      const hunks = boundedHunks(record.hunks);
       return {
         ...base,
         kind: 'edit',
@@ -276,6 +367,8 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         operation,
         additions: boundedNumber(record.additions),
         deletions: boundedNumber(record.deletions),
+        hunks: hunks.items,
+        hunksTruncated: hunks.truncated || undefined,
         diffProvenance: record.diffProvenance === 'runtime-provided' ? 'runtime-provided' : 'unavailable',
         beforeAfterProvenance: 'unavailable',
       };

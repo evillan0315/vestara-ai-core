@@ -294,6 +294,10 @@ export async function* runAssistantOpenCodeTurn(
           operation: diffFile.operation,
           additions: diffFile.additions,
           deletions: diffFile.deletions,
+          // GA-UX-PREMIUM M3.1: runtime-provided hunks ride the contract
+          // (allowlisted + bounded by the shared normalizer). Previously
+          // discarded at this boundary.
+          hunks: diffFile.hunks,
           diffProvenance: 'runtime-provided',
           timestamp: Date.now(),
         });

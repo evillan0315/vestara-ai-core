@@ -1,0 +1,38 @@
+{
+  "milestone": "GA-UX-PREMIUM M3.1 — edit hunk projection contract repair",
+  "liveProof": {
+    "result": "BLOCKED — runtime provides no structured hunks in this environment",
+    "evidence": [
+      {
+        "probe": "disposable file (.vestara-m3.1-demo.ts) created + modified by governed assistant",
+        "resultingFile": "export const greeting = \"Hello Vestara\";\nexport const version = 1;\n",
+        "sessionDiffEndpoint": "GET /session/:id/diff → [] (empty)",
+        "sessionDiffEvents": "session.diff fired 3× with diff: Array(0)",
+        "editToolPart": "status=completed, title=.vestara-m3.1-demo.ts, output=\"(file written)\" — no diff text"
+      },
+      {
+        "probe": "tracked file (apps/onboarding-lab/README.md) modified by governed assistant",
+        "sessionDiffEndpoint": "GET /session/:id/diff → [] (empty), polled 60s after idle",
+        "editToolPart": "status=completed, title=apps/onboarding-lab/README.md, output=\"Edit applied successfully.\"",
+        "cleanup": "git checkout -- restored the file (verified clean)"
+      },
+      {
+        "probe": "untracked + git-staged disposable file",
+        "sessionDiffEndpoint": "GET /session/:id/diff → [] (empty)"
+      }
+    ],
+    "openApiContract": {
+      "sessionDiffSchema": "SnapshotFileDiff { additions, deletions, file?, patch?: string, status? } — patch is a STRING, no structured hunk fields",
+      "vcsDiffSchema": "VcsFileDiff { additions, deletions, file, patch?: string, status? } — patch is a STRING",
+      "clientNormalizerMismatch": "normalizeDiff expects hunks: [{oldStart, oldLines, newStart, newLines, content}] which the 1.18.27 schema never sends — even a populated response would normalize to hunks: []"
+    },
+    "conclusion": "OpenCode 1.18.27 in this environment does not emit structured diff hunks (oldStart/oldLines/newStart/newLines/content). Its diff schemas expose patch strings, and the session-diff endpoint returns empty. No honest upstream-hunk comparison is possible; nothing was fabricated or reconstructed."
+  },
+  "contractRepair": {
+    "status": "IMPLEMENTED + TESTED (56 deterministic tests incl. SSE propagation)",
+    "extension": "EditExecutionDetail.hunks?: readonly AssistantEditHunk[]; EditExecutionDetail.hunksTruncated?: boolean",
+    "bounds": "hunkCount 50, hunkContent 1000, hunkContentTotal 8000 (ASSISTANT_EXECUTION_BOUNDS)",
+    "sanitization": "construct-never-clone; line metadata preserved as supplied, invalid → absent (never fabricated)",
+    "ssePropagation": "proven: StreamChunk.detail → ConversationChunk.event.execution carries hunks (conversations.test.ts)"
+  }
+}

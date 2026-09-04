@@ -194,3 +194,64 @@ Interpretation chain captured per scenario: **OpenCode event → adapter project
 - [x] Live evidence matrix (redacted)
 - [x] M4–M7 readiness (M7 gated on a verification source)
 - [x] Combined Assistant tests: 50 M3 + 108 M1/M2/GA-UI regression (all passing)
+## 15. M3.1 erratum — edit hunk projection contract repair
+
+> **Erratum (GA-UX-PREMIUM M3.1, commit boundary: `fix(assistant): project bounded runtime diff hunks`).**
+>
+> M3 documentation stated runtime hunks were projected, but `EditExecutionDetail`
+> omitted them. The M3 adapter's turn-end enrichment read
+> `diffFile.path/operation/additions/deletions` and **discarded `diffFile.hunks`**,
+> so no hunk evidence ever reached the browser. M3.1 repairs that omission
+> additively. This erratum preserves the defect and the repair as evidence —
+> history is not rewritten to make M3 appear originally correct.
+
+### 15.1 Additive contract extension (M3.1)
+
+```ts
+interface AssistantEditHunk {
+  readonly oldStart?: number;   // preserved when the runtime supplies it
+  readonly oldLines?: number;   // preserved when the runtime supplies it
+  readonly newStart?: number;   // preserved when the runtime supplies it
+  readonly newLines?: number;   // preserved when the runtime supplies it
+  readonly content: string;     // unified-diff hunk text (bounded)
+}
+
+interface EditExecutionDetail {
+  // existing M3 fields remain unchanged
+  readonly hunks?: readonly AssistantEditHunk[];
+  readonly hunksTruncated?: boolean;  // true whenever any bound caused loss
+}
+```
+
+- Bounds centralized in `ASSISTANT_EXECUTION_BOUNDS`: `hunkCount: 50`, `hunkContent: 1000`, `hunkContentTotal: 8000`.
+- Deterministic truncation: hunk count, per-hunk content, aggregate content; `hunksTruncated` is set on any loss. Absent `hunks` input stays absent (legacy M3 payloads remain valid).
+- Line metadata: preserved when a non-negative integer; invalid/absent → `undefined` — never manufactured (no 0, no previous+1, no array index).
+- Sanitization: construct-never-clone; arbitrary upstream hunk/runtime fields are excluded (tested).
+- SSE propagation proven end-to-end: `OpenCode → adapter → StreamChunk.detail → ConversationChunk.event.execution → browser hook` (route-level test).
+
+### 15.2 Live finding — the 1.18.27 runtime provides no structured hunks in this environment
+
+The M3 audit documented `OpenCodeDiffFile.hunks` (structured line metadata) as the
+runtime evidence without a populated live capture. M3.1's live proof attempted a
+disposable repository edit through the governed assistant and found:
+
+- `GET /session/:id/diff` returns `[]` (empty) for untracked, git-staged, and tracked-file edits — polled 60s after idle.
+- `session.diff` events fire with `diff: Array(0)`.
+- The OpenAPI contract for 1.18.27 defines diff payloads as `SnapshotFileDiff { additions, deletions, file?, patch?: string, status? }` and `VcsFileDiff { …, patch?: string, … }` — **patch is a string; there are no structured hunk fields** (`oldStart`/`oldLines`/`newStart`/`newLines`/`content`).
+- The client's `normalizeDiff` expects `hunks[]`, which the server schema never sends — a shape mismatch that would yield `hunks: []` even for a populated response.
+- The `edit` tool part reports `"Edit applied successfully."` — no diff in the tool output.
+
+**Consequence:** M3.1's contract extension and adapter repair are correct and
+test-proven (including SSE propagation with synthetic hunks), but an honest live
+proof of upstream structured hunks is **impossible against this server** — nothing
+was fabricated, derived, or reconstructed. Redacted evidence:
+`docs/blueprint/GA-UX-PREMIUM-M3.1-live-evidence.json`.
+
+**Decision needed (stopped per authorization):** the runtime's actual diff evidence
+is a `patch: string` (when the endpoint populates at all). Options for the user:
+
+1. **Hold M4's diff requirement on a runtime that emits structured hunks** (or fix/configure the OpenCode snapshot mechanism so `/session/:id/diff` populates).
+2. **Authorize a second additive contract form** for `patch: string` evidence (e.g. `EditExecutionDetail.patch?: string`, bounded), preserving `hunks` for runtimes that supply structured line metadata.
+3. **Authorize mechanical parsing** of a runtime-provided patch string into `AssistantEditHunk` entries (line metadata taken from the patch's `@@` headers — parsed, not invented), with `hunksTruncated` applied to the parsed form.
+
+M4 remains stopped. No UI code was added during M3.1.
