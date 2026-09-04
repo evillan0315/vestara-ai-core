@@ -1,5 +1,7 @@
 export const TUI_PROTOCOL_VERSION = 1 as const;
 
+import type { AssistantExecutionDetail } from '@vestara/shared';
+
 export interface StreamEnvelope<TEvent extends TuiDomainEvent = TuiDomainEvent> {
   readonly schemaVersion: typeof TUI_PROTOCOL_VERSION;
   readonly eventId: string;
@@ -153,6 +155,12 @@ export interface ConversationChunk {
     readonly content?: string;
     readonly name?: string;
     readonly detail?: string;
+    /**
+     * Structured Assistant execution projection (GA-UX-PREMIUM M3,
+     * `assistant.execution.v1`). Additive and optional: older servers omit
+     * it, older clients ignore it. TUI consumers keep reading content/name.
+     */
+    readonly execution?: AssistantExecutionDetail;
   };
 }
 

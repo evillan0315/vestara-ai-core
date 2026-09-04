@@ -107,8 +107,31 @@ export async function handleConversationsRoute(
       })) {
         if (chunk.type === 'text' && chunk.content) {
           emit({ type: 'delta', content: chunk.content });
+        } else if (chunk.type === 'tool_call') {
+          // GA-UX-PREMIUM M3: tool start rides the existing `tool` event with
+          // the structured execution detail (additive — legacy clients ignore
+          // the extra field and keep using name/content).
+          emit({
+            type: 'tool',
+            content: chunk.content ?? '',
+            name: chunk.name,
+            ...(chunk.detail ? { execution: chunk.detail } : {}),
+          });
         } else if (chunk.type === 'tool_result') {
-          emit({ type: 'tool_result', content: chunk.content ?? '', name: chunk.name });
+          emit({
+            type: 'tool_result',
+            content: chunk.content ?? '',
+            name: chunk.name,
+            ...(chunk.detail ? { execution: chunk.detail } : {}),
+          });
+        } else if (chunk.type === 'status') {
+          // GA-UX-PREMIUM M3: operational status + optional execution detail
+          // (permission/task/edit projections ride the status channel).
+          emit({
+            type: 'status',
+            content: chunk.content ?? '',
+            ...(chunk.detail ? { execution: chunk.detail } : {}),
+          });
         } else if (chunk.type === 'error') {
           emit({ type: 'error', content: chunk.content ?? 'Stream failed' });
         } else if (chunk.type === 'complete') {

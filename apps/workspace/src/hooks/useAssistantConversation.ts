@@ -36,6 +36,23 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Conversation, ConversationSummary, Message } from '@vestara/types';
+import type { AssistantExecutionDetail } from '@vestara/shared';
+
+/**
+ * GA-UX-PREMIUM M3: cheap inline validation of the server-normalized
+ * `assistant.execution.v1` detail. The browser never imports a runtime
+ * normalizer (linked-CJS /@fs constraint) — the API already constructed the
+ * allowlisted detail, so the hook only verifies the correlation-critical
+ * fields (contract, version, operationId, state) before reading them.
+ */
+function parseExecutionDetail(value: unknown): AssistantExecutionDetail | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const record = value as Record<string, unknown>;
+  if (record.contract !== 'assistant.execution.v1' || record.version !== 1) return undefined;
+  if (typeof record.operationId !== 'string' || record.operationId.length === 0) return undefined;
+  if (record.state !== 'running' && record.state !== 'completed' && record.state !== 'failed') return undefined;
+  return record as AssistantExecutionDetail;
+}
 
 // ─── API Client ───────────────────────────────────────────────
 
@@ -199,6 +216,51 @@ function applyToolResult(
   ];
 }
 
+/**
+ * GA-UX-PREMIUM M3: apply a `tool_result` chunk carrying authoritative
+ * `assistant.execution.v1` detail. Lifecycle comes from the explicit
+ * `state` — NEVER from output text (§4: a successful tool that literally
+ * returns "failed" stays completed). Correlation prefers `operationId` over
+ * same-name merging; the M2 legacy path remains for detail-less chunks.
+ */
+function applyStructuredToolResult(
+  prev: AssistantToolOperation[],
+  toolName: string,
+  eventContent: string,
+  execution: AssistantExecutionDetail,
+  operationIdToOpId: Map<string, string>,
+): AssistantToolOperation[] {
+  const name = toolName || 'tool';
+  // Permission projections never create cards (no authority mutation here).
+  if (execution.kind === 'permission') return prev;
+  const operationId = execution.operationId;
+  const explicit = execution.state === 'failed' ? 'failed' : 'completed';
+  const rawPreview =
+    execution.kind === 'terminal'
+      ? execution.outputPreview
+      : execution.kind === 'tool' || execution.kind === 'generic'
+        ? execution.preview
+        : undefined;
+  const preview = explicit === 'failed' ? undefined : boundPreview(rawPreview ?? eventContent);
+
+  const knownOpId = operationIdToOpId.get(operationId);
+  if (knownOpId) {
+    return prev.map((op) =>
+      op.id === knownOpId ? { ...op, name, state: explicit as ToolOperationState, preview } : op,
+    );
+  }
+  // Completion with authoritative identity but no observed start: resolve the
+  // trailing same-name running op (e.g. start emitted before subscription).
+  const last = prev[prev.length - 1];
+  if (last && last.state === 'running' && last.name === name) {
+    operationIdToOpId.set(operationId, last.id);
+    return prev.map((op) => (op.id === last.id ? { ...op, name, state: explicit as ToolOperationState, preview } : op));
+  }
+  const created = { id: makeToolOpId(name), name, state: explicit as ToolOperationState, preview };
+  operationIdToOpId.set(operationId, created.id);
+  return [...prev, created];
+}
+
 function makeClientTurnId(): string {
   clientTurnCounter += 1;
   try {
@@ -240,6 +302,13 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const [streamError, setStreamError] = useState<string | null>(null);
   // ── Tool operations (GA-UX-PREMIUM M2, transient projection only) ──
   const [toolOperations, setToolOperations] = useState<AssistantToolOperation[]>([]);
+  // GA-UX-PREMIUM M3: authoritative `operationId` → client op id correlation
+  // (transient, per active turn; cleared with toolOperations).
+  const operationIdMapRef = useRef<Map<string, string>>(new Map());
+  const clearToolOperations = () => {
+    operationIdMapRef.current.clear();
+    setToolOperations([]);
+  };
   const abortRef = useRef<AbortController | null>(null);
   const streamIdRef = useRef(0); // stale-stream guard
   const busyRef = useRef(false); // synchronous duplicate-submit guard
@@ -280,7 +349,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setStreamingText('');
       setStreamStatus(null);
       setStreamError(null);
-      setToolOperations([]);
+      clearToolOperations();
       if (!preserveOptimisticRef.current) {
         setOptimisticTurns([]);
       }
@@ -441,7 +510,21 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 setStreamStatus(
                   toolName === 'bash' ? 'Running command…' : toolName ? `Reading ${toolName}…` : 'Working…',
                 );
+                // GA-UX-PREMIUM M3: prefer authoritative operation identity;
+                // legacy same-name merge remains for detail-less servers.
+                const execution = parseExecutionDetail(data?.event?.execution);
                 setToolOperations((prev) => {
+                  if (execution?.operationId && (execution.kind === 'tool' || execution.kind === 'terminal' || execution.kind === 'generic')) {
+                    const knownId = operationIdMapRef.current.get(execution.operationId);
+                    if (knownId) {
+                      return prev.map((op) =>
+                        op.id === knownId && op.state !== 'running' ? { ...op, state: 'running' as const } : op,
+                      );
+                    }
+                    const created = { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const };
+                    operationIdMapRef.current.set(execution.operationId, created.id);
+                    return [...prev, created];
+                  }
                   const last = prev[prev.length - 1];
                   if (last && last.state === 'running' && last.name === (toolName || 'tool')) return prev;
                   return [...prev, { id: makeToolOpId(toolName || 'tool'), name: toolName || 'tool', state: 'running' as const }];
@@ -449,7 +532,12 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
               } else if (eventType === 'tool_result') {
                 setStreamStatus('Preparing response…');
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
-                setToolOperations((prev) => applyToolResult(prev, toolName, eventContent));
+                const execution = parseExecutionDetail(data?.event?.execution);
+                setToolOperations((prev) =>
+                  execution?.operationId
+                    ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
+                    : applyToolResult(prev, toolName, eventContent),
+                );
               } else if (eventType === 'done') {
                 // Stream completed successfully
                 await finalizeSuccess();
@@ -535,7 +623,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setStreamingText('');
       setStreamStatus('Thinking…');
       setStreamError(null);
-      setToolOperations([]);
+      clearToolOperations();
 
       // Ensure a conversation exists (preserving the projected turn across
       // the internal selectConversation call).
@@ -586,7 +674,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setStreamingText('');
       setStreamStatus('Thinking…');
       setStreamError(null);
-      setToolOperations([]);
+      clearToolOperations();
 
       let convId = entry.conversationId ?? selectedIdRef.current;
       if (!convId) {
@@ -628,7 +716,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     setStreamingText('');
     setStreamStatus(null);
     setStreamError(null);
-    setToolOperations([]);
+    clearToolOperations();
     // Reconcile: the human message was already persisted server-side, so
     // reload canonical messages and drop the in-flight optimistic entry.
     // Failed entries (never persisted) are preserved for Retry.

@@ -4,6 +4,8 @@
 //   Specification: CAP-001 → Streaming
 //   Provider SDK: PROVIDER-SDK.md → StreamChunk
 
+import type { AssistantExecutionDetail } from './assistant-execution.js';
+
 export type ChunkType =
   | 'text' // Normal text token
   | 'reasoning' // Chain-of-thought reasoning
@@ -34,6 +36,12 @@ export interface StreamChunk {
   type: ChunkType;
   content?: string;
   name?: string; // Tool call name / citation source
+  /**
+   * Structured Assistant execution projection (GA-UX-PREMIUM M3,
+   * `assistant.execution.v1`). Present on tool_call / tool_result / status
+   * chunks that carry execution evidence. Absent = legacy content/name only.
+   */
+  detail?: AssistantExecutionDetail;
   metadata: ChunkMetadata;
 }
 

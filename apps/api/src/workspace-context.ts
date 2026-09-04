@@ -40,7 +40,7 @@ import { InteractionService } from '@vestara/interaction-app';
 import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
 import { DefaultKernel } from '@vestara/kernel';
 import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
-import { InMemoryRuntimeSessionRegistry } from '@vestara/opencode-runtime';
+import { InMemoryRuntimeSessionRegistry, OpenCodeHttpClient, resolveOpenCodeConfig } from '@vestara/opencode-runtime';
 import {
   OpenAIProvider,
   OpenCodeGoProvider,
@@ -122,6 +122,7 @@ import {
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { getActivityRoom } from './activity-room';
+import { createAssistantOpenCodeExecutor } from './assistant-opencode-adapter';
 import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessApprovalInteractionBridge } from './bridges/harness-approval-interaction-bridge';
@@ -764,6 +765,39 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       }
     },
   };
+  // GA-UX-PREMIUM M3: optional OpenCode-backed executor carrying
+  // `assistant.execution.v1` detail. OFF by default (`VESTARA_ASSISTANT_OPENCODE=1`
+  // to enable); any setup failure falls back to the direct-provider executor —
+  // additive, never mandatory (AR-009 remains paused).
+  let activeConversationExecutor: ProviderExecutor = conversationProviderExecutor;
+  if (process.env.VESTARA_ASSISTANT_OPENCODE === '1') {
+    try {
+      const ocConfig = resolveOpenCodeConfig({});
+      const ocClient = new OpenCodeHttpClient(ocConfig);
+      activeConversationExecutor = createAssistantOpenCodeExecutor({
+        client: ocClient,
+        workspaceId: session.fingerprint.id,
+        directory: abs,
+        agent: 'vestara-assistant',
+        title: 'Assistant conversation',
+        // Real upstream provenance: resolve provider/model from the routing
+        // selection per turn — never fabricate a provider label.
+        resolveProviderModel: (requestedModel) => {
+          try {
+            const { providerId, modelId } = resolveConversationRoute(requestedModel);
+            return { providerID: providerId, modelID: modelId };
+          } catch {
+            return undefined;
+          }
+        },
+      });
+      log('assistant-execution: opencode adapter active');
+    } catch (error) {
+      log(
+        `assistant-execution: opencode adapter unavailable (${error instanceof Error ? error.message : 'unknown'}) — using direct provider`,
+      );
+    }
+  }
   const conversationStore = new SqliteConversationStore({
     dbPath: path.join(workspaceDir, 'conversations', 'conversations.db'),
     logger: kernel.logger,
@@ -771,7 +805,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   await conversationStore.initialize();
   const conversationService: ConversationService = new DefaultConversationService({
     contextAssembler: new DefaultContextAssembler(),
-    providerExecutor: conversationProviderExecutor,
+    providerExecutor: activeConversationExecutor,
     eventBus: kernel.eventBus,
     logger: kernel.logger,
     store: conversationStore,

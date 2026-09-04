@@ -1,0 +1,2450 @@
+[
+  {
+    "scenario": "read",
+    "eventCount": 58,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c37a366001bgQtydHhHqfFoW",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37a376001L0byY2l4FWdu9p",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37a37b001MpXt9IX2bgbfF3",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37a3db001AZWbth2vEJW40y",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37a3f1001bQfl9jRkf4ct97",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37a3f90019WD72DboPIDeMa",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37a59c001EDjYhdfbfYcUNm",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c37a5a4001jaN2aHnw4tUr2W",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37a5ac001RX0NDR0t3CduxJ",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37a636001KZlSJH4c7uX7gl",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bc34001n3OXcNWfcK3rcZ",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bc3a001HEmmN4GcNOZv2V",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bc3f001t7banEJOuqtLmg",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bc40001f1iyNV37E5rKYu",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bc41001G96DFPGjlBUBaC",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bc49001doJdq2nrzv2A3X",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bca80010Ipn7YVcA0AXMx",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37bd03001xYqE2zWEOm9XFR",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37a3f8001QrUM6lhBhxLTXP"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bd08001WAhaeBI1iHcQuO",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bd0d001DqfP2nBidi0Fji",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bddb001yt8rurn7Xg3IXl",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bdf7001dSeLSE0sT2THG8",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37bf37001B9hIywAQEnTnFB",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37bf49001m2N4o8jdZo8sds",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37c18c001MI0OUUT2e2SLzt",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37c196001TEVl14KplbVqav",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37c19e001812301j0eWg8d8",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37c1ae0013rcuaZCHZU4Ks3",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c37c1bc001SooGyuWkAgyddn",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37c42e001VdU7otc3v5x5EL",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37c4a8001d7liAIsY7SDOe6",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37d4350015KPlRH0KmUedDA",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37d438001ejtt26AvUIrY6t",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d43b001ZdT8djViNGVxbM",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d43c001VwFwEX9N8YtSXv",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d43c002ngV0BubLDAKHrP",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d479001x4MqaTJooF29Al",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d4cb001Ihd9yyEte4C5tm",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d4f6001RcCRp7tS7DjEUn",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37d5cd001Z6MlE7AldlOxFr",
+        "payload": {
+          "sessionID": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "messageID": "msg_06c37c19e001Pyrog1ZU19d9OJ"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_363d01f1010b4513ae083207",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788521987340,
+          "sessionId": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_363d01f1010b4513ae083207",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788521987547,
+          "sessionId": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_363d01f1010b4513ae083207",
+          "state": "completed",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788521987575,
+          "sessionId": "ses_f93c85d5bffeDNrRNdzM93ZFef",
+          "kind": "tool",
+          "title": "package.json",
+          "preview": "<path>/home/user/projects/vestara/vestara-ai-core/package.json</path>\n<type>file</type>\n<content>\n1: {\n2:   \"name\": \"vestara-ai-core\",\n3:   \"version\": \"0.3.0\",\n4:   \"private\": true,\n5:   \"description\"",
+          "durationMs": 28
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "not observed in this turn",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  },
+  {
+    "scenario": "search",
+    "eventCount": 54,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c37e5290013iJ8Vz8BGv2GC1",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37e52e001JRrHBO6VDKihl3",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37e5d7001Rf3eo0AlF0rYp4",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37e5df001Wlxq2oVMTKQs59",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37e5f7001O1QP6cuHlUC2FE",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37e5f80013aBkQ79ztCROGC",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37e627001UhNZgMeINuKFrk",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c37e6290016eMZzzHxIfJ7Yv",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37e62a001rtDUudetPvC51y",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37e63a001E36Y3Ek0NDpiyt",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f29d001b60MmpVbZOtQGM",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f2ac001gkCxNonX1swFdw",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37f2b0001hjIY401KU5TjCi",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37e5f8001kkn32IoRQTEKwz"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37f2b5001GGqOw9zq38DUeZ",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37e5f8001kkn32IoRQTEKwz"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37f309001ehMC5d7963aeYH",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37e5f8001kkn32IoRQTEKwz"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c37f34c001mWm2CH6c2eEa9a",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37e5f8001kkn32IoRQTEKwz"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f3cf0015gE1gePTI7E0F3",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f3d1001V1AUZt41NF7qhN",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f4b5001GKXt1uOxQMFdqA",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f4ec001r4BCpR5YG58YKA",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c37f5380017DDxACME80ZPWf",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37f53c001a8jOz8meuLYECs",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37f57b0013amKY3r7e4TOX0",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37f57d0012U2jDNFZzW4Fq4",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37f57e001s3UxZ42pyYhyJl",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c37f58c0014IhbnUhR4Ck9FT",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c37f58e001ceCvHb2rh5FYTq",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c37f5d9001XWNMgn4igD3J7M",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c37f602001JjT6wWCERDyEbI",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c382168001ZjDbScA5fiGMyp",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3821bc00122xStPwZ7hihWu",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3821c3001XiV3GCHt1oHqzd",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3821f9001uAKxlGHmTJUL6o",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c382245001hbDSlidGBK8Emz",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c382248001G58dUM8aw9vmTk",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38224b00184H0A60ndZ69Sk",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c382252001OcpPp5UgIUTLdq",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3822670016QIUeUy1314mlH",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3822dd0011qWUjURexO7Dms",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3822de001WAkZNe8qh0VLvR",
+        "payload": {
+          "sessionID": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "messageID": "msg_06c37f57e001TmV49oDzpqaW0z"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_b66ece5a62e944768faae609",
+          "state": "running",
+          "tool": "grep",
+          "source": "opencode",
+          "timestamp": 1788522001361,
+          "sessionId": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_b66ece5a62e944768faae609",
+          "state": "running",
+          "tool": "grep",
+          "source": "opencode",
+          "timestamp": 1788522001589,
+          "sessionId": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_b66ece5a62e944768faae609",
+          "state": "completed",
+          "tool": "grep",
+          "source": "opencode",
+          "timestamp": 1788522001644,
+          "sessionId": "ses_f93c81ae7ffeh15JrBMUYcqyvL",
+          "kind": "tool",
+          "title": "normalizeAssistantExecutionDetail",
+          "preview": "Found 3 matches\n/home/user/projects/vestara/vestara-ai-core/packages/shared/src/index.ts:\n  Line 17:   normalizeAssistantExecutionDetail,\n\n\n/home/user/projects/vestara/vestara-ai-core/packages/shared/",
+          "durationMs": 55
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "not observed in this turn",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  },
+  {
+    "scenario": "edit",
+    "eventCount": 62,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c3832da001k4CruPzVBSBE71",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3832de001tQLUkQ6gVJMPFE",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3832e0001Vje4BSwJGmoCCE",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c383325001P5Yg9pcISf1o2L",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38335800175tHaTPMmhMSZS",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38335b001WZHaEPL7tb0HNB",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c3834af001HKM11pi6ztPy0N",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c3834b6001d8elC2bdAEmSXL",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3834ba00130ubc6VbJo9hVG",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38354d001OyKJvZUvndfVGW",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c384038001wC6fn72VkpqZVB",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38403c001hUOuMqOj0mbRHL",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c384043001S8Ozmbpcl9TivP",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c384043002XVAg0TgLqpjriS",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c384043003kFDlpETLzbPo1W",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c384059001ru337X16k8BmV3",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3840ab001rg7jbsbcX5It95",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3840f7001FyKcewsaKSxrFe",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3840f8001fH2AZ1Qt4gpHS6",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c38335a001OBwF7UtZ9lGtY5"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c384160001Yn5V9eSvwUPtLO",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c384167001bKLsSORBxnwkhR",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3842c2001t4fZCIN3Rx3A09",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c384317001HpjGRuDg69uTtT",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38450e0011x815M6AQoEvCI",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c384516001d1Yd5oATjWZD7T",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c384630001FrtG725FFjkaDJ",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38463700155B5Vn9LTpgsY7",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3846390019n6Nq2R4ucnLQC",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c38465b001kNy2yR2ThZ7l38",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c3846600010TJjShBKsOhx6S",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c3847da001J6En3H2BAP08EY",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3847f1001H3D4dOaffNy60r",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c385319001eX0qCfcSFKV0Xi",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c385360001T7U2QdDPbnm3Hd",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3853690013LMp9HJjMG0mUc",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38536c0019jSgt0wcCSFh1a",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3853bc001TSOzD40RDwCyX6",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3853f5001A1CelaAMPmztVh",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3853f80012u7dlZ3OwkbVYn",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c385451001tb1HmWyzGb4p1Q",
+        "payload": {
+          "sessionID": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "messageID": "msg_06c384639001Q5PzJSBlBES6Da"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_07d195794bd54e36acbdabb8",
+          "state": "running",
+          "tool": "write",
+          "source": "opencode",
+          "timestamp": 1788522021223,
+          "sessionId": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_07d195794bd54e36acbdabb8",
+          "state": "running",
+          "tool": "write",
+          "source": "opencode",
+          "timestamp": 1788522021569,
+          "sessionId": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_07d195794bd54e36acbdabb8",
+          "state": "completed",
+          "tool": "write",
+          "source": "opencode",
+          "timestamp": 1788522021655,
+          "sessionId": "ses_f93c7cd47ffe4grXoorbrQS3Ql",
+          "kind": "tool",
+          "title": "m3-live-evidence.txt",
+          "preview": "Wrote file successfully.",
+          "durationMs": 87
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "not observed in this turn",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  },
+  {
+    "scenario": "bash",
+    "eventCount": 49,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c38645b0016q5WQlFmFxgU32",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c386466001Pyjkc0XZQiQ73E",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c386469001125dGl0gEant8I",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c386478001moogbPc3a8GAkB",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c386499001Z3xKxIpG8W8Z8U",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38649b001nh37ChsqOWhVWz",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c386554001ooz6PGtyndua6P",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c38655700144VnON6YUtUbas",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38655c001XStdTbQekT96OW",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c3865a0001opo6jbCc2pV8an",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c387033001BxzewF2u7cBuj3",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3870370011cll0QGHCPR91B",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3870400019APcJVrcixhKlh",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387040002gYxNXRQ20yTRhb",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387041001sqRxVqgpkjff5U",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38707200128JHSwOpkSijM0",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387115001PROG0fORMUCbmP",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c3871180017zNcGpwZsU2Xkx",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c38649b0018shJQehWESfldV"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c387119001cwv9HwLiSbJAl2",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38711c001AjFfwGToJqou2V",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3871a2001sKUscGLvzK3EhF",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3871aa001yaOL1uU0GscH3E",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3871d0001WHrRKTseCsW2NX",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3871d4001547W0K7qEQt4Bn",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c3872cc001OiLOUUXnawkOwi",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3872cf001un5kknxRZV8rs1",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3873a1001fgRBt8K7qFbmZs",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c3873a4001BhRgxYqGv5ZUYb",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3873a5001wHBJ4bICE37WHL",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c3873c0001vzQ2YsIwhaAtE1",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c3873c4001cxGoNvo7vhDoA4",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c3874bc001HwKl48s8cXU05P",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3874cc001mxC9nIYxmYsbDY",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c387f6b0016CXAxLHf3aki4J",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c387f6e0015eKOI8tPR65Ts6",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387f7000156Zkffqc0xlaBC",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c3873a5001iHhF3tEIE6V9m7"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387f9c0019G2f7ZyhqDyxik",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c3873a5001iHhF3tEIE6V9m7"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387f9d0016c4OoGVH4SCBpR",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c3873a5001iHhF3tEIE6V9m7"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c387fc60019qdbi97S3h49Qf",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "messageID": "msg_06c3873a5001iHhF3tEIE6V9m7"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c387fc8001t9YXSmDKs62mUA",
+        "payload": {
+          "sessionID": "ses_f93c79bbaffeBMcblZS2uM05m0"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_8f4e98e5c7ba4db39ca389f8",
+          "state": "running",
+          "tool": "bash",
+          "source": "opencode",
+          "timestamp": 1788522033436,
+          "sessionId": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_8f4e98e5c7ba4db39ca389f8",
+          "state": "running",
+          "tool": "bash",
+          "source": "opencode",
+          "timestamp": 1788522033570,
+          "sessionId": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_8f4e98e5c7ba4db39ca389f8",
+          "state": "running",
+          "tool": "bash",
+          "source": "opencode",
+          "timestamp": 1788522033578,
+          "sessionId": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_8f4e98e5c7ba4db39ca389f8",
+          "state": "running",
+          "tool": "bash",
+          "source": "opencode",
+          "timestamp": 1788522033616,
+          "sessionId": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_8f4e98e5c7ba4db39ca389f8",
+          "state": "completed",
+          "tool": "bash",
+          "source": "opencode",
+          "timestamp": 1788522033620,
+          "sessionId": "ses_f93c79bbaffeBMcblZS2uM05m0",
+          "kind": "tool",
+          "title": "echo m3-live-evidence",
+          "preview": "m3-live-evidence",
+          "durationMs": 50
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "not observed in this turn",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  },
+  {
+    "scenario": "task",
+    "eventCount": 143,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta",
+      "todo.updated"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c388dd3001ubQZkxCQK0DAUb",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c388dde001HDbAJfeS7pbqki",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c388de0001AC3spVHzsaKqQE",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c388dea001ejZGoX6opEo9DD",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c388e13001xmMbQo1LZTvUvl",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c388e140014ncT7VG3FfOhzw",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c388fb5001BkXtrP71T0UhId",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c388fbe001NXeG09RsTlXO3L",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c388fc2001ndb1P2STmfR1F3",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c388fed001vX5KFC9nQWhijz",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a0460017ryzeB3bd2vHjT",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a07d001hGXUjjYLZ81YZg",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a07f001zkINREHfIb0g97",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a0be001SYWduqGeGJOZGs",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a0f4001ldR6nXIJw5Rvrc",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a1620012b6JxjzV2iAryd",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a1cb001pcQS0JSQF7p1TR",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a1cc001NrS9H18O0oHHt6",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a1cd001gbgL3RawiBhHpT",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38a1d80013YWq4sCuFsfOof",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c388e14001FMBrCBZV0R5u6e"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a29f001DoomMnxy85ucyy",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a2a3001uTgQDcaipqjtP0",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "todo.updated",
+        "id": "evt_06c38a3d2001hxDfeT38jztwiE",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "todoCount": 2
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a3d70019eRtoMaWAlKxCb",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a3e10017UY31SeERDFxbA",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38a482001WZupCD5Lgnsz56",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38a489001jI1qt7pyr0q28c",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38a5150010XBHUG6TVf6Gfu",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38a51b001e8ypm813s2yX8F",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38a51d001h3Op9hg0M9LSWk",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c38a51f001otjQh2j2YHBa17",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c38a526001clgi6VuzJTsHmL",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38a6040016oRVuFouc36JAe",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38a614001gncfqf8Xs7sFsq",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38adcf0010rdxqsWrsATCn7",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38add300123XERmmzVZRfz7",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38add6001UBJm6GthiEirhB",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c38a51d001EvzQ56ZE1mmnW3"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38ae1c001jBu59EEESjnOlR",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c38a51d001EvzQ56ZE1mmnW3"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38ae52001JlvyZ5z9oSRl11",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c38a51d001EvzQ56ZE1mmnW3"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c38ae8e001Zm6UxBPOd1kunu",
+        "payload": {
+          "sessionID": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "messageID": "msg_06c38a51d001EvzQ56ZE1mmnW3"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_536f1b563d454bb1aa6046a5",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522046115,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "todo.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "evt_06c38a3d2001hxDfeT38jztwiE",
+          "state": "completed",
+          "source": "opencode",
+          "timestamp": 1788522066349,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "task-snapshot",
+          "todos": [
+            {
+              "title": "Inspect package.json",
+              "status": "pending"
+            },
+            {
+              "title": "Report the package name",
+              "status": "pending"
+            }
+          ]
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_536f1b563d454bb1aa6046a5",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522046423,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_536f1b563d454bb1aa6046a5",
+          "state": "completed",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522046433,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool",
+          "title": "2 todos",
+          "preview": "[\n  {\n    \"content\": \"Inspect package.json\",\n    \"status\": \"pending\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Report the package name\",\n    \"status\": \"pending\",\n    \"priority\": \"high\"\n  }\n]",
+          "durationMs": 10
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_5e1b43efe24a47959294f9cc",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522049447,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "todo.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "evt_06c38b108001ZKZ7LqlNSDSAtN",
+          "state": "completed",
+          "source": "opencode",
+          "timestamp": 1788522066352,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "task-snapshot",
+          "todos": [
+            {
+              "title": "Inspect package.json",
+              "status": "in_progress"
+            },
+            {
+              "title": "Report the package name",
+              "status": "pending"
+            }
+          ]
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_5e1b43efe24a47959294f9cc",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522049808,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_5e1b43efe24a47959294f9cc",
+          "state": "completed",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522049815,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool",
+          "title": "2 todos",
+          "preview": "[\n  {\n    \"content\": \"Inspect package.json\",\n    \"status\": \"in_progress\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Report the package name\",\n    \"status\": \"pending\",\n    \"priority\": \"high\"\n  }\n",
+          "durationMs": 7
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_004c325cc980455c8eb52951",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522052881,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_004c325cc980455c8eb52951",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522053079,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_004c325cc980455c8eb52951",
+          "state": "completed",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522053097,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool",
+          "title": "package.json",
+          "preview": "<path>/home/user/projects/vestara/vestara-ai-core/package.json</path>\n<type>file</type>\n<content>\n1: {\n2:   \"name\": \"vestara-ai-core\",\n3:   \"version\": \"0.3.0\",\n4:   \"private\": true,\n5:   \"description\"",
+          "durationMs": 18
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_1ff3b117af3543a6a9c09136",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522056449,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "todo.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "evt_06c38cc3f001KNW2hUAjD0rv2A",
+          "state": "completed",
+          "source": "opencode",
+          "timestamp": 1788522066353,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "task-snapshot",
+          "todos": [
+            {
+              "title": "Inspect package.json",
+              "status": "completed"
+            },
+            {
+              "title": "Report the package name",
+              "status": "in_progress"
+            }
+          ]
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_1ff3b117af3543a6a9c09136",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522056775,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_1ff3b117af3543a6a9c09136",
+          "state": "completed",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522056782,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool",
+          "title": "1 todos",
+          "preview": "[\n  {\n    \"content\": \"Inspect package.json\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Report the package name\",\n    \"status\": \"in_progress\",\n    \"priority\": \"high\"\n  ",
+          "durationMs": 7
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_c51a87c4fd8b4911a34157cf",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522060121,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "todo.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "evt_06c38da9f001HMQo3BLg6C1aUy",
+          "state": "completed",
+          "source": "opencode",
+          "timestamp": 1788522066354,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "task-snapshot",
+          "todos": [
+            {
+              "title": "Inspect package.json",
+              "status": "completed"
+            },
+            {
+              "title": "Report the package name",
+              "status": "completed"
+            }
+          ]
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_c51a87c4fd8b4911a34157cf",
+          "state": "running",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522060449,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_c51a87c4fd8b4911a34157cf",
+          "state": "completed",
+          "tool": "todowrite",
+          "source": "opencode",
+          "timestamp": 1788522060462,
+          "sessionId": "ses_f93c77243ffen5ERbq9DxrnZOs",
+          "kind": "tool",
+          "title": "0 todos",
+          "preview": "[\n  {\n    \"content\": \"Inspect package.json\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  },\n  {\n    \"content\": \"Report the package name\",\n    \"status\": \"completed\",\n    \"priority\": \"high\"\n  }\n",
+          "durationMs": 13
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "observed",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  },
+  {
+    "scenario": "ask",
+    "eventCount": 190,
+    "eventTypes": [
+      "session.updated",
+      "message.updated",
+      "message.part.updated",
+      "session.status",
+      "session.diff",
+      "message.part.delta"
+    ],
+    "redactedEvents": [
+      {
+        "type": "session.updated",
+        "id": "evt_06c38fde30012PrDeaBVL4tdJ7",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38fde7001sIWKvDnaUd4mpX",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c38fde900157WASzZJ23sboi",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c38fe0c001sWpMbr5L6fgouq",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38fe35001zgOzNxeJ684cDF",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38fe38001I78ACjNGACz1qE",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c38feeb001oRDQ5dfOxbaxo3",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c38feef001nU2XiD8zHcIk27",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c38fef0001yfjLtzlFKks9iW",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c38ff0f001tV5FfIY2JddgCa",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390c36001dtQx0rC4N43B2d",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390c92001xD3G2r3bla3d5R",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c390c9a0016I0dltivB8DpoW",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c38fe38001MYNyXFprdzHa09"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c390d81001hmAsj4VQv5sCLZ",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c38fe38001MYNyXFprdzHa09"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c390d83001fKtJGIQAx95JRX",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c38fe38001MYNyXFprdzHa09"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c390d83002HcwGUsYYclGw32",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c38fe38001MYNyXFprdzHa09"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390e460015Yuhhqf94xFlKa",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390e50001A9Zfu2CFWBXmR3",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390e6a001x8UzFrI9fI6Kut",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390f14001FLEVaGSrDf3ntO",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c390ff9001p9UOqS4OG46Bjx",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c390ffe001o0oO1hGw9JnAuP",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c39110f001OnxI5WK1Q3rTEU",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c391114001EEqEFq6x0X3OBA",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c39111d0012a5M98SyVQjuu6",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.updated",
+        "id": "evt_06c3911240015aWWSGLdgGrAQm",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.diff",
+        "id": "evt_06c39112d001F3uBoGU0zNnrD8",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "session.status",
+        "id": "evt_06c39129d001D7cXb0cUOgOtAf",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.updated",
+        "id": "evt_06c3912f000111O0KJGKjCeMpI",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c392c36001iasmGU2p6GvUnd",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c392c3c001STDUDLEenB647L",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392c47001uWRyqYc89E04UF",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392c48001YJEOJu1WLW8iAI",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392c8c001f1QjBahUMtqSYV",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392c8d001QT1jUULHp2dWVN",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392cff001c80IrDqKqoMFcs",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392d00001b7A994svkfqCk0",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.delta",
+        "id": "evt_06c392d0e001xhEhSAw55Oy7PR",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "messageID": "msg_06c39111c001Fdg5rxSaE1PGvv"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c392d100013ocIC9pPfYfIGm",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      },
+      {
+        "type": "message.part.updated",
+        "id": "evt_06c392d13001r3R6NTtByfrG6q",
+        "payload": {
+          "sessionID": "ses_f93c70266ffe5fWeyoQx7eY2JL"
+        }
+      }
+    ],
+    "projections": [
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_f64a2170646740b29a3c153f",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522073680,
+          "sessionId": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_f64a2170646740b29a3c153f",
+          "state": "running",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522073706,
+          "sessionId": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "kind": "tool"
+        }
+      },
+      {
+        "sourceType": "message.part.updated",
+        "detail": {
+          "contract": "assistant.execution.v1",
+          "version": 1,
+          "operationId": "call_f64a2170646740b29a3c153f",
+          "state": "completed",
+          "tool": "read",
+          "source": "opencode",
+          "timestamp": 1788522073866,
+          "sessionId": "ses_f93c70266ffe5fWeyoQx7eY2JL",
+          "kind": "tool",
+          "title": "../../../../../etc",
+          "preview": "<path>/etc</path>\n<type>directory</type>\n<entries>\n.pwd.lock\n.updated\nadduser.conf\nadjtime\nalsa/\nalternatives/\nanacrontab\nanthy/\napache2/\napparmor.d/\napparmor/\napt/\navahi/\nbash_completion\nbash_complet",
+          "durationMs": 160
+        }
+      }
+    ],
+    "explicitAbsences": {
+      "permission": "not observed in this turn",
+      "todo": "not observed in this turn",
+      "verification": "unavailable (no verification events in the 1.18.27 contract)"
+    }
+  }
+]

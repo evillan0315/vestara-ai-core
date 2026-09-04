@@ -8,6 +8,9 @@
     "build": "tsc",
     "test": "vitest run --root ../.. packages/tui-protocol/__tests__"
   },
+  "dependencies": {
+    "@vestara/shared": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "^4.1.10"
   }
