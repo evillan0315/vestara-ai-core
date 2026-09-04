@@ -31,6 +31,7 @@ import {
   EvidencePipeline,
   FilesystemChangeCollector,
   SourceDiffCollector,
+  ThumbnailService,
   VisualEvidenceCollector,
 } from '@vestara/evidence';
 import { type ExtensionPermissionApprover, LocalExtensionManager } from '@vestara/extension-runtime';
@@ -173,6 +174,8 @@ export interface WorkspaceContext {
   evidenceArtifacts: ContentAddressedEvidenceStore;
   evidenceBundles: BundleStore;
   evidenceBaselines: BaselineStore;
+  /** Bounded PNG presentation derivatives of content-addressed visual evidence (EVIDENCE-UX-002 M2). */
+  evidenceThumbnails: ThumbnailService;
   evidencePipeline: EvidencePipeline;
   verifierResults: import('./verifier/verifier-results-store').VerifierResultsStore;
   threadRecovery: DurableThreadRecoveryService;
@@ -452,6 +455,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // verification bundle after every harness verification.
   const evidenceBundles = new BundleStore(path.join(workspaceDir, 'evidence', 'bundles'));
   const evidenceBaselines = new BaselineStore(path.join(workspaceDir, 'evidence', 'baselines'));
+  // EVIDENCE-UX-002 M2 — thumbnail derivatives live beside (never inside) the
+  // content-addressed store, keyed by digest + spec. Lazy, deterministic, immutable.
+  const evidenceThumbnails = new ThumbnailService(path.join(workspaceDir, 'evidence', 'derivatives'));
   const verifierResults = new VerifierResultsStore();
   const evidenceCollectors: import('@vestara/evidence').EvidenceCollector[] = [
     new FilesystemChangeCollector(),
@@ -1455,6 +1461,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     evidenceArtifacts,
     evidenceBundles,
     evidenceBaselines,
+    evidenceThumbnails,
     evidencePipeline,
     verifierResults,
     workerSocketServer,

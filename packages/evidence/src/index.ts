@@ -15,3 +15,4 @@ export * from './verifier';
 export * from './visual';
 export * from './visual-collector';
 export * from './visual-ingest';
+export * from './visual-serve';
