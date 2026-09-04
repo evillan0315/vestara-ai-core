@@ -50,6 +50,7 @@ function AssistantLauncher({
 export function GlobalAssistant() {
   const [panelOpen, setPanelOpen] = useState(false);
   const [panelMinimized, setPanelMinimized] = useState(false);
+  const [panelExpanded, setPanelExpanded] = useState(false);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
   const focusOnMountRef = useRef<HTMLElement | null>(null);
 
@@ -68,12 +69,19 @@ export function GlobalAssistant() {
       return !prev;
     });
     setPanelMinimized(false);
+    setPanelExpanded(false);
   }, []);
 
   const minimizePanel = useCallback(() => {
     setPanelMinimized(true);
     // Focus returns to launcher
     setTimeout(() => launcherRef.current?.focus(), 0);
+  }, []);
+
+  // GA-UI-007: toggle full-window expanded geometry (keeps the conversation
+  // state; navigation ≠ new conversation).
+  const toggleExpanded = useCallback(() => {
+    setPanelExpanded((prev) => !prev);
   }, []);
 
   // GA-UI-006: explicit new conversation. Creates AND selects a fresh
@@ -100,10 +108,16 @@ export function GlobalAssistant() {
         onMinimize={minimizePanel}
         onClose={togglePanel}
         onNewConversation={newConversation}
+        expanded={panelExpanded}
+        onToggleExpanded={toggleExpanded}
         launcherRef={launcherRef}
         focusOnMountRef={focusOnMountRef}
       >
-        <ConversationPanel assistant={assistant} focusOnMountRef={focusOnMountRef} />
+        <ConversationPanel
+          assistant={assistant}
+          focusOnMountRef={focusOnMountRef}
+          expanded={panelExpanded}
+        />
       </FloatingPanel>
     </>
   );

@@ -183,6 +183,8 @@ export interface AssistantExecutionTimelineProps {
    * each todo.updated snapshot replaces the previous.
    */
   taskSnapshot?: AssistantExecutionDetail | null;
+  /** GA-UI-007: "Open in editor" affordance forwarded to edit cards. */
+  onOpenInEditor?: (file: string) => void;
   /** Collapsed once response generation begins; user-expandable. */
   expanded: boolean;
   onToggle: () => void;
@@ -200,6 +202,7 @@ export function AssistantExecutionTimeline({
   operations,
   structuredEdits = [],
   taskSnapshot,
+  onOpenInEditor,
   expanded,
   onToggle,
 }: AssistantExecutionTimelineProps) {
@@ -239,12 +242,14 @@ export function AssistantExecutionTimeline({
           {operations.map((op) => {
             if (supersededOpIds.has(op.id)) {
               const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);
-              return edit ? <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} /> : null;
+              return edit ? (
+                <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
+              ) : null;
             }
             return <AssistantToolCard key={op.id} operation={op} />;
           })}
           {standaloneEdits.map((edit) => (
-            <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} />
+            <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
           ))}
         </div>
       )}

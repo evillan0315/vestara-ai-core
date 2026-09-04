@@ -37,6 +37,7 @@ import type {
 import type { AssistantExecutionDetail } from '@vestara/shared';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { AssistantResponseActions } from './AssistantResponseActions';
+import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
 import { resolveDisplayTitle } from './conversationTitles';
@@ -47,6 +48,8 @@ export interface ConversationPanelProps {
   assistant: UseAssistantConversationReturn;
   /** Ref for the compose textarea — used by FloatingPanel for focus contract */
   focusOnMountRef?: React.RefObject<HTMLElement | null>;
+  /** GA-UI-007: full-window expanded geometry — persistent sidebar rail. */
+  expanded?: boolean;
 }
 
 // ─── Constants ────────────────────────────────────────────────
@@ -217,12 +220,14 @@ function ActiveTurn({
   operations,
   structuredEdits,
   taskSnapshot,
+  onOpenInEditor,
 }: {
   text: string;
   status?: string | null;
   operations?: AssistantToolOperation[];
   structuredEdits?: readonly StructuredEditOperation[];
   taskSnapshot?: AssistantExecutionDetail | null;
+  onOpenInEditor?: (file: string) => void;
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
@@ -257,6 +262,7 @@ function ActiveTurn({
             operations={ops}
             structuredEdits={structuredEdits}
             taskSnapshot={taskSnapshot}
+            onOpenInEditor={onOpenInEditor}
             expanded={timelineExpanded}
             onToggle={toggleTimeline}
           />
@@ -282,6 +288,11 @@ function ActiveTurn({
             </div>
           )
         )}
+        {/* GA-UI-007: compact "Files modified" rollup from authoritative edit
+            projections (presentation-only; appears with the response). */}
+        <AssistantFilesSummary
+          edits={(structuredEdits ?? []).map((entry) => entry.detail)}
+        />
       </div>
     </div>
   );
@@ -497,7 +508,7 @@ function SuggestionEmptyState({ onSuggest }: { onSuggest: (prompt: string) => vo
 
 // ─── Main Component ───────────────────────────────────────────
 
-export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPanelProps) {
+export function ConversationPanel({ assistant, focusOnMountRef, expanded = false }: ConversationPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
@@ -661,6 +672,17 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
     [retryTurn],
   );
 
+  // GA-UI-007: "Open in editor" — bounded navigation affordance. No editor
+  // route exists today, so the honest action copies the repository-relative
+  // path for the user to open in their editor. Never an execution authority.
+  const openInEditorFallback = useCallback((file: string) => {
+    try {
+      void navigator.clipboard.writeText(file);
+    } catch {
+      // clipboard unavailable — the affordance is best-effort
+    }
+  }, []);
+
   const hasMessages = assistant.messages.length > 0;
   const showEmpty = !hasMessages && optimisticTurns.length === 0 && !isStreaming && !assistant.selectedId;
   // Intentional new-conversation surface (GA-UI-006): a selected but
@@ -680,40 +702,43 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
     [handleSend],
   );
 
-  return (
-    <div className="flex flex-col h-full min-h-0">
+  const mainColumn = (
+    <div className="flex min-h-0 flex-1 flex-col">
       {/* Surface context badge */}
       <SurfaceContextBadge surface={surface.surface} />
 
-      {/* GA-UI-006: conversation picker row (M1: premium trigger refinement, same authority/semantics) */}
-      <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 min-w-0">
-        <button
-          ref={pickerRef}
-          type="button"
-          onClick={toggleHistory}
-          aria-haspopup="dialog"
-          aria-expanded={historyOpen}
-          aria-label={
-            assistant.selectedId
-              ? `Current conversation: ${currentTitle}. Open conversation history`
-              : 'Open conversation history'
-          }
-          data-testid="conversation-picker"
-          className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
-        >
-          <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-zinc-400">{currentTitle}</span>
-          <svg
-            className={`h-3 w-3 shrink-0 text-zinc-600 transition-transform ${historyOpen ? 'rotate-180' : ''}`}
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={2}
-            aria-hidden="true"
+      {/* GA-UI-006: conversation picker row — hidden in expanded mode (the
+          sidebar rail replaces it). */}
+      {!expanded && (
+        <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 min-w-0">
+          <button
+            ref={pickerRef}
+            type="button"
+            onClick={toggleHistory}
+            aria-haspopup="dialog"
+            aria-expanded={historyOpen}
+            aria-label={
+              assistant.selectedId
+                ? `Current conversation: ${currentTitle}. Open conversation history`
+                : 'Open conversation history'
+            }
+            data-testid="conversation-picker"
+            className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-      </div>
+            <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-zinc-400">{currentTitle}</span>
+            <svg
+              className={`h-3 w-3 shrink-0 text-zinc-600 transition-transform ${historyOpen ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+              aria-hidden="true"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Degraded banner — API boundary down (listError) vs turn failure (streamError). */}
       {(assistant.listError || assistant.streamError) && (
@@ -724,8 +749,8 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {/* GA-UI-006: history popover (overlay; never navigates away) */}
-        {historyOpen && (
+        {/* GA-UI-006: history popover (overlay; never navigates away) — floating mode only */}
+        {!expanded && historyOpen && (
           <ConversationHistory
             items={historyItems}
             selectedId={assistant.selectedId}
@@ -789,6 +814,7 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
                 operations={assistant.toolOperations ?? []}
                 structuredEdits={assistant.structuredEdits ?? []}
                 taskSnapshot={assistant.taskSnapshot ?? null}
+                onOpenInEditor={openInEditorFallback}
               />
             )}
           </div>
@@ -817,6 +843,37 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
         focusRef={focusOnMountRef}
         conversationKey={assistant.selectedId}
       />
+    </div>
+  );
+
+  // Floating mode: single column (current behavior).
+  if (!expanded) return mainColumn;
+
+  // GA-UI-007 expanded mode: persistent sidebar rail + main conversation.
+  return (
+    <div className="flex h-full min-h-0" data-testid="assistant-expanded">
+      <aside
+        className="hidden w-[300px] shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/40 md:flex min-h-0"
+        data-testid="assistant-sidebar"
+      >
+        <div className="shrink-0 border-b border-zinc-800 px-3 py-2.5">
+          <div className="text-xs font-medium text-zinc-200">Vestara Assistant</div>
+          <div className="truncate text-[10px] text-zinc-600">{surface.workspace.name}</div>
+        </div>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ConversationHistory
+            variant="rail"
+            items={historyItems}
+            selectedId={assistant.selectedId}
+            activeState={activeTurnState}
+            onSelect={handleSelectHistory}
+            onNewConversation={handleNewConversation}
+            onClose={closeHistory}
+            anchorRef={pickerRef}
+          />
+        </div>
+      </aside>
+      {mainColumn}
     </div>
   );
 }

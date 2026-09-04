@@ -36,6 +36,12 @@ export interface ConversationHistoryProps {
   onClose: () => void;
   /** Picker button ref — excluded from outside-click close. */
   anchorRef: React.RefObject<HTMLElement | null>;
+  /**
+   * GA-UI-007: presentation variant.
+   * - 'popover' (default): overlay dialog with outside-click/Escape close.
+   * - 'rail': persistent static sidebar (no overlay behavior).
+   */
+  variant?: 'popover' | 'rail';
 }
 
 function formatTime(isoOrTimestamp: string): string {
@@ -52,18 +58,22 @@ export function ConversationHistory({
   onNewConversation,
   onClose,
   anchorRef,
+  variant = 'popover',
 }: ConversationHistoryProps) {
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
+  const isRail = variant === 'rail';
 
-  // Focus search on open.
+  // Focus search on open (popover only — the rail never steals focus).
   useEffect(() => {
+    if (isRail) return;
     searchRef.current?.focus();
-  }, []);
+  }, [isRail]);
 
-  // Escape closes.
+  // Escape closes (popover only).
   useEffect(() => {
+    if (isRail) return;
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -73,10 +83,11 @@ export function ConversationHistory({
     };
     window.addEventListener('keydown', handler, true);
     return () => window.removeEventListener('keydown', handler, true);
-  }, [onClose]);
+  }, [onClose, isRail]);
 
-  // Outside click closes (picker button excluded).
+  // Outside click closes (popover only — picker button excluded).
   useEffect(() => {
+    if (isRail) return;
     const handler = (e: PointerEvent) => {
       const target = e.target as Node | null;
       if (!target) return;
@@ -86,7 +97,7 @@ export function ConversationHistory({
     };
     document.addEventListener('pointerdown', handler);
     return () => document.removeEventListener('pointerdown', handler);
-  }, [onClose, anchorRef]);
+  }, [onClose, anchorRef, isRail]);
 
   const titleById = useMemo(() => {
     const map = new Map<string, string>();
@@ -104,10 +115,14 @@ export function ConversationHistory({
   return (
     <div
       ref={containerRef}
-      role="dialog"
+      role={isRail ? 'navigation' : 'dialog'}
       aria-label="Conversation history"
       data-testid="conversation-history"
-      className="absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950 shadow-2xl"
+      className={
+        isRail
+          ? 'flex h-full min-h-0 flex-col overflow-hidden'
+          : 'absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950 shadow-2xl'
+      }
     >
       <div className="flex shrink-0 items-center justify-between px-3 pt-2.5 pb-1">
         <span className="text-[11px] font-medium text-zinc-400">Conversations</span>

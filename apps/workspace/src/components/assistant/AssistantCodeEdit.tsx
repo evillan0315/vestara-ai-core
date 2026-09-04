@@ -95,11 +95,18 @@ function filenameOf(file: string): string {
 
 export interface AssistantCodeEditProps {
   detail: EditExecutionDetail;
+  /**
+   * GA-UI-007: "Open in editor" navigation affordance. Bounded — never an
+   * execution authority; the caller decides what "open" means (path copy
+   * fallback today). When absent, the button is hidden.
+   */
+  onOpenInEditor?: (file: string) => void;
 }
 
-export function AssistantCodeEdit({ detail }: AssistantCodeEditProps) {
+export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditProps) {
   const [expanded, setExpanded] = useState<boolean>(() => resolveDefaultExpanded(detail));
   const [copied, setCopied] = useState<'path' | 'diff' | null>(null);
+  const [openInEditorDone, setOpenInEditorDone] = useState(false);
 
   const toggle = useCallback(() => setExpanded((v) => !v), []);
   const filename = filenameOf(detail.file);
@@ -126,6 +133,15 @@ export function AssistantCodeEdit({ detail }: AssistantCodeEditProps) {
       setCopied(null);
     }
   }, [detail]);
+
+  // GA-UI-007: "Open in editor" — bounded navigation affordance (caller-owned
+  // semantics; today a copy-path fallback with visible feedback).
+  const openInEditor = useCallback(() => {
+    if (!onOpenInEditor) return;
+    onOpenInEditor(detail.file);
+    setOpenInEditorDone(true);
+    setTimeout(() => setOpenInEditorDone(false), 2000);
+  }, [onOpenInEditor, detail.file]);
 
   return (
     <div
@@ -203,6 +219,18 @@ export function AssistantCodeEdit({ detail }: AssistantCodeEditProps) {
           >
             {copied === 'diff' ? 'Copied' : 'Diff'}
           </button>
+          {onOpenInEditor && (
+            <button
+              type="button"
+              onClick={openInEditor}
+              data-testid="code-edit-open-in-editor"
+              title="Open in editor (copies the repository-relative path)"
+              aria-label="Open in editor"
+              className="rounded px-1.5 py-0.5 text-[11px] text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              {openInEditorDone ? 'Copied' : 'Editor'}
+            </button>
+          )}
         </div>
       </div>
 

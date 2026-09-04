@@ -133,6 +133,9 @@ export interface FloatingPanelProps {
   onClose: () => void;
   /** GA-UI-006: explicit new-conversation action. Optional; button hidden when absent. */
   onNewConversation?: () => void;
+  /** GA-UI-007: full-window expanded geometry. Optional; maximize button hidden when absent. */
+  expanded?: boolean;
+  onToggleExpanded?: () => void;
   launcherRef: React.RefObject<HTMLButtonElement | null>;
   /** Ref to focus when panel opens/restores. If null, no auto-focus. */
   focusOnMountRef?: React.RefObject<HTMLElement | null>;
@@ -148,6 +151,8 @@ export function FloatingPanel({
   onMinimize,
   onClose,
   onNewConversation,
+  expanded = false,
+  onToggleExpanded,
   launcherRef,
   focusOnMountRef,
   children,
@@ -358,20 +363,30 @@ export function FloatingPanel({
       ref={panelRef}
       role="region"
       aria-label="Global Assistant"
-      className="fixed z-[90] flex flex-col overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-950 shadow-2xl"
-      style={{
-        left: resolvedPosition.x,
-        top: resolvedPosition.y,
-        width: size.width,
-        height: size.height,
-        minWidth: MIN_WIDTH,
-        minHeight: MIN_HEIGHT,
-      }}
+      className={
+        expanded
+          ? 'fixed inset-0 z-[90] flex flex-col overflow-hidden bg-zinc-950'
+          : 'fixed z-[90] flex flex-col overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-950 shadow-2xl'
+      }
+      style={
+        expanded
+          ? undefined
+          : {
+              left: resolvedPosition.x,
+              top: resolvedPosition.y,
+              width: size.width,
+              height: size.height,
+              minWidth: MIN_WIDTH,
+              minHeight: MIN_HEIGHT,
+            }
+      }
     >
-      {/* Title bar (drag handle) */}
+      {/* Title bar (drag handle in floating mode; static in expanded mode) */}
       <div
-        className="flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 cursor-move select-none"
-        onPointerDown={beginDrag}
+        className={`flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 ${
+          expanded ? '' : 'cursor-move select-none'
+        }`}
+        onPointerDown={expanded ? undefined : beginDrag}
       >
         <div className="flex items-center gap-2 min-w-0">
           <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400/60" />
@@ -389,6 +404,25 @@ export function FloatingPanel({
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
+            </button>
+          )}
+          {onToggleExpanded && (
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              aria-label={expanded ? 'Restore assistant' : 'Expand assistant'}
+              title={expanded ? 'Restore' : 'Expand'}
+              className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              {expanded ? (
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z" />
+                </svg>
+              ) : (
+                <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 8V4h4m8 0h4v4m0 8v4h-4m-8 0H4v-4" />
+                </svg>
+              )}
             </button>
           )}
           <button
@@ -415,28 +449,28 @@ export function FloatingPanel({
       </div>
 
       {/* Content area */}
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
+      <div className="min-h-0 flex-1 overflow-hidden">{children}</div>
 
-      {/* Resize handle (bottom-right corner) */}
-      <div
-        className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
-        onPointerDown={(e) => beginResize(e, 'bottom-right')}
-        aria-hidden="true"
-      />
-
-      {/* Resize handle (bottom edge) */}
-      <div
-        className="absolute bottom-0 left-2 right-2 h-1 cursor-row-resize"
-        onPointerDown={(e) => beginResize(e, 'bottom')}
-        aria-hidden="true"
-      />
-
-      {/* Resize handle (right edge) */}
-      <div
-        className="absolute top-2 bottom-2 right-0 w-1 cursor-col-resize"
-        onPointerDown={(e) => beginResize(e, 'right')}
-        aria-hidden="true"
-      />
+      {/* Resize handles (floating mode only) */}
+      {!expanded && (
+        <>
+          <div
+            className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+            onPointerDown={(e) => beginResize(e, 'bottom-right')}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute bottom-0 left-2 right-2 h-1 cursor-row-resize"
+            onPointerDown={(e) => beginResize(e, 'bottom')}
+            aria-hidden="true"
+          />
+          <div
+            className="absolute top-2 bottom-2 right-0 w-1 cursor-col-resize"
+            onPointerDown={(e) => beginResize(e, 'right')}
+            aria-hidden="true"
+          />
+        </>
+      )}
     </div>
   );
 }
