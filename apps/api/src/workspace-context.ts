@@ -134,7 +134,6 @@ import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
 import * as messageReceipts from './message-receipts';
 import { type OpenCodeRuntimeService, openCodeRuntimeService } from './opencode-runtime-service';
-import { runToolLoop } from './routes/chat';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
 import { SessionStreamAccumulator } from './session-stream';
@@ -687,122 +686,50 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   };
 
   // ── Conversation service — persisted, tool-aware chat engine. The provider
-  // executor resolves the provider + model from the current routing selection
-  // (the same source `/api/routing` and `/api/providers` expose), defaulting to
-  // the `developer` role, so chat follows whatever agent/provider/model the
-  // routing picker chose. Falls back to the first provider that has models.
-  const resolveConversationRoute = (requestedModel?: string): { providerId: string; modelId: string } => {
-    const roles = routingStore.get().selection.roles;
-    const ref = roles.developer ?? Object.values(roles)[0];
-    const candidate = ref ? providerManager.getProvider(ref.providerId) : null;
-    if (candidate?.models.length) {
-      const modelExists = (id: string) => candidate.models.some((model) => model.id === id);
-      const modelId =
-        ref?.modelId && modelExists(ref.modelId)
-          ? ref.modelId
-          : requestedModel && modelExists(requestedModel)
-            ? requestedModel
-            : candidate.models[0]!.id;
-      return { providerId: candidate.id, modelId };
-    }
-    for (const info of providerManager.listProviders()) {
-      const provider = providerManager.getProvider(info.id);
-      if (provider?.models.length) {
-        const modelId =
-          requestedModel && provider.models.some((model) => model.id === requestedModel)
-            ? requestedModel
-            : provider.models[0]!.id;
-        return { providerId: provider.id, modelId };
-      }
-    }
-    throw new Error('No AI provider with available models is configured');
-  };
-  const conversationProviderExecutor: ProviderExecutor = {
-    async complete(request) {
-      const { providerId, modelId } = resolveConversationRoute(request.model);
-      const provider = providerManager.getProvider(providerId);
-      if (!provider) throw new Error(`AI provider not available: ${providerId}`);
-      const { content } = await runToolLoop({
-        provider: provider as never,
-        model: modelId,
-        messages: request.messages,
-        tools: agentTools.definitions(),
-        toolsRuntime: agentTools,
-        environment: agentEnvironment,
-        taskId: `conversation-${Date.now()}`,
-      });
-      return {
-        id: `conv-${Date.now()}`,
-        model: modelId,
-        provider: providerId,
-        content,
-        usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
-        latency: 0,
-      };
-    },
-    async *stream(request) {
-      const { providerId, modelId } = resolveConversationRoute(request.model);
-      const provider = providerManager.getProvider(providerId);
-      if (!provider) throw new Error(`AI provider not available: ${providerId}`);
-      const { content, toolResults } = await runToolLoop({
-        provider: provider as never,
-        model: modelId,
-        messages: request.messages,
-        tools: agentTools.definitions(),
-        toolsRuntime: agentTools,
-        environment: agentEnvironment,
-        taskId: `conversation-${Date.now()}`,
-      });
-      for (const toolResult of toolResults) {
+  // executor is the LOCAL OpenCode adapter (GA-RECOVERY-001A) — see below.
+  // GA-RECOVERY-001A: the Floating Assistant MUST execute through the LOCAL
+  // OpenCode runtime (127.0.0.1:4096) via OpenCodeHttpClient. The local
+  // adapter is the CANONICAL conversation executor (not opt-in). Construction
+  // failure fail-closes with a clear error — there is deliberately NO silent
+  // fallback to a direct cloud provider.
+  let conversationProviderExecutor: ProviderExecutor;
+  try {
+    const ocConfig = resolveOpenCodeConfig({});
+    const ocClient = new OpenCodeHttpClient(ocConfig);
+    // Authoritative model binding: from the agent-assistant AgentDefinition
+    // (provider/model). When omitted, the local vestara-assistant runtime
+    // agent configuration decides — never a hidden fallback provider.
+    const assistantAgent = await agents.getAgent('agent-assistant').catch(() => undefined);
+    const assistantModel =
+      assistantAgent && typeof assistantAgent.provider === 'string' && typeof assistantAgent.model === 'string'
+        ? { providerID: assistantAgent.provider, modelID: assistantAgent.model }
+        : undefined;
+    conversationProviderExecutor = createAssistantOpenCodeExecutor({
+      client: ocClient,
+      workspaceId: session.fingerprint.id,
+      directory: abs, // repository root — never .vestara
+      agent: 'vestara-assistant',
+      title: 'Assistant conversation',
+      model: assistantModel,
+      resolveProviderModel: (requestedModel) => assistantModel ?? undefined,
+    });
+    log('assistant-execution: local OpenCode adapter active (127.0.0.1:4096)');
+  } catch (error) {
+    const message = `Local OpenCode transport unavailable (${error instanceof Error ? error.message : 'unknown'}) — Floating Assistant requires 127.0.0.1:4096`;
+    log(`assistant-execution: ${message}`);
+    conversationProviderExecutor = {
+      async complete() {
+        throw new Error(message);
+      },
+      async *stream() {
         yield {
-          id: `tool-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-          type: 'tool_result',
-          content: toolResult,
-          metadata: { sequence: 0, timestamp: new Date().toISOString(), provider: providerId, model: modelId },
+          id: 'oc-transport-unavailable',
+          type: 'error',
+          content: message,
+          metadata: { sequence: 0, timestamp: new Date().toISOString() },
         };
-      }
-      if (content) {
-        yield {
-          id: `text-${Date.now()}`,
-          type: 'text',
-          content,
-          metadata: { sequence: 1, timestamp: new Date().toISOString(), provider: providerId, model: modelId },
-        };
-      }
-    },
-  };
-  // GA-UX-PREMIUM M3: optional OpenCode-backed executor carrying
-  // `assistant.execution.v1` detail. OFF by default (`VESTARA_ASSISTANT_OPENCODE=1`
-  // to enable); any setup failure falls back to the direct-provider executor —
-  // additive, never mandatory (AR-009 remains paused).
-  let activeConversationExecutor: ProviderExecutor = conversationProviderExecutor;
-  if (process.env.VESTARA_ASSISTANT_OPENCODE === '1') {
-    try {
-      const ocConfig = resolveOpenCodeConfig({});
-      const ocClient = new OpenCodeHttpClient(ocConfig);
-      activeConversationExecutor = createAssistantOpenCodeExecutor({
-        client: ocClient,
-        workspaceId: session.fingerprint.id,
-        directory: abs,
-        agent: 'vestara-assistant',
-        title: 'Assistant conversation',
-        // Real upstream provenance: resolve provider/model from the routing
-        // selection per turn — never fabricate a provider label.
-        resolveProviderModel: (requestedModel) => {
-          try {
-            const { providerId, modelId } = resolveConversationRoute(requestedModel);
-            return { providerID: providerId, modelID: modelId };
-          } catch {
-            return undefined;
-          }
-        },
-      });
-      log('assistant-execution: opencode adapter active');
-    } catch (error) {
-      log(
-        `assistant-execution: opencode adapter unavailable (${error instanceof Error ? error.message : 'unknown'}) — using direct provider`,
-      );
-    }
+      },
+    };
   }
   const conversationStore = new SqliteConversationStore({
     dbPath: path.join(workspaceDir, 'conversations', 'conversations.db'),
@@ -811,7 +738,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   await conversationStore.initialize();
   const conversationService: ConversationService = new DefaultConversationService({
     contextAssembler: new DefaultContextAssembler(),
-    providerExecutor: activeConversationExecutor,
+    providerExecutor: conversationProviderExecutor,
     eventBus: kernel.eventBus,
     logger: kernel.logger,
     store: conversationStore,

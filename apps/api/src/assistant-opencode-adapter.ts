@@ -141,9 +141,18 @@ export async function* runAssistantOpenCodeTurn(
   let sequence = 0;
 
   try {
-    await client.sendMessage(
+    // GA-SSE-003B: submit asynchronously (POST /session/:id/prompt_async).
+    // sendMessage() waits for full execution and is incompatible with
+    // interactive runtime behavior; prompt_async is accepted in ~50ms and the
+    // already-subscribed /event stream becomes the execution authority.
+    await client.sendMessageAsync(
       sessionId,
-      { parts: [{ type: 'text', text: userText }], agent, model: turnModel },
+      {
+        parts: [{ type: 'text', text: userText }],
+        agent,
+        // Async input model shape: { providerId, modelId } (lowercase).
+        ...(turnModel ? { model: { providerId: turnModel.providerID, modelId: turnModel.modelID } } : {}),
+      },
       context,
     );
 
@@ -363,12 +372,11 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
       };
     },
     async *stream(request: CompletionRequest): AsyncIterable<StreamChunk> {
+      // GA-SSE-003: the terminal `complete` is owned by the Conversation
+      // service (emitted AFTER the authoritative message is persisted). The
+      // adapter yields only the turn's incremental chunks — no duplicate
+      // `done` frames on the browser SSE stream.
       yield* runAssistantOpenCodeTurn(options, request);
-      yield {
-        id: `oc-${Date.now()}-complete`,
-        type: 'complete',
-        metadata: { sequence: 0, timestamp: new Date().toISOString() },
-      };
     },
   };
 }

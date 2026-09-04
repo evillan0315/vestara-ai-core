@@ -675,6 +675,9 @@ importers:
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
+      '@vestara/opencode-runtime':
+        specifier: workspace:*
+        version: link:../opencode-runtime
       '@vestara/runtime':
         specifier: workspace:*
         version: link:../runtime

@@ -165,7 +165,7 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
     expect(screen.getByText('Network error')).toBeDefined();
   });
 
-  it('shows degraded banner on streamError', async () => {
+  it('shows degraded banner on streamError (turn failure ≠ backend unavailable)', async () => {
     const ConversationPanel = await loadPanel();
     const assistant = makeAssistant({
       selectedId: 'conv-1',
@@ -176,7 +176,10 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Backend unavailable — messages may not send')).toBeDefined();
+    // GA-SSE-003 §12: an upstream execution error is a turn failure, NOT
+    // "Backend unavailable" (which is reserved for the API/runtime boundary).
+    expect(screen.queryByText('Backend unavailable — messages may not send')).toBeNull();
+    expect(screen.getByText('Assistant response failed')).toBeDefined();
     expect(screen.getByText('Provider failed')).toBeDefined();
   });
 

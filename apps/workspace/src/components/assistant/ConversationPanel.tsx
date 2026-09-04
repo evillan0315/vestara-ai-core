@@ -404,14 +404,21 @@ function ComposeInput({
   );
 }
 
-function DegradedBanner({ error }: { error: string }) {
+/**
+ * GA-SSE-003 §12: backend availability means the Vestara API/runtime boundary
+ * is unreachable (listError). A turn failure (streamError — e.g. upstream
+ * model execution error) must NOT be labeled "Backend unavailable".
+ */
+function DegradedBanner({ error, apiDown }: { error: string; apiDown: boolean }) {
   return (
     <div className="mx-3 mb-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-400/80">
       <div className="flex items-center gap-1.5">
         <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9.5 16.5H2.5z" />
         </svg>
-        <span>Backend unavailable — messages may not send</span>
+        <span data-testid="degraded-banner-title">
+          {apiDown ? 'Backend unavailable — messages may not send' : 'Assistant response failed'}
+        </span>
       </div>
       <p className="mt-1 text-[10px] text-amber-500/60 truncate">{error}</p>
     </div>
@@ -708,9 +715,12 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
         </button>
       </div>
 
-      {/* Degraded banner */}
+      {/* Degraded banner — API boundary down (listError) vs turn failure (streamError). */}
       {(assistant.listError || assistant.streamError) && (
-        <DegradedBanner error={assistant.listError || assistant.streamError || ''} />
+        <DegradedBanner
+          error={assistant.listError || assistant.streamError || ''}
+          apiDown={!!assistant.listError}
+        />
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">

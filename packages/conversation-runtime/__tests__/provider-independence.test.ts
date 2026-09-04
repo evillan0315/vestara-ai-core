@@ -339,16 +339,17 @@ describe('AT-011: OpenCode Provider', () => {
     expect(typeof OpenCodeProvider).toBe('function');
   });
 
-  it('initializes with default config', () => {
+  it('initializes with default config (local runtime, no hardcoded model)', () => {
     const provider = new OpenCodeProvider({});
     expect(provider.id).toBe('opencode');
-    expect(provider.name).toBe('OpenCode');
-    expect(provider.model).toBe('deepseek-v4-flash-free');
+    expect(provider.name).toBe('OpenCode (local)');
+    // Model is NEVER hardcoded — empty means the local runtime agent decides.
+    expect(provider.model).toBe('');
   });
 
-  it('accepts custom model', () => {
-    const provider = new OpenCodeProvider({ model: 'deepseek-v4-flash' });
-    expect(provider.model).toBe('deepseek-v4-flash');
+  it('accepts custom model from authoritative config', () => {
+    const provider = new OpenCodeProvider({ model: 'custom-model' });
+    expect(provider.model).toBe('custom-model');
   });
 
   it('implements ConversationProvider interface', () => {
@@ -361,8 +362,8 @@ describe('AT-011: OpenCode Provider', () => {
 
   it('setModel updates model', () => {
     const provider = new OpenCodeProvider({});
-    provider.setModel('deepseek-v4-pro');
-    expect(provider.model).toBe('deepseek-v4-pro');
+    provider.setModel('updated-model');
+    expect(provider.model).toBe('updated-model');
   });
 });
 
@@ -448,7 +449,7 @@ describe('AT-014: ProviderFactory', () => {
   it('creates OpenCodeProvider via factory', () => {
     const p = ProviderFactory.create({ kind: 'opencode' });
     expect(p.id).toBe('opencode');
-    expect(p.name).toBe('OpenCode');
+    expect(p.name).toBe('OpenCode (local)');
   });
 
   it('creates OllamaProvider via factory', () => {

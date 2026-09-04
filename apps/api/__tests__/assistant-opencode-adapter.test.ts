@@ -46,7 +46,7 @@ function eventClient(
   }
   return {
     createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
-    sendMessage: async () => ({ sessionId: 'sess-1', finished: true }),
+    sendMessageAsync: async () => undefined,
     openEventStream: stream as OpenCodeHttpClient['openEventStream'],
     getSessionDiff: async () => (opts.diff ?? []) as never,
     getSessionTodos: async () => (opts.todos ?? []) as never,
