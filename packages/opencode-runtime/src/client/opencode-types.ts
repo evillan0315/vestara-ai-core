@@ -79,20 +79,20 @@ export interface OpenCodeTodo {
   readonly status?: string;
 }
 
-export interface OpenCodeDiffHunk {
-  readonly oldStart?: number;
-  readonly oldLines?: number;
-  readonly newStart?: number;
-  readonly newLines?: number;
-  readonly content: string;
-}
-
+/**
+ * One file's runtime diff evidence (OpenCode 1.18.27).
+ *
+ * The server contract (SnapshotFileDiff / VcsFileDiff) exposes `patch?: string`
+ * — unified diff text — NOT structured hunks. GA-UX-PREMIUM M3.2 models the
+ * actual runtime contract; `patch` is preserved verbatim (bounded downstream).
+ */
 export interface OpenCodeDiffFile {
   readonly path: string;
   readonly operation?: 'added' | 'modified' | 'deleted' | 'renamed';
   readonly additions?: number;
   readonly deletions?: number;
-  readonly hunks: readonly OpenCodeDiffHunk[];
+  /** Runtime-provided unified diff patch text (absent when the server omits it). */
+  readonly patch?: string;
 }
 
 export interface OpenCodeSessionBinding {

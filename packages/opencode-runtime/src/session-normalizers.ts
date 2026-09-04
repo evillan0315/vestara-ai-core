@@ -69,7 +69,16 @@ export function normalizeDiff(raw: unknown): OpenCodeDiffFile[] {
   return raw
     .filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object')
     .map((file) => ({
-      path: typeof file.path === 'string' ? file.path : String(file.filename ?? file.name ?? ''),
+      // OpenCode 1.18.27 sends the path as `file: string` (SnapshotFileDiff /
+      // VcsFileDiff) — model that, not an obsolete `hunks[]` abstraction.
+      path:
+        typeof file.path === 'string'
+          ? file.path
+          : typeof file.file === 'string'
+            ? file.file
+            : typeof file.filename === 'string'
+              ? file.filename
+              : '',
       operation:
         typeof file.operation === 'string'
           ? (file.operation as OpenCodeDiffFile['operation'])
@@ -78,17 +87,8 @@ export function normalizeDiff(raw: unknown): OpenCodeDiffFile[] {
             : undefined,
       additions: typeof file.additions === 'number' ? file.additions : undefined,
       deletions: typeof file.deletions === 'number' ? file.deletions : undefined,
-      hunks: Array.isArray(file.hunks)
-        ? file.hunks
-            .filter((hunk): hunk is Record<string, unknown> => Boolean(hunk) && typeof hunk === 'object')
-            .map((hunk) => ({
-              oldStart: typeof hunk.oldStart === 'number' ? hunk.oldStart : undefined,
-              oldLines: typeof hunk.oldLines === 'number' ? hunk.oldLines : undefined,
-              newStart: typeof hunk.newStart === 'number' ? hunk.newStart : undefined,
-              newLines: typeof hunk.newLines === 'number' ? hunk.newLines : undefined,
-              content: typeof hunk.content === 'string' ? hunk.content : '',
-            }))
-        : [],
+      // Runtime patch evidence (patch?: string). Never a fabricated hunks: [].
+      patch: typeof file.patch === 'string' ? file.patch : undefined,
     }))
     .filter((file) => file.path.length > 0);
 }

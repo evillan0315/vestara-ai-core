@@ -1,0 +1,30 @@
+{
+  "milestone": "GA-UX-PREMIUM M3.2 — runtime patch evidence contract repair",
+  "evidenceCategories": {
+    "openApiContractShape": {
+      "status": "PROVEN",
+      "detail": "OpenCode 1.18.27 pinned OpenAPI (packages/opencode-runtime/openapi/opencode.openapi.json): GET /session/{sessionID}/diff → SnapshotFileDiff[] { additions, deletions, file?, patch?: string, status? }; /vcs/diff → VcsFileDiff[] { additions, deletions, file, patch?: string, status? }. The server contract exposes patch as a STRING; there are no structured hunk fields (oldStart/oldLines/newStart/newLines/content)."
+    },
+    "normalizerFixture": {
+      "status": "TESTED",
+      "detail": "normalizeDiff now models the real server shape: file: string → path, status → operation, additions/deletions preserved, patch?: string preserved verbatim; no fabricated hunks: [] (packages/opencode-runtime/__tests__/session.test.ts). Shared normalizer: patch bounded (patchContent 20_000), patchTruncated on loss, diffRepresentation patch|hunks|unavailable derived truthfully (packages/shared/__tests__/assistant-execution.test.ts M3.2 block)."
+    },
+    "livePopulatedPatch": {
+      "status": "NOT OBSERVED",
+      "detail": "GET /session/:id/diff returned [] for untracked, git-staged, and tracked-file edits (polled 60s after idle); session.diff events fired with diff: Array(0); edit tool part reported \"Edit applied successfully.\" with no patch. No populated runtime patch response could be produced safely in this environment — nothing was fabricated."
+    },
+    "liveEmptyDiff": {
+      "status": "PROVEN",
+      "detail": "Live server returns an empty session diff ([]). The contract handles it: empty diff → no turn-end edit detail (or file.edited events with diffRepresentation: 'unavailable'); missing patch → patch absent, representation unavailable. See docs/blueprint/GA-UX-PREMIUM-M3.1-live-evidence.json."
+    }
+  },
+  "contractRepair": {
+    "status": "IMPLEMENTED + TESTED (257 tests incl. SSE propagation)",
+    "extension": "EditExecutionDetail.patch?: string; patchTruncated?: boolean; diffRepresentation: 'patch' | 'hunks' | 'unavailable' (additive; hunks retained)",
+    "bounds": "patchContent 20_000 centralized in ASSISTANT_EXECUTION_BOUNDS (rationale: no SSE frame cap exists; 4x the 8000 hunk aggregate; deterministic truncation flagged via patchTruncated)",
+    "provenance": "diffProvenance now derived from actual carried evidence (patch or hunks → runtime-provided; neither → unavailable); diffRepresentation lets consumers distinguish runtime patch vs runtime structured hunks vs unavailable",
+    "invariant": "patch present → runtime patch; hunks present → runtime structured hunks; neither → unavailable. Never converted.",
+    "sanitization": "construct-never-clone preserved; unknown fields excluded; 'Edit applied successfully.' result text never becomes a patch",
+    "ssePropagation": "proven: StreamChunk.detail → ConversationChunk.event.execution carries patch AND hunks (conversations.test.ts)"
+  }
+}

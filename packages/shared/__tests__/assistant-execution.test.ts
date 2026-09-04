@@ -178,7 +178,7 @@ describe('normalizeAssistantExecutionDetail — §15 contract matrix', () => {
     }
   });
 
-  it('edit provenance is explicit (runtime-provided diff, unavailable before/after)', () => {
+  it('edit provenance is explicit (runtime evidence → runtime-provided; unavailable before/after)', () => {
     const detail = normalizeAssistantExecutionDetail({
       ...BASE,
       kind: 'edit',
@@ -187,10 +187,12 @@ describe('normalizeAssistantExecutionDetail — §15 contract matrix', () => {
       additions: 4,
       deletions: 2,
       diffProvenance: 'runtime-provided',
+      hunks: [{ oldStart: 1, oldLines: 1, newStart: 1, newLines: 1, content: ' a' }],
     });
     if (detail!.kind === 'edit') {
       expect(detail!.file).toBe('packages/foo/src/index.ts');
       expect(detail!.diffProvenance).toBe('runtime-provided');
+      expect(detail!.diffRepresentation).toBe('hunks');
       expect(detail!.beforeAfterProvenance).toBe('unavailable');
       expect(detail!.additions).toBe(4);
       expect(detail!.deletions).toBe(2);
@@ -495,5 +497,138 @@ describe('M3.1 — bounded runtime hunk projection', () => {
     expect(isAssistantExecutionDetail({ ...EDIT_BASE, hunks: 'not-an-array' })).toBe(true); // absent → valid, no hunks
     expect(isAssistantExecutionDetail({ ...EDIT_BASE, file: '' })).toBe(false);
     expect(isAssistantExecutionDetail({ ...EDIT_BASE, operationId: '' })).toBe(false);
+  });
+});
+
+// ─── GA-UX-PREMIUM M3.2 — runtime patch evidence contract repair ───
+
+const PATCH = '@@ -1,3 +1,4 @@\n export const greeting = "Hello";\n+export const greeting = "Hello Vestara";\n';
+
+describe('M3.2 — runtime patch evidence', () => {
+  it('runtime patch is preserved verbatim under the bound (opaque evidence, no parsing)', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, patch: PATCH });
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBe(PATCH);
+      expect(d!.patchTruncated).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('patch');
+      expect(d!.diffProvenance).toBe('runtime-provided');
+      // patch → no fabricated hunks
+      expect(d!.hunks).toBeUndefined();
+    }
+  });
+
+  it('additions/deletions/file/operation preserved with patch', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, patch: PATCH });
+    if (d!.kind === 'edit') {
+      expect(d!.additions).toBe(5);
+      expect(d!.deletions).toBe(4);
+      expect(d!.file).toBe('apps/workspace/src/components/assistant/ConversationPanel.tsx');
+      expect(d!.operation).toBe('modified');
+    }
+  });
+
+  it('oversized patch is deterministically truncated and flagged', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, patch: 'p'.repeat(50_000) });
+    if (d!.kind === 'edit') {
+      expect(d!.patch!.length).toBe(20_000);
+      expect(d!.patchTruncated).toBe(true);
+      expect(d!.patch!.slice(0, 5)).toBe('ppppp');
+    }
+  });
+
+  it('no patch → no fabricated patch; representation unavailable', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE });
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBeUndefined();
+      expect(d!.patchTruncated).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('unavailable');
+      expect(d!.diffProvenance).toBe('unavailable');
+    }
+  });
+
+  it('patch is never converted to hunks; hunks never converted to patch', () => {
+    const patchOnly = normalizeAssistantExecutionDetail({ ...EDIT_BASE, patch: PATCH });
+    if (patchOnly!.kind === 'edit') {
+      expect(patchOnly!.hunks).toBeUndefined();
+      expect(patchOnly!.diffRepresentation).toBe('patch');
+    }
+    const hunksOnly = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (hunksOnly!.kind === 'edit') {
+      expect(hunksOnly!.patch).toBeUndefined();
+      expect(hunksOnly!.diffRepresentation).toBe('hunks');
+    }
+  });
+
+  it('"Edit applied successfully." result text never becomes a patch', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE });
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('unavailable');
+    }
+    // Even when a payload carries the string in a non-patch field, it is excluded.
+    const poisoned = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      resultText: 'Edit applied successfully.',
+      toolOutput: 'Edit applied successfully.',
+    });
+    if (poisoned!.kind === 'edit') {
+      expect(poisoned!.patch).toBeUndefined();
+      expect(JSON.stringify(poisoned)).not.toContain('Edit applied successfully');
+    }
+  });
+
+  it('non-string patch is absent (never coerced/fabricated)', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, patch: 42 });
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('unavailable');
+    }
+  });
+
+  it('legacy M3 edit payload (no patch, no hunks) remains valid', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE });
+    expect(d!.kind).toBe('edit');
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBeUndefined();
+      expect(d!.hunks).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('unavailable');
+      expect(d!.diffProvenance).toBe('unavailable');
+      expect(d!.additions).toBe(5);
+      expect(d!.deletions).toBe(4);
+    }
+  });
+
+  it('M3.1 hunk payload remains valid with representation hunks', () => {
+    const d = normalizeAssistantExecutionDetail({ ...EDIT_BASE, hunks: [HUNK] });
+    if (d!.kind === 'edit') {
+      expect(d!.hunks).toEqual([HUNK]);
+      expect(d!.hunksTruncated).toBeUndefined();
+      expect(d!.diffRepresentation).toBe('hunks');
+      expect(d!.diffProvenance).toBe('runtime-provided');
+    }
+  });
+
+  it('sanitization preserved: unknown fields excluded alongside patch', () => {
+    const d = normalizeAssistantExecutionDetail({
+      ...EDIT_BASE,
+      patch: PATCH,
+      credentials: { apiKey: 'sk-secret' },
+      hiddenReasoning: 'chain-of-thought',
+      systemPrompt: 'S',
+    });
+    const json = JSON.stringify(d);
+    expect(json).not.toContain('sk-secret');
+    expect(json).not.toContain('chain-of-thought');
+    expect(json).not.toContain('systemPrompt');
+    if (d!.kind === 'edit') {
+      expect(d!.patch).toBe(PATCH);
+    }
+  });
+
+  it('unknown execution versions still degrade safely with patch payloads', () => {
+    expect(normalizeAssistantExecutionDetail({ ...EDIT_BASE, version: 99, patch: PATCH })).toBeUndefined();
+    expect(
+      normalizeAssistantExecutionDetail({ ...EDIT_BASE, contract: 'assistant.execution.v2', patch: PATCH }),
+    ).toBeUndefined();
   });
 });

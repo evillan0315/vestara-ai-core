@@ -63,6 +63,16 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
   hunkContent: 1_000,
   /** Max aggregate hunk content chars across all hunks of one edit projection. */
   hunkContentTotal: 8_000,
+  /**
+   * Max chars for the runtime patch evidence (GA-UX-PREMIUM M3.2). No explicit
+   * Conversation SSE frame cap exists in the API; the closest payload bounds are
+   * terminal preview 2000 and the hunk aggregate 8000. A patch is whole-file
+   * unified-diff text and may legitimately exceed a hunk group, so the bound is
+   * set at 20_000 (4× the hunk aggregate) — comfortably bounded for a single
+   * SSE frame while covering typical small/medium diffs. Deterministic
+   * truncation beyond it, flagged via `patchTruncated`.
+   */
+  patchContent: 20_000,
 } as const;
 
 // ─── Common envelope ──────────────────────────────────────────
@@ -104,10 +114,12 @@ export interface ToolExecutionDetail extends AssistantExecutionBase {
 /**
  * One unified-diff hunk from the runtime (GA-UX-PREMIUM M3.1).
  *
- * Values are PRESERVED from the upstream `OpenCodeDiffHunk` when supplied;
+ * Values are PRESERVED from an upstream structured-hunk source when supplied;
  * absent line fields stay `undefined` — never manufactured (no 0, no
  * previous+1, no array index). `content` is the diff text (context /
- * additions / deletions lines) and is bounded.
+ * additions / deletions lines) and is bounded. OpenCode 1.18.27 does NOT
+ * supply structured hunks (it exposes `patch?: string`) — hunks remain a valid
+ * optional representation for runtimes that do.
  */
 export interface AssistantEditHunk {
   readonly oldStart?: number;
@@ -117,6 +129,8 @@ export interface AssistantEditHunk {
   readonly content: string;
 }
 
+export type AssistantDiffRepresentation = 'patch' | 'hunks' | 'unavailable';
+
 export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly kind: 'edit';
   /** Repository-relative target path (never a bare absolute external path). */
@@ -124,7 +138,24 @@ export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly operation?: 'added' | 'modified' | 'deleted' | 'renamed';
   readonly additions?: number;
   readonly deletions?: number;
-  /** Runtime-provided unified-diff hunks (OpenCode session diff), bounded. */
+  /**
+   * Which diff representation the runtime actually supplied (GA-UX-PREMIUM
+   * M3.2): `patch` (OpenCode 1.18.27 `patch?: string`), `hunks` (structured
+   * line metadata from a hunk-supplying runtime), or `unavailable`.
+   * Deterministic — derived from the carried evidence, never claimed
+   * speculatively. The invariant: patch present → runtime patch; hunks present
+   * → runtime structured hunks; neither → unavailable. Never converted.
+   */
+  readonly diffRepresentation: AssistantDiffRepresentation;
+  /**
+   * Opaque runtime patch evidence (unified diff text), bounded. Preserved
+   * verbatim as runtime evidence — M3.2 performs no parsing, no line-number
+   * computation, no hunk splitting, no before/after reconstruction.
+   */
+  readonly patch?: string;
+  /** True when the runtime patch was deterministically truncated at the bound. */
+  readonly patchTruncated?: boolean;
+  /** Runtime-provided structured hunks (M3.1), for hunk-supplying runtimes. */
   readonly hunks?: readonly AssistantEditHunk[];
   /**
    * True when any configured bound caused loss of upstream hunk evidence
@@ -132,6 +163,7 @@ export interface EditExecutionDetail extends AssistantExecutionBase {
    * projection is then NOT the complete upstream diff.
    */
   readonly hunksTruncated?: boolean;
+  /** True when the runtime supplied diff evidence (patch or hunks). */
   readonly diffProvenance: 'runtime-provided' | 'unavailable';
   readonly beforeAfterProvenance: 'unavailable';
 }
@@ -300,6 +332,20 @@ function boundedDiffLine(value: unknown): number | undefined {
 }
 
 /**
+ * Bound the opaque runtime patch evidence (GA-UX-PREMIUM M3.2).
+ *
+ * The patch is preserved verbatim as runtime evidence — NOT parsed, NOT split
+ * into hunks, NOT line-numbered, NOT trimmed (diff text whitespace is
+ * significant). Deterministic truncation past ASSISTANT_EXECUTION_BOUNDS.patchContent
+ * sets `truncated`. A non-string `patch` is absent (no fabrication).
+ */
+function boundedPatch(value: unknown): { value: string | undefined; truncated: boolean } {
+  if (typeof value !== 'string') return { value: undefined, truncated: false };
+  if (value.length <= ASSISTANT_EXECUTION_BOUNDS.patchContent) return { value, truncated: false };
+  return { value: value.slice(0, ASSISTANT_EXECUTION_BOUNDS.patchContent), truncated: true };
+}
+
+/**
  * Normalize an unknown payload into a safe `AssistantExecutionDetail`.
  *
  * Constructs a NEW object from allowlisted fields only — never clones the
@@ -359,7 +405,16 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
       const operation = ['added', 'modified', 'deleted', 'renamed'].includes(record.operation as string)
         ? (record.operation as 'added' | 'modified' | 'deleted' | 'renamed')
         : undefined;
+      const patch = boundedPatch(record.patch);
       const hunks = boundedHunks(record.hunks);
+      // Truthful representation: derived from the carried evidence, never
+      // claimed speculatively; patch and hunks are never converted.
+      const representation: AssistantDiffRepresentation =
+        patch.value !== undefined
+          ? 'patch'
+          : hunks.items !== undefined && hunks.items.length > 0
+            ? 'hunks'
+            : 'unavailable';
       return {
         ...base,
         kind: 'edit',
@@ -367,9 +422,12 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         operation,
         additions: boundedNumber(record.additions),
         deletions: boundedNumber(record.deletions),
+        diffRepresentation: representation,
+        patch: patch.value,
+        patchTruncated: patch.truncated || undefined,
         hunks: hunks.items,
         hunksTruncated: hunks.truncated || undefined,
-        diffProvenance: record.diffProvenance === 'runtime-provided' ? 'runtime-provided' : 'unavailable',
+        diffProvenance: representation === 'unavailable' ? 'unavailable' : 'runtime-provided',
         beforeAfterProvenance: 'unavailable',
       };
     }

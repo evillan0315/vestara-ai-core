@@ -255,3 +255,70 @@ is a `patch: string` (when the endpoint populates at all). Options for the user:
 3. **Authorize mechanical parsing** of a runtime-provided patch string into `AssistantEditHunk` entries (line metadata taken from the patch's `@@` headers — parsed, not invented), with `hunksTruncated` applied to the parsed form.
 
 M4 remains stopped. No UI code was added during M3.1.
+
+## 16. M3.2 erratum — runtime patch evidence contract repair
+
+> **Erratum (GA-UX-PREMIUM M3.2, commit boundary: `fix(assistant): preserve runtime patch diff evidence`).**
+>
+> The sequence is recorded honestly — M3/M3.1 history is not rewritten:
+>
+> - **M3:** documentation claimed structured runtime hunks were projected.
+> - **M3.1:** added `EditExecutionDetail.hunks` based on the client-side
+>   `OpenCodeDiffHunk` shape.
+> - **M3.1 live audit:** proved the OpenCode 1.18.27 server contract actually
+>   exposes `patch?: string` (SnapshotFileDiff / VcsFileDiff) and the live
+>   session diff currently returns `[]`.
+> - **M3.2:** corrects the projection to preserve runtime patch evidence without
+>   pretending `patch ==` structured hunks.
+
+### 16.1 Additive contract extension (M3.2)
+
+```ts
+interface EditExecutionDetail {
+  // existing fields remain compatible (M3 + M3.1)
+  readonly diffRepresentation: 'patch' | 'hunks' | 'unavailable'; // derived, truthful
+  readonly patch?: string;          // opaque runtime unified-diff text, bounded
+  readonly patchTruncated?: boolean;
+  // hunks + hunksTruncated retained (valid optional representation for a
+  // runtime that actually supplies structured hunks)
+}
+```
+
+- Invariant: `patch` present → runtime patch; `hunks` present → runtime structured
+  hunks; neither → `unavailable`. **Never converted one into the other.**
+- `diffProvenance` is now derived from the carried evidence (patch or hunks →
+  `runtime-provided`; neither → `unavailable`) — no coarse claim of
+  structured-hunk provenance when only a patch exists.
+- Patch bound: `ASSISTANT_EXECUTION_BOUNDS.patchContent = 20_000` (no SSE frame
+  cap exists in the API; 4× the 8000 hunk aggregate; deterministic truncation
+  flagged via `patchTruncated`). Under-bound patch is preserved byte-identical;
+  over-bound is sliced and flagged — never silently truncated.
+- Patch is opaque runtime evidence in M3.2: no `@@` parsing, no line numbers, no
+  hunk splitting, no syntax highlighting, no before/after reconstruction.
+
+### 16.2 Transport/normalization boundary fix (M3.2)
+
+`normalizeDiff` (packages/opencode-runtime) previously expected `hunks[]` and
+emitted a fake `hunks: []` for the real server response. It now models the
+actual 1.18.27 contract: `file: string → path`, `status → operation`,
+`additions`/`deletions` preserved, and `patch?: string` preserved verbatim. No
+fabricated `hunks: []`.
+
+### 16.3 Empty diff is a separate issue
+
+The contract-shape mismatch (fixed in M3.2) is distinct from
+`GET /session/:id/diff` returning `[]` (characterized, not fixed — OpenCode
+snapshot/VCS behavior was not modified). The contract handles all three cases
+correctly: populated diff with patch, empty diff, missing patch.
+`"Edit applied successfully."` is lifecycle/result text and is never parsed or
+promoted into a patch — an edit with `state = completed`, `file = …`,
+`diffRepresentation = 'unavailable'` is acceptable and truthful.
+
+### 16.4 Evidence (redacted)
+
+`docs/blueprint/GA-UX-PREMIUM-M3.2-live-evidence.json` separates:
+OpenAPI/contract shape **PROVEN**, normalizer fixture **TESTED**, live populated
+patch **NOT OBSERVED** (no fabrication), live empty diff **PROVEN**.
+
+Tests: 257 passing (M3.2 patch matrix, M3.1 hunk compat, M3 legacy compat, SSE
+propagation for both representations, M1/M2 unaffected).

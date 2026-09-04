@@ -252,7 +252,7 @@ export function projectTodoSnapshot(event: OpenCodeEventLike): AssistantExecutio
   });
 }
 
-/** `file.edited` → running edit (diff evidence attached at turn end by the adapter). */
+/** `file.edited` → running edit (no diff evidence at event time — truthful unavailable). */
 export function projectEditStarted(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
   if (!isEvent(event, EVENT.fileEdited)) return undefined;
   const payload = event.payload ?? {};
@@ -262,7 +262,10 @@ export function projectEditStarted(event: OpenCodeEventLike): AssistantExecution
     ...baseEnvelope(str(event.id) ?? `edit-${Date.now()}`, 'running', payload, 'edit'),
     kind: 'edit',
     file,
-    diffProvenance: 'runtime-provided',
+    // "Edit applied successfully." is lifecycle/result text, NOT diff evidence.
+    // At file.edited time the runtime has supplied no patch/hunks.
+    diffRepresentation: 'unavailable',
+    diffProvenance: 'unavailable',
     beforeAfterProvenance: 'unavailable',
   });
 }

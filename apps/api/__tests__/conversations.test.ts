@@ -184,9 +184,11 @@ describe('conversations routes', () => {
     expect((body() as { error: string }).error).toBe('Conversation not found');
   });
 
-  it('SSE propagation: structured edit hunks survive StreamChunk.detail → ConversationChunk.event.execution', async () => {
-    // GA-UX-PREMIUM M3.1: prove the complete route chain carries runtime hunks.
-    const editDetail = normalizeAssistantExecutionDetail({
+  it('SSE propagation: structured edit patch survives StreamChunk.detail → ConversationChunk.event.execution', async () => {
+    // GA-UX-PREMIUM M3.2: prove the complete route chain carries runtime patch
+    // evidence (and that structured hunks — M3.1 — still propagate too).
+    const PATCH = '@@ -10,3 +10,3 @@\n ctx\n+ add\n- del\n';
+    const patchDetail = normalizeAssistantExecutionDetail({
       contract: 'assistant.execution.v1',
       version: 1,
       operationId: 'edit:ses:file',
@@ -197,9 +199,23 @@ describe('conversations routes', () => {
       additions: 5,
       deletions: 4,
       diffProvenance: 'runtime-provided',
-      hunks: [{ oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx\n+ add\n- del' }],
+      patch: PATCH,
     });
-    expect(editDetail).toBeDefined();
+    const hunksDetail = normalizeAssistantExecutionDetail({
+      contract: 'assistant.execution.v1',
+      version: 1,
+      operationId: 'edit:ses:file2',
+      kind: 'edit',
+      state: 'completed',
+      file: 'packages/foo/src/hunks.ts',
+      operation: 'modified',
+      additions: 2,
+      deletions: 1,
+      diffProvenance: 'runtime-provided',
+      hunks: [{ oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx' }],
+    });
+    expect(patchDetail).toBeDefined();
+    expect(hunksDetail).toBeDefined();
 
     const editService = new DefaultConversationService({
       contextAssembler: new DefaultContextAssembler(),
@@ -216,17 +232,25 @@ describe('conversations routes', () => {
         },
         async *stream() {
           yield {
-            id: 'chunk-edit',
+            id: 'chunk-edit-patch',
             type: 'tool_result',
             name: 'edit',
             content: '',
-            detail: editDetail,
+            detail: patchDetail,
             metadata: { sequence: 0, timestamp: '2026-08-03T00:00:00.000Z' },
+          };
+          yield {
+            id: 'chunk-edit-hunks',
+            type: 'tool_result',
+            name: 'edit',
+            content: '',
+            detail: hunksDetail,
+            metadata: { sequence: 1, timestamp: '2026-08-03T00:00:00.000Z' },
           };
           yield {
             id: 'chunk-complete',
             type: 'complete',
-            metadata: { sequence: 1, timestamp: '2026-08-03T00:00:00.000Z' },
+            metadata: { sequence: 2, timestamp: '2026-08-03T00:00:00.000Z' },
           };
         },
       },
@@ -236,12 +260,8 @@ describe('conversations routes', () => {
 
     // Capture res.write SSE frames.
     const frames: string[] = [];
-    const status: { code: number } = { code: 0 };
     const res = new EventEmitter() as unknown as http.ServerResponse;
-    res.writeHead = (code: number) => {
-      status.code = code;
-      return res as unknown as http.ServerResponse;
-    };
+    res.writeHead = () => res as unknown as http.ServerResponse;
     res.write = (data: unknown) => {
       frames.push(String(data));
       return true;
@@ -257,19 +277,29 @@ describe('conversations routes', () => {
     );
 
     const dataFrames = frames.map((f) => f.replace(/^data: /, '').trim()).filter(Boolean);
-    const toolFrame = dataFrames
-      .map((f) => JSON.parse(f))
-      .find((f: { event: { type: string } }) => f.event.type === 'tool_result');
-    expect(toolFrame).toBeDefined();
-    const execution = toolFrame.event.execution;
-    expect(execution.contract).toBe('assistant.execution.v1');
-    expect(execution.kind).toBe('edit');
-    expect(execution.file).toBe('packages/foo/src/index.ts');
-    expect(execution.additions).toBe(5);
-    expect(execution.deletions).toBe(4);
-    expect(execution.hunks).toEqual([
-      { oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx\n+ add\n- del' },
+    const parsed = dataFrames.map((f) => JSON.parse(f));
+    const patchFrame = parsed.find(
+      (f: { event: { type: string; execution?: { patch?: string } } }) =>
+        f.event.type === 'tool_result' && f.event.execution?.patch,
+    );
+    const hunksFrame = parsed.find(
+      (f: { event: { type: string; execution?: { hunks?: unknown[] } } }) =>
+        f.event.type === 'tool_result' && f.event.execution?.hunks,
+    );
+    expect(patchFrame).toBeDefined();
+    const patchExecution = patchFrame.event.execution;
+    expect(patchExecution.contract).toBe('assistant.execution.v1');
+    expect(patchExecution.kind).toBe('edit');
+    expect(patchExecution.file).toBe('packages/foo/src/index.ts');
+    expect(patchExecution.diffRepresentation).toBe('patch');
+    expect(patchExecution.patch).toBe(PATCH);
+    expect(patchExecution.patchTruncated).toBeUndefined();
+    expect(patchExecution.hunks).toBeUndefined();
+    expect(hunksFrame).toBeDefined();
+    expect(hunksFrame.event.execution.diffRepresentation).toBe('hunks');
+    expect(hunksFrame.event.execution.hunks).toEqual([
+      { oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx' },
     ]);
-    expect(execution.hunksTruncated).toBeUndefined();
+    expect(hunksFrame.event.execution.patch).toBeUndefined();
   });
 });

@@ -190,13 +190,16 @@ describe('assistant-execution-projection — OpenCode 1.18.27 → contract', () 
     }
   });
 
-  it('file.edited → running edit with repository-relative path', () => {
+  it('file.edited → running edit; diff evidence truthfully unavailable at event time', () => {
     const detail = projectEditStarted(event('file.edited', { file: 'packages/foo/src/index.ts' }));
     expect(detail!.kind).toBe('edit');
     if (detail!.kind === 'edit') {
       expect(detail!.file).toBe('packages/foo/src/index.ts');
       expect(detail!.state).toBe('running');
-      expect(detail!.diffProvenance).toBe('runtime-provided');
+      // No patch/hunks exists at file.edited time — provenance is truthful.
+      expect(detail!.diffProvenance).toBe('unavailable');
+      expect(detail!.diffRepresentation).toBe('unavailable');
+      expect(detail!.patch).toBeUndefined();
     }
   });
 

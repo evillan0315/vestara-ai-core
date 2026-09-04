@@ -294,11 +294,12 @@ export async function* runAssistantOpenCodeTurn(
           operation: diffFile.operation,
           additions: diffFile.additions,
           deletions: diffFile.deletions,
-          // GA-UX-PREMIUM M3.1: runtime-provided hunks ride the contract
-          // (allowlisted + bounded by the shared normalizer). Previously
-          // discarded at this boundary.
-          hunks: diffFile.hunks,
-          diffProvenance: 'runtime-provided',
+          // GA-UX-PREMIUM M3.2: OpenCode 1.18.27 exposes the diff as
+          // `patch?: string` (SnapshotFileDiff/VcsFileDiff). Preserve it as
+          // opaque runtime evidence — never parsed, never converted to hunks.
+          patch: diffFile.patch,
+          diffRepresentation: diffFile.patch !== undefined ? 'patch' : 'unavailable',
+          diffProvenance: diffFile.patch !== undefined ? 'runtime-provided' : 'unavailable',
           timestamp: Date.now(),
         });
         if (detail) yield chunk('status', sequence++, { content: `Edited ${diffFile.path}`, detail });

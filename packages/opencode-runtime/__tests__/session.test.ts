@@ -112,20 +112,32 @@ describe('session normalizers', () => {
     expect(normalizeTodos('nope')).toEqual([]);
   });
 
-  it('normalizes diff files with hunks', () => {
+  it('normalizes diff files with runtime patch evidence (1.18.27 contract)', () => {
     const diff = normalizeDiff([
       {
-        path: 'src/a.ts',
+        file: 'src/a.ts',
         status: 'modified',
         additions: 2,
         deletions: 1,
-        hunks: [{ oldStart: 1, oldLines: 3, newStart: 1, newLines: 4, content: '@@ -1,3 +1,4 @@' }],
+        patch: '@@ -1,3 +1,4 @@\n a\n+add\n-remove\n',
       },
     ]);
     expect(diff).toHaveLength(1);
-    expect(diff[0]).toMatchObject({ path: 'src/a.ts', operation: 'modified', additions: 2, deletions: 1 });
-    expect(diff[0].hunks[0]).toMatchObject({ oldStart: 1, newLines: 4 });
+    expect(diff[0]).toMatchObject({
+      path: 'src/a.ts',
+      operation: 'modified',
+      additions: 2,
+      deletions: 1,
+      patch: '@@ -1,3 +1,4 @@\n a\n+add\n-remove\n',
+    });
+    // The 1.18.27 runtime contract has no structured hunks — nothing fabricated.
+    expect('hunks' in diff[0]!).toBe(false);
     expect(normalizeDiff('nope')).toEqual([]);
+    // Server `path` form also supported (defensive).
+    const pathForm = normalizeDiff([{ path: 'b.ts', status: 'added', additions: 1, deletions: 0 }]);
+    expect(pathForm[0]!.path).toBe('b.ts');
+    // Missing patch stays absent.
+    expect(normalizeDiff([{ file: 'c.ts', status: 'modified', additions: 0, deletions: 0 }])[0]!.patch).toBeUndefined();
   });
 
   it('normalizes message history with nested info and parts', () => {

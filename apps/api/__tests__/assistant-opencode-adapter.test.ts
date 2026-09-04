@@ -219,7 +219,8 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
     expect(text).toBe('Hello world');
   });
 
-  it('turn-end enrichment: session diff and todos surface as bounded status details', async () => {
+  it('turn-end enrichment: runtime patch evidence surfaces as bounded status detail', async () => {
+    const PATCH = '@@ -10,3 +10,3 @@\n ctx\n+ add\n- del\n@@ -20,1 +21,1 @@\n tail';
     const chunks = await collectTurn(
       eventClient([sseEvent('e1', 'session.status', { status: { type: 'idle' } })], {
         diff: [
@@ -228,10 +229,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
             operation: 'modified',
             additions: 4,
             deletions: 2,
-            hunks: [
-              { oldStart: 10, oldLines: 3, newStart: 10, newLines: 3, content: ' ctx\n+ add\n- del' },
-              { oldStart: 20, oldLines: 1, newStart: 21, newLines: 1, content: ' tail' },
-            ],
+            patch: PATCH,
           },
         ],
         todos: [{ content: 'Investigate M3', status: 'pending' }],
@@ -244,18 +242,15 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
     if (edit!.detail!.kind === 'edit') {
       expect(edit!.detail!.file).toBe('packages/foo/src/index.ts');
       expect(edit!.detail!.diffProvenance).toBe('runtime-provided');
+      expect(edit!.detail!.diffRepresentation).toBe('patch');
       expect(edit!.detail!.additions).toBe(4);
-      // GA-UX-PREMIUM M3.1: runtime hunks ride the contract (bounded, order preserved).
-      expect(edit!.detail!.hunks).toHaveLength(2);
-      expect(edit!.detail!.hunks![0]).toEqual({
-        oldStart: 10,
-        oldLines: 3,
-        newStart: 10,
-        newLines: 3,
-        content: ' ctx\n+ add\n- del',
-      });
-      expect(edit!.detail!.hunks![1]!.oldStart).toBe(20);
-      expect(edit!.detail!.hunksTruncated).toBeUndefined();
+      expect(edit!.detail!.deletions).toBe(2);
+      expect(edit!.detail!.operation).toBe('modified');
+      // M3.2: the runtime patch is preserved verbatim (opaque evidence).
+      expect(edit!.detail!.patch).toBe(PATCH);
+      expect(edit!.detail!.patchTruncated).toBeUndefined();
+      // Patch is never converted to hunks.
+      expect(edit!.detail!.hunks).toBeUndefined();
     }
     expect(task).toBeDefined();
     if (task!.detail!.kind === 'task-snapshot') {
@@ -264,7 +259,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
     }
   });
 
-  it('turn-end enrichment bounds oversized hunks and flags truncation', async () => {
+  it('turn-end enrichment bounds oversized runtime patch and flags truncation', async () => {
     const chunks = await collectTurn(
       eventClient([sseEvent('e1', 'session.status', { status: { type: 'idle' } })], {
         diff: [
@@ -273,15 +268,16 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
             operation: 'modified',
             additions: 100,
             deletions: 100,
-            hunks: [{ oldStart: 1, content: 'z'.repeat(5000) }],
+            patch: 'z'.repeat(50_000),
           },
         ],
       }),
     );
     const edit = chunks.find((c) => c.detail?.kind === 'edit');
     if (edit!.detail!.kind === 'edit') {
-      expect(edit!.detail!.hunks![0]!.content.length).toBeLessThanOrEqual(1000);
-      expect(edit!.detail!.hunksTruncated).toBe(true);
+      expect(edit!.detail!.patch!.length).toBeLessThanOrEqual(20_000);
+      expect(edit!.detail!.patchTruncated).toBe(true);
+      expect(edit!.detail!.diffRepresentation).toBe('patch');
     }
   });
 
