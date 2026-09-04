@@ -644,14 +644,10 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
       // The user just sent: resume follow behavior for the new turn.
       followRef.current = true;
       setShowJump(false);
-      // AR-009: Snapshot current Surface Context with the message
-      await assistant.sendMessage(text, {
-        surfaceContext: surface.selected ? {
-          kind: surface.selected.kind,
-          id: surface.selected.id,
-          label: surface.selected.label,
-        } : undefined,
-      });
+      // GA-CONTEXT-002: forward the CURRENT full SurfaceContext at send time
+      // (workspace + surface + optional selection). Evaluated per turn so
+      // navigation updates reach the assistant without a new conversation.
+      await assistant.sendMessage(text, { surfaceContext: surface });
     },
     [assistant.sendMessage, surface.selected],
   );

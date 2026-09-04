@@ -1,9 +1,46 @@
 import type * as http from 'node:http';
+import type { TurnSurfaceContext } from '@vestara/shared';
 import { type ConversationChunk, TUI_PROTOCOL_VERSION } from '@vestara/tui-protocol';
 import type { WorkspaceContext } from '../workspace-context';
 import { CORS, json, readBody } from './types';
 
 const ACTOR = 'workspace-ui';
+
+/**
+ * GA-CONTEXT-002: bound/validate the browser-supplied surface context.
+ * Trusted client navigation state — bounded strings only, never instructions,
+ * never repository/execution authority. Malformed values degrade to undefined
+ * (backward compatible: callers without surface context keep working).
+ */
+function normalizeSurfaceContext(value: unknown): TurnSurfaceContext | undefined {
+  if (!value || typeof value !== 'object') return undefined;
+  const raw = value as Record<string, unknown>;
+  const workspace = raw.workspace as Record<string, unknown> | undefined;
+  const surface = raw.surface as Record<string, unknown> | undefined;
+  if (!workspace || !surface) return undefined;
+  const str = (v: unknown, max: number): string | undefined =>
+    typeof v === 'string' && v.length > 0 ? v.slice(0, max) : undefined;
+  const nullableStr = (v: unknown, max: number): string | null => (typeof v === 'string' ? v.slice(0, max) : null);
+  const ws = { id: str(workspace.id, 200), name: str(workspace.name, 200) };
+  const sf = {
+    routeId: nullableStr(surface.routeId, 200),
+    path: str(surface.path, 500),
+    title: nullableStr(surface.title, 200),
+    section: nullableStr(surface.section, 200),
+  };
+  if (!ws.id || !ws.name || !sf.path) return undefined;
+  const selectedRaw = raw.selected as Record<string, unknown> | undefined;
+  const selectedKind = selectedRaw ? str(selectedRaw.kind, 200) : undefined;
+  const selectedId = selectedRaw ? str(selectedRaw.id, 200) : undefined;
+  const selectedLabel = selectedRaw ? str(selectedRaw.label, 500) : undefined;
+  return {
+    workspace: { id: ws.id, name: ws.name },
+    surface: { routeId: sf.routeId, path: sf.path, title: sf.title, section: sf.section },
+    ...(selectedKind && selectedId
+      ? { selected: { kind: selectedKind, id: selectedId, ...(selectedLabel ? { label: selectedLabel } : {}) } }
+      : {}),
+  };
+}
 
 /**
  * Conversations REST resource. Persisted via `ctx.conversationService` (the
@@ -102,8 +139,10 @@ export async function handleConversationsRoute(
       );
     };
     try {
+      const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
       for await (const chunk of ctx.conversationService.sendMessageStream(conversationId, message, {
         model: typeof body.model === 'string' && body.model ? body.model : undefined,
+        surfaceContext,
       })) {
         if (chunk.type === 'text' && chunk.content) {
           emit({ type: 'delta', content: chunk.content });

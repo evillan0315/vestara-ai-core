@@ -36,7 +36,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Conversation, ConversationSummary, Message } from '@vestara/types';
-import type { AssistantExecutionDetail } from '@vestara/shared';
+import type { AssistantExecutionDetail, TurnSurfaceContext } from '@vestara/shared';
 
 /**
  * GA-UX-PREMIUM M3: cheap inline validation of the server-normalized
@@ -145,7 +145,10 @@ export interface UseAssistantConversationReturn {
   retryTurn: (clientTurnId: string) => Promise<void>;
 
   // Send + stream
-  sendMessage: (content: string, options?: { surfaceContext?: { kind: string; id: string; label?: string } }) => Promise<void>;
+  sendMessage: (
+    content: string,
+    options?: { surfaceContext?: TurnSurfaceContext },
+  ) => Promise<void>;
   streamState: StreamState;
   streamingText: string;
   /** Bounded operational status (e.g. "Thinking…", "Reading package.json…"). */
@@ -461,7 +464,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // then drop the optimistic entry; submission failure (human NOT persisted)
   // → keep the entry with delivery 'failed' for Retry.
   const runTurn = useCallback(
-    async (convId: string, text: string, clientTurnId: string) => {
+    async (convId: string, text: string, clientTurnId: string, surfaceContext?: TurnSurfaceContext) => {
       const finalConvId = convId;
       const currentStreamId = ++streamIdRef.current;
       responseStartedRef.current = false;
@@ -485,7 +488,12 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
           headers: { 'Content-Type': 'application/json' },
           // clientMessageId is forward-compatible correlation: the current
           // server ignores unknown body fields (no Conversation change).
-          body: JSON.stringify({ message: text, clientMessageId: clientTurnId }),
+          body: JSON.stringify({
+            message: text,
+            clientMessageId: clientTurnId,
+            // GA-CONTEXT-002: trusted turn-time surface context (additive).
+            ...(surfaceContext ? { surfaceContext } : {}),
+          }),
           signal: controller.signal,
         });
 
@@ -666,7 +674,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // Projects the optimistic human turn + Thinking… synchronously on local
   // validation, before any network await.
   const sendMessage = useCallback(
-    async (content: string) => {
+    async (content: string, options?: { surfaceContext?: TurnSurfaceContext }) => {
       const text = content.trim();
       if (!text || busyRef.current || streamState === 'sending' || streamState === 'streaming') return;
 
@@ -714,7 +722,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         );
       }
 
-      await runTurn(convId, text, clientTurnId);
+      await runTurn(convId, text, clientTurnId, options?.surfaceContext);
     },
     [streamState, createConversation, runTurn],
   );

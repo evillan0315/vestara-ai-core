@@ -75,6 +75,26 @@ function lastUserText(messages: CompletionRequest['messages']): string {
   return '';
 }
 
+/**
+ * GA-CONTEXT-002: deterministic trusted-application-context block for the
+ * model. Bounded, descriptive — never repository/execution authority. The
+ * surface `path`/`route`/`title` are client navigation state; the workspace
+ * name/id are descriptive identity. Selection label is display data only.
+ */
+function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceContext']): string | undefined {
+  if (!surfaceContext || !surfaceContext.surface || !surfaceContext.workspace) return undefined;
+  const { workspace, surface, selected } = surfaceContext;
+  const lines = ['Current Vestara application context:', `Workspace: ${workspace.name}`];
+  if (surface.section) lines.push(`Section: ${surface.section}`);
+  if (surface.title) lines.push(`Page: ${surface.title}`);
+  if (surface.routeId) lines.push(`Route: ${surface.routeId}`);
+  if (selected) {
+    lines.push('Selected item:', `Type: ${selected.kind}`, `ID: ${selected.id}`);
+    if (selected.label) lines.push(`Label: ${selected.label}`);
+  }
+  return lines.join('\n');
+}
+
 function chunk(type: StreamChunk['type'], sequence: number, extra: Partial<StreamChunk> = {}): StreamChunk {
   return {
     id: `oc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
@@ -152,6 +172,11 @@ export async function* runAssistantOpenCodeTurn(
         agent,
         // Async input model shape: { providerId, modelId } (lowercase).
         ...(turnModel ? { model: { providerId: turnModel.providerID, modelId: turnModel.modelID } } : {}),
+        // GA-CONTEXT-002: trusted turn-time surface context via the
+        // established `system` field (proven additive — the agent's own
+        // governance prompt is preserved). Never concatenated into the human
+        // message; never repository/execution authority.
+        ...(buildSurfaceSystem(request.surfaceContext) ? { system: buildSurfaceSystem(request.surfaceContext) } : {}),
       },
       context,
     );

@@ -60,6 +60,8 @@ export interface SendOptions {
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
+  /** Trusted turn-time surface context (GA-CONTEXT-002). Optional, turn-scoped. */
+  surfaceContext?: import('@vestara/shared').TurnSurfaceContext;
 }
 
 export interface SendResult {

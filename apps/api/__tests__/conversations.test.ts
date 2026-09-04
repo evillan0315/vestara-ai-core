@@ -303,3 +303,157 @@ describe('conversations routes', () => {
     expect(hunksFrame.event.execution.patch).toBeUndefined();
   });
 });
+
+describe('GA-CONTEXT-002 — turn-time surface context', () => {
+  function captureOptionsService() {
+    const captured: Array<{ message: string; options?: unknown }> = [];
+    const svc = new DefaultConversationService({
+      contextAssembler: new DefaultContextAssembler(),
+      providerExecutor: {
+        async complete() {
+          return {
+            id: 'r',
+            model: 'm',
+            provider: 'p',
+            content: '',
+            usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+            latency: 0,
+          };
+        },
+        async *stream() {
+          yield {
+            id: 't',
+            type: 'text',
+            content: 'streamed',
+            metadata: { sequence: 0, timestamp: '2026-08-03T00:00:00.000Z' },
+          };
+          yield { id: 'c', type: 'complete', metadata: { sequence: 1, timestamp: '2026-08-03T00:00:00.000Z' } };
+        },
+      },
+    });
+    const orig = svc.sendMessageStream.bind(svc);
+    svc.sendMessageStream = async function* (conversationId, message, options) {
+      captured.push({ message, options });
+      yield* orig(conversationId, message, options);
+    };
+    return { svc, captured };
+  }
+
+  async function streamWith(ctx: WorkspaceContext, body: string) {
+    const frames: string[] = [];
+    const res = new EventEmitter() as unknown as http.ServerResponse;
+    res.writeHead = () => res as unknown as http.ServerResponse;
+    res.write = (d: unknown) => {
+      frames.push(String(d));
+      return true;
+    };
+    res.end = () => res as unknown as http.ServerResponse;
+    const conv = await ctx.conversationService.createConversation('local');
+    await handleConversationsRoute(
+      'POST',
+      `/api/conversations/${conv.id}/stream`,
+      fakeRequest('POST', `/api/conversations/${conv.id}/stream`, body),
+      res,
+      ctx,
+    );
+    return frames;
+  }
+
+  it('bounds and passes surface context to the service; absent surface context stays supported', async () => {
+    const { svc, captured } = captureOptionsService();
+    const ctx = makeContext(svc as unknown as ConversationService);
+    await streamWith(
+      ctx,
+      JSON.stringify({
+        message: 'hi',
+        surfaceContext: {
+          workspace: { id: 'ws-1', name: 'vestara-ai-core' },
+          surface: { routeId: '/dashboard', path: '/dashboard', title: 'Dashboard', section: 'Workspace' },
+        },
+      }),
+    );
+    expect(captured[0]!.options).toMatchObject({
+      surfaceContext: {
+        workspace: { id: 'ws-1', name: 'vestara-ai-core' },
+        surface: { path: '/dashboard', title: 'Dashboard', section: 'Workspace' },
+      },
+    });
+    // Missing surface context is supported (backward compatible).
+    await streamWith(ctx, JSON.stringify({ message: 'hi' }));
+    expect(captured[1]!.options!.surfaceContext).toBeUndefined();
+  });
+
+  it('malformed/oversized surface values are rejected or bounded', async () => {
+    const { svc, captured } = captureOptionsService();
+    const ctx = makeContext(svc as unknown as ConversationService);
+    // Malformed (no surface) → dropped.
+    await streamWith(ctx, JSON.stringify({ message: 'hi', surfaceContext: { workspace: { id: 'w', name: 'n' } } }));
+    expect(captured[0]!.options!.surfaceContext).toBeUndefined();
+    // Oversized strings bounded.
+    await streamWith(
+      ctx,
+      JSON.stringify({
+        message: 'hi',
+        surfaceContext: {
+          workspace: { id: 'w', name: 'x'.repeat(500) },
+          surface: { routeId: 'r', path: 'p'.repeat(5000), title: 't', section: 's' },
+        },
+      }),
+    );
+    const sc = captured[1]!.options!.surfaceContext as { workspace: { name: string }; surface: { path: string } };
+    expect(sc.workspace.name.length).toBeLessThanOrEqual(200);
+    expect(sc.surface.path.length).toBeLessThanOrEqual(500);
+  });
+
+  it('selection label is carried as data; missing selection is valid', async () => {
+    const { svc, captured } = captureOptionsService();
+    const ctx = makeContext(svc as unknown as ConversationService);
+    await streamWith(
+      ctx,
+      JSON.stringify({
+        message: 'hi',
+        surfaceContext: {
+          workspace: { id: 'w', name: 'n' },
+          surface: { path: '/agents' },
+          selected: { kind: 'agent', id: 'a-1', label: 'Developer' },
+        },
+      }),
+    );
+    expect(captured[0]!.options!.surfaceContext.selected).toEqual({ kind: 'agent', id: 'a-1', label: 'Developer' });
+    // Incomplete selection (no id) → dropped.
+    await streamWith(
+      ctx,
+      JSON.stringify({
+        message: 'hi',
+        surfaceContext: {
+          workspace: { id: 'w', name: 'n' },
+          surface: { path: '/agents' },
+          selected: { kind: 'agent' },
+        },
+      }),
+    );
+    expect(captured[1]!.options!.surfaceContext.selected).toBeUndefined();
+  });
+
+  it('repository directory authority is untouched by the surface payload', async () => {
+    // The route never reads repositoryDir from the body — the payload only
+    // carries workspace/surface/selected (no directory field is accepted).
+    const { svc, captured } = captureOptionsService();
+    const ctx = makeContext(svc as unknown as ConversationService);
+    await streamWith(
+      ctx,
+      JSON.stringify({
+        message: 'hi',
+        surfaceContext: {
+          workspace: { id: 'w', name: 'n' },
+          surface: { path: '/tmp/foo', title: 'x', section: 'y', routeId: '/tmp/foo' },
+          directory: '/tmp/evil',
+        },
+      }),
+    );
+    const sc = captured[0]!.options!.surfaceContext as Record<string, unknown>;
+    // No directory key survives normalization.
+    expect('directory' in sc).toBe(false);
+    expect(Object.keys(sc.surface as object)).not.toContain('directory');
+  });
+});

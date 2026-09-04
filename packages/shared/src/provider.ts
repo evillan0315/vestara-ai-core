@@ -58,6 +58,39 @@ export interface ProviderHealthStatus {
   message?: string;
 }
 
+/**
+ * Trusted turn-time surface context (GA-CONTEXT-002).
+ *
+ * Additive, optional, bounded wire shape. Mirrors the Workspace
+ * `@vestara/types` SurfaceContext contracts (workspace + surface + selection)
+ * so the browser's existing SurfaceContextProvider value can flow unchanged.
+ * Treated by the model as trusted application context — NEVER repository or
+ * execution authority (repositoryDir stays server-authoritative).
+ */
+export interface TurnSurfaceWorkspace {
+  readonly id: string;
+  readonly name: string;
+}
+
+export interface TurnSurfaceLocation {
+  readonly routeId: string | null;
+  readonly path: string;
+  readonly title: string | null;
+  readonly section: string | null;
+}
+
+export interface TurnSurfaceReference {
+  readonly kind: string;
+  readonly id: string;
+  readonly label?: string;
+}
+
+export interface TurnSurfaceContext {
+  readonly workspace: TurnSurfaceWorkspace;
+  readonly surface: TurnSurfaceLocation;
+  readonly selected?: TurnSurfaceReference;
+}
+
 export interface CompletionRequest {
   model: string;
   messages: Array<{
@@ -78,6 +111,12 @@ export interface CompletionRequest {
   agent?: string;
   /** Semantic title for the execution session (e.g. task title, workflow title). */
   title?: string;
+  /**
+   * Trusted turn-time surface context (GA-CONTEXT-002). Additive and optional:
+   * the current Workspace UI surface. Bounded server-side; treated as trusted
+   * application context by the model — NEVER repository/execution authority.
+   */
+  surfaceContext?: TurnSurfaceContext;
   /** M7: Runtime session ID for session continuity. When set, the provider reuses the existing OpenCode session. */
   runtimeSessionId?: string;
   /**

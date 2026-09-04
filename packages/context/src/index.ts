@@ -18,6 +18,8 @@ export interface ContextOptions {
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  /** Trusted turn-time surface context (GA-CONTEXT-002). Optional. */
+  surfaceContext?: import('@vestara/shared').TurnSurfaceContext;
 }
 
 export interface ContextAssembler {
@@ -65,6 +67,8 @@ export class DefaultContextAssembler implements ContextAssembler {
       messages,
       temperature: options.temperature ?? 0.7,
       maxTokens: options.maxTokens ?? 2048,
+      // GA-CONTEXT-002: trusted turn-time surface context (optional).
+      ...(options.surfaceContext ? { surfaceContext: options.surfaceContext } : {}),
     };
   }
 }
