@@ -164,6 +164,12 @@ export interface UseAssistantConversationReturn {
    * toolOperations on send/select/abort.
    */
   structuredEdits: StructuredEditOperation[];
+  /**
+   * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). `todo.updated` events
+   * are complete replacement snapshots — the checklist presents the most
+   * recent one. Transient (per active turn); never persisted.
+   */
+  taskSnapshot: AssistantExecutionDetail | null;
   abortStream: () => void;
 }
 
@@ -338,10 +344,20 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
     });
   }, []);
+  // ── Runtime todo checklist projection (GA-UX-PREMIUM M5A, transient) ──
+  // `todo.updated` events are COMPLETE replacement snapshots of the OpenCode
+  // runtime todo list. A single evolving checklist (latest snapshot wins) is
+  // the truthful presentation — never append semantics, never fabricated IDs.
+  const [taskSnapshot, setTaskSnapshot] = useState<AssistantExecutionDetail | null>(null);
+  const upsertTaskSnapshot = useCallback((detail: AssistantExecutionDetail) => {
+    if (detail.kind !== 'task-snapshot') return;
+    setTaskSnapshot(detail);
+  }, []);
   const clearToolOperations = () => {
     operationIdMapRef.current.clear();
     setToolOperations([]);
     setStructuredEdits([]);
+    setTaskSnapshot(null);
   };
   const abortRef = useRef<AbortController | null>(null);
   const streamIdRef = useRef(0); // stale-stream guard
@@ -541,8 +557,13 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 setStreamStatus(eventContent || null);
                 // GA-UX-PREMIUM M4A: structured edit projections ride the
                 // status channel (file.edited / turn-end diff enrichment).
+                // M5A: runtime todo snapshots (todo.updated → task-snapshot)
+                // replace the active checklist on every snapshot event.
                 const execution = parseExecutionDetail(data?.event?.execution);
-                if (execution) upsertStructuredEdit(execution);
+                if (execution) {
+                  upsertStructuredEdit(execution);
+                  upsertTaskSnapshot(execution);
+                }
               } else if (eventType === 'tool') {
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
                 setStreamStatus(
@@ -638,7 +659,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         busyRef.current = false;
       }
     },
-    [loadMessages, refreshList, upsertStructuredEdit],
+    [loadMessages, refreshList, upsertStructuredEdit, upsertTaskSnapshot],
   );
 
   // ── Send message + stream response ──
@@ -793,6 +814,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     streamError,
     toolOperations,
     structuredEdits,
+    taskSnapshot,
     abortStream,
   };
 }

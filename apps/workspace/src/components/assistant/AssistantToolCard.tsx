@@ -14,8 +14,10 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
+import type { AssistantExecutionDetail } from '@vestara/shared';
 import type { AssistantToolOperation, StructuredEditOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
+import { AssistantTodoChecklist } from './AssistantTodoChecklist';
 
 // ─── Categories ─────────────────────────────────────────────────
 
@@ -176,6 +178,11 @@ export interface AssistantExecutionTimelineProps {
    * operation, one presentation); standalone structured edits render too.
    */
   structuredEdits?: readonly StructuredEditOperation[];
+  /**
+   * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). One evolving checklist;
+   * each todo.updated snapshot replaces the previous.
+   */
+  taskSnapshot?: AssistantExecutionDetail | null;
   /** Collapsed once response generation begins; user-expandable. */
   expanded: boolean;
   onToggle: () => void;
@@ -192,10 +199,11 @@ export interface AssistantExecutionTimelineProps {
 export function AssistantExecutionTimeline({
   operations,
   structuredEdits = [],
+  taskSnapshot,
   expanded,
   onToggle,
 }: AssistantExecutionTimelineProps) {
-  if (operations.length === 0 && structuredEdits.length === 0) return null;
+  if (operations.length === 0 && structuredEdits.length === 0 && !taskSnapshot) return null;
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
 
@@ -223,6 +231,11 @@ export function AssistantExecutionTimeline({
       </button>
       {expanded && (
         <div className="mt-0.5 border-l border-zinc-800 pl-2.5 ml-[3px] min-w-0">
+          {taskSnapshot && taskSnapshot.kind === 'task-snapshot' && (
+            <div className="mb-1">
+              <AssistantTodoChecklist detail={taskSnapshot} />
+            </div>
+          )}
           {operations.map((op) => {
             if (supersededOpIds.has(op.id)) {
               const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);

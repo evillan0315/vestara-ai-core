@@ -34,6 +34,7 @@ import type {
   StructuredEditOperation,
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
+import type { AssistantExecutionDetail } from '@vestara/shared';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { AssistantResponseActions } from './AssistantResponseActions';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
@@ -215,15 +216,17 @@ function ActiveTurn({
   status,
   operations,
   structuredEdits,
+  taskSnapshot,
 }: {
   text: string;
   status?: string | null;
   operations?: AssistantToolOperation[];
   structuredEdits?: readonly StructuredEditOperation[];
+  taskSnapshot?: AssistantExecutionDetail | null;
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
-  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0;
+  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || !!taskSnapshot;
   // Timeline collapse discipline (M2): expanded while executing, collapsed
   // once response generation begins. User-expandable while streaming.
   const [timelineOpen, setTimelineOpen] = useState(false);
@@ -253,6 +256,7 @@ function ActiveTurn({
           <AssistantExecutionTimeline
             operations={ops}
             structuredEdits={structuredEdits}
+            taskSnapshot={taskSnapshot}
             expanded={timelineExpanded}
             onToggle={toggleTimeline}
           />
@@ -788,6 +792,7 @@ export function ConversationPanel({ assistant, focusOnMountRef }: ConversationPa
                 status={assistant.streamStatus}
                 operations={assistant.toolOperations ?? []}
                 structuredEdits={assistant.structuredEdits ?? []}
+                taskSnapshot={assistant.taskSnapshot ?? null}
               />
             )}
           </div>
