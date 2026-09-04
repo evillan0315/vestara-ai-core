@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * Evidence — PCS-026 verification bundles.
@@ -10,6 +10,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 const API = '/api/evidence';
 
+interface VisualMetadata {
+  width: number;
+  height: number;
+  mediaType: string;
+}
+
 interface EvidenceReference {
   ref: string;
   kind: string;
@@ -18,6 +24,7 @@ interface EvidenceReference {
   summary: string;
   provenance: { producer: string; executionId: string; operation?: string; createdAt: string; environment: string; contentHash: string };
   relatedTo?: string[];
+  visual?: VisualMetadata;
 }
 
 interface Confidence {
@@ -91,7 +98,14 @@ function StatCard({ label, value, accent }: { label: string; value: string | num
   );
 }
 
+const VISUAL_EVIDENCE_KINDS: ReadonlySet<string> = new Set(['screenshot', 'visual-comparison']);
+
+function isVisualEvidence(reference: EvidenceReference): boolean {
+  return VISUAL_EVIDENCE_KINDS.has(reference.kind);
+}
+
 function EvidenceArtifact({ reference }: { reference: EvidenceReference }) {
+  if (isVisualEvidence(reference)) return null;
   const url = `${API}/artifacts/${reference.ref}?mediaType=${encodeURIComponent(reference.mediaType)}`;
   if (reference.mediaType.startsWith('image/')) {
     return (
@@ -117,6 +131,135 @@ function EvidenceArtifact({ reference }: { reference: EvidenceReference }) {
   );
 }
 
+// ─── Visual evidence gallery (EVIDENCE-UX-002 M3) ────────────────
+
+type ThumbnailStatus = 'loading' | 'loaded' | 'unavailable' | 'failed';
+
+function VisualEvidenceCard({
+  reference,
+  thumbnailStatus,
+  onThumbnailStatus,
+  selected,
+  onSelect,
+}: {
+  reference: EvidenceReference;
+  thumbnailStatus: ThumbnailStatus;
+  onThumbnailStatus: (ref: string, status: ThumbnailStatus) => void;
+  selected: boolean;
+  onSelect: (reference: EvidenceReference) => void;
+}) {
+  const thumbnailUrl = `${API}/artifacts/${reference.ref}/thumbnail`;
+  const dims = reference.visual;
+  const dimLabel = dims ? `${dims.width} × ${dims.height}` : null;
+  const mediaLabel = (reference.visual?.mediaType ?? reference.mediaType).split('/')?.[1]?.toUpperCase() ?? reference.mediaType;
+
+  return (
+    <button
+      type="button"
+      onClick={() => onSelect(reference)}
+      className={`text-left rounded-xl border transition-colors overflow-hidden focus:outline-none focus:ring-2 focus:ring-(--vestara-accent) ${
+        selected
+          ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)'
+          : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)/40 hover:border-(--vestara-accent-border-hover)'
+      }`}
+      aria-label={`Visual evidence: ${reference.summary}`}
+    >
+      <div className="aspect-video bg-zinc-900 flex items-center justify-center overflow-hidden">
+        {thumbnailStatus === 'loading' && (
+          <div className="text-[10px] text-(--vestara-text-muted) animate-pulse">Loading…</div>
+        )}
+        {thumbnailStatus === 'unavailable' && (
+          <div className="text-center px-3">
+            <div className="text-[10px] text-(--vestara-text-muted)">Preview unavailable</div>
+          </div>
+        )}
+        {thumbnailStatus === 'failed' && (
+          <div className="text-center px-3">
+            <div className="text-[10px] text-amber-300">Preview failed</div>
+          </div>
+        )}
+        {thumbnailStatus === 'loaded' && (
+          <img
+            src={thumbnailUrl}
+            alt={reference.summary}
+            className="w-full h-full object-contain"
+            loading="lazy"
+          />
+        )}
+      </div>
+      <div className="p-2 space-y-0.5">
+        <div className="text-xs text-(--vestara-text) truncate">{reference.summary}</div>
+        <div className="flex items-center gap-2 text-[10px] text-(--vestara-text-dim) flex-wrap">
+          {dimLabel && <span>{dimLabel}</span>}
+          <span>{mediaLabel}</span>
+        </div>
+        <div className="text-[10px] text-(--vestara-text-muted)">{reference.provenance.producer}</div>
+      </div>
+    </button>
+  );
+}
+
+function EvidenceGallery({
+  references,
+  selectedRef,
+  onSelect,
+}: {
+  references: EvidenceReference[];
+  selectedRef: string | null;
+  onSelect: (reference: EvidenceReference) => void;
+}) {
+  const [thumbnailStates, setThumbnailStates] = useState<Map<string, ThumbnailStatus>>(new Map());
+  const requestedRef = useRef(new Set<string>());
+
+  const updateStatus = useCallback((ref: string, status: ThumbnailStatus) => {
+    setThumbnailStates((prev) => {
+      const next = new Map(prev);
+      next.set(ref, status);
+      return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    for (const reference of references) {
+      if (requestedRef.current.has(reference.ref)) continue;
+      requestedRef.current.add(reference.ref);
+      updateStatus(reference.ref, 'loading');
+
+      const img = new Image();
+      img.onload = () => updateStatus(reference.ref, 'loaded');
+      img.onerror = () => updateStatus(reference.ref, 'unavailable');
+      img.src = `${API}/artifacts/${reference.ref}/thumbnail`;
+    }
+  }, [references, updateStatus]);
+
+  if (references.length === 0) return null;
+
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-(--vestara-text)">Visual Evidence</h2>
+          <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
+            {references.length} artifact{references.length === 1 ? '' : 's'}
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {references.map((reference) => (
+          <VisualEvidenceCard
+            key={reference.ref}
+            reference={reference}
+            thumbnailStatus={thumbnailStates.get(reference.ref) ?? 'loading'}
+            onThumbnailStatus={updateStatus}
+            selected={selectedRef === reference.ref}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function EvidencePage() {
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [detail, setDetail] = useState<Record<string, Bundle>>({});
@@ -124,6 +267,7 @@ export default function EvidencePage() {
   const [baselines, setBaselines] = useState<Baseline[]>([]);
   const [loading, setLoading] = useState(true);
   const [baselineBusy, setBaselineBusy] = useState<string | null>(null);
+  const [selectedVisualRef, setSelectedVisualRef] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchJson<{ bundles: Bundle[] }>(`${API}/bundles`);
@@ -184,6 +328,23 @@ export default function EvidencePage() {
     }
     return { total: bundles.length, high: byLevel['high'] || 0, veryHigh: byLevel['very-high'] || 0, evidence: totalEvidence };
   }, [bundles]);
+
+  const visualReferences = useMemo(() => {
+    const seen = new Set<string>();
+    const result: EvidenceReference[] = [];
+    for (const bundle of bundles) {
+      for (const ref of bundle.evidence) {
+        if (!isVisualEvidence(ref) || seen.has(ref.ref)) continue;
+        seen.add(ref.ref);
+        result.push(ref);
+      }
+    }
+    return result;
+  }, [bundles]);
+
+  const handleSelectVisual = useCallback((reference: EvidenceReference) => {
+    setSelectedVisualRef((prev) => (prev === reference.ref ? null : reference.ref));
+  }, []);
 
   return (
     <div>
@@ -291,6 +452,12 @@ export default function EvidencePage() {
           </div>
         )}
       </div>
+
+      <EvidenceGallery
+        references={visualReferences}
+        selectedRef={selectedVisualRef}
+        onSelect={handleSelectVisual}
+      />
 
       {loading ? (
         <div className="text-center py-12 text-sm text-(--vestara-text-muted)">Loading evidence...</div>
