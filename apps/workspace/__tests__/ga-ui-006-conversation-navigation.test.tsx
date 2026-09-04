@@ -111,7 +111,7 @@ function makeMultiServer() {
         role: m.role,
         content: m.content,
         createdAt: updatedAt,
-        ...(m.role === 'assistant' ? { model: 'muse-spark-1.3-contributor' } : {}),
+        ...(m.role === 'assistant' ? { model: 'mimo-v2.5' } : {}),
       })),
     );
   }
@@ -186,7 +186,7 @@ function makeMultiServer() {
 
   function persistAssistant(id: string, content: string) {
     const list = messages.get(id) ?? [];
-    list.push({ id: `${id}-m${list.length + 1}`, conversationId: id, role: 'assistant', content, createdAt: isoNow(), model: 'muse-spark-1.3-contributor' });
+    list.push({ id: `${id}-m${list.length + 1}`, conversationId: id, role: 'assistant', content, createdAt: isoNow(), model: 'mimo-v2.5' });
     messages.set(id, list);
   }
 
@@ -560,7 +560,7 @@ describe('GA-UI-006 — conversation navigation', () => {
       conversations: [summary('conv-b', 'Conversation 2', isoDaysAgo(1))],
       messages: [
         { id: 'm1', conversationId: 'conv-b', role: 'user', content: 'Read package.json and tell me the package name.', createdAt: isoDaysAgo(1) },
-        { id: 'm2', conversationId: 'conv-b', role: 'assistant', content, createdAt: isoDaysAgo(1), model: 'muse-spark-1.3-contributor' },
+        { id: 'm2', conversationId: 'conv-b', role: 'assistant', content, createdAt: isoDaysAgo(1), model: 'mimo-v2.5' },
       ],
     });
     render(<ConversationPanel assistant={assistant} />);

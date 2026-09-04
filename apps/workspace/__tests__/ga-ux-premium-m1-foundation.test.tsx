@@ -80,7 +80,7 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
 
   it('completed Assistant response has no enclosing bubble/card; prose sits on the canvas', () => {
     const assistant = stubAssistant({
-      messages: [msg('user', 'Explain the architecture.'), msg('assistant', 'Vestara separates runtime from presentation.', { model: 'muse-spark-1.3-contributor' })],
+      messages: [msg('user', 'Explain the architecture.'), msg('assistant', 'Vestara separates runtime from presentation.', { model: 'mimo-v2.5' })],
     });
     render(<ConversationPanel assistant={assistant} />);
 
@@ -109,7 +109,7 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
     first.unmount();
     // Assistant canvas must not share the human surface treatment.
     const assistantView = stubAssistant({
-      messages: [msg('assistant', 'Done.', { model: 'muse-spark-1.3-contributor' })],
+      messages: [msg('assistant', 'Done.', { model: 'mimo-v2.5' })],
     });
     const second = render(<ConversationPanel assistant={assistantView} />);
     const canvas = screen.getByTestId('assistant-response-canvas');
@@ -119,13 +119,13 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
 
   it('Assistant identity heading is consistent with secondary model metadata', () => {
     const assistant = stubAssistant({
-      messages: [msg('assistant', 'Hello.', { model: 'muse-spark-1.3-contributor' })],
+      messages: [msg('assistant', 'Hello.', { model: 'mimo-v2.5' })],
     });
     render(<ConversationPanel assistant={assistant} />);
 
     const identity = screen.getByTestId('assistant-identity');
     expect(identity.textContent).toContain('Vestara Assistant');
-    expect(identity.textContent).toContain('muse-spark-1.3-contributor');
+    expect(identity.textContent).toContain('mimo-v2.5');
   });
 
   it('active Thinking surface stays lightweight (no large empty response box)', () => {
@@ -160,7 +160,7 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
     const assistant = stubAssistant({
       messages: [
         msg('assistant', '## Architecture\n\n- runtime\n- presentation\n\n```typescript\nconst runtime = 1;\n```\n\n[docs](https://example.com)', {
-          model: 'muse-spark-1.3-contributor',
+          model: 'mimo-v2.5',
         }),
       ],
     });
@@ -176,7 +176,7 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
 
   it('Copy + Share preserved with quiet footer labels', () => {
     const assistant = stubAssistant({
-      messages: [msg('assistant', 'Summary here.', { model: 'muse-spark-1.3-contributor' })],
+      messages: [msg('assistant', 'Summary here.', { model: 'mimo-v2.5' })],
     });
     render(<ConversationPanel assistant={assistant} />);
 
@@ -223,7 +223,7 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
         msg(
           'assistant',
           'Vestara separates runtime from presentation.\n\n```typescript\nconst runtime = createRuntime();\n```\n\nSee https://example.com/a/very/long/path/that/should/not/overflow/the/narrow/panel for details.',
-          { model: 'muse-spark-1.3-contributor' },
+          { model: 'mimo-v2.5' },
         ),
       ],
     });

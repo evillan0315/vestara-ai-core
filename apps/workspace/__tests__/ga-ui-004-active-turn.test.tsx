@@ -160,7 +160,7 @@ function makeServer(initialMessages: ServerMessage[] = []) {
       role: 'assistant',
       content,
       createdAt: ISO,
-      model: 'muse-spark-1.3-contributor',
+      model: 'mimo-v2.5',
     });
   }
 
@@ -497,7 +497,7 @@ describe('GA-UI-004 — optimistic human turn + active turn UX', () => {
           role: 'assistant',
           content: 'The package name is vestara-ai-core.',
           createdAt: ISO,
-          model: 'muse-spark-1.3-contributor',
+          model: 'mimo-v2.5',
         },
       ],
     });

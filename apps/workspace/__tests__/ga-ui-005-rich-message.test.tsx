@@ -124,7 +124,7 @@ function makeServer() {
     msgCounter += 1;
     serverMessages.push({
       id: `msg-server-${msgCounter}`, conversationId: 'conv-1', role: 'assistant',
-      content, createdAt: ISO, model: 'muse-spark-1.3-contributor',
+      content, createdAt: ISO, model: 'mimo-v2.5',
     });
   }
 
@@ -429,7 +429,7 @@ describe('GA-UI-005 — rich assistant message presentation', () => {
         {
           id: 'm2', conversationId: 'conv-1', role: 'assistant',
           content: 'See `apps/api/src/workspace-context.ts` and `package.json`.',
-          createdAt: ISO, model: 'muse-spark-1.3-contributor',
+          createdAt: ISO, model: 'mimo-v2.5',
         },
       ],
       loadMessages: vi.fn(), optimisticTurns: [], retryTurn: vi.fn(), sendMessage: vi.fn(),

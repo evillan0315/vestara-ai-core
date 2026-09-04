@@ -111,7 +111,7 @@ function makeServer() {
 
   function persistAssistant(content: string) {
     msgCounter += 1;
-    serverMessages.push({ id: `msg-server-${msgCounter}`, conversationId: 'conv-1', role: 'assistant', content, createdAt: ISO, model: 'muse-spark-1.3-contributor' });
+    serverMessages.push({ id: `msg-server-${msgCounter}`, conversationId: 'conv-1', role: 'assistant', content, createdAt: ISO, model: 'mimo-v2.5' });
   }
 
   return { serverMessages, impl, persistAssistant, state };
@@ -369,7 +369,7 @@ describe('GA-UX-PREMIUM M2 — tool surface + execution timeline', () => {
       selectedId: 'conv-1',
       messages: [
         { id: 'm1', conversationId: 'conv-1', role: 'user', content: 'Inspect ConversationPanel.tsx.', createdAt: ISO },
-        { id: 'm2', conversationId: 'conv-1', role: 'assistant', content: 'Updated the copy.', createdAt: ISO, model: 'muse-spark-1.3-contributor' },
+        { id: 'm2', conversationId: 'conv-1', role: 'assistant', content: 'Updated the copy.', createdAt: ISO, model: 'mimo-v2.5' },
       ],
     });
     render(<ConversationPanel assistant={assistant} />);
