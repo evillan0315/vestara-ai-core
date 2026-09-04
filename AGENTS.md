@@ -11,7 +11,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 - Node 22+ and pnpm required (CI pins Node 22).
 - Build **before** `pnpm test` or any `pnpm vestara` / `pnpm dev:api` command — tests resolve `@vestara/*` from `dist/` via aliases in `vitest.config.ts` and CLI/API run from `dist/`. Stale `dist/` causes misleading failures.
 - `pnpm build` regenerates `tsconfig.reference.json` per project + root `tsconfig.references.json` (both gitignored — never hand-edit); run `pnpm dependencies:check` to validate.
-- `pnpm build` skips `@vestara/workspace-ui` (marked non-buildable in `scripts/workspace-architecture.mjs`); build the UI separately with `pnpm --filter @vestara/workspace-ui build` (`tsc -b && vite build`).
+- `pnpm build` skips `@vestara/workspace-ui` (hardcoded non-buildable in `scripts/workspace-architecture.mjs`); build the UI separately with `pnpm --filter @vestara/workspace-ui build` (`tsc -b && vite build`).
 - `pnpm clean` / `tsc -b --clean` to wipe build. `pnpm watch` for `tsc -b -w`.
 
 ## Monorepo Boundaries
