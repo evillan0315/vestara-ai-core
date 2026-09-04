@@ -76,6 +76,15 @@ export function GlobalAssistant() {
     setTimeout(() => launcherRef.current?.focus(), 0);
   }, []);
 
+  // GA-UI-006: explicit new conversation. Creates AND selects a fresh
+  // Conversation Runtime conversation; the previous conversation is never
+  // mutated, and its OpenCode runtime session is never reused (one
+  // conversation → one session, server-side). Empty surface + composer
+  // focus are handled by ConversationPanel on selection change.
+  const newConversation = useCallback(() => {
+    void assistant.createConversation();
+  }, [assistant.createConversation]);
+
   return (
     <>
       <AssistantLauncher
@@ -90,6 +99,7 @@ export function GlobalAssistant() {
         workspaceId={surface.workspace.id}
         onMinimize={minimizePanel}
         onClose={togglePanel}
+        onNewConversation={newConversation}
         launcherRef={launcherRef}
         focusOnMountRef={focusOnMountRef}
       >

@@ -20,7 +20,12 @@ export function CodeBlock({
   inline?: boolean;
 }) {
   const text = extractText(children).replace(/\n$/, '');
-  const isInline = inline || (!className?.startsWith('language-') && !text.includes('\n'));
+  // A fenced block carries a language-* class. rehype-highlight appends its
+  // own classes (e.g. "hljs language-typescript"), so match anywhere rather
+  // than anchoring at the start — otherwise single-line fences degrade to
+  // inline code and lose the label + Copy action. (GA-UI-005)
+  const langMatch = /language-([\w+-]+)/.exec(className || '');
+  const isInline = !langMatch && !text.includes('\n');
 
   if (isInline) {
     return (
@@ -30,18 +35,33 @@ export function CodeBlock({
     );
   }
 
-  const lang = className?.replace('language-', '') || '';
+  const lang = langMatch?.[1] ?? '';
   const [copied, setCopied] = useState(false);
-  const [ran, setRan] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
   const [preview, setPreview] = useState(false);
   const canPreview = ['html', 'htm', 'svg', 'jsx', 'tsx'].includes(lang);
-  const canRun = ['bash', 'sh', 'shell', 'zsh', 'terminal'].includes(lang);
+  // NOTE (GA-UI-005): there is intentionally no "Run" action. An earlier
+  // "Run" button merely copied bash to the clipboard without executing
+  // anything — a false execution affordance. Opening/executing content is
+  // never a presentation-layer authority.
 
-  const handleCopy = useCallback(() => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyFailed(false);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 2000);
+    }
   }, [text]);
+
+  // Never let code-action interaction bubble into a panel drag handler
+  // (same contract as GA-UI-003 AssistantResponseActions).
+  const stopDrag = useCallback((e: React.SyntheticEvent) => {
+    e.stopPropagation();
+  }, []);
 
   return (
     <>
@@ -51,7 +71,12 @@ export function CodeBlock({
           <div className="flex items-center gap-1">
             {canPreview && (
               <button
+                type="button"
                 onClick={() => setPreview(true)}
+                onPointerDown={stopDrag}
+                onMouseDown={stopDrag}
+                aria-label="Preview rendered HTML"
+                title="Preview"
                 className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded hover:bg-zinc-700/40 cursor-pointer flex items-center gap-1"
               >
                 <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -71,31 +96,18 @@ export function CodeBlock({
                 Preview
               </button>
             )}
-            {canRun && (
-              <button
-                onClick={() => {
-                  navigator.clipboard.writeText(text);
-                  setRan(true);
-                  setTimeout(() => setRan(false), 2000);
-                }}
-                className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors px-2 py-1 rounded hover:bg-zinc-700/40 cursor-pointer flex items-center gap-1"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                  />
-                </svg>
-                {ran ? 'Copied!' : 'Run'}
-              </button>
-            )}
             <button
+              type="button"
               onClick={handleCopy}
+              onPointerDown={stopDrag}
+              onMouseDown={stopDrag}
+              aria-label="Copy code"
+              title="Copy code"
               className="text-[11px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 px-2 py-1 rounded hover:bg-zinc-700/40 cursor-pointer"
             >
-              {copied ? (
+              {copyFailed ? (
+                <>Copy failed</>
+              ) : copied ? (
                 <>
                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -137,7 +149,10 @@ export function CodeBlock({
             <div className="flex items-center justify-between px-4 py-2 bg-zinc-100 border-b border-zinc-200">
               <span className="text-[12px] font-medium text-zinc-700">Preview</span>
               <button
+                type="button"
                 onClick={() => setPreview(false)}
+                aria-label="Close preview"
+                title="Close preview"
                 className="text-zinc-500 hover:text-zinc-700 transition-colors cursor-pointer p-1"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -146,7 +161,10 @@ export function CodeBlock({
               </button>
             </div>
             <div className="flex-1">
-              <iframe className="w-full h-full" srcDoc={text} sandbox="allow-scripts" title="Preview" />
+              {/* Fully opaque sandbox (no allow-scripts): model-generated
+                  HTML previews as static content only — scripts in model
+                  output never execute, while markup still renders. */}
+              <iframe className="w-full h-full" srcDoc={text} sandbox="" title="Preview" />
             </div>
           </div>
         </div>

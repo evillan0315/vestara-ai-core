@@ -8,7 +8,7 @@ import type {
   AgentMessageActivity,
   MessageTarget,
 } from '@vestara/activity-room';
-import { projectEffectiveState, toActivityBatch } from '@vestara/activity-room';
+import { projectEffectiveState, toActivityBatch, triggerAssistantTurn } from '@vestara/activity-room';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
@@ -178,6 +178,15 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
+      // AR-006: Trigger Assistant turn for targeted messages
+      if (record.agentId && record.agentId !== 'all-agents') {
+        void triggerAssistantTurn({
+          humanRecord: record,
+          service: room.service,
+          conversationService: ctx.conversationService,
+          agentStorage: ctx.agents,
+        });
+      }
     }
     return true;
   }
@@ -189,6 +198,15 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
+      // AR-006: Trigger Assistant turn for direct agent messages
+      if (agentId === 'agent-assistant') {
+        void triggerAssistantTurn({
+          humanRecord: record,
+          service: room.service,
+          conversationService: ctx.conversationService,
+          agentStorage: ctx.agents,
+        });
+      }
     }
     return true;
   }

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useActivityRoomModel } from '../../hooks/useActivityRoomModel';
+import { useSetActivitySelection } from '../../contexts/SurfaceContext';
 import ActivityComposer from './ActivityComposer';
 import ActivityCorrectionDialog from './ActivityCorrectionDialog';
 import ActivityDetailModal from './ActivityDetailModal';
@@ -47,6 +48,7 @@ function worstStatus(statuses: readonly AuxiliarySourceStatus[]): AuxiliarySourc
 export default function ActivityRoomPage() {
   const model = useActivityRoomModel();
   const stream = model.stream;
+  const setActivitySelection = useSetActivitySelection();
   const [selectedAgentId, setSelectedAgentId] = useState<string | undefined>(undefined);
   const [detailRecord, setDetailRecord] = useState<ActivityRecord | null>(null);
   const [referencedRecord, setReferencedRecord] = useState<ActivityRecord | null>(null);
@@ -56,10 +58,26 @@ export default function ActivityRoomPage() {
   const [density, setDensity] = useState<ActivityDensity>('operational');
   const [drawerAgentId, setDrawerAgentId] = useState<string | null>(null);
 
-  const selectAgent = useCallback((agentId: string | undefined) => setSelectedAgentId(agentId), []);
+  const selectAgent = useCallback((agentId: string | undefined) => {
+    setSelectedAgentId(agentId);
+    // AR-009: Update SurfaceContext with agent selection
+    if (agentId) {
+      setActivitySelection({ kind: 'agent', id: agentId, label: agentId });
+    } else {
+      setActivitySelection(undefined);
+    }
+  }, [setActivitySelection]);
   const openAgentDrawer = useCallback((agentId: string) => setDrawerAgentId(agentId), []);
   const closeAgentDrawer = useCallback(() => setDrawerAgentId(null), []);
-  const openDetail = useCallback((record: ActivityRecord) => setDetailRecord(record), []);
+  const openDetail = useCallback((record: ActivityRecord) => {
+    setDetailRecord(record);
+    // AR-009: Update SurfaceContext with activity selection
+    setActivitySelection({
+      kind: 'activity',
+      id: record.id,
+      label: record.content?.slice(0, 50) ?? record.id,
+    });
+  }, [setActivitySelection]);
   const closeDetail = useCallback(() => setDetailRecord(null), []);
   const referenceRecord = useCallback((record: ActivityRecord) => setReferencedRecord(record), []);
   const clearReference = useCallback(() => setReferencedRecord(null), []);

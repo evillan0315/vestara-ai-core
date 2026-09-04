@@ -131,7 +131,7 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    expect(screen.getByPlaceholderText('Ask anything...')).toBeDefined();
+    expect(screen.getByPlaceholderText('Ask anything about this workspace…')).toBeDefined();
     expect(screen.getByRole('button', { name: /send message/i })).toBeDefined();
   });
 
@@ -211,7 +211,7 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    const textarea = screen.getByPlaceholderText('Ask anything...');
+    const textarea = screen.getByPlaceholderText('Ask anything about this workspace…');
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     screen.getByRole('button', { name: /send message/i }).click();
     expect(sendMessage).toHaveBeenCalledWith('Test message');
@@ -244,7 +244,7 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    const textarea = screen.getByPlaceholderText('Ask anything...');
+    const textarea = screen.getByPlaceholderText('Ask anything about this workspace…');
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     fireEvent.keyDown(textarea, { key: 'Enter' });
     expect(sendMessage).toHaveBeenCalledWith('Test message');
@@ -259,7 +259,7 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    const textarea = screen.getByPlaceholderText('Ask anything...');
+    const textarea = screen.getByPlaceholderText('Ask anything about this workspace…');
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     fireEvent.keyDown(textarea, { key: 'Enter', shiftKey: true });
     expect(sendMessage).not.toHaveBeenCalled();

@@ -787,17 +787,23 @@ export class OpenCodeHttpClient implements OpenCodeClient {
       return { sessionId, finished: true };
     }
     const record = raw as Record<string, unknown>;
+    const info = (record.info ?? record) as Record<string, unknown>;
+    // The POST /session/:id/message response is { info: {...}, parts: [...] }.
+    // The assistant text lives in the text parts — not at a top-level `text` field.
     const text =
-      typeof record.text === 'string'
-        ? record.text
-        : typeof record.content === 'string'
-          ? (record.content as string)
+      typeof info.text === 'string' && info.text
+        ? (info.text as string)
+        : Array.isArray(record.parts)
+          ? (record.parts as readonly Record<string, unknown>[])
+              .filter((part) => part?.type === 'text' && typeof part.text === 'string')
+              .map((part) => part.text as string)
+              .join('\n')
           : undefined;
     return {
       sessionId,
-      messageId: typeof record.id === 'string' ? (record.id as string) : undefined,
+      messageId: typeof info.id === 'string' ? (info.id as string) : undefined,
       text,
-      finished: Boolean(record.finished ?? true),
+      finished: info.finish === 'stop' || info.finish === 'end_turn' || record.finished === true,
     };
   }
 

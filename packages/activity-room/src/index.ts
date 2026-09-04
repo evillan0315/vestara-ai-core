@@ -1,3 +1,5 @@
+export { type TriggerAssistantTurnOptions, triggerAssistantTurn } from './assistant-turn';
+export type { AssistantTurnResult, AssistantTurnStatus } from './assistant-types';
 export { type ActivityBatch, toActivityBatch } from './batch';
 export type {
   ActivityActor,

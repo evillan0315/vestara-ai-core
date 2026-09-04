@@ -131,6 +131,8 @@ export interface FloatingPanelProps {
   workspaceId: string;
   onMinimize: () => void;
   onClose: () => void;
+  /** GA-UI-006: explicit new-conversation action. Optional; button hidden when absent. */
+  onNewConversation?: () => void;
   launcherRef: React.RefObject<HTMLButtonElement | null>;
   /** Ref to focus when panel opens/restores. If null, no auto-focus. */
   focusOnMountRef?: React.RefObject<HTMLElement | null>;
@@ -145,6 +147,7 @@ export function FloatingPanel({
   workspaceId,
   onMinimize,
   onClose,
+  onNewConversation,
   launcherRef,
   focusOnMountRef,
   children,
@@ -370,11 +373,24 @@ export function FloatingPanel({
         className="flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 cursor-move select-none"
         onPointerDown={beginDrag}
       >
-        <div className="flex items-center gap-2">
-          <div className="h-2 w-2 rounded-full bg-amber-400/60" />
-          <span className="text-xs font-medium text-zinc-300">Assistant</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400/60" />
+          <span className="text-xs font-medium text-zinc-300 truncate">Vestara Assistant</span>
         </div>
         <div className="flex items-center gap-1">
+          {onNewConversation && (
+            <button
+              type="button"
+              onClick={onNewConversation}
+              aria-label="New conversation"
+              title="New conversation"
+              className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            >
+              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            </button>
+          )}
           <button
             type="button"
             onClick={onMinimize}

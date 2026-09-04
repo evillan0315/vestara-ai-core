@@ -39,6 +39,7 @@ export type {
   OpenCodeOutputFormat,
   OpenCodeProject,
   OpenCodePromptPart,
+  OpenCodeProviderSummary,
   OpenCodeQuestionInfo,
   OpenCodeQuestionOption,
   OpenCodeQuestionReply,

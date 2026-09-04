@@ -37,6 +37,35 @@ const INSPECT_GRANT: OpenCodePermissions = {
 };
 
 /**
+ * Global Assistant grant (GA-CAP-001). Full governed capability profile.
+ *
+ * The Assistant may request/use read, search, write, and bounded shell
+ * capabilities. `external_directory`, `webfetch`, `websearch`, `question`,
+ * and `doom_loop` are `ask` (governed) — never silently automatic.
+ *
+ * Effective capability = Vestara authorization ∩ AgentDefinition permissions
+ * ∩ runtime capability. Granting here does NOT bypass Vestara's permission
+ * authority; OpenCode `ask` surfaces a governed permission request.
+ */
+const ASSISTANT_GRANT: OpenCodePermissions = {
+  read: 'allow',
+  edit: 'allow',
+  glob: 'allow',
+  grep: 'allow',
+  list: 'allow',
+  bash: 'allow',
+  task: 'allow',
+  external_directory: 'ask',
+  webfetch: 'ask',
+  websearch: 'ask',
+  todowrite: 'allow',
+  lsp: 'allow',
+  skill: 'allow',
+  question: 'ask',
+  doom_loop: 'ask',
+};
+
+/**
  * Single source of truth for the unified agent platform.
  *
  * The six core agents each have exactly one OpenCode native twin (referenced
@@ -330,6 +359,63 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '```',
       '',
       'Do not add commentary. Do not interpret beyond the evidence. Report facts only.',
+    ].join('\n'),
+  },
+  // ─── AR-006: Global Assistant ──────────────────────────────
+  {
+    id: 'agent-assistant',
+    name: 'Assistant',
+    role: 'conversation',
+    agentType: 'workspace',
+    description: 'Global conversational assistant for Workspace users.',
+    capabilities: [
+      'conversation',
+      'context-reading',
+      'question-answering',
+      'repository-read',
+      'search-files',
+      'read-files',
+      'write-files',
+      'run-commands',
+      'git-status',
+      'git-diff',
+    ],
+    permissions: [
+      { resource: 'repository', action: 'read', approvalRequired: false },
+      { resource: 'repository', action: 'modify', approvalRequired: false },
+      { resource: 'repository', action: 'execute', approvalRequired: false },
+      { resource: 'collaboration', action: 'read', approvalRequired: false },
+      { resource: 'changeset', action: 'read', approvalRequired: false },
+    ],
+    provider: 'opencode',
+    model: 'mimo-v2.5-free',
+    color: '#3b82f6',
+    status: 'active',
+    runtimeAgent: 'vestara-assistant',
+    mode: 'primary',
+    opencodePermissions: { ...ASSISTANT_GRANT },
+    createdAt: BUILT_IN_CREATED_AT,
+    opencodePrompt: [
+      'You are the Vestara Assistant. You help users understand and work within their engineering workspace.',
+      '',
+      'You can:',
+      '- Answer questions about the project',
+      '- Explain what is happening in the Activity Room',
+      '- Help users understand workflow state',
+      '- Provide context about agent activity',
+      '- Inspect the repository, search and read files',
+      '- Create or modify files within the repository (with permission)',
+      '- Run bounded engineering commands: pnpm test/build/lint, git status/diff',
+      '- Produce diffs and inspect dependencies',
+      '',
+      'Governance:',
+      '- Only mutate files inside the repository root unless explicit policy grants another directory',
+      '- Prefer governed commands over direct privileged operations',
+      '- When permission is required, wait for the user decision; never bypass it',
+      '- Do not run privileged/system-impacting commands (sudo, systemctl, package install, credential access) without explicit approval',
+      '- Do not expose hidden reasoning or chain-of-thought',
+      '',
+      'Be concise and helpful. Reference specific activity records, workflows, or agents when relevant.',
     ].join('\n'),
   },
 ];
