@@ -196,7 +196,36 @@ Coverage in `apps/workspace/__tests__/evidence-visual-viewer.test.tsx`:
 | Nonvisual regression | bundle detail unchanged |
 | M4A acceptance | opens Matrix, navigates all 3, zoom/fit |
 
-## 15. Known limitations
+## 15. M4.1 — Production visibility trace + fix
+
+**Root cause:** M1 proved ingestion mechanics work in isolated tests, but never
+persisted a `VerificationEvidenceBundle` (containing M4A `EvidenceReference`
+objects with `kind: 'screenshot'`) into the production `BundleStore` at
+`.vestara/evidence/bundles/`. The Evidence API reads bundles from
+`ctx.evidenceBundles.list()` — with no visual bundle persisted, the page showed
+zero visual evidence.
+
+**Data path trace:**
+```
+M4A source screenshots (3 PNGs)
+  → M1 ingestion (artifacts.put → bytes on disk) ← artifacts persisted ✓
+  → EvidencePipeline.buildBundle() without BundleStore ← bundle NOT persisted ✗
+  → Evidence API reads BundleStore → 0 visual bundles → 0 gallery cards
+```
+
+**Fix:** Created `scripts/evidence-seed-visual.ts` — a one-time seeding script
+that ingests M4A screenshots through `ingestVisualFile()`, creates a
+`VerificationEvidenceBundle` with the evidence references, and persists it to
+the production `BundleStore`. Also fixed the M1 integration test to include a
+`BundleStore` so the test proves end-to-end persistence.
+
+**Persistence invariant now proven:**
+```
+ingest → persist bundle → process exits → reopen stores → bundle still present
+  → API returns bundle → frontend visual filter → gallery cards rendered
+```
+
+## 16. Known limitations
 
 - No pointer-drag pan (zoomed content is clipped, not pannable). Keyboard
   navigation and artifact switching are the primary inspection methods.

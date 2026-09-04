@@ -5,8 +5,10 @@ import { fileURLToPath } from 'node:url';
 import { ContentAddressedEvidenceStore, ImmutableEvidenceManifestStore } from '@vestara/engineering-event-store';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
+import { BundleStore } from '../src/bundle-store';
 import { EvidencePipeline } from '../src/pipeline';
 import { ingestVisualFile, VisualFileCollector } from '../src/visual-ingest';
+import { resolveArtifactAssociation } from '../src/visual-serve';
 
 /**
  * EVIDENCE-UX-002 M1 — M4A proof at the caller/integration layer.
@@ -88,9 +90,11 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
     try {
       const artifacts = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
       const manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
+      const bundles = new BundleStore(path.join(storeRoot, 'bundles'));
       const pipeline = new EvidencePipeline({
         artifacts,
         manifests,
+        bundles,
         collectors: [
           new VisualFileCollector({
             files: M4A_FILES.map((file) => path.join(M4A_DIR, file)),
@@ -121,6 +125,88 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
       }
       expect(manifests.verify('m4a-proof-bundle-1')).toBe(true);
       expect(manifests.verifyArtifacts('m4a-proof-bundle-1', artifacts).valid).toBe(true);
+
+      // Bundle must be persisted to disk (not just in memory)
+      const persisted = bundles.read('m4a-proof-bundle-1');
+      expect(persisted).toBeTruthy();
+      expect(persisted!.evidence).toHaveLength(3);
+    } finally {
+      fs.rmSync(storeRoot, { recursive: true, force: true });
+    }
+  });
+
+  it('full integration: ingest → persist bundle → association → evidence kind recognized', async () => {
+    const storeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'visual-ingest-m4a-integration-'));
+    try {
+      const artifacts = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
+      const manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
+      const bundles = new BundleStore(path.join(storeRoot, 'bundles'));
+
+      // 1. Ingest PNG screenshots
+      const results = M4A_FILES.map((file) =>
+        ingestVisualFile({
+          artifacts,
+          sourceFile: path.join(M4A_DIR, file),
+          workspaceRoot: REPO_ROOT,
+          producer: 'playwright',
+          executionId: 'integration-test',
+          operation: 'contract-fixture visual acceptance',
+        }),
+      );
+      expect(results).toHaveLength(3);
+
+      // 2. Persist a bundle referencing these artifacts
+      const bundle = {
+        id: 'bundle-integration-test',
+        executionId: 'integration-test',
+        verifierId: 'verifier',
+        profileId: 'standard',
+        manifestId: 'integration-test',
+        evidence: results.map((r) => r.reference),
+        checks: [],
+        replay: { mode: 'artifact' as const, steps: [], requires: {} },
+        confidence: { score: 0, level: 'low' as const, factors: [], limitations: [] },
+        createdAt: new Date().toISOString(),
+      };
+      bundles.write(bundle);
+
+      // 3. Reopen stores (simulates app restart)
+      const artifacts2 = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
+      const bundles2 = new BundleStore(path.join(storeRoot, 'bundles'));
+      const manifests2 = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
+
+      // 4. Bundle must survive reopen
+      const reopened = bundles2.read('integration-test');
+      expect(reopened).toBeTruthy();
+      expect(reopened!.evidence).toHaveLength(3);
+
+      // 5. Association must resolve for each digest
+      for (const ref of reopened!.evidence) {
+        const assoc = resolveArtifactAssociation(bundles2, manifests2, ref.ref);
+        expect(assoc).toBeTruthy();
+        expect(assoc!.kind).toBe('screenshot');
+        expect(assoc!.source).toBe('bundle');
+      }
+
+      // 6. Visual evidence kind must be recognized by the gallery filter
+      const VISUAL_KINDS = new Set(['screenshot', 'visual-comparison']);
+      const visualRefs = reopened!.evidence.filter((r) => VISUAL_KINDS.has(r.kind));
+      expect(visualRefs).toHaveLength(3);
+
+      // 7. Each visual ref must have visual metadata
+      for (const ref of visualRefs) {
+        expect(ref.visual).toBeTruthy();
+        expect(ref.visual!.width).toBeGreaterThan(0);
+        expect(ref.visual!.height).toBeGreaterThan(0);
+        expect(ref.visual!.mediaType).toBe('image/png');
+      }
+
+      // 8. Artifacts must be readable
+      for (const ref of reopened!.evidence) {
+        const bytes = artifacts2.read(ref.ref);
+        expect(bytes).toBeTruthy();
+        expect(bytes!.byteLength).toBe(ref.size);
+      }
     } finally {
       fs.rmSync(storeRoot, { recursive: true, force: true });
     }

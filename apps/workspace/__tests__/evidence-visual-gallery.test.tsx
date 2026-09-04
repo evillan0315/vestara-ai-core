@@ -282,23 +282,32 @@ describe('evidence visual gallery (EVIDENCE-UX-002 M3)', () => {
 
   // ─── Selection ───────────────────────────────────────────────
 
-  it('selects a visual card on click', async () => {
+  it('selecting a visual card opens the viewer', async () => {
     renderPage();
     await screen.findByText('Visual Evidence');
+    await waitFor(() => {
+      expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
+    });
     const card = screen.getByText('Matrix').closest('button')!;
     fireEvent.click(card);
-    // Selected state uses accent border (verified by class)
-    expect(card.className).toContain('border-(--vestara-accent)');
+    await waitFor(() => {
+      expect(screen.getByRole('dialog')).toBeTruthy();
+    });
   });
 
-  it('deselects on second click', async () => {
+  it('deselects by closing the viewer', async () => {
     renderPage();
     await screen.findByText('Visual Evidence');
+    await waitFor(() => {
+      expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
+    });
     const card = screen.getByText('Matrix').closest('button')!;
     fireEvent.click(card);
-    fireEvent.click(card);
-    // After deselect, should not have accent border
-    expect(card.className).not.toContain('border-(--vestara-accent)');
+    await screen.findByRole('dialog');
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 
   it('keyboard reachable via button element', async () => {
@@ -319,14 +328,21 @@ describe('evidence visual gallery (EVIDENCE-UX-002 M3)', () => {
     expect(screen.getByRole('button', { name: 'Visual evidence: Narrow' })).toBeTruthy();
   });
 
-  it('selection is not color-only (has border change)', async () => {
+  it('viewer open/close is not color-only (dialog appears)', async () => {
     renderPage();
     await screen.findByText('Visual Evidence');
+    await waitFor(() => {
+      expect(screen.getAllByRole('img').length).toBeGreaterThan(0);
+    });
     const card = screen.getByText('Matrix').closest('button')!;
-    const classBefore = card.className;
     fireEvent.click(card);
-    const classAfter = card.className;
-    expect(classAfter).not.toBe(classBefore);
+    const dialog = await screen.findByRole('dialog');
+    expect(dialog).toBeTruthy();
+    // Escape closes
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
   });
 
   // ─── Lazy loading ────────────────────────────────────────────
