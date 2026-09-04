@@ -260,6 +260,260 @@ function EvidenceGallery({
   );
 }
 
+// ─── Visual evidence viewer (EVIDENCE-UX-002 M4) ────────────────
+
+type ViewerStatus = 'loading' | 'ready' | 'unavailable';
+
+const ZOOM_LEVELS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
+const ZOOM_MIN = ZOOM_LEVELS[0]!;
+const ZOOM_MAX = ZOOM_LEVELS[ZOOM_LEVELS.length - 1]!;
+
+function zoomLabel(level: number): string {
+  return `${Math.round(level * 100)}%`;
+}
+
+function VisualEvidenceViewer({
+  reference,
+  references,
+  onClose,
+  onNavigate,
+}: {
+  reference: EvidenceReference;
+  references: EvidenceReference[];
+  onClose: () => void;
+  onNavigate: (reference: EvidenceReference) => void;
+}) {
+  const [viewerStatus, setViewerStatus] = useState<ViewerStatus>('loading');
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [fitMode, setFitMode] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  const originalUrl = `${API}/artifacts/${reference.ref}`;
+  const idx = references.findIndex((r) => r.ref === reference.ref);
+  const hasPrev = idx > 0;
+  const hasNext = idx < references.length - 1;
+  const counter = references.length > 1 ? `${idx + 1} / ${references.length}` : null;
+  const dims = reference.visual;
+  const dimLabel = dims ? `${dims.width} × ${dims.height}` : null;
+  const mediaLabel = (reference.visual?.mediaType ?? reference.mediaType).split('/')?.[1]?.toUpperCase() ?? reference.mediaType;
+
+  // Load original artifact
+  useEffect(() => {
+    setViewerStatus('loading');
+    setZoomLevel(1);
+    setFitMode(true);
+    const img = new Image();
+    const onLoad = () => setViewerStatus('ready');
+    const onError = () => setViewerStatus('unavailable');
+    img.onload = onLoad;
+    img.onerror = onError;
+    img.src = originalUrl;
+    return () => {
+      img.onload = null;
+      img.onerror = null;
+    };
+  }, [originalUrl]);
+
+  // Focus management
+  useEffect(() => {
+    previousFocusRef.current = document.activeElement as HTMLElement;
+    containerRef.current?.focus();
+    return () => {
+      previousFocusRef.current?.focus();
+    };
+  }, []);
+
+  const handleClose = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  const handlePrev = useCallback(() => {
+    if (hasPrev) onNavigate(references[idx - 1]!);
+  }, [hasPrev, idx, references, onNavigate]);
+
+  const handleNext = useCallback(() => {
+    if (hasNext) onNavigate(references[idx + 1]!);
+  }, [hasNext, idx, references, onNavigate]);
+
+  const handleZoomIn = useCallback(() => {
+    setFitMode(false);
+    setZoomLevel((prev) => Math.min(ZOOM_MAX, prev * 1.25));
+  }, []);
+
+  const handleZoomOut = useCallback(() => {
+    setFitMode(false);
+    setZoomLevel((prev) => Math.max(ZOOM_MIN, prev / 1.25));
+  }, []);
+
+  const handleZoom100 = useCallback(() => {
+    setFitMode(false);
+    setZoomLevel(1);
+  }, []);
+
+  const handleFit = useCallback(() => {
+    setFitMode(true);
+    setZoomLevel(1);
+  }, []);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      switch (e.key) {
+        case 'Escape':
+          e.preventDefault();
+          handleClose();
+          break;
+        case 'ArrowLeft':
+          e.preventDefault();
+          handlePrev();
+          break;
+        case 'ArrowRight':
+          e.preventDefault();
+          handleNext();
+          break;
+        case '+':
+        case '=':
+          e.preventDefault();
+          handleZoomIn();
+          break;
+        case '-':
+          e.preventDefault();
+          handleZoomOut();
+          break;
+        case '0':
+          e.preventDefault();
+          handleZoom100();
+          break;
+      }
+    },
+    [handleClose, handlePrev, handleNext, handleZoomIn, handleZoomOut, handleZoom100],
+  );
+
+  const imageStyle: React.CSSProperties = fitMode
+    ? { maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }
+    : { width: `${zoomLevel * 100}%`, height: 'auto', objectFit: 'contain', transformOrigin: 'top left' };
+
+  return (
+    <div
+      ref={containerRef}
+      role="dialog"
+      aria-label={`Visual evidence viewer: ${reference.summary}`}
+      tabIndex={-1}
+      className="fixed inset-0 z-50 flex flex-col bg-zinc-950/95 backdrop-blur-sm outline-none"
+      onKeyDown={handleKeyDown}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 shrink-0">
+        <div className="flex items-center gap-3 min-w-0">
+          <h3 className="text-sm font-semibold text-(--vestara-text) truncate">{reference.summary}</h3>
+          {counter && <span className="text-[10px] text-(--vestara-text-muted) shrink-0">{counter}</span>}
+        </div>
+        <button
+          onClick={handleClose}
+          className="text-lg text-(--vestara-text-muted) hover:text-(--vestara-text) px-2 cursor-pointer shrink-0"
+          aria-label="Close viewer"
+        >
+          ×
+        </button>
+      </div>
+
+      {/* Image viewport */}
+      <div className="flex-1 overflow-hidden flex items-center justify-center min-h-0">
+        {viewerStatus === 'loading' && (
+          <div className="text-sm text-(--vestara-text-muted) animate-pulse">Loading original…</div>
+        )}
+        {viewerStatus === 'unavailable' && (
+          <div className="text-center space-y-2">
+            <div className="text-sm text-amber-300">Original unavailable</div>
+            <div className="text-[10px] text-(--vestara-text-muted)">The full-resolution artifact could not be loaded.</div>
+          </div>
+        )}
+        {viewerStatus === 'ready' && (
+          <img
+            src={originalUrl}
+            alt={reference.summary}
+            className={`select-none ${fitMode ? 'max-w-full max-h-full' : 'cursor-grab'}`}
+            style={imageStyle}
+            draggable={false}
+          />
+        )}
+      </div>
+
+      {/* Controls */}
+      <div className="flex items-center justify-between px-4 py-2 border-t border-zinc-800 shrink-0 flex-wrap gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handleZoomOut}
+            disabled={zoomLevel <= ZOOM_MIN && !fitMode}
+            className="text-xs px-2 py-1 rounded text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800 disabled:opacity-30 cursor-pointer"
+            aria-label="Zoom out"
+          >
+            −
+          </button>
+          <span className="text-[10px] text-(--vestara-text-muted) w-10 text-center tabular-nums">
+            {fitMode ? 'Fit' : zoomLabel(zoomLevel)}
+          </span>
+          <button
+            onClick={handleZoomIn}
+            disabled={zoomLevel >= ZOOM_MAX && !fitMode}
+            className="text-xs px-2 py-1 rounded text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800 disabled:opacity-30 cursor-pointer"
+            aria-label="Zoom in"
+          >
+            +
+          </button>
+          <div className="w-px h-3 bg-zinc-800 mx-1" />
+          <button
+            onClick={handleZoom100}
+            className={`text-[10px] px-2 py-1 rounded cursor-pointer ${
+              !fitMode && zoomLevel === 1
+                ? 'bg-(--vestara-accent-bg) text-(--vestara-accent-text)'
+                : 'text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800'
+            }`}
+          >
+            100%
+          </button>
+          <button
+            onClick={handleFit}
+            className={`text-[10px] px-2 py-1 rounded cursor-pointer ${
+              fitMode
+                ? 'bg-(--vestara-accent-bg) text-(--vestara-accent-text)'
+                : 'text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800'
+            }`}
+          >
+            Fit
+          </button>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <button
+            onClick={handlePrev}
+            disabled={!hasPrev}
+            className="text-xs px-2 py-1 rounded text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800 disabled:opacity-30 cursor-pointer"
+            aria-label="Previous"
+          >
+            ←
+          </button>
+          <button
+            onClick={handleNext}
+            disabled={!hasNext}
+            className="text-xs px-2 py-1 rounded text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-zinc-800 disabled:opacity-30 cursor-pointer"
+            aria-label="Next"
+          >
+            →
+          </button>
+        </div>
+
+        <div className="flex items-center gap-3 text-[10px] text-(--vestara-text-muted)">
+          {dimLabel && <span>{dimLabel}</span>}
+          <span>{mediaLabel}</span>
+          <span>{reference.provenance.producer}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function EvidencePage() {
   const [bundles, setBundles] = useState<Bundle[]>([]);
   const [detail, setDetail] = useState<Record<string, Bundle>>({});
@@ -268,6 +522,7 @@ export default function EvidencePage() {
   const [loading, setLoading] = useState(true);
   const [baselineBusy, setBaselineBusy] = useState<string | null>(null);
   const [selectedVisualRef, setSelectedVisualRef] = useState<string | null>(null);
+  const [viewingReference, setViewingReference] = useState<EvidenceReference | null>(null);
 
   const refresh = useCallback(async () => {
     const data = await fetchJson<{ bundles: Bundle[] }>(`${API}/bundles`);
@@ -343,7 +598,15 @@ export default function EvidencePage() {
   }, [bundles]);
 
   const handleSelectVisual = useCallback((reference: EvidenceReference) => {
-    setSelectedVisualRef((prev) => (prev === reference.ref ? null : reference.ref));
+    setViewingReference(reference);
+  }, []);
+
+  const handleCloseViewer = useCallback(() => {
+    setViewingReference(null);
+  }, []);
+
+  const handleNavigateViewer = useCallback((reference: EvidenceReference) => {
+    setViewingReference(reference);
   }, []);
 
   return (
@@ -584,6 +847,15 @@ export default function EvidencePage() {
             );
           })}
         </div>
+      )}
+
+      {viewingReference && (
+        <VisualEvidenceViewer
+          reference={viewingReference}
+          references={visualReferences}
+          onClose={handleCloseViewer}
+          onNavigate={handleNavigateViewer}
+        />
       )}
     </div>
   );
