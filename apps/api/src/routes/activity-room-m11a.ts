@@ -27,25 +27,25 @@ import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
+import type {
+  ActivityCursor,
+  ActivityEvent,
+  ActivityRecordId,
+  ActivityRoomProjection,
+  AttentionEntry,
+  M9ActivityQuery,
+  M9ActivityRecord,
+  M9ActivityStore,
+  ParticipantProjection,
+  WorkflowSummary,
+} from '@vestara/activity-room';
 import {
   ActivityStreamConnection,
   ActivityStreamHub,
   DurableActivityStore,
   type ActivityRecord as ProjectionActivityRecord,
   ProjectionRuntime,
-} from '@vestara/activity-projection';
-import type {
-  ActivityCursor,
-  ActivityEvent,
-  ActivityQuery,
-  ActivityRecordId,
-  ActivityRoomProjection,
-  ActivityStore,
-  AttentionEntry,
-  ActivityRecord as M9ActivityRecord,
-  ParticipantProjection,
-  WorkflowSummary,
-} from '@vestara/types';
+} from '@vestara/activity-room';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 
@@ -108,12 +108,46 @@ const MAX_CURSOR_AGE_MS = 5 * 60 * 1000; // 5 minutes
 
 // ─── M11A Room State ────────────────────────────────────────────
 
+/** Production-safe instrumentation counters (no PII, no SQL content). */
+export interface M11AInstrumentation {
+  /** Total watcher poll cycles since boot */
+  watcherPollCount: number;
+  /** Watcher poll cycles that threw */
+  watcherErrorCount: number;
+  /** Watcher poll latency (last, avg, max) in ms */
+  watcherLastLatencyMs: number;
+  watcherAvgLatencyMs: number;
+  watcherMaxLatencyMs: number;
+  /** Timestamp of first watcher error (null if none) */
+  firstWatcherErrorAt: string | null;
+  /** Timestamp of last watcher error (null if none) */
+  lastWatcherErrorAt: string | null;
+  /** Total db.exec() calls (read path) */
+  dbExecReadCount: number;
+  /** Total db.exec() calls (write path — via auto-persist) */
+  dbExecWriteCount: number;
+  /** Total persistDb() calls (db.export() invocations) */
+  persistDbCount: number;
+  /** Total snapshot fetches served */
+  snapshotFetchCount: number;
+  /** Snapshot fetch latency (last, avg, max) in ms */
+  snapshotLastLatencyMs: number;
+  snapshotAvgLatencyMs: number;
+  snapshotMaxLatencyMs: number;
+  /** Timestamp of last successful snapshot */
+  lastSnapshotAt: string | null;
+  /** Current Node.js memory (heapUsed, rss) in bytes */
+  processHeapUsedBytes: number;
+  processRssBytes: number;
+}
+
 export interface M11ARoomState {
-  store: ActivityStore;
+  store: M9ActivityStore;
   runtime: ProjectionRuntime;
   hub: ActivityStreamHub;
   lastProjection: ActivityRoomProjection | null;
   lastProjectionAt: number;
+  instrumentation: M11AInstrumentation;
 }
 
 /** In-memory singleton for process lifetime. */
@@ -215,6 +249,25 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
     hub,
     lastProjection: projection,
     lastProjectionAt: Date.now(),
+    instrumentation: {
+      watcherPollCount: 0,
+      watcherErrorCount: 0,
+      watcherLastLatencyMs: 0,
+      watcherAvgLatencyMs: 0,
+      watcherMaxLatencyMs: 0,
+      firstWatcherErrorAt: null,
+      lastWatcherErrorAt: null,
+      dbExecReadCount: 0,
+      dbExecWriteCount: 0,
+      persistDbCount: 0,
+      snapshotFetchCount: 0,
+      snapshotLastLatencyMs: 0,
+      snapshotAvgLatencyMs: 0,
+      snapshotMaxLatencyMs: 0,
+      lastSnapshotAt: null,
+      processHeapUsedBytes: 0,
+      processRssBytes: 0,
+    },
   };
 
   // Start background watcher for new records (M11B realtime transport)
@@ -232,6 +285,7 @@ export function getM11ARoom(): M11ARoomState {
 }
 
 function persistDb(db: any, dbPath: string): void {
+  if (m11aRoom) m11aRoom.instrumentation.persistDbCount++;
   try {
     const data = db.export();
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
@@ -244,6 +298,7 @@ function persistDb(db: any, dbPath: string): void {
 /** Background watcher: polls M9 store for new records and broadcasts via hub. */
 function startActivityWatcher(room: M11ARoomState): void {
   let lastKnownSequence = 0;
+  const inst = room.instrumentation;
 
   // Initialize with current last sequence
   room.store
@@ -256,6 +311,8 @@ function startActivityWatcher(room: M11ARoomState): void {
     });
 
   const interval = setInterval(async () => {
+    const pollStart = Date.now();
+    inst.watcherPollCount++;
     try {
       const currentSequence = await room.store.lastSequence();
       if (currentSequence === undefined || currentSequence <= lastKnownSequence) return;
@@ -275,7 +332,21 @@ function startActivityWatcher(room: M11ARoomState): void {
         }
         lastKnownSequence = newRecords[newRecords.length - 1].sequenceNumber;
       }
+      // Track watcher latency (success path)
+      const elapsed = Date.now() - pollStart;
+      inst.watcherLastLatencyMs = elapsed;
+      inst.watcherAvgLatencyMs =
+        (inst.watcherAvgLatencyMs * (inst.watcherPollCount - 1) + elapsed) / inst.watcherPollCount;
+      inst.watcherMaxLatencyMs = Math.max(inst.watcherMaxLatencyMs, elapsed);
+      // Update process memory snapshot
+      const mem = process.memoryUsage();
+      inst.processHeapUsedBytes = mem.heapUsed;
+      inst.processRssBytes = mem.rss;
     } catch (error) {
+      inst.watcherErrorCount++;
+      const now = new Date().toISOString();
+      if (!inst.firstWatcherErrorAt) inst.firstWatcherErrorAt = now;
+      inst.lastWatcherErrorAt = now;
       console.error('[M11A] Activity watcher error:', error);
     }
   }, 500); // Poll every 500ms
@@ -295,8 +366,8 @@ function stringValue(value: string | null): string | undefined {
   return value !== null && value.length > 0 ? value : undefined;
 }
 
-/** Parse and validate query parameters into ActivityQuery. */
-function parseActivityQuery(url: URL): ActivityQuery {
+/** Parse and validate query parameters into M9ActivityQuery. */
+function parseActivityQuery(url: URL): M9ActivityQuery {
   const params = url.searchParams;
   const limit = integer(params.get('limit'));
   const afterSeq = integer(params.get('afterSequence'));
@@ -336,13 +407,13 @@ function parseActivityQuery(url: URL): ActivityQuery {
   }
 
   return {
-    workflowRunId: workflowRunId as ActivityQuery['workflowRunId'],
-    executionId: executionId as ActivityQuery['executionId'],
-    taskId: taskId as ActivityQuery['taskId'],
-    actor: actorType as ActivityQuery['actor'],
+    workflowRunId: workflowRunId as M9ActivityQuery['workflowRunId'],
+    executionId: executionId as M9ActivityQuery['executionId'],
+    taskId: taskId as M9ActivityQuery['taskId'],
+    actor: actorType as M9ActivityQuery['actor'],
     actorId,
-    type: type as ActivityQuery['type'],
-    source: source as ActivityQuery['source'],
+    type: type as M9ActivityQuery['type'],
+    source: source as M9ActivityQuery['source'],
     after,
     before: beforeTimestamp,
     afterTimestamp,
@@ -598,6 +669,7 @@ export async function handleM11AActivityRoomRoute(
   // ─── GET /api/activity-room/v1/snapshot ──────────────────────
   // Room snapshot + authoritative cursor
   if (method === 'GET' && p === '/api/activity-room/v1/snapshot') {
+    const snapStart = Date.now();
     // Refresh projection if stale
     if (Date.now() - room.lastProjectionAt > MAX_CURSOR_AGE_MS) {
       const records = await room.store.rebuild();
@@ -617,6 +689,15 @@ export async function handleM11AActivityRoomRoute(
       // Explicit cursor for reconnect
       cursor: projection.room.cursor,
     });
+    // Track snapshot latency
+    const snapElapsed = Date.now() - snapStart;
+    room.instrumentation.snapshotFetchCount++;
+    room.instrumentation.snapshotLastLatencyMs = snapElapsed;
+    const sc = room.instrumentation.snapshotFetchCount;
+    room.instrumentation.snapshotAvgLatencyMs =
+      (room.instrumentation.snapshotAvgLatencyMs * (sc - 1) + snapElapsed) / sc;
+    room.instrumentation.snapshotMaxLatencyMs = Math.max(room.instrumentation.snapshotMaxLatencyMs, snapElapsed);
+    room.instrumentation.lastSnapshotAt = new Date().toISOString();
     return true;
   }
 

@@ -4,7 +4,7 @@ import type {
   ActivitySeverity,
   ActivityStreamMessage,
   MessageTarget,
-} from '@vestara/activity-projection';
+} from '@vestara/activity-room';
 import type { LiveStreamItem, WorkflowParticipant, WorkflowReceipts } from '../pages/activity/activity-types';
 import { resolveWsUrl } from './clientConfig';
 

@@ -1,3 +1,12 @@
+---
+title: ARX-015 M6 — Contract/Authority Review Evidence (Pre-Freeze)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M6 — Contract/Authority Review Evidence (Pre-Freeze)
 
 **Milestone:** M6 — OpenCode Contract & Client Extension  

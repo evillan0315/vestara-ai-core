@@ -7,7 +7,7 @@
  * Lifecycle: HTTP snapshot → WS subscribe(C) → catch-up → LIVE → disconnect → RECONNECTING
  */
 
-import type { ActivityCursor } from '@vestara/types';
+import type { ActivityCursor } from '@vestara/activity-room';
 import { resolveWsUrl } from './clientConfig';
 import type { M11AActivityRecord } from './m11a-api';
 

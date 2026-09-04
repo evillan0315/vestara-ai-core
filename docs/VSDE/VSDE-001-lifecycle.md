@@ -1,3 +1,12 @@
+---
+title: VSDE-001 — The Engineering Lifecycle
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # VSDE-001 — The Engineering Lifecycle
 
 ## Lifecycle

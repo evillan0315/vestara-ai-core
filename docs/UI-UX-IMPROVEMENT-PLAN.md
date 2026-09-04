@@ -1,3 +1,12 @@
+---
+title: Untitled
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 
 - [ ] **B2.** Harden `EmptyState` with optional icon, action slot, and a
       compact variant (inline, for tables/panels); standardize copy per route

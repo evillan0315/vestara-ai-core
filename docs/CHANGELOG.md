@@ -1,3 +1,12 @@
+---
+title: Changelog
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
@@ -19,7 +28,7 @@
   10-transition call graph, 18-capability state ownership matrix, and
   recommended target boundaries.
 - **Package READMEs** for 8 packages missing ADR-022 layout compliance:
-  `activity-projection`, `design-system`, `native-installer`,
+  `activity-room`, `design-system`, `native-installer`,
   `opencode-runtime`, `repository-evidence`, `sqlite-migrations`,
   `tui-renderer`, `verification-evidence`.
 

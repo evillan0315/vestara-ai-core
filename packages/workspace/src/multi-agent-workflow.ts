@@ -18,7 +18,14 @@
  */
 
 import type { AgentHarnessRuntime, HarnessRunResult } from '@vestara/agent-harness';
-import type { AgentEnvironment, TaskThreadId } from '@vestara/types';
+import type { RuntimeSessionRegistry } from '@vestara/opencode-runtime';
+import type {
+  AgentEnvironment,
+  RuntimeSessionBinding,
+  RuntimeSessionId,
+  TaskThreadId,
+  WorkflowRunId,
+} from '@vestara/types';
 import {
   type AcceptanceBoundary,
   parseAcceptanceDeclaration,
@@ -59,6 +66,8 @@ export interface MultiAgentWorkflowStart {
 
 export interface MultiAgentWorkflowOptions {
   readonly session: HarnessSession;
+  /** M7: Runtime session continuity registry. */
+  readonly runtimeSessionRegistry?: RuntimeSessionRegistry;
   changeProjector?: ChangeProjectorLike;
 }
 
@@ -185,7 +194,7 @@ export const MULTI_AGENT_WORKFLOW_TEMPLATES: Record<MultiAgentWorkflowTemplateId
           'Visual Analyst (CONTEXT phase). Inspect the existing Activity Room implementation ' +
           '(apps/workspace/src/pages/activity/, apps/workspace/src/hooks/useActivityStream.ts, ' +
           'apps/workspace/src/lib/activity.ts, apps/api/src/routes/activity-room.ts, ' +
-          'packages/activity-projection/src/) and produce a machine-readable VisualDesignSpec covering: ' +
+          'packages/activity-room/src/) and produce a machine-readable VisualDesignSpec covering: ' +
           'layout regions with target dimensions (participant rail 230–260px, inspector 300–340px, ' +
           'workflow browser ~280px, Live Now 48–64px), component inventory, typography/spacing/surface ' +
           'rules, semantic colors (gold=identity/selection, blue=execution, cyan=tools/files, ' +
@@ -347,6 +356,11 @@ export class MultiAgentWorkflowOrchestrator {
     return this.session.environment;
   }
 
+  /** M7: Access the runtime session registry for binding queries. */
+  get runtimeSessionRegistry(): RuntimeSessionRegistry | undefined {
+    return this.options.runtimeSessionRegistry;
+  }
+
   /**
    * Start a multi-agent workflow. Creates one durable thread per stage, all
    * tagged with the shared workflowId, then executes the chain in the
@@ -382,10 +396,33 @@ export class MultiAgentWorkflowOrchestrator {
       stages.push({ role: spec.role ?? stageRole(spec.agentId), agentId: spec.agentId, threadId: thread.id });
     }
 
+    // M7: Acquire a runtime session binding for this workflow run.
+    // This establishes the continuity key (workflowId + directory) and creates
+    // or reuses a single OpenCode session for all stages in this workflow.
+    let runtimeSessionBinding: RuntimeSessionBinding | undefined;
+    if (this.runtimeSessionRegistry) {
+      try {
+        const acquisition = await this.runtimeSessionRegistry.acquire({
+          workflowRunId: workflowId as WorkflowRunId,
+          repositoryBindingId: `repo-${this.environment.id}` as any,
+          directory: this.environment.workspaceRoot,
+          continuityPolicy: 'SHARED_WORKFLOW',
+          creationReason: 'workflow-start',
+          workspaceId: this.session.harness['options']?.store?.toString() ?? 'default',
+        });
+        runtimeSessionBinding = acquisition.binding;
+      } catch (error) {
+        // M7.1: If acquisition fails, log and continue with ephemeral behavior.
+        // The workflow can still execute with per-turn session creation.
+        console.error('[M7] RuntimeSessionRegistry acquisition failed:', error);
+      }
+    }
+
     void this.executeChain(
       workflowId,
       input.stages,
       stages.map((stage) => stage.threadId),
+      runtimeSessionBinding,
     ).catch((error: unknown) => {
       this.session.harness.eventBus?.emit({
         type: 'multi-agent-workflow.failed',
@@ -416,12 +453,13 @@ export class MultiAgentWorkflowOrchestrator {
     workflowId: string,
     specs: readonly MultiAgentStageSpec[],
     threadIds: readonly string[],
+    runtimeSessionBinding?: RuntimeSessionBinding,
   ): Promise<void> {
     let previousOutput: string | undefined;
     for (let index = 0; index < specs.length; index++) {
       const spec = specs[index];
       const threadId = threadIds[index] as TaskThreadId;
-      const result = await this.runStage(spec, threadId, previousOutput);
+      const result = await this.runStage(spec, threadId, previousOutput, runtimeSessionBinding);
       await this.syncStage(threadId);
       if (result.approvalId) return; // paused at approval; resume() continues
       const state = result.turn.state;
@@ -456,13 +494,19 @@ export class MultiAgentWorkflowOrchestrator {
     spec: MultiAgentStageSpec,
     threadId: TaskThreadId,
     previousOutput: string | undefined,
+    runtimeSessionBinding?: RuntimeSessionBinding,
   ): Promise<HarnessRunResult> {
     const instruction = this.instructionForStage(spec, threadId, previousOutput);
+    // M7: If we have a binding with a physical session, pass it through the
+    // environment so the provider can reuse the existing OpenCode session.
+    const environment = runtimeSessionBinding?.physicalSessionId
+      ? { ...this.environment, runtimeSessionId: runtimeSessionBinding.runtimeSessionId }
+      : this.environment;
     return this.session.harness.run({
       threadId,
       instruction,
       agentId: spec.agentId,
-      environment: this.environment,
+      environment,
     });
   }
 

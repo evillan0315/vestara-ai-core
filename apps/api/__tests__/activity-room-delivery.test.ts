@@ -3,7 +3,7 @@ import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import type { ActivityStreamMessage } from '@vestara/activity-projection';
+import type { ActivityStreamMessage } from '@vestara/activity-room';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityRoom } from '../src/activity-room';

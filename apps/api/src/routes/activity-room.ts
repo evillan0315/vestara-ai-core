@@ -7,8 +7,8 @@ import type {
   ActivityRecord,
   AgentMessageActivity,
   MessageTarget,
-} from '@vestara/activity-projection';
-import { projectEffectiveState, toActivityBatch } from '@vestara/activity-projection';
+} from '@vestara/activity-room';
+import { projectEffectiveState, toActivityBatch } from '@vestara/activity-room';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
@@ -64,7 +64,7 @@ function string(value: string | null): string | undefined {
 }
 
 /** Parse query parameters into a validated ActivityQuery (unknown filters ignored). */
-export function parseActivityQuery(url: URL): import('@vestara/activity-projection').ActivityQuery {
+export function parseActivityQuery(url: URL): import('@vestara/activity-room').ActivityQuery {
   const params = url.searchParams;
   const kind = string(params.get('kind'));
   const severity = string(params.get('severity'));
@@ -76,11 +76,11 @@ export function parseActivityQuery(url: URL): import('@vestara/activity-projecti
     agentId: string(params.get('agentId')),
     kind:
       kind !== undefined && ACTIVITY_KIND_VALUES.has(kind)
-        ? (kind as import('@vestara/activity-projection').ActivityKind)
+        ? (kind as import('@vestara/activity-room').ActivityKind)
         : undefined,
     severity:
       severity !== undefined && SEVERITY_VALUES.has(severity)
-        ? (severity as import('@vestara/activity-projection').ActivitySeverity)
+        ? (severity as import('@vestara/activity-room').ActivitySeverity)
         : undefined,
     afterSequence: integer(params.get('afterSequence')),
     beforeSequence: integer(params.get('beforeSequence')),

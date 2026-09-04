@@ -1,3 +1,12 @@
+---
+title: VDS cross-surface provider UX
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # VDS cross-surface provider UX
 
 The provider settings contract is shared by Workspace UI, native TUI, and the

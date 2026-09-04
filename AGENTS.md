@@ -20,6 +20,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 - `apps/onboarding-lab` is a dev test rig, not a runtime entrypoint.
 - `packages/*` + `packages/providers/*` + `packages/tools/*` are runtime libraries. `packages/kernel` coordinates lifecycle/providers.
 - `os/` is OS-0 host integration (systemd units, Plymouth, image builder) — not a runtime package, not in pnpm workspaces.
+- Workspace roots are defined in `pnpm-workspace.yaml` (`packages/*`, `packages/providers/*`, `packages/tools/*`, `apps/*`) — the root `package.json` `workspaces` field is incomplete; trust `pnpm-workspace.yaml`.
 - Import only `@vestara/<pkg>` (no deep imports like `@vestara/foo/bar`) and declare every internal dep in `package.json` — enforced by `scripts/workspace-architecture.mjs`.
 
 ## Key Commands
@@ -44,13 +45,13 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 
 ## Testing Quirks
 
-- `vitest.config.ts:30-35` discovers `packages/*/__tests__/**`, `packages/{providers,tools}/*/__tests__/**`, `apps/*/__tests__/**`, `apps/workspace/tests/visual/__tests__/**`. Playwright owns `apps/workspace/tests/visual/**/*.spec.*` — vitest excludes them.
-- Test timeout is 15s (`vitest.config.ts:36`). Slow tests may need investigation rather than timeout bumps.
+- `vitest.config.ts:48-53` discovers `packages/*/__tests__/**`, `packages/{providers,tools}/*/__tests__/**`, `apps/*/__tests__/**`, `apps/workspace/tests/visual/__tests__/**`. Playwright owns `apps/workspace/tests/visual/**/*.spec.*` — vitest excludes them.
+- Test timeout is 15s (`vitest.config.ts:54`). Slow tests may need investigation rather than timeout bumps.
 - Aliases resolve `@vestara/*` → `packages/*/dist` — rebuild after source changes.
 - `pnpm test:e2e:workflow` is a vitest suite (`packages/workflow-orchestrator/__tests__/e2e`). `pnpm test:e2e:workflow:real-agent` (`scripts/wfo-e2e-002b-live.ts`) hits real LLMs via `.env` — not part of `pnpm test`, don't run casually.
 - DB tests use in-memory `sql.js`; shim is `types/sql-js.d.ts`.
 - `screenshots:check` is a visual-test typecheck (`tsc -p tsconfig.visual.json`), not a test run.
-- Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}` (`biome.json:8-14`).
+- Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}` (`biome.json:6-15`).
 
 ## Guardrails to Not Break
 
@@ -61,7 +62,7 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 
 ## CI (`/.github/workflows/ci.yml`)
 
-`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (`opencode:spec:generate` + diff-check) → `bash build-order.sh` → `lint:check` → `test` → `documentation:check` → `benchmark`. `visual-regression.yml` is separate (Chromium + `pnpm screenshots:ci`).
+`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (`opencode:spec:generate` + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test` → `documentation:check` → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`).
 
 ## Runtime Env
 
@@ -72,7 +73,7 @@ Verification order recommended: `pnpm lint:check && pnpm build && pnpm test` (no
 
 ## Style
 
-Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) — do not add `.js` extensions. Parameterized SQL only (`prepare` + `bind`, no string interpolation).
+Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) in CJS packages (the majority) — do not add `.js` extensions unless the package has `"type": "module"` in its `package.json`. Parameterized SQL only (`prepare` + `bind`, no string interpolation).
 
 ## Execution Governance
 

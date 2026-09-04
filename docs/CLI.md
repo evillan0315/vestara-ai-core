@@ -1,3 +1,12 @@
+---
+title: Vestara CLI Reference
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Vestara CLI Reference
 
 Vestara v0.3.0 — `vestara` is the command-line entry point to the Vestara AI engineering runtime.

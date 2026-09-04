@@ -1,25 +1,21 @@
 ---
-id: "adr-002"
-adr: "ADR-002"
-title: "Capability System"
-category: "implementation"
+id: adr-002
+adr: ADR-002
+title: Capability System
+category: implementation
 version: 1.0
-date: "2026-07-31"
-status: "accepted"
-author: "@chief-architect"
-deciders: ["@chief-architect", "@ai-engineer"]
-tags: ["capabilities", "agents", "permissions", "security"]
-referenced_by:
-  - type: "runtime"
-    target: "packages/workspace/src/agent-capability-manager.ts"
-  - type: "runtime"
-    target: "packages/workspace/src/agent-capability.ts"
-  - type: "architecture"
-    target: "docs/Architecture/Agent-Orchestration.md"
-influences:
-  - "AI Engineer"
-  - "Backend Engineer"
+date: 2026-07-31
+status: accepted
+author: @chief-architect
+deciders: "["@chief-architect", "@ai-engineer"]"
+tags: "["capabilities", "agents", "permissions", "security"]"
+referenced_by: 
+influences: 
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
 ---
+
 
 # ADR-002 — Capability System
 

@@ -1,3 +1,12 @@
+---
+title: UX-012 — Conversation Platform Validation
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # UX-012 — Conversation Platform Validation
 
 **Status**: Draft

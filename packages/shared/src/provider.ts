@@ -78,6 +78,8 @@ export interface CompletionRequest {
   agent?: string;
   /** Semantic title for the execution session (e.g. task title, workflow title). */
   title?: string;
+  /** M7: Runtime session ID for session continuity. When set, the provider reuses the existing OpenCode session. */
+  runtimeSessionId?: string;
   /**
    * Request structured JSON output: the provider forces the model to return
    * validated JSON matching this schema. When set, `CompletionResponse` carries

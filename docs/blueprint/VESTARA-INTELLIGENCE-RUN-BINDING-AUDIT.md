@@ -1,3 +1,12 @@
+---
+title: Agent Control Run Binding Audit
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Agent Control Run Binding Audit
 
 **Date:** 2026-09-03

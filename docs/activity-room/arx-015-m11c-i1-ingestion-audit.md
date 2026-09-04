@@ -1,3 +1,12 @@
+---
+title: "M11C-I1 — M9 Production Ingestion Bridge: Ownership Audit"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # M11C-I1 — M9 Production Ingestion Bridge: Ownership Audit
 
 **Date**: 2026-08-28

@@ -1,3 +1,12 @@
+---
+title: "AR-REC-R6 Evidence: Generic Human Decision Loop"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-REC-R6 Evidence: Generic Human Decision Loop
 
 > **Date**: 2026-08-30  

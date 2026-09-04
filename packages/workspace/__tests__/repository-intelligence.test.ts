@@ -17,14 +17,14 @@ import type { EntryPoint } from '../src/types';
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
 // Documented in docs/capabilities/CSP-001-open/CLI.md — `vestara open` reports
-// `typescript (86 entry points, 4 risks)`. Keep in sync when the workspace
+// `typescript (88 entry points, 4 risks)`. Keep in sync when the workspace
 // gains or loses entry points.
-const DOCUMENTED_ENTRY_POINT_COUNT = 86;
+const DOCUMENTED_ENTRY_POINT_COUNT = 88;
 const DOCUMENTED_RISK_COUNT = 4;
 const DOCUMENTED_LANGUAGE = 'typescript';
 
 describe('RepositoryIntelligence entry point detection', () => {
-  it('reports the documented entry point contract (86 entry points, typescript, 4 risks)', async () => {
+  it('reports the documented entry point contract (88 entry points, typescript, 4 risks)', async () => {
     const files = await RepositoryDiscovery.walk(REPO_ROOT);
     const analysis = await RepositoryIntelligence.analyze(files, REPO_ROOT);
 

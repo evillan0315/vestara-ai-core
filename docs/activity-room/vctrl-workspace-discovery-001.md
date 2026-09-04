@@ -1,3 +1,12 @@
+---
+title: VCTRL-WORKSPACE-DISCOVERY-001 — Workspace UI Tests Absent from Root/CI Verification Boundary
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # VCTRL-WORKSPACE-DISCOVERY-001 — Workspace UI Tests Absent from Root/CI Verification Boundary
 
 **Status**: OPEN — Not fixed under M11C

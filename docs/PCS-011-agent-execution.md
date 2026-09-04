@@ -1,3 +1,13 @@
+---
+title: PCS-011 — Remote Agent Execution
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
+
 # PCS-011 — Remote Agent Execution
 
 **Product Capability Specification**

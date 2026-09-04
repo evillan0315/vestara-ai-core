@@ -11,7 +11,7 @@
  * by the organization, not from prose parsed into statuses.
  */
 
-import type { ActivitySourceEvent } from '@vestara/activity-projection';
+import type { ActivitySourceEvent } from '@vestara/activity-room';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import type { SessionStreamAccumulator } from '../session-stream';

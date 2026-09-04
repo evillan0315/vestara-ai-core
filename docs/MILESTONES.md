@@ -1,3 +1,13 @@
+---
+title: Milestones
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
+
 # Milestones
 
 ## Vestara — Architecture Era to Product Era
@@ -2373,6 +2383,99 @@ Then verify:
 
 ---
 
+## OS Boot Experience Milestone
+
+### VOS-BOOT-001 — Vestara Unified Boot Experience 🔶 Planned
+
+**Objective**: Deliver a coordinated boot experience across GRUB → Plymouth → systemd → desktop session. The user should never see Ubuntu/Debian branding, console spam, a blinking cursor, or an unrelated display-manager screen during the normal path. Recovery must remain accessible.
+
+**Architecture rule**: systemd remains authoritative for boot state. Plymouth is only the projection. The generated design image (`assets/vestara-desktop-boot-screen.png`) is the UX specification, not the literal boot implementation.
+
+**Spec**: `docs/PCS-017-boot-experience.md`
+
+**Boot flow**:
+
+```text
+Power
+  ↓
+Firmware
+  ↓
+Vestara GRUB          ~0–2 sec
+  ↓
+Vestara Plymouth      ~2 sec → system ready
+  ↓
+Desktop transition
+  ↓
+Vestara Desktop
+  ↓
+Workspace available
+```
+
+**Phases**:
+
+| Phase | ID | Description |
+| ----- | ---- | ----------- |
+| 1 | VOS-BOOT-001-P1 | Canonical boot branding assets — separate backgrounds, logos, wordmarks into `os/customization/assets/` |
+| 2 | VOS-BOOT-001-P2 | Production Plymouth theme — full Vestara theme with wordmark, animated progress rail, status messages |
+| 3 | VOS-BOOT-001-P3 | Systemd readiness projection — Plymouth reflects real boot states driven by service transitions |
+| 4 | VOS-BOOT-001-P4 | Failure presentation — degraded states for API/workspace failures, recovery accessible via Esc |
+| 5 | VOS-BOOT-001-P5 | Desktop profile — XFCE + LightDM as lightweight shell with Vestara identity |
+| 6 | VOS-BOOT-001-P6 | Seamless Plymouth → desktop transition — same background composition across Plymouth, LightDM, XFCE |
+| 7 | VOS-BOOT-001-P7 | Vestara Desktop startup — Tauri Workspace launches after API + workspace services healthy |
+| 8 | VOS-BOOT-001-P8 | GRUB visual continuity — dark background, small logo, recovery entry visible |
+| 9 | VOS-BOOT-001-P9 | Debian Live integration — shared presentation package, separate Live vs installed artifacts |
+| 10 | VOS-BOOT-001-P10 | Image builder refactor — split monolithic script into composable stages |
+| 11 | VOS-BOOT-001-P11 | Boot validation — QEMU-based verification of all boot states |
+
+**Existing infrastructure leveraged**:
+
+- UEFI GPT image construction (`scripts/build-vestara-image.sh`)
+- GRUB customization (`os/customization/grub/`, `quiet splash`)
+- Plymouth installation and theme (`os/customization/plymouth/`)
+- `vestara.target` with `vestara-host`, `vestara-api`, `vestara-workspace` services
+- OS asset organization (`os/customization/assets/`, `assets/`)
+- Image profile model (`os/customization/profiles/`)
+- Boot runtime state machine (`packages/boot-runtime/`)
+
+**Validation criteria**:
+
+| ID | Criterion |
+| ---- | --------- |
+| VOS-BOOT-V01 | UEFI boot succeeds |
+| VOS-BOOT-V02 | GRUB theme loads |
+| VOS-BOOT-V03 | Recovery entry remains accessible |
+| VOS-BOOT-V04 | Plymouth loads at native resolution |
+| VOS-BOOT-V05 | No Debian/Ubuntu artwork appears |
+| VOS-BOOT-V06 | No unexpected console flash |
+| VOS-BOOT-V07 | API failure produces degraded state |
+| VOS-BOOT-V08 | Workspace failure produces degraded state |
+| VOS-BOOT-V09 | Successful boot reaches Vestara desktop |
+| VOS-BOOT-V10 | Plymouth → desktop transition is clean |
+| VOS-BOOT-V11 | 16:9 / 16:10 / fallback resolutions work |
+| VOS-BOOT-V12 | Escape exposes diagnostic boot output |
+| VOS-BOOT-V13 | Shutdown/reboot presentation works |
+| VOS-BOOT-V14 | Headless image remains unaffected |
+| VOS-BOOT-V15 | Recovery image remains independent |
+
+**Implementation order**:
+
+> Implement VOS-BOOT-001-P1 through P3 first (canonical assets → production Plymouth theme → systemd readiness projection). Only after those are stable add XFCE/LightDM and the full Debian Live desktop profile. This keeps the existing headless image stable while turning the boot chain into something we can verify incrementally.
+
+**Key artifacts**:
+
+- `os/customization/assets/brand/` — vector logos and wordmarks
+- `os/customization/assets/boot/` — boot backgrounds at multiple resolutions
+- `os/customization/assets/desktop/` — wallpapers at multiple resolutions
+- `os/customization/assets/tokens/brand.json` — canonical color/typography tokens
+- `os/customization/plymouth/` — production Plymouth theme (script, assets, spinner)
+- `os/customization/systemd/` — boot-status, boot-ready, boot-failed presentation units
+- `os/customization/builder/profiles/` — headless, desktop, recovery image profiles
+- `scripts/os/` — refactored image builder stages
+
+**Status**: 🔶 Planned
+
+---
+
 ## Summary Dashboard
 
 | Era | Version | Theme | Status |
@@ -2398,6 +2501,7 @@ Then verify:
 | CLI/API Alignment | v7.10 | CLI/API Runtime Alignment (boot sequence, context pattern, lifecycle management) | ✅ Complete |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
+| **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |

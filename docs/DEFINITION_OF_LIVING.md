@@ -1,3 +1,12 @@
+---
+title: Definition of Living — Vestara v0.1
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Definition of Living — Vestara v0.1
 
 ## First Living Assistant — Capability Acceptance Criteria

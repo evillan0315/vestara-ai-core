@@ -1,3 +1,12 @@
+---
+title: ARX-015 M4 — AI Invocation Entry Point Migration Audit
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M4 — AI Invocation Entry Point Migration Audit
 
 > Milestone: M4 — AI Resolution & Execution Binding

@@ -10,36 +10,42 @@ export function IdentityCard({ data }: { data: UnderstandingData }) {
 
   const healthColor =
     data.maturity.healthScore >= 7
-      ? 'text-[--vestara-green]'
+      ? 'text-[var(--vestara-green)]'
       : data.maturity.healthScore >= 4
-        ? 'text-amber-500'
-        : 'text-(--vestara-red)';
+        ? 'text-[var(--vestara-amber)]'
+        : 'text-[var(--vestara-red)]';
 
   return (
-    <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-5">
-      <h2 className="text-lg font-semibold text-(--vestara-text)">{data.identity.name}</h2>
-      <div className="mt-3 space-y-1.5 text-sm text-(--vestara-text-2)">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+      <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">{data.identity.name}</h2>
+      <div className="space-y-1.5 text-sm text-[var(--vestara-text-2)]">
         <div className="flex justify-between">
           <span>Language</span>
-          <span className="font-medium text-(--vestara-text) capitalize">{data.identity.primaryLanguage}</span>
+          <span className="font-medium text-[var(--vestara-text)] capitalize">
+            {data.identity.primaryLanguage}
+          </span>
         </div>
         <div className="flex justify-between">
           <span>Architecture</span>
-          <span className="font-medium text-(--vestara-text)">{archLabel}</span>
+          <span className="font-medium text-[var(--vestara-text)]">{archLabel}</span>
         </div>
         {data.identity.framework && (
           <div className="flex justify-between">
             <span>Framework</span>
-            <span className="font-medium text-(--vestara-text)">{data.identity.framework}</span>
+            <span className="font-medium text-[var(--vestara-text)]">{data.identity.framework}</span>
           </div>
         )}
         <div className="flex justify-between">
-          <span>Package Count</span>
-          <span className="font-medium text-(--vestara-text)">{data.architecture.entryPoints.length}</span>
+          <span>Packages</span>
+          <span className="font-medium text-[var(--vestara-text)]">
+            {data.architecture.entryPoints.length}
+          </span>
         </div>
         <div className="flex justify-between">
           <span>Health</span>
-          <span className={`font-medium ${healthColor}`}>{data.maturity.healthScore.toFixed(1)}/10</span>
+          <span className={`font-medium ${healthColor}`}>
+            {data.maturity.healthScore.toFixed(1)}/10
+          </span>
         </div>
       </div>
     </div>

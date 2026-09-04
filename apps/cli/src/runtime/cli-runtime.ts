@@ -1,4 +1,3 @@
-import type { ActivityService } from '@vestara/activity-log';
 import type { VestaraAudioService } from '@vestara/audio';
 import type { DefaultConversationService } from '@vestara/conversation';
 import type { DefaultConversationEngine, ProviderRouter } from '@vestara/conversation-runtime';
@@ -13,7 +12,6 @@ export interface CliRuntimeServices {
   kernel: DefaultKernel;
   conversationEngine: DefaultConversationEngine;
   conversationService: DefaultConversationService;
-  activity: ActivityService;
   conversationId: string;
   stateRuntime: DefaultStateRuntime;
   audioService: VestaraAudioService;
@@ -32,7 +30,6 @@ export class CliRuntime extends Runtime {
         await services.workspaceRuntime.stop();
         await services.workspaceRuntime.destroy();
       }
-      await services.activity?.stop();
       await services.conversationEngine?.endSession();
       await services.stateRuntime?.checkpoint();
       await services.stateRuntime?.shutdown();
@@ -62,10 +59,6 @@ export class CliRuntime extends Runtime {
 
   get conversationService(): DefaultConversationService {
     return this._services.conversationService;
-  }
-
-  get activity(): ActivityService {
-    return this._services.activity;
   }
 
   get conversationId(): string {

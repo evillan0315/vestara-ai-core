@@ -23,7 +23,7 @@
 import { randomUUID } from 'node:crypto';
 import type * as http from 'node:http';
 import * as path from 'node:path';
-import { M9DeliveryVerifier } from '@vestara/activity-projection';
+import { M9DeliveryVerifier } from '@vestara/activity-room';
 import { InteractionService, ResponseConflictError } from '@vestara/interaction-app';
 import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
 import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';

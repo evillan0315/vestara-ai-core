@@ -1,4 +1,3 @@
-import type { ActivityService } from '@vestara/activity-log';
 import type { EventBus } from '@vestara/event-bus';
 import type { DefaultKernel } from '@vestara/kernel';
 import { Runtime, type RuntimeConfig, type RuntimeHooks } from '@vestara/runtime';
@@ -11,7 +10,6 @@ export interface ApiRuntimeServices {
   planning: PlanningService;
   sessions: SessionService;
   memory: MemoryService;
-  activity?: ActivityService;
 }
 
 export class ApiRuntime extends Runtime {
@@ -23,15 +21,12 @@ export class ApiRuntime extends Runtime {
       hooks
         ? {
             onStop: async () => {
-              await services.activity?.stop();
               if (hooks?.onStop) await hooks.onStop();
             },
             onDestroy: hooks?.onDestroy,
           }
         : {
-            onStop: async () => {
-              await services.activity?.stop();
-            },
+            onStop: async () => {},
           },
     );
     this._services = services;
@@ -51,10 +46,6 @@ export class ApiRuntime extends Runtime {
 
   get memory(): MemoryService {
     return this._services.memory;
-  }
-
-  get activity(): ActivityService | undefined {
-    return this._services.activity;
   }
 
   get kernel(): DefaultKernel {

@@ -1,3 +1,12 @@
+---
+title: Execution Center ↔ Vestara Packages — Alignment Plan
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Execution Center ↔ Vestara Packages — Alignment Plan
 
 Status: Approved · Owner: Workspace UI / API

@@ -8,6 +8,10 @@ import {
   TUI_NAVIGATION,
   TUI_SEMANTIC_PALETTES,
   toneForStatus,
+  VESTARA_BRAND_COLORS,
+  VESTARA_TAGLINETypography,
+  VESTARA_WORDMARKTypography,
+  vestaraBrandTokens,
 } from '../src/index.js';
 
 describe('design-system tokens', () => {
@@ -51,5 +55,28 @@ describe('design-system tokens', () => {
       expect(item.id.length).toBeGreaterThan(0);
       expect(item.label.length).toBeGreaterThan(0);
     }
+  });
+
+  it('exports brand typography tokens', () => {
+    expect(VESTARA_WORDMARKTypography.fontFamily).toContain('Montserrat');
+    expect(VESTARA_WORDMARKTypography.fontWeight).toBe(300);
+    expect(VESTARA_WORDMARKTypography.letterSpacing).toBe('0.28em');
+    expect(VESTARA_WORDMARKTypography.textTransform).toBe('uppercase');
+
+    expect(VESTARA_TAGLINETypography.fontFamily).toContain('Montserrat');
+    expect(VESTARA_TAGLINETypography.fontWeight).toBe(300);
+    expect(VESTARA_TAGLINETypography.letterSpacing).toBe('0.42em');
+    expect(VESTARA_TAGLINETypography.textTransform).toBe('uppercase');
+  });
+
+  it('exports brand color tokens', () => {
+    expect(VESTARA_BRAND_COLORS.wordmark).toBe('#FFFFFF');
+    expect(VESTARA_BRAND_COLORS.tagline).toBe('#A5B4FC');
+  });
+
+  it('exposes combined brand token set', () => {
+    expect(vestaraBrandTokens.wordmark).toBe(VESTARA_WORDMARKTypography);
+    expect(vestaraBrandTokens.tagline).toBe(VESTARA_TAGLINETypography);
+    expect(vestaraBrandTokens.colors).toBe(VESTARA_BRAND_COLORS);
   });
 });

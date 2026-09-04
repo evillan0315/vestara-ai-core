@@ -1,3 +1,12 @@
+---
+title: ATS-010 — Workspace UI
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ATS-010 — Workspace UI
 
 **Acceptance Test Specification**

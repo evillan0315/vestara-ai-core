@@ -11,7 +11,7 @@
  * Humans and agents share the same component contract.
  */
 
-import type { ParticipantProjection } from '@vestara/types';
+import type { ParticipantProjection } from '@vestara/activity-room';
 import { useMemo } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fromOrchestrationEvent } from '@vestara/activity-projection';
+import { fromOrchestrationEvent } from '@vestara/activity-room';
 import type { CorrelationId, ExecutionId, TraceId, WorkflowRunId } from '@vestara/types';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveCorrelationId, SqliteEngineeringEventStore } from '../src/index.js';

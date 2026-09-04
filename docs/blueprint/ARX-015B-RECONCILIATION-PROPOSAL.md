@@ -1,3 +1,12 @@
+---
+title: ARX-015B — Global Access, Observability & Intelligence Architecture Reconciliation
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015B — Global Access, Observability & Intelligence Architecture Reconciliation
 
 **Date:** 2026-08-30

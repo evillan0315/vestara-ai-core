@@ -1,3 +1,12 @@
+---
+title: Engineering Benchmark Ecosystem — Plan
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Engineering Benchmark Ecosystem — Plan
 
 APE-001 → AQF-001 → VEB-001

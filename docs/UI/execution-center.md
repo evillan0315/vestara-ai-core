@@ -1,3 +1,12 @@
+---
+title: Execution Center
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Execution Center
 
 The Execution Center is the operational heart of the Workspace — the command

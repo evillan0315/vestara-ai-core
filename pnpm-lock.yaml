@@ -33,12 +33,9 @@ importers:
 
   apps/api:
     dependencies:
-      '@vestara/activity-log':
+      '@vestara/activity-room':
         specifier: workspace:*
-        version: link:../../packages/activity-log
-      '@vestara/activity-projection':
-        specifier: workspace:*
-        version: link:../../packages/activity-projection
+        version: link:../../packages/activity-room
       '@vestara/agent-harness':
         specifier: workspace:*
         version: link:../../packages/agent-harness
@@ -196,9 +193,6 @@ importers:
       '@vestara/action':
         specifier: workspace:*
         version: link:../../packages/action
-      '@vestara/activity-log':
-        specifier: workspace:*
-        version: link:../../packages/activity-log
       '@vestara/architecture-runtime':
         specifier: workspace:*
         version: link:../../packages/architecture-runtime
@@ -357,9 +351,9 @@ importers:
       '@tauri-apps/plugin-notification':
         specifier: ^2.3.3
         version: 2.3.3
-      '@vestara/activity-projection':
+      '@vestara/activity-room':
         specifier: workspace:*
-        version: link:../../packages/activity-projection
+        version: link:../../packages/activity-room
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../../packages/configuration
@@ -495,29 +489,7 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
-  packages/activity-log:
-    dependencies:
-      '@vestara/event-bus':
-        specifier: workspace:*
-        version: link:../event-bus
-      '@vestara/events':
-        specifier: workspace:*
-        version: link:../events
-      '@vestara/logger':
-        specifier: workspace:*
-        version: link:../logger
-      '@vestara/shared':
-        specifier: workspace:*
-        version: link:../shared
-      sql.js:
-        specifier: ^1.14.1
-        version: 1.14.1
-    devDependencies:
-      vitest:
-        specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
-
-  packages/activity-projection:
+  packages/activity-room:
     dependencies:
       '@vestara/event-bus':
         specifier: workspace:*
@@ -1893,6 +1865,9 @@ importers:
       '@vestara/memory':
         specifier: workspace:*
         version: link:../memory
+      '@vestara/opencode-runtime':
+        specifier: workspace:*
+        version: link:../opencode-runtime
       '@vestara/runtime':
         specifier: workspace:*
         version: link:../runtime

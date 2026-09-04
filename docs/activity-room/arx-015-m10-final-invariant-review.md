@@ -1,3 +1,12 @@
+---
+title: ARX-015 M10 — Final Invariant Review Evidence
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M10 — Final Invariant Review Evidence
 
 **Milestone**: M10 Final Invariant Review (pre-M11)

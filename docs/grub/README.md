@@ -1,3 +1,12 @@
+---
+title: GRUB Customization
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GRUB Customization
 
 GRUB is the first Vestara-owned presentation layer after firmware. The theme

@@ -1,3 +1,12 @@
+---
+title: Print Status Info — Capability Implementation Plan
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Print Status Info — Capability Implementation Plan
 
 ## Overview

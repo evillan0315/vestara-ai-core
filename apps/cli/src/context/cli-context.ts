@@ -6,7 +6,6 @@
  */
 
 import type { DefaultActionRuntime } from '@vestara/action';
-import { ActivityLogStore, ActivityService } from '@vestara/activity-log';
 import {
   DefaultMicrophoneProvider,
   DefaultSpeakerProvider,
@@ -38,8 +37,6 @@ export interface CliContext {
   conversationService: DefaultConversationService;
   conversationEngine: DefaultConversationEngine;
   conversationId: string;
-  activityService: ActivityService;
-  activityStore: ActivityLogStore;
   audioService: VestaraAudioService;
   sttService: VestaraSTTService;
   ttsService: VestaraTTSService;
@@ -161,27 +158,6 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
     },
   );
 
-  // Activity log
-  const activityStore = new ActivityLogStore({
-    dbPath: './vestara-activity.db',
-    logger: kernel.logger,
-  });
-  await activityStore.initialize();
-  const activityService = new ActivityService({
-    store: activityStore,
-    eventBus: kernel.eventBus,
-    logger: kernel.logger,
-  });
-  activityService.start();
-
-  // Register activity with events-server (best-effort)
-  try {
-    const { registerActivityService } = await import('@vestara/events-server');
-    registerActivityService(activityService);
-  } catch {
-    // events-server may not be available
-  }
-
   // Audio services
   const audioService = new VestaraAudioService({ logger: kernel.logger });
   audioService.registerMicrophone(new DefaultMicrophoneProvider());
@@ -236,7 +212,6 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
       kernel,
       conversationEngine,
       conversationService: routedConversationService,
-      activity: activityService,
       conversationId: conversation.id,
       stateRuntime,
       audioService,
@@ -253,8 +228,6 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
     conversationService: routedConversationService,
     conversationEngine,
     conversationId: conversation.id,
-    activityService,
-    activityStore,
     audioService,
     sttService,
     ttsService,
@@ -268,7 +241,6 @@ export async function createCliContext(workspacePath?: string): Promise<CliConte
     close: async () => {
       persistUnsub();
       await conversationEngine.endSession();
-      activityService.stop();
       if (workspaceRuntime.state !== 'stopped') {
         await workspaceRuntime.stop();
         await workspaceRuntime.destroy();

@@ -1,3 +1,12 @@
+---
+title: AR-P1.5 — Authority Contracts (Target Boundaries)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-P1.5 — Authority Contracts (Target Boundaries)
 
 > **Status:** Proposed contracts — no migrations, no store consolidation, no OpenCode behavior change, no legacy-path removal in this document. All changes are *specification only*.
@@ -490,7 +499,7 @@ All events carry `correlationId = binding.correlationId = turn.correlationId` so
 
 ### 4.5 Activity Projection Authority (Derived, Append-Only)
 
-**Package boundary:** `@vestara/activity-projection` (`ActivityProjectionService`, `ActivityProjectorRegistry`, `ActivityRedactor`, `SqliteActivityStore`, `ActivityStreamHub`, `ActivityStreamConnection`) + `apps/api/src/bridges/activity-room-organizational-bridge.ts` + `apps/api/src/routes/activity-room.ts`
+**Package boundary:** `@vestara/activity-room` (`ActivityProjectionService`, `ActivityProjectorRegistry`, `ActivityRedactor`, `SqliteActivityStore`, `ActivityStreamHub`, `ActivityStreamConnection`) + `apps/api/src/bridges/activity-room-organizational-bridge.ts` + `apps/api/src/routes/activity-room.ts`
 **Status today:** Correctly derived/append-only but whitelist-filtered and ledger semantics mix `A` physical with `D` semantic. **Target freezes derived semantics and hardens whitelisting.**
 
 **Owned identity:** `activityId` (+ `sequence` monotonic). No other identities are owned — all others are foreign keys (`workflowId`, `taskId`, `threadId`, `agentId`, etc.).

@@ -13,8 +13,7 @@
     "benchmark:http": "tsx scripts/benchmark-http.ts"
   },
   "dependencies": {
-    "@vestara/activity-log": "workspace:*",
-    "@vestara/activity-projection": "workspace:*",
+    "@vestara/activity-room": "workspace:*",
     "@vestara/agent-harness": "workspace:*",
     "@vestara/boot-runtime": "workspace:*",
     "@vestara/configuration": "workspace:*",

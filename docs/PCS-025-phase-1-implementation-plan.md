@@ -1,3 +1,13 @@
+---
+title: "PCS-025 — Phase 1 Implementation Plan: Orchestration Core"
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
+
 # PCS-025 — Phase 1 Implementation Plan: Orchestration Core
 
 **Status**: In progress — core package delivered, integration wired (see §11)

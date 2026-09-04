@@ -78,6 +78,34 @@ For deployment choices, endpoint configuration, and troubleshooting, see the
 Generate the package API reference and dependency catalog with
 `pnpm generate-docs`; the generated site is written to `docs/api/`.
 
+## Testing
+
+```bash
+pnpm test                    # run all vitest suites
+pnpm --filter @vestara/<pkg> test   # single package
+pnpm test -- packages/foo/__tests__/thing.test.ts  # single file
+pnpm lint:check              # Biome lint (read-only)
+pnpm benchmark               # pipeline timing benchmarks
+```
+
+Tests resolve `@vestara/*` from `dist/` — always run `pnpm build` before
+`pnpm test` after source changes. See [AGENTS.md](AGENTS.md) for testing
+quirks and guardrails.
+
+## Environment variables
+
+| Variable | Default | Used by |
+|----------|---------|---------|
+| `VESTARA_API_PORT` | `3001` | API listener port |
+| `VESTARA_REPO` | Current repository | API workspace selection |
+| `VITE_API_URL` | Same origin | Workspace build and desktop development |
+
+`pnpm dev:api` loads `.env` automatically; `pnpm dev` does not. The `.env`
+file is gitignored and holds credentials for live agent trials — never commit
+it.
+
+See the [configuration guide](docs/CONFIGURATION.md) for the full reference.
+
 ## Workspace
 
 | Directory | Role |
@@ -87,4 +115,12 @@ Generate the package API reference and dependency catalog with
 | `apps/console/` | Ink-based engineering Console over the shared API/runtime |
 | `apps/workspace/` | React 19 + Vite UI shell |
 | `packages/*` | Runtime libraries (pnpm workspaces) |
+| `packages/providers/*` | Provider integrations (e.g. OpenCode) |
+| `packages/tools/*` | Built-in tools (browser, filesystem, git, shell, etc.) |
+| `os/` | OS-0 host integration (systemd, Plymouth, image builder) |
 | `docs/` | PCS, UX, ATS, milestones, decisions |
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and
+pull request guidelines.

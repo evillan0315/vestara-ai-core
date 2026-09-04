@@ -383,3 +383,13 @@ export const TUI_NAVIGATION: readonly NavItem[] = [
 ];
 
 export const TUI_NAV_KEYS: readonly string[] = TUI_NAVIGATION.map((item) => item.id);
+
+// ─── Brand tokens ────────────────────────────────────────────
+
+export type { BrandColorToken, BrandTypographyToken } from './brand.js';
+export {
+  VESTARA_BRAND_COLORS,
+  VESTARA_TAGLINETypography,
+  VESTARA_WORDMARKTypography,
+  vestaraBrandTokens,
+} from './brand.js';

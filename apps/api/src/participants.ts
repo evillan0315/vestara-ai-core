@@ -9,7 +9,7 @@
  * activity records), not from polling the private OpenCode session.
  */
 
-import type { ActivityRecord } from '@vestara/activity-projection';
+import type { ActivityRecord } from '@vestara/activity-room';
 import type { VestaraExecutionState } from '@vestara/opencode-runtime';
 import type { AcceptanceBoundary } from '@vestara/workspace';
 

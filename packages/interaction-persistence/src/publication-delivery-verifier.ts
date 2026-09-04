@@ -6,7 +6,7 @@
  *
  * Ownership boundary:
  *   - This port is defined in interaction-persistence (consumer side)
- *   - The adapter implementation lives in activity-projection (provider side)
+ *   - The adapter implementation lives in activity-room (provider side)
  *   - M9IngestionBridge does NOT know about this port
  *   - InteractionEventBusAdapter does NOT know about this port
  *   - InteractionService coordinates: emit → verify → acknowledge

@@ -8,6 +8,7 @@ const packagesDir = path.resolve(__dirname, 'packages');
 const aliases: Record<string, string> = {};
 
 if (fs.existsSync(packagesDir)) {
+  // Scan top-level packages
   for (const dir of fs.readdirSync(packagesDir)) {
     const pkgPath = path.join(packagesDir, dir, 'package.json');
     if (!fs.existsSync(pkgPath)) continue;
@@ -18,6 +19,23 @@ if (fs.existsSync(packagesDir)) {
       }
     } catch {
       // skip invalid package.json
+    }
+  }
+  // Scan nested packages under providers/ and tools/
+  for (const subdir of ['providers', 'tools']) {
+    const subDirPath = path.join(packagesDir, subdir);
+    if (!fs.existsSync(subDirPath)) continue;
+    for (const dir of fs.readdirSync(subDirPath)) {
+      const pkgPath = path.join(subDirPath, dir, 'package.json');
+      if (!fs.existsSync(pkgPath)) continue;
+      try {
+        const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+        if (pkg.name?.startsWith('@vestara/')) {
+          aliases[pkg.name] = path.join(subDirPath, dir, 'dist');
+        }
+      } catch {
+        // skip invalid package.json
+      }
     }
   }
 }

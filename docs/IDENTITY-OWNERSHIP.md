@@ -1,3 +1,12 @@
+---
+title: Identity Ownership — ARX-015 M1
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Identity Ownership — ARX-015 M1
 
 > Authoritative registry of canonical identity types in `vestara-ai-core`.

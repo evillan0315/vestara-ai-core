@@ -420,22 +420,6 @@ async function collectEvents(ctx: WorkspaceContext, limit: number): Promise<Exec
       status: e.status,
     });
   }
-  try {
-    const items = ctx.activityStore ? ((await ctx.activityStore.query({ limit })) as any[]) : [];
-    for (const a of items) {
-      out.push({
-        id: a.id ?? `act-${out.length}`,
-        timestamp: a.timestamp ?? new Date().toISOString(),
-        category: a.category ?? 'system',
-        type: a.type ?? 'event',
-        actor: a.actor?.name ?? 'system',
-        message: a.message ?? a.type ?? '',
-        status: a.status,
-      });
-    }
-  } catch {
-    /* activity store unavailable */
-  }
   return out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, limit);
 }
 

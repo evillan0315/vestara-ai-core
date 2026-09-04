@@ -586,7 +586,7 @@ is **NOT READY**, stopped at the readiness gate as instructed.
 
 1. **No historical baseline exists.** `vestara-ai-core` HEAD (`21cbb84`) contains
    **zero** files under the required substrate (Activity Room UI, API activity
-   routes, `activity-projection`, `sqlite-migrations`). The entire substrate is
+   routes, `activity-room`, `sqlite-migrations`). The entire substrate is
    uncommitted working-tree state; there is no commit providing "enough
    infrastructure to make the problem realistic but no Visual Edit
    implementation."

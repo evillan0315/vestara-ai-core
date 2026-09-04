@@ -20,8 +20,6 @@ const ALLOWLIST = new Set([
   'packages/workspace/src/desktop-service.ts',
   'packages/workspace/src/engineering-memory.ts',
   'packages/knowledge/src/storage/index.ts',
-  'packages/activity-log/src/store.ts',
-  'packages/activity-log/src/notification-store.ts',
   'packages/memory/src/index.ts',
   'apps/cli/src/commands/config.ts',
 ]);

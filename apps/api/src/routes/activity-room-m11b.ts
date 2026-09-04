@@ -25,14 +25,14 @@
 
 import { randomUUID } from 'node:crypto';
 import type * as http from 'node:http';
+import type { ActivityCursor, M9ActivityRecord, M9ActivityStore } from '@vestara/activity-room';
 import {
   ActivityStreamConnection,
   ActivityStreamHub,
   type ActivityStreamMessage,
   type ActivityStreamSink,
   type ActivityRecord as ProjectionActivityRecord,
-} from '@vestara/activity-projection';
-import type { ActivityCursor, ActivityStore, ActivityRecord as M9ActivityRecord } from '@vestara/types';
+} from '@vestara/activity-room';
 import { type RawData, WebSocket, type WebSocketServer } from 'ws';
 import { json } from '../http/response.js';
 import type { M11ARoomState } from './activity-room-m11a.js';

@@ -12,7 +12,6 @@
 import * as http from 'node:http';
 
 let sessions: any = null;
-let activityService: any = null;
 let wsClients: Array<{ send: (msg: string) => void }> = [];
 
 export function startServer(port = 3001): http.Server {
@@ -86,18 +85,6 @@ export function startServer(port = 3001): http.Server {
 
 export function registerSession(ws: any): void {
   sessions = ws;
-}
-
-export function registerActivityService(svc: any): void {
-  activityService = svc;
-  if (svc?.onEvent) {
-    svc.onEvent((event: any) => {
-      emitToClients({
-        op: 'event',
-        event,
-      });
-    });
-  }
 }
 
 export function subscribeToEventBus(eventBus: any): () => void {
@@ -249,19 +236,9 @@ function handleActivity(res: http.ServerResponse, url: string): void {
   if (qs.get('limit')) options.limit = parseInt(qs.get('limit')!, 10);
   if (qs.get('before')) options.before = qs.get('before');
 
-  if (activityService?.query) {
-    activityService
-      .query(options)
-      .then((events: any[]) => {
-        res.end(JSON.stringify({ events, total: events.length }));
-      })
-      .catch((err: any) => {
-        res.writeHead(500);
-        res.end(JSON.stringify({ error: err.message }));
-      });
-  } else {
-    res.end(JSON.stringify({ events: [], total: 0 }));
-  }
+  // Legacy activity log endpoint — activity-log package removed (AR-001L)
+  // Activity Room provides canonical activity data through M11A API
+  res.end(JSON.stringify({ events: [], total: 0 }));
 }
 
 function upgradeToEventStream(req: http.IncomingMessage, res: http.ServerResponse): void {

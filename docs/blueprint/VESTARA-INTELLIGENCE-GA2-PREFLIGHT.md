@@ -1,3 +1,12 @@
+---
+title: VESTARA-INTELLIGENCE M-B1 — GA-2 Independent Conversation Preflight (Corrected)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # VESTARA-INTELLIGENCE M-B1 — GA-2 Independent Conversation Preflight (Corrected)
 
 **Date:** 2026-08-31
@@ -331,10 +340,10 @@ ConversationService
   ├── depends on: @vestara/event-bus (optional events)
   ├── depends on: @vestara/logger (optional logging)
   ├── depends on: sql.js (persistence)
-  └── does NOT depend on: @vestara/activity-projection, @vestara/workspace, M9, M10, M11
+  └── does NOT depend on: @vestara/activity-room, @vestara/workspace, M9, M10, M11
 
 Activity Room (M11A/M11B/M11C)
-  ├── depends on: @vestara/activity-projection (M9 store)
+  ├── depends on: @vestara/activity-room (M9 store)
   ├── depends on: M10 (projection service)
   └── does NOT depend on: @vestara/conversation
 ```

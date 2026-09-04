@@ -30,7 +30,7 @@
     "@tauri-apps/api": "^2.11.1",
     "@tauri-apps/plugin-clipboard-manager": "^2.3.2",
     "@tauri-apps/plugin-notification": "^2.3.3",
-    "@vestara/activity-projection": "workspace:*",
+    "@vestara/activity-room": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/design-system": "workspace:*",
     "@vestara/execution-center": "workspace:*",

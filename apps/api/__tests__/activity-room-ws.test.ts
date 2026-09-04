@@ -1,4 +1,4 @@
-import type { ActivitySourceEvent, ActivityStreamMessage } from '@vestara/activity-projection';
+import type { ActivitySourceEvent, ActivityStreamMessage } from '@vestara/activity-room';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { WebSocket, WebSocketServer } from 'ws';
 import type { ActivityRoom } from '../src/activity-room';

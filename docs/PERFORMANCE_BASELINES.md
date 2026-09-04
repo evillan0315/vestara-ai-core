@@ -1,3 +1,12 @@
+---
+title: Performance Baselines
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Performance Baselines
 
 ## Vestara AI Core — Operational Era

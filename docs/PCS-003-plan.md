@@ -1,3 +1,13 @@
+---
+title: PCS-003 — Planning
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
+
 # PCS-003 — Planning
 
 **Product Capability Specification**

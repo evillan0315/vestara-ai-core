@@ -1,4 +1,3 @@
-export { handleActivityRoute } from './activity';
 export { handleM11AActivityRoomRoute } from './activity-room-m11a';
 export { handleAgentsRoute } from './agents';
 export { handleAuthRoute } from './auth';

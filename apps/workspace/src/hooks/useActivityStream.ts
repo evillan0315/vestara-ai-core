@@ -1,4 +1,4 @@
-import type { ActivityRecord, ActivityStreamMessage, MessageTarget } from '@vestara/activity-projection';
+import type { ActivityRecord, ActivityStreamMessage, MessageTarget } from '@vestara/activity-room';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { activitySocket, fetchActivityHistory, postActivityMessage } from '../lib/activity';
 import type {

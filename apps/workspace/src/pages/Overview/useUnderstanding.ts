@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 export interface UnderstandingData {
   id: string;
@@ -48,42 +48,41 @@ export function useUnderstanding() {
   const [data, setData] = useState<UnderstandingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const cancelledRef = useRef(false);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
-        const res = await fetch('/api/understanding');
-        if (!res.ok) {
-          if (res.status === 503) {
-            if (!cancelled) setLoading(true);
-            return;
-          }
-          throw new Error(`API error: ${res.status}`);
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch('/api/understanding');
+      if (!res.ok) {
+        if (res.status === 503) {
+          if (!cancelledRef.current) setLoading(true);
+          return;
         }
-        const json = await res.json();
-        if (!cancelled) {
-          setData(json);
-          setLoading(false);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : 'Failed to load understanding');
-          setLoading(false);
-        }
+        throw new Error(`API error: ${res.status}`);
+      }
+      const json = await res.json();
+      if (!cancelledRef.current) {
+        setData(json);
+        setLoading(false);
+        setError(null);
+      }
+    } catch (err) {
+      if (!cancelledRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to load understanding');
+        setLoading(false);
       }
     }
-
-    load();
-    const interval = setInterval(load, 10000);
-
-    return () => {
-      cancelled = true;
-      clearInterval(interval);
-    };
   }, []);
 
-  return { data, loading, error };
+  useEffect(() => {
+    cancelledRef.current = false;
+    load();
+    const interval = setInterval(load, 10000);
+    return () => {
+      cancelledRef.current = true;
+      clearInterval(interval);
+    };
+  }, [load]);
+
+  return { data, loading, error, refetch: load };
 }

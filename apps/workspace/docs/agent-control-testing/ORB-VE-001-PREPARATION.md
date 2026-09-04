@@ -56,7 +56,7 @@ protected repos          UNREACHABLE (environment has 0 git remotes;
 ## Substrate integrity (preserved, available)
 
 - **Build:** `tsc -b tsconfig.references.json` across 95 projects — exit 0.
-- **Tests (in environment):** Activity Room API 26/26; activity-projection +
+- **Tests (in environment):** Activity Room API 26/26; activity-room +
   evidence + engineering-event-store 140/140; Effective State + Activity Room
   UI + qualification UI + workflow-orchestrator 182/182. Total 348 passed.
 - **Activity Room unchanged:** 11 substrate files byte-identical to ai-core
@@ -1030,7 +1030,7 @@ never truth.
 Focused verification: 16 projection tests (declaration authority incl. the Run 4
 placeholder-draft scenario, acceptance/workflow projection) + 1 bridge wiring
 test proving the room projects workflow start, acceptance boundary, and harness
-turns. activity-projection/workspace/api suites green; build green; biome clean.
+turns. activity-room/workspace/api suites green; build green; biome clean.
 
 ## Convergence / revision semantics — recorded contract (NOT implemented)
 

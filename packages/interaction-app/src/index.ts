@@ -3,7 +3,7 @@
  *
  * Producer-neutral interaction application boundary.
  * Consumed by apps/api and future producers (agent harness, workflow, marketplace).
- * NOT consumed by @vestara/activity-projection.
+ * NOT consumed by @vestara/activity-room.
  */
 
 export type { InteractionServiceOptions } from './interaction-service';

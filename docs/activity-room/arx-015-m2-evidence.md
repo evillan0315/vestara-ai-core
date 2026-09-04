@@ -1,3 +1,12 @@
+---
+title: ARX-015 M2 — Verification Evidence
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M2 — Verification Evidence
 
 > Milestone: M2 — Canonical Event Contract

@@ -19,7 +19,7 @@ import {
   type ActivityStreamHubOptions,
   InMemoryActivityStore,
   SqliteActivityStore,
-} from '@vestara/activity-projection';
+} from '@vestara/activity-room';
 import { migrate } from '@vestara/sqlite-migrations';
 
 export interface ActivityRoom {

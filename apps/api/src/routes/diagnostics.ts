@@ -210,6 +210,52 @@ export async function handleDiagnosticsRoute(
     return true;
   }
 
+  // ─── M11A/sql.js WASM health instrumentation ────────────────────
+  if (method === 'GET' && p === '/api/diagnostics/m11a-health') {
+    try {
+      const { getM11ARoom } = await import('./activity-room-m11a.js');
+      const room = getM11ARoom();
+      const inst = room.instrumentation;
+      const mem = process.memoryUsage();
+      json(res, 200, {
+        process: {
+          heapUsedBytes: mem.heapUsed,
+          heapTotalBytes: mem.heapTotal,
+          rssBytes: mem.rss,
+          externalBytes: mem.external,
+          arrayBufferBytes: mem.arrayBuffers,
+          uptimeSeconds: process.uptime(),
+        },
+        watcher: {
+          pollCount: inst.watcherPollCount,
+          errorCount: inst.watcherErrorCount,
+          errorRate: inst.watcherPollCount > 0 ? (inst.watcherErrorCount / inst.watcherPollCount).toFixed(6) : '0',
+          lastLatencyMs: inst.watcherLastLatencyMs,
+          avgLatencyMs: Math.round(inst.watcherAvgLatencyMs * 100) / 100,
+          maxLatencyMs: inst.watcherMaxLatencyMs,
+          firstErrorAt: inst.firstWatcherErrorAt,
+          lastErrorAt: inst.lastWatcherErrorAt,
+        },
+        snapshot: {
+          fetchCount: inst.snapshotFetchCount,
+          lastLatencyMs: inst.snapshotLastLatencyMs,
+          avgLatencyMs: Math.round(inst.snapshotAvgLatencyMs * 100) / 100,
+          maxLatencyMs: inst.snapshotMaxLatencyMs,
+          lastAt: inst.lastSnapshotAt,
+        },
+        persistence: {
+          persistDbCount: inst.persistDbCount,
+        },
+        correlation: {
+          note: 'Compare watcher.errorRate and watcher.firstErrorAt with process uptime. If errorRate > 0 within first hour, WASM corruption is rapid. If >20h, WASM corruption is slow-degradation.',
+        },
+      });
+    } catch (err) {
+      json(res, 500, { error: 'M11A room not initialized', detail: err instanceof Error ? err.message : String(err) });
+    }
+    return true;
+  }
+
   if (method === 'POST' && p === '/api/diagnostics/analyze') {
     const raw = await readBody(req);
     const body = raw ? JSON.parse(raw) : {};
@@ -282,23 +328,6 @@ async function collectEvents(ctx: WorkspaceContext, limit: number): Promise<Diag
       status: e.status,
       metadata: e.metadata,
     });
-  }
-
-  try {
-    const act = ctx.activityStore ? await ctx.activityStore.query({ limit }) : [];
-    for (const a of act as any[]) {
-      out.push({
-        id: a.id ?? `act-${out.length}`,
-        timestamp: a.timestamp ?? new Date().toISOString(),
-        category: a.category ?? 'system',
-        type: a.type ?? 'event',
-        actor: a.actor?.name ?? 'system',
-        message: a.message ?? a.type ?? '',
-        metadata: a.metadata,
-      });
-    }
-  } catch {
-    /* activity store unavailable */
   }
 
   return out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, limit);

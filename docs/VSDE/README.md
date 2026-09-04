@@ -1,3 +1,12 @@
+---
+title: Vestara Specification-Driven Engineering
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Vestara Specification-Driven Engineering
 
 **Version 1.0 — Established 2026-07-24**

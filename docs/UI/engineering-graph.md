@@ -1,3 +1,12 @@
+---
+title: Engineering Graph — Workspace UI
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Engineering Graph — Workspace UI
 
 The Engineering Graph page (`/graph`) is the canonical navigation layer of the

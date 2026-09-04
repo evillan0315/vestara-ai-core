@@ -1,3 +1,12 @@
+---
+title: ARX-015 AR-REC-C2-I3-D2 — Domain Continuation Durability & Reconciliation Design
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 AR-REC-C2-I3-D2 — Domain Continuation Durability & Reconciliation Design
 
 > **Status**: DESIGN/EVIDENCE ONLY  

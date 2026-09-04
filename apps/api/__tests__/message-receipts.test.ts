@@ -1,4 +1,4 @@
-import type { AgentMessageActivity } from '@vestara/activity-projection';
+import type { AgentMessageActivity } from '@vestara/activity-room';
 import { describe, expect, it } from 'vitest';
 import {
   markMessageObserved,

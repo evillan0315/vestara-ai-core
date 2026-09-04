@@ -1,3 +1,12 @@
+---
+title: Getting Started With Vestara
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Getting Started With Vestara
 
 Vestara is an engineering workspace with a CLI, an HTTP and WebSocket API, and

@@ -1,3 +1,12 @@
+---
+title: "AR-REC-C2-I1: Durable Interaction Authority + Publication Substrate — Evidence"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-REC-C2-I1: Durable Interaction Authority + Publication Substrate — Evidence
 
 **Frozen D1 architecture**: `83e68cc` (D1 accepted and frozen)

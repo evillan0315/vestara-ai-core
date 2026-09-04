@@ -22,6 +22,7 @@
     "@vestara/knowledge": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/memory": "workspace:*",
+    "@vestara/opencode-runtime": "workspace:*",
     "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/sqlite-migrations": "workspace:*",

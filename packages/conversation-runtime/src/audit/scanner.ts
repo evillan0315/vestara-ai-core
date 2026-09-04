@@ -53,7 +53,6 @@ const CONVERSATION_PACKAGES = [
   'packages/audio',
   'packages/stt',
   'packages/tts',
-  'packages/activity-log',
   'packages/events',
   'packages/event-bus',
   'packages/stream',

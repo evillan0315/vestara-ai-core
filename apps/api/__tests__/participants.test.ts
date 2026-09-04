@@ -1,4 +1,4 @@
-import type { ActivityRecord } from '@vestara/activity-projection';
+import type { ActivityRecord } from '@vestara/activity-room';
 import type { AcceptanceBoundary } from '@vestara/workspace';
 import { describe, expect, it } from 'vitest';
 import { projectWorkflowParticipants } from '../src/participants.js';

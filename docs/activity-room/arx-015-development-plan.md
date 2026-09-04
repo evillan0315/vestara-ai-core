@@ -1,3 +1,12 @@
+---
+title: ARX-015 — Production Activity Room Stabilization DevelopmentPlan
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 — Production Activity Room Stabilization DevelopmentPlan
 
 **Date:** 2026-08-27

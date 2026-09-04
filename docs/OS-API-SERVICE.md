@@ -1,3 +1,12 @@
+---
+title: Vestara API Service
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Vestara API Service
 
 The production API runs as `vestara-api.service` and is enabled through

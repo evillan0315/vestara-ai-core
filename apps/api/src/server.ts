@@ -11,7 +11,6 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { Socket } from 'node:net';
 import * as path from 'node:path';
-import type { ActivityService } from '@vestara/activity-log';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
@@ -20,7 +19,6 @@ import { ApiError, httpMetrics, logger, requestContext, sendJson, sendNoContent 
 import { normalizeError } from './http/api-error';
 import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
-import { handleActivityRoute } from './routes/activity';
 import { handleActivityRoomRoute } from './routes/activity-room';
 import { handleM11AActivityRoomRoute } from './routes/activity-room-m11a';
 import { createM11BTransport, type M11BTransport } from './routes/activity-room-m11b.js';
@@ -189,7 +187,6 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/orders'], handler: handleOrdersRoute },
   { prefixes: ['/api/interactions'], handler: handleInteractionsRoute },
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
-  { prefixes: ['/api/activity-log', '/api/activity'], handler: handleActivityRoute },
   { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },
   { prefixes: ['/api/activity-room/v1'], handler: handleM11AActivityRoomRoute },
   { prefixes: ['/api/agent-threads'], handler: handleAgentHarnessRoute },
@@ -241,12 +238,7 @@ function serveWorkspaceUi(res: http.ServerResponse, pathname: string): boolean {
   return true;
 }
 
-export function createServer(
-  ctx: WorkspaceContext,
-  port: number,
-  activityService?: ActivityService,
-  options: ApiServerOptions = {},
-): ApiServer {
+export function createServer(ctx: WorkspaceContext, port: number, options: ApiServerOptions = {}): ApiServer {
   const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const shutdownGraceMs = options.shutdownGraceMs ?? SHUTDOWN_GRACE_MS;
   const clients = new Set<WebSocket>();
@@ -290,17 +282,6 @@ export function createServer(
     return sent;
   }
 
-  if (activityService?.onEvent) {
-    activityService.onEvent((domainEvent: WorkspaceEvent) => {
-      try {
-        const raw = JSON.stringify({ op: 'event', event: domainEvent } as WsServerMessage);
-        broadcastRaw(raw);
-      } catch (err) {
-        logger.warn({ event: 'ws.broadcast.serialize.failed', error: String(err) });
-      }
-    });
-  }
-
   interface LegacyEvent {
     id: string;
     type: string;
@@ -333,7 +314,6 @@ export function createServer(
     } catch (err) {
       logger.warn({ event: 'ws.broadcast.serialize.failed', error: String(err) });
     }
-    activityService?.emitDirect(event).catch(() => {});
   };
 
   const server = http.createServer(async (req, res) => {

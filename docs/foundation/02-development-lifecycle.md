@@ -1,3 +1,12 @@
+---
+title: Development Lifecycle
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Development Lifecycle
 
 > Agents don't perform work. They participate in a software development lifecycle.

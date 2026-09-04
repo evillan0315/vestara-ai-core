@@ -7,8 +7,7 @@ import { execFileSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { ActivityLogStore, ActivityService, NotificationService, NotificationStore } from '@vestara/activity-log';
-import type { AgentMessageActivity } from '@vestara/activity-projection';
+import type { AgentMessageActivity } from '@vestara/activity-room';
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
@@ -41,6 +40,7 @@ import { InteractionService } from '@vestara/interaction-app';
 import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
 import { DefaultKernel } from '@vestara/kernel';
 import { LocalMarketplaceRegistry, type MarketplaceEventSink, MarketplaceService } from '@vestara/marketplace';
+import { InMemoryRuntimeSessionRegistry } from '@vestara/opencode-runtime';
 import {
   OpenAIProvider,
   OpenCodeGoProvider,
@@ -154,6 +154,7 @@ export interface WorkspaceContext {
   agentEnvironment: AgentEnvironment;
   agentHarness: AgentHarnessRuntime;
   harnessSession: HarnessSession;
+  runtimeSessionRegistry: InstanceType<typeof InMemoryRuntimeSessionRegistry>;
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
   changeProjector: ChangeEventProjector;
@@ -202,12 +203,9 @@ export interface WorkspaceContext {
   executionPlanner: ExecutionPlanner;
   workspaceAnalyst: WorkspaceAnalyst;
   suggestionService: SuggestionService;
-  activityService?: ActivityService;
-  notificationService?: NotificationService;
   milestones?: MilestoneService;
   projects?: ProjectService;
   orders?: OrderService;
-  activityStore?: ActivityLogStore;
   telemetry: TelemetryRuntime;
   documentation: DocumentationService;
   settings: WorkspaceConfigurationService;
@@ -904,7 +902,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     // resolver aligns each agent turn with the provider/model/runtime agent the
     // agent was configured with in the Agent Control modal (agent registry
     // first, then the global routing selection for the role).
-    provider: new OpenCodeRuntimeProvider({ directory: workspaceDir }),
+    provider: new OpenCodeRuntimeProvider({ directory: abs }),
     model: 'opencode-runtime',
     tools: agentTools,
     context: harnessContext,
@@ -993,6 +991,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     storage: agents,
     environment: agentEnvironment,
   });
+  // M7: Runtime session continuity registry — single authoritative binding
+  // between workflow runs and physical OpenCode sessions.
+  const runtimeSessionRegistry = new InMemoryRuntimeSessionRegistry();
   const multiAgentWorkflow = new MultiAgentWorkflowOrchestrator({
     session: harnessSession,
     changeProjector: undefined,
@@ -1209,22 +1210,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const orderStorage = new OrderStorage(db);
   const orders = new OrderService({ storage: orderStorage, eventBus: kernel.eventBus });
 
-  // Initialize activity log for domain event streaming
-  const activityStore = new ActivityLogStore({ logger: kernel.logger });
-  await activityStore.initialize();
-  const activityService = new ActivityService({
-    store: activityStore,
-    eventBus: kernel.eventBus,
-    logger: kernel.logger,
-  });
-  activityService.start();
-
-  // Initialize notification center — bridges activity events to persistent notifications
-  const notificationStore = new NotificationStore({ logger: kernel.logger });
-  await notificationStore.initialize();
-  const notificationService = new NotificationService({ store: notificationStore, logger: kernel.logger });
-  notificationService.start((fn) => activityService.onEvent(fn));
-
   // Create ApiRuntime — managed lifecycle for API services
   const runtimeId = 'api-runtime' as unknown as import('@vestara/types').RuntimeId;
   const apiRuntime = new ApiRuntime(
@@ -1242,7 +1227,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       planning: planningService,
       sessions,
       memory,
-      activity: activityService,
     },
   );
 
@@ -1427,6 +1411,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentEnvironment,
     agentHarness,
     harnessSession,
+    runtimeSessionRegistry,
     multiAgentWorkflow,
     activityRoomStreams,
     changeProjector,
@@ -1474,7 +1459,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     executionPlanner,
     workspaceAnalyst,
     suggestionService,
-    activityService,
     telemetry,
     documentation,
     settings,
@@ -1482,11 +1466,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     marketplace,
     marketplacePublishRoot: marketplaceRoots[0] ?? path.join(abs, '.vestara', 'marketplace'),
     opencodeRuntime: openCodeRuntimeService,
-    notificationService,
     milestones,
     projects,
     orders,
-    activityStore,
     publish,
     onMilestoneUpdate,
     workspaceUiWatcher,
@@ -1498,7 +1480,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsubscribeEngineeringMemory();
       harnessApprovalBridgeDisposal.dispose();
       workspaceUiWatcher?.stop();
-      notificationService?.stop();
       persistDb(db, dbPath);
       await documentation.dispose();
       await marketplaceManager.shutdown();

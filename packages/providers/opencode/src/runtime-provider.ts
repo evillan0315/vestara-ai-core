@@ -200,8 +200,10 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
     const resolved = this.resolveProvider(request.model);
-    // Session creation: only title + directory (via context). No agent/model.
-    const sessionId = await this.createSession(request.title);
+    // M7: If a runtime session ID is provided, reuse the existing session.
+    // Otherwise, create a new ephemeral session (existing behavior).
+    const sessionId = request.runtimeSessionId || (await this.createSession(request.title));
+    const isEphemeral = !request.runtimeSessionId;
     try {
       const format = request.jsonSchema ? { type: 'json_schema' as const, schema: request.jsonSchema } : undefined;
       const { text, structuredOutput } = await this.streamReply(
@@ -231,10 +233,12 @@ export class OpenCodeRuntimeProvider implements AIProvider {
         },
       };
     } finally {
-      // Sessions are created per invocation so agent turns never share history.
-      await this.client()
-        .abortSession(sessionId, { workspaceId: this.workspaceId, directory: this.directory, sessionId })
-        .catch(() => {});
+      // M7: Only abort ephemeral sessions. Reused sessions are persistent.
+      if (isEphemeral) {
+        await this.client()
+          .abortSession(sessionId, { workspaceId: this.workspaceId, directory: this.directory, sessionId })
+          .catch(() => {});
+      }
     }
   }
 

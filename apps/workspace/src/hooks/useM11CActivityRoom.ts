@@ -13,7 +13,8 @@
  * system, or UI-owned workflow state is introduced.
  */
 
-import type { AttentionEntry, InteractionResponse, ParticipantProjection, WorkflowSummary } from '@vestara/types';
+import type { AttentionEntry, ParticipantProjection, WorkflowSummary } from '@vestara/activity-room';
+import type { InteractionResponse } from '@vestara/types';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type M11AActivityRecord,
@@ -285,6 +286,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const [paused, setPaused] = useState(false);
   const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(new Set());
   const [submission, setSubmission] = useState<SubmissionState>({ status: 'idle' });
+  const [retryKey, setRetryKey] = useState(0);
 
   // ─── Refs ───────────────────────────────────────────────
   const latestSequenceRef = useRef(0);
@@ -296,6 +298,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const flushTimerRef = useRef<number | null>(null);
   const disposedRef = useRef(false);
   const clientRef = useRef<M11BClient>(m11bClient);
+  const submissionRef = useRef<SubmissionState>({ status: 'idle' });
 
   // ─── Derived ────────────────────────────────────────────
 
@@ -415,14 +418,9 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const retry = useCallback(() => {
     clear();
     setError(undefined);
-    // Re-trigger snapshot fetch by disposing and re-initializing
-    disposedRef.current = true;
-    // Small delay to ensure dispose completes
-    setTimeout(() => {
-      disposedRef.current = false;
-      // The main useEffect will re-run on next render
-      setState('connecting');
-    }, 100);
+    // Increment retryKey to force the WebSocket lifecycle useEffect to re-run
+    // with a fresh snapshot fetch and WS reconnect
+    setRetryKey((k) => k + 1);
   }, [clear]);
 
   // ─── AR-REC-R6: Interaction Response Submission ──────────
@@ -494,15 +492,22 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
   // ─── Live Activity Handler ──────────────────────────────
 
+  // Keep submissionRef in sync with submission state (avoids re-creating handleLiveActivity)
+  useEffect(() => {
+    submissionRef.current = submission;
+  }, [submission]);
+
   const handleLiveActivity = useCallback(
     (activity: M11AActivityRecord, sequence: number) => {
       const item = streamItemFromLive(activity, true);
 
       // AR-REC-R6: Convergence — when durable responded arrives, clear transient submission
+      // Read from ref to avoid adding submission to dependency array (prevents WS teardown)
+      const currentSubmission = submissionRef.current;
       if (
         activity.type === 'interaction.responded' &&
-        submission.status !== 'idle' &&
-        submission.interactionId === item.interaction?.interactionId
+        currentSubmission.status !== 'idle' &&
+        currentSubmission.interactionId === item.interaction?.interactionId
       ) {
         // Durable state wins — clear transient submission
         setSubmission({ status: 'idle' });
@@ -535,7 +540,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
       updateSequence(sequence);
     },
-    [bumpUnread, mergeStream, updateSequence, submission],
+    [bumpUnread, mergeStream, updateSequence],
   );
 
   // ─── WebSocket Lifecycle ────────────────────────────────
@@ -645,7 +650,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       }
       liveBufferRef.current = [];
     };
-  }, [handleLiveActivity, updateSequence]);
+  }, [handleLiveActivity, updateSequence, retryKey]);
 
   // ─── Map connection state ──────────────────────────────
 

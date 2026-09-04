@@ -712,7 +712,7 @@ function workspaceIdOf(_ctx: WorkspaceContext): string {
 function workspaceContext(_ctx: WorkspaceContext): OpenCodeRequestContext {
   return {
     workspaceId: workspaceIdOf(_ctx),
-    directory: _ctx.workspaceDir,
+    directory: _ctx.repoPath,
     correlationId: `req-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
   };
 }

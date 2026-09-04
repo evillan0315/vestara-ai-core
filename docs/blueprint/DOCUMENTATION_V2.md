@@ -1,3 +1,12 @@
+---
+title: Documentation v2.0 — Living Engineering Documentation Blueprint
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Documentation v2.0 — Living Engineering Documentation Blueprint
 
 ## Status

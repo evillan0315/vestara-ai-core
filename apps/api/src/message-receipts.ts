@@ -13,7 +13,7 @@
  * already durable via the activity room store.
  */
 
-import type { AgentMessageActivity } from '@vestara/activity-projection';
+import type { AgentMessageActivity } from '@vestara/activity-room';
 
 export type MessageReceiptState = 'pending' | 'observed' | 'addressed' | 'responding' | 'failed';
 

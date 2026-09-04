@@ -1,3 +1,12 @@
+---
+title: Contract Catalog
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Contract Catalog
 
 A centralized index of all platform contracts across architectural, domain, lifecycle, capability, persistence, plugin, enterprise, and OS layers.

@@ -642,6 +642,8 @@ export class AgentHarnessRuntime {
           signal: active.controller.signal,
           agent: executionOverride?.runtimeAgent || active.agentId || undefined,
           title: thread.title,
+          // M7: Pass runtime session ID for session continuity.
+          runtimeSessionId: active.environment.runtimeSessionId,
           onExecutionEvent: (event) => {
             // Correlate runtime execution activity to this participant/thread
             // and publish it for the Activity Room bridge to project.

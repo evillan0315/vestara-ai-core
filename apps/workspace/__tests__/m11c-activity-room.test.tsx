@@ -21,7 +21,7 @@ import M11CParticipantRail from '../src/pages/activity/M11CParticipantRail.js';
 import M11CConnectionStatus from '../src/pages/activity/M11CConnectionStatus.js';
 import M11CStreamItemComponent from '../src/pages/activity/M11CStreamItem.js';
 import type { M11CConnectionState, M11CStreamItem } from '../src/hooks/useM11CActivityRoom.js';
-import type { ParticipantProjection } from '@vestara/types';
+import type { ParticipantProjection } from '@vestara/activity-room';
 
 // ─── Mock Data ───────────────────────────────────────────────
 

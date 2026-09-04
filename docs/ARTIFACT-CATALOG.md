@@ -1,3 +1,12 @@
+---
+title: Artifact Catalog
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Artifact Catalog
 
 **Canonical inventory of Vestara's durable domain objects.**

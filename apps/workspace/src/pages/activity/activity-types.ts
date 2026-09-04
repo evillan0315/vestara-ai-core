@@ -3,7 +3,7 @@ import type {
   ActivityRecord,
   ActivitySeverity,
   MessageTarget,
-} from '@vestara/activity-projection';
+} from '@vestara/activity-room';
 
 export type { ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity, MessageTarget };
 

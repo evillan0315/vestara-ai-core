@@ -1,22 +1,20 @@
 ---
-id: "adr-001"
-adr: "ADR-001"
-title: "Runtime Model"
-category: "foundation"
+id: adr-001
+adr: ADR-001
+title: Runtime Model
+category: foundation
 version: 1.0
-date: "2026-07-31"
-status: "accepted"
-author: "@chief-architect"
-deciders: ["@chief-architect", "@engineering-manager"]
-tags: ["runtime", "lifecycle", "state-machine", "kernel"]
-referenced_by:
-  - type: "runtime"
-    target: "@vestara/runtime"
-  - type: "runtime"
-    target: "@vestara/state-machine"
-  - type: "architecture"
-    target: "docs/Architecture/Agent-Orchestration.md"
+date: 2026-07-31
+status: accepted
+author: @chief-architect
+deciders: "["@chief-architect", "@engineering-manager"]"
+tags: "["runtime", "lifecycle", "state-machine", "kernel"]"
+referenced_by: 
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
 ---
+
 
 # ADR-001 — Runtime Model
 

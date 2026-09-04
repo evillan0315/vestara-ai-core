@@ -52,6 +52,8 @@ export interface AgentEnvironment {
   readonly workspaceRoot: string;
   /** ARX-015 M5: Authoritative repository binding linking this environment to a repository. */
   readonly repositoryBindingId?: RepositoryBindingId;
+  /** M7: Runtime session binding ID for session continuity. When set, the provider reuses the existing OpenCode session. */
+  readonly runtimeSessionId?: string;
   readonly networkPolicy: 'deny' | 'restricted' | 'allow';
   readonly filesystemPolicy: 'read-only' | 'workspace-write' | 'unrestricted';
   readonly processPolicy: 'deny' | 'restricted' | 'allow';

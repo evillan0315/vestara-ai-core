@@ -1,3 +1,12 @@
+---
+title: OS-0 Host Integration Foundation
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # OS-0 Host Integration Foundation
 
 Vestara OS-0 introduces the machine-plane boundary beneath the existing agent

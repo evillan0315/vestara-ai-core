@@ -343,7 +343,7 @@ shareable and reversible.
 
 **Files.**
 - Edit: `apps/api/src/routes/activity-room.ts` (`parseActivityQuery` + list handler: `from`, `to`, `sort`; validate and clamp)
-- Edit: `packages/activity-projection/src/store.ts` and `store-sqlite.ts` (timestamp range + sort pass-through or reject-with-error)
+- Edit: `packages/activity-room/src/store.ts` and `store-sqlite.ts` (timestamp range + sort pass-through or reject-with-error)
 - Edit: `apps/workspace/src/lib/activity.ts` (`ActivityHistoryParams` + `fetchActivityHistory`)
 - Edit: `apps/workspace/src/hooks/useActivityStream.ts` / `useActivityRoomModel.ts` (filter params in fetch + URL read/write)
 - Edit: `apps/workspace/src/pages/activity/ActivityRoomPage.tsx` (filter/date/sort controls in command-bar/browser)
@@ -504,7 +504,7 @@ amber; severity roles unchanged. Nothing renders below 10px effective. Preserve
 
 **Files.**
 - Edit: `apps/workspace/src/styles/index.css` (add `--vestara-cyan` + light-theme deep variant; token corrections)
-- Edit: `apps/workspace/src/pages/activity/activity-formatters.ts` (accent helpers per mapping; resolve violet → `--vestara-purple`; fix missing `acceptance` severity case to match `packages/activity-projection/src/severity.ts`)
+- Edit: `apps/workspace/src/pages/activity/activity-formatters.ts` (accent helpers per mapping; resolve violet → `--vestara-purple`; fix missing `acceptance` severity case to match `packages/activity-room/src/severity.ts`)
 - Edit: all `apps/workspace/src/pages/activity/*.tsx` (class/type ramp, surfaces, 10px floor)
 - Visual: `apps/workspace/tests/visual/activity-room.spec.ts` + `activity-room-layout.spec.ts` updated; baselines regenerated deliberately with `pnpm screenshots:update` after review
 

@@ -1,3 +1,12 @@
+---
+title: Agent Catalog Cleanup Preflight (Corrected)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Agent Catalog Cleanup Preflight (Corrected)
 
 **Date:** 2026-09-03

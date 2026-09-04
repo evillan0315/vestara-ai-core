@@ -1,3 +1,12 @@
+---
+title: Vestara AI OS — Completion Roadmap
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Vestara AI OS — Completion Roadmap
 
 **Status**: Approved — Phase 0 complete (engine integration)

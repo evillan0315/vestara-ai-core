@@ -1,0 +1,24 @@
+{
+  "name": "@vestara/activity-room",
+  "description": "Canonical Activity Room domain: projection, persistence, stream, and query",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@vestara/interaction-app": "workspace:*",
+    "@vestara/interaction-persistence": "workspace:*",
+    "vitest": "^4.1.10"
+  },
+  "dependencies": {
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "sql.js": "^1.14.1"
+  }
+}

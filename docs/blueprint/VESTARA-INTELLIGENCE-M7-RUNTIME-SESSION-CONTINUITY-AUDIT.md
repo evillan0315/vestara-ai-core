@@ -1,3 +1,12 @@
+---
+title: M7 Runtime Session Continuity — Current-State Audit
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # M7 Runtime Session Continuity — Current-State Audit
 
 **Date:** 2026-09-03

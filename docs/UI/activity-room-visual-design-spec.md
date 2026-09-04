@@ -36,7 +36,7 @@ migration steps, no code changes). It describes the *target visual state* only.
 - `apps/workspace/src/hooks/useActivityStream.ts`, `apps/workspace/src/lib/activity.ts`.
 - `apps/api/src/routes/activity-room.ts`, and the participants/live-stream routes in
   `apps/api/src/routes/workflow.ts`.
-- `packages/activity-projection/src/*` (contracts, severity, effective-state, stream).
+- `packages/activity-room/src/*` (contracts, severity, effective-state, stream).
 
 **Authority:** where the target wireframe constraints (sections 2–5) conflict with
 current styling, the spec wins. Section 6 (protected behaviors) is absolute — nothing

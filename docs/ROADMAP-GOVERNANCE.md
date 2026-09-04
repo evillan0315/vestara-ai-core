@@ -1,3 +1,12 @@
+---
+title: Roadmap Governance
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Roadmap Governance
 
 **How Vestara milestones are proposed, validated, and completed.**

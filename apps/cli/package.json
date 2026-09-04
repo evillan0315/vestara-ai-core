@@ -16,7 +16,6 @@
   },
   "dependencies": {
     "@vestara/action": "workspace:*",
-    "@vestara/activity-log": "workspace:*",
     "@vestara/architecture-runtime": "workspace:*",
     "@vestara/audio": "workspace:*",
     "@vestara/boot-runtime": "workspace:*",

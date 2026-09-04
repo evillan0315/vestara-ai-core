@@ -1,3 +1,12 @@
+---
+title: Agent Orchestration — Architecture
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Agent Orchestration — Architecture
 
 | Field | Value |

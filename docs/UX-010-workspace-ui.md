@@ -1,3 +1,12 @@
+---
+title: UX-010 — Workspace UI
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # UX-010 — Workspace UI
 
 **User Experience Specification**

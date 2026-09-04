@@ -1,3 +1,13 @@
+---
+title: Capability Registry
+version: 1.0.0
+status: approved
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
+
 # Capability Registry
 
 Index of all product capabilities with CSP status, implementation version, and verification status.

@@ -1,3 +1,12 @@
+---
+title: VESTARA-INTELLIGENCE M-B1 — GA-3 Surface Context Contract Preflight (Corrected)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # VESTARA-INTELLIGENCE M-B1 — GA-3 Surface Context Contract Preflight (Corrected)
 
 **Date:** 2026-08-31

@@ -1,3 +1,12 @@
+---
+title: AR-P1 — Production Activity Room Ownership Audit (AUDIT ONLY)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-P1 — Production Activity Room Ownership Audit (AUDIT ONLY)
 
 > **Constraint:** No Activity Room, workflow, agent, provider/model, OpenCode runtime, conversation, participant, or execution behavior was modified. This document establishes the authoritative ownership map required before restructuring.

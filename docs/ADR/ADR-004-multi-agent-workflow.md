@@ -1,25 +1,21 @@
 ---
-id: "adr-004"
-adr: "ADR-004"
-title: "Multi-Agent Workflow"
-category: "implementation"
+id: adr-004
+adr: ADR-004
+title: Multi-Agent Workflow
+category: implementation
 version: 1.1
-date: "2026-07-31"
-status: "accepted"
-author: "@chief-architect"
-deciders: ["@chief-architect", "@engineering-manager", "@product-manager"]
-tags: ["workflow", "orchestration", "agents", "events", "state-machine"]
-referenced_by:
-  - type: "architecture"
-    target: "docs/Architecture/Agent-Orchestration.md"
-  - type: "blueprint"
-    target: "PCS-025 Multi-Agent Project Management"
-  - type: "implementation"
-    target: "docs/PCS-025-phase-1-implementation-plan.md"
-influences:
-  - "AI Engineer"
-  - "Backend Engineer"
+date: 2026-07-31
+status: accepted
+author: @chief-architect
+deciders: "["@chief-architect", "@engineering-manager", "@product-manager"]"
+tags: "["workflow", "orchestration", "agents", "events", "state-machine"]"
+referenced_by: 
+influences: 
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
 ---
+
 
 # ADR-004 — Multi-Agent Workflow
 

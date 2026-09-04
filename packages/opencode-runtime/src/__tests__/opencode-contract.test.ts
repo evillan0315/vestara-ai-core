@@ -198,8 +198,7 @@ describe('OpenCodeHttpClient — contract compliance', () => {
       },
       {
         name: 'respondToPermission',
-        call: (c) =>
-          c.respondToPermission('s1', 'p1', { decision: 'approve', scope: 'once' }, CTX_WITH_DIR),
+        call: (c) => c.respondToPermission('s1', 'p1', { decision: 'approve', scope: 'once' }, CTX_WITH_DIR),
         expectedPath: '/session/s1/permissions/p1?',
         expectsDirectory: true,
       },

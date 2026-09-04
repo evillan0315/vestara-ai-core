@@ -1,3 +1,12 @@
+---
+title: ARX-015 M11B — Production Activity Room Realtime Transport Evidence
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M11B — Production Activity Room Realtime Transport Evidence
 
 **Milestone**: M11B — Production Activity Room Realtime Transport (frozen)

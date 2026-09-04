@@ -1,3 +1,12 @@
+---
+title: "ARX-015 M11C: Live Activity Room Validation"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # ARX-015 M11C: Live Activity Room Validation
 
 **Date**: 2026-08-28

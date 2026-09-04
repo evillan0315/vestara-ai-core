@@ -8,7 +8,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { M9IngestionBridge } from '@vestara/activity-projection';
+import { M9IngestionBridge } from '@vestara/activity-room';
 import type { WorkspaceEvent } from '@vestara/events';
 import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
   }
   bootMark('opencode-supervisor');
 
-  const server = createServer(ctx, port, ctx.activityService) as ApiServer;
+  const server = createServer(ctx, port) as ApiServer;
   broadcast = (e) => server.broadcast(e);
   for (const e of pending) server.broadcast(e);
   bootMark('routes-registered');

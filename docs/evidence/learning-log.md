@@ -1,3 +1,12 @@
+---
+title: Learning Log
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Learning Log
 
 Organizational memory for Vestara. Each entry records a question, the evidence that answered it, and the improvement that followed.

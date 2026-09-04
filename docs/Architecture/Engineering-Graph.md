@@ -1,3 +1,12 @@
+---
+title: Engineering Graph — Architecture
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # Engineering Graph — Architecture
 
 The Engineering Graph is the canonical relationship engine of the Workspace.

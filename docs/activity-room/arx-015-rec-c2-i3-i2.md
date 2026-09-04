@@ -1,3 +1,12 @@
+---
+title: "AR-REC-C2 I3-I2 Evidence: Harness Approval Producer Implementation"
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-REC-C2 I3-I2 Evidence: Harness Approval Producer Implementation
 
 **Frozen**: `d9788e0` (implementation), `f853fd4` (evidence), `a683c76` (C1 recovery correction)
