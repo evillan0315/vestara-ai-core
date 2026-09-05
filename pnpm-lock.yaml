@@ -596,6 +596,28 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/browser-runtime:
+    dependencies:
+      '@vestara/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
+      '@vestara/evidence':
+        specifier: workspace:*
+        version: link:../evidence
+      '@vestara/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@vestara/tools-browser':
+        specifier: workspace:*
+        version: link:../tools/browser
+    devDependencies:
+      '@vestara/types':
+        specifier: workspace:*
+        version: link:../types
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/capabilities:
     dependencies:
       '@vestara/types':

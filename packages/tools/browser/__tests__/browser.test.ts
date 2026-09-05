@@ -3,17 +3,25 @@ import type { AgentEnvironment } from '@vestara/types';
 import { describe, expect, it } from 'vitest';
 import {
   abortError,
+  BrowserBackTool,
   BrowserClickTool,
   BrowserCloseTool,
   type BrowserDriver,
+  BrowserForwardTool,
   BrowserNavigateTool,
   type BrowserNavigationResult,
+  type BrowserObserveResult,
+  BrowserObserver,
+  BrowserObserveTool,
+  BrowserReloadTool,
   type BrowserScreenshotResult,
   BrowserScreenshotTool,
+  BrowserScrollTool,
   BrowserSession,
   type BrowserSnapshotResult,
   BrowserSnapshotTool,
   BrowserTypeTool,
+  BrowserWaitTool,
   redactText,
   resolveBrowserUrl,
 } from '../src/index';
@@ -36,6 +44,11 @@ class FakeBrowserDriver implements BrowserDriver {
   abortOnNavigate = false;
   clickLog: Array<{ selector: string; point?: { x: number; y: number }; key: string }> = [];
   typeLog: Array<{ selector: string; text: string; submit: boolean; key: string }> = [];
+  scrollLog: Array<{ direction: string; amount: number; key: string }> = [];
+  backLog: string[] = [];
+  forwardLog: string[] = [];
+  reloadLog: string[] = [];
+  observeCount = 0;
 
   async navigate(url: string, key: string): Promise<BrowserNavigationResult> {
     if (this.abortOnNavigate) throw abortError();
@@ -52,12 +65,54 @@ class FakeBrowserDriver implements BrowserDriver {
     return { url: BASE, width: 640, height: 480, bytes: new Uint8Array([1, 2, 3, 4]) };
   }
 
+  async observe(key: string): Promise<BrowserObserveResult> {
+    this.observeCount++;
+    return {
+      url: BASE,
+      title: 'Fake Page',
+      observationId: `obs-${this.observeCount}`,
+      elements: [
+        { ref: 'e1', role: 'button', name: 'Submit' },
+        { ref: 'e2', role: 'textbox', name: 'Email' },
+        { ref: 'e3', role: 'link', name: 'Sign in' },
+      ],
+    };
+  }
+
   async click(selector: string, point: { x: number; y: number } | undefined, key: string): Promise<void> {
     this.clickLog.push({ selector, point, key });
   }
 
+  async clickRef(ref: string, key: string): Promise<void> {
+    this.clickLog.push({ selector: `ref:${ref}`, key });
+  }
+
   async type(selector: string, text: string, submit: boolean, key: string): Promise<void> {
     this.typeLog.push({ selector, text, submit, key });
+  }
+
+  async typeRef(ref: string, text: string, submit: boolean, key: string): Promise<void> {
+    this.typeLog.push({ selector: `ref:${ref}`, text, submit, key });
+  }
+
+  async scroll(direction: 'up' | 'down', amount: number, key: string): Promise<void> {
+    this.scrollLog.push({ direction, amount, key });
+  }
+
+  async back(key: string): Promise<void> {
+    this.backLog.push(key);
+  }
+
+  async forward(key: string): Promise<void> {
+    this.forwardLog.push(key);
+  }
+
+  async reload(key: string): Promise<void> {
+    this.reloadLog.push(key);
+  }
+
+  async waitForNavigation(key: string): Promise<BrowserNavigationResult> {
+    return { url: BASE, title: 'Fake Page' };
   }
 
   async close(key?: string): Promise<void> {
@@ -193,8 +248,8 @@ describe('BrowserClickTool', () => {
   it('rejects selector combined with coordinates or neither', () => {
     const tool = new BrowserClickTool(session(new FakeBrowserDriver()));
     expect(() => tool.inputSchema.parse({ selector: '#a', x: 1, y: 2 })).toThrow(/selector or coordinates, not both/);
-    expect(() => tool.inputSchema.parse({ x: 1 })).toThrow(/requires a selector or both/);
-    expect(() => tool.inputSchema.parse({})).toThrow(/requires a selector or both/);
+    expect(() => tool.inputSchema.parse({ x: 1 })).toThrow(/requires a selector, coordinates, or observationId\+ref/);
+    expect(() => tool.inputSchema.parse({})).toThrow(/requires a selector, coordinates, or observationId\+ref/);
   });
 });
 
@@ -390,5 +445,166 @@ describe('action replay trace (ENG-008)', () => {
     expect(metadata.replay.mode).toBe('execution');
     expect(metadata.replay.steps).toHaveLength(1);
     expect(metadata.replay.requires.runtime).toBe('playwright-chromium');
+  });
+});
+
+describe('BrowserObserveTool (LB-002)', () => {
+  it('returns structured element references from page observation', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserObserveTool(session(driver));
+    const result = await tool.execute({}, context());
+    expect(result.status).toBe('completed');
+    expect(result.output?.observationId).toMatch(/^obs-/);
+    expect(result.output?.elements).toHaveLength(3);
+    expect(result.output?.elements[0]).toMatchObject({ ref: 'e1', role: 'button', name: 'Submit' });
+    expect(result.output?.elements[1]).toMatchObject({ ref: 'e2', role: 'textbox', name: 'Email' });
+    expect(result.output?.elements[2]).toMatchObject({ ref: 'e3', role: 'link', name: 'Sign in' });
+  });
+
+  it('records observation evidence with governance metadata', async () => {
+    const tool = new BrowserObserveTool(session(new FakeBrowserDriver()));
+    const result = await tool.execute({}, context());
+    expect(result.evidence[0]?.kind).toBe('custom');
+    const metadata = result.evidence[0]!.metadata as { observationId: string; elementCount: number };
+    expect(metadata.observationId).toMatch(/^obs-/);
+    expect(metadata.elementCount).toBe(3);
+  });
+});
+
+describe('BrowserClickTool with observation refs (LB-003)', () => {
+  it('clicks by observationId + ref', async () => {
+    const driver = new FakeBrowserDriver();
+    const sess = session(driver);
+    const tool = new BrowserClickTool(sess);
+    const observe = new BrowserObserveTool(sess);
+    const obs = await observe.execute({}, context());
+    const observationId = obs.output!.observationId;
+    const result = await tool.execute({ observationId, ref: 'e1' }, context());
+    expect(result.status).toBe('completed');
+    expect(driver.clickLog).toHaveLength(1);
+    expect(driver.clickLog[0]?.key).toBe('test-agent:task-1');
+  });
+
+  it('rejects observationId without ref or ref without observationId', () => {
+    const tool = new BrowserClickTool(session(new FakeBrowserDriver()));
+    expect(() => tool.inputSchema.parse({ observationId: 'obs-1' })).toThrow(/requires both observationId and ref/);
+    expect(() => tool.inputSchema.parse({ ref: 'e1' })).toThrow(/requires both observationId and ref/);
+  });
+});
+
+describe('BrowserTypeTool with observation refs (LB-003)', () => {
+  it('types into a field by observationId + ref', async () => {
+    const driver = new FakeBrowserDriver();
+    const sess = session(driver);
+    const tool = new BrowserTypeTool(sess);
+    const observe = new BrowserObserveTool(sess);
+    const obs = await observe.execute({}, context());
+    const observationId = obs.output!.observationId;
+    const result = await tool.execute({ observationId, ref: 'e2', text: 'hello@example.com' }, context());
+    expect(result.status).toBe('completed');
+    expect(driver.typeLog).toHaveLength(1);
+    expect(driver.typeLog[0]?.selector).toBe('ref:e2');
+    expect(driver.typeLog[0]?.text).toBe('hello@example.com');
+  });
+});
+
+describe('BrowserScrollTool (LB-004)', () => {
+  it('scrolls down by default amount', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserScrollTool(session(driver));
+    const result = await tool.execute({ direction: 'down' }, context());
+    expect(result.status).toBe('completed');
+    expect(result.output?.scrolled).toBe(true);
+    expect(driver.scrollLog).toEqual([{ direction: 'down', amount: 500, key: 'test-agent:task-1' }]);
+  });
+
+  it('scrolls up by custom amount', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserScrollTool(session(driver));
+    await tool.execute({ direction: 'up', amount: 1000 }, context());
+    expect(driver.scrollLog).toEqual([{ direction: 'up', amount: 1000, key: 'test-agent:task-1' }]);
+  });
+});
+
+describe('BrowserWaitTool (LB-004)', () => {
+  it('waits for navigation and returns result', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserWaitTool(session(driver));
+    const result = await tool.execute({}, context());
+    expect(result.status).toBe('completed');
+    expect(result.output?.url).toBe(BASE);
+  });
+});
+
+describe('BrowserBackTool (LB-004)', () => {
+  it('navigates back', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserBackTool(session(driver));
+    const result = await tool.execute({}, context());
+    expect(result.status).toBe('completed');
+    expect(driver.backLog).toEqual(['test-agent:task-1']);
+  });
+});
+
+describe('BrowserForwardTool (LB-004)', () => {
+  it('navigates forward', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserForwardTool(session(driver));
+    const result = await tool.execute({}, context());
+    expect(result.status).toBe('completed');
+    expect(driver.forwardLog).toEqual(['test-agent:task-1']);
+  });
+});
+
+describe('BrowserReloadTool (LB-004)', () => {
+  it('reloads the page', async () => {
+    const driver = new FakeBrowserDriver();
+    const tool = new BrowserReloadTool(session(driver));
+    const result = await tool.execute({}, context());
+    expect(result.status).toBe('completed');
+    expect(driver.reloadLog).toEqual(['test-agent:task-1']);
+  });
+});
+
+describe('BrowserObserver (LB-001)', () => {
+  it('stores and resolves element references', () => {
+    const observer = new BrowserObserver();
+    const obsId = observer.nextObservationId();
+    observer.store({
+      url: BASE,
+      title: 'Test',
+      observationId: obsId,
+      elements: [
+        { ref: 'e1', role: 'button', name: 'OK' },
+        { ref: 'e2', role: 'textbox', name: 'Name' },
+      ],
+    });
+    expect(observer.hasObservation(obsId)).toBe(true);
+    const resolved = observer.resolveElementRef(obsId, 'e1');
+    expect(resolved?.element).toMatchObject({ ref: 'e1', role: 'button', name: 'OK' });
+    expect(observer.resolveElementRef(obsId, 'e99')).toBeUndefined();
+    expect(observer.resolveElementRef('obs-nonexistent', 'e1')).toBeUndefined();
+  });
+
+  it('returns elements for an observation', () => {
+    const observer = new BrowserObserver();
+    const obsId = observer.nextObservationId();
+    observer.store({
+      url: BASE,
+      title: 'Test',
+      observationId: obsId,
+      elements: [{ ref: 'e1', role: 'button', name: 'OK' }],
+    });
+    expect(observer.getElements(obsId)).toHaveLength(1);
+    expect(observer.getElements('obs-nonexistent')).toEqual([]);
+  });
+
+  it('clears all observations', () => {
+    const observer = new BrowserObserver();
+    const obsId = observer.nextObservationId();
+    observer.store({ url: BASE, title: 'Test', observationId: obsId, elements: [] });
+    expect(observer.hasObservation(obsId)).toBe(true);
+    observer.clear();
+    expect(observer.hasObservation(obsId)).toBe(false);
   });
 });

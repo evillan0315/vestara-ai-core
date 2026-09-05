@@ -549,6 +549,10 @@ export type AgentCapability =
   | 'development-velocity'
   | 'planning'
   | 'governance'
+  | 'web-navigation'
+  | 'web-observation'
+  | 'web-interaction'
+  | 'web-research'
   | (string & {});
 
 export interface AgentPermission {

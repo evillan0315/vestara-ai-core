@@ -1,0 +1,22 @@
+{
+  "name": "@vestara/browser-runtime",
+  "description": "Kernel-level browser runtime service — lifecycle-managed browser sessions with event emission and evidence collection",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/browser-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/tools-browser": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/evidence": "workspace:*",
+    "@vestara/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "@vestara/types": "workspace:*",
+    "vitest": "^4.1.10"
+  }
+}

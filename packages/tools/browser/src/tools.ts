@@ -290,17 +290,94 @@ function toScreenshotOutput(result: BrowserScreenshotResult): BrowserScreenshotO
   };
 }
 
+// ─── browser.observe ─────────────────────────────────────────
+
+interface BrowserObserveInput {
+  readonly maxElements?: number;
+}
+
+export class BrowserObserveTool
+  implements
+    VestaraTool<
+      BrowserObserveInput,
+      { url: string; title: string; observationId: string; elements: readonly import('./session').BrowserElementRef[] }
+    >
+{
+  readonly name = 'browser.observe';
+  readonly description = 'Observe the current page and return structured element references for interactive elements';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserObserveInput> = {
+    jsonSchema: {
+      type: 'object',
+      properties: { maxElements: { type: 'number', minimum: 1, maximum: 200 } },
+      additionalProperties: false,
+    },
+    parse(input) {
+      return { maxElements: optionalNumber(record(input), 'maxElements') };
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    input: BrowserObserveInput,
+    context: ToolExecutionContext,
+  ): Promise<
+    ToolExecutionResult<{
+      url: string;
+      title: string;
+      observationId: string;
+      elements: readonly import('./session').BrowserElementRef[];
+    }>
+  > {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      const result = await this.session.observe(key, context.signal);
+      const maxElements = input.maxElements ?? 100;
+      const elements = result.elements.slice(0, maxElements);
+      return {
+        status: 'completed',
+        output: { url: result.url, title: result.title, observationId: result.observationId, elements },
+        evidence: [
+          {
+            id: evidenceId('browser-observe'),
+            kind: 'custom',
+            summary: `browser.observe → ${result.url} (${elements.length} elements)`,
+            metadata: {
+              operation: 'browser.observe',
+              url: result.url,
+              observationId: result.observationId,
+              elementCount: elements.length,
+              governance: this.session.governance(result.url, context.agentId),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
 // ─── browser.click ──────────────────────────────────────────────
 
 interface BrowserClickInput {
   readonly selector?: string;
   readonly x?: number;
   readonly y?: number;
+  readonly observationId?: string;
+  readonly ref?: string;
 }
 
 export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: string }> {
   readonly name = 'browser.click';
-  readonly description = 'Click an element by CSS selector or at viewport coordinates';
+  readonly description = 'Click an element by CSS selector, viewport coordinates, or observation ref';
   readonly risk = 'medium' as const;
   readonly inputSchema: ToolInputSchema<BrowserClickInput> = {
     jsonSchema: {
@@ -309,6 +386,8 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
         selector: { type: 'string', minLength: 1 },
         x: { type: 'number', minimum: 0 },
         y: { type: 'number', minimum: 0 },
+        observationId: { type: 'string', minLength: 1 },
+        ref: { type: 'string', minLength: 1 },
       },
       additionalProperties: false,
     },
@@ -317,8 +396,17 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
       const selector = optionalString(parsed, 'selector');
       const x = optionalNumber(parsed, 'x');
       const y = optionalNumber(parsed, 'y');
+      const observationId = optionalString(parsed, 'observationId');
+      const ref = optionalString(parsed, 'ref');
+
+      if (observationId && ref) {
+        return { observationId, ref };
+      }
+      if (observationId || ref) {
+        throw new Error('browser.click requires both observationId and ref, or a selector/coordinates');
+      }
       if (!selector && (x === undefined || y === undefined))
-        throw new Error('browser.click requires a selector or both x and y coordinates');
+        throw new Error('browser.click requires a selector, coordinates, or observationId+ref');
       if (selector && (x !== undefined || y !== undefined))
         throw new Error('browser.click accepts a selector or coordinates, not both');
       return { selector, x, y };
@@ -328,6 +416,7 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
   constructor(private readonly session: BrowserSession) {}
 
   affectedResources(input: BrowserClickInput): readonly string[] {
+    if (input.ref) return [`ref:${input.ref}`];
     return [input.selector ?? `point:${input.x},${input.y}`];
   }
 
@@ -338,12 +427,16 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
     if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
     try {
       const key = sessionKey(context.agentId, context.taskId);
-      await this.session.click(
-        input.selector ?? 'body',
-        input.selector ? undefined : { x: input.x as number, y: input.y as number },
-        key,
-        context.signal,
-      );
+      if (input.observationId && input.ref) {
+        await this.session.clickRef(input.observationId, input.ref, key, context.signal);
+      } else {
+        await this.session.click(
+          input.selector ?? 'body',
+          input.selector ? undefined : { x: input.x as number, y: input.y as number },
+          key,
+          context.signal,
+        );
+      }
       const { url } = await this.session.snapshot(key, context.signal);
       const redacted = this.session.redactSnapshot('', url);
       return {
@@ -353,12 +446,16 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
           {
             id: evidenceId('browser-click'),
             kind: 'custom',
-            summary: `browser.click ${input.selector ?? `@${input.x},${input.y}`}`,
+            summary: input.ref
+              ? `browser.click ref=${input.ref}`
+              : `browser.click ${input.selector ?? `@${input.x},${input.y}`}`,
             metadata: {
               operation: 'browser.click',
               selector: input.selector ?? null,
               x: input.x ?? null,
               y: input.y ?? null,
+              observationId: input.observationId ?? null,
+              ref: input.ref ?? null,
               url,
               governance: this.session.governance(url, context.agentId, redacted.redactionStatus),
               replay: this.session.replayDescriptor(key),
@@ -375,14 +472,16 @@ export class BrowserClickTool implements VestaraTool<BrowserClickInput, { url: s
 // ─── browser.type ───────────────────────────────────────────────
 
 interface BrowserTypeInput {
-  readonly selector: string;
+  readonly selector?: string;
   readonly text: string;
   readonly submit?: boolean;
+  readonly observationId?: string;
+  readonly ref?: string;
 }
 
 export class BrowserTypeTool implements VestaraTool<BrowserTypeInput, { url: string }> {
   readonly name = 'browser.type';
-  readonly description = 'Fill a form field by CSS selector, optionally pressing Enter to submit';
+  readonly description = 'Fill a form field by CSS selector or observation ref, optionally pressing Enter to submit';
   readonly risk = 'medium' as const;
   readonly inputSchema: ToolInputSchema<BrowserTypeInput> = {
     jsonSchema: {
@@ -391,12 +490,27 @@ export class BrowserTypeTool implements VestaraTool<BrowserTypeInput, { url: str
         selector: { type: 'string', minLength: 1 },
         text: { type: 'string' },
         submit: { type: 'boolean' },
+        observationId: { type: 'string', minLength: 1 },
+        ref: { type: 'string', minLength: 1 },
       },
-      required: ['selector', 'text'],
+      required: ['text'],
       additionalProperties: false,
     },
     parse(input) {
       const parsed = record(input);
+      const observationId = optionalString(parsed, 'observationId');
+      const ref = optionalString(parsed, 'ref');
+      if (observationId && ref) {
+        return {
+          observationId,
+          ref,
+          text: requiredString(parsed, 'text'),
+          submit: optionalBoolean(parsed, 'submit'),
+        };
+      }
+      if (observationId || ref) {
+        throw new Error('browser.type requires both observationId and ref, or a selector');
+      }
       return {
         selector: requiredString(parsed, 'selector'),
         text: requiredString(parsed, 'text'),
@@ -408,14 +522,26 @@ export class BrowserTypeTool implements VestaraTool<BrowserTypeInput, { url: str
   constructor(private readonly session: BrowserSession) {}
 
   affectedResources(input: BrowserTypeInput): readonly string[] {
-    return [input.selector];
+    if (input.ref) return [`ref:${input.ref}`];
+    return [input.selector ?? 'unknown'];
   }
 
   async execute(input: BrowserTypeInput, context: ToolExecutionContext): Promise<ToolExecutionResult<{ url: string }>> {
     if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
     try {
       const key = sessionKey(context.agentId, context.taskId);
-      await this.session.type(input.selector, input.text, input.submit ?? false, key, context.signal);
+      if (input.observationId && input.ref) {
+        await this.session.typeRef(
+          input.observationId,
+          input.ref,
+          input.text,
+          input.submit ?? false,
+          key,
+          context.signal,
+        );
+      } else {
+        await this.session.type(input.selector!, input.text, input.submit ?? false, key, context.signal);
+      }
       const { url } = await this.session.snapshot(key, context.signal);
       const redacted = this.session.redactSnapshot('', url);
       return {
@@ -425,13 +551,300 @@ export class BrowserTypeTool implements VestaraTool<BrowserTypeInput, { url: str
           {
             id: evidenceId('browser-type'),
             kind: 'custom',
-            summary: `browser.type → ${input.selector}${input.submit ? ' (submit)' : ''}`,
+            summary: input.ref
+              ? `browser.type ref=${input.ref}${input.submit ? ' (submit)' : ''}`
+              : `browser.type → ${input.selector}${input.submit ? ' (submit)' : ''}`,
             metadata: {
               operation: 'browser.type',
-              selector: input.selector,
+              selector: input.selector ?? null,
+              observationId: input.observationId ?? null,
+              ref: input.ref ?? null,
               submit: input.submit ?? false,
               url,
               governance: this.session.governance(url, context.agentId, redacted.redactionStatus),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
+// ─── browser.scroll ─────────────────────────────────────────
+
+interface BrowserScrollInput {
+  readonly direction: 'up' | 'down';
+  readonly amount?: number;
+}
+
+export class BrowserScrollTool implements VestaraTool<BrowserScrollInput, { scrolled: boolean }> {
+  readonly name = 'browser.scroll';
+  readonly description = 'Scroll the page up or down by a pixel amount';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserScrollInput> = {
+    jsonSchema: {
+      type: 'object',
+      properties: {
+        direction: { type: 'string', enum: ['up', 'down'] },
+        amount: { type: 'number', minimum: 1, maximum: 10000 },
+      },
+      required: ['direction'],
+      additionalProperties: false,
+    },
+    parse(input) {
+      const parsed = record(input);
+      return {
+        direction: requiredString(parsed, 'direction') as 'up' | 'down',
+        amount: optionalNumber(parsed, 'amount') ?? 500,
+      };
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    input: BrowserScrollInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ scrolled: boolean }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      await this.session.scroll(input.direction, input.amount ?? 500, key, context.signal);
+      return {
+        status: 'completed',
+        output: { scrolled: true },
+        evidence: [
+          {
+            id: evidenceId('browser-scroll'),
+            kind: 'custom',
+            summary: `browser.scroll ${input.direction} ${input.amount ?? 500}px`,
+            metadata: {
+              operation: 'browser.scroll',
+              direction: input.direction,
+              amount: input.amount ?? 500,
+              governance: this.session.governance(this.session.lastKnownUrl(key), context.agentId),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
+// ─── browser.wait ───────────────────────────────────────────
+
+interface BrowserWaitInput {
+  readonly timeoutMs?: number;
+}
+
+export class BrowserWaitTool implements VestaraTool<BrowserWaitInput, { url: string; title: string }> {
+  readonly name = 'browser.wait';
+  readonly description = 'Wait for the page to finish loading (networkidle)';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserWaitInput> = {
+    jsonSchema: {
+      type: 'object',
+      properties: { timeoutMs: { type: 'number', minimum: 1000, maximum: 60_000 } },
+      additionalProperties: false,
+    },
+    parse(input) {
+      return { timeoutMs: optionalNumber(record(input), 'timeoutMs') };
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    _input: BrowserWaitInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ url: string; title: string }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      const result = await this.session.waitForNavigation(key, context.signal);
+      return {
+        status: 'completed',
+        output: result,
+        evidence: [
+          {
+            id: evidenceId('browser-wait'),
+            kind: 'custom',
+            summary: `browser.wait → ${result.url}`,
+            metadata: {
+              operation: 'browser.wait',
+              url: result.url,
+              title: result.title,
+              governance: this.session.governance(result.url, context.agentId),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
+// ─── browser.back ───────────────────────────────────────────
+
+type BrowserBackInput = {};
+
+export class BrowserBackTool implements VestaraTool<BrowserBackInput, { url: string; title: string }> {
+  readonly name = 'browser.back';
+  readonly description = 'Navigate back in browser history';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserBackInput> = {
+    jsonSchema: { type: 'object', properties: {}, additionalProperties: false },
+    parse() {
+      return {};
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    _input: BrowserBackInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ url: string; title: string }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      const result = await this.session.back(key, context.signal);
+      return {
+        status: 'completed',
+        output: result,
+        evidence: [
+          {
+            id: evidenceId('browser-back'),
+            kind: 'custom',
+            summary: `browser.back → ${result.url}`,
+            metadata: {
+              operation: 'browser.back',
+              url: result.url,
+              governance: this.session.governance(result.url, context.agentId),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
+// ─── browser.forward ────────────────────────────────────────
+
+type BrowserForwardInput = {};
+
+export class BrowserForwardTool implements VestaraTool<BrowserForwardInput, { url: string; title: string }> {
+  readonly name = 'browser.forward';
+  readonly description = 'Navigate forward in browser history';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserForwardInput> = {
+    jsonSchema: { type: 'object', properties: {}, additionalProperties: false },
+    parse() {
+      return {};
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    _input: BrowserForwardInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ url: string; title: string }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      const result = await this.session.forward(key, context.signal);
+      return {
+        status: 'completed',
+        output: result,
+        evidence: [
+          {
+            id: evidenceId('browser-forward'),
+            kind: 'custom',
+            summary: `browser.forward → ${result.url}`,
+            metadata: {
+              operation: 'browser.forward',
+              url: result.url,
+              governance: this.session.governance(result.url, context.agentId),
+              replay: this.session.replayDescriptor(key),
+            },
+          },
+        ],
+      };
+    } catch (error) {
+      return failure(error);
+    }
+  }
+}
+
+// ─── browser.reload ─────────────────────────────────────────
+
+type BrowserReloadInput = {};
+
+export class BrowserReloadTool implements VestaraTool<BrowserReloadInput, { url: string; title: string }> {
+  readonly name = 'browser.reload';
+  readonly description = 'Reload the current page';
+  readonly risk = 'low' as const;
+  readonly inputSchema: ToolInputSchema<BrowserReloadInput> = {
+    jsonSchema: { type: 'object', properties: {}, additionalProperties: false },
+    parse() {
+      return {};
+    },
+  };
+
+  constructor(private readonly session: BrowserSession) {}
+
+  affectedResources(): readonly string[] {
+    return ['browser'];
+  }
+
+  async execute(
+    _input: BrowserReloadInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ url: string; title: string }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    try {
+      const key = sessionKey(context.agentId, context.taskId);
+      const result = await this.session.reload(key, context.signal);
+      return {
+        status: 'completed',
+        output: result,
+        evidence: [
+          {
+            id: evidenceId('browser-reload'),
+            kind: 'custom',
+            summary: `browser.reload → ${result.url}`,
+            metadata: {
+              operation: 'browser.reload',
+              url: result.url,
+              governance: this.session.governance(result.url, context.agentId),
               replay: this.session.replayDescriptor(key),
             },
           },

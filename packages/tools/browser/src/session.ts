@@ -164,6 +164,87 @@ export interface BrowserScreenshotResult {
   readonly bytes: Uint8Array;
 }
 
+// ─── Element reference + observer types ─────────────────────────
+
+export interface BrowserElementRef {
+  readonly ref: string;
+  readonly role: string;
+  readonly name: string;
+  readonly disabled?: boolean;
+  readonly focused?: boolean;
+  readonly checked?: boolean;
+  readonly expanded?: boolean;
+  readonly level?: number;
+  readonly value?: string;
+  readonly description?: string;
+}
+
+export interface BrowserObserveResult {
+  readonly url: string;
+  readonly title: string;
+  readonly observationId: string;
+  readonly elements: readonly BrowserElementRef[];
+}
+
+export class BrowserObserver {
+  private observationCounter = 0;
+  private readonly observations = new Map<string, Array<{ element: BrowserElementRef; locatorDescription: string }>>();
+
+  store(result: BrowserObserveResult): void {
+    const stored = result.elements.map((el) => ({
+      element: el,
+      locatorDescription: `${el.role} "${el.name}"`,
+    }));
+    this.observations.set(result.observationId, stored);
+  }
+
+  getElements(observationId: string): readonly BrowserElementRef[] {
+    return (this.observations.get(observationId) ?? []).map((s) => s.element);
+  }
+
+  resolveElementRef(
+    observationId: string,
+    ref: string,
+  ): { element: BrowserElementRef; locatorDescription: string } | undefined {
+    const stored = this.observations.get(observationId);
+    if (!stored) return undefined;
+    const entry = stored.find((s) => s.element.ref === ref);
+    return entry ? { element: entry.element, locatorDescription: entry.locatorDescription } : undefined;
+  }
+
+  nextObservationId(): string {
+    return `obs-${++this.observationCounter}`;
+  }
+
+  hasObservation(observationId: string): boolean {
+    return this.observations.has(observationId);
+  }
+
+  clear(): void {
+    this.observations.clear();
+    this.observationCounter = 0;
+  }
+}
+
+export function resolveElementToLocator(
+  page: import('playwright').Page,
+  element: BrowserElementRef,
+  allElements: readonly BrowserElementRef[],
+): import('playwright').Locator {
+  const role = element.role;
+  const sameRoleName = allElements.filter((e) => e.role === element.role && e.name === element.name);
+  const index = sameRoleName.indexOf(element);
+  if (sameRoleName.length === 1) {
+    return page.getByRole(role as Parameters<import('playwright').Page['getByRole']>[0], {
+      name: element.name,
+      exact: true,
+    });
+  }
+  return page
+    .getByRole(role as Parameters<import('playwright').Page['getByRole']>[0], { name: element.name, exact: true })
+    .nth(index);
+}
+
 export interface BrowserPoint {
   readonly x: number;
   readonly y: number;
@@ -179,6 +260,14 @@ export interface BrowserDriver {
   type(selector: string, text: string, submit: boolean, key: string, signal?: AbortSignal): Promise<void>;
   /** Close one session's page, or release everything when no key is given. */
   close(key?: string): Promise<void>;
+  observe(key: string, signal?: AbortSignal): Promise<BrowserObserveResult>;
+  clickRef(ref: string, key: string, signal?: AbortSignal): Promise<void>;
+  typeRef(ref: string, text: string, submit: boolean, key: string, signal?: AbortSignal): Promise<void>;
+  scroll(direction: 'up' | 'down', amount: number, key: string, signal?: AbortSignal): Promise<void>;
+  back(key: string, signal?: AbortSignal): Promise<void>;
+  forward(key: string, signal?: AbortSignal): Promise<void>;
+  reload(key: string, signal?: AbortSignal): Promise<void>;
+  waitForNavigation(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult>;
 }
 
 export function isAbortError(error: unknown): boolean {
@@ -243,6 +332,21 @@ export function originMatches(entry: string, target: string): boolean {
   return entry.toLowerCase() === targetUrl.hostname.toLowerCase();
 }
 
+// ─── ARIA roles used for interactive-element collection ─────────
+
+const INTERACTIVE_ARIA_ROLES = [
+  'button',
+  'link',
+  'textbox',
+  'checkbox',
+  'radio',
+  'combobox',
+  'slider',
+  'tab',
+  'menuitem',
+  'option',
+] as const;
+
 /**
  * Playwright-backed driver. One browser is launched lazily; each session key
  * owns an isolated page, so concurrent agents never share navigation, cookies,
@@ -257,6 +361,8 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
   private readonly timeoutMs: number;
   private browser?: Browser;
   private readonly pages = new Map<string, Page>();
+  /** Per-key element observations keyed by observation ID. */
+  private readonly elementObservations = new Map<string, Map<string, BrowserElementRef>>();
 
   constructor(options: BrowserSessionOptions) {
     this.stabilityDelayMs = options.stabilityDelayMs ?? 300;
@@ -318,13 +424,69 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
     if (submit) await page.keyboard.press('Enter');
   }
 
+  async observe(key: string, signal?: AbortSignal): Promise<BrowserObserveResult> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    const elements = await this.collectInteractiveElements(page);
+    return {
+      url: page.url(),
+      title: await page.title(),
+      observationId: `obs-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      elements,
+    };
+  }
+
+  async clickRef(ref: string, key: string, signal?: AbortSignal): Promise<void> {
+    throw new Error('clickRef must be called through BrowserSession');
+  }
+
+  async typeRef(_ref: string, _text: string, _submit: boolean, _key: string, _signal?: AbortSignal): Promise<void> {
+    throw new Error('typeRef must be called through BrowserSession');
+  }
+
+  async scroll(direction: 'up' | 'down', amount: number, key: string, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    const delta = direction === 'up' ? -amount : amount;
+    await page.mouse.wheel(0, delta);
+  }
+
+  async back(key: string, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    await page.goBack();
+  }
+
+  async forward(key: string, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    await page.goForward();
+  }
+
+  async reload(key: string, signal?: AbortSignal): Promise<void> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    await page.reload();
+    await this.waitForStability(page, signal);
+  }
+
+  async waitForNavigation(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
+    throwIfAborted(signal);
+    const page = await this.ensurePage(key, signal);
+    await page.waitForLoadState('networkidle');
+    await this.waitForStability(page, signal);
+    return { url: page.url(), title: await page.title() };
+  }
+
   async close(key?: string): Promise<void> {
     if (key) {
       await this.closePage(key);
+      this.elementObservations.delete(key);
       if (this.pages.size === 0) await this.closeBrowser();
       return;
     }
     for (const pageKey of [...this.pages.keys()]) await this.closePage(pageKey);
+    this.elementObservations.clear();
     await this.closeBrowser();
   }
 
@@ -372,6 +534,60 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
     }
     return page;
   }
+
+  private async collectInteractiveElements(page: Page): Promise<BrowserElementRef[]> {
+    const refs: BrowserElementRef[] = [];
+    const seen = new Set<string>();
+
+    for (const role of INTERACTIVE_ARIA_ROLES) {
+      try {
+        const locator = page.getByRole(role as Parameters<Page['getByRole']>[0]);
+        const count = await locator.count();
+        for (let i = 0; i < count; i++) {
+          const el = locator.nth(i);
+          const name = (await el.getAttribute('aria-label')) ?? (await el.textContent()) ?? '';
+          const key = `${role}:${name.trim()}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+
+          const disabled = await el.isDisabled().catch(() => false);
+          const focused = (await page.evaluate((e) => e === document.activeElement, await el.elementHandle())) ?? false;
+
+          let checked: boolean | undefined;
+          let expanded: boolean | undefined;
+          let level: number | undefined;
+          let value: string | undefined;
+
+          if (role === 'checkbox' || role === 'radio') {
+            checked = await el.isChecked().catch(() => undefined);
+          }
+          if (role === 'combobox' || role === 'slider') {
+            value = await el.inputValue().catch(() => undefined);
+          }
+          const ariaExpanded = await el.getAttribute('aria-expanded');
+          if (ariaExpanded !== null) expanded = ariaExpanded === 'true';
+          const ariaLevel = await el.getAttribute('aria-level');
+          if (ariaLevel !== null) level = Number.parseInt(ariaLevel, 10);
+
+          refs.push({
+            ref: `ref-${refs.length}`,
+            role,
+            name: name.trim(),
+            disabled: disabled || undefined,
+            focused: focused || undefined,
+            checked,
+            expanded,
+            level,
+            value,
+          });
+        }
+      } catch {
+        // Role not supported in this Playwright version — skip silently.
+      }
+    }
+
+    return refs;
+  }
 }
 
 /**
@@ -382,6 +598,7 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
 export class BrowserSession {
   private readonly lastUrlByKey = new Map<string, string>();
   private readonly traceByKey = new Map<string, BrowserReplayStep[]>();
+  private readonly observer = new BrowserObserver();
 
   constructor(
     private readonly driver: BrowserDriver,
@@ -390,6 +607,10 @@ export class BrowserSession {
 
   get driverId(): string {
     return this.driver.id;
+  }
+
+  get elementObserver(): BrowserObserver {
+    return this.observer;
   }
 
   resolveUrl(raw: string): string {
@@ -433,8 +654,114 @@ export class BrowserSession {
     });
   }
 
+  async observe(key: string, signal?: AbortSignal): Promise<BrowserObserveResult> {
+    const observationId = this.observer.nextObservationId();
+    const result = await this.driver.observe(key, signal);
+    // Replace driver-generated ID with session-managed sequential ID
+    const sessionResult: BrowserObserveResult = { ...result, observationId };
+    this.observer.store(sessionResult);
+    return sessionResult;
+  }
+
+  async clickRef(observationId: string, ref: string, key: string, signal?: AbortSignal): Promise<void> {
+    const resolved = this.observer.resolveElementRef(observationId, ref);
+    if (!resolved) {
+      const error = new Error(
+        this.observer.hasObservation(observationId)
+          ? `STALE_ELEMENT_REFERENCE: ref "${ref}" not found in observation "${observationId}"`
+          : `STALE_ELEMENT_REFERENCE: observation "${observationId}" not found — observe again`,
+      );
+      error.name = 'StaleElementReferenceError';
+      throw error;
+    }
+    await this.driver.clickRef(ref, key, signal);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: this.lastUrlByKey.get(key) ?? this.options.baseUrl,
+      command: `click ref=${ref} (${resolved.element.role} "${resolved.element.name}")`,
+    });
+  }
+
+  async typeRef(
+    observationId: string,
+    ref: string,
+    text: string,
+    submit: boolean,
+    key: string,
+    signal?: AbortSignal,
+  ): Promise<void> {
+    const resolved = this.observer.resolveElementRef(observationId, ref);
+    if (!resolved) {
+      const error = new Error(
+        this.observer.hasObservation(observationId)
+          ? `STALE_ELEMENT_REFERENCE: ref "${ref}" not found in observation "${observationId}"`
+          : `STALE_ELEMENT_REFERENCE: observation "${observationId}" not found — observe again`,
+      );
+      error.name = 'StaleElementReferenceError';
+      throw error;
+    }
+    await this.driver.typeRef(ref, text, submit, key, signal);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: this.lastUrlByKey.get(key) ?? this.options.baseUrl,
+      command: `type ref=${ref} (${resolved.element.role} "${resolved.element.name}")${submit ? ' (submit)' : ''}`,
+    });
+  }
+
+  async scroll(direction: 'up' | 'down', amount: number, key: string, signal?: AbortSignal): Promise<void> {
+    await this.driver.scroll(direction, amount, key, signal);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: this.lastUrlByKey.get(key) ?? this.options.baseUrl,
+      command: `scroll ${direction} ${amount}px`,
+    });
+  }
+
+  async back(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
+    await this.driver.back(key, signal);
+    const result = await this.driver.snapshot(key, signal);
+    this.lastUrlByKey.set(key, result.url);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: result.url,
+      command: 'back',
+    });
+    return { url: result.url, title: result.title };
+  }
+
+  async forward(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
+    await this.driver.forward(key, signal);
+    const result = await this.driver.snapshot(key, signal);
+    this.lastUrlByKey.set(key, result.url);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: result.url,
+      command: 'forward',
+    });
+    return { url: result.url, title: result.title };
+  }
+
+  async reload(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
+    await this.driver.reload(key, signal);
+    const result = await this.driver.snapshot(key, signal);
+    this.lastUrlByKey.set(key, result.url);
+    this.appendTrace(key, {
+      type: 'run-scenario',
+      target: result.url,
+      command: 'reload',
+    });
+    return { url: result.url, title: result.title };
+  }
+
+  async waitForNavigation(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
+    const result = await this.driver.waitForNavigation(key, signal);
+    this.lastUrlByKey.set(key, result.url);
+    return result;
+  }
+
   async close(key?: string): Promise<void> {
     await this.driver.close(key);
+    this.observer.clear();
     if (key) this.traceByKey.delete(key);
   }
 
