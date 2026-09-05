@@ -93,15 +93,16 @@ export function useBrowserSession() {
   }, []);
 
   /**
-   * Normalize an address-bar target the way browsers do: bare hostnames get
-   * `https://` prepended; relative paths and fragments are passed through (the
-   * server resolves them against the session base URL).
+   * Normalize an address-bar target the way browsers do: a leading natural-
+   * language verb ("go to", "open", "visit", "navigate to") is stripped first,
+   * bare hostnames get `https://` prepended, and relative paths/fragments pass
+   * through (the server resolves them against the session base URL).
    */
   const normalizeTarget = useCallback((target: string): string => {
-    const trimmed = target.trim();
-    if (!trimmed) return '';
-    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('#')) return trimmed;
-    return `https://${trimmed}`;
+    const phrase = target.trim().replace(/^(?:go|open|visit|navigate|take me)\s+(?:to\s+)?/i, '');
+    if (!phrase || /^(?:to)?$/i.test(phrase)) return '';
+    if (/^https?:\/\//i.test(phrase) || phrase.startsWith('/') || phrase.startsWith('#')) return phrase;
+    return `https://${phrase}`;
   }, []);
 
   // ─── Create session on mount ──────────────────────────────
@@ -210,21 +211,40 @@ export function useBrowserSession() {
   }, [pushTimeline, pushTranscript, updateTimeline]);
 
   // ─── Actions ──────────────────────────────────────────────
+  /**
+   * (Re)create the governed session and sync UI state. Heals a session that
+   * died server-side (API restart, browser reset) so the next action succeeds
+   * instead of failing with "browser session not found".
+   */
+  const ensureSession = useCallback(async (): Promise<string | null> => {
+    const res = await browserCreateSession();
+    if (!res.ok || !res.data) return null;
+    sessionIdRef.current = res.data.sessionId;
+    setSessionId(res.data.sessionId);
+    setSessionInfo(res.data);
+    setStatus(res.data.controlMode === 'human' ? 'human' : 'live');
+    return res.data.sessionId;
+  }, []);
+
   const run = useCallback(
     async <T>(fn: (id: string) => Promise<BrowserActionResult<T>>): Promise<BrowserActionResult<T> | null> => {
-      const id = sessionIdRef.current;
+      let id = sessionIdRef.current;
       if (!id) return null;
       setBusy(true);
       setError(null);
       try {
-        const res = await fn(id);
+        let res = await fn(id);
+        if (!res.ok && res.status === 400 && /session not found/i.test(res.error ?? '')) {
+          const recreated = await ensureSession();
+          if (recreated) res = await fn(recreated);
+        }
         if (!res.ok) setError(res.error ?? 'Browser action failed');
         return res;
       } finally {
         setBusy(false);
       }
     },
-    [],
+    [ensureSession],
   );
 
   const navigate = useCallback(
@@ -364,7 +384,11 @@ export function useBrowserSession() {
       setBusy(true);
       setError(null);
       try {
-        const res = await browserInstruction(id, text);
+        let res = await browserInstruction(id, text);
+        if (!res.ok && res.status === 400 && /session not found/i.test(res.error ?? '')) {
+          const recreated = await ensureSession();
+          if (recreated) res = await browserInstruction(recreated, text);
+        }
         if (!res.ok || !res.data) {
           const message = res.error ?? 'Instruction failed';
           pushTimeline('Instruction failed', 'error', message);
@@ -391,7 +415,7 @@ export function useBrowserSession() {
         setBusy(false);
       }
     },
-    [pushTimeline, pushTranscript],
+    [ensureSession, pushTimeline, pushTranscript],
   );
 
   return {
