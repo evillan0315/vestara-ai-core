@@ -363,6 +363,12 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
 
   private readonly stabilityDelayMs: number;
   private readonly timeoutMs: number;
+  /**
+   * DOM action (click/fill) budget. Short enough that an instruction plan
+   * fails a missing selector quickly instead of racing the API request
+   * deadline; long enough for actionability waits on busy pages.
+   */
+  private static readonly DOM_ACTION_TIMEOUT_MS = 5_000;
   private browser?: Browser;
   private readonly pages = new Map<string, Page>();
   /** Per-key element observations keyed by observation ID. */
@@ -421,14 +427,14 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
     if (point) {
       await page.mouse.click(point.x, point.y);
     } else {
-      await page.locator(selector).click();
+      await page.locator(selector).click({ timeout: PlaywrightBrowserDriver.DOM_ACTION_TIMEOUT_MS });
     }
   }
 
   async type(selector: string, text: string, submit: boolean, key: string, signal?: AbortSignal): Promise<void> {
     throwIfAborted(signal);
     const page = await this.ensurePage(key, signal);
-    await page.locator(selector).fill(text);
+    await page.locator(selector).fill(text, { timeout: PlaywrightBrowserDriver.DOM_ACTION_TIMEOUT_MS });
     if (submit) await page.keyboard.press('Enter');
   }
 

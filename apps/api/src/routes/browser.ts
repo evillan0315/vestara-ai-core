@@ -7,7 +7,8 @@
  */
 
 import type * as http from 'node:http';
-import type { BrowserRuntimeService } from '@vestara/browser-runtime';
+import { type BrowserRuntimeService, BrowserTaskRunner } from '@vestara/browser-runtime';
+import { planBrowserTask } from '@vestara/voice-browser';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -40,7 +41,7 @@ function runtime(ctx: WorkspaceContext): BrowserRuntimeService | undefined {
 function requireRuntime(ctx: WorkspaceContext): BrowserRuntimeService {
   const rt = runtime(ctx);
   if (!rt) {
-    throw new Error('browser runtime not configured (set VESTARA_BROWSER_URL)');
+    throw new Error('browser runtime not configured');
   }
   return rt;
 }
@@ -263,7 +264,29 @@ export async function handleBrowserRoute(
       // even when a human has taken control (LB-013).
       const result = await managed.session.screenshot(sessionId);
       const dataUrl = `data:image/png;base64,${Buffer.from(result.bytes).toString('base64')}`;
+      // Stream the capture over the WS so every client sees the live viewport.
+      rt.recordViewportCaptured(sessionId, result.url, result.width, result.height, dataUrl);
       json(res, 200, { url: result.url, width: result.width, height: result.height, dataUrl });
+      return true;
+    }
+
+    if (method === 'POST' && p === '/api/browser/instruction') {
+      const body = await readJson(req);
+      const sessionId = str(body.sessionId);
+      const text = str(body.text);
+      if (!sessionId || !text) throw new Error('instruction requires sessionId and text');
+      const managed = requireSession(rt, sessionId);
+      rt.assertAgentControl(sessionId);
+      const plan = planBrowserTask(text, { sessionId, ownerId: managed.ownerId });
+      const runner = new BrowserTaskRunner({ session: managed, runtime: rt });
+      const result = await runner.run(plan.task, { liveView: bool(body.liveView) ?? true });
+      json(res, 200, {
+        task: result.task,
+        summary: result.summary,
+        success: result.success,
+        cancelled: result.cancelled,
+        warnings: plan.warnings,
+      });
       return true;
     }
 

@@ -32,6 +32,11 @@ export const BROWSER_NAVIGATION_COMPLETED = 'browser.navigation.completed' as co
 /** A page observation has been created. */
 export const BROWSER_OBSERVATION_CREATED = 'browser.observation.created' as const;
 
+// ─── Viewport events (live streaming) ───────────────────────
+
+/** A fresh viewport capture is available (image data URL). */
+export const BROWSER_VIEWPORT_CAPTURED = 'browser.viewport.captured' as const;
+
 // ─── Action events ──────────────────────────────────────────
 
 /** A browser action has started (click, type, scroll, etc.). */

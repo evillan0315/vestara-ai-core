@@ -10,7 +10,7 @@ import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded';
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
 
 export interface BrowserViewportProps {
   url: string;
@@ -34,6 +34,13 @@ export function BrowserViewport({
   onReload,
 }: BrowserViewportProps) {
   const [draft, setDraft] = useState(url);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Keep the address bar in sync with the resolved URL (navigation results,
+  // back/forward/reload) unless the user is actively editing the field.
+  useEffect(() => {
+    if (document.activeElement !== inputRef.current) setDraft(url);
+  }, [url]);
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -82,6 +89,7 @@ export function BrowserViewport({
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-2 py-1">
             <PublicRoundedIcon fontSize="small" className="shrink-0 text-(--vestara-text-dim)" />
             <input
+              ref={inputRef}
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               disabled={!canAct || busy}

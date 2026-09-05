@@ -190,6 +190,13 @@ export interface BrowserTaskRunRequest {
   readonly signal?: AbortSignal;
   /** When provided, browser evidence is collected after the task. */
   readonly evidence?: BrowserTaskEvidenceRequest;
+  /**
+   * Live view streaming: capture the viewport after the task starts, after
+   * every step (success or failure), and at task end, publishing
+   * `browser.viewport.captured` events so the UI renders a live browser
+   * surface while the task runs. Off by default — screenshots stay opt-in.
+   */
+  readonly liveView?: boolean;
 }
 
 export interface BrowserTaskRunResult {
@@ -228,6 +235,7 @@ export class BrowserTaskRunner {
 
     startTask(task);
     runtime.recordTaskStarted(task.id, session.id, task.objective);
+    if (request.liveView) await this.captureViewport();
 
     for (const step of task.steps) {
       if (signal.aborted) {
@@ -255,6 +263,7 @@ export class BrowserTaskRunner {
           runtime.recordStepFailed(session.id, task.id, step.id, step.index, message);
         }
       }
+      if (request.liveView) await this.captureViewport().catch(() => {});
     }
 
     let evidence: EvidenceCollectionResult | undefined;
@@ -262,19 +271,17 @@ export class BrowserTaskRunner {
       evidence = await this.collectEvidence(task, request.evidence);
     }
 
-    const summary = summarizeTask(task);
-
     if (cancelled) {
       task.status = 'cancelled';
       task.completed_at = new Date().toISOString();
       runtime.recordTaskFailed(task.id, session.id, 'Task cancelled');
-      return { task, summary, success: false, cancelled: true, evidence };
+      return { task, summary: summarizeTask(task), success: false, cancelled: true, evidence };
     }
 
     if (task.steps.some((s) => s.status === 'failed')) {
       failTask(task, 'One or more steps failed');
       runtime.recordTaskFailed(task.id, session.id, 'One or more steps failed');
-      return { task, summary, success: false, cancelled: false, evidence };
+      return { task, summary: summarizeTask(task), success: false, cancelled: false, evidence };
     }
 
     completeTask(
@@ -282,8 +289,17 @@ export class BrowserTaskRunner {
       `Task completed: ${task.steps.filter((s) => s.status === 'completed').length}/${task.steps.length} steps`,
       session.session.lastKnownUrl(key),
     );
-    runtime.recordTaskCompleted(task.id, session.id, summary);
-    return { task, summary, success: true, cancelled: false, evidence };
+    runtime.recordTaskCompleted(task.id, session.id, summarizeTask(task));
+    if (request.liveView) await this.captureViewport().catch(() => {});
+    return { task, summary: summarizeTask(task), success: true, cancelled: false, evidence };
+  }
+
+  /** Capture the current viewport and publish it as a live-stream event. */
+  private async captureViewport(): Promise<void> {
+    const { session, runtime } = this.options;
+    const shot = await session.session.screenshot(session.id);
+    const dataUrl = `data:image/png;base64,${Buffer.from(shot.bytes).toString('base64')}`;
+    runtime.recordViewportCaptured(session.id, shot.url, shot.width, shot.height, dataUrl);
   }
 
   private async collectEvidence(

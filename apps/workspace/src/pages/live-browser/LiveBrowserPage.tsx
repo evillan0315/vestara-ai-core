@@ -1,9 +1,10 @@
 /**
  * Live Browser — the governed browser surface.
  *
- * Phase 1: core surface — session lifecycle, live viewport, address bar,
- * status badge, Stop (reset) and Take Control. Voice Control + Live
- * Transcript + Action Timeline panels arrive in Phases 2–3.
+ * Core surface: session lifecycle, live viewport, address bar, status badge,
+ * Stop (reset) and Take Control. Right rail adds natural-language Instructions
+ * (multi-step plans streamed live over WS), Voice Control, Live Transcript,
+ * Action Timeline and command suggestions.
  */
 
 import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
@@ -14,6 +15,7 @@ import { type BrowserConnectionStatus, useBrowserSession } from '../../hooks/use
 import { ActionTimelinePanel } from './ActionTimelinePanel';
 import { BrowserViewport } from './BrowserViewport';
 import { CommandSuggestions } from './CommandSuggestions';
+import { InstructionBox } from './InstructionBox';
 import { LiveTranscriptPanel } from './LiveTranscriptPanel';
 import { VoiceControlPanel } from './VoiceControlPanel';
 
@@ -136,6 +138,10 @@ export default function LiveBrowserPage() {
             />
           </div>
           <aside className="flex w-full shrink-0 flex-col gap-3 lg:w-72">
+            <InstructionBox
+              disabled={browser.status !== 'live' || browser.busy}
+              onRun={(text) => browser.runInstruction(text)}
+            />
             <VoiceControlPanel
               disabled={browser.status !== 'live' || browser.busy}
               onCommand={(text) => browser.voiceCommand(text)}

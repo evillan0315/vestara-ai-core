@@ -72,6 +72,43 @@ export interface BrowserActionResult<T = Record<string, unknown>> {
   error?: string;
 }
 
+export interface BrowserTaskStep {
+  id: string;
+  index: number;
+  description: string;
+  action: string;
+  status: 'pending' | 'running' | 'completed' | 'failed' | 'skipped' | 'cancelled';
+  error?: string;
+}
+
+export interface BrowserTaskResult {
+  id: string;
+  session_id: string;
+  objective: string;
+  status: 'pending' | 'running' | 'waiting-for-user' | 'completed' | 'failed' | 'cancelled';
+  steps: BrowserTaskStep[];
+  final_url?: string;
+  result_summary?: string;
+  error?: string;
+}
+
+export interface BrowserInstructionResult {
+  task: BrowserTaskResult;
+  summary: {
+    objective: string;
+    status: string;
+    steps_total: number;
+    steps_completed: number;
+    steps_failed: number;
+    duration_ms?: number;
+    final_url?: string;
+    result_summary?: string;
+  };
+  success: boolean;
+  cancelled: boolean;
+  warnings: string[];
+}
+
 // ─── Fetch helper ─────────────────────────────────────────────
 
 async function postBrowser<T>(path: string, body: unknown): Promise<BrowserActionResult<T>> {
@@ -171,6 +208,16 @@ export function browserReload(sessionId: string): Promise<BrowserActionResult<Br
 
 export function browserScreenshot(sessionId: string): Promise<BrowserActionResult<BrowserScreenshot>> {
   return postBrowser<BrowserScreenshot>('/api/browser/screenshot', { sessionId });
+}
+
+// ─── Instructions (natural-language multi-step plans) ─────────
+
+export function browserInstruction(
+  sessionId: string,
+  text: string,
+  liveView = true,
+): Promise<BrowserActionResult<BrowserInstructionResult>> {
+  return postBrowser<BrowserInstructionResult>('/api/browser/instruction', { sessionId, text, liveView });
 }
 
 // ─── Voice ────────────────────────────────────────────────────

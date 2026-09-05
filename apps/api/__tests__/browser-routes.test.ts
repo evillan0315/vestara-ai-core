@@ -166,6 +166,68 @@ describe('/api/browser routes', () => {
       server.close();
     }
   });
+
+  it('runs a multi-step login instruction as a browser task', async () => {
+    const { server, port } = await boot();
+    try {
+      await postJson(port, '/api/browser/session', { ownerId: 'web', taskId: 'live' });
+      const { status, body } = await postJson(port, '/api/browser/instruction', {
+        sessionId: 'web:live',
+        text: 'log in to http://example.com as alice with s3cret',
+      });
+      expect(status).toBe(200);
+      const task = body as { task: { steps: Array<{ action: string; status: string }> }; summary: { status: string } };
+      expect(task.summary.status).toBe('completed');
+      expect(task.task.steps.map((s) => s.action)).toEqual(['navigate', 'type', 'type', 'click']);
+      expect(task.task.steps.every((s) => s.status === 'completed')).toBe(true);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('runs a search instruction to completion', async () => {
+    const { server, port } = await boot();
+    try {
+      await postJson(port, '/api/browser/session', { ownerId: 'web', taskId: 'live' });
+      const { status, body } = await postJson(port, '/api/browser/instruction', {
+        sessionId: 'web:live',
+        text: 'search for monitors on http://example.com',
+      });
+      expect(status).toBe(200);
+      const task = body as { task: { steps: Array<{ action: string }> }; summary: { status: string } };
+      expect(task.summary.status).toBe('completed');
+      expect(task.task.steps.map((s) => s.action)).toEqual(['navigate', 'type']);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('returns 400 for an instruction without text', async () => {
+    const { server, port } = await boot();
+    try {
+      await postJson(port, '/api/browser/session', { ownerId: 'web', taskId: 'live' });
+      const { status, body } = await postJson(port, '/api/browser/instruction', { sessionId: 'web:live' });
+      expect(status).toBe(400);
+      expect(body).toMatchObject({ error: expect.stringContaining('requires sessionId and text') });
+    } finally {
+      server.close();
+    }
+  });
+
+  it('returns 400 for an unparseable instruction', async () => {
+    const { server, port } = await boot();
+    try {
+      await postJson(port, '/api/browser/session', { ownerId: 'web', taskId: 'live' });
+      const { status, body } = await postJson(port, '/api/browser/instruction', {
+        sessionId: 'web:live',
+        text: 'quantum banana',
+      });
+      expect(status).toBe(400);
+      expect(body).toMatchObject({ error: expect.stringContaining('Could not understand the instruction') });
+    } finally {
+      server.close();
+    }
+  });
 });
 
 describe('/api/voice routes', () => {

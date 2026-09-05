@@ -99,5 +99,5 @@ export async function handleVoiceRoute(
 }
 
 function throwUnconfigured(): never {
-  throw new Error('browser runtime not configured (set VESTARA_BROWSER_URL)');
+  throw new Error('browser runtime not configured');
 }

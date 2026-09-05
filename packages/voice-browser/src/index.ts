@@ -20,6 +20,14 @@ export { EventBusActionRenderer, TerminalActionRenderer } from './action-rendere
 export { PlaywrightBrowserEngine, StubBrowserEngine } from './browser-automation-engine.js';
 // ─── Governed Bridge Adapter ───────────────────────────────────
 export { BrowserEngineAdapter, type BrowserEngineAdapterOptions } from './browser-engine-adapter.js';
+// ─── Instruction → Task Planner ───────────────────────────────
+export {
+  extractCredentials,
+  extractTarget,
+  type InstructionPlan,
+  type PlanBrowserTaskOptions,
+  planBrowserTask,
+} from './instruction-to-task.js';
 // ─── Types ────────────────────────────────────────────────────
 export type {
   ActionResult,
@@ -37,7 +45,6 @@ export type {
   VoiceIntentType,
 } from './types.js';
 export type { VoiceBrowserPipeline } from './voice-browser-pipeline.js';
-
 // ─── Pipeline ─────────────────────────────────────────────────
 export { DefaultVoiceBrowserPipeline } from './voice-browser-pipeline.js';
 // ─── Voice Intent Parser ──────────────────────────────────────

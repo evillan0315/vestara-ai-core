@@ -3,8 +3,10 @@
  *
  * Creates a governed browser session on mount, subscribes to browser.* WS
  * events, and exposes action methods (navigate/back/forward/reload/screenshot/
- * take-control). Screenshots are opt-in — call refreshScreenshot() to capture
- * the current viewport on demand.
+ * take-control). Screenshots are opt-in — no background polling. The viewport
+ * is captured once after each explicit user action (navigate/back/forward/
+ * reload/reset) so the page display stays current; call refreshScreenshot()
+ * manually for on-demand captures.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,6 +18,7 @@ import {
   browserClose,
   browserCreateSession,
   browserForward,
+  browserInstruction,
   browserNavigate,
   browserReload,
   browserReturnControl,
@@ -57,6 +60,7 @@ export function useBrowserSession() {
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const entryCounter = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
+  const stepTimelineRef = useRef<Map<number, string>>(new Map());
 
   const pushTranscript = useCallback((text: string, source: 'voice' | 'browser') => {
     setTranscript((prev) => [
@@ -86,6 +90,18 @@ export function useBrowserSession() {
       if (res.data.url) setUrl(res.data.url);
     }
     return res;
+  }, []);
+
+  /**
+   * Normalize an address-bar target the way browsers do: bare hostnames get
+   * `https://` prepended; relative paths and fragments are passed through (the
+   * server resolves them against the session base URL).
+   */
+  const normalizeTarget = useCallback((target: string): string => {
+    const trimmed = target.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('#')) return trimmed;
+    return `https://${trimmed}`;
   }, []);
 
   // ─── Create session on mount ──────────────────────────────
@@ -150,9 +166,48 @@ export function useBrowserSession() {
         setStatus('offline');
         setSessionInfo(null);
       }
+      // ─── Instruction / live-view streams ──────────────────
+      if (evt.type === 'browser.viewport.captured') {
+        if (typeof payload.dataUrl === 'string') {
+          setScreenshot(payload.dataUrl);
+          if (typeof payload.url === 'string') setUrl(payload.url);
+        }
+      }
+      if (evt.type === 'browser.task.started') {
+        stepTimelineRef.current.clear();
+        const objective = typeof payload.objective === 'string' ? payload.objective : 'Browser task';
+        pushTranscript(`Task: ${objective}`, 'browser');
+        pushTimeline(`Task: ${objective}`, 'active');
+      }
+      if (evt.type === 'browser.step.started') {
+        const description =
+          typeof payload.description === 'string' ? payload.description : `Step ${String(payload.index ?? '?')}`;
+        const index = typeof payload.index === 'number' ? payload.index : -1;
+        const timelineId = pushTimeline(description, 'active');
+        if (index >= 0) stepTimelineRef.current.set(index, timelineId);
+      }
+      if (evt.type === 'browser.step.completed') {
+        const index = typeof payload.index === 'number' ? payload.index : -1;
+        const timelineId = stepTimelineRef.current.get(index);
+        if (timelineId) updateTimeline(timelineId, 'done');
+      }
+      if (evt.type === 'browser.step.failed') {
+        const index = typeof payload.index === 'number' ? payload.index : -1;
+        const timelineId = stepTimelineRef.current.get(index);
+        if (timelineId) {
+          updateTimeline(timelineId, 'error', typeof payload.error === 'string' ? payload.error : undefined);
+        }
+      }
+      if (evt.type === 'browser.task.completed') {
+        pushTimeline('Task completed', 'done');
+      }
+      if (evt.type === 'browser.task.failed') {
+        pushTimeline('Task failed', 'error', typeof payload.error === 'string' ? payload.error : undefined);
+      }
     });
     return off;
-  }, [pushTimeline, pushTranscript]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pushTimeline, pushTranscript, updateTimeline]);
 
   // ─── Actions ──────────────────────────────────────────────
   const run = useCallback(
@@ -174,22 +229,36 @@ export function useBrowserSession() {
 
   const navigate = useCallback(
     async (target: string): Promise<BrowserActionResult<{ url: string; title: string }> | null> => {
-      pushTranscript(`Navigating to ${target}`, 'browser');
-      pushTimeline(`Navigating to ${target}`, 'waiting');
-      const res = await run((id) => browserNavigate(id, target));
+      const resolved = normalizeTarget(target);
+      if (!resolved) {
+        pushTimeline('Action failed', 'error', 'Enter a URL to navigate to');
+        return null;
+      }
+      pushTranscript(`Navigating to ${resolved}`, 'browser');
+      pushTimeline(`Navigating to ${resolved}`, 'waiting');
+      const res = await run((id) => browserNavigate(id, resolved));
       if (res?.ok && res.data) {
         setUrl(res.data.url);
+        void refreshScreenshot();
       } else if (!res) {
         pushTimeline('Action failed', 'error', 'No active session');
       }
       return res;
     },
-    [pushTimeline, pushTranscript, run],
+    [normalizeTarget, pushTimeline, pushTranscript, refreshScreenshot, run],
   );
 
-  const back = useCallback(() => run((id) => browserBack(id)), [run]);
-  const forward = useCallback(() => run((id) => browserForward(id)), [run]);
-  const reload = useCallback(() => run((id) => browserReload(id)), [run]);
+  const captureAfter = useCallback(
+    async <T>(res: BrowserActionResult<T> | null): Promise<BrowserActionResult<T> | null> => {
+      if (res?.ok) void refreshScreenshot();
+      return res;
+    },
+    [refreshScreenshot],
+  );
+
+  const back = useCallback(async () => captureAfter(await run((id) => browserBack(id))), [captureAfter, run]);
+  const forward = useCallback(async () => captureAfter(await run((id) => browserForward(id))), [captureAfter, run]);
+  const reload = useCallback(async () => captureAfter(await run((id) => browserReload(id))), [captureAfter, run]);
 
   const syncState = useCallback(async () => {
     const id = sessionIdRef.current;
@@ -227,11 +296,12 @@ export function useBrowserSession() {
       setSessionId(res.data.sessionId);
       setSessionInfo(res.data);
       setStatus('live');
+      void refreshScreenshot();
     } else {
       setStatus('offline');
       setError(res.error ?? 'Failed to recreate session');
     }
-  }, []);
+  }, [refreshScreenshot]);
 
   /** Execute a voice/text command via /api/voice/intent and refresh the viewport. */
   const voiceCommand = useCallback(
@@ -281,6 +351,49 @@ export function useBrowserSession() {
     [pushTimeline, pushTranscript, updateTimeline],
   );
 
+  /**
+   * Execute a natural-language multi-step instruction via
+   * /api/browser/instruction. Steps and viewport frames stream back over the
+   * WS (browser.task.* / browser.viewport.captured) while the task runs.
+   */
+  const runInstruction = useCallback(
+    async (text: string): Promise<{ ok: boolean; message?: string }> => {
+      const id = sessionIdRef.current;
+      if (!id) return { ok: false, message: 'No active browser session' };
+      pushTranscript(`Instruction: ${text}`, 'browser');
+      setBusy(true);
+      setError(null);
+      try {
+        const res = await browserInstruction(id, text);
+        if (!res.ok || !res.data) {
+          const message = res.error ?? 'Instruction failed';
+          pushTimeline('Instruction failed', 'error', message);
+          setError(message);
+          return { ok: false, message };
+        }
+        const { summary, warnings } = res.data;
+        if (warnings?.length) {
+          for (const warning of warnings) pushTimeline('Heads up', 'waiting', warning);
+        }
+        const completed = summary?.status === 'completed';
+        const finalUrl = typeof summary?.final_url === 'string' ? summary.final_url : undefined;
+        if (finalUrl) setUrl(finalUrl);
+        const label = summary?.result_summary ?? `Instruction ${completed ? 'completed' : 'stopped'}`;
+        pushTranscript(label, 'browser');
+        pushTimeline(label, completed ? 'done' : 'error');
+        return { ok: completed, message: label };
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        pushTimeline('Instruction failed', 'error', message);
+        setError(message);
+        return { ok: false, message };
+      } finally {
+        setBusy(false);
+      }
+    },
+    [pushTimeline, pushTranscript],
+  );
+
   return {
     sessionId,
     sessionInfo,
@@ -300,6 +413,7 @@ export function useBrowserSession() {
     resetSession,
     syncState,
     voiceCommand,
+    runInstruction,
   };
 }
 

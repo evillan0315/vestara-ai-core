@@ -40,6 +40,7 @@ import {
   BROWSER_TASK_COMPLETED,
   BROWSER_TASK_FAILED,
   BROWSER_TASK_STARTED,
+  BROWSER_VIEWPORT_CAPTURED,
   type BrowserControlMode,
   type BrowserPermissionLevel,
   type BrowserPermissionRule,
@@ -542,6 +543,18 @@ export class BrowserRuntimeService implements VestaraService {
     this.stats.totalObservations++;
     this.touchSession(sessionId);
     this.emit(BROWSER_OBSERVATION_CREATED, { sessionId, observationId, elementCount });
+  }
+
+  // ─── Live viewport streaming ─────────────────────────────
+
+  /**
+   * Publish a fresh viewport capture to the event bus / WS clients.
+   * `dataUrl` is a `data:image/png;base64,...` string so the UI can render
+   * the live browser surface without polling.
+   */
+  recordViewportCaptured(sessionId: string, url: string, width: number, height: number, dataUrl: string): void {
+    this.touchSession(sessionId);
+    this.emit(BROWSER_VIEWPORT_CAPTURED, { sessionId, url, width, height, dataUrl });
   }
 
   // ─── Task + step recording (LB-011) ─────────────────────

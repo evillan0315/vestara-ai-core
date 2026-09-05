@@ -1809,6 +1809,9 @@ importers:
       '@vestara/stt':
         specifier: workspace:*
         version: link:../stt
+      '@vestara/tools-browser':
+        specifier: workspace:*
+        version: link:../tools/browser
     devDependencies:
       vitest:
         specifier: ^4.1.10

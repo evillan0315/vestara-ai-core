@@ -15,7 +15,8 @@
     "@vestara/stt": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/logger": "workspace:*",
-    "@vestara/event-bus": "workspace:*"
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/tools-browser": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"
