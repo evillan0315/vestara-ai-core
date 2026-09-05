@@ -1,0 +1,23 @@
+{
+  "name": "@vestara/voice-browser",
+  "description": "Voice-driven web browser automation with visual action feedback",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/audio": "workspace:*",
+    "@vestara/browser-runtime": "workspace:*",
+    "@vestara/stt": "workspace:*",
+    "@vestara/shared": "workspace:*",
+    "@vestara/logger": "workspace:*",
+    "@vestara/event-bus": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

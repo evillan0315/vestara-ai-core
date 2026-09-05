@@ -25,6 +25,7 @@ import { createM11BTransport, type M11BTransport } from './routes/activity-room-
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
+import { handleBrowserRoute } from './routes/browser';
 import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
@@ -56,6 +57,7 @@ import { handleTeamsRoute } from './routes/teams';
 import { handleTelemetryRoute } from './routes/telemetry';
 import { handleTuiRoute } from './routes/tui';
 import { handleVerifierRoute } from './routes/verifier';
+import { handleVoiceRoute } from './routes/voice';
 import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
@@ -149,6 +151,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/agents/workforce', '/api/external-runtime'], handler: handleExternalRuntimeRoute },
   { prefixes: ['/api/graph'], handler: handleGraphRoute },
   { prefixes: ['/api/boot', '/api/host'], handler: handleHostRoute },
+  { prefixes: ['/api/browser'], handler: handleBrowserRoute },
   { prefixes: ['/api/docs'], handler: handleDocsRoute },
   { prefixes: ['/api/documentation'], handler: handleDocumentationRoute },
   { prefixes: ['/api/auth', '/api/admin'], handler: handleAuthRoute },
@@ -196,6 +199,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/opencode'], handler: handleOpenCodeRoute },
   { prefixes: ['/api/telemetry'], handler: handleTelemetryRoute },
   { prefixes: ['/api/tui'], handler: tuiAdapter },
+  { prefixes: ['/api/voice'], handler: handleVoiceRoute },
 ];
 
 function buildGroups(): RouteGroup[] {

@@ -10,6 +10,7 @@ import * as path from 'node:path';
 import type { AgentMessageActivity } from '@vestara/activity-room';
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
+import { BrowserRuntimeService } from '@vestara/browser-runtime';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
 import { DefaultContextAssembler } from '@vestara/context';
 import { type ConversationService, DefaultConversationService, type ProviderExecutor } from '@vestara/conversation';
@@ -155,6 +156,7 @@ export interface WorkspaceContext {
   agentEnvironment: AgentEnvironment;
   agentHarness: AgentHarnessRuntime;
   harnessSession: HarnessSession;
+  browserRuntime?: BrowserRuntimeService;
   runtimeSessionRegistry: InstanceType<typeof InMemoryRuntimeSessionRegistry>;
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
@@ -324,6 +326,28 @@ function parseOriginPolicies(raw: string | undefined): OriginPolicy[] {
   return policies;
 }
 
+/**
+ * Build the governed browser runtime service. Always enabled — the Live Browser
+ * works out of the box and accepts all URLs (allowedOrigins defaults to '*').
+ * VESTARA_BROWSER_URL optionally sets the starting page; VESTARA_BROWSER_ALLOWED_
+ * ORIGINS narrows navigation when provided. Registered with the kernel so
+ * browser.* events reach the event bus and /ws clients via the `*` relay.
+ */
+function createBrowserRuntime(repoPath: string): BrowserRuntimeService {
+  const browserBaseUrl = process.env.VESTARA_BROWSER_URL ?? process.env.VESTARA_SCREENSHOT_URL;
+  const allowedOrigins = (process.env.VESTARA_BROWSER_ALLOWED_ORIGINS ?? '')
+    .split(',')
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  return new BrowserRuntimeService({
+    workspaceId: path.basename(repoPath) || 'workspace',
+    ...(browserBaseUrl ? { defaultBaseUrl: browserBaseUrl } : {}),
+    ...(allowedOrigins.length > 0 ? { allowedOrigins } : {}),
+    idleTimeoutMs: Number(process.env.VESTARA_BROWSER_IDLE_TIMEOUT_MS ?? 0) || 0,
+    maxSessions: Number(process.env.VESTARA_BROWSER_MAX_SESSIONS ?? 0) || 0,
+  });
+}
+
 export async function createWorkspaceContext(repoPath: string, publish: PublishFn): Promise<WorkspaceContext> {
   const T0 = process.hrtime.bigint();
   const log = (phase: string) => {
@@ -397,6 +421,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     dataPolicies: ['metadata-only', 'source-allowed'],
   });
   log('providers-registered');
+  // Live Browser (LB) — governed browser runtime registered with the kernel so
+  // browser.* events flow to the event bus (and thus /ws clients via the `*`
+  // relay). Always enabled; accepts all URLs by default.
+  const browserRuntime = createBrowserRuntime(abs);
   await kernel.boot({
     providers: [
       { manager: providerManager, providerId: 'opencode' },
@@ -414,9 +442,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         capabilities: [...bootRuntime.capabilities],
         dependencies: ['host-runtime'],
       },
+      { service: browserRuntime, capabilities: ['browser'], dependencies: ['kernel'] },
     ],
   });
   log('kernel-booted');
+  browserRuntime?.setEventBus(kernel.eventBus);
   hostRuntime.setEventBus(kernel.eventBus);
   hostRuntime.setPermissionManager(kernel.permissions);
   bootRuntime.setEventBus(kernel.eventBus);
@@ -1378,6 +1408,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentEnvironment,
     agentHarness,
     harnessSession,
+    browserRuntime,
     runtimeSessionRegistry,
     multiAgentWorkflow,
     activityRoomStreams,

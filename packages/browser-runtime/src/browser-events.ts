@@ -45,16 +45,47 @@ export const BROWSER_ACTION_FAILED = 'browser.action.failed' as const;
 
 // ─── Task events ────────────────────────────────────────────
 
+/** A browser task has started executing. */
+export const BROWSER_TASK_STARTED = 'browser.task.started' as const;
+
+/** A browser task step has started. */
+export const BROWSER_STEP_STARTED = 'browser.step.started' as const;
+
+/** A browser task step has completed. */
+export const BROWSER_STEP_COMPLETED = 'browser.step.completed' as const;
+
+/** A browser task step has failed. */
+export const BROWSER_STEP_FAILED = 'browser.step.failed' as const;
+
 /** A browser task has completed. */
 export const BROWSER_TASK_COMPLETED = 'browser.task.completed' as const;
 
 /** A browser task has failed. */
 export const BROWSER_TASK_FAILED = 'browser.task.failed' as const;
 
+// ─── Control events (human takeover) ────────────────────────
+
+/** A human has taken control of the browser session. */
+export const BROWSER_CONTROL_TAKEN = 'browser.control.taken' as const;
+
+/** Control has been returned to the agent. */
+export const BROWSER_CONTROL_RETURNED = 'browser.control.returned' as const;
+
 // ─── Permission events ──────────────────────────────────────
 
 /** A browser action requires permission approval. */
 export const BROWSER_PERMISSION_REQUESTED = 'browser.permission.requested' as const;
+
+/** A pending browser permission request has been granted. */
+export const BROWSER_PERMISSION_GRANTED = 'browser.permission.granted' as const;
+
+/** A pending browser permission request has been denied. */
+export const BROWSER_PERMISSION_DENIED = 'browser.permission.denied' as const;
+
+// ─── Control mode ───────────────────────────────────────────
+
+/** Who currently controls the browser session. */
+export type BrowserControlMode = 'agent' | 'human';
 
 // ─── Permission policy types ────────────────────────────────
 

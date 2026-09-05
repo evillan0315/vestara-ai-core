@@ -38,6 +38,14 @@ export const APP_ROUTES: AppRoute[] = [
 
   { id: 'overview', path: '/overview', title: 'Overview', requiresAuth: false, enabled: true, layout: 'shell' },
   { id: 'dashboard', path: '/dashboard', title: 'Dashboard', requiresAuth: false, enabled: true, layout: 'shell' },
+  {
+    id: 'live-browser',
+    path: '/live-browser',
+    title: 'Live Browser',
+    requiresAuth: true,
+    enabled: true,
+    layout: 'shell',
+  },
   { id: 'sessions', path: '/sessions', title: 'Sessions', requiresAuth: true, enabled: true, layout: 'shell' },
   {
     id: 'session-detail',

@@ -255,7 +255,11 @@ export interface BrowserDriver {
   /** Each operation is scoped to a session key (agent:task) so pages never leak state across actors. */
   navigate(url: string, key: string, signal?: AbortSignal): Promise<BrowserNavigationResult>;
   snapshot(key: string, signal?: AbortSignal): Promise<BrowserSnapshotResult>;
-  screenshot(key: string, signal?: AbortSignal): Promise<BrowserScreenshotResult>;
+  screenshot(
+    key: string,
+    signal?: AbortSignal,
+    options?: { readonly fullPage?: boolean },
+  ): Promise<BrowserScreenshotResult>;
   click(selector: string, point: BrowserPoint | undefined, key: string, signal?: AbortSignal): Promise<void>;
   type(selector: string, text: string, submit: boolean, key: string, signal?: AbortSignal): Promise<void>;
   /** Close one session's page, or release everything when no key is given. */
@@ -395,10 +399,14 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
     return { url: page.url(), title: await page.title(), text };
   }
 
-  async screenshot(key: string, signal?: AbortSignal): Promise<BrowserScreenshotResult> {
+  async screenshot(
+    key: string,
+    signal?: AbortSignal,
+    options?: { readonly fullPage?: boolean },
+  ): Promise<BrowserScreenshotResult> {
     throwIfAborted(signal);
     const page = await this.ensurePage(key, signal);
-    const bytes = await page.screenshot({ type: 'png', fullPage: true });
+    const bytes = await page.screenshot({ type: 'png', fullPage: options?.fullPage ?? true });
     return {
       url: page.url(),
       width: page.viewportSize()?.width ?? 1280,
@@ -632,8 +640,12 @@ export class BrowserSession {
     return result;
   }
 
-  async screenshot(key: string, signal?: AbortSignal): Promise<BrowserScreenshotResult> {
-    return this.driver.screenshot(key, signal);
+  async screenshot(
+    key: string,
+    signal?: AbortSignal,
+    options?: { readonly fullPage?: boolean },
+  ): Promise<BrowserScreenshotResult> {
+    return this.driver.screenshot(key, signal, options);
   }
 
   async click(selector: string, point: BrowserPoint | undefined, key: string, signal?: AbortSignal): Promise<void> {

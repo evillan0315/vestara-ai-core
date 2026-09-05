@@ -12,6 +12,7 @@ import ImportContactsRoundedIcon from '@mui/icons-material/ImportContactsRounded
 import InsightsRoundedIcon from '@mui/icons-material/InsightsRounded';
 import LightbulbRoundedIcon from '@mui/icons-material/LightbulbRounded';
 import MemoryRoundedIcon from '@mui/icons-material/MemoryRounded';
+import PublicRoundedIcon from '@mui/icons-material/PublicRounded';
 import ReceiptLongRoundedIcon from '@mui/icons-material/ReceiptLongRounded';
 import RouteRoundedIcon from '@mui/icons-material/RouteRounded';
 import SettingsRoundedIcon from '@mui/icons-material/SettingsRounded';
@@ -42,6 +43,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     items: [
       { to: '/overview', title: 'Overview', icon: <DashboardRoundedIcon fontSize="small" /> },
       { to: '/dashboard', title: 'Dashboard', icon: <DashboardRoundedIcon fontSize="small" /> },
+      { to: '/live-browser', title: 'Live Browser', icon: <PublicRoundedIcon fontSize="small" /> },
       { to: '/graph', title: 'Engineering Graph', icon: <AccountTreeRoundedIcon fontSize="small" /> },
       { to: '/marketplace', title: 'Marketplace', icon: <StorefrontRoundedIcon fontSize="small" /> },
       { to: '/external-runtimes', title: 'External Runtimes', icon: <DnsRoundedIcon fontSize="small" /> },

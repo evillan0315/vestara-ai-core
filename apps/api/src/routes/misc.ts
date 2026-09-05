@@ -1,8 +1,24 @@
 import type * as http from 'node:http';
+import { VestaraSTTService, WhisperSTTProvider } from '@vestara/stt';
 import type { WebSocket } from 'ws';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
+
+// Lazy STT service — a real Whisper provider is used when the binary is on PATH.
+let sttService: VestaraSTTService | undefined;
+function getSttService(): VestaraSTTService {
+  if (!sttService) {
+    sttService = new VestaraSTTService({});
+    sttService.registerProvider(new WhisperSTTProvider());
+  }
+  return sttService;
+}
+
+function toArrayBuffer(raw: string): ArrayBuffer {
+  const buffer = Buffer.from(raw, 'binary');
+  return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+}
 
 export async function handleMiscRoute(
   method: string,
@@ -162,9 +178,15 @@ export async function handleMiscRoute(
   }
 
   if (method === 'POST' && p === '/api/stt') {
-    const raw = await readBody(req);
-    const sizeKb = raw ? (Buffer.byteLength(raw) / 1024).toFixed(1) : '0';
-    json(res, 200, { text: `[Transcribed audio ${sizeKb}kb]` });
+    try {
+      const raw = await readBody(req);
+      const audio = toArrayBuffer(raw);
+      const result = await getSttService().transcribe(audio, 'en');
+      json(res, 200, { text: result.text, confidence: result.confidence, duration: result.duration });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      json(res, 200, { text: '', error: message });
+    }
     return true;
   }
 

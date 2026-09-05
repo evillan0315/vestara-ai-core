@@ -14,10 +14,19 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
-import type { AssistantExecutionDetail } from '@vestara/shared';
+import type { AssistantExecutionDetail, EditExecutionDetail } from '@vestara/shared';
 import type { AssistantToolOperation, StructuredEditOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
 import { AssistantTodoChecklist } from './AssistantTodoChecklist';
+
+// ─── Type guard ─────────────────────────────────────────────────
+
+/** Narrow a structured edit's detail to the edit variant `AssistantCodeEdit` renders. */
+function isEditDetail(
+  edit: StructuredEditOperation,
+): edit is StructuredEditOperation & { detail: EditExecutionDetail } {
+  return edit.detail.kind === 'edit';
+}
 
 // ─── Categories ─────────────────────────────────────────────────
 
@@ -32,9 +41,18 @@ export function normalizeToolCategory(name: string): ToolCategory {
   const n = name.toLowerCase();
   if (/(^|[^a-z])(read|cat|open)([^a-z]|$)/.test(n) || n.includes('read')) return 'read';
   if (n.includes('grep') || n.includes('search') || n.includes('find') || n.includes('rg')) return 'search';
-  if (n.includes('glob') || n.includes('list') || n.includes('ls') || n.includes('dir') || n.includes('glob')) return 'list';
+  if (n.includes('glob') || n.includes('list') || n.includes('ls') || n.includes('dir') || n.includes('glob'))
+    return 'list';
   if (n.includes('edit') || n.includes('write') || n.includes('apply') || n.includes('patch')) return 'edit';
-  if (n.includes('bash') || n.includes('exec') || n.includes('shell') || n.includes('terminal') || n.includes('command') || /(^|[^a-z])run([^a-z]|$)/.test(n)) return 'bash';
+  if (
+    n.includes('bash') ||
+    n.includes('exec') ||
+    n.includes('shell') ||
+    n.includes('terminal') ||
+    n.includes('command') ||
+    /(^|[^a-z])run([^a-z]|$)/.test(n)
+  )
+    return 'bash';
   if (n.includes('todo') || n.includes('task')) return 'task';
   return 'generic';
 }
@@ -63,12 +81,22 @@ export function toolDisplayLabel(category: ToolCategory, rawName: string): strin
 
 function CategoryIcon({ category }: { category: ToolCategory }) {
   const cls = 'w-3.5 h-3.5 text-zinc-600 shrink-0';
-  const common = { className: cls, fill: 'none', viewBox: '0 0 24 24', stroke: 'currentColor', strokeWidth: 2 } as const;
+  const common = {
+    className: cls,
+    fill: 'none',
+    viewBox: '0 0 24 24',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+  } as const;
   switch (category) {
     case 'read':
       return (
         <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+          />
         </svg>
       );
     case 'search':
@@ -86,25 +114,41 @@ function CategoryIcon({ category }: { category: ToolCategory }) {
     case 'edit':
       return (
         <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+          />
         </svg>
       );
     case 'bash':
       return (
         <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+          />
         </svg>
       );
     case 'task':
       return (
         <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+          />
         </svg>
       );
     case 'generic':
       return (
         <svg {...common}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
         </svg>
       );
   }
@@ -146,7 +190,9 @@ export function AssistantToolCard({ operation }: AssistantToolCardProps) {
       </span>
       <CategoryIcon category={category} />
       <div className="min-w-0 flex-1">
-        <div className={`text-[12px] leading-snug truncate ${state === 'failed' ? 'text-red-300/90' : 'text-zinc-400'}`}>
+        <div
+          className={`text-[12px] leading-snug truncate ${state === 'failed' ? 'text-red-300/90' : 'text-zinc-400'}`}
+        >
           {label}
           {state === 'running' && (
             <span className="ml-1.5 text-[10px] text-zinc-600 motion-reduce:animate-none animate-pulse">…</span>
@@ -210,7 +256,9 @@ export function AssistantExecutionTimeline({
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
 
-  const supersededOpIds = new Set(structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined));
+  const supersededOpIds = new Set(
+    structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined),
+  );
   const standaloneEdits = structuredEdits.filter((edit) => edit.supersedesOpId === undefined);
   const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length;
   const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
@@ -242,13 +290,17 @@ export function AssistantExecutionTimeline({
           {operations.map((op) => {
             if (supersededOpIds.has(op.id)) {
               const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);
-              return edit ? (
-                <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
+              return edit && isEditDetail(edit) ? (
+                <AssistantCodeEdit
+                  key={`edit-${edit.operationId}`}
+                  detail={edit.detail}
+                  onOpenInEditor={onOpenInEditor}
+                />
               ) : null;
             }
             return <AssistantToolCard key={op.id} operation={op} />;
           })}
-          {standaloneEdits.map((edit) => (
+          {standaloneEdits.filter(isEditDetail).map((edit) => (
             <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
           ))}
         </div>

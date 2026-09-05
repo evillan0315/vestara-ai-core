@@ -1,10 +1,9 @@
-import { act, render, screen } from '@testing-library/react';
-import { renderHook } from '@testing-library/react';
+import { act, render, renderHook, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { CustomTheme } from '../../../../../lib/theme.js';
 import { ThemeBuilderProvider, useThemeBuilder } from '../../../../../lib/theme-builder-context.js';
 import { ThemePreview } from '../ThemePreview/ThemePreview.js';
-import type { CustomTheme } from '../../../../../lib/theme.js';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ThemeBuilderProvider>{children}</ThemeBuilderProvider>
@@ -14,16 +13,25 @@ function mockLocalStorage() {
   const store: Record<string, string> = {};
   return {
     getItem: vi.fn((key: string) => store[key] ?? null),
-    setItem: vi.fn((key: string, value: string) => { store[key] = value; }),
-    removeItem: vi.fn((key: string) => { delete store[key]; }),
-    clear: vi.fn(() => { Object.keys(store).forEach(k => delete store[k]); }),
+    setItem: vi.fn((key: string, value: string) => {
+      store[key] = value;
+    }),
+    removeItem: vi.fn((key: string) => {
+      delete store[key];
+    }),
+    clear: vi.fn(() => {
+      Object.keys(store).forEach((k) => delete store[k]);
+    }),
   };
 }
 
 beforeEach(() => {
   vi.useFakeTimers();
   vi.stubGlobal('localStorage', mockLocalStorage());
-  vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ settings: [] }) }) as Response));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn(async () => ({ ok: true, json: async () => ({ settings: [] }) }) as Response),
+  );
 });
 
 afterEach(() => {
@@ -250,4 +258,5 @@ describe('ThemePreview', () => {
       const disabledState = screen.getByText('Preview Disabled').closest('div');
       expect(disabledState).toHaveAttribute('role', 'region');
     });
+  });
 });

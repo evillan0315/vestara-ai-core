@@ -1,6 +1,11 @@
 import type { EmitEvent, EventBus } from '@vestara/event-bus';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  BROWSER_CONTROL_RETURNED,
+  BROWSER_CONTROL_TAKEN,
+  BROWSER_PERMISSION_DENIED,
+  BROWSER_PERMISSION_GRANTED,
+  BROWSER_PERMISSION_REQUESTED,
   BrowserEvidenceCollector,
   BrowserRuntimeService,
   type BrowserRuntimeServiceOptions,
@@ -299,5 +304,185 @@ describe('BrowserEvidenceCollector', () => {
     // so we test the kind and interface contract.
     expect(collector.kind).toBe('browser-navigation');
     expect(typeof collector.collect).toBe('function');
+  });
+});
+
+// ─── No-op driver for lifecycle/authorization tests ──────────
+
+function noopDriverFactory() {
+  return {
+    id: 'noop',
+    navigate: async () => ({ url: 'about:blank', title: '' }),
+    snapshot: async () => ({ url: 'about:blank', title: '', text: '' }),
+    screenshot: async () => ({ url: 'about:blank', width: 0, height: 0, bytes: new Uint8Array() }),
+    observe: async () => ({ url: 'about:blank', title: '', observationId: 'obs', elements: [] }),
+    click: async () => {},
+    clickRef: async () => {},
+    type: async () => {},
+    typeRef: async () => {},
+    scroll: async () => {},
+    back: async () => {},
+    forward: async () => {},
+    reload: async () => {},
+    waitForNavigation: async () => ({ url: 'about:blank', title: '' }),
+    close: async () => {},
+  };
+}
+
+describe('BrowserRuntimeService permission authorization (LB-012)', () => {
+  it('allows safe actions immediately', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const decision = await runtime.authorizeAction('browser.navigate', 'a:1');
+    expect(decision.decision).toBe('allowed');
+    expect(eventBus.events.some((e) => e.type === BROWSER_PERMISSION_REQUESTED)).toBe(false);
+    await runtime.dispose();
+  });
+
+  it('denies denied actions', async () => {
+    const runtime = new BrowserRuntimeService(
+      testOptions({
+        driverFactory: noopDriverFactory,
+        permissionRules: [{ action: 'browser.screenshot', level: 'deny' }],
+      }),
+    );
+    await runtime.start();
+    const decision = await runtime.authorizeAction('browser.screenshot', 'a:1');
+    expect(decision.decision).toBe('denied');
+    await runtime.dispose();
+  });
+
+  it('requests approval for ask actions and tracks pending', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const decision = await runtime.authorizeAction('browser.click', 'a:1');
+    expect(decision.decision).toBe('awaiting-approval');
+    expect(runtime.hasPendingApproval('a:1', 'browser.click')).toBe(true);
+    const requested = eventBus.events.find((e) => e.type === BROWSER_PERMISSION_REQUESTED);
+    expect(requested?.payload).toMatchObject({ sessionId: 'a:1', action: 'browser.click' });
+    await runtime.dispose();
+  });
+
+  it('auto-approves ask actions when requested', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const decision = await runtime.authorizeAction('browser.click', 'a:1', { autoApprove: true });
+    expect(decision.decision).toBe('allowed');
+    expect(runtime.hasPendingApproval('a:1', 'browser.click')).toBe(false);
+    expect(eventBus.events.some((e) => e.type === BROWSER_PERMISSION_GRANTED)).toBe(true);
+    await runtime.dispose();
+  });
+
+  it('grants and denies pending requests', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    await runtime.authorizeAction('browser.type', 'a:1');
+    expect(await runtime.approveAction('a:1', 'browser.type')).toBe(true);
+    expect(runtime.hasPendingApproval('a:1', 'browser.type')).toBe(false);
+    expect(eventBus.events.some((e) => e.type === BROWSER_PERMISSION_GRANTED)).toBe(true);
+
+    await runtime.authorizeAction('browser.select', 'a:2');
+    expect(await runtime.denyAction('a:2', 'browser.select')).toBe(true);
+    expect(eventBus.events.some((e) => e.type === BROWSER_PERMISSION_DENIED)).toBe(true);
+
+    // Approving a non-pending request returns false
+    expect(await runtime.approveAction('a:1', 'browser.click')).toBe(false);
+    await runtime.dispose();
+  });
+});
+
+describe('BrowserRuntimeService human takeover (LB-013)', () => {
+  it('takes control and invalidates observation state', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const session = runtime.createSession('agent-1', 'task-1');
+    // Seed an observation via the session observer
+    session.observer.store({
+      url: 'http://app.local',
+      title: 'T',
+      observationId: 'obs-1',
+      elements: [{ ref: 'e1', role: 'button', name: 'OK' }],
+    });
+    expect(session.observer.hasObservation('obs-1')).toBe(true);
+
+    runtime.takeControl(session.id);
+    expect(runtime.isHumanControlled(session.id)).toBe(true);
+    expect(session.controlMode).toBe('human');
+    expect(session.observer.hasObservation('obs-1')).toBe(false);
+    expect(eventBus.events.some((e) => e.type === BROWSER_CONTROL_TAKEN)).toBe(true);
+
+    await runtime.dispose();
+  });
+
+  it('returns control to the agent and emits event', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const session = runtime.createSession('agent-1', 'task-1');
+    runtime.takeControl(session.id);
+    runtime.returnControl(session.id);
+    expect(runtime.isHumanControlled(session.id)).toBe(false);
+    expect(session.controlMode).toBe('agent');
+    expect(eventBus.events.some((e) => e.type === BROWSER_CONTROL_RETURNED)).toBe(true);
+    await runtime.dispose();
+  });
+
+  it('assertAgentControl throws while human controls the session', async () => {
+    const runtime = new BrowserRuntimeService(testOptions({ driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const session = runtime.createSession('agent-1', 'task-1');
+    runtime.takeControl(session.id);
+    expect(() => runtime.assertAgentControl(session.id)).toThrow(/human controls/);
+    runtime.returnControl(session.id);
+    expect(() => runtime.assertAgentControl(session.id)).not.toThrow();
+    await runtime.dispose();
+  });
+});
+
+describe('BrowserRuntimeService session lifecycle (LB-018)', () => {
+  it('closes idle sessions past the threshold', async () => {
+    const eventBus = createTestEventBus();
+    const runtime = new BrowserRuntimeService(testOptions({ eventBus, driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const session = runtime.createSession('agent-1', 'task-1');
+    // Backdate lastActivityAt so the session looks idle
+    session.lastActivityAt = new Date(Date.now() - 60_000).toISOString();
+    const closed = await runtime.closeIdleSessions(30_000);
+    expect(closed).toContain(session.id);
+    expect(runtime.getSession(session.id)?.status).toBe('closed');
+    await runtime.dispose();
+  });
+
+  it('does not close recently active sessions', async () => {
+    const runtime = new BrowserRuntimeService(testOptions({ driverFactory: noopDriverFactory }));
+    await runtime.start();
+    runtime.createSession('agent-1', 'task-1');
+    const closed = await runtime.closeIdleSessions(30_000);
+    expect(closed).toEqual([]);
+    await runtime.dispose();
+  });
+
+  it('enforces the maxSessions limit', async () => {
+    const runtime = new BrowserRuntimeService(testOptions({ driverFactory: noopDriverFactory, maxSessions: 1 }));
+    await runtime.start();
+    runtime.createSession('agent-1', 'task-1');
+    expect(() => runtime.createSession('agent-2', 'task-2')).toThrow(/session limit reached/i);
+    await runtime.dispose();
+  });
+
+  it('recovery replaces a closed session with a fresh one', async () => {
+    const runtime = new BrowserRuntimeService(testOptions({ driverFactory: noopDriverFactory }));
+    await runtime.start();
+    const session = runtime.createSession('agent-1', 'task-1');
+    await runtime.closeSession(session.id);
+    const recovered = runtime.recoverSession('agent-1', 'task-1');
+    expect(recovered.status).toBe('active');
+    expect(recovered).not.toBe(session);
+    await runtime.dispose();
   });
 });

@@ -42,6 +42,9 @@ importers:
       '@vestara/boot-runtime':
         specifier: workspace:*
         version: link:../../packages/boot-runtime
+      '@vestara/browser-runtime':
+        specifier: workspace:*
+        version: link:../../packages/browser-runtime
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../../packages/configuration
@@ -126,6 +129,9 @@ importers:
       '@vestara/sqlite-migrations':
         specifier: workspace:*
         version: link:../../packages/sqlite-migrations
+      '@vestara/stt':
+        specifier: workspace:*
+        version: link:../../packages/stt
       '@vestara/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
@@ -156,6 +162,9 @@ importers:
       '@vestara/verification':
         specifier: workspace:*
         version: link:../../packages/verification
+      '@vestara/voice-browser':
+        specifier: workspace:*
+        version: link:../../packages/voice-browser
       '@vestara/workflow-orchestrator':
         specifier: workspace:*
         version: link:../../packages/workflow-orchestrator
@@ -1775,6 +1784,31 @@ importers:
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/verification-evidence:
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/voice-browser:
+    dependencies:
+      '@vestara/audio':
+        specifier: workspace:*
+        version: link:../audio
+      '@vestara/browser-runtime':
+        specifier: workspace:*
+        version: link:../browser-runtime
+      '@vestara/event-bus':
+        specifier: workspace:*
+        version: link:../event-bus
+      '@vestara/logger':
+        specifier: workspace:*
+        version: link:../logger
+      '@vestara/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@vestara/stt':
+        specifier: workspace:*
+        version: link:../stt
     devDependencies:
       vitest:
         specifier: ^4.1.10

@@ -3,6 +3,7 @@
  * Harness Tool Runtime.
  */
 
+export { BROWSER_TOOL_NAMES, createBrowserToolSet } from './factory';
 export {
   abortError,
   type BrowserDriver,

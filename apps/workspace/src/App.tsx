@@ -10,6 +10,7 @@ import { APP_ROUTES } from './routes';
 const Login = lazy(() => import('./pages/Login'));
 const Overview = lazy(() => import('./pages/Overview'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
+const LiveBrowser = lazy(() => import('./pages/live-browser/LiveBrowserPage'));
 const SessionList = lazy(() => import('./pages/SessionList'));
 const SessionView = lazy(() => import('./pages/Sessions/SessionView'));
 const Artifacts = lazy(() => import('./pages/Artifacts'));
@@ -52,6 +53,7 @@ const PAGES: Record<string, ComponentType> = {
   login: Login,
   overview: Overview,
   dashboard: Dashboard,
+  'live-browser': LiveBrowser,
   sessions: SessionList,
   'session-detail': SessionView,
   artifacts: Artifacts,

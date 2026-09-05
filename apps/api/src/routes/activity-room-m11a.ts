@@ -664,6 +664,10 @@ export async function handleM11AActivityRoomRoute(
   _port: number,
   url: URL,
 ): Promise<boolean> {
+  // The dispatcher invokes every handler for every request; return false early
+  // for paths outside this route group so uninitialized rooms never break
+  // unrelated endpoints (e.g. the 404 path or later-registered routes).
+  if (!p.startsWith('/api/activity-room/v1')) return false;
   const room = getM11ARoom();
 
   // ─── GET /api/activity-room/v1/snapshot ──────────────────────
