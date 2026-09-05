@@ -113,3 +113,72 @@ describe('planBrowserTask', () => {
     expect(() => planBrowserTask('quantum banana', OPTS)).toThrow(/Could not understand the instruction/);
   });
 });
+
+describe('planBrowserTask — compound clauses, waits, and field mapping', () => {
+  it('plans the full multi-step instruction: navigate + wait + type', () => {
+    const { task, warnings } = planBrowserTask(
+      'go to google. then wait for the page to load and when you see the search box type money',
+      OPTS,
+    );
+    expect(warnings).toHaveLength(0);
+    expect(task.steps.map((s) => s.action)).toEqual(['navigate', 'wait', 'type']);
+    expect(task.steps[0]?.input).toMatchObject({ url: 'https://google.com' });
+    expect(task.steps[1]?.input).toEqual({});
+    expect(task.steps[2]?.input).toMatchObject({
+      text: 'money',
+      selector: expect.stringContaining('input[role="searchbox"]'),
+    });
+  });
+
+  it('expands a bare site name to https://<name>.com', () => {
+    const { task } = planBrowserTask('go to google', OPTS);
+    expect(task.steps).toHaveLength(1);
+    expect(task.steps[0]?.input).toMatchObject({ url: 'https://google.com' });
+  });
+
+  it('plans a standalone wait for the page to load', () => {
+    const { task } = planBrowserTask('wait for the page to load', OPTS);
+    expect(task.steps.map((s) => s.action)).toEqual(['wait']);
+  });
+
+  it('plans wait + type from a wait-and-type sentence', () => {
+    const { task } = planBrowserTask('wait for the page to load and when you see the search box type money', OPTS);
+    expect(task.steps.map((s) => s.action)).toEqual(['wait', 'type']);
+    expect(task.steps[1]?.input).toMatchObject({ text: 'money' });
+  });
+
+  it('maps a human field name to search-box selectors', () => {
+    const { task } = planBrowserTask('type money into the search box', OPTS);
+    expect(task.steps[0]?.input).toMatchObject({
+      text: 'money',
+      selector: expect.stringContaining('input[role="searchbox"]'),
+    });
+  });
+
+  it('tolerates a missing space before "in"', () => {
+    const { task } = planBrowserTask('Type "money"in the search box', OPTS);
+    expect(task.steps[0]?.input).toMatchObject({
+      text: 'money',
+      selector: expect.stringContaining('input[role="searchbox"]'),
+    });
+  });
+
+  it('plans navigate + click from "go to example.com and click the Submit button"', () => {
+    const { task } = planBrowserTask('go to example.com and click the Submit button', OPTS);
+    expect(task.steps.map((s) => s.action)).toEqual(['navigate', 'click']);
+    expect(task.steps[1]?.input).toMatchObject({ selector: 'text=Submit button' });
+  });
+
+  it('keeps multi-term searches as a single search step (no clause split)', () => {
+    const { task } = planBrowserTask('search for monitors and keyboards on amazon.com', OPTS);
+    expect(task.steps.map((s) => s.action)).toEqual(['navigate', 'type']);
+    expect(task.steps[1]?.input).toMatchObject({ text: 'monitors and keyboards', submit: true });
+  });
+
+  it('plans navigate + search from "go to google then search for widgets"', () => {
+    const { task } = planBrowserTask('go to google then search for widgets', OPTS);
+    expect(task.steps.map((s) => s.action)).toEqual(['navigate', 'type']);
+    expect(task.steps[0]?.input).toMatchObject({ url: 'https://google.com' });
+    expect(task.steps[1]?.input).toMatchObject({ text: 'widgets', submit: true });
+  });
+});

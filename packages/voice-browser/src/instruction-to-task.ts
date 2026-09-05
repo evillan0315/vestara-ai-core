@@ -7,13 +7,20 @@
  *
  * Supported patterns (extensible):
  *   - "go to / open / visit <url|domain>"          → navigate
+ *   - "go to google"                               → navigate https://google.com (bare-name expansion)
  *   - "log in to <target> as <user> with <pass>"   → navigate + type + submit
  *   - "search for <query> on <target>"             → navigate + type(submit)
  *   - "shop / buy <item> on <target>"              → navigate + search + extract
  *   - "click <selector|text>"                      → click
- *   - "type <text> into <selector>"                → type
+ *   - "type <text> into <field>"                   → type (field names map to selector heuristics)
+ *   - "wait for the page to load"                  → wait
+ *   - "when you see <field> type <text>"           → wait? + type
  *   - "scroll down/up", "go back", "go forward", "refresh", "screenshot",
  *     "extract / read the page"                    → single-step actions
+ *
+ * Multi-step instructions joined by "then", "and" or punctuation are split
+ * into clauses and planned independently; the merge is all-or-nothing so a
+ * partially-understood instruction never produces a partial plan.
  *
  * Steps use CSS/text selectors (a superset of what a human would type); the
  * task runner waits for elements with playwright defaults. When an instruction
@@ -57,18 +64,44 @@ export interface InstructionPlan {
 const isHttpUrl = (value: string): boolean => /^https?:\/\//i.test(value);
 const looksLikeDomain = (value: string): boolean => /(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s]*)?/i.test(value);
 
+/** Words that never name a navigation target when used bare. */
+const STOPWORDS = new Set([
+  'on',
+  'at',
+  'in',
+  'to',
+  'visit',
+  'open',
+  'go',
+  'the',
+  'a',
+  'an',
+  'and',
+  'then',
+  'it',
+  'this',
+  'that',
+  'my',
+]);
+
 function normalizeTarget(raw: string): string {
   const trimmed = raw.trim().replace(/[.,;:!?]+$/, '');
   if (!trimmed) return '';
   if (isHttpUrl(trimmed) || trimmed.startsWith('/') || trimmed.startsWith('#')) return trimmed;
-  if (looksLikeDomain(trimmed) || /^[a-z0-9-]+$/i.test(trimmed)) return `https://${trimmed}`;
+  if (looksLikeDomain(trimmed)) return `https://${trimmed}`;
+  if (/^[a-z0-9-]+$/i.test(trimmed)) {
+    const token = trimmed.toLowerCase();
+    if (token === 'localhost') return 'https://localhost';
+    if (!STOPWORDS.has(token)) return `https://${trimmed}.com`;
+  }
   return trimmed;
 }
 
-/** Find the first navigation target (URL or bare domain) referenced by the text. */
+/** Find the first navigation target (URL, domain, or bare name) referenced by the text. */
 export function extractTarget(text: string): string | undefined {
   const urlMatch = text.match(/https?:\/\/[^\s"'<>]+/i);
   if (urlMatch) return normalizeTarget(urlMatch[0]);
+  // "on <domain>", "to <domain>", "go to <domain>" — dotted domains first.
   for (const match of text.matchAll(
     /(?:on|at|in|to|visit|open|go to)\s+((?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s]*)?)/gi,
   )) {
@@ -76,7 +109,16 @@ export function extractTarget(text: string): string | undefined {
     if (candidate && !/^(on|at|in|to|visit|open|go)$/i.test(candidate)) return candidate;
   }
   const bare = text.match(/(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:\/[^\s]*)?/i);
-  return bare ? normalizeTarget(bare[0]) : undefined;
+  if (bare) return normalizeTarget(bare[0]);
+  // "to <bare-name>" (e.g. "log in to google …").
+  for (const match of text.matchAll(/(?:on|at|in|to|visit|open|go to)\s+([a-z0-9](?:[a-z0-9-]*[a-z0-9])?)/gi)) {
+    const word = match[1].toLowerCase();
+    if (!STOPWORDS.has(word)) return normalizeTarget(match[1]);
+  }
+  // A lone bare name ("google").
+  const token = text.trim().match(/^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i);
+  if (token && !STOPWORDS.has(token[0].toLowerCase())) return normalizeTarget(token[0]);
+  return undefined;
 }
 
 /** Extract "as <user> with <pass>" / "username <u> password <p>" credential pairs. */
@@ -92,9 +134,41 @@ export function extractCredentials(text: string): { readonly username: string; r
   return undefined;
 }
 
-// ─── Planner ────────────────────────────────────────────────
+// ─── Compound / clause planning ─────────────────────────────
 
-const counter = { n: 0 };
+/** Connectors that separate independent clauses in an instruction. */
+const CLAUSE_SEPARATOR = /\s*(?:[.,;]|\bthen\b|\band\s+then\b|\band\b)\s+/i;
+
+/** Navigation verb phrase; the target capture stops at the first connector. */
+const NAV_PATTERN =
+  /^(?:go|open|navigate|visit|take me)\s+(?:to\s+)?(.+?)(?=(?:\s*[.,;]|\s+(?:\bthen\b|\band\s+then\b|\band\b))\s|$)/i;
+
+const WAIT_PATTERN =
+  /^(?:wait|pause|hold on)(?:\s+(?:for|until))?(?:\s+(?:a\s+)?(?:moment|sec(?:ond)?|bit))?(?:\s+the\s+page(?:\s+to\s+load)?)?$/i;
+
+function splitClauses(raw: string): string[] {
+  return raw
+    .split(CLAUSE_SEPARATOR)
+    .map((clause) =>
+      clause
+        .trim()
+        .replace(/^(?:and|then|but)\s+/i, '')
+        .trim(),
+    )
+    .filter((clause) => clause.length > 0);
+}
+
+/** Map a human field description to a concrete selector (or keep it as-is). */
+function describeSelector(phrase: string): string {
+  const p = phrase.trim().toLowerCase();
+  if (/(search|query|find)/.test(p)) return SEARCH_SELECTORS;
+  if (/(username|user name|e-?mail|login field|\buser\b)/.test(p)) return USERNAME_SELECTORS;
+  if (/pass(word)?/.test(p)) return PASSWORD_SELECTOR;
+  if (/(submit|sign ?in|log ?in|button)/.test(p)) return SUBMIT_SELECTORS;
+  return phrase.trim();
+}
+
+// ─── Planner ────────────────────────────────────────────────
 
 function newTask(sessionId: string, ownerId: string, objective: string): BrowserTask {
   return createBrowserTask(sessionId, ownerId, objective);
@@ -116,21 +190,19 @@ function finishTask(task: BrowserTask, steps: readonly BrowserStep[]): BrowserTa
 }
 
 /**
- * Plan a browser task from a natural-language instruction.
- *
- * Throws a descriptive error (listing supported patterns) when the text does
- * not match any pattern.
+ * Attempt to plan one instruction (a whole sentence or a single clause).
+ * Mutates `steps`/`warnings` only on success; returns false when the text
+ * cannot be understood so callers can try a broader interpretation.
  */
-export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): InstructionPlan {
-  const raw = text.trim();
-  if (!raw) throw new Error('Instruction must not be empty');
+function tryPlan(
+  raw: string,
+  options: PlanBrowserTaskOptions,
+  task: BrowserTask,
+  steps: BrowserStep[],
+  warnings: string[],
+): boolean {
   const lower = raw.toLowerCase();
-  const warnings: string[] = [];
-  const task = newTask(options.sessionId, options.ownerId, options.objective ?? raw);
-  const steps: BrowserStep[] = [];
-
-  const target = extractTarget(raw);
-  const startTarget = target ?? options.baseUrl;
+  const startTarget = extractTarget(raw) ?? options.baseUrl;
 
   const pushNavigate = (t: string): void => {
     pushStep(task, steps, `Navigate to ${t}`, 'navigate', { url: t });
@@ -154,7 +226,7 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
       warnings.push('No credentials were given, so the plan stops at the sign-in page — complete the form manually.');
       pushStep(task, steps, 'Wait for the sign-in form to settle', 'wait', {});
     }
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   // ─── Search ──────────────────────────────────────────────
@@ -168,7 +240,7 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
       text: query,
       submit: true,
     });
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   const bareSearch = lower.match(/^(?:search|look up|google|find)\s+(?:for\s+)?(.+)$/);
@@ -179,7 +251,7 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
       text: query,
       submit: true,
     });
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   // ─── Shop / buy / purchase ───────────────────────────────
@@ -195,27 +267,47 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
     });
     pushStep(task, steps, 'Extract the page text of the results', 'extract', {});
     warnings.push('Shopping plans stop at the results page — add to cart / checkout still need human confirmation.');
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   // ─── History / refresh (before plain navigation, as "go back" is not a target) ──
   if (/^(go back|back)\b/.test(lower)) {
     pushStep(task, steps, 'Go back in history', 'back', {});
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   if (/^(go forward|forward)\b/.test(lower)) {
     pushStep(task, steps, 'Go forward in history', 'forward', {});
-    return { task: finishTask(task, steps), warnings };
+    return true;
+  }
+
+  // ─── Wait for the page to load ───────────────────────────
+  if (WAIT_PATTERN.test(lower)) {
+    pushStep(task, steps, 'Wait for the page to load', 'wait', {});
+    return true;
   }
 
   // ─── Plain navigation ────────────────────────────────────
-  const navMatch = lower.match(/^(?:go|open|navigate|visit|take me)\s+(?:to\s+)?(.+)$/);
+  const navMatch = lower.match(NAV_PATTERN);
   if (navMatch) {
+    // If a connector follows the target, plan the whole sentence as clauses
+    // (all-or-nothing) rather than silently dropping the remaining steps.
+    const rest = raw.slice(navMatch[0].length).trim();
+    if (rest) {
+      const stepsBefore = steps.length;
+      const warningsBefore = warnings.length;
+      const clauses = splitClauses(raw);
+      if (clauses.length > 1 && clauses.every((clause) => tryPlan(clause, options, task, steps, warnings))) {
+        return true;
+      }
+      steps.length = stepsBefore;
+      warnings.length = warningsBefore;
+      return false;
+    }
     const navTarget = extractTarget(navMatch[1]) ?? startTarget;
-    if (!navTarget) throw new Error(`Could not determine a navigation target from: "${raw}"`);
+    if (!navTarget) return false;
     pushNavigate(navTarget);
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   // ─── Single-action commands ──────────────────────────────
@@ -227,17 +319,28 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
       .replace(/^the\s+/i, '');
     const selector = /^[.#[\]a-z0-9_:-]+$/i.test(what) && !/\s/.test(what) ? what : `text=${what}`;
     pushStep(task, steps, `Click ${what}`, 'click', { selector });
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
-  const typeMatch = raw.match(/^type\s+(.+?)\s+(?:into|in)\s+(.+?)\s*$/i);
+  const typeMatch = raw.match(/^type\s+(.+?)\s*(?:into|in)\s+(.+?)\s*$/i);
   if (typeMatch) {
     const text = typeMatch[1].trim().replace(/^"|"$/g, '');
-    pushStep(task, steps, `Type "${text}"`, 'type', {
-      selector: typeMatch[2].trim(),
-      text,
-    });
-    return { task: finishTask(task, steps), warnings };
+    const selector = describeSelector(typeMatch[2].trim());
+    pushStep(task, steps, `Type "${text}"`, 'type', { selector, text });
+    return true;
+  }
+
+  // "when you see the search box type money" (field first, then the value).
+  const fieldTypeMatch = raw.match(
+    /^(?:wait\b[\s\S]*?)?\s*(?:and\s+)?(?:when\s+you\s+see\s+)?(?:the\s+)?(.+?(?:box|bar|field|input|username|email|password|button))\s+(?:type|enter|search\s+for)\s+(.+?)\s*$/i,
+  );
+  if (fieldTypeMatch) {
+    const field = describeSelector(fieldTypeMatch[1].trim());
+    const value = fieldTypeMatch[2].trim().replace(/^"|"$/g, '');
+    const submit = /search\s+for/i.test(fieldTypeMatch[0]);
+    if (/\bwait\b/i.test(raw)) pushStep(task, steps, 'Wait for the page to load', 'wait', {});
+    pushStep(task, steps, `Type "${value}"`, 'type', { selector: field, text: value, submit });
+    return true;
   }
 
   const scrollMatch = lower.match(/^scroll\s+(down|up)(?:\s+(\d+))?/);
@@ -248,35 +351,66 @@ export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): 
       direction,
       ...(amount ? { amount } : {}),
     });
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   if (/(reload|refresh)(\s|$)/.test(lower)) {
     pushStep(task, steps, 'Reload the page', 'reload', {});
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   if (/(take a screenshot|screenshot|capture the (?:page|screen))/.test(lower)) {
     pushStep(task, steps, 'Capture a screenshot', 'screenshot', {});
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
   if (/(extract|read|summarize)(\s+(?:the\s+)?(?:page|text|content))?/.test(lower)) {
     pushStep(task, steps, 'Extract the page text', 'extract', {});
-    return { task: finishTask(task, steps), warnings };
+    return true;
+  }
+
+  // ─── Compound fallback (multiple clauses) ────────────────
+  const clauses = splitClauses(raw);
+  if (clauses.length > 1) {
+    const stepsBefore = steps.length;
+    const warningsBefore = warnings.length;
+    if (clauses.every((clause) => tryPlan(clause, options, task, steps, warnings))) return true;
+    steps.length = stepsBefore;
+    warnings.length = warningsBefore;
   }
 
   // ─── Fallback ────────────────────────────────────────────
   if (startTarget) {
     pushNavigate(startTarget);
-    return { task: finishTask(task, steps), warnings };
+    return true;
   }
 
-  throw new Error(
-    `Could not understand the instruction: "${raw}". ` +
-      'Supported patterns: "go to <url>", "log in to <site> as <user> with <pass>", ' +
-      '"search for <query> on <site>", "shop for <item> on <site>", ' +
-      '"click <element>", "type <text> into <field>", "scroll down", ' +
-      '"go back", "go forward", "refresh", "screenshot", "extract the page".',
-  );
+  return false;
+}
+
+/**
+ * Plan a browser task from a natural-language instruction.
+ *
+ * Throws a descriptive error (listing supported patterns) when the text does
+ * not match any pattern.
+ */
+export function planBrowserTask(text: string, options: PlanBrowserTaskOptions): InstructionPlan {
+  const raw = text.trim();
+  if (!raw) throw new Error('Instruction must not be empty');
+  const task = newTask(options.sessionId, options.ownerId, options.objective ?? raw);
+  const steps: BrowserStep[] = [];
+  const warnings: string[] = [];
+
+  if (!tryPlan(raw, options, task, steps, warnings)) {
+    throw new Error(
+      `Could not understand the instruction: "${raw}". ` +
+        'Supported patterns: "go to <url>", "log in to <site> as <user> with <pass>", ' +
+        '"search for <query> on <site>", "shop for <item> on <site>", ' +
+        '"click <element>", "type <text> into <field>", "wait for the page to load", ' +
+        '"scroll down", "go back", "go forward", "refresh", "screenshot", "extract the page". ' +
+        'Multi-step instructions can be combined with "then" / "and".',
+    );
+  }
+
+  return { task: finishTask(task, steps), warnings };
 }

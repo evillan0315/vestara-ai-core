@@ -369,6 +369,12 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
    * deadline; long enough for actionability waits on busy pages.
    */
   private static readonly DOM_ACTION_TIMEOUT_MS = 5_000;
+  /**
+   * Budget for the "wait for the page to load" step. Waits for the DOM `load`
+   * event (not `networkidle`, which stalls on pages with long-lived
+   * connections) so instructions complete quickly once the page is ready.
+   */
+  private static readonly WAIT_FOR_LOAD_TIMEOUT_MS = 10_000;
   private browser?: Browser;
   private readonly pages = new Map<string, Page>();
   /** Per-key element observations keyed by observation ID. */
@@ -382,7 +388,9 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
   async navigate(url: string, key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
     const page = await this.ensurePage(key, signal);
     try {
-      await page.goto(url, { waitUntil: 'networkidle', timeout: this.timeoutMs, signal });
+      // Wait for the DOM `load` event rather than `networkidle`: navigation
+      // completes as soon as the page is ready, keeping instruction runs fast.
+      await page.goto(url, { waitUntil: 'load', timeout: this.timeoutMs, signal });
       throwIfAborted(signal);
       await this.waitForStability(page, signal);
       return { url: page.url(), title: await page.title() };
@@ -487,7 +495,7 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
   async waitForNavigation(key: string, signal?: AbortSignal): Promise<BrowserNavigationResult> {
     throwIfAborted(signal);
     const page = await this.ensurePage(key, signal);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('load', { timeout: PlaywrightBrowserDriver.WAIT_FOR_LOAD_TIMEOUT_MS });
     await this.waitForStability(page, signal);
     return { url: page.url(), title: await page.title() };
   }
