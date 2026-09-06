@@ -39,6 +39,28 @@ If `VESTARA_REPO` is not set, the API searches the current directory and its
 parents for `.vestara/workspace.json` before falling back to the current
 directory.
 
+### Live Browser driver
+
+The Live Browser runs on the Playwright driver by default. Set
+`VESTARA_BROWSER_DRIVER` to `agent-browser` to use the agent-browser CLI
+(agent-browser.dev) as the driver instead:
+
+```bash
+VESTARA_BROWSER_DRIVER=agent-browser pnpm dev:api
+```
+
+`VESTARA_AGENT_BROWSER_EXECUTABLE_PATH` optionally overrides the Chromium
+executable used by the agent-browser driver (the CLI also honors its own
+`AGENT_BROWSER_EXECUTABLE_PATH`):
+
+```bash
+VESTARA_BROWSER_DRIVER=agent-browser \
+VESTARA_AGENT_BROWSER_EXECUTABLE_PATH=/path/to/chromium \
+pnpm dev:api
+```
+
+Unknown `VESTARA_BROWSER_DRIVER` values warn and fall back to Playwright.
+
 ## Workspace Clients
 
 ### Browser development

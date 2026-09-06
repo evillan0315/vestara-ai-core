@@ -57,11 +57,14 @@ import { type OperationType, TelemetryRuntime } from '@vestara/telemetry';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import {
+  AgentBrowserDriver,
   BrowserClickTool,
   BrowserCloseTool,
+  type BrowserDriver,
   BrowserNavigateTool,
   BrowserScreenshotTool,
   BrowserSession,
+  type BrowserSessionOptions,
   BrowserSnapshotTool,
   BrowserTypeTool,
   isInformationClassification,
@@ -327,6 +330,32 @@ function parseOriginPolicies(raw: string | undefined): OriginPolicy[] {
 }
 
 /**
+ * Resolve which browser driver the governed runtime should use, reading
+ * `VESTARA_BROWSER_DRIVER` (default `playwright`). Unknown values fall back to
+ * Playwright with a warning — boot must never fail over a typo.
+ * `VESTARA_AGENT_BROWSER_EXECUTABLE_PATH` optionally overrides the Chromium
+ * executable for the agent-browser driver (the CLI's own
+ * `AGENT_BROWSER_EXECUTABLE_PATH` is honored too).
+ */
+export function resolveBrowserDriverFactory(
+  env: NodeJS.ProcessEnv = process.env,
+): ((options: BrowserSessionOptions) => BrowserDriver) | undefined {
+  const driver = (env.VESTARA_BROWSER_DRIVER ?? 'playwright').trim().toLowerCase();
+  if (driver === 'agent-browser') {
+    const executablePath = env.VESTARA_AGENT_BROWSER_EXECUTABLE_PATH;
+    return (options) =>
+      new AgentBrowserDriver({
+        ...options,
+        ...(executablePath ? { executablePath } : {}),
+      });
+  }
+  if (driver !== 'playwright') {
+    console.warn(`[workspace-context] unknown VESTARA_BROWSER_DRIVER "${driver}" — falling back to playwright`);
+  }
+  return undefined; // BrowserRuntimeService defaults to the Playwright driver
+}
+
+/**
  * Build the governed browser runtime service. Always enabled — the Live Browser
  * works out of the box and accepts all URLs (allowedOrigins defaults to '*').
  * VESTARA_BROWSER_URL optionally sets the starting page; VESTARA_BROWSER_ALLOWED_
@@ -339,12 +368,14 @@ function createBrowserRuntime(repoPath: string): BrowserRuntimeService {
     .split(',')
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0);
+  const driverFactory = resolveBrowserDriverFactory();
   return new BrowserRuntimeService({
     workspaceId: path.basename(repoPath) || 'workspace',
     ...(browserBaseUrl ? { defaultBaseUrl: browserBaseUrl } : {}),
     ...(allowedOrigins.length > 0 ? { allowedOrigins } : {}),
     idleTimeoutMs: Number(process.env.VESTARA_BROWSER_IDLE_TIMEOUT_MS ?? 0) || 0,
     maxSessions: Number(process.env.VESTARA_BROWSER_MAX_SESSIONS ?? 0) || 0,
+    ...(driverFactory ? { driverFactory } : {}),
   });
 }
 

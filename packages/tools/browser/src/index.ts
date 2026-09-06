@@ -3,6 +3,14 @@
  * Harness Tool Runtime.
  */
 
+export {
+  type AgentBrowserCliClient,
+  type AgentBrowserCliInvocation,
+  AgentBrowserDriver,
+  type AgentBrowserDriverOptions,
+  resolveAgentBrowserBinary,
+  SpawnAgentBrowserCli,
+} from './agent-browser-driver';
 export { BROWSER_TOOL_NAMES, createBrowserToolSet } from './factory';
 export {
   abortError,

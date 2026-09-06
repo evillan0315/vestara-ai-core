@@ -70,6 +70,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 - API: `http://127.0.0.1:3001`, UI: `http://127.0.0.1:5173` (Vite proxies `/api`+`/ws` → API, `apps/workspace/vite.config.ts`).
 - `VESTARA_API_PORT` (API listen, default 3001), `VESTARA_REPO` (workspace path; otherwise walks up for `.vestara/workspace.json`), `VITE_API_URL` (build-time desktop/remote UI base URL — code appends `/api`, trailing slashes trimmed).
+- Live Browser driver: `VESTARA_BROWSER_DRIVER` (`playwright` default | `agent-browser` — runs the agent-browser CLI as the driver; unknown values warn + fall back), `VESTARA_AGENT_BROWSER_EXECUTABLE_PATH` (Chromium executable for the agent-browser driver; the CLI also honors `AGENT_BROWSER_EXECUTABLE_PATH`). Driver factory wired in `apps/api/src/workspace-context.ts` (`createBrowserRuntime` → `resolveBrowserDriverFactory`).
 - `pnpm dev:api` loads `.env` (`--env-file=.env`); `pnpm dev` does not (runs bare `node apps/api/dist/index.js`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
 - Never edit `.vestara/` runtime state. Pre-commit hook (`.githooks/pre-commit` → `scripts/pre-commit.sh` → `biome --staged` + full `pnpm test`) is opt-in via `git config core.hooksPath .githooks`; note it runs the whole suite, so it is slow.
 
