@@ -46,7 +46,7 @@
     "format": "biome format --write",
     "dev:api": "node --env-file=.env apps/api/dist/index.js",
     "dev:ui": "pnpm --filter @vestara/workspace-ui dev",
-    "dev": "node apps/api/dist/index.js & pnpm --filter @vestara/workspace-ui dev; kill %1",
+    "dev": "node --env-file=.env apps/api/dist/index.js & pnpm --filter @vestara/workspace-ui dev; kill %1",
     "services:start": "sudo systemctl start opencode.service vestara-api.service",
     "services:restart": "sudo systemctl restart opencode.service vestara-api.service",
     "services:reload": "sudo systemctl restart opencode.service vestara-api.service",

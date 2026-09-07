@@ -28,6 +28,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { useProviderSettings } from '../../hooks/useProviderSettings';
 import type {
   AssistantToolOperation,
   OptimisticHumanTurn,
@@ -36,6 +37,7 @@ import type {
 } from '../../hooks/useAssistantConversation';
 import type { AssistantExecutionDetail } from '@vestara/shared';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
+import { ProviderModelSelector } from '../ui/ProviderModelSelector';
 import { AssistantResponseActions } from './AssistantResponseActions';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
@@ -298,12 +300,134 @@ function ActiveTurn({
   );
 }
 
+/**
+ * GA-RUNTIME-001 B: interactive permission/question decisions.
+ * Rendered above the composer while a turn awaits a user decision. Each
+ * permission carries OpenCode's native response semantics — Allow once /
+ * Allow for session / Deny. Questions carry their bounded options.
+ */
+function PendingInteractions({
+  permissions,
+  questions,
+  conversationId,
+  onPermissionDecision,
+  onQuestionAnswer,
+}: {
+  permissions: readonly AssistantExecutionDetail[];
+  questions: readonly AssistantExecutionDetail[];
+  conversationId: string | null;
+  onPermissionDecision: (
+    conversationId: string,
+    permissionId: string,
+    decision: 'allow-once' | 'allow-session' | 'deny',
+  ) => Promise<boolean>;
+  onQuestionAnswer: (conversationId: string, requestId: string, answers: string[][]) => Promise<boolean>;
+}) {
+  if (!conversationId) return null;
+  const pending = (permissions ?? []).filter((p) => p.kind === 'permission' && p.permissionState === 'requested');
+  const openQuestions = (questions ?? []).filter((q) => q.kind === 'question' && q.questionState === 'requested');
+  if (pending.length === 0 && openQuestions.length === 0) return null;
+  return (
+    <div className="shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-3 py-2 space-y-2">
+      {pending.map((permission) => {
+        const action = permission.kind === 'permission' ? permission.action : 'unknown';
+        const resources = permission.kind === 'permission' ? permission.resources : [];
+        return (
+          <div
+            key={permission.operationId}
+            data-testid="pending-permission"
+            className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2"
+          >
+            <div className="text-[11px] text-zinc-300 mb-1">
+              Vestara Assistant wants to run: <span className="text-amber-400 font-medium">{action}</span>
+            </div>
+            {resources.length > 0 && (
+              <div className="text-[9px] text-zinc-600 mb-1.5 break-words">
+                {resources.slice(0, 3).join(', ')}
+                {resources.length > 3 ? ` +${resources.length - 3} more` : ''}
+              </div>
+            )}
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                data-testid="permission-allow-once"
+                onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-once')}
+                className="rounded border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-700 transition-colors cursor-pointer"
+              >
+                Allow once
+              </button>
+              <button
+                type="button"
+                data-testid="permission-allow-session"
+                onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-session')}
+                className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+              >
+                Allow for session
+              </button>
+              <button
+                type="button"
+                data-testid="permission-deny"
+                onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'deny')}
+                className="rounded border border-red-500/30 bg-red-500/5 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-500/15 transition-colors cursor-pointer"
+              >
+                Deny
+              </button>
+            </div>
+          </div>
+        );
+      })}
+      {openQuestions.map((question) => {
+        const info = question.kind === 'question' ? question.questions[0] : undefined;
+        const optionCount = info?.options?.length ?? 0;
+        return (
+          <div
+            key={question.operationId}
+            data-testid="pending-question"
+            className="rounded-lg border border-sky-500/25 bg-sky-500/5 px-3 py-2"
+          >
+            <div className="text-[11px] text-zinc-300 mb-1.5">
+              {info?.question ?? 'The Assistant is asking a question.'}
+            </div>
+            {info && optionCount > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5">
+                {info.options!.map((option) => (
+                  <button
+                    key={option.label}
+                    type="button"
+                    data-testid="question-option"
+                    onClick={() =>
+                      void onQuestionAnswer(conversationId, question.operationId, [[option.label]])
+                    }
+                    className="rounded border border-sky-500/30 bg-sky-500/10 px-2 py-0.5 text-[10px] text-sky-300 hover:bg-sky-500/20 transition-colors cursor-pointer"
+                  >
+                    {option.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  data-testid="question-dismiss"
+                  onClick={() => void onQuestionAnswer(conversationId, question.operationId, [])}
+                  className="rounded border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-300 hover:bg-zinc-700 transition-colors cursor-pointer"
+                >
+                  Dismiss
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ComposeInput({
   onSend,
   loading,
   onStop,
   focusRef,
   conversationKey,
+  providerModel,
+  onProviderModelChange,
 }: {
   onSend: (text: string) => void;
   loading: boolean;
@@ -311,6 +435,9 @@ function ComposeInput({
   focusRef?: React.RefObject<HTMLElement | null>;
   /** GA-UI-006: selected conversation id — composer focuses when its target changes. */
   conversationKey?: string | null;
+  /** GA-UI-008: shared provider/model selection. */
+  providerModel?: { providerId: string; modelId: string };
+  onProviderModelChange?: (value: { providerId: string; modelId: string }) => void;
 }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -365,7 +492,18 @@ function ComposeInput({
   );
 
   return (
-    <div className="border-t border-zinc-800/80 bg-zinc-950 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
+    <div className="w-full border-t border-zinc-800/80 bg-zinc-950 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
+      {/* GA-UI-008: compact provider/model selector */}
+      {providerModel && onProviderModelChange && (
+        <div className="mb-2 flex items-center gap-1.5">
+          <ProviderModelSelector
+            value={providerModel}
+            onChange={onProviderModelChange}
+            compact
+            disabled={loading}
+          />
+        </div>
+      )}
       <div className="flex items-end gap-2 min-w-0">
         <textarea
           ref={textareaRef}
@@ -513,6 +651,8 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   const followRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
   const surface = useSurfaceContext();
+  // GA-UI-008: shared provider/model selection (persisted via localStorage)
+  const { settings: providerSettings, updateSettings: updateProviderSettings } = useProviderSettings();
 
   const optimisticTurns = assistant.optimisticTurns ?? [];
   const retryTurn = assistant.retryTurn ?? (() => Promise.resolve());
@@ -658,9 +798,15 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       // GA-CONTEXT-002: forward the CURRENT full SurfaceContext at send time
       // (workspace + surface + optional selection). Evaluated per turn so
       // navigation updates reach the assistant without a new conversation.
-      await assistant.sendMessage(text, { surfaceContext: surface });
+      // GA-RUNTIME-001 G: the composer selection is the REQUESTED execution
+      // binding — the server validates/resolves it before execution.
+      await assistant.sendMessage(text, {
+        surfaceContext: surface,
+        provider: providerSettings.provider,
+        model: providerSettings.model,
+      });
     },
-    [assistant.sendMessage, surface.selected],
+    [assistant.sendMessage, surface.selected, providerSettings.provider, providerSettings.model],
   );
 
   const handleRetry = useCallback(
@@ -703,7 +849,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   );
 
   const mainColumn = (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex h-full w-full flex-col">
       {/* Surface context badge */}
       <SurfaceContextBadge surface={surface.surface} />
 
@@ -793,13 +939,13 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           GA-UX-PREMIUM M1 rhythm: deliberate vertical spacing on the open
           canvas — HUMAN TURN / identity / content / actions — never card-card-card. */}
       {showList && (
-        <div className="relative flex-1 min-h-0 min-w-0">
+        <div className="relative flex flex-col flex-1 min-h-0 min-w-0">
           <div
             ref={scrollRef}
             onScroll={handleScroll}
             tabIndex={-1}
             data-testid="conversation-scroll"
-            className="h-full overflow-y-auto overflow-x-hidden px-4 py-4 space-y-5 focus:outline-none min-w-0"
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-5 focus:outline-none min-w-0"
           >
             {assistant.messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
@@ -835,6 +981,15 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       )}
       </div>
 
+      {/* GA-RUNTIME-001 B: interactive permission / question decisions */}
+      <PendingInteractions
+        permissions={assistant.pendingPermissions}
+        questions={assistant.pendingQuestions}
+        conversationId={assistant.selectedId}
+        onPermissionDecision={assistant.respondToPermission}
+        onQuestionAnswer={assistant.answerQuestion}
+      />
+
       {/* Compose */}
       <ComposeInput
         onSend={handleSend}
@@ -842,6 +997,12 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         onStop={assistant.abortStream}
         focusRef={focusOnMountRef}
         conversationKey={assistant.selectedId}
+        // GA-UI-008: the selector contract is {providerId, modelId}; provider
+        // settings persist as {provider, model}. Mapped at the boundary.
+        providerModel={{ providerId: providerSettings.provider, modelId: providerSettings.model }}
+        onProviderModelChange={(value) =>
+          updateProviderSettings({ provider: value.providerId, model: value.modelId })
+        }
       />
     </div>
   );

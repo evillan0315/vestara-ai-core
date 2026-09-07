@@ -21,13 +21,22 @@
 
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
+import { normalizePermissionAction } from '@vestara/opencode-runtime';
 import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
+import {
+  type AssistantCapabilityPolicy,
+  evaluatePermission,
+  type PermissionEvaluation,
+} from './assistant-capability-policy';
+import type { AssistantConversationSessionRegistry } from './assistant-conversation-sessions';
 import {
   projectDetail,
   projectEditStarted,
   projectMessagePartUpdated,
   projectPermissionRequested,
   projectPermissionResolved,
+  projectQuestionAsked,
+  projectQuestionResolved,
   projectTerminalCompleted,
   projectTerminalStarted,
   projectTodoSnapshot,
@@ -35,6 +44,7 @@ import {
   projectToolFailed,
   projectToolStarted,
 } from './assistant-execution-projection';
+import type { AssistantInteractionBroker, AssistantQuestionDecision } from './assistant-interaction-broker';
 
 export interface AssistantOpenCodeExecutorOptions {
   client: OpenCodeHttpClient;
@@ -46,14 +56,43 @@ export interface AssistantOpenCodeExecutorOptions {
   /** Resolved provider/model override (when known at construction time). */
   model?: { providerID: string; modelID: string };
   /**
-   * Per-turn resolver: map `CompletionRequest.model` → the provider/model that
-   * actually executes. When provided, the adapter never fabricates a provider —
-   * provenance follows the real upstream resolution.
+   * Per-turn resolver: map the requested `CompletionRequest.model` /
+   * `CompletionRequest.provider` → the provider/model that actually executes.
+   * When provided, the adapter never fabricates a provider — provenance follows
+   * the real upstream resolution. May be async (server-authoritative binding
+   * validation happens before the turn is submitted).
    */
-  resolveProviderModel?: (model?: string) => { providerID: string; modelID: string } | undefined;
+  resolveProviderModel?: (
+    model?: string,
+    provider?: string,
+  ) =>
+    | { providerID: string; modelID: string }
+    | Promise<{ providerID: string; modelID: string } | undefined>
+    | undefined;
+  /**
+   * GA-RUNTIME-001: conversation → OpenCode session registry. When set and the
+   * request carries a `conversationId`, the executor reuses the conversation's
+   * session across turns (single-flight creation on the first turn). Session
+   * continuity is keyed by conversation identity — never by provider/model.
+   */
+  sessionRegistry?: AssistantConversationSessionRegistry;
+  /**
+   * GA-RUNTIME-001 Addendum B: interactive permission/question decisions.
+   * When set, ASK policy decisions and OpenCode questions project to the
+   * browser and await a real user decision instead of degrading to a status.
+   */
+  interactionBroker?: AssistantInteractionBroker;
   title?: string;
   /** Hard cap for a single turn (ms). Default 5 minutes. */
   turnTimeoutMs?: number;
+  /**
+   * GA-CAP-003: Vestara-owned capability boundary for the Global Assistant.
+   * When provided, permission requests are evaluated against this policy
+   * before being surfaced to the user. ALLOW decisions are auto-approved,
+   * DENY decisions are auto-rejected, and ASK decisions are surfaced.
+   * When absent, the adapter behaves as before (all permissions surfaced).
+   */
+  capabilityPolicy?: AssistantCapabilityPolicy;
 }
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -73,6 +112,19 @@ function lastUserText(messages: CompletionRequest['messages']): string {
     }
   }
   return '';
+}
+
+/**
+ * Derive a meaningful OpenCode session title from the first user message.
+ * Collapses whitespace and bounds to a single short line (48 chars).
+ * Falls back to 'Assistant conversation' when no user text is available.
+ */
+function deriveSessionTitle(userText: string): string {
+  const singleLine = userText.replace(/\s+/g, ' ').trim();
+  if (singleLine.length === 0) return 'Assistant conversation';
+  const maxLength = 48;
+  if (singleLine.length <= maxLength) return singleLine;
+  return `${singleLine.slice(0, maxLength).trimEnd()}…`;
 }
 
 /**
@@ -108,10 +160,15 @@ function chunk(type: StreamChunk['type'], sequence: number, extra: Partial<Strea
  * Run one OpenCode turn as an async generator of normalized `StreamChunk`s.
  * Events are consumed from the session-scoped `/event` stream; correlation is
  * keyed on OpenCode `callID`; every projected detail passes the sanitizer.
+ *
+ * GA-RUNTIME-001: when `sessionId` is provided the OpenCode session is REUSED
+ * (conversation continuity); when absent a fresh session is created (backward-
+ * compatible single-turn path).
  */
 export async function* runAssistantOpenCodeTurn(
   options: AssistantOpenCodeExecutorOptions,
   request: CompletionRequest,
+  sessionId?: string,
 ): AsyncIterable<StreamChunk> {
   const { client, workspaceId, directory, agent, turnTimeoutMs = TURN_TIMEOUT_MS } = options;
   const context = { workspaceId, directory };
@@ -119,11 +176,18 @@ export async function* runAssistantOpenCodeTurn(
   if (!userText) throw new Error('Assistant OpenCode turn requires a user message');
 
   // Resolve the real upstream provider/model for THIS turn; never fabricated.
-  const turnModel = options.resolveProviderModel?.(request.model) ?? options.model;
+  // The requested provider/model is the browser's REQUESTED binding; the
+  // server-side resolver validates it before execution (GA-RUNTIME-001 G).
+  const turnModel = (await options.resolveProviderModel?.(request.model, request.provider)) ?? options.model;
   const turnProvider = turnModel?.providerID ?? TRANSPORT_PROVIDER;
 
-  const session = await client.createSession({ title: options.title ?? 'Assistant conversation' }, context);
-  const sessionId = session.id;
+  // GA-RUNTIME-001: reuse the conversation's session when the caller resolved
+  // one; otherwise create (single-turn path).
+  let resolvedSessionId = sessionId;
+  if (!resolvedSessionId) {
+    const session = await client.createSession({ title: deriveSessionTitle(userText) }, context);
+    resolvedSessionId = session.id;
+  }
 
   const controller = new AbortController();
   const onAbort = () => controller.abort();
@@ -146,7 +210,7 @@ export async function* runAssistantOpenCodeTurn(
     try {
       for await (const event of client.openEventStream(context, controller.signal)) {
         const payload = event.payload as Record<string, unknown> | undefined;
-        if (payload && payload.sessionID === sessionId) push(event);
+        if (payload && payload.sessionID === resolvedSessionId) push(event);
       }
     } catch {
       // stream closed (abort/network) — the turn loop observes readerDone.
@@ -159,6 +223,9 @@ export async function* runAssistantOpenCodeTurn(
   const deadline = Date.now() + turnTimeoutMs;
   const shellStartedAt = new Map<string, number>();
   let sequence = 0;
+  // GA-RUNTIME-001 cancel safety: only a natural `session.status idle` proves
+  // the runtime settled; any other exit must actively settle the session.
+  let completedNaturally = false;
 
   try {
     // GA-SSE-003B: submit asynchronously (POST /session/:id/prompt_async).
@@ -166,11 +233,13 @@ export async function* runAssistantOpenCodeTurn(
     // interactive runtime behavior; prompt_async is accepted in ~50ms and the
     // already-subscribed /event stream becomes the execution authority.
     await client.sendMessageAsync(
-      sessionId,
+      resolvedSessionId,
       {
         parts: [{ type: 'text', text: userText }],
         agent,
         // Async input model shape: { providerId, modelId } (lowercase).
+        // GA-RUNTIME-001 E: provider/model is Execution Binding — it rides the
+        // prompt, never a new session.
         ...(turnModel ? { model: { providerId: turnModel.providerID, modelId: turnModel.modelID } } : {}),
         // GA-CONTEXT-002: trusted turn-time surface context via the
         // established `system` field (proven additive — the agent's own
@@ -202,7 +271,15 @@ export async function* runAssistantOpenCodeTurn(
           if (typeof payload.delta === 'string' && payload.delta) {
             yield {
               ...chunk('text', sequence++, { content: payload.delta }),
-              metadata: { sequence: 0, timestamp: new Date().toISOString(), provider: turnProvider },
+              // GA-RUNTIME-001 H: the displayed execution binding is the REAL
+              // upstream provider/model for this turn — never the composer value.
+              metadata: {
+                sequence: 0,
+                timestamp: new Date().toISOString(),
+                provider: turnProvider,
+                model: turnModel?.modelID,
+                runtimeSessionId: resolvedSessionId,
+              },
             };
           }
           break;
@@ -276,12 +353,187 @@ export async function* runAssistantOpenCodeTurn(
         case 'permission.v2.asked': {
           const detail = projectPermissionRequested(event);
           if (detail && detail.kind === 'permission') {
-            yield chunk('status', sequence++, { content: `Permission needed: ${detail.action}`, detail });
+            // GA-CAP-003 / GA-RUNTIME-001 B: evaluate against the Vestara
+            // capability policy when provided. ALLOW auto-approves, DENY
+            // auto-rejects, ASK projects an interactive decision to the user.
+            // The permission identity is the OpenCode request id (`per_*`),
+            // exposed as `permissionRequestId` by the projection.
+            const policy = options.capabilityPolicy;
+            const permissionId = detail.permissionRequestId;
+            if (policy && permissionId) {
+              const action = normalizePermissionAction(detail.action);
+              const resources = detail.resources ?? [];
+              const evaluation: PermissionEvaluation = evaluatePermission(policy, action, resources);
+
+              if (evaluation.decision === 'allow') {
+                // Auto-approve: respond to OpenCode and surface as status
+                try {
+                  await client.respondToPermission(
+                    resolvedSessionId,
+                    permissionId,
+                    {
+                      decision: 'approve',
+                      scope: 'session',
+                      reason: evaluation.reason,
+                    },
+                    context,
+                  );
+                } catch {
+                  // permission response failed — continue, OpenCode will handle timeout
+                }
+                yield chunk('status', sequence++, {
+                  content: `Auto-approved: ${detail.action}`,
+                  detail,
+                });
+              } else if (evaluation.decision === 'deny') {
+                // Auto-reject: respond to OpenCode and surface as status
+                try {
+                  await client.respondToPermission(
+                    resolvedSessionId,
+                    permissionId,
+                    {
+                      decision: 'reject',
+                      reason: evaluation.reason,
+                    },
+                    context,
+                  );
+                } catch {
+                  // permission response failed — continue
+                }
+                yield chunk('status', sequence++, {
+                  content: `Denied: ${detail.action} — ${evaluation.reason}`,
+                  detail,
+                });
+              } else {
+                // ASK: project a real interactive request to the browser, await
+                // the user's decision, then respond with OpenCode's native
+                // permission-response semantics (once / session / reject).
+                const broker = options.interactionBroker;
+                if (broker && request.conversationId) {
+                  yield chunk('status', sequence++, {
+                    content: `Waiting for permission: ${detail.action}`,
+                    detail,
+                  });
+                  const decision = await broker.awaitPermission(request.conversationId, permissionId);
+                  if (decision && decision.decision === 'approve') {
+                    try {
+                      await client.respondToPermission(
+                        resolvedSessionId,
+                        permissionId,
+                        { decision: 'approve', scope: decision.scope, reason: evaluation.reason },
+                        context,
+                      );
+                    } catch {
+                      // respond failed — OpenCode will handle timeout
+                    }
+                    yield chunk('status', sequence++, {
+                      content: `Approved: ${detail.action}`,
+                      detail: {
+                        ...detail,
+                        permissionState: 'resolved' as const,
+                        reply: decision.scope === 'session' ? ('always' as const) : ('once' as const),
+                      },
+                    });
+                  } else if (decision && decision.decision === 'reject') {
+                    try {
+                      await client.respondToPermission(
+                        resolvedSessionId,
+                        permissionId,
+                        { decision: 'reject', reason: decision.reason ?? 'Denied by user' },
+                        context,
+                      );
+                    } catch {
+                      // respond failed — OpenCode will handle timeout
+                    }
+                    yield chunk('status', sequence++, {
+                      content: `Denied: ${detail.action}`,
+                      detail: { ...detail, permissionState: 'resolved' as const, reply: 'reject' as const },
+                    });
+                  } else {
+                    // No decision within the wait window — fail-safe reject.
+                    try {
+                      await client.respondToPermission(
+                        resolvedSessionId,
+                        permissionId,
+                        { decision: 'reject', reason: 'Vestara permission request timed out' },
+                        context,
+                      );
+                    } catch {
+                      // respond failed — continue
+                    }
+                    yield chunk('status', sequence++, {
+                      content: `Permission request timed out: ${detail.action}`,
+                      detail: { ...detail, permissionState: 'resolved' as const, reply: 'reject' as const },
+                    });
+                  }
+                } else {
+                  // No broker: surface to user (status-only degradation).
+                  yield chunk('status', sequence++, {
+                    content: `Permission needed: ${detail.action}`,
+                    detail,
+                  });
+                }
+              }
+            } else {
+              // No policy or no permission id: surface to user (existing behavior)
+              yield chunk('status', sequence++, { content: `Permission needed: ${detail.action}`, detail });
+            }
           }
           break;
         }
         case 'permission.v2.replied': {
           const detail = projectPermissionResolved(event);
+          if (detail) yield chunk('status', sequence++, { detail });
+          break;
+        }
+        case 'question.v2.asked':
+        case 'question.asked': {
+          // GA-RUNTIME-001 B: project the runtime question to the browser and
+          // await the user's answer (correlation: conversation + session +
+          // request id). No answer → fail-safe reject of the question.
+          const detail = projectQuestionAsked(event);
+          if (detail && detail.kind === 'question') {
+            const broker = options.interactionBroker;
+            if (broker && request.conversationId) {
+              yield chunk('status', sequence++, {
+                content: detail.questions[0]?.question ?? 'Question from the Assistant',
+                detail,
+              });
+              const decision = (await broker.awaitQuestion(request.conversationId, detail.questionRequestId)) as
+                | AssistantQuestionDecision
+                | undefined;
+              if (decision && decision.answers.length > 0) {
+                try {
+                  await client.replyToQuestion(resolvedSessionId, detail.questionRequestId, {
+                    answers: decision.answers,
+                  });
+                } catch {
+                  // reply failed — continue
+                }
+                yield chunk('status', sequence++, {
+                  content: 'Answered',
+                  detail: { ...detail, questionState: 'resolved' as const, reply: 'answered' as const },
+                });
+              } else {
+                try {
+                  await client.rejectQuestion(resolvedSessionId, detail.questionRequestId);
+                } catch {
+                  // reject failed — continue
+                }
+                yield chunk('status', sequence++, {
+                  content: 'Question dismissed',
+                  detail: { ...detail, questionState: 'resolved' as const, reply: 'rejected' as const },
+                });
+              }
+            } else {
+              yield chunk('status', sequence++, { content: 'Question needed', detail });
+            }
+          }
+          break;
+        }
+        case 'question.v2.replied':
+        case 'question.replied': {
+          const detail = projectQuestionResolved(event);
           if (detail) yield chunk('status', sequence++, { detail });
           break;
         }
@@ -301,7 +553,16 @@ export async function* runAssistantOpenCodeTurn(
         }
         case 'session.status': {
           const status = payload.status as { type?: string } | undefined;
-          if (status && status.type === 'idle') turnDone = true;
+          if (status && status.type === 'idle') {
+            turnDone = true;
+            completedNaturally = true;
+          }
+          break;
+        }
+        case 'session.idle': {
+          // Dedicated idle event (1.18.27 contract) — authoritative settlement.
+          turnDone = true;
+          completedNaturally = true;
           break;
         }
         case 'session.error': {
@@ -316,12 +577,12 @@ export async function* runAssistantOpenCodeTurn(
 
     // ── Turn-end enrichment (authoritative endpoints, bounded) ──
     try {
-      const diffFiles = await client.getSessionDiff(sessionId, context);
+      const diffFiles = await client.getSessionDiff(resolvedSessionId, context);
       for (const diffFile of diffFiles) {
         const detail = projectDetail({
           contract: 'assistant.execution.v1',
           version: 1,
-          operationId: `edit:${sessionId}:${diffFile.path}`,
+          operationId: `edit:${resolvedSessionId}:${diffFile.path}`,
           kind: 'edit',
           state: 'completed',
           file: diffFile.path,
@@ -342,12 +603,12 @@ export async function* runAssistantOpenCodeTurn(
       // session diff unavailable — edit detail stays 'unavailable'
     }
     try {
-      const todos = await client.getSessionTodos(sessionId, context);
+      const todos = await client.getSessionTodos(resolvedSessionId, context);
       if (todos.length > 0) {
         const detail = projectDetail({
           contract: 'assistant.execution.v1',
           version: 1,
-          operationId: `todo:${sessionId}`,
+          operationId: `todo:${resolvedSessionId}`,
           kind: 'task-snapshot',
           state: 'completed',
           source: 'opencode',
@@ -363,6 +624,18 @@ export async function* runAssistantOpenCodeTurn(
     controller.abort();
     request.signal?.removeEventListener('abort', onAbort);
     await readerPromise.catch(() => undefined);
+    // GA-RUNTIME-001 L: closing the Vestara SSE response alone is NOT
+    // cancellation. When the turn ended without a natural `session.status
+    // idle` (user stop, client disconnect, timeout), actively settle the
+    // OpenCode runtime generation so the reused session is safe for the next
+    // prompt_async. Authoritative on 1.18.27: POST /session/:id/abort.
+    if (!completedNaturally) {
+      try {
+        await client.abortSession(resolvedSessionId, context);
+      } catch {
+        // interruption is best-effort — the SSE reader is already closed
+      }
+    }
   }
 }
 
@@ -372,13 +645,47 @@ export async function* runAssistantOpenCodeTurn(
  * fallback by itself (AR-009 paused).
  */
 export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecutorOptions): ProviderExecutor {
-  const resolveProvider = (request: CompletionRequest): { providerID: string; modelID: string } | undefined =>
-    options.resolveProviderModel?.(request.model) ?? options.model;
+  const resolveProvider = async (
+    request: CompletionRequest,
+  ): Promise<{ providerID: string; modelID: string } | undefined> =>
+    (await options.resolveProviderModel?.(request.model, request.provider)) ?? options.model;
+
+  /**
+   * GA-RUNTIME-001: resolve (create-or-reuse) the conversation's OpenCode
+   * session. Keyed by conversation identity only — never by provider/model.
+   * The session is created with the canonical repository directory (OpenCode
+   * `directory` query authority) and the first-turn execution title.
+   */
+  async function resolveSession(request: CompletionRequest): Promise<string | undefined> {
+    const registry = options.sessionRegistry;
+    if (!registry || !request.conversationId) return undefined;
+    const context = { workspaceId: options.workspaceId, directory: options.directory };
+    const userText = lastUserText(request.messages);
+    const result = await registry.acquire({
+      conversationId: request.conversationId,
+      repositoryDir: options.directory,
+      preferredSessionId: request.runtimeSessionId,
+      createSession: async () => {
+        const session = await options.client.createSession({ title: deriveSessionTitle(userText) }, context);
+        return session.id;
+      },
+      verifySession: async (id) => {
+        try {
+          await options.client.getSession(id, context);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+    });
+    return result.session.sessionId;
+  }
 
   return {
     async complete(request: CompletionRequest): Promise<CompletionResponse> {
+      const sessionId = await resolveSession(request);
       const chunks: StreamChunk[] = [];
-      for await (const item of runAssistantOpenCodeTurn(options, request)) {
+      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId)) {
         chunks.push(item);
       }
       const content = chunks
@@ -386,14 +693,25 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         .map((item) => item.content as string)
         .join('');
       const failed = chunks.find((item) => item.type === 'error');
-      const turnModel = resolveProvider(request);
+      const turnModel = await resolveProvider(request);
       return {
         id: `conv-${Date.now()}`,
-        model: request.model,
+        // GA-RUNTIME-001 H: the response model is the ACTUAL execution binding.
+        model: turnModel?.modelID ?? request.model,
         provider: turnModel?.providerID ?? TRANSPORT_PROVIDER,
         content: failed ? (failed.content ?? 'Assistant turn failed') : content,
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: 0,
+        ...(sessionId
+          ? {
+              resolution: {
+                providerId: turnModel?.providerID,
+                reason: turnModel ? ('explicit-model' as const) : ('default' as const),
+                defaultResolution: !turnModel,
+                runtimeSessionId: sessionId,
+              },
+            }
+          : {}),
       };
     },
     async *stream(request: CompletionRequest): AsyncIterable<StreamChunk> {
@@ -401,7 +719,13 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
       // service (emitted AFTER the authoritative message is persisted). The
       // adapter yields only the turn's incremental chunks — no duplicate
       // `done` frames on the browser SSE stream.
-      yield* runAssistantOpenCodeTurn(options, request);
+      const sessionId = await resolveSession(request);
+      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId)) {
+        if (sessionId && item.metadata) {
+          item.metadata.runtimeSessionId = sessionId;
+        }
+        yield item;
+      }
     },
   };
 }

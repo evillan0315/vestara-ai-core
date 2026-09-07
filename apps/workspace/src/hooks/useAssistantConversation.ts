@@ -147,7 +147,7 @@ export interface UseAssistantConversationReturn {
   // Send + stream
   sendMessage: (
     content: string,
-    options?: { surfaceContext?: TurnSurfaceContext },
+    options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string },
   ) => Promise<void>;
   streamState: StreamState;
   streamingText: string;
@@ -173,6 +173,24 @@ export interface UseAssistantConversationReturn {
    * recent one. Transient (per active turn); never persisted.
    */
   taskSnapshot: AssistantExecutionDetail | null;
+  /**
+   * GA-RUNTIME-001 B: pending interactive permission requests. Projected from
+   * the turn's SSE stream (status chunk with `assistant.execution.v1` detail,
+   * kind `permission`, state `running`). The user answers here; the decision
+   * is forwarded to the server which responds to OpenCode.
+   */
+  pendingPermissions: AssistantExecutionDetail[];
+  respondToPermission: (
+    conversationId: string,
+    permissionId: string,
+    decision: 'allow-once' | 'allow-session' | 'deny',
+  ) => Promise<boolean>;
+  /**
+   * GA-RUNTIME-001 B: pending interactive questions. Answered with bounded
+   * option selections forwarded to the OpenCode runtime question reply.
+   */
+  pendingQuestions: AssistantExecutionDetail[];
+  answerQuestion: (conversationId: string, requestId: string, answers: string[][]) => Promise<boolean>;
   abortStream: () => void;
 }
 
@@ -356,11 +374,16 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     if (detail.kind !== 'task-snapshot') return;
     setTaskSnapshot(detail);
   }, []);
+  // ── GA-RUNTIME-001 B: interactive permission/question requests (transient) ──
+  const [pendingPermissions, setPendingPermissions] = useState<AssistantExecutionDetail[]>([]);
+  const [pendingQuestions, setPendingQuestions] = useState<AssistantExecutionDetail[]>([]);
   const clearToolOperations = () => {
     operationIdMapRef.current.clear();
     setToolOperations([]);
     setStructuredEdits([]);
     setTaskSnapshot(null);
+    setPendingPermissions([]);
+    setPendingQuestions([]);
   };
   const abortRef = useRef<AbortController | null>(null);
   const streamIdRef = useRef(0); // stale-stream guard
@@ -464,7 +487,13 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // then drop the optimistic entry; submission failure (human NOT persisted)
   // → keep the entry with delivery 'failed' for Retry.
   const runTurn = useCallback(
-    async (convId: string, text: string, clientTurnId: string, surfaceContext?: TurnSurfaceContext) => {
+    async (
+      convId: string,
+      text: string,
+      clientTurnId: string,
+      surfaceContext?: TurnSurfaceContext,
+      executionBinding?: { provider?: string; model?: string },
+    ) => {
       const finalConvId = convId;
       const currentStreamId = ++streamIdRef.current;
       responseStartedRef.current = false;
@@ -491,6 +520,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
           body: JSON.stringify({
             message: text,
             clientMessageId: clientTurnId,
+            // GA-RUNTIME-001 G: the composer selection is a REQUESTED binding.
+            // The server validates/resolves it before execution.
+            ...(executionBinding?.provider ? { provider: executionBinding.provider } : {}),
+            ...(executionBinding?.model ? { model: executionBinding.model } : {}),
             // GA-CONTEXT-002: trusted turn-time surface context (additive).
             ...(surfaceContext ? { surfaceContext } : {}),
           }),
@@ -571,6 +604,32 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 if (execution) {
                   upsertStructuredEdit(execution);
                   upsertTaskSnapshot(execution);
+                  // GA-RUNTIME-001 B: interactive permission/question surfaces.
+                  if (execution.kind === 'permission') {
+                    if (execution.permissionState === 'requested') {
+                      setPendingPermissions((prev) =>
+                        prev.some((p) => p.operationId === execution.operationId)
+                          ? prev
+                          : [...prev, execution],
+                      );
+                    } else {
+                      setPendingPermissions((prev) =>
+                        prev.filter((p) => p.operationId !== execution.operationId),
+                      );
+                    }
+                  } else if (execution.kind === 'question') {
+                    if (execution.questionState === 'requested') {
+                      setPendingQuestions((prev) =>
+                        prev.some((q) => q.operationId === execution.operationId)
+                          ? prev
+                          : [...prev, execution],
+                      );
+                    } else {
+                      setPendingQuestions((prev) =>
+                        prev.filter((q) => q.operationId !== execution.operationId),
+                      );
+                    }
+                  }
                 }
               } else if (eventType === 'tool') {
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
@@ -674,7 +733,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // Projects the optimistic human turn + Thinking… synchronously on local
   // validation, before any network await.
   const sendMessage = useCallback(
-    async (content: string, options?: { surfaceContext?: TurnSurfaceContext }) => {
+    async (content: string, options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string }) => {
       const text = content.trim();
       if (!text || busyRef.current || streamState === 'sending' || streamState === 'streaming') return;
 
@@ -722,7 +781,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         );
       }
 
-      await runTurn(convId, text, clientTurnId, options?.surfaceContext);
+      await runTurn(convId, text, clientTurnId, options?.surfaceContext, {
+        provider: options?.provider,
+        model: options?.model,
+      });
     },
     [streamState, createConversation, runTurn],
   );
@@ -802,6 +864,45 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     }
   }, [loadMessages]);
 
+  // ── GA-RUNTIME-001 B: interactive permission/question decisions ──
+  const respondToPermission = useCallback(
+    async (
+      conversationId: string,
+      permissionId: string,
+      decision: 'allow-once' | 'allow-session' | 'deny',
+    ): Promise<boolean> => {
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(conversationId)}/permissions/${encodeURIComponent(permissionId)}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ decision }) },
+        );
+        if (!res.ok) return false;
+        setPendingPermissions((prev) => prev.filter((p) => p.operationId !== permissionId));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
+  const answerQuestion = useCallback(
+    async (conversationId: string, requestId: string, answers: string[][]): Promise<boolean> => {
+      try {
+        const res = await fetch(
+          `/api/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(requestId)}`,
+          { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }) },
+        );
+        if (!res.ok) return false;
+        setPendingQuestions((prev) => prev.filter((q) => q.operationId !== requestId));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    [],
+  );
+
   return {
     conversations,
     listLoading,
@@ -823,6 +924,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     toolOperations,
     structuredEdits,
     taskSnapshot,
+    pendingPermissions,
+    respondToPermission,
+    pendingQuestions,
+    answerQuestion,
     abortStream,
   };
 }

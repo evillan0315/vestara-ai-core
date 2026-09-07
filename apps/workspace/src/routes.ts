@@ -60,6 +60,7 @@ export const APP_ROUTES: AppRoute[] = [
   { id: 'agents', path: '/agents', title: 'Agent Control', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'routing', path: '/routing', title: 'Engineering Routing', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'chat', path: '/chat', title: 'Chat', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'meet', path: '/meet', title: 'Vestara Meet', requiresAuth: false, enabled: true, layout: 'shell' },
   { id: 'memory', path: '/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'terminal', path: '/terminal', title: 'Terminal', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'ops', path: '/ops', title: 'Operations', requiresAuth: true, enabled: true, layout: 'shell' },

@@ -127,6 +127,14 @@ import {
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { getActivityRoom } from './activity-room';
+import {
+  AssistantBindingError,
+  type AssistantBindingResolver,
+  createAssistantBindingResolver,
+} from './assistant-binding-resolver';
+import { createDefaultAssistantPolicy } from './assistant-capability-policy';
+import { AssistantConversationSessionRegistry } from './assistant-conversation-sessions';
+import { AssistantInteractionBroker } from './assistant-interaction-broker';
 import { createAssistantOpenCodeExecutor } from './assistant-opencode-adapter';
 import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
@@ -225,6 +233,14 @@ export interface WorkspaceContext {
   qualificationLiveRunner?: (profileId: string) => Promise<void>;
   /** Shared OpenCode runtime client used by /api/opencode, /api/agents, /api/providers. */
   opencodeRuntime: OpenCodeRuntimeService;
+  /**
+   * GA-RUNTIME-001: server-authoritative provider/model resolver for the
+   * Global Assistant. Browser selections are validated against the canonical
+   * OpenCode runtime provider discovery before execution.
+   */
+  assistantBindingResolver: import('./assistant-binding-resolver').AssistantBindingResolver;
+  /** GA-RUNTIME-001 Addendum B: interactive permission/question decisions. */
+  assistantInteractionBroker: import('./assistant-interaction-broker').AssistantInteractionBroker;
   users: UserStore;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
@@ -754,6 +770,20 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // failure fail-closes with a clear error — there is deliberately NO silent
   // fallback to a direct cloud provider.
   let conversationProviderExecutor: ProviderExecutor;
+  // GA-RUNTIME-001: server-authoritative provider/model resolution + bounded
+  // conversation → session mapping + interactive permission/question broker.
+  // Declared here so the returned WorkspaceContext exposes them to routes.
+  // Defaults fail closed: when the OpenCode transport is unavailable the
+  // resolver rejects every requested binding deterministically.
+  let assistantBindingResolver: AssistantBindingResolver = {
+    async resolve() {
+      throw new AssistantBindingError(
+        'runtime-unavailable',
+        'Local OpenCode transport unavailable — cannot resolve provider/model',
+      );
+    },
+  };
+  let assistantInteractionBroker = new AssistantInteractionBroker();
   try {
     const ocConfig = resolveOpenCodeConfig({});
     const ocClient = new OpenCodeHttpClient(ocConfig);
@@ -765,6 +795,15 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       assistantAgent && typeof assistantAgent.provider === 'string' && typeof assistantAgent.model === 'string'
         ? { providerID: assistantAgent.provider, modelID: assistantAgent.model }
         : undefined;
+    // GA-RUNTIME-001: conversation → OpenCode session continuity (in-memory,
+    // single-flight). Provider/model never keys the mapping.
+    const assistantConversationSessions = new AssistantConversationSessionRegistry();
+    // GA-RUNTIME-001 G: server-authoritative binding resolution. The browser's
+    // requested provider/model is validated against the canonical OpenCode
+    // runtime provider discovery; unresolvable requests fail deterministically.
+    assistantBindingResolver = createAssistantBindingResolver(ocClient, assistantModel);
+    // GA-RUNTIME-001 B: interactive permission/question decisions.
+    assistantInteractionBroker = new AssistantInteractionBroker();
     conversationProviderExecutor = createAssistantOpenCodeExecutor({
       client: ocClient,
       workspaceId: session.fingerprint.id,
@@ -772,7 +811,13 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       agent: 'vestara-assistant',
       title: 'Assistant conversation',
       model: assistantModel,
-      resolveProviderModel: (requestedModel) => assistantModel ?? undefined,
+      resolveProviderModel: (requestedModel, requestedProvider) =>
+        assistantBindingResolver.resolve({ providerId: requestedProvider, modelId: requestedModel }),
+      sessionRegistry: assistantConversationSessions,
+      interactionBroker: assistantInteractionBroker,
+      // GA-CAP-003: Vestara-owned capability boundary for the Global Assistant.
+      // repositoryDir originates from canonical resolveRepoRoot() — never .vestara, cwd, or UI state.
+      capabilityPolicy: createDefaultAssistantPolicy(abs),
     });
     log('assistant-execution: local OpenCode adapter active (127.0.0.1:4096)');
   } catch (error) {
@@ -1496,6 +1541,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     marketplace,
     marketplacePublishRoot: marketplaceRoots[0] ?? path.join(abs, '.vestara', 'marketplace'),
     opencodeRuntime: openCodeRuntimeService,
+    assistantBindingResolver,
+    assistantInteractionBroker,
     milestones,
     projects,
     orders,

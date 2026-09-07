@@ -36,6 +36,8 @@ const EVENT = {
   shellEnded: 'session.next.shell.ended',
   permissionAsked: 'permission.v2.asked',
   permissionReplied: 'permission.v2.replied',
+  questionAsked: 'question.v2.asked',
+  questionReplied: 'question.v2.replied',
   todoUpdated: 'todo.updated',
   fileEdited: 'file.edited',
   messagePartUpdated: 'message.part.updated',
@@ -230,6 +232,36 @@ export function projectPermissionResolved(event: OpenCodeEventLike): AssistantEx
     action: 'unknown',
     resources: [],
     reply: reply === 'once' || reply === 'always' || reply === 'reject' ? reply : undefined,
+  });
+}
+
+/** `question.v2.asked` → requested question (bounded options only). */
+export function projectQuestionAsked(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
+  if (!isEvent(event, EVENT.questionAsked)) return undefined;
+  const payload = event.payload ?? {};
+  const requestId = str(payload.id);
+  const rawQuestions = Array.isArray(payload.questions) ? (payload.questions as Record<string, unknown>[]) : [];
+  if (!requestId) return undefined;
+  return projectDetail({
+    ...baseEnvelope(requestId, 'running', payload, 'question'),
+    kind: 'question',
+    questionRequestId: requestId,
+    questions: rawQuestions,
+  });
+}
+
+/** `question.v2.replied` → resolved question. */
+export function projectQuestionResolved(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
+  if (!isEvent(event, EVENT.questionReplied)) return undefined;
+  const payload = event.payload ?? {};
+  const requestId = str(payload.requestID) ?? str(payload.id);
+  if (!requestId) return undefined;
+  return projectDetail({
+    ...baseEnvelope(requestId, 'completed', payload, 'question'),
+    kind: 'question',
+    questionRequestId: requestId,
+    questions: [],
+    reply: 'answered',
   });
 }
 

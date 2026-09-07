@@ -23,6 +23,9 @@ export default defineConfig({
     outDir: 'dist',
     sourcemap: false,
   },
+  optimizeDeps: {
+    include: ['@vestara/media-conference', 'openvidu-browser'],
+  },
   test: {
     globals: true,
     environment: 'jsdom',

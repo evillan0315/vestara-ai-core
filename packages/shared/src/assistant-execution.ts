@@ -54,6 +54,12 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
   permissionResources: 20,
   /** Max todos surfaced per task snapshot. */
   todoItems: 20,
+  /** Bounded question text (GA-RUNTIME-001 addendum B). */
+  questionText: 500,
+  /** Max options surfaced per question. */
+  questionOptions: 10,
+  /** Max label/description length per question option. */
+  questionOptionLabel: 200,
   /**
    * Max hunks per edit projection (GA-UX-PREMIUM M3.1). Prevents a huge
    * repository diff from becoming an unbounded Conversation SSE payload.
@@ -206,6 +212,27 @@ export interface PermissionExecutionDetail extends AssistantExecutionBase {
   readonly reply?: 'once' | 'always' | 'reject';
 }
 
+/** A single bounded question presented to the user (GA-RUNTIME-001 addendum B). */
+export interface AssistantQuestionOption {
+  readonly label: string;
+  readonly description?: string;
+}
+
+export interface AssistantQuestionInfo {
+  readonly question: string;
+  readonly header?: string;
+  readonly options?: readonly AssistantQuestionOption[];
+}
+
+export interface QuestionExecutionDetail extends AssistantExecutionBase {
+  readonly kind: 'question';
+  /** OpenCode question request id (correlates with session/turn). */
+  readonly questionRequestId: string;
+  readonly questionState: 'requested' | 'resolved';
+  readonly questions: readonly AssistantQuestionInfo[];
+  readonly reply?: 'answered' | 'rejected';
+}
+
 export interface VerificationExecutionDetail extends AssistantExecutionBase {
   readonly kind: 'verification';
   readonly state: 'completed' | 'failed';
@@ -232,6 +259,7 @@ export type AssistantExecutionDetail =
   | TerminalExecutionDetail
   | TaskSnapshotDetail
   | PermissionExecutionDetail
+  | QuestionExecutionDetail
   | VerificationExecutionDetail
   | ArtifactExecutionDetail
   | GenericToolExecutionDetail;
@@ -269,6 +297,44 @@ function boundedTodoList(value: unknown): readonly { title: string; status: stri
     })
     .filter((item): item is { title: string; status: string } => item !== undefined)
     .slice(0, ASSISTANT_EXECUTION_BOUNDS.todoItems);
+}
+
+/**
+ * Bound an OpenCode question request into allowlisted `AssistantQuestionInfo`.
+ * Constructs new objects from allowlisted fields only; runtime payload fields
+ * (tool internals, reasoning, credentials) are never forwarded.
+ */
+function boundedQuestions(value: unknown): readonly AssistantQuestionInfo[] {
+  if (!Array.isArray(value)) return [];
+  const items: AssistantQuestionInfo[] = [];
+  for (const raw of value) {
+    if (items.length >= ASSISTANT_EXECUTION_BOUNDS.questionOptions) break;
+    if (!raw || typeof raw !== 'object') continue;
+    const record = raw as Record<string, unknown>;
+    const question = boundedString(record.question, ASSISTANT_EXECUTION_BOUNDS.questionText);
+    if (!question) continue;
+    const header = boundedString(record.header, ASSISTANT_EXECUTION_BOUNDS.questionText);
+    const options = Array.isArray(record.options)
+      ? record.options
+          .map((optionRaw): AssistantQuestionOption | undefined => {
+            if (!optionRaw || typeof optionRaw !== 'object') return undefined;
+            const optionRecord = optionRaw as Record<string, unknown>;
+            const label = boundedString(optionRecord.label, ASSISTANT_EXECUTION_BOUNDS.questionOptionLabel);
+            if (!label) return undefined;
+            const description = boundedString(optionRecord.description, ASSISTANT_EXECUTION_BOUNDS.questionOptionLabel);
+            return description ? { label, description } : { label };
+          })
+          .filter((option): option is AssistantQuestionOption => option !== undefined)
+          .slice(0, ASSISTANT_EXECUTION_BOUNDS.questionOptions)
+      : undefined;
+    const item: AssistantQuestionInfo = {
+      question,
+      ...(header ? { header } : {}),
+      ...(options && options.length > 0 ? { options } : {}),
+    };
+    items.push(item);
+  }
+  return items;
 }
 
 const KNOWN_STATES: readonly AssistantExecutionState[] = ['running', 'completed', 'failed'];
@@ -474,6 +540,20 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
           ASSISTANT_EXECUTION_BOUNDS.path,
         ),
         permissionState: state === 'running' ? 'requested' : 'resolved',
+        reply,
+      };
+    }
+    case 'question': {
+      const questionRequestId = boundedString(record.questionRequestId, ASSISTANT_EXECUTION_BOUNDS.identity);
+      if (!questionRequestId) return undefined;
+      const questions = boundedQuestions(record.questions);
+      const reply = record.reply === 'answered' || record.reply === 'rejected' ? record.reply : undefined;
+      return {
+        ...base,
+        kind: 'question',
+        questionRequestId,
+        questionState: state === 'running' ? 'requested' : 'resolved',
+        questions,
         reply,
       };
     }

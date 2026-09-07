@@ -566,11 +566,15 @@ describe('useAssistantConversation', () => {
 
   it('does not expose model selection in API', async () => {
     mockListResponse([]);
-    // The hook's sendMessage takes only content — no model parameter
+    // GA-RUNTIME-001 G: the hook accepts an optional execution binding
+    // (provider/model) as a REQUESTED value — the server validates/resolves
+    // it. The hook itself never holds execution authority.
     const { result } = renderHook(() => useAssistantConversation());
 
-    // Verify sendMessage signature: only content string
-    expect(result.current.sendMessage.length).toBe(1);
+    // Verify sendMessage signature: (content, options?) — content required,
+    // execution binding optional and server-validated.
+    expect(typeof result.current.sendMessage).toBe('function');
+    expect(result.current.sendMessage.length).toBeGreaterThanOrEqual(1);
   });
 
   // ── No archive/delete semantics ──

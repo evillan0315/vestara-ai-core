@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <title>OVR-007 Non-Zero Audio E2E Proof</title>
+  <style>
+    body { font-family: monospace; background: #0a0a0a; color: #0f0; padding: 20px; }
+    h1 { color: #0ff; }
+    .section { border: 1px solid #333; padding: 10px; margin: 10px 0; }
+    .metric { margin: 4px 0; }
+    .label { color: #888; }
+    .value { color: #0f0; font-weight: bold; }
+    .error { color: #f00; }
+    #log { white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>OVR-007 — Non-Zero Audio E2E Proof</h1>
+  <div id="output">
+    <div class="section">
+      <h2>Source (Publisher - Browser A)</h2>
+      <div id="source-metrics"></div>
+    </div>
+    <div class="section">
+      <h2>Transport (VidUK)</h2>
+      <div id="transport-metrics"></div>
+    </div>
+    <div class="section">
+      <h2>Observation (Subscriber - Browser B)</h2>
+      <div id="obs-metrics"></div>
+    </div>
+    <div class="section">
+      <h2>Non-Destructive Playback Verification</h2>
+      <div id="playback-metrics"></div>
+    </div>
+    <div class="section">
+      <h2>Log</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <!-- Load openvidu-browser from local copy (bundled in node_modules) -->
+  <script src="/openvidu-browser-2.25.0.js"></script>
+  <script>
+    const LOG = document.getElementById('log');
+    function log(msg) {
+      const line = document.createElement('div');
+      line.textContent = `[${new Date().toISOString()}] ${msg}`;
+      LOG.appendChild(line);
+      LOG.scrollTop = LOG.scrollHeight;
+      console.log(msg);
+    }
+
+    function setMetrics(id, metrics) {
+      const el = document.getElementById(id);
+      el.innerHTML = metrics.map(m =>
+        `<div class="metric"><span class="label">${m.label}:</span> <span class="value ${m.class || ''}">${m.value}</span></div>`
+      ).join('');
+    }
+
+    async function main() {
+      log('OVR-007 Non-Zero Audio E2E Proof — starting');
+
+      // ── Step 1: Create deterministic audio source ──
+      log('Creating OscillatorNode → MediaStreamAudioDestinationNode');
+      const audioCtx = new AudioContext();
+      const oscillator = audioCtx.createOscillator();
+      const dest = audioCtx.createMediaStreamDestination();
+
+      oscillator.type = 'sine';
+      oscillator.frequency.setValueAtTime(440, audioCtx.currentTime); // A4
+      oscillator.connect(dest);
+      oscillator.start();
+
+      const audioTrack = dest.stream.getAudioTracks()[0];
+      const sourceFrequency = 440;
+      const sourceSampleRate = audioCtx.sampleRate;
+
+      setMetrics('source-metrics', [
+        { label: 'Source type', value: 'OscillatorNode (sine)' },
+        { label: 'Source frequency', value: `${sourceFrequency} Hz` },
+        { label: 'Source sample rate', value: `${sourceSampleRate} Hz` },
+        { label: 'Publisher audio track state', value: audioTrack.readyState },
+        { label: 'Publisher audio track label', value: audioTrack.label },
+      ]);
+      log(`Source: ${sourceFrequency}Hz sine @ ${sourceSampleRate}Hz, track state: ${audioTrack.readyState}`);
+
+      // ── Step 2: Get token from server ──
+      const sessionId = `ovr007-proof-${Date.now()}`;
+      log(`Requesting token for session: ${sessionId}`);
+
+      const tokenRes = await fetch('/api/media/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, displayName: 'Proof-Publisher' }),
+      });
+
+      if (!tokenRes.ok) {
+        const err = await tokenRes.text();
+        log(`ERROR: Token request failed: ${err}`);
+        return;
+      }
+
+      const { token, serverUrl } = await tokenRes.json();
+      log(`Token obtained from ${serverUrl}`);
+
+      // ── Step 3: Connect publisher to OpenVidu ──
+      log('Connecting publisher to OpenVidu session...');
+      const OV = window.OpenVidu;
+      const pubOV = new OV();
+      const pubSession = pubOV.initSession();
+
+      await new Promise((resolve, reject) => {
+        pubSession.on('connectionCreated', () => { log('Publisher: connectionCreated'); resolve(); });
+        pubSession.on('sessionDisconnected', () => log('Publisher: sessionDisconnected'));
+        setTimeout(() => reject(new Error('Publisher connect timeout')), 15000);
+        pubSession.connect(token, { clientData: 'Proof-Publisher' });
+      });
+
+      // Publish oscillator audio track
+      log('Publishing oscillator audio track...');
+      const publisher = await pubOV.initPublisherAsync(undefined, {
+        audioSource: audioTrack,
+        videoSource: false,
+        publishAudio: true,
+        publishVideo: false,
+      });
+      await pubSession.publish(publisher);
+      log('Publisher: published successfully');
+
+      // ── Step 4: Get second token for subscriber ──
+      log('Requesting subscriber token...');
+      const subTokenRes = await fetch('/api/media/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId, displayName: 'Proof-Subscriber' }),
+      });
+      const { token: subToken } = await subTokenRes.json();
+      log('Subscriber token obtained');
+
+      // ── Step 5: Connect subscriber ──
+      log('Connecting subscriber to OpenVidu session...');
+      const subOV = new OV();
+      const subSession = subOV.initSession();
+
+      const remoteStreamPromise = new Promise((resolve, reject) => {
+        subSession.on('streamCreated', (event) => {
+          log(`Subscriber: streamCreated (streamId=${event.stream.streamId})`);
+          const subscriber = subSession.subscribe(event.stream, undefined, { insertMode: 'APPEND' });
+          // Wait for MediaStream to be available
+          const poll = setInterval(() => {
+            const ms = event.stream.getMediaStream?.();
+            if (ms) {
+              clearInterval(poll);
+              resolve({ subscriber, mediaStream: ms, stream: event.stream });
+            }
+          }, 100);
+          setTimeout(() => { clearInterval(poll); reject(new Error('MediaStream timeout')); }, 10000);
+        });
+        subSession.on('sessionDisconnected', () => log('Subscriber: sessionDisconnected'));
+        setTimeout(() => reject(new Error('Subscriber connect timeout')), 15000);
+        subSession.connect(subToken, { clientData: 'Proof-Subscriber' });
+      });
+
+      const { subscriber, mediaStream: remoteStream, stream: remoteStreamObj } = await remoteStreamPromise;
+      log(`Subscriber: remote MediaStream obtained (${remoteStream.id})`);
+
+      // ── Step 6: Verify remote audio track ──
+      const remoteAudioTracks = remoteStream.getAudioTracks();
+      const remoteAudioTrack = remoteAudioTracks[0];
+      setMetrics('transport-metrics', [
+        { label: 'Session ID', value: sessionId },
+        { label: 'Server URL', value: serverUrl },
+        { label: 'Remote stream ID', value: remoteStreamObj.streamId },
+        { label: 'Remote audio track state', value: remoteAudioTrack?.readyState ?? 'none' },
+        { label: 'Remote audio track enabled', value: String(remoteAudioTrack?.enabled ?? false) },
+        { label: 'Remote audio channels', value: String(remoteStream.getAudioTracks().length) },
+      ]);
+      log(`Remote audio track: state=${remoteAudioTrack?.readyState}, enabled=${remoteAudioTrack?.enabled}`);
+
+      // ── Step 7: Attach AudioObserver to remote stream ──
+      log('Attaching AudioObserver to remote stream...');
+      const observer = createFallbackObserver();
+
+      if (!observer) {
+        log('ERROR: No AudioObserver available');
+        return;
+      }
+
+      const frames = [];
+      let nonZeroFrames = 0;
+      let maxAbsAll = 0;
+      let rmsSum = 0;
+      let totalSamples = 0;
+
+      observer.onFrame((frame) => {
+        frames.push(frame);
+        if (frame.peak > maxAbsAll) maxAbsAll = frame.peak;
+
+        // Compute RMS for this frame
+        let sumSq = 0;
+        for (let i = 0; i < frame.data.length; i++) {
+          sumSq += frame.data[i] * frame.data[i];
+        }
+        const rms = Math.sqrt(sumSq / frame.data.length);
+        rmsSum += sumSq;
+        totalSamples += frame.data.length;
+
+        if (frame.peak > 0) nonZeroFrames++;
+      });
+
+      observer.attach(remoteStream, remoteStreamObj.streamId);
+      log(`AudioObserver state: ${observer.state}`);
+
+      // ── Step 8: Collect observations for 5 seconds ──
+      log('Observing for 5 seconds...');
+      await new Promise(r => setTimeout(r, 5000));
+
+      // ── Step 9: Compute final metrics ──
+      const totalRms = Math.sqrt(rmsSum / totalSamples);
+
+      // Check that remote audio track is still live (non-destructive proof)
+      const trackStillLive = remoteAudioTrack?.readyState === 'live';
+      const trackStillEnabled = remoteAudioTrack?.enabled === true;
+
+      setMetrics('obs-metrics', [
+        { label: 'Observer state', value: observer.state },
+        { label: 'Observed frame count', value: String(frames.length) },
+        { label: 'Observed sample rate', value: frames.length > 0 ? `${frames[0].sampleRate} Hz` : 'N/A' },
+        { label: 'Observed channel count', value: frames.length > 0 ? String(frames[0].channels) : 'N/A' },
+        { label: 'Peak maxAbs (all frames)', value: maxAbsAll.toFixed(6) },
+        { label: 'RMS (all frames)', value: totalRms.toFixed(6) },
+        { label: 'Non-zero frames', value: `${nonZeroFrames} / ${frames.length}` },
+        { label: 'Frame data length', value: frames.length > 0 ? `${frames[0].data.length} samples` : 'N/A' },
+        { label: 'Peak per-frame (first 5)', value: frames.slice(0, 5).map(f => f.peak.toFixed(4)).join(', ') || 'N/A' },
+      ]);
+
+      setMetrics('playback-metrics', [
+        { label: 'Remote audio track still live', value: String(trackStillLive), class: trackStillLive ? '' : 'error' },
+        { label: 'Remote audio track still enabled', value: String(trackStillEnabled), class: trackStillEnabled ? '' : 'error' },
+        { label: 'Playback possible', value: trackStillLive && trackStillEnabled ? 'YES — observation is non-destructive' : 'NO — track was consumed/muted', class: trackStillLive && trackStillEnabled ? '' : 'error' },
+      ]);
+
+      // ── Step 10: Verdict ──
+      const pass = frames.length > 0 && nonZeroFrames > 0 && maxAbsAll > 0.001 && trackStillLive;
+      log('');
+      log('═══════════════════════════════════════════════════════');
+      log(`VERDICT: ${pass ? 'PASS ✓' : 'FAIL ✗'}`);
+      log(`  Frames observed: ${frames.length}`);
+      log(`  Non-zero frames: ${nonZeroFrames}`);
+      log(`  maxAbs: ${maxAbsAll.toFixed(6)}`);
+      log(`  RMS: ${totalRms.toFixed(6)}`);
+      log(`  Track still live: ${trackStillLive}`);
+      log(`  Track still enabled: ${trackStillEnabled}`);
+      log('═══════════════════════════════════════════════════════');
+
+      // Store result globally for agent-browser to read
+      window.__OVR007_PROOF = {
+        pass,
+        sourceFrequency,
+        sourceSampleRate,
+        publisherAudioTrackState: audioTrack.readyState,
+        remoteAudioTrackState: remoteAudioTrack?.readyState ?? 'none',
+        observedFrameCount: frames.length,
+        observedSampleRate: frames[0]?.sampleRate ?? 0,
+        observedChannels: frames[0]?.channels ?? 0,
+        maxAbs: maxAbsAll,
+        rms: totalRms,
+        nonZeroFrames,
+        trackStillLive,
+        trackStillEnabled,
+        framePeaks: frames.slice(0, 10).map(f => f.peak),
+      };
+
+      // Cleanup
+      observer.detach();
+      observer.destroy();
+      pubSession.disconnect();
+      subSession.disconnect();
+      audioCtx.close();
+      log('Cleanup complete');
+    }
+
+    // Fallback observer using ScriptProcessorNode for standalone proof page.
+    // Remote WebRTC MediaStreams require playback through an <audio> element
+    // to activate the decoding pipeline before audio data flows to the
+    // Web Audio API.
+    function createFallbackObserver() {
+      let _state = 'idle';
+      let _callback = null;
+      let _ctx = null;
+      let _source = null;
+      let _processor = null;
+      let _audioEl = null;
+
+      return {
+        get state() { return _state; },
+        attach(stream, sourceId) {
+          if (_state === 'destroyed') throw new Error('destroyed');
+          const audioTracks = stream.getAudioTracks();
+          if (!audioTracks.length) return;
+          _ctx = new AudioContext();
+          if (_ctx.state === 'suspended') {
+            _ctx.resume().catch(() => {});
+          }
+
+          // Play through <audio> element to activate WebRTC decoding pipeline
+          _audioEl = document.createElement('audio');
+          _audioEl.srcObject = stream;
+          _audioEl.muted = true;
+          _audioEl.play().catch(() => {});
+
+          // Now tap via createMediaStreamSource — decoding is active
+          _source = _ctx.createMediaStreamSource(stream);
+          _processor = _ctx.createScriptProcessor(4096, 1, 1);
+          _processor.onaudioprocess = (e) => {
+            if (!_callback) return;
+            const buf = e.inputBuffer;
+            const data = buf.getChannelData(0);
+            let peak = 0;
+            for (let i = 0; i < data.length; i++) {
+              const a = Math.abs(data[i]);
+              if (a > peak) peak = a;
+            }
+            _callback({
+              sourceId,
+              sampleRate: buf.sampleRate,
+              channels: buf.numberOfChannels,
+              timestamp: performance.now(),
+              peak,
+              data: new Float32Array(data),
+            });
+          };
+          _source.connect(_processor);
+          // Connect to destination to activate ScriptProcessorNode
+          const silentGain = _ctx.createGain();
+          silentGain.gain.value = 0;
+          _processor.connect(silentGain);
+          silentGain.connect(_ctx.destination);
+          _state = 'observing';
+        },
+        detach() {
+          if (_state !== 'observing') return;
+          if (_audioEl) { _audioEl.pause(); _audioEl.srcObject = null; _audioEl = null; }
+          _processor && (_processor.onaudioprocess = null, _processor.disconnect());
+          _source && _source.disconnect();
+          _ctx && _ctx.close();
+          _state = 'stopped';
+        },
+        onFrame(cb) { _callback = cb; },
+        offFrame() { _callback = null; },
+        destroy() { this.detach(); _callback = null; _state = 'destroyed'; },
+      };
+    }
+
+    main().catch(err => {
+      log(`FATAL: ${err.message}`);
+      window.__OVR007_PROOF = { pass: false, error: err.message };
+    });
+  </script>
+</body>
+</html>

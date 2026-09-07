@@ -7,6 +7,25 @@ import { CORS, json, readBody } from './types';
 const ACTOR = 'workspace-ui';
 
 /**
+ * GA-RUNTIME-001 G: resolve the browser-REQUESTED provider/model into the
+ * authoritative execution binding. The server validates provider existence,
+ * model existence and provider/model compatibility against the canonical
+ * OpenCode runtime discovery. Unresolvable requests throw a deterministic
+ * `AssistantBindingError` (never silently fall back while displaying the
+ * requested model).
+ */
+async function resolveExecutionBinding(
+  ctx: WorkspaceContext,
+  body: Record<string, unknown>,
+): Promise<{ provider: string; model: string } | undefined> {
+  const provider = typeof body.provider === 'string' && body.provider ? body.provider : undefined;
+  const model = typeof body.model === 'string' && body.model ? body.model : undefined;
+  if (!provider && !model) return undefined;
+  const binding = await ctx.assistantBindingResolver.resolve({ providerId: provider, modelId: model });
+  return { provider: binding.providerID, model: binding.modelID };
+}
+
+/**
  * GA-CONTEXT-002: bound/validate the browser-supplied surface context.
  * Trusted client navigation state — bounded strings only, never instructions,
  * never repository/execution authority. Malformed values degrade to undefined
@@ -100,9 +119,17 @@ export async function handleConversationsRoute(
       json(res, 400, { error: 'message is required' });
       return true;
     }
+    let binding: { provider: string; model: string } | undefined;
+    try {
+      binding = await resolveExecutionBinding(ctx, body);
+    } catch (error) {
+      json(res, 400, { error: error instanceof Error ? error.message : 'Invalid provider/model' });
+      return true;
+    }
     try {
       const result = await ctx.conversationService.sendMessage(conversationId, message, {
-        model: typeof body.model === 'string' && body.model ? body.model : undefined,
+        model: binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined),
+        provider: binding?.provider,
       });
       json(res, 200, { message: result.message, response: result.response, latency: result.latency });
     } catch (error) {
@@ -117,6 +144,15 @@ export async function handleConversationsRoute(
     const message = body.message?.trim();
     if (!message) {
       json(res, 400, { error: 'message is required' });
+      return true;
+    }
+    // GA-RUNTIME-001 G: validate the requested provider/model BEFORE the SSE
+    // stream starts — deterministic 400, never a silent default execution.
+    let binding: { provider: string; model: string } | undefined;
+    try {
+      binding = await resolveExecutionBinding(ctx, body);
+    } catch (error) {
+      json(res, 400, { error: error instanceof Error ? error.message : 'Invalid provider/model' });
       return true;
     }
     res.writeHead(200, {
@@ -138,11 +174,19 @@ export async function handleConversationsRoute(
         } satisfies ConversationChunk)}\n\n`,
       );
     };
+    // GA-RUNTIME-001 L: closing the Vestara SSE response alone is NOT
+    // cancellation — this signal drives the adapter's authoritative
+    // OpenCode interrupt (abortSession) so the reused session settles.
+    const abort = new AbortController();
+    const onClose = () => abort.abort();
+    res.on('close', onClose);
     try {
       const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
       for await (const chunk of ctx.conversationService.sendMessageStream(conversationId, message, {
-        model: typeof body.model === 'string' && body.model ? body.model : undefined,
+        model: binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined),
+        provider: binding?.provider,
         surfaceContext,
+        signal: abort.signal,
       })) {
         if (chunk.type === 'text' && chunk.content) {
           emit({ type: 'delta', content: chunk.content });
@@ -180,8 +224,68 @@ export async function handleConversationsRoute(
     } catch (error) {
       emit({ type: 'error', content: error instanceof Error ? error.message : 'Stream failed' });
     } finally {
+      res.removeListener('close', onClose);
       res.end();
     }
+    return true;
+  }
+
+  // GA-RUNTIME-001 B: interactive permission decision (browser → broker →
+  // adapter → OpenCode). Preserves OpenCode's native response semantics.
+  const permissionMatch = p.match(/^\/api\/conversations\/([^/]+)\/permissions\/([^/]+)$/);
+  if (permissionMatch && method === 'POST') {
+    const permissionId = decodeURIComponent(permissionMatch[2] as string);
+    const raw = await readBody(req);
+    const body = raw ? JSON.parse(raw) : {};
+    const decision = body.decision;
+    if (decision !== 'allow-once' && decision !== 'allow-session' && decision !== 'deny') {
+      json(res, 400, { error: 'decision must be allow-once, allow-session, or deny' });
+      return true;
+    }
+    const resolved = ctx.assistantInteractionBroker.decidePermission(
+      conversationId,
+      permissionId,
+      decision === 'deny'
+        ? { decision: 'reject', reason: typeof body.reason === 'string' ? body.reason : 'Denied by user' }
+        : { decision: 'approve', scope: decision === 'allow-session' ? 'session' : 'once' },
+    );
+    if (!resolved) {
+      json(res, 404, { error: 'No pending permission request for this id' });
+      return true;
+    }
+    json(res, 200, { ok: true, permissionId });
+    return true;
+  }
+
+  // GA-RUNTIME-001 B: interactive question answer (browser → broker →
+  // adapter → OpenCode question reply).
+  const questionMatch = p.match(/^\/api\/conversations\/([^/]+)\/questions\/([^/]+)$/);
+  if (questionMatch && method === 'POST') {
+    const requestId = decodeURIComponent(questionMatch[2] as string);
+    const raw = await readBody(req);
+    const body = raw ? JSON.parse(raw) : {};
+    const answers = body.answers;
+    if (!Array.isArray(answers) || answers.length === 0) {
+      json(res, 400, { error: 'answers must be a non-empty array of option selections' });
+      return true;
+    }
+    const sanitized = answers
+      .map((answer) =>
+        Array.isArray(answer) ? answer.map((label) => String(label).slice(0, 200)).filter(Boolean) : [],
+      )
+      .filter((answer: string[]) => answer.length > 0);
+    if (sanitized.length === 0) {
+      json(res, 400, { error: 'answers must contain at least one selection' });
+      return true;
+    }
+    const resolved = ctx.assistantInteractionBroker.decideQuestion(conversationId, requestId, {
+      answers: sanitized,
+    });
+    if (!resolved) {
+      json(res, 404, { error: 'No pending question for this id' });
+      return true;
+    }
+    json(res, 200, { ok: true, requestId });
     return true;
   }
 

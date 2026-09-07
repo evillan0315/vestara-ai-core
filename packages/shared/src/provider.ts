@@ -112,6 +112,18 @@ export interface CompletionRequest {
   /** Semantic title for the execution session (e.g. task title, workflow title). */
   title?: string;
   /**
+   * GA-RUNTIME-001: owning conversation identity. Set by the conversation
+   * service (via the context assembler) so the executor can bind the turn's
+   * OpenCode session to conversation-level continuity. Never browser-supplied.
+   */
+  conversationId?: string;
+  /**
+   * GA-RUNTIME-001: requested upstream provider ID (browser selection, bounded
+   * server-side). Never trusted as execution authority — the executor resolves
+   * it against the canonical provider discovery before execution.
+   */
+  provider?: string;
+  /**
    * Trusted turn-time surface context (GA-CONTEXT-002). Additive and optional:
    * the current Workspace UI surface. Bounded server-side; treated as trusted
    * application context by the model — NEVER repository/execution authority.
@@ -165,5 +177,7 @@ export interface CompletionResponse {
     reason: 'preferred' | 'preferred-unavailable' | 'explicit-model' | 'explicit-unresolvable' | 'default';
     /** True when execution fell back to the runtime's configured/default resolution. */
     defaultResolution: boolean;
+    /** GA-RUNTIME-001: the OpenCode session that carried this completion (set when one was acquired). */
+    runtimeSessionId?: string;
   };
 }

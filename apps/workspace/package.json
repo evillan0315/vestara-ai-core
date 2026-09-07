@@ -34,6 +34,7 @@
     "@vestara/configuration": "workspace:*",
     "@vestara/design-system": "workspace:*",
     "@vestara/execution-center": "workspace:*",
+    "@vestara/media-conference": "workspace:*",
     "@vestara/settings-framework": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/types": "workspace:*",

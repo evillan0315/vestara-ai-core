@@ -15,6 +15,8 @@ export interface Conversation {
   title: string;
   messages: Message[];
   status: ConversationStatus;
+  /** OpenCode session ID for session reuse across turns. Set after the first successful turn. */
+  runtimeSessionId?: string;
   createdAt: string;
   updatedAt: string;
 }

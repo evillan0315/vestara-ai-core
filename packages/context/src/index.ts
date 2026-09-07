@@ -20,6 +20,15 @@ export interface ContextOptions {
   maxTokens?: number;
   /** Trusted turn-time surface context (GA-CONTEXT-002). Optional. */
   surfaceContext?: import('@vestara/shared').TurnSurfaceContext;
+  /** OpenCode session ID for session reuse (GA-RUNTIME-001). */
+  runtimeSessionId?: string;
+  /**
+   * GA-RUNTIME-001: requested upstream provider ID (browser selection).
+   * Bounded server-side; never trusted as execution authority.
+   */
+  provider?: string;
+  /** Caller-controlled cancellation: aborts the provider turn (GA-RUNTIME-001 cancel safety). */
+  signal?: AbortSignal;
 }
 
 export interface ContextAssembler {
@@ -67,8 +76,17 @@ export class DefaultContextAssembler implements ContextAssembler {
       messages,
       temperature: options.temperature ?? 0.7,
       maxTokens: options.maxTokens ?? 2048,
+      // GA-RUNTIME-001: conversation identity for OpenCode session binding —
+      // owned by the conversation runtime, never browser-supplied.
+      conversationId: conversation.id,
       // GA-CONTEXT-002: trusted turn-time surface context (optional).
       ...(options.surfaceContext ? { surfaceContext: options.surfaceContext } : {}),
+      // GA-RUNTIME-001: requested upstream provider (browser selection, bounded).
+      ...(options.provider ? { provider: options.provider } : {}),
+      // GA-RUNTIME-001: caller-controlled cancellation (client disconnect / stop).
+      ...(options.signal ? { signal: options.signal } : {}),
+      // Session reuse: pass the stored runtime session ID when available.
+      ...(options.runtimeSessionId ? { runtimeSessionId: options.runtimeSessionId } : {}),
     };
   }
 }

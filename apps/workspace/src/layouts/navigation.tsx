@@ -20,6 +20,7 @@ import SmartToyRoundedIcon from '@mui/icons-material/SmartToyRounded';
 import StorefrontRoundedIcon from '@mui/icons-material/StorefrontRounded';
 import TerminalRoundedIcon from '@mui/icons-material/TerminalRounded';
 import TuneRoundedIcon from '@mui/icons-material/TuneRounded';
+import VideoCallRoundedIcon from '@mui/icons-material/VideoCallRounded';
 import ViewTimelineRoundedIcon from '@mui/icons-material/ViewTimelineRounded';
 import type { ReactNode } from 'react';
 
@@ -81,6 +82,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
   {
     title: 'Tools',
     items: [
+      { to: '/meet', title: 'Vestara Meet', icon: <VideoCallRoundedIcon fontSize="small" />, badge: 'Live' },
       { to: '/chat', title: 'Chat', icon: <ChatRoundedIcon fontSize="small" /> },
       { to: '/terminal', title: 'Terminal', icon: <TerminalRoundedIcon fontSize="small" /> },
       { to: '/api-builder', title: 'API Builder', icon: <ApiRoundedIcon fontSize="small" /> },

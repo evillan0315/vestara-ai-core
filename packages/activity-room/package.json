@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@vestara/event-bus": "workspace:*",
+    "@vestara/media-runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/sqlite-migrations": "workspace:*",
     "@vestara/types": "workspace:*",

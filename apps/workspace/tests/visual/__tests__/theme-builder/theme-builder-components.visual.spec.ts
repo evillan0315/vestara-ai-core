@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { loadConfig } from './config.js';
-import { VisualTestEngine } from './engine.js';
+import { loadConfig } from '../../config.js';
+import { VisualTestEngine } from '../../engine.js';
 
 const config = loadConfig();
 const engine = new VisualTestEngine(config);
@@ -33,9 +33,9 @@ const EXTENDED_VIEWPORTS = [
 
 // Generate test cases for PreviewComponents
 const routes = engine['discovery'].discover();
-const settingsRoute = routes.find(r => r.id === 'settings');
+const settingsRoute = routes.find((r: (typeof routes)[number]) => r.id === 'settings');
 
-const previewComponentCases: Array<{ title: string; route: typeof settingsRoute; viewport: typeof EXTENDED_VIEWPORTS[0]; theme: typeof EXTENDED_THEMES[0] }> = [];
+const previewComponentCases: Array<{ title: string; route: NonNullable<typeof settingsRoute>; viewport: typeof EXTENDED_VIEWPORTS[0]; theme: typeof EXTENDED_THEMES[0] }> = [];
 
 if (settingsRoute) {
   for (const viewport of EXTENDED_VIEWPORTS) {
@@ -57,7 +57,6 @@ for (const tc of previewComponentCases) {
       route: tc.route,
       viewport: tc.viewport,
       theme: { id: tc.theme.id, label: tc.theme.label, storageValue: tc.theme.storageValue },
-      role: tc.role,
     });
 
     if (config.mode === 'update') {

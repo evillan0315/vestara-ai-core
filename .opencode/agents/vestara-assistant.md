@@ -4,11 +4,11 @@ mode: primary
 model: opencode/mimo-v2.5-free
 permission:
   read: allow
-  edit: allow
+  edit: ask
   glob: allow
   grep: allow
   list: allow
-  bash: allow
+  bash: ask
   task: allow
   external_directory: ask
   todowrite: allow

@@ -115,6 +115,7 @@ export class SqliteConversationStore implements ConversationStore {
       userId: row.user_id as string,
       title: row.title as string,
       status: row.status as ConversationStatus,
+      runtimeSessionId: (row.runtime_session_id as string) || undefined,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
       messages: messages.map((m) => this._rowToMessage(m)),
@@ -169,6 +170,22 @@ export class SqliteConversationStore implements ConversationStore {
   async setStatus(id: string, status: Conversation['status']): Promise<void> {
     const db = await this._db();
     dbRun(db, 'UPDATE conversations SET status = ? WHERE id = ?', [status, id]);
+    this._persist();
+  }
+
+  async updateTitle(id: string, title: string): Promise<void> {
+    const db = await this._db();
+    dbRun(db, 'UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?', [title, new Date().toISOString(), id]);
+    this._persist();
+  }
+
+  async updateRuntimeSessionId(id: string, runtimeSessionId: string): Promise<void> {
+    const db = await this._db();
+    dbRun(db, 'UPDATE conversations SET runtime_session_id = ?, updated_at = ? WHERE id = ?', [
+      runtimeSessionId,
+      new Date().toISOString(),
+      id,
+    ]);
     this._persist();
   }
 

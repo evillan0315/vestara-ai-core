@@ -120,6 +120,27 @@ See the [configuration guide](docs/CONFIGURATION.md) for the full reference.
 | `os/` | OS-0 host integration (systemd, Plymouth, image builder) |
 | `docs/` | PCS, UX, ATS, milestones, decisions |
 
+## Current work — Global Assistant runtime (GA-RUNTIME-001)
+
+In-progress Global Assistant hardening around server-authoritative execution:
+
+- Server-authoritative provider/model binding (`assistant-binding-resolver`) —
+  browser selections validate against OpenCode runtime discovery, fail-closed
+  with deterministic `400`, never silently fall back.
+- Conversation → OpenCode session continuity registry with single-flight
+  mapping; `runtimeSessionId` persisted on the conversation store.
+- Interactive permission/question broker (`assistant-interaction-broker`) —
+  `POST /api/conversations/:id/permissions/:permissionId` and
+  `POST /api/conversations/:id/questions/:requestId`, preserving OpenCode
+  native response semantics.
+- Vestara-owned capability boundary (`assistant-capability-policy`, GA-CAP-003);
+  assistant grant tightened to `edit: ask`, `bash: ask`.
+- Execution projection for `question.v2.asked/replied`; SSE disconnect drives
+  authoritative OpenCode `abortSession` (disconnect alone is not cancellation).
+- UI: `ProviderModelSelector`, `ConversationPanel` permission/question cards,
+  `useAssistantConversation` binding + interaction wiring.
+- Coverage: `assistant-capability-policy`, `ga-runtime-001`, `ga-ui-008`.
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and

@@ -23,6 +23,8 @@ export interface ChunkMetadata {
   provider?: string;
   model?: string;
   conversationId?: string;
+  /** OpenCode session ID — emitted by the adapter so the caller can persist it for session reuse. */
+  runtimeSessionId?: string;
   usage?: {
     promptTokens: number;
     completionTokens: number;

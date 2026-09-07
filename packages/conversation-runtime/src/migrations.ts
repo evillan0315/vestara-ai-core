@@ -125,6 +125,23 @@ export const CONVERSATION_MIGRATIONS: readonly MigrationStep[] = [
       db.exec(CONVERSATION_BASELINE_DDL);
     },
   },
+  {
+    name: 'conversations.add-runtime-session-id',
+    produces: [
+      fingerprint('conversations', [
+        'id',
+        'user_id',
+        'title',
+        'status',
+        'created_at',
+        'updated_at',
+        'runtime_session_id',
+      ]),
+    ],
+    up: (db: Database) => {
+      db.exec(`ALTER TABLE conversations ADD COLUMN runtime_session_id TEXT`);
+    },
+  },
 ];
 
 const USER_PROFILE_BASELINE_DDL = `

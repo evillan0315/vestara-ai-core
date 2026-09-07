@@ -42,6 +42,8 @@ export interface ConversationStore {
   list(userId: string): Promise<ConversationSummary[]>;
   addMessage(conversationId: string, message: Message): Promise<void>;
   setStatus(id: string, status: Conversation['status']): Promise<void>;
+  updateTitle(id: string, title: string): Promise<void>;
+  updateRuntimeSessionId(id: string, runtimeSessionId: string): Promise<void>;
   remove(id: string): Promise<void>;
 }
 
@@ -57,11 +59,20 @@ export interface ConversationService {
 
 export interface SendOptions {
   model?: string;
+  /**
+   * GA-RUNTIME-001: requested upstream provider ID (browser selection).
+   * Bounded server-side; never trusted as execution authority.
+   */
+  provider?: string;
   temperature?: number;
   maxTokens?: number;
   systemPrompt?: string;
   /** Trusted turn-time surface context (GA-CONTEXT-002). Optional, turn-scoped. */
   surfaceContext?: import('@vestara/shared').TurnSurfaceContext;
+  /** OpenCode session ID for session reuse. When set, the adapter reuses the existing session. */
+  runtimeSessionId?: string;
+  /** GA-RUNTIME-001: caller-controlled cancellation (client disconnect / stop). */
+  signal?: AbortSignal;
 }
 
 export interface SendResult {
@@ -170,7 +181,10 @@ export class DefaultConversationService implements ConversationService {
     });
 
     // Build context and send to provider
-    const request = this.contextAssembler.buildContext(conversation, content, options);
+    // GA-RUNTIME-001: feed the stored runtime session ID (if the caller did not
+    // supply one) so subsequent turns reuse the conversation's OpenCode session.
+    const runtimeSessionId = options.runtimeSessionId ?? conversation.runtimeSessionId;
+    const request = this.contextAssembler.buildContext(conversation, content, { ...options, runtimeSessionId });
 
     await this.eventBus?.emit({
       type: 'conversation:provider.request.started',
@@ -184,6 +198,9 @@ export class DefaultConversationService implements ConversationService {
     let responseTokens = 0;
     let responseProvider = 'opencode';
     let responseModel = request.model;
+    // GA-RUNTIME-001: the session actually used for this turn (may be created
+    // by the executor on the first turn). Persisted so later turns reuse it.
+    let turnRuntimeSessionId = runtimeSessionId;
 
     try {
       const response = await this.providerExecutor.complete(request);
@@ -191,6 +208,7 @@ export class DefaultConversationService implements ConversationService {
       responseTokens = response.usage.totalTokens;
       responseProvider = response.provider ?? responseProvider;
       responseModel = response.model ?? responseModel;
+      turnRuntimeSessionId = response.resolution?.runtimeSessionId ?? turnRuntimeSessionId;
 
       await this.eventBus?.emit({
         type: 'conversation:provider.response.completed',
@@ -233,6 +251,13 @@ export class DefaultConversationService implements ConversationService {
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
     await this.store?.addMessage(conversationId, responseMessage);
+
+    // GA-RUNTIME-001: persist the OpenCode session that carried this turn so
+    // later turns reuse it (conversation identity owns continuity).
+    if (turnRuntimeSessionId && turnRuntimeSessionId !== conversation.runtimeSessionId) {
+      conversation.runtimeSessionId = turnRuntimeSessionId;
+      await this.store?.updateRuntimeSessionId(conversationId, turnRuntimeSessionId);
+    }
 
     await this.eventBus?.emit({
       type: 'conversation:response.completed',
@@ -278,6 +303,15 @@ export class DefaultConversationService implements ConversationService {
     conversation.updatedAt = userMessage.createdAt;
     await this.store?.addMessage(conversationId, userMessage);
 
+    // Persist resolved title: if title is still the counter default ("Conversation N"),
+    // derive a meaningful title from the first user message and write it back to SQLite.
+    if (/^Conversation \d+$/.test(conversation.title) && content.trim()) {
+      const singleLine = content.replace(/\s+/g, ' ').trim();
+      const resolvedTitle = singleLine.length <= 48 ? singleLine : `${singleLine.slice(0, 48).trimEnd()}…`;
+      conversation.title = resolvedTitle;
+      await this.store?.updateTitle(conversationId, resolvedTitle);
+    }
+
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
       source: 'conversation-service',
@@ -286,7 +320,10 @@ export class DefaultConversationService implements ConversationService {
     });
 
     // Build context
-    const request = this.contextAssembler.buildContext(conversation, content, options);
+    // GA-RUNTIME-001: feed the stored runtime session ID (if the caller did not
+    // supply one) so subsequent turns reuse the conversation's OpenCode session.
+    const runtimeSessionId = options.runtimeSessionId ?? conversation.runtimeSessionId;
+    const request = this.contextAssembler.buildContext(conversation, content, { ...options, runtimeSessionId });
 
     await this.eventBus?.emit({
       type: 'conversation:provider.request.started',
@@ -299,10 +336,16 @@ export class DefaultConversationService implements ConversationService {
     let totalTokens = 0;
     let responseProvider = 'opencode';
     let responseModel = request.model;
+    // GA-RUNTIME-001: the session actually used for this turn (may be created
+    // by the executor on the first turn). Persisted so later turns reuse it.
+    let turnRuntimeSessionId = runtimeSessionId;
     const startTime = performance.now();
 
     try {
       for await (const chunk of this.providerExecutor.stream(request)) {
+        if (chunk.metadata?.runtimeSessionId) {
+          turnRuntimeSessionId = chunk.metadata.runtimeSessionId;
+        }
         if (chunk.type === 'text' && chunk.content) {
           fullContent += chunk.content;
           responseProvider = chunk.metadata?.provider ?? responseProvider;
@@ -346,6 +389,13 @@ export class DefaultConversationService implements ConversationService {
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
     await this.store?.addMessage(conversationId, responseMessage);
+
+    // GA-RUNTIME-001: persist the OpenCode session that carried this turn so
+    // later turns reuse it (conversation identity owns continuity).
+    if (turnRuntimeSessionId && turnRuntimeSessionId !== conversation.runtimeSessionId) {
+      conversation.runtimeSessionId = turnRuntimeSessionId;
+      await this.store?.updateRuntimeSessionId(conversationId, turnRuntimeSessionId);
+    }
 
     await this.eventBus?.emit({
       type: 'conversation:response.completed',

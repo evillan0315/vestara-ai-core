@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
-import { loadConfig } from './config.js';
-import { VisualTestEngine } from './engine.js';
+import { loadConfig } from '../../config.js';
+import { VisualTestEngine } from '../../engine.js';
 
 const config = loadConfig();
 const engine = new VisualTestEngine(config);
@@ -20,7 +20,7 @@ config.viewports = [
 
 // Generate test cases specifically for Theme Builder
 const routes = engine['discovery'].discover();
-const settingsRoute = routes.find(r => r.id === 'settings');
+const settingsRoute = routes.find((r: (typeof routes)[number]) => r.id === 'settings');
 const themeBuilderRoutes = settingsRoute ? [settingsRoute] : [];
 
 const testCases: Array<{ title: string; route: typeof routes[0]; viewport: typeof config.viewports[0]; theme: typeof config.themes[0] }> = [];

@@ -49,11 +49,15 @@ const INSPECT_GRANT: OpenCodePermissions = {
  */
 const ASSISTANT_GRANT: OpenCodePermissions = {
   read: 'allow',
-  edit: 'allow',
+  // GA-RUNTIME-001 B: edit/bash are ASK so OpenCode surfaces permission
+  // requests that Vestara's capability policy evaluates (ALLOW auto-approve,
+  // ASK → interactive user decision, DENY → reject). capability available ≠
+  // capability authorized ≠ capability executed.
+  edit: 'ask',
   glob: 'allow',
   grep: 'allow',
   list: 'allow',
-  bash: 'allow',
+  bash: 'ask',
   task: 'allow',
   external_directory: 'ask',
   webfetch: 'ask',
