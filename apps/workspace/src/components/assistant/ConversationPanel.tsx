@@ -86,14 +86,18 @@ function isFailedAssistantContent(content: string): boolean {
 function AssistantLabel({ model }: { model?: string }) {
   return (
     <div className="flex items-center gap-1.5 mb-1.5 px-0.5 min-w-0" data-testid="assistant-identity">
-      <div className="w-4 h-4 shrink-0 rounded-md bg-gradient-to-br from-amber-500/20 to-amber-600/10 border border-amber-500/20 flex items-center justify-center">
-        <svg className="w-2.5 h-2.5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+      <div className="w-5 h-5 shrink-0 rounded-lg bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 flex items-center justify-center shadow-[0_0_12px_-2px_rgba(245,158,11,0.65)] ring-1 ring-white/20">
+        <svg className="w-3 h-3 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </div>
-      <span className="text-[11px] text-zinc-400 font-medium truncate min-w-0">
+      <span className="text-[11px] text-zinc-300 font-semibold tracking-tight truncate min-w-0">
         Vestara Assistant
-        {model ? <span className="text-zinc-600 font-normal"> · {model}</span> : null}
+        {model ? (
+          <span className="ml-1.5 rounded-full border border-zinc-700/60 bg-zinc-800/70 px-1.5 py-px text-[10px] text-zinc-400 font-medium font-mono align-middle">
+            {model}
+          </span>
+        ) : null}
       </span>
     </div>
   );
@@ -112,13 +116,13 @@ function MessageBubble({ message }: { message: { role: string; content: string; 
 
   if (isUser) {
     return (
-      <div className="flex justify-end" data-testid="human-message">
+      <div className="flex justify-end assistant-message-enter" data-testid="human-message">
         <div className="max-w-[85%] min-w-0 overflow-hidden">
           <div className="flex justify-end mb-1 px-1">
             <span className="text-[10px] text-zinc-500 font-medium">You</span>
           </div>
           <div
-            className="px-3 py-2 text-[13px] leading-relaxed rounded-lg bg-zinc-800/40 border border-zinc-700/30 text-zinc-200"
+            className="px-3.5 py-2.5 text-[13px] leading-relaxed rounded-2xl rounded-br-md bg-gradient-to-b from-zinc-800/80 to-zinc-800/40 border border-zinc-700/40 shadow-[0_2px_12px_-4px_rgba(0,0,0,0.6)] text-zinc-100"
             data-testid="human-message-surface"
           >
             <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{message.content}</span>
@@ -132,7 +136,7 @@ function MessageBubble({ message }: { message: { role: string; content: string; 
   }
 
   return (
-    <div className="flex justify-start" data-testid="assistant-message">
+    <div className="flex justify-start assistant-message-enter" data-testid="assistant-message">
       <div className="max-w-full min-w-0 flex-1 overflow-hidden">
         <AssistantLabel model={message.model} />
         <div
@@ -163,17 +167,17 @@ function OptimisticHumanBubble({
 }) {
   const failed = turn.delivery === 'failed';
   return (
-    <div className="flex justify-end" data-testid="human-message" data-optimistic={turn.delivery}>
+    <div className="flex justify-end assistant-message-enter" data-testid="human-message" data-optimistic={turn.delivery}>
       <div className="max-w-[85%] min-w-0 overflow-hidden">
         <div className="flex justify-end mb-1 px-1">
           <span className="text-[10px] text-zinc-500 font-medium">You</span>
         </div>
         <div
           data-testid="human-message-surface"
-          className={`px-3 py-2 text-[13px] leading-relaxed rounded-lg text-zinc-200 ${
+          className={`px-3.5 py-2.5 text-[13px] leading-relaxed rounded-2xl rounded-br-md shadow-[0_2px_12px_-4px_rgba(0,0,0,0.6)] text-zinc-100 ${
             failed
               ? 'bg-red-500/10 border border-red-500/30'
-              : 'bg-zinc-800/40 border border-zinc-700/30'
+              : 'bg-gradient-to-b from-zinc-800/80 to-zinc-800/40 border border-zinc-700/40'
           }`}
         >
           <span className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">{turn.content}</span>
@@ -248,12 +252,14 @@ function ActiveTurn({
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          className="flex items-center gap-1.5 mb-1 px-0.5 min-w-0"
+          className="mb-1.5 min-w-0"
           data-testid="active-turn-status"
         >
-          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
-          <span className={`text-[11px] truncate ${isThinking ? 'text-amber-500/90' : 'text-zinc-500'}`}>
-            {status || 'Thinking…'}
+          <span className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-amber-500/25 bg-amber-500/[0.07] px-2.5 py-1 shadow-[0_0_16px_-6px_rgba(245,158,11,0.5)]">
+            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+            <span className={`truncate text-[11px] font-medium ${isThinking ? 'text-amber-300' : 'text-zinc-400'}`}>
+              {status || 'Thinking…'}
+            </span>
           </span>
         </div>
         {/* M2: tool start replaces the Thinking text block with the execution
@@ -271,10 +277,13 @@ function ActiveTurn({
         )}
         {isThinking && !hasOps ? (
           // Thinking state: identity + status row only, no response chrome.
-          <div className="px-0.5 py-0.5 text-[13px] text-zinc-500" data-testid="active-turn-thinking">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="motion-reduce:animate-none animate-pulse">{status || 'Thinking…'}</span>
+          <div className="px-0.5 py-1 text-[13px] text-zinc-500" data-testid="active-turn-thinking">
+            <span className="assistant-thinking-dots inline-flex items-center gap-1" aria-hidden="true">
+              <span />
+              <span />
+              <span />
             </span>
+            <span className="sr-only">{status || 'Thinking…'}</span>
           </div>
         ) : (
           !isThinking && (
@@ -328,7 +337,7 @@ function PendingInteractions({
   const openQuestions = (questions ?? []).filter((q) => q.kind === 'question' && q.questionState === 'requested');
   if (pending.length === 0 && openQuestions.length === 0) return null;
   return (
-    <div className="shrink-0 border-t border-zinc-800/80 bg-zinc-950 px-3 py-2 space-y-2">
+    <div className="shrink-0 border-t border-zinc-800/70 bg-zinc-950/95 px-3 py-2 space-y-2 backdrop-blur">
       {pending.map((permission) => {
         const action = permission.kind === 'permission' ? permission.action : 'unknown';
         const resources = permission.kind === 'permission' ? permission.resources : [];
@@ -336,10 +345,13 @@ function PendingInteractions({
           <div
             key={permission.operationId}
             data-testid="pending-permission"
-            className="rounded-lg border border-amber-500/25 bg-amber-500/5 px-3 py-2"
+            className="rounded-xl border border-amber-500/30 bg-gradient-to-b from-amber-500/[0.08] to-amber-500/[0.03] px-3 py-2.5 shadow-[0_4px_20px_-8px_rgba(245,158,11,0.5)]"
           >
-            <div className="text-[11px] text-zinc-300 mb-1">
-              Vestara Assistant wants to run: <span className="text-amber-400 font-medium">{action}</span>
+            <div className="flex items-center gap-1.5 text-[11px] font-medium text-zinc-200 mb-1">
+              <svg className="h-3.5 w-3.5 shrink-0 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+              Vestara Assistant wants to run: <span className="text-amber-300 font-semibold">{action}</span>
             </div>
             {resources.length > 0 && (
               <div className="text-[9px] text-zinc-600 mb-1.5 break-words">
@@ -347,12 +359,12 @@ function PendingInteractions({
                 {resources.length > 3 ? ` +${resources.length - 3} more` : ''}
               </div>
             )}
-            <div className="flex items-center gap-1.5">
+            <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 data-testid="permission-allow-once"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-once')}
-                className="rounded border border-zinc-700 bg-zinc-800/60 px-2 py-0.5 text-[10px] text-zinc-200 hover:bg-zinc-700 transition-colors cursor-pointer"
+                className="rounded-lg border border-zinc-700 bg-zinc-800/70 px-2.5 py-1 text-[11px] font-medium text-zinc-200 transition-all hover:bg-zinc-700 hover:border-zinc-600 active:scale-95 cursor-pointer"
               >
                 Allow once
               </button>
@@ -360,7 +372,7 @@ function PendingInteractions({
                 type="button"
                 data-testid="permission-allow-session"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'allow-session')}
-                className="rounded border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] text-amber-300 hover:bg-amber-500/20 transition-colors cursor-pointer"
+                className="rounded-lg bg-gradient-to-b from-amber-400 to-amber-500 px-2.5 py-1 text-[11px] font-semibold text-zinc-950 shadow-[0_4px_14px_-6px_rgba(245,158,11,0.7)] ring-1 ring-white/20 transition-all hover:brightness-110 active:scale-95 cursor-pointer"
               >
                 Allow for session
               </button>
@@ -368,7 +380,7 @@ function PendingInteractions({
                 type="button"
                 data-testid="permission-deny"
                 onClick={() => void onPermissionDecision(conversationId, permission.operationId, 'deny')}
-                className="rounded border border-red-500/30 bg-red-500/5 px-2 py-0.5 text-[10px] text-red-300 hover:bg-red-500/15 transition-colors cursor-pointer"
+                className="rounded-lg border border-red-500/30 bg-red-500/10 px-2.5 py-1 text-[11px] font-medium text-red-300 transition-all hover:bg-red-500/20 active:scale-95 cursor-pointer"
               >
                 Deny
               </button>
@@ -492,7 +504,7 @@ function ComposeInput({
   );
 
   return (
-    <div className="w-full border-t border-zinc-800/80 bg-zinc-950 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
+    <div className="w-full border-t border-zinc-800/70 bg-gradient-to-t from-zinc-950 via-zinc-950 to-zinc-950/60 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
       {/* GA-UI-008: compact provider/model selector */}
       {providerModel && onProviderModelChange && (
         <div className="mb-2 flex items-center gap-1.5">
@@ -505,29 +517,31 @@ function ComposeInput({
         </div>
       )}
       <div className="flex items-end gap-2 min-w-0">
-        <textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKeyDown}
-          placeholder={loading ? 'Assistant is responding…' : 'Ask anything about this workspace…'}
-          aria-label="Message the assistant"
-          rows={1}
-          className="flex-1 resize-none rounded-xl bg-zinc-900 border border-zinc-800 px-3 py-2 text-[13px] leading-relaxed text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-amber-500/40 transition-colors min-w-0"
-          style={{ minHeight: '36px', maxHeight: '120px' }}
-          onInput={(e) => {
-            const target = e.target as HTMLTextAreaElement;
-            target.style.height = 'auto';
-            target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-          }}
-        />
+        <div className="relative min-w-0 flex-1">
+          <textarea
+            ref={textareaRef}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={loading ? 'Assistant is responding…' : 'Ask anything about this workspace…'}
+            aria-label="Message the assistant"
+            rows={1}
+            className="flex-1 w-full resize-none rounded-2xl bg-zinc-900/80 border border-zinc-700/60 px-4 py-2.5 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] backdrop-blur transition-all focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/15 focus:bg-zinc-900 min-w-0"
+            style={{ minHeight: '40px', maxHeight: '120px' }}
+            onInput={(e) => {
+              const target = e.target as HTMLTextAreaElement;
+              target.style.height = 'auto';
+              target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+            }}
+          />
+        </div>
         {loading ? (
           <button
             type="button"
             onClick={onStop}
             aria-label="Stop generation"
             title="Stop generation"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 transition-colors cursor-pointer"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-500/15 border border-red-500/30 text-red-300 shadow-[0_4px_16px_-6px_rgba(239,68,68,0.5)] hover:bg-red-500/25 transition-all active:scale-95 cursor-pointer"
           >
             <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
@@ -540,19 +554,25 @@ function ComposeInput({
             disabled={!input.trim()}
             aria-label="Send message"
             title="Send message"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-amber-500/20 border border-amber-500/30 text-amber-400 hover:bg-amber-500/30 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-300 to-amber-500 text-zinc-950 shadow-[0_6px_20px_-6px_rgba(245,158,11,0.7)] ring-1 ring-white/25 transition-all hover:brightness-110 hover:shadow-[0_8px_24px_-6px_rgba(245,158,11,0.85)] active:scale-95 disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
             </svg>
           </button>
         )}
       </div>
-      {loading && (
-        <p className="mt-1.5 px-1 text-[10px] text-zinc-600">
-          Responding… sending is paused until this turn completes.
-        </p>
-      )}
+      <p className="mt-1.5 px-1 text-[10px] text-zinc-600">
+        {loading ? (
+          'Responding… sending is paused until this turn completes.'
+        ) : (
+          <>
+            <kbd className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono">⏎</kbd> to send
+            <span className="mx-1">·</span>
+            <kbd className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono">⇧⏎</kbd> new line
+          </>
+        )}
+      </p>
     </div>
   );
 }
@@ -564,36 +584,40 @@ function ComposeInput({
  */
 function DegradedBanner({ error, apiDown }: { error: string; apiDown: boolean }) {
   return (
-    <div className="mx-3 mb-2 rounded-lg bg-amber-500/10 border border-amber-500/20 px-3 py-2 text-[11px] text-amber-400/80">
+    <div className="mx-3 mb-2 rounded-xl bg-amber-500/10 border border-amber-500/25 px-3 py-2 text-[11px] text-amber-300/90 shadow-[0_4px_16px_-8px_rgba(245,158,11,0.4)] backdrop-blur">
       <div className="flex items-center gap-1.5">
-        <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M12 3l9.5 16.5H2.5z" />
         </svg>
-        <span data-testid="degraded-banner-title">
+        <span className="font-medium" data-testid="degraded-banner-title">
           {apiDown ? 'Backend unavailable — messages may not send' : 'Assistant response failed'}
         </span>
       </div>
-      <p className="mt-1 text-[10px] text-amber-500/60 truncate">{error}</p>
+      <p className="mt-1 truncate text-[10px] text-amber-500/60">{error}</p>
     </div>
   );
 }
 
 function EmptyState({ onCreateConversation }: { onCreateConversation: () => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center p-6 text-center">
-      <div className="mb-3 h-10 w-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
-        <svg className="h-5 w-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M7.5 8.25h9m-9 3H12m-9.75 1.51c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.076-4.076a1.526 1.526 0 011.037-.443 48.282 48.282 0 005.68-.494c1.584-.233 2.707-1.626 2.707-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+    <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-10 left-1/2 h-40 w-40 -translate-x-1/2 rounded-full bg-amber-500/15 blur-3xl"
+      />
+      <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_8px_28px_-8px_rgba(245,158,11,0.7)] ring-1 ring-white/25">
+        <svg className="h-6 w-6 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
         </svg>
       </div>
-      <h3 className="text-sm font-medium text-zinc-300 mb-1">Start a conversation</h3>
-      <p className="text-[11px] text-zinc-500 mb-3 max-w-[200px]">
+      <h3 className="text-sm font-semibold tracking-tight text-zinc-100 mb-1">Start a conversation</h3>
+      <p className="text-[11px] leading-relaxed text-zinc-500 mb-4 max-w-[220px]">
         Ask about your workspace, get help with tasks, or explore your project.
       </p>
       <button
         type="button"
         onClick={onCreateConversation}
-        className="text-[11px] px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 hover:bg-amber-500/20 transition-colors cursor-pointer"
+        className="rounded-xl bg-gradient-to-b from-amber-400 to-amber-500 px-4 py-2 text-[12px] font-semibold text-zinc-950 shadow-[0_6px_20px_-6px_rgba(245,158,11,0.7)] ring-1 ring-white/25 transition-all hover:brightness-110 hover:shadow-[0_8px_24px_-6px_rgba(245,158,11,0.8)] active:scale-95 cursor-pointer"
       >
         New conversation
       </button>
@@ -601,12 +625,18 @@ function EmptyState({ onCreateConversation }: { onCreateConversation: () => void
   );
 }
 
-function SurfaceContextBadge({ surface }: { surface: { routeId: string; path: string; title: string; section: string } }) {
+function SurfaceContextBadge({ surface }: { surface: { routeId: string | null; path: string; title: string | null; section: string | null } }) {
   return (
-    <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-zinc-800/50 bg-zinc-900/40">
-      <div className="h-1.5 w-1.5 rounded-full bg-emerald-400/60" />
-      <span className="text-[10px] text-zinc-500 truncate">
-        {surface.section} / {surface.title}
+    <div className="flex items-center gap-1.5 border-b border-zinc-800/60 bg-gradient-to-r from-emerald-500/[0.07] via-zinc-900/40 to-transparent px-3 py-1.5">
+      <div className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" />
+      <svg className="h-3 w-3 shrink-0 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.55-2.28A1 1 0 0121 8.62v6.76a1 1 0 01-1.45.9L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+      </svg>
+      <span className="truncate text-[10px] font-medium tracking-wide text-zinc-500">
+        {surface.section ?? 'Workspace'} <span className="text-zinc-700">/</span> {surface.title ?? surface.path}
+      </span>
+      <span className="ml-auto hidden shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-px text-[9px] font-medium text-emerald-300/90">
+        In context
       </span>
     </div>
   );
@@ -622,21 +652,32 @@ const SUGGESTIONS = [
 
 function SuggestionEmptyState({ onSuggest }: { onSuggest: (prompt: string) => void }) {
   return (
-    <div className="flex h-full flex-col items-center justify-center p-6 text-center" data-testid="assistant-suggestions">
-      <div className="mb-2 text-sm font-medium text-zinc-200">Vestara</div>
-      <h3 className="text-[13px] font-medium text-zinc-300 mb-1">How can I help?</h3>
-      <p className="text-[11px] text-zinc-500 mb-4 max-w-[220px]">
+    <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center" data-testid="assistant-suggestions">
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-12 left-1/2 h-44 w-44 -translate-x-1/2 rounded-full bg-amber-500/15 blur-3xl"
+      />
+      <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_8px_28px_-8px_rgba(245,158,11,0.7)] ring-1 ring-white/25">
+        <svg className="h-6 w-6 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+      </div>
+      <div className="mb-1 text-sm font-semibold tracking-tight text-zinc-100">How can I help?</div>
+      <p className="text-[11px] leading-relaxed text-zinc-500 mb-4 max-w-[230px]">
         Ask about this workspace, inspect the repository, or start an engineering task.
       </p>
-      <div className="flex flex-col gap-1.5 w-full max-w-[220px]">
+      <div className="flex flex-col gap-2 w-full max-w-[240px]">
         {SUGGESTIONS.map((s) => (
           <button
             key={s.label}
             type="button"
             onClick={() => onSuggest(s.prompt)}
-            className="text-[11px] px-3 py-1.5 rounded-lg bg-zinc-800/60 border border-zinc-700/50 text-zinc-300 hover:bg-zinc-800 hover:border-amber-500/30 hover:text-zinc-100 transition-colors cursor-pointer text-left truncate"
+            className="group flex items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/70 px-3 py-2 text-left text-[12px] text-zinc-300 shadow-sm backdrop-blur transition-all hover:border-amber-500/40 hover:bg-zinc-800/80 hover:text-zinc-50 hover:shadow-[0_4px_20px_-8px_rgba(245,158,11,0.5)] active:scale-[0.98] cursor-pointer"
           >
-            {s.label}
+            <span className="flex-1 truncate font-medium">{s.label}</span>
+            <svg className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
           </button>
         ))}
       </div>
@@ -856,7 +897,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* GA-UI-006: conversation picker row — hidden in expanded mode (the
           sidebar rail replaces it). */}
       {!expanded && (
-        <div className="shrink-0 border-b border-zinc-800/50 px-3 py-1.5 min-w-0">
+        <div className="shrink-0 border-b border-zinc-800/60 bg-zinc-900/30 px-3 py-1.5 min-w-0 backdrop-blur">
           <button
             ref={pickerRef}
             type="button"
@@ -869,9 +910,12 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
                 : 'Open conversation history'
             }
             data-testid="conversation-picker"
-            className="flex w-full min-w-0 items-center gap-1.5 rounded-md px-1 py-0.5 text-left hover:bg-zinc-800/60 transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+            className="flex w-full min-w-0 items-center gap-1.5 rounded-xl border border-transparent px-2 py-1 text-left transition-all hover:border-zinc-700/50 hover:bg-zinc-800/60 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           >
-            <span className="min-w-0 flex-1 truncate text-[11px] font-medium text-zinc-400">{currentTitle}</span>
+            <svg className="h-3.5 w-3.5 shrink-0 text-zinc-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-tight text-zinc-300">{currentTitle}</span>
             <svg
               className={`h-3 w-3 shrink-0 text-zinc-600 transition-transform ${historyOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -939,13 +983,13 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           GA-UX-PREMIUM M1 rhythm: deliberate vertical spacing on the open
           canvas — HUMAN TURN / identity / content / actions — never card-card-card. */}
       {showList && (
-        <div className="relative flex flex-col flex-1 min-h-0 min-w-0">
+        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.04),transparent_60%)]">
           <div
             ref={scrollRef}
             onScroll={handleScroll}
             tabIndex={-1}
             data-testid="conversation-scroll"
-            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-4 space-y-5 focus:outline-none min-w-0"
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 space-y-6 focus:outline-none min-w-0"
           >
             {assistant.messages.map((msg) => (
               <MessageBubble key={msg.id} message={msg} />
@@ -965,15 +1009,15 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             )}
           </div>
           {showJump && (
-            <div className="absolute inset-x-0 bottom-2 flex justify-center pointer-events-none">
+            <div className="absolute inset-x-0 bottom-3 flex justify-center pointer-events-none">
               <button
                 type="button"
                 onClick={jumpToLatest}
                 aria-label="Scroll to latest response"
                 data-testid="scroll-to-latest"
-                className="pointer-events-auto flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900/95 px-3 py-1 text-[11px] text-zinc-300 shadow-lg hover:border-amber-500/40 hover:text-zinc-100 transition-colors cursor-pointer"
+                className="pointer-events-auto flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-zinc-900/95 px-3.5 py-1.5 text-[11px] font-medium text-zinc-200 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.8),0_0_16px_-8px_rgba(245,158,11,0.5)] backdrop-blur transition-all hover:border-amber-500/50 hover:text-white hover:scale-105 active:scale-95 cursor-pointer"
               >
-                <span aria-hidden="true">↓</span> New response
+                <span aria-hidden="true" className="text-amber-400">↓</span> New response
               </button>
             </div>
           )}

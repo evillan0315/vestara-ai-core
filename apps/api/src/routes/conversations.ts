@@ -90,6 +90,66 @@ export async function handleConversationsRoute(
     return true;
   }
 
+  // GA-RUNTIME-001 B: interactive permission/question decisions must be
+  // matched BEFORE the messages/stream guard — their paths
+  // (/permissions/:id, /questions/:id) do not match that guard and would
+  // otherwise return false (404) so the browser Allow button never resolves.
+  const earlyPermissionMatch = p.match(/^\/api\/conversations\/([^/]+)\/permissions\/([^/]+)$/);
+  if (earlyPermissionMatch && method === 'POST') {
+    const earlyConversationId = decodeURIComponent(earlyPermissionMatch[1] as string);
+    const permissionId = decodeURIComponent(earlyPermissionMatch[2] as string);
+    const raw = await readBody(req);
+    const body = raw ? JSON.parse(raw) : {};
+    const decision = body.decision;
+    if (decision !== 'allow-once' && decision !== 'allow-session' && decision !== 'deny') {
+      json(res, 400, { error: 'decision must be allow-once, allow-session, or deny' });
+      return true;
+    }
+    const resolved = ctx.assistantInteractionBroker.decidePermission(
+      earlyConversationId,
+      permissionId,
+      decision === 'deny'
+        ? { decision: 'reject', reason: typeof body.reason === 'string' ? body.reason : 'Denied by user' }
+        : { decision: 'approve', scope: decision === 'allow-session' ? 'session' : 'once' },
+    );
+    if (!resolved) {
+      json(res, 404, { error: 'No pending permission request for this id' });
+      return true;
+    }
+    json(res, 200, { ok: true, permissionId });
+    return true;
+  }
+  const earlyQuestionMatch = p.match(/^\/api\/conversations\/([^/]+)\/questions\/([^/]+)$/);
+  if (earlyQuestionMatch && method === 'POST') {
+    const earlyConversationId = decodeURIComponent(earlyQuestionMatch[1] as string);
+    const requestId = decodeURIComponent(earlyQuestionMatch[2] as string);
+    const raw = await readBody(req);
+    const body = raw ? JSON.parse(raw) : {};
+    const answers = body.answers;
+    if (!Array.isArray(answers) || answers.length === 0) {
+      json(res, 400, { error: 'answers must be a non-empty array of option selections' });
+      return true;
+    }
+    const sanitized = answers
+      .map((answer) =>
+        Array.isArray(answer) ? answer.map((label) => String(label).slice(0, 200)).filter(Boolean) : [],
+      )
+      .filter((answer: string[]) => answer.length > 0);
+    if (sanitized.length === 0) {
+      json(res, 400, { error: 'answers must contain at least one selection' });
+      return true;
+    }
+    const resolved = ctx.assistantInteractionBroker.decideQuestion(earlyConversationId, requestId, {
+      answers: sanitized,
+    });
+    if (!resolved) {
+      json(res, 404, { error: 'No pending question for this id' });
+      return true;
+    }
+    json(res, 200, { ok: true, requestId });
+    return true;
+  }
+
   const match = p.match(/^\/api\/conversations\/([^/]+)(?:\/(messages|stream))?$/);
   if (!match) return false;
   const conversationId = decodeURIComponent(match[1] as string);
@@ -227,65 +287,6 @@ export async function handleConversationsRoute(
       res.removeListener('close', onClose);
       res.end();
     }
-    return true;
-  }
-
-  // GA-RUNTIME-001 B: interactive permission decision (browser → broker →
-  // adapter → OpenCode). Preserves OpenCode's native response semantics.
-  const permissionMatch = p.match(/^\/api\/conversations\/([^/]+)\/permissions\/([^/]+)$/);
-  if (permissionMatch && method === 'POST') {
-    const permissionId = decodeURIComponent(permissionMatch[2] as string);
-    const raw = await readBody(req);
-    const body = raw ? JSON.parse(raw) : {};
-    const decision = body.decision;
-    if (decision !== 'allow-once' && decision !== 'allow-session' && decision !== 'deny') {
-      json(res, 400, { error: 'decision must be allow-once, allow-session, or deny' });
-      return true;
-    }
-    const resolved = ctx.assistantInteractionBroker.decidePermission(
-      conversationId,
-      permissionId,
-      decision === 'deny'
-        ? { decision: 'reject', reason: typeof body.reason === 'string' ? body.reason : 'Denied by user' }
-        : { decision: 'approve', scope: decision === 'allow-session' ? 'session' : 'once' },
-    );
-    if (!resolved) {
-      json(res, 404, { error: 'No pending permission request for this id' });
-      return true;
-    }
-    json(res, 200, { ok: true, permissionId });
-    return true;
-  }
-
-  // GA-RUNTIME-001 B: interactive question answer (browser → broker →
-  // adapter → OpenCode question reply).
-  const questionMatch = p.match(/^\/api\/conversations\/([^/]+)\/questions\/([^/]+)$/);
-  if (questionMatch && method === 'POST') {
-    const requestId = decodeURIComponent(questionMatch[2] as string);
-    const raw = await readBody(req);
-    const body = raw ? JSON.parse(raw) : {};
-    const answers = body.answers;
-    if (!Array.isArray(answers) || answers.length === 0) {
-      json(res, 400, { error: 'answers must be a non-empty array of option selections' });
-      return true;
-    }
-    const sanitized = answers
-      .map((answer) =>
-        Array.isArray(answer) ? answer.map((label) => String(label).slice(0, 200)).filter(Boolean) : [],
-      )
-      .filter((answer: string[]) => answer.length > 0);
-    if (sanitized.length === 0) {
-      json(res, 400, { error: 'answers must contain at least one selection' });
-      return true;
-    }
-    const resolved = ctx.assistantInteractionBroker.decideQuestion(conversationId, requestId, {
-      answers: sanitized,
-    });
-    if (!resolved) {
-      json(res, 404, { error: 'No pending question for this id' });
-      return true;
-    }
-    json(res, 200, { ok: true, requestId });
     return true;
   }
 

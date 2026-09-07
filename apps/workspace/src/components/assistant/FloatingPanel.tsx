@@ -365,8 +365,8 @@ export function FloatingPanel({
       aria-label="Global Assistant"
       className={
         expanded
-          ? 'fixed inset-0 z-[90] flex flex-col overflow-hidden bg-zinc-950'
-          : 'fixed z-[90] flex flex-col overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-950 shadow-2xl'
+          ? 'fixed inset-0 z-[90] flex flex-col overflow-hidden bg-zinc-950/90 backdrop-blur-xl animate-fade-in'
+          : 'fixed z-[91] flex flex-col overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-950/90 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03),0_0_64px_-20px_rgba(245,158,11,0.25)] ring-1 ring-zinc-950/20 backdrop-blur-xl animate-fade-in'
       }
       style={
         expanded
@@ -381,25 +381,42 @@ export function FloatingPanel({
             }
       }
     >
+      {/* Premium top accent hairline with subtle gold gradient */}
+      {!expanded && (
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-x-6 top-0 z-10 h-px bg-gradient-to-r from-transparent via-zinc-950/20 to-transparent"
+        />
+      )}
       {/* Title bar (drag handle in floating mode; static in expanded mode) */}
       <div
-        className={`flex shrink-0 items-center justify-between border-b border-zinc-800 bg-zinc-900/80 px-3 py-2 ${
+        className={`flex shrink-0 items-center justify-between border-2 border-zinc-700/40 bg-zinc-900/80 backdrop-blur px-3 py-2.5 rounded-t-xl ${
           expanded ? '' : 'cursor-move select-none'
         }`}
         onPointerDown={expanded ? undefined : beginDrag}
       >
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="h-2 w-2 shrink-0 rounded-full bg-amber-400/60" />
-          <span className="text-xs font-medium text-zinc-300 truncate">Vestara Assistant</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_14px_-2px_rgba(245,158,11,0.7)] ring-1 ring-white/20">
+            <svg className="h-3.5 w-3.5 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <div className="flex min-w-0 flex-col leading-none">
+            <span className="truncate text-xs font-semibold tracking-tight text-zinc-100">Vestara Assistant</span>
+            <span className="mt-0.5 flex items-center gap-1 text-[10px] text-zinc-500">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]" aria-hidden="true" />
+              Online · Ready to help
+            </span>
+          </div>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           {onNewConversation && (
             <button
               type="button"
               onClick={onNewConversation}
               aria-label="New conversation"
               title="New conversation"
-              className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-amber-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -412,7 +429,7 @@ export function FloatingPanel({
               onClick={onToggleExpanded}
               aria-label={expanded ? 'Restore assistant' : 'Expand assistant'}
               title={expanded ? 'Restore' : 'Expand'}
-              className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
             >
               {expanded ? (
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -429,7 +446,8 @@ export function FloatingPanel({
             type="button"
             onClick={onMinimize}
             aria-label="Minimize assistant"
-            className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Minimize"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
@@ -439,7 +457,8 @@ export function FloatingPanel({
             type="button"
             onClick={onClose}
             aria-label="Close assistant"
-            className="flex h-6 w-6 items-center justify-center rounded text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800 transition-colors cursor-pointer"
+            title="Close"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-red-500/15 hover:text-red-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -455,7 +474,7 @@ export function FloatingPanel({
       {!expanded && (
         <>
           <div
-            className="absolute bottom-0 right-0 h-4 w-4 cursor-nwse-resize"
+            className="absolute bottom-0 right-0 h-5 w-5 cursor-nwse-resize"
             onPointerDown={(e) => beginResize(e, 'bottom-right')}
             aria-hidden="true"
           />

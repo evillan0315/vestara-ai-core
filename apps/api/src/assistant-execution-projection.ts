@@ -35,9 +35,13 @@ const EVENT = {
   shellStarted: 'session.next.shell.started',
   shellEnded: 'session.next.shell.ended',
   permissionAsked: 'permission.v2.asked',
+  permissionAskedV1: 'permission.asked',
   permissionReplied: 'permission.v2.replied',
+  permissionRepliedV1: 'permission.replied',
   questionAsked: 'question.v2.asked',
+  questionAskedV1: 'question.asked',
   questionReplied: 'question.v2.replied',
+  questionRepliedV1: 'question.replied',
   todoUpdated: 'todo.updated',
   fileEdited: 'file.edited',
   messagePartUpdated: 'message.part.updated',
@@ -202,25 +206,31 @@ export function projectMessagePartUpdated(event: OpenCodeEventLike): AssistantEx
   return projectDetail(toolPayload);
 }
 
-/** `permission.v2.asked` → requested permission (allowlisted fields only). */
+/** `permission.v2.asked` / `permission.asked` → requested permission (allowlisted fields only). */
 export function projectPermissionRequested(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
-  if (!isEvent(event, EVENT.permissionAsked)) return undefined;
+  if (!isEvent(event, EVENT.permissionAsked) && !isEvent(event, EVENT.permissionAskedV1)) return undefined;
   const payload = event.payload ?? {};
   const requestId = str(payload.id);
-  const action = str(payload.action);
+  // v2: `action`; v1: `permission` (the OpenCode action key, e.g. `bash`).
+  const action = str(payload.action) ?? str(payload.permission);
   if (!requestId || !action) return undefined;
+  const resources = Array.isArray(payload.resources)
+    ? (payload.resources as string[])
+    : Array.isArray(payload.patterns)
+      ? (payload.patterns as string[])
+      : [];
   return projectDetail({
     ...baseEnvelope(requestId, 'running', payload, 'permission'),
     kind: 'permission',
     permissionRequestId: requestId,
     action,
-    resources: Array.isArray(payload.resources) ? (payload.resources as string[]) : [],
+    resources,
   });
 }
 
-/** `permission.v2.replied` → resolved permission. */
+/** `permission.v2.replied` / `permission.replied` → resolved permission. */
 export function projectPermissionResolved(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
-  if (!isEvent(event, EVENT.permissionReplied)) return undefined;
+  if (!isEvent(event, EVENT.permissionReplied) && !isEvent(event, EVENT.permissionRepliedV1)) return undefined;
   const payload = event.payload ?? {};
   const requestId = str(payload.requestID);
   const reply = str(payload.reply);
@@ -235,9 +245,9 @@ export function projectPermissionResolved(event: OpenCodeEventLike): AssistantEx
   });
 }
 
-/** `question.v2.asked` → requested question (bounded options only). */
+/** `question.v2.asked` / `question.asked` → requested question (bounded options only). */
 export function projectQuestionAsked(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
-  if (!isEvent(event, EVENT.questionAsked)) return undefined;
+  if (!isEvent(event, EVENT.questionAsked) && !isEvent(event, EVENT.questionAskedV1)) return undefined;
   const payload = event.payload ?? {};
   const requestId = str(payload.id);
   const rawQuestions = Array.isArray(payload.questions) ? (payload.questions as Record<string, unknown>[]) : [];
@@ -250,9 +260,9 @@ export function projectQuestionAsked(event: OpenCodeEventLike): AssistantExecuti
   });
 }
 
-/** `question.v2.replied` → resolved question. */
+/** `question.v2.replied` / `question.replied` → resolved question. */
 export function projectQuestionResolved(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
-  if (!isEvent(event, EVENT.questionReplied)) return undefined;
+  if (!isEvent(event, EVENT.questionReplied) && !isEvent(event, EVENT.questionRepliedV1)) return undefined;
   const payload = event.payload ?? {};
   const requestId = str(payload.requestID) ?? str(payload.id);
   if (!requestId) return undefined;

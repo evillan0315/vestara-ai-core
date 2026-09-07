@@ -120,9 +120,12 @@ See the [configuration guide](docs/CONFIGURATION.md) for the full reference.
 | `os/` | OS-0 host integration (systemd, Plymouth, image builder) |
 | `docs/` | PCS, UX, ATS, milestones, decisions |
 
-## Current work — Global Assistant runtime (GA-RUNTIME-001)
+## Current work — Global Assistant runtime (GA-RUNTIME-001 + GA-UI-008)
 
-In-progress Global Assistant hardening around server-authoritative execution:
+In-progress Global Assistant hardening around server-authoritative execution
+and premium workspace UX:
+
+### Server-authoritative execution (GA-RUNTIME-001)
 
 - Server-authoritative provider/model binding (`assistant-binding-resolver`) —
   browser selections validate against OpenCode runtime discovery, fail-closed
@@ -132,14 +135,30 @@ In-progress Global Assistant hardening around server-authoritative execution:
 - Interactive permission/question broker (`assistant-interaction-broker`) —
   `POST /api/conversations/:id/permissions/:permissionId` and
   `POST /api/conversations/:id/questions/:requestId`, preserving OpenCode
-  native response semantics.
+  native response semantics. Routes matched before the messages/stream guard
+  to avoid 404 on browser Allow buttons.
 - Vestara-owned capability boundary (`assistant-capability-policy`, GA-CAP-003);
   assistant grant tightened to `edit: ask`, `bash: ask`.
 - Execution projection for `question.v2.asked/replied`; SSE disconnect drives
   authoritative OpenCode `abortSession` (disconnect alone is not cancellation).
-- UI: `ProviderModelSelector`, `ConversationPanel` permission/question cards,
-  `useAssistantConversation` binding + interaction wiring.
-- Coverage: `assistant-capability-policy`, `ga-runtime-001`, `ga-ui-008`.
+
+### Workspace UI (GA-UI-008)
+
+- **LauncherDock** — recent-conversations dock anchored to the floating launcher
+  orb; revealed on hover while the panel is closed; selecting a conversation
+  opens the assistant on it.
+- **Premium launcher** — gradient orb with halo glow, online presence dot,
+  hover tooltip showing `Ctrl+J` shortcut.
+- **Keyboard shortcut** — `Ctrl+J` / `⌘+J` toggles the assistant from
+  anywhere (ignored while typing in inputs); `Escape` closes the dock first.
+- **Premium motion** — message entry, thinking dots, and dock reveal animations
+  with `prefers-reduced-motion` support.
+- **UI components**: `ProviderModelSelector`, `ConversationPanel`
+  permission/question cards, `FloatingPanel`, `ConversationHistory`,
+  `AssistantToolCard`, `AssistantTodoChecklist`, `AssistantCodeEdit`,
+  `AssistantFilesSummary`, `AssistantResponseActions`.
+- **Coverage**: `assistant-capability-policy`, `ga-runtime-001`,
+  `ga-ui-008`, `surface-context-transport`.
 
 ## Contributing
 

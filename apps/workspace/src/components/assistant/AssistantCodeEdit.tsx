@@ -149,18 +149,20 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
       data-operation={detail.operation ?? 'edit'}
       data-state={detail.state}
       data-representation={detail.diffRepresentation}
-      className="min-w-0 rounded-lg border border-zinc-800 bg-zinc-900/60"
+      className="min-w-0 rounded-xl border border-zinc-800/70 bg-gradient-to-b from-zinc-900/80 to-zinc-900/40 overflow-hidden"
     >
       {/* Header: operation · filename (primary) · counts · lifecycle · actions */}
-      <div className="flex min-w-0 items-center gap-2 px-2.5 py-1.5">
+      <div className="flex min-w-0 items-center gap-2 px-3 py-2">
         {detail.state === 'running' ? (
-          <span data-testid="code-edit-lifecycle" className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+          </span>
         ) : detail.state === 'completed' ? (
-          <span data-testid="code-edit-lifecycle" className="text-[11px] leading-none text-emerald-500/80" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] leading-none text-emerald-400" aria-hidden="true">
             ✓
           </span>
         ) : (
-          <span data-testid="code-edit-lifecycle" className="text-[11px] leading-none text-red-400/80" aria-hidden="true">
+          <span data-testid="code-edit-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-red-500/15 text-[10px] leading-none text-red-400" aria-hidden="true">
             ✕
           </span>
         )}
@@ -235,11 +237,11 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
       </div>
 
       {/* Secondary line: repository-relative path + unavailable/truncation prose */}
-      <div className="flex min-w-0 items-center gap-2 px-2.5 pb-1.5 -mt-0.5">
+      <div className="flex min-w-0 items-center gap-2 px-3 pb-2 -mt-0.5">
         <span
           data-testid="code-edit-path"
           title={detail.file}
-          className="min-w-0 truncate text-[10px] leading-none text-zinc-600"
+          className="min-w-0 truncate text-[10px] leading-none text-zinc-600 font-mono"
         >
           {detail.file}
         </span>
@@ -252,7 +254,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
 
       {/* Diff body */}
       {expanded && detail.diffRepresentation !== 'unavailable' && (
-        <div data-testid="code-edit-diff" className="max-w-full border-t border-zinc-800/70 px-2 py-1.5">
+        <div data-testid="code-edit-diff" className="max-w-full border-t border-zinc-800/70 px-2 py-2">
           {detail.diffRepresentation === 'patch' && detail.patch ? (
             <PatchDiff patch={detail.patch} />
           ) : detail.diffRepresentation === 'hunks' && detail.hunks ? (
@@ -274,17 +276,17 @@ function DiffLine({ line }: { line: string }) {
     <div
       data-testid="diff-line"
       data-kind={kind}
-      className={`flex min-w-max px-1.5 leading-[1.5] text-[11px] font-mono whitespace-pre ${
+      className={`flex min-w-max px-2 leading-[1.6] text-[11px] font-mono whitespace-pre ${
         kind === 'add'
-          ? 'bg-emerald-500/[0.06] text-emerald-300/80'
+          ? 'bg-emerald-500/[0.08] text-emerald-300/90 border-l-2 border-emerald-500/40'
           : kind === 'delete'
-            ? 'bg-red-500/[0.05] text-red-300/70'
+            ? 'bg-red-500/[0.06] text-red-300/80 border-l-2 border-red-500/30'
             : kind === 'hunk'
-              ? 'bg-zinc-800/60 text-amber-400/70'
-              : 'text-zinc-500'
+              ? 'bg-zinc-800/50 text-amber-400/80 border-l-2 border-amber-500/30 font-semibold'
+              : 'text-zinc-500 border-l-2 border-transparent'
       }`}
     >
-      <span aria-hidden="true" className={`w-3 shrink-0 select-none ${kind === 'add' ? 'text-emerald-500/60' : kind === 'delete' ? 'text-red-400/60' : 'text-transparent'}`}>
+      <span aria-hidden="true" className={`w-4 shrink-0 select-none text-center ${kind === 'add' ? 'text-emerald-500/70' : kind === 'delete' ? 'text-red-400/70' : 'text-transparent'}`}>
         {marker}
       </span>
       <span className="min-w-0">{content}</span>

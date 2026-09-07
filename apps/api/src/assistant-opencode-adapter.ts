@@ -350,7 +350,8 @@ export async function* runAssistantOpenCodeTurn(
           }
           break;
         }
-        case 'permission.v2.asked': {
+        case 'permission.v2.asked':
+        case 'permission.asked': {
           const detail = projectPermissionRequested(event);
           if (detail && detail.kind === 'permission') {
             // GA-CAP-003 / GA-RUNTIME-001 B: evaluate against the Vestara
@@ -481,7 +482,8 @@ export async function* runAssistantOpenCodeTurn(
           }
           break;
         }
-        case 'permission.v2.replied': {
+        case 'permission.v2.replied':
+        case 'permission.replied': {
           const detail = projectPermissionResolved(event);
           if (detail) yield chunk('status', sequence++, { detail });
           break;

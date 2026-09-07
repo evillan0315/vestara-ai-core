@@ -36,7 +36,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 | Dependency boundaries | `pnpm dependencies:check` |
 | Source artifacts | `pnpm check:source-artifacts` |
 | Agent sync/check | `pnpm agents:sync` / `pnpm agents:check` |
-| Dev (API+UI) | `pnpm dev` (API in background on 3001, UI on 5173; kills API when UI exits) |
+| Dev (API+UI) | `pnpm dev` (API in background on 3001 with `.env`, UI on 5173; kills API when UI exits) |
 | API only | `pnpm dev:api` (`node --env-file=.env apps/api/dist/index.js`) |
 | UI only | `pnpm --filter @vestara/workspace-ui dev` |
 | Visual regression | `pnpm screenshots:ci` (Playwright check) / `pnpm screenshots:update` (approve baselines) |
@@ -57,8 +57,8 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 ## Guardrails to Not Break
 
 - **Boundaries** (`scripts/workspace-architecture.mjs`): packages must not depend on `apps/*`; packages must not depend on `@vestara/workspace` (except `@vestara/evaluation`); no deep internal imports; no undeclared internal deps; no dependency cycles.
-- **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `apps/` or `packages/` outside `dist/`/`coverage/`/`node_modules` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
-- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
+- **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `src/` or `__tests__/` in `apps/` or `packages/` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
+- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant|browser`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
 - **OpenCode contracts**: `packages/opencode-runtime/src/generated/opencode-contracts.ts` is generated — never hand-edit. Refresh with `pnpm --filter @vestara/opencode-runtime opencode:spec:update` (fetch + generate + check); CI fails when the generated file drifts from the pinned schema.
 - **Docs governance**: `pnpm docs:validate` / `pnpm docs:govern` (strict), `pnpm documentation:check` (CI baseline drift gate). Don't add instruction files better stored via `opencode.json` `instructions`.
 
@@ -71,7 +71,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 - API: `http://127.0.0.1:3001`, UI: `http://127.0.0.1:5173` (Vite proxies `/api`+`/ws` → API, `apps/workspace/vite.config.ts`).
 - `VESTARA_API_PORT` (API listen, default 3001), `VESTARA_REPO` (workspace path; otherwise walks up for `.vestara/workspace.json`), `VITE_API_URL` (build-time desktop/remote UI base URL — code appends `/api`, trailing slashes trimmed).
 - Live Browser driver: `VESTARA_BROWSER_DRIVER` (`playwright` default | `agent-browser` — runs the agent-browser CLI as the driver; unknown values warn + fall back), `VESTARA_AGENT_BROWSER_EXECUTABLE_PATH` (Chromium executable for the agent-browser driver; the CLI also honors `AGENT_BROWSER_EXECUTABLE_PATH`). Driver factory wired in `apps/api/src/workspace-context.ts` (`createBrowserRuntime` → `resolveBrowserDriverFactory`).
-- `pnpm dev:api` loads `.env` (`--env-file=.env`); `pnpm dev` does not (runs bare `node apps/api/dist/index.js`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
+- `pnpm dev:api` and `pnpm dev` both load `.env` (`--env-file=.env`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
 - Never edit `.vestara/` runtime state. Pre-commit hook (`.githooks/pre-commit` → `scripts/pre-commit.sh` → `biome --staged` + full `pnpm test`) is opt-in via `git config core.hooksPath .githooks`; note it runs the whole suite, so it is slow.
 
 ## Style

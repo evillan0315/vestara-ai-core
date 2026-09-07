@@ -127,4 +127,65 @@ describe('GlobalAssistant — Slice 1: Shell Mount', () => {
     expect(button.className).toContain('right-6');
     expect(button.className).toContain('z-[90]');
   });
+
+  it('Ctrl+J toggles panel open/closed', async () => {
+    const { GlobalAssistant } = await import('../src/components/assistant/GlobalAssistant');
+
+    render(
+      <MemoryRouter>
+        <GlobalAssistant />
+      </MemoryRouter>,
+    );
+
+    // Panel should start closed
+    const openButtons = screen.getAllByRole('button', { name: /open assistant/i });
+    expect(openButtons.length).toBeGreaterThan(0);
+
+    // Dispatch Ctrl+J to open
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true }));
+    });
+
+    // Panel should now be open — launcher label changes to "Close assistant"
+    const closeButtons = screen.getAllByRole('button', { name: /close assistant/i });
+    expect(closeButtons.length).toBeGreaterThan(0);
+  });
+
+  it('Ctrl+J is ignored while typing in an input', async () => {
+    const { GlobalAssistant } = await import('../src/components/assistant/GlobalAssistant');
+
+    render(
+      <MemoryRouter>
+        <GlobalAssistant />
+      </MemoryRouter>,
+    );
+
+    // Create a textarea to simulate typing
+    const textarea = document.createElement('textarea');
+    document.body.appendChild(textarea);
+    textarea.focus();
+
+    await act(async () => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, target: textarea }));
+    });
+
+    // Panel should remain closed (no toggle while typing)
+    const openButtons = screen.getAllByRole('button', { name: /open assistant/i });
+    expect(openButtons.length).toBeGreaterThan(0);
+
+    document.body.removeChild(textarea);
+  });
+
+  it('launcher has Ctrl+J tooltip', async () => {
+    const { GlobalAssistant } = await import('../src/components/assistant/GlobalAssistant');
+
+    render(
+      <MemoryRouter>
+        <GlobalAssistant />
+      </MemoryRouter>,
+    );
+
+    const button = screen.getByRole('button', { name: /open assistant/i });
+    expect(button.title).toContain('Ctrl+J');
+  });
 });
