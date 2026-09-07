@@ -1,0 +1,304 @@
+{
+  "timestamp": "2026-09-05T19:52:02.365Z",
+  "openviduVersion": "2.25.0",
+  "sessionId": "ovr004-media-1788637924772",
+  "providerConfirmedBoth": true,
+  "pacmanScreenshotSource": "Browser A local publisher (Pac-Man test pattern from --use-fake-device-for-media-stream)",
+  "fdObservedReason": "forceDisconnectByServer",
+  "fdProviderTerminated": true,
+  "steps": [
+    {
+      "section": "connection",
+      "name": "Health check",
+      "pass": true,
+      "detail": "provider reachable"
+    },
+    {
+      "section": "connection",
+      "name": "Session created",
+      "pass": true,
+      "detail": "ovr004-media-1788637924772"
+    },
+    {
+      "section": "connection",
+      "name": "PUBLISHER credential",
+      "pass": true,
+      "detail": "con_DXt0xfcabR"
+    },
+    {
+      "section": "connection",
+      "name": "SUBSCRIBER credential",
+      "pass": true,
+      "detail": "con_B2H1Ye3Ej3"
+    },
+    {
+      "section": "connection",
+      "name": "Browser A launched",
+      "pass": true
+    },
+    {
+      "section": "connection",
+      "name": "openvidu-browser loaded",
+      "pass": true
+    },
+    {
+      "section": "connection",
+      "name": "Browser A connected + publishing",
+      "pass": true
+    },
+    {
+      "section": "connection",
+      "name": "Browser B launched",
+      "pass": true
+    },
+    {
+      "section": "connection",
+      "name": "Browser B connected",
+      "pass": true
+    },
+    {
+      "section": "connection",
+      "name": "Provider confirms both",
+      "pass": true,
+      "detail": "2 connections"
+    },
+    {
+      "section": "mediastream",
+      "name": "MediaStream obtained",
+      "pass": true
+    },
+    {
+      "section": "mediastream",
+      "name": "Audio tracks",
+      "pass": true,
+      "detail": "1 (audio, readyState=live)"
+    },
+    {
+      "section": "mediastream",
+      "name": "Video tracks",
+      "pass": true,
+      "detail": "1 (video, readyState=live)"
+    },
+    {
+      "section": "remote-video",
+      "name": "Browser B remote video element",
+      "pass": true,
+      "detail": "640x480 readyState=4"
+    },
+    {
+      "section": "remote-video",
+      "name": "currentTime advancing",
+      "pass": true,
+      "detail": "3.912 -> 4.464"
+    },
+    {
+      "section": "remote-video",
+      "name": "Remote frames observed",
+      "pass": true,
+      "detail": "3 frames via requestVideoFrameCallback"
+    },
+    {
+      "section": "remote-video",
+      "name": "Pac-Man screenshot source",
+      "pass": true,
+      "detail": "Browser A local publisher (Pac-Man test pattern from --use-fake-device-for-media-stream)"
+    },
+    {
+      "section": "remote-video",
+      "name": "Screenshots captured",
+      "pass": true
+    },
+    {
+      "section": "remote-audio",
+      "name": "Remote audio track",
+      "pass": true,
+      "detail": "kind=audio readyState=live"
+    },
+    {
+      "section": "remote-audio",
+      "name": "Track live",
+      "pass": true
+    },
+    {
+      "section": "remote-audio",
+      "name": "Web Audio API connected",
+      "pass": true,
+      "detail": "maxAmplitude=0.000000 (silent expected with fake device)"
+    },
+    {
+      "section": "remote-audio",
+      "name": "Track identification",
+      "pass": true,
+      "detail": "id=e68f2bf4-b30e-422b-ac6b-1732519fc3f2 label=remote audio"
+    },
+    {
+      "section": "modes",
+      "name": "Mode: audio-video",
+      "pass": true,
+      "detail": "publisher: audio=1(enabled=true) video=1(enabled=true) | subscriber: gotStream=true audio=1 video=1"
+    },
+    {
+      "section": "modes",
+      "name": "Mode: audio-only",
+      "pass": true,
+      "detail": "publisher: audio=1(enabled=true) video=1(enabled=false) | subscriber: gotStream=true audio=1 video=1"
+    },
+    {
+      "section": "modes",
+      "name": "Mode: video-only",
+      "pass": true,
+      "detail": "publisher: audio=1(enabled=false) video=1(enabled=true) | subscriber: gotStream=true audio=1 video=1"
+    },
+    {
+      "section": "natural-disconnect",
+      "name": "Browser A connected + publishing",
+      "pass": true
+    },
+    {
+      "section": "natural-disconnect",
+      "name": "Browser B connected + receiving",
+      "pass": true
+    },
+    {
+      "section": "natural-disconnect",
+      "name": "Browser A disconnected",
+      "pass": true
+    },
+    {
+      "section": "natural-disconnect",
+      "name": "Subscriber streamDestroyed",
+      "pass": true,
+      "detail": "reason=disconnect"
+    },
+    {
+      "section": "natural-disconnect",
+      "name": "Remote tracks terminated",
+      "pass": true
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Browser A connected + publishing",
+      "pass": true
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Browser B connected + receiving",
+      "pass": true
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Vestara closeConnection invoked",
+      "pass": true,
+      "detail": "connectionId=ovr004-fd-1788638146553-pub"
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Provider termination",
+      "pass": true,
+      "detail": "DELETE 204"
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Browser A termination observed",
+      "pass": true,
+      "detail": "event={\"type\":\"sessionDisconnected\",\"reason\":\"forceDisconnectByServer\",\"time\":1788638168117}"
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Browser B stream destruction",
+      "pass": true,
+      "detail": "reason=forceDisconnectByServer"
+    },
+    {
+      "section": "force-disconnect",
+      "name": "Remote media terminated",
+      "pass": true
+    },
+    {
+      "section": "security",
+      "name": "Basic Auth exposed to browser",
+      "pass": true,
+      "detail": "not exposed"
+    },
+    {
+      "section": "security",
+      "name": "OPENVIDU_SECRET exposed to browser",
+      "pass": true,
+      "detail": "not exposed"
+    },
+    {
+      "section": "security",
+      "name": "Token in DOM",
+      "pass": true
+    },
+    {
+      "section": "security",
+      "name": "Token in localStorage",
+      "pass": true
+    },
+    {
+      "section": "cleanup",
+      "name": "All disposable resources cleaned",
+      "pass": true,
+      "detail": "12 connections, 6 sessions"
+    }
+  ],
+  "allPass": true,
+  "connection": {
+    "browserAConnected": true,
+    "browserBConnected": true,
+    "providerConfirmedBoth": true
+  },
+  "nativeMediaStream": {
+    "mediaStreamObtained": true,
+    "audioTrackCount": 1,
+    "videoTrackCount": 1,
+    "videoTrackReadyState": "live",
+    "audioTrackReadyState": "live"
+  },
+  "remoteVideo": {
+    "browserBRemoteVideo": true,
+    "videoWidth": 640,
+    "videoHeight": 480,
+    "currentTimeAdvancing": true,
+    "actualRemoteFramesObserved": true,
+    "pacmanScreenshotSource": "Browser A local publisher (Pac-Man test pattern from --use-fake-device-for-media-stream)"
+  },
+  "remoteAudio": {
+    "remoteAudioTrack": true,
+    "trackLive": true,
+    "webAudioConnected": true,
+    "measurementMethod": "AnalyserNode-web-audio-connected"
+  },
+  "mediaModes": {
+    "audioVideo": true,
+    "audioOnly": true,
+    "videoOnly": true
+  },
+  "naturalDisconnect": {
+    "publisherDisconnected": true,
+    "subscriberStreamDestroyed": true,
+    "remoteTracksTerminated": true,
+    "observedReason": "disconnect"
+  },
+  "forceDisconnect": {
+    "vestaraCloseConnectionInvoked": true,
+    "providerTerminationConfirmed": true,
+    "browserATerminationObserved": true,
+    "browserBStreamDestructionObserved": true,
+    "remoteMediaTerminated": true,
+    "observedReason": "forceDisconnectByServer"
+  },
+  "security": {
+    "basicAuthExposedToBrowser": false,
+    "openViduSecretExposedToBrowser": false,
+    "fullConnectionTokenRecorded": false,
+    "tokenInDom": false,
+    "tokenInLocalStorage": false
+  },
+  "invariants": {
+    "activityRoomModified": false,
+    "voiceRuntimeModified": false,
+    "vidukConfigModified": false
+  }
+}

@@ -1,0 +1,18 @@
+{
+  "name": "@vestara/media-runtime",
+  "description": "Provider-neutral media conferencing contracts and runtime",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

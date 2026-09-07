@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DefaultVoiceAgentPipeline,
   DefaultVoiceBrowserPipeline,
   intentToAction,
   parseVoiceIntent,
@@ -364,6 +365,132 @@ describe('DefaultVoiceBrowserPipeline', () => {
     expect(overlay).toHaveProperty('actions');
     expect(overlay).toHaveProperty('isListening');
     expect(overlay).toHaveProperty('isProcessing');
+    await pipeline.stop();
+  });
+});
+
+// ─── Voice Agent Pipeline (bidirectional) ─────────────────────
+
+describe('DefaultVoiceAgentPipeline', () => {
+  const mockAgent = async (text: string) => {
+    return `Agent heard: "${text}"`;
+  };
+
+  it('creates pipeline with agent handler', () => {
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    expect(pipeline.state).toBe('idle');
+    expect(pipeline.isRunning).toBe(false);
+  });
+
+  it('starts and stops pipeline', async () => {
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    await pipeline.start();
+    expect(pipeline.isRunning).toBe(true);
+    await pipeline.stop();
+    expect(pipeline.isRunning).toBe(false);
+  });
+
+  it('sendText returns agent response', async () => {
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    await pipeline.start();
+    const response = await pipeline.sendText('hello agent');
+    expect(response).toBe('Agent heard: "hello agent"');
+    await pipeline.stop();
+  });
+
+  it('sendText calls onUserSpeech callback', async () => {
+    const received: string[] = [];
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    pipeline.on({
+      onAgentResponse: (text) => received.push(text),
+    });
+    await pipeline.start();
+    await pipeline.sendText('test message');
+    expect(received).toContain('Agent heard: "test message"');
+    await pipeline.stop();
+  });
+
+  it('sendText calls onStateChange callback', async () => {
+    const states: string[] = [];
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    pipeline.on({
+      onStateChange: (from, to) => states.push(`${from}->${to}`),
+    });
+    await pipeline.start();
+    await pipeline.sendText('state test');
+    expect(states.length).toBeGreaterThan(0);
+    await pipeline.stop();
+  });
+
+  it('sendText passes speaker context to agent', async () => {
+    let capturedContext: string | undefined;
+    const contextAgent = async (text: string, context?: string) => {
+      capturedContext = context;
+      return `response to: ${text}`;
+    };
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: contextAgent,
+      config: { captureSpeakerOutput: false },
+    });
+    await pipeline.start();
+    await pipeline.sendText('test');
+    // No speaker capture, so context should be undefined
+    expect(capturedContext).toBeUndefined();
+    await pipeline.stop();
+  });
+
+  it('handles agent timeout', async () => {
+    const slowAgent = async () => {
+      await new Promise((r) => setTimeout(r, 5000));
+      return 'slow response';
+    };
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: slowAgent,
+      config: { agentTimeoutMs: 100 },
+    });
+    await pipeline.start();
+    await expect(pipeline.sendText('test')).rejects.toThrow('timed out');
+    await pipeline.stop();
+  });
+
+  it('handles agent error gracefully', async () => {
+    const failingAgent = async () => {
+      throw new Error('agent crashed');
+    };
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: failingAgent,
+    });
+    await pipeline.start();
+    await expect(pipeline.sendText('test')).rejects.toThrow('agent crashed');
+    await pipeline.stop();
+  });
+
+  it('registers audio service for external provider setup', () => {
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    expect(pipeline.audioService).toBeDefined();
+    expect(pipeline.sttService).toBeDefined();
+    expect(pipeline.ttsService).toBeDefined();
+  });
+
+  it('double start is idempotent', async () => {
+    const pipeline = new DefaultVoiceAgentPipeline({
+      agentHandler: mockAgent,
+    });
+    await pipeline.start();
+    await pipeline.start();
+    expect(pipeline.isRunning).toBe(true);
     await pipeline.stop();
   });
 });

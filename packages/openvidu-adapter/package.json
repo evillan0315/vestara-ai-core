@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/openvidu-adapter",
+  "description": "OpenVidu 2.25 adapter behind the MediaServer port",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "test": "vitest run",
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/media-runtime": "workspace:*"
+  },
+  "devDependencies": {
+    "openvidu-browser": "^2.25.0",
+    "playwright": "^1.62.1",
+    "vitest": "^4.1.10"
+  }
+}

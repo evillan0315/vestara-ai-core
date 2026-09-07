@@ -1,0 +1,30 @@
+{
+  "timestamp": "2026-09-05T18:03:19.925Z",
+  "vidukUrl": "https://viduk.swinglifestyle.com",
+  "configurationLoaded": true,
+  "authenticatedAccess": true,
+  "providerConfirmedSession": true,
+  "providerConfirmedC1": true,
+  "providerConfirmedC2": true,
+  "credentialBoundaryPassed": true,
+  "credentialAmbientSafe": true,
+  "forceDisconnectC1": true,
+  "providerConfirmedC1Gone": true,
+  "sessionClosed": true,
+  "providerConfirmedSessionGone": true,
+  "cleanupSuccess": true,
+  "errors": [],
+  "openviduVersion": "2.25.0",
+  "sessionId": "ovr003-1788631399931",
+  "sessionCreated": true,
+  "connectionC1": {
+    "id": "ovr003-1788631399931-c1",
+    "externalId": "con_SvbBTlQGkp",
+    "role": "PUBLISHER"
+  },
+  "connectionC2": {
+    "id": "ovr003-1788631399931-c2",
+    "externalId": "con_G7n0i6vgL9",
+    "role": "SUBSCRIBER"
+  }
+}

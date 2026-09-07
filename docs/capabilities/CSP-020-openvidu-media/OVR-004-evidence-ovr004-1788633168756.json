@@ -1,0 +1,163 @@
+{
+  "timestamp": "2026-09-05T18:32:48.714Z",
+  "steps": [
+    {
+      "emoji": "1",
+      "msg": "Health check...",
+      "time": 1788633168757
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider reachable",
+      "time": 1788633170923
+    },
+    {
+      "emoji": "2",
+      "msg": "Creating session: ovr004-1788633168756",
+      "time": 1788633170923
+    },
+    {
+      "emoji": "✓",
+      "msg": "Session created (external: ovr004-1788633168756)",
+      "time": 1788633171452
+    },
+    {
+      "emoji": "3",
+      "msg": "Creating PUBLISHER credential...",
+      "time": 1788633171452
+    },
+    {
+      "emoji": "✓",
+      "msg": "C1 created (external: con_H3hgopyZlK)",
+      "time": 1788633171965
+    },
+    {
+      "emoji": "4",
+      "msg": "Creating SUBSCRIBER credential...",
+      "time": 1788633171965
+    },
+    {
+      "emoji": "✓",
+      "msg": "C2 created (external: con_G3CKOU9shh)",
+      "time": 1788633172377
+    },
+    {
+      "emoji": "5",
+      "msg": "Launching Browser A (PUBLISHER)...",
+      "time": 1788633172377
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A launched",
+      "time": 1788633177826
+    },
+    {
+      "emoji": "✓",
+      "msg": "openvidu-browser loaded in Browser A",
+      "time": 1788633178131
+    },
+    {
+      "emoji": "6",
+      "msg": "Connecting Browser A to session...",
+      "time": 1788633178131
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A connected and publishing",
+      "time": 1788633187559
+    },
+    {
+      "emoji": "7",
+      "msg": "Launching Browser B (SUBSCRIBER)...",
+      "time": 1788633187559
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B launched",
+      "time": 1788633204606
+    },
+    {
+      "emoji": "8",
+      "msg": "Connecting Browser B to session...",
+      "time": 1788633204606
+    },
+    {
+      "emoji": "✗",
+      "msg": "ERROR: Browser B connection failed: ERROR: spawnSync /bin/sh ETIMEDOUT",
+      "time": 1788633234961
+    },
+    {
+      "emoji": "✓",
+      "msg": "Cleanup after failure: SUCCESS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "OpenVidu version: 2.25.0",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Disposable session created: ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A connected (PUBLISHER): ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B connected (SUBSCRIBER): ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider confirms both active: N/A",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Credential boundary PASSED: ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✗",
+      "msg": "Full credential exposed: ✗ FAIL",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "Cleanup success: ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✓",
+      "msg": "browser/WebRTC introduced: ✓ PASS",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✗",
+      "msg": "Activity Room modified: ✗ FAIL",
+      "time": 1788633244785
+    },
+    {
+      "emoji": "✗",
+      "msg": "Voice Runtime modified: ✗ FAIL",
+      "time": 1788633244786
+    },
+    {
+      "emoji": "✗",
+      "msg": "VidUK configuration modified: ✗ FAIL",
+      "time": 1788633244786
+    },
+    {
+      "emoji": "✗",
+      "msg": "Error: Browser B connection failed: ERROR: spawnSync /bin/sh ETIMEDOUT",
+      "time": 1788633244786
+    }
+  ],
+  "openviduVersion": "2.25.0",
+  "error": "Browser B connection failed: ERROR: spawnSync /bin/sh ETIMEDOUT",
+  "cleanupSuccess": true
+}

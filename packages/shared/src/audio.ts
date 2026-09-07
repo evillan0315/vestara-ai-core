@@ -8,6 +8,75 @@ export interface AudioConfig {
   bufferSize?: number;
 }
 
+// ─── Streaming STT Contracts (OVR-009B) ───────────────────────
+// Generic AudioFrame-free metadata/contracts.
+// AudioFrame-aware interfaces live in @vestara/stt.
+
+export type TranscriptEventType = 'partial' | 'final' | 'correction';
+
+export interface TranscriptEvent {
+  readonly type: TranscriptEventType;
+  readonly segmentId: string;
+  readonly text: string;
+  readonly isFinal: boolean;
+  readonly confidence: number | undefined;
+  readonly timestamp: number;
+  readonly durationMs: number | undefined;
+  readonly language: string | undefined;
+  readonly sourceId: string;
+  readonly replacesSegmentId: string | undefined; // for 'correction' events
+}
+
+export type StreamingSessionEventType =
+  | 'backpressure'
+  | 'buffer-overflow'
+  | 'provider-error'
+  | 'session-reset'
+  | 'cancelled'
+  | 'closed';
+
+export interface StreamingSessionEvent {
+  readonly type: StreamingSessionEventType;
+  readonly sessionId: string;
+  readonly timestamp: number;
+  readonly frameCount: number | undefined; // for backpressure/buffer-overflow
+  readonly dropped: boolean | undefined; // for buffer-overflow
+  readonly error: Error | undefined; // for provider-error
+}
+
+export interface StreamingSTTConfig {
+  readonly sessionId: string;
+  readonly sourceId: string;
+  readonly language?: string;
+  readonly interimPartialEnabled?: boolean;
+  readonly punctuationEnabled?: boolean;
+  readonly languageDetectionEnabled?: boolean;
+  readonly maxBufferFrames?: number;
+  readonly maxBufferDurationMs?: number;
+  readonly overflowPolicy?: 'FIFO_drop' | 'block' | 'cancel';
+}
+
+export interface StreamingTranscriptionSessionInfo {
+  readonly sessionId: string;
+  readonly sourceId: string;
+  readonly createdAt: number;
+  readonly language?: string;
+}
+
+export type SpeechBoundaryHintType = 'speech-start' | 'speech-end' | 'speech-state';
+
+export interface SpeechBoundaryHint {
+  readonly type: SpeechBoundaryHintType;
+  readonly timestamp: number;
+  readonly state?: 'silence' | 'speech'; // for 'speech-state'
+}
+
+export interface BoundedBufferPolicy {
+  readonly maxBufferFrames: number;
+  readonly maxBufferDurationMs: number;
+  readonly overflowPolicy: 'FIFO_drop' | 'block' | 'cancel';
+}
+
 export interface VADConfig {
   mode: 'aggressive' | 'balanced' | 'sensitive';
   silenceTimeoutMs: number;

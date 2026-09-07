@@ -38,6 +38,7 @@ import { handleGraphRoute } from './routes/graph';
 import { handleHostRoute } from './routes/host';
 import { handleInteractionsRoute } from './routes/interactions';
 import { handleMarketplaceRoute } from './routes/marketplace';
+import { handleMediaRoute } from './routes/media';
 import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
@@ -152,6 +153,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/graph'], handler: handleGraphRoute },
   { prefixes: ['/api/boot', '/api/host'], handler: handleHostRoute },
   { prefixes: ['/api/browser'], handler: handleBrowserRoute },
+  { prefixes: ['/api/media'], handler: handleMediaRoute },
   { prefixes: ['/api/docs'], handler: handleDocsRoute },
   { prefixes: ['/api/documentation'], handler: handleDocumentationRoute },
   { prefixes: ['/api/auth', '/api/admin'], handler: handleAuthRoute },

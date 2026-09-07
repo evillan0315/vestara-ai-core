@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@vestara/shared": "workspace:*",
-    "@vestara/logger": "workspace:*"
+    "@vestara/logger": "workspace:*",
+    "@vestara/media-conference": "workspace:*"
   },
   "devDependencies": {
     "vitest": "^4.1.10"

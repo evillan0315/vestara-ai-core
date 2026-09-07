@@ -13,6 +13,7 @@
     "@vestara/audio": "workspace:*",
     "@vestara/browser-runtime": "workspace:*",
     "@vestara/stt": "workspace:*",
+    "@vestara/tts": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/event-bus": "workspace:*",

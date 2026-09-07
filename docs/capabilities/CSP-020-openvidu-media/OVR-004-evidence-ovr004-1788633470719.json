@@ -1,0 +1,198 @@
+{
+  "timestamp": "2026-09-05T18:37:50.708Z",
+  "steps": [
+    {
+      "emoji": "1",
+      "msg": "Health check...",
+      "time": 1788633470724
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider reachable",
+      "time": 1788633473395
+    },
+    {
+      "emoji": "2",
+      "msg": "Creating session: ovr004-1788633470719",
+      "time": 1788633473396
+    },
+    {
+      "emoji": "✓",
+      "msg": "Session created (external: ovr004-1788633470719)",
+      "time": 1788633474200
+    },
+    {
+      "emoji": "3",
+      "msg": "Creating PUBLISHER credential...",
+      "time": 1788633474200
+    },
+    {
+      "emoji": "✓",
+      "msg": "C1 created (external: con_Ohye8yGl43)",
+      "time": 1788633474762
+    },
+    {
+      "emoji": "4",
+      "msg": "Creating SUBSCRIBER credential...",
+      "time": 1788633474762
+    },
+    {
+      "emoji": "✓",
+      "msg": "C2 created (external: con_EOp1zwfx0E)",
+      "time": 1788633475474
+    },
+    {
+      "emoji": "5",
+      "msg": "Launching Browser A (PUBLISHER)...",
+      "time": 1788633475474
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A launched",
+      "time": 1788633491818
+    },
+    {
+      "emoji": "✓",
+      "msg": "openvidu-browser loaded in Browser A",
+      "time": 1788633492449
+    },
+    {
+      "emoji": "6",
+      "msg": "Connecting Browser A to session...",
+      "time": 1788633492449
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A connected and publishing",
+      "time": 1788633503746
+    },
+    {
+      "emoji": "7",
+      "msg": "Launching Browser B (SUBSCRIBER)...",
+      "time": 1788633503746
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B launched",
+      "time": 1788633533784
+    },
+    {
+      "emoji": "8",
+      "msg": "Connecting Browser B to session...",
+      "time": 1788633533784
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B connected and subscribed",
+      "time": 1788633562988
+    },
+    {
+      "emoji": "9",
+      "msg": "Verifying provider state...",
+      "time": 1788633562988
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider confirms both connections active",
+      "time": 1788633563274
+    },
+    {
+      "emoji": "10",
+      "msg": "Capturing evidence screenshots...",
+      "time": 1788633563274
+    },
+    {
+      "emoji": "✓",
+      "msg": "Screenshots captured",
+      "time": 1788633565174
+    },
+    {
+      "emoji": "11",
+      "msg": "Proving credential boundary...",
+      "time": 1788633565174
+    },
+    {
+      "emoji": "✓",
+      "msg": "Credential boundary: PASS (token never in browser localStorage/DOM)",
+      "time": 1788633565418
+    },
+    {
+      "emoji": "12",
+      "msg": "Cleaning up...",
+      "time": 1788633565418
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browsers closed",
+      "time": 1788633570071
+    },
+    {
+      "emoji": "✓",
+      "msg": "Server-side cleanup complete",
+      "time": 1788633573678
+    },
+    {
+      "emoji": "✓",
+      "msg": "OpenVidu version: 2.25.0",
+      "time": 1788633573678
+    },
+    {
+      "emoji": "✓",
+      "msg": "Disposable session created: ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A connected (PUBLISHER): ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B connected (SUBSCRIBER): ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider confirms both active: ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "Credential boundary PASSED: ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✗",
+      "msg": "Full credential exposed: ✗ FAIL",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "Cleanup success: ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✓",
+      "msg": "browser/WebRTC introduced: ✓ PASS",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✗",
+      "msg": "Activity Room modified: ✗ FAIL",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✗",
+      "msg": "Voice Runtime modified: ✗ FAIL",
+      "time": 1788633573679
+    },
+    {
+      "emoji": "✗",
+      "msg": "VidUK configuration modified: ✗ FAIL",
+      "time": 1788633573679
+    }
+  ],
+  "openviduVersion": "2.25.0",
+  "bothActive": true,
+  "cleanupSuccess": true
+}

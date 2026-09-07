@@ -1,0 +1,143 @@
+{
+  "timestamp": "2026-09-05T18:31:26.763Z",
+  "steps": [
+    {
+      "emoji": "1",
+      "msg": "Health check...",
+      "time": 1788633086779
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider reachable",
+      "time": 1788633089547
+    },
+    {
+      "emoji": "2",
+      "msg": "Creating session: ovr004-1788633086779",
+      "time": 1788633089547
+    },
+    {
+      "emoji": "✓",
+      "msg": "Session created (external: ovr004-1788633086779)",
+      "time": 1788633089937
+    },
+    {
+      "emoji": "3",
+      "msg": "Creating PUBLISHER credential...",
+      "time": 1788633089938
+    },
+    {
+      "emoji": "✓",
+      "msg": "C1 created (external: con_Wyxn8Eg3fr)",
+      "time": 1788633090356
+    },
+    {
+      "emoji": "4",
+      "msg": "Creating SUBSCRIBER credential...",
+      "time": 1788633090360
+    },
+    {
+      "emoji": "✓",
+      "msg": "C2 created (external: con_FnIl4HREcO)",
+      "time": 1788633090769
+    },
+    {
+      "emoji": "5",
+      "msg": "Launching Browser A (PUBLISHER)...",
+      "time": 1788633090769
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A launched",
+      "time": 1788633111442
+    },
+    {
+      "emoji": "✓",
+      "msg": "openvidu-browser loaded in Browser A",
+      "time": 1788633111890
+    },
+    {
+      "emoji": "6",
+      "msg": "Connecting Browser A to session...",
+      "time": 1788633111890
+    },
+    {
+      "emoji": "✗",
+      "msg": "ERROR: Browser A connection failed: \"{\\\"connected\\\":true,\\\"publishing\\\":true,\\\"streamId\\\":\\\"str_CAM_SEtW_con_Wyxn8Eg3fr\\\"}\"",
+      "time": 1788633118139
+    },
+    {
+      "emoji": "✗",
+      "msg": "Cleanup after failure: FAILED",
+      "time": 1788633122512
+    },
+    {
+      "emoji": "✓",
+      "msg": "OpenVidu version: 2.25.0",
+      "time": 1788633122517
+    },
+    {
+      "emoji": "✓",
+      "msg": "Disposable session created: ✓ PASS",
+      "time": 1788633122517
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser A connected (PUBLISHER): ✓ PASS",
+      "time": 1788633122517
+    },
+    {
+      "emoji": "✓",
+      "msg": "Browser B connected (SUBSCRIBER): ✓ PASS",
+      "time": 1788633122517
+    },
+    {
+      "emoji": "✓",
+      "msg": "Provider confirms both active: N/A",
+      "time": 1788633122526
+    },
+    {
+      "emoji": "✓",
+      "msg": "Credential boundary PASSED: ✓ PASS",
+      "time": 1788633122526
+    },
+    {
+      "emoji": "✗",
+      "msg": "Full credential exposed: ✗ FAIL",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✗",
+      "msg": "Cleanup success: ✗ FAIL",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✓",
+      "msg": "browser/WebRTC introduced: ✓ PASS",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✗",
+      "msg": "Activity Room modified: ✗ FAIL",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✗",
+      "msg": "Voice Runtime modified: ✗ FAIL",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✗",
+      "msg": "VidUK configuration modified: ✗ FAIL",
+      "time": 1788633122527
+    },
+    {
+      "emoji": "✗",
+      "msg": "Error: Browser A connection failed: \"{\\\"connected\\\":true,\\\"publishing\\\":true,\\\"streamId\\\":\\\"str_CAM_SEtW_con_Wyxn8Eg3fr\\\"}\"",
+      "time": 1788633122527
+    }
+  ],
+  "openviduVersion": "2.25.0",
+  "error": "Browser A connection failed: \"{\\\"connected\\\":true,\\\"publishing\\\":true,\\\"streamId\\\":\\\"str_CAM_SEtW_con_Wyxn8Eg3fr\\\"}\"",
+  "cleanupSuccess": false
+}

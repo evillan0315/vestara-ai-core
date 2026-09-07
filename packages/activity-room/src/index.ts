@@ -99,3 +99,33 @@ export {
   type ActivityStreamMessage,
   type ActivityStreamSink,
 } from './stream';
+
+// ─── OVR-005: Activity Media Binding ──────────────────────────
+
+export type { ActivityMediaBindingServiceOptions } from './media-binding-service';
+export {
+  ActivityMediaBindingService,
+  BindingClosureFailedError,
+  BindingCreationFailedError,
+  BindingError,
+  BindingNotFoundError,
+  ParticipantUnauthorizedError,
+  ReplacementBlockedError,
+} from './media-binding-service';
+
+export type { ActivityMediaBindingStore } from './media-binding-store';
+export { InMemoryActivityMediaBindingStore } from './media-binding-store';
+export type {
+  ActivityMediaBinding,
+  ActivityMediaBindingId,
+  ActivityMediaBindingStatus,
+  CreateBindingOptions,
+  MediaParticipantJoinResult,
+  MediaParticipantType,
+  ParticipantResolver,
+  ResolvedParticipant,
+} from './media-binding-types';
+export {
+  generateBindingId,
+  PARTICIPANT_CAPABILITY_MAP,
+} from './media-binding-types';

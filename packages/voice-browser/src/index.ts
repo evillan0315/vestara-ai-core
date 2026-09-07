@@ -44,6 +44,15 @@ export type {
   VoiceIntent,
   VoiceIntentType,
 } from './types.js';
+export type {
+  VoiceAgentCallbacks,
+  VoiceAgentConfig,
+  VoiceAgentEvent,
+  VoiceAgentPipeline,
+  VoiceAgentState,
+} from './voice-agent-pipeline.js';
+// ─── Voice Agent Pipeline (bidirectional voice conversation) ──
+export { DefaultVoiceAgentPipeline } from './voice-agent-pipeline.js';
 export type { VoiceBrowserPipeline } from './voice-browser-pipeline.js';
 // ─── Pipeline ─────────────────────────────────────────────────
 export { DefaultVoiceBrowserPipeline } from './voice-browser-pipeline.js';

@@ -1,0 +1,20 @@
+{
+  "name": "@vestara/media-conference",
+  "description": "Browser-side media conference client, types, and provider-neutral adapter",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "openvidu-browser": "2.25.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

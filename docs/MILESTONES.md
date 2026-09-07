@@ -2859,3 +2859,57 @@ Developer → pnpm vestara validate <workspace> → WorkspaceUnderstanding → O
 > Orientation must explain, not merely summarize. The validate command is the first consumer of `WorkspaceUnderstanding` designed specifically for human validation rather than system validation.
 
 **Status**: ✅ Complete
+
+---
+
+### v0.4.0 — OpenVidu Media Integration (OVR-000 → OVR-019)
+
+**Objective**: Integrate OpenVidu WebRTC media into Activity Room, enabling live video/audio conferencing with voice-to-agent intelligence. Humans and agents share a media room; speech is transcribed and projected into Activity Room; agents respond to voice addressing.
+
+**Server**: `https://viduk.swinglifestyle.com` (OpenVidu 2.25.0)
+
+**Capability**: `docs/capabilities/CSP-020-openvidu-media/`
+
+**Audit**: `docs/capabilities/CSP-020-openvidu-media/OVR-000-audit.md`
+
+**Key architectural decisions**:
+
+- **Server/client split**: `openvidu-node-client` (server-side REST/control) vs `openvidu-browser` (browser WebRTC)
+- **Secret boundary**: `OPENVIDU_SECRET` never reaches the Workspace browser; only scoped connection tokens are delivered
+- **Vestara API proxies authority**: Browser → Vestara API → OpenVidu (control plane); Browser ↔ OpenVidu directly (media plane)
+- **Connection endpoint**: Native OpenVidu REST API uses singular `/openvidu/api/sessions/{id}/connection` (not plural)
+- **Authority separation**: Activity Room = collaboration authority; OpenVidu Session = media transport authority; Binding = correlation
+- **Event normalization**: OpenVidu events translated to Vestara semantic events before reaching Activity Room
+- **Voice activation**: Explicit agent addressing ("Vestara...", "Developer...") rather than treating all speech as commands
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| OVR-000 | Deployment/auth/WebRTC audit | ✅ Frozen |
+| OVR-001 | Media runtime contracts (provider-neutral) | ✅ Frozen |
+| OVR-002 | Native OpenVidu adapter | ✅ Frozen |
+| OVR-003 | Disposable session/connection proof | ✅ Frozen |
+| OVR-004 | Browser WebRTC proof | ✅ Frozen |
+| OVR-005 | Activity Room media binding | ✅ Frozen |
+| OVR-006 | Video/audio UI (MediaConference, Meet page, API routes) | ✅ Frozen |
+| OVR-007 | Audio observation (WebRTC → AudioWorklet; local nonzero PCM proven, remote nonzero PCM not proven) | ✅ Frozen |
+| OVR-008 | VAD/STT (implementation complete, live acceptance blocked/indeterminate) | 🔄 Complete (acceptance blocked) |
+| OVR-009A | Streaming STT contracts — shared type foundation | ✅ Frozen |
+| OVR-009B | Streaming STT contracts — provider + session + fake provider | ✅ Frozen |
+| OVR-009C | Activity transcript projection | ⬜ Not started |
+
+**First production slice** (OVR-000 → OVR-004): Prove the media boundary independently.
+
+**Intelligence layer** (OVR-007 → OVR-009): Audio observation → VAD → STT → Activity transcript.
+
+**Constraints**:
+
+- Do not modify the VidUK server, webhook configuration, or existing conferencing deployment
+- Do not modify Activity Room until OVR-003/OVR-004 proof passes
+- Do not modify Voice Runtime until OVR-007/OVR-008 audio observation is proven
+- Do not expose OpenVidu classes as Vestara domain objects
+- Do not persist connection tokens into events, evidence, or logs
+- Do not silently take over the webhook at `chatv.swinglifestyle.com`
+
+**Status**: 🔄 In Progress (OVR-000–OVR-007 frozen, OVR-008 implementation complete / acceptance blocked, OVR-009A–009B frozen, OVR-009C not started)
