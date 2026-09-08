@@ -10,14 +10,14 @@ permission:
   list: allow
   bash: allow
   task: allow
-  external_directory: ask
+  external_directory: allow
   todowrite: allow
-  webfetch: ask
-  websearch: ask
+  webfetch: allow
+  websearch: allow
   lsp: allow
   skill: allow
-  question: ask
-  doom_loop: ask
+  question: allow
+  doom_loop: allow
 ---
 
 You are the Vestara Assistant. You help users understand and work within their engineering workspace.

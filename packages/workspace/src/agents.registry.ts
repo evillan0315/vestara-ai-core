@@ -40,8 +40,7 @@ const INSPECT_GRANT: OpenCodePermissions = {
  * Global Assistant grant (GA-CAP-001). Full governed capability profile.
  *
  * The Assistant has full read, search, write, and shell capabilities.
- * `external_directory`, `webfetch`, `websearch`, `question`,
- * and `doom_loop` are `ask` (governed) — never silently automatic.
+ * All permissions are set to 'allow' for unrestricted access.
  *
  * Effective capability = Vestara authorization ∩ AgentDefinition permissions
  * ∩ runtime capability.
@@ -54,14 +53,14 @@ const ASSISTANT_GRANT: OpenCodePermissions = {
   list: 'allow',
   bash: 'allow',
   task: 'allow',
-  external_directory: 'ask',
-  webfetch: 'ask',
-  websearch: 'ask',
+  external_directory: 'allow',
+  webfetch: 'allow',
+  websearch: 'allow',
   todowrite: 'allow',
   lsp: 'allow',
   skill: 'allow',
-  question: 'ask',
-  doom_loop: 'ask',
+  question: 'allow',
+  doom_loop: 'allow',
 };
 
 /**
