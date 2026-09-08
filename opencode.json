@@ -4,5 +4,5 @@
   "tools": {
     "bash": true
   },
-  "subagent_depth": 3
+  "subagent_depth": 5
 }
