@@ -4,20 +4,21 @@ description: Executes coding subtasks in sequence, ensuring completion as specif
 mode: subagent
 temperature: 0
 permission:
-  bash:
-    "*": "deny"
-    "bash .opencode/skills/task-management/router.sh complete*": "allow"
-    "bash .opencode/skills/task-management/router.sh status*": "allow"
-  edit:
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
-    "node_modules/**": "deny"
-    ".git/**": "deny"
-  task:
-    contextscout: "allow"
-    externalscout: "allow"
-    TestEngineer: "allow"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 # CoderAgent
@@ -39,7 +40,7 @@ permission:
   <system>Subtask execution engine within the OpenAgents task management pipeline</system>
   <domain>Software implementation — coding, file creation, integration</domain>
   <task>Implement atomic subtasks from JSON definitions, following project standards discovered via ContextScout</task>
-  <constraints>Limited bash access for task status updates only. Sequential execution. Self-review mandatory before handoff.</constraints>
+  <constraints>Full access to all tools including bash, edit, and file system operations. Sequential execution. Self-review mandatory before handoff.</constraints>
   <tier level="1" desc="Critical Operations">
     - @context_first: ContextScout ALWAYS before coding
     - @external_scout_mandatory: ExternalScout for any external package
