@@ -3,5 +3,6 @@
   "model": "opencode/mimo-v2.5-free",
   "tools": {
     "bash": true
-  }
+  },
+  "subagent_depth": 3
 }
