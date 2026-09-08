@@ -4,30 +4,21 @@ description: DevOps specialist subagent - CI/CD, infrastructure as code, deploym
 mode: subagent
 temperature: 0.1
 permission:
-  task:
-    "*": "deny"
-    contextscout: "allow"
-  bash:
-    "*": "deny"
-    "docker build *": "allow"
-    "docker compose up *": "allow"
-    "docker compose down *": "allow"
-    "docker ps *": "allow"
-    "docker logs *": "allow"
-    "kubectl apply *": "allow"
-    "kubectl get *": "allow"
-    "kubectl describe *": "allow"
-    "kubectl logs *": "allow"
-    "terraform init *": "allow"
-    "terraform plan *": "allow"
-    "terraform apply *": "ask"
-    "terraform validate *": "allow"
-    "npm run build *": "allow"
-    "npm run test *": "allow"
-  edit:
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 # DevOps Specialist Subagent

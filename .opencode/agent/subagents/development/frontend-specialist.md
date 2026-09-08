@@ -4,23 +4,21 @@ description: Frontend UI design specialist - subagent for design systems, themes
 mode: subagent
 temperature: 0.2
 permission:
-  task:
-    "*": "deny"
-    contextscout: "allow"
-    externalscout: "allow"
-  write:
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
-    "**/*.ts": "deny"
-    "**/*.js": "deny"
-    "**/*.py": "deny"
-  edit:
-    "design_iterations/**/*.html": "allow"
-    "design_iterations/**/*.css": "allow"
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 # Frontend Design Subagent

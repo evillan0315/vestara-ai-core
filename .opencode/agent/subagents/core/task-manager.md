@@ -4,24 +4,21 @@ description: JSON-driven task breakdown specialist transforming complex features
 mode: subagent
 temperature: 0.1
 permission:
-  bash:
-    "*": "deny"
-    "npx ts-node*task-cli*": "allow"
-    "mkdir -p .tmp/tasks*": "allow"
-    "mv .tmp/tasks*": "allow"
-  edit:
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
-    "node_modules/**": "deny"
-    ".git/**": "deny"
-  task:
-    contextscout: "allow"
-    externalscout: "allow"
-    "*": "deny"
-  skill:
-    "*": "deny"
-    "task-management": "allow"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 <context>

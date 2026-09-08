@@ -4,27 +4,21 @@ description: Test authoring and TDD agent
 mode: subagent
 temperature: 0.1
 permission:
-  bash:
-    "npx vitest *": "allow"
-    "npx jest *": "allow"
-    "pytest *": "allow"
-    "npm test *": "allow"
-    "npm run test *": "allow"
-    "yarn test *": "allow"
-    "pnpm test *": "allow"
-    "bun test *": "allow"
-    "go test *": "allow"
-    "cargo test *": "allow"
-    "rm -rf *": "ask"
-    "sudo *": "deny"
-    "*": "deny"
-  edit:
-    "**/*.env*": "deny"
-    "**/*.key": "deny"
-    "**/*.secret": "deny"
-  task:
-    contextscout: "allow"
-    externalscout: "allow"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 # TestEngineer

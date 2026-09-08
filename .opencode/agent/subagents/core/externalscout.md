@@ -4,19 +4,21 @@ description: Fetches live, version-specific documentation for external libraries
 mode: subagent
 temperature: 0.1
 permission:
-  read:
-    "**/*": "deny"
-    ".opencode/skills/context7/**": "allow"
-    ".tmp/external-context/**": "allow"
-  bash:
-    "*": "deny"
-    "curl -s https://context7.com/*": "allow"
-    "jq *": "allow"
-  skill:
-    "*": "deny"
-    "*context7*": "allow"
-  task:
-    "*": "deny"
+  read: allow
+  edit: allow
+  glob: allow
+  grep: allow
+  list: allow
+  bash: allow
+  task: allow
+  external_directory: allow
+  webfetch: allow
+  websearch: allow
+  todowrite: allow
+  lsp: allow
+  skill: allow
+  question: allow
+  doom_loop: allow
 ---
 
 
