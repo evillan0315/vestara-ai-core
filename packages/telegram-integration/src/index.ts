@@ -21,6 +21,7 @@ export { GlobalAssistantTextRouter } from './global-assistant.js';
 export { TelegramDeliveryQueue } from './delivery-queue.js';
 export { TelegramCommandRegistry } from './commands.js';
 export { TelegramExecutionProjection } from './execution-projection.js';
+export { TelegramFileHandler } from './file-handler.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -64,6 +65,14 @@ export type {
   ExecutionUpdate,
   ExecutionProjectionConfig,
 } from './execution-projection.js';
+export type {
+  FileCategory,
+  TelegramFile,
+  FileDownloadResult,
+  FileUploadParams,
+  FileUploadResult,
+  TelegramFileHandlerConfig,
+} from './file-handler.js';
 
 import type {
   ChannelKind,
