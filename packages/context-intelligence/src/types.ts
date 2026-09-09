@@ -590,3 +590,336 @@ export interface ResourceUsage {
   /** Whether alert threshold has been reached */
   readonly alertTriggered: boolean;
 }
+
+// ─── ENG-1: Adaptive Investigation ─────────────────────────────
+
+/**
+ * ENG-1: Investigation record — agent-directed evidence gathering.
+ * The agent reads Context Intelligence output, Observer findings,
+ * and Diagnostics facts to produce investigation records.
+ */
+export interface Investigation {
+  /** Unique investigation identifier */
+  readonly id: string;
+
+  /** The task or question being investigated */
+  readonly task: string;
+
+  /** Current status of the investigation */
+  readonly status: InvestigationStatus;
+
+  /** Evidence gathered during the investigation */
+  readonly evidence: readonly InvestigationEvidence[];
+
+  /** Findings produced during the investigation */
+  readonly findings: readonly InvestigationFinding[];
+
+  /** Resource usage so far */
+  readonly resourceUsage: ResourceUsage;
+
+  /** ISO-8601 timestamp when investigation started */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp of last activity */
+  readonly lastActivityAt: string;
+
+  /** Optional: parent investigation ID (for sub-investigations) */
+  readonly parentInvestigationId?: string;
+
+  /** Optional: related incident IDs */
+  readonly relatedIncidentIds?: readonly string[];
+}
+
+/**
+ * ENG-1: Investigation status.
+ */
+export type InvestigationStatus =
+  | 'active'      // Currently gathering evidence
+  | 'paused'      // Paused (budget limit, user request)
+  | 'completed'   // Investigation finished
+  | 'failed'      // Investigation failed
+  | 'abandoned';  // Investigation abandoned
+
+/**
+ * ENG-1: Evidence gathered during an investigation.
+ */
+export interface InvestigationEvidence {
+  /** Unique evidence identifier */
+  readonly id: string;
+
+  /** Source type that produced this evidence */
+  readonly sourceType: ContextSourceType;
+
+  /** Source ID (e.g., entity ID, bundle ID, finding ID) */
+  readonly sourceId: string;
+
+  /** Brief description of what this evidence shows */
+  readonly summary: string;
+
+  /** Relevance score (0-1) */
+  readonly relevanceScore: number;
+
+  /** ISO-8601 timestamp when this evidence was gathered */
+  readonly gatheredAt: string;
+
+  /** Optional: full context result */
+  readonly contextResult?: ContextResult;
+}
+
+/**
+ * ENG-1: Finding produced during an investigation.
+ */
+export interface InvestigationFinding {
+  /** Unique finding identifier */
+  readonly id: string;
+
+  /** Finding title */
+  readonly title: string;
+
+  /** Detailed description */
+  readonly description: string;
+
+  /** Confidence score (0-1) */
+  readonly confidence: number;
+
+  /** Evidence IDs that support this finding */
+  readonly evidenceIds: readonly string[];
+
+  /** ISO-8601 timestamp when this finding was produced */
+  readonly discoveredAt: string;
+}
+
+// ─── ENG-3: Governed Escalation ────────────────────────────────
+
+/**
+ * ENG-3: Escalation request — agent-initiated request for broader authority.
+ * Uses the existing Approval system (Workflow Authority).
+ * Escalation is a request, not a grant.
+ */
+export interface EscalationRequest {
+  /** Unique escalation identifier */
+  readonly id: string;
+
+  /** The authority being requested */
+  readonly requestedAuthority: EscalationAuthority;
+
+  /** Reason for the escalation request */
+  readonly reason: string;
+
+  /** Current status of the escalation */
+  readonly status: EscalationStatus;
+
+  /** The investigation that triggered this escalation */
+  readonly investigationId: string;
+
+  /** ISO-8601 timestamp when escalation was requested */
+  readonly requestedAt: string;
+
+  /** ISO-8601 timestamp when escalation was resolved */
+  readonly resolvedAt?: string;
+
+  /** Decision reason (if resolved) */
+  readonly decisionReason?: string;
+
+  /** Who made the decision */
+  readonly decidedBy?: string;
+}
+
+/**
+ * ENG-3: Authority types that can be escalated.
+ */
+export type EscalationAuthority =
+  | 'file-write'       // Write access to specific files
+  | 'file-delete'      // Delete access to specific files
+  | 'command-execute'  // Execute specific commands
+  | 'network-access'   // Access specific network resources
+  | 'provider-access'  // Access specific AI providers
+  | 'governance-write'; // Write to governance authority
+
+/**
+ * ENG-3: Escalation status.
+ */
+export type EscalationStatus =
+  | 'pending'    // Waiting for approval
+  | 'approved'   // Approved by authority
+  | 'denied'     // Denied by authority
+  | 'expired'    // Escalation request expired
+  | 'revoked';   // Previously approved, now revoked
+
+// ─── ENG-4: Correction Proposal ────────────────────────────────
+
+/**
+ * ENG-4: Correction proposal — propose corrections to Workflow/Governance authority.
+ * Produces correction proposals, not direct mutations.
+ * All mutations continue through existing Workflow/Governance authority.
+ */
+export interface CorrectionProposal {
+  /** Unique proposal identifier */
+  readonly id: string;
+
+  /** The target of the correction (file, workflow, governance rule) */
+  readonly target: CorrectionTarget;
+
+  /** The proposed change */
+  readonly proposedChange: CorrectionChange;
+
+  /** Evidence supporting this proposal */
+  readonly evidence: readonly string[];
+
+  /** Confidence score (0-1) */
+  readonly confidence: number;
+
+  /** Current status of the proposal */
+  readonly status: CorrectionProposalStatus;
+
+  /** ISO-8601 timestamp when proposal was created */
+  readonly createdAt: string;
+
+  /** ISO-8601 timestamp of last update */
+  readonly updatedAt: string;
+
+  /** Optional: investigation ID that produced this proposal */
+  readonly investigationId?: string;
+}
+
+/**
+ * ENG-4: Target of a correction proposal.
+ */
+export interface CorrectionTarget {
+  /** Type of target */
+  readonly type: 'file' | 'workflow' | 'governance' | 'configuration';
+
+  /** Target identifier (e.g., file path, workflow ID) */
+  readonly id: string;
+
+  /** Current state of the target */
+  readonly currentState: string;
+
+  /** Optional: version or hash of the current state */
+  readonly currentVersion?: string;
+}
+
+/**
+ * ENG-4: Proposed change.
+ */
+export interface CorrectionChange {
+  /** Type of change */
+  readonly type: 'modify' | 'create' | 'delete' | 'restore';
+
+  /** New state or content (for modify/create) */
+  readonly newState?: string;
+
+  /** Previous state to restore (for restore) */
+  readonly restoreFrom?: string;
+
+  /** Description of what this change accomplishes */
+  readonly description: string;
+}
+
+/**
+ * ENG-4: Correction proposal status.
+ */
+export type CorrectionProposalStatus =
+  | 'proposed'    // Proposal created, awaiting review
+  | 'approved'    // Approved for execution
+  | 'rejected'    // Rejected by authority
+  | 'executing'   // Being executed
+  | 'completed'   // Execution completed
+  | 'failed'      // Execution failed
+  | 'rolled-back'; // Execution rolled back
+
+// ─── ENG-5: Verification Extension ─────────────────────────────
+
+/**
+ * ENG-5: Verification run — agent-directed verification that consumes
+ * correction proposals and produces verification evidence.
+ */
+export interface VerificationRun {
+  /** Unique verification identifier */
+  readonly id: string;
+
+  /** The correction proposal being verified */
+  readonly proposalId: string;
+
+  /** Verification checks performed */
+  readonly checks: readonly VerificationCheck[];
+
+  /** Overall verification result */
+  readonly result: VerificationResult;
+
+  /** Verification evidence produced */
+  readonly evidence: readonly VerificationEvidence[];
+
+  /** ISO-8601 timestamp when verification started */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp when verification completed */
+  readonly completedAt?: string;
+
+  /** Duration in milliseconds */
+  readonly durationMs?: number;
+}
+
+/**
+ * ENG-5: Individual verification check.
+ */
+export interface VerificationCheck {
+  /** Check identifier */
+  readonly id: string;
+
+  /** Check name/description */
+  readonly name: string;
+
+  /** Check type */
+  readonly type: VerificationCheckType;
+
+  /** Check result */
+  readonly result: 'passed' | 'failed' | 'skipped';
+
+  /** Check details */
+  readonly detail: string;
+
+  /** Optional: evidence reference for this check */
+  readonly evidenceRef?: string;
+}
+
+/**
+ * ENG-5: Types of verification checks.
+ */
+export type VerificationCheckType =
+  | 'file-exists'      // Verify a file exists
+  | 'file-content'     // Verify file content matches expected
+  | 'test-passes'      // Verify a test passes
+  | 'build-passes'     // Verify build succeeds
+  | 'lint-passes'      // Verify lint passes
+  | 'endpoint-responds' // Verify an endpoint responds
+  | 'data-preserved'   // Verify data was not lost
+  | 'state-restored';  // Verify system state was restored
+
+/**
+ * ENG-5: Overall verification result.
+ */
+export type VerificationResult = 'passed' | 'failed' | 'partial';
+
+/**
+ * ENG-5: Verification evidence produced by a verification run.
+ */
+export interface VerificationEvidence {
+  /** Evidence identifier */
+  readonly id: string;
+
+  /** Evidence type */
+  readonly type: string;
+
+  /** Evidence summary */
+  readonly summary: string;
+
+  /** Evidence content (may be truncated) */
+  readonly content: string;
+
+  /** ISO-8601 timestamp when evidence was produced */
+  readonly producedAt: string;
+
+  /** Bundle ID if evidence was stored in a PCS-026 bundle */
+  readonly bundleId?: string;
+}

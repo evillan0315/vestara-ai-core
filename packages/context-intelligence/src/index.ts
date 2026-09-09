@@ -16,7 +16,11 @@
  *   CTX-9: Change-Aware Retrieval
  *   CTX-10: Historical Incident Retrieval
  *   ENG-0: Developer Preflight
+ *   ENG-1: Adaptive Investigation
  *   ENG-2: Resource Budgets
+ *   ENG-3: Governed Escalation
+ *   ENG-4: Correction Proposal
+ *   ENG-5: Verification Extension
  *
  * Invariants:
  *   INV-CTX-1: Context relevance does not confer authority
@@ -43,13 +47,29 @@ export type {
   ContextRetrievalResult,
   ContextSourceAdapter,
   ContextSourceType,
+  CorrectionChange,
+  CorrectionProposal,
+  CorrectionProposalStatus,
+  CorrectionTarget,
   DeveloperPreflightQuery,
   DeveloperPreflightResult,
+  EscalationAuthority,
+  EscalationRequest,
+  EscalationStatus,
   HistoricalIncidentQuery,
   HistoricalIncidentResult,
+  Investigation,
+  InvestigationEvidence,
+  InvestigationFinding,
+  InvestigationStatus,
   MinimumSufficientConfig,
   ResourceBudget,
   ResourceUsage,
+  VerificationCheck,
+  VerificationCheckType,
+  VerificationEvidence,
+  VerificationResult,
+  VerificationRun,
 } from './types';
 export {
   DEFAULT_ASSEMBLER_CONFIG,
