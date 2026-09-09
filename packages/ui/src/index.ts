@@ -131,3 +131,14 @@ export type {
   ResponsiveState,
   UseResponsiveLayoutOptions,
 } from './components/Responsive.js';
+
+// ─── Charts ────────────────────────────────────────────────────
+
+export { BarChart } from './components/BarChart.js';
+export type { BarChartProps, BarChartDataPoint } from './components/BarChart.js';
+
+export { LineChart } from './components/LineChart.js';
+export type { LineChartProps, LineChartDataPoint } from './components/LineChart.js';
+
+export { PieChart } from './components/PieChart.js';
+export type { PieChartProps, PieChartDataPoint } from './components/PieChart.js';
