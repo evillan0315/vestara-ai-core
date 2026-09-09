@@ -34,6 +34,7 @@ import type {
   AssistantToolOperation,
   OptimisticHumanTurn,
   StructuredEditOperation,
+  StructuredTerminalOperation,
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
 import type { AssistantExecutionDetail } from '@vestara/shared';
@@ -230,6 +231,7 @@ function ActiveTurn({
   status,
   operations,
   structuredEdits,
+  structuredTerminals,
   taskSnapshot,
   onOpenInEditor,
 }: {
@@ -237,15 +239,25 @@ function ActiveTurn({
   status?: string | null;
   operations?: AssistantToolOperation[];
   structuredEdits?: readonly StructuredEditOperation[];
+  structuredTerminals?: readonly StructuredTerminalOperation[];
   taskSnapshot?: AssistantExecutionDetail | null;
   onOpenInEditor?: (file: string) => void;
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
-  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || !!taskSnapshot;
-  // Timeline collapse discipline (M2): expanded while executing, collapsed
-  // once response generation begins. User-expandable while streaming.
-  const [timelineOpen, setTimelineOpen] = useState(false);
+  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || !!taskSnapshot;
+  // Timeline collapse discipline (M5): expanded while executing (thinking),
+  // auto-collapsed once response generation begins. User-expandable while
+  // streaming.
+  const [timelineOpen, setTimelineOpen] = useState(true);
+  const wasThinkingRef = useRef(true);
+  useEffect(() => {
+    if (wasThinkingRef.current && !isThinking) {
+      // Transitioned from thinking to streaming — auto-collapse
+      setTimelineOpen(false);
+    }
+    wasThinkingRef.current = isThinking;
+  }, [isThinking]);
   const timelineExpanded = isThinking ? true : timelineOpen;
   const toggleTimeline = useCallback(() => setTimelineOpen((v) => !v), []);
   return (
@@ -274,6 +286,7 @@ function ActiveTurn({
           <AssistantExecutionTimeline
             operations={ops}
             structuredEdits={structuredEdits}
+            structuredTerminals={structuredTerminals}
             taskSnapshot={taskSnapshot}
             onOpenInEditor={onOpenInEditor}
             expanded={timelineExpanded}
@@ -522,6 +535,29 @@ function ComposeInput({
         </div>
       )}
       <div className="flex items-end gap-2 min-w-0">
+        {/* M9: action buttons (+/@) — placeholder entry points */}
+        <div className="flex shrink-0 flex-col gap-1 pb-1">
+          <button
+            type="button"
+            aria-label="Attach file (coming soon)"
+            title="Attach file"
+            disabled={loading}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-800/60 hover:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label="Reference context (coming soon)"
+            title="Reference context"
+            disabled={loading}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-800/60 hover:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+          >
+            <span className="text-[13px] font-semibold leading-none">@</span>
+          </button>
+        </div>
         <div className="relative min-w-0 flex-1">
           <textarea
             ref={textareaRef}
@@ -1010,6 +1046,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
                 status={assistant.streamStatus}
                 operations={assistant.toolOperations ?? []}
                 structuredEdits={assistant.structuredEdits ?? []}
+                structuredTerminals={assistant.structuredTerminals ?? []}
                 taskSnapshot={assistant.taskSnapshot ?? null}
                 onOpenInEditor={openInEditorFallback}
               />

@@ -38,6 +38,7 @@
     "@vestara/settings-framework": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/types": "workspace:*",
+    "@vestara/ui": "workspace:*",
     "@vestara/workspace": "workspace:*",
     "@vitejs/plugin-react-swc": "^4.3.2",
     "@xterm/addon-fit": "^0.11.0",

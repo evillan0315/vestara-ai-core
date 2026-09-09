@@ -63,7 +63,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 - **Boundaries** (`scripts/workspace-architecture.mjs`): packages must not depend on `apps/*`; packages must not depend on `@vestara/workspace` (except `@vestara/evaluation`); no deep internal imports; no undeclared internal deps; no dependency cycles.
 - **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `src/` or `__tests__/` in `apps/` or `packages/` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
 - **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant|browser`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
-- **OpenCode contracts**: `packages/opencode-runtime/src/generated/opencode-contracts.ts` is generated — never hand-edit. Refresh with `pnpm --filter @vestara/opencode-runtime opencode:spec:update` (fetch + generate + check); CI fails when the generated file drifts from the pinned schema.
+- **OpenCode contracts**: `packages/opencode-runtime/src/generated/opencode-contracts.ts` is generated (gitignored) — never hand-edit. Refresh with `pnpm --filter @vestara/opencode-runtime opencode:spec:update` (fetch + generate + check); CI validates against the pinned schema.
 - **Docs governance**: `pnpm docs:validate` / `pnpm docs:govern` (strict), `pnpm documentation:check` (CI baseline drift gate). Don't add instruction files better stored via `opencode.json` `instructions`.
 
 ## CI (`/.github/workflows/ci.yml`)

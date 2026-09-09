@@ -16,11 +16,12 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { ConversationPanel } from './ConversationPanel';
-import { ConversationHistory, type ConversationHistoryItem } from './ConversationHistory';
+import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
+import { resolveDisplayTitle } from './conversationTitles';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -138,25 +139,42 @@ export function FullWindowSurface({
 }: FullWindowSurfaceProps) {
   const assistant = useAssistantConversation();
   const surface = useSurfaceContext();
-  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-
-  // Handle conversation selection from sidebar
-  const handleSelectConversation = useCallback(
-    (id: string) => {
-      setSelectedConversationId(id);
-      assistant.selectConversation(id);
-    },
-    [assistant.selectConversation],
-  );
 
   // Handle new conversation
   const handleNewConversation = useCallback(() => {
-    setSelectedConversationId(null);
     onNewConversation();
   }, [onNewConversation]);
 
-  // Get modified files from the current conversation
-  const modifiedFiles: string[] = [];
+  // Derive modified files from authoritative structured edit projections
+  const modifiedFiles = useMemo(() => {
+    return (assistant.structuredEdits ?? [])
+      .filter(
+        (entry): entry is typeof entry & { detail: { kind: 'edit'; file: string } } =>
+          entry.detail.kind === 'edit' && entry.detail.state === 'completed',
+      )
+      .map((entry) => entry.detail.file);
+  }, [assistant.structuredEdits]);
+
+  // Build HistoryItemData[] from conversation summaries
+  const historyItems = useMemo(() => {
+    return (assistant.conversations ?? []).map((c) => ({
+      id: c.id,
+      displayTitle: resolveDisplayTitle(
+        c.title,
+        c.id === assistant.selectedId
+          ? (assistant.messages.find((m) => m.role === 'user')?.content ?? null)
+          : null,
+      ),
+      updatedAt: c.updatedAt,
+    }));
+  }, [assistant.conversations, assistant.selectedId, assistant.messages]);
+
+  const isStreaming = assistant.streamState === 'sending' || assistant.streamState === 'streaming';
+  const activeTurnState: ActiveTurnState = isStreaming
+    ? 'generating'
+    : assistant.streamState === 'failed'
+      ? 'failed'
+      : 'idle';
 
   if (!expanded) return null;
 
@@ -170,12 +188,17 @@ export function FullWindowSurface({
           onCollapse={onToggleExpanded}
         />
 
-        {/* Conversation history */}
-        <div className="flex-1 overflow-y-auto">
+        {/* Conversation history as persistent rail */}
+        <div className="flex-1 overflow-hidden">
           <ConversationHistory
-            conversations={assistant.conversations}
+            variant="rail"
+            items={historyItems}
             selectedId={assistant.selectedId}
-            onSelect={handleSelectConversation}
+            activeState={activeTurnState}
+            onSelect={assistant.selectConversation}
+            onNewConversation={handleNewConversation}
+            onClose={() => {}}
+            anchorRef={{ current: null }}
           />
         </div>
       </div>

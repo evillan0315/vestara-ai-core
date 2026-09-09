@@ -14,131 +14,143 @@
 
 // ─── Actions ───────────────────────────────────────────────────
 
+export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button.js';
 export { Button } from './components/Button.js';
-export type { ButtonProps, ButtonVariant, ButtonSize } from './components/Button.js';
 
 // ─── Forms ─────────────────────────────────────────────────────
 
-export { Input } from './components/Input.js';
 export type { InputProps, InputSize } from './components/Input.js';
+export { Input } from './components/Input.js';
 
 // ─── Display ───────────────────────────────────────────────────
 
-export { Badge } from './components/Badge.js';
-export type { BadgeProps, BadgeVariant, BadgeSize } from './components/Badge.js';
-
+export type { AvatarProps, AvatarShape, AvatarSize } from './components/Avatar.js';
 export { Avatar } from './components/Avatar.js';
-export type { AvatarProps, AvatarSize, AvatarShape } from './components/Avatar.js';
+export type { BadgeProps, BadgeSize, BadgeVariant } from './components/Badge.js';
+export { Badge } from './components/Badge.js';
 
 // ─── Data Display ──────────────────────────────────────────────
 
-export { Table } from './components/Table.js';
-export type { TableProps, TableColumn, SortDirection } from './components/Table.js';
-
-export {
-  List,
-  ListItem,
-  ListItemText,
-  ListItemAction,
-  ListDivider,
-  ListHeader,
-} from './components/List.js';
+export type { ChipProps, ChipSize, ChipVariant } from './components/Chip.js';
+export { Chip } from './components/Chip.js';
 export type {
-  ListProps,
-  ListItemProps,
-  ListItemTextProps,
-  ListItemActionProps,
   ListDividerProps,
   ListHeaderProps,
+  ListItemActionProps,
+  ListItemProps,
+  ListItemTextProps,
+  ListProps,
   ListSize,
 } from './components/List.js';
-
+export {
+  List,
+  ListDivider,
+  ListHeader,
+  ListItem,
+  ListItemAction,
+  ListItemText,
+} from './components/List.js';
+export type { SortDirection, TableColumn, TableProps } from './components/Table.js';
+export { Table } from './components/Table.js';
+export type { TagProps, TagSize, TagVariant } from './components/Tag.js';
 export { Tag } from './components/Tag.js';
-export type { TagProps, TagVariant, TagSize } from './components/Tag.js';
-
-export { Chip } from './components/Chip.js';
-export type { ChipProps, ChipVariant, ChipSize } from './components/Chip.js';
 
 // ─── Containers ────────────────────────────────────────────────
 
-export { Card, CardHeader, CardContent, CardActions } from './components/Card.js';
 export type {
-  CardProps,
-  CardHeaderProps,
-  CardContentProps,
   CardActionsProps,
-  CardVariant,
+  CardContentProps,
+  CardHeaderProps,
   CardPadding,
+  CardProps,
+  CardVariant,
 } from './components/Card.js';
+export { Card, CardActions, CardContent, CardHeader } from './components/Card.js';
 
 // ─── Layout Shell ──────────────────────────────────────────────
 
+export type {
+  ShellBottomPanelProps,
+  ShellBreakpoint,
+  ShellContentProps,
+  ShellContextValue,
+  ShellHeaderProps,
+  ShellInspectorProps,
+  ShellNavigationProps,
+  ShellProps,
+} from './components/Shell.js';
 export {
   Shell,
-  ShellHeader,
-  ShellNavigation,
-  ShellContent,
-  ShellInspector,
   ShellBottomPanel,
+  ShellContent,
+  ShellHeader,
+  ShellInspector,
+  ShellNavigation,
   useShell,
-} from './components/Shell.js';
-export type {
-  ShellProps,
-  ShellHeaderProps,
-  ShellNavigationProps,
-  ShellContentProps,
-  ShellInspectorProps,
-  ShellBottomPanelProps,
-  ShellContextValue,
-  ShellBreakpoint,
 } from './components/Shell.js';
 
 // ─── Panes ─────────────────────────────────────────────────────
 
+export type {
+  MasterDetailLayoutProps,
+  PageActionsProps,
+  PageHeaderProps,
+  PageProps,
+  PageTitleProps,
+  SplitDirection,
+  SplitPaneProps,
+  ThreePaneLayoutProps,
+} from './components/Panes.js';
 export {
-  SplitPane,
   MasterDetailLayout,
-  ThreePaneLayout,
   Page,
+  PageActions,
   PageHeader,
   PageTitle,
-  PageActions,
+  SplitPane,
+  ThreePaneLayout,
 } from './components/Panes.js';
+
+// ─── Floating Window ──────────────────────────────────────────
+
 export type {
-  SplitPaneProps,
-  SplitDirection,
-  MasterDetailLayoutProps,
-  ThreePaneLayoutProps,
-  PageProps,
-  PageHeaderProps,
-  PageTitleProps,
-  PageActionsProps,
-} from './components/Panes.js';
+  FloatingWindowContentProps,
+  FloatingWindowHeaderProps,
+  FloatingWindowManagerContextValue,
+  FloatingWindowManagerProps,
+  FloatingWindowProps,
+  WindowState,
+} from './components/FloatingWindow.js';
+export {
+  FloatingWindow,
+  FloatingWindowContent,
+  FloatingWindowHeader,
+  FloatingWindowManager,
+  useFloatingWindowManager,
+} from './components/FloatingWindow.js';
 
 // ─── Responsive ────────────────────────────────────────────────
 
-export {
-  useResponsiveLayout,
-  useBreakpoint,
-  useMediaQuery,
-  matchesBreakpoint,
-  responsive,
-  mediaQuery,
-  responsiveClasses,
-} from './components/Responsive.js';
 export type {
   ResponsiveBreakpoint,
   ResponsiveState,
   UseResponsiveLayoutOptions,
 } from './components/Responsive.js';
+export {
+  matchesBreakpoint,
+  mediaQuery,
+  responsive,
+  responsiveClasses,
+  useBreakpoint,
+  useMediaQuery,
+  useResponsiveLayout,
+} from './components/Responsive.js';
 
 // ─── Charts ────────────────────────────────────────────────────
 
+export type { BarChartDataPoint, BarChartProps } from './components/BarChart.js';
 export { BarChart } from './components/BarChart.js';
-export type { BarChartProps, BarChartDataPoint } from './components/BarChart.js';
-
+export type { LineChartDataPoint, LineChartProps } from './components/LineChart.js';
 export { LineChart } from './components/LineChart.js';
-export type { LineChartProps, LineChartDataPoint } from './components/LineChart.js';
-
+export type { PieChartDataPoint, PieChartProps } from './components/PieChart.js';
 export { PieChart } from './components/PieChart.js';
-export type { PieChartProps, PieChartDataPoint } from './components/PieChart.js';

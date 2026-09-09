@@ -170,6 +170,13 @@ export interface UseAssistantConversationReturn {
    */
   structuredEdits: StructuredEditOperation[];
   /**
+   * Structured terminal projections (GA-UX-PREMIUM M6). Parallel to
+   * `toolOperations`; consumed by AssistantTerminal. When a structured
+   * terminal's `operationId` matches a generic operation's identity, the rich
+   * surface supersedes the generic row. Cleared with toolOperations.
+   */
+  structuredTerminals: StructuredTerminalOperation[];
+  /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). `todo.updated` events
    * are complete replacement snapshots — the checklist presents the most
    * recent one. Transient (per active turn); never persisted.
@@ -204,6 +211,18 @@ export interface StructuredEditOperation {
   /**
    * Client op id of the generic M2 operation this edit supersedes, when the
    * operationIds correlate (same identity). Absent → standalone structured edit.
+   */
+  supersedesOpId?: string;
+}
+
+export interface StructuredTerminalOperation {
+  /** Stable upstream operation identity (OpenCode callID). */
+  operationId: string;
+  /** The authoritative `assistant.execution.v1` terminal detail. */
+  detail: AssistantExecutionDetail;
+  /**
+   * Client op id of the generic M2 operation this terminal supersedes, when
+   * the operationIds correlate (same identity). Absent → standalone.
    */
   supersedesOpId?: string;
 }
@@ -367,6 +386,19 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
     });
   }, []);
+  // ── Structured terminal projections (GA-UX-PREMIUM M6, transient) ──
+  const [structuredTerminals, setStructuredTerminals] = useState<StructuredTerminalOperation[]>([]);
+  /** Upsert a structured terminal by operationId (later evidence replaces earlier). */
+  const upsertStructuredTerminal = useCallback((detail: AssistantExecutionDetail) => {
+    if (detail.kind !== 'terminal') return;
+    const operationId = detail.operationId;
+    const supersedesOpId = operationIdMapRef.current.get(operationId);
+    setStructuredTerminals((prev) => {
+      const existing = prev.find((entry) => entry.operationId === operationId);
+      const next: StructuredTerminalOperation = { operationId, detail, supersedesOpId };
+      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
+    });
+  }, []);
   // ── Runtime todo checklist projection (GA-UX-PREMIUM M5A, transient) ──
   // `todo.updated` events are COMPLETE replacement snapshots of the OpenCode
   // runtime todo list. A single evolving checklist (latest snapshot wins) is
@@ -383,6 +415,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     operationIdMapRef.current.clear();
     setToolOperations([]);
     setStructuredEdits([]);
+    setStructuredTerminals([]);
     setTaskSnapshot(null);
     setPendingPermissions([]);
     setPendingQuestions([]);
@@ -625,6 +658,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 const execution = parseExecutionDetail(data?.event?.execution);
                 if (execution) {
                   upsertStructuredEdit(execution);
+                  upsertStructuredTerminal(execution);
                   upsertTaskSnapshot(execution);
                   // GA-RUNTIME-001 B: interactive permission/question surfaces.
                   if (execution.kind === 'permission') {
@@ -681,7 +715,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 setStreamStatus('Preparing response…');
                 const toolName = typeof data?.event?.name === 'string' ? data.event.name : '';
                 const execution = parseExecutionDetail(data?.event?.execution);
-                if (execution) upsertStructuredEdit(execution);
+                if (execution) {
+                  upsertStructuredEdit(execution);
+                  upsertStructuredTerminal(execution);
+                }
                 setToolOperations((prev) =>
                   execution?.operationId
                     ? applyStructuredToolResult(prev, toolName, eventContent, execution, operationIdMapRef.current)
@@ -946,6 +983,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     streamError,
     toolOperations,
     structuredEdits,
+    structuredTerminals,
     taskSnapshot,
     pendingPermissions,
     respondToPermission,

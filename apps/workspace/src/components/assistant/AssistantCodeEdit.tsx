@@ -113,6 +113,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
   const label = detail.operation ? OPERATION_LABEL[detail.operation] ?? 'Edit' : 'Edit';
   const truncated = detail.patchTruncated === true || detail.hunksTruncated === true;
   const failed = detail.state === 'failed';
+  const language = detectLanguage(detail.file);
 
   const copyPath = useCallback(async () => {
     try {
@@ -183,6 +184,11 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
           <span className="min-w-0 text-[12px] leading-snug truncate text-zinc-200 font-medium">
             {filename}
           </span>
+          {language && (
+            <span className="shrink-0 rounded bg-zinc-800/80 px-1.5 py-px text-[9px] font-medium text-zinc-500 uppercase tracking-wider">
+              {language}
+            </span>
+          )}
           {(typeof detail.additions === 'number' || typeof detail.deletions === 'number') && (
             <span data-testid="code-edit-counts" className="shrink-0 text-[11px] leading-snug text-zinc-500 tabular-nums">
               {typeof detail.additions === 'number' && <span className="text-emerald-500/70">+{detail.additions}</span>}
@@ -268,7 +274,21 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
 
 // ─── Diff renderers (internal horizontal scroll, restrained grammar) ──
 
-function DiffLine({ line }: { line: string }) {
+/** Detect language from file extension for presentation labeling. */
+function detectLanguage(file: string): string | undefined {
+  const ext = file.split('.').pop()?.toLowerCase();
+  if (!ext) return undefined;
+  const langMap: Record<string, string> = {
+    ts: 'TypeScript', tsx: 'TypeScript', js: 'JavaScript', jsx: 'JavaScript',
+    py: 'Python', rb: 'Ruby', go: 'Go', rs: 'Rust', java: 'Java',
+    css: 'CSS', scss: 'SCSS', html: 'HTML', json: 'JSON', yaml: 'YAML',
+    yml: 'YAML', md: 'Markdown', sh: 'Shell', bash: 'Shell', sql: 'SQL',
+    xml: 'XML', toml: 'TOML', lua: 'Lua', c: 'C', cpp: 'C++', h: 'C/C++',
+  };
+  return langMap[ext];
+}
+
+function DiffLine({ line, oldLineNum, newLineNum }: { line: string; oldLineNum?: number; newLineNum?: number }) {
   const kind = classifyDiffLine(line);
   const marker = kind === 'add' ? '+' : kind === 'delete' ? '-' : kind === 'hunk' ? '@' : '';
   const content = kind === 'hunk' ? line : line.slice(1);
@@ -276,7 +296,7 @@ function DiffLine({ line }: { line: string }) {
     <div
       data-testid="diff-line"
       data-kind={kind}
-      className={`flex min-w-max px-2 leading-[1.6] text-[11px] font-mono whitespace-pre ${
+      className={`flex min-w-max leading-[1.6] text-[11px] font-mono whitespace-pre ${
         kind === 'add'
           ? 'bg-emerald-500/[0.08] text-emerald-300/90 border-l-2 border-emerald-500/40'
           : kind === 'delete'
@@ -286,6 +306,16 @@ function DiffLine({ line }: { line: string }) {
               : 'text-zinc-500 border-l-2 border-transparent'
       }`}
     >
+      {/* Line number gutter */}
+      {kind !== 'hunk' && (
+        <span className="inline-flex w-16 shrink-0 select-none text-right pr-2 text-zinc-700/80" aria-hidden="true">
+          <span className="w-6 inline-block text-right">{oldLineNum ?? ''}</span>
+          <span className="w-6 inline-block text-right">{newLineNum ?? ''}</span>
+        </span>
+      )}
+      {kind === 'hunk' && (
+        <span className="inline-flex w-16 shrink-0 select-none" aria-hidden="true" />
+      )}
       <span aria-hidden="true" className={`w-4 shrink-0 select-none text-center ${kind === 'add' ? 'text-emerald-500/70' : kind === 'delete' ? 'text-red-400/70' : 'text-transparent'}`}>
         {marker}
       </span>
@@ -298,10 +328,43 @@ function PatchDiff({ patch }: { patch: string }) {
   const lines = patch.split('\n');
   // Trailing newline yields a final empty line — drop it for presentation.
   if (lines[lines.length - 1] === '') lines.pop();
+
+  // Compute line numbers from the patch
+  let oldNum = 0;
+  let newNum = 0;
+  const lineNumbers: Array<{ old?: number; new?: number }> = [];
+  for (const line of lines) {
+    const kind = classifyDiffLine(line);
+    if (kind === 'hunk') {
+      // Parse hunk header for starting line numbers
+      const match = line.match(/@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+      if (match) {
+        oldNum = parseInt(match[1], 10);
+        newNum = parseInt(match[2], 10);
+      }
+      lineNumbers.push({});
+    } else if (kind === 'add') {
+      lineNumbers.push({ new: newNum });
+      newNum++;
+    } else if (kind === 'delete') {
+      lineNumbers.push({ old: oldNum });
+      oldNum++;
+    } else {
+      lineNumbers.push({ old: oldNum, new: newNum });
+      oldNum++;
+      newNum++;
+    }
+  }
+
   return (
     <div data-testid="patch-diff" className="max-w-full overflow-x-auto rounded-md bg-zinc-950/50 py-1" role="region" aria-label="Runtime diff">
       {lines.map((line, index) => (
-        <DiffLine key={`${index}:${line.slice(0, 40)}`} line={line} />
+        <DiffLine
+          key={`${index}:${line.slice(0, 40)}`}
+          line={line}
+          oldLineNum={lineNumbers[index]?.old}
+          newLineNum={lineNumbers[index]?.new}
+        />
       ))}
     </div>
   );
@@ -313,11 +376,35 @@ function HunkDiff({ hunks }: { hunks: readonly { oldStart?: number; oldLines?: n
       {hunks.map((hunk, hunkIndex) => {
         const lines = hunk.content.split('\n');
         if (lines[lines.length - 1] === '') lines.pop();
+
+        let oldNum = hunk.oldStart ?? 0;
+        let newNum = hunk.newStart ?? 0;
+        const lineNumbers: Array<{ old?: number; new?: number }> = [];
+        for (const line of lines) {
+          const kind = classifyDiffLine(line);
+          if (kind === 'add') {
+            lineNumbers.push({ new: newNum });
+            newNum++;
+          } else if (kind === 'delete') {
+            lineNumbers.push({ old: oldNum });
+            oldNum++;
+          } else {
+            lineNumbers.push({ old: oldNum, new: newNum });
+            oldNum++;
+            newNum++;
+          }
+        }
+
         return (
           <div key={hunkIndex} data-testid="hunk">
             <DiffLine line={hunkHeader(hunk)} />
             {lines.map((line, index) => (
-              <DiffLine key={`${hunkIndex}:${index}:${line.slice(0, 40)}`} line={line} />
+              <DiffLine
+                key={`${hunkIndex}:${index}:${line.slice(0, 40)}`}
+                line={line}
+                oldLineNum={lineNumbers[index]?.old}
+                newLineNum={lineNumbers[index]?.new}
+              />
             ))}
           </div>
         );

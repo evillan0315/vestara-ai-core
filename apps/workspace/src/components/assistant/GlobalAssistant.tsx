@@ -9,10 +9,15 @@
  *   - useAssistantConversation (GA-2) — conversation state
  *   - useSurfaceContext (GA-3) — display-only surface metadata
  *
+ * Architecture:
+ *   FloatingWindowManager (VES-UI-011) coordinates z-index across windows.
+ *   FloatingPanel delegates window mechanics to @vestara/ui FloatingWindow.
+ *
  * @see VESTARA-INTELLIGENCE-GA1-PREFLIGHT.md
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FloatingWindowManager } from '@vestara/ui';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { openCodeApi, type OpenCodeSessionView } from '../../lib/opencode';
@@ -110,7 +115,6 @@ function AssistantLauncher({
 
 export function GlobalAssistant() {
   const [panelOpen, setPanelOpen] = useState(false);
-  const [panelMinimized, setPanelMinimized] = useState(false);
   const [panelExpanded, setPanelExpanded] = useState(false);
   const [dockOpen, setDockOpen] = useState(false);
   const launcherRef = useRef<HTMLButtonElement | null>(null);
@@ -125,8 +129,6 @@ export function GlobalAssistant() {
   const surface = useSurfaceContext();
 
   // GA-SESSION-003: compatible runtime sessions for resume surface.
-  // Fetched when the panel opens; projected through to LauncherDock and
-  // ConversationPanel. No pending React-ref authority — server validates.
   const [runtimeSessions, setRuntimeSessions] = useState<OpenCodeSessionView[]>([]);
 
   // GA-UI-008: dock timers — cleared on unmount to avoid stray setState.
@@ -138,7 +140,6 @@ export function GlobalAssistant() {
   }, []);
 
   // GA-SESSION-003: fetch compatible runtime sessions when the panel opens.
-  // Re-fetches on each open to keep the resume surface current.
   useEffect(() => {
     if (!panelOpen) return;
     let cancelled = false;
@@ -155,7 +156,6 @@ export function GlobalAssistant() {
     const convId = await assistant.resumeOpenCodeSession(sessionId);
     if (convId) {
       setPanelOpen(true);
-      setPanelMinimized(false);
       setPanelExpanded(false);
     }
   }, [assistant.resumeOpenCodeSession]);
@@ -187,10 +187,8 @@ export function GlobalAssistant() {
     setDockOpen(false);
   }, []);
 
-  // GA-UI-008 acceptance: programmatic focus-return after closing/minimizing
-  // the panel must not auto-reveal the dock. The suppress flag is consumed by
-  // the next focus event, or self-clears via the trailing timeout when the
-  // launcher was already focused and no focus event fires.
+  // GA-UI-008: programmatic focus-return after closing the panel must not
+  // auto-reveal the dock.
   const suppressDockRevealOnFocusRef = useRef(false);
 
   const returnFocusToLauncher = useCallback(() => {
@@ -206,26 +204,14 @@ export function GlobalAssistant() {
   const togglePanel = useCallback(() => {
     setPanelOpen((prev) => {
       if (prev) {
-        // Closing: focus returns to launcher
         returnFocusToLauncher();
       }
       return !prev;
     });
-    setPanelMinimized(false);
     setPanelExpanded(false);
-    // Opening or closing the panel cancels any pending dock reveal — a stale
-    // timer must never reopen the dock behind the panel or after it closes.
     closeDockNow();
   }, [closeDockNow, returnFocusToLauncher]);
 
-  const minimizePanel = useCallback(() => {
-    setPanelMinimized(true);
-    returnFocusToLauncher();
-  }, [returnFocusToLauncher]);
-
-  // GA-UI-008 acceptance: the dock is not pointer-only — focusing the
-  // launcher reveals it (same intent delay as hover). Focus events caused by
-  // programmatic focus-return are suppressed above.
   const revealDockFromFocus = useCallback(() => {
     if (suppressDockRevealOnFocusRef.current) {
       suppressDockRevealOnFocusRef.current = false;
@@ -234,9 +220,7 @@ export function GlobalAssistant() {
     openDockSoon();
   }, [openDockSoon]);
 
-  // Premium UX: Ctrl/⌘+J toggles the assistant from anywhere. Ignored while
-  // typing in inputs so composer shortcuts keep working. Escape closes the
-  // dock first (only while it is visible — never intercepts panel Escape).
+  // Ctrl/⌘+J toggles the assistant. Escape closes the dock when visible.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'j') {
@@ -257,29 +241,21 @@ export function GlobalAssistant() {
     return () => window.removeEventListener('keydown', handler);
   }, [togglePanel, dockOpen, panelOpen, closeDockNow]);
 
-  // GA-UI-007: toggle full-window expanded geometry (keeps the conversation
-  // state; navigation ≠ new conversation).
+  // GA-UI-007: toggle full-window expanded geometry.
   const toggleExpanded = useCallback(() => {
     setPanelExpanded((prev) => !prev);
   }, []);
 
-  // GA-UI-006: explicit new conversation. Creates AND selects a fresh
-  // Conversation Runtime conversation; the previous conversation is never
-  // mutated, and its OpenCode runtime session is never reused (one
-  // conversation → one session, server-side). Empty surface + composer
-  // focus are handled by ConversationPanel on selection change.
+  // GA-UI-006: explicit new conversation.
   const newConversation = useCallback(() => {
     void assistant.createConversation();
   }, [assistant.createConversation]);
 
   // GA-UI-008: dock selection opens the assistant on the chosen conversation.
-  // GET-only canonical selection (same contract as in-panel history) — no
-  // POST, no new turn. Selecting the active conversation just opens the panel.
   const handleDockSelect = useCallback(
     (id: string) => {
       closeDockNow();
       setPanelOpen(true);
-      setPanelMinimized(false);
       setPanelExpanded(false);
       if (id !== assistant.selectedId) {
         assistant.selectConversation(id);
@@ -292,8 +268,6 @@ export function GlobalAssistant() {
     id: c.id,
     title: resolveDisplayTitle(
       c.title,
-      // GA-UI-008 acceptance: match the in-panel history title resolution —
-      // the active conversation resolves through its first human message.
       c.id === assistant.selectedId
         ? (assistant.messages.find((m) => m.role === 'user')?.content ?? null)
         : null,
@@ -302,13 +276,13 @@ export function GlobalAssistant() {
   }));
 
   return (
-    <>
+    <FloatingWindowManager baseZIndex={1300}>
       {/* GA-UI-007: Full-window surface (when expanded) */}
       {panelExpanded && (
         <FullWindowSurface
           expanded={panelExpanded}
           onToggleExpanded={toggleExpanded}
-          onMinimize={minimizePanel}
+          onMinimize={togglePanel}
           onClose={togglePanel}
           onNewConversation={newConversation}
         />
@@ -317,7 +291,7 @@ export function GlobalAssistant() {
       <AssistantLauncher
         launcherRef={launcherRef}
         onClick={togglePanel}
-        panelOpen={panelOpen && !panelMinimized}
+        panelOpen={panelOpen && !panelExpanded}
         onMouseEnter={openDockSoon}
         onMouseLeave={closeDockSoon}
         onFocus={revealDockFromFocus}
@@ -338,14 +312,12 @@ export function GlobalAssistant() {
       {!panelExpanded && (
         <FloatingPanel
           open={panelOpen}
-          minimized={panelMinimized}
           workspaceId={surface.workspace.id}
-          onMinimize={minimizePanel}
           onClose={togglePanel}
           onNewConversation={newConversation}
           expanded={panelExpanded}
           onToggleExpanded={toggleExpanded}
-          launcherRef={launcherRef}
+          conversationTitle={assistant.selectedConversation?.title ?? null}
           focusOnMountRef={focusOnMountRef}
         >
           <ConversationPanel
@@ -357,7 +329,7 @@ export function GlobalAssistant() {
           />
         </FloatingPanel>
       )}
-    </>
+    </FloatingWindowManager>
   );
 }
 

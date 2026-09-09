@@ -14,9 +14,10 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
-import type { AssistantExecutionDetail, EditExecutionDetail } from '@vestara/shared';
-import type { AssistantToolOperation, StructuredEditOperation } from '../../hooks/useAssistantConversation';
+import type { AssistantExecutionDetail, EditExecutionDetail, TerminalExecutionDetail } from '@vestara/shared';
+import type { AssistantToolOperation, StructuredEditOperation, StructuredTerminalOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
+import { AssistantTerminal } from './AssistantTerminal';
 import { AssistantTodoChecklist } from './AssistantTodoChecklist';
 
 // ─── Type guard ─────────────────────────────────────────────────
@@ -26,6 +27,13 @@ function isEditDetail(
   edit: StructuredEditOperation,
 ): edit is StructuredEditOperation & { detail: EditExecutionDetail } {
   return edit.detail.kind === 'edit';
+}
+
+/** Narrow a structured terminal's detail to the terminal variant `AssistantTerminal` renders. */
+function isTerminalDetail(
+  terminal: StructuredTerminalOperation,
+): terminal is StructuredTerminalOperation & { detail: TerminalExecutionDetail } {
+  return terminal.detail.kind === 'terminal';
 }
 
 // ─── Categories ─────────────────────────────────────────────────
@@ -231,6 +239,11 @@ export interface AssistantExecutionTimelineProps {
    */
   structuredEdits?: readonly StructuredEditOperation[];
   /**
+   * Structured terminal projections (GA-UX-PREMIUM M6). A structured terminal
+   * supersedes the generic M2 row for the same operation identity.
+   */
+  structuredTerminals?: readonly StructuredTerminalOperation[];
+  /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). One evolving checklist;
    * each todo.updated snapshot replaces the previous.
    */
@@ -253,20 +266,23 @@ export interface AssistantExecutionTimelineProps {
 export function AssistantExecutionTimeline({
   operations,
   structuredEdits = [],
+  structuredTerminals = [],
   taskSnapshot,
   onOpenInEditor,
   expanded,
   onToggle,
 }: AssistantExecutionTimelineProps) {
-  if (operations.length === 0 && structuredEdits.length === 0 && !taskSnapshot) return null;
+  if (operations.length === 0 && structuredEdits.length === 0 && structuredTerminals.length === 0 && !taskSnapshot) return null;
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
 
-  const supersededOpIds = new Set(
-    structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined),
-  );
+  const supersededOpIds = new Set([
+    ...structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined),
+    ...structuredTerminals.map((t) => t.supersedesOpId).filter((id): id is string => id !== undefined),
+  ]);
   const standaloneEdits = structuredEdits.filter((edit) => edit.supersedesOpId === undefined);
-  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length;
+  const standaloneTerminals = structuredTerminals.filter((t) => t.supersedesOpId === undefined);
+  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneTerminals.length;
   const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
 
   return (
@@ -303,18 +319,33 @@ export function AssistantExecutionTimeline({
           {operations.map((op) => {
             if (supersededOpIds.has(op.id)) {
               const edit = structuredEdits.find((entry) => entry.supersedesOpId === op.id);
-              return edit && isEditDetail(edit) ? (
-                <AssistantCodeEdit
-                  key={`edit-${edit.operationId}`}
-                  detail={edit.detail}
-                  onOpenInEditor={onOpenInEditor}
-                />
-              ) : null;
+              if (edit && isEditDetail(edit)) {
+                return (
+                  <AssistantCodeEdit
+                    key={`edit-${edit.operationId}`}
+                    detail={edit.detail}
+                    onOpenInEditor={onOpenInEditor}
+                  />
+                );
+              }
+              const terminal = structuredTerminals.find((entry) => entry.supersedesOpId === op.id);
+              if (terminal && isTerminalDetail(terminal)) {
+                return (
+                  <AssistantTerminal
+                    key={`terminal-${terminal.operationId}`}
+                    detail={terminal.detail}
+                  />
+                );
+              }
+              return null;
             }
             return <AssistantToolCard key={op.id} operation={op} />;
           })}
           {standaloneEdits.filter(isEditDetail).map((edit) => (
             <AssistantCodeEdit key={`edit-${edit.operationId}`} detail={edit.detail} onOpenInEditor={onOpenInEditor} />
+          ))}
+          {standaloneTerminals.filter(isTerminalDetail).map((terminal) => (
+            <AssistantTerminal key={`terminal-${terminal.operationId}`} detail={terminal.detail} />
           ))}
         </div>
       )}

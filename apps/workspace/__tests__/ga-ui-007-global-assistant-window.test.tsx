@@ -18,6 +18,22 @@ import { ConversationHistory } from '../src/components/assistant/ConversationHis
 import { FloatingPanel } from '../src/components/assistant/FloatingPanel';
 import { useAssistantConversation } from '../src/hooks/useAssistantConversation';
 
+vi.mock('@vestara/ui', () => ({
+  FloatingWindowManager: ({ children }: any) => <div data-testid="floating-window-manager">{children}</div>,
+  FloatingWindow: ({ open, children, className }: any) =>
+    open ? (
+      <div role="region" aria-label="Global Assistant" data-testid="floating-window" className={className}>
+        {children}
+      </div>
+    ) : null,
+  FloatingWindowHeader: ({ children, className }: any) => (
+    <div className={className} data-testid="floating-window-header">{children}</div>
+  ),
+  FloatingWindowContent: ({ children, className }: any) => (
+    <div className={className} data-testid="floating-window-content">{children}</div>
+  ),
+}));
+
 const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
 
@@ -143,44 +159,40 @@ describe('ConversationHistory — rail variant (GA-UI-007)', () => {
 });
 
 describe('FloatingPanel expanded geometry (GA-UI-007)', () => {
-  it('applies full-window geometry and a maximize toggle when expanded is supported', async () => {
+  it('renders with branded header when not expanded; returns null when expanded', async () => {
     const toggle = vi.fn();
-    const { container, rerender } = render(
+    const { rerender } = render(
       <FloatingPanel
         open
-        minimized={false}
         workspaceId="ws-test"
-        onMinimize={() => {}}
         onClose={() => {}}
         expanded={false}
         onToggleExpanded={toggle}
-        launcherRef={{ current: null }}
       >
         <div>content</div>
       </FloatingPanel>,
     );
-    const panel = container.querySelector('[aria-label="Global Assistant"]') as HTMLElement;
-    expect(panel.className).toContain('rounded-xl');
-    // Maximize button present.
-    fireEvent.click(screen.getByLabelText('Expand assistant'));
+    // Not expanded: FloatingWindow renders with branded header
+    expect(screen.getByText('Vestara Assistant')).toBeDefined();
+    expect(screen.getByRole('button', { name: /expand assistant/i })).toBeDefined();
+
+    // Click expand button
+    fireEvent.click(screen.getByRole('button', { name: /expand assistant/i }));
     expect(toggle).toHaveBeenCalled();
+
+    // Expanded: FloatingPanel returns null (FullWindowSurface takes over)
     rerender(
       <FloatingPanel
         open
-        minimized={false}
         workspaceId="ws-test"
-        onMinimize={() => {}}
         onClose={() => {}}
         expanded
         onToggleExpanded={toggle}
-        launcherRef={{ current: null }}
       >
         <div>content</div>
       </FloatingPanel>,
     );
-    const expandedPanel = container.querySelector('[aria-label="Global Assistant"]') as HTMLElement;
-    expect(expandedPanel.className).toContain('inset-0');
-    expect(screen.getByLabelText('Restore assistant')).toBeTruthy();
+    expect(screen.queryByTestId('floating-window')).toBeNull();
   });
 });
 

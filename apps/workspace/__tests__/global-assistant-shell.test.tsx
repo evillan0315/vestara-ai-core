@@ -34,6 +34,13 @@ vi.mock('../src/contexts/SurfaceContext', () => ({
   SurfaceContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@vestara/ui', () => ({
+  FloatingWindowManager: ({ children }: any) => <div data-testid="floating-window-manager">{children}</div>,
+  FloatingWindow: ({ open, children }: any) => (open ? <div data-testid="floating-window">{children}</div> : null),
+  FloatingWindowHeader: ({ children }: any) => <div data-testid="floating-window-header">{children}</div>,
+  FloatingWindowContent: ({ children }: any) => <div data-testid="floating-window-content">{children}</div>,
+}));
+
 // ─── Tests ────────────────────────────────────────────────────
 
 describe('GlobalAssistant — Slice 1: Shell Mount', () => {

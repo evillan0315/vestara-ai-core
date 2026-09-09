@@ -34,6 +34,23 @@ vi.mock('../src/contexts/SurfaceContext', () => ({
   SurfaceContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+vi.mock('@vestara/ui', () => ({
+  FloatingWindowManager: ({ children }: any) => <div data-testid="floating-window-manager">{children}</div>,
+  FloatingWindow: ({ open, onClose, children, className }: any) =>
+    open ? (
+      <div role="region" aria-label="Global Assistant" data-testid="floating-window" className={className}>
+        {children}
+        <button type="button" aria-label="Close" onClick={onClose} data-testid="close-button">Close</button>
+      </div>
+    ) : null,
+  FloatingWindowHeader: ({ children, className }: any) => (
+    <div className={className} data-testid="floating-window-header">{children}</div>
+  ),
+  FloatingWindowContent: ({ children, className }: any) => (
+    <div className={className} data-testid="floating-window-content">{children}</div>
+  ),
+}));
+
 import { ConversationPanel } from '../src/components/assistant/ConversationPanel';
 import { FloatingPanel } from '../src/components/assistant/FloatingPanel';
 import { useAssistantConversation } from '../src/hooks/useAssistantConversation';
@@ -576,17 +593,13 @@ describe('GA-UI-006 — conversation navigation', () => {
 
   it('header exposes New conversation alongside preserved controls', async () => {
     const onNewConversation = vi.fn();
-    const onMinimize = vi.fn();
     const onClose = vi.fn();
     render(
       <FloatingPanel
         open
-        minimized={false}
         workspaceId="ws-test"
-        onMinimize={onMinimize}
         onClose={onClose}
         onNewConversation={onNewConversation}
-        launcherRef={{ current: null }}
       >
         <div>content</div>
       </FloatingPanel>,
@@ -594,10 +607,8 @@ describe('GA-UI-006 — conversation navigation', () => {
     expect(screen.getByText('Vestara Assistant')).toBeDefined();
     fireEvent.click(screen.getByRole('button', { name: 'New conversation' }));
     expect(onNewConversation).toHaveBeenCalledTimes(1);
-    // Existing minimize/close behavior preserved.
-    fireEvent.click(screen.getByRole('button', { name: /minimize assistant/i }));
-    fireEvent.click(screen.getByRole('button', { name: /close assistant/i }));
-    expect(onMinimize).toHaveBeenCalledTimes(1);
+    // Close button (via FloatingWindow mock) triggers onClose.
+    fireEvent.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
