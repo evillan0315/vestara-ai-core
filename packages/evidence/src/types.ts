@@ -76,7 +76,55 @@ export interface EvidenceReference {
    * identity remains `ref`, authority remains provenance + verifier verdict.
    */
   readonly visual?: VisualArtifactMetadata;
+  /**
+   * CTX-0: Context-relevance metadata for evidence retrieval.
+   * These fields extend EvidenceReference with metadata that enables
+   * context intelligence to rank, budget, and filter evidence.
+   */
+  readonly contextRelevance?: EvidenceContextRelevance;
 }
+
+/**
+ * CTX-0: Context-relevance metadata for evidence references.
+ * Enables Context Intelligence to rank, budget, and filter evidence
+ * during retrieval without duplicating evidence content.
+ */
+export interface EvidenceContextRelevance {
+  /** Ranking score hint (0-1) — higher = more relevant to recent queries */
+  readonly rankingScore: number;
+
+  /** Budget allocation class — determines how much context budget this evidence consumes */
+  readonly budgetClass: EvidenceBudgetClass;
+
+  /** Freshness indicator — how recently this evidence was produced */
+  readonly freshness: EvidenceFreshness;
+
+  /** Source authority reference — which authority produced this evidence */
+  readonly sourceAuthority: string;
+
+  /** Optional: tags for filtering and categorization */
+  readonly tags?: readonly string[];
+}
+
+/**
+ * CTX-0: Budget allocation classes for evidence.
+ * Determines how much context budget evidence consumes during retrieval.
+ */
+export type EvidenceBudgetClass =
+  | 'minimal'    // Small, low-cost evidence (e.g., status flag)
+  | 'compact'    // Medium-sized evidence (e.g., summary, diff)
+  | 'standard'   // Normal evidence (e.g., test output, log excerpt)
+  | 'verbose';   // Large evidence (e.g., full file, detailed report)
+
+/**
+ * CTX-0: Freshness indicators for evidence.
+ * How recently the evidence was produced relative to the current time.
+ */
+export type EvidenceFreshness =
+  | 'stale'      // > 24 hours old
+  | 'recent'     // 1-24 hours old
+  | 'fresh'      // < 1 hour old
+  | 'current';   // < 5 minutes old
 
 export interface EvidenceProvenance {
   readonly producer: string; // which component produced it

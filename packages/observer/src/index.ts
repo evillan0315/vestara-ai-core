@@ -6,6 +6,8 @@
  *
  * Architecture Traceability:
  *   OBS-1: Observer Foundation
+ *   OBS-2: Temporal Evidence Retrieval
+ *   OBS-3: Findings Lifecycle
  *   OBS-4: Health/Degradation Model
  *
  * Invariants:
@@ -15,6 +17,21 @@
  */
 
 export { Observer } from './observer';
+export { InMemoryTemporalEvidenceStore } from './temporal-evidence';
+export type {
+  TemporalEvidenceQuery,
+  TemporalEvidenceRecord,
+  TemporalEvidenceResult,
+  TemporalEvidenceStore,
+} from './temporal-evidence';
+export {
+  FindingLifecycleManager,
+  isTransitionAllowed,
+  getAllowedTransitions,
+} from './findings-lifecycle';
+export type {
+  FindingTransitionResult,
+} from './findings-lifecycle';
 export type {
   ObserverConfig,
   ObserverEventType,
