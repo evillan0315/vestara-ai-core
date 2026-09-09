@@ -923,3 +923,255 @@ export interface VerificationEvidence {
   /** Bundle ID if evidence was stored in a PCS-026 bundle */
   readonly bundleId?: string;
 }
+
+// ─── ENG-6: Operational Recovery ───────────────────────────────
+
+/**
+ * ENG-6: Recovery action — diagnostic-driven recovery selection.
+ * Uses existing Workflow resume/retry. Recovery may proceed without
+ * root-cause completion (INV-REC-1). Recovery actions are governed
+ * by existing Workflow/Governance authorities.
+ */
+export interface RecoveryAction {
+  /** Unique recovery identifier */
+  readonly id: string;
+
+  /** The incident being recovered from */
+  readonly incidentId: string;
+
+  /** Recovery strategy selected */
+  readonly strategy: RecoveryStrategy;
+
+  /** Current status of the recovery */
+  readonly status: RecoveryStatus;
+
+  /** Actions taken during recovery */
+  readonly actions: readonly RecoveryStep[];
+
+  /** Verification that recovery succeeded */
+  readonly verification?: VerificationRun;
+
+  /** ISO-8601 timestamp when recovery started */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp when recovery completed */
+  readonly completedAt?: string;
+
+  /** Duration in milliseconds */
+  readonly durationMs?: number;
+
+  /** Whether root cause was determined before recovery */
+  readonly rootCauseDetermined: boolean;
+}
+
+/**
+ * ENG-6: Recovery strategy types.
+ */
+export type RecoveryStrategy =
+  | 'restart'         // Restart the affected service/process
+  | 'rollback'        // Rollback to previous known-good state
+  | 'failover'        // Switch to backup/alternative
+  | 'scale'           // Scale resources up/down
+  | 'config-change'   // Apply configuration change
+  | 'manual';         // Manual intervention required
+
+/**
+ * ENG-6: Recovery status.
+ */
+export type RecoveryStatus =
+  | 'pending'      // Recovery not yet started
+  | 'in-progress'  // Recovery in progress
+  | 'completed'    // Recovery completed successfully
+  | 'failed'       // Recovery failed
+  | 'rolled-back'; // Recovery was rolled back
+
+/**
+ * ENG-6: Individual recovery step.
+ */
+export interface RecoveryStep {
+  /** Step identifier */
+  readonly id: string;
+
+  /** Step description */
+  readonly description: string;
+
+  /** Step result */
+  readonly result: 'success' | 'failure' | 'skipped';
+
+  /** Step details */
+  readonly detail: string;
+
+  /** ISO-8601 timestamp when step was executed */
+  readonly executedAt: string;
+}
+
+// ─── EFF-0: Time Analytics ─────────────────────────────────────
+
+/**
+ * EFF-0: Time analytics for an incident or investigation.
+ * Measures time across five dimensions.
+ */
+export interface TimeAnalytics {
+  /** Unique analytics identifier */
+  readonly id: string;
+
+  /** Incident or investigation ID */
+  readonly targetId: string;
+
+  /** Time to detection (incident observed → diagnosis started) */
+  readonly timeToDetectionMs: number;
+
+  /** Time to useful context (diagnosis started → relevant context assembled) */
+  readonly timeToContextMs: number;
+
+  /** Time to recovery (context assembled → recovery completed) */
+  readonly timeToRecoveryMs: number;
+
+  /** Time to root cause (diagnosis started → root cause identified) */
+  readonly timeToRootCauseMs: number;
+
+  /** Time to verified recovery (recovery completed → verification passed) */
+  readonly timeToVerifiedRecoveryMs: number;
+
+  /** Total elapsed time */
+  readonly totalElapsedMs: number;
+
+  /** ISO-8601 timestamp when analytics were computed */
+  readonly computedAt: string;
+}
+
+// ─── EFF-1: Token Analytics ────────────────────────────────────
+
+/**
+ * EFF-1: Token analytics for an investigation.
+ * Measures token consumption across four dimensions.
+ */
+export interface TokenAnalytics {
+  /** Unique analytics identifier */
+  readonly id: string;
+
+  /** Investigation ID */
+  readonly investigationId: string;
+
+  /** Discovery tokens (context retrieval, evidence gathering) */
+  readonly discoveryTokens: number;
+
+  /** Reasoning tokens (analysis, hypothesis formation) */
+  readonly reasoningTokens: number;
+
+  /** Correction tokens (correction proposal, verification) */
+  readonly correctionTokens: number;
+
+  /** Verification tokens (verification runs, evidence validation) */
+  readonly verificationTokens: number;
+
+  /** Total tokens consumed */
+  readonly totalTokens: number;
+
+  /** ISO-8601 timestamp when analytics were computed */
+  readonly computedAt: string;
+}
+
+// ─── EFF-2: Context Efficiency ─────────────────────────────────
+
+/**
+ * EFF-2: Context efficiency metrics.
+ * Measures context utilization and quality.
+ */
+export interface ContextEfficiency {
+  /** Unique metrics identifier */
+  readonly id: string;
+
+  /** Query or investigation ID */
+  readonly targetId: string;
+
+  /** Context utilization ratio (tokens used / tokens available) */
+  readonly utilizationRatio: number;
+
+  /** Average relevance score of retrieved context */
+  readonly avgRelevanceScore: number;
+
+  /** Budget exhaustion rate (percentage of budget used) */
+  readonly budgetExhaustionRate: number;
+
+  /** Number of results that exceeded minimum thresholds */
+  readonly qualifyingResults: number;
+
+  /** Total results retrieved */
+  readonly totalResults: number;
+
+  /** Source diversity score (0-1, higher = more diverse) */
+  readonly diversityScore: number;
+
+  /** ISO-8601 timestamp when metrics were computed */
+  readonly computedAt: string;
+}
+
+// ─── EFF-3: Investigation Efficiency ───────────────────────────
+
+/**
+ * EFF-3: Investigation efficiency metrics.
+ * Measures investigation cost vs outcome.
+ */
+export interface InvestigationEfficiency {
+  /** Unique metrics identifier */
+  readonly id: string;
+
+  /** Investigation ID */
+  readonly investigationId: string;
+
+  /** Cost metrics */
+  readonly cost: InvestigationCost;
+
+  /** Outcome metrics */
+  readonly outcome: InvestigationOutcome;
+
+  /** Efficiency ratio (outcome value / cost) */
+  readonly efficiencyRatio: number;
+
+  /** ISO-8601 timestamp when metrics were computed */
+  readonly computedAt: string;
+}
+
+/**
+ * EFF-3: Investigation cost metrics.
+ */
+export interface InvestigationCost {
+  /** Time spent (milliseconds) */
+  readonly timeMs: number;
+
+  /** Tokens consumed */
+  readonly tokens: number;
+
+  /** Tool calls made */
+  readonly toolCalls: number;
+
+  /** Evidence items gathered */
+  readonly evidenceGathered: number;
+
+  /** Queries executed */
+  readonly queriesExecuted: number;
+}
+
+/**
+ * EFF-3: Investigation outcome metrics.
+ */
+export interface InvestigationOutcome {
+  /** Evidence items produced */
+  readonly evidenceProduced: number;
+
+  /** Findings produced */
+  readonly findingsProduced: number;
+
+  /** Corrections proposed */
+  readonly correctionsProposed: number;
+
+  /** Corrections verified */
+  readonly correctionsVerified: number;
+
+  /** Incidents resolved */
+  readonly incidentsResolved: number;
+
+  /** Overall confidence score (0-1) */
+  readonly confidenceScore: number;
+}

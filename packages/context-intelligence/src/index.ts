@@ -5,27 +5,15 @@
  * Passive data assembly system — does not own conversation, routing, execution, or governance.
  *
  * Architecture Traceability:
- *   CTX-1: Retrieval Foundation
- *   CTX-2: Hybrid Retrieval
- *   CTX-3: Context Assembler
- *   CTX-4: Context Budgets
- *   CTX-5: Ranking
- *   CTX-6: Minimum Sufficient Context
- *   CTX-7: Provenance Tracking
- *   CTX-8: Compression
- *   CTX-9: Change-Aware Retrieval
- *   CTX-10: Historical Incident Retrieval
- *   ENG-0: Developer Preflight
- *   ENG-1: Adaptive Investigation
- *   ENG-2: Resource Budgets
- *   ENG-3: Governed Escalation
- *   ENG-4: Correction Proposal
- *   ENG-5: Verification Extension
+ *   CTX-1/2/3/4/5/6/7/8/9/10: Context Intelligence
+ *   ENG-0/1/2/3/4/5/6: Engineering Autonomy
+ *   EFF-0/1/2/3: Efficiency Analytics
  *
  * Invariants:
  *   INV-CTX-1: Context relevance does not confer authority
  *   INV-CTX-2: Context has no cache
  *   INV-CTX-3: Context does not trigger refresh
+ *   INV-REC-1: Recovery proceeds without root-cause completion
  */
 
 export { ContextIntelligenceEngine } from './engine';
@@ -39,6 +27,7 @@ export type {
   ContextAssemblerConfig,
   ContextBudget,
   ContextBudgetClass,
+  ContextEfficiency,
   ContextFreshness,
   ContextProvenance,
   ContextQuery,
@@ -59,12 +48,21 @@ export type {
   HistoricalIncidentQuery,
   HistoricalIncidentResult,
   Investigation,
+  InvestigationCost,
+  InvestigationEfficiency,
   InvestigationEvidence,
   InvestigationFinding,
+  InvestigationOutcome,
   InvestigationStatus,
   MinimumSufficientConfig,
+  RecoveryAction,
+  RecoveryStatus,
+  RecoveryStep,
+  RecoveryStrategy,
   ResourceBudget,
   ResourceUsage,
+  TimeAnalytics,
+  TokenAnalytics,
   VerificationCheck,
   VerificationCheckType,
   VerificationEvidence,
