@@ -1,10 +1,15 @@
 export type AgentType = 'workspace' | 'registry';
 
+/** GA-4: Ownership origin — 'system' for canonical agents, 'user' for user-created. */
+export type AgentOrigin = 'system' | 'user';
+
 export interface Agent {
   id: string;
   name: string;
   role: string;
   agentType: AgentType;
+  /** GA-4: Ownership origin — 'system' for canonical agents, 'user' for user-created. */
+  origin?: AgentOrigin;
   description?: string;
   capabilities: string[];
   permissions: any[];

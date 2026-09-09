@@ -12,6 +12,8 @@ export interface Conversation {
   id: string;
   userId: string;
   projectId?: string;
+  /** GA-4.4: Provenance — which agent owns this conversation. Optional for backward compatibility. */
+  agentId?: string;
   title: string;
   messages: Message[];
   status: ConversationStatus;

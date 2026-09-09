@@ -1,4 +1,4 @@
-import { CANONICAL_AGENTS } from './agents.registry';
+import { CANONICAL_AGENTS, DROPPED_BUILT_IN_AGENT_IDS } from './agents.registry';
 import type {
   AgentDefinition,
   AgentExecution,
@@ -45,37 +45,86 @@ export class AgentStorage {
     this.seedBuiltIn();
   }
 
-  private seedBuiltIn(): void {
-    // Opt-out: when VESTARA_DISABLE_AGENT_SEED=1 the built-in agent catalog is
-    // not auto-created, leaving the agent list empty (e.g. for a clean slate).
-    // Reversible: unset the variable to restore default seeding.
+  /**
+   * GA-4.2: Replaces seedBuiltIn() with incremental canonical reconciliation.
+   * - Missing canonical agents are created deterministically
+   * - Existing canonical agents with wrong origin are backfilled to 'system'
+   * - Dropped built-in agents are cleaned up (system-owned only)
+   * - User-configurable state (color, status, capabilities) is preserved
+   */
+  private reconcileCanonical(): void {
     if (process.env.VESTARA_DISABLE_AGENT_SEED === '1') return;
 
-    // Only seed into an empty catalog. A populated catalog (custom agents, a
-    // migrated forensic fixture, or a previously seeded roster) is left intact
-    // so we never silently mutate existing agent data. The converged six core
-    // agents are defined in `agents.registry.ts`; stale agents removed from that
-    // registry (see DROPPED_BUILT_IN_AGENT_IDS) are cleaned up by clearing and
-    // reseeding plans.db, which is the expected upgrade path.
-    const existing = dbGet(this.db, 'SELECT COUNT(*) as c FROM agents');
-    if (existing && existing.c > 0) return;
+    // Ensure all canonical agents exist with correct origin
+    for (const canonical of CANONICAL_AGENTS) {
+      const existing = dbGet(this.db, 'SELECT id, origin FROM agents WHERE id = ?', [canonical.id]);
+      if (!existing) {
+        // Missing canonical agent → deterministic creation
+        this.saveAgentSync(canonical);
+      } else if (existing.origin !== 'system' && canonical.origin === 'system') {
+        // Existing row needs system-origin backfill (user → system only)
+        dbRun(this.db, 'UPDATE agents SET origin = ? WHERE id = ? AND origin != ?', ['system', canonical.id, 'system']);
+      }
+      // Already correct → no-op
+    }
 
-    for (const agent of CANONICAL_AGENTS) {
-      this.saveAgent(agent).catch(() => {});
+    // Clean up dropped built-in agents (system-owned only)
+    for (const droppedId of DROPPED_BUILT_IN_AGENT_IDS) {
+      dbRun(this.db, 'DELETE FROM agents WHERE id = ? AND origin = ?', [droppedId, 'system']);
     }
   }
 
-  async saveAgent(agent: AgentDefinition): Promise<void> {
+  private seedBuiltIn(): void {
+    this.reconcileCanonical();
+  }
+
+  /** Synchronous save for canonical reconciliation (called from constructor). */
+  private saveAgentSync(agent: AgentDefinition): void {
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO agents
-       (id, name, role, agent_type, description, capabilities, permissions, provider, model, runtime_agent, team_id, color, status, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+       (id, name, role, agent_type, origin, description, capabilities, permissions, provider, model, runtime_agent, team_id, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         agent.id,
         agent.name,
         agent.role,
         agent.agentType ?? 'workspace',
+        agent.origin ?? 'user',
+        agent.description ?? '',
+        JSON.stringify(agent.capabilities),
+        JSON.stringify(agent.permissions),
+        agent.provider ?? '',
+        agent.model ?? '',
+        agent.runtimeAgent ?? '',
+        agent.teamId ?? '',
+        agent.color ?? '',
+        agent.status,
+        agent.createdAt,
+      ],
+    );
+  }
+
+  async saveAgent(agent: AgentDefinition): Promise<void> {
+    // GA-4.3: System agent identity mutation protection
+    if (agent.origin === 'system' && agent.id) {
+      const existing = await this.getAgent(agent.id);
+      if (existing && existing.origin === 'system' && existing.id !== agent.id) {
+        throw new Error(`Cannot change system agent identity: ${existing.id} → ${agent.id}`);
+      }
+    }
+
+    dbRun(
+      this.db,
+      `INSERT OR REPLACE INTO agents
+       (id, name, role, agent_type, origin, description, capabilities, permissions, provider, model, runtime_agent, team_id, color, status, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        agent.id,
+        agent.name,
+        agent.role,
+        agent.agentType ?? 'workspace',
+        agent.origin ?? 'user',
         agent.description ?? '',
         JSON.stringify(agent.capabilities),
         JSON.stringify(agent.permissions),
@@ -100,7 +149,12 @@ export class AgentStorage {
     return row ? this.rowToAgent(row) : null;
   }
 
+  /** GA-4.3: System agents cannot be deleted. */
   async deleteAgent(id: string): Promise<void> {
+    const agent = await this.getAgent(id);
+    if (agent?.origin === 'system') {
+      throw new Error(`Cannot delete system agent: ${id}`);
+    }
     dbRun(this.db, 'DELETE FROM agents WHERE id = ?', [id]);
   }
 
@@ -337,6 +391,7 @@ export class AgentStorage {
       name: row.name,
       role: row.role,
       agentType: row.agent_type || 'workspace',
+      origin: row.origin || 'user',
       description: row.description || undefined,
       capabilities: JSON.parse(row.capabilities ?? '[]'),
       permissions: JSON.parse(row.permissions ?? '[]'),

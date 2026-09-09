@@ -481,7 +481,8 @@ export type AgentRole =
   | 'documentation-agent'
   | 'refactoring-agent'
   | 'release-agent'
-  | 'context';
+  | 'context'
+  | 'assistant';
 
 export type AgentSkillName =
   | 'task-decomposition'
@@ -596,11 +597,20 @@ export type AgentMode = 'primary' | 'subagent' | 'all';
 
 export type AgentType = 'workspace' | 'registry';
 
+/**
+ * GA-4: Distinguishes system-owned canonical agents from user-created agents.
+ * - 'system': registered by Vestara (canonical agents, not deletable/mutable)
+ * - 'user': created by a user (deletable, mutable)
+ */
+export type AgentOrigin = 'system' | 'user';
+
 export interface AgentDefinition {
   id: string;
   name: string;
   role: AgentRole;
   agentType: AgentType;
+  /** GA-4: Ownership origin — 'system' for canonical agents, 'user' for user-created. */
+  origin?: AgentOrigin;
   description?: string;
   capabilities: AgentCapability[];
   permissions: AgentPermission[];

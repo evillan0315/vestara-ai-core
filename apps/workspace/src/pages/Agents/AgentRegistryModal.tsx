@@ -290,13 +290,13 @@ export default function AgentRegistryModal({ agent, teams, onSave, onClose, role
                       onChange={() => setAgentType('registry')}
                       className="w-4 h-4 text-(--vestara-accent-text) bg-(--vestara-accent-bg) border-(--vestara-accent-border) focus:ring-(--vestara-accent-border-active)"
                     />
-                    <span className="text-xs text-(--vestara-text-2)">Registry Agent</span>
+                    <span className="text-xs text-(--vestara-text-2)">Global Agent</span>
                   </label>
                 </div>
                 <p className="text-[10px] text-(--vestara-text-muted) mt-1">
                   {agentType === 'workspace'
                     ? 'Local agent configured in this workspace'
-                    : 'Agent installed from the marketplace registry'}
+                    : 'Available across workspaces. Access remains governed per workspace.'}
                 </p>
               </div>
               <div>

@@ -132,6 +132,7 @@ export async function handleAgentsRoute(
         name,
         role: body.role || 'custom',
         agentType: body.agentType || 'workspace',
+        origin: body.origin || 'user',
         description: typeof body.description === 'string' ? body.description : '',
         capabilities: body.capabilities || ([] as any[]),
         permissions:
@@ -196,6 +197,13 @@ export async function handleAgentsRoute(
         json(res, 404, { error: 'agent not found' });
         return true;
       }
+      // GA-4.3: System agent identity mutation protection
+      if (existing.origin === 'system') {
+        if (body.id && body.id !== id) {
+          json(res, 400, { error: 'Cannot change system agent identity' });
+          return true;
+        }
+      }
       if (body.name !== undefined && typeof body.name === 'string' && !body.name.trim()) {
         json(res, 400, { error: 'Agent name must not be empty' });
         return true;
@@ -233,6 +241,11 @@ export async function handleAgentsRoute(
       const id = decodeURIComponent(agentMatch[1]);
       const actor = getActor(req, ctx);
       const existing = await ctx.agents.getAgent(id);
+      // GA-4.3: System agents cannot be deleted via API
+      if (existing?.origin === 'system') {
+        json(res, 403, { error: 'Cannot delete system agent' });
+        return true;
+      }
       await ctx.agents.deleteAgent(id);
       logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.AGENT_DELETE, 'agent', id, existing?.name);
       json(res, 200, { deleted: true });

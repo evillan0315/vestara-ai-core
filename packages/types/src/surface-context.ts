@@ -1,21 +1,34 @@
 /**
  * VESTARA-INTELLIGENCE GA-3: Surface Context Contract Types
  *
- * Bounded reference types for identifying where a human is in Vestara
- * and what bounded resources/capabilities they are interacting with.
+ * Defines the minimum stable TypeScript contracts for Surface Context —
+ * the client-composed representation of "where is the human in Vestara,
+ * and what bounded resources/capabilities are they currently interacting with?"
  *
- * Surface Context = location + bounded references
- * NOT = assembled AI prompt/context
+ * Ownership:
+ * - These types define the CONTRACT boundary for client-composed Surface Context.
+ * - No server endpoint. No new persistence. Client composes from existing hooks.
+ * - Existing authorities retain ownership: WorkspaceManifest (workspace identity),
+ *   RepositoryBinding (execution binding), React Router (route state),
+ *   GraphContext (selected entity).
  *
- * These types are a deterministic client projection. They perform no
- * retrieval, ranking, search, generation, summarization, aggregation,
- * inference, routing, execution, or authorization.
+ * Design constraints:
+ * - Surface Context is a passive data structure — no retrieval, ranking, budget, or lifecycle.
+ * - Surface Context does NOT carry: diagnostics, conversation state, connection state,
+ *   actor identity, repository binding details, or full entity payloads.
+ * - Surface-generic: no Activity Room, Workflow, or domain-specific fields.
+ * - Degrades by losing optional references, not collapsing globally.
+ *
+ * Future phases:
+ * - GA-2 (Conversation): Surface Context may be consumed alongside conversation state.
+ * - GA-1 (Floating Assistant): Surface Context provides location context for the assistant.
+ * - Context Intelligence: May consume Surface Context as one input among many.
  *
  * @see VESTARA-INTELLIGENCE-GA3-PREFLIGHT.md
- * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §4 (INV-CTX-1/2/3)
+ * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-// ─── Bounded Reference ────────────────────────────────────────
+// ─── Surface Reference ──────────────────────────────────────────────────────
 
 /**
  * Bounded reference to an entity or resource.
@@ -24,15 +37,17 @@
  * Consumer resolves full entity via its own authority.
  */
 export interface SurfaceReference {
-  /** Entity kind (e.g., 'agent', 'plan', 'task', 'file'). Surface/module-generic. */
+  /** Entity kind (e.g., 'agent', 'plan', 'task', 'file', 'workflow') */
   readonly kind: string;
-  /** Entity ID (e.g., 'developer-001', 'plan-abc'). */
+
+  /** Entity ID (e.g., 'developer-001', 'plan-abc') */
   readonly id: string;
-  /** Human-readable label (optional, for display only). Must not participate in authorization. */
+
+  /** Human-readable label (optional, for display) */
   readonly label?: string;
 }
 
-// ─── Workspace Scope ──────────────────────────────────────────
+// ─── Workspace Identity ─────────────────────────────────────────────────────
 
 /**
  * Workspace identity — bounded scope reference.
@@ -40,30 +55,34 @@ export interface SurfaceReference {
  * Existing RepositoryBinding authority resolves execution binding.
  */
 export interface SurfaceWorkspace {
-  /** WorkspaceManifestData.id (SHA-256 of canonical path). */
+  /** WorkspaceManifestData.id (SHA-256 of canonical path) */
   readonly id: string;
-  /** WorkspaceManifestData.name. */
+
+  /** WorkspaceManifestData.name */
   readonly name: string;
 }
 
-// ─── Surface Location ─────────────────────────────────────────
+// ─── Surface Location ───────────────────────────────────────────────────────
 
 /**
  * Current surface/page location — where is the human?
  * Client-observed via React Router + NAV_CATEGORIES.
  */
 export interface SurfaceLocation {
-  /** APP_ROUTES match (null if route not in navigation manifest). */
+  /** APP_ROUTES match (e.g., 'activity-v2', 'sessions', 'graph') */
   readonly routeId: string | null;
-  /** useLocation().pathname. */
+
+  /** useLocation().pathname (e.g., '/activity-v2') */
   readonly path: string;
-  /** NAV_CATEGORIES title (null if no match). */
+
+  /** NAV_CATEGORIES title (e.g., 'Activity Room (M11C)') */
   readonly title: string | null;
-  /** NAV_CATEGORIES category title (null if no match). */
+
+  /** NAV_CATEGORIES category (e.g., 'Workspace') */
   readonly section: string | null;
 }
 
-// ─── Complete Surface Context ─────────────────────────────────
+// ─── Surface Context ────────────────────────────────────────────────────────
 
 /**
  * Complete Surface Context — location + bounded references.
@@ -72,10 +91,12 @@ export interface SurfaceLocation {
  * Client-composed from existing hooks. No server endpoint.
  */
 export interface SurfaceContext {
-  /** Under which workspace scope? */
+  /** Under which workspace scope? (server-derived, client-cached) */
   readonly workspace: SurfaceWorkspace;
-  /** Where is the human? */
+
+  /** Where is the human? (client-observed via React Router + NAV_CATEGORIES) */
   readonly surface: SurfaceLocation;
-  /** What bounded resource? (optional — absence is normal) */
+
+  /** What bounded resource? (optional — not all surfaces have an Inspector entity) */
   readonly selected?: SurfaceReference;
 }

@@ -81,6 +81,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Context',
     role: 'context',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Discover repository state before planning begins.',
     capabilities: ['architecture-analysis', 'dependency-analysis', 'summarization', 'knowledge-management'],
     permissions: [
@@ -158,6 +159,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Developer',
     role: 'developer',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Implement approved tasks — never invent scope.',
     capabilities: ['code-generation', 'refactoring', 'bug-fixing'],
     permissions: [
@@ -205,6 +207,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Planner',
     role: 'planning',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Analyze, prioritize, recommend — never write code.',
     capabilities: ['planning', 'dependency-analysis', 'architecture-analysis', 'summarization', 'knowledge-management'],
     permissions: [
@@ -253,6 +256,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Reviewer',
     role: 'reviewer',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Review implementations — never modify code.',
     capabilities: ['design-review', 'quality-analysis', 'testing'],
     permissions: [
@@ -306,6 +310,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Verifier',
     role: 'verifier',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Prove correctness via evidence — never think, never review.',
     capabilities: ['testing', 'diagnostics', 'quality-analysis'],
     permissions: [
@@ -363,8 +368,9 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
   {
     id: 'agent-assistant',
     name: 'Assistant',
-    role: 'conversation',
+    role: 'assistant',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Global conversational assistant for Workspace users.',
     capabilities: [
       'conversation',
@@ -421,6 +427,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Browser',
     role: 'custom',
     agentType: 'workspace',
+    origin: 'system',
     description:
       'Interact with web applications through a governed browser session — observe, navigate, click, type, and collect evidence.',
     capabilities: ['web-navigation', 'web-observation', 'web-interaction', 'web-research'],
@@ -478,6 +485,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     name: 'Coder',
     role: 'custom',
     agentType: 'workspace',
+    origin: 'system',
     description: 'Executes coding subtasks in sequence, ensuring completion as specified.',
     capabilities: [
       'architecture-analysis',

@@ -211,6 +211,13 @@ export const AGENT_MIGRATIONS: readonly MigrationStep[] = [
       ctx.addColumnIfMissing(db, 'agents', 'runtime_agent', "TEXT DEFAULT ''");
     },
   },
+  {
+    name: 'agents.origin',
+    produces: [fingerprint('agents', ['origin'])],
+    up: (db: Database, ctx: MigrationContext) => {
+      ctx.addColumnIfMissing(db, 'agents', 'origin', "TEXT DEFAULT 'user'");
+    },
+  },
 ];
 
 /** Agent-domain-only manifest (used by agent-specific tests and callers). */
