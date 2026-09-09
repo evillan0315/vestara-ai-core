@@ -237,23 +237,168 @@ export interface DiagnosticSnapshot {
   readonly payload?: JsonRecord;
 }
 
-// ─── Deferred Contracts ─────────────────────────────────────────────────────
+// ─── DIAG-2: Incident Bundle ───────────────────────────────────────────────
 
 /**
- * DIAG-2/3/4 contracts are deferred from DIAG-0 because their semantics
- * cannot be fully specified without implementation experience from DIAG-1.
+ * DIAG-2: Incident-scoped collection of snapshots, correlated events,
+ * and evidence bundle references.
  *
- * Deferred:
- * - DiagnosticIncidentBundle (DIAG-2): incident-scoped collection of snapshots,
- *   correlated events, evidence bundle references. Requires understanding of
- *   how incidents are identified and bounded.
- * - DiagnosticCorrelation (DIAG-3): incident-scoped correlation rules linking
- *   related events to incident IDs. Requires understanding of correlation
- *   semantics and temporal ordering.
- * - DiagnosticIncidentTimeline (DIAG-4): ordered sequence of diagnostic events
- *   for a given incident. Requires understanding of timeline construction
- *   and time-sliced querying.
+ * An incident bundle represents a bounded diagnostic incident — a period
+ * during which related diagnostic observations are grouped together for
+ * analysis. The bundle references (never contains) evidence from PCS-026
+ * and snapshots from DIAG-1.
  *
- * These will be defined in their respective M-B2 phases after DIAG-1
- * establishes the snapshot foundation.
+ * Design constraints:
+ * - References evidence by FK (bundleId), never by value
+ * - References snapshots by reference, not embedded copies
+ * - Lifecycle: `open` → `closing` → `closed` (or `discarded`)
+ * - Root cause is NOT in the bundle (Observer owns analysis)
+ * - Recovery status is NOT in the bundle (Workflow/Governance owns recovery)
  */
+export interface DiagnosticIncidentBundle {
+  /** Unique incident identifier */
+  readonly id: string;
+
+  /** Human-readable incident title */
+  readonly title: string;
+
+  /** Incident lifecycle status */
+  readonly status: DiagnosticIncidentStatus;
+
+  /** Severity of the incident (highest observed severity across bundled snapshots) */
+  readonly severity: DiagnosticSeverity;
+
+  /** ISO-8601 timestamp when the incident was first detected */
+  readonly detectedAt: string;
+
+  /** ISO-8601 timestamp when the incident status last changed */
+  readonly updatedAt: string;
+
+  /** ISO-8601 timestamp when the incident was closed/discarded (null if still open) */
+  readonly closedAt?: string;
+
+  /** Source IDs involved in this incident */
+  readonly sourceIds: readonly string[];
+
+  /** References to bundled snapshots (FK to DiagnosticSnapshot.source.id + observedAt) */
+  readonly snapshotRefs: readonly DiagnosticSnapshotRef[];
+
+  /** References to correlated evidence bundles (FK to PCS-026 VerificationEvidenceBundle.id) */
+  readonly evidenceBundleRefs: readonly string[];
+
+  /** Optional human-readable description of the incident */
+  readonly description?: string;
+
+  /** Optional tags for categorization */
+  readonly tags?: readonly string[];
+}
+
+/** Incident lifecycle status */
+export type DiagnosticIncidentStatus = 'open' | 'closing' | 'closed' | 'discarded';
+
+/** Reference to a diagnostic snapshot within an incident bundle */
+export interface DiagnosticSnapshotRef {
+  /** Source ID (DiagnosticSourceRef.id) */
+  readonly sourceId: string;
+
+  /** ISO-8601 timestamp of the snapshot (DiagnosticSnapshot.observedAt) */
+  readonly observedAt: string;
+
+  /** Brief summary of what the snapshot observed */
+  readonly summary: string;
+}
+
+// ─── DIAG-3: Correlation ───────────────────────────────────────────────────
+
+/**
+ * DIAG-3: Incident-scoped correlation linking related diagnostic events
+ * to incident IDs.
+ *
+ * Correlation rules determine which diagnostic observations belong to the
+ * same incident. Rules are evaluated against incoming snapshots to group
+ * related observations.
+ */
+export interface DiagnosticCorrelation {
+  /** Unique correlation rule identifier */
+  readonly id: string;
+
+  /** Human-readable rule description */
+  readonly description: string;
+
+  /** The correlation strategy used */
+  readonly strategy: DiagnosticCorrelationStrategy;
+
+  /** Time window in milliseconds for temporal correlation */
+  readonly windowMs: number;
+
+  /** Source kinds this rule applies to (empty = all kinds) */
+  readonly sourceKinds: readonly DiagnosticSourceKind[];
+
+  /** Whether this rule is active */
+  readonly active: boolean;
+}
+
+/** Correlation strategy types */
+export type DiagnosticCorrelationStrategy =
+  | 'temporal'    // Time-proximate observations (within windowMs)
+  | 'source'      // Same source ID
+  | 'severity'    // Same or escalating severity
+  | 'evidence';   // Shared evidence references
+
+// ─── DIAG-4: Incident Timeline ─────────────────────────────────────────────
+
+/**
+ * DIAG-4: Ordered sequence of diagnostic events for a given incident.
+ *
+ * The timeline provides a time-ordered view of all events related to
+ * an incident, enabling historical analysis and root-cause investigation.
+ */
+export interface DiagnosticIncidentTimeline {
+  /** Incident ID (FK to DiagnosticIncidentBundle.id) */
+  readonly incidentId: string;
+
+  /** Time-ordered events in this timeline */
+  readonly events: readonly DiagnosticTimelineEvent[];
+
+  /** ISO-8601 timestamp of the earliest event */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp of the latest event */
+  readonly endedAt: string;
+}
+
+/** A single event in an incident timeline */
+export interface DiagnosticTimelineEvent {
+  /** Unique event identifier */
+  readonly id: string;
+
+  /** ISO-8601 timestamp of the event */
+  readonly timestamp: string;
+
+  /** The type of event */
+  readonly type: DiagnosticTimelineEventType;
+
+  /** Source ID that produced this event */
+  readonly sourceId: string;
+
+  /** Human-readable event description */
+  readonly message: string;
+
+  /** Optional severity at the time of this event */
+  readonly severity?: DiagnosticSeverity;
+
+  /** Optional reference to a snapshot (DiagnosticSnapshotRef) */
+  readonly snapshotRef?: DiagnosticSnapshotRef;
+
+  /** Optional reference to an evidence bundle (FK to PCS-026) */
+  readonly evidenceBundleRef?: string;
+}
+
+/** Timeline event types */
+export type DiagnosticTimelineEventType =
+  | 'observed'     // A diagnostic observation was made
+  | 'escalated'    // Severity increased
+  | 'de-escalated' // Severity decreased
+  | 'correlated'   // Event was linked to an incident
+  | 'evidence'     // Evidence was attached
+  | 'status';      // Incident status changed

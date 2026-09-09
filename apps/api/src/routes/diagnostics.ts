@@ -185,6 +185,33 @@ export async function handleDiagnosticsRoute(
     return true;
   }
 
+  // ─── DIAG-1: Vestara Runtime Diagnostic Snapshots ─────────────
+  if (method === 'GET' && p === '/api/diagnostics/snapshots') {
+    const memory = collect.collectMemory();
+    const disks = collect.collectDisks();
+    const gpu = collect.collectGpu();
+    const docker = collect.collectDocker();
+    const git = collect.collectGit(ctx.repoPath);
+    const versions = collect.collectVersions();
+
+    const { collectDiagnosticSnapshots } = await import('../diagnostics/snapshots.js');
+    const result = collectDiagnosticSnapshots(ctx.repoPath, {
+      repoPath: ctx.repoPath,
+      workspaceStatus: ctx.runtime.currentStatus,
+      memAvailableBytes: memory.available,
+      memTotalBytes: memory.total,
+      diskFreeBytes: disks[0]?.available ?? 0,
+      diskTotalBytes: disks[0]?.size ?? 0,
+      gpuAvailable: gpu.available,
+      dockerAvailable: docker.available,
+      gitAvailable: git.available,
+      pythonAvailable: !!versions.python,
+      nodeVersion: versions.node,
+    });
+    json(res, 200, result);
+    return true;
+  }
+
   if (method === 'GET' && p === '/api/diagnostics/events') {
     const limit = Math.min(Number(url.searchParams.get('limit') ?? 100), 500);
     const category = url.searchParams.get('category');
