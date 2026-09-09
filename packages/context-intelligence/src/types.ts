@@ -1175,3 +1175,327 @@ export interface InvestigationOutcome {
   /** Overall confidence score (0-1) */
   readonly confidenceScore: number;
 }
+
+// ─── EFF-4: Incident Knowledge Accumulation ────────────────────
+
+/**
+ * EFF-4: Incident knowledge record — accumulated from diagnostic history.
+ * Lifecycle: observation → hypothesis → diagnosis → correction → verification → recovery → certified knowledge.
+ * Unverified hypotheses never become facts (INV-IK-1).
+ */
+export interface IncidentKnowledge {
+  /** Unique knowledge identifier */
+  readonly id: string;
+
+  /** Incident ID this knowledge is about */
+  readonly incidentId: string;
+
+  /** Knowledge lifecycle status */
+  readonly status: IncidentKnowledgeStatus;
+
+  /** Title of the incident knowledge */
+  readonly title: string;
+
+  /** Detailed description of what was learned */
+  readonly description: string;
+
+  /** Root cause (may be 'indeterminate' if not identified) */
+  readonly rootCause: string;
+
+  /** Confidence score (0-1) */
+  readonly confidence: number;
+
+  /** Confidence level label */
+  readonly confidenceLevel: IncidentKnowledgeConfidence;
+
+  /** Source IDs that contributed to this knowledge */
+  readonly sourceIds: readonly string[];
+
+  /** Evidence bundle references (FK to PCS-026) */
+  readonly evidenceBundleRefs: readonly string[];
+
+  /** Related finding IDs */
+  readonly findingIds: readonly string[];
+
+  /** ISO-8601 timestamp when knowledge was first observed */
+  readonly observedAt: string;
+
+  /** ISO-8601 timestamp when knowledge was last updated */
+  readonly updatedAt: string;
+
+  /** ISO-8601 timestamp when knowledge was certified (if applicable) */
+  readonly certifiedAt?: string;
+
+  /** Tags for categorization */
+  readonly tags?: readonly string[];
+}
+
+/**
+ * EFF-4: Knowledge lifecycle status.
+ * Progression: observation → hypothesis → diagnosis → correction → verification → recovery → certified
+ */
+export type IncidentKnowledgeStatus =
+  | 'observation'     // Initial detection
+  | 'hypothesis'      // Preliminary explanation proposed
+  | 'diagnosis'       // Root cause identified
+  | 'correction'      // Correction proposed
+  | 'verification'    // Correction verified
+  | 'recovery'        // Recovery completed
+  | 'certified'       // Knowledge certified as reliable
+  | 'rejected';       // Knowledge rejected as invalid
+
+/**
+ * EFF-4: Knowledge confidence levels.
+ */
+export type IncidentKnowledgeConfidence =
+  | 'low'          // 0.0 - 0.3: weak evidence, speculative
+  | 'moderate'     // 0.3 - 0.6: some evidence, plausible
+  | 'high'         // 0.6 - 0.8: strong evidence, likely
+  | 'very-high';   // 0.8 - 1.0: overwhelming evidence, near-certain
+
+// ─── EFF-5: Predictive Health ──────────────────────────────────
+
+/**
+ * EFF-5: Predictive health model — detects degradation trends,
+ * forecasts incidents, recommends proactive actions.
+ * Advisory, not executive.
+ */
+export interface PredictiveHealthModel {
+  /** Unique model identifier */
+  readonly id: string;
+
+  /** Source ID being monitored */
+  readonly sourceId: string;
+
+  /** Current health prediction */
+  readonly prediction: HealthPrediction;
+
+  /** Degradation trends detected */
+  readonly trends: readonly DegradationTrend[];
+
+  /** Recommended proactive actions */
+  readonly recommendations: readonly HealthRecommendation[];
+
+  /** Model confidence (0-1) */
+  readonly confidence: number;
+
+  /** ISO-8601 timestamp of last model update */
+  readonly lastUpdatedAt: string;
+
+  /** ISO-8601 timestamp of next predicted check */
+  readonly nextCheckAt?: string;
+}
+
+/**
+ * EFF-5: Health prediction result.
+ */
+export interface HealthPrediction {
+  /** Predicted health state */
+  readonly predictedHealth: 'healthy' | 'degraded' | 'unhealthy';
+
+  /** Time until predicted degradation (ms, null = no degradation predicted) */
+  readonly timeUntilDegradationMs: number | null;
+
+  /** Confidence in the prediction (0-1) */
+  readonly confidence: number;
+
+  /** Prediction horizon (how far ahead the model looks) */
+  readonly horizonMs: number;
+}
+
+/**
+ * EFF-5: Degradation trend detected by the model.
+ */
+export interface DegradationTrend {
+  /** Metric being tracked */
+  readonly metric: string;
+
+  /** Trend direction */
+  readonly direction: 'improving' | 'stable' | 'degrading';
+
+  /** Rate of change per hour */
+  readonly ratePerHour: number;
+
+  /** Historical data points for this trend */
+  readonly dataPoints: readonly TrendDataPoint[];
+
+  /** Confidence in the trend (0-1) */
+  readonly confidence: number;
+}
+
+/**
+ * EFF-5: Single data point in a trend.
+ */
+export interface TrendDataPoint {
+  /** ISO-8601 timestamp */
+  readonly timestamp: string;
+
+  /** Metric value */
+  readonly value: number;
+}
+
+/**
+ * EFF-5: Health recommendation — advisory, not executive.
+ */
+export interface HealthRecommendation {
+  /** Recommendation identifier */
+  readonly id: string;
+
+  /** Recommendation type */
+  readonly type: HealthRecommendationType;
+
+  /** Recommendation description */
+  readonly description: string;
+
+  /** Priority (1 = highest) */
+  readonly priority: number;
+
+  /** Confidence in the recommendation (0-1) */
+  readonly confidence: number;
+
+  /** Whether this recommendation has been acted upon */
+  readonly actedUpon: boolean;
+}
+
+/**
+ * EFF-5: Types of health recommendations.
+ */
+export type HealthRecommendationType =
+  | 'monitor'        // Continue monitoring
+  | 'investigate'    // Investigate the degradation
+  | 'restart'        // Restart the service
+  | 'scale'          // Scale resources
+  | 'config-change'  // Apply configuration change
+  | 'alert';         // Alert the operator
+
+// ─── EFF-6: Self-Maintenance Certification ─────────────────────
+
+/**
+ * EFF-6: Self-maintenance certification — validates the full loop:
+ * detect → diagnose → investigate → correct → verify → recover → learn.
+ * Certification scenario replays GA-ACCEPT-001.
+ */
+export interface SelfMaintenanceCertification {
+  /** Unique certification identifier */
+  readonly id: string;
+
+  /** Certification status */
+  readonly status: CertificationStatus;
+
+  /** Certification checks performed */
+  readonly checks: readonly CertificationCheck[];
+
+  /** Overall certification result */
+  readonly result: CertificationResult;
+
+  /** ISO-8601 timestamp when certification started */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp when certification completed */
+  readonly completedAt?: string;
+
+  /** Duration in milliseconds */
+  readonly durationMs?: number;
+
+  /** Optional: incident ID used for replay (GA-ACCEPT-001) */
+  readonly replayIncidentId?: string;
+}
+
+/**
+ * EFF-6: Certification status.
+ */
+export type CertificationStatus =
+  | 'pending'      // Certification not yet started
+  | 'in-progress'  // Certification in progress
+  | 'completed'    // Certification completed
+  | 'failed';      // Certification failed
+
+/**
+ * EFF-6: Individual certification check.
+ */
+export interface CertificationCheck {
+  /** Check identifier */
+  readonly id: string;
+
+  /** Check name/description */
+  readonly name: string;
+
+  /** Check type */
+  readonly type: CertificationCheckType;
+
+  /** Check result */
+  readonly result: 'passed' | 'failed' | 'skipped';
+
+  /** Check details */
+  readonly detail: string;
+
+  /** ISO-8601 timestamp when check was executed */
+  readonly executedAt: string;
+}
+
+/**
+ * EFF-6: Types of certification checks.
+ */
+export type CertificationCheckType =
+  | 'detect'          // Verify detection worked
+  | 'diagnose'        // Verify diagnosis worked
+  | 'investigate'     // Verify investigation worked
+  | 'correct'         // Verify correction worked
+  | 'verify'          // Verify verification worked
+  | 'recover'         // Verify recovery worked
+  | 'learn';          // Verify knowledge accumulation worked
+
+/**
+ * EFF-6: Overall certification result.
+ */
+export type CertificationResult = 'passed' | 'failed' | 'partial';
+
+// ─── GA-ACCEPT-001: M11C WASM Incident Replay ──────────────────
+
+/**
+ * GA-ACCEPT-001: End-to-end replay of the M11C WASM incident.
+ * Proves the platform would have detected, diagnosed, investigated,
+ * corrected, verified, recovered, and learned from the incident.
+ */
+export interface M11CIncidentReplay {
+  /** Replay identifier */
+  readonly id: string;
+
+  /** The original incident being replayed */
+  readonly originalIncidentId: string;
+
+  /** Replay status */
+  readonly status: 'pending' | 'in-progress' | 'completed' | 'failed';
+
+  /** Replay results for each phase */
+  readonly phases: readonly ReplayPhase[];
+
+  /** Overall replay result */
+  readonly result: CertificationResult;
+
+  /** ISO-8601 timestamp when replay started */
+  readonly startedAt: string;
+
+  /** ISO-8601 timestamp when replay completed */
+  readonly completedAt?: string;
+}
+
+/**
+ * GA-ACCEPT-001: Result of replaying a single phase.
+ */
+export interface ReplayPhase {
+  /** Phase name */
+  readonly phase: 'detect' | 'diagnose' | 'investigate' | 'correct' | 'verify' | 'recover' | 'learn';
+
+  /** Phase result */
+  readonly result: 'passed' | 'failed' | 'skipped';
+
+  /** Phase details */
+  readonly detail: string;
+
+  /** Evidence produced during this phase */
+  readonly evidence: readonly string[];
+
+  /** Duration in milliseconds */
+  readonly durationMs: number;
+}

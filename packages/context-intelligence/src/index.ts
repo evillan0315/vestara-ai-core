@@ -7,13 +7,15 @@
  * Architecture Traceability:
  *   CTX-1/2/3/4/5/6/7/8/9/10: Context Intelligence
  *   ENG-0/1/2/3/4/5/6: Engineering Autonomy
- *   EFF-0/1/2/3: Efficiency Analytics
+ *   EFF-0/1/2/3/4/5/6: Efficiency & Knowledge
+ *   GA-ACCEPT-001: M11C Incident Replay
  *
  * Invariants:
  *   INV-CTX-1: Context relevance does not confer authority
  *   INV-CTX-2: Context has no cache
  *   INV-CTX-3: Context does not trigger refresh
  *   INV-REC-1: Recovery proceeds without root-cause completion
+ *   INV-IK-1: Unverified hypotheses never become facts
  */
 
 export { ContextIntelligenceEngine } from './engine';
@@ -23,6 +25,10 @@ export type {
   ChangeAwareQuery,
   ChangeAwareResult,
   ChangeFileContext,
+  CertificationCheck,
+  CertificationCheckType,
+  CertificationResult,
+  CertificationStatus,
   CompressionSummary,
   ContextAssemblerConfig,
   ContextBudget,
@@ -40,13 +46,20 @@ export type {
   CorrectionProposal,
   CorrectionProposalStatus,
   CorrectionTarget,
+  DegradationTrend,
   DeveloperPreflightQuery,
   DeveloperPreflightResult,
   EscalationAuthority,
   EscalationRequest,
   EscalationStatus,
+  HealthPrediction,
+  HealthRecommendation,
+  HealthRecommendationType,
   HistoricalIncidentQuery,
   HistoricalIncidentResult,
+  IncidentKnowledge,
+  IncidentKnowledgeConfidence,
+  IncidentKnowledgeStatus,
   Investigation,
   InvestigationCost,
   InvestigationEfficiency,
@@ -54,15 +67,20 @@ export type {
   InvestigationFinding,
   InvestigationOutcome,
   InvestigationStatus,
+  M11CIncidentReplay,
   MinimumSufficientConfig,
+  PredictiveHealthModel,
   RecoveryAction,
   RecoveryStatus,
   RecoveryStep,
   RecoveryStrategy,
   ResourceBudget,
   ResourceUsage,
+  ReplayPhase,
+  SelfMaintenanceCertification,
   TimeAnalytics,
   TokenAnalytics,
+  TrendDataPoint,
   VerificationCheck,
   VerificationCheckType,
   VerificationEvidence,
