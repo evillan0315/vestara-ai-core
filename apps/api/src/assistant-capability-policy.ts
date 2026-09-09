@@ -10,9 +10,9 @@
  *   Assistant authority = AssistantCapabilityPolicy ∩ OpenCodeRuntimeCapability ∩ RepositoryBinding
  *
  * Policy categories:
- *   ALLOW  — auto-approve (read-only, non-mutating)
- *   ASK    — surface to user (network access, task management)
- *   DENY   — auto-reject (mutation, direct execution)
+ *   ALLOW  — auto-approve (all known tools)
+ *   ASK    — surface to user (currently unused; reserved for future gating)
+ *   DENY   — auto-reject (unknown actions fall through)
  *
  * The policy is evaluated per permission request. Tool names are normalized
  * to OpenCodePermissionAction before matching.
@@ -60,19 +60,13 @@ export interface AssistantCapabilityPolicy {
  *
  * capability available ≠ capability authorized ≠ capability executed.
  *
- * READ / OBSERVATION (ALLOW):
- *   read, glob, grep, list, lsp, skill, todowrite, task   ALLOW
- *
- * MUTATION / SHELL / NETWORK / EXTERNAL (ASK — real interactive decisions):
- *   edit, write, bash, webfetch, websearch, external_directory  ASK
+ * ALL tools (ALLOW — full assistant authority per GA-CAP-001):
+ *   read, glob, grep, list, edit, write, bash, lsp, skill, todowrite,
+ *   task, webfetch, websearch, external_directory  ALLOW
  *
  * UNKNOWN (DENY):
  *   a newly appearing OpenCode tool must not automatically acquire mutation
  *   authority. Unknown actions and unmatched patterns fall through to DENY.
- *
- * ASK is not a failure: the adapter projects the request to the Floating
- * Assistant, the user decides (Allow once / Allow for session / Deny), and the
- * decision is answered back to OpenCode with its native response semantics.
  */
 export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCapabilityPolicy {
   return {
@@ -85,13 +79,13 @@ export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCa
       { action: 'grep', decision: 'allow', reason: 'grep: safe content search' },
       { action: 'list', decision: 'allow', reason: 'list: safe directory listing' },
 
-      // ── MUTATION / SHELL (ASK — user decides) ──
-      { action: 'edit', decision: 'ask', reason: 'edit: mutation requires user approval' },
-      { action: 'write', decision: 'ask', reason: 'write: mutation requires user approval' },
-      { action: 'bash', decision: 'ask', reason: 'bash: shell execution requires user approval' },
+      // ── MUTATION / SHELL (ALLOW — full assistant authority) ──
+      { action: 'edit', decision: 'allow', reason: 'edit: full assistant authority (GA-CAP-001)' },
+      { action: 'write', decision: 'allow', reason: 'write: full assistant authority (GA-CAP-001)' },
+      { action: 'bash', decision: 'allow', reason: 'bash: full assistant authority (GA-CAP-001)' },
 
-      // ── NETWORK (ASK) ──
-      { action: 'webfetch', decision: 'ask', reason: 'webfetch: network access requires user approval' },
+      // ── NETWORK (ALLOW — full assistant authority) ──
+      { action: 'webfetch', decision: 'allow', reason: 'webfetch: full assistant authority (GA-CAP-001)' },
 
       // ── 'other' catch-all with resource pattern checks ──
       // skill/todowrite/task/lsp: ALLOW (maps to 'other')
@@ -101,18 +95,18 @@ export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCa
         reason: 'assistant support tools: skill/todowrite/task/lsp',
         resourcePattern: /^(skill|todowrite|task|lsp)/i,
       },
-      // websearch: ASK (maps to 'other')
+      // websearch: ALLOW (maps to 'other')
       {
         action: 'other',
-        decision: 'ask',
-        reason: 'websearch: network access requires user approval',
+        decision: 'allow',
+        reason: 'websearch: full assistant authority (GA-CAP-001)',
         resourcePattern: /^websearch/i,
       },
-      // external directory access: ASK
+      // external directory access: ALLOW (maps to 'other')
       {
         action: 'other',
-        decision: 'ask',
-        reason: 'external_directory: external scope requires user approval',
+        decision: 'allow',
+        reason: 'external_directory: full assistant authority (GA-CAP-001)',
         resourcePattern: /external/i,
       },
     ],

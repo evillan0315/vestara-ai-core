@@ -1,20 +1,17 @@
 /**
- * GA-CAP-003 / GA-RUNTIME-001 B: Assistant Capability Policy — Deterministic Tests.
+ * GA-CAP-003 / GA-CAP-001: Assistant Capability Policy — Deterministic Tests.
  *
  * Proves:
  * 1. Assistant can read repository file (ALLOW)
  * 2. Assistant can glob/search repository (ALLOW)
  * 3. Assistant can use allowed skill (ALLOW)
- * 4. edit requires user approval (ASK) — Addendum B supersedes blanket deny
- * 5. bash requires user approval (ASK) — Addendum B supersedes blanket deny
- * 6. A skill cannot upgrade ASK to ALLOW (skills never grant authority)
- * 7. Assistant cannot establish a different repository directory (confinement)
- * 8. webfetch/websearch/external_directory retain ASK semantics
- * 9. Developer agent permissions remain unchanged (no policy applied)
- * 10. Model/provider independence (policy is model-agnostic)
+ * 4. edit/write/bash are allowed (full assistant authority)
+ * 5. webfetch/websearch/external_directory are allowed (full assistant authority)
+ * 6. Assistant cannot establish a different repository directory (confinement)
+ * 7. Developer agent permissions remain unchanged (no policy applied)
+ * 8. Model/provider independence (policy is model-agnostic)
  */
 
-import type { OpenCodePermissionAction } from '@vestara/opencode-runtime';
 import { describe, expect, it } from 'vitest';
 import {
   type AssistantCapabilityPolicy,
@@ -73,48 +70,45 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
     expect(result.reason).toContain('assistant support');
   });
 
-  // ── 4. edit requires user approval (ASK) ──
-  it('asks for edit actions (GA-RUNTIME-001 B supersedes blanket deny)', () => {
+  // ── 4. edit/write/bash allowed (full assistant authority) ──
+  it('allows edit actions (full assistant authority)', () => {
     const result = evaluatePermission(policy(), 'edit', ['packages/shared/src/audio.ts']);
-    expect(result.decision).toBe('ask');
+    expect(result.decision).toBe('allow');
     expect(result.action).toBe('edit');
-    expect(result.reason).toContain('user approval');
   });
 
-  // ── 5. bash requires user approval (ASK) ──
-  it('asks for bash actions', () => {
+  it('allows bash actions (full assistant authority)', () => {
     const result = evaluatePermission(policy(), 'bash', ['pnpm build']);
-    expect(result.decision).toBe('ask');
+    expect(result.decision).toBe('allow');
     expect(result.action).toBe('bash');
-    expect(result.reason).toContain('user approval');
   });
 
-  it('asks for write actions', () => {
+  it('allows write actions (full assistant authority)', () => {
     const result = evaluatePermission(policy(), 'write', ['output.txt']);
-    expect(result.decision).toBe('ask');
+    expect(result.decision).toBe('allow');
     expect(result.action).toBe('write');
   });
 
-  // ── 6. A skill cannot upgrade ASK to ALLOW ──
-  it('skill usage does not upgrade ask authority to allow', () => {
-    // A skill like git-commit-push instructs the model to use bash/edit,
-    // but the policy keeps bash/edit at ASK regardless of skill context.
-    const bashResult = evaluatePermission(policy(), 'bash', ['git commit -m "test"']);
-    const editResult = evaluatePermission(policy(), 'edit', ['README.md']);
-    const writeResult = evaluatePermission(policy(), 'write', ['README.md']);
-
-    expect(bashResult.decision).toBe('ask');
-    expect(editResult.decision).toBe('ask');
-    expect(writeResult.decision).toBe('ask');
+  // ── 5. webfetch/websearch/external_directory allowed (full assistant authority) ──
+  it('allows webfetch (full assistant authority)', () => {
+    const result = evaluatePermission(policy(), 'webfetch', ['https://example.com']);
+    expect(result.decision).toBe('allow');
+    expect(result.action).toBe('webfetch');
   });
 
-  it('skill resource pattern does not match mutation actions', () => {
-    // Even if a skill name contains "bash" or "edit", the action-level rules take precedence
-    const result = evaluatePermission(policy(), 'bash', ['skill:git-commit-push']);
-    expect(result.decision).toBe('ask');
+  it('allows websearch (full assistant authority)', () => {
+    const result = evaluatePermission(policy(), 'other', ['websearch:query']);
+    expect(result.decision).toBe('allow');
+    expect(result.reason).toContain('websearch');
   });
 
-  // ── 7. Cannot establish a different repository directory ──
+  it('allows external directory access (full assistant authority)', () => {
+    const result = evaluatePermission(policy(), 'other', ['external_directory:/tmp/file']);
+    expect(result.decision).toBe('allow');
+    expect(result.reason).toContain('external');
+  });
+
+  // ── 6. Cannot establish a different repository directory ──
   it('confines resources to repository directory', () => {
     const check = checkRepositoryConfinement(REPO_DIR, `${REPO_DIR}/packages/shared/src/audio.ts`);
     expect(check.confined).toBe(true);
@@ -136,26 +130,7 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
     expect(check.confined).toBe(false);
   });
 
-  // ── 8. webfetch/websearch retain ASK semantics ──
-  it('asks for webfetch permission', () => {
-    const result = evaluatePermission(policy(), 'webfetch', ['https://example.com']);
-    expect(result.decision).toBe('ask');
-    expect(result.action).toBe('webfetch');
-  });
-
-  it('asks for websearch permission (maps to other)', () => {
-    const result = evaluatePermission(policy(), 'other', ['websearch:query']);
-    expect(result.decision).toBe('ask');
-    expect(result.reason).toContain('websearch');
-  });
-
-  it('asks for external directory access (maps to other)', () => {
-    const result = evaluatePermission(policy(), 'other', ['external_directory:/tmp/file']);
-    expect(result.decision).toBe('ask');
-    expect(result.reason).toContain('external');
-  });
-
-  // ── 9. Developer agent permissions remain unchanged ──
+  // ── 7. Developer agent permissions remain unchanged ──
   it('policy does not apply to non-assistant agents', () => {
     // The policy is only enforced when capabilityPolicy is provided to the adapter.
     // When no policy is set (Developer, Planner, etc.), all permissions are surfaced.
@@ -165,7 +140,7 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
     // The policy only affects calls that pass it — no global side effects
   });
 
-  // ── 10. Model/provider independence ──
+  // ── 8. Model/provider independence ──
   it('policy decisions are independent of model/provider', () => {
     // Same policy, same inputs → same output regardless of model
     const p = policy();
@@ -177,8 +152,8 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
       const bashResult = evaluatePermission(p, 'bash', ['command']);
 
       expect(readResult.decision).toBe('allow');
-      expect(editResult.decision).toBe('ask');
-      expect(bashResult.decision).toBe('ask');
+      expect(editResult.decision).toBe('allow');
+      expect(bashResult.decision).toBe('allow');
     }
   });
 
@@ -208,8 +183,8 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
     const externalResult = evaluatePermission(policy(), 'other', ['external:/tmp']);
 
     expect(skillResult.decision).toBe('allow'); // skill rule matches first
-    expect(websearchResult.decision).toBe('ask'); // websearch rule matches
-    expect(externalResult.decision).toBe('ask'); // external rule matches
+    expect(websearchResult.decision).toBe('allow'); // websearch rule matches
+    expect(externalResult.decision).toBe('allow'); // external rule matches
   });
 });
 
@@ -228,22 +203,22 @@ describe('buildToolsMap', () => {
     expect(tools.task).toBe(true);
   });
 
-  it('ASK tools are disabled by default', () => {
+  it('all tools are enabled (full assistant authority)', () => {
     const tools = buildToolsMap(policy());
-    expect(tools.edit).toBe(false);
-    expect(tools.write).toBe(false);
-    expect(tools.bash).toBe(false);
-    expect(tools.webfetch).toBe(false);
-    expect(tools.websearch).toBe(false);
-    expect(tools.external_directory).toBe(false);
-  });
-
-  it('ASK tools enabled when approved', () => {
-    const tools = buildToolsMap(policy(), new Set(['edit', 'bash']));
+    expect(tools.read).toBe(true);
+    expect(tools.glob).toBe(true);
+    expect(tools.grep).toBe(true);
+    expect(tools.list).toBe(true);
     expect(tools.edit).toBe(true);
+    expect(tools.write).toBe(true);
     expect(tools.bash).toBe(true);
-    expect(tools.webfetch).toBe(false); // not approved
-    expect(tools.read).toBe(true); // still enabled (ALLOW)
+    expect(tools.webfetch).toBe(true);
+    expect(tools.websearch).toBe(true);
+    expect(tools.external_directory).toBe(true);
+    expect(tools.todowrite).toBe(true);
+    expect(tools.lsp).toBe(true);
+    expect(tools.skill).toBe(true);
+    expect(tools.task).toBe(true);
   });
 
   it('all known tools are present in the map', () => {

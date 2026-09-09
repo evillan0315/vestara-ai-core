@@ -292,14 +292,14 @@ describe('GA-UI-008: GA-CAP-003 production wiring', () => {
     expect(policy.repositoryDir).not.toContain('.vestara');
   });
 
-  it('bash requires user approval (GA-RUNTIME-001 B)', () => {
+  it('bash is allowed (full assistant authority)', () => {
     const result = evaluatePermission(policy, 'bash', ['pnpm build']);
-    expect(result.decision).toBe('ask');
+    expect(result.decision).toBe('allow');
   });
 
-  it('edit requires user approval (GA-RUNTIME-001 B)', () => {
+  it('edit is allowed (full assistant authority)', () => {
     const result = evaluatePermission(policy, 'edit', ['README.md']);
-    expect(result.decision).toBe('ask');
+    expect(result.decision).toBe('allow');
   });
 
   it('allowed read remains allowed', () => {
@@ -307,12 +307,12 @@ describe('GA-UI-008: GA-CAP-003 production wiring', () => {
     expect(result.decision).toBe('allow');
   });
 
-  it('ASK semantics remain intact', () => {
+  it('network and external tools are allowed (full assistant authority)', () => {
     const webfetchResult = evaluatePermission(policy, 'webfetch', ['https://example.com']);
-    expect(webfetchResult.decision).toBe('ask');
+    expect(webfetchResult.decision).toBe('allow');
 
     const websearchResult = evaluatePermission(policy, 'other', ['websearch:query']);
-    expect(websearchResult.decision).toBe('ask');
+    expect(websearchResult.decision).toBe('allow');
   });
 
   it('policy is model/provider independent', () => {
@@ -323,8 +323,8 @@ describe('GA-UI-008: GA-CAP-003 production wiring', () => {
     const unknownResult = evaluatePermission(policy, 'other', ['some-new-tool']);
 
     expect(readResult.decision).toBe('allow');
-    expect(editResult.decision).toBe('ask');
-    expect(bashResult.decision).toBe('ask');
+    expect(editResult.decision).toBe('allow');
+    expect(bashResult.decision).toBe('allow');
     // Unknown actions remain DENY — a newly appearing tool never acquires
     // authority implicitly (GA-RUNTIME-001 B).
     expect(unknownResult.decision).toBe('deny');
