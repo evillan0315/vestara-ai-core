@@ -32,6 +32,7 @@ import { buttonPrimaryClass, buttonSecondaryClass } from '../../components/ui/ag
 import { FormField, TextInput, TextArea, Select, MultiSelect } from '../../components/ui/forms';
 import type { ParticipantProjection } from '@vestara/activity-room';
 import type { TeamRef } from '../../components/ui/agents/types';
+import { WorkTab } from './WorkTab';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -171,6 +172,7 @@ function capitalize(s: string): string {
 
 const TABS = [
   { id: 'overview', label: 'Overview', shortLabel: 'Overview' },
+  { id: 'work', label: 'Work', shortLabel: 'Work' },
   { id: 'configuration', label: 'Configuration', shortLabel: 'Config' },
   { id: 'capabilities', label: 'Capabilities', shortLabel: 'Caps' },
   { id: 'activity', label: 'Activity', shortLabel: 'Activity' },
@@ -708,6 +710,8 @@ export default function AgentProjectionDrawer({
     switch (activeTab) {
       case 'overview':
         return <OverviewTab agent={agent} team={team} participant={participant} loading={loading} error={error} agentColor={agentColor} category={category} />;
+      case 'work':
+        return <WorkTab agentId={agentId} participant={participant} />;
       case 'configuration':
         return <ConfigurationTab agent={agent} teams={teams} draft={draft} updateDraft={updateDraft} validationErrors={validationErrors} saveError={saveError} loading={loading} error={error} />;
       case 'capabilities':
@@ -717,7 +721,7 @@ export default function AgentProjectionDrawer({
       default:
         return null;
     }
-  }, [activeTab, loading, error, agent, team, teams, draft, participant, validationErrors, saveError, agentColor, category, updateDraft]);
+  }, [activeTab, loading, error, agent, agentId, team, teams, draft, participant, validationErrors, saveError, agentColor, category, updateDraft]);
 
   // ─── Footer ─────────────────────────────────────────────────
 
