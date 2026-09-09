@@ -16,6 +16,8 @@ import { WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
  *      agent_schedules, agent_memory, execution_sessions).
  * v2 — add agents.agent_type (commit d838201).
  * v3 — add agents.runtime_agent (formerly an ad-hoc ALTER).
+ *      agents.origin lives in POST_PLANS_MIGRATIONS so it does not shift
+ *      the version numbers already recorded in production databases.
  *
  * Storage constructors no longer mutate schema; the migration chain is the
  * single authoritative evolution path.
@@ -211,6 +213,15 @@ export const AGENT_MIGRATIONS: readonly MigrationStep[] = [
       ctx.addColumnIfMissing(db, 'agents', 'runtime_agent', "TEXT DEFAULT ''");
     },
   },
+];
+
+/**
+ * Migrations that extend the plans manifest *after* the orchestration and
+ * workspace domain slices. Placing new agent columns here prevents them from
+ * shifting the version numbers already recorded in production databases
+ * (e.g. v4 = orchestration.baseline).
+ */
+export const POST_PLANS_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'agents.origin',
     produces: [fingerprint('agents', ['origin'])],
@@ -225,14 +236,15 @@ export const AGENT_MANIFEST: MigrationManifest = buildManifest('plans-agents', [
 
 /**
  * The composition-owned manifest for the shared `plans.db` file: agents domain,
- * orchestration domain, then the workspace domain. Storage constructors never
- * mutate schema; each entrypoint composition root runs this chain with explicit
- * persistence.
+ * orchestration domain, the workspace domain, then post-plans agent extensions.
+ * Storage constructors never mutate schema; each entrypoint composition root
+ * runs this chain with explicit persistence.
  */
 export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   AGENT_MIGRATIONS,
   ORCHESTRATION_MIGRATIONS,
   WORKSPACE_DOMAIN_MIGRATIONS,
+  POST_PLANS_MIGRATIONS,
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';
