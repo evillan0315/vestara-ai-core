@@ -22,6 +22,7 @@ export { TelegramDeliveryQueue } from './delivery-queue.js';
 export { TelegramCommandRegistry } from './commands.js';
 export { TelegramExecutionProjection } from './execution-projection.js';
 export { TelegramFileHandler } from './file-handler.js';
+export { TelegramVoiceHandler } from './voice-handler.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -73,6 +74,12 @@ export type {
   FileUploadResult,
   TelegramFileHandlerConfig,
 } from './file-handler.js';
+export type {
+  TranscriptionStatus,
+  VoiceMessage,
+  TranscriptionResult,
+  VoiceHandlerConfig,
+} from './voice-handler.js';
 
 import type {
   ChannelKind,
