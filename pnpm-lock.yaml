@@ -51,6 +51,9 @@ importers:
       '@vestara/context':
         specifier: workspace:*
         version: link:../../packages/context
+      '@vestara/context-intelligence':
+        specifier: workspace:*
+        version: link:../../packages/context-intelligence
       '@vestara/conversation':
         specifier: workspace:*
         version: link:../../packages/conversation
@@ -108,6 +111,9 @@ importers:
       '@vestara/memory':
         specifier: workspace:*
         version: link:../../packages/memory
+      '@vestara/observer':
+        specifier: workspace:*
+        version: link:../../packages/observer
       '@vestara/opencode-runtime':
         specifier: workspace:*
         version: link:../../packages/opencode-runtime

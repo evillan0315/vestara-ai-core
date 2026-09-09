@@ -212,6 +212,95 @@ export async function handleDiagnosticsRoute(
     return true;
   }
 
+  // ─── OBS-1: Observer Findings ─────────────────────────────────
+  if (method === 'GET' && p === '/api/diagnostics/observer/findings') {
+    const { Observer } = await import('@vestara/observer');
+    const observer = new Observer();
+    const status = url.searchParams.get('status') as import('@vestara/types').ObserverFindingStatus | null;
+    const findings = await observer['store'].listFindings(status ?? undefined);
+    json(res, 200, { findings, total: findings.length });
+    return true;
+  }
+
+  if (method === 'GET' && p.match(/^\/api\/diagnostics\/observer\/findings\/[^/]+$/)) {
+    const id = decodeURIComponent(p.split('/').pop()!);
+    const { Observer } = await import('@vestara/observer');
+    const observer = new Observer();
+    const finding = await observer['store'].getFinding(id);
+    if (!finding) {
+      json(res, 404, { error: 'Finding not found' });
+      return true;
+    }
+    json(res, 200, { finding });
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/diagnostics/observer/analyze') {
+    const { collectDiagnosticSnapshots } = await import('../diagnostics/snapshots.js');
+    const { Observer } = await import('@vestara/observer');
+
+    const memory = collect.collectMemory();
+    const disks = collect.collectDisks();
+    const gpu = collect.collectGpu();
+    const docker = collect.collectDocker();
+    const git = collect.collectGit(ctx.repoPath);
+    const versions = collect.collectVersions();
+
+    const snapshotResult = collectDiagnosticSnapshots(ctx.repoPath, {
+      repoPath: ctx.repoPath,
+      workspaceStatus: ctx.runtime.currentStatus,
+      memAvailableBytes: memory.available,
+      memTotalBytes: memory.total,
+      diskFreeBytes: disks[0]?.available ?? 0,
+      diskTotalBytes: disks[0]?.size ?? 0,
+      gpuAvailable: gpu.available,
+      dockerAvailable: docker.available,
+      gitAvailable: git.available,
+      pythonAvailable: !!versions.python,
+      nodeVersion: versions.node,
+    });
+
+    const observer = new Observer();
+    const findings = [];
+    for (const snapshot of snapshotResult.snapshots) {
+      const finding = await observer.analyzeSnapshot(snapshot);
+      if (finding) findings.push(finding);
+    }
+
+    json(res, 200, {
+      analyzedAt: new Date().toISOString(),
+      snapshotCount: snapshotResult.snapshots.length,
+      findingCount: findings.length,
+      findings,
+    });
+    return true;
+  }
+
+  if (method === 'GET' && p === '/api/diagnostics/observer/stats') {
+    const { Observer } = await import('@vestara/observer');
+    type ObserverFinding = import('@vestara/types').ObserverFinding;
+    const observer = new Observer();
+    const allFindings = await observer['store'].listFindings();
+    const activeFindings = allFindings.filter(
+      (f: ObserverFinding) => f.status === 'observation' || f.status === 'hypothesis',
+    );
+    const severityCounts = {
+      info: allFindings.filter((f: ObserverFinding) => f.severity === 'info').length,
+      warning: allFindings.filter((f: ObserverFinding) => f.severity === 'warning').length,
+      error: allFindings.filter((f: ObserverFinding) => f.severity === 'error').length,
+      critical: allFindings.filter((f: ObserverFinding) => f.severity === 'critical').length,
+    };
+    json(res, 200, {
+      totalFindings: allFindings.length,
+      activeFindings: activeFindings.length,
+      severityCounts,
+      averageConfidence: allFindings.length > 0
+        ? allFindings.reduce((sum: number, f: ObserverFinding) => sum + f.confidence, 0) / allFindings.length
+        : 0,
+    });
+    return true;
+  }
+
   if (method === 'GET' && p === '/api/diagnostics/events') {
     const limit = Math.min(Number(url.searchParams.get('limit') ?? 100), 500);
     const category = url.searchParams.get('category');
