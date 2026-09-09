@@ -24,6 +24,7 @@ export { TelegramExecutionProjection } from './execution-projection.js';
 export { TelegramFileHandler } from './file-handler.js';
 export { TelegramVoiceHandler } from './voice-handler.js';
 export { TelegramInlineKeyboard } from './inline-keyboard.js';
+export { TelegramGroupChatHandler } from './group-chat.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -86,6 +87,13 @@ export type {
   InlineKeyboard,
   KeyboardType,
 } from './inline-keyboard.js';
+export type {
+  GroupParticipantRole,
+  GroupParticipant,
+  GroupChat,
+  GroupMessageContext,
+  GroupChatConfig,
+} from './group-chat.js';
 
 import type {
   ChannelKind,
