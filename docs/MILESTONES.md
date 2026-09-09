@@ -2476,6 +2476,192 @@ Workspace available
 
 ---
 
+## Vestara Shared UI Platform (VES-UI)
+
+### VES-UI-001 — Vestara Shared UI Platform 🔶 Proposed
+
+**Objective**: Build a standalone Vestara UI Platform — a family of domain-agnostic packages that encode the visual contract once so every app consumes the same shell, primitives, responsive behavior, and design tokens. The platform is not a component library inside `workspace-ui`; it is a reusable SDK capable of powering the web workspace, standalone desktop shell, admin surfaces, Marketplace, Global Assistant, Activity Room, and future modules.
+
+**Architectural rule**: Apps compose screens. Shared UI owns presentation primitives and layout. Domain packages own behavior and data. No package in the shared UI platform should know what an `Agent`, `Workflow`, `Execution`, or `Conversation` is.
+
+**Blueprint**: `docs/blueprint/VESTARA-SHARED-UI-PLATFORM.md`
+
+**Key artifacts**:
+
+- `packages/ui-tokens/` — `@vestara/ui-tokens` — Design tokens (no React, no MUI)
+- `packages/ui-theme/` — `@vestara/ui-theme` — MUI theme integration layer
+- `packages/ui/` — `@vestara/ui` — Core presentation primitives
+- `packages/ui-layout/` — `@vestara/ui-layout` — Shell, panes, responsive layout
+- `packages/ui-charts/` — `@vestara/ui-charts` — Chart abstractions
+- `packages/ui-testing/` — `@vestara/ui-testing` — Visual regression + test utilities
+- `apps/ui-lab/` — UI Lab — Visual development environment
+
+**Dependency direction**:
+
+```text
+ui-tokens → ui-theme → ui → ui-layout → feature/domain UI → screens/apps
+```
+
+**Forbidden dependencies**:
+
+```text
+ui → execution, agent, workflow, activity-room, opencode-runtime
+ui-layout → execution, agent, workflow, router, application state
+```
+
+**Implementation batches**:
+
+| Batch | Milestones | Theme | Gate |
+|-------|-----------|-------|------|
+| **VES-UI-A** | 001–003 | Audit + Package Contracts + Tokens | Packages bootstrapped, tokens defined, build passes |
+| **VES-UI-B** | 004–008 | Theme + Primitives + Forms + Nav + Shell | ShellLayout renders, forms work, nav renders |
+| **VES-UI-C** | 009–011 | Responsive + Panes + Floating | Three breakpoints proven, panes resize, floating works |
+| **VES-UI-D** | 012–015 | Data + Developer + Charts + Motion | DataTable virtualizes, charts render, motion respects reduced-motion |
+| **VES-UI-E** | 016–020 | UI Lab + Reference Screens | UI Lab runs, reference screens compose from shared primitives |
+| **VES-UI-F** | 021–023 | A11y/Perf + API Freeze + Migration | WCAG 2.2 AA, public API frozen, migration guide shipped |
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| VES-UI-001 | Existing UI & Generated Screen Audit | All screens audited, visual contract documented |
+| VES-UI-002 | Package & Dependency Contracts (Hard Gate) | All package.json, exports, peers, boundaries enforced |
+| VES-UI-003 | Design Tokens | 12 token categories, semantic vocabulary, zero hardcoded values |
+| VES-UI-004 | MUI Theme Platform | VestaraThemeProvider, dark/light themes, 18+ overrides |
+| VES-UI-005 | Core Primitives | All domain-independent components compile |
+| VES-UI-006 | Forms | Controlled/uncontrolled, validation, keyboard, ARIA |
+| VES-UI-007 | Navigation | Data-driven nav, renderLink adapter, mobile pattern |
+| VES-UI-008 | ShellLayout | Slot-based shell, all zones, route persistence |
+| VES-UI-009 | Responsive Layout Engine | Desktop/tablet/mobile models, container queries |
+| VES-UI-010 | Pane + Inspector System | SplitPane, ThreePaneLayout, Inspector, ResizablePane |
+| VES-UI-011 | Floating Window System | Drag/resize/snap, mobile full-screen fallback |
+| VES-UI-012 | Data Display | DataTable, VirtualList, Tree, MetricCard |
+| VES-UI-013 | Developer Surfaces | CodeBlock, DiffViewer, LogViewer, TerminalSurface |
+| VES-UI-014 | Charts | Chart abstractions, responsive, reduced-motion |
+| VES-UI-015 | Motion | Motion tokens, Fade/Slide/Collapse/Stagger |
+| VES-UI-016 | UI Lab | Standalone Vite dev environment |
+| VES-UI-017 | Home Reference Screen | Dashboard, grid, cards, charts |
+| VES-UI-018 | Settings Reference Screen | Forms, responsive sections |
+| VES-UI-019 | Agent/Create-Agent Reference | Catalog, master-detail, complex forms |
+| VES-UI-020 | Dense Workspace Reference — Files | Multi-pane layout |
+| VES-UI-021 | Domain Adapters | ExecutionStatus → StatusBadge pattern |
+| VES-UI-022 | Accessibility/Performance Hardening | WCAG 2.2 AA, performance budgets |
+| VES-UI-023 | Package API Freeze + Migration Guide | Public API frozen, migration guide |
+
+**Promotion rule**: A component cannot be promoted into `@vestara/ui` merely because two screens use it. It must represent a domain-independent visual or interaction contract.
+
+**Final state**: A reusable Vestara UI SDK powering web workspace, desktop shell, admin surfaces, Marketplace, Global Assistant, Activity Room, future modules, and installable workspace applications — one visual language, one responsive system, one token vocabulary.
+
+**Status**: 🔶 Proposed
+
+---
+
+## Vestara Overview Screen (VES-OVERVIEW)
+
+### VES-OVERVIEW-001 — Vestara Overview 🔶 Proposed
+
+**Objective**: Build a premium, responsive Vestara **Overview** that provides the user's primary summary of the active workspace: current work, activity, agents, projects, system resources, marketplace items, and focus items. Rename the current Home screen to Overview — architecturally, "Overview" is a better name because this screen is a projection of the current Vestara workspace/system state rather than merely a landing page.
+
+**Architectural rule**: Overview owns composition. Shared UI owns presentation. Domain/application services own authoritative data.
+
+**Blueprint**: `docs/blueprint/VESTARA-OVERVIEW-SCREEN.md`
+
+**Route**: `/overview` (with `/` resolving or redirecting to `/overview`)
+
+**Terminology**:
+
+```text
+"Overview"         = product/workspace summary screen (stable default entry point)
+"Dashboard"        = reusable configurable dashboard capability (future, user-defined)
+"Activity Room"    = operational activity projection
+"Global Assistant" = human-facing Vestara interaction surface
+```
+
+**Information architecture**:
+
+```text
+                 ShellLayout
+                     │
+     ┌───────────────┼────────────────┐
+     ▼               ▼                ▼
+ Overview       Activity Room    Global Assistant
+     │               │                │
+ summary         operations       interaction
+     │               │                │
+     └───────────────┼────────────────┘
+                     │
+             Vestara domain state
+```
+
+**Projection contract** — Overview consumes a read-only `OverviewViewModel` assembled from multiple domain services. Overview components must NOT import domain types directly:
+
+```ts
+interface OverviewViewModel {
+  workspace: OverviewWorkspaceSummary;
+  continueWorking: OverviewRecentWorkItem[];
+  recentActivity: OverviewActivityItem[];
+  agents: OverviewAgentSummary[];
+  projects: OverviewProjectSummary[];
+  resources: OverviewResourceSummary;
+  marketplace: OverviewMarketplaceItem[];
+  focus: OverviewFocusItem[];
+}
+```
+
+**Screen sections**: Workspace Hero · Quick Actions · Continue Working · Recent Activity · Agent Status · Projects · System Resources · Marketplace Preview · Today's Focus
+
+**Key artifacts**:
+
+- `apps/<workspace-app>/src/features/overview/` — OverviewPage, OverviewScreen, types, fixtures, query, components, hooks, tests
+- `apps/ui-lab/examples/overview` — UI Lab reference composition
+
+**Implementation batches**:
+
+| Batch | Milestones | Theme |
+|-------|-----------|-------|
+| **VES-OVERVIEW-A** | 001–003 | Audit + Contract + Fixtures |
+| **VES-OVERVIEW-B** | 004–006 | Shell + Hero + Quick Actions |
+| **VES-OVERVIEW-C** | 007–010 | Content Sections |
+| **VES-OVERVIEW-D** | 011–013 | Resources + Marketplace + Focus |
+| **VES-OVERVIEW-E** | 014–016 | Responsive + State + Accessibility |
+| **VES-OVERVIEW-F** | 017–023 | Motion + Performance + Integration + Freeze |
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| VES-OVERVIEW-001 | Existing Overview/UI Audit | Audit document complete |
+| VES-OVERVIEW-002 | Overview Projection Contract | Types compile, query stub works |
+| VES-OVERVIEW-003 | Fixture Dataset | Fixtures render all sections |
+| VES-OVERVIEW-004 | Shell Composition | Shell renders, nav highlights Overview |
+| VES-OVERVIEW-005 | Workspace Hero | Hero renders, responsive, accessible |
+| VES-OVERVIEW-006 | Quick Actions | Actions navigate correctly |
+| VES-OVERVIEW-007 | Continue Working | Items render, status colors correct |
+| VES-OVERVIEW-008 | Recent Activity | Activity items render, relative time works |
+| VES-OVERVIEW-009 | Agent Status | Agent cards render, status indicators work |
+| VES-OVERVIEW-010 | Projects Summary | Project cards render, health indicators work |
+| VES-OVERVIEW-011 | System Resources | Gauges render, values display correctly |
+| VES-OVERVIEW-012 | Marketplace Preview | Items render, installed state shown |
+| VES-OVERVIEW-013 | Today's Focus | Items render, priority colors correct |
+| VES-OVERVIEW-014 | Responsive Composition | Three breakpoints proven |
+| VES-OVERVIEW-015 | Loading / Empty / Error / Stale | All states render correctly |
+| VES-OVERVIEW-016 | Accessibility | WCAG 2.2 AA, keyboard nav, ARIA |
+| VES-OVERVIEW-017 | Motion Polish | Transitions respect prefers-reduced-motion |
+| VES-OVERVIEW-018 | Performance | No jank at 60fps, lazy loading |
+| VES-OVERVIEW-019 | UI Lab Visual Proof | Renders at all breakpoints |
+| VES-OVERVIEW-020 | Production Projection Integration | Live workspace data |
+| VES-OVERVIEW-021 | Verification | All exit criteria verified |
+| VES-OVERVIEW-022 | Evidence | All artifacts documented |
+| VES-OVERVIEW-023 | FREEZE | No further changes |
+
+**Dependency rule**: Overview components consume `@vestara/ui`, `@vestara/ui-layout`, `@vestara/ui-charts` only. The query layer is the only module that touches domain services. Overview components must NOT import `@vestara/agent-types`, `@vestara/execution-types`, `@vestara/workflow`, or `@vestara/activity-room` directly.
+
+**Design principle**: Overview is a projection, not an authority. It summarizes what other Vestara capabilities know and do. When Overview disagrees with the authoritative source, the authoritative source wins. Missing data appears as empty states, not fabricated values.
+
+**Status**: 🔶 Proposed
+
+---
+
 ## Summary Dashboard
 
 | Era | Version | Theme | Status |
@@ -2502,6 +2688,8 @@ Workspace available
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
+| **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
+| **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
