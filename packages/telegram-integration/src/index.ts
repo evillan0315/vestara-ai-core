@@ -23,6 +23,7 @@ export { TelegramCommandRegistry } from './commands.js';
 export { TelegramExecutionProjection } from './execution-projection.js';
 export { TelegramFileHandler } from './file-handler.js';
 export { TelegramVoiceHandler } from './voice-handler.js';
+export { TelegramInlineKeyboard } from './inline-keyboard.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -80,6 +81,11 @@ export type {
   TranscriptionResult,
   VoiceHandlerConfig,
 } from './voice-handler.js';
+export type {
+  InlineKeyboardButton,
+  InlineKeyboard,
+  KeyboardType,
+} from './inline-keyboard.js';
 
 import type {
   ChannelKind,
