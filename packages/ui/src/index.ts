@@ -70,3 +70,64 @@ export type {
   CardVariant,
   CardPadding,
 } from './components/Card.js';
+
+// ─── Layout Shell ──────────────────────────────────────────────
+
+export {
+  Shell,
+  ShellHeader,
+  ShellNavigation,
+  ShellContent,
+  ShellInspector,
+  ShellBottomPanel,
+  useShell,
+} from './components/Shell.js';
+export type {
+  ShellProps,
+  ShellHeaderProps,
+  ShellNavigationProps,
+  ShellContentProps,
+  ShellInspectorProps,
+  ShellBottomPanelProps,
+  ShellContextValue,
+  ShellBreakpoint,
+} from './components/Shell.js';
+
+// ─── Panes ─────────────────────────────────────────────────────
+
+export {
+  SplitPane,
+  MasterDetailLayout,
+  ThreePaneLayout,
+  Page,
+  PageHeader,
+  PageTitle,
+  PageActions,
+} from './components/Panes.js';
+export type {
+  SplitPaneProps,
+  SplitDirection,
+  MasterDetailLayoutProps,
+  ThreePaneLayoutProps,
+  PageProps,
+  PageHeaderProps,
+  PageTitleProps,
+  PageActionsProps,
+} from './components/Panes.js';
+
+// ─── Responsive ────────────────────────────────────────────────
+
+export {
+  useResponsiveLayout,
+  useBreakpoint,
+  useMediaQuery,
+  matchesBreakpoint,
+  responsive,
+  mediaQuery,
+  responsiveClasses,
+} from './components/Responsive.js';
+export type {
+  ResponsiveBreakpoint,
+  ResponsiveState,
+  UseResponsiveLayoutOptions,
+} from './components/Responsive.js';
