@@ -16,6 +16,7 @@
 export { TelegramWebhookHandler } from './webhook.js';
 export { TelegramPairingService } from './pairing.js';
 export { TelegramWorkspaceBindingService } from './workspace-binding.js';
+export { TelegramConversationBindingService } from './conversation-binding.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -28,6 +29,11 @@ export type {
   WorkspaceBinding,
   WorkspaceBindingConfig,
 } from './workspace-binding.js';
+export type {
+  ConversationBinding,
+  ConversationBindingStatus,
+  ConversationBindingConfig,
+} from './conversation-binding.js';
 
 import type {
   ChannelKind,
