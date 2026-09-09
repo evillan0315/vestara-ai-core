@@ -19,6 +19,7 @@ export { TelegramWorkspaceBindingService } from './workspace-binding.js';
 export { TelegramConversationBindingService } from './conversation-binding.js';
 export { GlobalAssistantTextRouter } from './global-assistant.js';
 export { TelegramDeliveryQueue } from './delivery-queue.js';
+export { TelegramCommandRegistry } from './commands.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -49,6 +50,13 @@ export type {
   DeliveryStatus,
   DeliveryPriority,
 } from './delivery-queue.js';
+export type {
+  CommandCategory,
+  TelegramCommand,
+  CommandContext,
+  CommandResult,
+  CommandHandler,
+} from './commands.js';
 
 import type {
   ChannelKind,
