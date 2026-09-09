@@ -194,3 +194,82 @@ export interface VisualBaseline {
   readonly approvedBy?: string;
   readonly approvedAt?: string;
 }
+
+// ─── OBS-0: Evidence Topology ──────────────────────────────────
+//
+// Extends PCS-026 Evidence Provenance with topology relationships:
+// which evidence references which other evidence, temporal ordering,
+// causal chains. These types enable graph traversal of evidence
+// relationships for context intelligence and observer analysis.
+
+/**
+ * OBS-0: Typed relationship between evidence references.
+ * Replaces untyped `relatedTo: string[]` with explicit relationship semantics.
+ */
+export interface EvidenceTopologyEdge {
+  /** Source evidence reference (content-addressed digest) */
+  readonly fromRef: string;
+
+  /** Target evidence reference (content-addressed digest) */
+  readonly toRef: string;
+
+  /** The type of relationship between the two evidence references */
+  readonly kind: EvidenceTopologyRelation;
+
+  /** ISO-8601 timestamp of when this relationship was established */
+  readonly establishedAt: string;
+
+  /** Optional human-readable description of why this relationship exists */
+  readonly reason?: string;
+}
+
+/**
+ * OBS-0: Typed relationship kinds between evidence references.
+ * Each kind implies different traversal semantics.
+ */
+export type EvidenceTopologyRelation =
+  | 'derived-from'    // Evidence B was derived from evidence A (provenance chain)
+  | 'corroborates'    // Evidence B supports/confirms evidence A (independent confirmation)
+  | 'contradicts'     // Evidence B conflicts with evidence A (needs resolution)
+  | 'supersedes'      // Evidence B replaces evidence A (correction/replacement)
+  | 'temporal-precedes' // Evidence A occurred before evidence B (temporal ordering)
+  | 'causal-chain'    // Evidence A caused or contributed to evidence B (causal link)
+  | 'same-incident';  // Evidence A and B belong to the same diagnostic incident
+
+/**
+ * OBS-0: Evidence topology graph — the complete set of relationships
+ * between evidence references in a bundle or across bundles.
+ */
+export interface EvidenceTopology {
+  /** Bundle ID this topology belongs to (or 'global' for cross-bundle topology) */
+  readonly bundleId: string;
+
+  /** All edges in this topology graph */
+  readonly edges: readonly EvidenceTopologyEdge[];
+
+  /** ISO-8601 timestamp of when this topology was last updated */
+  readonly updatedAt: string;
+
+  /** Optional: summary statistics about the topology */
+  readonly stats?: EvidenceTopologyStats;
+}
+
+/**
+ * OBS-0: Summary statistics about an evidence topology graph.
+ */
+export interface EvidenceTopologyStats {
+  /** Total number of evidence references in the graph */
+  readonly nodeCount: number;
+
+  /** Total number of edges in the graph */
+  readonly edgeCount: number;
+
+  /** Number of connected components */
+  readonly connectedComponents: number;
+
+  /** Number of evidence references with no incoming edges (roots) */
+  readonly rootCount: number;
+
+  /** Number of evidence references with no outgoing edges (leaves) */
+  readonly leafCount: number;
+}

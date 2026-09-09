@@ -11,6 +11,7 @@ export * from './intent';
 export * from './interaction';
 export * from './job';
 export * from './metadata';
+export * from './observer';
 export * from './permissions';
 export * from './projection';
 export * from './repository-binding';
