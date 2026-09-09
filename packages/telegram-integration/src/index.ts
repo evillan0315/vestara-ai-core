@@ -1,15 +1,33 @@
 /**
- * VES-TG-005: Telegram Adapter
+ * @vestara/telegram-integration — Telegram Adapter
  *
  * Telegram Bot API adapter implementing the ChannelAdapter interface.
  * Translates Telegram-specific types to canonical channel types.
  *
  * Architecture Traceability:
- *   VES-TG-001: Telegram Interaction Platform (TG-005)
+ *   VES-TG-001: Telegram Interaction Platform (TG-005, TG-006, TG-007, TG-008)
  *   @see docs/blueprint/VES-TG-001-telegram-integration.md
  *
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
+
+// ─── Re-exports ────────────────────────────────────────────────
+
+export { TelegramWebhookHandler } from './webhook.js';
+export { TelegramPairingService } from './pairing.js';
+export { TelegramWorkspaceBindingService } from './workspace-binding.js';
+
+export type { WebhookConfig, WebhookResult } from './webhook.js';
+export type {
+  PairingRequest,
+  PairingStatus,
+  PairingConfig,
+  TelegramIdentityBinding,
+} from './pairing.js';
+export type {
+  WorkspaceBinding,
+  WorkspaceBindingConfig,
+} from './workspace-binding.js';
 
 import type {
   ChannelKind,
