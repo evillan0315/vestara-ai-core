@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/context-intelligence",
+  "description": "Context Intelligence — hybrid retrieval, ranking, budgeting, and minimum sufficient context assembly",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@vestara/types": "workspace:*",
+    "@vestara/engineering-graph": "workspace:*",
+    "@vestara/evidence": "workspace:*",
+    "@vestara/observer": "workspace:*"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
