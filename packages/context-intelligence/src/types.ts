@@ -324,3 +324,269 @@ export interface ChangeFileContext {
   /** Related context results for this file */
   readonly context: readonly ContextResult[];
 }
+
+// ─── CTX-3: Context Assembler ──────────────────────────────────
+
+/**
+ * CTX-3: Configuration for the Context Assembler.
+ * Determines the order and priority of source retrieval.
+ */
+export interface ContextAssemblerConfig {
+  /** Order of source retrieval (first = highest priority) */
+  readonly sourcePriority: readonly ContextSourceType[];
+
+  /** Maximum time to wait for a single source (ms) */
+  readonly sourceTimeoutMs: number;
+
+  /** Whether to continue if a source fails */
+  readonly continueOnSourceFailure: boolean;
+
+  /** Maximum total retrieval time (ms) */
+  readonly maxTotalTimeMs: number;
+}
+
+/**
+ * CTX-3: Default assembler configuration.
+ */
+export const DEFAULT_ASSEMBLER_CONFIG: ContextAssemblerConfig = {
+  sourcePriority: ['engineering-graph', 'evidence', 'diagnostics', 'observer', 'temporal', 'documentation'],
+  sourceTimeoutMs: 5000,
+  continueOnSourceFailure: true,
+  maxTotalTimeMs: 30000,
+};
+
+/**
+ * CTX-3: Assembled context package — the output of the Context Assembler.
+ */
+export interface AssembledContext {
+  /** The assembled context results */
+  readonly results: readonly ContextResult[];
+
+  /** Assembly metadata */
+  readonly metadata: AssembledContextMetadata;
+
+  /** Compression summary (if compression was applied) */
+  readonly compression?: CompressionSummary;
+
+  /** Provenance for all results */
+  readonly provenance: readonly ContextProvenance[];
+}
+
+/**
+ * CTX-3: Metadata about the assembly process.
+ */
+export interface AssembledContextMetadata {
+  /** ISO-8601 timestamp of assembly */
+  readonly assembledAt: string;
+
+  /** Sources that were queried */
+  readonly sourcesQueried: readonly ContextSourceType[];
+
+  /** Sources that returned results */
+  readonly sourcesHit: readonly ContextSourceType[];
+
+  /** Total results before budget truncation */
+  readonly totalResultsBeforeTruncation: number;
+
+  /** Total results after budget truncation */
+  readonly totalResultsAfterTruncation: number;
+
+  /** Assembly duration in milliseconds */
+  readonly durationMs: number;
+
+  /** Token budget used */
+  readonly tokensUsed: number;
+
+  /** Token budget remaining */
+  readonly tokensRemaining: number;
+}
+
+// ─── CTX-8: Compression ────────────────────────────────────────
+
+/**
+ * CTX-8: Compression summary — describes how context was compressed.
+ * Summaries reference original evidence bundles; they do not replace them.
+ */
+export interface CompressionSummary {
+  /** Number of results before compression */
+  readonly beforeCount: number;
+
+  /** Number of results after compression */
+  readonly afterCount: number;
+
+  /** Token count before compression */
+  readonly beforeTokens: number;
+
+  /** Token count after compression */
+  readonly afterTokens: number;
+
+  /** Compression ratio (after/before) */
+  readonly ratio: number;
+
+  /** Whether compression was lossy */
+  readonly lossy: boolean;
+
+  /** References to original evidence bundles (INV-EVD-1: never replaced) */
+  readonly evidenceBundleRefs: readonly string[];
+}
+
+// ─── CTX-10: Historical Incident Retrieval ─────────────────────
+
+/**
+ * CTX-10: Query for historical incident retrieval.
+ * Query diagnostic incident timeline for historical incidents.
+ */
+export interface HistoricalIncidentQuery {
+  /** Optional: time range to search */
+  readonly timeRange?: { start: string; end: string };
+
+  /** Optional: source IDs to filter by */
+  readonly sourceIds?: readonly string[];
+
+  /** Optional: minimum severity */
+  readonly minSeverity?: string;
+
+  /** Optional: incident status filter */
+  readonly status?: string;
+
+  /** Optional: maximum results */
+  readonly limit?: number;
+}
+
+/**
+ * CTX-10: Historical incident result.
+ */
+export interface HistoricalIncidentResult {
+  /** Incident ID */
+  readonly id: string;
+
+  /** Incident title */
+  readonly title: string;
+
+  /** Incident status */
+  readonly status: string;
+
+  /** Severity */
+  readonly severity: string;
+
+  /** Confidence level */
+  readonly confidence: number;
+
+  /** ISO-8601 detection time */
+  readonly detectedAt: string;
+
+  /** Source IDs involved */
+  readonly sourceIds: readonly string[];
+
+  /** Related context results */
+  readonly relatedContext: readonly ContextResult[];
+}
+
+// ─── ENG-0: Developer Preflight ────────────────────────────────
+
+/**
+ * ENG-0: Developer preflight query.
+ * Assemble context before agent execution.
+ */
+export interface DeveloperPreflightQuery {
+  /** The task or goal to execute */
+  readonly task: string;
+
+  /** Changed files (if applicable) */
+  readonly changedFiles?: readonly string[];
+
+  /** Optional: workspace path */
+  readonly workspacePath?: string;
+
+  /** Optional: previous context from prior turns */
+  readonly previousContext?: readonly ContextResult[];
+
+  /** Optional: resource budget for the investigation */
+  readonly budget?: ResourceBudget;
+}
+
+/**
+ * ENG-0: Developer preflight result.
+ * Context package assembled before execution.
+ */
+export interface DeveloperPreflightResult {
+  /** Assembled context for the task */
+  readonly context: AssembledContext;
+
+  /** Relevant code files */
+  readonly codeFiles: readonly ContextResult[];
+
+  /** Relevant evidence */
+  readonly evidence: readonly ContextResult[];
+
+  /** Relevant incidents */
+  readonly incidents: readonly HistoricalIncidentResult[];
+
+  /** Relevant graph relationships */
+  readonly graphContext: readonly ContextResult[];
+
+  /** Preflight metadata */
+  readonly metadata: {
+    readonly assembledAt: string;
+    readonly durationMs: number;
+    readonly totalTokens: number;
+    readonly budgetUsed: number;
+  };
+}
+
+// ─── ENG-2: Resource Budgets ───────────────────────────────────
+
+/**
+ * ENG-2: Investigation-specific resource budget.
+ * Limits time, tokens, and tool calls for adaptive investigation.
+ */
+export interface ResourceBudget {
+  /** Maximum time in milliseconds */
+  readonly maxTimeMs: number;
+
+  /** Maximum total tokens */
+  readonly maxTokens: number;
+
+  /** Maximum number of tool calls */
+  readonly maxToolCalls: number;
+
+  /** Maximum number of retrieval queries */
+  readonly maxQueries: number;
+
+  /** Alert threshold (percentage of budget) — triggers warning when exceeded */
+  readonly alertThresholdPercent: number;
+}
+
+/**
+ * ENG-2: Default resource budget.
+ */
+export const DEFAULT_RESOURCE_BUDGET: ResourceBudget = {
+  maxTimeMs: 300_000, // 5 minutes
+  maxTokens: 50_000,
+  maxToolCalls: 100,
+  maxQueries: 20,
+  alertThresholdPercent: 0.8,
+};
+
+/**
+ * ENG-2: Current resource usage during an investigation.
+ */
+export interface ResourceUsage {
+  /** Time elapsed in milliseconds */
+  readonly elapsedMs: number;
+
+  /** Tokens consumed */
+  readonly tokensUsed: number;
+
+  /** Tool calls made */
+  readonly toolCallsUsed: number;
+
+  /** Queries executed */
+  readonly queriesUsed: number;
+
+  /** Whether any budget limit has been exceeded */
+  readonly exceeded: boolean;
+
+  /** Whether alert threshold has been reached */
+  readonly alertTriggered: boolean;
+}
