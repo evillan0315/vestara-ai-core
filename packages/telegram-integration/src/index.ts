@@ -20,6 +20,7 @@ export { TelegramConversationBindingService } from './conversation-binding.js';
 export { GlobalAssistantTextRouter } from './global-assistant.js';
 export { TelegramDeliveryQueue } from './delivery-queue.js';
 export { TelegramCommandRegistry } from './commands.js';
+export { TelegramExecutionProjection } from './execution-projection.js';
 
 export type { WebhookConfig, WebhookResult } from './webhook.js';
 export type {
@@ -57,6 +58,12 @@ export type {
   CommandResult,
   CommandHandler,
 } from './commands.js';
+export type {
+  ExecutionStatus,
+  ProgressLevel,
+  ExecutionUpdate,
+  ExecutionProjectionConfig,
+} from './execution-projection.js';
 
 import type {
   ChannelKind,
