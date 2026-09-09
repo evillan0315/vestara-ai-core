@@ -4,7 +4,7 @@ export function StateCard({ data }: { data: UnderstandingData }) {
   const s = data.state;
 
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-blue)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-blue)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label={`State: ${s.status}, Indexed: ${s.isIndexed ? 'Yes' : 'No'}, Freshness: ${s.indexFreshness}`}>
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">State</h2>
 
       <div className="space-y-2 text-sm">

@@ -1,3 +1,12 @@
+---
+title: AR-008 — Assistant Surface Context
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-008 — Assistant Surface Context
 
 **Author**: Vestara Developer Agent  

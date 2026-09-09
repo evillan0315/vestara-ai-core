@@ -1,3 +1,12 @@
+---
+title: EVIDENCE-UX-002 M1 — Visual Evidence Ingestion + Metadata
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # EVIDENCE-UX-002 M1 — Visual Evidence Ingestion + Metadata
 
 **Status:** IMPLEMENTED (M1 only — gallery, viewer, thumbnails, visual comparison

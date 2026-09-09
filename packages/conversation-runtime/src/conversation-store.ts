@@ -88,7 +88,7 @@ export class SqliteConversationStore implements ConversationStore {
     const db = await this._db();
     dbRun(
       db,
-      `INSERT INTO conversations (id, user_id, title, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO conversations (id, user_id, title, status, created_at, updated_at, runtime_session_id) VALUES (?, ?, ?, ?, ?, ?, ?)`,
       [
         conversation.id,
         conversation.userId,
@@ -96,6 +96,7 @@ export class SqliteConversationStore implements ConversationStore {
         conversation.status,
         conversation.createdAt,
         conversation.updatedAt,
+        conversation.runtimeSessionId ?? null,
       ],
     );
     this._persist();

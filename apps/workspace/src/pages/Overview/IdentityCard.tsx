@@ -16,7 +16,7 @@ export function IdentityCard({ data }: { data: UnderstandingData }) {
         : 'text-[var(--vestara-red)]';
 
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label={`Identity: ${data.identity.name}`}>
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">{data.identity.name}</h2>
       <div className="space-y-1.5 text-sm text-[var(--vestara-text-2)]">
         <div className="flex justify-between">

@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { openCodeApi, type OpenCodeSessionView } from '../../lib/opencode';
 import { resolveDisplayTitle } from './conversationTitles';
 import { FloatingPanel } from './FloatingPanel';
 import { ConversationPanel } from './ConversationPanel';
@@ -57,12 +58,12 @@ function AssistantLauncher({
       aria-label={panelOpen ? 'Close assistant' : 'Open assistant'}
       aria-expanded={panelOpen}
       title={panelOpen ? 'Close Vestara Assistant' : 'Ask Vestara (Ctrl+J)'}
-      className="group fixed bottom-6 right-6 z-[90] flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-amber-300 via-amber-500 to-amber-600 text-zinc-950 shadow-[0_10px_36px_-8px_rgba(245,158,11,0.65),0_2px_8px_rgba(0,0,0,0.45)] ring-1 ring-white/30 transition-all duration-200 hover:shadow-[0_12px_44px_-8px_rgba(245,158,11,0.8)] hover:scale-105 hover:brightness-110 active:scale-95 cursor-pointer"
+      className="group fixed bottom-6 right-6 z-[90] flex h-12 w-12 items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_rgba(0,0,0,0.6)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 cursor-pointer"
     >
       {/* Soft halo glow */}
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -inset-1.5 rounded-full bg-amber-500/25 blur-lg transition-opacity duration-300 group-hover:bg-amber-400/40"
+        className="pointer-events-none absolute -inset-1.5 rounded-full bg-(--vestara-accent-bg) blur-lg transition-opacity duration-300 group-hover:shadow-[0_0_24px_var(--vestara-accent-bg)]"
       />
       {/* Icon swaps with panel state */}
       <span className="relative flex items-center justify-center">
@@ -122,6 +123,11 @@ export function GlobalAssistant() {
   // GA-3: surface context (display-only)
   const surface = useSurfaceContext();
 
+  // GA-SESSION-003: compatible runtime sessions for resume surface.
+  // Fetched when the panel opens; projected through to LauncherDock and
+  // ConversationPanel. No pending React-ref authority — server validates.
+  const [runtimeSessions, setRuntimeSessions] = useState<OpenCodeSessionView[]>([]);
+
   // GA-UI-008: dock timers — cleared on unmount to avoid stray setState.
   useEffect(() => {
     return () => {
@@ -129,6 +135,29 @@ export function GlobalAssistant() {
       if (dockCloseTimerRef.current) clearTimeout(dockCloseTimerRef.current);
     };
   }, []);
+
+  // GA-SESSION-003: fetch compatible runtime sessions when the panel opens.
+  // Re-fetches on each open to keep the resume surface current.
+  useEffect(() => {
+    if (!panelOpen) return;
+    let cancelled = false;
+    openCodeApi.compatibleSessions().then((sessions) => {
+      if (!cancelled) setRuntimeSessions(sessions);
+    }).catch(() => {
+      if (!cancelled) setRuntimeSessions([]);
+    });
+    return () => { cancelled = true; };
+  }, [panelOpen]);
+
+  // GA-SESSION-003: handler for runtime session resume.
+  const handleResumeSession = useCallback(async (sessionId: string) => {
+    const convId = await assistant.resumeOpenCodeSession(sessionId);
+    if (convId) {
+      setPanelOpen(true);
+      setPanelMinimized(false);
+      setPanelExpanded(false);
+    }
+  }, [assistant.resumeOpenCodeSession]);
 
   const openDockSoon = useCallback(() => {
     if (dockCloseTimerRef.current) clearTimeout(dockCloseTimerRef.current);
@@ -289,6 +318,8 @@ export function GlobalAssistant() {
         onSelect={handleDockSelect}
         onMouseEnter={openDockSoon}
         onMouseLeave={closeDockSoon}
+        runtimeSessions={runtimeSessions}
+        onResumeSession={handleResumeSession}
       />
 
       <FloatingPanel
@@ -307,6 +338,8 @@ export function GlobalAssistant() {
           assistant={assistant}
           focusOnMountRef={focusOnMountRef}
           expanded={panelExpanded}
+          runtimeSessions={runtimeSessions}
+          onResumeSession={handleResumeSession}
         />
       </FloatingPanel>
     </>

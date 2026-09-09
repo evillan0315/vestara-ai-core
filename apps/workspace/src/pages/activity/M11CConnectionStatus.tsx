@@ -1,7 +1,7 @@
 /**
  * M11C Connection Status Indicator
  *
- * Displays the Activity Room connection state in the header:
+ * Displays the Activity Room connection state in the header plinth:
  *   ● Live
  *   ◌ Connecting
  *   ◌ Reconnecting
@@ -13,13 +13,13 @@ import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 
 // ─── Config ──────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<M11CConnectionState, { readonly symbol: string; readonly label: string; readonly color: string }> = {
-  connecting: { symbol: '◌', label: 'Connecting', color: 'text-(--vestara-amber)' },
-  live: { symbol: '●', label: 'Live', color: 'text-(--vestara-green)' },
-  reconnecting: { symbol: '◌', label: 'Reconnecting', color: 'text-(--vestara-amber)' },
-  offline: { symbol: '○', label: 'Offline', color: 'text-(--vestara-red)' },
-  paused: { symbol: '⏸', label: 'Paused', color: 'text-(--vestara-amber)' },
-  error: { symbol: '⚠', label: 'Resyncing', color: 'text-(--vestara-amber)' },
+const STATUS_CONFIG: Record<M11CConnectionState, { readonly symbol: string; readonly label: string; readonly tone: 'live' | 'warn' | 'off' }> = {
+  connecting: { symbol: '◌', label: 'Connecting', tone: 'warn' },
+  live: { symbol: '●', label: 'Live', tone: 'live' },
+  reconnecting: { symbol: '◌', label: 'Reconnecting', tone: 'warn' },
+  offline: { symbol: '○', label: 'Offline', tone: 'off' },
+  paused: { symbol: '⏸', label: 'Paused', tone: 'warn' },
+  error: { symbol: '⚠', label: 'Resyncing', tone: 'warn' },
 };
 
 // ─── Component ───────────────────────────────────────────────
@@ -33,12 +33,14 @@ export default function M11CConnectionStatus({ state }: M11CConnectionStatusProp
 
   return (
     <span
-      className={`flex items-center gap-1.5 rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5 text-[10px] ${config.color}`}
+      className={`ar-status ar-status--${config.tone}`}
       title={`Activity Room connection: ${config.label}`}
       role="status"
       aria-live="polite"
     >
-      <span className={config.state === 'live' ? 'animate-pulse' : ''}>{config.symbol}</span>
+      <span className={`ar-lamp ar-lamp--${config.tone} ${state === 'live' ? 'ar-lamp--pulse' : ''}`} aria-hidden="true">
+        {config.symbol}
+      </span>
       {config.label}
     </span>
   );

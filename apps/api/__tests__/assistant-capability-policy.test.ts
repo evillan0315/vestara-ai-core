@@ -18,6 +18,7 @@ import type { OpenCodePermissionAction } from '@vestara/opencode-runtime';
 import { describe, expect, it } from 'vitest';
 import {
   type AssistantCapabilityPolicy,
+  buildToolsMap,
   checkRepositoryConfinement,
   createDefaultAssistantPolicy,
   evaluatePermission,
@@ -209,5 +210,64 @@ describe('GA-CAP-003: Assistant Capability Policy', () => {
     expect(skillResult.decision).toBe('allow'); // skill rule matches first
     expect(websearchResult.decision).toBe('ask'); // websearch rule matches
     expect(externalResult.decision).toBe('ask'); // external rule matches
+  });
+});
+
+// ── buildToolsMap (GA-RUNTIME-004 / GA-TOOL-001) ────────────────────────────
+
+describe('buildToolsMap', () => {
+  it('ALLOW tools are enabled', () => {
+    const tools = buildToolsMap(policy());
+    expect(tools.read).toBe(true);
+    expect(tools.glob).toBe(true);
+    expect(tools.grep).toBe(true);
+    expect(tools.list).toBe(true);
+    expect(tools.todowrite).toBe(true);
+    expect(tools.lsp).toBe(true);
+    expect(tools.skill).toBe(true);
+    expect(tools.task).toBe(true);
+  });
+
+  it('ASK tools are disabled by default', () => {
+    const tools = buildToolsMap(policy());
+    expect(tools.edit).toBe(false);
+    expect(tools.write).toBe(false);
+    expect(tools.bash).toBe(false);
+    expect(tools.webfetch).toBe(false);
+    expect(tools.websearch).toBe(false);
+    expect(tools.external_directory).toBe(false);
+  });
+
+  it('ASK tools enabled when approved', () => {
+    const tools = buildToolsMap(policy(), new Set(['edit', 'bash']));
+    expect(tools.edit).toBe(true);
+    expect(tools.bash).toBe(true);
+    expect(tools.webfetch).toBe(false); // not approved
+    expect(tools.read).toBe(true); // still enabled (ALLOW)
+  });
+
+  it('all known tools are present in the map', () => {
+    const tools = buildToolsMap(policy());
+    const expected = [
+      'read',
+      'glob',
+      'grep',
+      'list',
+      'edit',
+      'write',
+      'bash',
+      'task',
+      'todowrite',
+      'webfetch',
+      'websearch',
+      'external_directory',
+      'lsp',
+      'skill',
+      'question',
+      'doom_loop',
+    ];
+    for (const name of expected) {
+      expect(name in tools).toBe(true);
+    }
   });
 });

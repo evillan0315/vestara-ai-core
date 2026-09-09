@@ -7,7 +7,7 @@ export function DecisionsCard({ data }: { data: UnderstandingData }) {
   if (decisions.length === 0 && facts.length === 0) return null;
 
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-gold)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-gold)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label={`Decisions and Knowledge: ${decisions.length} recent decisions, ${facts.length} key facts`}>
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">
         Decisions & Knowledge
       </h2>

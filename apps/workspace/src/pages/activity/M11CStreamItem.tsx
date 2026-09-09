@@ -30,42 +30,36 @@ interface M11CStreamItemProps {
 
 // ─── Visual Config ───────────────────────────────────────────
 
-const IMPORTANCE_STYLES: Record<string, { readonly border: string; readonly bg: string; readonly text: string; readonly badge: string }> = {
+const IMPORTANCE_STYLES: Record<string, { readonly text: string; readonly badge: string }> = {
   primary: {
-    border: 'border-(--vestara-accent-border)',
-    bg: 'bg-(--vestara-accent-bg)',
     text: 'text-(--vestara-text)',
-    badge: 'bg-(--vestara-accent-text)/10 text-(--vestara-accent-text)',
+    badge: 'text-(--vestara-accent-text)',
   },
   secondary: {
-    border: 'border-transparent',
-    bg: 'bg-transparent',
-    text: 'text-(--vestara-text-2)',
-    badge: 'bg-(--vestara-text-dim)/10 text-(--vestara-text-muted)',
+    text: 'text-(--color-zinc-300)',
+    badge: 'text-(--vestara-text-muted)',
   },
   muted: {
-    border: 'border-transparent',
-    bg: 'bg-transparent',
     text: 'text-(--vestara-text-muted)',
-    badge: 'bg-(--vestara-text-dim)/5 text-(--vestara-text-dim)',
+    badge: 'text-(--vestara-text-dim)',
   },
 };
 
-const KIND_ICON: Record<string, string> = {
-  conversation: '💬',
-  activity: '◈',
-  progress: '⏳',
-  log: '📋',
+const KIND_GLYPH: Record<string, string> = {
+  conversation: '❝',
+  activity: '◆',
+  progress: '◷',
+  log: '≡',
   diagnostic: '⚠',
   evidence: '✓',
-  telemetry: '📊',
+  telemetry: '∴',
   interaction: '⚖',
 };
 
-const ACTOR_TYPE_STYLE: Record<string, string> = {
-  human: 'bg-(--vestara-blue)/10 text-(--vestara-blue)',
-  agent: 'bg-(--vestara-violet)/10 text-(--vestara-violet)',
-  system: 'bg-(--vestara-text-dim)/10 text-(--vestara-text-muted)',
+const ACTOR_TYPE_MEDALLION: Record<string, string> = {
+  human: 'ar-medallion--human',
+  agent: 'ar-medallion--agent',
+  system: 'ar-medallion--system',
 };
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -99,8 +93,8 @@ export default function M11CStreamItemComponent({
   onSubmitResponse,
 }: M11CStreamItemProps) {
   const styles = IMPORTANCE_STYLES[item.importance] ?? IMPORTANCE_STYLES.secondary;
-  const icon = KIND_ICON[item.kind] ?? '◈';
-  const actorStyle = ACTOR_TYPE_STYLE[item.actor.type] ?? ACTOR_TYPE_STYLE.system;
+  const glyph = KIND_GLYPH[item.kind] ?? '◆';
+  const medallion = ACTOR_TYPE_MEDALLION[item.actor.type] ?? ACTOR_TYPE_MEDALLION.system;
 
   const handleClick = useCallback(() => {
     if (item.aggregated && onDrillDown) {
@@ -114,27 +108,27 @@ export default function M11CStreamItemComponent({
     ? item.actor.role.charAt(0).toUpperCase() + item.actor.role.slice(1)
     : item.actor.displayName;
 
+  const initial = (item.actor.displayName.trim()[0] ?? '?').toUpperCase();
+
   // ─── Aggregated Item ────────────────────────────────────
   if (item.aggregated) {
     return (
       <button
         type="button"
         onClick={handleClick}
-        className={`w-full text-left px-3 py-2 rounded-lg border transition-colors cursor-pointer ${styles.border} ${styles.bg} hover:opacity-80`}
+        className="ar-aggregate rounded-lg transition-colors hover:opacity-90"
         title={`Click to view ${item.aggregated.count} underlying records`}
       >
-        <div className="flex items-center gap-2">
-          <span className="text-[10px] text-(--vestara-text-dim)">──</span>
-          <span className="text-[10px] font-medium text-(--vestara-text-muted)">
-            {item.aggregated.summary}
-          </span>
-          <span className="text-[9px] text-(--vestara-text-dim)">
-            · {item.aggregated.count} {item.aggregated.kind === 'log' ? 'entries' : 'activities'}
-          </span>
-          <span className="ml-auto text-[9px] text-(--vestara-text-dim)">
-            {formatTimestamp(item.timestamp)}
-          </span>
-        </div>
+        <span aria-hidden="true" className="text-[10px] text-(--vestara-text-dim)">≡</span>
+        <span className="ar-aggregate__summary">
+          {item.aggregated.summary}
+        </span>
+        <span className="ar-aggregate__count">
+          · {item.aggregated.count} {item.aggregated.kind === 'log' ? 'entries' : 'activities'}
+        </span>
+        <span className="ar-aggregate__time">
+          {formatTimestamp(item.timestamp)}
+        </span>
       </button>
     );
   }
@@ -215,43 +209,43 @@ export default function M11CStreamItemComponent({
   // ─── Standard Item ──────────────────────────────────────
   return (
     <div
-      className={`px-3 py-2 rounded-lg border transition-colors ${styles.border} ${styles.bg} ${
-        item.fresh ? 'animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
+      className={`ar-item ar-item--${item.importance} rounded-lg ${
+        item.fresh ? 'ar-item--fresh animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
       }`}
     >
-      <div className="flex items-start gap-2">
-        {/* Actor info */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className={`rounded px-1 py-0.5 text-[8px] font-medium ${actorStyle}`}>
-            {roleLabel}
-          </span>
+      {/* Insignia */}
+      <span className={`ar-medallion ar-medallion--sm ${medallion}`} aria-hidden="true">
+        {initial}
+      </span>
+
+      {/* Body */}
+      <div className="ar-item__body">
+        <div className="ar-item__head">
+          <span className="ar-item__actor">{roleLabel}</span>
+          <span className="ar-item__time">{formatTimestamp(item.timestamp)}</span>
         </div>
 
-        {/* Content */}
-        <div className="min-w-0 flex-1">
-          <div className={`text-xs leading-snug ${styles.text}`}>
-            {item.content || (
-              <span className="italic text-(--vestara-text-dim)">{icon} {item.kind}</span>
-            )}
-          </div>
-
-          {/* Metadata line */}
-          <div className="mt-1 flex items-center gap-2 text-[9px] text-(--vestara-text-dim)">
-            <span>{icon}</span>
-            <span>{formatTimestamp(item.timestamp)}</span>
-            {item.workflowRunId && (
-              <span className="truncate">workflow: {item.workflowRunId.slice(0, 8)}</span>
-            )}
-          </div>
+        <div className={`ar-item__content text-xs leading-relaxed ${styles.text}`}>
+          {item.content || (
+            <span className="italic text-(--vestara-text-dim)">{glyph} {item.kind}</span>
+          )}
         </div>
 
-        {/* Importance badge (for primary items) */}
-        {item.importance === 'primary' && (
-          <span className={`shrink-0 rounded px-1.5 py-0.5 text-[8px] font-medium ${styles.badge}`}>
-            {item.kind}
-          </span>
-        )}
+        {/* Metadata line */}
+        <div className="ar-item__meta">
+          <span aria-hidden="true">{glyph}</span>
+          {item.workflowRunId && (
+            <span className="truncate">workflow: {item.workflowRunId.slice(0, 8)}</span>
+          )}
+        </div>
       </div>
+
+      {/* Importance badge (for primary items) */}
+      {item.importance === 'primary' && (
+        <span className={`ar-item__kind ${styles.badge}`}>
+          {item.kind}
+        </span>
+      )}
     </div>
   );
 }

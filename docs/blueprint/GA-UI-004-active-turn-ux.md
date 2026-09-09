@@ -1,3 +1,12 @@
+---
+title: GA-UI-004 — Optimistic Human Turn + Active Turn UX
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-UI-004 — Optimistic Human Turn + Active Turn UX
 
 **Date**: 2026-09-04
@@ -6,7 +15,6 @@
 **Out of scope (untouched)**: OpenCode transport, provider/model resolution,
 runtime session continuity, permission policy, Conversation authority,
 Activity Room orchestration, AR-009.
-
 ---
 
 ## 1. Governing Invariant (verified)

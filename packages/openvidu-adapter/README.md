@@ -14,4 +14,4 @@ pnpm --filter @vestara/openvidu-adapter build
 
 `@vestara/media-runtime`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

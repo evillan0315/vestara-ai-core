@@ -14,4 +14,4 @@ pnpm --filter @vestara/voice-browser build
 
 `@vestara/audio @vestara/browser-runtime @vestara/stt @vestara/tts @vestara/shared @vestara/logger @vestara/event-bus @vestara/tools-browser`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

@@ -1,3 +1,12 @@
+---
+title: GA-UI-007 — Global Vestara Assistant Full-Window Surface (Plan)
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-UI-007 — Global Vestara Assistant Full-Window Surface (Plan)
 
 **Status:** PLAN (not yet implemented)

@@ -14,4 +14,4 @@ pnpm --filter @vestara/browser-runtime build
 
 `@vestara/tools-browser @vestara/event-bus @vestara/evidence @vestara/shared`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

@@ -1,3 +1,4 @@
+import * as crypto from 'node:crypto';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type {
@@ -12,6 +13,7 @@ import type {
   FsPatch,
   FsResult,
   FsRiskLevel,
+  MutationEnvelope,
 } from './types.js';
 
 export type {
@@ -26,6 +28,7 @@ export type {
   FsPatch,
   FsResult,
   FsRiskLevel,
+  MutationEnvelope,
 } from './types.js';
 
 let opCounter = 0;
@@ -122,6 +125,49 @@ function diffLineSummary(before: string, after: string): FsChangeSummary {
   };
 }
 
+/** GA-TOOL-004: Compute SHA-256 hash of content (hex). */
+function sha256(content: string): string {
+  return crypto.createHash('sha256').update(content, 'utf8').digest('hex');
+}
+
+/** GA-TOOL-004: Create an immutable approval envelope from an operation. */
+function createEnvelope(
+  op: FsOperation,
+  repositoryDir: string,
+  preStateHash: string,
+  contentHash: string,
+): MutationEnvelope {
+  return {
+    operationId: op.id,
+    repositoryDir,
+    operationType: op.type,
+    relativePath: op.path,
+    preStateHash,
+    contentHash,
+    createdAt: new Date().toISOString(),
+  };
+}
+
+/** GA-TOOL-004: Revalidate an envelope against current filesystem state. */
+function validateEnvelope(
+  envelope: MutationEnvelope,
+  repositoryDir: string,
+  currentContent: string,
+  currentContentHash: string,
+): { valid: boolean; reason?: string } {
+  if (envelope.repositoryDir !== repositoryDir) {
+    return { valid: false, reason: 'Repository changed after approval' };
+  }
+  if (envelope.contentHash !== currentContentHash) {
+    return { valid: false, reason: 'Proposed content changed after approval' };
+  }
+  const currentPreHash = sha256(currentContent);
+  if (envelope.preStateHash !== currentPreHash) {
+    return { valid: false, reason: 'File content changed since approval (conflict)' };
+  }
+  return { valid: true };
+}
+
 /** Apply a patch to file content. */
 function applyPatch(content: string, patch: FsPatch): string {
   let result = content;
@@ -162,7 +208,7 @@ function applyPatch(content: string, patch: FsPatch): string {
 
 export class FilesystemRuntime {
   private rootDir: string;
-  private pendingApprovals: Map<string, FsOperation> = new Map();
+  private pendingApprovals: Map<string, { operation: FsOperation; envelope: MutationEnvelope }> = new Map();
   private telemetry?: FsConfig['telemetry'];
   private policyEngine?: FsConfig['policyEngine'];
   private onPendingApproval?: FsConfig['onPendingApproval'];
@@ -185,7 +231,19 @@ export class FilesystemRuntime {
 
   /**
    * Resolve a path relative to the workspace root and enforce the
-   * sandbox boundary. Absolute paths and `..` escapes are rejected.
+   * sandbox boundary. Absolute paths, `..` escapes, and symlink
+   * escapes (via realpath) are rejected.
+   *
+   * Confinement algorithm:
+   * 1. Lexical check: path.resolve() + path.relative() — rejects ../ and absolute
+   * 2. Deny-list check: basename match against configured deny list
+   * 3. Symlink check: fs.realpathSync() on the file (existing files)
+   *    OR on the parent directory (new files in symlinked dirs)
+   *
+   * For new files, we check the parent directory's realpath because
+   * fs.realpathSync() on a non-existent file returns ENOENT. If the
+   * parent is a symlink to outside, any file created in it would also
+   * be outside the boundary.
    */
   private resolve(p: string): string {
     const resolved = path.resolve(this.rootDir, p);
@@ -193,8 +251,59 @@ export class FilesystemRuntime {
     if (relative.startsWith('..') || path.isAbsolute(relative)) {
       throw new Error(`Path escapes workspace root: ${p}`);
     }
+    // Deny list check (basename match) — runs before symlink check
+    // so it applies even to non-existent files.
     if (this.denyList.includes(path.basename(resolved))) {
       throw new Error(`Access denied to denied file: ${path.basename(resolved)}`);
+    }
+    // Symlink confinement: verify the real filesystem target is inside root.
+    // Strategy: try the file first (covers existing files and symlink files).
+    // If ENOENT (new file), check the parent directory's realpath instead —
+    // if the parent is a symlink to outside, any child would also be outside.
+    try {
+      const realPath = fs.realpathSync(resolved);
+      const realRelative = path.relative(this.rootDir, realPath);
+      if (realRelative.startsWith('..') || path.isAbsolute(realRelative)) {
+        throw new Error(`Symlink escapes workspace root: ${p} resolves to ${realPath}`);
+      }
+    } catch (e) {
+      // If the file doesn't exist, check the parent directory
+      if (e instanceof Error && 'code' in e && (e as NodeJS.ErrnoException).code === 'ENOENT') {
+        const parentDir = path.dirname(resolved);
+        try {
+          const parentReal = fs.realpathSync(parentDir);
+          const parentRelative = path.relative(this.rootDir, parentReal);
+          if (parentRelative.startsWith('..') || path.isAbsolute(parentRelative)) {
+            throw new Error(`Symlink escapes workspace root: ${p} (parent ${parentDir} resolves to ${parentReal})`);
+          }
+        } catch (parentErr) {
+          // Re-throw our own escape errors (not ENOENT)
+          if (
+            parentErr instanceof Error &&
+            !('code' in parentErr && (parentErr as NodeJS.ErrnoException).code === 'ENOENT')
+          ) {
+            throw parentErr;
+          }
+          // Parent doesn't exist yet either — walk up to find an existing ancestor
+          let checkDir = parentDir;
+          while (checkDir !== this.rootDir && checkDir !== path.dirname(checkDir)) {
+            try {
+              const ancestorReal = fs.realpathSync(checkDir);
+              const ancestorRelative = path.relative(this.rootDir, ancestorReal);
+              if (ancestorRelative.startsWith('..') || path.isAbsolute(ancestorRelative)) {
+                throw new Error(`Symlink escapes workspace root: ${p} (ancestor ${checkDir} resolves outside)`);
+              }
+              break; // Found a safe ancestor
+            } catch {
+              checkDir = path.dirname(checkDir);
+            }
+          }
+          // If we walked all the way to rootDir without escaping, it's safe
+        }
+      } else {
+        // Re-throw symlink escape errors
+        throw e;
+      }
     }
     return resolved;
   }
@@ -202,15 +311,35 @@ export class FilesystemRuntime {
   private async evaluate(
     op: FsOperation,
     approvalId?: string,
-  ): Promise<{ allowed: boolean; requiresApproval: boolean; reason?: string }> {
-    // If an approval ID is provided and it's been approved, let it through
+    envelope?: MutationEnvelope,
+  ): Promise<{ allowed: boolean; requiresApproval: boolean; reason?: string; approvedEnvelope?: MutationEnvelope }> {
+    // If an approval ID is provided and it's been approved, revalidate repository + pre-state
     if (approvalId) {
       const pending = this.pendingApprovals.get(approvalId);
-      if (pending?.approvalStatus === 'approved') {
+      if (pending?.operation.approvalStatus === 'approved') {
+        const currentAbsPath = path.resolve(this.rootDir, pending.operation.path);
+        let currentContent = '';
+        try {
+          currentContent = fs.readFileSync(currentAbsPath, 'utf-8');
+        } catch {
+          /* new file */
+        }
+        const currentPreHash = sha256(currentContent);
+        if (pending.envelope.repositoryDir !== this.rootDir) {
+          this.pendingApprovals.delete(approvalId);
+          return { allowed: false, requiresApproval: false, reason: 'Repository changed after approval' };
+        }
+        if (pending.envelope.preStateHash !== currentPreHash) {
+          this.pendingApprovals.delete(approvalId);
+          return { allowed: false, requiresApproval: false, reason: 'File content changed since approval (conflict)' };
+        }
+        // Return the approved envelope for content hash comparison in write/update
+        const approvedEnvelope = pending.envelope;
         this.pendingApprovals.delete(approvalId);
-        return { allowed: true, requiresApproval: false };
+        return { allowed: true, requiresApproval: false, approvedEnvelope };
       }
-      if (pending?.approvalStatus === 'rejected') {
+      if (pending?.operation.approvalStatus === 'rejected') {
+        this.pendingApprovals.delete(approvalId);
         return { allowed: false, requiresApproval: false, reason: 'Operation was rejected' };
       }
     }
@@ -225,11 +354,17 @@ export class FilesystemRuntime {
         if (decision.effect === 'deny') {
           return { allowed: false, requiresApproval: false, reason: decision.reason || 'Denied by policy' };
         }
+        // GA-TOOL-004: Policy engine can also require approval (ask effect)
+        if (decision.effect === 'ask') {
+          op.riskLevel = 'high'; // Escalate to high-risk to trigger approval flow
+        }
       } catch {}
     }
 
     if (op.riskLevel === 'high') {
-      this.pendingApprovals.set(op.id, op);
+      // GA-TOOL-004: Store the immutable envelope with the pending approval
+      const storedEnvelope = envelope ?? createEnvelope(op, this.rootDir, op.preStateHash ?? '', op.contentHash ?? '');
+      this.pendingApprovals.set(op.id, { operation: op, envelope: storedEnvelope });
       op.approvalStatus = 'pending';
       this.onPendingApproval?.(op);
       this.record(op, 'pending', { dryRun: false });
@@ -348,10 +483,32 @@ export class FilesystemRuntime {
     content: string,
     opts?: { agentId?: string; reason?: string; approvalId?: string; dryRun?: boolean },
   ): Promise<FsResult<{ path: string; size: number }>> {
+    // GA-TOOL-004: Compute hashes and create envelope BEFORE evaluate
+    const contentHash = sha256(content);
+    let preStateHash = '';
+    try {
+      const absPath = this.resolve(filePath);
+      if (fs.existsSync(absPath)) preStateHash = sha256(fs.readFileSync(absPath, 'utf-8'));
+    } catch {
+      /* path not yet resolved — will be caught by evaluate */
+    }
+
     const op = makeOp('write', filePath, { ...opts, content });
-    const evalResult = await this.evaluate(op, opts?.approvalId);
+    op.contentHash = contentHash;
+    op.preStateHash = preStateHash;
+
+    // Save envelope BEFORE evaluate (which stores it for pending, or deletes on approval)
+    const savedEnvelope = createEnvelope(op, this.rootDir, preStateHash, contentHash);
+    const evalResult = await this.evaluate(op, opts?.approvalId, savedEnvelope);
     if (!evalResult.allowed) return this.fail(op, evalResult.reason || 'Denied');
     if (evalResult.requiresApproval) return this.pending(op, evalResult.reason || 'Requires approval');
+
+    // GA-TOOL-004: Content hash revalidation — if this was an approved re-call,
+    // verify the proposed content hash matches the approved envelope.
+    if (evalResult.approvedEnvelope && evalResult.approvedEnvelope.contentHash !== contentHash) {
+      return this.fail(op, 'Proposed content changed after approval');
+    }
+
     const dryRun = opts?.dryRun ?? this.dryRun;
     try {
       const absPath = this.resolve(filePath);
@@ -382,19 +539,45 @@ export class FilesystemRuntime {
     patch: FsPatch,
     opts?: { agentId?: string; reason?: string; approvalId?: string; dryRun?: boolean },
   ): Promise<FsResult<{ path: string; summary: FsChangeSummary }>> {
+    // GA-TOOL-004: Compute hashes and create envelope BEFORE evaluate
+    let preStateHash = '';
+    let before = '';
+    try {
+      const absPath = this.resolve(filePath);
+      if (fs.existsSync(absPath)) {
+        before = fs.readFileSync(absPath, 'utf-8');
+        preStateHash = sha256(before);
+      }
+    } catch {
+      /* path not yet resolved — will be caught by evaluate */
+    }
+    const after = applyPatch(before, patch);
+    const contentHash = sha256(after);
+
     const op = makeOp('update', filePath, { ...opts });
-    const evalResult = await this.evaluate(op, opts?.approvalId);
+    op.contentHash = contentHash;
+    op.preStateHash = preStateHash;
+
+    const envelope = createEnvelope(op, this.rootDir, preStateHash, contentHash);
+    const evalResult = await this.evaluate(op, opts?.approvalId, envelope);
     if (!evalResult.allowed) return this.fail(op, evalResult.reason || 'Denied');
     if (evalResult.requiresApproval) return this.pending(op, evalResult.reason || 'Requires approval');
+
+    // GA-TOOL-004: Content hash revalidation — if approved re-call, verify
+    // the proposed content hash matches the approved envelope.
+    if (evalResult.approvedEnvelope && evalResult.approvedEnvelope.contentHash !== contentHash) {
+      return this.fail(op, 'Proposed content changed after approval');
+    }
+
     const dryRun = opts?.dryRun ?? this.dryRun;
     try {
       const absPath = this.resolve(filePath);
-      const before = fs.existsSync(absPath) ? fs.readFileSync(absPath, 'utf-8') : '';
-      const after = applyPatch(before, patch);
-      const summary = diffLineSummary(before, after);
+      const currentBefore = fs.existsSync(absPath) ? fs.readFileSync(absPath, 'utf-8') : '';
+      const currentAfter = applyPatch(currentBefore, patch);
+      const summary = diffLineSummary(currentBefore, currentAfter);
       if (!dryRun) {
         fs.mkdirSync(path.dirname(absPath), { recursive: true });
-        fs.writeFileSync(absPath, after, 'utf-8');
+        fs.writeFileSync(absPath, currentAfter, 'utf-8');
       }
       this.emit(opts?.agentId, 'completed', 'file.update', `Updated ${filePath}`, {
         filePath,
@@ -566,23 +749,35 @@ export class FilesystemRuntime {
   }
 
   approve(approvalId: string): boolean {
-    const op = this.pendingApprovals.get(approvalId);
-    if (op?.approvalStatus !== 'pending') return false;
-    op.approvalStatus = 'approved';
-    this.emit(op.agentId, 'completed', 'decide', `Approved: ${op.type} ${op.path}`);
+    const entry = this.pendingApprovals.get(approvalId);
+    if (entry?.operation.approvalStatus !== 'pending') return false;
+    entry.operation.approvalStatus = 'approved';
+    this.emit(
+      entry.operation.agentId,
+      'completed',
+      'decide',
+      `Approved: ${entry.operation.type} ${entry.operation.path}`,
+    );
     return true;
   }
 
   reject(approvalId: string): boolean {
-    const op = this.pendingApprovals.get(approvalId);
-    if (!op) return false;
-    op.approvalStatus = 'rejected';
-    this.emit(op.agentId, 'failed', 'decide', `Rejected: ${op.type} ${op.path}`);
+    const entry = this.pendingApprovals.get(approvalId);
+    if (!entry) return false;
+    entry.operation.approvalStatus = 'rejected';
+    this.emit(entry.operation.agentId, 'failed', 'decide', `Rejected: ${entry.operation.type} ${entry.operation.path}`);
     return true;
   }
 
   getPendingApprovals(): FsOperation[] {
-    return Array.from(this.pendingApprovals.values()).filter((o) => o.approvalStatus === 'pending');
+    return Array.from(this.pendingApprovals.values())
+      .filter((e) => e.operation.approvalStatus === 'pending')
+      .map((e) => e.operation);
+  }
+
+  /** GA-TOOL-004: Get the immutable envelope for a pending approval. */
+  getEnvelope(approvalId: string): MutationEnvelope | undefined {
+    return this.pendingApprovals.get(approvalId)?.envelope;
   }
 
   /**

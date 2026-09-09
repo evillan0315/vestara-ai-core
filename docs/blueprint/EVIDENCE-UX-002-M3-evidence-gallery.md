@@ -1,3 +1,12 @@
+---
+title: EVIDENCE-UX-002 M3 — Visual Evidence Gallery
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # EVIDENCE-UX-002 M3 — Visual Evidence Gallery
 
 **Status:** IMPLEMENTED (M3 only — no lightbox/viewer, no visual diff, no baseline

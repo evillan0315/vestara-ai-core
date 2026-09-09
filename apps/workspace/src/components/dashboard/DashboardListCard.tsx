@@ -20,19 +20,18 @@ export function DashboardListCard({
       className={clsx(
         'group overflow-hidden rounded-2xl',
         'border border-(--vestara-accent-border)',
-        'bg-(--vestara-accent-bg) backdrop-blur-xl',
-        'shadow-[0_0_0_1px_rgba(255,255,255,0.03)]',
+        'bg-(--vestara-surface)',
+        'shadow-[0_0_0_1px_var(--vestara-accent-bg),0_0_12px_color-mix(in_srgb,var(--vestara-accent)_10%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_8%,transparent)]',
         'transition-all duration-300',
         'hover:border-(--vestara-accent-border-hover)',
-        'hover:bg-(--vestara-accent-bg)',
-        'hover:shadow-xl',
+        'hover:shadow-[0_0_0_1px_var(--vestara-accent-border-hover),0_0_20px_color-mix(in_srgb,var(--vestara-accent)_16%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_12%,transparent)]',
         className,
       )}
     >
       <header className="flex items-start justify-between border-b border-(--vestara-accent-border) px-5 py-4">
         <div className="flex min-w-0 items-center gap-3">
           {icon && (
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) text-(--vestara-text)">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) shadow-[0_0_8px_var(--vestara-accent-bg)] text-(--vestara-text)">
               {icon}
             </div>
           )}
@@ -47,7 +46,7 @@ export function DashboardListCard({
         {loading ? (
           <div className="space-y-3 p-5">
             {Array.from({ length: 5 }).map((_, index) => (
-              <div key={index} className="h-5 animate-pulse rounded bg-(--vestara-accent-bg)" />
+              <div key={index} className="h-5 animate-pulse rounded bg-[color-mix(in_srgb,var(--vestara-accent)_6%,transparent)]" />
             ))}
           </div>
         ) : (

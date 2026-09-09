@@ -159,6 +159,7 @@ pnpm test
 **Shortcuts per package:**
 
 ```bash
+pnpm --filter @vestara/api lint
 pnpm --filter @vestara/types test
 ```
 

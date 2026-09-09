@@ -118,7 +118,7 @@ Run 2 (primary; Run 1 in parentheses for reproducibility):
 | `2.0MB` synth | `3.2ms` | `7.0ms` | `2056192` | `467ms (9.3ms/op)` | `14ms` | sync block |
 | `8.8MB` synth | `13.5ms` | `18.9ms` | `9244672` | `1699ms (34.0ms/op)` | `10ms` | sync block |
 | Prod `activity.db 17.48MB` (copy to `/tmp`, read-only) | `30–46ms` | `~30–40ms` est. from curve | `18329600` | — | — | `copy 34ms warm (502ms cold)`, `read 19–31ms`, `open 7–19ms` |
-| Prod `engineering-events.db 510MB` | NOT loaded into WASM (OOM risk on `7.6GB` box) | NOT written | `534798336` | — | — | extrapolated `~28×` the `18MB` cost per persist (seconds-scale block); requires arch decision before any durability change |
+| Prod `engineering-events.db 510MB` | NOT loaded into WASM (OOM risk on `7.6GB` box) | NOT written | `534798336` | — | — | **NOT MEASURED — no persistence-latency claim.** `510MB` is the observed fixture size only; the open path (`readFileSync` → `SQL.Database`, `packages/engineering-event-store/dist/index.js:112`) is an in-memory load with OOM risk. Any latency figure would be extrapolation, not measurement (terminology corrected 2026-09-07, PERF-API-002; Phase 0 numbers preserved) |
 
 Write frequency: production code calls `persistDb` (`db.export()` + `writeFileSync`) on every `INSERT/UPDATE/DELETE/CREATE/DROP` via `exec`/`prepare.free` wrappers (`workspace-context.ts`, `activity-room.ts`, `activity-room-m11a.ts`).
 
@@ -151,7 +151,7 @@ Waterfall markers observed: `kernel-booted 2183ms`, `runtime-opened 3939ms`, `me
 
 | ID | Rank | Evidence |
 |----|------|----------|
-| B1 persistence write | `CONFIRMED MAJOR` | `5.8→9.3→34.0ms/op` with size; `17.8×→173×` vs no-persist; `18MB` export `30–46ms`; `510MB` prod file extrapolated seconds-scale sync block per write |
+| B1 persistence write | `CONFIRMED MAJOR` | `5.8→9.3→34.0ms/op` with size; `17.8×→173×` vs no-persist; `18MB` export `30–46ms`; `510MB` file = observed fixture size / OOM risk only, persistence latency NOT measured |
 | B6 boot composition | `CONFIRMED MAJOR` | `context 3001–4495ms`, `total 3465–5811ms` empty-temp vs `listen 11–42ms` minimal; `RSS 128–133MB` vs `90–95MB`; `kernel-booted 2183ms` |
 | B5 sync FS (docs walk) | `CONFIRMED MAJOR (endpoint-specific)` / `CONFIRMED MINOR (gateway avg)` | walk `54.8ms` dominates docs endpoint; micro-ops `0.021–0.032ms` are `<1%` gateway |
 | B2 logging CPU | `CONFIRMED MINOR` | `0.025–0.034ms`/request vs `3–5ms`; stdout I/O cost not measured (noop in harness) |

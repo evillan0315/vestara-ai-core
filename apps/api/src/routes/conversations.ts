@@ -76,9 +76,50 @@ export async function handleConversationsRoute(
   if (method === 'POST' && p === '/api/conversations') {
     const raw = await readBody(req);
     const body = raw ? JSON.parse(raw) : {};
-    const conversation = await ctx.conversationService.createConversation(
-      typeof body.userId === 'string' ? body.userId : 'local',
-    );
+    const userId = typeof body.userId === 'string' ? body.userId : 'local';
+    const runtimeSessionId =
+      typeof body.runtimeSessionId === 'string' && body.runtimeSessionId ? body.runtimeSessionId : undefined;
+
+    // GA-SESSION-003: when a runtimeSessionId is provided, verify the session
+    // exists and its directory matches the authoritative repository root before
+    // binding it to the new conversation. Fail closed on any mismatch.
+    if (runtimeSessionId) {
+      try {
+        const session = await ctx.opencodeRuntime.getSession(runtimeSessionId, {
+          workspaceId: ctx.runtime.getSession?.().fingerprint?.id ?? 'workspace',
+          directory: ctx.repoPath,
+          correlationId: `conv-resume-${Date.now()}`,
+        });
+        if (!session.directory) {
+          json(res, 400, { error: 'Session directory unverifiable' });
+          return true;
+        }
+        const { resolve } = await import('node:path');
+        const normalizedSessionDir = resolve(session.directory);
+        const normalizedRepoDir = resolve(ctx.repoPath);
+        if (normalizedSessionDir !== normalizedRepoDir) {
+          json(res, 400, { error: 'Session directory does not match repository' });
+          return true;
+        }
+      } catch {
+        json(res, 400, { error: 'Session not found' });
+        return true;
+      }
+    }
+
+    const conversation = await ctx.conversationService.createConversation(userId, { runtimeSessionId });
+
+    // GA-SESSION-003: pre-adopt the verified session into the registry so the
+    // first sendMessageStream → acquire() finds the binding and skips the
+    // redundant liveness probe (which can race with OpenCode state changes).
+    if (runtimeSessionId && conversation.id) {
+      ctx.assistantConversationSessions.set(conversation.id, {
+        sessionId: runtimeSessionId,
+        repositoryDir: ctx.repoPath,
+        createdAt: new Date().toISOString(),
+      });
+    }
+
     json(res, 201, { conversation });
     return true;
   }

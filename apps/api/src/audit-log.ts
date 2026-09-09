@@ -35,6 +35,10 @@ export const AuditAction = {
   ORDER_CANCEL: 'order.cancel',
   ORDER_STATUS_CHANGE: 'order.status_change',
   ORDER_PAYMENT_CHANGE: 'order.payment_change',
+  COLLAB_SUBMIT: 'collab.submit',
+  COLLAB_APPROVE: 'collab.approve',
+  COLLAB_REJECT: 'collab.reject',
+  COLLAB_COMMENT: 'collab.comment',
 } as const;
 
 /** Extract the client IP from the request. */

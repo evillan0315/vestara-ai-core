@@ -7,6 +7,7 @@
  * respected so the whole surface behaves consistently with `api/opencode/*`.
  */
 
+import type { OpenCodeSession } from '@vestara/opencode-runtime';
 import {
   disabledError,
   OpenCodeConfigError,
@@ -86,6 +87,16 @@ export class OpenCodeRuntimeService {
     await ensureOpencodeServer();
     noteOpencodeUsed();
     return client.getHealth();
+  }
+
+  async getSession(
+    sessionId: string,
+    context: { workspaceId: string; directory: string; correlationId?: string },
+  ): Promise<OpenCodeSession> {
+    const client = this.client();
+    await ensureOpencodeServer();
+    noteOpencodeUsed();
+    return client.getSession(sessionId, context);
   }
 }
 

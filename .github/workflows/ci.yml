@@ -41,7 +41,11 @@ jobs:
 
       - run: pnpm lint:check
 
-      - run: pnpm test
+      - name: Fast tests (excludes repo-scan, e2e and doc-governance suites)
+        run: pnpm test:fast
+
+      - name: Full test suite
+        run: pnpm test
 
       - name: Documentation drift gate
         run: pnpm documentation:check

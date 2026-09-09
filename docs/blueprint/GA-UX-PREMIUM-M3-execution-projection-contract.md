@@ -1,3 +1,14 @@
+---
+title: GA-UX-PREMIUM M3 — Structured Assistant Execution Projection Contract
+version: 1.0.0
+status: implemented
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+implementation-repository: vestara-ai-core
+implementation-commit: 1c2829a
+---
+
 # GA-UX-PREMIUM M3 — Structured Assistant Execution Projection Contract
 
 **Status:** IMPLEMENTED (contract/infrastructure milestone — M2 accepted, M3 delivered)

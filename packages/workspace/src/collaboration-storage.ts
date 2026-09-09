@@ -61,9 +61,15 @@ export class CollaborationStorage {
     // executed by the entrypoint composition root before storages construct.
   }
 
-  async create(changeSetId: string, planId: string, workspaceId: string): Promise<CollaborationRecord> {
+  async create(
+    changeSetId: string,
+    planId: string,
+    workspaceId: string,
+    actorId?: string,
+  ): Promise<CollaborationRecord> {
     const now = new Date().toISOString();
     const id = genId();
+    const owner = actorId || 'current-user';
     const record: CollaborationRecord = {
       id,
       workspaceId,
@@ -73,7 +79,7 @@ export class CollaborationStorage {
       status: 'draft',
       approvals: [],
       comments: [],
-      ownership: { owner: 'current-user', contributors: [], reviewers: ['current-user'] },
+      ownership: { owner, contributors: [], reviewers: [owner] },
       createdAt: now,
       updatedAt: now,
     };

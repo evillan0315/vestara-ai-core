@@ -133,6 +133,8 @@ export interface UseAssistantConversationReturn {
 
   // Creation
   createConversation: () => Promise<string | null>;
+  /** GA-SESSION-003: create a conversation bound to an existing OpenCode runtime session. */
+  resumeOpenCodeSession: (sessionId: string) => Promise<string | null>;
 
   // Messages
   messages: Message[];
@@ -460,6 +462,26 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       const newId = data.conversation?.id ?? null;
       if (newId) {
         // Refresh list and select the new conversation
+        await refreshList();
+        selectConversation(newId);
+      }
+      return newId;
+    } catch {
+      return null;
+    }
+  }, [refreshList, selectConversation]);
+
+  // ── GA-SESSION-003: resume an existing OpenCode runtime session ──
+  // Creates a Conversation Runtime conversation bound to the given sessionId.
+  // Server verifies session existence and repository directory match (fail closed).
+  const resumeOpenCodeSession = useCallback(async (sessionId: string): Promise<string | null> => {
+    try {
+      const data = await apiFetch<{ conversation: Conversation }>('/api/conversations', {
+        method: 'POST',
+        body: JSON.stringify({ runtimeSessionId: sessionId }),
+      });
+      const newId = data.conversation?.id ?? null;
+      if (newId) {
         await refreshList();
         selectConversation(newId);
       }
@@ -912,6 +934,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     selectedConversation,
     selectConversation,
     createConversation,
+    resumeOpenCodeSession,
     messages,
     loadMessages,
     optimisticTurns,

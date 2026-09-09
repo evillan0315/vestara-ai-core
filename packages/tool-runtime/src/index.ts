@@ -373,3 +373,79 @@ export class FilesystemWriteTool
     };
   }
 }
+
+// ── GA-TOOL-003: FilesystemEditTool (vestara.edit) ──────────────────────────
+
+interface FilesystemEditInput {
+  readonly file: string;
+  readonly patch: {
+    replace?: { search: string; replace: string }[];
+    removeLines?: { startLine: number; endLine?: number }[];
+    insert?: { atLine: number; content: string }[];
+  };
+  readonly reason?: string;
+}
+
+export class FilesystemEditTool
+  implements VestaraTool<FilesystemEditInput, { readonly path: string; readonly summary: unknown }>
+{
+  readonly name = 'filesystem.edit';
+  readonly description = 'Apply a structured patch to a file inside the active workspace';
+  readonly risk = 'medium' as const;
+  readonly inputSchema: ToolInputSchema<FilesystemEditInput> = {
+    jsonSchema: {
+      type: 'object',
+      properties: {
+        file: { type: 'string', minLength: 1 },
+        patch: { type: 'object' },
+        reason: { type: 'string' },
+      },
+      required: ['file', 'patch'],
+      additionalProperties: false,
+    },
+    parse(input) {
+      const record = recordInput(input);
+      return {
+        file: requiredString(record, 'file'),
+        patch: record.patch as FilesystemEditInput['patch'],
+        reason: optionalString(record, 'reason'),
+      };
+    },
+  };
+
+  constructor(private readonly filesystem: FilesystemRuntime) {}
+
+  affectedResources(input: FilesystemEditInput): readonly string[] {
+    return [input.file];
+  }
+
+  async execute(
+    input: FilesystemEditInput,
+    context: ToolExecutionContext,
+  ): Promise<ToolExecutionResult<{ path: string; summary: unknown }>> {
+    if (context.signal.aborted) return { status: 'cancelled', evidence: [] };
+    const result = await this.filesystem.update(input.file, input.patch, {
+      agentId: context.agentId,
+      reason: input.reason,
+    });
+    if (!result.ok || result.data === undefined)
+      return { status: 'failed', error: result.error ?? 'Filesystem edit failed', evidence: [] };
+    return {
+      status: 'completed',
+      output: { path: result.data.path, summary: result.data.summary },
+      evidence: [
+        {
+          id: result.operation.id,
+          kind: 'file',
+          summary: `Edited ${input.file}`,
+          uri: input.file,
+          metadata: {
+            operation: 'edit',
+            workspaceRoot: context.environment.workspaceRoot,
+            changes: result.observation?.changes ?? {},
+          },
+        },
+      ],
+    };
+  }
+}

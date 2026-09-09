@@ -15,7 +15,7 @@ const SUMMARY_MAX_LENGTH = 200;
 
 function LoadingSkeleton() {
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in" role="status" aria-live="polite" aria-label="Loading workspace overview">
       {/* Header skeleton */}
       <div className="space-y-3">
         <div className="h-7 w-56 rounded bg-[var(--vestara-accent-bg)] animate-pulse" />
@@ -23,7 +23,7 @@ function LoadingSkeleton() {
       </div>
 
       {/* Quick actions skeleton */}
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" aria-hidden="true">
         <div className="h-3 w-14 rounded bg-[var(--vestara-accent-bg)] animate-pulse" />
         {[1, 2, 3, 4].map((i) => (
           <div
@@ -34,7 +34,7 @@ function LoadingSkeleton() {
       </div>
 
       {/* Cards skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-hidden="true">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
@@ -49,15 +49,22 @@ function LoadingSkeleton() {
           </div>
         ))}
       </div>
+      <p className="sr-only">Building workspace understanding...</p>
     </div>
   );
 }
 
 function ErrorState({ error, onRetry }: { error: string; onRetry?: () => void }) {
+  const isServerError = error.includes('503') || error.includes('502') || error.includes('504');
+  const errorTitle = isServerError ? 'Workspace analysis in progress' : 'Failed to load workspace understanding';
+  const errorMessage = isServerError
+    ? 'The workspace is being analyzed. This usually takes a few seconds. Please try again shortly.'
+    : error;
+
   return (
-    <div className="flex items-center justify-center h-64">
+    <div className="flex items-center justify-center h-64" role="alert" aria-live="assertive">
       <div className="text-center max-w-md">
-        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--vestara-red)]/10 flex items-center justify-center">
+        <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-[var(--vestara-red)]/10 flex items-center justify-center" aria-hidden="true">
           <svg
             className="w-6 h-6 text-[var(--vestara-red)]"
             fill="none"
@@ -73,14 +80,15 @@ function ErrorState({ error, onRetry }: { error: string; onRetry?: () => void })
           </svg>
         </div>
         <h3 className="text-sm font-medium text-[var(--vestara-text)] mb-2">
-          Failed to load workspace understanding
+          {errorTitle}
         </h3>
-        <p className="text-xs text-[var(--vestara-text-muted)] mb-4">{error}</p>
+        <p className="text-xs text-[var(--vestara-text-muted)] mb-4">{errorMessage}</p>
         {onRetry && (
           <button
             type="button"
             onClick={onRetry}
-            className="px-4 py-2 text-xs font-medium text-[var(--vestara-text)] bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] rounded-lg hover:border-[var(--vestara-accent-border-hover)] transition-colors cursor-pointer"
+            aria-label="Retry loading workspace overview"
+            className="px-4 py-2 text-xs font-medium text-[var(--vestara-text)] bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] rounded-lg hover:border-[var(--vestara-accent-border-hover)] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--vestara-accent)]"
           >
             Try again
           </button>
@@ -106,13 +114,13 @@ export default function Overview() {
   if (!data) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in" aria-labelledby="overview-heading">
       {/* Page header */}
       <div className="mb-5">
-        <h1 className="text-xl font-bold text-[var(--vestara-text)] tracking-tight">
+        <h1 id="overview-heading" className="text-xl font-bold text-[var(--vestara-text)] tracking-tight">
           Workspace Overview
         </h1>
-        <p className="text-sm text-[var(--vestara-text-2)] mt-1 leading-relaxed max-w-2xl">
+        <p id="workspace-summary" className="text-sm text-[var(--vestara-text-2)] mt-1 leading-relaxed max-w-2xl">
           {summaryExpanded
             ? data.summary
             : data.summary.length > SUMMARY_MAX_LENGTH
@@ -123,7 +131,9 @@ export default function Overview() {
           <button
             type="button"
             onClick={() => setSummaryExpanded(!summaryExpanded)}
-            className="text-[10px] text-[var(--vestara-accent-text)] hover:text-[var(--vestara-accent-text-hover)] mt-1 cursor-pointer transition-colors"
+            aria-expanded={summaryExpanded}
+            aria-controls="workspace-summary"
+            className="text-[10px] text-[var(--vestara-accent-text)] hover:text-[var(--vestara-accent-text-hover)] mt-1 cursor-pointer transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--vestara-accent)]"
           >
             {summaryExpanded ? '\u2190 Show less' : 'Show more \u2192'}
           </button>
@@ -131,7 +141,7 @@ export default function Overview() {
       </div>
 
       {/* Quick actions */}
-      <div className="flex items-center gap-2 mb-5 flex-wrap">
+      <nav className="flex items-center gap-2 mb-5 flex-wrap" aria-label="Quick actions">
         <span className="text-[9px] text-[var(--vestara-text-muted)] uppercase tracking-wider font-semibold mr-1">
           Quick
         </span>
@@ -145,38 +155,39 @@ export default function Overview() {
             key={path}
             type="button"
             onClick={() => navigate(path)}
-            className="text-[10px] px-3 py-1.5 bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] text-[var(--vestara-text-2)] rounded-lg hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text)] transition-all cursor-pointer"
+            aria-label={label}
+            className="text-[10px] px-3 py-1.5 bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] text-[var(--vestara-text-2)] rounded-lg hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text)] transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--vestara-accent)]"
           >
             {icon} {label}
           </button>
         ))}
-      </div>
+      </nav>
 
       {/* Info cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" aria-label="Workspace overview cards">
         <IdentityCard data={data} />
         <HealthCard data={data} />
         <StateCard data={data} />
         <ActivityCard data={data} />
         <ArchitectureCard data={data} />
         <DecisionsCard data={data} />
-      </div>
+      </section>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+      <section className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6" aria-label="Data visualization charts">
         <HealthRadialChart data={data} />
-        <LayersBarChart data={data} />
-      </div>
-      <div className="mt-4">
         <EntryPointsChart data={data} />
+      </section>
+      <div className="mt-4">
+        <LayersBarChart data={data} />
       </div>
 
       {/* Footer */}
-      <div className="mt-5 pt-3 border-t border-[var(--vestara-accent-border)] text-center">
+      <footer className="mt-5 pt-3 border-t border-[var(--vestara-accent-border)] text-center">
         <span className="text-[9px] text-[var(--vestara-text-dim)]">
-          Auto-refreshes every 10s &middot; {data.state?.indexFreshness || 'Up to date'}
+          Auto-refreshes every 10s &middot; {data.state?.indexFreshness || 'Up to date'} &middot; Last refreshed: {new Date().toLocaleTimeString()}
         </span>
-      </div>
+      </footer>
     </div>
   );
 }

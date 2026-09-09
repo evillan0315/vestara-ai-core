@@ -44,6 +44,14 @@
   --vestara-text-muted: #71717a;
   --vestara-text-dim: #52525b;
 
+  /* Dark metallic surface treatment (adapts with theme toggle) */
+  --vestara-surface: #0a0a0c;
+  --vestara-surface-elevated: color-mix(in srgb, var(--color-zinc-800) 72%, var(--color-zinc-900));
+  --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 10%, transparent);
+  --vestara-surface-glow-hover: color-mix(in srgb, var(--vestara-accent) 16%, transparent);
+  --vestara-surface-sheen: color-mix(in srgb, var(--vestara-accent-light) 8%, transparent);
+  --vestara-surface-sheen-hover: color-mix(in srgb, var(--vestara-accent-light) 12%, transparent);
+
   /* Font defaults (overridden by JS) */
   --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   --vestara-font-size-base: 14.25px;
@@ -113,6 +121,14 @@
   --vestara-text-2: #6b6b60;
   --vestara-text-muted: #888880;
   --vestara-text-dim: #a8a8a0;
+
+  /* Light metallic surface treatment */
+  --vestara-surface: #f5f5f0;
+  --vestara-surface-elevated: #ffffff;
+  --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
+  --vestara-surface-glow-hover: color-mix(in srgb, var(--vestara-accent) 14%, transparent);
+  --vestara-surface-sheen: color-mix(in srgb, white 20%, transparent);
+  --vestara-surface-sheen-hover: color-mix(in srgb, white 28%, transparent);
 
   --chart-grid: #d4d4c8;
   --chart-text: #6b6b60;
@@ -496,6 +512,37 @@ select option {
   border-color: var(--vestara-accent-border-active) !important;
 }
 
+/* ── Dark Metallic Card Treatment ──
+   Automatically applies the dark metallic look to card-like surfaces.
+   Uses theme-adaptive variables — works in both dark and light modes. */
+section.bg-zinc-900\/50,
+section.bg-zinc-950\/50,
+[class*="bg-zinc-900/50"][class*="rounded-"],
+[class*="bg-zinc-950/50"][class*="rounded-"],
+[class*="bg-zinc-900"][class*="border-zinc-"][class*="rounded-"]:not(button):not(a),
+[class*="bg-zinc-950"][class*="border-zinc-"][class*="rounded-"]:not(button):not(a) {
+  background-color: var(--vestara-surface) !important;
+  border-color: var(--vestara-accent-border) !important;
+  box-shadow:
+    0 0 0 1px var(--vestara-surface-glow),
+    0 0 12px var(--vestara-surface-glow),
+    inset 0 1px 0 var(--vestara-surface-sheen);
+  transition: border-color 0.15s ease, box-shadow 0.2s ease;
+}
+
+section.bg-zinc-900\/50:hover,
+section.bg-zinc-950\/50:hover,
+[class*="bg-zinc-900/50"][class*="rounded-"]:hover,
+[class*="bg-zinc-950/50"][class*="rounded-"]:hover,
+[class*="bg-zinc-900"][class*="border-zinc-"][class*="rounded-"]:not(button):not(a):hover,
+[class*="bg-zinc-950"][class*="border-zinc-"][class*="rounded-"]:not(button):not(a):hover {
+  border-color: var(--vestara-accent-border-hover) !important;
+  box-shadow:
+    0 0 0 1px var(--vestara-surface-glow-hover),
+    0 0 20px var(--vestara-surface-glow-hover),
+    inset 0 1px 0 var(--vestara-surface-sheen-hover);
+}
+
 /* ── Accent color utility classes ── */
 .bg-accent {
   background-color: var(--vestara-accent-bg);
@@ -553,6 +600,7 @@ section.bg-zinc-900\/50:focus,
 section.bg-zinc-950\/50:focus {
   border-color: var(--vestara-accent-border-active) !important;
   outline: none;
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vestara-accent) 20%, transparent);
 }
 
 /* ── Small text readability ── */

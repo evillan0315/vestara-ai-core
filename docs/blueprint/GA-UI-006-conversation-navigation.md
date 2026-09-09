@@ -1,3 +1,12 @@
+---
+title: GA-UI-006 — Floating Assistant Conversation Navigation
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-UI-006 — Floating Assistant Conversation Navigation
 
 **Date**: 2026-09-04

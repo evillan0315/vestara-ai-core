@@ -87,7 +87,7 @@ function PageShellHeader({ children, card = false }: PageShellHeaderProps) {
         'flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between',
         'px-3 py-3 sm:px-4 sm:py-4',
         card
-          ? 'rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg)'
+          ? 'rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) shadow-[0_0_0_1px_var(--vestara-accent-bg),0_0_12px_color-mix(in_srgb,var(--vestara-accent)_10%,transparent)]'
           : 'border-b border-(--vestara-accent-border)',
       ].join(' ')}
     >
@@ -140,7 +140,7 @@ export interface PageShellStatusProps {
 function PageShellStatus({ color = 'green', pulse = false, label }: PageShellStatusProps) {
   return (
     <span
-      className="flex items-center gap-1.5 rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5 text-[10px] text-(--vestara-text-2)"
+      className="flex items-center gap-1.5 rounded-full border border-(--vestara-accent-border) bg-(--vestara-surface) px-3 py-1.5 text-[10px] text-(--vestara-text-2) shadow-[0_0_6px_var(--vestara-accent-bg)]"
       role="status"
     >
       <span
@@ -187,7 +187,7 @@ export interface PageShellMainProps extends PropsWithChildren {
 function PageShellMain({ children, minHeight = '28rem' }: PageShellMainProps) {
   return (
     <main
-      className="flex min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3"
+      className="flex min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) p-2 sm:p-3 shadow-[0_0_0_1px_var(--vestara-accent-bg),0_0_12px_color-mix(in_srgb,var(--vestara-accent)_10%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_8%,transparent)]"
       style={{ minHeight }}
     >
       {children}
@@ -227,7 +227,7 @@ function PageShellSidebar({
       {/* Sidebar panel */}
       <aside
         className={[
-          'flex flex-col border-l border-(--vestara-accent-border) bg-(--vestara-accent-bg)',
+          'flex flex-col border-l border-(--vestara-accent-border) bg-(--vestara-surface) shadow-[-4px_0_24px_-8px_var(--vestara-accent-bg)]',
           // Mobile: fixed overlay
           'fixed inset-y-0 right-0 z-50 transition-transform duration-200 ease-in-out',
           sidebarOpen ? 'translate-x-0' : 'translate-x-full',

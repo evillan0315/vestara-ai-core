@@ -21,8 +21,10 @@ export function LayersBarChart({ data }: { data: UnderstandingData }) {
   }));
   if (chartData.length === 0) return null;
 
+  const ariaLabel = `Layer distribution: ${chartData.map((item) => `${item.name} ${item.value}`).join(', ')}`;
+
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-blue)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-blue)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="figure" aria-label={ariaLabel}>
       <h3 className="text-[9px] font-semibold text-[var(--vestara-text-muted)] uppercase tracking-wider mb-3">
         Layer Distribution
       </h3>

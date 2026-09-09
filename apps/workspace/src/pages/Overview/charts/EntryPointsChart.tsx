@@ -18,8 +18,10 @@ export function EntryPointsChart({ data }: { data: UnderstandingData }) {
   }));
   if (chartData.length === 0) return null;
 
+  const ariaLabel = `Entry point confidence: ${chartData.map((item) => `${item.name} ${item.confidence}%`).join(', ')}`;
+
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="figure" aria-label={ariaLabel}>
       <h3 className="text-[9px] font-semibold text-[var(--vestara-text-muted)] uppercase tracking-wider mb-3">
         Entry Point Confidence
       </h3>

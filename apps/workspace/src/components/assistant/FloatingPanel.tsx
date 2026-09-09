@@ -366,7 +366,7 @@ export function FloatingPanel({
       className={
         expanded
           ? 'fixed inset-0 z-[90] flex flex-col overflow-hidden bg-zinc-950/90 backdrop-blur-xl animate-fade-in'
-          : 'fixed z-[91] flex flex-col overflow-hidden rounded-xl border border-zinc-700/50 bg-zinc-950/90 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.03),0_0_64px_-20px_rgba(245,158,11,0.25)] ring-1 ring-zinc-950/20 backdrop-blur-xl animate-fade-in'
+          : 'fixed z-[91] flex flex-col overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_32px_96px_-16px_rgba(0,0,0,0.6),0_0_0_1px_var(--vestara-accent-bg),0_0_32px_-8px_var(--vestara-accent-bg)] ring-1 ring-(--vestara-accent-border-hover) backdrop-blur-xl animate-fade-in'
       }
       style={
         expanded
@@ -381,23 +381,23 @@ export function FloatingPanel({
             }
       }
     >
-      {/* Premium top accent hairline with subtle gold gradient */}
+      {/* Premium top accent hairline with gold gradient */}
       {!expanded && (
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute inset-x-6 top-0 z-10 h-px bg-gradient-to-r from-transparent via-zinc-950/20 to-transparent"
+          className="pointer-events-none absolute inset-x-6 top-0 z-10 h-px bg-gradient-to-r from-transparent via-(--vestara-accent-border) to-transparent"
         />
       )}
       {/* Title bar (drag handle in floating mode; static in expanded mode) */}
       <div
-        className={`flex shrink-0 items-center justify-between border-2 border-zinc-700/40 bg-zinc-900/80 backdrop-blur px-3 py-2.5 rounded-t-xl ${
+        className={`flex shrink-0 items-center justify-between border-b border-(--vestara-accent-border) bg-(--vestara-surface)/90 backdrop-blur px-3 py-2.5 rounded-t-xl ${
           expanded ? '' : 'cursor-move select-none'
         }`}
         onPointerDown={expanded ? undefined : beginDrag}
       >
         <div className="flex min-w-0 items-center gap-2">
-          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_14px_-2px_rgba(245,158,11,0.7)] ring-1 ring-white/20">
-            <svg className="h-3.5 w-3.5 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-(--vestara-surface) shadow-[0_0_10px_var(--vestara-accent-bg)] ring-1 ring-(--vestara-accent-border)">
+            <svg className="h-3.5 w-3.5 text-(--vestara-accent)" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
               <path d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
           </div>
@@ -416,7 +416,7 @@ export function FloatingPanel({
               onClick={onNewConversation}
               aria-label="New conversation"
               title="New conversation"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-amber-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
             >
               <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -429,7 +429,7 @@ export function FloatingPanel({
               onClick={onToggleExpanded}
               aria-label={expanded ? 'Restore assistant' : 'Expand assistant'}
               title={expanded ? 'Restore' : 'Expand'}
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
             >
               {expanded ? (
                 <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -447,7 +447,7 @@ export function FloatingPanel({
             onClick={onMinimize}
             aria-label="Minimize assistant"
             title="Minimize"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M20 12H4" />
@@ -458,7 +458,7 @@ export function FloatingPanel({
             onClick={onClose}
             aria-label="Close assistant"
             title="Close"
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-red-500/15 hover:text-red-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-red-500/15 hover:text-red-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
           >
             <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />

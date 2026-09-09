@@ -70,15 +70,15 @@ export function VestaraModal({ onClose, children, className = 'max-w-md', accent
         aria-modal="true"
         aria-label={ariaLabel}
         tabIndex={-1}
-        className={`relative w-full overflow-hidden rounded-2xl border border-(--vestara-accent-border) shadow-2xl ${className}`}
+        className={`relative w-full overflow-hidden rounded-2xl border border-(--vestara-accent-border) shadow-[0_32px_96px_-16px_rgba(0,0,0,0.6),0_0_0_1px_var(--vestara-accent-bg),0_0_32px_-8px_var(--vestara-accent-bg),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_10%,transparent)] ${className}`}
         onMouseDown={(event) => event.stopPropagation()}
         onKeyDown={handleKeyDown}
         style={{
           background:
-            'linear-gradient(165deg, color-mix(in srgb, var(--vestara-primary) 14%, transparent), transparent 55%), var(--color-zinc-950)',
+            'linear-gradient(165deg, color-mix(in srgb, var(--vestara-accent) 8%, transparent), transparent 55%), var(--vestara-surface)',
         }}
       >
-        {accentBar && <div className="h-1 bg-[linear-gradient(90deg,var(--vestara-primary),var(--vestara-primary-muted))]" />}
+        {accentBar && <div className="h-1 bg-[linear-gradient(90deg,var(--vestara-accent),var(--vestara-accent-dark))]" />}
         {children}
       </div>
     </div>

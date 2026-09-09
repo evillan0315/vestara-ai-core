@@ -43,7 +43,6 @@ request (req-comp-001)
   providerModel: { test-provider, test-model }
   ↓ M5: RepositoryBinding (×1)
   bindingId: rb-composition-001
-  canonicalPath: /home/user/projects/vestara/vestara-ai-core
   ↓ M6: OpenCode typed integration boundary
   typed client (OpenCodeClient), no raw HTTP
   ↓ M7: RuntimeSessionBinding (×1)

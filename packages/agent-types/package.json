@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/agent-types",
+  "description": "Canonical agent identity vocabulary: AgentRole, AgentCapability, AgentType, and related immutable domain contracts",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

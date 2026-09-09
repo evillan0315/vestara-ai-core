@@ -7,7 +7,13 @@
  *
  * Presentation only — selection authority stays with the GA-2 hook
  * (GET-only canonical selection; no POST, no new turn).
+ *
+ * GA-SESSION-003: surfaces compatible runtime sessions for resume.
+ * Child sessions preserve parentID lineage (indented beneath parent),
+ * never flattened into independent roots.
  */
+
+import type { OpenCodeSessionView } from '../../lib/opencode';
 
 export interface LauncherDockItem {
   id: string;
@@ -23,6 +29,10 @@ export interface LauncherDockProps {
   /** Hover bridge: entering the dock cancels the pending close timer. */
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  /** GA-SESSION-003: compatible runtime sessions for resume surface. */
+  runtimeSessions?: OpenCodeSessionView[];
+  /** GA-SESSION-003: callback when a runtime session resume is invoked. */
+  onResumeSession?: (sessionId: string) => void;
 }
 
 /** Maximum conversations shown in the dock — most recent first. */
@@ -48,8 +58,25 @@ export function LauncherDock({
   onSelect,
   onMouseEnter,
   onMouseLeave,
+  runtimeSessions,
+  onResumeSession,
 }: LauncherDockProps) {
   if (!open) return null;
+
+  // GA-SESSION-003: build runtime session items preserving parentID lineage.
+  // Root sessions are primary resume targets; child sessions appear indented
+  // beneath their parent. Resume eligibility (busy/error) is a UI decision.
+  const rootSessions = (runtimeSessions ?? []).filter((s) => !s.parentID);
+  const childrenByParent = new Map<string, OpenCodeSessionView[]>();
+  for (const s of runtimeSessions ?? []) {
+    if (s.parentID) {
+      const list = childrenByParent.get(s.parentID) ?? [];
+      list.push(s);
+      childrenByParent.set(s.parentID, list);
+    }
+  }
+  const runtimeItems = rootSessions.slice(0, MAX_ITEMS - items.length);
+
   const visible = items.slice(0, MAX_ITEMS);
 
   return (
@@ -59,11 +86,11 @@ export function LauncherDock({
       aria-label="Recent conversations"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="assistant-dock-enter fixed bottom-[5.25rem] right-6 z-[90] w-72 overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-xl"
+      className="assistant-dock-enter fixed bottom-[5.25rem] right-6 z-[90] w-72 overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_var(--vestara-accent-bg),0_0_16px_-4px_var(--vestara-accent-bg)] backdrop-blur-xl"
     >
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
         <span className="text-[11px] font-semibold tracking-tight text-zinc-300">Recent</span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-2 py-0.5 text-[9px] font-medium text-amber-300/80">
+        <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-2 py-0.5 text-[9px] font-medium text-(--vestara-accent)">
           <svg className="h-2 w-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
@@ -88,14 +115,14 @@ export function LauncherDock({
                   aria-label={`Open conversation: ${item.title}`}
                   className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all cursor-pointer ${
                     isActive
-                      ? 'bg-amber-500/10 border border-amber-500/25 shadow-[0_0_12px_-4px_rgba(245,158,11,0.3)]'
+                      ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border) shadow-[0_0_12px_-4px_var(--vestara-accent-bg)]'
                       : 'border border-transparent hover:bg-zinc-800/60 hover:border-zinc-700/30'
                   }`}
                 >
                   {isActive && (
                     <span
                       aria-hidden="true"
-                      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-amber-500/20 text-amber-300"
+                      className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-(--vestara-accent-bg) text-(--vestara-accent)"
                     >
                       <svg className="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
@@ -113,6 +140,50 @@ export function LauncherDock({
                     {relativeTime(item.updatedAt)}
                   </span>
                 </button>
+              </li>
+            );
+          })}
+          {/* GA-SESSION-003: runtime sessions for resume. Root sessions are
+              primary targets; child sessions show lineage indented beneath
+              their parent. Never flattened into independent roots. */}
+          {runtimeItems.map((session) => {
+            const canResume = session.status !== 'busy';
+            const children = childrenByParent.get(session.id) ?? [];
+            return (
+              <li key={`rt-${session.id}`}>
+                <button
+                  type="button"
+                  onClick={() => canResume && onResumeSession?.(session.id)}
+                  disabled={!canResume}
+                  aria-label={`${canResume ? 'Resume' : 'Busy'}: ${session.title}`}
+                  className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all ${
+                    canResume
+                      ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                      : 'cursor-not-allowed opacity-50 border border-transparent'
+                  }`}
+                >
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-zinc-800/60 text-zinc-500" aria-hidden="true">
+                    <svg className="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </span>
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">
+                    {session.title}
+                  </span>
+                  <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">
+                    {session.updatedAt ? relativeTime(session.updatedAt) : ''}
+                  </span>
+                </button>
+                {children.length > 0 && (
+                  <ul className="ml-5 space-y-0">
+                    {children.map((child) => (
+                      <li key={child.id} className="flex items-center gap-1 px-2 py-0.5 text-[9px] text-zinc-600">
+                        <span aria-hidden="true">└</span>
+                        <span className="truncate">{child.title}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             );
           })}

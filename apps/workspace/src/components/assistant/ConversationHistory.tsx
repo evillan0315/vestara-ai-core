@@ -16,6 +16,7 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { OpenCodeSessionView } from '../../lib/opencode';
 import { filterByTitle, groupConversations } from './conversationTitles';
 
 export interface HistoryItemData {
@@ -42,6 +43,13 @@ export interface ConversationHistoryProps {
    * - 'rail': persistent static sidebar (no overlay behavior).
    */
   variant?: 'popover' | 'rail';
+  /**
+   * GA-SESSION-003: compatible runtime sessions for resume surface.
+   * Preserves root and child sessions for parentID lineage.
+   */
+  runtimeSessions?: OpenCodeSessionView[];
+  /** GA-SESSION-003: callback when a runtime session resume is invoked. */
+  onResumeSession?: (sessionId: string) => void;
 }
 
 function formatTime(isoOrTimestamp: string): string {
@@ -59,6 +67,8 @@ export function ConversationHistory({
   onClose,
   anchorRef,
   variant = 'popover',
+  runtimeSessions,
+  onResumeSession,
 }: ConversationHistoryProps) {
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -239,6 +249,95 @@ export function ConversationHistory({
             </ul>
           </div>
         ))}
+
+        {/* GA-SESSION-003: runtime sessions for resume surface. Root sessions
+            are primary resume targets; child sessions show lineage beneath
+            their parent. Resume eligibility (busy/error state) is a UI
+            decision — server-side RepositoryBinding validation is authoritative. */}
+        {runtimeSessions && runtimeSessions.length > 0 && (() => {
+          const rootSessions = runtimeSessions.filter((s) => !s.parentID);
+          const childrenByParent = new Map<string, OpenCodeSessionView[]>();
+          for (const s of runtimeSessions) {
+            if (s.parentID) {
+              const list = childrenByParent.get(s.parentID) ?? [];
+              list.push(s);
+              childrenByParent.set(s.parentID, list);
+            }
+          }
+          if (rootSessions.length === 0) return null;
+          return (
+            <div>
+              <div className="px-2 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+                Runtime Sessions
+              </div>
+              <ul className="space-y-0.5">
+                {rootSessions.map((session) => {
+                  const children = childrenByParent.get(session.id) ?? [];
+                  const canResume = session.status !== 'busy';
+                  return (
+                    <li key={session.id}>
+                      <button
+                        type="button"
+                        onClick={() => canResume && onResumeSession?.(session.id)}
+                        disabled={!canResume}
+                        aria-label={`${canResume ? 'Resume' : 'Session busy'}: ${session.title}`}
+                        className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all ${
+                          canResume
+                            ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                            : 'cursor-not-allowed opacity-50 border border-transparent'
+                        }`}
+                      >
+                        <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-zinc-800/60 text-[10px] text-zinc-500" aria-hidden="true">
+                          <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[12px] text-zinc-300">
+                            {session.title}
+                          </span>
+                          <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
+                            <span>{session.updatedAt ? formatTime(session.updatedAt) : ''}</span>
+                            {session.status === 'busy' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
+                                <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
+                                busy
+                              </span>
+                            )}
+                            {session.status === 'error' && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
+                                ! error
+                              </span>
+                            )}
+                          </span>
+                        </span>
+                        {canResume && (
+                          <span className="shrink-0 text-[9px] font-medium text-amber-400/70">
+                            Resume
+                          </span>
+                        )}
+                      </button>
+                      {/* Child sessions: lineage beneath parent */}
+                      {children.length > 0 && (
+                        <ul className="ml-4 space-y-0.5">
+                          {children.map((child) => (
+                            <li key={child.id} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-zinc-600">
+                              <span className="text-zinc-700" aria-hidden="true">└</span>
+                              <span className="truncate">{child.title}</span>
+                              {child.status === 'busy' && (
+                                <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

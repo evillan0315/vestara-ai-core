@@ -14,4 +14,4 @@ pnpm --filter @vestara/interaction-persistence build
 
 `@vestara/event-bus @vestara/sqlite-migrations @vestara/types`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

@@ -23,16 +23,18 @@ interface M11CParticipantRailProps {
   readonly selectedParticipantId: string | undefined;
   /** Callback when a participant is selected. */
   readonly onSelectParticipant: (participantId: string | undefined) => void;
+  /** Callback when an agent name is clicked/activated — opens Agent Control drawer. */
+  readonly onOpenAgentControl?: (participantId: string) => void;
 }
 
 // ─── Visual Config ───────────────────────────────────────────
 
-const PRESENCE_DOT: Record<string, string> = {
-  online: 'bg-(--vestara-green)',
-  active: 'bg-(--vestara-green)',
-  busy: 'bg-(--vestara-amber)',
-  away: 'bg-(--vestara-text-muted)',
-  offline: 'bg-(--vestara-text-dim)',
+const PRESENCE_LAMP: Record<string, string> = {
+  online: 'ar-lamp ar-lamp--live',
+  active: 'ar-lamp ar-lamp--live',
+  busy: 'ar-lamp ar-lamp--warn',
+  away: 'ar-lamp ar-lamp--dim',
+  offline: 'ar-lamp ar-lamp--dim',
 };
 
 const WORK_STATE_LABEL: Record<string, string> = {
@@ -56,6 +58,7 @@ export default function M11CParticipantRail({
   participants,
   selectedParticipantId,
   onSelectParticipant,
+  onOpenAgentControl,
 }: M11CParticipantRailProps) {
   // Group by membership, then sort by presence (online first), then by name
   const grouped = useMemo(() => {
@@ -73,15 +76,12 @@ export default function M11CParticipantRail({
 
   if (participants.length === 0) {
     return (
-      <div className="flex h-full flex-col gap-3">
-        <div className="px-1 sm:px-3">
-          <div className="w-full px-3 py-2 text-left text-xs font-medium text-(--vestara-text-2)">
-            Participants
-          </div>
+      <div className="ar-rail">
+        <div className="ar-rail__head">
+          <div className="ar-kicker">In attendance</div>
+          <div className="ar-rail__all-label">Participants</div>
         </div>
-        <div className="min-h-0 flex-1 px-3">
-          <p className="text-[10px] text-(--vestara-text-muted)">No participants yet.</p>
-        </div>
+        <div className="ar-rail__empty">No participants yet.</div>
       </div>
     );
   }
@@ -90,31 +90,30 @@ export default function M11CParticipantRail({
   const workingCount = participants.filter((p) => p.workState === 'working').length;
 
   return (
-    <div className="flex h-full flex-col gap-3">
-      <div className="px-1 sm:px-3">
+    <div className="ar-rail">
+      <div className="ar-rail__head">
+        <div className="ar-kicker">In attendance</div>
         <button
           type="button"
           onClick={() => onSelectParticipant(undefined)}
-          className={`w-full flex items-center justify-between px-3 py-2 rounded-lg border text-left cursor-pointer transition-colors ${
-            selectedParticipantId === undefined
-              ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border)'
-              : 'bg-transparent border-transparent hover:bg-(--vestara-accent-bg)'
-          }`}
+          className={`ar-rail__all ${selectedParticipantId === undefined ? 'ar-rail__all--active' : ''}`}
+          aria-pressed={selectedParticipantId === undefined}
         >
-          <span className="text-xs font-medium text-(--vestara-text-2)">Participants</span>
-          <span className="text-[10px] text-(--vestara-text-muted)">
-            {activeCount} online{workingCount > 0 ? ` · ${workingCount} working` : ''}
+          <span className="ar-rail__all-label">Participants</span>
+          <span className="ar-rail__census">
+            <strong>{activeCount}</strong> present{workingCount > 0 ? <> · <strong>{workingCount}</strong> at work</> : ''}
           </span>
         </button>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-1 overflow-y-auto px-1">
+      <div className="ar-rail__list ar-scroll">
         {grouped.map((participant) => (
           <ParticipantRow
             key={participant.participantId}
             participant={participant}
             selected={selectedParticipantId === participant.participantId}
             onSelect={onSelectParticipant}
+            onOpenAgentControl={onOpenAgentControl}
           />
         ))}
       </div>
@@ -128,15 +127,18 @@ function ParticipantRow({
   participant,
   selected,
   onSelect,
+  onOpenAgentControl,
 }: {
   participant: ParticipantProjection;
   selected: boolean;
   onSelect: (id: string | undefined) => void;
+  onOpenAgentControl?: (participantId: string) => void;
 }) {
-  const dotColor = PRESENCE_DOT[participant.presence] ?? 'bg-(--vestara-text-dim)';
+  const lamp = PRESENCE_LAMP[participant.presence] ?? 'ar-lamp ar-lamp--dim';
   const workLabel = WORK_STATE_LABEL[participant.workState] ?? participant.workState;
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
   const isHuman = participant.type === 'human';
+  const canOpenDrawer = !isHuman && onOpenAgentControl;
 
   // Presentation fallback: modelDisplayName for unnamed AI participants,
   // canonical displayName for humans and named agents.
@@ -144,56 +146,71 @@ function ParticipantRow({
     ? participant.modelDisplayName
     : participant.displayName;
 
+  const initial = (presentationName.trim()[0] ?? '?').toUpperCase();
+
+  const handleNameClick = (e: React.MouseEvent) => {
+    if (!canOpenDrawer) return;
+    e.stopPropagation();
+    onOpenAgentControl!(participant.participantId);
+  };
+
+  const handleNameKeyDown = (e: React.KeyboardEvent) => {
+    if (!canOpenDrawer) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      onOpenAgentControl!(participant.participantId);
+    }
+  };
+
   return (
     <button
       type="button"
       onClick={() => onSelect(selected ? undefined : participant.participantId)}
-      className={`w-full px-3 py-2 rounded-lg border text-left transition-colors cursor-pointer ${
-        selected
-          ? 'border-(--vestara-accent) bg-(--vestara-accent-bg)'
-          : 'border-transparent hover:bg-(--vestara-accent-bg)'
-      }`}
+      className={`ar-guest ${selected ? 'ar-guest--selected' : ''}`}
       aria-pressed={selected}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 min-w-0">
-          {/* Presence dot */}
-          <span className={`inline-block h-2 w-2 shrink-0 rounded-full ${dotColor}`} />
-          {/* Display name — model name for unnamed agents, canonical identity otherwise */}
-          <span className="text-xs font-medium text-(--vestara-text-2) truncate">
+      {/* Insignia */}
+      <span className={`ar-medallion ${isHuman ? 'ar-medallion--human' : 'ar-medallion--agent'}`} aria-hidden="true">
+        {initial}
+      </span>
+
+      <span className="ar-guest__body">
+        <span className="ar-guest__top">
+          {/* Display name — clickable for agents to open Agent Control drawer */}
+          <span
+            className={`ar-guest__name ${canOpenDrawer ? 'ar-guest__name--agent-action' : ''}`}
+            role={canOpenDrawer ? 'button' : undefined}
+            tabIndex={canOpenDrawer ? 0 : undefined}
+            aria-label={canOpenDrawer ? `Open agent control for ${participant.displayName}` : undefined}
+            onClick={canOpenDrawer ? handleNameClick : undefined}
+            onKeyDown={canOpenDrawer ? handleNameKeyDown : undefined}
+          >
             {presentationName}
           </span>
           {/* Type badge — metadata, not conversational identity */}
-          <span
-            className={`shrink-0 rounded px-1 py-0.5 text-[8px] font-medium uppercase ${
-              isHuman
-                ? 'bg-(--vestara-blue)/10 text-(--vestara-blue)'
-                : 'bg-(--vestara-violet)/10 text-(--vestara-violet)'
-            }`}
-          >
+          <span className={`ar-guest__badge ${isHuman ? 'ar-guest__badge--human' : 'ar-guest__badge--agent'}`}>
             {isHuman ? 'Human' : 'Agent'}
           </span>
           {/* Role badge — metadata */}
           {!isHuman && participant.role && (
-            <span className="shrink-0 rounded px-1 py-0.5 text-[8px] font-medium bg-(--vestara-violet)/10 text-(--vestara-violet)">
-              {participant.role}
-            </span>
+            <span className="ar-guest__role">{participant.role}</span>
           )}
-        </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {membershipLabel && (
-            <span className="text-[9px] text-(--vestara-text-dim)">{membershipLabel}</span>
-          )}
-          <span className="text-[10px] text-(--vestara-text-muted)">{workLabel}</span>
-        </div>
-      </div>
+        </span>
+        <span className="ar-guest__sub">
+          {/* Presence lamp */}
+          <span className={lamp} aria-hidden="true" />
+          <span>{workLabel}</span>
+          {membershipLabel && <span className="ar-guest__membership">{membershipLabel}</span>}
+        </span>
 
-      {/* Current assignment */}
-      {participant.currentAssignment && (
-        <div className="mt-1 text-[9px] text-(--vestara-text-dim) truncate">
-          {participant.currentAssignment.taskTitle ?? participant.currentAssignment.taskId}
-        </div>
-      )}
+        {/* Current assignment */}
+        {participant.currentAssignment && (
+          <span className="ar-guest__task">
+            {participant.currentAssignment.taskTitle ?? participant.currentAssignment.taskId}
+          </span>
+        )}
+      </span>
     </button>
   );
 }

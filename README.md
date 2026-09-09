@@ -57,8 +57,8 @@ pnpm vestara routing preview developer developer-01
 Run governed Workspace UI visual regression checks through the compiled CLI:
 
 ```bash
-pnpm vestara screenshots check
-pnpm vestara screenshots run --viewport desktop --theme dark
+pnpm --filter @vestara/workspace-ui screenshots:check
+pnpm --filter @vestara/workspace-ui screenshots:desktop
 ```
 
 Screenshot comparison is the default. Updating approved baselines requires the

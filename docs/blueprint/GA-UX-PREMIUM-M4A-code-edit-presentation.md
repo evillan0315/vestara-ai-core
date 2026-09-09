@@ -1,3 +1,14 @@
+---
+title: GA-UX-PREMIUM M4A — Authoritative Code Edit Presentation
+version: 1.0.0
+status: implemented
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+implementation-repository: vestara-ai-core
+implementation-commit: c04acc2
+---
+
 # GA-UX-PREMIUM M4A — Authoritative Code Edit Presentation
 
 **Status:** IMPLEMENTED (deterministic presentation acceptance)

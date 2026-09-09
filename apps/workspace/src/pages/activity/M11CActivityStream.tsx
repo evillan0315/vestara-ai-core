@@ -145,41 +145,41 @@ export default function M11CActivityStream({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="min-h-0 flex-1 space-y-1 overflow-y-auto pr-1 flex flex-col"
+        className="ar-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
         role="log"
         aria-live="polite"
         aria-label="Activity stream"
       >
         {loading ? (
-          <div className="space-y-2">
+          <div className="flex flex-col gap-2 py-1">
             {[0, 1, 2, 3, 4].map((i) => (
-              <div
-                key={i}
-                className="h-16 animate-pulse rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg)"
-              />
+              <div key={i} className="ar-skeleton" />
             ))}
           </div>
         ) : rendered.length === 0 ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-            <div className="text-3xl text-(--vestara-text-dim)">◈</div>
-            <p className="text-sm text-(--vestara-text-2)">No activity yet.</p>
-            <p className="text-xs text-(--vestara-text-muted)">
-              Start a workflow and its progress will appear here in real time.
+          <div className="ar-empty">
+            <div className="ar-empty__sigil" aria-hidden="true">❖</div>
+            <p className="ar-empty__title">The room awaits.</p>
+            <div className="ar-empty__rule" aria-hidden="true" />
+            <p className="ar-empty__note">
+              No activity yet. Start a workflow and its progress will appear here in real time.
             </p>
           </div>
         ) : (
           <>
             {/* Load older history button */}
             {hasMore && onLoadOlder && (
-              <div className="flex items-center justify-center py-1">
+              <div className="ar-load">
+                <span className="ar-load__rule" aria-hidden="true" />
                 <button
                   type="button"
                   onClick={() => void onLoadOlder()}
                   disabled={loadingHistory}
-                  className="rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1 text-[9px] text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer disabled:opacity-50"
+                  className="ar-load__btn"
                 >
                   {loadingHistory ? 'Loading older…' : 'Load older history'}
                 </button>
+                <span className="ar-load__rule" aria-hidden="true" />
               </div>
             )}
 
@@ -203,7 +203,7 @@ export default function M11CActivityStream({
         <button
           type="button"
           onClick={jumpToLatest}
-          className="absolute bottom-3 right-4 rounded-full border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1 text-[10px] text-(--vestara-text-2) shadow-lg transition-colors hover:text-(--vestara-text) cursor-pointer"
+          className="ar-jump"
           aria-label={unread > 0 ? `Jump to latest (${unread} unread)` : 'Jump to latest'}
         >
           {unread > 0 ? `↓ ${unread} new` : '↓ Jump to latest'}
@@ -211,13 +211,13 @@ export default function M11CActivityStream({
       )}
 
       {/* Status bar */}
-      <div className="flex items-center justify-between px-1 pt-1 text-[9px] text-(--vestara-text-dim)">
+      <div className="ar-foot">
         <span>
           {filtered.length} records
           {selectedParticipantId !== undefined ? ' · filtered' : ''}
         </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-(--vestara-green)" />
+        <span className="ar-foot__state">
+          <span className="ar-lamp ar-lamp--live" aria-hidden="true">●</span>
           {stateLabel}
         </span>
       </div>

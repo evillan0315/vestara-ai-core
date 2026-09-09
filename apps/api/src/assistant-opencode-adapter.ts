@@ -25,6 +25,7 @@ import { normalizePermissionAction } from '@vestara/opencode-runtime';
 import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
 import {
   type AssistantCapabilityPolicy,
+  buildToolsMap,
   evaluatePermission,
   type PermissionEvaluation,
 } from './assistant-capability-policy';
@@ -246,6 +247,11 @@ export async function* runAssistantOpenCodeTurn(
         // governance prompt is preserved). Never concatenated into the human
         // message; never repository/execution authority.
         ...(buildSurfaceSystem(request.surfaceContext) ? { system: buildSurfaceSystem(request.surfaceContext) } : {}),
+        // GA-RUNTIME-004 / GA-TOOL-001: per-turn tool availability from
+        // GA-CAP-003 policy. ALLOW → true, ASK/DENY → false. This is the
+        // pre-execution enforcement point that prevents the * allow wildcard
+        // from auto-approving mutation tools.
+        ...(options.capabilityPolicy ? { tools: buildToolsMap(options.capabilityPolicy) } : {}),
       },
       context,
     );
@@ -675,7 +681,10 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         try {
           await options.client.getSession(id, context);
           return true;
-        } catch {
+        } catch (err) {
+          console.error(
+            `[adapter:verifySession] FAILED session=${id} dir=${context.directory} err=${err instanceof Error ? err.message : String(err)}`,
+          );
           return false;
         }
       },

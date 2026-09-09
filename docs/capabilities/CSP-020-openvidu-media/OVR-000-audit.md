@@ -3,8 +3,8 @@ title: OVR-000 — VidUK OpenVidu Deployment Audit
 version: 1.0.0
 status: frozen
 owner: vestara
-date: 2026-09-05
-frozen: 2026-09-05
+last-reviewed: 2026-09-05
+next-review: 2026-10-05
 ---
 
 # OVR-000 — VidUK OpenVidu Deployment Audit
@@ -27,8 +27,8 @@ TLS:             ✓ (HTTPS returns 200)
 
 ```
 Method:    Basic Auth
-Username:  OPENVIDUAPP
-Password:  (from .env OPENVIDU_SECRET)
+Username:  <OpenVidu application username>
+Password:  <from .env OPENVIDU_SECRET — do not persist>
 ```
 
 All endpoints require Basic Auth. Unauthenticated requests return `401 Unauthorized`.

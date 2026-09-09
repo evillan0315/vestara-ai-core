@@ -14,7 +14,7 @@ export function HealthCard({ data }: { data: UnderstandingData }) {
     score >= 7 ? 'var(--vestara-green)' : score >= 4 ? 'var(--vestara-amber)' : 'var(--vestara-red)';
 
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-green)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-green)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label={`Health score: ${score.toFixed(1)} out of 10`}>
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">Health</h2>
 
       <div className="flex items-center gap-3 mb-4">

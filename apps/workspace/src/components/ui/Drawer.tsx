@@ -5,9 +5,14 @@
  * four presets (normal | medium | large | full) in the header, or by dragging
  * the resize handle. Custom (dragged) sizes persist to localStorage when a
  * `storageKey` is provided.
+ *
+ * When `portal` is true the drawer renders into document.body via
+ * createPortal, placing it in the root stacking context so it always
+ * paints above page-level sticky headers and other layout chrome.
  */
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
 
 export type DrawerSize = 'normal' | 'medium' | 'large' | 'full';
@@ -28,6 +33,12 @@ export interface DrawerProps {
   children: ReactNode;
   panelClassName?: string;
   bodyClassName?: string;
+  /**
+   * Render the drawer into document.body via createPortal so it sits in the
+   * root stacking context — above sticky headers, page-level z-indexes, and
+   * any overflow containers. Defaults to false for backward compatibility.
+   */
+  portal?: boolean;
 }
 
 /** 0 means "full" (100% of the viewport dimension). */
@@ -66,6 +77,7 @@ export function Drawer({
   children,
   panelClassName = '',
   bodyClassName = '',
+  portal = false,
 }: DrawerProps) {
   const [preset, setPreset] = useState<DrawerSize>(defaultSize);
   const [customPx, setCustomPx] = useState<number | null>(null);
@@ -173,18 +185,18 @@ export function Drawer({
       ? 'absolute -left-1 top-0 z-10 h-full w-2 cursor-col-resize'
       : 'absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize';
 
-  return (
+  const drawerContent = (
     <div className="fixed inset-0 z-[80]">
       <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title ?? 'Drawer'}
-        className={`absolute flex flex-col overflow-hidden bg-(--color-zinc-950) shadow-2xl ${positionClasses} ${panelClassName}`}
+        className={`absolute flex flex-col overflow-hidden bg-(--vestara-surface) shadow-[0_32px_96px_-16px_rgba(0,0,0,0.6),0_0_0_1px_var(--vestara-accent-bg),0_0_24px_-8px_var(--vestara-accent-bg),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_8%,transparent)] ${positionClasses} ${panelClassName}`}
         style={dimensionStyle}
       >
         <div className={handleClasses} onPointerDown={beginResize} title="Resize drawer" aria-hidden="true" />
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2.5">
+        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-(--vestara-accent-border) bg-[color-mix(in_srgb,var(--vestara-accent)_6%,transparent)] px-3 py-2.5">
           <div className="flex min-w-0 items-center gap-2">
             {title && <h2 className="truncate text-sm font-semibold text-(--vestara-text)">{title}</h2>}
             {header}
@@ -227,13 +239,15 @@ export function Drawer({
         </div>
         <div className={`min-h-0 flex-1 overflow-y-auto ${bodyClassName}`}>{children}</div>
         {footer && (
-          <div className="shrink-0 border-t border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3">
+          <div className="shrink-0 border-t border-(--vestara-accent-border) bg-[color-mix(in_srgb,var(--vestara-accent)_6%,transparent)] p-3">
             {footer}
           </div>
         )}
       </div>
     </div>
   );
+
+  return portal ? createPortal(drawerContent, document.body) : drawerContent;
 }
 
 export default Drawer;

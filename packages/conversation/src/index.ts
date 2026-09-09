@@ -48,7 +48,7 @@ export interface ConversationStore {
 }
 
 export interface ConversationService {
-  createConversation(userId?: string): Promise<Conversation>;
+  createConversation(userId?: string, options?: { runtimeSessionId?: string }): Promise<Conversation>;
   sendMessage(conversationId: string, content: string, options?: SendOptions): Promise<SendResult>;
   closeConversation(conversationId: string): Promise<void>;
   listConversations(userId?: string): Promise<ConversationSummary[]>;
@@ -117,7 +117,7 @@ export class DefaultConversationService implements ConversationService {
     return persisted ?? this.conversations.get(id) ?? null;
   }
 
-  async createConversation(userId = 'local'): Promise<Conversation> {
+  async createConversation(userId = 'local', options?: { runtimeSessionId?: string }): Promise<Conversation> {
     const id = generateId('conv');
     const now = new Date().toISOString();
 
@@ -127,6 +127,7 @@ export class DefaultConversationService implements ConversationService {
       title: `Conversation ${++conversationCounter}`,
       messages: [],
       status: 'active',
+      ...(options?.runtimeSessionId ? { runtimeSessionId: options.runtimeSessionId } : {}),
       createdAt: now,
       updatedAt: now,
     };

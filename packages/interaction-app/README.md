@@ -14,4 +14,4 @@ pnpm --filter @vestara/interaction-app build
 
 `@vestara/interaction-persistence @vestara/types`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

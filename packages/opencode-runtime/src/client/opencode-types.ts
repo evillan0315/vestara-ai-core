@@ -181,6 +181,10 @@ export interface SendOpenCodeMessageAsyncInput {
   readonly format?: OpenCodeOutputFormat;
   /** Inject context only, without triggering an AI response. */
   readonly noReply?: boolean;
+  /** Per-turn tool availability. Keys are tool names, values indicate
+   *  enabled (true) or disabled (false). Absent tools default to enabled
+   *  per the OpenCode runtime. Used by GA-CAP-003 pre-execution gating. */
+  readonly tools?: Record<string, boolean>;
 }
 
 export interface RunOpenCodeCommandInput {

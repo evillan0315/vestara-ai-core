@@ -1,3 +1,12 @@
+---
+title: AR-GLOBAL-ASSISTANT-LOCAL-OPENCODE
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # AR-GLOBAL-ASSISTANT-LOCAL-OPENCODE.md
 
 ## Current State Trace

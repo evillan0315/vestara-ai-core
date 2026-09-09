@@ -78,8 +78,42 @@ export class OpenViduBrowserAdapter implements BrowserAdapter {
     // Wire up session events
     this.setupSessionEvents();
 
-    // Connect to session
-    await this.session.connect(token, {});
+    // Connect to session with retry — openvidu-browser's default RPC timeout
+    // is 10s, but remote servers can be slow. Retry up to 3 times with backoff.
+    const MAX_RETRIES = 3;
+    const BASE_DELAY_MS = 2000;
+    let lastError: Error | null = null;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        await this.session.connect(token, {});
+        return; // success
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+
+        // Don't retry on auth errors (401/403) — those won't resolve with retries
+        const msg = lastError.message.toLowerCase();
+        if (msg.includes('401') || msg.includes('403') || msg.includes('unauthorized') || msg.includes('forbidden')) {
+          throw lastError;
+        }
+
+        // Don't retry if adapter was destroyed (disconnect called during connect)
+        if (!this.session) {
+          throw lastError;
+        }
+
+        if (attempt < MAX_RETRIES) {
+          const delay = BASE_DELAY_MS * 2 ** attempt;
+          console.warn(
+            `[Vestara Meet] joinRoom attempt ${attempt + 1} failed, retrying in ${delay}ms...`,
+            lastError.message,
+          );
+          await new Promise((r) => setTimeout(r, delay));
+        }
+      }
+    }
+
+    throw lastError ?? new Error('Failed to connect after retries');
   }
 
   disconnect(): void {
@@ -199,20 +233,25 @@ export class OpenViduBrowserAdapter implements BrowserAdapter {
       });
 
       // Wait for MediaStream and emit
-      this.waitForMediaStream(stream).then((mediaStream) => {
-        const handle = new OpenViduSubscriberHandle(
-          subscriber,
-          stream.streamId,
-          stream.connection?.connectionId ?? stream.streamId,
-          this.extractDisplayName(stream),
-          stream.audioActive ?? false,
-          stream.videoActive ?? false,
-          mediaStream,
-        );
+      this.waitForMediaStream(stream)
+        .then((mediaStream) => {
+          const handle = new OpenViduSubscriberHandle(
+            subscriber,
+            stream.streamId,
+            stream.connection?.connectionId ?? stream.streamId,
+            this.extractDisplayName(stream),
+            stream.audioActive ?? false,
+            stream.videoActive ?? false,
+            mediaStream,
+          );
 
-        this.subscriberHandles.set(stream.streamId, handle);
-        this.events.onRemoteStreamCreated?.(handle);
-      });
+          this.subscriberHandles.set(stream.streamId, handle);
+          this.events.onRemoteStreamCreated?.(handle);
+        })
+        .catch((err) => {
+          console.warn('[Vestara Meet] Failed to get media stream for remote participant:', err);
+          this.events.onError?.(`Stream error: ${err}`);
+        });
     });
 
     // Remote stream destroyed

@@ -44,6 +44,7 @@ export interface ProviderModelPickerProps {
 export function ProviderModelPicker({ providerId, modelId, onChange, disabled }: ProviderModelPickerProps) {
   const [open, setOpen] = useState(false);
   const [providers, setProviders] = useState<ManagedProvider[]>([]);
+  const [providerSource, setProviderSource] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -65,6 +66,7 @@ export function ProviderModelPicker({ providerId, modelId, onChange, disabled }:
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data: ProvidersResponse = await res.json();
       setProviders(data.providers ?? []);
+      setProviderSource(data.source);
       lastFetchRef.current = now;
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Failed to load providers');
@@ -179,11 +181,14 @@ export function ProviderModelPicker({ providerId, modelId, onChange, disabled }:
         return {
           configured: p.credential?.configured ?? false,
           status: p.status,
+          // OpenCode-runtime-sourced providers handle auth internally —
+          // a missing user-supplied key does not mean the provider is unusable.
+          isRuntimeManaged: providerSource === 'opencode-runtime',
         };
       }
     }
     return null;
-  }, [providers, providerId]);
+  }, [providers, providerId, providerSource]);
 
   return (
     <div className="relative">
@@ -201,8 +206,8 @@ export function ProviderModelPicker({ providerId, modelId, onChange, disabled }:
         </svg>
       </button>
 
-      {/* Availability indicator */}
-      {currentAvailability && !currentAvailability.configured && (
+      {/* Availability indicator — suppress for runtime-managed providers (auth handled internally) */}
+      {currentAvailability && !currentAvailability.configured && !currentAvailability.isRuntimeManaged && (
         <div className="text-[9px] text-amber-400 mt-0.5">API key required</div>
       )}
 

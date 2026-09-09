@@ -27,8 +27,11 @@
  * 15. No polling introduced as a second realtime mechanism
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import '../../styles/activity-room.css';
+import AgentProjectionDrawer from './AgentProjectionDrawer';
+import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import M11CActivityStream from './M11CActivityStream';
 import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
@@ -39,6 +42,31 @@ export default function M11CActivityRoomPage() {
   const room = useM11CActivityRoom();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
   const [detailItem, setDetailItem] = useState<M11CStreamItem | null>(null);
+  const [agentControlParticipantId, setAgentControlParticipantId] = useState<string | undefined>(undefined);
+
+  // ─── Agent Control Drawer ─────────────────────────────────
+
+  const agentControlParticipant = useMemo(
+    () => agentControlParticipantId
+      ? room.participants.find((p) => p.participantId === agentControlParticipantId)
+      : undefined,
+    [agentControlParticipantId, room.participants],
+  );
+
+  const agentControlAgentId = useMemo(
+    () => agentControlParticipantId
+      ? resolveAgentIdFromParticipantId(agentControlParticipantId)
+      : null,
+    [agentControlParticipantId],
+  );
+
+  const handleOpenAgentControl = useCallback((participantId: string) => {
+    setAgentControlParticipantId(participantId);
+  }, []);
+
+  const handleCloseAgentControl = useCallback(() => {
+    setAgentControlParticipantId(undefined);
+  }, []);
 
   // ─── Callbacks ──────────────────────────────────────────
 
@@ -75,34 +103,31 @@ export default function M11CActivityRoomPage() {
   const roomName = room.room?.name ?? 'Activity Room';
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
-      {/* ─── Header ─────────────────────────────────────── */}
-      <header className="flex flex-col gap-3 rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
-        <div className="min-w-0">
-          <div className="mb-1 text-[9px] font-medium uppercase tracking-[0.18em] text-(--vestara-accent-text)">
-            Live operations
+    <div className="ar-room">
+      {/* ─── Header Plinth ──────────────────────────────── */}
+      <header className="ar-plinth">
+        <div className="ar-plinth__id">
+          <span className="ar-monogram" aria-hidden="true">
+            V
+          </span>
+          <div className="min-w-0">
+            <div className="ar-kicker">Live operations</div>
+            <h1 className="ar-display">{roomName}</h1>
+            <p className="ar-plinth__meta">
+              <strong>{room.stream.length} records</strong>
+              {room.cursor && <span> · cursor {room.cursor.sequenceNumber}</span>}
+            </p>
           </div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">{roomName}</h1>
-          <p className="mt-1 text-[10px] text-(--vestara-text-muted)">
-            <span className="text-(--vestara-text-2)">{room.stream.length} records</span>
-            {room.cursor && (
-              <span> · cursor {room.cursor.sequenceNumber}</span>
-            )}
-          </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+        <div className="ar-plinth__controls">
           <M11CConnectionStatus state={room.state} />
-          <button
-            type="button"
-            onClick={room.paused ? room.resume : room.pause}
-            className="rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5 text-[10px] text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
-          >
+          <button type="button" onClick={room.paused ? room.resume : room.pause} className="ar-capsule">
             {room.paused ? 'Resume' : 'Pause'}
           </button>
           <button
             type="button"
             onClick={room.clear}
-            className="rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5 text-[10px] text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
+            className="ar-capsule"
             title="Clear local view"
           >
             Clear
@@ -112,9 +137,10 @@ export default function M11CActivityRoomPage() {
 
       {/* ─── Error Banner ───────────────────────────────── */}
       {room.error && (
-        <div className="flex items-center gap-2 rounded-lg border border-(--vestara-amber-border) bg-(--vestara-amber-bg) px-3 py-2 text-[10px] text-(--vestara-amber)" role="alert">
-          <span>{room.error}</span>
-          <button type="button" onClick={room.retry} className="ml-auto rounded border border-(--vestara-amber-border) px-2 py-1 font-medium cursor-pointer">
+        <div className="ar-banner ar-banner--warn" role="alert">
+          <span className="ar-lamp ar-lamp--warn" aria-hidden="true">⚠</span>
+          <span className="min-w-0 flex-1">{room.error}</span>
+          <button type="button" onClick={room.retry} className="ar-capsule">
             Retry
           </button>
         </div>
@@ -122,51 +148,55 @@ export default function M11CActivityRoomPage() {
 
       {/* ─── Attention Banner ───────────────────────────── */}
       {room.attention.length > 0 && (
-        <div className="flex items-center gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2 text-[10px]">
-          <span className="font-medium text-(--vestara-amber)">⚠ {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}</span>
-          <span className="text-(--vestara-text-muted)">
+        <div className="ar-banner ar-banner--info">
+          <span className="ar-lamp ar-lamp--warn" aria-hidden="true">◆</span>
+          <span className="font-medium text-(--vestara-amber)">
+            {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
+          </span>
+          <span className="ar-banner__note">
             {room.attention.filter((a) => a.severity === 'critical').length > 0 && (
-              <span className="text-(--vestara-red)">{room.attention.filter((a) => a.severity === 'critical').length} critical</span>
+              <span className="ar-banner__critical">
+                {room.attention.filter((a) => a.severity === 'critical').length} critical
+              </span>
             )}
           </span>
         </div>
       )}
 
-      {/* ─── Main Content ───────────────────────────────── */}
-      <div className="flex min-h-0 flex-1 flex-col gap-3 md:flex-row md:gap-4">
+      {/* ─── Stage: Guest Rail + Salon ──────────────────── */}
+      <div className="ar-stage">
         {/* Participant Rail (projection-driven) */}
-        <aside className="hidden max-h-56 shrink-0 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3 lg:block lg:max-h-none lg:w-72">
+        <aside className="ar-panel ar-panel--rail ar-scroll">
           <M11CParticipantRail
             participants={room.participants}
             selectedParticipantId={selectedParticipantId}
             onSelectParticipant={handleSelectParticipant}
+            onOpenAgentControl={handleOpenAgentControl}
           />
         </aside>
 
-        {/* Center Stream */}
-        <main className="flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
-            <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)" aria-live="polite">
+        {/* Center Stream (the salon) */}
+        <main className="ar-panel ar-panel--main">
+          <div className="ar-panel__head">
+            <div className="ar-panel__label" aria-live="polite">
               {selectedParticipantId === undefined ? 'Activity Stream' : `Activity — ${selectedParticipantId}`}
             </div>
-            <span className="text-[10px] text-(--vestara-text-muted)">
-              {room.paused ? `${room.unread} buffered` : stateLabel}
-            </span>
+            <span className="ar-panel__hint">{room.paused ? `${room.unread} buffered` : stateLabel}</span>
           </div>
 
           {/* Workflow Summary */}
           {room.workflowSummary && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5">
-              <span className={`inline-block h-1.5 w-1.5 rounded-full ${
-                room.workflowSummary.status === 'running' ? 'bg-(--vestara-green) animate-pulse' :
-                room.workflowSummary.status === 'completed' ? 'bg-(--vestara-green)' :
-                room.workflowSummary.status === 'failed' ? 'bg-(--vestara-red)' :
-                'bg-(--vestara-text-muted)'
-              }`} />
-              <span className="text-[10px] font-medium text-(--vestara-text-2)">
-                {room.workflowSummary.status}
-              </span>
-              <span className="text-[9px] text-(--vestara-text-muted)">
+            <div className="ar-strip">
+              <span
+                className={`inline-block h-1.5 w-1.5 rounded-full ${
+                  room.workflowSummary.status === 'running' ? 'bg-(--vestara-green) animate-pulse' :
+                  room.workflowSummary.status === 'completed' ? 'bg-(--vestara-green)' :
+                  room.workflowSummary.status === 'failed' ? 'bg-(--vestara-red)' :
+                  'bg-(--vestara-text-muted)'
+                }`}
+              />
+              <span className="ar-strip__status">{room.workflowSummary.status}</span>
+              <span className="ar-strip__count">
                 {room.workflowSummary.completedTasks}/{room.workflowSummary.taskCount} tasks
               </span>
             </div>
@@ -199,6 +229,16 @@ export default function M11CActivityRoomPage() {
       {detailItem && (
         <M11CDetailModal item={detailItem} onClose={handleCloseDetail} />
       )}
+
+      {/* ─── Agent Control Drawer ───────────────────────── */}
+      {agentControlParticipant && agentControlAgentId && (
+        <AgentProjectionDrawer
+          open
+          onClose={handleCloseAgentControl}
+          agentId={agentControlAgentId}
+          participant={agentControlParticipant}
+        />
+      )}
     </div>
   );
 }
@@ -214,24 +254,20 @@ function M11CComposer() {
   const [value, setValue] = useState('');
 
   return (
-    <div className="mt-2 flex items-center gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2">
-      <span className="text-[10px] text-(--vestara-text-dim)">+</span>
-      <span className="text-[10px] text-(--vestara-text-dim)">@</span>
-      <span className="text-[10px] text-(--vestara-text-dim)">/</span>
+    <div className="ar-composer">
+      <span className="ar-key" aria-hidden="true">+</span>
+      <span className="ar-key" aria-hidden="true">@</span>
+      <span className="ar-key" aria-hidden="true">/</span>
       <input
         type="text"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         placeholder="Reference…"
-        className="flex-1 bg-transparent text-xs text-(--vestara-text) outline-none placeholder:text-(--vestara-text-dim)"
+        className="ar-composer__input"
         disabled
         aria-label="Message composer (read-only in M11C)"
       />
-      <button
-        type="button"
-        disabled
-        className="rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1 text-[10px] text-(--vestara-text-dim) cursor-not-allowed"
-      >
+      <button type="button" disabled className="ar-capsule ar-capsule--disabled">
         Send
       </button>
     </div>
@@ -257,45 +293,37 @@ function M11CDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      className="ar-backdrop"
       role="dialog"
       aria-modal="true"
       aria-label="Activity detail"
       onClick={onClose}
     >
-      <div
-        className="mx-4 max-w-lg rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-4 shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-(--vestara-text)">Activity Detail</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-8 w-8 rounded-lg text-lg text-(--vestara-text-2) cursor-pointer"
-            aria-label="Close"
-          >
+      <div className="ar-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ar-modal__head">
+          <h2 className="ar-modal__title">Activity Detail</h2>
+          <button type="button" onClick={onClose} className="ar-modal__close" aria-label="Close">
             ×
           </button>
         </div>
 
-        <div className="space-y-3">
+        <div className="ar-kv">
           <div>
-            <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Actor</div>
-            <div className="text-xs text-(--vestara-text-2)">
+            <div className="ar-kv__label">Actor</div>
+            <div className="ar-kv__value">
               {item.actor.displayName}
               {item.actor.role && <span className="text-(--vestara-text-muted)"> ({item.actor.role})</span>}
             </div>
           </div>
 
           <div>
-            <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Content</div>
-            <div className="text-xs text-(--vestara-text-2) whitespace-pre-wrap">{item.content || '(no content)'}</div>
+            <div className="ar-kv__label">Content</div>
+            <div className="ar-kv__value">{item.content || '(no content)'}</div>
           </div>
 
           <div>
-            <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Metadata</div>
-            <div className="text-[10px] text-(--vestara-text-muted) space-y-1">
+            <div className="ar-kv__label">Metadata</div>
+            <div className="ar-kv__meta">
               <div>Kind: {item.kind} · Importance: {item.importance}</div>
               <div>Sequence: {item.sequence}</div>
               <div>Timestamp: {item.timestamp}</div>
@@ -307,8 +335,8 @@ function M11CDetailModal({
 
           {item.aggregated && (
             <div>
-              <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">Aggregated</div>
-              <div className="text-[10px] text-(--vestara-text-muted) space-y-1">
+              <div className="ar-kv__label">Aggregated</div>
+              <div className="ar-kv__meta">
                 <div>{item.aggregated.count} items · {item.aggregated.kind}</div>
                 <div>Summary: {item.aggregated.summary}</div>
                 <div>Sequence range: {item.aggregated.sequenceRange.first} – {item.aggregated.sequenceRange.last}</div>

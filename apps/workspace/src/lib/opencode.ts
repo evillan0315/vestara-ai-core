@@ -425,4 +425,15 @@ export const openCodeApi = {
     );
     return res.ok;
   },
+
+  /**
+   * GA-SESSION-003: projection over canonical session list for resume surface.
+   * Preserves both root and child sessions so parentID lineage remains
+   * available to the presentation layer. No idle/compatibility filtering —
+   * resume eligibility is a UI decision, not a projection filter.
+   * Server-side RepositoryBinding validation remains authoritative.
+   */
+  compatibleSessions: async (): Promise<OpenCodeSessionView[]> => {
+    return openCodeApi.sessions();
+  },
 };

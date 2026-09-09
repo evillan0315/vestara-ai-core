@@ -12,7 +12,7 @@ interface EmptyStateProps {
 
 const EmptyState: FC<EmptyStateProps> = ({ title, description, action, icon }) => {
   return (
-    <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center px-6">
+    <div className="flex flex-col items-center justify-center py-16 bg-(--vestara-surface) border border-(--vestara-accent-border) rounded-lg text-center px-6 shadow-[0_0_0_1px_var(--vestara-accent-bg),0_0_12px_color-mix(in_srgb,var(--vestara-accent)_10%,transparent)]">
       {icon ? (
         <div className="mb-3 text-zinc-600">{icon}</div>
       ) : (
@@ -24,7 +24,7 @@ const EmptyState: FC<EmptyStateProps> = ({ title, description, action, icon }) =
         <button
           type="button"
           onClick={action.onClick}
-          className="text-xs px-4 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text) transition-colors cursor-pointer font-medium"
+          className="text-xs px-4 py-1.5 bg-(--vestara-surface) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-[color-mix(in_srgb,var(--vestara-accent)_10%,transparent)] hover:text-(--vestara-text) hover:border-(--vestara-accent-border-hover) transition-colors cursor-pointer font-medium shadow-[0_0_8px_var(--vestara-accent-bg)]"
         >
           {action.label}
         </button>

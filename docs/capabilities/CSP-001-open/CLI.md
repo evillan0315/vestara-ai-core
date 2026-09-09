@@ -19,7 +19,7 @@ next-review: 2026-10-04
 Opening repository...
 ✓ Repository discovered    341 files
 ✓ Repository identified    my-project
-✓ Repository analyzed      typescript (88 entry points, 4 risks)
+✓ Repository analyzed      typescript (92 entry points, 4 risks)
 ✓ Workspace created
 ✓ Knowledge indexed        285 documents
 ✓ Repository understood

@@ -1,3 +1,12 @@
+---
+title: GA-UI-005 — Rich Assistant Message Presentation
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-UI-005 — Rich Assistant Message Presentation
 
 **Date**: 2026-09-04
@@ -6,7 +15,6 @@
 **Out of scope (untouched)**: transport, OpenCode execution, SSE semantics,
 provider/model resolution, permission policy, session continuity,
 Conversation authority, Activity Room orchestration, AR-009.
-
 ---
 
 ## 1. Rendering-Path Audit (reuse, not a new stack)

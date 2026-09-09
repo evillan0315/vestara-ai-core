@@ -1,3 +1,12 @@
+---
+title: GA-SSE-002 — True Continuous Assistant Streaming
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-SSE-002 — True Continuous Assistant Streaming
 
 **Date**: 2026-09-04  

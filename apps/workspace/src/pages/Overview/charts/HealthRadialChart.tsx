@@ -17,8 +17,10 @@ export function HealthRadialChart({ data }: { data: UnderstandingData }) {
     { name: 'Documentation', value: scoreToPercent(h.documentationLevel), fill: 'var(--vestara-purple)' },
   ];
 
+  const ariaLabel = `Health metrics: ${items.map((item) => `${item.name} ${Math.round(item.value)}%`).join(', ')}`;
+
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="figure" aria-label={ariaLabel}>
       <h3 className="text-[9px] font-semibold text-[var(--vestara-text-muted)] uppercase tracking-wider mb-3">
         Health Metrics
       </h3>

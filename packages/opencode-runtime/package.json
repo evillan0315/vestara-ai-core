@@ -16,6 +16,7 @@
   "dependencies": {
     "@vestara/events": "workspace:*",
     "@vestara/event-bus": "workspace:*",
+    "@vestara/execution-types": "workspace:*",
     "@vestara/runtime": "workspace:*",
     "@vestara/types": "workspace:*"
   },

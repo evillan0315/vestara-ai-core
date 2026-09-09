@@ -1,0 +1,1313 @@
+/* ─────────────────────────────────────────────────────────────
+   Activity Room (M11C) — luxury salon materials.
+
+   Design language: a dark, private lounge for operations with
+   humans and agents. Deep warm charcoal surfaces, restrained
+   dark metallic gold (hairlines, insignia, live details), glass
+   panels, and serif display type. Aligns with the workspace
+   theme toggle via [data-theme] token overrides.
+
+   Uses the Workspace design tokens (--vestara-*, --color-zinc-*).
+   Class prefix: ar-
+   ───────────────────────────────────────────────────────────── */
+
+.ar-room {
+  /* ── Chamber palette (dark default) ──
+     Gold is a jewelry accent, not a paint. Large surfaces stay
+     near-black warm charcoal; metallic gold appears only on
+     hairlines, insignia, and key signals. */
+  /* ── Gold: dynamic, follows the workspace accent color. ── */
+  --ar-gold: var(--vestara-accent);
+  --ar-gold-light: var(--vestara-accent-light);
+  --ar-gold-deep: var(--vestara-accent-dark);
+  --ar-gold-veil: var(--vestara-accent-bg);
+  --ar-hairline: var(--vestara-accent-border);
+  --ar-hairline-strong: var(--vestara-accent-border-hover);
+  --ar-sheen: color-mix(in srgb, var(--vestara-accent-light) 10%, transparent);
+
+  /* Brushed-metal banding — used sparingly (title, monogram). */
+  --ar-metal: linear-gradient(
+    100deg,
+    var(--ar-gold-deep) 0%,
+    var(--vestara-accent) 28%,
+    var(--ar-gold-light) 42%,
+    var(--vestara-accent-dark) 58%,
+    var(--ar-gold-deep) 100%
+  );
+
+  /* Iridescent foil — cool spectral whispers over the dark base.
+     Barely-there by design: the holography is ambient and cool-leaning
+     so the warm gold reads as the only deliberate accent. */
+  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-blue) 6%, transparent);
+  --ar-holo-violet: color-mix(in srgb, var(--vestara-purple) 6%, transparent);
+  --ar-holo-band-1: color-mix(in srgb, var(--vestara-blue) 4%, transparent);
+  --ar-holo-band-2: color-mix(in srgb, var(--vestara-purple) 3.5%, transparent);
+
+  /* Neutral dark chamber (no warm-brown offsets — keeps surfaces clean gray). */
+  --ar-chrome: color-mix(in srgb, var(--color-zinc-900) 38%, var(--color-zinc-950));
+  --ar-surface: color-mix(in srgb, var(--color-zinc-900) 78%, var(--color-zinc-950));
+  --ar-surface-raised: color-mix(in srgb, var(--color-zinc-800) 68%, var(--color-zinc-900));
+  /* Panels are their own space: darker than the wall, with a faint
+     ceiling glow and elevation shadow — a recessed floor the salon
+     sits on. */
+  --ar-panel-bg:
+    radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, var(--vestara-accent) 3%, transparent), transparent 62%),
+    color-mix(in srgb, var(--color-zinc-950) 96%, black);
+  --ar-panel-shadow:
+    0 14px 36px rgba(0, 0, 0, 0.42),
+    0 2px 8px rgba(0, 0, 0, 0.3);
+  --ar-surface-sunken: color-mix(in srgb, black 14%, transparent);
+  /* Header: almost black with a whisper of gold undertone —
+     not pure black, but close. The shiny gold edges do the talking. */
+  --ar-header-bg: var(--vestara-surface);
+  --ar-rail-bg:
+    radial-gradient(120% 60% at 50% -30%, color-mix(in srgb, var(--vestara-accent) 3%, transparent), transparent 60%),
+    color-mix(in srgb, black 22%, transparent);
+  --ar-ink: var(--vestara-text);
+  --ar-ink-2: var(--vestara-text-2);
+  --ar-ink-muted: var(--vestara-text-muted);
+  --ar-ink-dim: var(--vestara-text-dim);
+  --ar-sapphire: var(--vestara-blue);
+  --ar-amethyst: var(--vestara-purple);
+  --ar-jade: var(--vestara-green);
+  --ar-ruby: var(--vestara-red);
+  --ar-amber: var(--vestara-amber);
+  --ar-serif: Georgia, 'Times New Roman', 'Palatino Linotype', serif;
+  --ar-drop-shadow: rgba(0, 0, 0, 0.5);
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  height: 100%;
+  min-height: 0;
+  padding: 0.875rem;
+  isolation: isolate;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 14px;
+  overflow: hidden;
+}
+
+/* Ambient atmosphere — a dark holographic space. A cool spectral band
+   refracts across the foil; sapphire, violet, and jade fold into the
+   corners; the chandelier glow stays quiet so gold reads only where it
+   is deliberate (insignia, hairlines, signals). Dark first, iridescent
+   second. */
+.ar-room::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(24deg, transparent 36%, var(--ar-holo-band-1) 46%, var(--ar-holo-band-2) 54%, transparent 66%),
+    radial-gradient(92% 58% at 88% -16%, var(--ar-holo-sapphire), transparent 54%),
+    radial-gradient(110% 64% at 14% -12%, var(--ar-holo-violet), transparent 56%),
+    radial-gradient(96% 62% at 104% 110%, var(--ar-holo-violet), transparent 58%),
+    radial-gradient(78% 50% at -10% 108%, var(--ar-holo-jade), transparent 54%),
+    radial-gradient(70% 42% at 50% -8%, color-mix(in srgb, var(--vestara-accent) 4%, transparent), transparent 68%),
+    linear-gradient(115deg, transparent 52%, color-mix(in srgb, white 1.5%, transparent) 60%, transparent 70%),
+    radial-gradient(140% 90% at 50% 118%, rgba(0, 0, 0, 0.4), transparent 55%),
+    var(--ar-chrome);
+}
+
+/* Faint brushed-metal top edge on the chamber frame. */
+.ar-room::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  border-radius: inherit;
+  box-shadow: inset 0 1px 0 var(--ar-sheen);
+}
+
+/* ── Typography ─────────────────────────────────────────────── */
+
+.ar-kicker {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--ar-gold);
+}
+
+.ar-display {
+  font-family: var(--ar-serif);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  background: var(--ar-metal);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.ar-smallcaps {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--ar-ink-dim);
+}
+
+/* ── Header plinth ──────────────────────────────────────────── */
+
+.ar-plinth {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--ar-gold);
+  border-radius: 10px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 6%, transparent), transparent 55%), var(--ar-header-bg);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--ar-gold-light) 18%, transparent),
+    0 0 16px color-mix(in srgb, var(--ar-gold) 18%, transparent),
+    0 0 1px var(--ar-gold);
+}
+
+@media (min-width: 640px) {
+  .ar-plinth {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+  }
+}
+
+/* Gold hairline that fades out along the bottom edge. */
+.ar-plinth::after {
+  content: '';
+  position: absolute;
+  left: 1rem;
+  right: 1rem;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ar-hairline-strong), transparent);
+  pointer-events: none;
+}
+
+.ar-plinth__id {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-width: 0;
+}
+
+.ar-plinth__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ar-plinth__meta {
+  margin-top: 0.25rem;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--ar-ink-muted);
+}
+
+.ar-plinth__meta strong {
+  font-weight: 600;
+  color: var(--ar-ink);
+}
+
+/* ── Monogram medallion (house sigil) ───────────────────────── */
+
+.ar-monogram {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  font-family: var(--ar-serif);
+  font-size: 18px;
+  color: var(--ar-gold-light);
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 26%, var(--ar-sheen), transparent 55%),
+    var(--ar-surface-raised);
+  box-shadow:
+    inset 0 1px 0 var(--ar-sheen),
+    0 0 12px color-mix(in srgb, var(--vestara-accent) 14%, transparent);
+}
+
+/* ── Capsules (buttons / pills) ─────────────────────────────── */
+
+.ar-capsule {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ar-ink);
+  cursor: pointer;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ar-surface-raised) 85%, transparent);
+  transition:
+    color 0.18s ease,
+    border-color 0.18s ease,
+    background 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ar-capsule:hover {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
+  box-shadow: 0 0 10px color-mix(in srgb, var(--vestara-accent) 10%, transparent);
+}
+
+.ar-capsule--gold {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--vestara-accent-dark) 26%, transparent), color-mix(in srgb, var(--ar-gold-deep) 20%, transparent));
+}
+
+.ar-capsule--disabled,
+.ar-capsule:disabled {
+  color: var(--ar-ink-dim);
+  border-color: var(--ar-hairline);
+  background: transparent;
+  cursor: not-allowed;
+  box-shadow: none;
+  opacity: 0.65;
+}
+
+/* ── Connection status + lamps ──────────────────────────────── */
+
+.ar-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--ar-surface-raised) 85%, transparent);
+}
+
+.ar-status--live {
+  color: var(--ar-jade);
+  border-color: color-mix(in srgb, var(--ar-jade) 28%, transparent);
+}
+
+.ar-status--warn {
+  color: var(--ar-amber);
+  border-color: color-mix(in srgb, var(--ar-amber) 26%, transparent);
+}
+
+.ar-status--off {
+  color: var(--ar-ruby);
+  border-color: color-mix(in srgb, var(--ar-ruby) 26%, transparent);
+}
+
+.ar-lamp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ar-lamp-color, var(--ar-ink-dim));
+  filter: drop-shadow(0 0 4px var(--ar-lamp-glow, transparent));
+}
+
+.ar-lamp--live {
+  --ar-lamp-color: var(--ar-jade);
+  --ar-lamp-glow: color-mix(in srgb, var(--ar-jade) 60%, transparent);
+}
+
+.ar-lamp--warn {
+  --ar-lamp-color: var(--ar-amber);
+  --ar-lamp-glow: color-mix(in srgb, var(--ar-amber) 55%, transparent);
+}
+
+.ar-lamp--off {
+  --ar-lamp-color: var(--ar-ruby);
+  --ar-lamp-glow: color-mix(in srgb, var(--ar-ruby) 50%, transparent);
+}
+
+.ar-lamp--dim {
+  --ar-lamp-color: var(--ar-ink-dim);
+}
+
+
+/* ── Banners ────────────────────────────────────────────────── */
+
+.ar-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0.5rem 0.875rem;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 8px;
+  border: 1px solid;
+}
+
+.ar-banner--warn {
+  color: var(--ar-amber);
+  border-color: color-mix(in srgb, var(--ar-amber) 28%, transparent);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--ar-amber) 8%, transparent), transparent 75%);
+}
+
+.ar-banner--info {
+  color: var(--ar-ink-2);
+  border-color: var(--ar-hairline);
+  background: linear-gradient(90deg, var(--ar-gold-veil), transparent 75%);
+}
+
+.ar-banner__critical {
+  color: var(--ar-ruby);
+}
+
+.ar-banner__note {
+  color: var(--ar-ink-muted);
+}
+
+/* ── Stage (rail + salon) ───────────────────────────────────── */
+
+.ar-stage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  flex: 1;
+  min-height: 0;
+}
+
+@media (min-width: 768px) {
+  .ar-stage {
+    flex-direction: row;
+    gap: 0.875rem;
+  }
+}
+
+/* ── Glass panels ───────────────────────────────────────────── */
+
+.ar-panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: 10px;
+  background: var(--ar-panel-bg);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow:
+    var(--ar-panel-shadow),
+    inset 0 1px 0 var(--ar-sheen),
+    0 0 0 1px var(--ar-hairline),
+    0 0 12px color-mix(in srgb, var(--ar-gold) 12%, transparent);
+}
+
+.ar-panel--rail {
+  display: none;
+  max-height: 14rem;
+  overflow-y: auto;
+  padding: 0.625rem;
+  background: var(--ar-rail-bg);
+}
+
+@media (min-width: 640px) {
+  .ar-panel--rail {
+    display: flex;
+    padding: 0.75rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .ar-panel--rail {
+    flex-shrink: 0;
+    width: 18rem;
+    max-height: none;
+    overflow: hidden;
+  }
+}
+
+.ar-panel--main {
+  flex: 1;
+  min-width: 0;
+  min-height: 28rem;
+  padding: 0.625rem 0.75rem 0.75rem;
+}
+
+@media (min-width: 640px) {
+  .ar-panel--main {
+    padding: 0.75rem 0.875rem 0.875rem;
+  }
+}
+
+.ar-panel__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.125rem 0.25rem 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-panel__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ar-gold) 92%, transparent);
+}
+
+.ar-panel__hint {
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ar-ink-2);
+}
+
+/* ── Workflow strip ─────────────────────────────────────────── */
+
+.ar-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.625rem;
+  margin-bottom: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 8px;
+  background: var(--ar-surface-sunken);
+}
+
+.ar-strip__status {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: capitalize;
+  color: var(--ar-ink);
+}
+
+.ar-strip__count {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  color: var(--ar-ink-muted);
+}
+
+/* ── Scroll surfaces ────────────────────────────────────────── */
+
+.ar-scroll {
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--vestara-accent) 16%, transparent) transparent;
+}
+
+.ar-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+
+.ar-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ar-scroll::-webkit-scrollbar-thumb {
+  border-radius: 999px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent-dark) 22%, transparent), color-mix(in srgb, var(--ar-gold-deep) 30%, transparent));
+}
+
+.ar-scroll:hover::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent) 26%, transparent), color-mix(in srgb, var(--vestara-accent-dark) 34%, transparent));
+}
+
+/* ── Stream items ───────────────────────────────────────────── */
+
+.ar-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.625rem;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.ar-item--primary {
+  border-color: var(--ar-hairline);
+  background: linear-gradient(90deg, color-mix(in srgb, var(--vestara-accent) 6%, transparent), transparent 55%), var(--ar-surface-sunken);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--vestara-accent-dark) 85%, transparent);
+}
+
+.ar-item--secondary {
+  background: color-mix(in srgb, var(--ar-surface-sunken) 55%, transparent);
+}
+
+.ar-item--secondary:hover,
+.ar-item--muted:hover {
+  border-color: var(--ar-hairline);
+}
+
+.ar-item__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.ar-item__head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.ar-item__actor {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ar-ink);
+}
+
+.ar-item__time {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ar-ink-muted);
+  white-space: nowrap;
+}
+
+.ar-item__content {
+  overflow-wrap: anywhere;
+}
+
+.ar-item__meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.125rem;
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--ar-ink-muted);
+}
+
+.ar-item__kind {
+  flex-shrink: 0;
+  padding: 0.125rem 0.5rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--ar-gold-light);
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--vestara-accent-dark) 16%, transparent);
+}
+
+/* Fresh arrivals — fade up with a faint gold glint. */
+.ar-item--fresh {
+}
+
+.ar-item--fresh::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(105deg, transparent 30%, var(--ar-sheen) 50%, transparent 70%);
+  background-size: 220% 100%;
+}
+
+/* ── Medallions (participant insignia) ──────────────────────── */
+
+.ar-medallion {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  font-family: var(--ar-serif);
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 50%;
+  border: 1px solid;
+  text-transform: uppercase;
+}
+
+.ar-medallion--human {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background:
+    radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--ar-gold) 14%, transparent), transparent 60%),
+    var(--vestara-surface);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+}
+
+.ar-medallion--agent {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background:
+    radial-gradient(circle at 32% 26%, color-mix(in srgb, var(--ar-gold) 14%, transparent), transparent 60%),
+    var(--vestara-surface);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+}
+
+.ar-medallion--system {
+  color: var(--ar-gold);
+  border-color: var(--ar-hairline);
+  background: var(--vestara-surface);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 10%, transparent);
+}
+
+.ar-medallion--sm {
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+}
+
+/* ── Participant rail (guest list) ──────────────────────────── */
+
+.ar-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 0.625rem;
+  height: 100%;
+  min-height: 0;
+}
+
+.ar-rail__head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding: 0.25rem 0.25rem 0.625rem;
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-rail__census {
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  color: var(--ar-ink-2);
+}
+
+.ar-rail__census strong {
+  font-weight: 700;
+  color: var(--ar-ink);
+}
+
+.ar-rail__list {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.125rem;
+}
+
+.ar-rail__empty {
+  padding: 0.5rem 0.25rem;
+  font-size: 10px;
+  letter-spacing: 0.05em;
+  color: var(--ar-ink-muted);
+}
+
+.ar-rail__all {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.625rem;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.ar-rail__all:hover,
+.ar-rail__all--active {
+  border-color: var(--ar-hairline);
+  background: var(--ar-gold-veil);
+}
+
+.ar-rail__all-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--ar-ink);
+}
+
+.ar-guest {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  text-align: left;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.ar-guest:hover {
+  border-color: var(--ar-hairline);
+  background: var(--ar-gold-veil);
+}
+
+.ar-guest--selected {
+  border-color: var(--ar-hairline-strong);
+  background:
+    linear-gradient(90deg, var(--ar-gold-veil), transparent 80%),
+    var(--ar-surface-raised);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--vestara-accent-dark) 85%, transparent);
+}
+
+.ar-guest__body {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.ar-guest__top {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.ar-guest__name {
+  overflow: hidden;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ar-ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-guest__name--agent-action {
+  cursor: pointer;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-underline-offset: 2px;
+  transition: text-decoration-color 0.18s ease, color 0.18s ease;
+}
+
+.ar-guest__name--agent-action:hover,
+.ar-guest__name--agent-action:focus-visible {
+  text-decoration-color: var(--ar-gold);
+  color: var(--ar-gold-light);
+  outline: none;
+}
+
+.ar-guest__name--agent-action:focus-visible {
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px var(--ar-gold);
+}
+
+.ar-guest__badge {
+  flex-shrink: 0;
+  padding: 0.0625rem 0.4375rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--ar-hairline-strong);
+  color: var(--ar-gold-light);
+  background: var(--vestara-surface);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+}
+
+.ar-guest__badge--human,
+.ar-guest__badge--agent {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background: var(--vestara-surface);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+}
+
+.ar-guest__role {
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 0.0625rem 0.375rem;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ar-ink-muted);
+  border-radius: 999px;
+  border: 1px solid var(--ar-hairline);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-guest__sub {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  font-size: 10.5px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  color: var(--ar-ink-2);
+}
+
+.ar-guest__membership {
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ar-ink-muted);
+}
+
+.ar-guest__task {
+  overflow: hidden;
+  font-size: 10px;
+  font-style: italic;
+  color: var(--ar-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-guest__task::before {
+  content: '· ';
+}
+
+/* ── Aggregated rows ────────────────────────────────────────── */
+
+.ar-aggregate {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.375rem 0.75rem;
+  text-align: left;
+  cursor: pointer;
+  border: 1px dashed var(--ar-hairline);
+  border-radius: 8px;
+  background: transparent;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.ar-aggregate:hover {
+  border-color: var(--ar-hairline-strong);
+  background: var(--ar-gold-veil);
+}
+
+.ar-aggregate__summary {
+  overflow: hidden;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--ar-ink-2);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-aggregate__count {
+  flex-shrink: 0;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ar-ink-muted);
+}
+
+.ar-aggregate__time {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  color: var(--ar-ink-muted);
+}
+
+/* ── Empty state ────────────────────────────────────────────── */
+
+.ar-empty {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 2rem 1rem;
+  text-align: center;
+}
+
+.ar-empty__sigil {
+  font-family: var(--ar-serif);
+  font-size: 28px;
+  line-height: 1;
+  color: color-mix(in srgb, var(--vestara-accent) 60%, transparent);
+  text-shadow: 0 0 18px color-mix(in srgb, var(--vestara-accent) 20%, transparent);
+}
+
+.ar-empty__title {
+  font-family: var(--ar-serif);
+  font-size: 16px;
+  letter-spacing: 0.02em;
+  color: var(--ar-ink);
+}
+
+.ar-empty__note {
+  max-width: 26rem;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--ar-ink-2);
+}
+
+.ar-empty__rule {
+  width: 72px;
+  height: 1px;
+  margin-top: 0.25rem;
+  background: linear-gradient(90deg, transparent, var(--ar-hairline-strong), transparent);
+}
+
+/* ── Skeleton (connecting) ──────────────────────────────────── */
+
+.ar-skeleton {
+  position: relative;
+  overflow: hidden;
+  height: 3.5rem;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 8px;
+  background: var(--ar-surface-sunken);
+}
+
+.ar-skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--vestara-accent-light) 4%, transparent) 50%, transparent 70%);
+  background-size: 220% 100%;
+}
+
+/* ── Load-older / jump-to-latest ────────────────────────────── */
+
+.ar-load {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0 0.5rem;
+}
+
+.ar-load__rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--ar-hairline));
+}
+
+.ar-load__btn {
+  padding: 0.25rem 0.875rem;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ar-ink-2);
+  cursor: pointer;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 999px;
+  background: transparent;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+}
+
+.ar-load__btn:hover:not(:disabled) {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline-strong);
+  background: var(--ar-gold-veil);
+}
+
+.ar-load__btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.ar-jump {
+  position: absolute;
+  right: 1rem;
+  bottom: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ar-gold-light);
+  cursor: pointer;
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: 999px;
+  background: var(--vestara-surface);
+  box-shadow: 0 6px 24px var(--ar-drop-shadow), inset 0 1px 0 var(--ar-sheen), 0 0 10px color-mix(in srgb, var(--ar-gold) 14%, transparent);
+  transition: box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.ar-jump:hover {
+  border-color: color-mix(in srgb, var(--vestara-accent) 55%, transparent);
+  box-shadow: 0 6px 24px var(--ar-drop-shadow), 0 0 14px color-mix(in srgb, var(--vestara-accent) 16%, transparent);
+}
+
+/* ── Stream footer ──────────────────────────────────────────── */
+
+.ar-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.25rem 0;
+  margin-top: 0.25rem;
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ar-ink-muted);
+  border-top: 1px solid var(--ar-hairline);
+}
+
+.ar-foot__state {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+/* ── Composer (call tray) ───────────────────────────────────── */
+
+.ar-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.625rem;
+  padding: 0.4375rem 0.75rem;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 10px;
+  background: var(--ar-surface-sunken);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ar-composer:focus-within {
+  border-color: var(--ar-hairline-strong);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vestara-accent) 10%, transparent);
+}
+
+.ar-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  font-size: 10px;
+  color: var(--ar-ink-muted);
+  border: 1px solid var(--ar-hairline);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--ar-surface-raised) 60%, transparent);
+}
+
+.ar-composer__input {
+  flex: 1;
+  min-width: 0;
+  font-size: 13px;
+  letter-spacing: 0.02em;
+  color: var(--ar-ink);
+  background: transparent;
+  border: none;
+  outline: none;
+}
+
+.ar-composer__input::placeholder {
+  color: var(--ar-ink-dim);
+  letter-spacing: 0.06em;
+}
+
+/* ── Detail modal ───────────────────────────────────────────── */
+
+.ar-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--ar-chrome) 72%, transparent);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.ar-modal {
+  max-width: 32rem;
+  margin: 0 1rem;
+  max-height: 85vh;
+  overflow-y: auto;
+  padding: 1.125rem 1.25rem;
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: 14px;
+  background:
+    radial-gradient(110% 46% at 50% 0%, var(--ar-gold-veil), transparent 55%),
+    var(--ar-surface);
+  box-shadow:
+    0 24px 64px var(--ar-drop-shadow),
+    inset 0 1px 0 var(--ar-sheen);
+}
+
+.ar-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 0.625rem;
+  margin-bottom: 0.875rem;
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-modal__title {
+  font-family: var(--ar-serif);
+  font-size: 15px;
+  letter-spacing: 0.03em;
+  color: var(--ar-ink);
+}
+
+.ar-modal__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--ar-ink-muted);
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  transition: color 0.18s ease, border-color 0.18s ease;
+}
+
+.ar-modal__close:hover {
+  color: var(--ar-gold-light);
+  border-color: var(--ar-hairline);
+}
+
+.ar-kv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.ar-kv__label {
+  margin-bottom: 0.1875rem;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--ar-gold) 88%, transparent);
+}
+
+.ar-kv__value {
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--ar-ink-2);
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ar-kv__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1875rem;
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  color: var(--ar-ink-2);
+}
+
+/* ── Animations ─────────────────────────────────────────────── */
+
+
+
+
+
+
+
+
+/* ── Light theme (aligned with the workspace theme toggle) ────
+   Same restraint: ivory chamber, darker burnished gold details. */
+
+[data-theme='light'] .ar-room {
+  /* Light theme: darker accent variants for contrast on ivory. */
+  --ar-gold-light: var(--vestara-accent);
+  --ar-gold-deep: var(--vestara-accent-dark);
+  --ar-gold-veil: var(--vestara-accent-bg);
+  --ar-hairline: var(--vestara-accent-border);
+  --ar-hairline-strong: var(--vestara-accent-border-hover);
+  --ar-sheen: color-mix(in srgb, var(--vestara-accent-light) 20%, transparent);
+  /* Pale iridescent foil on ivory. */
+  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-blue) 6%, transparent);
+  --ar-holo-violet: color-mix(in srgb, var(--vestara-purple) 6%, transparent);
+  --ar-holo-jade: color-mix(in srgb, var(--vestara-green) 4%, transparent);
+  --ar-chrome: color-mix(in srgb, var(--color-zinc-50) 96%, var(--vestara-accent));
+  --ar-surface: color-mix(in srgb, var(--color-zinc-50) 90%, var(--vestara-accent));
+  --ar-surface-raised: color-mix(in srgb, var(--color-zinc-100) 88%, var(--vestara-accent));
+  /* Panels as their own lifted plane: frosted ivory over the foil wall. */
+  --ar-panel-bg:
+    radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, white 46%, transparent), transparent 62%),
+    color-mix(in srgb, white 55%, transparent);
+  --ar-panel-shadow:
+    0 14px 36px rgba(58, 45, 12, 0.12),
+    0 2px 8px rgba(58, 45, 12, 0.08);
+  --ar-surface-sunken: color-mix(in srgb, var(--color-zinc-900) 4%, transparent);
+  --ar-drop-shadow: rgba(58, 45, 12, 0.16);
+  /* Light header: dark badge-style on ivory. */
+  --ar-header-bg: color-mix(in srgb, var(--color-zinc-900) 88%, var(--color-zinc-950));
+  --ar-rail-bg:
+    radial-gradient(120% 60% at 50% -30%, color-mix(in srgb, white 40%, transparent), transparent 60%),
+    color-mix(in srgb, var(--color-zinc-100) 62%, transparent);
+}
+
+[data-theme='light'] .ar-room::before {
+  background:
+    radial-gradient(110% 64% at 14% -12%, var(--ar-holo-violet), transparent 56%),
+    radial-gradient(92% 58% at 88% -16%, var(--ar-holo-sapphire), transparent 54%),
+    radial-gradient(96% 62% at 104% 110%, var(--ar-holo-violet), transparent 58%),
+    radial-gradient(78% 50% at -10% 108%, var(--ar-holo-jade), transparent 54%),
+    radial-gradient(70% 42% at 50% -8%, color-mix(in srgb, var(--vestara-accent) 12%, transparent), transparent 68%),
+    linear-gradient(115deg, transparent 42%, color-mix(in srgb, white 42%, transparent) 50%, transparent 58%),
+    var(--ar-chrome);
+}
+
+[data-theme='light'] .ar-display {
+  background: linear-gradient(
+    100deg,
+    var(--vestara-accent-dark) 0%,
+    var(--vestara-accent) 30%,
+    var(--vestara-accent-light) 46%,
+    var(--vestara-accent-dark) 62%,
+    var(--vestara-accent-dark) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+}
+
+[data-theme='light'] .ar-jump {
+  box-shadow: 0 6px 24px var(--ar-drop-shadow), inset 0 1px 0 var(--ar-sheen);
+}
+
+[data-theme='light'] .ar-modal {
+  box-shadow: 0 24px 64px var(--ar-drop-shadow), inset 0 1px 0 var(--ar-sheen);
+}
+
+

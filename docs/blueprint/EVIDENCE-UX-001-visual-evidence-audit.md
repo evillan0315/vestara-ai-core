@@ -1,3 +1,12 @@
+---
+title: EVIDENCE-UX-001 — Visual Evidence Artifacts: Audit + Implementation Plan
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # EVIDENCE-UX-001 — Visual Evidence Artifacts: Audit + Implementation Plan
 
 **Status:** AUDIT (no implementation — stop boundary applies)

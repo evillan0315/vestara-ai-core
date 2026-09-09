@@ -320,6 +320,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     if (input.model) {
       body.model = { providerID: input.model.providerId, modelID: input.model.modelId };
     }
+    if (input.tools) body.tools = input.tools;
     const path = this.withQuery(`/session/${encodeURIComponent(sessionId)}/prompt_async`, {
       directory: context.directory,
     });

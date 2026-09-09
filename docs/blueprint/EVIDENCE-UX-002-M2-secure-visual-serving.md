@@ -1,3 +1,12 @@
+---
+title: EVIDENCE-UX-002 M2 — Secure Visual Artifact Delivery + Thumbnails
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # EVIDENCE-UX-002 M2 — Secure Visual Artifact Delivery + Thumbnails
 
 **Status:** IMPLEMENTED (M2 only — no gallery, viewer, comparison UI, diffing,

@@ -22,6 +22,7 @@
  */
 
 import type { OpenCodePermissionAction } from '@vestara/opencode-runtime';
+import { normalizePermissionAction } from '@vestara/opencode-runtime';
 
 // ── Policy Decision ────────────────────────────────────────────────────────
 
@@ -164,6 +165,60 @@ export function evaluatePermission(
     action,
     resources,
   };
+}
+
+// ── Per-Turn Tools Map (GA-RUNTIME-004 / GA-TOOL-001) ────────────────────────
+
+/**
+ * All OpenCode tool names the GA recognizes. Tools not in this list
+ * are treated as unknown and disabled.
+ */
+export const ALL_TOOL_NAMES = [
+  'read',
+  'glob',
+  'grep',
+  'list',
+  'edit',
+  'write',
+  'bash',
+  'task',
+  'todowrite',
+  'webfetch',
+  'websearch',
+  'external_directory',
+  'lsp',
+  'skill',
+  'question',
+  'doom_loop',
+] as const;
+
+/**
+ * Construct a per-turn tools map from the GA-CAP-003 policy.
+ *
+ * ALLOW tools → true (model can use them)
+ * ASK tools  → false (Vestara mediates — model cannot use them directly)
+ * DENY tools → false (blocked entirely)
+ *
+ * Tool names are normalized via normalizePermissionAction before policy
+ * evaluation (e.g. 'task' → 'other', matched by resource pattern).
+ */
+export function buildToolsMap(
+  policy: AssistantCapabilityPolicy,
+  approvedTools?: ReadonlySet<string>,
+): Record<string, boolean> {
+  const tools: Record<string, boolean> = {};
+  for (const name of ALL_TOOL_NAMES) {
+    const action = normalizePermissionAction(name);
+    const evaluation = evaluatePermission(policy, action, [name]);
+    if (evaluation.decision === 'allow') {
+      tools[name] = true;
+    } else if (evaluation.decision === 'ask' && approvedTools?.has(name)) {
+      tools[name] = true;
+    } else {
+      tools[name] = false;
+    }
+  }
+  return tools;
 }
 
 // ── Repository Confinement ─────────────────────────────────────────────────

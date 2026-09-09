@@ -1,3 +1,14 @@
+---
+title: GA-CAP-001 — Global Assistant Full Permissions & Capabilities
+version: 1.0.0
+status: implemented
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+implementation-repository: vestara-ai-core
+implementation-commit: c8ba719
+---
+
 # GA-CAP-001 — Global Assistant Full Permissions & Capabilities
 
 **Date**: 2026-09-04  

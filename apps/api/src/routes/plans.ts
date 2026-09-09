@@ -203,9 +203,24 @@ export async function handlePlansRoute(
       json(res, 400, { error: 'changeSetId and planId are required' });
       return true;
     }
-    json(res, 201, {
-      record: await ctx.collaborationService.submit(body.changeSetId, body.planId, ctx.runtime.getSession()),
-    });
+    const actor = getActor(req, ctx);
+    const record = await ctx.collaborationService.submit(
+      body.changeSetId,
+      body.planId,
+      ctx.runtime.getSession(),
+      actor.id,
+    );
+    logAudit(
+      ctx.audit,
+      req,
+      actor.id,
+      actor.name,
+      AuditAction.COLLAB_SUBMIT,
+      'collaboration',
+      record.id,
+      body.changeSetId,
+    );
+    json(res, 201, { record });
     return true;
   }
 
@@ -216,7 +231,10 @@ export async function handlePlansRoute(
       json(res, 400, { error: 'recordId is required' });
       return true;
     }
-    json(res, 200, { record: await ctx.collaborationService.approve(body.recordId, actorOf(req)) });
+    const actor = getActor(req, ctx);
+    const record = await ctx.collaborationService.approve(body.recordId, actor.name, body.comment);
+    logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.COLLAB_APPROVE, 'collaboration', body.recordId);
+    json(res, 200, { record });
     return true;
   }
 
@@ -227,13 +245,31 @@ export async function handlePlansRoute(
       json(res, 400, { error: 'recordId is required' });
       return true;
     }
-    json(res, 200, {
-      record: await ctx.collaborationService.reject(
-        body.recordId,
-        actorOf(req),
-        body.reason?.trim() ?? 'Rejected via dashboard',
-      ),
-    });
+    const actor = getActor(req, ctx);
+    const reason = body.reason?.trim() ?? 'Rejected via dashboard';
+    const record = await ctx.collaborationService.reject(body.recordId, actor.name, reason);
+    logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.COLLAB_REJECT, 'collaboration', body.recordId, reason);
+    json(res, 200, { record });
+    return true;
+  }
+
+  if (method === 'POST' && p === '/api/collab/comment') {
+    const raw = await readBody(req);
+    const body = raw ? JSON.parse(raw) : {};
+    if (!body.recordId || !body.message) {
+      json(res, 400, { error: 'recordId and message are required' });
+      return true;
+    }
+    const actor = getActor(req, ctx);
+    const comment = await ctx.collaborationService.comment(
+      body.recordId,
+      actor.name,
+      body.message,
+      body.artifactType,
+      body.artifactId,
+    );
+    logAudit(ctx.audit, req, actor.id, actor.name, AuditAction.COLLAB_COMMENT, 'collaboration', body.recordId);
+    json(res, 201, { comment });
     return true;
   }
 

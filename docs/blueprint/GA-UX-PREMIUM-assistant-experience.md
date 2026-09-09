@@ -1,3 +1,12 @@
+---
+title: GA-UX-PREMIUM — Vestara Assistant Premium Experience
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # GA-UX-PREMIUM — Vestara Assistant Premium Experience
 
 **Date**: 2026-09-04  

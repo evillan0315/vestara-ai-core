@@ -65,6 +65,16 @@ export class AssistantConversationSessionRegistry {
     return this.byConversation.get(conversationId);
   }
 
+  /**
+   * Pre-set a binding for a conversation (e.g. after POST-route verification).
+   * The first `acquire()` call for this conversationId will find the binding
+   * and skip liveness verification — the session was already confirmed alive
+   * by the caller.
+   */
+  set(conversationId: string, session: AssistantConversationSession): void {
+    this.byConversation.set(conversationId, session);
+  }
+
   count(): number {
     return this.byConversation.size;
   }
@@ -118,7 +128,11 @@ export class AssistantConversationSessionRegistry {
     // when the OpenCode runtime still owns it (browser reload / API restart
     // must NOT create another session while the server-side session exists).
     if (input.preferredSessionId) {
+      console.log(
+        `[registry:acquire] attempting adoption conv=${input.conversationId} preferred=${input.preferredSessionId}`,
+      );
       const alive = await input.verifySession(input.preferredSessionId).catch(() => false);
+      console.log(`[registry:acquire] verification result: alive=${alive}`);
       if (alive) {
         const adopted: AssistantConversationSession = {
           sessionId: input.preferredSessionId,

@@ -1,0 +1,21 @@
+{
+  "name": "@vestara/mcp-server",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "vestara-mcp": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@vestara/filesystem-runtime": "workspace:*",
+    "@vestara/tool-runtime": "workspace:*",
+    "@vestara/types": "workspace:*"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3"
+  }
+}

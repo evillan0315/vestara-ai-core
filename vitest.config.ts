@@ -45,6 +45,11 @@ export default defineConfig({
     alias: aliases,
   },
   test: {
+    // Setup lives next to its dependency: @testing-library/react is a
+    // @vestara/workspace-ui dependency, unresolvable from the repo root
+    // under pnpm strict mode. Imports inside the setup file resolve
+    // relative to that file, so this works for every jsdom test.
+    setupFiles: ['./apps/workspace/vitest.setup.ts'],
     include: [
       'packages/*/__tests__/**/*.{test,spec}.{ts,tsx}',
       'packages/{providers,tools}/*/__tests__/**/*.{test,spec}.{ts,tsx}',

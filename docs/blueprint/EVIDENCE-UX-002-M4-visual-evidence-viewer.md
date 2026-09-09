@@ -1,3 +1,12 @@
+---
+title: EVIDENCE-UX-002 M4 — Visual Evidence Viewer
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-04
+next-review: 2026-10-04
+---
+
 # EVIDENCE-UX-002 M4 — Visual Evidence Viewer
 
 **Status:** IMPLEMENTED (M4 only — no visual diff, no baseline comparison, no

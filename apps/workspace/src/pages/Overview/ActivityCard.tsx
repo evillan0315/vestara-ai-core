@@ -9,7 +9,7 @@ function truncate(text: string, max: number): string {
 
 export function ActivityCard({ data }: { data: UnderstandingData }) {
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-amber)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-amber)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label="Activity: Recent changes and milestones">
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">Activity</h2>
 
       {data.activity.currentMilestone && (

@@ -13,7 +13,7 @@
 
 // @vitest-environment jsdom
 
-import { act, render, screen } from '@testing-library/react';
+import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -47,6 +47,7 @@ describe('GlobalAssistant — Slice 1: Shell Mount', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
@@ -165,8 +166,11 @@ describe('GlobalAssistant — Slice 1: Shell Mount', () => {
     document.body.appendChild(textarea);
     textarea.focus();
 
+    // Dispatch from the textarea (bubbles to window) — this is what a real
+    // keystroke looks like. e.target must be the textarea for the
+    // "ignored while typing" guard to engage.
     await act(async () => {
-      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, target: textarea }));
+      textarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'j', ctrlKey: true, bubbles: true }));
     });
 
     // Panel should remain closed (no toggle while typing)

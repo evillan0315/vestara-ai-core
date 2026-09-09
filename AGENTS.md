@@ -33,6 +33,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 | All tests | `pnpm test` (`vitest run`) |
 | Single package | `pnpm --filter @vestara/<pkg> test` |
 | Single file | `pnpm test -- packages/foo/__tests__/thing.test.ts` |
+| Fast tests (CI pre-pass) | `pnpm test:fast` (excludes docs, e2e, repo-intelligence suites) |
 | Dependency boundaries | `pnpm dependencies:check` |
 | Source artifacts | `pnpm check:source-artifacts` |
 | Agent sync/check | `pnpm agents:sync` / `pnpm agents:check` |
@@ -48,8 +49,11 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 - `vitest.config.ts` discovers `packages/*/__tests__/**`, `packages/{providers,tools}/*/__tests__/**`, `apps/*/__tests__/**`, `apps/workspace/tests/visual/__tests__/**`. Playwright owns `apps/workspace/tests/visual/**/*.spec.*` — vitest excludes them.
 - Test timeout is 15s. Slow tests need investigation rather than timeout bumps.
-- Aliases resolve `@vestara/*` → `packages/*/dist` — rebuild after source changes.
+- Aliases resolve `@vestara/*` → `packages/*/dist` — `pnpm test` runs `pretest` (`pnpm build`, incremental) first so `dist/` is fresh; bare `vitest run` skips it, rebuild manually.
+- On constrained boxes (≤4 cores / <8GB RAM) run `pnpm test -- --maxWorkers=2` — the default forks pool thrashes and looks hung (418 files, jsdom per `.tsx`, whole-repo scans).
+- `apps/workspace/vitest.setup.ts` runs `afterEach(cleanup)` for every jsdom file (vitest globals are off, so RTL auto-cleanup never engages). It must stay in `apps/workspace/` — `@testing-library/react` is only resolvable from there under pnpm strict mode.
 - `pnpm test:e2e:workflow` is a vitest suite (`packages/workflow-orchestrator/__tests__/e2e`). `pnpm test:e2e:workflow:real-agent` (`scripts/wfo-e2e-002b-live.ts`) hits real LLMs via `.env` — not part of `pnpm test`, don't run casually.
+- Stop dev services (`pnpm services:stop`, or confirm port 3001 is down) before full runs — a live API runtime mutates the repo concurrently (docs frontmatter, activity DBs) and perturbs baseline tests (entry-point counts, checksums, drift guards).
 - DB tests use in-memory `sql.js`; shim is `types/sql-js.d.ts`.
 - `screenshots:check` is a visual-test typecheck (`tsc -p tsconfig.visual.json`), not a test run.
 - Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}`.
@@ -64,7 +68,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 ## CI (`/.github/workflows/ci.yml`)
 
-`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test` → `documentation:check` → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
+`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
 
 ## Runtime Env
 

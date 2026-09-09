@@ -161,6 +161,7 @@ export interface WorkspaceContext {
   routingAssignments: FileRoutingAssignmentStore;
   conversationSessions: SqliteConversationSessionStore;
   conversationService: ConversationService;
+  assistantConversationSessions: AssistantConversationSessionRegistry;
   agentThreadStore: FileThreadStore;
   agentTools: ToolRuntime;
   createAgentTools(workspaceRoot: string): ToolRuntime;
@@ -784,6 +785,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     },
   };
   let assistantInteractionBroker = new AssistantInteractionBroker();
+  const assistantConversationSessions = new AssistantConversationSessionRegistry();
   try {
     const ocConfig = resolveOpenCodeConfig({});
     const ocClient = new OpenCodeHttpClient(ocConfig);
@@ -797,7 +799,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         : undefined;
     // GA-RUNTIME-001: conversation → OpenCode session continuity (in-memory,
     // single-flight). Provider/model never keys the mapping.
-    const assistantConversationSessions = new AssistantConversationSessionRegistry();
     // GA-RUNTIME-001 G: server-authoritative binding resolution. The browser's
     // requested provider/model is validated against the canonical OpenCode
     // runtime provider discovery; unresolvable requests fail deterministically.
@@ -1478,6 +1479,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     routingAssignments,
     conversationSessions,
     conversationService,
+    assistantConversationSessions,
     agentThreadStore,
     agentTools,
     createAgentTools,

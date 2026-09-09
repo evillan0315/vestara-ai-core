@@ -27,13 +27,18 @@ export class CollaborationService {
   /**
    * Submit a Change Set for review. Creates a CollaborationRecord.
    */
-  async submit(changeSetId: string, planId: string, session: WorkspaceSession): Promise<CollaborationRecord> {
+  async submit(
+    changeSetId: string,
+    planId: string,
+    session: WorkspaceSession,
+    actorId?: string,
+  ): Promise<CollaborationRecord> {
     // Check if a record already exists for this change set
     const existing = await this.storage.listByWorkspace(session.fingerprint.id);
     const found = existing.find((r) => r.changeSetId === changeSetId);
     if (found) throw new Error(`Change Set "${changeSetId}" already has a collaboration record (${found.id}).`);
 
-    const record = await this.storage.create(changeSetId, planId, session.fingerprint.id);
+    const record = await this.storage.create(changeSetId, planId, session.fingerprint.id, actorId);
     await this.storage.updateStatus(record.id, 'submitted');
     record.status = 'submitted';
     return record;

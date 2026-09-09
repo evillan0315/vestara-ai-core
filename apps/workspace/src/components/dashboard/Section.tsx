@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 export default function Section({
   title,
   icon,
-  accent = '#f59e0b',
+  accent,
   children,
   collapsible,
   collapsed,
@@ -52,7 +52,10 @@ export default function Section({
             <span className="text-xs">⠿</span>
           </span>
         )}
-        <span className="w-1 h-3.5 rounded-full shrink-0" style={{ backgroundColor: accent }} />
+        <span
+          className="w-1 h-3.5 rounded-full shrink-0 shadow-[0_0_6px_var(--vestara-accent-bg)]"
+          style={{ backgroundColor: accent ?? 'var(--vestara-accent)' }}
+        />
         <h2 className="text-[9px] font-semibold text-zinc-600 uppercase tracking-widest">
           {icon ? `${icon} ` : ''}
           {title}

@@ -26,6 +26,32 @@ export interface FsOperation {
   createdAt: string;
   riskLevel: FsRiskLevel;
   approvalStatus?: FsApprovalStatus;
+  /** SHA-256 hash of the proposed content/patch (hex). */
+  contentHash?: string;
+  /** SHA-256 hash of the pre-state file content (hex), or empty string for new files. */
+  preStateHash?: string;
+}
+
+/**
+ * GA-TOOL-004: Immutable approval envelope.
+ * Presented to the user for approval; must not be mutable after presentation.
+ * Revalidated immediately before mutation.
+ */
+export interface MutationEnvelope {
+  /** Unique operation ID. */
+  readonly operationId: string;
+  /** Repository root directory (authoritative binding). */
+  readonly repositoryDir: string;
+  /** Operation type (write/update/create/etc.). */
+  readonly operationType: FsOperationType;
+  /** Canonical relative path within the repository. */
+  readonly relativePath: string;
+  /** SHA-256 hash of the pre-state file content, or '' for new files. */
+  readonly preStateHash: string;
+  /** SHA-256 hash of the proposed content/patch. */
+  readonly contentHash: string;
+  /** ISO timestamp of envelope creation. */
+  readonly createdAt: string;
 }
 
 export interface FsResult<T> {

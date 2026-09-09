@@ -17,7 +17,7 @@ export function ArchitectureCard({ data }: { data: UnderstandingData }) {
   const displayPoints = showAll ? arch.entryPoints : realEntryPoints.slice(0, 12);
 
   return (
-    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-purple)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors">
+    <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-purple)] rounded-lg p-5 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="region" aria-label={`Architecture: ${arch.kind}, ${realEntryPoints.length} entry points`}>
       <h2 className="text-sm font-semibold text-[var(--vestara-text)] mb-3">Architecture</h2>
 
       <div className="text-sm text-[var(--vestara-text-2)] mb-3 capitalize">

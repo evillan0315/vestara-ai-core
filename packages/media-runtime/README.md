@@ -14,4 +14,4 @@ pnpm --filter @vestara/media-runtime build
 
 `@vestara/shared`
 
-See [docs/](../docs/) for capability specifications and architecture.
+See documentation for capability specifications and architecture.

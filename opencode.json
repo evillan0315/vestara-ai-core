@@ -1,48 +1,22 @@
 {
   "$schema": "https://opencode.ai/config.json",
   "model": "opencode/mimo-v2.5-free",
-  "tools": {
-    "read": true,
-    "write": true,
-    "bash": true
+  "permission": {
+    "read": "allow",
+    "edit": "allow",
+    "bash": "allow",
+    "glob": "allow",
+    "grep": "allow",
+    "list": "allow",
+    "task": "allow",
+    "external_directory": "allow",
+    "todowrite": "allow",
+    "skill": "allow",
+    "webfetch": "allow",
+    "websearch": "allow",
+    "lsp": "allow",
+    "doom_loop": "allow",
+    "question": "allow"
   },
-  "subagent_depth": 5,
-  "agent": {
-    "build": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "plan": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "general": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "explore": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "CoderAgent": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-assistant": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-developer": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-planner": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-reviewer": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-verifier": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-context": {
-      "tools": { "read": true, "write": true, "bash": true }
-    },
-    "vestara-browser": {
-      "tools": { "read": true, "write": true, "bash": true }
-    }
-  }
+  "subagent_depth": 5
 }

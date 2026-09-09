@@ -29,6 +29,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { useProviderSettings } from '../../hooks/useProviderSettings';
+import type { OpenCodeSessionView } from '../../lib/opencode';
 import type {
   AssistantToolOperation,
   OptimisticHumanTurn,
@@ -52,6 +53,10 @@ export interface ConversationPanelProps {
   focusOnMountRef?: React.RefObject<HTMLElement | null>;
   /** GA-UI-007: full-window expanded geometry — persistent sidebar rail. */
   expanded?: boolean;
+  /** GA-SESSION-003: compatible runtime sessions for resume surface. */
+  runtimeSessions?: OpenCodeSessionView[];
+  /** GA-SESSION-003: callback when a runtime session resume is invoked. */
+  onResumeSession?: (sessionId: string) => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────
@@ -687,7 +692,7 @@ function SuggestionEmptyState({ onSuggest }: { onSuggest: (prompt: string) => vo
 
 // ─── Main Component ───────────────────────────────────────────
 
-export function ConversationPanel({ assistant, focusOnMountRef, expanded = false }: ConversationPanelProps) {
+export function ConversationPanel({ assistant, focusOnMountRef, expanded = false, runtimeSessions, onResumeSession }: ConversationPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
@@ -949,6 +954,8 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             onNewConversation={handleNewConversation}
             onClose={closeHistory}
             anchorRef={pickerRef}
+            runtimeSessions={runtimeSessions}
+            onResumeSession={onResumeSession}
           />
         )}
 
@@ -1075,6 +1082,8 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             onNewConversation={handleNewConversation}
             onClose={closeHistory}
             anchorRef={pickerRef}
+            runtimeSessions={runtimeSessions}
+            onResumeSession={onResumeSession}
           />
         </div>
       </aside>
