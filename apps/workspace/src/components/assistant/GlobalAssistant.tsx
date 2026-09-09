@@ -18,6 +18,7 @@ import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { openCodeApi, type OpenCodeSessionView } from '../../lib/opencode';
 import { resolveDisplayTitle } from './conversationTitles';
 import { FloatingPanel } from './FloatingPanel';
+import { FullWindowSurface } from './FullWindowSurface';
 import { ConversationPanel } from './ConversationPanel';
 import { LauncherDock, type LauncherDockItem } from './LauncherDock';
 
@@ -302,6 +303,17 @@ export function GlobalAssistant() {
 
   return (
     <>
+      {/* GA-UI-007: Full-window surface (when expanded) */}
+      {panelExpanded && (
+        <FullWindowSurface
+          expanded={panelExpanded}
+          onToggleExpanded={toggleExpanded}
+          onMinimize={minimizePanel}
+          onClose={togglePanel}
+          onNewConversation={newConversation}
+        />
+      )}
+
       <AssistantLauncher
         launcherRef={launcherRef}
         onClick={togglePanel}
@@ -322,26 +334,29 @@ export function GlobalAssistant() {
         onResumeSession={handleResumeSession}
       />
 
-      <FloatingPanel
-        open={panelOpen}
-        minimized={panelMinimized}
-        workspaceId={surface.workspace.id}
-        onMinimize={minimizePanel}
-        onClose={togglePanel}
-        onNewConversation={newConversation}
-        expanded={panelExpanded}
-        onToggleExpanded={toggleExpanded}
-        launcherRef={launcherRef}
-        focusOnMountRef={focusOnMountRef}
-      >
-        <ConversationPanel
-          assistant={assistant}
-          focusOnMountRef={focusOnMountRef}
+      {/* Floating panel (when not expanded) */}
+      {!panelExpanded && (
+        <FloatingPanel
+          open={panelOpen}
+          minimized={panelMinimized}
+          workspaceId={surface.workspace.id}
+          onMinimize={minimizePanel}
+          onClose={togglePanel}
+          onNewConversation={newConversation}
           expanded={panelExpanded}
-          runtimeSessions={runtimeSessions}
-          onResumeSession={handleResumeSession}
-        />
-      </FloatingPanel>
+          onToggleExpanded={toggleExpanded}
+          launcherRef={launcherRef}
+          focusOnMountRef={focusOnMountRef}
+        >
+          <ConversationPanel
+            assistant={assistant}
+            focusOnMountRef={focusOnMountRef}
+            expanded={panelExpanded}
+            runtimeSessions={runtimeSessions}
+            onResumeSession={handleResumeSession}
+          />
+        </FloatingPanel>
+      )}
     </>
   );
 }
