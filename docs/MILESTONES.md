@@ -2691,6 +2691,7 @@ interface OverviewViewModel {
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
 | **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches)** | 🔶 Proposed |
+| **Live Browser + Telegram** | **VES-LB-TG** | **Live Browser + Telegram Streaming (30 phases, 6 batches)** | 🔶 Proposed |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
