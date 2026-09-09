@@ -4,12 +4,26 @@
 
 This prevents building a special "Telegram browser" that later has to be rewritten for the Global Assistant, Activity Room, desktop, or mobile.
 
+## Runtime Substrate: agent-browser
+
+**agent-browser** is Vestara's initial browser execution substrate. It provides:
+
+- Persistent sessions with named/stateful sessions
+- Ref-based accessibility snapshots (~200–400 tokens vs thousands for full DOM)
+- WebSocket viewport stream with mouse, keyboard, and touch input
+- Per-client FPS limiting and ack-based pacing
+- Screenshot, network/debug tooling, video recording
+- Native Rust CLI/daemon architecture with Linux binaries
+- Remote browser provider integrations (Browserbase, Browserless, Kernel)
+
+> **Vestara owns BrowserExecution and BrowserSession semantics. agent-browser owns browser automation and browser runtime mechanics.**
+
 ## Target Experience
 
 ```
 You — Telegram
 
-"Open the Vestara website and check the marketplace."
+"Open the Vestara website and check the marketplac e."
 
                 ↓
 
@@ -17,9 +31,17 @@ You — Telegram
                 ↓
         Browser Execution
                 ↓
-        Live Browser Session
+        BrowserRuntimePort
                 ↓
-       Chromium / Playwright
+    AgentBrowserRuntimeAdapter
+                ↓
+          agent-browser
+          ┌─────┴─────┐
+          │           │
+      Commands     Stream
+          │           │
+          ▼           ▼
+       Chrome    WebSocket Frames
                 ↓
      ┌─────────────────────┐
      │   Browser viewport  │
@@ -48,38 +70,89 @@ The browser session remains authoritative inside Vestara. Telegram only observes
 3. **Canonical events converge** — transport does not converge
 4. **Single authoritative execution** — one browser per session
 5. **Governed control** — risk-classified actions with approval flow
+6. **agent-browser is bounded execution** — not Vestara authority
+
+## agent-browser Agent Workflow
+
+The primary AI interaction path uses ref-based accessibility snapshots:
+
+```
+Global Assistant
+       ↓
+Browser task
+       ↓
+agent-browser snapshot -i
+
+@e1 button "Sign In"
+@e2 link "Marketplace"
+@e3 textbox "Search"
+
+       ↓
+Agent reasoning
+       ↓
+click @e2
+       ↓
+new snapshot
+```
+
+Accessibility snapshots are deliberately compact and ref-based (~200–400 tokens), avoiding full DOM dumps into the model context.
 
 ## Streaming Model
 
 Three distinct streaming tiers:
 
 ```
-Vestara UI       15–30 FPS eventually (WebSocket/WebRTC)
-Telegram         event-driven snapshots (adaptive frame capture)
+Vestara UI       15–30 FPS eventually (WebSocket from agent-browser)
+Telegram         event-driven snapshots (throttled from agent-browser stream)
 Activity Room    semantic browser events (canonical events)
 ```
 
-### Adaptive Frame Capture
+### agent-browser Stream
+
+agent-browser sessions expose a WebSocket streaming server:
 
 ```
-Browser frame
-     ↓
-Change detector
-     ↓
-Did meaningful visual change occur?
-     │
-   No ─────► discard
-     │
-    Yes
-     ↓
-Rate limiter
-     ↓
-Encode
-     ↓
-Projection
+agent-browser
+      │
+      ├──── Accessibility snapshots ───► Agent
+      │
+      ├──── Semantic commands ─────────► Browser
+      │
+      └──── WebSocket stream
+                    │
+                    ▼
+          Vestara Stream Gateway
+                    │
+          ┌─────────┴─────────┐
+          ▼                   ▼
+    Live Browser UI      Telegram Projection
 ```
 
-Capture modes:
+agent-browser streams contain:
+
+```
+seq
+base64 JPEG
+deviceWidth
+deviceHeight
+pageScaleFactor
+scroll offsets
+timestamp
+```
+
+Stream uses latest-first delivery (newer frames replace stale ones, not queueing).
+
+### Stream Pacing
+
+```text
+Vestara desktop:     maxFps: 15, pacing: ack
+Telegram:            event-driven / throttled
+Activity Room:       semantic events only
+```
+
+With ack pacing, only one frame is in flight — newer frames replace stale ones rather than accumulating backlog. Ideal for low-resource Vestara host.
+
+### Frame Capture Modes
 
 | Mode | FPS | Trigger |
 |------|-----|---------|
@@ -91,34 +164,30 @@ Capture modes:
 
 ## Browser Platform Boundary
 
-Generic browser packages (not coupled to Playwright):
-
 ```
 packages/
 
-browser-types/          # Canonical types
-browser-runtime/        # Runtime port interface
-browser-playwright/     # Playwright adapter
-browser-projection/     # Frame pipeline + projection
+browser-types/              # Canonical types
+browser-runtime/            # Runtime port, lifecycle, orchestration
+agent-browser-runtime/      # agent-browser adapter (commands, snapshots, stream, recording)
+browser-projection/         # Live state, activity projection, frame projection
 ```
 
 Architecture:
 
 ```
-Global Assistant
-       ↓
-BrowserIntent
-       ↓
-BrowserExecution
-       ↓
-BrowserRuntimePort
-       ↓
-Playwright Adapter
-       ↓
-Chromium
+Global Assistant ─┐
+Telegram ─────────┤
+Workflow ─────────┼──► browser-runtime
+Verifier ─────────┘           │
+                              ▼
+                    agent-browser-runtime
+                              │
+                              ▼
+                         agent-browser
 ```
 
-Playwright is a bounded execution substrate, not Vestara authority.
+`agent-browser-runtime` is the only package that understands agent-browser commands (`snapshot`, `click`, `fill`, stream ports, native session names).
 
 ## Canonical BrowserSession
 
@@ -146,9 +215,44 @@ CREATED → STARTING → READY → NAVIGATING → INTERACTIVE → IDLE → CLOSI
                                                                       FAILED
 ```
 
+### Session Mapping
+
+Map, but do not equate:
+
+```
+Vestara BrowserSession
+          │
+          │ runtime binding
+          ▼
+agent-browser session
+```
+
+```ts
+BrowserSession BR-104
+
+runtime:
+  kind: agent-browser
+  nativeSessionId: vestara-br-104
+```
+
+Never make `BrowserSessionId = agent-browser session name` — that would leak runtime identity into the domain.
+
+### Future Runtime Adapters
+
+```
+BrowserRuntimePort
+
+├── AgentBrowserAdapter
+├── RemoteAgentBrowserAdapter
+├── BrowserbaseAdapter
+└── FutureBrowserRuntime
+```
+
+agent-browser itself documents remote/browser-provider integrations (Browserbase, Browserless, Kernel, Remote Agent Browser), so Vestara could eventually gain remote browser execution without changing its BrowserExecution contract.
+
 ## Browser Observations
 
-Emitted by browser runtime, translated to canonical semantic events:
+Emitted by agent-browser adapter, translated to canonical semantic events:
 
 ```
 browser.started
@@ -174,6 +278,8 @@ browser.closed
 browser.failed
 ```
 
+Raw agent-browser events belong to diagnostics/runtime telemetry. Activity Room consumes canonical semantic events.
+
 ## Browser Command Contract
 
 Canonical operations with risk classification:
@@ -184,9 +290,10 @@ Canonical operations with risk classification:
 - inspect
 - screenshot
 - read page
+- snapshot
 
 ### MEDIUM Risk
-- form input
+- form input (fill, type)
 - download
 - upload
 - clipboard
@@ -214,30 +321,37 @@ Global Assistant
 Intent
       ↓
 Browser Execution
+      ↓
+BrowserRuntimePort
+      ↓
+AgentBrowserRuntimeAdapter
+      ↓
+agent-browser
 ```
 
-Telegram does **not** parse browser intent itself.
+Telegram does **not** parse browser intent itself. Telegram never directly instructs agent-browser.
 
 ### Live-View Projection
 
 ```
-┌──────────────────────────────┐
-│ LIVE BROWSER                 │
-│                              │
-│     [latest screenshot]      │
-│                              │
-├──────────────────────────────┤
-│ GitHub                       │
-│ github.com/Vestara-Tech/...  │
-│                              │
-│ ● Connected                  │
-│ Last update: now             │
-│                              │
-│ ◀  ▶  ↻   Screenshot         │
-│                              │
-│ [Interact] [Assistant]       │
-│ [Activity] [Stop]            │
-└──────────────────────────────┘
+┌──────────────────────────────────────┐
+│ LIVE BROWSER                         │
+│                                      │
+│         [latest frame]               │
+│                                      │
+├──────────────────────────────────────┤
+│ GitHub                               │
+│ github.com/Vestara-Tech/...          │
+│                                      │
+│ ● Connected                          │
+│ Session BR-104                       │
+│ Last update: now                     │
+│                                      │
+│ ◀  ▶  ↻   Screenshot                │
+│                                      │
+│ [Take Control] [Ask Assistant]       │
+│ [Activity] [Stop]                    │
+└──────────────────────────────────────┘
 ```
 
 Prefer editing/replacing existing projection over generating hundreds of chat messages.
@@ -259,33 +373,55 @@ Natural language preferred:
 Button controls as fallback:
 
 ```
-[Back] [Forward] [Reload]
-[Scroll Up] [Scroll Down]
-[Tabs] [Screenshot]
+[Back]       [Reload]
+[Scroll ↓]   [Screenshot]
+[Take Control]
 [Ask Assistant] [Stop]
 ```
 
-### Element Interaction
+### Ref-Based Telegram Interaction
 
-Interactive page map for precise interaction:
+agent-browser's refs give Telegram a clean interaction path:
+
+```
+agent-browser snapshot -i
+
+@e1 button "Sign In"
+@e2 link "Marketplace"
+@e3 textbox "Search"
+```
+
+Telegram renders:
 
 ```
 Interactive elements
 
 1. Sign In
 2. Marketplace
-3. Documentation
-4. Search
-5. Get Started
+3. Search
+
+[1 Sign In]
+[2 Marketplace]
+[3 Search]
 ```
 
-Telegram selection:
+Selection flow:
 
 ```
-callback → ChannelAction → BrowserControlIntent → Authorization → Browser execution
+Telegram button
+      ↓
+ChannelAction
+      ↓
+BrowserInteractionReference
+      ↓
+Vestara authorization
+      ↓
+AgentBrowserRuntimeAdapter
+      ↓
+click @e2
 ```
 
-Never expose raw Playwright selectors to Telegram.
+Refs are **runtime-scoped ephemeral references** — they change after page state changes. Never expose `@e2` as a durable Vestara identity.
 
 ## Telegram Approval Flow
 
@@ -312,7 +448,70 @@ Flow:
 Telegram callback → Principal validation → Permission decision → Vestara Policy → Browser execution
 ```
 
-Telegram never directly instructs Playwright.
+Telegram never directly instructs agent-browser.
+
+## Human/Agent Control Arbitration
+
+```ts
+type ControlOwner = 'human' | 'agent' | 'shared' | 'none';
+```
+
+agent-browser's stream accepts mouse, keyboard, and touch events independently of frame delivery. This enables genuine pair browsing.
+
+When user chooses **Take Control**:
+
+```
+Take Control
+      ↓
+Vestara BrowserControlAuthority
+      ↓
+Agent actions paused
+      ↓
+Human input enabled
+      ↓
+agent-browser WebSocket input
+```
+
+**Return to Agent** releases control and restores execution.
+
+agent-browser's ability to accept input does not become authorization. Vestara still decides who may send that input.
+
+```
+┌─────────────────────────────────────────────────┐
+│ Live Browser                     ● LIVE         │
+├─────────────────────────────────────────────────┤
+│                                                 │
+│             agent-browser stream                │
+│                                                 │
+├─────────────────────────────────────────────────┤
+│ Agent: Developer       Control: AGENT           │
+│                                                 │
+│ [Take Control] [Screenshot] [Record] [Stop]     │
+└─────────────────────────────────────────────────┘
+```
+
+## Screenshots as Artifacts
+
+```
+Browser → Screenshot → ExecutionArtifact → Artifact storage
+                                              ├──► Global Assistant
+                                              ├──► Activity Room
+                                              ├──► Evidence
+                                              └──► Telegram projection
+```
+
+Telegram receives delivery copy/reference. It does not own the authoritative screenshot.
+
+### Frame Artifact Classification
+
+```
+Live frame        ephemeral (not persisted)
+Screenshot        artifact (persisted)
+Verification shot evidence (persisted + indexed)
+Recording         artifact (persisted)
+```
+
+Only significant frames become artifacts/evidence.
 
 ## Browser Verification + Evidence
 
@@ -322,7 +521,7 @@ A browser task produces:
 URL visited
 viewport
 screenshots
-DOM observations
+DOM observations (from snapshots)
 console errors
 network failures
 interaction sequence
@@ -356,33 +555,96 @@ Evidence
 
 Telegram receives compact summary.
 
-## Screenshots as Artifacts
+## Streaming Architecture
 
 ```
-Browser → Screenshot → ExecutionArtifact → Artifact storage
-                                              ├──► Global Assistant
-                                              ├──► Activity Room
-                                              ├──► Evidence
-                                              └──► Telegram projection
+                         ┌── Semantic Events ──► Activity Room
+                         │
+agent-browser ───────────┼── State ────────────► Browser UI
+          │              │
+          │              └── Frames
+          │                       ↓
+          │              Vestara Stream Gateway
+          │                       ↓
+          │              ┌────────┴────────┐
+          │              ▼                 ▼
+          │        Live Browser UI    Telegram
+          │                            (throttled)
+          │
+          └── Accessibility Snapshots ──► Agent
 ```
 
-Telegram receives delivery copy/reference. It does not own the authoritative screenshot.
+Events carry references (frameId, artifactId, browserSessionId, timestamp, dimensions, contentType). Media travels through media/artifact path.
 
-## Human/Agent Control Arbitration
+## Desktop Realtime Transport
 
-```ts
-type ControlOwner = 'human' | 'agent' | 'shared' | 'none';
-```
-
-When user chooses **Take Control**:
+For Vestara UI, consume agent-browser WebSocket stream through controlled proxy:
 
 ```
-Agent browser actions → Paused → Human control
+agent-browser WS → Vestara Stream Gateway → WebSocket → Live Browser Surface
 ```
 
-**Return to Agent** restores execution.
+With ack pacing and FPS limiting built into agent-browser.
 
-Prevents agent and user from fighting over the same page.
+## Telegram Transport
+
+```
+agent-browser WS → Vestara Stream Gateway → Latest Frame Buffer → Telegram Frame Projector → Telegram Bot API
+```
+
+Telegram outages cannot affect browser execution.
+
+## Activity Room Projection
+
+Semantic browser activity — not raw agent-browser events:
+
+```
+17:41:02  You · Telegram
+Check the Marketplace
+
+17:41:03  Global Assistant
+Browser execution created
+
+17:41:04  Browser
+BR-104 ready
+
+17:41:05  Browser
+Navigating to vestara...
+
+17:41:07  Browser
+Marketplace loaded
+
+17:41:09  Developer
+Inspecting interactive elements
+
+17:41:11  Developer
+Selected "Agent Tools"
+
+17:41:13  Browser
+Page changed
+
+17:41:15  Verifier
+Screenshot captured
+```
+
+No raw CDP or agent-browser CLI noise unless Diagnostics asks for it.
+
+## Recording
+
+agent-browser has video recording support (requires `ffmpeg` on PATH, already part of Vestara platform tooling).
+
+```
+BrowserSession → Recording → VideoArtifact
+```
+
+Telegram receives:
+
+```
+Browser recording completed
+2m 14s
+
+[View Recording]
+```
 
 ## Resource Management
 
@@ -404,7 +666,7 @@ One Telegram interaction must not accidentally create multiple Chromium instance
 ## Browser Continuity
 
 ```
-Conversation → Execution → BrowserSession → BrowserRuntimeBinding → BrowserRuntimeSession
+Conversation → Execution → BrowserSession → BrowserRuntimeBinding → agent-browser session
 ```
 
 Don't collapse conceptual levels. A conversation can outlive the browser. A browser can restart.
@@ -451,60 +713,6 @@ Pause Agent | Take Control | Return Control | Screenshot | Record | Restart | Cl
 
 Control ownership must be explicit.
 
-## Activity Room Projection
-
-Semantic browser activity:
-
-```
-17:42:03  Global Assistant    Browser execution requested
-17:42:04  Browser             Session BR-104 started
-17:42:05  Browser             Navigating → localhost:3000
-17:42:07  Browser             Page loaded
-17:42:09  Browser Agent       Clicked Marketplace
-17:42:11  Browser             Navigation completed
-17:42:12  Console             2 warnings detected
-17:42:14  Browser Agent       Captured screenshot
-17:42:16  Verifier            Marketplace rendered successfully
-```
-
-Not raw Playwright events — those belong to diagnostics/runtime telemetry.
-
-## Streaming Architecture
-
-```
-                         ┌── Semantic Events ──► Activity Room
-                         │
-Browser Runtime ─────────┼── State ────────────► Browser UI
-                         │
-                         └── Frames
-                              ↓
-                         Frame Pipeline
-                              ↓
-                    ┌─────────┴─────────┐
-                    ▼                   ▼
-              Vestara Live UI      Telegram
-```
-
-Events carry references (frameId, artifactId, browserSessionId, timestamp, dimensions, contentType). Media travels through media/artifact path.
-
-## Desktop Realtime Transport
-
-For Vestara UI:
-
-```
-Browser Runtime → Frame Pipeline → WebSocket/WebRTC → Live Browser Surface
-```
-
-Selection determined by latency/resource testing. WebRTC attractive for high-frame-rate interactive remote browsing. Unnecessary for Telegram MVP.
-
-## Telegram Transport
-
-```
-Canonical Browser State + Frame Pipeline → TelegramProjection → Delivery coalescer → Telegram API
-```
-
-Telegram outages cannot affect browser execution.
-
 ## Browser Profiles (Later Phase)
 
 ```ts
@@ -513,52 +721,38 @@ type BrowserProfileType = 'anonymous' | 'workspace' | 'personal' | 'testing' | '
 
 Credentials/cookies/session storage need governed storage boundary. Never expose cookies/session tokens to Telegram or Activity Room.
 
-## Recording (Later Phase)
-
-```
-BrowserSession → Recording → VideoArtifact
-```
-
-Telegram receives:
-
-```
-Browser recording available
-Duration: 2m 48s
-[View Recording]
-```
-
 ## Milestone Program
 
 | Phase | Description | Focus |
 |-------|-------------|-------|
-| **VES-LB-001** | Existing Browser / Playwright Audit | Audit |
-| **VES-LB-002** | Browser Authority & Contract Baseline | Contract |
+| **VES-LB-001** | agent-browser Capability + Existing Vestara Browser Audit | Audit |
+| **VES-LB-002** | Browser Authority & Runtime Contract | Contract |
 | **VES-LB-003** | @vestara/browser-types | Types |
 | **VES-LB-004** | BrowserRuntimePort | Contract |
-| **VES-LB-005** | Playwright Runtime Adapter | Implement |
-| **VES-LB-006** | BrowserSession Lifecycle | Implement |
-| **VES-LB-007** | Browser Observation Model | Implement |
-| **VES-LB-008** | Navigation + Basic Interaction | Implement |
-| **VES-LB-009** | Screenshot / Frame Pipeline | Implement |
-| **VES-LB-010** | Browser Artifact Integration | Implement |
-| **VES-LB-011** | Global Assistant Browser Execution | Integrate |
-| **VES-LB-012** | Live Browser UI | UI |
-| **VES-LB-013** | Floating Assistant Browser Projection | UI |
-| **VES-LB-014** | Activity Room Browser Projection | Integrate |
-| **VES-LB-015** | Telegram Browser Projection | Integrate |
-| **VES-LB-016** | Telegram Remote Controls | Integrate |
-| **VES-LB-017** | Cross-Surface Session Continuity | Verify |
-| **VES-LB-018** | Browser Permission Model | Security |
-| **VES-LB-019** | Telegram Approval Flow | Security |
-| **VES-LB-020** | Human/Agent Control Arbitration | Verify |
-| **VES-LB-021** | Console + Network Observability | Verify |
-| **VES-LB-022** | Browser Verification + Evidence | Verify |
-| **VES-LB-023** | Resource / Single-Flight Controls | Verify |
-| **VES-LB-024** | Recovery + Reconnection | Verify |
-| **VES-LB-025** | Responsive Live Browser UI | Verify |
+| **VES-LB-005** | AgentBrowserRuntimeAdapter | Implement |
+| **VES-LB-006** | Vestara BrowserSession ↔ agent-browser Session Binding | Implement |
+| **VES-LB-007** | Snapshot + Runtime Reference Adapter | Implement |
+| **VES-LB-008** | Navigation / Click / Fill / Scroll | Implement |
+| **VES-LB-009** | agent-browser Stream Gateway | Implement |
+| **VES-LB-010** | Live Browser Surface | UI |
+| **VES-LB-011** | Human / Agent Control Arbitration | Verify |
+| **VES-LB-012** | Global Assistant Browser Execution | Integrate |
+| **VES-LB-013** | Floating Assistant Projection | UI |
+| **VES-LB-014** | Canonical Browser Events | Implement |
+| **VES-LB-015** | Activity Room Projection | Integrate |
+| **VES-LB-016** | Screenshot / Artifact Pipeline | Implement |
+| **VES-LB-017** | Telegram Live Browser Projection | Integrate |
+| **VES-LB-018** | Telegram Browser Controls | Integrate |
+| **VES-LB-019** | Telegram Natural-Language Browser Control | Integrate |
+| **VES-LB-020** | Browser Permission / Approval Model | Security |
+| **VES-LB-021** | Telegram Approval Flow | Security |
+| **VES-LB-022** | Console + Network Diagnostics | Verify |
+| **VES-LB-023** | Recording + Evidence | Verify |
+| **VES-LB-024** | Resource / Single-Flight Management | Verify |
+| **VES-LB-025** | Session Recovery | Verify |
 | **VES-LB-026** | Security Hardening | Security |
-| **VES-LB-027** | Performance / Resource Verification | Verify |
-| **VES-LB-028** | Production Dogfood | Evidence |
+| **VES-LB-027** | Low-Resource Performance Verification | Verify |
+| **VES-LB-028** | Cross-Surface Dogfood | Evidence |
 | **VES-LB-029** | Evidence | Evidence |
 | **VES-LB-030** | FREEZE | Freeze |
 
@@ -566,46 +760,45 @@ Each milestone retains discipline: **Audit → Contract → Implement → Verify
 
 ## First Vertical Slice
 
-Deliberately smaller than final architecture:
+The initial production proof:
 
 ```
 Telegram
-   │
-   │ "Open https://example.com"
-   ▼
+    │
+    │ "Open example.com"
+    ▼
 Global Assistant
-   ▼
-Execution
-   ▼
+    ▼
+BrowserExecution BR-001
+    ▼
 BrowserRuntimePort
-   ▼
-Playwright
-   ▼
-Chromium
-   │
-   ├── browser.started
-   ├── navigation.completed
-   └── screenshot
+    ▼
+AgentBrowserRuntimeAdapter
+    ▼
+agent-browser
+    │
+    ├── open
+    ├── snapshot
+    └── WebSocket stream
            │
-           ├────► Activity Room
-           ├────► Global Assistant
-           └────► Telegram
+     ┌─────┴──────────────┐
+     ▼                    ▼
+Live Browser         Telegram
+     │               latest frame
+     ▼
+Activity Room
+semantic events
 ```
 
-Telegram receives:
+Then send from Telegram:
 
 ```
-✓ Page loaded
-
-https://example.com
-
-[latest screenshot]
-
-[Back] [Reload]
-[Ask Assistant] [Stop]
+"Click More information"
 ```
 
-This single proof validates: Telegram ingress, identity/workspace/conversation correlation, Global Assistant orchestration, browser execution authority, Playwright isolation, screenshot artifacts, canonical events, Activity Room projection, Telegram delivery, and cross-surface continuity.
+and prove the **same BR-001 session** changes on the desktop Live Browser, appears semantically in Activity Room, updates the Floating Assistant, and returns a new frame to Telegram.
+
+This single proof validates: Telegram ingress, identity/workspace/conversation correlation, Global Assistant orchestration, browser execution authority, agent-browser isolation, snapshot artifacts, canonical events, Activity Room projection, Telegram delivery, and cross-surface continuity.
 
 Only after stable: higher-frequency streaming, remote element interaction, browser profiles, uploads/downloads, recording, voice commands, and WebRTC-grade live control.
 
@@ -613,4 +806,5 @@ Only after stable: higher-frequency streaming, remote element interaction, brows
 
 - VES-TG-001: Telegram Interaction Platform
 - VES-LB-001 through VES-LB-030: Live Browser milestones
-- @vestara/browser-types, browser-runtime, browser-playwright, browser-projection
+- @vestara/browser-types, browser-runtime, agent-browser-runtime, browser-projection
+- agent-browser: https://agent-browser.dev/
