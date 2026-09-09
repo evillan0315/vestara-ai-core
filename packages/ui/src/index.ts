@@ -6,6 +6,7 @@
  *
  * Architecture Traceability:
  *   VES-UI-B: Core UI Primitives (phases 3-5)
+ *   VES-UI-C: Data Display (phases 6-8)
  *   @see docs/blueprint/VESTARA-SHARED-UI-PLATFORM.md VES-UI-005
  *
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
@@ -28,6 +29,35 @@ export type { BadgeProps, BadgeVariant, BadgeSize } from './components/Badge.js'
 
 export { Avatar } from './components/Avatar.js';
 export type { AvatarProps, AvatarSize, AvatarShape } from './components/Avatar.js';
+
+// ─── Data Display ──────────────────────────────────────────────
+
+export { Table } from './components/Table.js';
+export type { TableProps, TableColumn, SortDirection } from './components/Table.js';
+
+export {
+  List,
+  ListItem,
+  ListItemText,
+  ListItemAction,
+  ListDivider,
+  ListHeader,
+} from './components/List.js';
+export type {
+  ListProps,
+  ListItemProps,
+  ListItemTextProps,
+  ListItemActionProps,
+  ListDividerProps,
+  ListHeaderProps,
+  ListSize,
+} from './components/List.js';
+
+export { Tag } from './components/Tag.js';
+export type { TagProps, TagVariant, TagSize } from './components/Tag.js';
+
+export { Chip } from './components/Chip.js';
+export type { ChipProps, ChipVariant, ChipSize } from './components/Chip.js';
 
 // ─── Containers ────────────────────────────────────────────────
 
