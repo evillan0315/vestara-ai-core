@@ -16,28 +16,26 @@
  *   INV-OBS-3: Observer does not trigger execution
  */
 
-export { Observer } from './observer';
-export { InMemoryTemporalEvidenceStore } from './temporal-evidence';
 export type {
-  TemporalEvidenceQuery,
-  TemporalEvidenceRecord,
-  TemporalEvidenceResult,
-  TemporalEvidenceStore,
-} from './temporal-evidence';
-export {
-  FindingLifecycleManager,
-  isTransitionAllowed,
-  getAllowedTransitions,
-} from './findings-lifecycle';
-export type {
-  FindingTransitionResult,
-} from './findings-lifecycle';
-export type {
+  DEFAULT_OBSERVER_CONFIG,
   ObserverConfig,
   ObserverEventType,
   ObserverFinding,
   ObserverFindingStatus,
   ObserverFindingStore,
   ObserverSnapshotRef,
-  DEFAULT_OBSERVER_CONFIG,
 } from '@vestara/types';
+export type { FindingTransitionResult } from './findings-lifecycle';
+export {
+  FindingLifecycleManager,
+  getAllowedTransitions,
+  isTransitionAllowed,
+} from './findings-lifecycle';
+export { Observer } from './observer';
+export type {
+  TemporalEvidenceQuery,
+  TemporalEvidenceRecord,
+  TemporalEvidenceResult,
+  TemporalEvidenceStore,
+} from './temporal-evidence';
+export { InMemoryTemporalEvidenceStore } from './temporal-evidence';

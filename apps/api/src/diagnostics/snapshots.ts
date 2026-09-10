@@ -207,9 +207,7 @@ function collectGitHealth(repoPath: string): DiagnosticSnapshot {
     source: sourceRef('git-repository', 'process', 'Git Repository'),
     health,
     severity: deriveSeverity(health),
-    message: git.available
-      ? `Branch: ${git.branch ?? 'detached'}, dirty: ${git.dirty}`
-      : 'Git not available',
+    message: git.available ? `Branch: ${git.branch ?? 'detached'}, dirty: ${git.dirty}` : 'Git not available',
     observedAt: new Date().toISOString(),
     payload: {
       available: git.available,
@@ -235,8 +233,11 @@ function collectDockerHealth(): DiagnosticSnapshot {
     (c) => c.state === 'exited' && c.status.toLowerCase().includes('error'),
   );
 
-  const health: DiagnosticSourceHealth =
-    !docker.available ? 'unknown' : exitedWithError.length > 0 ? 'degraded' : 'healthy';
+  const health: DiagnosticSourceHealth = !docker.available
+    ? 'unknown'
+    : exitedWithError.length > 0
+      ? 'degraded'
+      : 'healthy';
 
   return {
     source: sourceRef('docker-runtime', 'service', 'Docker Runtime'),
@@ -264,8 +265,7 @@ function collectToolVersionsHealth(): DiagnosticSnapshot {
   const versions = collect.collectVersions();
   const missing = Object.entries(versions).filter(([, v]) => !v);
 
-  const health: DiagnosticSourceHealth =
-    missing.length > 3 ? 'degraded' : 'healthy';
+  const health: DiagnosticSourceHealth = missing.length > 3 ? 'degraded' : 'healthy';
 
   return {
     source: sourceRef('toolchain', 'runtime', 'Toolchain Versions'),

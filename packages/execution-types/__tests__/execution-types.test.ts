@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import type { ExecutionId, ExecutionLineageNode, OperationId, TurnId } from '../src/index.js';
 import {
-  turnId,
-  operationId,
-  EXECUTION_TERMINAL_STATES,
+  ancestorIds,
   EXECUTION_NON_TERMINAL_STATES,
+  EXECUTION_TERMINAL_STATES,
   EXECUTION_TRANSITIONS,
+  executionDepth,
+  isAncestor,
   isExecutionTerminal,
   isValidTransition,
-  executionDepth,
-  ancestorIds,
-  isAncestor,
+  operationId,
+  turnId,
 } from '../src/index.js';
-import type { ExecutionLineageNode, ExecutionId, TurnId, OperationId } from '../src/index.js';
 
 describe('Execution Identity', () => {
   it('creates branded TurnId', () => {
@@ -217,18 +217,22 @@ describe('Execution Result contract', () => {
 describe('Artifact boundary', () => {
   it('ArtifactKind has 10 values', () => {
     const kinds = [
-      'file-change', 'diff', 'shell-output', 'generated-file',
-      'test-result', 'verification-evidence', 'image', 'document',
-      'todo-snapshot', 'other',
+      'file-change',
+      'diff',
+      'shell-output',
+      'generated-file',
+      'test-result',
+      'verification-evidence',
+      'image',
+      'document',
+      'todo-snapshot',
+      'other',
     ];
     expect(kinds).toHaveLength(10);
   });
 
   it('EvidenceKind has 8 values', () => {
-    const kinds = [
-      'command', 'file', 'test', 'log', 'screenshot',
-      'api', 'environment', 'custom',
-    ];
+    const kinds = ['command', 'file', 'test', 'log', 'screenshot', 'api', 'environment', 'custom'];
     expect(kinds).toHaveLength(8);
   });
 });
@@ -236,10 +240,18 @@ describe('Artifact boundary', () => {
 describe('Activity boundary', () => {
   it('ExecutionActivityType has 12 values', () => {
     const types = [
-      'text-delta', 'tool-call', 'tool-result', 'file-edit',
-      'shell-command', 'permission-request', 'permission-response',
-      'question-asked', 'question-answered', 'subagent-started',
-      'subagent-completed', 'status-update',
+      'text-delta',
+      'tool-call',
+      'tool-result',
+      'file-edit',
+      'shell-command',
+      'permission-request',
+      'permission-response',
+      'question-asked',
+      'question-answered',
+      'subagent-started',
+      'subagent-completed',
+      'status-update',
     ];
     expect(types).toHaveLength(12);
   });

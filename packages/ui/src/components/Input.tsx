@@ -50,47 +50,30 @@ const SIZE_STYLES: Record<InputSize, string> = {
 
 // ─── Component ─────────────────────────────────────────────────
 
-export const Input = forwardRef<HTMLInputElement, InputProps>(
-  function Input(
-    {
-      size = 'md',
-      label,
-      hint,
-      error,
-      leftIcon,
-      rightIcon,
-      fullWidth = false,
-      className = '',
-      id,
-      ...props
-    },
-    ref,
-  ) {
-    const inputId = id || (label ? `input-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
-    const hasError = !!error;
+export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
+  { size = 'md', label, hint, error, leftIcon, rightIcon, fullWidth = false, className = '', id, ...props },
+  ref,
+) {
+  const inputId = id || (label ? `input-${label.toLowerCase().replace(/\s+/g, '-')}` : undefined);
+  const hasError = !!error;
 
-    return (
-      <div className={`${fullWidth ? 'w-full' : ''}`}>
-        {label && (
-          <label
-            htmlFor={inputId}
-            className="block text-xs font-medium text-[var(--vestara-text-secondary)] mb-1"
-          >
-            {label}
-          </label>
+  return (
+    <div className={`${fullWidth ? 'w-full' : ''}`}>
+      {label && (
+        <label htmlFor={inputId} className="block text-xs font-medium text-[var(--vestara-text-secondary)] mb-1">
+          {label}
+        </label>
+      )}
+
+      <div className="relative">
+        {leftIcon && (
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--vestara-text-muted)]">{leftIcon}</span>
         )}
 
-        <div className="relative">
-          {leftIcon && (
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--vestara-text-muted)]">
-              {leftIcon}
-            </span>
-          )}
-
-          <input
-            ref={ref}
-            id={inputId}
-            className={`
+        <input
+          ref={ref}
+          id={inputId}
+          className={`
               w-full rounded-lg
               bg-[var(--vestara-surface-panel)]
               border ${hasError ? 'border-[var(--vestara-status-error)]' : 'border-[var(--vestara-border-default)]'}
@@ -104,30 +87,29 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
               ${rightIcon ? 'pr-9' : ''}
               ${className}
             `}
-            aria-invalid={hasError || undefined}
-            aria-describedby={hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
-            {...props}
-          />
+          aria-invalid={hasError || undefined}
+          aria-describedby={hasError ? `${inputId}-error` : hint ? `${inputId}-hint` : undefined}
+          {...props}
+        />
 
-          {rightIcon && (
-            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--vestara-text-muted)]">
-              {rightIcon}
-            </span>
-          )}
-        </div>
-
-        {hint && !hasError && (
-          <p id={`${inputId}-hint`} className="mt-1 text-xs text-[var(--vestara-text-muted)]">
-            {hint}
-          </p>
-        )}
-
-        {hasError && (
-          <p id={`${inputId}-error`} className="mt-1 text-xs text-[var(--vestara-status-error)]" role="alert">
-            {error}
-          </p>
+        {rightIcon && (
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--vestara-text-muted)]">
+            {rightIcon}
+          </span>
         )}
       </div>
-    );
-  },
-);
+
+      {hint && !hasError && (
+        <p id={`${inputId}-hint`} className="mt-1 text-xs text-[var(--vestara-text-muted)]">
+          {hint}
+        </p>
+      )}
+
+      {hasError && (
+        <p id={`${inputId}-error`} className="mt-1 text-xs text-[var(--vestara-status-error)]" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+});

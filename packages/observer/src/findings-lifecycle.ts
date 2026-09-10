@@ -18,11 +18,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import type {
-  ObserverConfidenceLevel,
-  ObserverFinding,
-  ObserverFindingStatus,
-} from '@vestara/types';
+import type { ObserverConfidenceLevel, ObserverFinding, ObserverFindingStatus } from '@vestara/types';
 
 // ─── Status Transition Rules ───────────────────────────────────
 
@@ -35,7 +31,7 @@ const ALLOWED_TRANSITIONS: Record<ObserverFindingStatus, readonly ObserverFindin
   hypothesis: ['diagnosis', 'rejected', 'observation'],
   diagnosis: ['merged'],
   rejected: [], // Terminal state
-  merged: [],   // Terminal state
+  merged: [], // Terminal state
 };
 
 /**
@@ -86,11 +82,7 @@ export class FindingLifecycleManager {
    * @param reason - Optional reason for the transition
    * @returns The transition result with updated finding or error
    */
-  transition(
-    finding: ObserverFinding,
-    newStatus: ObserverFindingStatus,
-    reason?: string,
-  ): FindingTransitionResult {
+  transition(finding: ObserverFinding, newStatus: ObserverFindingStatus, reason?: string): FindingTransitionResult {
     const currentStatus = finding.status;
 
     // Check if transition is allowed
@@ -147,11 +139,7 @@ export class FindingLifecycleManager {
    * OBS-3: Merge a finding into another finding.
    * The source finding is marked as 'merged' and references the target.
    */
-  merge(
-    source: ObserverFinding,
-    target: ObserverFinding,
-    reason?: string,
-  ): FindingTransitionResult {
+  merge(source: ObserverFinding, target: ObserverFinding, reason?: string): FindingTransitionResult {
     // Check if merge is allowed from source's current status
     if (!isTransitionAllowed(source.status, 'merged')) {
       return {

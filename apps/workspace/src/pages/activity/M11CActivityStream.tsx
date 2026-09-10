@@ -12,6 +12,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
+import { EmptyState, StatusIndicator } from '@vestara/ui';
 import M11CStreamItemComponent from './M11CStreamItem';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -47,6 +48,18 @@ interface M11CActivityStreamProps {
   readonly onOpenDetail?: (item: StreamItemType) => void;
   /** Callback for aggregate drill-down. */
   readonly onDrillDown?: (aggregateId: string, referencedIds: readonly string[]) => void;
+  /** Reply to a stream item — opens composer with @mention. */
+  readonly onReply?: (item: StreamItemType) => void;
+  /** Retract a stream item (append-only correction). */
+  readonly onRetract?: (item: StreamItemType) => void;
+  /** Edit a stream item (append-only correction with new content). */
+  readonly onEdit?: (item: StreamItemType) => void;
+  /** Open thread view for a set of activity IDs. */
+  readonly onOpenThread?: (activityIds: readonly string[]) => void;
+  /** Look up author name by activity ID for reply indicator. */
+  readonly lookupAuthor?: (activityId: string) => string | undefined;
+  /** Look up content preview by activity ID for reply indicator. */
+  readonly lookupContent?: (activityId: string) => string | undefined;
   /** Currently selected participant (for filtering). */
   readonly selectedParticipantId?: string;
   /** AR-REC-R6: Ephemeral submission state for interaction responses. */
@@ -69,6 +82,12 @@ export default function M11CActivityStream({
   onClearUnread,
   onOpenDetail,
   onDrillDown,
+  onReply,
+  onRetract,
+  onEdit,
+  onOpenThread,
+  lookupAuthor,
+  lookupContent,
   selectedParticipantId,
   submission,
   onSubmitResponse,
@@ -157,14 +176,12 @@ export default function M11CActivityStream({
             ))}
           </div>
         ) : rendered.length === 0 ? (
-          <div className="ar-empty">
-            <div className="ar-empty__sigil" aria-hidden="true">❖</div>
-            <p className="ar-empty__title">The room awaits.</p>
-            <div className="ar-empty__rule" aria-hidden="true" />
-            <p className="ar-empty__note">
-              No activity yet. Start a workflow and its progress will appear here in real time.
-            </p>
-          </div>
+          <EmptyState
+            icon={<span className="text-2xl">❖</span>}
+            title="The room awaits."
+            description="No activity yet. Start a workflow and its progress will appear here in real time."
+            className="ar-empty"
+          />
         ) : (
           <>
             {/* Load older history button */}
@@ -190,6 +207,12 @@ export default function M11CActivityStream({
                 item={item}
                 onOpenDetail={onOpenDetail}
                 onDrillDown={onDrillDown}
+                onReply={onReply}
+                onRetract={onRetract}
+                onEdit={onEdit}
+                onOpenThread={onOpenThread}
+                lookupAuthor={lookupAuthor}
+                lookupContent={lookupContent}
                 submission={submission}
                 onSubmitResponse={onSubmitResponse}
               />
@@ -217,7 +240,7 @@ export default function M11CActivityStream({
           {selectedParticipantId !== undefined ? ' · filtered' : ''}
         </span>
         <span className="ar-foot__state">
-          <span className="ar-lamp ar-lamp--live" aria-hidden="true">●</span>
+          <StatusIndicator variant="live" size="xs" pulse={stateLabel === 'Live'} ariaLabel={`Connection: ${stateLabel}`} />
           {stateLabel}
         </span>
       </div>

@@ -340,10 +340,10 @@ export interface DiagnosticCorrelation {
 
 /** Correlation strategy types */
 export type DiagnosticCorrelationStrategy =
-  | 'temporal'    // Time-proximate observations (within windowMs)
-  | 'source'      // Same source ID
-  | 'severity'    // Same or escalating severity
-  | 'evidence';   // Shared evidence references
+  | 'temporal' // Time-proximate observations (within windowMs)
+  | 'source' // Same source ID
+  | 'severity' // Same or escalating severity
+  | 'evidence'; // Shared evidence references
 
 // ─── DIAG-4: Incident Timeline ─────────────────────────────────────────────
 
@@ -396,9 +396,9 @@ export interface DiagnosticTimelineEvent {
 
 /** Timeline event types */
 export type DiagnosticTimelineEventType =
-  | 'observed'     // A diagnostic observation was made
-  | 'escalated'    // Severity increased
+  | 'observed' // A diagnostic observation was made
+  | 'escalated' // Severity increased
   | 'de-escalated' // Severity decreased
-  | 'correlated'   // Event was linked to an incident
-  | 'evidence'     // Evidence was attached
-  | 'status';      // Incident status changed
+  | 'correlated' // Event was linked to an incident
+  | 'evidence' // Evidence was attached
+  | 'status'; // Incident status changed

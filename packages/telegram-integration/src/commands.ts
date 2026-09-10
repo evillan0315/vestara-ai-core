@@ -205,10 +205,7 @@ export class TelegramCommandRegistry {
   /**
    * Execute a command.
    */
-  async executeCommand(
-    commandName: string,
-    context: CommandContext,
-  ): Promise<CommandResult> {
+  async executeCommand(commandName: string, context: CommandContext): Promise<CommandResult> {
     const command = this.commands.get(commandName);
     if (!command) {
       return {
@@ -297,10 +294,7 @@ export class TelegramCommandRegistry {
 
   // ─── Internal Methods ───────────────────────────────────────
 
-  private executeBuiltinCommand(
-    commandName: string,
-    context: CommandContext,
-  ): CommandResult {
+  private executeBuiltinCommand(commandName: string, context: CommandContext): CommandResult {
     switch (commandName) {
       case 'start':
         return {

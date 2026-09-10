@@ -85,6 +85,41 @@ export async function postActivityMessage(payload: ActivityMessagePayload): Prom
   return data.record;
 }
 
+/**
+ * Retract (append-only correction) a previously sent message.
+ * Creates a new message with `correctionOf` referencing the original.
+ * The original is never mutated — the retraction record hides it in the UI.
+ */
+export async function retractActivityMessage(
+  targetId: string,
+  reason: string = 'Message retracted',
+): Promise<ActivityRecord> {
+  return postActivityMessage({
+    content: reason,
+    targets: [{ type: 'broadcast' }],
+    correctionOf: targetId,
+    actor: { displayName: 'You', role: 'human' },
+  });
+}
+
+/**
+ * Edit a previously sent message via append-only correction.
+ * Creates a new message with `correctionOf` referencing the original.
+ * The original is never mutated — the edit record replaces it in the UI.
+ */
+export async function editActivityMessage(
+  targetId: string,
+  newContent: string,
+): Promise<ActivityRecord> {
+  return postActivityMessage({
+    content: newContent,
+    targets: [{ type: 'broadcast' }],
+    correctionOf: targetId,
+    effect: 'intervention',
+    actor: { displayName: 'You', role: 'human' },
+  });
+}
+
 // ─── Effective state (Direction 2) ─────────────────────────────
 
 export interface EffectiveUnitState {

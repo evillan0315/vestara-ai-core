@@ -131,7 +131,7 @@ export function ConversationHistory({
       className={
         isRail
           ? 'flex h-full min-h-0 flex-col overflow-hidden'
-          : 'absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-xl'
+          : 'absolute inset-x-3 top-2 z-20 flex max-h-[75%] flex-col overflow-hidden rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_rgba(255,255,255,0.05)] backdrop-blur-xl assistant-history-enter'
       }
     >
       <div className="flex shrink-0 items-center justify-between px-3 pt-2.5 pb-1">

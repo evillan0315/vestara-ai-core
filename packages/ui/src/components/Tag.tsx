@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -47,11 +47,16 @@ export interface TagProps {
 // ─── Styles ────────────────────────────────────────────────────
 
 const VARIANT_STYLES: Record<TagVariant, string> = {
-  default: 'bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-secondary)] border-[var(--vestara-border-subtle)]',
-  primary: 'bg-[var(--vestara-accent-primary)]/15 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]/30',
-  success: 'bg-[var(--vestara-status-success)]/15 text-[var(--vestara-status-success)] border-[var(--vestara-status-success)]/30',
-  warning: 'bg-[var(--vestara-status-warning)]/15 text-[var(--vestara-status-warning)] border-[var(--vestara-status-warning)]/30',
-  error: 'bg-[var(--vestara-status-error)]/15 text-[var(--vestara-status-error)] border-[var(--vestara-status-error)]/30',
+  default:
+    'bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-secondary)] border-[var(--vestara-border-subtle)]',
+  primary:
+    'bg-[var(--vestara-accent-primary)]/15 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]/30',
+  success:
+    'bg-[var(--vestara-status-success)]/15 text-[var(--vestara-status-success)] border-[var(--vestara-status-success)]/30',
+  warning:
+    'bg-[var(--vestara-status-warning)]/15 text-[var(--vestara-status-warning)] border-[var(--vestara-status-warning)]/30',
+  error:
+    'bg-[var(--vestara-status-error)]/15 text-[var(--vestara-status-error)] border-[var(--vestara-status-error)]/30',
   info: 'bg-[var(--vestara-status-info)]/15 text-[var(--vestara-status-info)] border-[var(--vestara-status-info)]/30',
 };
 

@@ -15,7 +15,7 @@
  */
 
 import { beforeAll, describe, expect, it } from 'vitest';
-import type { AgentOrigin, AgentDefinition, CanonicalAgent } from '../src/types';
+import type { AgentDefinition, AgentOrigin, CanonicalAgent } from '../src/types';
 
 // ─── GA-4.1: AgentOrigin Type ─────────────────────────────────
 

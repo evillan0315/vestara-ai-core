@@ -11,52 +11,9 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import type {
-  ChannelMessage,
-  ChannelAction,
-  ChannelEvent,
-} from '@vestara/channel-types';
-
-// ─── Telegram Types (internal) ─────────────────────────────────
-
-interface TelegramUser {
-  id: number;
-  first_name: string;
-  last_name?: string;
-  username?: string;
-}
-
-interface TelegramChat {
-  id: number;
-  type: 'private' | 'group' | 'supergroup' | 'channel';
-  title?: string;
-}
-
-interface TelegramMessage {
-  message_id: number;
-  from?: TelegramUser;
-  chat: TelegramChat;
-  text?: string;
-  caption?: string;
-  date: number;
-  reply_to_message?: { message_id: number };
-  photo?: Array<{ file_id: string; file_size?: number }>;
-  document?: { file_id: string; file_name?: string; mime_type?: string; file_size?: number };
-  voice?: { file_id: string; duration?: number; mime_type?: string };
-}
-
-interface TelegramCallbackQuery {
-  id: string;
-  from: TelegramUser;
-  message?: TelegramMessage;
-  data?: string;
-}
-
-interface TelegramUpdate {
-  update_id: number;
-  message?: TelegramMessage;
-  callback_query?: TelegramCallbackQuery;
-}
+import type { ChannelAction, ChannelEvent, ChannelMessage } from '@vestara/channel-types';
+import type { TelegramUpdate } from './telegram-types.js';
+import { normalizeTelegramCallbackQuery, normalizeTelegramMessage } from './telegram-types.js';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -133,10 +90,7 @@ export class TelegramWebhookHandler {
    * Process a raw Telegram webhook request.
    * Returns the normalized result or duplicate indication.
    */
-  async handleWebhook(
-    body: string,
-    headers?: Record<string, string>,
-  ): Promise<WebhookResult> {
+  async handleWebhook(body: string, headers?: Record<string, string>): Promise<WebhookResult> {
     // 1. Validate secret token (if configured)
     if (this.config.webhookSecret) {
       const secretToken = headers?.['x-telegram-bot-api-secret-token'];
@@ -161,10 +115,10 @@ export class TelegramWebhookHandler {
     // 4. Record update ID
     this.recordUpdateId(update.update_id);
 
-    // 5. Normalize to canonical types
+    // 5. Normalize to canonical types using shared normalizers
     try {
       if (update.message) {
-        const message = this.normalizeMessage(update.message);
+        const message = normalizeTelegramMessage(update.message);
         const event: ChannelEvent = {
           id: `tg-evt-${update.update_id}`,
           channel: 'telegram',
@@ -176,7 +130,7 @@ export class TelegramWebhookHandler {
       }
 
       if (update.callback_query) {
-        const action = this.normalizeCallbackQuery(update.callback_query);
+        const action = normalizeTelegramCallbackQuery(update.callback_query);
         const event: ChannelEvent = {
           id: `tg-evt-${update.update_id}`,
           channel: 'telegram',
@@ -228,99 +182,5 @@ export class TelegramWebhookHandler {
         this.dedupCache.delete(updateId);
       }
     }
-  }
-
-  // ─── Normalization ──────────────────────────────────────────
-
-  private normalizeMessage(msg: TelegramMessage): ChannelMessage {
-    const sender = {
-      channel: 'telegram' as const,
-      externalId: String(msg.from?.id ?? 0),
-      displayName: msg.from ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') : undefined,
-      username: msg.from?.username,
-    };
-
-    const conversation = {
-      channel: 'telegram' as const,
-      externalId: String(msg.chat.id),
-      type: (msg.chat.type === 'private' ? 'direct' : 'group') as 'direct' | 'group',
-      title: msg.chat.title,
-    };
-
-    const attachments: Array<{ id: string; type: 'image' | 'document' | 'voice' | 'audio' | 'video' | 'sticker' | 'other'; fileName: string; mimeType: string; size: number; url: string }> = [];
-
-    if (msg.photo && msg.photo.length > 0) {
-      const largest = msg.photo[msg.photo.length - 1];
-      attachments.push({
-        id: largest.file_id,
-        type: 'image',
-        fileName: 'photo.jpg',
-        mimeType: 'image/jpeg',
-        size: largest.file_size ?? 0,
-        url: '',
-      });
-    }
-
-    if (msg.document) {
-      attachments.push({
-        id: msg.document.file_id,
-        type: 'document',
-        fileName: msg.document.file_name ?? 'document',
-        mimeType: msg.document.mime_type ?? 'application/octet-stream',
-        size: msg.document.file_size ?? 0,
-        url: '',
-      });
-    }
-
-    if (msg.voice) {
-      attachments.push({
-        id: msg.voice.file_id,
-        type: 'voice',
-        fileName: 'voice.ogg',
-        mimeType: msg.voice.mime_type ?? 'audio/ogg',
-        size: 0,
-        url: '',
-      });
-    }
-
-    return {
-      id: `tg-msg-${msg.message_id}`,
-      channel: 'telegram',
-      externalMessageId: String(msg.message_id),
-      sender,
-      conversation,
-      text: msg.text ?? msg.caption,
-      attachments: attachments.length > 0 ? attachments : undefined,
-      replyTo: msg.reply_to_message ? String(msg.reply_to_message.message_id) : undefined,
-      timestamp: new Date(msg.date * 1000).toISOString(),
-    };
-  }
-
-  private normalizeCallbackQuery(cb: TelegramCallbackQuery): ChannelAction {
-    const sender = {
-      channel: 'telegram' as const,
-      externalId: String(cb.from.id),
-      displayName: [cb.from.first_name, cb.from.last_name].filter(Boolean).join(' '),
-      username: cb.from.username,
-    };
-
-    const conversation = {
-      channel: 'telegram' as const,
-      externalId: cb.message ? String(cb.message.chat.id) : '',
-      type: (cb.message?.chat.type === 'private' ? 'direct' : 'group') as 'direct' | 'group',
-      title: cb.message?.chat.title,
-    };
-
-    return {
-      id: `tg-action-${cb.id}`,
-      channel: 'telegram',
-      type: 'callback',
-      payload: { type: 'callback', data: cb.data ?? '' },
-      sender,
-      conversation,
-      externalMessageId: cb.message ? String(cb.message.message_id) : undefined,
-      callbackData: cb.data,
-      timestamp: new Date().toISOString(),
-    };
   }
 }

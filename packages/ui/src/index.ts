@@ -16,6 +16,8 @@
 
 export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button.js';
 export { Button } from './components/Button.js';
+export type { PillProps, PillSize, PillVariant } from './components/Pill.js';
+export { Pill } from './components/Pill.js';
 
 // ─── Forms ─────────────────────────────────────────────────────
 
@@ -28,6 +30,10 @@ export type { AvatarProps, AvatarShape, AvatarSize } from './components/Avatar.j
 export { Avatar } from './components/Avatar.js';
 export type { BadgeProps, BadgeSize, BadgeVariant } from './components/Badge.js';
 export { Badge } from './components/Badge.js';
+export type { EmptyStateProps } from './components/EmptyState.js';
+export { EmptyState } from './components/EmptyState.js';
+export type { StatusIndicatorProps, StatusSize, StatusVariant } from './components/StatusIndicator.js';
+export { StatusIndicator } from './components/StatusIndicator.js';
 
 // ─── Data Display ──────────────────────────────────────────────
 

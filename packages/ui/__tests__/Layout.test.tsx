@@ -8,10 +8,10 @@
  * @see packages/ui/src/components/Responsive.tsx
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Shell, ShellHeader, ShellNavigation, ShellContent, ShellInspector, useShell } from '../src/components/Shell';
-import { Page, PageHeader, PageTitle, PageActions, SplitPane } from '../src/components/Panes';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { Page, PageActions, PageHeader, PageTitle, SplitPane } from '../src/components/Panes';
+import { Shell, ShellContent, ShellHeader, ShellInspector, ShellNavigation, useShell } from '../src/components/Shell';
 
 // ─── Shell Tests ───────────────────────────────────────────────
 
@@ -50,9 +50,7 @@ describe('Shell', () => {
 
     function TestComponent() {
       contextValue = useShell();
-      return (
-        <button onClick={contextValue.toggleNav}>Toggle</button>
-      );
+      return <button onClick={contextValue.toggleNav}>Toggle</button>;
     }
 
     render(
@@ -73,9 +71,7 @@ describe('Shell', () => {
 
     function TestComponent() {
       contextValue = useShell();
-      return (
-        <button onClick={contextValue.toggleInspector}>Toggle</button>
-      );
+      return <button onClick={contextValue.toggleInspector}>Toggle</button>;
     }
 
     render(

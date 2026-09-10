@@ -111,20 +111,20 @@ export interface EvidenceContextRelevance {
  * Determines how much context budget evidence consumes during retrieval.
  */
 export type EvidenceBudgetClass =
-  | 'minimal'    // Small, low-cost evidence (e.g., status flag)
-  | 'compact'    // Medium-sized evidence (e.g., summary, diff)
-  | 'standard'   // Normal evidence (e.g., test output, log excerpt)
-  | 'verbose';   // Large evidence (e.g., full file, detailed report)
+  | 'minimal' // Small, low-cost evidence (e.g., status flag)
+  | 'compact' // Medium-sized evidence (e.g., summary, diff)
+  | 'standard' // Normal evidence (e.g., test output, log excerpt)
+  | 'verbose'; // Large evidence (e.g., full file, detailed report)
 
 /**
  * CTX-0: Freshness indicators for evidence.
  * How recently the evidence was produced relative to the current time.
  */
 export type EvidenceFreshness =
-  | 'stale'      // > 24 hours old
-  | 'recent'     // 1-24 hours old
-  | 'fresh'      // < 1 hour old
-  | 'current';   // < 5 minutes old
+  | 'stale' // > 24 hours old
+  | 'recent' // 1-24 hours old
+  | 'fresh' // < 1 hour old
+  | 'current'; // < 5 minutes old
 
 export interface EvidenceProvenance {
   readonly producer: string; // which component produced it
@@ -276,13 +276,13 @@ export interface EvidenceTopologyEdge {
  * Each kind implies different traversal semantics.
  */
 export type EvidenceTopologyRelation =
-  | 'derived-from'    // Evidence B was derived from evidence A (provenance chain)
-  | 'corroborates'    // Evidence B supports/confirms evidence A (independent confirmation)
-  | 'contradicts'     // Evidence B conflicts with evidence A (needs resolution)
-  | 'supersedes'      // Evidence B replaces evidence A (correction/replacement)
+  | 'derived-from' // Evidence B was derived from evidence A (provenance chain)
+  | 'corroborates' // Evidence B supports/confirms evidence A (independent confirmation)
+  | 'contradicts' // Evidence B conflicts with evidence A (needs resolution)
+  | 'supersedes' // Evidence B replaces evidence A (correction/replacement)
   | 'temporal-precedes' // Evidence A occurred before evidence B (temporal ordering)
-  | 'causal-chain'    // Evidence A caused or contributed to evidence B (causal link)
-  | 'same-incident';  // Evidence A and B belong to the same diagnostic incident
+  | 'causal-chain' // Evidence A caused or contributed to evidence B (causal link)
+  | 'same-incident'; // Evidence A and B belong to the same diagnostic incident
 
 /**
  * OBS-0: Evidence topology graph — the complete set of relationships

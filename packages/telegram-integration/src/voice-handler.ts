@@ -171,12 +171,7 @@ export class TelegramVoiceHandler {
   /**
    * Complete a transcription with the result text.
    */
-  completeTranscription(
-    transcriptionId: string,
-    text: string,
-    language?: string,
-    confidence?: number,
-  ): void {
+  completeTranscription(transcriptionId: string, text: string, language?: string, confidence?: number): void {
     const result = this.transcriptionCache.get(transcriptionId);
     if (!result) return;
 
@@ -232,9 +227,7 @@ export class TelegramVoiceHandler {
    * Get all transcriptions for a chat.
    */
   getTranscriptionsByChat(chatId: string): readonly TranscriptionResult[] {
-    return Array.from(this.transcriptionCache.values()).filter(
-      (r) => r.voiceMessage.chatId === chatId,
-    );
+    return Array.from(this.transcriptionCache.values()).filter((r) => r.voiceMessage.chatId === chatId);
   }
 
   /**

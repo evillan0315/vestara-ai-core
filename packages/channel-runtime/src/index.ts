@@ -13,14 +13,14 @@
  */
 
 import type {
-  ChannelKind,
-  ChannelMessage,
   ChannelAction,
+  ChannelConfig,
+  ChannelConversationRef,
   ChannelDelivery,
   ChannelDeliveryResult,
   ChannelEvent,
-  ChannelConfig,
-  ChannelConversationRef,
+  ChannelKind,
+  ChannelMessage,
 } from '@vestara/channel-types';
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -273,9 +273,7 @@ export class DeliveryQueue {
       entry.status = 'dead-letter';
     } else {
       entry.status = 'retrying';
-      entry.nextRetryAt = new Date(
-        Date.now() + this.retryBaseMs * Math.pow(2, entry.retryCount - 1),
-      ).toISOString();
+      entry.nextRetryAt = new Date(Date.now() + this.retryBaseMs * 2 ** (entry.retryCount - 1)).toISOString();
     }
   }
 

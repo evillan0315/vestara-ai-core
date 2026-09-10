@@ -285,6 +285,7 @@ export function GlobalAssistant() {
           onMinimize={togglePanel}
           onClose={togglePanel}
           onNewConversation={newConversation}
+          assistant={assistant}
         />
       )}
 

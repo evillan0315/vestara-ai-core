@@ -107,13 +107,7 @@ export function BarChart({
 
             {/* Value label */}
             {showValues && (
-              <text
-                x={x + barWidth / 2}
-                y={y - 4}
-                textAnchor="middle"
-                fill="var(--vestara-text-muted)"
-                fontSize={10}
-              >
+              <text x={x + barWidth / 2} y={y - 4} textAnchor="middle" fill="var(--vestara-text-muted)" fontSize={10}>
                 {d.value}
               </text>
             )}

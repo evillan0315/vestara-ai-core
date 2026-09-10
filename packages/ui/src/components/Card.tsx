@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -105,13 +105,7 @@ const ALIGN_STYLES: Record<string, string> = {
 
 // ─── Card Component ────────────────────────────────────────────
 
-export function Card({
-  variant = 'default',
-  padding = 'md',
-  onClick,
-  className = '',
-  children,
-}: CardProps) {
+export function Card({ variant = 'default', padding = 'md', onClick, className = '', children }: CardProps) {
   const Component = onClick ? 'button' : 'div';
 
   return (
@@ -125,32 +119,19 @@ export function Card({
         ${className}
       `}
     >
-      <div className={PADDING_STYLES[padding]}>
-        {children}
-      </div>
+      <div className={PADDING_STYLES[padding]}>{children}</div>
     </Component>
   );
 }
 
 // ─── CardHeader Component ──────────────────────────────────────
 
-export function CardHeader({
-  title,
-  subtitle,
-  action,
-  className = '',
-}: CardHeaderProps) {
+export function CardHeader({ title, subtitle, action, className = '' }: CardHeaderProps) {
   return (
     <div className={`flex items-start justify-between gap-2 ${className}`}>
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-semibold text-[var(--vestara-text-primary)]">
-          {title}
-        </div>
-        {subtitle && (
-          <div className="text-xs text-[var(--vestara-text-muted)] mt-0.5">
-            {subtitle}
-          </div>
-        )}
+        <div className="text-sm font-semibold text-[var(--vestara-text-primary)]">{title}</div>
+        {subtitle && <div className="text-xs text-[var(--vestara-text-muted)] mt-0.5">{subtitle}</div>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>
@@ -159,27 +140,12 @@ export function CardHeader({
 
 // ─── CardContent Component ─────────────────────────────────────
 
-export function CardContent({
-  className = '',
-  children,
-}: CardContentProps) {
-  return (
-    <div className={`text-sm text-[var(--vestara-text-secondary)] ${className}`}>
-      {children}
-    </div>
-  );
+export function CardContent({ className = '', children }: CardContentProps) {
+  return <div className={`text-sm text-[var(--vestara-text-secondary)] ${className}`}>{children}</div>;
 }
 
 // ─── CardActions Component ─────────────────────────────────────
 
-export function CardActions({
-  align = 'right',
-  className = '',
-  children,
-}: CardActionsProps) {
-  return (
-    <div className={`flex items-center gap-2 mt-3 ${ALIGN_STYLES[align]} ${className}`}>
-      {children}
-    </div>
-  );
+export function CardActions({ align = 'right', className = '', children }: CardActionsProps) {
+  return <div className={`flex items-center gap-2 mt-3 ${ALIGN_STYLES[align]} ${className}`}>{children}</div>;
 }

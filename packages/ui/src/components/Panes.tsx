@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { useState, useCallback, useRef, type ReactNode } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -158,10 +158,7 @@ export function SplitPane({
   const [first, second] = children;
 
   return (
-    <div
-      ref={containerRef}
-      className={`flex ${direction === 'horizontal' ? 'flex-row' : 'flex-col'} ${className}`}
-    >
+    <div ref={containerRef} className={`flex ${direction === 'horizontal' ? 'flex-row' : 'flex-col'} ${className}`}>
       {/* First pane */}
       <div
         className={`shrink-0 overflow-auto ${direction === 'horizontal' ? 'h-full' : 'w-full'}`}
@@ -183,29 +180,16 @@ export function SplitPane({
       )}
 
       {/* Second pane */}
-      <div className="flex-1 min-w-0 overflow-auto">
-        {second}
-      </div>
+      <div className="flex-1 min-w-0 overflow-auto">{second}</div>
     </div>
   );
 }
 
 // ─── MasterDetailLayout Component ──────────────────────────────
 
-export function MasterDetailLayout({
-  master,
-  detail,
-  masterWidth = '320px',
-  className = '',
-}: MasterDetailLayoutProps) {
+export function MasterDetailLayout({ master, detail, masterWidth = '320px', className = '' }: MasterDetailLayoutProps) {
   return (
-    <SplitPane
-      direction="horizontal"
-      defaultSize={masterWidth}
-      minSize={200}
-      maxSize="50%"
-      className={className}
-    >
+    <SplitPane direction="horizontal" defaultSize={masterWidth} minSize={200} maxSize="50%" className={className}>
       {[master, detail]}
     </SplitPane>
   );
@@ -224,17 +208,21 @@ export function ThreePaneLayout({
   return (
     <div className={`flex h-full ${className}`}>
       {/* Left pane */}
-      <div className="shrink-0 w-64 border-r border-[var(--vestara-border-subtle)] overflow-auto" style={{ width: leftWidth }}>
+      <div
+        className="shrink-0 w-64 border-r border-[var(--vestara-border-subtle)] overflow-auto"
+        style={{ width: leftWidth }}
+      >
         {left}
       </div>
 
       {/* Center pane */}
-      <div className="flex-1 min-w-0 overflow-auto">
-        {center}
-      </div>
+      <div className="flex-1 min-w-0 overflow-auto">{center}</div>
 
       {/* Right pane */}
-      <div className="shrink-0 w-80 border-l border-[var(--vestara-border-subtle)] overflow-auto" style={{ width: rightWidth }}>
+      <div
+        className="shrink-0 w-80 border-l border-[var(--vestara-border-subtle)] overflow-auto"
+        style={{ width: rightWidth }}
+      >
         {right}
       </div>
     </div>
@@ -244,18 +232,16 @@ export function ThreePaneLayout({
 // ─── Page Component ────────────────────────────────────────────
 
 export function Page({ children, className = '' }: PageProps) {
-  return (
-    <div className={`flex flex-col h-full ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`flex flex-col h-full ${className}`}>{children}</div>;
 }
 
 // ─── PageHeader Component ──────────────────────────────────────
 
 export function PageHeader({ children, className = '' }: PageHeaderProps) {
   return (
-    <div className={`shrink-0 px-6 py-4 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}>
+    <div
+      className={`shrink-0 px-6 py-4 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}
+    >
       {children}
     </div>
   );
@@ -264,19 +250,11 @@ export function PageHeader({ children, className = '' }: PageHeaderProps) {
 // ─── PageTitle Component ───────────────────────────────────────
 
 export function PageTitle({ children, className = '' }: PageTitleProps) {
-  return (
-    <h1 className={`text-xl font-semibold text-[var(--vestara-text-primary)] ${className}`}>
-      {children}
-    </h1>
-  );
+  return <h1 className={`text-xl font-semibold text-[var(--vestara-text-primary)] ${className}`}>{children}</h1>;
 }
 
 // ─── PageActions Component ─────────────────────────────────────
 
 export function PageActions({ children, className = '' }: PageActionsProps) {
-  return (
-    <div className={`flex items-center gap-2 ${className}`}>
-      {children}
-    </div>
-  );
+  return <div className={`flex items-center gap-2 ${className}`}>{children}</div>;
 }

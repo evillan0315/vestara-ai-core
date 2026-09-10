@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode, createContext, useContext, useState, useCallback, useMemo } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useMemo, useState } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -146,9 +146,7 @@ export function Shell({
 
   return (
     <ShellContext.Provider value={value}>
-      <div
-        className={`flex flex-col h-screen overflow-hidden bg-[var(--vestara-surface-canvas)] ${className}`}
-      >
+      <div className={`flex flex-col h-screen overflow-hidden bg-[var(--vestara-surface-canvas)] ${className}`}>
         {children}
       </div>
     </ShellContext.Provider>
@@ -195,11 +193,7 @@ export function ShellNavigation({ children, className = '' }: ShellNavigationPro
 // ─── ShellContent Component ────────────────────────────────────
 
 export function ShellContent({ children, className = '' }: ShellContentProps) {
-  return (
-    <main className={`flex-1 min-w-0 overflow-auto ${className}`}>
-      {children}
-    </main>
-  );
+  return <main className={`flex-1 min-w-0 overflow-auto ${className}`}>{children}</main>;
 }
 
 // ─── ShellInspector Component ──────────────────────────────────
@@ -219,7 +213,9 @@ export function ShellInspector({ children, className = '' }: ShellInspectorProps
   }
 
   return (
-    <aside className={`shrink-0 w-80 border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}>
+    <aside
+      className={`shrink-0 w-80 border-l border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}
+    >
       {children}
     </aside>
   );
@@ -229,7 +225,9 @@ export function ShellInspector({ children, className = '' }: ShellInspectorProps
 
 export function ShellBottomPanel({ children, className = '' }: ShellBottomPanelProps) {
   return (
-    <div className={`shrink-0 border-t border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}>
+    <div
+      className={`shrink-0 border-t border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-shell)] ${className}`}
+    >
       {children}
     </div>
   );

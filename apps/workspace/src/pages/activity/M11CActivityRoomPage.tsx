@@ -29,6 +29,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import { fetchM11AAggregateDrillDown, type M11AActivityRecord } from '../../lib/m11a-api';
+import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
+import { Pill, StatusIndicator } from '@vestara/ui';
 import '../../styles/activity-room.css';
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
@@ -43,6 +46,9 @@ export default function M11CActivityRoomPage() {
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
   const [detailItem, setDetailItem] = useState<M11CStreamItem | null>(null);
   const [agentControlParticipantId, setAgentControlParticipantId] = useState<string | undefined>(undefined);
+  const [replyToItem, setReplyToItem] = useState<M11CStreamItem | null>(null);
+  const [editingItem, setEditingItem] = useState<M11CStreamItem | null>(null);
+  const [threadActivityIds, setThreadActivityIds] = useState<readonly string[]>([]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
@@ -82,9 +88,60 @@ export default function M11CActivityRoomPage() {
     setDetailItem(null);
   }, []);
 
-  const handleDrillDown = useCallback((_aggregateId: string, _referencedIds: readonly string[]) => {
-    // M11C: drill-down opens detail modal with aggregate contents
-    // Full drawer experience comes in next slice
+  const [drillDownRecords, setDrillDownRecords] = useState<readonly M11AActivityRecord[]>([]);
+  const [drillDownLoading, setDrillDownLoading] = useState(false);
+
+  const handleDrillDown = useCallback(async (aggregateId: string, _referencedIds: readonly string[]) => {
+    setDrillDownLoading(true);
+    try {
+      const result = await fetchM11AAggregateDrillDown(aggregateId);
+      setDrillDownRecords(result.records);
+      // Open the detail modal with a synthetic aggregated item
+      const aggregateItem = room.stream.find((s) => s.id === aggregateId);
+      if (aggregateItem) {
+        setDetailItem(aggregateItem);
+      }
+    } catch {
+      // Drill-down failed — stay silent, user can retry
+    } finally {
+      setDrillDownLoading(false);
+    }
+  }, [room.stream]);
+
+  const handleReply = useCallback((item: M11CStreamItem) => {
+    setReplyToItem(item);
+  }, []);
+
+  const handleClearReply = useCallback(() => {
+    setReplyToItem(null);
+  }, []);
+
+  const handleRetract = useCallback(async (item: M11CStreamItem) => {
+    try {
+      await retractActivityMessage(item.id, 'Message retracted');
+    } catch {
+      // Retraction failed — stay silent
+    }
+  }, []);
+
+  // Look up author name by activity ID from the stream
+  const lookupAuthor = useCallback((activityId: string): string | undefined => {
+    const item = room.stream.find((s) => s.id === activityId);
+    return item?.actor.displayName;
+  }, [room.stream]);
+
+  // Look up content preview by activity ID from the stream
+  const lookupContent = useCallback((activityId: string): string | undefined => {
+    const item = room.stream.find((s) => s.id === activityId);
+    return item?.content;
+  }, [room.stream]);
+
+  const handleEdit = useCallback((item: M11CStreamItem) => {
+    setEditingItem(item);
+  }, []);
+
+  const handleOpenThread = useCallback((activityIds: readonly string[]) => {
+    setThreadActivityIds(activityIds);
   }, []);
 
   // ─── Connection state label ─────────────────────────────
@@ -121,35 +178,30 @@ export default function M11CActivityRoomPage() {
         </div>
         <div className="ar-plinth__controls">
           <M11CConnectionStatus state={room.state} />
-          <button type="button" onClick={room.paused ? room.resume : room.pause} className="ar-capsule">
+          <Pill variant="default" size="sm" onClick={room.paused ? room.resume : room.pause}>
             {room.paused ? 'Resume' : 'Pause'}
-          </button>
-          <button
-            type="button"
-            onClick={room.clear}
-            className="ar-capsule"
-            title="Clear local view"
-          >
+          </Pill>
+          <Pill variant="default" size="sm" onClick={room.clear} title="Clear local view">
             Clear
-          </button>
+          </Pill>
         </div>
       </header>
 
       {/* ─── Error Banner ───────────────────────────────── */}
       {room.error && (
         <div className="ar-banner ar-banner--warn" role="alert">
-          <span className="ar-lamp ar-lamp--warn" aria-hidden="true">⚠</span>
+          <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
           <span className="min-w-0 flex-1">{room.error}</span>
-          <button type="button" onClick={room.retry} className="ar-capsule">
+          <Pill variant="danger" size="sm" onClick={room.retry}>
             Retry
-          </button>
+          </Pill>
         </div>
       )}
 
       {/* ─── Attention Banner ───────────────────────────── */}
       {room.attention.length > 0 && (
         <div className="ar-banner ar-banner--info">
-          <span className="ar-lamp ar-lamp--warn" aria-hidden="true">◆</span>
+          <StatusIndicator variant="warn" size="sm" ariaLabel="Attention required" />
           <span className="font-medium text-(--vestara-amber)">
             {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
           </span>
@@ -215,19 +267,52 @@ export default function M11CActivityRoomPage() {
             onClearUnread={room.clearUnread}
             onOpenDetail={handleOpenDetail}
             onDrillDown={handleDrillDown}
+            onReply={handleReply}
+            onRetract={handleRetract}
+            onEdit={handleEdit}
+            onOpenThread={handleOpenThread}
+            lookupAuthor={lookupAuthor}
+            lookupContent={lookupContent}
             selectedParticipantId={selectedParticipantId}
             submission={room.submission}
             onSubmitResponse={room.submitResponse}
           />
 
-          {/* Composer (visual/non-mutating for M11C) */}
-          <M11CComposer />
+          {/* Composer with reply-to support */}
+          <M11CComposer replyTo={replyToItem} onClearReply={handleClearReply} />
         </main>
       </div>
 
       {/* ─── Detail Modal ───────────────────────────────── */}
       {detailItem && (
-        <M11CDetailModal item={detailItem} onClose={handleCloseDetail} />
+        <M11CDetailModal
+          item={detailItem}
+          drillDownRecords={drillDownRecords}
+          drillDownLoading={drillDownLoading}
+          onClose={handleCloseDetail}
+        />
+      )}
+
+      {/* ─── Edit Modal ───────────────────────────────── */}
+      {editingItem && (
+        <M11CEditModal
+          item={editingItem}
+          onSave={async (newContent) => {
+            await editActivityMessage(editingItem.id, newContent);
+            setEditingItem(null);
+          }}
+          onClose={() => setEditingItem(null)}
+        />
+      )}
+
+      {/* ─── Thread View Modal ──────────────────────────── */}
+      {threadActivityIds.length > 0 && (
+        <M11CThreadModal
+          activityIds={threadActivityIds}
+          lookupAuthor={lookupAuthor}
+          lookupContent={lookupContent}
+          onClose={() => setThreadActivityIds([])}
+        />
       )}
 
       {/* ─── Agent Control Drawer ───────────────────────── */}
@@ -246,30 +331,222 @@ export default function M11CActivityRoomPage() {
 // ─── Visual/Non-Mutating Composer ──────────────────────────
 
 /**
- * M11C Composer — visual only, does not execute commands.
- * The composer is visible to establish the UI pattern, but does not
- * introduce message-command execution.
+ * M11C Composer — sends human messages to the Activity Room.
+ * Messages are persisted via POST /api/messages and broadcast via WebSocket.
+ * Supports reply-to: when a message is replied to, the actor name is prepended.
  */
-function M11CComposer() {
+function M11CComposer({
+  replyTo,
+  onClearReply,
+}: {
+  replyTo?: M11CStreamItem | null;
+  onClearReply?: () => void;
+}) {
   const [value, setValue] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Pre-fill with @mention when replying
+  useEffect(() => {
+    if (replyTo) {
+      setValue(`@${replyTo.actor.displayName} `);
+    }
+  }, [replyTo]);
+
+  const handleSend = useCallback(async () => {
+    const text = value.trim();
+    if (!text || sending) return;
+
+    setSending(true);
+    setError(null);
+    try {
+      await postActivityMessage({
+        content: text,
+        targets: [{ type: 'broadcast' }],
+        actor: { displayName: 'You', role: 'human' },
+        referencedActivityIds: replyTo ? [replyTo.id] : undefined,
+      });
+      setValue('');
+      onClearReply?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to send');
+    } finally {
+      setSending(false);
+    }
+  }, [value, sending, replyTo, onClearReply]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+        e.preventDefault();
+        handleSend();
+      }
+    },
+    [handleSend],
+  );
 
   return (
     <div className="ar-composer">
-      <span className="ar-key" aria-hidden="true">+</span>
-      <span className="ar-key" aria-hidden="true">@</span>
-      <span className="ar-key" aria-hidden="true">/</span>
+      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Attach file shortcut">+</Pill>
+      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Reference shortcut">@</Pill>
+      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Command shortcut">/</Pill>
       <input
         type="text"
         value={value}
-        onChange={(e) => setValue(e.target.value)}
-        placeholder="Reference…"
+        onChange={(e) => { setValue(e.target.value); setError(null); }}
+        onKeyDown={handleKeyDown}
+        placeholder={sending ? 'Sending…' : 'Type a message…'}
         className="ar-composer__input"
-        disabled
-        aria-label="Message composer (read-only in M11C)"
+        disabled={sending}
+        aria-label="Message composer"
       />
-      <button type="button" disabled className="ar-capsule ar-capsule--disabled">
+      <Pill
+        variant="gold"
+        size="sm"
+        onClick={handleSend}
+        disabled={!value.trim() || sending}
+        loading={sending}
+      >
         Send
-      </button>
+      </Pill>
+      {error && (
+        <span className="text-[10px] text-red-400 ml-2" role="alert">{error}</span>
+      )}
+    </div>
+  );
+}
+
+// ─── Edit Modal ─────────────────────────────────────────
+
+function M11CEditModal({
+  item,
+  onSave,
+  onClose,
+}: {
+  item: M11CStreamItem;
+  onSave: (newContent: string) => Promise<void>;
+  onClose: () => void;
+}) {
+  const [value, setValue] = useState(item.content);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  const handleSave = useCallback(async () => {
+    const text = value.trim();
+    if (!text || saving) return;
+    setSaving(true);
+    try {
+      await onSave(text);
+    } finally {
+      setSaving(false);
+    }
+  }, [value, saving, onSave]);
+
+  return (
+    <div
+      className="ar-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Edit message"
+      onClick={onClose}
+    >
+      <div className="ar-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ar-modal__head">
+          <h2 className="ar-modal__title">Edit Message</h2>
+          <button type="button" onClick={onClose} className="ar-modal__close" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="p-4">
+          <textarea
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            className="w-full rounded-lg border border-zinc-700 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:outline-none focus:border-amber-500/50 resize-none"
+            rows={4}
+            aria-label="Edit message content"
+          />
+          <div className="mt-3 flex justify-end gap-2">
+            <Pill variant="default" size="sm" onClick={onClose}>
+              Cancel
+            </Pill>
+            <Pill
+              variant="gold"
+              size="sm"
+              onClick={handleSave}
+              disabled={!value.trim() || saving}
+              loading={saving}
+            >
+              Save
+            </Pill>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Thread View Modal ─────────────────────────────────
+
+function M11CThreadModal({
+  activityIds,
+  lookupAuthor,
+  lookupContent,
+  onClose,
+}: {
+  activityIds: readonly string[];
+  lookupAuthor?: (id: string) => string | undefined;
+  lookupContent?: (id: string) => string | undefined;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  return (
+    <div
+      className="ar-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Thread view"
+      onClick={onClose}
+    >
+      <div className="ar-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="ar-modal__head">
+          <h2 className="ar-modal__title">Thread</h2>
+          <button type="button" onClick={onClose} className="ar-modal__close" aria-label="Close">
+            ×
+          </button>
+        </div>
+        <div className="p-4 space-y-3 max-h-[60vh] overflow-y-auto">
+          {activityIds.map((id) => {
+            const author = lookupAuthor?.(id) ?? 'Unknown';
+            const content = lookupContent?.(id);
+            return (
+              <div key={id} className="rounded-lg border border-zinc-800/50 bg-zinc-900/30 px-3 py-2">
+                <div className="flex items-center gap-2 text-[11px] text-zinc-400 mb-1">
+                  <span className="font-medium text-zinc-300">{author}</span>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-600">{id.slice(0, 12)}…</span>
+                </div>
+                <div className="text-[12px] text-zinc-300 leading-relaxed">
+                  {content || <span className="italic text-zinc-600">(no content)</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
@@ -278,9 +555,13 @@ function M11CComposer() {
 
 function M11CDetailModal({
   item,
+  drillDownRecords,
+  drillDownLoading,
   onClose,
 }: {
   item: M11CStreamItem;
+  drillDownRecords?: readonly M11AActivityRecord[];
+  drillDownLoading?: boolean;
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -341,6 +622,34 @@ function M11CDetailModal({
                 <div>Summary: {item.aggregated.summary}</div>
                 <div>Sequence range: {item.aggregated.sequenceRange.first} – {item.aggregated.sequenceRange.last}</div>
                 <div>{item.aggregated.referencedActivityIds.length} referenced activity IDs</div>
+              </div>
+            </div>
+          )}
+
+          {/* Drill-down records */}
+          {drillDownLoading && (
+            <div className="ar-kv">
+              <div className="ar-kv__label">Loading referenced activities…</div>
+            </div>
+          )}
+          {!drillDownLoading && drillDownRecords && drillDownRecords.length > 0 && (
+            <div className="ar-kv">
+              <div className="ar-kv__label">Referenced Activities ({drillDownRecords.length})</div>
+              <div className="space-y-2 mt-2">
+                {drillDownRecords.map((record) => (
+                  <div key={record.id} className="rounded-lg border border-zinc-800/70 bg-zinc-900/50 px-3 py-2 text-[11px]">
+                    <div className="flex items-center gap-2 text-zinc-400">
+                      <span className="font-medium text-zinc-300">{record.kind}</span>
+                      <span className="text-zinc-600">·</span>
+                      <span>{record.actor?.displayName ?? 'Unknown'}</span>
+                      <span className="text-zinc-600">·</span>
+                      <span className="text-zinc-600">{record.timestamp}</span>
+                    </div>
+                    {record.content && (
+                      <div className="mt-1 text-zinc-500 line-clamp-2">{record.content}</div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

@@ -49,9 +49,7 @@ export class TelegramInlineKeyboard {
   /**
    * Build workspace selection keyboard.
    */
-  static workspaceSelect(
-    workspaces: Array<{ id: string; name: string; preferred?: boolean }>,
-  ): InlineKeyboard {
+  static workspaceSelect(workspaces: Array<{ id: string; name: string; preferred?: boolean }>): InlineKeyboard {
     const rows: InlineKeyboardButton[][] = [];
 
     for (const ws of workspaces) {
@@ -65,9 +63,7 @@ export class TelegramInlineKeyboard {
     }
 
     // Add refresh button
-    rows.push([
-      { text: '🔄 Refresh', callbackData: 'ws:refresh' },
-    ]);
+    rows.push([{ text: '🔄 Refresh', callbackData: 'ws:refresh' }]);
 
     return { rows };
   }
@@ -81,9 +77,7 @@ export class TelegramInlineKeyboard {
     const rows: InlineKeyboardButton[][] = [];
 
     for (const conv of conversations) {
-      const lastActivity = conv.lastActivity
-        ? ` (${new Date(conv.lastActivity).toLocaleDateString()})`
-        : '';
+      const lastActivity = conv.lastActivity ? ` (${new Date(conv.lastActivity).toLocaleDateString()})` : '';
       rows.push([
         {
           text: `${conv.title}${lastActivity}`,
@@ -93,9 +87,7 @@ export class TelegramInlineKeyboard {
     }
 
     // Add new conversation button
-    rows.push([
-      { text: '➕ New Conversation', callbackData: 'conv:new' },
-    ]);
+    rows.push([{ text: '➕ New Conversation', callbackData: 'conv:new' }]);
 
     return { rows };
   }
@@ -103,11 +95,7 @@ export class TelegramInlineKeyboard {
   /**
    * Build confirmation dialog keyboard.
    */
-  static confirmAction(
-    action: string,
-    confirmText = 'Confirm',
-    cancelText = 'Cancel',
-  ): InlineKeyboard {
+  static confirmAction(action: string, confirmText = 'Confirm', cancelText = 'Cancel'): InlineKeyboard {
     return {
       rows: [
         [
@@ -143,11 +131,7 @@ export class TelegramInlineKeyboard {
   /**
    * Build navigation keyboard (pagination).
    */
-  static navigation(params: {
-    currentPage: number;
-    totalPages: number;
-    callbackPrefix: string;
-  }): InlineKeyboard {
+  static navigation(params: { currentPage: number; totalPages: number; callbackPrefix: string }): InlineKeyboard {
     const buttons: InlineKeyboardButton[] = [];
 
     if (params.currentPage > 1) {
@@ -197,9 +181,7 @@ export class TelegramInlineKeyboard {
           { text: '🔄 Retry', callbackData: `error:retry:${errorId}` },
           { text: '📋 Details', callbackData: `error:details:${errorId}` },
         ],
-        [
-          { text: '🛑 Abort', callbackData: `error:abort:${errorId}` },
-        ],
+        [{ text: '🛑 Abort', callbackData: `error:abort:${errorId}` }],
       ],
     };
   }

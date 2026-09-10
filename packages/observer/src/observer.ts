@@ -16,8 +16,8 @@ import type {
   DiagnosticSeverity,
   DiagnosticSnapshot,
   DiagnosticSourceHealth,
-  ObserverConfig,
   ObserverConfidenceLevel,
+  ObserverConfig,
   ObserverEventType,
   ObserverFinding,
   ObserverFindingStatus,
@@ -86,10 +86,7 @@ export class Observer {
     if (!this.config.enabled) return null;
 
     // Skip if source is not in monitor list (empty = all sources)
-    if (
-      this.config.monitorSources.length > 0 &&
-      !this.config.monitorSources.includes(snapshot.source.id)
-    ) {
+    if (this.config.monitorSources.length > 0 && !this.config.monitorSources.includes(snapshot.source.id)) {
       return null;
     }
 
@@ -331,8 +328,7 @@ class InMemoryFindingStore implements ObserverFindingStore {
   }
 
   async getActiveCount(): Promise<number> {
-    return Array.from(this.findings.values()).filter(
-      (f) => f.status === 'observation' || f.status === 'hypothesis',
-    ).length;
+    return Array.from(this.findings.values()).filter((f) => f.status === 'observation' || f.status === 'hypothesis')
+      .length;
   }
 }

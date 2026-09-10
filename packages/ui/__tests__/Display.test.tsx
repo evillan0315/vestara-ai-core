@@ -8,11 +8,11 @@
  * @see packages/ui/src/components/Card.tsx
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Badge } from '../src/components/Badge';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Avatar } from '../src/components/Avatar';
-import { Card, CardHeader, CardContent, CardActions } from '../src/components/Card';
+import { Badge } from '../src/components/Badge';
+import { Card, CardActions, CardContent, CardHeader } from '../src/components/Card';
 
 // ─── Badge Tests ───────────────────────────────────────────────
 

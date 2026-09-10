@@ -11,8 +11,8 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
 import { BREAKPOINTS } from '@vestara/ui-tokens';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -75,9 +75,7 @@ const DEFAULT_BREAKPOINTS = {
  *
  * @param options - Optional configuration
  */
-export function useResponsiveLayout(
-  options?: UseResponsiveLayoutOptions,
-): ResponsiveState {
+export function useResponsiveLayout(options?: UseResponsiveLayoutOptions): ResponsiveState {
   const breakpoints = { ...DEFAULT_BREAKPOINTS, ...options?.breakpoints };
 
   const [state, setState] = useState<ResponsiveState>(() => {
@@ -204,10 +202,7 @@ export function responsive<T>(
 /**
  * VES-UI-D11: Generate CSS media query string.
  */
-export function mediaQuery(
-  breakpoint: ResponsiveBreakpoint,
-  direction: 'min' | 'max' = 'min',
-): string {
+export function mediaQuery(breakpoint: ResponsiveBreakpoint, direction: 'min' | 'max' = 'min'): string {
   const widths: Record<ResponsiveBreakpoint, number> = {
     mobile: 0,
     tablet: parseInt(BREAKPOINTS.sm),
@@ -221,15 +216,13 @@ export function mediaQuery(
 /**
  * VES-UI-D11: Generate responsive CSS classes.
  */
-export function responsiveClasses(
-  classes: {
-    mobile?: string;
-    tablet?: string;
-    desktop?: string;
-    wide?: string;
-    base: string;
-  },
-): string {
+export function responsiveClasses(classes: {
+  mobile?: string;
+  tablet?: string;
+  desktop?: string;
+  wide?: string;
+  base: string;
+}): string {
   const parts = [classes.base];
   if (classes.mobile) parts.push(`max-sm:${classes.mobile}`);
   if (classes.tablet) parts.push(`sm:${classes.tablet}`);

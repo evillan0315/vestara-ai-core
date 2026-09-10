@@ -208,10 +208,7 @@ export class TelegramFileHandler {
     }
 
     // Validate MIME type
-    if (
-      this.config.allowedMimeTypes.length > 0 &&
-      !this.config.allowedMimeTypes.includes(params.mimeType)
-    ) {
+    if (this.config.allowedMimeTypes.length > 0 && !this.config.allowedMimeTypes.includes(params.mimeType)) {
       return {
         success: false,
         error: `MIME type ${params.mimeType} is not allowed`,

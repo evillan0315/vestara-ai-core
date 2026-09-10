@@ -49,12 +49,12 @@ export interface ContextQuery {
  * CTX-1: Source types for context retrieval.
  */
 export type ContextSourceType =
-  | 'engineering-graph'   // Entity/relationship data from the Engineering Graph
-  | 'evidence'            // Evidence references from PCS-026
-  | 'diagnostics'         // Diagnostic snapshots from DIAG-1
-  | 'observer'            // Observer findings from OBS-1
-  | 'temporal'            // Temporal evidence from OBS-2
-  | 'documentation';      // Project documentation
+  | 'engineering-graph' // Entity/relationship data from the Engineering Graph
+  | 'evidence' // Evidence references from PCS-026
+  | 'diagnostics' // Diagnostic snapshots from DIAG-1
+  | 'observer' // Observer findings from OBS-1
+  | 'temporal' // Temporal evidence from OBS-2
+  | 'documentation'; // Project documentation
 
 /**
  * CTX-1: A single context retrieval result.
@@ -145,10 +145,10 @@ export interface ContextSourceAdapter {
  * Determines how much token budget a result consumes.
  */
 export type ContextBudgetClass =
-  | 'minimal'    // < 100 tokens (e.g., status flag, simple fact)
-  | 'compact'    // 100-500 tokens (e.g., summary, diff excerpt)
-  | 'standard'   // 500-2000 tokens (e.g., test output, code snippet)
-  | 'verbose';   // > 2000 tokens (e.g., full file, detailed report)
+  | 'minimal' // < 100 tokens (e.g., status flag, simple fact)
+  | 'compact' // 100-500 tokens (e.g., summary, diff excerpt)
+  | 'standard' // 500-2000 tokens (e.g., test output, code snippet)
+  | 'verbose'; // > 2000 tokens (e.g., full file, detailed report)
 
 /**
  * CTX-4: Token budget allocation for a context query.
@@ -272,10 +272,10 @@ export interface ContextProvenance {
  * CTX-1/CTX-0: Freshness indicator for context results.
  */
 export type ContextFreshness =
-  | 'stale'      // > 24 hours old
-  | 'recent'     // 1-24 hours old
-  | 'fresh'      // < 1 hour old
-  | 'current';   // < 5 minutes old
+  | 'stale' // > 24 hours old
+  | 'recent' // 1-24 hours old
+  | 'fresh' // < 1 hour old
+  | 'current'; // < 5 minutes old
 
 // ─── CTX-9: Change-Aware Retrieval ─────────────────────────────
 
@@ -634,11 +634,11 @@ export interface Investigation {
  * ENG-1: Investigation status.
  */
 export type InvestigationStatus =
-  | 'active'      // Currently gathering evidence
-  | 'paused'      // Paused (budget limit, user request)
-  | 'completed'   // Investigation finished
-  | 'failed'      // Investigation failed
-  | 'abandoned';  // Investigation abandoned
+  | 'active' // Currently gathering evidence
+  | 'paused' // Paused (budget limit, user request)
+  | 'completed' // Investigation finished
+  | 'failed' // Investigation failed
+  | 'abandoned'; // Investigation abandoned
 
 /**
  * ENG-1: Evidence gathered during an investigation.
@@ -729,22 +729,22 @@ export interface EscalationRequest {
  * ENG-3: Authority types that can be escalated.
  */
 export type EscalationAuthority =
-  | 'file-write'       // Write access to specific files
-  | 'file-delete'      // Delete access to specific files
-  | 'command-execute'  // Execute specific commands
-  | 'network-access'   // Access specific network resources
-  | 'provider-access'  // Access specific AI providers
+  | 'file-write' // Write access to specific files
+  | 'file-delete' // Delete access to specific files
+  | 'command-execute' // Execute specific commands
+  | 'network-access' // Access specific network resources
+  | 'provider-access' // Access specific AI providers
   | 'governance-write'; // Write to governance authority
 
 /**
  * ENG-3: Escalation status.
  */
 export type EscalationStatus =
-  | 'pending'    // Waiting for approval
-  | 'approved'   // Approved by authority
-  | 'denied'     // Denied by authority
-  | 'expired'    // Escalation request expired
-  | 'revoked';   // Previously approved, now revoked
+  | 'pending' // Waiting for approval
+  | 'approved' // Approved by authority
+  | 'denied' // Denied by authority
+  | 'expired' // Escalation request expired
+  | 'revoked'; // Previously approved, now revoked
 
 // ─── ENG-4: Correction Proposal ────────────────────────────────
 
@@ -820,12 +820,12 @@ export interface CorrectionChange {
  * ENG-4: Correction proposal status.
  */
 export type CorrectionProposalStatus =
-  | 'proposed'    // Proposal created, awaiting review
-  | 'approved'    // Approved for execution
-  | 'rejected'    // Rejected by authority
-  | 'executing'   // Being executed
-  | 'completed'   // Execution completed
-  | 'failed'      // Execution failed
+  | 'proposed' // Proposal created, awaiting review
+  | 'approved' // Approved for execution
+  | 'rejected' // Rejected by authority
+  | 'executing' // Being executed
+  | 'completed' // Execution completed
+  | 'failed' // Execution failed
   | 'rolled-back'; // Execution rolled back
 
 // ─── ENG-5: Verification Extension ─────────────────────────────
@@ -887,14 +887,14 @@ export interface VerificationCheck {
  * ENG-5: Types of verification checks.
  */
 export type VerificationCheckType =
-  | 'file-exists'      // Verify a file exists
-  | 'file-content'     // Verify file content matches expected
-  | 'test-passes'      // Verify a test passes
-  | 'build-passes'     // Verify build succeeds
-  | 'lint-passes'      // Verify lint passes
+  | 'file-exists' // Verify a file exists
+  | 'file-content' // Verify file content matches expected
+  | 'test-passes' // Verify a test passes
+  | 'build-passes' // Verify build succeeds
+  | 'lint-passes' // Verify lint passes
   | 'endpoint-responds' // Verify an endpoint responds
-  | 'data-preserved'   // Verify data was not lost
-  | 'state-restored';  // Verify system state was restored
+  | 'data-preserved' // Verify data was not lost
+  | 'state-restored'; // Verify system state was restored
 
 /**
  * ENG-5: Overall verification result.
@@ -968,21 +968,21 @@ export interface RecoveryAction {
  * ENG-6: Recovery strategy types.
  */
 export type RecoveryStrategy =
-  | 'restart'         // Restart the affected service/process
-  | 'rollback'        // Rollback to previous known-good state
-  | 'failover'        // Switch to backup/alternative
-  | 'scale'           // Scale resources up/down
-  | 'config-change'   // Apply configuration change
-  | 'manual';         // Manual intervention required
+  | 'restart' // Restart the affected service/process
+  | 'rollback' // Rollback to previous known-good state
+  | 'failover' // Switch to backup/alternative
+  | 'scale' // Scale resources up/down
+  | 'config-change' // Apply configuration change
+  | 'manual'; // Manual intervention required
 
 /**
  * ENG-6: Recovery status.
  */
 export type RecoveryStatus =
-  | 'pending'      // Recovery not yet started
-  | 'in-progress'  // Recovery in progress
-  | 'completed'    // Recovery completed successfully
-  | 'failed'       // Recovery failed
+  | 'pending' // Recovery not yet started
+  | 'in-progress' // Recovery in progress
+  | 'completed' // Recovery completed successfully
+  | 'failed' // Recovery failed
   | 'rolled-back'; // Recovery was rolled back
 
 /**
@@ -1235,23 +1235,23 @@ export interface IncidentKnowledge {
  * Progression: observation → hypothesis → diagnosis → correction → verification → recovery → certified
  */
 export type IncidentKnowledgeStatus =
-  | 'observation'     // Initial detection
-  | 'hypothesis'      // Preliminary explanation proposed
-  | 'diagnosis'       // Root cause identified
-  | 'correction'      // Correction proposed
-  | 'verification'    // Correction verified
-  | 'recovery'        // Recovery completed
-  | 'certified'       // Knowledge certified as reliable
-  | 'rejected';       // Knowledge rejected as invalid
+  | 'observation' // Initial detection
+  | 'hypothesis' // Preliminary explanation proposed
+  | 'diagnosis' // Root cause identified
+  | 'correction' // Correction proposed
+  | 'verification' // Correction verified
+  | 'recovery' // Recovery completed
+  | 'certified' // Knowledge certified as reliable
+  | 'rejected'; // Knowledge rejected as invalid
 
 /**
  * EFF-4: Knowledge confidence levels.
  */
 export type IncidentKnowledgeConfidence =
-  | 'low'          // 0.0 - 0.3: weak evidence, speculative
-  | 'moderate'     // 0.3 - 0.6: some evidence, plausible
-  | 'high'         // 0.6 - 0.8: strong evidence, likely
-  | 'very-high';   // 0.8 - 1.0: overwhelming evidence, near-certain
+  | 'low' // 0.0 - 0.3: weak evidence, speculative
+  | 'moderate' // 0.3 - 0.6: some evidence, plausible
+  | 'high' // 0.6 - 0.8: strong evidence, likely
+  | 'very-high'; // 0.8 - 1.0: overwhelming evidence, near-certain
 
 // ─── EFF-5: Predictive Health ──────────────────────────────────
 
@@ -1361,12 +1361,12 @@ export interface HealthRecommendation {
  * EFF-5: Types of health recommendations.
  */
 export type HealthRecommendationType =
-  | 'monitor'        // Continue monitoring
-  | 'investigate'    // Investigate the degradation
-  | 'restart'        // Restart the service
-  | 'scale'          // Scale resources
-  | 'config-change'  // Apply configuration change
-  | 'alert';         // Alert the operator
+  | 'monitor' // Continue monitoring
+  | 'investigate' // Investigate the degradation
+  | 'restart' // Restart the service
+  | 'scale' // Scale resources
+  | 'config-change' // Apply configuration change
+  | 'alert'; // Alert the operator
 
 // ─── EFF-6: Self-Maintenance Certification ─────────────────────
 
@@ -1405,10 +1405,10 @@ export interface SelfMaintenanceCertification {
  * EFF-6: Certification status.
  */
 export type CertificationStatus =
-  | 'pending'      // Certification not yet started
-  | 'in-progress'  // Certification in progress
-  | 'completed'    // Certification completed
-  | 'failed';      // Certification failed
+  | 'pending' // Certification not yet started
+  | 'in-progress' // Certification in progress
+  | 'completed' // Certification completed
+  | 'failed'; // Certification failed
 
 /**
  * EFF-6: Individual certification check.
@@ -1437,13 +1437,13 @@ export interface CertificationCheck {
  * EFF-6: Types of certification checks.
  */
 export type CertificationCheckType =
-  | 'detect'          // Verify detection worked
-  | 'diagnose'        // Verify diagnosis worked
-  | 'investigate'     // Verify investigation worked
-  | 'correct'         // Verify correction worked
-  | 'verify'          // Verify verification worked
-  | 'recover'         // Verify recovery worked
-  | 'learn';          // Verify knowledge accumulation worked
+  | 'detect' // Verify detection worked
+  | 'diagnose' // Verify diagnosis worked
+  | 'investigate' // Verify investigation worked
+  | 'correct' // Verify correction worked
+  | 'verify' // Verify verification worked
+  | 'recover' // Verify recovery worked
+  | 'learn'; // Verify knowledge accumulation worked
 
 /**
  * EFF-6: Overall certification result.

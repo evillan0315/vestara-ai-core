@@ -1,9 +1,9 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   ALL_PERMISSION_ACTIONS,
+  classifyPermissionRisk,
   isPermissionAction,
   normalizePermissionAction,
-  classifyPermissionRisk,
 } from '../src/index.js';
 
 describe('PermissionAction', () => {

@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
-  ALL_AGENT_ROLES,
-  isAgentRole,
   ALL_AGENT_CAPABILITIES,
-  isAgentCapability,
-  CAPABILITY_DESCRIPTIONS,
+  ALL_AGENT_ROLES,
   ALL_ROUTING_ROLES,
+  CAPABILITY_DESCRIPTIONS,
+  isAgentCapability,
+  isAgentRole,
   isRoutingRole,
   mapAgentRoleToRoutingRole,
-  routingRoleToAgentRole,
   normalizeLegacyRole,
+  routingRoleToAgentRole,
 } from '../src/index.js';
 
 describe('AgentRole', () => {

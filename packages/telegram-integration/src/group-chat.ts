@@ -164,16 +164,11 @@ export class TelegramGroupChatHandler {
   /**
    * Add or update a participant in a group.
    */
-  addParticipant(
-    chatId: string,
-    participant: Omit<GroupParticipant, 'joinedAt'>,
-  ): void {
+  addParticipant(chatId: string, participant: Omit<GroupParticipant, 'joinedAt'>): void {
     const chat = this.groupChats.get(chatId);
     if (!chat) return;
 
-    const existingIndex = chat.participants.findIndex(
-      (p) => p.userId === participant.userId,
-    );
+    const existingIndex = chat.participants.findIndex((p) => p.userId === participant.userId);
 
     const fullParticipant: GroupParticipant = {
       ...participant,
@@ -221,8 +216,7 @@ export class TelegramGroupChatHandler {
     const chat = this.groupChats.get(params.chatId);
 
     // Detect bot mention
-    const botMentioned =
-      params.mentionedUsernames?.includes(this.config.botUsername) ?? false;
+    const botMentioned = params.mentionedUsernames?.includes(this.config.botUsername) ?? false;
 
     // Detect reply to bot
     const isReplyToBot = params.replyToMessageId
@@ -233,9 +227,7 @@ export class TelegramGroupChatHandler {
     const hasCommand = params.text.startsWith('/');
 
     // Extract mention text
-    const mentionText = botMentioned
-      ? this.extractMentionText(params.text, this.config.botUsername)
-      : undefined;
+    const mentionText = botMentioned ? this.extractMentionText(params.text, this.config.botUsername) : undefined;
 
     return {
       chatId: params.chatId,

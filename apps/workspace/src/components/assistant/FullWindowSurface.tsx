@@ -17,8 +17,8 @@
  */
 
 import { useCallback, useMemo } from 'react';
-import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import type { UseAssistantConversationReturn } from '../../hooks/useAssistantConversation';
 import { ConversationPanel } from './ConversationPanel';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
 import { resolveDisplayTitle } from './conversationTitles';
@@ -40,6 +40,9 @@ export interface FullWindowSurfaceProps {
 
   /** Callback to create a new conversation */
   onNewConversation: () => void;
+
+  /** Shared assistant state — must be the same instance used by GlobalAssistant */
+  assistant: UseAssistantConversationReturn;
 }
 
 // ─── Sidebar Header Component ──────────────────────────────────
@@ -67,7 +70,8 @@ function SidebarHeader({
         <button
           type="button"
           onClick={onNewConversation}
-          className="p-1.5 rounded hover:bg-(--vestara-surface-hover) text-(--vestara-text-muted) cursor-pointer"
+          aria-label="New conversation"
+          className="p-1.5 rounded hover:bg-(--vestara-surface-hover) text-(--vestara-text-muted) cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           title="New conversation"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -77,7 +81,8 @@ function SidebarHeader({
         <button
           type="button"
           onClick={onCollapse}
-          className="p-1.5 rounded hover:bg-(--vestara-surface-hover) text-(--vestara-text-muted) cursor-pointer"
+          aria-label="Collapse to floating panel"
+          className="p-1.5 rounded hover:bg-(--vestara-surface-hover) text-(--vestara-text-muted) cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
           title="Collapse to floating panel"
         >
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -136,8 +141,8 @@ export function FullWindowSurface({
   onMinimize,
   onClose,
   onNewConversation,
+  assistant,
 }: FullWindowSurfaceProps) {
-  const assistant = useAssistantConversation();
   const surface = useSurfaceContext();
 
   // Handle new conversation

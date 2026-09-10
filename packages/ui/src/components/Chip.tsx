@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -49,11 +49,13 @@ export interface ChipProps {
 const VARIANT_STYLES: Record<ChipVariant, { base: string; selected: string }> = {
   default: {
     base: 'bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-secondary)] border-[var(--vestara-border-subtle)]',
-    selected: 'bg-[var(--vestara-accent-primary)]/20 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]',
+    selected:
+      'bg-[var(--vestara-accent-primary)]/20 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]',
   },
   outlined: {
     base: 'bg-transparent text-[var(--vestara-text-secondary)] border-[var(--vestara-border-default)]',
-    selected: 'bg-[var(--vestara-accent-primary)]/10 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]',
+    selected:
+      'bg-[var(--vestara-accent-primary)]/10 text-[var(--vestara-accent-primary)] border-[var(--vestara-accent-primary)]',
   },
 };
 

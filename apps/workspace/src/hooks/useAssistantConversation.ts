@@ -177,6 +177,12 @@ export interface UseAssistantConversationReturn {
    */
   structuredTerminals: StructuredTerminalOperation[];
   /**
+   * Structured verification projections (GA-UX-PREMIUM M7). Parallel to
+   * `toolOperations`; consumed by AssistantVerification. Cleared with
+   * toolOperations.
+   */
+  structuredVerifications: StructuredVerificationOperation[];
+  /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). `todo.updated` events
    * are complete replacement snapshots — the checklist presents the most
    * recent one. Transient (per active turn); never persisted.
@@ -224,6 +230,15 @@ export interface StructuredTerminalOperation {
    * Client op id of the generic M2 operation this terminal supersedes, when
    * the operationIds correlate (same identity). Absent → standalone.
    */
+  supersedesOpId?: string;
+}
+
+export interface StructuredVerificationOperation {
+  /** Stable upstream operation identity. */
+  operationId: string;
+  /** The authoritative `assistant.execution.v1` verification detail. */
+  detail: AssistantExecutionDetail;
+  /** Client op id this verification supersedes, if correlated. */
   supersedesOpId?: string;
 }
 
@@ -399,6 +414,19 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
     });
   }, []);
+  // ── Structured verification projections (GA-UX-PREMIUM M7, transient) ──
+  const [structuredVerifications, setStructuredVerifications] = useState<StructuredVerificationOperation[]>([]);
+  /** Upsert a structured verification by operationId. */
+  const upsertStructuredVerification = useCallback((detail: AssistantExecutionDetail) => {
+    if (detail.kind !== 'verification') return;
+    const operationId = detail.operationId;
+    const supersedesOpId = operationIdMapRef.current.get(operationId);
+    setStructuredVerifications((prev) => {
+      const existing = prev.find((entry) => entry.operationId === operationId);
+      const next: StructuredVerificationOperation = { operationId, detail, supersedesOpId };
+      return existing ? prev.map((entry) => (entry.operationId === operationId ? next : entry)) : [...prev, next];
+    });
+  }, []);
   // ── Runtime todo checklist projection (GA-UX-PREMIUM M5A, transient) ──
   // `todo.updated` events are COMPLETE replacement snapshots of the OpenCode
   // runtime todo list. A single evolving checklist (latest snapshot wins) is
@@ -416,6 +444,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     setToolOperations([]);
     setStructuredEdits([]);
     setStructuredTerminals([]);
+    setStructuredVerifications([]);
     setTaskSnapshot(null);
     setPendingPermissions([]);
     setPendingQuestions([]);
@@ -659,6 +688,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 if (execution) {
                   upsertStructuredEdit(execution);
                   upsertStructuredTerminal(execution);
+                  upsertStructuredVerification(execution);
                   upsertTaskSnapshot(execution);
                   // GA-RUNTIME-001 B: interactive permission/question surfaces.
                   if (execution.kind === 'permission') {
@@ -718,6 +748,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
                 if (execution) {
                   upsertStructuredEdit(execution);
                   upsertStructuredTerminal(execution);
+                  upsertStructuredVerification(execution);
                 }
                 setToolOperations((prev) =>
                   execution?.operationId
@@ -984,6 +1015,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     toolOperations,
     structuredEdits,
     structuredTerminals,
+    structuredVerifications,
     taskSnapshot,
     pendingPermissions,
     respondToPermission,

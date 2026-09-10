@@ -12,19 +12,15 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import type { ChannelMessage, ChannelDelivery } from '@vestara/channel-types';
+import { randomBytes } from 'node:crypto';
+import type { ChannelDelivery, ChannelMessage } from '@vestara/channel-types';
+import type { ConversationBinding } from './conversation-binding.js';
 import type { TelegramIdentityBinding } from './pairing.js';
 import type { WorkspaceBinding } from './workspace-binding.js';
-import type { ConversationBinding } from './conversation-binding.js';
 
 // ─── Types ─────────────────────────────────────────────────────
 
-export type MessageRouteStatus =
-  | 'routed'
-  | 'queued'
-  | 'rejected'
-  | 'failed'
-  | 'executing';
+export type MessageRouteStatus = 'routed' | 'queued' | 'rejected' | 'failed' | 'executing';
 
 export interface MessageRouteResult {
   /** Route result status */
@@ -177,7 +173,7 @@ export class GlobalAssistantTextRouter {
     }
 
     // 5. Build execution request
-    const executionId = `exec-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const executionId = `exec-${Date.now()}-${randomBytes(4).toString('hex')}`;
     const request: ExecutionRequest = {
       message,
       principalId,
@@ -218,12 +214,9 @@ export class GlobalAssistantTextRouter {
   /**
    * Build a delivery response for Telegram.
    */
-  buildDeliveryResponse(
-    executionResult: ExecutionResult,
-    conversation: ConversationBinding,
-  ): ChannelDelivery {
+  buildDeliveryResponse(executionResult: ExecutionResult, conversation: ConversationBinding): ChannelDelivery {
     return {
-      id: `delivery-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `delivery-${Date.now()}-${randomBytes(4).toString('hex')}`,
       channel: 'telegram',
       conversation: {
         channel: 'telegram',
@@ -284,9 +277,7 @@ export class GlobalAssistantTextRouter {
   getRateLimitStatus(principalId: string): { count: number; limit: number; resetsAt: string } {
     const entry = this.rateLimits.get(principalId);
     const count = entry?.count ?? 0;
-    const resetsAt = entry
-      ? new Date(entry.windowStart + 60 * 1000).toISOString()
-      : new Date().toISOString();
+    const resetsAt = entry ? new Date(entry.windowStart + 60 * 1000).toISOString() : new Date().toISOString();
 
     return {
       count,

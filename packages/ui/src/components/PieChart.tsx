@@ -100,12 +100,7 @@ export function PieChart({
       ].join(' ');
     } else {
       // Pie
-      pathD = [
-        `M ${cx} ${cy}`,
-        `L ${x1} ${y1}`,
-        `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`,
-        'Z',
-      ].join(' ');
+      pathD = [`M ${cx} ${cy}`, `L ${x1} ${y1}`, `A ${radius} ${radius} 0 ${largeArc} 1 ${x2} ${y2}`, 'Z'].join(' ');
     }
 
     // Label position (middle of arc)
@@ -128,29 +123,25 @@ export function PieChart({
       <svg width={size} height={size}>
         {/* Slices */}
         {slices.map((slice, i) => (
-          <path
-            key={i}
-            d={slice.pathD}
-            fill={slice.color}
-            className="transition-all duration-300 hover:opacity-80"
-          />
+          <path key={i} d={slice.pathD} fill={slice.color} className="transition-all duration-300 hover:opacity-80" />
         ))}
 
         {/* Labels */}
-        {showLabels && slices.map((slice, i) => (
-          <text
-            key={i}
-            x={slice.labelX}
-            y={slice.labelY}
-            textAnchor="middle"
-            dominantBaseline="middle"
-            fill="white"
-            fontSize={12}
-            fontWeight="bold"
-          >
-            {slice.percentage}%
-          </text>
-        ))}
+        {showLabels &&
+          slices.map((slice, i) => (
+            <text
+              key={i}
+              x={slice.labelX}
+              y={slice.labelY}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              fill="white"
+              fontSize={12}
+              fontWeight="bold"
+            >
+              {slice.percentage}%
+            </text>
+          ))}
       </svg>
 
       {/* Legend */}
@@ -158,10 +149,7 @@ export function PieChart({
         <div className="space-y-1">
           {slices.map((slice, i) => (
             <div key={i} className="flex items-center gap-2 text-xs">
-              <span
-                className="w-3 h-3 rounded"
-                style={{ backgroundColor: slice.color }}
-              />
+              <span className="w-3 h-3 rounded" style={{ backgroundColor: slice.color }} />
               <span className="text-[var(--vestara-text-secondary)]">{slice.label}</span>
               <span className="text-[var(--vestara-text-muted)]">({slice.percentage}%)</span>
             </div>

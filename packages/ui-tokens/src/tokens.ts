@@ -17,26 +17,63 @@
 // ─── Color Tokens ──────────────────────────────────────────────
 
 export const COLOR = {
-  // Brand colors
+  // Brand colors — canonical amber identity (VES-DESIGN-002 §G)
   brand: {
-    gold: '#d4a853',
-    goldLight: '#e8c87a',
-    goldDark: '#b8923a',
-    green: '#22c55e',
-    red: '#ef4444',
-    blue: '#3b82f6',
-    purple: '#8b5cf6',
     amber: '#f59e0b',
+    amberLight: '#fbbf24',
+    amberDark: '#d97706',
+    green: '#4ade80',
+    red: '#f87171',
+    blue: '#60a5fa',
+    purple: '#a78bfa',
+    gold: '#c9a84c', // Legacy — DEPRECATED, use brand.amber
+    goldLight: '#fcf6ba', // Legacy — DEPRECATED
+    goldDark: '#b38728', // Legacy — DEPRECATED
   },
 
-  // Semantic status colors
+  // Semantic status colors (VES-DESIGN-002 §K)
   status: {
-    success: '#22c55e',
+    success: '#4ade80',
+    successBg: 'rgba(74, 222, 128, 0.15)',
+    successBorder: 'rgba(74, 222, 128, 0.3)',
     warning: '#f59e0b',
-    error: '#ef4444',
-    info: '#3b82f6',
-    running: '#22c55e',
-    idle: '#71717a',
+    warningBg: 'rgba(245, 158, 11, 0.1)',
+    warningBorder: 'rgba(245, 158, 11, 0.3)',
+    error: '#f87171',
+    errorBg: 'rgba(248, 113, 113, 0.1)',
+    errorBorder: 'rgba(248, 113, 113, 0.3)',
+    info: '#60a5fa',
+    infoBg: 'rgba(96, 165, 250, 0.1)',
+    infoBorder: 'rgba(96, 165, 250, 0.3)',
+    running: '#4ade80',
+    pending: '#f59e0b',
+    disabled: '#52525b',
+  },
+
+  // Surface colors (VES-DESIGN-002 §P)
+  surface: {
+    canvas: '#09090b',
+    shell: '#18181b',
+    panel: '#1e1e22',
+    panelRaised: '#27272a',
+    overlay: 'rgba(0, 0, 0, 0.8)',
+    interactive: '#27272a',
+  },
+
+  // Text colors (VES-DESIGN-002 §I)
+  text: {
+    primary: '#e4e4e7',
+    secondary: '#a1a1aa',
+    muted: '#71717a',
+    disabled: '#52525b',
+  },
+
+  // Border colors (VES-DESIGN-002 §I)
+  border: {
+    subtle: '#27272a',
+    default: '#3f3f46',
+    strong: '#52525b',
+    focus: '#f59e0b',
   },
 
   // Zinc palette (raw values)

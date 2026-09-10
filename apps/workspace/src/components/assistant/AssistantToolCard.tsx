@@ -14,10 +14,12 @@
  * absent here — today's contract collapses permission asks into status text.
  */
 
-import type { AssistantExecutionDetail, EditExecutionDetail, TerminalExecutionDetail } from '@vestara/shared';
-import type { AssistantToolOperation, StructuredEditOperation, StructuredTerminalOperation } from '../../hooks/useAssistantConversation';
+import { memo, Profiler } from 'react';
+import type { AssistantExecutionDetail, EditExecutionDetail, TerminalExecutionDetail, VerificationExecutionDetail } from '@vestara/shared';
+import type { AssistantToolOperation, StructuredEditOperation, StructuredTerminalOperation, StructuredVerificationOperation } from '../../hooks/useAssistantConversation';
 import { AssistantCodeEdit } from './AssistantCodeEdit';
 import { AssistantTerminal } from './AssistantTerminal';
+import { AssistantVerification } from './AssistantVerification';
 import { AssistantTodoChecklist } from './AssistantTodoChecklist';
 
 // ─── Type guard ─────────────────────────────────────────────────
@@ -34,6 +36,24 @@ function isTerminalDetail(
   terminal: StructuredTerminalOperation,
 ): terminal is StructuredTerminalOperation & { detail: TerminalExecutionDetail } {
   return terminal.detail.kind === 'terminal';
+}
+
+/** Narrow a structured verification's detail to the verification variant `AssistantVerification` renders. */
+function isVerificationDetail(
+  verification: StructuredVerificationOperation,
+): verification is StructuredVerificationOperation & { detail: VerificationExecutionDetail } {
+  return verification.detail.kind === 'verification';
+}
+
+/** React Profiler callback for timeline performance monitoring (dev only). */
+function onTimelineRender(
+  _id: string,
+  phase: 'mount' | 'update' | 'nested-update',
+  actualDuration: number,
+) {
+  if (process.env.NODE_ENV === 'development' && actualDuration > 16) {
+    console.warn(`[profiler] Timeline ${phase}: ${actualDuration.toFixed(1)}ms`);
+  }
 }
 
 // ─── Categories ─────────────────────────────────────────────────
@@ -174,7 +194,7 @@ export interface AssistantToolCardProps {
  * as plain text (React-escaped, bounded, never raw HTML) and are labeled a
  * preview — never complete output.
  */
-export function AssistantToolCard({ operation }: AssistantToolCardProps) {
+export const AssistantToolCard = memo(function AssistantToolCard({ operation }: AssistantToolCardProps) {
   const category = normalizeToolCategory(operation.name);
   const label = toolDisplayLabel(category, operation.name);
   const { state, preview } = operation;
@@ -226,7 +246,7 @@ export function AssistantToolCard({ operation }: AssistantToolCardProps) {
       </div>
     </div>
   );
-}
+});
 
 // ─── Execution timeline ─────────────────────────────────────────
 
@@ -243,6 +263,11 @@ export interface AssistantExecutionTimelineProps {
    * supersedes the generic M2 row for the same operation identity.
    */
   structuredTerminals?: readonly StructuredTerminalOperation[];
+  /**
+   * Structured verification projections (GA-UX-PREMIUM M7). A structured
+   * verification supersedes the generic M2 row for the same operation identity.
+   */
+  structuredVerifications?: readonly StructuredVerificationOperation[];
   /**
    * Latest runtime todo snapshot (GA-UX-PREMIUM M5A). One evolving checklist;
    * each todo.updated snapshot replaces the previous.
@@ -267,25 +292,29 @@ export function AssistantExecutionTimeline({
   operations,
   structuredEdits = [],
   structuredTerminals = [],
+  structuredVerifications = [],
   taskSnapshot,
   onOpenInEditor,
   expanded,
   onToggle,
 }: AssistantExecutionTimelineProps) {
-  if (operations.length === 0 && structuredEdits.length === 0 && structuredTerminals.length === 0 && !taskSnapshot) return null;
+  if (operations.length === 0 && structuredEdits.length === 0 && structuredTerminals.length === 0 && structuredVerifications.length === 0 && !taskSnapshot) return null;
   const count = operations.length;
   const noun = count === 1 ? 'operation' : 'operations';
 
   const supersededOpIds = new Set([
     ...structuredEdits.map((edit) => edit.supersedesOpId).filter((id): id is string => id !== undefined),
     ...structuredTerminals.map((t) => t.supersedesOpId).filter((id): id is string => id !== undefined),
+    ...structuredVerifications.map((v) => v.supersedesOpId).filter((id): id is string => id !== undefined),
   ]);
   const standaloneEdits = structuredEdits.filter((edit) => edit.supersedesOpId === undefined);
   const standaloneTerminals = structuredTerminals.filter((t) => t.supersedesOpId === undefined);
-  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneTerminals.length;
+  const standaloneVerifications = structuredVerifications.filter((v) => v.supersedesOpId === undefined);
+  const visibleCount = operations.filter((op) => !supersededOpIds.has(op.id)).length + standaloneEdits.length + standaloneTerminals.length + standaloneVerifications.length;
   const visibleNoun = visibleCount === 1 ? 'operation' : 'operations';
 
   return (
+    <Profiler id="ExecutionTimeline" onRender={onTimelineRender}>
     <div data-testid="assistant-timeline" className="min-w-0 mb-1">
       <button
         type="button"
@@ -337,6 +366,15 @@ export function AssistantExecutionTimeline({
                   />
                 );
               }
+              const verification = structuredVerifications.find((entry) => entry.supersedesOpId === op.id);
+              if (verification && isVerificationDetail(verification)) {
+                return (
+                  <AssistantVerification
+                    key={`verification-${verification.operationId}`}
+                    detail={verification.detail}
+                  />
+                );
+              }
               return null;
             }
             return <AssistantToolCard key={op.id} operation={op} />;
@@ -347,8 +385,12 @@ export function AssistantExecutionTimeline({
           {standaloneTerminals.filter(isTerminalDetail).map((terminal) => (
             <AssistantTerminal key={`terminal-${terminal.operationId}`} detail={terminal.detail} />
           ))}
+          {standaloneVerifications.filter(isVerificationDetail).map((verification) => (
+            <AssistantVerification key={`verification-${verification.operationId}`} detail={verification.detail} />
+          ))}
         </div>
       )}
     </div>
+    </Profiler>
   );
 }

@@ -8,8 +8,8 @@
  * @see packages/ui/src/components/PieChart.tsx
  */
 
-import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { describe, expect, it } from 'vitest';
 import { BarChart } from '../src/components/BarChart';
 import { LineChart } from '../src/components/LineChart';
 import { PieChart } from '../src/components/PieChart';

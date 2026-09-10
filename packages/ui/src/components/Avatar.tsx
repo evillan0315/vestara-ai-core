@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 

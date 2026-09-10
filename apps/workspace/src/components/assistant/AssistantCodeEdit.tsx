@@ -260,7 +260,7 @@ export function AssistantCodeEdit({ detail, onOpenInEditor }: AssistantCodeEditP
 
       {/* Diff body */}
       {expanded && detail.diffRepresentation !== 'unavailable' && (
-        <div data-testid="code-edit-diff" className="max-w-full border-t border-zinc-800/70 px-2 py-2">
+        <div data-testid="code-edit-diff" className="max-w-full border-t border-zinc-800/70 px-2 py-2 assistant-expand-enter">
           {detail.diffRepresentation === 'patch' && detail.patch ? (
             <PatchDiff patch={detail.patch} />
           ) : detail.diffRepresentation === 'hunks' && detail.hunks ? (

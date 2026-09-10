@@ -101,50 +101,39 @@ export function LineChart({
       ))}
 
       {/* Fill area */}
-      {fillColor && (
-        <path
-          d={areaD}
-          fill={fillColor}
-          opacity={0.2}
-        />
-      )}
+      {fillColor && <path d={areaD} fill={fillColor} opacity={0.2} />}
 
       {/* Line */}
-      <path
-        d={pathD}
-        fill="none"
-        stroke={lineColor}
-        strokeWidth={2}
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
+      <path d={pathD} fill="none" stroke={lineColor} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
 
       {/* Dots */}
-      {showDots && points.map((p, i) => (
-        <circle
-          key={i}
-          cx={p.x}
-          cy={p.y}
-          r={3}
-          fill={lineColor}
-          stroke="var(--vestara-surface-panel)"
-          strokeWidth={2}
-        />
-      ))}
+      {showDots &&
+        points.map((p, i) => (
+          <circle
+            key={i}
+            cx={p.x}
+            cy={p.y}
+            r={3}
+            fill={lineColor}
+            stroke="var(--vestara-surface-panel)"
+            strokeWidth={2}
+          />
+        ))}
 
       {/* Labels */}
-      {showLabels && data.map((d, i) => (
-        <text
-          key={i}
-          x={points[i].x}
-          y={height - 8}
-          textAnchor="middle"
-          fill="var(--vestara-text-muted)"
-          fontSize={10}
-        >
-          {d.label.length > 6 ? d.label.slice(0, 6) + '…' : d.label}
-        </text>
-      ))}
+      {showLabels &&
+        data.map((d, i) => (
+          <text
+            key={i}
+            x={points[i].x}
+            y={height - 8}
+            textAnchor="middle"
+            fill="var(--vestara-text-muted)"
+            fontSize={10}
+          >
+            {d.label.length > 6 ? d.label.slice(0, 6) + '…' : d.label}
+          </text>
+        ))}
     </svg>
   );
 }

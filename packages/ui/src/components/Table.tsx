@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { type ReactNode, useCallback, useMemo, useState } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -174,10 +174,7 @@ export function Table<T>({
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   // Visible columns
-  const visibleColumns = useMemo(
-    () => columns.filter((col) => !col.hidden),
-    [columns],
-  );
+  const visibleColumns = useMemo(() => columns.filter((col) => !col.hidden), [columns]);
 
   // Sorted data
   const sortedData = useMemo(() => {
@@ -242,18 +239,16 @@ export function Table<T>({
   );
 
   return (
-    <div className={`overflow-x-auto rounded-xl border ${bordered ? 'border-[var(--vestara-border-default)]' : 'border-[var(--vestara-border-subtle)]'} ${className}`}>
+    <div
+      className={`overflow-x-auto rounded-xl border ${bordered ? 'border-[var(--vestara-border-default)]' : 'border-[var(--vestara-border-subtle)]'} ${className}`}
+    >
       <table className="w-full text-sm">
         {/* Header */}
         <thead>
           <tr className="border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]">
             {selectable && (
               <th className="w-10 px-3 py-2.5">
-                <Checkbox
-                  checked={allSelected}
-                  indeterminate={someSelected}
-                  onChange={handleSelectAll}
-                />
+                <Checkbox checked={allSelected} indeterminate={someSelected} onChange={handleSelectAll} />
               </th>
             )}
             {visibleColumns.map((col) => (
@@ -305,10 +300,7 @@ export function Table<T>({
                 >
                   {selectable && (
                     <td className="w-10 px-3 py-2.5">
-                      <Checkbox
-                        checked={isSelected}
-                        onChange={(checked) => handleSelectRow(key, checked)}
-                      />
+                      <Checkbox checked={isSelected} onChange={(checked) => handleSelectRow(key, checked)} />
                     </td>
                   )}
                   {visibleColumns.map((col) => (
@@ -316,9 +308,7 @@ export function Table<T>({
                       key={col.id}
                       className={`px-4 py-2.5 text-[var(--vestara-text-primary)] ${col.align === 'center' ? 'text-center' : col.align === 'right' ? 'text-right' : ''}`}
                     >
-                      {col.render
-                        ? col.render(row[col.key], row)
-                        : String(row[col.key] ?? '')}
+                      {col.render ? col.render(row[col.key], row) : String(row[col.key] ?? '')}
                     </td>
                   ))}
                 </tr>

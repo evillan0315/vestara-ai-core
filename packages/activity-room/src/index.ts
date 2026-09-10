@@ -33,6 +33,7 @@ export { M9DeliveryVerifier } from './m9-delivery-verifier';
 export { M9IngestionBridge, type M9IngestionBridgeOptions } from './m9-ingestion-bridge';
 export { SqliteActivityStore as DurableActivityStore } from './m9-sqlite-store';
 export { IdempotentActivityStore } from './m9-store';
+export { toProjectionRecord } from './m9-to-projection';
 export type {
   ActivityCursor,
   ActivityEvent,

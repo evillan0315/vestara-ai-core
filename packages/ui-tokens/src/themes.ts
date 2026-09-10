@@ -4,11 +4,14 @@
  * Defines semantic color mappings for dark and light themes.
  * Maps abstract surface/text/border tokens to concrete color values.
  *
+ * VES-DESIGN-002: Canonical amber identity. All accent values derive
+ * from COLOR.brand.amber (#f59e0b) — the existing runtime identity.
+ *
  * Architecture Traceability:
  *   VES-UI-A: Design Tokens (phases 0-2)
+ *   VES-DESIGN-002: Canonical Token Contract
  *   @see docs/blueprint/VESTARA-SHARED-UI-PLATFORM.md VES-UI-003
- *
- * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
+ *   @see docs/architecture/VES-DESIGN-002-CANONICAL-TOKEN-CONTRACT.md
  */
 
 import { COLOR } from './tokens.js';
@@ -64,11 +67,20 @@ export interface AccentTheme {
 
 export interface StatusTheme {
   success: string;
+  successBg: string;
+  successBorder: string;
   warning: string;
+  warningBg: string;
+  warningBorder: string;
   error: string;
+  errorBg: string;
+  errorBorder: string;
   info: string;
+  infoBg: string;
+  infoBorder: string;
   running: string;
-  idle: string;
+  pending: string;
+  disabled: string;
 }
 
 // ─── Complete Theme ────────────────────────────────────────────
@@ -86,44 +98,36 @@ export interface Theme {
 
 export const DARK_THEME: Theme = {
   mode: 'dark',
-  surface: {
-    canvas: COLOR.zinc[950],
-    shell: COLOR.zinc[900],
-    panel: COLOR.zinc[850],
-    panelRaised: COLOR.zinc[800],
-    overlay: 'rgba(0, 0, 0, 0.8)',
-    interactive: COLOR.zinc[800],
-  },
-  text: {
-    primary: COLOR.zinc[100],
-    secondary: COLOR.zinc[300],
-    muted: COLOR.zinc[500],
-    disabled: COLOR.zinc[600],
-  },
-  border: {
-    subtle: COLOR.zinc[800],
-    default: COLOR.zinc[700],
-    strong: COLOR.zinc[600],
-    focus: COLOR.brand.gold,
-  },
+  surface: COLOR.surface,
+  text: COLOR.text,
+  border: COLOR.border,
   accent: {
-    primary: COLOR.brand.gold,
-    secondary: COLOR.brand.goldLight,
-    bg: `${COLOR.brand.gold}15`,
-    border: `${COLOR.brand.gold}40`,
-    borderHover: `${COLOR.brand.gold}60`,
-    borderActive: COLOR.brand.gold,
-    text: COLOR.brand.gold,
-    textHover: COLOR.brand.goldLight,
-    textMuted: `${COLOR.brand.gold}99`,
+    primary: COLOR.brand.amber,
+    secondary: COLOR.brand.amberLight,
+    bg: COLOR.status.warningBg,
+    border: COLOR.status.warningBorder,
+    borderHover: `${COLOR.brand.amber}60`,
+    borderActive: COLOR.brand.amber,
+    text: COLOR.brand.amberLight,
+    textHover: COLOR.brand.amberLight,
+    textMuted: `${COLOR.brand.amber}99`,
   },
   status: {
     success: COLOR.status.success,
+    successBg: COLOR.status.successBg,
+    successBorder: COLOR.status.successBorder,
     warning: COLOR.status.warning,
+    warningBg: COLOR.status.warningBg,
+    warningBorder: COLOR.status.warningBorder,
     error: COLOR.status.error,
+    errorBg: COLOR.status.errorBg,
+    errorBorder: COLOR.status.errorBorder,
     info: COLOR.status.info,
+    infoBg: COLOR.status.infoBg,
+    infoBorder: COLOR.status.infoBorder,
     running: COLOR.status.running,
-    idle: COLOR.status.idle,
+    pending: COLOR.status.pending,
+    disabled: COLOR.status.disabled,
   },
 };
 
@@ -132,12 +136,12 @@ export const DARK_THEME: Theme = {
 export const LIGHT_THEME: Theme = {
   mode: 'light',
   surface: {
-    canvas: '#f8f9fa',
+    canvas: COLOR.zinc[50],
     shell: '#ffffff',
     panel: '#ffffff',
-    panelRaised: '#f8f9fa',
+    panelRaised: COLOR.zinc[50],
     overlay: 'rgba(0, 0, 0, 0.5)',
-    interactive: '#f1f3f5',
+    interactive: COLOR.zinc[100],
   },
   text: {
     primary: COLOR.zinc[900],
@@ -149,26 +153,35 @@ export const LIGHT_THEME: Theme = {
     subtle: COLOR.zinc[200],
     default: COLOR.zinc[300],
     strong: COLOR.zinc[400],
-    focus: COLOR.brand.gold,
+    focus: COLOR.brand.amber,
   },
   accent: {
-    primary: COLOR.brand.gold,
-    secondary: COLOR.brand.goldDark,
-    bg: `${COLOR.brand.gold}10`,
-    border: `${COLOR.brand.gold}30`,
-    borderHover: `${COLOR.brand.gold}50`,
-    borderActive: COLOR.brand.gold,
-    text: COLOR.brand.goldDark,
-    textHover: COLOR.brand.gold,
-    textMuted: `${COLOR.brand.gold}80`,
+    primary: '#b45309', // Light mode: darker amber for contrast on light backgrounds
+    secondary: COLOR.brand.amberDark,
+    bg: 'rgba(245, 158, 11, 0.08)',
+    border: 'rgba(245, 158, 11, 0.2)',
+    borderHover: 'rgba(245, 158, 11, 0.3)',
+    borderActive: COLOR.brand.amber,
+    text: COLOR.brand.amberDark,
+    textHover: COLOR.brand.amber,
+    textMuted: 'rgba(245, 158, 11, 0.5)',
   },
   status: {
-    success: COLOR.status.success,
-    warning: COLOR.status.warning,
-    error: COLOR.status.error,
-    info: COLOR.status.info,
-    running: COLOR.status.running,
-    idle: COLOR.status.idle,
+    success: '#16a34a',
+    successBg: 'rgba(22, 163, 74, 0.08)',
+    successBorder: 'rgba(22, 163, 74, 0.2)',
+    warning: '#b45309',
+    warningBg: 'rgba(180, 83, 9, 0.08)',
+    warningBorder: 'rgba(180, 83, 9, 0.2)',
+    error: '#dc2626',
+    errorBg: 'rgba(220, 38, 38, 0.08)',
+    errorBorder: 'rgba(220, 38, 38, 0.2)',
+    info: '#2563eb',
+    infoBg: 'rgba(37, 99, 235, 0.08)',
+    infoBorder: 'rgba(37, 99, 235, 0.2)',
+    running: '#16a34a',
+    pending: '#b45309',
+    disabled: COLOR.zinc[400],
   },
 };
 

@@ -45,60 +45,10 @@ import {
   DurableActivityStore,
   type ActivityRecord as ProjectionActivityRecord,
   ProjectionRuntime,
+  toProjectionRecord,
 } from '@vestara/activity-room';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
-
-// ─── Projection ActivityRecord (for hub) ────────────────────────
-
-/** Convert M9 ActivityRecord to Projection ActivityRecord for hub broadcasting. */
-function toProjectionRecord(record: M9ActivityRecord): ProjectionActivityRecord {
-  // The projection contracts use 'kind' instead of 'type', and have different structure
-  // Map the M9 fields to projection fields
-  const kindMap: Record<string, ProjectionActivityRecord['kind']> = {
-    'workflow.started': 'workflow',
-    'workflow.completed': 'workflow',
-    'workflow.failed': 'workflow',
-    'workflow.cancelled': 'workflow',
-    'task.runnable': 'task',
-    'task.started': 'task',
-    'task.completed': 'task',
-    'task.failed': 'task',
-    'task.cancelled': 'task',
-    'agent.assigned': 'agent-message',
-    'agent.started': 'agent-message',
-    'agent.progress': 'agent-message',
-    'agent.waiting': 'agent-message',
-    'agent.completed': 'agent-message',
-    'agent.failed': 'agent-message',
-    'agent.cancelled': 'agent-message',
-    'human.message': 'agent-message',
-    'system.event': 'workflow',
-    'interaction.presented': 'agent-message',
-    'interaction.responded': 'agent-message',
-  };
-
-  return {
-    id: String(record.activityId),
-    sequence: record.sequenceNumber,
-    timestamp: record.timestamp,
-    actor: {
-      type: record.actor.type,
-      id: record.actor.id,
-      displayName: record.actor.displayName,
-      ...(record.actorId ? { role: record.actorId } : {}),
-    },
-    kind: kindMap[record.type] ?? 'workflow',
-    agentId: record.actor.type === 'agent' ? record.actor.id : undefined,
-    messageKind: 'message',
-    content: record.payload?.message ?? '',
-    workflowId: record.workflowRunId,
-    sessionId: undefined,
-    evidenceRefs: [],
-    ...(record.payload?.error ? { effect: 'intervention' as const } : {}),
-    ...(record.payload?.output ? { output: record.payload.output } : {}),
-  } as ProjectionActivityRecord;
-}
 
 // ─── Configuration ────────────────────────────────────────────────
 
@@ -173,56 +123,9 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
   }
   db = db ?? new SQL.Database();
 
-  // Ensure M9 schema exists
-  db.run(`
-    CREATE TABLE IF NOT EXISTS m9_activity_events (
-      activity_id TEXT PRIMARY KEY,
-      event_id TEXT NOT NULL UNIQUE,
-      sequence_number INTEGER NOT NULL,
-      type TEXT NOT NULL,
-      timestamp TEXT NOT NULL,
-      execution_id TEXT,
-      trace_id TEXT,
-      request_id TEXT,
-      workflow_run_id TEXT,
-      task_id TEXT,
-      agent_assignment_id TEXT,
-      repository_binding_id TEXT,
-      runtime_session_binding_id TEXT,
-      ai_binding_id TEXT,
-      actor_type TEXT NOT NULL,
-      actor_id TEXT,
-      actor_display_name TEXT NOT NULL,
-      source TEXT NOT NULL,
-      payload_json TEXT NOT NULL,
-      visibility TEXT NOT NULL DEFAULT 'all'
-    );
-    CREATE INDEX IF NOT EXISTS idx_m9_sequence ON m9_activity_events(sequence_number);
-    CREATE INDEX IF NOT EXISTS idx_m9_event_id ON m9_activity_events(event_id);
-    CREATE INDEX IF NOT EXISTS idx_m9_workflow_run ON m9_activity_events(workflow_run_id);
-    CREATE INDEX IF NOT EXISTS idx_m9_execution ON m9_activity_events(execution_id);
-    CREATE INDEX IF NOT EXISTS idx_m9_task ON m9_activity_events(task_id);
-    CREATE INDEX IF NOT EXISTS idx_m9_type ON m9_activity_events(type);
-    CREATE INDEX IF NOT EXISTS idx_m9_timestamp ON m9_activity_events(timestamp);
-  `);
-
-  // Auto-persist on write operations (both db.exec and db.run)
-  const origExec = db.exec.bind(db);
-  db.exec = (sql: string) => {
-    const result = origExec(sql);
-    const trimmed = sql.trim().toUpperCase();
-    if (
-      trimmed.startsWith('INSERT') ||
-      trimmed.startsWith('UPDATE') ||
-      trimmed.startsWith('DELETE') ||
-      trimmed.startsWith('CREATE') ||
-      trimmed.startsWith('DROP')
-    ) {
-      persistDb(db, dbPath);
-    }
-    return result;
-  };
-
+  // Auto-persist on write operations — intercept db.run for INSERT/UPDATE/DELETE.
+  // db.exec is used for reads (SELECT) and schema DDL; only db.run is used for
+  // writes by the DurableActivityStore, so we only need to intercept db.run.
   const origRun = db.run.bind(db);
   db.run = (sql: string, params?: any[]) => {
     origRun(sql, params);
@@ -232,6 +135,7 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
     }
   };
 
+  // DurableActivityStore constructor calls ensureSchema() — no inline DDL needed.
   const store = new DurableActivityStore(db);
   const runtime = new ProjectionRuntime();
   const hub = new ActivityStreamHub({

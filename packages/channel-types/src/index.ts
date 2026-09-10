@@ -16,15 +16,7 @@
 /**
  * The type of interaction channel.
  */
-export type ChannelKind =
-  | 'web'
-  | 'telegram'
-  | 'mobile'
-  | 'desktop'
-  | 'cli'
-  | 'slack'
-  | 'discord'
-  | 'other';
+export type ChannelKind = 'web' | 'telegram' | 'mobile' | 'desktop' | 'cli' | 'slack' | 'discord' | 'other';
 
 // ─── Channel Identity ──────────────────────────────────────────
 

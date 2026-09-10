@@ -294,9 +294,10 @@ export async function handleDiagnosticsRoute(
       totalFindings: allFindings.length,
       activeFindings: activeFindings.length,
       severityCounts,
-      averageConfidence: allFindings.length > 0
-        ? allFindings.reduce((sum: number, f: ObserverFinding) => sum + f.confidence, 0) / allFindings.length
-        : 0,
+      averageConfidence:
+        allFindings.length > 0
+          ? allFindings.reduce((sum: number, f: ObserverFinding) => sum + f.confidence, 0) / allFindings.length
+          : 0,
     });
     return true;
   }

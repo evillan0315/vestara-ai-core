@@ -174,10 +174,7 @@ export class ContextIntelligenceEngine {
   /**
    * CTX-4/6: Apply budget constraints and assemble minimum sufficient context.
    */
-  private applyBudgetAndAssemble(
-    results: readonly ContextResult[],
-    totalBudget: number,
-  ): readonly ContextResult[] {
+  private applyBudgetAndAssemble(results: readonly ContextResult[], totalBudget: number): readonly ContextResult[] {
     const assembled: ContextResult[] = [];
     let tokensUsed = 0;
     const budgetByClass = { ...this.budget.allocations };
@@ -216,11 +213,7 @@ export class ContextIntelligenceEngine {
   /**
    * CTX-7: Create provenance metadata for a context result.
    */
-  createProvenance(
-    result: ContextResult,
-    query: string,
-    rank: number,
-  ): ContextProvenance {
+  createProvenance(result: ContextResult, query: string, rank: number): ContextProvenance {
     return {
       sourceType: result.sourceType,
       sourceId: result.sourceId,
@@ -233,11 +226,15 @@ export class ContextIntelligenceEngine {
 
   private freshnessToScore(freshness: string): number {
     switch (freshness) {
-      case 'current': return 1.0;
-      case 'fresh': return 0.8;
-      case 'recent': return 0.5;
+      case 'current':
+        return 1.0;
+      case 'fresh':
+        return 0.8;
+      case 'recent':
+        return 0.5;
       case 'stale':
-      default: return 0.2;
+      default:
+        return 0.2;
     }
   }
 

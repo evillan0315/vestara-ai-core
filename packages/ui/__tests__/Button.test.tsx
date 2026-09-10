@@ -6,8 +6,8 @@
  * @see packages/ui/src/components/Button.tsx
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Button } from '../src/components/Button';
 
 describe('Button', () => {
@@ -49,14 +49,22 @@ describe('Button', () => {
 
   it('does not call onClick when disabled', () => {
     const handleClick = vi.fn();
-    render(<Button disabled onClick={handleClick}>Click me</Button>);
+    render(
+      <Button disabled onClick={handleClick}>
+        Click me
+      </Button>,
+    );
     fireEvent.click(screen.getByRole('button'));
     expect(handleClick).not.toHaveBeenCalled();
   });
 
   it('does not call onClick when loading', () => {
     const handleClick = vi.fn();
-    render(<Button loading onClick={handleClick}>Click me</Button>);
+    render(
+      <Button loading onClick={handleClick}>
+        Click me
+      </Button>,
+    );
     fireEvent.click(screen.getByRole('button'));
     expect(handleClick).not.toHaveBeenCalled();
   });

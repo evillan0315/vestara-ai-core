@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -41,10 +41,14 @@ export interface BadgeProps {
 // ─── Styles ────────────────────────────────────────────────────
 
 const VARIANT_STYLES: Record<BadgeVariant, string> = {
-  default: 'bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-secondary)] border-[var(--vestara-border-subtle)]',
-  success: 'bg-[var(--vestara-status-success)]/15 text-[var(--vestara-status-success)] border-[var(--vestara-status-success)]/30',
-  warning: 'bg-[var(--vestara-status-warning)]/15 text-[var(--vestara-status-warning)] border-[var(--vestara-status-warning)]/30',
-  error: 'bg-[var(--vestara-status-error)]/15 text-[var(--vestara-status-error)] border-[var(--vestara-status-error)]/30',
+  default:
+    'bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-secondary)] border-[var(--vestara-border-subtle)]',
+  success:
+    'bg-[var(--vestara-status-success)]/15 text-[var(--vestara-status-success)] border-[var(--vestara-status-success)]/30',
+  warning:
+    'bg-[var(--vestara-status-warning)]/15 text-[var(--vestara-status-warning)] border-[var(--vestara-status-warning)]/30',
+  error:
+    'bg-[var(--vestara-status-error)]/15 text-[var(--vestara-status-error)] border-[var(--vestara-status-error)]/30',
   info: 'bg-[var(--vestara-status-info)]/15 text-[var(--vestara-status-info)] border-[var(--vestara-status-info)]/30',
 };
 
@@ -64,14 +68,7 @@ const DOT_COLORS: Record<BadgeVariant, string> = {
 
 // ─── Component ─────────────────────────────────────────────────
 
-export function Badge({
-  variant = 'default',
-  size = 'md',
-  children,
-  icon,
-  dot = false,
-  className = '',
-}: BadgeProps) {
+export function Badge({ variant = 'default', size = 'md', children, icon, dot = false, className = '' }: BadgeProps) {
   return (
     <span
       className={`
@@ -83,9 +80,7 @@ export function Badge({
         ${className}
       `}
     >
-      {dot && (
-        <span className={`w-1.5 h-1.5 rounded-full ${DOT_COLORS[variant]}`} />
-      )}
+      {dot && <span className={`w-1.5 h-1.5 rounded-full ${DOT_COLORS[variant]}`} />}
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
     </span>

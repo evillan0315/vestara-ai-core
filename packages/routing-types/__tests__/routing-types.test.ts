@@ -1,11 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import {
-  ROUTING_CAPABILITIES,
-  isRoutingCapability,
-  providerId,
-  modelId,
-} from '../src/index.js';
-import type { ProviderId, ModelId, ProviderModelRef } from '../src/index.js';
+import { describe, expect, it } from 'vitest';
+import type { ModelId, ProviderId, ProviderModelRef } from '../src/index.js';
+import { isRoutingCapability, modelId, providerId, ROUTING_CAPABILITIES } from '../src/index.js';
 
 describe('RoutingCapability', () => {
   it('has exactly 14 values', () => {
@@ -33,8 +28,12 @@ describe('RoutingCapability', () => {
     // RoutingCapability and AgentCapability are distinct concepts.
     // Verify no accidental overlap in naming.
     const agentCaps = [
-      'architecture-analysis', 'code-generation', 'testing',
-      'documentation', 'security-analysis', 'refactoring',
+      'architecture-analysis',
+      'code-generation',
+      'testing',
+      'documentation',
+      'security-analysis',
+      'refactoring',
     ];
     for (const cap of agentCaps) {
       expect(isRoutingCapability(cap)).toBe(false);

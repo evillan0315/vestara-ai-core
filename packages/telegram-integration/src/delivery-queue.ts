@@ -15,13 +15,7 @@ import type { ChannelDelivery, ChannelDeliveryContent } from '@vestara/channel-t
 
 // ─── Types ─────────────────────────────────────────────────────
 
-export type DeliveryStatus =
-  | 'pending'
-  | 'sending'
-  | 'delivered'
-  | 'failed'
-  | 'retrying'
-  | 'dead-letter';
+export type DeliveryStatus = 'pending' | 'sending' | 'delivered' | 'failed' | 'retrying' | 'dead-letter';
 
 export type DeliveryPriority = 'low' | 'normal' | 'high';
 
@@ -107,10 +101,7 @@ export class TelegramDeliveryQueue {
   /**
    * Enqueue a delivery for sending.
    */
-  enqueue(
-    delivery: ChannelDelivery,
-    priority: DeliveryPriority = 'normal',
-  ): DeliveryRecord {
+  enqueue(delivery: ChannelDelivery, priority: DeliveryPriority = 'normal'): DeliveryRecord {
     const record: DeliveryRecord = {
       id: `dlv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       delivery,
@@ -198,10 +189,7 @@ export class TelegramDeliveryQueue {
     }
 
     // Calculate retry delay with exponential backoff
-    const delay = Math.min(
-      this.config.retryBaseDelayMs * Math.pow(2, record.attempts - 1),
-      this.config.retryMaxDelayMs,
-    );
+    const delay = Math.min(this.config.retryBaseDelayMs * 2 ** (record.attempts - 1), this.config.retryMaxDelayMs);
 
     const updated: DeliveryRecord = {
       ...record,
@@ -345,10 +333,7 @@ export class TelegramDeliveryQueue {
     const refillAmount = Math.floor(elapsed / 1000) * this.config.rateLimitPerSecond;
 
     if (refillAmount > 0) {
-      this.rateLimitTokens = Math.min(
-        this.config.rateLimitPerSecond,
-        this.rateLimitTokens + refillAmount,
-      );
+      this.rateLimitTokens = Math.min(this.config.rateLimitPerSecond, this.rateLimitTokens + refillAmount);
       this.rateLimitLastRefill = now;
     }
   }

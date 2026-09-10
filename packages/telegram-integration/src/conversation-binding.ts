@@ -11,6 +11,8 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import { randomBytes } from 'node:crypto';
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export type ConversationBindingStatus = 'active' | 'paused' | 'closed';
@@ -104,7 +106,7 @@ export class TelegramConversationBindingService {
     const now = new Date().toISOString();
 
     const binding: ConversationBinding = {
-      id: `conv-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `conv-${Date.now()}-${randomBytes(4).toString('hex')}`,
       principalId: params.principalId,
       workspaceId: params.workspaceId,
       telegramChatId: params.telegramChatId,
@@ -133,10 +135,7 @@ export class TelegramConversationBindingService {
   /**
    * Get active binding for a Telegram chat and principal.
    */
-  getActiveBinding(
-    telegramChatId: string,
-    principalId: string,
-  ): ConversationBinding | undefined {
+  getActiveBinding(telegramChatId: string, principalId: string): ConversationBinding | undefined {
     for (const binding of this.bindings.values()) {
       if (
         binding.telegramChatId === telegramChatId &&
@@ -153,18 +152,14 @@ export class TelegramConversationBindingService {
    * Get all bindings for a Telegram chat.
    */
   getBindingsByChat(telegramChatId: string): readonly ConversationBinding[] {
-    return Array.from(this.bindings.values()).filter(
-      (b) => b.telegramChatId === telegramChatId,
-    );
+    return Array.from(this.bindings.values()).filter((b) => b.telegramChatId === telegramChatId);
   }
 
   /**
    * Get all bindings for a principal.
    */
   getBindingsByPrincipal(principalId: string): readonly ConversationBinding[] {
-    return Array.from(this.bindings.values()).filter(
-      (b) => b.principalId === principalId,
-    );
+    return Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
   }
 
   /**
@@ -243,9 +238,7 @@ export class TelegramConversationBindingService {
    * Check if a chat can create a new conversation.
    */
   canCreateConversation(telegramChatId: string): boolean {
-    const activeBindings = this.getBindingsByChat(telegramChatId).filter(
-      (b) => b.status === 'active',
-    );
+    const activeBindings = this.getBindingsByChat(telegramChatId).filter((b) => b.status === 'active');
     return activeBindings.length < this.config.maxConversationsPerChat;
   }
 
@@ -253,9 +246,7 @@ export class TelegramConversationBindingService {
    * Get the default model/provider for a chat.
    */
   getChatDefaults(telegramChatId: string): { model: string; provider: string } {
-    const activeBinding = this.getBindingsByChat(telegramChatId).find(
-      (b) => b.status === 'active',
-    );
+    const activeBinding = this.getBindingsByChat(telegramChatId).find((b) => b.status === 'active');
 
     return {
       model: activeBinding?.defaultModel ?? this.config.defaultModel,

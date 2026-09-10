@@ -26,7 +26,7 @@
  * @see docs/blueprint/GA-UI-004-active-turn-ux.md
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import React, { Profiler, useCallback, useEffect, useDeferredValue, memo, useRef, useState } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { useProviderSettings } from '../../hooks/useProviderSettings';
 import type { OpenCodeSessionView } from '../../lib/opencode';
@@ -35,6 +35,7 @@ import type {
   OptimisticHumanTurn,
   StructuredEditOperation,
   StructuredTerminalOperation,
+  StructuredVerificationOperation,
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
 import type { AssistantExecutionDetail } from '@vestara/shared';
@@ -64,6 +65,24 @@ export interface ConversationPanelProps {
 
 /** Scroll distance (px) from the bottom within which the view still follows. */
 const NEAR_BOTTOM_PX = 96;
+
+/**
+ * M11C-style bounded render window: only mount the latest N messages in the
+ * DOM. Prevents unbounded DOM growth in long tool-rich conversations where
+ * each MessageBubble contains an expensive MarkdownRenderer.
+ */
+const RENDER_WINDOW = 100;
+
+/** React Profiler callback for performance monitoring (dev only). */
+function onRender(
+  id: string,
+  phase: 'mount' | 'update' | 'nested-update',
+  actualDuration: number,
+) {
+  if (process.env.NODE_ENV === 'development' && actualDuration > 16) {
+    console.warn(`[profiler] ${id} ${phase}: ${actualDuration.toFixed(1)}ms`);
+  }
+}
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -116,7 +135,7 @@ function AssistantLabel({ model }: { model?: string }) {
  * rich content (fenced code blocks, tables) and future M4–M7 surfaces
  * (diff, terminal, task list, permission, verification, artifact).
  */
-function MessageBubble({ message }: { message: { role: string; content: string; createdAt: string; model?: string } }) {
+const MessageBubble = memo(function MessageBubble({ message }: { message: { role: string; content: string; createdAt: string; model?: string } }) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
 
@@ -157,7 +176,7 @@ function MessageBubble({ message }: { message: { role: string; content: string; 
       </div>
     </div>
   );
-}
+});
 
 /**
  * Optimistic human-turn projection (GA-UI-004 §2).
@@ -232,6 +251,7 @@ function ActiveTurn({
   operations,
   structuredEdits,
   structuredTerminals,
+  structuredVerifications,
   taskSnapshot,
   onOpenInEditor,
 }: {
@@ -240,12 +260,13 @@ function ActiveTurn({
   operations?: AssistantToolOperation[];
   structuredEdits?: readonly StructuredEditOperation[];
   structuredTerminals?: readonly StructuredTerminalOperation[];
+  structuredVerifications?: readonly StructuredVerificationOperation[];
   taskSnapshot?: AssistantExecutionDetail | null;
   onOpenInEditor?: (file: string) => void;
 }) {
   const isThinking = !text;
   const ops = operations ?? [];
-  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || !!taskSnapshot;
+  const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || (structuredVerifications?.length ?? 0) > 0 || !!taskSnapshot;
   // Timeline collapse discipline (M5): expanded while executing (thinking),
   // auto-collapsed once response generation begins. User-expandable while
   // streaming.
@@ -260,6 +281,12 @@ function ActiveTurn({
   }, [isThinking]);
   const timelineExpanded = isThinking ? true : timelineOpen;
   const toggleTimeline = useCallback(() => setTimelineOpen((v) => !v), []);
+
+  // M2B: useDeferredValue tells React the Markdown render can be deferred
+  // behind higher-priority updates (status badges, scroll, animations).
+  // React 19 batches deferred renders automatically — no manual timer needed.
+  const deferredText = useDeferredValue(text);
+
   return (
     <div className="flex justify-start" data-testid="assistant-active-turn">
       <div className="max-w-full min-w-0 flex-1 overflow-hidden">
@@ -287,6 +314,7 @@ function ActiveTurn({
             operations={ops}
             structuredEdits={structuredEdits}
             structuredTerminals={structuredTerminals}
+            structuredVerifications={structuredVerifications}
             taskSnapshot={taskSnapshot}
             onOpenInEditor={onOpenInEditor}
             expanded={timelineExpanded}
@@ -310,7 +338,7 @@ function ActiveTurn({
               aria-live="off"
               data-testid="active-turn-text"
             >
-              <MarkdownRenderer content={text} />
+              <MarkdownRenderer content={deferredText} />
               <span className="motion-reduce:animate-none animate-pulse text-amber-500/70" aria-hidden="true">
                 {' '}▌
               </span>
@@ -540,9 +568,9 @@ function ComposeInput({
           <button
             type="button"
             aria-label="Attach file (coming soon)"
-            title="Attach file"
-            disabled={loading}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-800/60 hover:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            title="Attach file (coming soon)"
+            disabled
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-700 cursor-not-allowed opacity-40"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
@@ -551,9 +579,9 @@ function ComposeInput({
           <button
             type="button"
             aria-label="Reference context (coming soon)"
-            title="Reference context"
-            disabled={loading}
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:bg-zinc-800/60 hover:text-zinc-400 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+            title="Reference context (coming soon)"
+            disabled
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-700 cursor-not-allowed opacity-40"
           >
             <span className="text-[13px] font-semibold leading-none">@</span>
           </button>
@@ -1031,12 +1059,16 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             ref={scrollRef}
             onScroll={handleScroll}
             tabIndex={-1}
+            role="log"
+            aria-live="polite"
+            aria-label="Assistant conversation"
             data-testid="conversation-scroll"
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 space-y-6 focus:outline-none min-w-0"
           >
-            {assistant.messages.map((msg) => (
-              <MessageBubble key={msg.id} message={msg} />
-            ))}
+            <Profiler id="MessageList" onRender={onRender}>
+              {assistant.messages.slice(-RENDER_WINDOW).map((msg) => (
+                <MessageBubble key={msg.id} message={msg} />
+              ))}
             {optimisticTurns.map((turn) => (
               <OptimisticHumanBubble key={turn.clientTurnId} turn={turn} onRetry={handleRetry} />
             ))}
@@ -1047,10 +1079,12 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
                 operations={assistant.toolOperations ?? []}
                 structuredEdits={assistant.structuredEdits ?? []}
                 structuredTerminals={assistant.structuredTerminals ?? []}
+                structuredVerifications={assistant.structuredVerifications ?? []}
                 taskSnapshot={assistant.taskSnapshot ?? null}
                 onOpenInEditor={openInEditorFallback}
               />
             )}
+            </Profiler>
           </div>
           {showJump && (
             <div className="absolute inset-x-0 bottom-3 flex justify-center pointer-events-none">

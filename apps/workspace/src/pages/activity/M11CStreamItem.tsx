@@ -22,6 +22,18 @@ interface M11CStreamItemProps {
   readonly item: StreamItemType;
   readonly onOpenDetail?: (item: StreamItemType) => void;
   readonly onDrillDown?: (aggregateId: string, referencedIds: readonly string[]) => void;
+  /** Reply to this message — opens composer with @mention. */
+  readonly onReply?: (item: StreamItemType) => void;
+  /** Retract this message (append-only correction). */
+  readonly onRetract?: (item: StreamItemType) => void;
+  /** Edit this message (append-only correction with new content). */
+  readonly onEdit?: (item: StreamItemType) => void;
+  /** Open thread view for this message's referenced activities. */
+  readonly onOpenThread?: (activityIds: readonly string[]) => void;
+  /** Look up author name by activity ID for reply indicator. */
+  readonly lookupAuthor?: (activityId: string) => string | undefined;
+  /** Look up content preview by activity ID for reply indicator. */
+  readonly lookupContent?: (activityId: string) => string | undefined;
   /** AR-REC-R6: Ephemeral submission state for interaction responses. */
   readonly submission?: SubmissionState;
   /** AR-REC-R6: Submit a response to an interaction. */
@@ -89,6 +101,12 @@ export default function M11CStreamItemComponent({
   item,
   onOpenDetail,
   onDrillDown,
+  onReply,
+  onRetract,
+  onEdit,
+  onOpenThread,
+  lookupAuthor,
+  lookupContent,
   submission,
   onSubmitResponse,
 }: M11CStreamItemProps) {
@@ -225,6 +243,32 @@ export default function M11CStreamItemComponent({
           <span className="ar-item__time">{formatTimestamp(item.timestamp)}</span>
         </div>
 
+        {/* Reply indicator — clickable to open thread view */}
+        {item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); onOpenThread?.(item.referencedActivityIds!); }}
+            className="mb-1.5 rounded-md border border-zinc-800/50 bg-zinc-900/30 px-2 py-1.5 text-left w-full hover:bg-zinc-800/30 transition-colors cursor-pointer"
+            aria-label={`View thread with ${lookupAuthor ? item.referencedActivityIds.map((id) => lookupAuthor(id) ?? 'someone').join(', ') : `${item.referencedActivityIds.length} messages`}`}
+          >
+            <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-0.5">
+              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
+              </svg>
+              <span className="font-medium">
+                {lookupAuthor
+                  ? item.referencedActivityIds.map((id) => lookupAuthor(id) ?? 'someone').join(', ')
+                  : `Reply to ${item.referencedActivityIds.length} message${item.referencedActivityIds.length > 1 ? 's' : ''}`}
+              </span>
+            </div>
+            {lookupContent && item.referencedActivityIds[0] && (
+              <div className="text-[10px] text-zinc-600 line-clamp-1 pl-4">
+                {lookupContent(item.referencedActivityIds[0])}
+              </div>
+            )}
+          </button>
+        )}
+
         <div className={`ar-item__content text-xs leading-relaxed ${styles.text}`}>
           {item.content || (
             <span className="italic text-(--vestara-text-dim)">{glyph} {item.kind}</span>
@@ -236,6 +280,36 @@ export default function M11CStreamItemComponent({
           <span aria-hidden="true">{glyph}</span>
           {item.workflowRunId && (
             <span className="truncate">workflow: {item.workflowRunId.slice(0, 8)}</span>
+          )}
+          {onReply && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onReply(item); }}
+              className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
+              aria-label={`Reply to ${item.actor.displayName}`}
+            >
+              Reply
+            </button>
+          )}
+          {onEdit && item.actor.type === 'human' && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+              className="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors cursor-pointer"
+              aria-label={`Edit message from ${item.actor.displayName}`}
+            >
+              Edit
+            </button>
+          )}
+          {onRetract && item.actor.type === 'human' && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onRetract(item); }}
+              className="text-[10px] text-zinc-700 hover:text-red-400 transition-colors cursor-pointer"
+              aria-label={`Retract message from ${item.actor.displayName}`}
+            >
+              Retract
+            </button>
           )}
         </div>
       </div>

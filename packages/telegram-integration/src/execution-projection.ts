@@ -15,14 +15,7 @@ import type { ChannelDelivery } from '@vestara/channel-types';
 
 // ─── Types ─────────────────────────────────────────────────────
 
-export type ExecutionStatus =
-  | 'queued'
-  | 'planning'
-  | 'executing'
-  | 'verifying'
-  | 'completed'
-  | 'failed'
-  | 'cancelled';
+export type ExecutionStatus = 'queued' | 'planning' | 'executing' | 'verifying' | 'completed' | 'failed' | 'cancelled';
 
 export type ProgressLevel = 'none' | 'brief' | 'detailed';
 
@@ -106,11 +99,7 @@ export class TelegramExecutionProjection {
   /**
    * Project an execution update to a Telegram chat.
    */
-  projectUpdate(
-    update: ExecutionUpdate,
-    chatId: string,
-    progressLevel?: ProgressLevel,
-  ): ChannelDelivery {
+  projectUpdate(update: ExecutionUpdate, chatId: string, progressLevel?: ProgressLevel): ChannelDelivery {
     // Track active execution
     this.activeExecutions.set(update.executionId, update);
 
@@ -139,15 +128,10 @@ export class TelegramExecutionProjection {
   /**
    * Project a completion message.
    */
-  projectCompletion(
-    executionId: string,
-    summary: string,
-    chatId: string,
-  ): ChannelDelivery | null {
+  projectCompletion(executionId: string, summary: string, chatId: string): ChannelDelivery | null {
     if (!this.config.sendCompletionMessage) return null;
 
-    const message = this.config.completionTemplate
-      .replace('{summary}', summary);
+    const message = this.config.completionTemplate.replace('{summary}', summary);
 
     return {
       id: `proj-comp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -165,15 +149,10 @@ export class TelegramExecutionProjection {
   /**
    * Project a failure message.
    */
-  projectFailure(
-    executionId: string,
-    error: string,
-    chatId: string,
-  ): ChannelDelivery | null {
+  projectFailure(executionId: string, error: string, chatId: string): ChannelDelivery | null {
     if (!this.config.sendFailureMessage) return null;
 
-    const message = this.config.failureTemplate
-      .replace('{error}', error);
+    const message = this.config.failureTemplate.replace('{error}', error);
 
     return {
       id: `proj-fail-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,

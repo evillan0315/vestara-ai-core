@@ -24,13 +24,8 @@
  * @see packages/types/src/diagnostic.ts (DIAG-0/1/2/3/4 types)
  */
 
-import type {
-  DiagnosticSeverity,
-  DiagnosticSnapshot,
-  DiagnosticSourceHealth,
-  DiagnosticSourceRef,
-} from './diagnostic';
 import type { JsonRecord } from './common';
+import type { DiagnosticSeverity, DiagnosticSnapshot, DiagnosticSourceHealth, DiagnosticSourceRef } from './diagnostic';
 
 // ─── Observer Finding ──────────────────────────────────────────
 
@@ -90,20 +85,20 @@ export interface ObserverFinding {
  * Progression: observation → hypothesis → diagnosis (or rejected/merged).
  */
 export type ObserverFindingStatus =
-  | 'observation'   // Initial detection, evidence being gathered
-  | 'hypothesis'    // Preliminary explanation proposed
-  | 'diagnosis'     // Root cause identified and verified
-  | 'rejected'      // Finding was invalid or superseded
-  | 'merged';       // Finding was merged into another finding
+  | 'observation' // Initial detection, evidence being gathered
+  | 'hypothesis' // Preliminary explanation proposed
+  | 'diagnosis' // Root cause identified and verified
+  | 'rejected' // Finding was invalid or superseded
+  | 'merged'; // Finding was merged into another finding
 
 /**
  * OBS-1: Confidence level labels derived from numeric scores.
  */
 export type ObserverConfidenceLevel =
-  | 'low'          // 0.0 - 0.3: weak evidence, speculative
-  | 'moderate'     // 0.3 - 0.6: some evidence, plausible
-  | 'high'         // 0.6 - 0.8: strong evidence, likely
-  | 'very-high';   // 0.8 - 1.0: overwhelming evidence, near-certain
+  | 'low' // 0.0 - 0.3: weak evidence, speculative
+  | 'moderate' // 0.3 - 0.6: some evidence, plausible
+  | 'high' // 0.6 - 0.8: strong evidence, likely
+  | 'very-high'; // 0.8 - 1.0: overwhelming evidence, near-certain
 
 /**
  * OBS-1: Reference to a diagnostic snapshot within a finding.
@@ -191,8 +186,8 @@ export interface ObserverFindingStore {
  * but Observer cannot consume events from authority stores.
  */
 export type ObserverEventType =
-  | 'finding.created'    // New finding observed
-  | 'finding.updated'    // Finding status or confidence changed
-  | 'finding.promoted'   // Finding promoted (observation → hypothesis → diagnosis)
-  | 'finding.resolved'   // Finding resolved (merged or rejected)
+  | 'finding.created' // New finding observed
+  | 'finding.updated' // Finding status or confidence changed
+  | 'finding.promoted' // Finding promoted (observation → hypothesis → diagnosis)
+  | 'finding.resolved' // Finding resolved (merged or rejected)
   | 'degradation.detected'; // OBS-4: degradation trend detected

@@ -7,19 +7,23 @@
  *   ◌ Reconnecting
  *   ⚠ Resyncing
  *   ○ Offline
+ *
+ * Uses the shared StatusIndicator from @vestara/ui for consistent
+ * status presentation across the workspace.
  */
 
+import { StatusIndicator, type StatusVariant } from '@vestara/ui';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 
 // ─── Config ──────────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<M11CConnectionState, { readonly symbol: string; readonly label: string; readonly tone: 'live' | 'warn' | 'off' }> = {
-  connecting: { symbol: '◌', label: 'Connecting', tone: 'warn' },
-  live: { symbol: '●', label: 'Live', tone: 'live' },
-  reconnecting: { symbol: '◌', label: 'Reconnecting', tone: 'warn' },
-  offline: { symbol: '○', label: 'Offline', tone: 'off' },
-  paused: { symbol: '⏸', label: 'Paused', tone: 'warn' },
-  error: { symbol: '⚠', label: 'Resyncing', tone: 'warn' },
+const STATUS_CONFIG: Record<M11CConnectionState, { readonly label: string; readonly variant: StatusVariant }> = {
+  connecting: { label: 'Connecting', variant: 'warn' },
+  live: { label: 'Live', variant: 'live' },
+  reconnecting: { label: 'Reconnecting', variant: 'warn' },
+  offline: { label: 'Offline', variant: 'off' },
+  paused: { label: 'Paused', variant: 'idle' },
+  error: { label: 'Resyncing', variant: 'error' },
 };
 
 // ─── Component ───────────────────────────────────────────────
@@ -33,15 +37,18 @@ export default function M11CConnectionStatus({ state }: M11CConnectionStatusProp
 
   return (
     <span
-      className={`ar-status ar-status--${config.tone}`}
+      className="ar-status flex items-center gap-1.5"
       title={`Activity Room connection: ${config.label}`}
       role="status"
       aria-live="polite"
     >
-      <span className={`ar-lamp ar-lamp--${config.tone} ${state === 'live' ? 'ar-lamp--pulse' : ''}`} aria-hidden="true">
-        {config.symbol}
-      </span>
-      {config.label}
+      <StatusIndicator
+        variant={config.variant}
+        size="sm"
+        pulse={state === 'live'}
+        ariaLabel={`Connection: ${config.label}`}
+      />
+      <span className="text-[11px] text-zinc-400">{config.label}</span>
     </span>
   );
 }

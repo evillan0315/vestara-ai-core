@@ -12,6 +12,7 @@
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
+import { Badge, StatusIndicator, type StatusVariant } from '@vestara/ui';
 import { useMemo } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -29,12 +30,12 @@ interface M11CParticipantRailProps {
 
 // ─── Visual Config ───────────────────────────────────────────
 
-const PRESENCE_LAMP: Record<string, string> = {
-  online: 'ar-lamp ar-lamp--live',
-  active: 'ar-lamp ar-lamp--live',
-  busy: 'ar-lamp ar-lamp--warn',
-  away: 'ar-lamp ar-lamp--dim',
-  offline: 'ar-lamp ar-lamp--dim',
+const PRESENCE_VARIANT: Record<string, StatusVariant> = {
+  online: 'live',
+  active: 'live',
+  busy: 'warn',
+  away: 'idle',
+  offline: 'off',
 };
 
 const WORK_STATE_LABEL: Record<string, string> = {
@@ -134,7 +135,7 @@ function ParticipantRow({
   onSelect: (id: string | undefined) => void;
   onOpenAgentControl?: (participantId: string) => void;
 }) {
-  const lamp = PRESENCE_LAMP[participant.presence] ?? 'ar-lamp ar-lamp--dim';
+  const presenceVariant = PRESENCE_VARIANT[participant.presence] ?? 'off';
   const workLabel = WORK_STATE_LABEL[participant.workState] ?? participant.workState;
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
   const isHuman = participant.type === 'human';
@@ -189,17 +190,22 @@ function ParticipantRow({
             {presentationName}
           </span>
           {/* Type badge — metadata, not conversational identity */}
-          <span className={`ar-guest__badge ${isHuman ? 'ar-guest__badge--human' : 'ar-guest__badge--agent'}`}>
+          <Badge variant={isHuman ? 'info' : 'default'} size="sm">
             {isHuman ? 'Human' : 'Agent'}
-          </span>
+          </Badge>
           {/* Role badge — metadata */}
           {!isHuman && participant.role && (
-            <span className="ar-guest__role">{participant.role}</span>
+            <Badge variant="default" size="sm" className="!text-[9px]">{participant.role}</Badge>
           )}
         </span>
         <span className="ar-guest__sub">
-          {/* Presence lamp */}
-          <span className={lamp} aria-hidden="true" />
+          {/* Presence indicator */}
+          <StatusIndicator
+            variant={presenceVariant}
+            size="xs"
+            pulse={participant.presence === 'online' || participant.presence === 'active'}
+            ariaLabel={`Presence: ${participant.presence}`}
+          />
           <span>{workLabel}</span>
           {membershipLabel && <span className="ar-guest__membership">{membershipLabel}</span>}
         </span>

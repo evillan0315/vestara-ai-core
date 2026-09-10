@@ -1,6 +1,29 @@
 @import "tailwindcss";
 
-/* ── Dark zinc palette (default) ── */
+/* ══════════════════════════════════════════════════════════════
+   VES-DESIGN-003A: Canonical Token Runtime Wiring
+   ══════════════════════════════════════════════════════════════
+
+   Generated canonical tokens (single source of truth):
+     @vestara/ui-tokens → generate.ts → generated-tokens.css
+
+   This file imports the generated CSS and retains ONLY:
+   - Zinc palette (Tailwind color resolution)
+   - Legacy compatibility aliases
+   - JS-overridden values (font, spacing, radius)
+   - Dynamic accent variables (set by theme.tsx at runtime)
+   - Derived surface utilities (color-mix expressions)
+   - Chart overrides
+   - Non-token global CSS
+
+   All canonical visual token values are authored in
+   packages/ui-tokens/src/themes.ts — NOT here.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Generated canonical tokens (VES-DESIGN-003A) ── */
+@import "./generated-tokens.css";
+
+/* ── Zinc palette (Tailwind color resolution) ── */
 :root {
   --color-zinc-950: #09090b;
   --color-zinc-900: #18181b;
@@ -14,45 +37,56 @@
   --color-zinc-100: #f4f4f5;
   --color-zinc-50: #fafafa;
 
+  /* ── Legacy brand colors (DEPRECATED — use status tokens) ── */
   --vestara-gold: #c9a84c;
   --vestara-gold-light: #fcf6ba;
   --vestara-gold-dark: #b38728;
   --vestara-gold-gradient: linear-gradient(135deg, #bf953f, #fcf6ba, #b38728);
-  --vestara-green: #4ade80;
-  --vestara-red: #f87171;
-  --vestara-blue: #60a5fa;
+  --vestara-green: var(--vestara-status-success);
+  --vestara-red: var(--vestara-status-error);
+  --vestara-blue: var(--vestara-status-info);
   --vestara-purple: #a78bfa;
-  --vestara-amber: #f59e0b;
-  --vestara-amber-bg: rgba(245, 158, 11, 0.1);
-  --vestara-amber-border: rgba(245, 158, 11, 0.3);
+  --vestara-amber: var(--vestara-status-warning);
+  --vestara-amber-bg: var(--vestara-status-warning-bg);
+  --vestara-amber-border: var(--vestara-status-warning-border);
 
-  /* Dynamic accent (overridden by JS theme system) */
+  /* ── Dynamic accent (overridden by JS theme.tsx at runtime) ──
+     These are NOT canonical token authority — they are runtime
+     overrides that theme.tsx sets via document.documentElement.style.
+     The generated CSS provides fallback values via --vestara-accent-*.
+     theme.tsx overrides these to implement user-selectable accent colors. */
   --vestara-accent: #f59e0b;
   --vestara-accent-light: #fbbf24;
   --vestara-accent-dark: #d97706;
-  --vestara-accent-bg: #f59e0b14;
-  --vestara-accent-border: #f59e0b40;
-  --vestara-accent-border-hover: #f59e0b60;
-  --vestara-accent-border-active: #f59e0b;
-  --vestara-accent-text: #fbbf24;
-  --vestara-accent-text-hover: #fbbf24;
-  --vestara-accent-text-muted: #f59e0b;
 
-  /* Brand neutral color palette */
-  --vestara-text: #e4e4e7;
-  --vestara-text-2: #a1a1aa;
-  --vestara-text-muted: #71717a;
-  --vestara-text-dim: #52525b;
+  /* ── Derived accent utilities (use dynamic accent variables) ──
+     These reference the dynamic accent variables above and cannot
+     be pre-generated because their values change at runtime. */
+  --vestara-accent-bg: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
+  --vestara-accent-border: color-mix(in srgb, var(--vestara-accent) 25%, transparent);
+  --vestara-accent-border-hover: color-mix(in srgb, var(--vestara-accent) 37%, transparent);
+  --vestara-accent-border-active: var(--vestara-accent);
+  --vestara-accent-text: var(--vestara-accent-light);
+  --vestara-accent-text-hover: var(--vestara-accent-light);
+  --vestara-accent-text-muted: var(--vestara-accent);
 
-  /* Dark metallic surface treatment (adapts with theme toggle) */
-  --vestara-surface: #0a0a0c;
-  --vestara-surface-elevated: color-mix(in srgb, var(--color-zinc-800) 72%, var(--color-zinc-900));
+  /* ── Derived surface utilities (use dynamic accent variables) ──
+     These reference --vestara-accent which changes at runtime. */
   --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 10%, transparent);
   --vestara-surface-glow-hover: color-mix(in srgb, var(--vestara-accent) 16%, transparent);
   --vestara-surface-sheen: color-mix(in srgb, var(--vestara-accent-light) 8%, transparent);
   --vestara-surface-sheen-hover: color-mix(in srgb, var(--vestara-accent-light) 12%, transparent);
 
-  /* Font defaults (overridden by JS) */
+  /* ── Legacy text aliases (COMPATIBILITY — DEPRECATED) ── */
+  --vestara-text: var(--vestara-text-primary);
+  --vestara-text-2: var(--vestara-text-secondary);
+  --vestara-text-dim: var(--vestara-text-disabled);
+
+  /* ── Legacy surface aliases (COMPATIBILITY — DEPRECATED) ── */
+  --vestara-surface: var(--vestara-surface-canvas);
+  --vestara-surface-elevated: var(--vestara-surface-panel-raised);
+
+  /* ── Font defaults (overridden by JS theme.tsx) ── */
   --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
   --vestara-font-size-base: 14.25px;
   --vestara-font-size-sm: 12.25px;
@@ -62,21 +96,21 @@
   --vestara-font-weight-medium: 500;
   --vestara-font-weight-semibold: 600;
 
-  /* Layout defaults (overridden by JS) */
+  /* ── Layout defaults (overridden by JS theme.tsx) ── */
   --vestara-sidebar-width: 240px;
   --vestara-spacing-page: 1rem;
   --vestara-spacing-section: 0.75rem;
   --vestara-spacing-element: 0.375rem;
 
-  /* Border radius defaults (overridden by JS) */
+  /* ── Border radius defaults (overridden by JS theme.tsx) ── */
   --vestara-radius: 6px;
   --vestara-radius-lg: 8px;
   --vestara-radius-full: 9999px;
 
-  /* Page container (overridden by JS) */
+  /* ── Page container (overridden by JS theme.tsx) ── */
   --vestara-page-max-width: 1280px;
 
-  /* Chart defaults (dark) */
+  /* ── Chart defaults (dark) ── */
   --chart-grid: #27272a;
   --chart-text: #a1a1aa;
   --chart-tooltip-bg: #18181b;
@@ -99,37 +133,39 @@
   --color-zinc-100: #2a2a20;
   --color-zinc-50: #1a1a10;
 
+  /* Legacy brand colors — light mode (DEPRECATED) */
   --vestara-gold: #b8860b;
-  --vestara-green: #16a34a;
-  --vestara-red: #dc2626;
-  --vestara-blue: #2563eb;
+  --vestara-green: var(--vestara-status-success);
+  --vestara-red: var(--vestara-status-error);
+  --vestara-blue: var(--vestara-status-info);
   --vestara-purple: #7c3aed;
-  --vestara-amber: #b45309;
-  --vestara-amber-bg: rgba(180, 83, 9, 0.08);
-  --vestara-amber-border: rgba(180, 83, 9, 0.2);
+  --vestara-amber: var(--vestara-status-warning);
+  --vestara-amber-bg: var(--vestara-status-warning-bg);
+  --vestara-amber-border: var(--vestara-status-warning-border);
   --color-amber-400: #b45309;
   --color-amber-500: #92400e;
+
+  /* Dynamic accent — light mode (overridden by JS theme.tsx) */
   --vestara-accent: #b45309;
   --vestara-accent-light: #d97706;
   --vestara-accent-dark: #92400e;
-  --vestara-accent-bg: #b4530914;
-  --vestara-accent-border: #b4530940;
-  --vestara-accent-text: #d97706;
 
-  /* Brand neutral color palette - light mode */
-  --vestara-text: #3a3a34;
-  --vestara-text-2: #6b6b60;
-  --vestara-text-muted: #888880;
-  --vestara-text-dim: #a8a8a0;
+  /* Derived accent utilities — light mode */
+  --vestara-accent-bg: color-mix(in srgb, var(--vestara-accent) 6%, transparent);
+  --vestara-accent-border: color-mix(in srgb, var(--vestara-accent) 12%, transparent);
+  --vestara-accent-border-hover: color-mix(in srgb, var(--vestara-accent) 20%, transparent);
+  --vestara-accent-border-active: var(--vestara-accent);
+  --vestara-accent-text: var(--vestara-accent-light);
+  --vestara-accent-text-hover: var(--vestara-accent);
+  --vestara-accent-text-muted: var(--vestara-accent);
 
-  /* Light metallic surface treatment */
-  --vestara-surface: #f5f5f0;
-  --vestara-surface-elevated: #ffffff;
+  /* Derived surface utilities — light mode */
   --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
   --vestara-surface-glow-hover: color-mix(in srgb, var(--vestara-accent) 14%, transparent);
   --vestara-surface-sheen: color-mix(in srgb, white 20%, transparent);
   --vestara-surface-sheen-hover: color-mix(in srgb, white 28%, transparent);
 
+  /* Chart overrides — light mode */
   --chart-grid: #d4d4c8;
   --chart-text: #6b6b60;
   --chart-tooltip-bg: #ffffff;
@@ -380,6 +416,70 @@ body {
   transform-origin: bottom right;
 }
 
+/* ── M11: Micro-interaction animations ── */
+
+/* Diff expansion — smooth height reveal */
+@keyframes assistant-expand-in {
+  from {
+    opacity: 0;
+    max-height: 0;
+  }
+  to {
+    opacity: 1;
+    max-height: 600px;
+  }
+}
+
+.assistant-expand-enter {
+  animation: assistant-expand-in 0.2s ease-out both;
+  overflow: hidden;
+}
+
+/* Copy flash — brief highlight on successful copy */
+@keyframes assistant-copy-flash {
+  0% {
+    background-color: rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    background-color: transparent;
+  }
+}
+
+.assistant-copy-flash {
+  animation: assistant-copy-flash 0.6s ease-out;
+}
+
+/* History popover entrance */
+@keyframes assistant-history-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.assistant-history-enter {
+  animation: assistant-history-in 0.15s ease-out both;
+  transform-origin: top center;
+}
+
+/* Permission state transition */
+@keyframes assistant-permission-pulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 0 6px rgba(245, 158, 11, 0);
+  }
+}
+
+.assistant-permission-pulse {
+  animation: assistant-permission-pulse 2s ease-in-out infinite;
+}
+
 @keyframes vestaraWave {
   from {
     transform: scaleY(0.4);
@@ -400,6 +500,10 @@ body {
   .animate-bounce,
   .assistant-message-enter,
   .assistant-dock-enter,
+  .assistant-expand-enter,
+  .assistant-copy-flash,
+  .assistant-history-enter,
+  .assistant-permission-pulse,
   .assistant-thinking-dots span {
     animation: none !important;
   }

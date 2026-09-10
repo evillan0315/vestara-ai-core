@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
+  CanonicalPermissionAction,
   ExecutionId,
-  RuntimeSessionId,
+  ExecutionObservation,
   ExecutionRequest,
   RuntimeBinding,
-  RuntimeExecutionPort,
   RuntimeExecutionHandle,
-  ExecutionObservation,
-  CanonicalPermissionAction,
+  RuntimeExecutionPort,
+  RuntimeSessionId,
 } from '../../execution-types/src/index.js';
-import { operationId, isValidTransition } from '../../execution-types/src/index.js';
+import { isValidTransition, operationId } from '../../execution-types/src/index.js';
 
 // ─── Fake Runtime Adapter (proves port is runtime-neutral) ──────────────────
 
@@ -28,10 +28,7 @@ class FakeRuntimeAdapter implements RuntimeExecutionPort {
     return this.available;
   }
 
-  async execute(
-    request: ExecutionRequest,
-    binding: RuntimeBinding,
-  ): Promise<RuntimeExecutionHandle> {
+  async execute(request: ExecutionRequest, binding: RuntimeBinding): Promise<RuntimeExecutionHandle> {
     const executionId = request.id;
     const observations = this.generateObservations(executionId);
 

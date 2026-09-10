@@ -32,6 +32,7 @@ import {
   type ActivityStreamMessage,
   type ActivityStreamSink,
   type ActivityRecord as ProjectionActivityRecord,
+  toProjectionRecord,
 } from '@vestara/activity-room';
 import { type RawData, WebSocket, type WebSocketServer } from 'ws';
 import { json } from '../http/response.js';
@@ -150,53 +151,6 @@ function sendError(sink: M11BSink, code: string, message: string): void {
 
 function sendUnsubscribed(sink: M11BSink): void {
   sink.send({ op: 'unsubscribed' });
-}
-
-// ─── Projection ActivityRecord (for hub) ────────────────────────
-
-/** Convert M9 ActivityRecord to Projection ActivityRecord for hub broadcasting. */
-function toProjectionRecord(record: M9ActivityRecord): ProjectionActivityRecord {
-  const kindMap: Record<string, ProjectionActivityRecord['kind']> = {
-    'workflow.started': 'workflow',
-    'workflow.completed': 'workflow',
-    'workflow.failed': 'workflow',
-    'workflow.cancelled': 'workflow',
-    'task.runnable': 'task',
-    'task.started': 'task',
-    'task.completed': 'task',
-    'task.failed': 'task',
-    'task.cancelled': 'task',
-    'agent.assigned': 'agent-message',
-    'agent.started': 'agent-message',
-    'agent.progress': 'agent-message',
-    'agent.waiting': 'agent-message',
-    'agent.completed': 'agent-message',
-    'agent.failed': 'agent-message',
-    'agent.cancelled': 'agent-message',
-    'human.message': 'agent-message',
-    'system.event': 'workflow',
-  };
-
-  return {
-    id: String(record.activityId),
-    sequence: record.sequenceNumber,
-    timestamp: record.timestamp,
-    actor: {
-      type: record.actor.type,
-      id: record.actor.id,
-      displayName: record.actor.displayName,
-      ...(record.actorId ? { role: record.actorId } : {}),
-    },
-    kind: kindMap[record.type] ?? 'workflow',
-    agentId: record.actor.type === 'agent' ? record.actor.id : undefined,
-    messageKind: 'message',
-    content: record.payload?.message ?? '',
-    workflowId: record.workflowRunId,
-    sessionId: undefined,
-    evidenceRefs: [],
-    ...(record.payload?.error ? { effect: 'intervention' as const } : {}),
-    ...(record.payload?.output ? { output: record.payload.output } : {}),
-  } as ProjectionActivityRecord;
 }
 
 // ─── M11B Transport Class ───────────────────────────────────────

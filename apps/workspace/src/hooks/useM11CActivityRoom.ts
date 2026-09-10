@@ -78,6 +78,8 @@ export interface M11CStreamItem {
   readonly aggregated?: M11AStreamItem['aggregated'];
   /** Whether this item arrived live (for animation). */
   readonly fresh: boolean;
+  /** IDs of activities this item is replying to (threading). */
+  readonly referencedActivityIds?: readonly string[];
   /** Interaction presentation data (only when kind === 'interaction'). */
   readonly interaction?: {
     readonly interactionId: string;
@@ -177,6 +179,7 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     aggregated: item.aggregated,
     fresh: false,
     interaction: item.interaction,
+    referencedActivityIds: item.referencedActivityIds,
   };
 }
 
@@ -231,6 +234,7 @@ function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean = true)
     executionId: activity.executionId,
     taskId: activity.taskId,
     fresh,
+    referencedActivityIds: activity.referencedActivityIds,
   };
 
   // Carry interaction data for live arrival

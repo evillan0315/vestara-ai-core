@@ -9,12 +9,12 @@
  * @see packages/ui/src/components/Chip.tsx
  */
 
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
-import { Table } from '../src/components/Table';
-import { List, ListItem, ListItemText, ListDivider, ListHeader } from '../src/components/List';
-import { Tag } from '../src/components/Tag';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { Chip } from '../src/components/Chip';
+import { List, ListDivider, ListHeader, ListItem, ListItemText } from '../src/components/List';
+import { Table } from '../src/components/Table';
+import { Tag } from '../src/components/Tag';
 
 // ─── Table Tests ───────────────────────────────────────────────
 
@@ -42,14 +42,7 @@ describe('Table', () => {
   });
 
   it('renders empty state', () => {
-    render(
-      <Table
-        columns={columns}
-        data={[]}
-        keyExtractor={(r) => r.name}
-        emptyContent="No data found"
-      />,
-    );
+    render(<Table columns={columns} data={[]} keyExtractor={(r) => r.name} emptyContent="No data found" />);
     expect(screen.getByText('No data found')).toBeInTheDocument();
   });
 
@@ -60,27 +53,13 @@ describe('Table', () => {
 
   it('calls onRowClick when row is clicked', () => {
     const handleClick = vi.fn();
-    render(
-      <Table
-        columns={columns}
-        data={data}
-        keyExtractor={(r) => r.name}
-        onRowClick={handleClick}
-      />,
-    );
+    render(<Table columns={columns} data={data} keyExtractor={(r) => r.name} onRowClick={handleClick} />);
     fireEvent.click(screen.getByText('Alice'));
     expect(handleClick).toHaveBeenCalledWith(data[0]);
   });
 
   it('renders selection checkboxes when selectable', () => {
-    render(
-      <Table
-        columns={columns}
-        data={data}
-        keyExtractor={(r) => r.name}
-        selectable
-      />,
-    );
+    render(<Table columns={columns} data={data} keyExtractor={(r) => r.name} selectable />);
     const checkboxes = screen.getAllByRole('checkbox');
     expect(checkboxes).toHaveLength(3); // header + 2 rows
   });
@@ -143,7 +122,11 @@ describe('ListItem', () => {
 
   it('does not call onClick when disabled', () => {
     const handleClick = vi.fn();
-    render(<ListItem disabled onClick={handleClick}>Disabled</ListItem>);
+    render(
+      <ListItem disabled onClick={handleClick}>
+        Disabled
+      </ListItem>,
+    );
     fireEvent.click(screen.getByText('Disabled'));
     expect(handleClick).not.toHaveBeenCalled();
   });
@@ -196,7 +179,11 @@ describe('Tag', () => {
 
   it('renders removable tag', () => {
     const handleRemove = vi.fn();
-    render(<Tag removable onRemove={handleRemove}>Removable</Tag>);
+    render(
+      <Tag removable onRemove={handleRemove}>
+        Removable
+      </Tag>,
+    );
     const removeButton = screen.getByLabelText('Remove');
     expect(removeButton).toBeInTheDocument();
     fireEvent.click(removeButton);
@@ -245,7 +232,11 @@ describe('Chip', () => {
 
   it('does not call onClick when disabled', () => {
     const handleClick = vi.fn();
-    render(<Chip disabled onClick={handleClick}>Disabled</Chip>);
+    render(
+      <Chip disabled onClick={handleClick}>
+        Disabled
+      </Chip>,
+    );
     fireEvent.click(screen.getByText('Disabled'));
     expect(handleClick).not.toHaveBeenCalled();
   });

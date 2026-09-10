@@ -13,12 +13,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type {
-  SurfaceContext,
-  SurfaceLocation,
-  SurfaceReference,
-  SurfaceWorkspace,
-} from '../src/surface-context';
+import type { SurfaceContext, SurfaceLocation, SurfaceReference, SurfaceWorkspace } from '../src/surface-context';
 
 // ─── Helper: Create Test Fixtures ────────────────────────────
 

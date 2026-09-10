@@ -11,6 +11,8 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import { randomBytes } from 'node:crypto';
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export interface WorkspaceBinding {
@@ -60,11 +62,7 @@ export class TelegramWorkspaceBindingService {
   /**
    * Bind a principal to a workspace.
    */
-  bindWorkspace(
-    principalId: string,
-    workspaceId: string,
-    workspaceName: string,
-  ): WorkspaceBinding {
+  bindWorkspace(principalId: string, workspaceId: string, workspaceName: string): WorkspaceBinding {
     // Check if already bound
     const existing = this.getBinding(principalId, workspaceId);
     if (existing) {
@@ -81,7 +79,7 @@ export class TelegramWorkspaceBindingService {
     const isFirst = principalBindings.length === 0;
 
     const binding: WorkspaceBinding = {
-      id: `ws-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `ws-${Date.now()}-${randomBytes(4).toString('hex')}`,
       principalId,
       workspaceId,
       workspaceName,

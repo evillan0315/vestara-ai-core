@@ -11,6 +11,8 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import { randomBytes } from 'node:crypto';
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export type PairingStatus = 'pending' | 'approved' | 'expired' | 'revoked';
@@ -102,10 +104,7 @@ export class TelegramPairingService {
    * Create a pairing request for a Telegram user.
    * Returns the pairing token to display to the user.
    */
-  createPairingRequest(
-    telegramUserId: string,
-    telegramDisplayName: string,
-  ): PairingRequest {
+  createPairingRequest(telegramUserId: string, telegramDisplayName: string): PairingRequest {
     // Check if already bound
     const existingBinding = this.getBindingByTelegramId(telegramUserId);
     if (existingBinding?.active) {
@@ -127,7 +126,7 @@ export class TelegramPairingService {
     const expiresAt = new Date(Date.now() + this.config.tokenExpiryMs).toISOString();
 
     const request: PairingRequest = {
-      id: `pair-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `pair-${Date.now()}-${randomBytes(4).toString('hex')}`,
       telegramUserId,
       telegramDisplayName,
       token,
@@ -146,11 +145,7 @@ export class TelegramPairingService {
    * Approve a pairing request using the token.
    * Called from the Vestara UI after authenticated approval.
    */
-  approvePairing(
-    token: string,
-    principalId: string,
-    principalName: string,
-  ): TelegramIdentityBinding {
+  approvePairing(token: string, principalId: string, principalName: string): TelegramIdentityBinding {
     const requestId = this.tokenToRequest.get(token);
     if (!requestId) {
       throw new Error('Invalid pairing token');
@@ -175,7 +170,7 @@ export class TelegramPairingService {
 
     // Create binding
     const binding: TelegramIdentityBinding = {
-      id: `binding-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      id: `binding-${Date.now()}-${randomBytes(4).toString('hex')}`,
       telegramUserId: request.telegramUserId,
       telegramDisplayName: request.telegramDisplayName,
       principalId,
@@ -257,13 +252,15 @@ export class TelegramPairingService {
   }
 
   /**
-   * Generate a pairing token.
+   * Generate a cryptographically secure pairing token.
+   * Uses crypto.randomBytes for secure randomness.
    */
   private generateToken(): string {
     const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    const bytes = randomBytes(this.config.tokenLength);
     let token = '';
     for (let i = 0; i < this.config.tokenLength; i++) {
-      token += chars.charAt(Math.floor(Math.random() * chars.length));
+      token += chars[bytes[i]! % chars.length];
     }
     return token;
   }

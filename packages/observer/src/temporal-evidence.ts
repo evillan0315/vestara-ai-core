@@ -19,10 +19,10 @@
  */
 
 import type {
+  DiagnosticSeverity,
   DiagnosticSnapshot,
   DiagnosticSourceHealth,
   DiagnosticSourceRef,
-  DiagnosticSeverity,
   ObserverFinding,
   ObserverFindingStatus,
 } from '@vestara/types';
@@ -129,11 +129,7 @@ export interface TemporalEvidenceStore {
   /**
    * Get evidence records for a specific source within a time range.
    */
-  getSourceTimeline(
-    sourceId: string,
-    start: string,
-    end: string,
-  ): Promise<readonly TemporalEvidenceRecord[]>;
+  getSourceTimeline(sourceId: string, start: string, end: string): Promise<readonly TemporalEvidenceRecord[]>;
 
   /**
    * Get the most recent evidence records across all sources.
@@ -233,11 +229,7 @@ export class InMemoryTemporalEvidenceStore implements TemporalEvidenceStore {
     };
   }
 
-  async getSourceTimeline(
-    sourceId: string,
-    start: string,
-    end: string,
-  ): Promise<readonly TemporalEvidenceRecord[]> {
+  async getSourceTimeline(sourceId: string, start: string, end: string): Promise<readonly TemporalEvidenceRecord[]> {
     const result = await this.queryTemporalEvidence({
       start,
       end,

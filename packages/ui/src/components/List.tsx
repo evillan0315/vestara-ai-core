@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -99,13 +99,7 @@ const SIZE_STYLES: Record<ListSize, { item: string; text: string }> = {
 
 // ─── List Component ────────────────────────────────────────────
 
-export function List({
-  size = 'md',
-  dividers = false,
-  bordered = false,
-  className = '',
-  children,
-}: ListProps) {
+export function List({ size = 'md', dividers = false, bordered = false, className = '', children }: ListProps) {
   return (
     <ul
       className={`
@@ -149,76 +143,52 @@ export function ListItem({
       tabIndex={onClick && !disabled ? 0 : undefined}
       aria-disabled={disabled || undefined}
       aria-selected={selected || undefined}
-      onKeyDown={onClick && !disabled ? (e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onClick();
-        }
-      } : undefined}
+      onKeyDown={
+        onClick && !disabled
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
-      {leading && (
-        <span className="shrink-0 text-[var(--vestara-text-muted)]">{leading}</span>
-      )}
+      {leading && <span className="shrink-0 text-[var(--vestara-text-muted)]">{leading}</span>}
       <div className="flex-1 min-w-0">{children}</div>
-      {trailing && (
-        <span className="shrink-0 text-[var(--vestara-text-muted)]">{trailing}</span>
-      )}
+      {trailing && <span className="shrink-0 text-[var(--vestara-text-muted)]">{trailing}</span>}
     </li>
   );
 }
 
 // ─── ListItemText Component ────────────────────────────────────
 
-export function ListItemText({
-  primary,
-  secondary,
-  className = '',
-}: ListItemTextProps) {
+export function ListItemText({ primary, secondary, className = '' }: ListItemTextProps) {
   return (
     <div className={`min-w-0 ${className}`}>
-      <div className="text-sm font-medium text-[var(--vestara-text-primary)] truncate">
-        {primary}
-      </div>
-      {secondary && (
-        <div className="text-xs text-[var(--vestara-text-muted)] truncate mt-0.5">
-          {secondary}
-        </div>
-      )}
+      <div className="text-sm font-medium text-[var(--vestara-text-primary)] truncate">{primary}</div>
+      {secondary && <div className="text-xs text-[var(--vestara-text-muted)] truncate mt-0.5">{secondary}</div>}
     </div>
   );
 }
 
 // ─── ListItemAction Component ──────────────────────────────────
 
-export function ListItemAction({
-  children,
-  className = '',
-}: ListItemActionProps) {
-  return (
-    <span className={`shrink-0 ${className}`}>
-      {children}
-    </span>
-  );
+export function ListItemAction({ children, className = '' }: ListItemActionProps) {
+  return <span className={`shrink-0 ${className}`}>{children}</span>;
 }
 
 // ─── ListDivider Component ─────────────────────────────────────
 
 export function ListDivider({ className = '' }: ListDividerProps) {
   return (
-    <li
-      role="separator"
-      className={`h-px bg-[var(--vestara-border-subtle)] my-1 ${className}`}
-      aria-hidden="true"
-    />
+    <li role="separator" className={`h-px bg-[var(--vestara-border-subtle)] my-1 ${className}`} aria-hidden="true" />
   );
 }
 
 // ─── ListHeader Component ──────────────────────────────────────
 
-export function ListHeader({
-  children,
-  className = '',
-}: ListHeaderProps) {
+export function ListHeader({ children, className = '' }: ListHeaderProps) {
   return (
     <li
       className={`px-4 py-2 text-xs font-medium text-[var(--vestara-text-muted)] uppercase tracking-wider ${className}`}
