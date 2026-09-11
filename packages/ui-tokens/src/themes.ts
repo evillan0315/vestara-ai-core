@@ -85,6 +85,10 @@ export interface StatusTheme {
   active: string;
   idle: string;
   unknown: string;
+  // VES-UI-003: tool/files semantic tokens (cyan)
+  tool: string;
+  toolBg: string;
+  toolBorder: string;
 }
 
 // ─── Complete Theme ────────────────────────────────────────────
@@ -135,6 +139,9 @@ export const DARK_THEME: Theme = {
     active: COLOR.status.active,
     idle: COLOR.status.idle,
     unknown: COLOR.status.unknown,
+    tool: COLOR.status.tool,
+    toolBg: COLOR.status.toolBg,
+    toolBorder: COLOR.status.toolBorder,
   },
 };
 
@@ -192,6 +199,9 @@ export const LIGHT_THEME: Theme = {
     active: '#16a34a', // busy/working — same as success
     idle: COLOR.zinc[500], // idle — neutral muted
     unknown: COLOR.zinc[400], // unknown — same as disabled
+    tool: '#0891b2', // Light mode: darker cyan for contrast
+    toolBg: 'rgba(8, 145, 178, 0.08)',
+    toolBorder: 'rgba(8, 145, 178, 0.2)',
   },
 };
 

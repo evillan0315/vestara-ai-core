@@ -39,6 +39,8 @@ import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import M11CActivityStream from './M11CActivityStream';
 import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
+import M11CLiveNowStrip from './M11CLiveNowStrip';
+import M11CWorkflowBrowser from './M11CWorkflowBrowser';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 
@@ -190,7 +192,7 @@ export default function M11CActivityRoomPage() {
         </div>
       )}
 
-      {/* ─── Stage: Guest Rail + Salon ──────────────────── */}
+      {/* ─── Stage: Guest Rail + Workflow Browser + Salon ─── */}
       <div className="ar-stage">
         {/* Participant Rail (projection-driven) */}
         <aside className="ar-panel ar-panel--rail ar-scroll">
@@ -199,6 +201,15 @@ export default function M11CActivityRoomPage() {
             selectedParticipantId={selectedParticipantId}
             onSelectParticipant={handleSelectParticipant}
             onOpenAgentControl={ui.openAgentControl}
+          />
+        </aside>
+
+        {/* Workflow Browser (center-left) */}
+        <aside className="ar-panel ar-panel--workflow ar-scroll">
+          <M11CWorkflowBrowser
+            stream={room.stream}
+            workflowSummary={room.workflowSummary}
+            selectedParticipantId={selectedParticipantId}
           />
         </aside>
 
@@ -211,21 +222,12 @@ export default function M11CActivityRoomPage() {
             <span className="ar-panel__hint">{room.paused ? `${room.unread} buffered` : stateLabel}</span>
           </div>
 
-          {/* Workflow Summary */}
-          {room.workflowSummary && (
-            <div className="ar-strip">
-              <StatusIndicator
-                variant={WORKFLOW_STATUS_CONFIG[room.workflowSummary.status]?.variant ?? 'idle'}
-                size="xs"
-                pulse={WORKFLOW_STATUS_CONFIG[room.workflowSummary.status]?.pulse ?? false}
-                ariaLabel={`Workflow: ${room.workflowSummary.status}`}
-              />
-              <span className="ar-strip__status">{room.workflowSummary.status}</span>
-              <span className="ar-strip__count">
-                {room.workflowSummary.completedTasks}/{room.workflowSummary.taskCount} tasks
-              </span>
-            </div>
-          )}
+          {/* Live Now Strip */}
+          <M11CLiveNowStrip
+            participants={room.participants}
+            stream={room.stream}
+            isLive={room.state === 'live'}
+          />
 
           {/* Stream */}
           <M11CActivityStream

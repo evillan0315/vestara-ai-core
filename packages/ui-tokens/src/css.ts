@@ -78,6 +78,10 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-status-active': theme.status.active,
     '--vestara-status-idle': theme.status.idle,
     '--vestara-status-unknown': theme.status.unknown,
+    // VES-UI-003: tool/files semantic tokens (cyan)
+    '--vestara-status-tool': theme.status.tool,
+    '--vestara-status-tool-bg': theme.status.toolBg,
+    '--vestara-status-tool-border': theme.status.toolBorder,
   };
 }
 

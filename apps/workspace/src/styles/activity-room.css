@@ -435,6 +435,28 @@
   }
 }
 
+/* ── Workflow browser panel ─────────────────────────────────── */
+
+.ar-panel--workflow {
+  display: none;
+  min-width: 0;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .ar-panel--workflow {
+    display: flex;
+    flex-shrink: 0;
+    width: 16rem;
+  }
+}
+
+@media (min-width: 1440px) {
+  .ar-panel--workflow {
+    width: 17.5rem;
+  }
+}
+
 /* ── Context panel responsive ──────────────────────────────── */
 
 @media (min-width: 768px) and (max-width: 1023px) {
@@ -886,6 +908,192 @@
 
 .ar-stream-filter__search:focus {
   border-color: var(--ar-gold);
+}
+
+/* ── Workflow Browser Column ─────────────────────────────────── */
+
+.ar-workflow-browser {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  border-right: 1px solid var(--ar-hairline);
+  background: var(--ar-rail-bg);
+}
+
+.ar-workflow-browser__header {
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-workflow-browser__summary {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-top: 0.25rem;
+}
+
+.ar-workflow-browser__summary-text {
+  font-size: 10px;
+  color: var(--ar-ink-muted);
+}
+
+.ar-workflow-browser__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.25rem 0;
+}
+
+.ar-workflow-browser__empty {
+  padding: 1rem 0.75rem;
+  font-size: 11px;
+  color: var(--ar-ink-dim);
+  text-align: center;
+}
+
+.ar-workflow-unit {
+  border-bottom: 1px solid var(--ar-surface-sunken);
+}
+
+.ar-workflow-unit__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.ar-workflow-unit__header:hover {
+  background: var(--ar-surface-sunken);
+}
+
+.ar-workflow-unit__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ar-workflow-unit__id {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--ar-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ar-workflow-unit__meta {
+  font-size: 10px;
+  color: var(--ar-ink-muted);
+}
+
+.ar-workflow-unit__detail {
+  padding: 0.375rem 0.75rem 0.5rem 1.5rem;
+  font-size: 10px;
+  color: var(--ar-ink-2);
+}
+
+.ar-workflow-unit__detail-label {
+  font-weight: 600;
+  color: var(--ar-ink-muted);
+  margin-right: 0.25rem;
+}
+
+.ar-workflow-unit__agents {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.ar-workflow-unit__agent-badge {
+  font-size: 9px;
+  padding: 0 0.375rem;
+  border-radius: 3px;
+  background: var(--ar-surface-sunken);
+  color: var(--ar-ink-2);
+  border: 1px solid var(--ar-hairline);
+}
+
+.ar-workflow-unit__tasks {
+  color: var(--ar-ink-muted);
+}
+
+/* ── Live Now Strip ──────────────────────────────────────────── */
+
+.ar-live-now {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  max-height: 64px;
+  padding: 0.375rem 0.75rem;
+  border-bottom: 1px solid var(--ar-hairline);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--vestara-accent) 4%, transparent),
+    transparent
+  );
+  overflow: hidden;
+}
+
+.ar-live-now__idle {
+  font-size: 11px;
+  color: var(--ar-ink-muted);
+  font-style: italic;
+}
+
+.ar-live-now__items {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.ar-live-now__items::-webkit-scrollbar {
+  display: none;
+}
+
+.ar-live-now__item {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  flex-shrink: 0;
+  min-width: 0;
+}
+
+.ar-live-now__name {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--ar-ink);
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.ar-live-now__role {
+  font-size: 9px;
+  font-weight: 500;
+  color: var(--ar-ink-muted);
+  background: var(--ar-surface-sunken);
+  padding: 0 0.25rem;
+  border-radius: 3px;
+}
+
+.ar-live-now__narrative {
+  font-size: 11px;
+  color: var(--ar-ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
 }
 
 /* ── Stream items ───────────────────────────────────────────── */

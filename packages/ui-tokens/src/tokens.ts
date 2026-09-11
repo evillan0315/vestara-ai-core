@@ -22,6 +22,9 @@ export const COLOR = {
     amber: '#f59e0b',
     amberLight: '#fbbf24',
     amberDark: '#d97706',
+    cyan: '#22d3ee',
+    cyanLight: '#67e8f9',
+    cyanDark: '#0891b2',
     green: '#4ade80',
     red: '#f87171',
     blue: '#60a5fa',
@@ -52,6 +55,10 @@ export const COLOR = {
     active: '#4ade80', // busy/working — same as success/running
     idle: '#71717a', // idle — neutral muted tone
     unknown: '#52525b', // unknown — same as disabled
+    // VES-UI-003: tool/files semantic tokens (cyan)
+    tool: '#22d3ee',
+    toolBg: 'rgba(34, 211, 238, 0.1)',
+    toolBorder: 'rgba(34, 211, 238, 0.3)',
   },
 
   // Surface colors (VES-DESIGN-002 §P)
