@@ -1,10 +1,10 @@
 /**
  * ProviderModelSelector — shared searchable provider/model selection component.
  *
- * GA-UI-008 D/E/F: Reusable across Global Assistant, Agent Control, Workflow
- * configuration, and any model-backed surface.
+ * GA-PROVIDER-001: Consumes /api/opencode/config/providers for the effective
+ * configured provider/model working set from OpenCode.
  *
- * Sources from GET /api/providers — no hardcoded catalog.
+ * Sources from GET /api/opencode/config/providers — no hardcoded catalog.
  * Provider → model relationship: selecting a provider filters models.
  * Search is case-insensitive with keyboard navigation.
  *
@@ -13,30 +13,43 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-// ── Types (matches GET /api/providers response contract) ────────────────────
+// ── Types (matches GET /api/opencode/config/providers response contract) ────
 
 export interface SelectorModel {
   readonly id: string;
   readonly name: string;
-  readonly enabled: boolean;
-  readonly contextWindow: number;
-  readonly maxOutput: number;
-  readonly capabilities: Record<string, boolean>;
-  readonly pricing?: { readonly inputPerMillionTokens: number; readonly outputPerMillionTokens: number };
+  readonly family?: string;
+  readonly status?: string;
+  readonly capabilities?: {
+    readonly temperature?: boolean;
+    readonly reasoning?: boolean;
+    readonly attachment?: boolean;
+    readonly toolcall?: boolean;
+    readonly input?: { readonly text?: boolean; readonly image?: boolean };
+    readonly output?: { readonly text?: boolean };
+  };
+  readonly cost?: {
+    readonly input?: number;
+    readonly output?: number;
+    readonly cache?: { readonly read?: number; readonly write?: number };
+  };
+  readonly limit?: {
+    readonly context?: number;
+    readonly input?: number;
+    readonly output?: number;
+  };
 }
 
 export interface SelectorProvider {
   readonly id: string;
   readonly name: string;
-  readonly enabled: boolean;
-  readonly status: string;
-  readonly credential?: { readonly configured: boolean; readonly source?: string };
+  readonly source?: string;
   readonly models: SelectorModel[];
 }
 
-interface ProvidersResponse {
-  readonly source?: string;
+interface ConfigProvidersResponse {
   readonly providers: SelectorProvider[];
+  readonly default: Record<string, string>;
 }
 
 // ── Component Props ────────────────────────────────────────────────────────
@@ -61,7 +74,29 @@ export interface ProviderModelSelectorProps {
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
+/** Cache duration for provider/model data (ms). */
 const FETCH_CACHE_MS = 30_000;
+
+/** Debounce delay for search queries (ms). */
+const SEARCH_DEBOUNCE_MS = 200;
+
+// ── Cache ──────────────────────────────────────────────────────────────────
+
+const providerCache = new Map<string, { data: ConfigProvidersResponse; timestamp: number }>();
+
+function getCached(key: string): ConfigProvidersResponse | null {
+  const entry = providerCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > FETCH_CACHE_MS) {
+    providerCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setCache(key: string, data: ConfigProvidersResponse): void {
+  providerCache.set(key, { data, timestamp: Date.now() });
+}
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -74,6 +109,7 @@ export function ProviderModelSelector({
 }: ProviderModelSelectorProps) {
   const [open, setOpen] = useState(false);
   const [providers, setProviders] = useState<SelectorProvider[]>([]);
+  const [defaults, setDefaults] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
@@ -82,26 +118,39 @@ export function ProviderModelSelector({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
-  const lastFetchRef = useRef(0);
+  const abortControllerRef = useRef<AbortController | null>(null);
+  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // ── Fetch providers ──
+  // ── Fetch configured providers from OpenCode ──
   const fetchProviders = useCallback(async () => {
-    const now = Date.now();
-    if (now - lastFetchRef.current < FETCH_CACHE_MS && providers.length > 0) return;
+    const cacheKey = 'config-providers';
+    const cached = getCached(cacheKey);
+    if (cached) {
+      setProviders(cached.providers);
+      setDefaults(cached.default);
+      return;
+    }
+
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/providers');
+      const res = await fetch('/api/opencode/config/providers', { signal: controller.signal });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ProvidersResponse = await res.json();
-      setProviders(data.providers ?? []);
-      lastFetchRef.current = now;
+      const data: ConfigProvidersResponse = await res.json();
+      setProviders(data.providers);
+      setDefaults(data.default);
+      setCache(cacheKey, data);
     } catch (err: unknown) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
       setError(err instanceof Error ? err.message : 'Failed to load providers');
     } finally {
       setLoading(false);
     }
-  }, [providers.length]);
+  }, []);
 
   // Fetch on open
   useEffect(() => {
@@ -111,12 +160,25 @@ export function ProviderModelSelector({
     } else {
       setSearch('');
       setFocusIndex(-1);
+      abortControllerRef.current?.abort();
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     }
   }, [open, fetchProviders]);
 
-  // ── Provider → model filtering (F) ──
-  // When provider changes, filter models to that provider.
-  // If current model is unavailable, selection becomes unresolved.
+  // Fetch on mount so availability check works before first dropdown open
+  useEffect(() => {
+    void fetchProviders();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      abortControllerRef.current?.abort();
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+    };
+  }, []);
+
+  // ── Provider → model scoping ──
   const selectedProvider = useMemo(
     () => providers.find((p) => p.id === value.providerId) ?? null,
     [providers, value.providerId],
@@ -124,7 +186,7 @@ export function ProviderModelSelector({
 
   const availableModels = useMemo(() => {
     if (!selectedProvider) return [];
-    return selectedProvider.models.filter((m) => m.enabled);
+    return selectedProvider.models.filter((m) => m.status !== 'disabled');
   }, [selectedProvider]);
 
   const isModelAvailable = useMemo(
@@ -132,57 +194,31 @@ export function ProviderModelSelector({
     [availableModels, value.modelId],
   );
 
-  // ── Search + autocomplete (E) ──
-  const flatModels = useMemo(() => {
-    const result: Array<{ provider: SelectorProvider; model: SelectorModel }> = [];
+  // ── Search (client-side, scoped to selected provider) ──
+  const filteredModels = useMemo(() => {
+    if (!search.trim()) return availableModels;
     const q = search.toLowerCase();
-    for (const p of providers) {
-      if (!p.enabled) continue;
-      for (const m of p.models) {
-        if (!m.enabled) continue;
-        const matchesSearch =
-          !q ||
-          p.id.toLowerCase().includes(q) ||
-          p.name.toLowerCase().includes(q) ||
-          m.id.toLowerCase().includes(q) ||
-          m.name.toLowerCase().includes(q);
-        if (matchesSearch) {
-          result.push({ provider: p, model: m });
-        }
-      }
-    }
-    return result;
-  }, [providers, search]);
+    return availableModels.filter(
+      (m) =>
+        m.id.toLowerCase().includes(q) ||
+        m.name.toLowerCase().includes(q) ||
+        m.family?.toLowerCase().includes(q),
+    );
+  }, [availableModels, search]);
 
-  // Group by provider
-  const grouped = useMemo(() => {
-    const groups: Array<{ provider: SelectorProvider; models: SelectorModel[] }> = [];
-    const map = new Map<string, { provider: SelectorProvider; models: SelectorModel[] }>();
-    for (const { provider, model } of flatModels) {
-      let g = map.get(provider.id);
-      if (!g) {
-        g = { provider, models: [] };
-        map.set(provider.id, g);
-        groups.push(g);
-      }
-      g.models.push(model);
-    }
-    return groups;
-  }, [flatModels]);
-
-  // ── Keyboard navigation (E) ──
+  // ── Keyboard navigation ──
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setFocusIndex((prev) => Math.min(prev + 1, flatModels.length - 1));
+        setFocusIndex((prev) => Math.min(prev + 1, filteredModels.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
         setFocusIndex((prev) => Math.max(prev - 1, 0));
-      } else if (e.key === 'Enter' && focusIndex >= 0 && focusIndex < flatModels.length) {
+      } else if (e.key === 'Enter' && focusIndex >= 0 && focusIndex < filteredModels.length) {
         e.preventDefault();
-        const { provider, model } = flatModels[focusIndex];
-        onChange({ providerId: provider.id, modelId: model.id });
+        const model = filteredModels[focusIndex];
+        onChange({ providerId: value.providerId, modelId: model.id });
         setOpen(false);
         triggerRef.current?.focus();
       } else if (e.key === 'Escape') {
@@ -194,10 +230,10 @@ export function ProviderModelSelector({
         setFocusIndex(0);
       } else if (e.key === 'End') {
         e.preventDefault();
-        setFocusIndex(flatModels.length - 1);
+        setFocusIndex(filteredModels.length - 1);
       }
     },
-    [flatModels, focusIndex, onChange],
+    [filteredModels, focusIndex, onChange, value.providerId],
   );
 
   // Scroll focused item into view
@@ -218,22 +254,23 @@ export function ProviderModelSelector({
     return value.modelId || 'Select model';
   }, [selectedProvider, availableModels, value.modelId]);
 
-  // ── Handle provider change (F: filter models, clear invalid) ──
+  // ── Handle provider change ──
   const handleProviderChange = useCallback(
     (providerId: string) => {
       const provider = providers.find((p) => p.id === providerId);
       if (!provider) return;
       // Check if current model is available under new provider
-      const modelAvailable = provider.models.some((m) => m.id === value.modelId && m.enabled);
+      const modelAvailable = provider.models.some((m) => m.id === value.modelId && m.status !== 'disabled');
       if (modelAvailable) {
-        // Keep current model — it's valid under new provider
         onChange({ providerId, modelId: value.modelId });
       } else {
-        // Model unavailable — clear selection (user must select valid model)
-        onChange({ providerId, modelId: '' });
+        // Use default model for this provider, or first available
+        const defaultModel = defaults[providerId];
+        const firstModel = provider.models.find((m) => m.status !== 'disabled');
+        onChange({ providerId, modelId: defaultModel ?? firstModel?.id ?? '' });
       }
     },
-    [providers, value.modelId, onChange],
+    [providers, value.modelId, onChange, defaults],
   );
 
   // ── Render ──
@@ -275,6 +312,25 @@ export function ProviderModelSelector({
       {/* Popover — opens upward to avoid panel clipping */}
       {open && (
         <div className="absolute left-0 right-0 bottom-full mb-1 z-[100] bg-zinc-900 border border-(--vestara-accent-border) rounded-lg shadow-lg overflow-hidden">
+          {/* Provider tabs */}
+          <div className="flex border-b border-(--vestara-accent-border) overflow-x-auto">
+            {providers.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => handleProviderChange(p.id)}
+                className={`px-3 py-1.5 text-[10px] font-medium whitespace-nowrap transition-colors cursor-pointer ${
+                  value.providerId === p.id
+                    ? 'text-amber-400 border-b-2 border-amber-400 bg-amber-400/5'
+                    : 'text-(--vestara-text-dim) hover:text-(--vestara-text-2)'
+                }`}
+              >
+                {p.name}
+                <span className="ml-1 opacity-50">{p.models.length}</span>
+              </button>
+            ))}
+          </div>
+
           {/* Search input */}
           <div className="p-2 border-b border-(--vestara-accent-border)">
             <input
@@ -286,11 +342,11 @@ export function ProviderModelSelector({
                 setFocusIndex(-1);
               }}
               onKeyDown={handleKeyDown}
-              placeholder="Search providers and models..."
+              placeholder="Search models..."
               role="combobox"
               aria-autocomplete="list"
               aria-controls="provider-model-list"
-              aria-activedescendant={focusIndex >= 0 ? `provider-model-option-${focusIndex}` : undefined}
+              aria-activedescendant={focusIndex >= 0 ? `model-option-${focusIndex}` : undefined}
               data-testid="provider-model-search"
               className="w-full bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded px-2 py-1 text-xs text-(--vestara-text-2) placeholder:text-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
             />
@@ -315,96 +371,71 @@ export function ProviderModelSelector({
               </div>
             )}
 
-            {!loading && !error && flatModels.length === 0 && (
+            {!loading && !error && filteredModels.length === 0 && (
               <div className="px-3 py-4 text-center text-[10px] text-(--vestara-text-dim)">
-                {search ? 'No matching models' : 'No providers available'}
+                {search ? 'No matching models' : 'No models available'}
               </div>
             )}
 
             {!loading &&
               !error &&
-              grouped.map((group) => (
-                <div key={group.provider.id} role="group" aria-label={group.provider.name || group.provider.id}>
-                  {/* Provider header */}
-                  <div className="px-3 py-1.5 bg-(--vestara-accent-bg) border-b border-(--vestara-accent-border)">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-semibold text-(--vestara-text-2)">
-                        {group.provider.name || group.provider.id}
-                      </span>
-                      <span
-                        className={`text-[8px] px-1 py-0.5 rounded ${
-                          group.provider.status === 'available'
-                            ? 'bg-green-400/10 text-green-400'
-                            : group.provider.status === 'degraded'
-                              ? 'bg-amber-400/10 text-amber-400'
-                              : 'bg-red-400/10 text-red-400'
-                        }`}
-                      >
-                        {group.provider.status}
-                      </span>
-                      <span className="text-[8px] text-(--vestara-text-dim)">
-                        {group.models.length} model{group.models.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
+              filteredModels.map((model) => {
+                const globalIndex = filteredModels.indexOf(model);
+                const isSelected = value.providerId === selectedProvider?.id && value.modelId === model.id;
+                const isFocused = globalIndex === focusIndex;
 
-                  {/* Model rows */}
-                  {group.models.map((model) => {
-                    const globalIndex = flatModels.findIndex(
-                      (f) => f.provider.id === group.provider.id && f.model.id === model.id,
-                    );
-                    const isSelected = value.providerId === group.provider.id && value.modelId === model.id;
-                    const isFocused = globalIndex === focusIndex;
-
-                    return (
-                      <button
-                        key={model.id}
-                        type="button"
-                        id={`provider-model-option-${globalIndex}`}
-                        data-model-index={globalIndex}
-                        role="option"
-                        aria-selected={isSelected}
-                        onClick={() => {
-                          onChange({ providerId: group.provider.id, modelId: model.id });
-                          setOpen(false);
-                          triggerRef.current?.focus();
-                        }}
-                        className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors cursor-pointer ${
-                          isSelected
-                            ? 'bg-amber-400/10 text-amber-400'
-                            : isFocused
-                              ? 'bg-(--vestara-accent-bg) text-(--vestara-text-2)'
-                              : 'text-(--vestara-text-2) hover:bg-(--vestara-accent-bg)'
-                        }`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="text-[11px] font-medium truncate">{model.name}</div>
-                          <div className="flex items-center gap-1.5 mt-0.5">
-                            <span className="text-[8px] text-(--vestara-text-dim)">
-                              {(model.contextWindow / 1000).toFixed(0)}k ctx
-                            </span>
-                            {model.capabilities?.functionCalling && (
-                              <span className="text-[8px] text-(--vestara-text-dim)">fn</span>
-                            )}
-                            {model.capabilities?.vision && (
-                              <span className="text-[8px] text-(--vestara-text-dim)">vis</span>
-                            )}
-                          </div>
-                        </div>
-                        {isSelected && (
-                          <svg className="w-3 h-3 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
-                            <path
-                              fillRule="evenodd"
-                              d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
+                return (
+                  <button
+                    key={model.id}
+                    type="button"
+                    id={`model-option-${globalIndex}`}
+                    data-model-index={globalIndex}
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => {
+                      onChange({ providerId: value.providerId, modelId: model.id });
+                      setOpen(false);
+                      triggerRef.current?.focus();
+                    }}
+                    className={`w-full text-left px-3 py-1.5 flex items-center gap-2 transition-colors cursor-pointer ${
+                      isSelected
+                        ? 'bg-amber-400/10 text-amber-400'
+                        : isFocused
+                          ? 'bg-(--vestara-accent-bg) text-(--vestara-text-2)'
+                          : 'text-(--vestara-text-2) hover:bg-(--vestara-accent-bg)'
+                    }`}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[11px] font-medium truncate">{model.name}</div>
+                      <div className="flex items-center gap-1.5 mt-0.5">
+                        {model.limit?.context && (
+                          <span className="text-[8px] text-(--vestara-text-dim)">
+                            {(model.limit.context / 1000).toFixed(0)}k ctx
+                          </span>
                         )}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
+                        {model.capabilities?.toolcall && (
+                          <span className="text-[8px] text-(--vestara-text-dim)">fn</span>
+                        )}
+                        {model.capabilities?.input?.image && (
+                          <span className="text-[8px] text-(--vestara-text-dim)">vis</span>
+                        )}
+                        {model.capabilities?.reasoning && (
+                          <span className="text-[8px] text-(--vestara-text-dim)">reason</span>
+                        )}
+                      </div>
+                    </div>
+                    {isSelected && (
+                      <svg className="w-3 h-3 shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 20 20">
+                        <path
+                          fillRule="evenodd"
+                          d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                          clipRule="evenodd"
+                        />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
           </div>
         </div>
       )}

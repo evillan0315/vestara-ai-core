@@ -413,6 +413,55 @@ const MILESTONES: Milestone[] = [
     status: 'completed',
     description: 'Persistent provider registry, local provider support',
   },
+  {
+    version: 'GA-PROVIDER-001',
+    name: 'Provider/Model Configuration Convergence',
+    era: 'Dashboard',
+    status: 'completed',
+    description: 'OpenCode /config/providers → Vestara config endpoints, API keys stripped, backward-compatible /api/providers',
+  },
+  {
+    version: 'GA-DETACH-001',
+    name: 'Execution Lifecycle Semantics',
+    era: 'Dashboard',
+    status: 'completed',
+    description: 'SSE disconnect no longer cancels execution; TurnTermination tracking; deadline-aware event wait',
+  },
+  {
+    version: 'GA-UX-001',
+    name: 'Conversation Message Loading State',
+    era: 'Dashboard',
+    status: 'pending',
+    description: 'Explicit empty/loading/loaded/error distinction, contextual suggestion contract, presentation must not own recommendation intelligence',
+  },
+  {
+    version: 'PERF-001B',
+    name: 'Bounded Message Loading & Windowing',
+    era: 'Dashboard',
+    status: 'pending',
+    description: 'Bounded message loading/windowing separate from UX state management',
+  },
+  {
+    version: 'v7.12',
+    name: 'Context-Aware Global Assistant Suggestions',
+    era: 'Dashboard',
+    status: 'pending',
+    description: 'Route-sensitive assistant suggestions adapting to current page, section, and workspace health',
+  },
+  {
+    version: 'v7.13',
+    name: 'Premium Diagnostic Center',
+    era: 'Dashboard',
+    status: 'pending',
+    description: 'Luxury dark-chamber design with instrument-precision gauges, contextual intelligence, and @vestara/ui components',
+  },
+  {
+    version: 'v7.14',
+    name: 'Premium Marketplace Gallery',
+    era: 'Dashboard',
+    status: 'pending',
+    description: 'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
+  },
   // Quality Era (late)
   {
     version: 'v3.8',
@@ -573,6 +622,13 @@ const MILESTONES: Milestone[] = [
     era: 'Activity Room',
     status: 'completed',
     description: 'Contextual recommendations, governed decisions, 14 phases',
+  },
+  {
+    version: 'v7.15',
+    name: 'Activity Room Premium UX',
+    era: 'Activity Room',
+    status: 'pending',
+    description: 'Three-column premium operations layout, 8 phases',
   },
   // OS Boot Experience
   {

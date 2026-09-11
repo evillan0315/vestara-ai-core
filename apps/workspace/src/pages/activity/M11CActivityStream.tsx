@@ -8,10 +8,21 @@
  * - Jump-to-latest button with unread count
  * - Bounded render window (no full DOM hydration)
  * - Aggregated items with drill-down affordance
+ * - Filter bar for category-based filtering
+ *
+ * Filter vocabulary uses canonical M11C stream `kind` values:
+ * - All: no filter
+ * - Conversations: kind === 'conversation'
+ * - Agents: actor.type !== 'human'
+ * - Humans: actor.type === 'human'
+ * - Tools: kind === 'tool-call' || kind === 'tool-result'
+ * - Executions: kind === 'activity' || kind === 'progress'
+ * - Errors: kind === 'error' (canonical severity metadata, not string matching)
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
+import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { EmptyState, StatusIndicator } from '@vestara/ui';
 import M11CStreamItemComponent from './M11CStreamItem';
 
@@ -30,6 +41,8 @@ interface M11CActivityStreamProps {
   readonly items: readonly StreamItemType[];
   /** Connection state label. */
   readonly stateLabel: string;
+  /** Connection state for live indicator. */
+  readonly connectionState: M11CConnectionState;
   /** Unread count (when scrolled up). */
   readonly unread: number;
   /** Whether history is currently loading. */
@@ -68,11 +81,26 @@ interface M11CActivityStreamProps {
   readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
 }
 
+// ─── Filter Types ────────────────────────────────────────────
+
+type StreamFilter = 'all' | 'conversations' | 'agents' | 'humans' | 'tools' | 'executions' | 'errors';
+
+const FILTER_TABS: { id: StreamFilter; label: string }[] = [
+  { id: 'all', label: 'All' },
+  { id: 'conversations', label: 'Conversations' },
+  { id: 'agents', label: 'Agents' },
+  { id: 'humans', label: 'Humans' },
+  { id: 'tools', label: 'Tools' },
+  { id: 'executions', label: 'Executions' },
+  { id: 'errors', label: 'Errors' },
+];
+
 // ─── Component ───────────────────────────────────────────────
 
 export default function M11CActivityStream({
   items,
   stateLabel,
+  connectionState,
   unread,
   loadingHistory,
   olderLoaded,
@@ -96,13 +124,46 @@ export default function M11CActivityStream({
   const [atBottom, setAtBottom] = useState(true);
   const previousScrollHeight = useRef(0);
   const previousItemCount = useRef(0);
+  const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
 
   // ─── Filtering ──────────────────────────────────────────
+  // Uses canonical M11C stream `kind` values, not string matching.
+  // Error filter uses canonical `kind === 'error'` metadata.
 
   const filtered = useMemo(() => {
-    if (selectedParticipantId === undefined) return items;
-    return items.filter((item) => item.actor.id === selectedParticipantId);
-  }, [items, selectedParticipantId]);
+    let result = items;
+
+    // Participant filter (existing)
+    if (selectedParticipantId !== undefined) {
+      result = result.filter((item) => item.actor.id === selectedParticipantId);
+    }
+
+    // Category filter (new)
+    if (activeFilter !== 'all') {
+      result = result.filter((item) => {
+        switch (activeFilter) {
+          case 'conversations':
+            return item.kind === 'conversation';
+          case 'agents':
+            return item.actor.type !== 'human';
+          case 'humans':
+            return item.actor.type === 'human';
+          case 'tools':
+            return item.kind === 'tool-call' || item.kind === 'tool-result';
+          case 'executions':
+            return item.kind === 'activity' || item.kind === 'progress';
+          case 'errors':
+            // Canonical severity metadata: kind === 'error'
+            // Do NOT search item.content for error-like words.
+            return item.kind === 'error';
+          default:
+            return true;
+        }
+      });
+    }
+
+    return result;
+  }, [items, selectedParticipantId, activeFilter]);
 
   // ─── Bounded Window ─────────────────────────────────────
 
@@ -161,6 +222,33 @@ export default function M11CActivityStream({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
+      {/* ── Filter Bar ──────────────────────────────────── */}
+      <div className="ar-stream-filter" role="tablist" aria-label="Filter activity stream">
+        <div className="ar-stream-filter__tabs">
+          {FILTER_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={activeFilter === tab.id}
+              className={`ar-stream-filter__tab ${activeFilter === tab.id ? 'ar-stream-filter__tab--active' : ''}`}
+              onClick={() => setActiveFilter(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <div className="ar-stream-filter__right">
+          <StatusIndicator
+            variant={connectionState === 'live' ? 'live' : connectionState === 'paused' ? 'idle' : 'warn'}
+            size="xs"
+            pulse={connectionState === 'live'}
+            ariaLabel={`Connection: ${stateLabel}`}
+          />
+          <span className="ar-stream-filter__live">{stateLabel}</span>
+        </div>
+      </div>
+
       <div
         ref={scrollRef}
         onScroll={onScroll}

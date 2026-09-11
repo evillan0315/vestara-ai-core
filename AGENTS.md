@@ -95,3 +95,56 @@ An authorized task grants broad **investigation scope** (search, read, trace —
 | **OBSERVATION** | Suspicious signal, insufficient evidence | Record with confidence level, continue |
 
 Discovery does not confer mutation authority. When acceptance criteria are satisfied, stop — do not expand scope without re-authorization.
+
+## Established Operating Principles
+
+These principles are operationally enforced and must not be contradicted:
+
+### Evidence vs. Claims
+
+- **Claim ≠ Evidence** — Stating something does not make it true. Assertions require supporting evidence.
+- **Completion ≠ Verification** — Finishing a task does not prove it works. Verification requires independent confirmation.
+- **Capability ≠ Authority** — Being able to do something does not mean you are authorized to do it.
+- **UNKNOWN is valid evidence** — "I don't know" is a legitimate and honest answer. Never fabricate certainty.
+
+### Execution Lifecycle
+
+- **UI lifecycle ≠ execution lifecycle** — The browser tab closing does not stop server-side execution.
+- **Conversation selection ≠ execution ownership** — Selecting a conversation does not grant ownership of its execution.
+- **SSE disconnect ≠ execution cancellation** — Losing the SSE stream does not cancel the execution. Only explicit Stop/Cancel or a governed deadline may terminate execution.
+
+### Integration Boundaries
+
+```
+OpenCode :4096
+      ↓
+Vestara OpenCode adapter
+      ↓
+/api/opencode/*
+
+/api/opencode/* = OpenCode integration boundary
+/api/providers   = Vestara provider-platform boundary
+```
+
+- **OpenCode /config/providers** = authoritative configured/effective OpenCode provider-model projection.
+- **Catalog ≠ Configured** — Having a catalog entry does not mean the provider is configured.
+- **Configured ≠ Enabled** — Having credentials configured does not mean the provider is enabled.
+- **Enabled ≠ Selected** — Being enabled does not mean it is the selected provider for execution.
+- **Settings configures. Assistant selects. Runtime executes.** — Each layer has a distinct responsibility.
+
+### Process Ownership
+
+- **Agent test server ≠ Director dogfood server** — Different servers serve different purposes.
+- **An agent owns only processes it creates** — Never assume ownership of unrelated processes.
+- **Temporary owned processes must be cleaned up** — Create → Use → Destroy.
+- **Never broadly kill unrelated Node/Vestara processes** — Targeted cleanup only.
+
+### Provider/Model Execution Provenance
+
+Observed runtime state (2026-09-11):
+
+- OpenCode `/config` and `/config/providers` provide the authoritative configured provider-model projection.
+- Vestara exposes these through `/api/opencode/config` and `/api/opencode/config/providers` (API keys stripped).
+- `/api/providers` remains backward-compatible with 213 providers / 7,602 models.
+- Configured providers: 3, configured models: 145 (observed counts, not architectural constants).
+- **Do not claim selected provider/model execution provenance is established unless evidence actually proves the selected identifiers reached execution.**

@@ -106,6 +106,42 @@ export async function handleOpenCodeRoute(
       });
     });
   }
+
+  // ── GA-PROVIDER-001: Config endpoints ────────────────────────────────────
+
+  if (method === 'GET' && p === '/api/opencode/config') {
+    return withOpenCodeClient(res, async (client) => {
+      const config = await client.getConfig();
+      json(res, 200, config);
+    });
+  }
+
+  if (method === 'GET' && p === '/api/opencode/config/providers') {
+    return withOpenCodeClient(res, async (client) => {
+      const config = await client.getConfigProviders();
+      // Normalize: strip API keys before sending to browser
+      const safeProviders = config.providers.map((prov) => ({
+        id: prov.id,
+        name: prov.name,
+        source: prov.source,
+        models: Object.values(prov.models).map((m) => ({
+          id: m.id,
+          name: m.name,
+          family: m.family,
+          status: m.status,
+          capabilities: m.capabilities,
+          cost: m.cost,
+          limit: m.limit,
+          api: m.api,
+          variants: m.variants,
+        })),
+      }));
+      json(res, 200, {
+        providers: safeProviders,
+        default: config.default,
+      });
+    });
+  }
   if (method === 'GET' && p === '/api/opencode/compatibility') {
     return withOpenCodeClient(res, async (client) => {
       const pinned = loadPinnedSchema();

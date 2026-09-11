@@ -359,4 +359,155 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       expect(failed!.detail!.error).toBe('exit code 2');
     }
   });
+
+  // ─── GA-DETACH-001: Execution lifecycle semantics ─────────────
+
+  describe('GA-DETACH-001 — execution lifecycle semantics', () => {
+    it('COMPLETED: natural session.status idle → session NOT aborted', async () => {
+      const abortedSessions: string[] = [];
+      const client = eventClient([
+        sseEvent('e1', 'session.next.text.delta', { delta: 'Hello' }),
+        sseEvent('e2', 'session.status', { status: { type: 'idle' } }),
+      ]);
+      const origAbort = client.abortSession;
+      client.abortSession = async (id: string) => {
+        abortedSessions.push(id);
+        return origAbort?.call(client, id);
+      };
+
+      const chunks = await collectTurn(client);
+      // Adapter yields text + no error on natural completion.
+      // The 'done' event is yielded by the Conversation service, not the adapter.
+      const error = chunks.find((c) => c.type === 'error');
+      expect(error).toBeUndefined();
+      expect(chunks.some((c) => c.type === 'text')).toBe(true);
+      // COMPLETED turns should NOT abort the session
+      expect(abortedSessions).toHaveLength(0);
+    });
+
+    it('TIMEOUT: deadline exceeded → error message says "deadline", not "timed out"', async () => {
+      const blockingClient: Partial<OpenCodeHttpClient> = {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: (async function* (_ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
+          // Block for longer than the deadline. Listen to the signal so
+          // generator.return() (from for-await break) can resolve the promise.
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, 5000);
+            signal?.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                resolve();
+              },
+              { once: true },
+            );
+          });
+        }) as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+      };
+
+      const chunks: StreamChunk[] = [];
+      for await (const item of runAssistantOpenCodeTurn(
+        {
+          client: blockingClient as unknown as OpenCodeHttpClient,
+          workspaceId: 'ws-test',
+          directory: '/repo',
+          agent: 'vestara-assistant',
+          turnTimeoutMs: 100,
+        },
+        makeRequest(),
+      )) {
+        chunks.push(item);
+      }
+
+      // Debug: log all chunk types
+      const types = chunks.map((c) => c.type);
+      const error = chunks.find((c) => c.type === 'error');
+      expect(error).toBeDefined();
+      expect(error!.content).toContain('deadline');
+    }, 10000);
+
+    it('CANCELLED: explicit abort → session IS aborted', async () => {
+      const abortedSessions: string[] = [];
+      const controller = new AbortController();
+      const client: Partial<OpenCodeHttpClient> = {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: (async function* (ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
+          // Block until the adapter aborts the signal (finally block)
+          await new Promise<void>((resolve) => {
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+        }) as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+        abortSession: async (id: string) => {
+          abortedSessions.push(id);
+        },
+      };
+
+      const turnPromise = (async () => {
+        const chunks: StreamChunk[] = [];
+        for await (const item of runAssistantOpenCodeTurn(
+          {
+            client: client as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            turnTimeoutMs: 30000,
+          },
+          { ...makeRequest(), signal: controller.signal },
+        )) {
+          chunks.push(item);
+        }
+        return chunks;
+      })();
+
+      // Abort after a short delay — simulates explicit Stop
+      setTimeout(() => controller.abort(), 50);
+      const chunks = await turnPromise;
+
+      // Should have received at least one chunk before abort
+      expect(chunks.length).toBeGreaterThan(0);
+      // CANCELLED turns SHOULD abort the session
+      expect(abortedSessions).toHaveLength(1);
+    });
+
+    it('DETACHED: client disconnect (no abort signal) → session NOT aborted', async () => {
+      const abortedSessions: string[] = [];
+      const client = eventClient([
+        sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' }),
+        sseEvent('e2', 'session.status', { status: { type: 'idle' } }),
+      ]);
+      const origAbort = client.abortSession;
+      client.abortSession = async (id: string) => {
+        abortedSessions.push(id);
+        return origAbort?.call(client, id);
+      };
+
+      // Start the turn WITHOUT an abort signal (simulates client disconnect)
+      const chunks: StreamChunk[] = [];
+      for await (const item of runAssistantOpenCodeTurn(
+        {
+          client: client as unknown as OpenCodeHttpClient,
+          workspaceId: 'ws-test',
+          directory: '/repo',
+          agent: 'vestara-assistant',
+          turnTimeoutMs: 30000,
+        },
+        makeRequest(), // No signal — simulates client disconnect
+      )) {
+        chunks.push(item);
+      }
+
+      // Should have received chunks
+      expect(chunks.length).toBeGreaterThan(0);
+      // DETACHED turns should NOT abort the session (no explicit cancellation)
+      expect(abortedSessions).toHaveLength(0);
+    });
+  });
 });

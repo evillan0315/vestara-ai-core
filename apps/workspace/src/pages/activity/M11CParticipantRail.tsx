@@ -9,11 +9,16 @@
  * AI participants. Canonical identity is never mutated.
  *
  * Humans and agents share the same component contract.
+ *
+ * Premium UX: adds search and type filter while preserving team grouping.
+ * When search/filter is active, global search across participants with
+ * prioritized matching over team hierarchy. Normal grouped presentation
+ * restores when search/filter clears.
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
 import { Badge, StatusIndicator, type StatusVariant } from '@vestara/ui';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -61,19 +66,43 @@ export default function M11CParticipantRail({
   onSelectParticipant,
   onOpenAgentControl,
 }: M11CParticipantRailProps) {
-  // Group by membership, then sort by presence (online first), then by name
+  // ─── Search and type filter state ─────────────────────────
+  const [search, setSearch] = useState('');
+  const [typeFilter, setTypeFilter] = useState<'all' | 'human' | 'agent'>('all');
+
+  // ─── Filtered participants ────────────────────────────────
+  // When search/filter is active, global search across participants
+  // with prioritized matching over team hierarchy.
+  const filtered = useMemo(() => {
+    const hasFilter = search.trim() !== '' || typeFilter !== 'all';
+    if (!hasFilter) return null; // null = use normal grouped presentation
+
+    const searchLower = search.toLowerCase().trim();
+    return participants.filter((p) => {
+      // Type filter
+      if (typeFilter !== 'all' && p.type !== typeFilter) return false;
+      // Search filter
+      if (searchLower) {
+        const name = (p.modelDisplayName ?? p.displayName).toLowerCase();
+        const role = (p.role ?? '').toLowerCase();
+        return name.includes(searchLower) || role.includes(searchLower);
+      }
+      return true;
+    });
+  }, [participants, search, typeFilter]);
+
+  // ─── Normal grouped presentation ──────────────────────────
   const grouped = useMemo(() => {
-    const sorted = [...participants].sort((a, b) => {
-      // Presence order: online > busy > away > offline
+    if (filtered !== null) return filtered; // filtered mode
+    // Default: sort by presence (online first), then by name
+    return [...participants].sort((a, b) => {
       const presenceOrder: Record<string, number> = { online: 0, active: 0, busy: 1, away: 2, offline: 3 };
       const aOrder = presenceOrder[a.presence] ?? 4;
       const bOrder = presenceOrder[b.presence] ?? 4;
       if (aOrder !== bOrder) return aOrder - bOrder;
-      // Then by name
       return a.displayName.localeCompare(b.displayName);
     });
-    return sorted;
-  }, [participants]);
+  }, [participants, filtered]);
 
   if (participants.length === 0) {
     return (
@@ -89,16 +118,21 @@ export default function M11CParticipantRail({
 
   const activeCount = participants.filter((p) => p.presence === 'online' || p.presence === 'active').length;
   const workingCount = participants.filter((p) => p.workState === 'working').length;
+  const isFiltered = filtered !== null;
 
   return (
-    <div className="ar-rail">
+    <div className="ar-rail" role="region" aria-label="Participants">
       <div className="ar-rail__head">
         <div className="ar-kicker">In attendance</div>
         <button
           type="button"
-          onClick={() => onSelectParticipant(undefined)}
-          className={`ar-rail__all ${selectedParticipantId === undefined ? 'ar-rail__all--active' : ''}`}
-          aria-pressed={selectedParticipantId === undefined}
+          onClick={() => {
+            onSelectParticipant(undefined);
+            setSearch('');
+            setTypeFilter('all');
+          }}
+          className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
+          aria-pressed={selectedParticipantId === undefined && !isFiltered}
         >
           <span className="ar-rail__all-label">Participants</span>
           <span className="ar-rail__census">
@@ -107,17 +141,60 @@ export default function M11CParticipantRail({
         </button>
       </div>
 
-      <div className="ar-rail__list ar-scroll">
-        {grouped.map((participant) => (
-          <ParticipantRow
-            key={participant.participantId}
-            participant={participant}
-            selected={selectedParticipantId === participant.participantId}
-            onSelect={onSelectParticipant}
-            onOpenAgentControl={onOpenAgentControl}
+      {/* ── Search + Type Filter ──────────────────────────── */}
+      <div className="ar-rail__filters">
+        <div className="ar-rail__search">
+          <input
+            type="text"
+            placeholder="Search participants…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="ar-rail__search-input"
+            aria-label="Search participants"
           />
-        ))}
+        </div>
+        <select
+          value={typeFilter}
+          onChange={(e) => setTypeFilter(e.target.value as 'all' | 'human' | 'agent')}
+          className="ar-rail__type-filter"
+          aria-label="Filter by type"
+        >
+          <option value="all">All Types</option>
+          <option value="agent">Agent</option>
+          <option value="human">Human</option>
+        </select>
       </div>
+
+      {/* ── Participant list ──────────────────────────────── */}
+      <div className="ar-rail__list ar-scroll" role="list">
+        {grouped.length === 0 ? (
+          <div className="ar-rail__empty">No matching participants.</div>
+        ) : (
+          grouped.map((participant) => (
+            <ParticipantRow
+              key={participant.participantId}
+              participant={participant}
+              selected={selectedParticipantId === participant.participantId}
+              onSelect={onSelectParticipant}
+              onOpenAgentControl={onOpenAgentControl}
+            />
+          ))
+        )}
+      </div>
+
+      {/* ── Filter status ─────────────────────────────────── */}
+      {isFiltered && (
+        <div className="ar-rail__filter-status">
+          <span>{grouped.length} of {participants.length}</span>
+          <button
+            type="button"
+            onClick={() => { setSearch(''); setTypeFilter('all'); }}
+            className="ar-rail__filter-clear"
+          >
+            Clear
+          </button>
+        </div>
+      )}
     </div>
   );
 }

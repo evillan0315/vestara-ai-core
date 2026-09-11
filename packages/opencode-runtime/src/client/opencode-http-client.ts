@@ -21,6 +21,8 @@ import type {
   OpenCodeActiveSessionInfo,
   OpenCodeAgentSummary,
   OpenCodeCommandSummary,
+  OpenCodeConfig,
+  OpenCodeConfigProvidersResponse,
   OpenCodeDiffFile,
   OpenCodeEvent,
   OpenCodeFileChange,
@@ -135,6 +137,16 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   async listProviders(signal?: AbortSignal): Promise<OpenCodeProviderSummary[]> {
     const raw = await this.requestJson({ path: '/provider', timeoutMs: this.config.requestTimeoutMs, signal });
     return normalizeProviders(raw);
+  }
+
+  // ── GA-PROVIDER-001: Config endpoints ────────────────────────────────────
+
+  async getConfig(signal?: AbortSignal): Promise<OpenCodeConfig> {
+    return this.requestJson({ path: '/config', timeoutMs: this.config.requestTimeoutMs, signal }) as Promise<OpenCodeConfig>;
+  }
+
+  async getConfigProviders(signal?: AbortSignal): Promise<OpenCodeConfigProvidersResponse> {
+    return this.requestJson({ path: '/config/providers', timeoutMs: this.config.requestTimeoutMs, signal }) as Promise<OpenCodeConfigProvidersResponse>;
   }
 
   async listAgents(signal?: AbortSignal): Promise<OpenCodeAgentSummary[]> {

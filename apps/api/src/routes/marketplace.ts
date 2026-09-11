@@ -125,6 +125,11 @@ export async function handleMarketplaceRoute(
   res: http.ServerResponse,
   ctx: WorkspaceContext,
 ): Promise<boolean> {
+  // Own only /api/marketplace paths. The sequential dispatcher calls every
+  // handler; returning true for non-marketplace paths would swallow
+  // unrelated requests.
+  if (!p.startsWith('/api/marketplace')) return false;
+
   // VES-LEAN-003A: Marketplace is optional in dogfood
   if (!ctx.marketplace) {
     json(res, 503, { error: { code: 'CAPABILITY_DISABLED', message: 'Marketplace is not active in this profile.' } });

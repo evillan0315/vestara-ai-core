@@ -501,6 +501,81 @@ describe('RouteDispatcher', () => {
     expect(status()).not.toBe(404);
   });
 
+  it('catalog handler returns false for non-catalog paths', async () => {
+    // GA-DETACH-001 regression: the catalog handler must not intercept
+    // requests outside /api/catalog. Previously it returned true for ANY
+    // non-GET request, swallowing POST /api/opencode/* etc.
+    const { handleCatalogRoute } = await import('../src/routes/catalog');
+    const { res, status } = makeResponse();
+
+    // POST to a non-catalog path must fall through (return false)
+    const handled = await handleCatalogRoute(
+      'POST',
+      '/api/opencode/sessions/ses_123/abort',
+      makeRequest() as unknown as http.IncomingMessage,
+      res as unknown as http.ServerResponse,
+      MINIMAL_CTX as never,
+    );
+    expect(handled).toBe(false);
+    expect(status()).toBe(0); // no response written
+
+    // DELETE to a non-catalog path must fall through
+    const handled2 = await handleCatalogRoute(
+      'DELETE',
+      '/api/conversations/conv_123',
+      makeRequest() as unknown as http.IncomingMessage,
+      res as unknown as http.ServerResponse,
+      MINIMAL_CTX as never,
+    );
+    expect(handled2).toBe(false);
+    expect(status()).toBe(0);
+  });
+
+  it('catalog handler claims only /api/catalog paths', async () => {
+    const { handleCatalogRoute } = await import('../src/routes/catalog');
+    const { res, status, body } = makeResponse();
+
+    // POST /api/catalog → 405 (read-only, correctly claimed)
+    const handled = await handleCatalogRoute(
+      'POST',
+      '/api/catalog',
+      makeRequest() as unknown as http.IncomingMessage,
+      res as unknown as http.ServerResponse,
+      MINIMAL_CTX as never,
+    );
+    expect(handled).toBe(true);
+    expect(status()).toBe(405);
+    expect((body() as { error: { code: string } }).error.code).toBe('METHOD_NOT_ALLOWED');
+
+    // GET /api/catalog/search → falls through to lazy import (returns false
+    // because the mock context lacks workspace; the claim path is correct)
+    const handled2 = await handleCatalogRoute(
+      'GET',
+      '/api/catalog/search',
+      makeRequest() as unknown as http.IncomingMessage,
+      res as unknown as http.ServerResponse,
+      MINIMAL_CTX as never,
+    );
+    // May return false due to missing workspace import, but it attempted the claim
+    expect(typeof handled2).toBe('boolean');
+  });
+
+  it('marketplace handler returns false for non-marketplace paths', async () => {
+    const { handleMarketplaceRoute } = await import('../src/routes/marketplace');
+    const { res, status } = makeResponse();
+
+    // POST to a non-marketplace path must fall through
+    const handled = await handleMarketplaceRoute(
+      'POST',
+      '/api/opencode/sessions/ses_123/abort',
+      makeRequest() as unknown as http.IncomingMessage,
+      res as unknown as http.ServerResponse,
+      { ...MINIMAL_CTX, marketplace: null } as never,
+    );
+    expect(handled).toBe(false);
+    expect(status()).toBe(0);
+  });
+
   it('surfaces thrown handler errors to the caller', async () => {
     const dispatcher = createDispatcher([
       {

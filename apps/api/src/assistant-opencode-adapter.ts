@@ -17,6 +17,14 @@
  * - AR-009 remains paused: this adapter is optional wiring with graceful
  *   fallback to the direct-provider executor; it never makes OpenCode
  *   mandatory.
+ *
+ * Execution lifecycle semantics (GA-DETACH-001):
+ * - COMPLETED: natural `session.status idle` received — turn finished successfully.
+ * - FAILED: runtime error or provider failure — execution did not complete.
+ * - TIMEOUT: configured execution deadline actually expired.
+ * - CANCELLED: explicitly authorized cancellation (user Stop, API abort).
+ * - DETACHED: observer/client stopped watching — execution continues server-side.
+ *   This is NOT a failure. The session remains active for later reattachment.
  */
 
 import type { ProviderExecutor } from '@vestara/conversation';
@@ -107,6 +115,28 @@ const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) || 15 * 6
  * provenance — callers that wire a resolver always get the true provider.
  */
 const TRANSPORT_PROVIDER = 'opencode';
+
+/**
+ * GA-DETACH-001: How a turn ended. This determines whether the OpenCode
+ * session should be aborted or left running for later reattachment.
+ *
+ * - COMPLETED: natural `session.status idle` — turn finished successfully.
+ * - FAILED: runtime error — execution did not complete.
+ * - TIMEOUT: configured deadline expired.
+ * - CANCELLED: explicitly authorized cancellation (user Stop, API abort).
+ * - DETACHED: observer/client stopped watching — execution continues.
+ */
+type TurnTermination = 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
+
+/**
+ * GA-DETACH-001: Whether a turn termination requires aborting the OpenCode
+ * session. COMPLETED and DETACHED do NOT require abort — the session is
+ * either idle or still running. CANCELLED, TIMEOUT, and FAILED require abort
+ * to settle the session for reuse.
+ */
+function requiresAbort(termination: TurnTermination): boolean {
+  return termination === 'cancelled' || termination === 'timeout' || termination === 'failed';
+}
 
 function lastUserText(messages: CompletionRequest['messages']): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
@@ -236,9 +266,9 @@ export async function* runAssistantOpenCodeTurn(
   const deadline = Date.now() + turnTimeoutMs;
   const shellStartedAt = new Map<string, number>();
   let sequence = 0;
-  // GA-RUNTIME-001 cancel safety: only a natural `session.status idle` proves
-  // the runtime settled; any other exit must actively settle the session.
-  let completedNaturally = false;
+  // GA-DETACH-001: Track how the turn ended. This determines whether the
+  // OpenCode session should be aborted or left running for reattachment.
+  let termination: TurnTermination = 'failed'; // default to failed; updated on exit
 
   try {
     // GA-SSE-003B: submit asynchronously (POST /session/:id/prompt_async).
@@ -271,12 +301,29 @@ export async function* runAssistantOpenCodeTurn(
     let turnDone = false;
     while (!turnDone) {
       if (Date.now() > deadline) {
-        yield chunk('error', sequence++, { content: 'Assistant turn timed out' });
+        termination = 'timeout';
+        yield chunk('error', sequence++, { content: 'Execution deadline exceeded' });
         break;
       }
+      // GA-DETACH-001: Wait for events with deadline awareness.
+      // Without this, the inner wait blocks indefinitely when the event
+      // stream is open but idle, preventing the deadline from firing.
       while (queue.length === 0 && !readerDone) {
-        await new Promise<void>((resolve) => waiters.push(resolve));
+        const remaining = deadline - Date.now();
+        if (remaining <= 0) break;
+        await Promise.race([
+          new Promise<void>((resolve) => waiters.push(resolve)),
+          new Promise<void>((resolve) => setTimeout(resolve, Math.min(remaining, 1000))),
+        ]);
       }
+      // Re-check deadline after waiting — the wait may have been interrupted
+      // by the timeout rather than a new event.
+      if (Date.now() > deadline) {
+        termination = 'timeout';
+        yield chunk('error', sequence++, { content: 'Execution deadline exceeded' });
+        break;
+      }
+      if (queue.length === 0 && readerDone) break;
       const event = queue.shift();
       if (!event) break;
 
@@ -593,17 +640,18 @@ export async function* runAssistantOpenCodeTurn(
           const status = payload.status as { type?: string } | undefined;
           if (status && status.type === 'idle') {
             turnDone = true;
-            completedNaturally = true;
+            termination = 'completed';
           }
           break;
         }
         case 'session.idle': {
           // Dedicated idle event (1.18.27 contract) — authoritative settlement.
           turnDone = true;
-          completedNaturally = true;
+          termination = 'completed';
           break;
         }
         case 'session.error': {
+          termination = 'failed';
           yield chunk('error', sequence++, { content: 'OpenCode session error' });
           turnDone = true;
           break;
@@ -662,12 +710,14 @@ export async function* runAssistantOpenCodeTurn(
     controller.abort();
     request.signal?.removeEventListener('abort', onAbort);
     await readerPromise.catch(() => undefined);
-    // GA-RUNTIME-001 L: closing the Vestara SSE response alone is NOT
-    // cancellation. When the turn ended without a natural `session.status
-    // idle` (user stop, client disconnect, timeout), actively settle the
-    // OpenCode runtime generation so the reused session is safe for the next
-    // prompt_async. Authoritative on 1.18.27: POST /session/:id/abort.
-    if (!completedNaturally) {
+    // GA-DETACH-001: Only abort the OpenCode session when explicitly cancelled.
+    // - COMPLETED: session is idle, no abort needed.
+    // - DETACHED (client disconnected): signal is NOT aborted, execution continues.
+    // - CANCELLED: signal IS aborted (explicit Stop), abort session.
+    // - TIMEOUT: deadline expired, abort session.
+    // - FAILED: runtime error, abort session.
+    const explicitCancellation = request.signal?.aborted === true;
+    if (requiresAbort(termination) && explicitCancellation) {
       try {
         await client.abortSession(resolvedSessionId, context);
       } catch {

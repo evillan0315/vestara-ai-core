@@ -27,7 +27,7 @@
  * 15. No polling introduced as a second realtime mechanism
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { fetchM11AAggregateDrillDown, type M11AActivityRecord } from '../../lib/m11a-api';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
@@ -38,6 +38,7 @@ import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import M11CActivityStream from './M11CActivityStream';
 import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
+import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -64,6 +65,15 @@ export default function M11CActivityRoomPage() {
       ? resolveAgentIdFromParticipantId(agentControlParticipantId)
       : null,
     [agentControlParticipantId],
+  );
+
+  // ─── Derived counts for context panel ──────────────────────
+
+  const activeAgentCount = useMemo(
+    () => room.participants.filter(
+      (p) => p.type !== 'human' && (p.presence === 'online' || p.presence === 'active'),
+    ).length,
+    [room.participants],
   );
 
   const handleOpenAgentControl = useCallback((participantId: string) => {
@@ -162,7 +172,7 @@ export default function M11CActivityRoomPage() {
   return (
     <div className="ar-room">
       {/* ─── Header Plinth ──────────────────────────────── */}
-      <header className="ar-plinth">
+      <header className="ar-plinth" role="banner">
         <div className="ar-plinth__id">
           <span className="ar-monogram" aria-hidden="true">
             V
@@ -258,6 +268,7 @@ export default function M11CActivityRoomPage() {
           <M11CActivityStream
             items={room.stream}
             stateLabel={stateLabel}
+            connectionState={room.state}
             unread={room.unread}
             loadingHistory={room.loadingHistory}
             olderLoaded={room.olderLoaded}
@@ -281,6 +292,16 @@ export default function M11CActivityRoomPage() {
           {/* Composer with reply-to support */}
           <M11CComposer replyTo={replyToItem} onClearReply={handleClearReply} />
         </main>
+
+        {/* Context panel (right column) — authoritative data only */}
+        <aside className="ar-panel ar-panel--context">
+          <ActivityRoomContextPanel
+            stream={room.stream}
+            participantCount={room.participants.length}
+            activeAgentCount={activeAgentCount}
+            connectionState={room.state}
+          />
+        </aside>
       </div>
 
       {/* ─── Detail Modal ───────────────────────────────── */}
@@ -334,6 +355,8 @@ export default function M11CActivityRoomPage() {
  * M11C Composer — sends human messages to the Activity Room.
  * Messages are persisted via POST /api/messages and broadcast via WebSocket.
  * Supports reply-to: when a message is replied to, the actor name is prepended.
+ *
+ * Premium UX: clean input with integrated send, compact secondary actions.
  */
 function M11CComposer({
   replyTo,
@@ -345,11 +368,13 @@ function M11CComposer({
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill with @mention when replying
   useEffect(() => {
     if (replyTo) {
       setValue(`@${replyTo.actor.displayName} `);
+      inputRef.current?.focus();
     }
   }, [replyTo]);
 
@@ -386,11 +411,41 @@ function M11CComposer({
   );
 
   return (
-    <div className="ar-composer">
-      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Attach file shortcut">+</Pill>
-      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Reference shortcut">@</Pill>
-      <Pill variant="default" size="sm" disabled className="!px-1.5 !py-0.5 !text-[10px] !rounded" aria-label="Command shortcut">/</Pill>
+    <div className="ar-composer" role="form" aria-label="Message composer">
+      {/* Secondary actions */}
+      <div className="ar-composer__actions">
+        <button
+          type="button"
+          className="ar-composer__action"
+          aria-label="Attach file"
+          disabled
+          title="Attach file (coming soon)"
+        >
+          +
+        </button>
+        <button
+          type="button"
+          className="ar-composer__action"
+          aria-label="Mention participant"
+          disabled
+          title="Mention participant (coming soon)"
+        >
+          @
+        </button>
+        <button
+          type="button"
+          className="ar-composer__action"
+          aria-label="Run command"
+          disabled
+          title="Run command (coming soon)"
+        >
+          /
+        </button>
+      </div>
+
+      {/* Input */}
       <input
+        ref={inputRef}
         type="text"
         value={value}
         onChange={(e) => { setValue(e.target.value); setError(null); }}
@@ -398,19 +453,27 @@ function M11CComposer({
         placeholder={sending ? 'Sending…' : 'Type a message…'}
         className="ar-composer__input"
         disabled={sending}
-        aria-label="Message composer"
+        aria-label="Message input"
       />
-      <Pill
-        variant="gold"
-        size="sm"
+
+      {/* Send button */}
+      <button
+        type="button"
         onClick={handleSend}
         disabled={!value.trim() || sending}
-        loading={sending}
+        className="ar-composer__send"
+        aria-label="Send message"
       >
-        Send
-      </Pill>
+        {sending ? (
+          <span className="ar-composer__send-loading">…</span>
+        ) : (
+          <span className="ar-composer__send-arrow">→</span>
+        )}
+      </button>
+
+      {/* Error */}
       {error && (
-        <span className="text-[10px] text-red-400 ml-2" role="alert">{error}</span>
+        <span className="ar-composer__error" role="alert">{error}</span>
       )}
     </div>
   );

@@ -270,6 +270,13 @@ function ActiveTurn({
   const isThinking = !text;
   const ops = operations ?? [];
   const hasOps = ops.length > 0 || (structuredEdits?.length ?? 0) > 0 || (structuredTerminals?.length ?? 0) > 0 || (structuredVerifications?.length ?? 0) > 0 || !!taskSnapshot;
+
+  // GA-UX-CLEANUP: Suppress redundant task narration when structured execution
+  // state is available. The task checklist + execution timeline already show
+  // what's happening. Streaming text that merely narrates the plan is noise.
+  const hasRunningOps = ops.some((op) => op.state === 'running');
+  const hasTaskSnapshot = !!taskSnapshot && taskSnapshot.kind === 'task-snapshot' && (taskSnapshot.todos?.length ?? 0) > 0;
+  const suppressNarration = hasTaskSnapshot && hasRunningOps;
   // Timeline collapse discipline (M5): expanded while executing (thinking),
   // auto-collapsed once response generation begins. User-expandable while
   // streaming.
@@ -333,6 +340,14 @@ function ActiveTurn({
               <span />
             </span>
             <span className="sr-only">{status || 'Thinking…'}</span>
+          </div>
+        ) : suppressNarration ? (
+          // GA-UX-CLEANUP: Task narration suppressed — structured execution
+          // state (checklist + timeline) already shows what's happening.
+          // Show minimal status instead of redundant prose.
+          <div className="px-0.5 py-1 text-[11px] text-zinc-500" data-testid="active-turn-suppressed">
+            <span className="animate-pulse text-amber-500/70">▌</span>
+            <span className="sr-only">{status || 'Executing tasks…'}</span>
           </div>
         ) : (
           !isThinking && (
@@ -497,12 +512,9 @@ function ComposeInput({
   loading: boolean;
   onStop: () => void;
   focusRef?: React.RefObject<HTMLElement | null>;
-  /** GA-UI-006: selected conversation id — composer focuses when its target changes. */
   conversationKey?: string | null;
-  /** GA-UI-008: shared provider/model selection. */
   providerModel?: { providerId: string; modelId: string };
   onProviderModelChange?: (value: { providerId: string; modelId: string }) => void;
-  /** GA-EXEC-001: execution config state and controls toggle. */
   execConfig?: { isCustom: boolean };
   onExecControlsToggle?: () => void;
   execControlsRef?: React.RefObject<HTMLButtonElement | null>;
@@ -510,6 +522,9 @@ function ComposeInput({
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const seenKeyRef = useRef(conversationKey);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   // Expose textarea ref to parent for focus contract
   useEffect(() => {
@@ -518,26 +533,50 @@ function ComposeInput({
     }
   }, [focusRef]);
 
-  // Focus the composer when its target conversation changes (created or
-  // switched). Skips the initial mount — the panel focus contract owns that.
+  // Focus the composer when its target conversation changes
   useEffect(() => {
     if (seenKeyRef.current === conversationKey) return;
     seenKeyRef.current = conversationKey;
     textareaRef.current?.focus();
   }, [conversationKey]);
 
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: PointerEvent) => {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        menuButtonRef.current &&
+        !menuButtonRef.current.contains(e.target as Node)
+      ) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', handler);
+    return () => document.removeEventListener('pointerdown', handler);
+  }, [menuOpen]);
+
+  // Close menu on Escape
+  useEffect(() => {
+    if (!menuOpen) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopPropagation();
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
+      }
+    };
+    window.addEventListener('keydown', handler, true);
+    return () => window.removeEventListener('keydown', handler, true);
+  }, [menuOpen]);
+
   const handleSend = useCallback(() => {
     const text = input.trim();
-    // Empty/whitespace → no send. While a turn executes, the hook's
-    // synchronous busy guard drops duplicates; the composer additionally
-    // refuses to clear or double-fire.
     if (!text || loading) return;
     onSend(text);
     setInput('');
-    // Reset auto-grow height, then restore focus unless the user has moved
-    // focus elsewhere (only refocus when the composer still owns it or
-    // nothing specific needs it — Send is a pointer/mouse or Enter action
-    // originating from the composer itself).
     requestAnimationFrame(() => {
       const el = textareaRef.current;
       if (el) {
@@ -559,88 +598,37 @@ function ComposeInput({
     [handleSend],
   );
 
+  const canSend = input.trim().length > 0 && !loading;
+
   return (
     <div className="w-full border-t border-zinc-800/70 bg-gradient-to-t from-zinc-950 via-zinc-950 to-zinc-950/60 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
-      {/* GA-UI-008: compact provider/model selector */}
-      {providerModel && onProviderModelChange && (
-        <div className="mb-2 flex items-center gap-1.5">
-          <ProviderModelSelector
-            value={providerModel}
-            onChange={onProviderModelChange}
-            compact
-            disabled={loading}
-          />
-        </div>
-      )}
-      <div className="flex items-end gap-2 min-w-0">
-        {/* M9: action buttons (+/@) — placeholder entry points */}
-        <div className="flex shrink-0 flex-col gap-1 pb-1">
-          <button
-            type="button"
-            aria-label="Attach file (coming soon)"
-            title="Attach file (coming soon)"
-            disabled
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-700 cursor-not-allowed opacity-40"
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-          <button
-            type="button"
-            aria-label="Reference context (coming soon)"
-            title="Reference context (coming soon)"
-            disabled
-            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-700 cursor-not-allowed opacity-40"
-          >
-            <span className="text-[13px] font-semibold leading-none">@</span>
-          </button>
-          {/* GA-EXEC-001: execution controls toggle */}
-          <button
-            ref={execControlsRef}
-            type="button"
-            aria-label="Execution limits"
-            title="Execution limits"
-            onClick={onExecControlsToggle}
-            className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all cursor-pointer ${
-              execConfig?.isCustom
-                ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
-                : 'text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/60'
-            }`}
-          >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        </div>
-        <div className="relative min-w-0 flex-1">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder={loading ? 'Assistant is responding…' : 'Ask anything about this workspace…'}
-            aria-label="Message the assistant"
-            rows={1}
-            className="flex-1 w-full resize-none rounded-2xl bg-zinc-900/80 border border-zinc-700/60 px-4 py-2.5 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] backdrop-blur transition-all focus:outline-none focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/15 focus:bg-zinc-900 min-w-0"
-            style={{ minHeight: '40px', maxHeight: '120px' }}
-            onInput={(e) => {
-              const target = e.target as HTMLTextAreaElement;
-              target.style.height = 'auto';
-              target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
-            }}
-          />
-        </div>
+      {/* Primary input surface */}
+      <div className="relative rounded-2xl border border-zinc-700/60 bg-zinc-900/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] backdrop-blur transition-all focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/15 focus-within:bg-zinc-900">
+        <textarea
+          ref={textareaRef}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder={loading ? 'Assistant is responding…' : 'Ask anything about your workspace…'}
+          aria-label="Message the assistant"
+          rows={1}
+          className="w-full resize-none bg-transparent pl-4 pr-12 py-3 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 focus:outline-none min-h-[44px] max-h-[120px]"
+          onInput={(e) => {
+            const target = e.target as HTMLTextAreaElement;
+            target.style.height = 'auto';
+            target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+          }}
+        />
+        {/* Send / Stop button — inside input, far right */}
         {loading ? (
           <button
             type="button"
             onClick={onStop}
             aria-label="Stop generation"
             title="Stop generation"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-red-500/15 border border-red-500/30 text-red-300 shadow-[0_4px_16px_-6px_rgba(239,68,68,0.5)] hover:bg-red-500/25 transition-all active:scale-95 cursor-pointer"
+            className="absolute right-2 bottom-2 flex h-8 w-8 items-center justify-center rounded-xl bg-red-500/15 border border-red-500/30 text-red-300 hover:bg-red-500/25 transition-all active:scale-95 cursor-pointer"
           >
-            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+            <svg className="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 24 24">
               <rect x="6" y="6" width="12" height="12" rx="2" />
             </svg>
           </button>
@@ -648,28 +636,101 @@ function ComposeInput({
           <button
             type="button"
             onClick={handleSend}
-            disabled={!input.trim()}
+            disabled={!canSend}
             aria-label="Send message"
             title="Send message"
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-b from-amber-300 to-amber-500 text-zinc-950 shadow-[0_6px_20px_-6px_rgba(245,158,11,0.7)] ring-1 ring-white/25 transition-all hover:brightness-110 hover:shadow-[0_8px_24px_-6px_rgba(245,158,11,0.85)] active:scale-95 disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
+            className={`absolute right-2 bottom-2 flex h-8 w-8 items-center justify-center rounded-xl transition-all active:scale-95 ${
+              canSend
+                ? 'bg-gradient-to-b from-amber-300 to-amber-500 text-zinc-950 shadow-[0_4px_12px_-4px_rgba(245,158,11,0.6)] ring-1 ring-white/20 hover:brightness-110 cursor-pointer'
+                : 'bg-zinc-800/60 text-zinc-600 cursor-not-allowed'
+            }`}
           >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 19V5m0 0l-7 7m7-7l7 7" />
             </svg>
           </button>
         )}
       </div>
-      <p className="mt-1.5 px-1 text-[10px] text-zinc-600">
-        {loading ? (
-          'Responding… sending is paused until this turn completes.'
-        ) : (
-          <>
-            <kbd className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono">⏎</kbd> to send
-            <span className="mx-1">·</span>
-            <kbd className="rounded border border-zinc-800 bg-zinc-900 px-1 font-mono">⇧⏎</kbd> new line
-          </>
+
+      {/* Bottom control row: menu | provider | model | execution settings */}
+      <div className="mt-2 flex items-center gap-2">
+        {/* Vertical ellipsis menu */}
+        <div className="relative" ref={menuRef}>
+          <button
+            ref={menuButtonRef}
+            type="button"
+            aria-label="More actions"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            onClick={() => setMenuOpen((v) => !v)}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-600 transition-colors hover:text-zinc-400 hover:bg-zinc-800/60 cursor-pointer"
+          >
+            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="5" r="1.5" />
+              <circle cx="12" cy="12" r="1.5" />
+              <circle cx="12" cy="19" r="1.5" />
+            </svg>
+          </button>
+          {menuOpen && (
+            <div
+              role="menu"
+              className="absolute bottom-full mb-1 left-0 z-50 w-48 rounded-xl border border-zinc-700/60 bg-zinc-950/95 shadow-[0_-8px_32px_-8px_rgba(0,0,0,0.6)] backdrop-blur-xl py-1"
+            >
+              {[
+                { label: 'Add file', icon: 'M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13', disabled: true },
+                { label: 'Use template', icon: 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z', disabled: true },
+                { label: 'Browse workspace', icon: 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z', disabled: true },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  role="menuitem"
+                  disabled={item.disabled}
+                  onClick={() => setMenuOpen(false)}
+                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-[12px] text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/60 transition-colors disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d={item.icon} />
+                  </svg>
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Provider + Model selectors */}
+        {providerModel && onProviderModelChange && (
+          <ProviderModelSelector
+            value={providerModel}
+            onChange={onProviderModelChange}
+            compact
+            disabled={loading}
+          />
         )}
-      </p>
+
+        {/* Spacer */}
+        <div className="flex-1" />
+
+        {/* Execution limits gear */}
+        <button
+          ref={execControlsRef}
+          type="button"
+          aria-label="Execution limits"
+          title="Execution limits"
+          onClick={onExecControlsToggle}
+          className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all cursor-pointer ${
+            execConfig?.isCustom
+              ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
+              : 'text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/60'
+          }`}
+        >
+          <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </button>
+      </div>
     </div>
   );
 }
@@ -739,15 +800,58 @@ function SurfaceContextBadge({ surface }: { surface: { routeId: string | null; p
   );
 }
 
-// ─── GA-UI-006: suggestion shortcuts (presentation only) ────────
+// ─── GA-UX-001: suggestion contract (presentation only) ────────
 
-const SUGGESTIONS = [
-  { label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.' },
-  { label: 'Check project status', prompt: 'Check the repository status.' },
-  { label: 'Explain architecture', prompt: 'Explain the main architecture of this project.' },
-] as const;
+interface AssistantSuggestion {
+  readonly id: string;
+  readonly label: string;
+  readonly prompt: string;
+  readonly source: string;
+}
 
-function SuggestionEmptyState({ onSuggest }: { onSuggest: (prompt: string) => void }) {
+/**
+ * Derive context-aware suggestions from the current surface.
+ * The UI is a projection — suggestion policy lives here, not in a runtime.
+ * Surface-specific suggestions replace generic defaults when context is available.
+ */
+function getSuggestionsForSurface(surface?: { section?: string; routeId?: string }): AssistantSuggestion[] {
+  const routeId = surface?.routeId;
+
+  // Surface-specific suggestions
+  if (routeId === 'activity') {
+    return [
+      { id: 'review-activity', label: 'Review recent activity', prompt: 'Review the recent activity and summarize what happened.', source: 'surface:activity' },
+      { id: 'show-executions', label: 'Show active executions', prompt: 'Show me the currently active executions and their status.', source: 'surface:activity' },
+      { id: 'explain-latest', label: 'Explain the latest operation', prompt: 'Explain the most recent operation in detail.', source: 'surface:activity' },
+    ];
+  }
+
+  if (routeId === 'projects' || routeId === 'engineering') {
+    return [
+      { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'surface:engineering' },
+      { id: 'check-status', label: 'Check project status', prompt: 'Check the project status and report any issues.', source: 'surface:engineering' },
+      { id: 'review-changes', label: 'Review recent changes', prompt: 'Review the recent changes and summarize what was modified.', source: 'surface:engineering' },
+    ];
+  }
+
+  if (routeId === 'agents') {
+    return [
+      { id: 'agent-status', label: 'Check agent status', prompt: 'Show the current status of all agents and their recent activity.', source: 'surface:agents' },
+      { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'surface:agents' },
+      { id: 'explain-architecture', label: 'Explain architecture', prompt: 'Explain the main architecture of this project.', source: 'surface:agents' },
+    ];
+  }
+
+  // Default suggestions (no specific surface context)
+  return [
+    { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'default' },
+    { id: 'check-status', label: 'Check project status', prompt: 'Check the repository status.', source: 'default' },
+    { id: 'explain-architecture', label: 'Explain architecture', prompt: 'Explain the main architecture of this project.', source: 'default' },
+  ];
+}
+
+function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: string) => void; surface?: { section?: string; routeId?: string } }) {
+  const suggestions = getSuggestionsForSurface(surface);
   return (
     <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center" data-testid="assistant-suggestions">
       <div
@@ -764,15 +868,21 @@ function SuggestionEmptyState({ onSuggest }: { onSuggest: (prompt: string) => vo
         Ask about this workspace, inspect the repository, or start an engineering task.
       </p>
       <div className="flex flex-col gap-2 w-full max-w-[240px]">
-        {SUGGESTIONS.map((s) => (
+        {suggestions.map((s) => (
           <button
-            key={s.label}
+            key={s.id}
             type="button"
             onClick={() => onSuggest(s.prompt)}
-            className="group flex items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/70 px-3 py-2 text-left text-[12px] text-zinc-300 shadow-sm backdrop-blur transition-all hover:border-amber-500/40 hover:bg-zinc-800/80 hover:text-zinc-50 hover:shadow-[0_4px_20px_-8px_rgba(245,158,11,0.5)] active:scale-[0.98] cursor-pointer"
+            className="group flex items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/70 px-3 py-2 text-left text-[12px] text-zinc-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-500/40 hover:bg-zinc-800/80 hover:text-zinc-50 hover:shadow-[0_4px_16px_-4px_rgba(245,158,11,0.25)]"
           >
             <span className="flex-1 truncate font-medium">{s.label}</span>
-            <svg className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2} aria-hidden="true">
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-amber-400"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
               <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
             </svg>
           </button>
@@ -982,12 +1092,15 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
 
   const hasMessages = assistant.messages.length > 0;
   const showEmpty = !hasMessages && optimisticTurns.length === 0 && !isStreaming && !assistant.selectedId;
+  const showLoading = assistant.messagesLoading && !hasMessages && optimisticTurns.length === 0;
+  const showError = !!assistant.messagesError && !hasMessages && !showLoading;
   // Intentional new-conversation surface (GA-UI-006): a selected but
   // untouched conversation gets suggestions, not the create prompt.
+  // Only show suggestions when NOT loading and NOT errored.
   const showSuggestions =
-    !!assistant.selectedId && !hasMessages && optimisticTurns.length === 0 && !isStreaming;
+    !!assistant.selectedId && !hasMessages && optimisticTurns.length === 0 && !isStreaming && !showLoading && !showError;
   const showList =
-    !showEmpty && !showSuggestions && !(assistant.listLoading && !hasMessages && optimisticTurns.length === 0);
+    !showEmpty && !showSuggestions && !showLoading && !showError && !(assistant.listLoading && !hasMessages && optimisticTurns.length === 0);
 
   const handleSuggest = useCallback(
     (prompt: string) => {
@@ -1084,10 +1197,43 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         </div>
       )}
 
+      {/* Loading skeleton for message fetch */}
+      {showLoading && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6">
+          <div className="flex items-center gap-2 text-[11px] text-zinc-500">
+            <svg className="h-3 w-3 animate-spin" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+            </svg>
+            Loading conversation...
+          </div>
+          {/* Skeleton lines */}
+          <div className="w-full max-w-md space-y-2">
+            <div className="h-3 bg-zinc-800 rounded w-3/4 animate-pulse" />
+            <div className="h-3 bg-zinc-800 rounded w-1/2 animate-pulse" />
+            <div className="h-3 bg-zinc-800 rounded w-2/3 animate-pulse" />
+          </div>
+        </div>
+      )}
+
+      {/* Error state for failed message fetch */}
+      {showError && (
+        <div className="flex-1 flex flex-col items-center justify-center gap-3 p-6 text-center">
+          <div className="text-[11px] text-red-400">{assistant.messagesError}</div>
+          <button
+            type="button"
+            onClick={() => assistant.selectedId && void assistant.loadMessages(assistant.selectedId)}
+            className="text-[10px] text-(--vestara-accent-text) hover:underline cursor-pointer"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* GA-UI-006: intentional new-conversation surface with suggestions */}
       {showSuggestions && !assistant.listLoading && (
         <div className="flex-1">
-          <SuggestionEmptyState onSuggest={handleSuggest} />
+          <SuggestionEmptyState onSuggest={handleSuggest} surface={surface.surface} />
         </div>
       )}
 

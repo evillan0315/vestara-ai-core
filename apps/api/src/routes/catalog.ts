@@ -19,6 +19,10 @@ export async function handleCatalogRoute(
   res: http.ServerResponse,
   _ctx: WorkspaceContext,
 ): Promise<boolean> {
+  // Own only /api/catalog paths. The sequential dispatcher calls every handler;
+  // returning true for non-catalog paths would swallow unrelated requests.
+  if (!p.startsWith('/api/catalog')) return false;
+
   // Only GET is allowed — read-only catalog
   if (method !== 'GET') {
     json(res, 405, { error: { code: 'METHOD_NOT_ALLOWED', message: 'Catalog is read-only.' } });

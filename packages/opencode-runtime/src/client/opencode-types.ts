@@ -35,6 +35,64 @@ export interface OpenCodeProviderSummary {
   readonly models?: readonly string[];
 }
 
+// ── GA-PROVIDER-001: Config Providers (from /config/providers) ──────────────
+
+export interface OpenCodeConfigModel {
+  readonly id: string;
+  readonly providerID: string;
+  readonly name: string;
+  readonly family?: string;
+  readonly status?: string;
+  readonly capabilities?: {
+    readonly temperature?: boolean;
+    readonly reasoning?: boolean;
+    readonly attachment?: boolean;
+    readonly toolcall?: boolean;
+    readonly input?: { readonly text?: boolean; readonly image?: boolean; readonly audio?: boolean; readonly video?: boolean; readonly pdf?: boolean };
+    readonly output?: { readonly text?: boolean; readonly image?: boolean; readonly audio?: boolean; readonly video?: boolean; readonly pdf?: boolean };
+    readonly interleaved?: boolean;
+  };
+  readonly cost?: {
+    readonly input?: number;
+    readonly output?: number;
+    readonly cache?: { readonly read?: number; readonly write?: number };
+  };
+  readonly limit?: {
+    readonly context?: number;
+    readonly input?: number;
+    readonly output?: number;
+  };
+  readonly api?: {
+    readonly id?: string;
+    readonly url?: string;
+    readonly npm?: string;
+  };
+  readonly variants?: Record<string, unknown>;
+}
+
+export interface OpenCodeConfigProvider {
+  readonly id: string;
+  readonly name: string;
+  readonly source?: string;
+  readonly env?: readonly string[];
+  readonly key?: string;
+  readonly options?: Record<string, unknown>;
+  readonly models: Record<string, OpenCodeConfigModel>;
+}
+
+export interface OpenCodeConfigProvidersResponse {
+  readonly providers: readonly OpenCodeConfigProvider[];
+  readonly default: Record<string, string>;
+}
+
+export interface OpenCodeConfig {
+  readonly model?: string;
+  readonly shell?: string;
+  readonly mode?: unknown;
+  readonly agent?: Record<string, unknown>;
+  readonly permission?: Record<string, unknown>;
+}
+
 export interface OpenCodeAgentSummary {
   readonly name: string;
   readonly description?: string;

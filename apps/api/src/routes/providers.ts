@@ -300,21 +300,21 @@ export async function handleProvidersRoute(
   ctx: WorkspaceContext,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/providers') {
+    // Resolve the full provider list (same as before)
     const runtime = await runtimeProviderConfigs(ctx);
-    if (runtime) {
-      json(res, 200, {
-        source: 'opencode-runtime',
-        providers: runtime.map((provider) => ({
-          ...publicProvider(ctx, provider),
-          status: 'available',
-          source: 'opencode-runtime' as const,
-        })),
-      });
-      return true;
-    }
+    const allProviders = runtime ?? (await configurations(ctx));
+    const source = runtime ? 'opencode-runtime' : 'configuration';
+
+    // Build the response with public provider data
+    const publicProviders = allProviders.map((provider) => ({
+      ...publicProvider(ctx, provider),
+      status: runtime ? ('available' as const) : undefined,
+      source: runtime ? ('opencode-runtime' as const) : undefined,
+    }));
+
     json(res, 200, {
-      source: 'configuration',
-      providers: (await configurations(ctx)).map((provider) => publicProvider(ctx, provider)),
+      source,
+      providers: publicProviders,
     });
     return true;
   }

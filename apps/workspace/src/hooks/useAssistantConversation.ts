@@ -68,7 +68,16 @@ async function apiFetch<T>(path: string, options?: RequestInit): Promise<T> {
 
 // ─── Types ────────────────────────────────────────────────────
 
-export type StreamState = 'idle' | 'sending' | 'streaming' | 'completed' | 'failed';
+/**
+ * GA-DETACH-001: Stream lifecycle states.
+ * - idle: no active stream
+ * - sending: submitting human message
+ * - streaming: receiving assistant response
+ * - completed: turn finished successfully
+ * - failed: turn failed (runtime error, timeout, etc.)
+ * - detached: client disconnected but execution continues server-side
+ */
+export type StreamState = 'idle' | 'sending' | 'streaming' | 'completed' | 'failed' | 'detached';
 
 /** Presentation lifecycle of an optimistic human turn (GA-UI-004). */
 export type OptimisticDelivery = 'submitting' | 'persisted' | 'failed';
@@ -139,6 +148,8 @@ export interface UseAssistantConversationReturn {
 
   // Messages
   messages: Message[];
+  messagesLoading: boolean;
+  messagesError: string | null;
   loadMessages: (conversationId: string) => Promise<void>;
 
   // Optimistic human turns (GA-UI-004): projected synchronously on send,
@@ -375,6 +386,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
 
   // ── Messages for selected conversation ──
   const [messages, setMessages] = useState<Message[]>([]);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [messagesError, setMessagesError] = useState<string | null>(null);
 
   // ── Session messages (loaded from OpenCode runtime sessions) ──
   const [sessionMessages, setSessionMessages] = useState<Message[]>([]);
@@ -485,11 +498,19 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   }, [refreshList]);
 
   // ── Select conversation ──
+  // GA-DETACH-001: Selecting a different conversation DETACHES the client
+  // from the current stream but does NOT abort the server-side execution.
+  // The OpenCode session continues running. When the user returns to this
+  // conversation, persisted state is reloaded from authoritative sources.
   const selectConversation = useCallback(
     (id: string | null) => {
-      // Abort any in-flight stream when changing selection
+      // GA-DETACH-001: Close the client-side connection WITHOUT aborting
+      // the server-side execution. The execution continues independently.
       if (abortRef.current) {
-        abortRef.current.abort();
+        // DO NOT call abortRef.current.abort() — that would cancel the
+        // server-side execution. Instead, just clear the reference so the
+        // client stops processing the stream. The server detects the closed
+        // connection and stops sending events, but the execution continues.
         abortRef.current = null;
       }
       streamIdRef.current += 1; // invalidate any in-flight stream loop
@@ -506,8 +527,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       selectedIdRef.current = id;
       setSelectedConversation(null);
       setMessages([]);
+      setMessagesError(null);
       if (id) {
         // Load conversation details + messages
+        setMessagesLoading(true);
         apiFetch<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`)
           .then((data) => {
             setSelectedConversation(data.conversation);
@@ -517,7 +540,13 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
             // Conversation may have been deleted server-side
             setSelectedConversation(null);
             setMessages([]);
+            setMessagesError('Failed to load conversation');
+          })
+          .finally(() => {
+            setMessagesLoading(false);
           });
+      } else {
+        setMessagesLoading(false);
       }
     },
     [],
@@ -809,8 +838,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         await finalizeSuccess();
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') {
-          // User aborted or selection changed — the initiator (abortStream /
-          // selectConversation) already owns state cleanup. Just stop.
+          // GA-DETACH-001: Client disconnected (selection changed, panel minimized).
+          // The server-side execution continues. Do NOT treat this as a failure.
+          // The user can return to this conversation later to see persisted results.
+          if (currentStreamId === streamIdRef.current) {
+            setStreamState('detached');
+            setStreamStatus(null);
+            setStreamError(null);
+          }
           return;
         }
         if (currentStreamId === streamIdRef.current) {
@@ -958,10 +993,9 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   );
 
   // ── Abort stream ──
-  // Bounded cancellation over the existing execution path: aborting the fetch
-  // signal stops the client read loop server-side. No new architecture.
-  // Minimizing the panel never calls this — state lives in the hook, so the
-  // active turn continues while hidden.
+  // GA-DETACH-001: Explicit cancellation (Stop button). This DOES abort the
+  // server-side execution via the AbortController signal. The adapter
+  // classifies this as 'cancelled' and aborts the OpenCode session.
   const abortStream = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
@@ -1039,6 +1073,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     createConversation,
     resumeOpenCodeSession,
     messages,
+    messagesLoading,
+    messagesError,
     loadMessages,
     optimisticTurns,
     retryTurn,

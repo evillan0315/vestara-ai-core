@@ -123,7 +123,46 @@ See the [configuration guide](docs/CONFIGURATION.md) for the full reference.
 ## Current work — Global Assistant runtime (GA-RUNTIME-001 + GA-UI-008)
 
 In-progress Global Assistant hardening around server-authoritative execution
-and premium workspace UX:
+and premium workspace UX.
+
+### Provider/model configuration convergence (GA-PROVIDER-001)
+
+OpenCode `/config` and `/config/providers` provide the authoritative
+configured/effective provider-model projection. Vestara exposes these through
+`/api/opencode/config` and `/api/opencode/config/providers` (API keys stripped
+before reaching the browser).
+
+- OpenCode config endpoints wired in `apps/api/src/routes/opencode.ts`.
+- Typed client methods in `packages/opencode-runtime/src/client/opencode-http-client.ts`.
+- Type definitions in `packages/opencode-runtime/src/client/opencode-types.ts`.
+- `/api/providers` remains backward-compatible (213 providers / 7,602 models).
+- Configured providers: 3, configured models: 145 (observed runtime counts).
+
+### Execution lifecycle semantics (GA-DETACH-001)
+
+SSE disconnect no longer cancels execution. The OpenCode session continues
+server-side for later reattachment. Only explicit Stop/Cancel terminates.
+
+- `TurnTermination` type tracks how a turn ended: completed, failed, timeout,
+  cancelled, detached.
+- `requiresAbort()` determines whether the OpenCode session should be aborted.
+- Deadline-aware event wait prevents indefinite blocking when the stream is
+  open but idle.
+- Catalog and marketplace route handlers claim only their own paths to prevent
+  swallowing unrelated requests.
+
+### Conversation persistence fix (2026-09-11)
+
+Fixed userId mismatch between conversation creation and listing. Conversations
+were created with `userId = 'local'` but listed with `userId = 'workspace-ui'`,
+causing the conversation list to appear empty after API restart.
+
+- **Root cause**: `POST /api/conversations` defaulted `userId` to `'local'`;
+  `GET /api/conversations` defaulted to `ACTOR = 'workspace-ui'`. SQL query
+  filters `WHERE user_id = ?`, so conversations created with 'local' were
+  invisible when listing with 'workspace-ui'.
+- **Fix**: Changed `apps/api/src/routes/conversations.ts` to default creation
+  userId to `ACTOR` instead of `'local'`.
 
 ### Server-authoritative execution (GA-RUNTIME-001)
 
@@ -139,8 +178,7 @@ and premium workspace UX:
   to avoid 404 on browser Allow buttons.
 - Vestara-owned capability boundary (`assistant-capability-policy`, GA-CAP-003);
   assistant grant tightened to `edit: ask`, `bash: ask`.
-- Execution projection for `question.v2.asked/replied`; SSE disconnect drives
-  authoritative OpenCode `abortSession` (disconnect alone is not cancellation).
+- Execution projection for `question.v2.asked/replied`.
 
 ### Workspace UI (GA-UI-008)
 
@@ -157,8 +195,18 @@ and premium workspace UX:
   permission/question cards, `FloatingPanel`, `ConversationHistory`,
   `AssistantToolCard`, `AssistantTodoChecklist`, `AssistantCodeEdit`,
   `AssistantFilesSummary`, `AssistantResponseActions`.
+- **Activity Room** — M11C activity stream, participant rail, context panel,
+  with premium dark-luxury design language.
 - **Coverage**: `assistant-capability-policy`, `ga-runtime-001`,
   `ga-ui-008`, `surface-context-transport`.
+
+### Next known work
+
+- **GA-UX-001**: Explicit conversation message loading state —
+  empty/loading/loaded/error distinction, contextual suggestion/recommendation
+  contract, presentation must not own recommendation intelligence.
+- **PERF-001B+**: Bounded message loading/windowing — separate future work
+  from UX state management.
 
 ## Contributing
 

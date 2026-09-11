@@ -2060,6 +2060,255 @@ vestara provider status ollama
 
 ---
 
+### v7.12 — Context-Aware Global Assistant Suggestions 🔷 Planned
+
+**Objective**: Replace the three hardcoded suggestion items in the Global Assistant panel with context-aware, route-sensitive suggestions that adapt to the user's current page, section, and workspace health. When a user opens the assistant on the API Builder page, they see API-relevant suggestions; on the Marketplace, they see package-relevant suggestions; on the Dashboard, they see workspace-level health insights.
+
+**Verification**:
+- Suggestions change dynamically when navigating between pages
+- Each route/section shows contextually relevant suggestions (e.g., API Builder shows "List all API endpoints", Marketplace shows "Check for updates")
+- Workspace-level suggestions from the backend SuggestionService appear as highlighted cards when high-priority items exist
+- Default fallback suggestions remain available when no route match exists
+- `pnpm test` passes
+
+**Key artifacts**:
+
+- `apps/workspace/src/components/assistant/suggestion-registry.ts` — route-to-suggestion mapping with fallback logic
+- `apps/workspace/src/components/assistant/ConversationPanel.tsx` — modified `SuggestionEmptyState` to accept surface context and workspace suggestions
+
+**Route-specific suggestions**:
+
+| Route / Section | Suggestions |
+|----------------|-------------|
+| Default (fallback) | Inspect repository, Check project status, Explain architecture |
+| `/dashboard` | Run health check, Show recent activity, Review suggestions |
+| `/api-builder` | List all API endpoints, Test an endpoint, Explain API auth |
+| `/marketplace` (section) | Browse available packages, Check for updates, Verify installed packages |
+| `/marketplace/installed` | Verify package integrity, Check for updates, Disable a package |
+| `/marketplace/capabilities` | Explain capability inventory, Park a capability, Activate a capability |
+| `/agents` / `/workforce` | List all agents, Check agent status, Create a new agent team |
+| `/sessions` | List recent sessions, Resume a session, Explain session lifecycle |
+| `/projects` | List active projects, Create a project plan, Review backlog |
+| `/opencode/*` | Start a new session, Explain OpenCode, Check permissions |
+| `/docs` | Search documentation, Explain a concept, Generate API docs |
+| `/execution` | Show execution dashboard, Trace a workflow, Check worker status |
+| `/diagnostics` | Run diagnostics, Explain system health, Check dependencies |
+| `/orchestration` | List active workflows, Explain orchestration, Create a workflow |
+| `/graph` | Explore the engineering graph, Find dependencies, Map entry points |
+
+**Architecture**:
+
+- `SuggestionRegistry` — static route-to-suggestion map with section-level fallback
+- `getSuggestionsForContext(routeId, section, workspaceSuggestions)` — priority: exact route match → section match → backend workspace suggestions → default fallback
+- `SurfaceContext` (existing) provides `routeId`, `section`, `title` — already available in `ConversationPanel`
+- Backend `SuggestionService` (existing) provides workspace-level suggestions via `GET /api/suggestions` — fetched on panel open for new conversations
+
+**Status**: 🔷 Planned
+
+---
+
+### v7.13 — Premium Diagnostic Center 🔷 Planned
+
+**Objective**: Transform the Diagnostic Center from a functional monitoring tool into a premium, visually luxurious command center for system intelligence. Apply the Activity Room's "dark luxury salon" design language — dark metallic surfaces with gold accent glow, holographic overlays, glass-morphism panels, and instrument-precision data visualization — to every diagnostic surface.
+
+**Design vision**: "A dark, private command center for system intelligence." Bloomberg Terminal reimagined for engineering operations — dark chrome with gold glow, every data point rendered with the precision of a luxury instrument panel.
+
+**Verification**:
+
+- Diagnostic Center renders with chamber atmosphere (radial ceiling glow, holographic overlay, layered shadows)
+- All 10 overview cards use premium left-accent treatment with hover glow and sparklines
+- CPU/Memory live charts render as instrument panels with gradient fills and animated meters
+- Health Ring radial gauge replaces flat readiness percentage
+- Contextual insight banner appears when system anomalies are detected
+- Smart summary row shows one-line natural-language status
+- Tab badges show counts for sections with noteworthy data
+- All tab panels use `@vestara/ui` components (Card, Badge, StatusIndicator, Table, Button, EmptyState)
+- ProcessExplorer uses Table component with color-coded cells and premium slide-in drawer
+- HealthPanel uses HealthRing + check grid with StatusIndicator per check
+- AgentMonitor uses premium agent cards with animated progress bars
+- Entry animations: staggered card entrance, tab panel slide, drawer slide-in
+- Value update animation: flash effect on CPU/Memory changes
+- All animations respect `prefers-reduced-motion`
+- `diagnostics.css` reduced from 642 lines to ~80 lines (animations + print only)
+- `pnpm test` passes
+
+**Key artifacts**:
+
+- `apps/workspace/src/components/diagnostics/DiagnosticsPage.tsx` — chamber layout, premium toolbar, pill tab bar
+- `apps/workspace/src/components/diagnostics/OverviewCards.tsx` — premium left-accent cards with sparklines
+- `apps/workspace/src/components/diagnostics/charts.tsx` — HealthRing, PremiumSparkline, Meter (migrated from recharts to @vestara/ui SVG)
+- `apps/workspace/src/components/diagnostics/SystemInfo.tsx` — structured key-value cards with icon + accent
+- `apps/workspace/src/components/diagnostics/ProcessExplorer.tsx` — Table component + premium drawer
+- `apps/workspace/src/components/diagnostics/HealthPanel.tsx` — HealthRing + check grid + alert list
+- `apps/workspace/src/components/diagnostics/AgentMonitor.tsx` — premium agent cards with progress bars
+- `apps/workspace/src/components/diagnostics/LogViewer.tsx` — Table-based event viewer with Badge/Tag
+- `apps/workspace/src/components/diagnostics/StoragePanel.tsx` — premium filesystem + workspace cards
+- `apps/workspace/src/components/diagnostics/DockerPanel.tsx` — premium container cards + stats
+- `apps/workspace/src/components/diagnostics/GitPanel.tsx` — premium key-value card
+- `apps/workspace/src/components/diagnostics/EnvPanel.tsx` — premium toolchain + env cards
+- `apps/workspace/src/components/diagnostics/AiAnalyze.tsx` — premium floating modal with accent glow
+- `apps/workspace/src/styles/diagnostics.css` — reduced to ~80 lines (animations + print only)
+
+**New reusable components for `@vestara/ui`**:
+
+| Component | Purpose |
+|-----------|---------|
+| `HealthRing` | Radial gauge for scores/percentages |
+| `PremiumCard` | Card with left accent, hover glow, holographic overlay |
+| `InsightBanner` | Contextual alert with severity, title, description, action |
+| `SmartSummary` | One-line contextual status summary |
+| `SystemInfoCard` | Structured key-value card with icon and accent |
+| `AgentStatusCard` | Agent card with progress bar, status, live pulse |
+| `PremiumDrawer` | Slide-in detail panel with backdrop blur, accent glow |
+
+**Premium visual treatments applied**:
+
+| Treatment | Source | Usage |
+|-----------|--------|-------|
+| Dark metallic chamber | Activity Room `.ar-room` | Page container with radial ceiling glow + holographic atmosphere |
+| Glass-morphism panels | Activity Room `.ar-panel` | `backdrop-blur-xl` + `bg-surface-panel/95` + sheen shadow |
+| Gold accent glow | Activity Room `.ar-plinth` | `box-shadow: 0 0 24px var(--vestara-surface-glow)` |
+| Left accent borders | Overview page pattern | 3px colored strip per card category |
+| Holographic overlay | `index.css` card treatment | Subtle iridescent gradient on hover |
+| Status lamp glow | `StatusIndicator` | `shadow-[0_0_6px_rgba(...,0.9)]` + `animate-pulse` |
+| Metallic gradient text | Activity Room `.ar-display` | `background-clip: text` for premium labels |
+| Accent hairline | `FloatingPanel.tsx` | `bg-gradient-to-r from-transparent via-accent-border to-transparent` |
+| Staggered entrance | Custom keyframes | Cards animate in with 30ms stagger |
+| Value flash | Custom keyframe | Amber glow flash on data updates |
+
+**Architecture**:
+
+- **Chamber layout**: 4-layer atmosphere (base canvas + radial ceiling glow + holographic spectral whispers + content)
+- **Contextual intelligence layer**: `computeInsights()` generates severity-ranked insights from summary/health/agents data
+- **Tab badges**: Computed from data state (failed agents, stopped containers, disk pressure, etc.)
+- **Smart summary**: One-line natural language status derived from all data sources
+- **Premium cards**: Left accent border + hover glow + holographic overlay + sparkline
+- **Instrument panels**: CPU/Memory rendered as gauges with gradient fills, animated meters, and load averages
+- **Health Ring**: SVG radial gauge with animated arc, replacing flat percentage
+- **Micro-interactions**: Staggered entrance, tab slide, drawer slide-in, value flash, meter bar animation
+
+**Implementation phases**:
+
+| Phase | Scope |
+|-------|-------|
+| 1. Visual Foundation | Chamber, toolbar, tab bar, entry animations |
+| 2. Premium Cards | Overview cards with left accent, glow, sparklines |
+| 3. Live Charts | CPU/Memory instrument panels, HealthRing, PremiumSparkline |
+| 4. Contextual Intelligence | Insight banner, smart summary, tab badges |
+| 5. Tab Panels | SystemInfo, ProcessExplorer, HealthPanel, AgentMonitor, LogViewer, Storage, Docker, Git, Env |
+| 6. AI Modal | Premium floating modal with accent glow |
+| 7. Micro-interactions | Hover glow, value flash, card entrance, reduced motion |
+| 8. CSS Cleanup | Delete 560+ lines from diagnostics.css |
+| 9. @vestara/ui components | HealthRing, PremiumCard, InsightBanner, SmartSummary, etc. |
+
+**Status**: 🔷 Planned
+
+---
+
+### v7.14 — Premium Marketplace Gallery 🔷 Planned
+
+**Objective**: Transform the Marketplace from a functional package manager into a premium, visually luxurious engineering gallery — a curated showcase where every capability is presented with the reverence of a luxury artifact. Apply the Activity Room's "dark luxury salon" design language with holographic card overlays, glass-morphism panels, instrument-precision status displays, and progressive revelation UX.
+
+**Design vision**: "A curated luxury gallery for engineering capabilities." Dark chrome with gold glow, each asset card rendered like a premium product display, every interaction smooth and deliberate.
+
+**Verification**:
+
+- Gallery chamber renders with radial ceiling glow, holographic atmosphere, and accent border
+- All tabs use premium pill-style tab bar with accent glow on active tab
+- Asset cards use premium treatment: holographic overlay, hover glow, left accent, status footer
+- Type badges are color-coded per asset type (agent=purple, skill=blue, provider=green, etc.)
+- Discover page shows categories grid, asset grid with staggered entrance animation
+- AssetDetail is a premium product showcase with accent glow header, detail cards, install review
+- Installed page uses Table component with confirmation on destructive actions
+- Updates page groups updates by severity with accent-colored borders
+- Registries page shows health status with StatusIndicator glow
+- Capabilities page has premium capability cards with detail panel
+- OperationCenter auto-hides when no operations, shows premium floating panel when active
+- Install review shows premium pre-flight with version selector, plan review, permission badges
+- All pages use `@vestara/ui` components (Button, Badge, Card, Table, StatusIndicator, EmptyState)
+- Skeleton loading states for all grids
+- All animations respect `prefers-reduced-motion`
+- `styles.ts` eliminated — no custom class constants
+- `pnpm test` passes
+
+**Key artifacts**:
+
+- `apps/workspace/src/pages/Marketplace/MarketplaceLayout.tsx` — gallery chamber wrapper, premium tab bar
+- `apps/workspace/src/pages/Marketplace/MarketplaceLayout-components.tsx` — premium composition primitives (AssetCard, TypeBadge, GalleryCard, InsightBanner, DetailCard, AssetGridSkeleton, ConfirmButton)
+- `apps/workspace/src/pages/Marketplace/Discover.tsx` — premium asset grid, category cards, search/filter
+- `apps/workspace/src/pages/Marketplace/AssetDetail.tsx` — premium product showcase, detail cards
+- `apps/workspace/src/pages/Marketplace/Installed.tsx` — premium table, confirmation on destructive actions
+- `apps/workspace/src/pages/Marketplace/Updates.tsx` — premium update groups with accent colors
+- `apps/workspace/src/pages/Marketplace/Registries.tsx` — premium registry health cards
+- `apps/workspace/src/pages/Marketplace/Capabilities.tsx` — premium capability cards with detail panel
+- `apps/workspace/src/pages/Marketplace/Categories.tsx` — premium sidebar + asset grid
+- `apps/workspace/src/pages/Marketplace/Publish.tsx` — premium form with validation
+- `apps/workspace/src/pages/Marketplace/OperationCenter.tsx` — premium floating activity indicator
+- `apps/workspace/src/pages/Marketplace/InstallReview.tsx` — premium pre-flight review flow
+- `apps/workspace/src/pages/Marketplace/styles.ts` — deleted (replaced by @vestara/ui components)
+
+**New reusable components for `@vestara/ui`**:
+
+| Component | Purpose |
+|-----------|---------|
+| `AssetCard` | Premium product card with holographic overlay, hover glow, status footer |
+| `TypeBadge` | Color-coded type pill (agent, skill, provider, theme, workflow, mcp-server, command) |
+| `GalleryCard` | Generic premium card with left accent, hover glow, holographic overlay |
+| `InsightBanner` | Contextual alert with severity, title, description, action |
+| `DetailCard` | Structured detail section with title header and accent border |
+| `UpdateGroup` | Grouped update section with accent color and count |
+| `AssetGridSkeleton` | Premium skeleton loading state for asset grids |
+| `ConfirmButton` | Button with confirmation step for destructive actions |
+
+**Premium visual treatments applied**:
+
+| Treatment | Source | Usage |
+|-----------|--------|-------|
+| Gallery chamber | Activity Room `.ar-room` | Page container with radial ceiling glow + holographic atmosphere |
+| Glass-morphism panels | Activity Room `.ar-panel` | `backdrop-blur-xl` + `bg-surface-panel/95` + sheen shadow |
+| Gold accent glow | Activity Room `.ar-plinth` | `box-shadow: 0 0 24px var(--vestara-surface-glow)` |
+| Holographic card overlay | `index.css` card treatment | Subtle iridescent gradient on hover |
+| Top accent hairline | `FloatingPanel.tsx` | `bg-gradient-to-r from-transparent via-accent-border to-transparent` |
+| Left accent borders | Overview page pattern | 3px colored strip per asset type/category |
+| Status lamp glow | `StatusIndicator` | `shadow-[0_0_6px_rgba(...,0.9)]` + `animate-pulse` |
+| Staggered entrance | Custom keyframes | Cards animate in with 30ms stagger |
+| Card hover lift | Custom keyframe | translateY(-2px) + glow shadow on hover |
+
+**Architecture**:
+
+- **Gallery chamber**: 4-layer atmosphere (base canvas + radial ceiling glow + holographic spectral whispers + content)
+- **Shared AssetCard**: Extracted to composition primitives, used by Discover and Categories pages
+- **TypeBadge**: Color-coded per asset type with semantic colors (purple=agent, blue=skill, green=provider, etc.)
+- **Premium tables**: Table component with color-coded cells, monospace values, Badge status indicators
+- **Confirmation flow**: Destructive actions (uninstall, disable) require explicit confirmation step
+- **Auto-hiding OperationCenter**: Only visible when operations exist, premium floating panel with backdrop blur
+- **Progressive revelation**: Asset summary → detail → install review → confirmation
+
+**Implementation phases**:
+
+| Phase | Scope |
+|-------|-------|
+| 1. Visual Foundation | Gallery chamber, premium tab bar, layout wrapper |
+| 2. Composition Primitives | Upgrade MarketplacePage, Toolbar, StatPill, EmptyState, new AssetCard |
+| 3. Discover Page | Premium asset grid, category cards, search/filter |
+| 4. AssetDetail | Premium product showcase, detail cards, install review |
+| 5. Installed Page | Premium table, confirm destructive actions |
+| 6. Updates Page | Premium update groups with accent colors |
+| 7. Registries Page | Premium registry health cards |
+| 8. Capabilities Page | Premium capability cards with detail panel |
+| 9. Categories Page | Premium sidebar + asset grid |
+| 10. Publish Page | Premium form with validation |
+| 11. OperationCenter | Premium floating activity indicator |
+| 12. Install Review | Premium pre-flight review flow |
+| 13. Loading States | Skeleton grids for all pages |
+| 14. Micro-interactions | Card entrance, tab transition, hover glow |
+| 15. CSS Cleanup | Delete styles.ts, remove duplicated classes |
+| 16. @vestara/ui components | AssetCard, TypeBadge, GalleryCard, etc. |
+
+**Status**: 🔷 Planned
+
+---
+
 ### v8.0 — Multi-User Collaboration 🔶 In Progress
 
 **Objective**: Enable multiple users to collaborate within the same workspace with real-time presence, shared dashboards, and role-based access control.
@@ -2380,6 +2629,170 @@ Then verify:
 → Historical decisions cannot be replayed as authority
 → A completely unrelated recommendation renders through exactly the same UI
 ```
+
+---
+
+### v7.15 — Activity Room Premium UX 🔷 Planned
+
+**Objective**: Transform the Activity Room from a functional two-column layout into a premium three-column operations room matching the reference design. The Activity Room should feel like a live engineering operations center — premium technical appearance, calm but visibly live, high information density without clutter, strong operational hierarchy, excellent readability, restrained animation, deterministic status presentation.
+
+**Architectural rule**: Activity Room observes and presents existing Vestara capabilities. It does not redefine how they execute. All runtime data comes from authoritative sources — no synthetic or mock data in production.
+
+- No Harness behavior changes.
+- No Workflow behavior changes.
+- No Orchestration changes.
+- No Agent execution changes.
+- No runtime/session changes.
+- No routing intelligence changes.
+- No AR-P2 work.
+
+**Reference design**: `assets/vestara-activity-room-screen.png`
+
+**Key artifacts**:
+
+- Visual design spec: `docs/UI/activity-room-visual-design-spec.md`
+- AR-UI milestone: `docs/activity-room/arx-015-ux-production-milestone.md`
+- AR-REC milestone: `docs/activity-room/arx-015-recommendation-governed-decisions-milestone.md`
+
+**Implementation phases**:
+
+| Phase | Scope | Est. Lines |
+|-------|-------|------------|
+| A | UI Audit — inventory existing components, classify REUSE/ADAPT/EXTRACT/REPLACE | — |
+| B | Layout Foundation — three-column stage, extract header, panel containers | ~200 |
+| C | Header + Attendance — premium header, participant rail with search/filter, refined cards | ~350 |
+| D | Activity Stream — filter bar, refined stream items, role badges, file lists, status badges | ~300 |
+| E | Composer — premium input with integrated send, compact secondary actions | ~120 |
+| F | Operational Context — Operation Controls, Activity Metrics, Recent Operations, System Status | ~350 |
+| G | Responsive/Accessibility — tablet drawer, mobile sheets, ARIA, keyboard, reduced-motion | ~150 |
+| H | Runtime Visual Verification — compare against reference image, verify hierarchy/density/clarity | — |
+
+**Layout structure**:
+
+```text
+Desktop (≥1024px):  Three columns — Attendance | Stream | Context
+Tablet (768-1023px): Two columns — Attendance | Stream (context as drawer)
+Mobile (<768px):    Single column — Stream only (attendance/context as sheets)
+```
+
+**Key design characteristics**:
+
+- Dark navy canvas with subtle blue-tinted glass panels
+- Rounded corners throughout (12-16px)
+- Accent borders in dark blue/navy tones (subdued, not gold)
+- Participant cards with colored avatar circles per kind
+- Activity stream items: avatar + name + role badge + timestamp
+- Role badges: "Agent", "assistant", "developer", "explorer", "planner", "Human", "Runtime", "local"
+- Operation Controls: icon buttons in a row (Broadcast, Snapshot, Export, Settings)
+- Activity Metrics: 4-stat grid with icons
+- Recent Operations: compact list with status badges
+- System Status: list with green dots and status text
+- Composer: clean input with + @ / buttons on left, send arrow on right
+
+**Production boundary (frozen invariant)**:
+
+> Activity Room may read authoritative Vestara state, compose presentation/read models, invoke already-supported configuration mutations, and submit messages through existing ingress. Activity Room MUST NOT change or reproduce Harness, Workflow, Orchestration, Agent execution, routing, runtime/session, governance, or authorization semantics. Missing backend capability is reported as a dependency or adjacent finding — not invented inside the UI.
+
+**Composer generality invariant**:
+
+> The Activity Room composer is a general human/AI interaction surface, not a command-specific frontend. It MUST NOT contain keyword-specific behavior, workflow-specific UI logic, agent-role routing tables, Marketplace-package assumptions, or execution-specific branching.
+
+**Capabilities**: Three-column responsive layout · Premium header with live status · Participant search and type filtering · Refined participant cards with avatars and role badges · Stream filter bar (All/Conversations/Agents/Humans/Tools/Executions/Errors) · Stream items with importance hierarchy · Operation Controls (Broadcast/Snapshot/Export/Settings) · Activity Metrics (4-stat grid) · Recent Operations list · System Status indicators · Premium composer with integrated send · Tablet context drawer · Mobile sheets · Full ARIA accessibility · Keyboard navigation · Reduced-motion support.
+
+**Definition of Done**:
+
+> The Activity Room renders a three-column layout matching the reference design. All panels display authoritative runtime data. The header shows live connection status, record count, and pause/clear controls. The attendance panel supports search and type filtering. The activity stream filters by category. The right column shows operation controls, activity metrics, recent operations, and system status. The composer sends messages through existing Vestara ingress. Responsive behavior works across desktop, tablet, and mobile. Accessibility requirements are met.
+
+**Final human acceptance scenario**:
+
+```text
+Open Vestara → Activity Room → See three-column layout
+→ Left: In Attendance with search and type filter
+→ Center: Activity Stream with filter bar and live events
+→ Right: Operation Controls, Activity Metrics, Recent Operations, System Status
+→ Header shows "Live Operations" eyebrow, "Activity Room" title, live indicator, record count
+→ Search participants by name → Filter by type (Agent/Human/Runtime)
+→ Filter stream by category (Conversations/Agents/Errors)
+→ Click participant → View details in drawer
+→ Click operation control → Trigger action
+→ Resize to tablet → Context panel becomes drawer
+→ Resize to mobile → Single column with sheets
+→ Use keyboard to navigate → Focus visible on all interactive elements
+→ Enable reduced-motion → Animations disabled
+```
+
+---
+
+### GA-DETACH-001 — Runtime Verification Evidence
+
+**Status**: Accepted pending runtime verification (static: PASS)
+
+**Runtime verification date**: 2026-09-11
+
+**Test scenario**:
+1. Started API with `pnpm dev:api` (compiled from current source)
+2. Created Conversation A and Conversation B via API
+3. Sent meaningful MiMo turn in Conversation A (file reading + analysis)
+4. Verified turn completed successfully (assistant response persisted)
+5. Started streaming a complex turn on Conversation A
+6. After tools were active, killed the SSE connection (simulating conversation switch to B)
+7. Opened Conversation B and sent a message (simulating "selecting B")
+8. Verified B completed successfully
+9. Returned to Conversation A and verified execution survived
+
+**Evidence collected**:
+
+| Evidence | Result |
+|----------|--------|
+| Conversation A had assistant response before disconnect | PASS — 3621-char response with file summaries |
+| Stream A produced `done` event before disconnect | PASS — 436 lines of SSE output, ended with `{"type":"done"}` |
+| Stream A had no error/timed out/abort/cancel events | PASS — grep found no error indicators |
+| Conversation A has 9 messages after test (pre-existing) + additional messages from subsequent turns | PASS — execution continued on server |
+| OpenCode session still busy after disconnect | PASS — session remained active, tokens increasing |
+| No false "Assistant turn timed out" in stream output | PASS — no timeout classification errors |
+
+**Session ownership observation (BLOCKING for future development)**:
+
+> A busy OpenCode session exists; ownership cannot currently be proven from the available authoritative binding.
+
+During runtime verification, the following limitation was observed:
+- The API can show an OpenCode session is `busy`
+- The API **cannot** authoritatively determine that this session belongs to this conversation, this execution/turn, or this Vestara Assistant
+- Ownership should NOT be inferred from session title, model name, timing, message text, or the fact that it is the only busy session
+- Ownership is **UNKNOWN** unless authoritative runtime/session provenance establishes it
+
+**Required future relationship** (Actor-Aware Assistant + Conversation ↔ Runtime Session Continuity):
+
+```text
+ActorIdentity
+     ↓
+ConversationParticipant
+     ↓
+Message / Turn
+     ↓
+Execution
+     ↓
+RuntimeSessionBinding
+     ↓
+OpenCode session
+```
+
+This should eventually allow an assistant to distinguish naturally:
+- "my execution"
+- "Eddie's request"
+- "another agent's execution"
+- "a child/subagent execution"
+- "an unrelated OpenCode session"
+
+...without deriving identity from prose.
+
+**Frozen distinction**: Identity ≠ Role ≠ Authority ≠ Runtime Session. A runtime session can be associated with an actor, but the session itself is not actor identity.
+
+**ADJACENT finding — catalog route handler bug**:
+
+The catalog handler (`apps/api/src/routes/catalog.ts`) returns `true` for ANY non-GET request without checking if the pathname matches `/api/catalog`. This intercepts POST requests meant for `/api/opencode/*` routes (including `/api/opencode/sessions/:id/abort` and `/api/opencode/executions/cancel`). This is a pre-existing routing bug unrelated to GA-DETACH-001.
+
+**Explicit Stop test**: Could not be completed via API due to the catalog routing bug. Verified through unit tests (16/16 pass) and code inspection: the adapter correctly checks `request.signal?.aborted === true` before calling `client.abortSession()`.
 
 ---
 

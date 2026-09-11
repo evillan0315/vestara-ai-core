@@ -108,7 +108,7 @@ export async function handleConversationsRoute(
   if (method === 'POST' && p === '/api/conversations') {
     const raw = await readBody(req);
     const body = raw ? JSON.parse(raw) : {};
-    const userId = typeof body.userId === 'string' ? body.userId : 'local';
+    const userId = typeof body.userId === 'string' ? body.userId : ACTOR;
     const runtimeSessionId =
       typeof body.runtimeSessionId === 'string' && body.runtimeSessionId ? body.runtimeSessionId : undefined;
 
@@ -295,24 +295,46 @@ export async function handleConversationsRoute(
       ...CORS,
     });
     let sequence = 0;
-    const emit = (event: ConversationChunk['event']) => {
-      res.write(
-        `data: ${JSON.stringify({
-          schemaVersion: TUI_PROTOCOL_VERSION,
-          conversationId,
-          messageId: `msg-${Date.now()}`,
-          sequence: sequence++,
-          timestamp: new Date().toISOString(),
-          event,
-        } satisfies ConversationChunk)}\n\n`,
-      );
+    let clientDisconnected = false;
+
+    // GA-DETACH-001: Detect client disconnect. When the client disconnects,
+    // we stop sending events but do NOT abort the execution. The OpenCode
+    // session continues server-side for later reattachment.
+    const onClientDisconnect = () => {
+      clientDisconnected = true;
     };
-    // GA-RUNTIME-001 L: closing the Vestara SSE response alone is NOT
-    // cancellation — this signal drives the adapter's authoritative
-    // OpenCode interrupt (abortSession) so the reused session settles.
+    res.on('close', onClientDisconnect);
+
+    const emit = (event: ConversationChunk['event']): boolean => {
+      if (clientDisconnected) return false;
+      try {
+        res.write(
+          `data: ${JSON.stringify({
+            schemaVersion: TUI_PROTOCOL_VERSION,
+            conversationId,
+            messageId: `msg-${Date.now()}`,
+            sequence: sequence++,
+            timestamp: new Date().toISOString(),
+            event,
+          } satisfies ConversationChunk)}\n\n`,
+        );
+        return true;
+      } catch {
+        // Response is closed — client disconnected
+        clientDisconnected = true;
+        return false;
+      }
+    };
+    // GA-DETACH-001: Client disconnect does NOT abort the execution.
+    // The OpenCode session continues server-side. Only explicit cancellation
+    // (Stop button, API abort) terminates the execution. The adapter's
+    // finally block uses TurnTermination to decide whether to abort.
+    //
+    // We use a AbortController that is NEVER triggered by client disconnect.
+    // It can only be triggered by explicit cancellation via the abort endpoint.
     const abort = new AbortController();
-    const onClose = () => abort.abort();
-    res.on('close', onClose);
+    // DO NOT link res.on('close') to abort.abort() — that would detach=cancel.
+    // The signal is passed to sendMessageStream but only fires on explicit cancel.
     try {
       const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
       const executionConfig = parseExecutionConfig(body.executionConfig);
@@ -323,33 +345,32 @@ export async function handleConversationsRoute(
         signal: abort.signal,
         executionConfig,
       })) {
+        // GA-DETACH-001: If client disconnected, stop sending events.
+        // The execution continues server-side (no abort signal sent).
+        if (clientDisconnected) break;
+
         if (chunk.type === 'text' && chunk.content) {
-          emit({ type: 'delta', content: chunk.content });
+          if (!emit({ type: 'delta', content: chunk.content })) break;
         } else if (chunk.type === 'tool_call') {
-          // GA-UX-PREMIUM M3: tool start rides the existing `tool` event with
-          // the structured execution detail (additive — legacy clients ignore
-          // the extra field and keep using name/content).
-          emit({
+          if (!emit({
             type: 'tool',
             content: chunk.content ?? '',
             name: chunk.name,
             ...(chunk.detail ? { execution: chunk.detail } : {}),
-          });
+          })) break;
         } else if (chunk.type === 'tool_result') {
-          emit({
+          if (!emit({
             type: 'tool_result',
             content: chunk.content ?? '',
             name: chunk.name,
             ...(chunk.detail ? { execution: chunk.detail } : {}),
-          });
+          })) break;
         } else if (chunk.type === 'status') {
-          // GA-UX-PREMIUM M3: operational status + optional execution detail
-          // (permission/task/edit projections ride the status channel).
-          emit({
+          if (!emit({
             type: 'status',
             content: chunk.content ?? '',
             ...(chunk.detail ? { execution: chunk.detail } : {}),
-          });
+          })) break;
         } else if (chunk.type === 'error') {
           emit({ type: 'error', content: chunk.content ?? 'Stream failed' });
         } else if (chunk.type === 'complete') {
@@ -359,7 +380,7 @@ export async function handleConversationsRoute(
     } catch (error) {
       emit({ type: 'error', content: error instanceof Error ? error.message : 'Stream failed' });
     } finally {
-      res.removeListener('close', onClose);
+      res.removeListener('close', onClientDisconnect);
       res.end();
     }
     return true;
