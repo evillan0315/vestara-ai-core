@@ -30,6 +30,8 @@ export interface NavigationItem {
   icon: ReactNode;
   description?: string;
   badge?: string | number;
+  /** Capability ID from the activation plan. Item hidden when capability is parked. */
+  capabilityId?: string;
 }
 
 export interface NavigationSection {
@@ -44,7 +46,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     items: [
       { to: '/overview', title: 'Overview', icon: <DashboardRoundedIcon fontSize="small" /> },
       { to: '/dashboard', title: 'Dashboard', icon: <DashboardRoundedIcon fontSize="small" /> },
-      { to: '/live-browser', title: 'Live Browser', icon: <PublicRoundedIcon fontSize="small" /> },
+      { to: '/live-browser', title: 'Live Browser', icon: <PublicRoundedIcon fontSize="small" />, capabilityId: 'browser-runtime' },
       { to: '/graph', title: 'Engineering Graph', icon: <AccountTreeRoundedIcon fontSize="small" /> },
       { to: '/marketplace', title: 'Marketplace', icon: <StorefrontRoundedIcon fontSize="small" /> },
       { to: '/external-runtimes', title: 'External Runtimes', icon: <DnsRoundedIcon fontSize="small" /> },
@@ -66,7 +68,7 @@ export const NAV_CATEGORIES: NavigationSection[] = [
       { to: '/projects', title: 'Projects', icon: <FolderRoundedIcon fontSize="small" /> },
       { to: '/orchestration', title: 'Orchestration', icon: <AccountTreeRoundedIcon fontSize="small" /> },
       { to: '/evidence', title: 'Evidence', icon: <DescriptionRoundedIcon fontSize="small" /> },
-      { to: '/workers', title: 'Workers', icon: <DnsRoundedIcon fontSize="small" /> },
+      { to: '/workers', title: 'Workers', icon: <DnsRoundedIcon fontSize="small" />, capabilityId: 'worker-cluster' },
       { to: '/requests', title: 'Requests', icon: <LightbulbRoundedIcon fontSize="small" /> },
     ],
   },
@@ -94,3 +96,33 @@ export const NAV_CATEGORIES: NavigationSection[] = [
     items: [{ to: '/settings', title: 'Settings', icon: <SettingsRoundedIcon fontSize="small" /> }],
   },
 ];
+
+// ─── Dogfood Navigation Filter ──────────────────────────────
+
+/**
+ * Capabilities parked in the dogfood profile.
+ * Navigation items tagged with these capability IDs are hidden.
+ */
+const PARKED_CAPABILITIES = new Set([
+  'boot-runtime',
+  'host-runtime',
+  'browser-runtime',
+  'telegram',
+  'opencode-go-provider',
+  'openai-provider',
+  'worker-cluster',
+  'dashboard-runtime',
+]);
+
+/**
+ * Get navigation categories filtered for the dogfood profile.
+ * Items with parked capability IDs are removed.
+ */
+export function getDogfoodNavigation(): NavigationSection[] {
+  return NAV_CATEGORIES.map((section) => ({
+    ...section,
+    items: section.items.filter(
+      (item) => !item.capabilityId || !PARKED_CAPABILITIES.has(item.capabilityId),
+    ),
+  })).filter((section) => section.items.length > 0);
+}

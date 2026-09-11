@@ -126,8 +126,9 @@ export const DEFAULT_PRESENCE_CONFIG: PresenceConfig = {
 
 /**
  * AR-UI-B0: Complete presence state for the workspace.
+ * Renamed from PresenceState to avoid conflict with the PresenceState type alias.
  */
-export interface PresenceState {
+export interface PresenceStateData {
   /** All presence entries */
   readonly entries: readonly PresenceEntry[];
 

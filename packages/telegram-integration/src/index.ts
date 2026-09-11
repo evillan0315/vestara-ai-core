@@ -51,6 +51,7 @@ export type {
 } from './file-handler.js';
 export { TelegramFileHandler } from './file-handler.js';
 export type {
+  ExecutionBackend,
   ExecutionRequest,
   ExecutionResult,
   GlobalAssistantConfig,
@@ -66,6 +67,8 @@ export type {
   GroupParticipantRole,
 } from './group-chat.js';
 export { TelegramGroupChatHandler } from './group-chat.js';
+export { TelegramPersistentStore } from './persistent-store.js';
+export { TELEGRAM_MANIFEST, TELEGRAM_MIGRATIONS } from './migrations.js';
 export type {
   InlineKeyboard,
   InlineKeyboardButton,
@@ -108,6 +111,9 @@ import { normalizeTelegramCallbackQuery, normalizeTelegramMessage } from './tele
 
 // Re-export normalizeTelegramUpdate for external consumers
 export { normalizeTelegramUpdate } from './telegram-types.js';
+
+// Re-export channel types used by the API route
+export type { ChannelMessage } from '@vestara/channel-types';
 
 // ─── Telegram Adapter ──────────────────────────────────────────
 

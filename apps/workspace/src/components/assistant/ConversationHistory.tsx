@@ -50,6 +50,8 @@ export interface ConversationHistoryProps {
   runtimeSessions?: OpenCodeSessionView[];
   /** GA-SESSION-003: callback when a runtime session resume is invoked. */
   onResumeSession?: (sessionId: string) => void;
+  /** Callback when a session is clicked to load its messages. */
+  onLoadSession?: (sessionId: string) => void;
 }
 
 function formatTime(isoOrTimestamp: string): string {
@@ -69,6 +71,7 @@ export function ConversationHistory({
   variant = 'popover',
   runtimeSessions,
   onResumeSession,
+  onLoadSession,
 }: ConversationHistoryProps) {
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -163,7 +166,65 @@ export function ConversationHistory({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2" data-testid="conversation-history-list">
-        {items.length === 0 && (
+        {items.length === 0 && runtimeSessions && runtimeSessions.length > 0 && (
+          <div>
+            <div className="px-2 pt-2.5 pb-1 text-[10px] font-semibold uppercase tracking-wider text-zinc-600">
+              Runtime Sessions
+            </div>
+            <ul className="space-y-0.5">
+              {runtimeSessions.map((session) => {
+                const canResume = session.status !== 'busy';
+                return (
+                  <li key={session.id}>
+                    <button
+                      type="button"
+                      onClick={() => onLoadSession?.(session.id)}
+                      disabled={!canResume}
+                      aria-label={`${canResume ? 'Open' : 'Session busy'}: ${session.title}`}
+                      className={`flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-all ${
+                        canResume
+                          ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                          : 'cursor-not-allowed opacity-50 border border-transparent'
+                      }`}
+                    >
+                      <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-zinc-800/60 text-[10px] text-zinc-500" aria-hidden="true">
+                        <svg className="h-2.5 w-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[12px] text-zinc-300">
+                          {session.title}
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
+                          <span>{session.createdAt ? formatTime(session.createdAt) : ''}</span>
+                          {session.status === 'busy' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
+                              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
+                              busy
+                            </span>
+                          )}
+                          {session.status === 'error' && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
+                              ! error
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                      {canResume && (
+                        <span className="shrink-0 text-[10px] font-medium text-amber-400/70">
+                          Open
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
+
+        {items.length === 0 && (!runtimeSessions || runtimeSessions.length === 0) && (
           <div className="px-2 py-8 text-center">
             <div className="mb-2 flex justify-center">
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800/60">

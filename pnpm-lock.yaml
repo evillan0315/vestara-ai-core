@@ -138,6 +138,9 @@ importers:
       '@vestara/stt':
         specifier: workspace:*
         version: link:../../packages/stt
+      '@vestara/telegram-integration':
+        specifier: workspace:*
+        version: link:../../packages/telegram-integration
       '@vestara/telemetry':
         specifier: workspace:*
         version: link:../../packages/telemetry
@@ -393,6 +396,12 @@ importers:
       '@vestara/ui':
         specifier: workspace:*
         version: link:../../packages/ui
+      '@vestara/ui-theme':
+        specifier: workspace:*
+        version: link:../../packages/ui-theme
+      '@vestara/ui-tokens':
+        specifier: workspace:*
+        version: link:../../packages/ui-tokens
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -1636,6 +1645,9 @@ importers:
       '@vestara/channel-types':
         specifier: workspace:*
         version: link:../channel-types
+      '@vestara/sqlite-migrations':
+        specifier: workspace:*
+        version: link:../sqlite-migrations
     devDependencies:
       typescript:
         specifier: ^5.8.3
@@ -1948,6 +1960,31 @@ importers:
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
   packages/ui:
+    dependencies:
+      '@vestara/ui-tokens':
+        specifier: workspace:*
+        version: link:../ui-tokens
+    devDependencies:
+      '@types/react':
+        specifier: ^19.0.0
+        version: 19.2.14
+      '@types/react-dom':
+        specifier: ^19.0.0
+        version: 19.2.3(@types/react@19.2.14)
+      react:
+        specifier: ^19.0.0
+        version: 19.2.4
+      react-dom:
+        specifier: ^19.0.0
+        version: 19.2.8(react@19.2.4)
+      typescript:
+        specifier: ^5.8.3
+        version: 5.9.3
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
+  packages/ui-theme:
     dependencies:
       '@vestara/ui-tokens':
         specifier: workspace:*

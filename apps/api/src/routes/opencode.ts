@@ -306,7 +306,26 @@ export async function handleOpenCodeRoute(
     const sessionId = decodeURIComponent(sessionMatch[1]);
     return withOpenCodeClient(res, async (client) => {
       const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
-      if (!ownership.ok) throw ownership.error;
+      if (!ownership.ok) {
+        // Session not in local in-memory registry (e.g. after server restart).
+        // Fall through to the upstream OpenCode server — it is the source of
+        // truth for session existence.  If upstream returns the session,
+        // auto-register it so subsequent requests pass the ownership check.
+        try {
+          const session = await client.getSession(sessionId, workspaceContext(_ctx));
+          sessionRegistry.bind({
+            openCodeSessionId: session.id,
+            vestaraSessionId: _ctx.runtime.getSession?.().fingerprint?.id ?? 'workspace-session',
+            workspaceId: workspaceIdOf(_ctx),
+            createdBy: 'local-operator',
+          });
+          json(res, 200, { session });
+          return;
+        } catch {
+          // Upstream also failed — surface the original ownership error.
+          throw ownership.error;
+        }
+      }
       const session = await client.getSession(sessionId, workspaceContext(_ctx));
       json(res, 200, { session });
     });
@@ -345,7 +364,7 @@ export async function handleOpenCodeRoute(
     const sessionId = decodeURIComponent(subMatch[1]);
     const resource = subMatch[2];
     return withOpenCodeClient(res, async (client) => {
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       if (resource === 'status') json(res, 200, { status: await client.getSessionStatus(workspaceContext(_ctx)) });
       else if (resource === 'todos')
@@ -376,7 +395,7 @@ export async function handleOpenCodeRoute(
   if (messageMatch && method === 'GET') {
     const sessionId = decodeURIComponent(messageMatch[1]);
     return withOpenCodeClient(res, async (client) => {
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const messages = await client.listMessages(sessionId, workspaceContext(_ctx));
       json(res, 200, { messages });
@@ -386,7 +405,7 @@ export async function handleOpenCodeRoute(
   if (messageMatch && method === 'POST' && !messageMatch[2]) {
     const sessionId = decodeURIComponent(messageMatch[1]);
     return withOpenCodeClient(res, async (client) => {
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const raw = await readBody(_req);
       const body = parseJson(raw);
@@ -403,7 +422,7 @@ export async function handleOpenCodeRoute(
   if (messageMatch && method === 'POST' && messageMatch[2] === 'async') {
     const sessionId = decodeURIComponent(messageMatch[1]);
     return withOpenCodeClient(res, async (client) => {
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const raw = await readBody(_req);
       const body = parseJson(raw);
@@ -432,7 +451,7 @@ export async function handleOpenCodeRoute(
   if (commandMatch && method === 'POST') {
     const sessionId = decodeURIComponent(commandMatch[1]);
     return withOpenCodeClient(res, async (client) => {
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId: workspaceIdOf(_ctx) });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const raw = await readBody(_req);
       const body = parseJson(raw);
@@ -497,7 +516,7 @@ export async function handleOpenCodeRoute(
     const permissionId = decodeURIComponent(permissionMatch[2]);
     return withOpenCodeClient(res, async (client) => {
       const workspaceId = workspaceIdOf(_ctx);
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const pending = requirePendingPermission(permissionRegistry, permissionId, workspaceId);
       if ('error' in pending) throw pending.error;
@@ -551,9 +570,9 @@ export async function handleOpenCodeRoute(
   const evidenceMatch = p.match(/^\/api\/opencode\/sessions\/([^/]+)\/evidence$/);
   if (evidenceMatch && method === 'GET') {
     const sessionId = decodeURIComponent(evidenceMatch[1]);
-    return withOpenCodeClient(res, async () => {
+    return withOpenCodeClient(res, async (client) => {
       const workspaceId = workspaceIdOf(_ctx);
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const binding = sessionRegistry.get(sessionId);
       const executionId = binding?.executionId;
@@ -569,7 +588,7 @@ export async function handleOpenCodeRoute(
     const sessionId = decodeURIComponent(evidenceMatch[1]);
     return withOpenCodeClient(res, async (client) => {
       const workspaceId = workspaceIdOf(_ctx);
-      const ownership = requireSessionOwnership(sessionRegistry, sessionId, { workspaceId });
+      const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const binding = sessionRegistry.get(sessionId);
       const executionId = binding?.executionId ?? `opencode-${sessionId}-${Date.now()}`;
@@ -754,6 +773,37 @@ function parsePromptParts(body: Record<string, unknown> | undefined): OpenCodePr
 
 function sanitizeBinding(binding: OpenCodeSessionBinding): OpenCodeSessionBinding {
   return { ...binding };
+}
+
+/**
+ * Ownership check with upstream fallback.
+ *
+ * If the session is not in the local in-memory registry (e.g. after a server
+ * restart), probes the upstream OpenCode server.  When the upstream returns the
+ * session successfully, it is auto-registered in the local registry so that
+ * subsequent requests pass the ownership gate without an extra round-trip.
+ */
+async function ensureSessionOwnership(
+  registry: InMemorySessionRegistry,
+  client: OpenCodeHttpClient,
+  sessionId: string,
+  ctx: WorkspaceContext,
+): Promise<import('@vestara/opencode-runtime').OwnershipResult> {
+  const ownership = requireSessionOwnership(registry, sessionId, { workspaceId: workspaceIdOf(ctx) });
+  if (ownership.ok) return ownership;
+  // Not in local registry — try upstream.
+  try {
+    const session = await client.getSession(sessionId, workspaceContext(ctx));
+    registry.bind({
+      openCodeSessionId: session.id,
+      vestaraSessionId: ctx.runtime.getSession?.().fingerprint?.id ?? 'workspace-session',
+      workspaceId: workspaceIdOf(ctx),
+      createdBy: 'local-operator',
+    });
+    return { ok: true };
+  } catch {
+    return ownership;
+  }
 }
 
 async function withOpenCodeClient(

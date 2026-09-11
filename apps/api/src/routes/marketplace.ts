@@ -125,6 +125,12 @@ export async function handleMarketplaceRoute(
   res: http.ServerResponse,
   ctx: WorkspaceContext,
 ): Promise<boolean> {
+  // VES-LEAN-003A: Marketplace is optional in dogfood
+  if (!ctx.marketplace) {
+    json(res, 503, { error: { code: 'CAPABILITY_DISABLED', message: 'Marketplace is not active in this profile.' } });
+    return true;
+  }
+
   // ─── Reads ────────────────────────────────────────────────────────────────
 
   if (method === 'GET' && p === '/api/marketplace/search') {
@@ -614,7 +620,7 @@ async function listAssets(ctx: WorkspaceContext, req: http.IncomingMessage): Pro
     filters: undefined,
     limit: 1000,
   };
-  const result = await ctx.marketplace.search(query);
+  const result = await ctx.marketplace!.search(query);
   return result.items.map((hit) => hit.asset);
 }
 

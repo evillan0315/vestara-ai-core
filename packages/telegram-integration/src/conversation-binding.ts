@@ -12,6 +12,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import type { TelegramPersistentStore } from './persistent-store';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -85,10 +86,17 @@ const DEFAULT_CONFIG: Required<ConversationBindingConfig> = {
 
 export class TelegramConversationBindingService {
   private config: Required<ConversationBindingConfig>;
+  private store: TelegramPersistentStore | null;
   private bindings: Map<string, ConversationBinding> = new Map();
 
-  constructor(config?: ConversationBindingConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config?: ConversationBindingConfig & { store?: TelegramPersistentStore }) {
+    this.config = {
+      maxConversationsPerChat: config?.maxConversationsPerChat ?? DEFAULT_CONFIG.maxConversationsPerChat,
+      autoCreateConversation: config?.autoCreateConversation ?? DEFAULT_CONFIG.autoCreateConversation,
+      defaultModel: config?.defaultModel ?? DEFAULT_CONFIG.defaultModel,
+      defaultProvider: config?.defaultProvider ?? DEFAULT_CONFIG.defaultProvider,
+    };
+    this.store = config?.store ?? null;
   }
 
   /**
@@ -122,6 +130,7 @@ export class TelegramConversationBindingService {
     };
 
     this.bindings.set(binding.id, binding);
+    this.store?.saveConversationBinding(binding);
     return binding;
   }
 
@@ -180,7 +189,9 @@ export class TelegramConversationBindingService {
   pauseBinding(bindingId: string): void {
     const binding = this.bindings.get(bindingId);
     if (binding) {
-      this.bindings.set(bindingId, { ...binding, status: 'paused' });
+      const updated = { ...binding, status: 'paused' as const };
+      this.bindings.set(bindingId, updated);
+      this.store?.saveConversationBinding(updated);
     }
   }
 
@@ -190,11 +201,13 @@ export class TelegramConversationBindingService {
   resumeBinding(bindingId: string): void {
     const binding = this.bindings.get(bindingId);
     if (binding) {
-      this.bindings.set(bindingId, {
+      const updated = {
         ...binding,
-        status: 'active',
+        status: 'active' as const,
         lastActivityAt: new Date().toISOString(),
-      });
+      };
+      this.bindings.set(bindingId, updated);
+      this.store?.saveConversationBinding(updated);
     }
   }
 
@@ -204,7 +217,9 @@ export class TelegramConversationBindingService {
   closeBinding(bindingId: string): void {
     const binding = this.bindings.get(bindingId);
     if (binding) {
-      this.bindings.set(bindingId, { ...binding, status: 'closed' });
+      const updated = { ...binding, status: 'closed' as const };
+      this.bindings.set(bindingId, updated);
+      this.store?.saveConversationBinding(updated);
     }
   }
 
@@ -214,10 +229,9 @@ export class TelegramConversationBindingService {
   touchBinding(bindingId: string): void {
     const binding = this.bindings.get(bindingId);
     if (binding) {
-      this.bindings.set(bindingId, {
-        ...binding,
-        lastActivityAt: new Date().toISOString(),
-      });
+      const updated = { ...binding, lastActivityAt: new Date().toISOString() };
+      this.bindings.set(bindingId, updated);
+      this.store?.saveConversationBinding(updated);
     }
   }
 
@@ -227,10 +241,9 @@ export class TelegramConversationBindingService {
   updateConversationTitle(bindingId: string, title: string): void {
     const binding = this.bindings.get(bindingId);
     if (binding) {
-      this.bindings.set(bindingId, {
-        ...binding,
-        vestaraConversationTitle: title,
-      });
+      const updated = { ...binding, vestaraConversationTitle: title };
+      this.bindings.set(bindingId, updated);
+      this.store?.saveConversationBinding(updated);
     }
   }
 

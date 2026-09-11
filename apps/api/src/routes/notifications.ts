@@ -3,11 +3,11 @@ import type { WorkspaceContext } from '../workspace-context';
 import { json } from './types';
 
 /**
- * Notifications route — legacy endpoint.
+ * Notifications route — disabled.
  *
  * NotificationService was removed as part of AR-001L (activity-log removal).
- * Routes return empty results for backward compatibility.
- * Activity Room provides canonical activity data through M11A API.
+ * All endpoints return 501 to signal the service is intentionally unavailable.
+ * The frontend useNotifications hook returns empty state without calling these.
  */
 export async function handleNotificationsRoute(
   method: string,
@@ -17,18 +17,18 @@ export async function handleNotificationsRoute(
   _ctx: WorkspaceContext,
 ): Promise<boolean> {
   if (method === 'GET' && p === '/api/notifications') {
-    json(res, 200, { notifications: [], unreadCount: 0, note: 'Notification service not available' });
+    json(res, 501, { error: 'Notification service disabled' });
     return true;
   }
 
   if (method === 'POST' && p === '/api/notifications/read-all') {
-    json(res, 200, { markedRead: 0 });
+    json(res, 501, { error: 'Notification service disabled' });
     return true;
   }
 
   const readMatch = p.match(/^\/api\/notifications\/([^/]+)\/read$/);
   if (method === 'POST' && readMatch) {
-    json(res, 200, { ok: false });
+    json(res, 501, { error: 'Notification service disabled' });
     return true;
   }
 

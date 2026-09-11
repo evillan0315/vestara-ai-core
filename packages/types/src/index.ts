@@ -1,6 +1,7 @@
 export * from './activity';
 export * from './ai-resolution';
 export * from './capabilities';
+export * from './capability-catalog';
 export * from './common';
 export * from './diagnostic';
 export * from './events';
@@ -16,6 +17,7 @@ export * from './permissions';
 export * from './projection';
 export * from './repository-binding';
 export * from './runtime';
+export * from './runtime-profile';
 export * from './runtime-session';
 export * from './surface-context';
 export * from './worker';

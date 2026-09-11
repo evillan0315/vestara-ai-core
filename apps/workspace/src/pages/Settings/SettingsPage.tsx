@@ -13,6 +13,7 @@ import {
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
 import { Button, input, SettingsRow, SettingsSection, Source, Status, surface, Toggle } from './settings-ui.js';
 import { ApiEndpointField } from './ApiEndpointField.js';
+import { TelegramSimulator } from './TelegramSimulator.js';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -34,6 +35,7 @@ const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection'; label
   { id: 'notifications', label: 'Notifications', description: 'Operational notifications', code: 'NT' },
   { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', code: 'TM' },
   { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', code: 'AD' },
+  { id: 'telegram', label: 'Telegram', description: 'Telegram integration simulator', code: 'TG' },
   { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', code: 'CN' },
 ];
 
@@ -590,6 +592,7 @@ export default function SettingsPage() {
               element={<PolicySection section={section} configuration={data.configuration} />}
             />
           ))}
+          <Route path="telegram" element={<TelegramSimulator />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Routes>
       )}

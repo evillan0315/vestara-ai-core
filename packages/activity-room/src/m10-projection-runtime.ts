@@ -469,10 +469,14 @@ export class ProjectionRuntime {
   private generateAttention(record: ActivityRecord): void {
     const attention = this.deriveAttention(record);
     if (attention) {
-      // Deduplicate: don't create duplicate attention for same task
-      const existing = this.attention.find(
-        (a) => a.taskId === attention.taskId && a.reason === attention.reason && !a.acknowledged,
-      );
+      // Deduplicate: don't create duplicate attention for same task+reason
+      // Skip dedup when taskId is undefined (interaction attention uses interactionId instead)
+      const existing =
+        attention.taskId !== undefined
+          ? this.attention.find(
+              (a) => a.taskId === attention.taskId && a.reason === attention.reason && !a.acknowledged,
+            )
+          : undefined;
       if (!existing) {
         this.attention.push(attention);
       } else {
@@ -482,12 +486,39 @@ export class ProjectionRuntime {
       }
     }
 
+    // Deduplicate interaction attention: at most one unacknowledged per interactionId
+    if (attention && attention.interactionId) {
+      const dup = this.attention.find(
+        (a) => a.interactionId === attention.interactionId && a.reason === attention.reason && !a.acknowledged,
+      );
+      if (dup && dup !== attention) {
+        // Already have an unacknowledged attention for this interaction — remove the older one
+        const idx = this.attention.indexOf(dup);
+        this.attention.splice(idx, 1);
+      }
+    }
+
     // Auto-resolve attention when task completes
     if (record.type === 'task.completed' && record.taskId) {
       const toResolve = this.attention.find((a) => a.taskId === record.taskId && !a.acknowledged);
       if (toResolve) {
         const idx = this.attention.indexOf(toResolve);
         this.attention[idx] = { ...toResolve, acknowledged: true };
+      }
+    }
+
+    // Auto-resolve interaction attention when interaction is responded
+    if (record.type === 'interaction.responded') {
+      const data = record.payload.data as Record<string, unknown> | undefined;
+      const interactionId = typeof data?.interactionId === 'string' ? data.interactionId : undefined;
+      if (interactionId) {
+        const toResolve = this.attention.find(
+          (a) => a.interactionId === interactionId && !a.acknowledged,
+        );
+        if (toResolve) {
+          const idx = this.attention.indexOf(toResolve);
+          this.attention[idx] = { ...toResolve, acknowledged: true };
+        }
       }
     }
   }
@@ -541,6 +572,22 @@ export class ProjectionRuntime {
           timestamp: record.timestamp,
           acknowledged: false,
         };
+      case 'interaction.presented': {
+        // Extract interaction metadata from payload.data
+        const data = record.payload.data as Record<string, unknown> | undefined;
+        const interactionId = typeof data?.interactionId === 'string' ? data.interactionId : undefined;
+        const content = typeof data?.content === 'string' ? data.content : record.payload.message;
+        return {
+          attentionId: `att-interaction-${interactionId ?? String(record.activityId)}`,
+          reason: 'interaction-presented',
+          severity: 'medium',
+          message: content ?? 'Decision needed',
+          actor: record.actor,
+          interactionId,
+          timestamp: record.timestamp,
+          acknowledged: false,
+        };
+      }
       default:
         return undefined;
     }

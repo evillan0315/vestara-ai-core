@@ -16,7 +16,7 @@ import type {
   PresenceConfig,
   PresenceEntry,
   PresenceEvent,
-  PresenceState,
+  PresenceStateData,
   PresenceTask,
   PresenceActivity,
 } from './presence-types';
@@ -32,7 +32,7 @@ export class PresenceDataLayer {
   private config: PresenceConfig;
   private entries: Map<string, PresenceEntry> = new Map();
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
-  private listeners: Set<(state: PresenceState) => void> = new Set();
+  private listeners: Set<(state: PresenceStateData) => void> = new Set();
 
   constructor(config?: Partial<PresenceConfig>) {
     this.config = { ...DEFAULT_PRESENCE_CONFIG, ...config };
@@ -62,7 +62,7 @@ export class PresenceDataLayer {
   /**
    * AR-UI-B0: Register a presence listener.
    */
-  onStateChange(listener: (state: PresenceState) => void): () => void {
+  onStateChange(listener: (state: PresenceStateData) => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -198,7 +198,7 @@ export class PresenceDataLayer {
   /**
    * AR-UI-B0: Build the current presence state.
    */
-  getState(): PresenceState {
+  getState(): PresenceStateData {
     const entries = Array.from(this.entries.values());
 
     const onlineCount = entries.filter((e) => e.state === 'online').length;

@@ -29,6 +29,11 @@ export interface ContextOptions {
   provider?: string;
   /** Caller-controlled cancellation: aborts the provider turn (GA-RUNTIME-001 cancel safety). */
   signal?: AbortSignal;
+  /**
+   * GA-EXEC-001: per-turn execution configuration. Passed through to the
+   * CompletionRequest so the adapter can enforce Vestara-owned limits.
+   */
+  executionConfig?: import('@vestara/shared').GAExecutionConfig;
 }
 
 export interface ContextAssembler {
@@ -59,10 +64,34 @@ export class DefaultContextAssembler implements ContextAssembler {
     const recentMessages = conversation.messages.slice(-20);
     for (const msg of recentMessages) {
       if (msg.role === 'system') continue; // Don't duplicate system message
-      messages.push({
-        role: msg.role === 'assistant' ? 'assistant' : 'user',
-        content: msg.content,
-      });
+
+      // GA-CTX-001: include tool observations as structured context
+      if (msg.role === 'assistant' && msg.toolObservations && msg.toolObservations.length > 0) {
+        // GA-CTX-001: tool observations FIRST (what happened),
+        // THEN the assistant's interpretation (what the model concluded).
+        // This preserves semantic chronology: observation → interpretation.
+        const obsSummary = msg.toolObservations
+          .map((obs) => `[Tool: ${obs.toolName}] ${obs.status === 'completed' ? obs.content.slice(0, 500) : obs.status === 'failed' ? `FAILED: ${obs.error ?? obs.content.slice(0, 200)}` : 'denied'}`)
+          .join('\n');
+        if (obsSummary) {
+          messages.push({
+            role: 'user',
+            content: `[Tool observations from previous turn]\n${obsSummary}`,
+          });
+        }
+        // Then include the assistant's text response (interpretation of observations)
+        if (msg.content) {
+          messages.push({
+            role: 'assistant',
+            content: msg.content,
+          });
+        }
+      } else {
+        messages.push({
+          role: msg.role === 'assistant' ? 'assistant' : 'user',
+          content: msg.content,
+        });
+      }
     }
 
     // Current user message
@@ -87,6 +116,8 @@ export class DefaultContextAssembler implements ContextAssembler {
       ...(options.signal ? { signal: options.signal } : {}),
       // Session reuse: pass the stored runtime session ID when available.
       ...(options.runtimeSessionId ? { runtimeSessionId: options.runtimeSessionId } : {}),
+      // GA-EXEC-001: per-turn execution configuration (adapter enforcement).
+      ...(options.executionConfig ? { executionConfig: options.executionConfig } : {}),
     };
   }
 }

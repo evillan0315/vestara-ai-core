@@ -1,10 +1,42 @@
 import type * as http from 'node:http';
-import type { TurnSurfaceContext } from '@vestara/shared';
+import type { GAExecutionConfig, TurnSurfaceContext } from '@vestara/shared';
 import { type ConversationChunk, TUI_PROTOCOL_VERSION } from '@vestara/tui-protocol';
 import type { WorkspaceContext } from '../workspace-context';
 import { CORS, json, readBody } from './types';
 
 const ACTOR = 'workspace-ui';
+
+// ─── GA-EXEC-001: Execution Config Validation ──────────────────
+
+/** Bounds for GA execution config values (Vestara-owned limits). */
+const EXEC_CFG_BOUNDS = {
+  turnTimeoutMs: { min: 10_000, max: 60 * 60_000 }, // 10s–60min
+  maxToolCalls: { min: 1, max: 200 },
+} as const;
+
+/**
+ * Parse and validate the browser-supplied execution config. Returns undefined
+ * when absent or invalid (fail-safe: use adapter defaults). Never throws —
+ * invalid values are silently ignored.
+ */
+function parseExecutionConfig(raw: unknown): GAExecutionConfig | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const fields: Record<string, number> = {};
+  if (obj.turnTimeoutMs !== undefined) {
+    const n = Number(obj.turnTimeoutMs);
+    if (Number.isFinite(n) && n >= EXEC_CFG_BOUNDS.turnTimeoutMs.min && n <= EXEC_CFG_BOUNDS.turnTimeoutMs.max) {
+      fields.turnTimeoutMs = n;
+    }
+  }
+  if (obj.maxToolCalls !== undefined) {
+    const n = Number(obj.maxToolCalls);
+    if (Number.isFinite(n) && n >= EXEC_CFG_BOUNDS.maxToolCalls.min && n <= EXEC_CFG_BOUNDS.maxToolCalls.max) {
+      fields.maxToolCalls = Math.floor(n);
+    }
+  }
+  return Object.keys(fields).length > 0 ? (fields as GAExecutionConfig) : undefined;
+}
 
 /**
  * GA-RUNTIME-001 G: resolve the browser-REQUESTED provider/model into the
@@ -283,11 +315,13 @@ export async function handleConversationsRoute(
     res.on('close', onClose);
     try {
       const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
+      const executionConfig = parseExecutionConfig(body.executionConfig);
       for await (const chunk of ctx.conversationService.sendMessageStream(conversationId, message, {
         model: binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined),
         provider: binding?.provider,
         surfaceContext,
         signal: abort.signal,
+        executionConfig,
       })) {
         if (chunk.type === 'text' && chunk.content) {
           emit({ type: 'delta', content: chunk.content });

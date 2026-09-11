@@ -12,7 +12,7 @@
  */
 
 import { useCallback } from 'react';
-import type { PresenceEntry, PresenceState } from './presence-types';
+import type { PresenceEntry, PresenceStateData } from './presence-types';
 
 // ─── Presence Styling ──────────────────────────────────────────
 
@@ -164,7 +164,7 @@ export function PresenceEntryComponent({
 // ─── Presence Stats Component ──────────────────────────────────
 
 interface PresenceStatsProps {
-  state: PresenceState;
+  state: PresenceStateData;
 }
 
 export function PresenceStats({ state }: PresenceStatsProps) {
@@ -194,7 +194,7 @@ export function PresenceStats({ state }: PresenceStatsProps) {
 
 export interface PresenceIndicatorProps {
   /** Presence state */
-  state: PresenceState;
+  state: PresenceStateData;
 
   /** Whether to show detailed info */
   detailed?: boolean;

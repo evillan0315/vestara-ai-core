@@ -137,6 +137,38 @@ export interface CompletionRequest {
    * the parsed result in `structuredOutput`.
    */
   jsonSchema?: Record<string, unknown>;
+  /**
+   * GA-EXEC-001: per-turn execution configuration from the Global Assistant
+   * UI. Carries Vestara-owned limits (turnTimeoutMs, maxOperations,
+   * maxToolCalls) that the adapter enforces. OpenCode/provider-owned limits
+   * (contextWindow, maxOutput) are NOT included — those remain at the
+   * provider layer.
+   *
+   * undefined = use adapter defaults. Values override defaults per-turn.
+   * Changes apply to subsequent turns, not mid-turn.
+   */
+  executionConfig?: GAExecutionConfig;
+}
+
+/**
+ * GA-EXEC-001: Vestara-owned per-turn execution configuration for the
+ * Global Assistant. All fields are optional; undefined = use adapter defaults.
+ *
+ * Ownership:
+ *   - turnTimeoutMs: Vestara (adapter enforcement)
+ *   - maxToolCalls: Vestara (adapter enforcement, tracks tool invocations)
+ *
+ * NOT included (provider-owned, not Vestara-controlled):
+ *   - contextWindow (provider model property)
+ *   - maxOutput (provider model property)
+ *   - maxIterations (OpenCode server agent loop)
+ *   - maxTokens (per-completion output cap, already in CompletionRequest.maxTokens)
+ */
+export interface GAExecutionConfig {
+  /** Hard cap for a single turn in milliseconds. Default: 900000 (15 min). */
+  readonly turnTimeoutMs?: number;
+  /** Maximum tool invocations per turn. undefined = unlimited. */
+  readonly maxToolCalls?: number;
 }
 
 /** Runtime-normalized execution event emitted while a completion runs. */

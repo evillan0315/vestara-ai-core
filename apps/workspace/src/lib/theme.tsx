@@ -1,4 +1,5 @@
-import type { TuiSemanticPalette } from '@vestara/design-system';
+import { ACCENT_PALETTES, type AccentColorTheme } from '@vestara/ui-tokens';
+export { ACCENT_PALETTES } from '@vestara/ui-tokens';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { persistAppearanceSettings, persistThemeMode, resolveHydratedTheme } from './appearance-durability';
 
@@ -10,7 +11,7 @@ export type FontWeight = 'normal' | 'medium' | 'semibold';
 export type SidebarWidth = 'compact' | 'normal' | 'wide';
 export type Spacing = 'compact' | 'comfortable' | 'spacious';
 export type Radius = 'none' | 'small' | 'medium' | 'large';
-export type ColorTheme = 'gold' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose' | 'teal' | 'neutral' | 'orange';
+export type ColorTheme = AccentColorTheme;
 
 // ─── Theme Builder Types ──────────────────────────────────────────
 
@@ -792,16 +793,8 @@ export const SEMANTIC_TOKENS: readonly SemanticToken[] = [
   },
 ];
 
-export interface AccentPalette {
-  label: string;
-  hex: string;
-  light: string;
-  dark: string;
-  bg: string;
-  border: string;
-  borderHover: string;
-  borderActive: string;
-}
+// Re-export AccentPalette from @vestara/ui-tokens (VES-DESIGN-004)
+export type { AccentPalette } from '@vestara/ui-tokens';
 
 export interface ThemeSettings {
   fontFamily: FontFamily;
@@ -924,107 +917,6 @@ export const PROFILES: WorkspaceProfile[] = [
     },
   },
 ];
-
-export const ACCENT_PALETTES: Record<ColorTheme, AccentPalette> = {
-  gold: {
-    label: 'Vestara Gold',
-    hex: '#D4A843',
-    light: '#DFBA5A',
-    dark: '#B8933A',
-    bg: 'rgba(212,168,67,0.10)',
-    border: 'rgba(212,168,67,0.25)',
-    borderHover: 'rgba(212,168,67,0.45)',
-    borderActive: '#D4A843',
-  },
-
-  amber: {
-    label: 'Amber',
-    hex: '#f59e0b',
-    light: '#fbbf24',
-    dark: '#d97706',
-    bg: '#f59e0b14',
-    border: '#f59e0b40',
-    borderHover: '#f59e0b60',
-    borderActive: '#f59e0b',
-  },
-
-  emerald: {
-    label: 'Emerald',
-    hex: '#10b981',
-    light: '#34d399',
-    dark: '#059669',
-    bg: '#10b98114',
-    border: '#10b98140',
-    borderHover: '#10b98180',
-    borderActive: '#10b981',
-  },
-
-  blue: {
-    label: 'Blue',
-    hex: '#3b82f6',
-    light: '#60a5fa',
-    dark: '#2563eb',
-    bg: '#3b82f614',
-    border: '#3b82f640',
-    borderHover: '#3b82f680',
-    borderActive: '#3b82f6',
-  },
-
-  violet: {
-    label: 'Violet',
-    hex: '#8b5cf6',
-    light: '#a78bfa',
-    dark: '#7c3aed',
-    bg: '#8b5cf614',
-    border: '#8b5cf640',
-    borderHover: '#8b5cf680',
-    borderActive: '#8b5cf6',
-  },
-
-  rose: {
-    label: 'Rose',
-    hex: '#f43f5e',
-    light: '#fb7185',
-    dark: '#e11d48',
-    bg: '#f43f5e14',
-    border: '#f43f5e40',
-    borderHover: '#f43f5e60',
-    borderActive: '#f43f5e',
-  },
-
-  teal: {
-    label: 'Teal',
-    hex: '#14b8a6',
-    light: '#2dd4bf',
-    dark: '#0d9488',
-    bg: '#14b8a614',
-    border: '#14b8a640',
-    borderHover: '#14b8a680',
-    borderActive: '#14b8a6',
-  },
-
-  neutral: {
-    label: 'Neutral',
-    hex: '#a1a1aa',
-    light: '#d4d4d8',
-    dark: '#71717a',
-    bg: '#a1a1aa14',
-    border: '#a1a1aa40',
-    borderHover: '#a1a1aa60',
-    borderActive: '#a1a1aa',
-  },
-
-  orange: {
-    label: 'Orange',
-    hex: '#f97316',
-    light: '#fb923c',
-    dark: '#ea580c',
-    bg: '#f9731614',
-    border: '#f9731640',
-    borderHover: '#f9731680',
-    borderActive: '#f97316',
-  },
-};
 
 interface ThemeState {
   mode: ThemeMode;

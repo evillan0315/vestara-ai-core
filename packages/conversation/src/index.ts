@@ -22,6 +22,7 @@ import type {
   ConversationSummary,
   Message,
   StreamChunk,
+  ToolObservation,
 } from '@vestara/shared';
 import { DefaultStreamProcessor } from '@vestara/stream';
 
@@ -73,6 +74,12 @@ export interface SendOptions {
   runtimeSessionId?: string;
   /** GA-RUNTIME-001: caller-controlled cancellation (client disconnect / stop). */
   signal?: AbortSignal;
+  /**
+   * GA-EXEC-001: per-turn execution configuration (turnTimeoutMs,
+   * maxOperations, maxToolCalls). Passed through to the provider executor
+   * so the adapter can enforce Vestara-owned limits.
+   */
+  executionConfig?: import('@vestara/shared').GAExecutionConfig;
 }
 
 export interface SendResult {
@@ -340,6 +347,8 @@ export class DefaultConversationService implements ConversationService {
     // GA-RUNTIME-001: the session actually used for this turn (may be created
     // by the executor on the first turn). Persisted so later turns reuse it.
     let turnRuntimeSessionId = runtimeSessionId;
+    // GA-CTX-001: collect tool observations across the turn
+    const toolObservations: ToolObservation[] = [];
     const startTime = performance.now();
 
     try {
@@ -362,6 +371,9 @@ export class DefaultConversationService implements ConversationService {
         } else if (chunk.type === 'reasoning') {
           yield chunk; // pass through
         } else if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
+          // GA-CTX-001: collect tool observations for persistence
+          const observation = chunkToObservation(chunk);
+          if (observation) toolObservations.push(observation);
           yield chunk; // pass through
         } else if (chunk.type === 'status' || chunk.type === 'citation') {
           yield chunk; // pass through
@@ -386,6 +398,8 @@ export class DefaultConversationService implements ConversationService {
       tokens: totalTokens,
       latency,
       createdAt: new Date().toISOString(),
+      // GA-CTX-001: persist tool observations for subsequent-turn context
+      ...(toolObservations.length > 0 ? { toolObservations } : {}),
     };
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
@@ -458,4 +472,56 @@ export class DefaultConversationService implements ConversationService {
     if (this.store) await this.store.remove(id);
     this.conversations.delete(id);
   }
+}
+
+// ─── GA-CTX-001: Tool Observation Helpers ────────────────────
+
+/**
+ * Maximum content length for a tool observation.
+ * Large outputs are truncated to bounded context.
+ */
+const MAX_OBSERVATION_CONTENT = 2000;
+
+/**
+ * Convert a StreamChunk (tool_call or tool_result) into a ToolObservation.
+ * Bounded: large content is truncated, not copied verbatim.
+ */
+function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
+  if (chunk.type === 'tool_call') {
+    const detail = chunk.detail;
+    const content = detail && 'input' in detail
+      ? truncate(JSON.stringify(detail.input), MAX_OBSERVATION_CONTENT)
+      : chunk.content ?? '';
+    return {
+      toolCallId: chunk.id,
+      toolName: chunk.name ?? 'unknown',
+      status: 'completed',
+      timestamp: chunk.metadata.timestamp,
+      content,
+    };
+  }
+
+  if (chunk.type === 'tool_result') {
+    const detail = chunk.detail;
+    const status = detail && 'status' in detail
+      ? (detail.status as ToolObservation['status'])
+      : chunk.content?.startsWith('Error:') ? 'failed' : 'completed';
+    const content = truncate(chunk.content ?? '', MAX_OBSERVATION_CONTENT);
+    const error = status === 'failed' ? content : undefined;
+    return {
+      toolCallId: chunk.id,
+      toolName: chunk.name ?? 'unknown',
+      status,
+      timestamp: chunk.metadata.timestamp,
+      content,
+      ...(error ? { error } : {}),
+    };
+  }
+
+  return undefined;
+}
+
+function truncate(text: string, max: number): string {
+  if (text.length <= max) return text;
+  return text.slice(0, max) + `… [truncated, ${text.length} chars total]`;
 }

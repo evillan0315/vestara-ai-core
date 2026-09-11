@@ -12,6 +12,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import type { TelegramPersistentStore } from './persistent-store';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -53,10 +54,12 @@ const DEFAULT_CONFIG: Required<WorkspaceBindingConfig> = {
 
 export class TelegramWorkspaceBindingService {
   private config: Required<WorkspaceBindingConfig>;
+  private store: TelegramPersistentStore | null;
   private bindings: Map<string, WorkspaceBinding> = new Map();
 
-  constructor(config?: WorkspaceBindingConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config?: WorkspaceBindingConfig & { store?: TelegramPersistentStore }) {
+    this.config = { maxWorkspacesPerPrincipal: DEFAULT_CONFIG.maxWorkspacesPerPrincipal, ...config };
+    this.store = config?.store ?? null;
   }
 
   /**
@@ -89,6 +92,7 @@ export class TelegramWorkspaceBindingService {
     };
 
     this.bindings.set(binding.id, binding);
+    this.store?.saveWorkspaceBinding(binding);
     return binding;
   }
 
@@ -99,6 +103,7 @@ export class TelegramWorkspaceBindingService {
     const binding = this.getBinding(principalId, workspaceId);
     if (binding) {
       this.bindings.delete(binding.id);
+      this.store?.deleteWorkspaceBinding(binding.id);
     }
   }
 
@@ -106,10 +111,17 @@ export class TelegramWorkspaceBindingService {
    * Get binding for a principal and workspace.
    */
   getBinding(principalId: string, workspaceId: string): WorkspaceBinding | undefined {
+    // Check in-memory first
     for (const binding of this.bindings.values()) {
       if (binding.principalId === principalId && binding.workspaceId === workspaceId) {
         return binding;
       }
+    }
+    // Fall back to SQLite
+    if (this.store) {
+      const binding = this.store.getWorkspaceBinding(principalId, workspaceId);
+      if (binding) this.bindings.set(binding.id, binding);
+      return binding;
     }
     return undefined;
   }
@@ -118,7 +130,16 @@ export class TelegramWorkspaceBindingService {
    * Get all bindings for a principal.
    */
   getBindingsByPrincipal(principalId: string): readonly WorkspaceBinding[] {
-    return Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
+    // Check in-memory first
+    const inMemory = Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
+    if (inMemory.length > 0) return inMemory;
+    // Fall back to SQLite
+    if (this.store) {
+      const stored = this.store.getWorkspaceBindingsByPrincipal(principalId);
+      for (const b of stored) this.bindings.set(b.id, b);
+      return stored;
+    }
+    return [];
   }
 
   /**
@@ -133,16 +154,21 @@ export class TelegramWorkspaceBindingService {
    */
   setPreferredWorkspace(principalId: string, workspaceId: string): void {
     // Clear all preferred flags for this principal
+    this.store?.clearPreferredWorkspace(principalId);
     for (const binding of this.bindings.values()) {
       if (binding.principalId === principalId && binding.preferred) {
-        this.bindings.set(binding.id, { ...binding, preferred: false });
+        const updated = { ...binding, preferred: false };
+        this.bindings.set(binding.id, updated);
+        this.store?.saveWorkspaceBinding(updated);
       }
     }
 
     // Set new preferred
     const binding = this.getBinding(principalId, workspaceId);
     if (binding) {
-      this.bindings.set(binding.id, { ...binding, preferred: true });
+      const updated = { ...binding, preferred: true };
+      this.bindings.set(binding.id, updated);
+      this.store?.saveWorkspaceBinding(updated);
     }
   }
 
@@ -152,10 +178,9 @@ export class TelegramWorkspaceBindingService {
   touchWorkspace(principalId: string, workspaceId: string): void {
     const binding = this.getBinding(principalId, workspaceId);
     if (binding) {
-      this.bindings.set(binding.id, {
-        ...binding,
-        lastAccessedAt: new Date().toISOString(),
-      });
+      const updated = { ...binding, lastAccessedAt: new Date().toISOString() };
+      this.bindings.set(binding.id, updated);
+      this.store?.saveWorkspaceBinding(updated);
     }
   }
 

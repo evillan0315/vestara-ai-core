@@ -22,7 +22,7 @@
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
-import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
+import type { CompletionRequest, CompletionResponse, GAExecutionConfig, StreamChunk } from '@vestara/shared';
 import {
   type AssistantCapabilityPolicy,
   buildToolsMap,
@@ -96,7 +96,10 @@ export interface AssistantOpenCodeExecutorOptions {
   capabilityPolicy?: AssistantCapabilityPolicy;
 }
 
-const TURN_TIMEOUT_MS = 5 * 60 * 1000;
+// GA-EXEC-001: Default turn timeout. Overridden by:
+//   1. Per-turn executionConfig.turnTimeoutMs (UI/session)
+//   2. VESTARA_GA_TURN_TIMEOUT_MS env var (deployment default)
+const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) || 15 * 60 * 1000;
 
 /**
  * Transport label used ONLY when no real provider resolution is available
@@ -171,10 +174,19 @@ export async function* runAssistantOpenCodeTurn(
   request: CompletionRequest,
   sessionId?: string,
 ): AsyncIterable<StreamChunk> {
-  const { client, workspaceId, directory, agent, turnTimeoutMs = TURN_TIMEOUT_MS } = options;
+  const { client, workspaceId, directory, agent, turnTimeoutMs: defaultTimeout = TURN_TIMEOUT_MS } = options;
+  // GA-EXEC-001: per-turn execution config from UI. Overrides defaults.
+  const execCfg: GAExecutionConfig | undefined = request.executionConfig;
+  const turnTimeoutMs = execCfg?.turnTimeoutMs ?? defaultTimeout;
+  // GA-EXEC-001: maxToolCalls is the canonical tool-invocation budget.
+  // maxOperations was removed — it counted the same events as maxToolCalls.
+  const maxToolCalls = execCfg?.maxToolCalls;
   const context = { workspaceId, directory };
   const userText = lastUserText(request.messages);
   if (!userText) throw new Error('Assistant OpenCode turn requires a user message');
+
+  // GA-EXEC-001: tool call counter for budget enforcement
+  let toolCallCount = 0;
 
   // Resolve the real upstream provider/model for THIS turn; never fabricated.
   // The requested provider/model is the browser's REQUESTED binding; the
@@ -271,10 +283,22 @@ export async function* runAssistantOpenCodeTurn(
       const payload = (event.payload ?? {}) as Record<string, unknown>;
       const callID = typeof payload.callID === 'string' ? payload.callID : undefined;
 
+      // GA-EXEC-001: budget enforcement helper — checks tool-call limits
+      // after each event. Returns an error message if exceeded, null if
+      // within budget.
+      const checkBudget = (): string | null => {
+        if (maxToolCalls !== undefined && toolCallCount >= maxToolCalls) {
+          return `Tool call limit reached: ${maxToolCalls} tool calls`;
+        }
+        return null;
+      };
+
       switch (event.type) {
         case 'session.next.text.delta':
         case 'message.part.delta': {
           if (typeof payload.delta === 'string' && payload.delta) {
+            // GA-EXEC-001: text deltas are LLM inference output, not governed
+            // operations. They do NOT consume the maxOperations budget.
             yield {
               ...chunk('text', sequence++, { content: payload.delta }),
               // GA-RUNTIME-001 H: the displayed execution binding is the REAL
@@ -295,6 +319,9 @@ export async function* runAssistantOpenCodeTurn(
           const detail = projectMessagePartUpdated(event);
           if (detail && detail.kind === 'tool') {
             if (detail.state === 'running') {
+              toolCallCount++;
+              const budgetError = checkBudget();
+              if (budgetError) { yield chunk('error', sequence++, { content: budgetError }); break; }
               yield chunk('tool_call', sequence++, { name: detail.tool, detail });
             } else {
               yield chunk('tool_result', sequence++, {
@@ -310,6 +337,9 @@ export async function* runAssistantOpenCodeTurn(
         case 'session.next.tool.called': {
           const detail = projectToolStarted(event);
           if (detail && detail.kind === 'tool') {
+            toolCallCount++;
+            const budgetError = checkBudget();
+            if (budgetError) { yield chunk('error', sequence++, { content: budgetError }); break; }
             yield chunk('tool_call', sequence++, { name: detail.tool, detail });
           }
           break;

@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PresenceEntry, PresenceEvent, PresenceState } from './presence-types';
+import type { PresenceEntry, PresenceEvent, PresenceStateData } from './presence-types';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -36,7 +36,7 @@ export type RealtimePresenceState = 'connecting' | 'live' | 'reconnecting' | 'of
 
 export interface UseRealtimePresenceReturn {
   /** Current presence state */
-  readonly presenceState: PresenceState;
+  readonly presenceState: PresenceStateData;
 
   /** WebSocket connection state */
   readonly connectionState: RealtimePresenceState;
@@ -76,7 +76,7 @@ const DEFAULT_CONFIG: Required<RealtimePresenceConfig> = {
 export function useRealtimePresence(
   config?: RealtimePresenceConfig,
 ): UseRealtimePresenceReturn {
-  const [presenceState, setPresenceState] = useState<PresenceState>({
+  const [presenceState, setPresenceState] = useState<PresenceStateData>({
     entries: [],
     onlineCount: 0,
     idleCount: 0,

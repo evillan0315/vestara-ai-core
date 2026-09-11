@@ -74,9 +74,10 @@ export function FloatingPanel({
         className="pointer-events-none absolute inset-x-6 top-0 z-10 h-px bg-gradient-to-r from-transparent via-(--vestara-accent-border) to-transparent"
       />
 
-      {/* Assistant-branded header */}
+      {/* Assistant-branded header — two-region layout: identity | actions */}
       <FloatingWindowHeader className="border-(--vestara-accent-border) bg-(--vestara-surface)/90">
-        <div className="flex min-w-0 items-center gap-2">
+        {/* Left region: identity + conversation context */}
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-(--vestara-surface) shadow-[0_0_10px_var(--vestara-accent-bg)] ring-1 ring-(--vestara-accent-border)">
             <svg
               className="h-3.5 w-3.5 text-(--vestara-accent)"
@@ -107,8 +108,8 @@ export function FloatingPanel({
           </div>
         </div>
 
-        {/* M10: Assistant-specific actions (new, expand, minimize, close) */}
-        <div className="flex items-center gap-0.5">
+        {/* Right region: window/action controls — never wraps into title */}
+        <div className="flex shrink-0 items-center gap-0.5">
           {onNewConversation && (
             <button
               type="button"

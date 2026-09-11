@@ -23,6 +23,41 @@ export interface Conversation {
   updatedAt: string;
 }
 
+// ─── Tool Observation (GA-CTX-001) ──────────────────────────
+//
+// Structured tool observation persisted alongside the assistant message.
+// Observation ≠ interpretation — the raw tool output is preserved
+// independently from the assistant's natural-language summary.
+
+/**
+ * A bounded representation of a tool invocation and its result.
+ * Persisted with the assistant message so subsequent turns can
+ * reference what tools actually did, not just what the assistant said.
+ */
+export interface ToolObservation {
+  /** Stable identity for this tool call (from the provider). */
+  readonly toolCallId: string;
+
+  /** Tool name (e.g. 'filesystem.read', 'shell.execute'). */
+  readonly toolName: string;
+
+  /** Whether the tool call succeeded, failed, or was denied. */
+  readonly status: 'completed' | 'failed' | 'denied';
+
+  /** Timestamp of the observation. */
+  readonly timestamp: string;
+
+  /**
+   * Bounded observation content.
+   * For large outputs, this is a summary/reference — the authoritative
+   * artifact remains in its owning subsystem (evidence, engineering events, etc.).
+   */
+  readonly content: string;
+
+  /** Error message if status is 'failed' or 'denied'. */
+  readonly error?: string;
+}
+
 export interface Message {
   id: string;
   conversationId: string;
@@ -34,6 +69,12 @@ export interface Message {
   cost?: number;
   latency?: number;
   createdAt: string;
+  /**
+   * GA-CTX-001: Structured tool observations produced during this assistant turn.
+   * Preserves tool invocations and results independently from the assistant's
+   * natural-language interpretation. Subsequent turns can reference these.
+   */
+  toolObservations?: readonly ToolObservation[];
 }
 
 export interface ConversationSummary {

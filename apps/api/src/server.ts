@@ -30,6 +30,7 @@ import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
+import { handleCatalogRoute } from './routes/catalog';
 import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
@@ -63,6 +64,7 @@ import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
 import { handleWorktreeRoute } from './routes/worktrees';
+import { handleTelegramRoute } from './routes/telegram';
 import type { WorkspaceContext } from './workspace-context';
 
 /** Default overall HTTP request deadline (overridden by streaming routes). */
@@ -198,10 +200,12 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/notifications'], handler: handleNotificationsRoute },
   { prefixes: ['/api/approvals', '/api/artifacts', '/api/memory'], handler: memAdapter },
   { prefixes: ['/api/marketplace'], handler: handleMarketplaceRoute },
+  { prefixes: ['/api/catalog'], handler: handleCatalogRoute },
   { prefixes: ['/api/opencode'], handler: handleOpenCodeRoute },
   { prefixes: ['/api/telemetry'], handler: handleTelemetryRoute },
   { prefixes: ['/api/tui'], handler: tuiAdapter },
   { prefixes: ['/api/voice'], handler: handleVoiceRoute },
+  { prefixes: ['/api/telegram'], handler: handleTelegramRoute },
 ];
 
 function buildGroups(): RouteGroup[] {

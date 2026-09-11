@@ -12,6 +12,7 @@
  */
 
 import { randomBytes } from 'node:crypto';
+import type { TelegramPersistentStore } from './persistent-store';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -92,12 +93,14 @@ const DEFAULT_CONFIG: Required<PairingConfig> = {
 
 export class TelegramPairingService {
   private config: Required<PairingConfig>;
+  private store: TelegramPersistentStore | null;
   private pendingRequests: Map<string, PairingRequest> = new Map();
   private bindings: Map<string, TelegramIdentityBinding> = new Map();
   private tokenToRequest: Map<string, string> = new Map();
 
-  constructor(config?: PairingConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config?: PairingConfig & { store?: TelegramPersistentStore }) {
+    this.config = { tokenLength: DEFAULT_CONFIG.tokenLength, tokenExpiryMs: DEFAULT_CONFIG.tokenExpiryMs, maxPendingPerUser: DEFAULT_CONFIG.maxPendingPerUser, ...config };
+    this.store = config?.store ?? null;
   }
 
   /**
@@ -112,9 +115,11 @@ export class TelegramPairingService {
     }
 
     // Check pending requests limit
-    const pendingCount = Array.from(this.pendingRequests.values()).filter(
-      (r) => r.telegramUserId === telegramUserId && r.status === 'pending',
-    ).length;
+    const pendingCount = this.store
+      ? this.store.countPendingByUser(telegramUserId)
+      : Array.from(this.pendingRequests.values()).filter(
+          (r) => r.telegramUserId === telegramUserId && r.status === 'pending',
+        ).length;
 
     if (pendingCount >= this.config.maxPendingPerUser) {
       throw new Error('Maximum pending pairing requests reached');
@@ -137,6 +142,7 @@ export class TelegramPairingService {
 
     this.pendingRequests.set(request.id, request);
     this.tokenToRequest.set(token, request.id);
+    this.store?.savePairingRequest(request);
 
     return request;
   }
@@ -191,6 +197,10 @@ export class TelegramPairingService {
     this.tokenToRequest.delete(token);
     this.bindings.set(binding.id, binding);
 
+    // Persist to SQLite if available
+    this.store?.savePairingRequest(updatedRequest);
+    this.store?.saveIdentityBinding(binding);
+
     return binding;
   }
 
@@ -201,6 +211,7 @@ export class TelegramPairingService {
     const binding = this.bindings.get(bindingId);
     if (binding) {
       this.bindings.delete(bindingId);
+      this.store?.deleteIdentityBinding(bindingId);
     }
   }
 
@@ -208,10 +219,17 @@ export class TelegramPairingService {
    * Get binding by Telegram user ID.
    */
   getBindingByTelegramId(telegramUserId: string): TelegramIdentityBinding | undefined {
+    // Check in-memory first
     for (const binding of this.bindings.values()) {
       if (binding.telegramUserId === telegramUserId && binding.active) {
         return binding;
       }
+    }
+    // Fall back to SQLite
+    if (this.store) {
+      const binding = this.store.getIdentityBindingByTelegramId(telegramUserId);
+      if (binding) this.bindings.set(binding.id, binding);
+      return binding;
     }
     return undefined;
   }
@@ -220,10 +238,17 @@ export class TelegramPairingService {
    * Get binding by principal ID.
    */
   getBindingByPrincipalId(principalId: string): TelegramIdentityBinding | undefined {
+    // Check in-memory first
     for (const binding of this.bindings.values()) {
       if (binding.principalId === principalId && binding.active) {
         return binding;
       }
+    }
+    // Fall back to SQLite
+    if (this.store) {
+      const binding = this.store.getIdentityBindingByPrincipalId(principalId);
+      if (binding) this.bindings.set(binding.id, binding);
+      return binding;
     }
     return undefined;
   }
@@ -233,8 +258,14 @@ export class TelegramPairingService {
    */
   getPendingRequest(token: string): PairingRequest | undefined {
     const requestId = this.tokenToRequest.get(token);
-    if (!requestId) return undefined;
-    return this.pendingRequests.get(requestId);
+    if (requestId) {
+      return this.pendingRequests.get(requestId);
+    }
+    // Fall back to SQLite
+    if (this.store) {
+      return this.store.getPairingRequestByToken(token);
+    }
+    return undefined;
   }
 
   /**

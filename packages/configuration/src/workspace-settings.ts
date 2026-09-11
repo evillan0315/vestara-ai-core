@@ -16,7 +16,8 @@ export type SettingsSectionId =
   | 'history'
   | 'notifications'
   | 'telemetry'
-  | 'advanced';
+  | 'advanced'
+  | 'telegram';
 
 export interface ResolvedSetting {
   readonly key: string;

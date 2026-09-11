@@ -154,8 +154,8 @@ import { WorkerSocketServer } from './worker/worker-socket-server';
 
 export interface WorkspaceContext {
   kernel: DefaultKernel;
-  hostRuntime: HostRuntime;
-  bootRuntime: BootRuntime;
+  hostRuntime?: HostRuntime;
+  bootRuntime?: BootRuntime;
   providerManager: DefaultProviderManager;
   routingStore: FileRoutingStore;
   routingAssignments: FileRoutingAssignmentStore;
@@ -224,10 +224,10 @@ export interface WorkspaceContext {
   projects?: ProjectService;
   orders?: OrderService;
   telemetry: TelemetryRuntime;
-  documentation: DocumentationService;
+  documentation?: DocumentationService;
   settings: WorkspaceConfigurationService;
   filesystemRuntime: FilesystemRuntime;
-  marketplace: MarketplaceService;
+  marketplace?: MarketplaceService;
   /** Root into which new products are registered by `POST /api/marketplace/publish`. */
   marketplacePublishRoot: string;
   /** Injectable live-trial runner for `POST /api/qualification/run` (tests override). */
@@ -403,22 +403,42 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     console.log(`[boot:ctx] ${phase} — ${ms}ms`);
   };
   const abs = path.resolve(repoPath);
+
+  // ── VES-LEAN-002: Runtime Profile Resolution ──────────────
+  // Resolve the runtime profile before any service construction.
+  // The activation plan determines which capabilities are EAGER/LAZY/DISABLED.
+  const { resolveRuntimeProfile, isCapabilityActive, isCapabilityDisabled } = await import('./runtime-profile.js');
+  const { profile, plan } = resolveRuntimeProfile(process.env);
+  const isDogfood = profile.id === 'dogfood';
+  console.log(`[runtime-profile] resolved: ${profile.id} (${profile.name})`);
+  console.log(`[runtime-profile] eager: ${plan.eager.length} capabilities`);
+  console.log(`[runtime-profile] lazy: ${plan.lazy.length} capabilities`);
+  console.log(`[runtime-profile] disabled: ${plan.disabled.length} capabilities`);
+  if (plan.unsatisfied.length > 0) {
+    console.warn(`[runtime-profile] UNSATISFIED: ${plan.unsatisfied.join(', ')}`);
+  }
+  // ── end VES-LEAN-002 ─────────────────────────────────────
+
   const kernel = new DefaultKernel();
   log('kernel-created');
-  const hostRuntime = new HostRuntime();
-  const bootRuntime = new BootRuntime({
-    store: new FileBootStateStore(path.join(abs, '.vestara', 'os', 'boot-state.json')),
-  });
+
+  // ── VES-LEAN-003A: Composition Gating ─────────────────────
+  // Gate disabled capabilities: construction, providers, bridges, routes.
+  // DISABLED means ABSENT — no constructor, no store, no timer, no route.
+  const hostRuntime = isCapabilityActive(plan, 'host-runtime') ? new HostRuntime() : undefined;
+  const bootRuntime = isCapabilityActive(plan, 'boot-runtime')
+    ? new BootRuntime({ store: new FileBootStateStore(path.join(abs, '.vestara', 'os', 'boot-state.json')) })
+    : undefined;
   // The provider manager must exist before kernel boot so the kernel can load it.
   // Kernel-owned infrastructure is attached immediately after boot, once its
   // guarded event bus and logger accessors are available.
   const providerManager = new DefaultProviderManager();
   const opencode = new OpenCodeProvider();
-  const opencodeGo = new OpenCodeGoProvider();
-  const openai = new OpenAIProvider();
+  const opencodeGo = isCapabilityActive(plan, 'opencode-go-provider') ? new OpenCodeGoProvider() : undefined;
+  const openai = isCapabilityActive(plan, 'openai-provider') ? new OpenAIProvider() : undefined;
   await providerManager.register(opencode);
-  await providerManager.register(opencodeGo);
-  await providerManager.register(openai);
+  if (opencodeGo) await providerManager.register(opencodeGo);
+  if (openai) await providerManager.register(openai);
   providerManager.registerEngineeringMetadata('opencode', {
     locality: 'cloud',
     capabilities: [
@@ -435,73 +455,87 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     ],
     dataPolicies: ['metadata-only', 'source-allowed'],
   });
-  providerManager.registerEngineeringMetadata('opencode-go', {
-    locality: 'cloud',
-    capabilities: [
-      'conversation',
-      'planning',
-      'implementation',
-      'code-review',
-      'verification',
-      'filesystem-read',
-      'filesystem-write',
-      'command-execution',
-      'structured-output',
-      'streaming',
-    ],
-    dataPolicies: ['metadata-only', 'source-allowed'],
-  });
-  providerManager.registerEngineeringMetadata('openai', {
-    locality: 'cloud',
-    capabilities: [
-      'conversation',
-      'planning',
-      'implementation',
-      'code-review',
-      'verification',
-      'filesystem-read',
-      'filesystem-write',
-      'command-execution',
-      'structured-output',
-      'streaming',
-      'image-understanding',
-    ],
-    dataPolicies: ['metadata-only', 'source-allowed'],
-  });
+  if (opencodeGo) {
+    providerManager.registerEngineeringMetadata('opencode-go', {
+      locality: 'cloud',
+      capabilities: [
+        'conversation',
+        'planning',
+        'implementation',
+        'code-review',
+        'verification',
+        'filesystem-read',
+        'filesystem-write',
+        'command-execution',
+        'structured-output',
+        'streaming',
+      ],
+      dataPolicies: ['metadata-only', 'source-allowed'],
+    });
+  }
+  if (openai) {
+    providerManager.registerEngineeringMetadata('openai', {
+      locality: 'cloud',
+      capabilities: [
+        'conversation',
+        'planning',
+        'implementation',
+        'code-review',
+        'verification',
+        'filesystem-read',
+        'filesystem-write',
+        'command-execution',
+        'structured-output',
+        'streaming',
+        'image-understanding',
+      ],
+      dataPolicies: ['metadata-only', 'source-allowed'],
+    });
+  }
   log('providers-registered');
   // Live Browser (LB) — governed browser runtime registered with the kernel so
   // browser.* events flow to the event bus (and thus /ws clients via the `*`
   // relay). Always enabled; accepts all URLs by default.
-  const browserRuntime = createBrowserRuntime(abs);
+  const browserRuntime = isCapabilityActive(plan, 'browser-runtime') ? createBrowserRuntime(abs) : undefined;
   await kernel.boot({
     providers: [
       { manager: providerManager, providerId: 'opencode' },
-      { manager: providerManager, providerId: 'opencode-go' },
-      { manager: providerManager, providerId: 'openai' },
+      ...(opencodeGo ? [{ manager: providerManager, providerId: 'opencode-go' }] : []),
+      ...(openai ? [{ manager: providerManager, providerId: 'openai' }] : []),
     ],
     services: [
-      {
-        service: runtimeService(hostRuntime, '0.1.0'),
-        capabilities: [...hostRuntime.capabilities],
-        dependencies: ['kernel'],
-      },
-      {
-        service: runtimeService(bootRuntime, '0.1.0'),
-        capabilities: [...bootRuntime.capabilities],
-        dependencies: ['host-runtime'],
-      },
-      { service: browserRuntime, capabilities: ['browser'], dependencies: ['kernel'] },
+      ...(hostRuntime
+        ? [{
+            service: runtimeService(hostRuntime, '0.1.0'),
+            capabilities: [...hostRuntime.capabilities],
+            dependencies: ['kernel'],
+          }]
+        : []),
+      ...(bootRuntime
+        ? [{
+            service: runtimeService(bootRuntime, '0.1.0'),
+            capabilities: [...bootRuntime.capabilities],
+            dependencies: ['host-runtime'],
+          }]
+        : []),
+      ...(browserRuntime
+        ? [{ service: browserRuntime, capabilities: ['browser'], dependencies: ['kernel'] }]
+        : []),
     ],
   });
   log('kernel-booted');
   browserRuntime?.setEventBus(kernel.eventBus);
-  hostRuntime.setEventBus(kernel.eventBus);
-  hostRuntime.setPermissionManager(kernel.permissions);
-  bootRuntime.setEventBus(kernel.eventBus);
-  await bootRuntime.advance('host-started');
-  await bootRuntime.advance('storage-mounted', abs);
-  await bootRuntime.advance('identity-loaded', `uid:${process.getuid?.() ?? 'unknown'}`);
-  await bootRuntime.advance('services-started');
+  if (hostRuntime) {
+    hostRuntime.setEventBus(kernel.eventBus);
+    hostRuntime.setPermissionManager(kernel.permissions);
+  }
+  if (bootRuntime) {
+    bootRuntime.setEventBus(kernel.eventBus);
+    await bootRuntime.advance('host-started');
+    await bootRuntime.advance('storage-mounted', abs);
+    await bootRuntime.advance('identity-loaded', `uid:${process.getuid?.() ?? 'unknown'}`);
+    await bootRuntime.advance('services-started');
+  }
   providerManager.attachRuntimeServices({ eventBus: kernel.eventBus, logger: kernel.logger });
 
   const runtime = new WorkspaceRuntime({
@@ -512,7 +546,9 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
 
   await runtime.open(abs);
   log('runtime-opened');
-  await bootRuntime.advance('runtime-composed', sessionSafeId(runtime));
+  if (bootRuntime) {
+    await bootRuntime.advance('runtime-composed', sessionSafeId(runtime));
+  }
   const session = runtime.getSession();
   const workspaceDir = session.workspaceDir;
   await restoreProviderConfigurations({ workspaceDir, providerManager });
@@ -746,13 +782,15 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     roots: marketplaceRoots,
     eventSink: marketplaceEventSink,
   });
-  const marketplace = new MarketplaceService({
-    registries: [marketplaceRegistry],
-    manager: marketplaceManager,
-    eventSink: marketplaceEventSink,
-    vestaraVersion: '1.0.0',
-    workspaceId: session.fingerprint.id,
-  });
+  const marketplace = isCapabilityActive(plan, 'marketplace')
+    ? new MarketplaceService({
+        registries: [marketplaceRegistry],
+        manager: marketplaceManager,
+        eventSink: marketplaceEventSink,
+        vestaraVersion: '1.0.0',
+        workspaceId: session.fingerprint.id,
+      })
+    : undefined;
   const engineeringVerification = new EngineeringVerificationProfiles();
   const agentEnvironment: AgentEnvironment = {
     id: `local-workspace-${session.fingerprint.id}` as AgentEnvironmentId,
@@ -1349,16 +1387,20 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       authority: 'specification',
     },
   ];
-  const documentation = new DocumentationService({
-    repositories: documentationRepositories,
-    workspaceId: session.fingerprint.id,
-    stateDirectory: path.join(workspaceDir, 'documentation'),
-    eventBus: kernel.eventBus,
-  });
-  await documentation.initialize();
-  log('documentation-initialized');
-  await documentation.start();
-  log('documentation-started');
+  const documentation = isCapabilityActive(plan, 'documentation')
+    ? new DocumentationService({
+        repositories: documentationRepositories,
+        workspaceId: session.fingerprint.id,
+        stateDirectory: path.join(workspaceDir, 'documentation'),
+        eventBus: kernel.eventBus,
+      })
+    : undefined;
+  if (documentation) {
+    await documentation.initialize();
+    log('documentation-initialized');
+    await documentation.start();
+    log('documentation-started');
+  }
 
   const unsub = kernel.eventBus.subscribe(
     '*',
@@ -1462,12 +1504,16 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const diagnosis = await kernel.diagnose();
   log('kernel-diagnosed');
   if (diagnosis.health.overall === 'unhealthy') {
-    await bootRuntime.enterRecovery('Kernel service health verification failed');
+    if (bootRuntime) {
+      await bootRuntime.enterRecovery('Kernel service health verification failed');
+    }
     throw new Error('Vestara OS-0 entered recovery: kernel service health verification failed');
   }
 
-  await bootRuntime.advance('health-verified', diagnosis.health.overall);
-  await bootRuntime.advance('workspace-ready', session.fingerprint.id);
+  if (bootRuntime) {
+    await bootRuntime.advance('health-verified', diagnosis.health.overall);
+    await bootRuntime.advance('workspace-ready', session.fingerprint.id);
+  }
   log('boot-advanced');
 
   const context: WorkspaceContext = {
@@ -1560,7 +1606,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       harnessApprovalBridgeDisposal.dispose();
       workspaceUiWatcher?.stop();
       persistDb(db, dbPath);
-      await documentation.dispose();
+      await documentation?.dispose();
       await marketplaceManager.shutdown();
       agentThreadStore.close();
       engineeringEvents.close();

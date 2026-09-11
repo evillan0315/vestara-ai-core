@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "@vestara/channel-types": "workspace:*",
-    "@vestara/channel-runtime": "workspace:*"
+    "@vestara/channel-runtime": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

@@ -37,6 +37,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Conversation, ConversationSummary, Message } from '@vestara/types';
 import type { AssistantExecutionDetail, TurnSurfaceContext } from '@vestara/shared';
+import { openCodeApi } from '../lib/opencode';
 
 /**
  * GA-UX-PREMIUM M3: cheap inline validation of the server-normalized
@@ -149,7 +150,7 @@ export interface UseAssistantConversationReturn {
   // Send + stream
   sendMessage: (
     content: string,
-    options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string },
+    options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig },
   ) => Promise<void>;
   streamState: StreamState;
   streamingText: string;
@@ -207,6 +208,10 @@ export interface UseAssistantConversationReturn {
   pendingQuestions: AssistantExecutionDetail[];
   answerQuestion: (conversationId: string, requestId: string, answers: string[][]) => Promise<boolean>;
   abortStream: () => void;
+  /** Load messages from an OpenCode runtime session */
+  loadSessionMessages: (sessionId: string) => Promise<void>;
+  /** Currently selected session ID (if a session is selected) */
+  selectedSessionId: string | null;
 }
 
 export interface StructuredEditOperation {
@@ -370,6 +375,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
 
   // ── Messages for selected conversation ──
   const [messages, setMessages] = useState<Message[]>([]);
+
+  // ── Session messages (loaded from OpenCode runtime sessions) ──
+  const [sessionMessages, setSessionMessages] = useState<Message[]>([]);
+  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
 
   // ── Optimistic human turns (GA-UI-004, transient projection only) ──
   const [optimisticTurns, setOptimisticTurns] = useState<OptimisticHumanTurn[]>([]);
@@ -565,6 +574,29 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     }
   }, []);
 
+  // ── Load messages from an OpenCode runtime session ──
+  const loadSessionMessages = useCallback(async (sessionId: string) => {
+    try {
+      setSelectedSessionId(sessionId);
+      setMessages([]); // Clear conversation messages
+      setSessionMessages([]); // Clear previous session messages
+      const data = await openCodeApi.messages(sessionId);
+      // Convert OpenCode messages to Conversation Message format
+      const converted: Message[] = (data ?? []).map((msg, index) => ({
+        id: msg.id ?? `session-msg-${index}`,
+        conversationId: `session-${sessionId}`,
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.text,
+        createdAt: msg.createdAt ?? new Date().toISOString(),
+      }));
+      setSessionMessages(converted);
+      setMessages(converted); // Show in the main message list
+    } catch {
+      setSessionMessages([]);
+      setMessages([]);
+    }
+  }, []);
+
   // ── Run one assistant turn (GA-UI-004 reconciliation core) ──
   // The optimistic entry identified by clientTurnId is reconciled here:
   // success / provider-failure (human persisted) → reload canonical messages
@@ -576,7 +608,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       text: string,
       clientTurnId: string,
       surfaceContext?: TurnSurfaceContext,
-      executionBinding?: { provider?: string; model?: string },
+      executionBinding?: { provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig },
     ) => {
       const finalConvId = convId;
       const currentStreamId = ++streamIdRef.current;
@@ -610,6 +642,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
             ...(executionBinding?.model ? { model: executionBinding.model } : {}),
             // GA-CONTEXT-002: trusted turn-time surface context (additive).
             ...(surfaceContext ? { surfaceContext } : {}),
+            // GA-EXEC-001: per-turn execution config (adapter enforcement).
+            ...(executionBinding?.executionConfig ? { executionConfig: executionBinding.executionConfig } : {}),
           }),
           signal: controller.signal,
         });
@@ -823,7 +857,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // Projects the optimistic human turn + Thinking… synchronously on local
   // validation, before any network await.
   const sendMessage = useCallback(
-    async (content: string, options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string }) => {
+    async (content: string, options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig }) => {
       const text = content.trim();
       if (!text || busyRef.current || streamState === 'sending' || streamState === 'streaming') return;
 
@@ -874,6 +908,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       await runTurn(convId, text, clientTurnId, options?.surfaceContext, {
         provider: options?.provider,
         model: options?.model,
+        executionConfig: options?.executionConfig,
       });
     },
     [streamState, createConversation, runTurn],
@@ -1022,5 +1057,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     pendingQuestions,
     answerQuestion,
     abortStream,
+    loadSessionMessages,
+    selectedSessionId,
   };
 }

@@ -49,6 +49,7 @@ export { AuditStore } from './audit-store';
 export { AutoIndex } from './auto-index';
 export { CapabilityService } from './capability-service';
 export { createFilesystemCapabilityTools } from './capability-tool-provider';
+export { buildCapabilityCatalog, getCapability, getCapabilitiesByParkingState, getCapabilitiesByCategory, searchCapabilities } from './capability-catalog-service';
 export { ChangeSetStorage } from './change-set-storage';
 export { CloudService } from './cloud-service';
 export { CloudStorage } from './cloud-storage';

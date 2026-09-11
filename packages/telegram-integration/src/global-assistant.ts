@@ -20,6 +20,28 @@ import type { WorkspaceBinding } from './workspace-binding.js';
 
 // ─── Types ─────────────────────────────────────────────────────
 
+/**
+ * Execution backend interface. The router delegates actual LLM execution
+ * to this interface, which is provided by the API composition root.
+ *
+ * This keeps the telegram-integration package independent of the
+ * conversation service implementation.
+ */
+export interface ExecutionBackend {
+  /**
+   * Send a message to the Global Assistant and return the response.
+   * @param conversationId - The Vestara conversation ID
+   * @param content - The user message text
+   * @param options - Optional model/provider overrides
+   * @returns The execution result with response text
+   */
+  sendMessage(
+    conversationId: string,
+    content: string,
+    options?: { model?: string; provider?: string },
+  ): Promise<ExecutionResult>;
+}
+
 export type MessageRouteStatus = 'routed' | 'queued' | 'rejected' | 'failed' | 'executing';
 
 export interface MessageRouteResult {
@@ -37,6 +59,9 @@ export interface MessageRouteResult {
 
   /** Whether message was queued due to rate limiting */
   readonly queued?: boolean;
+
+  /** Response text from the execution backend (when available) */
+  readonly response?: string;
 }
 
 export interface GlobalAssistantConfig {
@@ -120,22 +145,35 @@ interface RateLimitEntry {
 
 export class GlobalAssistantTextRouter {
   private config: Required<GlobalAssistantConfig>;
+  private backend: ExecutionBackend | null;
   private rateLimits: Map<string, RateLimitEntry> = new Map();
   private activeExecutions: Map<string, number> = new Map();
 
-  constructor(config?: GlobalAssistantConfig) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+  constructor(config?: GlobalAssistantConfig & { backend?: ExecutionBackend }) {
+    this.config = {
+      maxConcurrentExecutions: DEFAULT_CONFIG.maxConcurrentExecutions,
+      rateLimitPerMinute: DEFAULT_CONFIG.rateLimitPerMinute,
+      defaultModel: DEFAULT_CONFIG.defaultModel,
+      defaultProvider: DEFAULT_CONFIG.defaultProvider,
+      autoResumeConversation: DEFAULT_CONFIG.autoResumeConversation,
+      ...config,
+    };
+    this.backend = config?.backend ?? null;
   }
 
   /**
    * Route a Telegram message to the Global Assistant.
+   *
+   * When an ExecutionBackend is configured, this method executes the message
+   * through the pipeline and returns the result. When no backend is configured,
+   * it returns a routing result for the caller to execute.
    */
-  routeMessage(
+  async routeMessage(
     message: ChannelMessage,
     identity: TelegramIdentityBinding,
     workspace: WorkspaceBinding,
     conversation: ConversationBinding,
-  ): MessageRouteResult {
+  ): Promise<MessageRouteResult> {
     const principalId = identity.principalId;
 
     // 1. Check rate limit
@@ -167,31 +205,41 @@ export class GlobalAssistantTextRouter {
       };
     }
 
-    // 4. Auto-resume paused conversation
-    if (conversation.status === 'paused' && this.config.autoResumeConversation) {
-      // In production, would call conversation service to resume
-    }
-
-    // 5. Build execution request
+    // 4. Build execution request
     const executionId = `exec-${Date.now()}-${randomBytes(4).toString('hex')}`;
-    const request: ExecutionRequest = {
-      message,
-      principalId,
-      workspaceId: workspace.workspaceId,
-      conversationId: conversation.vestaraConversationId,
-      model: conversation.defaultModel ?? this.config.defaultModel,
-      provider: conversation.defaultProvider ?? this.config.defaultProvider,
-      timestamp: new Date().toISOString(),
-    };
+    const model = conversation.defaultModel ?? this.config.defaultModel;
+    const provider = conversation.defaultProvider ?? this.config.defaultProvider;
 
-    // 6. Record execution
+    // 5. Record execution
     this.activeExecutions.set(principalId, activeCount + 1);
     this.recordMessage(principalId);
 
-    // 7. Route to execution pipeline
-    // In production, would call workflow orchestrator here
-    // For now, return the request for the caller to execute
+    // 6. Execute through backend if available
+    if (this.backend && message.text) {
+      try {
+        const result = await this.backend.sendMessage(
+          conversation.vestaraConversationId,
+          message.text,
+          { model, provider },
+        );
+        return {
+          status: 'routed',
+          executionId: result.executionId ?? executionId,
+          conversationId: conversation.vestaraConversationId,
+          response: result.response,
+        };
+      } catch (error) {
+        return {
+          status: 'failed',
+          error: error instanceof Error ? error.message : 'Execution failed',
+          conversationId: conversation.vestaraConversationId,
+        };
+      } finally {
+        this.completeExecution(principalId);
+      }
+    }
 
+    // 7. No backend — return routing info for caller to execute
     return {
       status: 'routed',
       executionId,

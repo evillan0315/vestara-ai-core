@@ -13,7 +13,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
-import type { PresenceState, PresenceEntry } from './presence-types';
+import type { PresenceStateData, PresenceEntry } from './presence-types';
 import type { ExecutionState, ExecutionStateEntry } from './use-realtime-execution';
 import { useRealtimePresence, type RealtimePresenceState } from './use-realtime-presence';
 import { useRealtimeExecution } from './use-realtime-execution';
@@ -33,7 +33,7 @@ export interface UseRealtimeEventsConfig {
 
 export interface UseRealtimeEventsReturn {
   /** Presence state */
-  readonly presence: PresenceState;
+  readonly presence: PresenceStateData;
 
   /** Execution state */
   readonly execution: ExecutionState;

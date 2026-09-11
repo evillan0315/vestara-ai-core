@@ -5,6 +5,7 @@ import { ToastProvider } from './components/Toast';
 import { TelemetryProvider } from './contexts/TelemetryContext';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
+import { VestaraThemeProvider } from '@vestara/ui-theme';
 import { APP_ROUTES } from './routes';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -115,36 +116,38 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <ThemeProvider>
-        <TelemetryProvider>
-          <ToastProvider>
-            <Routes>
-              {publicRoutes.map((r) => (
-                <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-              ))}
-              <Route element={<ShellLayout />}>
-                {shellRoutes
-                  .filter((r) => !r.catchAll)
-                  .map((r) =>
-                    r.redirect ? (
-                      <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
-                    ) : (
-                      <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-                    ),
-                  )}
-                <Route
-                  path="*"
-                  element={
-                    <LazyPage>
-                      <NotFound />
-                    </LazyPage>
-                  }
-                />
-              </Route>
-            </Routes>
-          </ToastProvider>
-        </TelemetryProvider>
-      </ThemeProvider>
+      <VestaraThemeProvider initialMode="dark" initialAccent="amber">
+        <ThemeProvider>
+          <TelemetryProvider>
+            <ToastProvider>
+              <Routes>
+                {publicRoutes.map((r) => (
+                  <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                ))}
+                <Route element={<ShellLayout />}>
+                  {shellRoutes
+                    .filter((r) => !r.catchAll)
+                    .map((r) =>
+                      r.redirect ? (
+                        <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
+                      ) : (
+                        <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                      ),
+                    )}
+                  <Route
+                    path="*"
+                    element={
+                      <LazyPage>
+                        <NotFound />
+                      </LazyPage>
+                    }
+                  />
+                </Route>
+              </Routes>
+            </ToastProvider>
+          </TelemetryProvider>
+        </ThemeProvider>
+      </VestaraThemeProvider>
     </ErrorBoundary>
   );
 }

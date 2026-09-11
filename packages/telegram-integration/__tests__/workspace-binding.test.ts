@@ -105,12 +105,13 @@ describe('TelegramWorkspaceBindingService', () => {
   });
 
   describe('touchWorkspace', () => {
-    it('updates last accessed timestamp', () => {
+    it('updates last accessed timestamp', async () => {
       const service = new TelegramWorkspaceBindingService();
       const binding = service.bindWorkspace('p-1', 'ws-1', 'WS 1');
       const originalTime = binding.lastAccessedAt;
 
-      // Wait a bit to ensure timestamp changes
+      // Ensure timestamp will differ
+      await new Promise((r) => setTimeout(r, 10));
       service.touchWorkspace('p-1', 'ws-1');
       const updated = service.getBinding('p-1', 'ws-1');
 

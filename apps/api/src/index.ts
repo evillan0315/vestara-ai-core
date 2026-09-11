@@ -14,6 +14,7 @@ import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
 import { startOpencodeSupervisor } from './opencode-supervisor';
 import { getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
+import { initTelegramRoute } from './routes/telegram';
 import { type ApiServer, createServer } from './server';
 import { createWorkspaceContext } from './workspace-context';
 
@@ -77,6 +78,12 @@ async function main(): Promise<void> {
 
   await initM11AActivityRoom(repoPath);
   bootMark('m11a-init');
+
+  // VES-LEAN-003A: Gate Telegram by dogfood profile
+  if (process.env.VESTARA_RUNTIME_PROFILE !== 'dogfood') {
+    await initTelegramRoute(path.join(repoPath, '.vestara', 'telegram.db'), ctx);
+  }
+  bootMark('telegram-init');
 
   // M11C-I1: Start M9 ingestion bridge — single EventBus → M9 write boundary
   const m11aRoom = getM11ARoom();

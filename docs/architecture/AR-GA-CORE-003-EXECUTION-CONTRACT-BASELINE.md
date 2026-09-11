@@ -625,3 +625,114 @@ $ npx vitest run packages/agent-types/ packages/routing-types/ packages/permissi
 ---
 
 **Recommendation:** `READY FOR AR-GA-CORE-004`
+
+---
+
+## Future Development — Execution Interruption Recovery & Observer Visibility
+
+**Status:** FUTURE DEVELOPMENT / RECORDED / NOT AUTHORIZED FOR IMPLEMENTATION
+**Motivation:** Repeated Global Assistant/OpenCode turn-timeout interruptions during GA-EXEC-001 dogfood demonstrated the need for governed execution recovery and visible interruption provenance.
+**Recorded:** 2026-09-11
+
+### Requirement
+
+Vestara should support governed recovery when an AI/runtime execution is interrupted by conditions such as turn timeout, runtime disconnection, transient provider failure, tool interruption, or other recoverable execution failures. The purpose is to prevent long-running Global Assistant and future Activity Room workflows from requiring manual human "resume" instructions whenever a bounded execution attempt is interrupted.
+
+### Responsibility Separation
+
+```
+Execution Attempt
+      ↓
+Interruption
+      ↓
+Observer
+      ↓
+Observation / Evidence
+      ↓
+Interruption Classification
+      ↓
+Retry / Resume Policy
+      ↓
+Governance Decision
+      ↓
+New Attempt or Resume
+```
+
+**The Observer is observational authority only.** It may detect and report an interruption, but observation itself must never grant authority to retry, resume, mutate, or continue execution.
+
+### Architectural Invariant (Freeze)
+
+> An interruption does not imply permission to retry. Observation records what happened; governance determines whether another execution attempt is authorized.
+
+### Recovery Classifications
+
+| Classification | Meaning | When to use |
+|----------------|---------|-------------|
+| **Retry** | Create another bounded execution attempt | Transient failure, recoverable condition |
+| **Resume** | Continue from a known safe checkpoint/state without repeating completed work | Checkpoint available, work partially done |
+| **Hold** | Preserve execution state and await an authorized decision | Ambiguous recoverability, governance required |
+| **Fail** | Terminate the task/workflow when recovery is inappropriate or exhausted | Non-recoverable, max attempts exceeded, governance denial |
+
+Retry policy must be bounded: maximum attempts, retryable interruption classes, backoff where appropriate, and conditions that must never automatically retry.
+
+**Never automatically retry** merely because execution stopped. User cancellation, permission denial, governance HOLD, explicit abort, verification failure, or unknown/unsafe state must remain subject to their appropriate authority and policy.
+
+### Provenance Requirements
+
+Interruption observations should eventually preserve sufficient provenance where available:
+
+- Execution ID
+- Workflow/task ID
+- Attempt number
+- Runtime/provider
+- Interruption classification
+- Elapsed time
+- Active tool/operation at interruption
+- Timestamp
+- Checkpoint/evidence references
+- Whether recoverability is known
+
+**Preserve UNKNOWN** whenever cause or recoverability cannot be established from evidence.
+
+### Workflow Survival
+
+For workflow execution, the authoritative WorkflowRun should survive an interrupted runtime/session attempt whenever its lifecycle permits recovery. An OpenCode session, provider request, or individual AI turn terminating must not automatically imply termination or loss of the authoritative workflow.
+
+```
+WorkflowRun
+  └── Task
+      ├── Attempt 1
+      │   ├── bounded execution
+      │   ├── evidence/checkpoint
+      │   └── INTERRUPTED
+      │
+      └── Attempt 2
+          ├── RETRY or RESUME
+          ├── bounded execution
+          └── COMPLETE
+```
+
+### Activity Room Projection (Future)
+
+Activity Room should eventually project this lifecycle so humans and participating agents can see when execution was interrupted, why when known, whether recovery was authorized, which attempt is running, and whether work was retried, resumed, held, or failed.
+
+Example future projection:
+
+```
+MiMo · Developer
+
+✓ Audited execution budget
+✓ Updated runtime configuration
+⚠ Execution interrupted
+  Turn timeout · Attempt 1
+
+↻ Resume authorized · Attempt 2/3
+
+● Updating affected tests...
+```
+
+### Constraints
+
+- Reuse Vestara's existing execution identity, observations, evidence, permissions/governance, workflow/task lifecycle, and runtime abstractions.
+- Do not introduce parallel execution, observation, or authority models.
+- This capability is **NOT AUTHORIZED FOR IMPLEMENTATION** — recorded as future development motivated by the GA-EXEC-001 timeout interruption evidence.

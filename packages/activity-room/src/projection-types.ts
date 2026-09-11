@@ -188,7 +188,9 @@ export type AttentionReason =
   | 'waiting-for-human'
   | 'dependency-unavailable'
   | 'retry-needed'
-  | 'material-change';
+  | 'material-change'
+  | 'interaction-presented'
+  | 'interaction-resolved';
 
 /**
  * Attention severity levels.
@@ -215,6 +217,9 @@ export interface AttentionEntry {
   readonly actor?: ActivityActor;
   readonly workflowRunId?: WorkflowRunId;
   readonly taskId?: WorkflowTaskId;
+
+  /** Reference to originating StructuredInteraction (for interaction-presented/resolved). */
+  readonly interactionId?: string;
 
   /** When this was generated. */
   readonly timestamp: string;

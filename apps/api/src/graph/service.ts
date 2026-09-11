@@ -326,6 +326,7 @@ export class EngineeringGraphService {
       kind: 'documentation-plan',
       priority: 25,
       collect: async () => {
+        if (!this.ctx.documentation) return [];
         const inventory = this.ctx.documentation.getInventory() ?? (await this.ctx.documentation.scan());
         return [
           ...projectDocumentationGraph(

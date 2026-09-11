@@ -26,6 +26,11 @@ export async function handleDocumentationRoute(
   ctx: WorkspaceContext,
 ): Promise<boolean> {
   if (!pathname.startsWith('/api/documentation')) return false;
+  // VES-LEAN-003A: Documentation is optional in dogfood
+  if (!ctx.documentation) {
+    json(res, 503, { error: { code: 'CAPABILITY_DISABLED', message: 'Documentation is not active in this profile.' } });
+    return true;
+  }
   const suffix = pathname.slice('/api/documentation'.length) || '/';
   try {
     if (method === 'GET' && suffix === '/status') {

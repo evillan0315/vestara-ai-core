@@ -17,7 +17,7 @@ import type {
   PresenceConfig,
   PresenceEntry,
   PresenceEvent,
-  PresenceState,
+  PresenceStateData,
 } from './presence-types';
 import { DEFAULT_PRESENCE_CONFIG } from './presence-types';
 import { PresenceDataLayer } from './presence-data';
@@ -27,7 +27,7 @@ import { PresenceDataLayer } from './presence-data';
  */
 export interface UsePresenceReturn {
   /** Current presence state */
-  readonly state: PresenceState;
+  readonly state: PresenceStateData;
 
   /** Whether presence tracking is active */
   readonly isActive: boolean;
@@ -59,7 +59,7 @@ export interface UsePresenceReturn {
 export function usePresence(
   config?: Partial<PresenceConfig>,
 ): UsePresenceReturn {
-  const [state, setState] = useState<PresenceState>({
+  const [state, setState] = useState<PresenceStateData>({
     entries: [],
     onlineCount: 0,
     idleCount: 0,

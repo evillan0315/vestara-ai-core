@@ -1,16 +1,15 @@
 /**
  * useNotifications — React hook for the Notification Center.
  *
- * Fetches notifications from the API on mount and exposes
- * unread count, list, and mark-read operations.
+ * Notification service is disabled. The hook returns empty state immediately
+ * without making API calls or polling. markRead/markAllRead are no-ops.
  *
  * Architecture Traceability:
- *   v7.6 — Notification Center & Alerting
+ *   v7.6 — Notification Center & Alerting (disabled)
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from './auth';
-import { workspaceSocket } from './ws';
 
 export interface AppNotification {
   id: string;
@@ -44,18 +43,12 @@ export function useNotifications() {
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { actor } = useAuth();
 
   const fetchNotifications = useCallback(async () => {
-    const data = await apiFetch<{ notifications: AppNotification[]; unreadCount: number }>(
-      '/notifications?limit=50',
-    );
-    if (data) {
-      setNotifications(data.notifications);
-      setUnreadCount(data.unreadCount);
-    }
+    // Notification service disabled — return empty state without hitting the API.
+    setNotifications([]);
+    setUnreadCount(0);
     setLoading(false);
   }, []);
 
@@ -73,24 +66,9 @@ export function useNotifications() {
     }
   }, []);
 
-  // Initial fetch + poll every 15s, plus a debounced refetch whenever a
-  // relevant live event arrives (toast-worthy events refresh the badge now,
-  // not up to 15s later).
+  // Notification service disabled — no polling or WebSocket listeners needed.
   useEffect(() => {
     fetchNotifications();
-    intervalRef.current = setInterval(fetchNotifications, 15_000);
-    const off = workspaceSocket.onEvent((event) => {
-      if (event.type === 'system.heartbeat' || event.type === 'workflow.updated') return;
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-      refreshTimer.current = setTimeout(() => {
-        void fetchNotifications();
-      }, 300);
-    });
-    return () => {
-      off();
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      if (refreshTimer.current) clearTimeout(refreshTimer.current);
-    };
   }, [fetchNotifications]);
 
   return { notifications, unreadCount, loading, markRead, markAllRead, refresh: fetchNotifications };

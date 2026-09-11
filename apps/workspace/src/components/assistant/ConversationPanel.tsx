@@ -28,6 +28,7 @@
 
 import React, { Profiler, useCallback, useEffect, useDeferredValue, memo, useRef, useState } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import { useProviderSettings } from '../../hooks/useProviderSettings';
 import type { OpenCodeSessionView } from '../../lib/opencode';
 import type {
@@ -45,6 +46,8 @@ import { AssistantResponseActions } from './AssistantResponseActions';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
+import { ExecutionControlsPopover } from './ExecutionControlsPopover';
+import { ExecutionTray } from './ExecutionTray';
 import { resolveDisplayTitle } from './conversationTitles';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -486,6 +489,9 @@ function ComposeInput({
   conversationKey,
   providerModel,
   onProviderModelChange,
+  execConfig,
+  onExecControlsToggle,
+  execControlsRef,
 }: {
   onSend: (text: string) => void;
   loading: boolean;
@@ -496,6 +502,10 @@ function ComposeInput({
   /** GA-UI-008: shared provider/model selection. */
   providerModel?: { providerId: string; modelId: string };
   onProviderModelChange?: (value: { providerId: string; modelId: string }) => void;
+  /** GA-EXEC-001: execution config state and controls toggle. */
+  execConfig?: { isCustom: boolean };
+  onExecControlsToggle?: () => void;
+  execControlsRef?: React.RefObject<HTMLButtonElement | null>;
 }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -584,6 +594,24 @@ function ComposeInput({
             className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-700 cursor-not-allowed opacity-40"
           >
             <span className="text-[13px] font-semibold leading-none">@</span>
+          </button>
+          {/* GA-EXEC-001: execution controls toggle */}
+          <button
+            ref={execControlsRef}
+            type="button"
+            aria-label="Execution limits"
+            title="Execution limits"
+            onClick={onExecControlsToggle}
+            className={`flex h-7 w-7 items-center justify-center rounded-lg transition-all cursor-pointer ${
+              execConfig?.isCustom
+                ? 'text-amber-400 bg-amber-500/10 hover:bg-amber-500/20'
+                : 'text-zinc-600 hover:text-zinc-400 hover:bg-zinc-800/60'
+            }`}
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
           </button>
         </div>
         <div className="relative min-w-0 flex-1">
@@ -763,6 +791,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   const surface = useSurfaceContext();
   // GA-UI-008: shared provider/model selection (persisted via localStorage)
   const { settings: providerSettings, updateSettings: updateProviderSettings } = useProviderSettings();
+  // GA-EXEC-001: session-local execution config
+  const execConfig = useGAExecutionConfig();
+  const [execControlsOpen, setExecControlsOpen] = useState(false);
+  const execGearRef = useRef<HTMLButtonElement>(null);
 
   const optimisticTurns = assistant.optimisticTurns ?? [];
   const retryTurn = assistant.retryTurn ?? (() => Promise.resolve());
@@ -845,6 +877,14 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     [assistant.selectedId, assistant.selectConversation],
   );
 
+  const handleLoadSession = useCallback(
+    (sessionId: string) => {
+      // Load messages from an OpenCode runtime session
+      void assistant.loadSessionMessages(sessionId);
+    },
+    [assistant.loadSessionMessages],
+  );
+
   const handleNewConversation = useCallback(() => {
     setHistoryOpen(false);
     // Creates AND selects a fresh Conversation Runtime conversation. The
@@ -914,9 +954,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         surfaceContext: surface,
         provider: providerSettings.provider,
         model: providerSettings.model,
+        executionConfig: execConfig.toRequestConfig(),
       });
     },
-    [assistant.sendMessage, surface.selected, providerSettings.provider, providerSettings.model],
+    [assistant.sendMessage, surface.selected, providerSettings.provider, providerSettings.model, execConfig],
   );
 
   const handleRetry = useCallback(
@@ -1112,20 +1153,47 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         onQuestionAnswer={assistant.answerQuestion}
       />
 
-      {/* Compose */}
-      <ComposeInput
-        onSend={handleSend}
-        loading={isStreaming}
-        onStop={assistant.abortStream}
-        focusRef={focusOnMountRef}
-        conversationKey={assistant.selectedId}
-        // GA-UI-008: the selector contract is {providerId, modelId}; provider
-        // settings persist as {provider, model}. Mapped at the boundary.
-        providerModel={{ providerId: providerSettings.provider, modelId: providerSettings.model }}
-        onProviderModelChange={(value) =>
-          updateProviderSettings({ provider: value.providerId, model: value.modelId })
-        }
+      {/* GA-EXEC-001: composer-attached execution surface */}
+      <ExecutionTray
+        active={isStreaming}
+        operationCount={assistant.toolOperations?.length ?? 0}
+        isCustom={execConfig.isCustom}
+        turnStartedAt={isStreaming ? Date.now() : undefined}
+        taskSnapshot={assistant.taskSnapshot ?? null}
+        cancelled={assistant.streamState === 'failed'}
       />
+
+      {/* Compose */}
+      <div className="relative">
+        <ComposeInput
+          onSend={handleSend}
+          loading={isStreaming}
+          onStop={assistant.abortStream}
+          focusRef={focusOnMountRef}
+          conversationKey={assistant.selectedId}
+          // GA-UI-008: the selector contract is {providerId, modelId}; provider
+          // settings persist as {provider, model}. Mapped at the boundary.
+          providerModel={{ providerId: providerSettings.provider, modelId: providerSettings.model }}
+          onProviderModelChange={(value) =>
+            updateProviderSettings({ provider: value.providerId, model: value.modelId })
+          }
+          execConfig={execConfig}
+          onExecControlsToggle={() => setExecControlsOpen((v) => !v)}
+          execControlsRef={execGearRef}
+        />
+        {/* GA-EXEC-001: execution controls popover */}
+        {execControlsOpen && (
+          <ExecutionControlsPopover
+            config={execConfig.config}
+            isCustom={execConfig.isCustom}
+            onTurnTimeoutChange={execConfig.setTurnTimeoutMs}
+            onMaxToolCallsChange={execConfig.setMaxToolCalls}
+            onReset={execConfig.resetToDefaults}
+            onClose={() => setExecControlsOpen(false)}
+            anchorRef={execGearRef}
+          />
+        )}
+      </div>
     </div>
   );
 
@@ -1136,12 +1204,21 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   return (
     <div className="flex h-full min-h-0" data-testid="assistant-expanded">
       <aside
-        className="hidden w-[300px] shrink-0 flex-col border-r border-zinc-800 bg-zinc-900/40 md:flex min-h-0"
+        className="hidden w-[300px] shrink-0 flex-col border-r border-zinc-800/60 bg-zinc-950/60 backdrop-blur-sm md:flex min-h-0"
         data-testid="assistant-sidebar"
       >
-        <div className="shrink-0 border-b border-zinc-800 px-3 py-2.5">
-          <div className="text-xs font-medium text-zinc-200">Vestara Assistant</div>
-          <div className="truncate text-[10px] text-zinc-600">{surface.workspace.name}</div>
+        <div className="shrink-0 border-b border-zinc-800/60 px-3 py-2.5 bg-zinc-900/40">
+          <div className="flex items-center gap-2">
+            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_8px_rgba(245,158,11,0.4)]">
+              <svg className="h-3 w-3 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <div className="text-xs font-semibold text-zinc-200">Vestara Assistant</div>
+              <div className="truncate text-[10px] text-zinc-600">{surface.workspace.name}</div>
+            </div>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <ConversationHistory
@@ -1155,6 +1232,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             anchorRef={pickerRef}
             runtimeSessions={runtimeSessions}
             onResumeSession={onResumeSession}
+            onLoadSession={handleLoadSession}
           />
         </div>
       </aside>

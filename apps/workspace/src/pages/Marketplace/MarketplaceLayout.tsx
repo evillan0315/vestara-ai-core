@@ -1,5 +1,6 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
 import AssetDetail from './AssetDetail.js';
+import Capabilities from './Capabilities.js';
 import Categories from './Categories.js';
 import Discover from './Discover.js';
 import Installed from './Installed.js';
@@ -11,6 +12,7 @@ import Updates from './Updates.js';
 
 const TABS = [
   { to: '/marketplace', label: 'Discover', end: true },
+  { to: '/marketplace/capabilities', label: 'Capabilities', end: false },
   { to: '/marketplace/publish', label: 'Publish', end: false },
   { to: '/marketplace/categories', label: 'Categories', end: false },
   { to: '/marketplace/installed', label: 'Installed', end: false },
@@ -41,6 +43,7 @@ export default function MarketplaceLayout() {
       </header>
       <Routes>
         <Route index element={<Discover />} />
+        <Route path="capabilities" element={<Capabilities />} />
         <Route path="publish" element={<Publish />} />
         <Route path="categories" element={<Categories />} />
         <Route path="installed" element={<Installed />} />
