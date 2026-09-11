@@ -345,7 +345,7 @@ describe('Publication Delivery Integrity (Production-Path)', () => {
     // C1: Both requests fail at the service level — one wins at DB level but the
     // other's classification detects a different choice and throws ResponseConflictError.
     // The DB constraint ensures exactly one response exists regardless.
-    const succeeded = results.filter((r) => r.status === 'fulfilled');
+    const _succeeded = results.filter((r) => r.status === 'fulfilled');
     const failed = results.filter((r) => r.status === 'rejected');
 
     // At least one must fail (different choices = conflict)
@@ -371,8 +371,8 @@ describe('Publication Delivery Integrity (Production-Path)', () => {
     //   service ← verifier ← M9 (read-only query, no mutation callback)
     //
     // Bridge has NO reference to adapter, pendingDeliveries, or notifyDelivered.
-    const bridgeSource = require('fs').readFileSync(
-      require('path').join(__dirname, '../src/m9-ingestion-bridge.ts'),
+    const bridgeSource = require('node:fs').readFileSync(
+      require('node:path').join(__dirname, '../src/m9-ingestion-bridge.ts'),
       'utf-8',
     );
     expect(bridgeSource).not.toContain('notifyDelivered');
@@ -381,8 +381,8 @@ describe('Publication Delivery Integrity (Production-Path)', () => {
     expect(bridgeSource).not.toContain('InteractionEventBusAdapter');
 
     // Adapter has NO reference to M9, bridge, or delivery callbacks
-    const adapterSource = require('fs').readFileSync(
-      require('path').join(__dirname, '../../interaction-persistence/src/interaction-event-bus-adapter.ts'),
+    const adapterSource = require('node:fs').readFileSync(
+      require('node:path').join(__dirname, '../../interaction-persistence/src/interaction-event-bus-adapter.ts'),
       'utf-8',
     );
     expect(adapterSource).not.toContain('notifyDelivered');

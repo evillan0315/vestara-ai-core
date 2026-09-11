@@ -1,8 +1,8 @@
-import { describe, expect, it, beforeEach } from 'vitest';
-import initSqlJs from 'sql.js';
-import { TelegramPersistentStore } from '../src/persistent-store';
-import { TELEGRAM_MANIFEST } from '../src/migrations';
 import { migrate } from '@vestara/sqlite-migrations';
+import initSqlJs from 'sql.js';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { TELEGRAM_MANIFEST } from '../src/migrations';
+import { TelegramPersistentStore } from '../src/persistent-store';
 
 let db: any;
 let store: TelegramPersistentStore;
@@ -174,12 +174,22 @@ describe('TelegramPersistentStore', () => {
 
     it('clears preferred workspace', () => {
       store.saveWorkspaceBinding({
-        id: 'ws-1', principalId: 'p-1', workspaceId: 'ws-1', workspaceName: 'WS 1',
-        preferred: true, createdAt: '2026-01-01T00:00:00.000Z', lastAccessedAt: '2026-01-01T00:00:00.000Z',
+        id: 'ws-1',
+        principalId: 'p-1',
+        workspaceId: 'ws-1',
+        workspaceName: 'WS 1',
+        preferred: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastAccessedAt: '2026-01-01T00:00:00.000Z',
       });
       store.saveWorkspaceBinding({
-        id: 'ws-2', principalId: 'p-1', workspaceId: 'ws-2', workspaceName: 'WS 2',
-        preferred: true, createdAt: '2026-01-01T00:00:00.000Z', lastAccessedAt: '2026-01-01T00:00:00.000Z',
+        id: 'ws-2',
+        principalId: 'p-1',
+        workspaceId: 'ws-2',
+        workspaceName: 'WS 2',
+        preferred: true,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastAccessedAt: '2026-01-01T00:00:00.000Z',
       });
 
       store.clearPreferredWorkspace('p-1');
@@ -212,16 +222,26 @@ describe('TelegramPersistentStore', () => {
 
     it('finds active binding for chat+principal', () => {
       store.saveConversationBinding({
-        id: 'conv-1', principalId: 'p-1', workspaceId: 'ws-1',
-        telegramChatId: 'chat-1', telegramChatType: 'direct',
-        vestaraConversationId: 'v-conv-1', status: 'active',
-        createdAt: '2026-01-01T00:00:00.000Z', lastActivityAt: '2026-01-01T00:00:00.000Z',
+        id: 'conv-1',
+        principalId: 'p-1',
+        workspaceId: 'ws-1',
+        telegramChatId: 'chat-1',
+        telegramChatType: 'direct',
+        vestaraConversationId: 'v-conv-1',
+        status: 'active',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
       store.saveConversationBinding({
-        id: 'conv-2', principalId: 'p-1', workspaceId: 'ws-1',
-        telegramChatId: 'chat-1', telegramChatType: 'direct',
-        vestaraConversationId: 'v-conv-2', status: 'closed',
-        createdAt: '2026-01-01T00:00:00.000Z', lastActivityAt: '2026-01-01T00:00:00.000Z',
+        id: 'conv-2',
+        principalId: 'p-1',
+        workspaceId: 'ws-1',
+        telegramChatId: 'chat-1',
+        telegramChatType: 'direct',
+        vestaraConversationId: 'v-conv-2',
+        status: 'closed',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
 
       const active = store.getActiveConversationBinding('chat-1', 'p-1');
@@ -230,16 +250,26 @@ describe('TelegramPersistentStore', () => {
 
     it('counts active bindings per chat', () => {
       store.saveConversationBinding({
-        id: 'conv-1', principalId: 'p-1', workspaceId: 'ws-1',
-        telegramChatId: 'chat-1', telegramChatType: 'group',
-        vestaraConversationId: 'v-conv-1', status: 'active',
-        createdAt: '2026-01-01T00:00:00.000Z', lastActivityAt: '2026-01-01T00:00:00.000Z',
+        id: 'conv-1',
+        principalId: 'p-1',
+        workspaceId: 'ws-1',
+        telegramChatId: 'chat-1',
+        telegramChatType: 'group',
+        vestaraConversationId: 'v-conv-1',
+        status: 'active',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
       store.saveConversationBinding({
-        id: 'conv-2', principalId: 'p-2', workspaceId: 'ws-1',
-        telegramChatId: 'chat-1', telegramChatType: 'group',
-        vestaraConversationId: 'v-conv-2', status: 'closed',
-        createdAt: '2026-01-01T00:00:00.000Z', lastActivityAt: '2026-01-01T00:00:00.000Z',
+        id: 'conv-2',
+        principalId: 'p-2',
+        workspaceId: 'ws-1',
+        telegramChatId: 'chat-1',
+        telegramChatType: 'group',
+        vestaraConversationId: 'v-conv-2',
+        status: 'closed',
+        createdAt: '2026-01-01T00:00:00.000Z',
+        lastActivityAt: '2026-01-01T00:00:00.000Z',
       });
 
       expect(store.countActiveByChat('chat-1')).toBe(1);

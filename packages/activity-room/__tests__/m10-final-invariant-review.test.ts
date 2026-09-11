@@ -5,14 +5,7 @@
  * All tests are hermetic. No live providers, no real OpenCode sessions.
  */
 
-import type {
-  ActivityRecord,
-  ActivityRoomProjection,
-  ExecutionId,
-  WorkflowEvent,
-  WorkflowRunId,
-  WorkflowTaskId,
-} from '@vestara/types';
+import type { ActivityRecord, ExecutionId, WorkflowEvent, WorkflowRunId, WorkflowTaskId } from '@vestara/types';
 import initSqlJs from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -919,7 +912,7 @@ describe('M10 Final Invariant Review', () => {
       for (let i = 0; i < count; i++) {
         const isWorkflow = i % 20 === 0;
         const isFailed = i % 50 === 0;
-        const isMuted = !isWorkflow && !isFailed;
+        const _isMuted = !isWorkflow && !isFailed;
 
         if (isWorkflow) {
           events.push(
@@ -966,7 +959,7 @@ describe('M10 Final Invariant Review', () => {
       // Rebuild time
       const t0 = performance.now();
       const runtime = new ProjectionRuntime();
-      const projection = runtime.rebuild(records);
+      const _projection = runtime.rebuild(records);
       const rebuildMs = performance.now() - t0;
 
       // Incremental apply (10 new records)

@@ -13,7 +13,7 @@
  * are NOT exposed here — they remain at the provider layer.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { GAExecutionConfig } from '@vestara/shared';
 
 // ─── Defaults (match adapter constants) ──────────────────────
@@ -100,12 +100,17 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
     return Object.keys(cfg).length > 0 ? cfg : undefined;
   }, [config]);
 
-  return {
-    config,
-    isCustom: isCustomState(config),
-    setTurnTimeoutMs,
-    setMaxToolCalls,
-    resetToDefaults,
-    toRequestConfig,
-  };
+  // VES-PERF-001D: stable identity so memoized children (ComposeInput,
+  // ExecutionTray) are not forced to rerender on every streaming token.
+  return useMemo(
+    () => ({
+      config,
+      isCustom: isCustomState(config),
+      setTurnTimeoutMs,
+      setMaxToolCalls,
+      resetToDefaults,
+      toRequestConfig,
+    }),
+    [config, setTurnTimeoutMs, setMaxToolCalls, resetToDefaults, toRequestConfig],
+  );
 }

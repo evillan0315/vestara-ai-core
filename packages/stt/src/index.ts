@@ -18,7 +18,6 @@ import type {
   SpeechBoundaryHint,
   STTProvider,
   StreamingSessionEvent,
-  StreamingSessionEventType,
   StreamingSTTConfig,
   StreamingTranscriptionSessionInfo,
   TranscriptEvent,
@@ -215,7 +214,6 @@ export class FakeStreamingTranscriptionSession implements StreamingTranscription
   private readonly sessionEventsQueue: StreamingSessionEvent[] = [];
   private closed = false;
   private cancelled = false;
-  private eventIndex = 0;
   private segmentIdCounter = 0;
   private currentPartialSegmentId: string | null = null;
 

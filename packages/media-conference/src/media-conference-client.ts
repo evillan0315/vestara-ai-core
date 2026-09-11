@@ -60,14 +60,10 @@ export class MediaConferenceClient {
   private adapter: BrowserAdapter | null = null;
   private publisher: import('./types.js').PublisherHandle | null = null;
   private readonly subscribers = new Map<string, SubscriberHandle>();
+  private context: unknown = null;
 
   // Callbacks
   private events: MediaConferenceClientEvents = {};
-
-  // Context (consumed on connect, then discarded from memory)
-  private context: MediaConferenceContext | null = null;
-
-  constructor() {}
 
   /**
    * Register event callbacks.

@@ -11,7 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import type { ChannelDelivery, ChannelDeliveryContent } from '@vestara/channel-types';
+import type { ChannelDelivery } from '@vestara/channel-types';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -295,7 +295,7 @@ export class TelegramDeliveryQueue {
 
   private requeueForRetry(deliveryId: string): void {
     const record = this.deliveryMap.get(deliveryId);
-    if (!record || record.status !== 'retrying') return;
+    if (record?.status !== 'retrying') return;
 
     const updated: DeliveryRecord = {
       ...record,

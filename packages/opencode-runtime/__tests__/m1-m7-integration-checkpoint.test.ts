@@ -20,8 +20,6 @@ import type {
   RepositoryBindingId,
   RequestId,
   ResolvedAiBinding,
-  RuntimeSessionBinding,
-  RuntimeSessionId,
   TraceId,
   WorkflowRunId,
 } from '@vestara/types';
@@ -246,7 +244,7 @@ describe('Integration Checkpoint: M5 RepositoryBinding', () => {
 
     // M5 invariant: server CWD ≠ canonical path (parent/child topology)
     expect(repoBinding.canonicalPath).not.toBe(OPENCODE_SERVER_CWD);
-    expect(repoBinding.canonicalPath.startsWith(OPENCODE_SERVER_CWD + '/')).toBe(true);
+    expect(repoBinding.canonicalPath.startsWith(`${OPENCODE_SERVER_CWD}/`)).toBe(true);
   });
 
   it('no repository execution authority from process.cwd() or OpenCode server CWD', () => {
@@ -261,7 +259,7 @@ describe('Integration Checkpoint: M5 RepositoryBinding', () => {
     const canonicalPath = '/home/user/projects/vestara/vestara-ai-core';
 
     expect(processCwd).not.toBe(canonicalPath);
-    expect(canonicalPath.startsWith(processCwd + '/')).toBe(true);
+    expect(canonicalPath.startsWith(`${processCwd}/`)).toBe(true);
   });
 });
 

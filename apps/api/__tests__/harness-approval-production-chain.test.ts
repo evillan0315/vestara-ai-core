@@ -21,9 +21,7 @@ import {
   type HarnessApprovalReader,
 } from '@vestara/agent-harness';
 import { InProcessEventBus } from '@vestara/event-bus';
-import { InteractionService } from '@vestara/interaction-app';
-import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
-import type { ChoiceId, InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
+import type { InteractionId, InteractionResponse } from '@vestara/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { createHarnessApprovalInteractionBridge } from '../src/bridges/harness-approval-interaction-bridge.js';
 
@@ -110,11 +108,11 @@ function createSimulatedHarness() {
 
 describe('AR-REC-C2 I3-I2 — Production-Chain Integration', () => {
   let eventBus: InProcessEventBus;
-  let tempDir: string;
+  let _tempDir: string;
 
   beforeEach(async () => {
     eventBus = new InProcessEventBus();
-    tempDir = `/tmp/vestara-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    _tempDir = `/tmp/vestara-test-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
   });
 
   it('full chain: approval → interaction → response → continuation', async () => {
@@ -170,7 +168,7 @@ describe('AR-REC-C2 I3-I2 — Production-Chain Integration', () => {
     // Step 5: EventBus delivers interaction:responded event
     const listThreadIds = () => [threadId];
 
-    const bridge = createHarnessApprovalInteractionBridge({
+    const _bridge = createHarnessApprovalInteractionBridge({
       eventBus,
       interactionService,
       harness,
@@ -197,7 +195,7 @@ describe('AR-REC-C2 I3-I2 — Production-Chain Integration', () => {
     expect(harness.decideApproval).toHaveBeenCalledWith(threadId, 'approval-int-1', true);
 
     // Step 7: Verify decision was recorded in simulated durable store
-    const decision = {
+    const _decision = {
       approvalId: 'approval-int-1',
       threadId,
       approved: true,

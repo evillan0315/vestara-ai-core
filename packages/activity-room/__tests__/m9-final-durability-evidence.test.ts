@@ -5,17 +5,7 @@
  * No live providers, no real OpenCode sessions.
  */
 
-import type {
-  ActivityEvent,
-  ActivityRecord,
-  ActivityStore,
-  ExecutionId,
-  RepositoryBindingId,
-  RuntimeSessionId,
-  TraceId,
-  WorkflowRunId,
-  WorkflowTaskId,
-} from '@vestara/types';
+import type { ActivityEvent, ExecutionId, TraceId, WorkflowRunId, WorkflowTaskId } from '@vestara/types';
 import initSqlJs from 'sql.js';
 import { describe, expect, it } from 'vitest';
 
@@ -139,7 +129,7 @@ describe('Area 1-2: Actual persistence across store recreation', () => {
     const { store, close } = await createSqliteStore();
 
     await store.append(makeActivityEvent({ eventId: 'cur-a' }));
-    const r2 = await store.append(makeActivityEvent({ eventId: 'cur-b' }));
+    const _r2 = await store.append(makeActivityEvent({ eventId: 'cur-b' }));
 
     const cursor = await store.getCursor();
     expect(cursor?.eventId).toBe('cur-b');
@@ -175,7 +165,7 @@ describe('Area 3: Cursor stability across restart', () => {
     // Client reads first batch
     await store.append(makeActivityEvent({ eventId: 'stable-1' }));
     await store.append(makeActivityEvent({ eventId: 'stable-2' }));
-    const r3 = await store.append(makeActivityEvent({ eventId: 'stable-3' }));
+    const _r3 = await store.append(makeActivityEvent({ eventId: 'stable-3' }));
 
     const cursor = await store.getCursor();
     expect(cursor?.eventId).toBe('stable-3');

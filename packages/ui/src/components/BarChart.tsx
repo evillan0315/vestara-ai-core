@@ -72,7 +72,8 @@ export function BarChart({
   const chartWidth = width - 40;
 
   return (
-    <svg width={width} height={height} className={className}>
+    <svg width={width} height={height} className={className} role="img" aria-label="Bar chart">
+      <title>Bar chart</title>
       {/* Grid lines */}
       {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
         <line
@@ -94,7 +95,7 @@ export function BarChart({
         const color = d.color ?? barColor;
 
         return (
-          <g key={i}>
+          <g key={d.label}>
             <rect
               x={x}
               y={y}
@@ -121,7 +122,7 @@ export function BarChart({
                 fill="var(--vestara-text-muted)"
                 fontSize={10}
               >
-                {d.label.length > 8 ? d.label.slice(0, 8) + '…' : d.label}
+                {d.label.length > 8 ? `${d.label.slice(0, 8)}…` : d.label}
               </text>
             )}
           </g>

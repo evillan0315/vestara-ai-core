@@ -8,13 +8,9 @@
  *   VES-TG-001: Telegram Interaction Platform (TG-007, TG-008, TG-009)
  */
 
-import type {
-  PairingRequest,
-  PairingStatus,
-  TelegramIdentityBinding,
-} from './pairing';
-import type { WorkspaceBinding } from './workspace-binding';
 import type { ConversationBinding, ConversationBindingStatus } from './conversation-binding';
+import type { PairingRequest, PairingStatus, TelegramIdentityBinding } from './pairing';
+import type { WorkspaceBinding } from './workspace-binding';
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -74,20 +70,12 @@ export class TelegramPersistentStore {
   }
 
   getPairingRequestByToken(token: string): PairingRequest | undefined {
-    const row = dbGet(
-      this.db,
-      'SELECT * FROM telegram_pairing_requests WHERE token = ?',
-      [token],
-    );
+    const row = dbGet(this.db, 'SELECT * FROM telegram_pairing_requests WHERE token = ?', [token]);
     return row ? this.rowToPairingRequest(row) : undefined;
   }
 
   getPairingRequestById(id: string): PairingRequest | undefined {
-    const row = dbGet(
-      this.db,
-      'SELECT * FROM telegram_pairing_requests WHERE id = ?',
-      [id],
-    );
+    const row = dbGet(this.db, 'SELECT * FROM telegram_pairing_requests WHERE id = ?', [id]);
     return row ? this.rowToPairingRequest(row) : undefined;
   }
 
@@ -125,20 +113,16 @@ export class TelegramPersistentStore {
   }
 
   getIdentityBindingByTelegramId(telegramUserId: string): TelegramIdentityBinding | undefined {
-    const row = dbGet(
-      this.db,
-      'SELECT * FROM telegram_identity_bindings WHERE telegram_user_id = ? AND active = 1',
-      [telegramUserId],
-    );
+    const row = dbGet(this.db, 'SELECT * FROM telegram_identity_bindings WHERE telegram_user_id = ? AND active = 1', [
+      telegramUserId,
+    ]);
     return row ? this.rowToIdentityBinding(row) : undefined;
   }
 
   getIdentityBindingByPrincipalId(principalId: string): TelegramIdentityBinding | undefined {
-    const row = dbGet(
-      this.db,
-      'SELECT * FROM telegram_identity_bindings WHERE principal_id = ? AND active = 1',
-      [principalId],
-    );
+    const row = dbGet(this.db, 'SELECT * FROM telegram_identity_bindings WHERE principal_id = ? AND active = 1', [
+      principalId,
+    ]);
     return row ? this.rowToIdentityBinding(row) : undefined;
   }
 
@@ -167,11 +151,7 @@ export class TelegramPersistentStore {
   }
 
   getWorkspaceBindingsByPrincipal(principalId: string): WorkspaceBinding[] {
-    const rows = dbAll(
-      this.db,
-      'SELECT * FROM telegram_workspace_bindings WHERE principal_id = ?',
-      [principalId],
-    );
+    const rows = dbAll(this.db, 'SELECT * FROM telegram_workspace_bindings WHERE principal_id = ?', [principalId]);
     return rows.map((r) => this.rowToWorkspaceBinding(r));
   }
 
@@ -189,20 +169,16 @@ export class TelegramPersistentStore {
   }
 
   countWorkspaceBindings(principalId: string): number {
-    const row = dbGet(
-      this.db,
-      'SELECT COUNT(*) as cnt FROM telegram_workspace_bindings WHERE principal_id = ?',
-      [principalId],
-    );
+    const row = dbGet(this.db, 'SELECT COUNT(*) as cnt FROM telegram_workspace_bindings WHERE principal_id = ?', [
+      principalId,
+    ]);
     return row?.cnt ?? 0;
   }
 
   clearPreferredWorkspace(principalId: string): void {
-    dbRun(
-      this.db,
-      'UPDATE telegram_workspace_bindings SET preferred = 0 WHERE principal_id = ? AND preferred = 1',
-      [principalId],
-    );
+    dbRun(this.db, 'UPDATE telegram_workspace_bindings SET preferred = 0 WHERE principal_id = ? AND preferred = 1', [
+      principalId,
+    ]);
   }
 
   // ─── Conversation Bindings ─────────────────────────────────
@@ -234,11 +210,7 @@ export class TelegramPersistentStore {
   }
 
   getConversationBinding(bindingId: string): ConversationBinding | undefined {
-    const row = dbGet(
-      this.db,
-      'SELECT * FROM telegram_conversation_bindings WHERE id = ?',
-      [bindingId],
-    );
+    const row = dbGet(this.db, 'SELECT * FROM telegram_conversation_bindings WHERE id = ?', [bindingId]);
     return row ? this.rowToConversationBinding(row) : undefined;
   }
 
@@ -252,20 +224,14 @@ export class TelegramPersistentStore {
   }
 
   getConversationBindingsByChat(telegramChatId: string): ConversationBinding[] {
-    const rows = dbAll(
-      this.db,
-      'SELECT * FROM telegram_conversation_bindings WHERE telegram_chat_id = ?',
-      [telegramChatId],
-    );
+    const rows = dbAll(this.db, 'SELECT * FROM telegram_conversation_bindings WHERE telegram_chat_id = ?', [
+      telegramChatId,
+    ]);
     return rows.map((r) => this.rowToConversationBinding(r));
   }
 
   getConversationBindingsByPrincipal(principalId: string): ConversationBinding[] {
-    const rows = dbAll(
-      this.db,
-      'SELECT * FROM telegram_conversation_bindings WHERE principal_id = ?',
-      [principalId],
-    );
+    const rows = dbAll(this.db, 'SELECT * FROM telegram_conversation_bindings WHERE principal_id = ?', [principalId]);
     return rows.map((r) => this.rowToConversationBinding(r));
   }
 

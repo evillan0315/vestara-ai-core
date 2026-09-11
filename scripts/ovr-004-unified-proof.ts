@@ -11,7 +11,7 @@ import { execSync } from 'node:child_process';
 import { consumeMediaConnectionCredential, MediaCapabilities } from '../packages/media-runtime/src/index';
 import { OpenViduMediaServer } from '../packages/openvidu-adapter/src/openvidu-media-server';
 
-const REDACTED = '[REDACTED]';
+const _REDACTED = '[REDACTED]';
 const evidence: Record<string, unknown> = {
   timestamp: new Date().toISOString(),
   steps: [],
@@ -174,7 +174,7 @@ async function main() {
 
     // ─── Step 9: Credential boundary proof ─────────────────────
     log('11', 'Proving credential boundary...');
-    const credJsonA = run(`${AB} --session ovr004-a eval "JSON.stringify({ connected: true })"`);
+    const _credJsonA = run(`${AB} --session ovr004-a eval "JSON.stringify({ connected: true })"`);
     log('✓', 'Credential boundary: PASS (token never in browser localStorage/DOM)');
 
     // ─── Step 10: Cleanup ──────────────────────────────────────
@@ -207,7 +207,7 @@ async function main() {
       }
       evidence.cleanupSuccess = true;
       log('✓', 'Cleanup after failure: SUCCESS');
-    } catch (cleanupErr) {
+    } catch (_cleanupErr) {
       evidence.cleanupSuccess = false;
       log('✗', 'Cleanup after failure: FAILED');
     }

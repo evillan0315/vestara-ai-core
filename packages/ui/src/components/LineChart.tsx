@@ -77,6 +77,7 @@ export function LineChart({
   const points = data.map((d, i) => ({
     x: 40 + (i / (data.length - 1 || 1)) * chartWidth,
     y: 20 + chartHeight - ((d.value - minValue) / range) * chartHeight,
+    label: d.label,
   }));
 
   // Create path string
@@ -86,7 +87,8 @@ export function LineChart({
   const areaD = `${pathD} L ${points[points.length - 1].x} ${20 + chartHeight} L ${points[0].x} ${20 + chartHeight} Z`;
 
   return (
-    <svg width={width} height={height} className={className}>
+    <svg width={width} height={height} className={className} role="img" aria-label="Line chart">
+      <title>Line chart</title>
       {/* Grid lines */}
       {[0, 0.25, 0.5, 0.75, 1].map((ratio) => (
         <line
@@ -108,9 +110,9 @@ export function LineChart({
 
       {/* Dots */}
       {showDots &&
-        points.map((p, i) => (
+        points.map((p) => (
           <circle
-            key={i}
+            key={p.label}
             cx={p.x}
             cy={p.y}
             r={3}
@@ -124,14 +126,14 @@ export function LineChart({
       {showLabels &&
         data.map((d, i) => (
           <text
-            key={i}
+            key={d.label}
             x={points[i].x}
             y={height - 8}
             textAnchor="middle"
             fill="var(--vestara-text-muted)"
             fontSize={10}
           >
-            {d.label.length > 6 ? d.label.slice(0, 6) + '…' : d.label}
+            {d.label.length > 6 ? `${d.label.slice(0, 6)}…` : d.label}
           </text>
         ))}
     </svg>

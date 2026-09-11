@@ -317,7 +317,7 @@ rl.on('line', async (line) => {
   try {
     const req = JSON.parse(line) as JsonRpcRequest;
     const response = await handleRequest(req);
-    process.stdout.write(JSON.stringify(response) + '\n');
+    process.stdout.write(`${JSON.stringify(response)}\n`);
   } catch {
     // Malformed JSON — ignore
   }

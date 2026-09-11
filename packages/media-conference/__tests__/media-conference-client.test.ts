@@ -46,7 +46,6 @@ class MockSubscriberHandle implements SubscriberHandle {
 
 class MockBrowserAdapter implements BrowserAdapter {
   private events: BrowserAdapterEvents = {};
-  private connected = false;
 
   connect = vi.fn().mockImplementation(async () => {
     this.connected = true;

@@ -74,6 +74,10 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-status-running': theme.status.running,
     '--vestara-status-pending': theme.status.pending,
     '--vestara-status-disabled': theme.status.disabled,
+    // GA-STATE-001: runtime session status
+    '--vestara-status-active': theme.status.active,
+    '--vestara-status-idle': theme.status.idle,
+    '--vestara-status-unknown': theme.status.unknown,
   };
 }
 

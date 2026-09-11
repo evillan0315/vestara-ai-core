@@ -19,7 +19,7 @@ describe('TelegramPairingService', () => {
       const service = new TelegramPairingService();
       service.createPairingRequest('tg-123', 'Alice');
       service.approvePairing(
-        service.getPendingRequest(Array.from(service['tokenToRequest'].keys())[0]!)!.token,
+        service.getPendingRequest(Array.from(service.tokenToRequest.keys())[0]!)!.token,
         'principal-1',
         'Alice Principal',
       );

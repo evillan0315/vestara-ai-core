@@ -81,6 +81,10 @@ export interface StatusTheme {
   running: string;
   pending: string;
   disabled: string;
+  // GA-STATE-001: runtime session status
+  active: string;
+  idle: string;
+  unknown: string;
 }
 
 // ─── Complete Theme ────────────────────────────────────────────
@@ -128,6 +132,9 @@ export const DARK_THEME: Theme = {
     running: COLOR.status.running,
     pending: COLOR.status.pending,
     disabled: COLOR.status.disabled,
+    active: COLOR.status.active,
+    idle: COLOR.status.idle,
+    unknown: COLOR.status.unknown,
   },
 };
 
@@ -182,6 +189,9 @@ export const LIGHT_THEME: Theme = {
     running: '#16a34a',
     pending: '#b45309',
     disabled: COLOR.zinc[400],
+    active: '#16a34a', // busy/working — same as success
+    idle: COLOR.zinc[500], // idle — neutral muted
+    unknown: COLOR.zinc[400], // unknown — same as disabled
   },
 };
 

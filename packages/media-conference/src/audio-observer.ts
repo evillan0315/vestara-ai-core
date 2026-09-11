@@ -84,13 +84,11 @@ export class WebAudioObserver implements IAudioObserver {
   // Web Audio API's MediaStreamSourceNode.
   private _activationElement: HTMLAudioElement | null = null;
 
-  // Current observation target
-  private _currentStream: MediaStream | null = null;
-  private _currentSourceId: string | null = null;
-
   // Track ended listener (to auto-detach when track ends)
   private _trackEndedHandler: (() => void) | null = null;
   private _observedTrack: MediaStreamTrack | null = null;
+  private _currentStream: MediaStream | null = null;
+  private _currentSourceId: string | null = null;
 
   get state(): AudioObserverState {
     return this._state;

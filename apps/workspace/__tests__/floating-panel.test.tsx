@@ -60,6 +60,9 @@ vi.mock('@vestara/ui', () => ({
       {children}
     </div>
   ),
+  StatusIndicator: ({ variant, ariaLabel }: any) => (
+    <span data-testid="status-indicator" data-variant={variant} aria-label={ariaLabel} />
+  ),
 }));
 
 // ─── Helpers ──────────────────────────────────────────────────

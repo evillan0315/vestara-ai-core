@@ -9,13 +9,13 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  resolveRuntimeProfile,
-  isCapabilityActive,
-  isCapabilityEager,
-  isCapabilityLazy,
-  isCapabilityDisabled,
   getActiveCapabilities,
   getDisabledCapabilities,
+  isCapabilityActive,
+  isCapabilityDisabled,
+  isCapabilityEager,
+  isCapabilityLazy,
+  resolveRuntimeProfile,
 } from '../src/runtime-profile.js';
 
 describe('VES-LEAN-002: Runtime Profile Resolver', () => {

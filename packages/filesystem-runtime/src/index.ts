@@ -149,7 +149,7 @@ function createEnvelope(
 }
 
 /** GA-TOOL-004: Revalidate an envelope against current filesystem state. */
-function validateEnvelope(
+function _validateEnvelope(
   envelope: MutationEnvelope,
   repositoryDir: string,
   currentContent: string,

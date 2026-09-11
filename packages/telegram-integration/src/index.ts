@@ -67,14 +67,13 @@ export type {
   GroupParticipantRole,
 } from './group-chat.js';
 export { TelegramGroupChatHandler } from './group-chat.js';
-export { TelegramPersistentStore } from './persistent-store.js';
-export { TELEGRAM_MANIFEST, TELEGRAM_MIGRATIONS } from './migrations.js';
 export type {
   InlineKeyboard,
   InlineKeyboardButton,
   KeyboardType,
 } from './inline-keyboard.js';
 export { TelegramInlineKeyboard } from './inline-keyboard.js';
+export { TELEGRAM_MANIFEST, TELEGRAM_MIGRATIONS } from './migrations.js';
 export type {
   PairingConfig,
   PairingRequest,
@@ -82,6 +81,7 @@ export type {
   TelegramIdentityBinding,
 } from './pairing.js';
 export { TelegramPairingService } from './pairing.js';
+export { TelegramPersistentStore } from './persistent-store.js';
 export type {
   TranscriptionResult,
   TranscriptionStatus,
@@ -107,13 +107,11 @@ import type {
   ChannelKind,
   ChannelMessage,
 } from '@vestara/channel-types';
-import { normalizeTelegramCallbackQuery, normalizeTelegramMessage } from './telegram-types.js';
-
-// Re-export normalizeTelegramUpdate for external consumers
-export { normalizeTelegramUpdate } from './telegram-types.js';
 
 // Re-export channel types used by the API route
 export type { ChannelMessage } from '@vestara/channel-types';
+// Re-export normalizeTelegramUpdate for external consumers
+export { normalizeTelegramUpdate } from './telegram-types.js';
 
 // ─── Telegram Adapter ──────────────────────────────────────────
 

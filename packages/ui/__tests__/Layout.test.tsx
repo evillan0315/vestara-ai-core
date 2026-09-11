@@ -9,9 +9,9 @@
  */
 
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it, vi } from 'vitest';
-import { Page, PageActions, PageHeader, PageTitle, SplitPane } from '../src/components/Panes';
-import { Shell, ShellContent, ShellHeader, ShellInspector, ShellNavigation, useShell } from '../src/components/Shell';
+import { describe, expect, it } from 'vitest';
+import { Page, PageActions, PageHeader, PageTitle } from '../src/components/Panes';
+import { Shell, ShellContent, ShellHeader, ShellNavigation, useShell } from '../src/components/Shell';
 
 // ─── Shell Tests ───────────────────────────────────────────────
 
@@ -50,7 +50,11 @@ describe('Shell', () => {
 
     function TestComponent() {
       contextValue = useShell();
-      return <button onClick={contextValue.toggleNav}>Toggle</button>;
+      return (
+        <button type="button" onClick={contextValue.toggleNav}>
+          Toggle
+        </button>
+      );
     }
 
     render(
@@ -71,7 +75,11 @@ describe('Shell', () => {
 
     function TestComponent() {
       contextValue = useShell();
-      return <button onClick={contextValue.toggleInspector}>Toggle</button>;
+      return (
+        <button type="button" onClick={contextValue.toggleInspector}>
+          Toggle
+        </button>
+      );
     }
 
     render(
@@ -185,8 +193,8 @@ describe('PageActions', () => {
   it('renders actions', () => {
     render(
       <PageActions>
-        <button>Save</button>
-        <button>Cancel</button>
+        <button type="button">Save</button>
+        <button type="button">Cancel</button>
       </PageActions>,
     );
     expect(screen.getByText('Save')).toBeInTheDocument();

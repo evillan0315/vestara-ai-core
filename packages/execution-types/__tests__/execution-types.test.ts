@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ExecutionId, ExecutionLineageNode, OperationId, TurnId } from '../src/index.js';
+import type { ExecutionId, ExecutionLineageNode } from '../src/index.js';
 import {
   ancestorIds,
   EXECUTION_NON_TERMINAL_STATES,
@@ -88,10 +88,10 @@ describe('Execution Lifecycle', () => {
   });
 
   it('terminal states have no outgoing transitions', () => {
-    expect(EXECUTION_TRANSITIONS['completed']).toHaveLength(0);
-    expect(EXECUTION_TRANSITIONS['failed']).toHaveLength(0);
-    expect(EXECUTION_TRANSITIONS['cancelled']).toHaveLength(0);
-    expect(EXECUTION_TRANSITIONS['timed_out']).toHaveLength(0);
+    expect(EXECUTION_TRANSITIONS.completed).toHaveLength(0);
+    expect(EXECUTION_TRANSITIONS.failed).toHaveLength(0);
+    expect(EXECUTION_TRANSITIONS.cancelled).toHaveLength(0);
+    expect(EXECUTION_TRANSITIONS.timed_out).toHaveLength(0);
   });
 
   it('rejects invalid transitions', () => {

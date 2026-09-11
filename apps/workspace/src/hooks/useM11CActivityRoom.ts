@@ -656,6 +656,30 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     };
   }, [handleLiveActivity, updateSequence, retryKey]);
 
+  // ─── Prune freshIds after animation completes ───────────
+  // Prevents unbounded growth during long sessions. Entries older than
+  // FRESH_TTL_MS are removed so the Set stays bounded.
+
+  const FRESH_TTL_MS = 5_000;
+  const pruneTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    // Schedule a prune whenever freshIds is non-empty
+    if (freshIds.size > 0 && pruneTimerRef.current === null) {
+      pruneTimerRef.current = window.setTimeout(() => {
+        pruneTimerRef.current = null;
+        setFreshIds(new Set());
+      }, FRESH_TTL_MS);
+    }
+
+    return () => {
+      if (pruneTimerRef.current !== null) {
+        window.clearTimeout(pruneTimerRef.current);
+        pruneTimerRef.current = null;
+      }
+    };
+  }, [freshIds.size]);
+
   // ─── Map connection state ──────────────────────────────
 
   const mappedState: M11CConnectionState = paused

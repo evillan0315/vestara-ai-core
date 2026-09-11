@@ -11,7 +11,7 @@
  *   - lifecycle is derived, not persisted
  */
 
-import type { ChoiceId, InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
+import type { InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
 
 /**
  * Persistent state of an interaction fact plus its publication marker.

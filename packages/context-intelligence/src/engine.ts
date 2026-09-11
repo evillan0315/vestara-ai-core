@@ -155,7 +155,7 @@ export class ContextIntelligenceEngine {
 
     // Round-robin from each source type
     const diversified: ContextResult[] = [];
-    const maxPerSource = this.budget.maxPerSource;
+    const _maxPerSource = this.budget.maxPerSource;
     let added = true;
 
     while (added) {
@@ -232,7 +232,6 @@ export class ContextIntelligenceEngine {
         return 0.8;
       case 'recent':
         return 0.5;
-      case 'stale':
       default:
         return 0.2;
     }

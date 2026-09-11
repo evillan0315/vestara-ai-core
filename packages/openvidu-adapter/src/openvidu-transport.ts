@@ -117,7 +117,7 @@ export function createOpenViduTransport(config: OpenViduConfig): OpenViduTranspo
  * @param config - Optional config (for auth header generation)
  * @returns Transport instance
  */
-export function createMockTransport(mockFetch: typeof fetch, config?: Partial<OpenViduConfig>): OpenViduTransport {
+export function createMockTransport(_mockFetch: typeof fetch, config?: Partial<OpenViduConfig>): OpenViduTransport {
   const resolvedConfig: OpenViduConfig = {
     url: 'https://test.openvidu.local',
     apiBase: '/openvidu/api',

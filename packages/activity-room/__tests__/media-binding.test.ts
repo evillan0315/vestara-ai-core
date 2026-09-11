@@ -21,13 +21,12 @@ import type {
   CreateMediaConnectionResult,
   CreateMediaSessionOptions,
   MediaConnection,
-  MediaParticipantCapabilities,
   MediaProviderCapabilities,
   MediaServer,
   MediaSession,
 } from '@vestara/media-runtime';
-import { createMediaConnectionCredential, MediaCapabilities } from '@vestara/media-runtime';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMediaConnectionCredential } from '@vestara/media-runtime';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
   ActivityMediaBindingService,
   BindingClosureFailedError,
@@ -41,7 +40,6 @@ import { InMemoryActivityMediaBindingStore } from '../src/media-binding-store';
 import type {
   ActivityMediaBinding,
   ActivityMediaBindingId,
-  MediaParticipantType,
   ParticipantResolver,
   ResolvedParticipant,
 } from '../src/media-binding-types';
@@ -227,7 +225,7 @@ function createFakeResolver(overrides?: Partial<Record<string, ResolvedParticipa
 
 // ─── Helpers ──────────────────────────────────────────────────
 
-function makeBindingId(): ActivityMediaBindingId {
+function _makeBindingId(): ActivityMediaBindingId {
   return generateBindingId();
 }
 

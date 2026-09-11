@@ -39,6 +39,9 @@ vi.mock('@vestara/ui', () => ({
   FloatingWindow: ({ open, children }: any) => (open ? <div data-testid="floating-window">{children}</div> : null),
   FloatingWindowHeader: ({ children }: any) => <div data-testid="floating-window-header">{children}</div>,
   FloatingWindowContent: ({ children }: any) => <div data-testid="floating-window-content">{children}</div>,
+  StatusIndicator: ({ variant, ariaLabel }: any) => (
+    <span data-testid="status-indicator" data-variant={variant} aria-label={ariaLabel} />
+  ),
 }));
 
 // ─── Tests ────────────────────────────────────────────────────

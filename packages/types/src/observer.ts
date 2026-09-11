@@ -25,7 +25,7 @@
  */
 
 import type { JsonRecord } from './common';
-import type { DiagnosticSeverity, DiagnosticSnapshot, DiagnosticSourceHealth, DiagnosticSourceRef } from './diagnostic';
+import type { DiagnosticSeverity, DiagnosticSourceHealth } from './diagnostic';
 
 // ─── Observer Finding ──────────────────────────────────────────
 

@@ -25,7 +25,6 @@ import type {
   InteractionId,
   InteractionLifecycle,
   InteractionResponse,
-  InteractionValidationError,
   StructuredInteraction,
 } from '../src/interaction';
 import {

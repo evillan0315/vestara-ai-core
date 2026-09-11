@@ -9,7 +9,6 @@ import {
   BrowserEvidenceCollector,
   BrowserRuntimeService,
   type BrowserRuntimeServiceOptions,
-  DEFAULT_BROWSER_PERMISSIONS,
   evaluateBrowserPermission,
 } from '../src/index';
 

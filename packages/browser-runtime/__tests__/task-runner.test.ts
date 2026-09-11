@@ -6,7 +6,6 @@ import {
   type BrowserObserveResult,
   type BrowserPoint,
   type BrowserScreenshotResult,
-  type BrowserSessionOptions,
   type BrowserSnapshotResult,
   createBrowserTask,
 } from '@vestara/tools-browser';

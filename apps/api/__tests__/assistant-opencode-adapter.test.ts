@@ -389,7 +389,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       const blockingClient: Partial<OpenCodeHttpClient> = {
         createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
         sendMessageAsync: async () => undefined,
-        openEventStream: (async function* (_ctx, signal) {
+        openEventStream: async function* (_ctx, signal) {
           yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
           // Block for longer than the deadline. Listen to the signal so
           // generator.return() (from for-await break) can resolve the promise.
@@ -404,7 +404,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
               { once: true },
             );
           });
-        }) as OpenCodeHttpClient['openEventStream'],
+        } as OpenCodeHttpClient['openEventStream'],
         getSessionDiff: async () => [] as never,
         getSessionTodos: async () => [] as never,
       };
@@ -424,7 +424,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       }
 
       // Debug: log all chunk types
-      const types = chunks.map((c) => c.type);
+      const _types = chunks.map((c) => c.type);
       const error = chunks.find((c) => c.type === 'error');
       expect(error).toBeDefined();
       expect(error!.content).toContain('deadline');
@@ -436,13 +436,13 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       const client: Partial<OpenCodeHttpClient> = {
         createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
         sendMessageAsync: async () => undefined,
-        openEventStream: (async function* (ctx, signal) {
+        openEventStream: async function* (_ctx, signal) {
           yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
           // Block until the adapter aborts the signal (finally block)
           await new Promise<void>((resolve) => {
             signal?.addEventListener('abort', () => resolve(), { once: true });
           });
-        }) as OpenCodeHttpClient['openEventStream'],
+        } as OpenCodeHttpClient['openEventStream'],
         getSessionDiff: async () => [] as never,
         getSessionTodos: async () => [] as never,
         abortSession: async (id: string) => {

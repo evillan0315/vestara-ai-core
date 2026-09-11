@@ -1,12 +1,9 @@
 import {
   consumeMediaConnectionCredential,
-  createMediaConnectionCredential,
   MediaCapabilities,
-  type MediaConnection,
   MediaError,
   type MediaParticipantCapabilities,
   type MediaServer,
-  type MediaSession,
 } from '@vestara/media-runtime';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
@@ -14,7 +11,6 @@ import {
   classifyOpenViduError,
   normalizeToMediaError,
   OPENVIDU_PATHS,
-  type OpenViduConfig,
   OpenViduError,
   OpenViduMediaServer,
   type OpenViduTransport,
@@ -31,14 +27,14 @@ function createTransport(
   };
 }
 
-function jsonResponse(data: unknown): Response {
+function _jsonResponse(data: unknown): Response {
   return new Response(JSON.stringify(data), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },
   });
 }
 
-function errorResponse(status: number, body?: unknown): Response {
+function _errorResponse(status: number, body?: unknown): Response {
   return new Response(body ? JSON.stringify(body) : null, {
     status,
     headers: { 'Content-Type': 'application/json' },
@@ -222,7 +218,7 @@ describe('OpenViduMediaServer — Sessions', () => {
   let server: OpenViduMediaServer;
 
   beforeEach(() => {
-    const transport = createTransport(async (method, path, body) => {
+    const transport = createTransport(async (method, path, _body) => {
       if (method === 'POST' && path === '/sessions') {
         return {
           id: 'ov-sess-1',
@@ -268,14 +264,14 @@ describe('OpenViduMediaServer — Sessions', () => {
   });
 
   it('getSession returns session from registry', async () => {
-    const created = await server.createSession({ id: 'sess-1' });
+    const _created = await server.createSession({ id: 'sess-1' });
     const retrieved = await server.getSession('sess-1');
     expect(retrieved?.id).toBe('sess-1');
     expect(retrieved?.status).toBe('active');
   });
 
   it('getSession returns undefined for closed session', async () => {
-    const created = await server.createSession({ id: 'sess-1' });
+    const _created = await server.createSession({ id: 'sess-1' });
     await server.closeSession('sess-1');
     const retrieved = await server.getSession('sess-1');
     expect(retrieved).toBeUndefined();
@@ -420,7 +416,7 @@ describe('OpenViduMediaServer — Connections', () => {
     let deleteCalled = false;
     let deletePath = '';
 
-    const trackingTransport = createTransport(async (method, path, body) => {
+    const trackingTransport = createTransport(async (method, path, _body) => {
       if (method === 'POST' && path === '/sessions') {
         return { id: 'ov-sess-1', sessionId: 'ov-sess-1' };
       }
@@ -673,7 +669,7 @@ describe('Security', () => {
   });
 
   it('connection credential never ambiently serialized', async () => {
-    const transport = createTransport(async (method, path, body) => {
+    const transport = createTransport(async (method, path, _body) => {
       if (method === 'POST' && path === '/sessions') {
         return { id: 'ov-1', sessionId: 'ov-1' };
       }

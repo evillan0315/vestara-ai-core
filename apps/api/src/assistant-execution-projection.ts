@@ -174,7 +174,7 @@ export function projectMessagePartUpdated(event: OpenCodeEventLike): AssistantEx
   if (!isEvent(event, EVENT.messagePartUpdated)) return undefined;
   const payload = event.payload ?? {};
   const part = payload.part as Record<string, unknown> | undefined;
-  if (!part || part.type !== 'tool') return undefined;
+  if (part?.type !== 'tool') return undefined;
   const callID = str(part.callID);
   const tool = str(part.tool);
   if (!callID) return undefined;

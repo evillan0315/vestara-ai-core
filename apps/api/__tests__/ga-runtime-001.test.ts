@@ -531,7 +531,7 @@ describe('GA-RUNTIME-001 B: interactive permission/question decisions', () => {
       agent: 'vestara-assistant',
       capabilityPolicy: POLICY,
     });
-    const chunks = await collect(executor, makeRequest());
+    const _chunks = await collect(executor, makeRequest());
     expect(client.respondToPermission).toHaveBeenCalledWith(
       'sess-reused',
       'perm-4',

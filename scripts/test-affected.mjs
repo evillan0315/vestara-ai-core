@@ -22,7 +22,10 @@ function git(cmd) {
 function findBaseRef() {
   const candidates = ['main', 'origin/main', 'master', 'origin/master', 'HEAD~1'];
   for (const ref of candidates) {
-    try { git(`rev-parse --verify ${ref} 2>/dev/null`); return ref; } catch { continue; }
+    try {
+      git(`rev-parse --verify ${ref} 2>/dev/null`);
+      return ref;
+    } catch {}
   }
   return 'HEAD~1';
 }
@@ -37,12 +40,12 @@ function loadPackageGraph() {
       const pkgPath = path.join(fullDir, entry, 'package.json');
       if (!fs.existsSync(pkgPath)) continue;
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      if (!pkg.name || !pkg.name.startsWith('@vestara/')) continue;
+      if (!pkg.name?.startsWith('@vestara/')) continue;
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       packages[pkg.name] = {
         name: pkg.name,
         path: path.join(dir, entry),
-        deps: Object.keys(allDeps).filter(d => d.startsWith('@vestara/')),
+        deps: Object.keys(allDeps).filter((d) => d.startsWith('@vestara/')),
       };
     }
   }
@@ -62,7 +65,7 @@ function buildReverseDeps(packages) {
 
 function findOwningPackage(filePath, packages) {
   for (const [name, pkg] of Object.entries(packages)) {
-    if (filePath.startsWith(pkg.path + '/')) return name;
+    if (filePath.startsWith(`${pkg.path}/`)) return name;
   }
   return null;
 }
@@ -74,8 +77,15 @@ function computeAffected(changedFiles, packages, reverseDeps) {
     if (owner) affected.set(owner, 'CHANGED');
   }
 
-  const globalFiles = ['tsconfig.json', 'vitest.config.ts', 'biome.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'package.json'];
-  if (changedFiles.some(f => globalFiles.some(g => f === g || f.endsWith('/' + g)))) {
+  const globalFiles = [
+    'tsconfig.json',
+    'vitest.config.ts',
+    'biome.json',
+    'pnpm-workspace.yaml',
+    'pnpm-lock.yaml',
+    'package.json',
+  ];
+  if (changedFiles.some((f) => globalFiles.some((g) => f === g || f.endsWith(`/${g}`)))) {
     for (const name of Object.keys(packages)) {
       if (!affected.has(name)) affected.set(name, 'GLOBAL INVALIDATION');
     }
@@ -84,7 +94,7 @@ function computeAffected(changedFiles, packages, reverseDeps) {
   const queue = [...affected.keys()];
   while (queue.length > 0) {
     const pkg = queue.pop();
-    for (const dep of (reverseDeps[pkg] || [])) {
+    for (const dep of reverseDeps[pkg] || []) {
       if (!affected.has(dep)) {
         affected.set(dep, `DEPENDENT of ${pkg}`);
         queue.push(dep);
@@ -96,10 +106,18 @@ function computeAffected(changedFiles, packages, reverseDeps) {
 
 function computeDogfoodClosure(packages) {
   const roots = [
-    '@vestara/api', '@vestara/workspace', '@vestara/agent-harness',
-    '@vestara/activity-room', '@vestara/conversation', '@vestara/provider-runtime',
-    '@vestara/opencode-runtime', '@vestara/evidence', '@vestara/memory',
-    '@vestara/interaction-app', '@vestara/worktree-runtime', '@vestara/tool-runtime',
+    '@vestara/api',
+    '@vestara/workspace',
+    '@vestara/agent-harness',
+    '@vestara/activity-room',
+    '@vestara/conversation',
+    '@vestara/provider-runtime',
+    '@vestara/opencode-runtime',
+    '@vestara/evidence',
+    '@vestara/memory',
+    '@vestara/interaction-app',
+    '@vestara/worktree-runtime',
+    '@vestara/tool-runtime',
     '@vestara/kernel',
   ];
   const closure = new Set();
@@ -133,9 +151,14 @@ function main() {
   } else {
     let changedFiles = [];
     try {
-      changedFiles = git(`diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || echo ""`)
-        .split('\n').filter(Boolean);
-    } catch { /* empty */ }
+      changedFiles = git(
+        `diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || echo ""`,
+      )
+        .split('\n')
+        .filter(Boolean);
+    } catch {
+      /* empty */
+    }
 
     if (changedFiles.length === 0) {
       console.log('[test] No changes detected. Running all tests.');
@@ -154,9 +177,10 @@ function main() {
     if (!info) continue;
     const testDir = path.join(CWD, info.path, '__tests__');
     if (fs.existsSync(testDir)) {
-      const files = fs.readdirSync(testDir, { recursive: true })
-        .filter(f => typeof f === 'string' && (f.endsWith('.test.ts') || f.endsWith('.test.tsx')))
-        .map(f => path.join(info.path, '__tests__', f));
+      const files = fs
+        .readdirSync(testDir, { recursive: true })
+        .filter((f) => typeof f === 'string' && (f.endsWith('.test.ts') || f.endsWith('.test.tsx')))
+        .map((f) => path.join(info.path, '__tests__', f));
       testFiles.push(...files);
     }
   }

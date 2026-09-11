@@ -22,17 +22,17 @@ function run(cmd: string, timeoutMs = 60000): string {
     return raw;
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    return 'ERROR: ' + msg;
+    return `ERROR: ${msg}`;
   }
 }
 
 let evalCounter = 0;
 
 function evalBrowserRaw(session: string, wrappedCode: string, timeout = 60000): string {
-  const tmpFile = '/tmp/ovr004-eval-' + ++evalCounter + '.js';
+  const tmpFile = `/tmp/ovr004-eval-${++evalCounter}.js`;
   fs.writeFileSync(tmpFile, wrappedCode);
   try {
-    const bashCmd = 'CODE="$(cat ' + tmpFile + ')" && ' + AB + ' --session ' + session + ' eval "$CODE"';
+    const bashCmd = `CODE="$(cat ${tmpFile})" && ${AB} --session ${session} eval "$CODE"`;
     return run(bashCmd, timeout);
   } finally {
     try {
@@ -44,11 +44,11 @@ function evalBrowserRaw(session: string, wrappedCode: string, timeout = 60000): 
 }
 
 function evalBrowser(session: string, code: string, timeout = 60000): string {
-  return evalBrowserRaw(session, '(function() { ' + code + ' })()', timeout);
+  return evalBrowserRaw(session, `(function() { ${code} })()`, timeout);
 }
 
 function evalBrowserAsync(session: string, code: string, timeout = 60000): string {
-  return evalBrowserRaw(session, '(async () => { ' + code + ' })()', timeout);
+  return evalBrowserRaw(session, `(async () => { ${code} })()`, timeout);
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,7 +74,7 @@ const connectionIds: string[] = [];
 
 function step(section: string, name: string, pass: boolean, detail?: string) {
   const icon = pass ? '\u2713' : '\u2717';
-  console.log('  ' + icon + '  ' + name + ': ' + (pass ? 'PASS' : 'FAIL') + (detail ? ' \u2014 ' + detail : ''));
+  console.log(`  ${icon}  ${name}: ${pass ? 'PASS' : 'FAIL'}${detail ? ` \u2014 ${detail}` : ''}`);
   steps.push({ section, name, pass, detail });
 }
 
@@ -93,7 +93,7 @@ async function cleanup(server: OpenViduMediaServer) {
       /* */
     }
   }
-  run(AB + ' close --all');
+  run(`${AB} close --all`);
 }
 
 async function main() {
@@ -119,14 +119,14 @@ async function main() {
     if (!healthy) throw new Error('Provider unreachable');
     evidence.openviduVersion = server.getCapabilities().version;
 
-    const sid = 'ovr004-media-' + Date.now();
+    const sid = `ovr004-media-${Date.now()}`;
     evidence.sessionId = sid;
     sessionIds.push(sid);
     const session = await server.createSession({ id: sid });
     step('connection', 'Session created', true, sid);
 
     const c1 = await server.createConnection(session.id, {
-      id: sid + '-c1',
+      id: `${sid}-c1`,
       capabilities: MediaCapabilities.PUBLISHER,
     });
     const tokenA = consumeMediaConnectionCredential(c1.credential);
@@ -134,7 +134,7 @@ async function main() {
     step('connection', 'PUBLISHER credential', true, c1.connection.externalConnectionId);
 
     const c2 = await server.createConnection(session.id, {
-      id: sid + '-c2',
+      id: `${sid}-c2`,
       capabilities: MediaCapabilities.SUBSCRIBER,
     });
     const tokenB = consumeMediaConnectionCredential(c2.credential);
@@ -142,7 +142,7 @@ async function main() {
     step('connection', 'SUBSCRIBER credential', true, c2.connection.externalConnectionId);
 
     // Launch Browser A
-    run(AB + ' close --all');
+    run(`${AB} close --all`);
     const launchA = run(
       AB +
         ' --args "--use-fake-ui-for-media-stream,--use-fake-device-for-media-stream" --session ovr004-a open "http://127.0.0.1:18999/"',
@@ -161,7 +161,7 @@ async function main() {
     const jsConnectA = [
       'var ov = new OpenVidu();',
       'window._sA = ov.initSession();',
-      "await window._sA.connect('" + tokenA + "', { clientData: 'BrowserA-Publisher' });",
+      `await window._sA.connect('${tokenA}', { clientData: 'BrowserA-Publisher' });`,
       "window._pub = await ov.initPublisherAsync('publisher-container', {",
       '  audioSource: undefined, videoSource: undefined,',
       '  publishAudio: true, publishVideo: true',
@@ -172,13 +172,13 @@ async function main() {
     const resA = parseJson(
       evalBrowserAsync(
         'ovr004-a',
-        'try { ' + jsConnectA + ' } catch(e) { return JSON.stringify({connected:false,error:e.message}); }',
+        `try { ${jsConnectA} } catch(e) { return JSON.stringify({connected:false,error:e.message}); }`,
       ),
     );
     step('connection', 'Browser A connected + publishing', resA.connected === true);
 
     // Launch B
-    const launchB = run(AB + ' --session ovr004-b open "http://127.0.0.1:18999/"');
+    const launchB = run(`${AB} --session ovr004-b open "http://127.0.0.1:18999/"`);
     step('connection', 'Browser B launched', !launchB.includes('ERROR'));
 
     // Connect B
@@ -194,7 +194,7 @@ async function main() {
       "window._sB.on('streamDestroyed', function(ev) {",
       "  window._streamEvents.push({type:'streamDestroyed',reason:ev.reason,time:Date.now()});",
       '});',
-      "await window._sB.connect('" + tokenB + "', { clientData: 'BrowserB-Subscriber' });",
+      `await window._sB.connect('${tokenB}', { clientData: 'BrowserB-Subscriber' });`,
       'await new Promise(function(r) { setTimeout(r, 5000); });',
       'if (window._sub) window._ms = window._sub.stream.getMediaStream();',
       'return JSON.stringify({',
@@ -207,7 +207,7 @@ async function main() {
     const resB = parseJson(
       evalBrowserAsync(
         'ovr004-b',
-        'try { ' + jsConnectB + ' } catch(e) { return JSON.stringify({connected:false,error:e.message}); }',
+        `try { ${jsConnectB} } catch(e) { return JSON.stringify({connected:false,error:e.message}); }`,
         60000,
       ),
     );
@@ -216,7 +216,7 @@ async function main() {
     const conns = await server.listConnections(sid);
     const providerOk = conns.length === 2 && conns.every((c) => c.status === 'active');
     evidence.providerConfirmedBoth = providerOk;
-    step('connection', 'Provider confirms both', providerOk, conns.length + ' connections');
+    step('connection', 'Provider confirms both', providerOk, `${conns.length} connections`);
 
     // ================================================================
     // SECTION 2: NATIVE MEDIASTREAM
@@ -246,13 +246,13 @@ async function main() {
       'mediastream',
       'Audio tracks',
       msResult.audioTrackCount > 0,
-      msResult.audioTrackCount + ' (' + msResult.audioTrackKind + ', readyState=' + msResult.audioTrackReadyState + ')',
+      `${msResult.audioTrackCount} (${msResult.audioTrackKind}, readyState=${msResult.audioTrackReadyState})`,
     );
     step(
       'mediastream',
       'Video tracks',
       msResult.videoTrackCount > 0,
-      msResult.videoTrackCount + ' (' + msResult.videoTrackKind + ', readyState=' + msResult.videoTrackReadyState + ')',
+      `${msResult.videoTrackCount} (${msResult.videoTrackKind}, readyState=${msResult.videoTrackReadyState})`,
     );
 
     // ================================================================
@@ -293,7 +293,7 @@ async function main() {
       'remote-video',
       'Browser B remote video element',
       vid1.srcObject === true,
-      vid1.videoWidth + 'x' + vid1.videoHeight + ' readyState=' + vid1.readyState,
+      `${vid1.videoWidth}x${vid1.videoHeight} readyState=${vid1.readyState}`,
     );
 
     // Wait 2s and measure again for currentTime advancing
@@ -308,7 +308,7 @@ async function main() {
       'remote-video',
       'currentTime advancing',
       vid2.currentTime > vid1.currentTime,
-      vid1.currentTime.toFixed(3) + ' -> ' + vid2.currentTime.toFixed(3),
+      `${vid1.currentTime.toFixed(3)} -> ${vid2.currentTime.toFixed(3)}`,
     );
 
     // Frame observation
@@ -337,7 +337,7 @@ async function main() {
       'remote-video',
       'Remote frames observed',
       frames.observed === true,
-      frames.frames + ' frames via ' + frames.method,
+      `${frames.frames} frames via ${frames.method}`,
     );
 
     // Pac-Man source
@@ -355,8 +355,8 @@ async function main() {
 
     // Screenshots
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
-    run(AB + ' --session ovr004-a screenshot ' + EVIDENCE_DIR + '/ovr004-media-browser-a.png');
-    run(AB + ' --session ovr004-b screenshot ' + EVIDENCE_DIR + '/ovr004-media-browser-b.png');
+    run(`${AB} --session ovr004-a screenshot ${EVIDENCE_DIR}/ovr004-media-browser-a.png`);
+    run(`${AB} --session ovr004-b screenshot ${EVIDENCE_DIR}/ovr004-media-browser-b.png`);
     step('remote-video', 'Screenshots captured', true);
 
     // ================================================================
@@ -374,7 +374,7 @@ async function main() {
       'remote-audio',
       'Remote audio track',
       aud.trackExists === true,
-      'kind=' + aud.trackKind + ' readyState=' + aud.trackReadyState,
+      `kind=${aud.trackKind} readyState=${aud.trackReadyState}`,
     );
     step('remote-audio', 'Track live', aud.trackLive === true);
     // Fake device produces silent audio; proof is Web Audio API accepts the MediaStream
@@ -382,9 +382,9 @@ async function main() {
       'remote-audio',
       'Web Audio API connected',
       aud.webAudioConnected === true,
-      'maxAmplitude=' + (aud.maxAmplitude || 0).toFixed(6) + ' (silent expected with fake device)',
+      `maxAmplitude=${(aud.maxAmplitude || 0).toFixed(6)} (silent expected with fake device)`,
     );
-    step('remote-audio', 'Track identification', !!aud.trackId, 'id=' + aud.trackId + ' label=' + aud.trackLabel);
+    step('remote-audio', 'Track identification', !!aud.trackId, `id=${aud.trackId} label=${aud.trackLabel}`);
 
     // ================================================================
     // SECTION 5: MEDIA MODES
@@ -392,18 +392,18 @@ async function main() {
     console.log('\n--- SECTION 5: MEDIA MODES ---\n');
 
     async function testMode(name: string, pubAudio: boolean, pubVideo: boolean): Promise<boolean> {
-      const mSid = 'ovr004-mode-' + name + '-' + Date.now();
+      const mSid = `ovr004-mode-${name}-${Date.now()}`;
       sessionIds.push(mSid);
       try {
         const mSession = await server.createSession({ id: mSid });
         const mC1 = await server.createConnection(mSession.id, {
-          id: mSid + '-pub',
+          id: `${mSid}-pub`,
           capabilities: MediaCapabilities.PUBLISHER,
         });
         const mTokenA = consumeMediaConnectionCredential(mC1.credential);
         connectionIds.push(mC1.connection.id);
         const mC2 = await server.createConnection(mSession.id, {
-          id: mSid + '-sub',
+          id: `${mSid}-sub`,
           capabilities: MediaCapabilities.SUBSCRIBER,
         });
         const mTokenB = consumeMediaConnectionCredential(mC2.credential);
@@ -412,10 +412,10 @@ async function main() {
         // Publisher
         const pubJs = [
           'var ov = new OpenVidu(); var session = ov.initSession();',
-          "await session.connect('" + mTokenA + "', { clientData: 'mode-pub' });",
+          `await session.connect('${mTokenA}', { clientData: 'mode-pub' });`,
           "var pub = await ov.initPublisherAsync('publisher-container', {",
           '  audioSource: undefined, videoSource: undefined,',
-          '  publishAudio: ' + pubAudio + ', publishVideo: ' + pubVideo,
+          `  publishAudio: ${pubAudio}, publishVideo: ${pubVideo}`,
           '});',
           'await session.publish(pub);',
           'var pubMs = pub.stream.getMediaStream();',
@@ -433,13 +433,13 @@ async function main() {
         const pubResult = parseJson(
           evalBrowserAsync(
             'ovr004-mode-a',
-            'try { ' + pubJs + ' } catch(e) { return JSON.stringify({ error: e.message }); }',
+            `try { ${pubJs} } catch(e) { return JSON.stringify({ error: e.message }); }`,
             15000,
           ),
         );
 
         // Subscriber
-        run(AB + ' --session ovr004-mode-b open "http://127.0.0.1:18999/"');
+        run(`${AB} --session ovr004-mode-b open "http://127.0.0.1:18999/"`);
         const subJs =
           "var ov = new OpenVidu(); var session = ov.initSession(); var gotStream = false, audioCount = 0, videoCount = 0, subRef = null; session.on('streamCreated', function(ev) { subRef = session.subscribe(ev.stream, 'subscriber-container'); gotStream = true; }); await session.connect('" +
           mTokenB +
@@ -447,7 +447,7 @@ async function main() {
         const r = parseJson(
           evalBrowserAsync(
             'ovr004-mode-b',
-            'try { ' + subJs + ' } catch(e) { return JSON.stringify({ error: e.message }); }',
+            `try { ${subJs} } catch(e) { return JSON.stringify({ error: e.message }); }`,
             30000,
           ),
         );
@@ -467,8 +467,8 @@ async function main() {
         } catch {
           /* */
         }
-        run(AB + ' --session ovr004-mode-a close 2>/dev/null');
-        run(AB + ' --session ovr004-mode-b close 2>/dev/null');
+        run(`${AB} --session ovr004-mode-a close 2>/dev/null`);
+        run(`${AB} --session ovr004-mode-b close 2>/dev/null`);
 
         const modeDetail =
           'publisher: audio=' +
@@ -485,10 +485,10 @@ async function main() {
           r.audioCount +
           ' video=' +
           r.videoCount;
-        step('modes', 'Mode: ' + name, modeCorrect, modeDetail);
+        step('modes', `Mode: ${name}`, modeCorrect, modeDetail);
         return modeCorrect;
       } catch (e) {
-        step('modes', 'Mode: ' + name, false, String(e));
+        step('modes', `Mode: ${name}`, false, String(e));
         return false;
       }
     }
@@ -502,17 +502,17 @@ async function main() {
     // ================================================================
     console.log('\n--- SECTION 6: NATURAL DISCONNECT ---\n');
 
-    const dcSid = 'ovr004-dc-' + Date.now();
+    const dcSid = `ovr004-dc-${Date.now()}`;
     sessionIds.push(dcSid);
     const dcSession = await server.createSession({ id: dcSid });
     const dcC1 = await server.createConnection(dcSession.id, {
-      id: dcSid + '-pub',
+      id: `${dcSid}-pub`,
       capabilities: MediaCapabilities.PUBLISHER,
     });
     const dcTokenA = consumeMediaConnectionCredential(dcC1.credential);
     connectionIds.push(dcC1.connection.id);
     const dcC2 = await server.createConnection(dcSession.id, {
-      id: dcSid + '-sub',
+      id: `${dcSid}-sub`,
       capabilities: MediaCapabilities.SUBSCRIBER,
     });
     const dcTokenB = consumeMediaConnectionCredential(dcC2.credential);
@@ -522,12 +522,12 @@ async function main() {
       AB +
         ' --args "--use-fake-ui-for-media-stream,--use-fake-device-for-media-stream" --session ovr004-dc-a open "http://127.0.0.1:18999/"',
     );
-    run(AB + ' --session ovr004-dc-b open "http://127.0.0.1:18999/"');
+    run(`${AB} --session ovr004-dc-b open "http://127.0.0.1:18999/"`);
 
     // Connect A
     const dcPubJs = [
       'var ov = new OpenVidu(); window._dcS = ov.initSession();',
-      "await window._dcS.connect('" + dcTokenA + "', { clientData: 'dc-pub' });",
+      `await window._dcS.connect('${dcTokenA}', { clientData: 'dc-pub' });`,
       "window._dcP = await ov.initPublisherAsync('publisher-container', {",
       '  audioSource: undefined, videoSource: undefined, publishAudio: true, publishVideo: true',
       '});',
@@ -547,7 +547,7 @@ async function main() {
       "window._dcS.on('streamDestroyed', function(ev) {",
       '  window._dcSD = { reason: ev.reason, time: Date.now() }; window._dcActive = false;',
       '});',
-      "await window._dcS.connect('" + dcTokenB + "', { clientData: 'dc-sub' });",
+      `await window._dcS.connect('${dcTokenB}', { clientData: 'dc-sub' });`,
       'await new Promise(function(r) { setTimeout(r, 3000); });',
       'return JSON.stringify({ connected: true, active: window._dcActive });',
     ].join(' ');
@@ -568,29 +568,29 @@ async function main() {
       'natural-disconnect',
       'Subscriber streamDestroyed',
       dcResult.sd !== null,
-      'reason=' + (dcResult.sd ? dcResult.sd.reason : 'none'),
+      `reason=${dcResult.sd ? dcResult.sd.reason : 'none'}`,
     );
     step('natural-disconnect', 'Remote tracks terminated', dcResult.active === false);
 
-    run(AB + ' --session ovr004-dc-a close');
-    run(AB + ' --session ovr004-dc-b close');
+    run(`${AB} --session ovr004-dc-a close`);
+    run(`${AB} --session ovr004-dc-b close`);
 
     // ================================================================
     // SECTION 7: FORCE DISCONNECT
     // ================================================================
     console.log('\n--- SECTION 7: FORCE DISCONNECT ---\n');
 
-    const fdSid = 'ovr004-fd-' + Date.now();
+    const fdSid = `ovr004-fd-${Date.now()}`;
     sessionIds.push(fdSid);
     const fdSession = await server.createSession({ id: fdSid });
     const fdC1 = await server.createConnection(fdSession.id, {
-      id: fdSid + '-pub',
+      id: `${fdSid}-pub`,
       capabilities: MediaCapabilities.PUBLISHER,
     });
     const fdTokenA = consumeMediaConnectionCredential(fdC1.credential);
     connectionIds.push(fdC1.connection.id);
     const fdC2 = await server.createConnection(fdSession.id, {
-      id: fdSid + '-sub',
+      id: `${fdSid}-sub`,
       capabilities: MediaCapabilities.SUBSCRIBER,
     });
     const fdTokenB = consumeMediaConnectionCredential(fdC2.credential);
@@ -600,7 +600,7 @@ async function main() {
       AB +
         ' --args "--use-fake-ui-for-media-stream,--use-fake-device-for-media-stream" --session ovr004-fd-a open "http://127.0.0.1:18999/"',
     );
-    run(AB + ' --session ovr004-fd-b open "http://127.0.0.1:18999/"');
+    run(`${AB} --session ovr004-fd-b open "http://127.0.0.1:18999/"`);
 
     // Connect A with disconnect listeners
     const fdPubJs = [
@@ -613,7 +613,7 @@ async function main() {
       "  window._fdDisc = true; window._fdEvt = { type: 'sessionDisconnected', reason: ev.reason, time: Date.now() };",
       '});',
       "window._fdS.on('disconnected', function() { window._fdDisc = true; });",
-      "await window._fdS.connect('" + fdTokenA + "', { clientData: 'fd-pub' });",
+      `await window._fdS.connect('${fdTokenA}', { clientData: 'fd-pub' });`,
       "window._fdP = await ov.initPublisherAsync('publisher-container', {",
       '  audioSource: undefined, videoSource: undefined, publishAudio: true, publishVideo: true',
       '});',
@@ -633,7 +633,7 @@ async function main() {
       "window._fdS.on('streamDestroyed', function(ev) {",
       '  window._fdSD = { reason: ev.reason, time: Date.now() }; window._fdActive = false;',
       '});',
-      "await window._fdS.connect('" + fdTokenB + "', { clientData: 'fd-sub' });",
+      `await window._fdS.connect('${fdTokenB}', { clientData: 'fd-sub' });`,
       'await new Promise(function(r) { setTimeout(r, 3000); });',
       'return JSON.stringify({ connected: true, active: window._fdActive });',
     ].join(' ');
@@ -641,7 +641,7 @@ async function main() {
     step('force-disconnect', 'Browser B connected + receiving', fdResB.connected === true);
 
     // Vestara-authoritative force disconnect
-    step('force-disconnect', 'Vestara closeConnection invoked', true, 'connectionId=' + fdC1.connection.id);
+    step('force-disconnect', 'Vestara closeConnection invoked', true, `connectionId=${fdC1.connection.id}`);
     try {
       await server.closeConnection(fdC1.connection.id, 'ovr004_force_disconnect_test');
       step('force-disconnect', 'Provider termination', true, 'DELETE 204');
@@ -656,7 +656,7 @@ async function main() {
     const fdA = parseJson(
       evalBrowser('ovr004-fd-a', 'return JSON.stringify({ disc: window._fdDisc, evt: window._fdEvt });'),
     );
-    step('force-disconnect', 'Browser A termination observed', fdA.disc === true, 'event=' + JSON.stringify(fdA.evt));
+    step('force-disconnect', 'Browser A termination observed', fdA.disc === true, `event=${JSON.stringify(fdA.evt)}`);
 
     const fdB = parseJson(
       evalBrowser('ovr004-fd-b', 'return JSON.stringify({ sd: window._fdSD, active: window._fdActive });'),
@@ -665,15 +665,15 @@ async function main() {
       'force-disconnect',
       'Browser B stream destruction',
       fdB.sd !== null,
-      'reason=' + (fdB.sd ? fdB.sd.reason : 'none'),
+      `reason=${fdB.sd ? fdB.sd.reason : 'none'}`,
     );
     step('force-disconnect', 'Remote media terminated', fdB.active === false);
 
     evidence.fdObservedReason = fdB.sd ? fdB.sd.reason : fdA.evt ? fdA.evt.reason : 'none';
     evidence.fdProviderTerminated = true; // if we got here, the DELETE succeeded
 
-    run(AB + ' --session ovr004-fd-a close');
-    run(AB + ' --session ovr004-fd-b close');
+    run(`${AB} --session ovr004-fd-a close`);
+    run(`${AB} --session ovr004-fd-b close`);
 
     // ================================================================
     // SECTION 8: SECURITY INVARIANTS
@@ -704,7 +704,7 @@ async function main() {
     step('security', 'Token in DOM', !sec.hasSecretInDom);
     step('security', 'Token in localStorage', !sec.hasToken);
 
-    run(AB + ' --session ovr004-sec-a close');
+    run(`${AB} --session ovr004-sec-a close`);
 
     // ================================================================
     // SECTION 9: CLEANUP
@@ -716,7 +716,7 @@ async function main() {
       'cleanup',
       'All disposable resources cleaned',
       true,
-      connectionIds.length + ' connections, ' + sessionIds.length + ' sessions',
+      `${connectionIds.length} connections, ${sessionIds.length} sessions`,
     );
 
     // ================================================================
@@ -786,50 +786,50 @@ async function main() {
     console.log('================================================================\n');
 
     console.log('CONNECTION');
-    console.log('  Browser A connected: ' + (evidence.connection.browserAConnected ? 'PASS' : 'FAIL'));
-    console.log('  Browser B connected: ' + (evidence.connection.browserBConnected ? 'PASS' : 'FAIL'));
-    console.log('  Provider confirmed both: ' + (evidence.connection.providerConfirmedBoth ? 'PASS' : 'FAIL'));
+    console.log(`  Browser A connected: ${evidence.connection.browserAConnected ? 'PASS' : 'FAIL'}`);
+    console.log(`  Browser B connected: ${evidence.connection.browserBConnected ? 'PASS' : 'FAIL'}`);
+    console.log(`  Provider confirmed both: ${evidence.connection.providerConfirmedBoth ? 'PASS' : 'FAIL'}`);
 
     console.log('\nNATIVE MEDIASTREAM');
-    console.log('  MediaStream obtained: ' + (evidence.nativeMediaStream.mediaStreamObtained ? 'PASS' : 'FAIL'));
-    console.log('  Remote audio track count: ' + evidence.nativeMediaStream.audioTrackCount);
-    console.log('  Remote video track count: ' + evidence.nativeMediaStream.videoTrackCount);
-    console.log('  Video track readyState: ' + evidence.nativeMediaStream.videoTrackReadyState);
-    console.log('  Audio track readyState: ' + evidence.nativeMediaStream.audioTrackReadyState);
+    console.log(`  MediaStream obtained: ${evidence.nativeMediaStream.mediaStreamObtained ? 'PASS' : 'FAIL'}`);
+    console.log(`  Remote audio track count: ${evidence.nativeMediaStream.audioTrackCount}`);
+    console.log(`  Remote video track count: ${evidence.nativeMediaStream.videoTrackCount}`);
+    console.log(`  Video track readyState: ${evidence.nativeMediaStream.videoTrackReadyState}`);
+    console.log(`  Audio track readyState: ${evidence.nativeMediaStream.audioTrackReadyState}`);
 
     console.log('\nREMOTE VIDEO');
-    console.log('  Browser B remote video: ' + (evidence.remoteVideo.browserBRemoteVideo ? 'PASS' : 'FAIL'));
-    console.log('  Video dimensions: ' + evidence.remoteVideo.videoWidth + 'x' + evidence.remoteVideo.videoHeight);
-    console.log('  currentTime advancing: ' + (evidence.remoteVideo.currentTimeAdvancing ? 'PASS' : 'FAIL'));
+    console.log(`  Browser B remote video: ${evidence.remoteVideo.browserBRemoteVideo ? 'PASS' : 'FAIL'}`);
+    console.log(`  Video dimensions: ${evidence.remoteVideo.videoWidth}x${evidence.remoteVideo.videoHeight}`);
+    console.log(`  currentTime advancing: ${evidence.remoteVideo.currentTimeAdvancing ? 'PASS' : 'FAIL'}`);
     console.log(
-      '  Actual remote frames observed: ' + (evidence.remoteVideo.actualRemoteFramesObserved ? 'PASS' : 'FAIL'),
+      `  Actual remote frames observed: ${evidence.remoteVideo.actualRemoteFramesObserved ? 'PASS' : 'FAIL'}`,
     );
-    console.log('  Pac-Man screenshot source: ' + evidence.remoteVideo.pacmanScreenshotSource);
+    console.log(`  Pac-Man screenshot source: ${evidence.remoteVideo.pacmanScreenshotSource}`);
 
     console.log('\nREMOTE AUDIO');
-    console.log('  Remote audio track: ' + (evidence.remoteAudio.remoteAudioTrack ? 'PASS' : 'FAIL'));
-    console.log('  Track live: ' + (evidence.remoteAudio.trackLive ? 'PASS' : 'FAIL'));
+    console.log(`  Remote audio track: ${evidence.remoteAudio.remoteAudioTrack ? 'PASS' : 'FAIL'}`);
+    console.log(`  Track live: ${evidence.remoteAudio.trackLive ? 'PASS' : 'FAIL'}`);
     console.log(
       '  Web Audio API connected: ' +
         (evidence.remoteAudio.webAudioConnected ? 'PASS' : 'FAIL') +
         ' (silent expected with fake device)',
     );
-    console.log('  Measurement method: ' + evidence.remoteAudio.measurementMethod);
+    console.log(`  Measurement method: ${evidence.remoteAudio.measurementMethod}`);
 
     console.log('\nMEDIA MODES');
-    console.log('  audio+video: ' + (evidence.mediaModes.audioVideo ? 'PASS' : 'FAIL'));
-    console.log('  audio-only: ' + (evidence.mediaModes.audioOnly ? 'PASS' : 'FAIL'));
-    console.log('  video-only: ' + (evidence.mediaModes.videoOnly ? 'PASS' : 'FAIL'));
+    console.log(`  audio+video: ${evidence.mediaModes.audioVideo ? 'PASS' : 'FAIL'}`);
+    console.log(`  audio-only: ${evidence.mediaModes.audioOnly ? 'PASS' : 'FAIL'}`);
+    console.log(`  video-only: ${evidence.mediaModes.videoOnly ? 'PASS' : 'FAIL'}`);
 
     console.log('\nNATURAL DISCONNECT');
-    console.log('  Publisher disconnected: ' + (evidence.naturalDisconnect.publisherDisconnected ? 'PASS' : 'FAIL'));
+    console.log(`  Publisher disconnected: ${evidence.naturalDisconnect.publisherDisconnected ? 'PASS' : 'FAIL'}`);
     console.log(
-      '  Subscriber streamDestroyed: ' + (evidence.naturalDisconnect.subscriberStreamDestroyed ? 'PASS' : 'FAIL'),
+      `  Subscriber streamDestroyed: ${evidence.naturalDisconnect.subscriberStreamDestroyed ? 'PASS' : 'FAIL'}`,
     );
     console.log(
-      '  Remote tracks/media terminated: ' + (evidence.naturalDisconnect.remoteTracksTerminated ? 'PASS' : 'FAIL'),
+      `  Remote tracks/media terminated: ${evidence.naturalDisconnect.remoteTracksTerminated ? 'PASS' : 'FAIL'}`,
     );
-    console.log('  Observed reason: ' + evidence.naturalDisconnect.observedReason);
+    console.log(`  Observed reason: ${evidence.naturalDisconnect.observedReason}`);
 
     console.log('\nFORCE DISCONNECT');
     console.log(
@@ -837,46 +837,46 @@ async function main() {
         (evidence.forceDisconnect.vestaraCloseConnectionInvoked ? 'PASS' : 'FAIL'),
     );
     console.log(
-      '  Provider termination confirmed: ' + (evidence.forceDisconnect.providerTerminationConfirmed ? 'PASS' : 'FAIL'),
+      `  Provider termination confirmed: ${evidence.forceDisconnect.providerTerminationConfirmed ? 'PASS' : 'FAIL'}`,
     );
     console.log(
-      '  Browser A termination observed: ' + (evidence.forceDisconnect.browserATerminationObserved ? 'PASS' : 'FAIL'),
+      `  Browser A termination observed: ${evidence.forceDisconnect.browserATerminationObserved ? 'PASS' : 'FAIL'}`,
     );
     console.log(
       '  Browser B stream destruction observed: ' +
         (evidence.forceDisconnect.browserBStreamDestructionObserved ? 'PASS' : 'FAIL'),
     );
-    console.log('  Remote media terminated: ' + (evidence.forceDisconnect.remoteMediaTerminated ? 'PASS' : 'FAIL'));
-    console.log('  Observed reason: ' + evidence.forceDisconnect.observedReason);
+    console.log(`  Remote media terminated: ${evidence.forceDisconnect.remoteMediaTerminated ? 'PASS' : 'FAIL'}`);
+    console.log(`  Observed reason: ${evidence.forceDisconnect.observedReason}`);
 
     console.log('\nSECURITY');
-    console.log('  Basic Auth exposed to browser: ' + (evidence.security.basicAuthExposedToBrowser ? 'YES' : 'NO'));
+    console.log(`  Basic Auth exposed to browser: ${evidence.security.basicAuthExposedToBrowser ? 'YES' : 'NO'}`);
     console.log(
-      '  OPENVIDU_SECRET exposed to browser: ' + (evidence.security.openViduSecretExposedToBrowser ? 'YES' : 'NO'),
+      `  OPENVIDU_SECRET exposed to browser: ${evidence.security.openViduSecretExposedToBrowser ? 'YES' : 'NO'}`,
     );
-    console.log('  Full connection token recorded: ' + (evidence.security.fullConnectionTokenRecorded ? 'YES' : 'NO'));
-    console.log('  Token in DOM: ' + (evidence.security.tokenInDom ? 'YES' : 'NO'));
-    console.log('  Token in localStorage: ' + (evidence.security.tokenInLocalStorage ? 'YES' : 'NO'));
+    console.log(`  Full connection token recorded: ${evidence.security.fullConnectionTokenRecorded ? 'YES' : 'NO'}`);
+    console.log(`  Token in DOM: ${evidence.security.tokenInDom ? 'YES' : 'NO'}`);
+    console.log(`  Token in localStorage: ${evidence.security.tokenInLocalStorage ? 'YES' : 'NO'}`);
 
     console.log('\nINVARIANTS');
-    console.log('  Activity Room modified: ' + (evidence.invariants.activityRoomModified ? 'YES' : 'NO'));
-    console.log('  Voice Runtime modified: ' + (evidence.invariants.voiceRuntimeModified ? 'YES' : 'NO'));
-    console.log('  VidUK configuration modified: ' + (evidence.invariants.vidukConfigModified ? 'YES' : 'NO'));
+    console.log(`  Activity Room modified: ${evidence.invariants.activityRoomModified ? 'YES' : 'NO'}`);
+    console.log(`  Voice Runtime modified: ${evidence.invariants.voiceRuntimeModified ? 'YES' : 'NO'}`);
+    console.log(`  VidUK configuration modified: ${evidence.invariants.vidukConfigModified ? 'YES' : 'NO'}`);
 
     console.log('\n================================================================');
-    console.log('  OVR-004 ACCEPTANCE: ' + (allPass ? 'PASS' : 'FAIL'));
+    console.log(`  OVR-004 ACCEPTANCE: ${allPass ? 'PASS' : 'FAIL'}`);
     console.log('================================================================\n');
 
     // Write evidence
-    const evPath = EVIDENCE_DIR + '/ovr004-media-evidence-' + sid + '.json';
+    const evPath = `${EVIDENCE_DIR}/ovr004-media-evidence-${sid}.json`;
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
     fs.writeFileSync(evPath, JSON.stringify(evidence, null, 2));
-    console.log('Evidence: ' + evPath);
+    console.log(`Evidence: ${evPath}`);
 
     process.exit(allPass ? 0 : 1);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
-    console.error('\nFATAL: ' + msg);
+    console.error(`\nFATAL: ${msg}`);
     await cleanup(server);
     process.exit(1);
   }

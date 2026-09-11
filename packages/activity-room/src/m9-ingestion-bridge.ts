@@ -22,13 +22,7 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { Unsubscribe, VestaraEvent } from '@vestara/shared';
 import type { WorkflowRunId } from '@vestara/types';
-import {
-  fromAgentLifecycle,
-  fromHumanMessage,
-  fromInteractionPresented,
-  fromInteractionResponded,
-  fromWorkflowEvent,
-} from './m9-adapter';
+import { fromAgentLifecycle, fromHumanMessage, fromInteractionPresented, fromInteractionResponded } from './m9-adapter';
 import type { ActivityEvent, M9ActivityStore } from './m9-types';
 
 // ─── Event Disposition (I1-5) ──────────────────────────────
@@ -341,7 +335,7 @@ export class M9IngestionBridge {
    * For interaction events, use the stable semantic identity from the payload.
    * For all other events, preserve the existing delivery-based identity.
    */
-  private getSemanticEventId(event: VestaraEvent, activityEvent: ActivityEvent): string {
+  private getSemanticEventId(event: VestaraEvent, _activityEvent: ActivityEvent): string {
     if (event.type === 'interaction:presented' || event.type === 'interaction:responded') {
       // The adapter puts the semantic eventId (e.g. "interaction:presented:${interactionId}")
       // in the payload. Use it directly for stable deduplication.

@@ -17,8 +17,9 @@
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
-import { Badge, StatusIndicator, type StatusVariant } from '@vestara/ui';
+import { Badge, StatusIndicator } from '@vestara/ui';
 import { useMemo, useState } from 'react';
+import { PRESENCE_VARIANT_CONFIG, WORK_STATE_CONFIG } from './status-config';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -34,23 +35,6 @@ interface M11CParticipantRailProps {
 }
 
 // ─── Visual Config ───────────────────────────────────────────
-
-const PRESENCE_VARIANT: Record<string, StatusVariant> = {
-  online: 'live',
-  active: 'live',
-  busy: 'warn',
-  away: 'idle',
-  offline: 'off',
-};
-
-const WORK_STATE_LABEL: Record<string, string> = {
-  idle: 'Idle',
-  working: 'Working',
-  blocked: 'Blocked',
-  waiting: 'Waiting',
-  completed: 'Completed',
-  failed: 'Failed',
-};
 
 const MEMBERSHIP_LABEL: Record<string, string> = {
   member: '',
@@ -212,8 +196,8 @@ function ParticipantRow({
   onSelect: (id: string | undefined) => void;
   onOpenAgentControl?: (participantId: string) => void;
 }) {
-  const presenceVariant = PRESENCE_VARIANT[participant.presence] ?? 'off';
-  const workLabel = WORK_STATE_LABEL[participant.workState] ?? participant.workState;
+  const presenceVariant = PRESENCE_VARIANT_CONFIG[participant.presence] ?? 'off';
+  const workLabel = WORK_STATE_CONFIG[participant.workState]?.label ?? participant.workState;
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
   const isHuman = participant.type === 'human';
   const canOpenDrawer = !isHuman && onOpenAgentControl;

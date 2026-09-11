@@ -17,9 +17,9 @@ export async function handleContextRoute(
   p: string,
   req: http.IncomingMessage,
   res: http.ServerResponse,
-  ctx: WorkspaceContext,
+  _ctx: WorkspaceContext,
 ): Promise<boolean> {
-  const url = new URL(req.url || '', 'http://127.0.0.1');
+  const _url = new URL(req.url || '', 'http://127.0.0.1');
 
   // ─── POST /api/context/retrieve ──────────────────────────────
   if (method === 'POST' && p === '/api/context/retrieve') {
@@ -38,7 +38,7 @@ export async function handleContextRoute(
       // In production, these would connect to actual data sources
       engine.registerSource({
         sourceType: 'diagnostics',
-        retrieve: async (query) => {
+        retrieve: async (_query) => {
           // Placeholder: return empty results
           // Real implementation would query diagnostic snapshots
           return [];
@@ -47,7 +47,7 @@ export async function handleContextRoute(
 
       engine.registerSource({
         sourceType: 'evidence',
-        retrieve: async (query) => {
+        retrieve: async (_query) => {
           // Placeholder: return empty results
           // Real implementation would query evidence bundles
           return [];

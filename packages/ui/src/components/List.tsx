@@ -106,7 +106,6 @@ export function List({ size = 'md', dividers = false, bordered = false, classNam
         ${bordered ? 'rounded-xl border border-[var(--vestara-border-subtle)]' : ''}
         ${className}
       `}
-      role="list"
     >
       {children}
     </ul>
@@ -129,20 +128,18 @@ export function ListItem({
   return (
     <li
       className={`
-        flex items-center gap-3
-        ${sizeStyle.item}
-        ${onClick && !disabled ? 'cursor-pointer' : ''}
-        ${selected ? 'bg-[var(--vestara-accent-primary)]/10' : ''}
-        ${onClick && !disabled ? 'hover:bg-[var(--vestara-surface-interactive)]' : ''}
-        ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
-        transition-colors duration-100
-        ${className}
-      `}
+          flex items-center gap-3
+          ${sizeStyle.item}
+          ${onClick && !disabled ? 'cursor-pointer' : ''}
+          ${selected ? 'bg-[var(--vestara-accent-primary)]/10' : ''}
+          ${onClick && !disabled ? 'hover:bg-[var(--vestara-surface-interactive)]' : ''}
+          ${disabled ? 'opacity-50 cursor-not-allowed' : ''}
+          transition-colors duration-100
+          ${className}
+        `}
       onClick={onClick && !disabled ? onClick : undefined}
-      role={onClick ? 'button' : undefined}
       tabIndex={onClick && !disabled ? 0 : undefined}
       aria-disabled={disabled || undefined}
-      aria-selected={selected || undefined}
       onKeyDown={
         onClick && !disabled
           ? (e) => {
@@ -181,9 +178,7 @@ export function ListItemAction({ children, className = '' }: ListItemActionProps
 // ─── ListDivider Component ─────────────────────────────────────
 
 export function ListDivider({ className = '' }: ListDividerProps) {
-  return (
-    <li role="separator" className={`h-px bg-[var(--vestara-border-subtle)] my-1 ${className}`} aria-hidden="true" />
-  );
+  return <li className={`h-px bg-[var(--vestara-border-subtle)] my-1 ${className}`} aria-hidden="true" />;
 }
 
 // ─── ListHeader Component ──────────────────────────────────────

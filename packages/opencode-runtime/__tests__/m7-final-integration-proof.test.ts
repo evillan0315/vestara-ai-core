@@ -221,7 +221,7 @@ describe('D. Repository authority — parent/child topology', () => {
     //
     // The invariant: session.directory == canonicalPath != serverCWD
     expect(CANONICAL_PATH).not.toBe(OPENCODE_SERVER_CWD);
-    expect(CANONICAL_PATH.startsWith(OPENCODE_SERVER_CWD + '/')).toBe(true);
+    expect(CANONICAL_PATH.startsWith(`${OPENCODE_SERVER_CWD}/`)).toBe(true);
     // The canonical path is strictly deeper than the server CWD
   });
 
@@ -308,7 +308,7 @@ describe('E. ExecutionSession distinction — M7 did not collapse execution reco
     registry.setPhysicalSessionId(binding.runtimeSessionId, 'ses-shared');
 
     // All lookups return the same binding
-    for (const es of executionSessions) {
+    for (const _es of executionSessions) {
       const found = registry.getByWorkflowRun(workflowRunId);
       expect(found?.physicalSessionId).toBe('ses-shared');
     }
@@ -437,7 +437,7 @@ describe('F. Runtime-selection boundary — sessionless runtime', () => {
     expect(registry.list()).toHaveLength(0);
 
     // Simulate: 1 session-bearing workflow acquires a binding
-    const result = await registry.acquire(makeInput({ workflowRunId: 'wf-bearing' as WorkflowRunId }));
+    const _result = await registry.acquire(makeInput({ workflowRunId: 'wf-bearing' as WorkflowRunId }));
     expect(registry.count()).toBe(1);
 
     // Sessionless runs don't affect the binding
@@ -720,7 +720,7 @@ describe('J. Hermeticity — zero live side effects', () => {
     let liveProviderCalls = 0;
 
     // Simulate the full M7 acquisition flow
-    const registry = new InMemoryRuntimeSessionRegistry();
+    const _registry = new InMemoryRuntimeSessionRegistry();
 
     // 1 WorkflowRun
     workflowRuns = 1;

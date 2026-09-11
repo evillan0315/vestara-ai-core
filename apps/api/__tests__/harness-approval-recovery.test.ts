@@ -14,14 +14,9 @@
  *   8. No generic interaction component gains Harness semantics
  */
 
-import {
-  approvalInteractionId,
-  CHOICE_APPROVE,
-  CHOICE_REJECT,
-  type HarnessApprovalReader,
-} from '@vestara/agent-harness';
+import { approvalInteractionId, CHOICE_APPROVE, type HarnessApprovalReader } from '@vestara/agent-harness';
 import type { VestaraEvent } from '@vestara/shared';
-import type { ChoiceId, InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
+import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   type BridgeLogger,
@@ -325,7 +320,7 @@ describe('AR-REC-C2 I3-I2-C1 — Harness Continuation Recovery Reliability', () 
           affectedResources: [],
         },
       ]),
-      decideApproval: vi.fn(async (tid: string, aid: string) => {
+      decideApproval: vi.fn(async (_tid: string, aid: string) => {
         if (aid === approvalId1) throw new Error('Turn not in awaiting-approval state');
         return { thread: { id: threadId }, turn: { id: 'turn-1' } };
       }),

@@ -42,7 +42,7 @@ import * as collect from './collect';
  * This is the explicit adapter between the two vocabularies,
  * as required by DIAG-0 (diagnostic.ts lines 17-19).
  */
-function mapHealthStatus(status: 'pass' | 'warn' | 'fail' | 'unknown'): DiagnosticSourceHealth {
+function _mapHealthStatus(status: 'pass' | 'warn' | 'fail' | 'unknown'): DiagnosticSourceHealth {
   switch (status) {
     case 'pass':
       return 'healthy';
@@ -50,7 +50,6 @@ function mapHealthStatus(status: 'pass' | 'warn' | 'fail' | 'unknown'): Diagnost
       return 'degraded';
     case 'fail':
       return 'unhealthy';
-    case 'unknown':
     default:
       return 'unknown';
   }
@@ -68,7 +67,6 @@ function deriveSeverity(health: DiagnosticSourceHealth): DiagnosticSeverity {
       return 'warning';
     case 'healthy':
       return 'info';
-    case 'unknown':
     default:
       return 'info';
   }

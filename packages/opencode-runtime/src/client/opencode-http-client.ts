@@ -142,11 +142,19 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   // ── GA-PROVIDER-001: Config endpoints ────────────────────────────────────
 
   async getConfig(signal?: AbortSignal): Promise<OpenCodeConfig> {
-    return this.requestJson({ path: '/config', timeoutMs: this.config.requestTimeoutMs, signal }) as Promise<OpenCodeConfig>;
+    return this.requestJson({
+      path: '/config',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    }) as Promise<OpenCodeConfig>;
   }
 
   async getConfigProviders(signal?: AbortSignal): Promise<OpenCodeConfigProvidersResponse> {
-    return this.requestJson({ path: '/config/providers', timeoutMs: this.config.requestTimeoutMs, signal }) as Promise<OpenCodeConfigProvidersResponse>;
+    return this.requestJson({
+      path: '/config/providers',
+      timeoutMs: this.config.requestTimeoutMs,
+      signal,
+    }) as Promise<OpenCodeConfigProvidersResponse>;
   }
 
   async listAgents(signal?: AbortSignal): Promise<OpenCodeAgentSummary[]> {

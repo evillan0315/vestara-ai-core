@@ -23,19 +23,15 @@
  *   { op: 'unsubscribed' }
  */
 
-import { randomUUID } from 'node:crypto';
 import type * as http from 'node:http';
-import type { ActivityCursor, M9ActivityRecord, M9ActivityStore } from '@vestara/activity-room';
+import type { ActivityCursor, M9ActivityRecord } from '@vestara/activity-room';
 import {
   ActivityStreamConnection,
-  ActivityStreamHub,
   type ActivityStreamMessage,
-  type ActivityStreamSink,
   type ActivityRecord as ProjectionActivityRecord,
   toProjectionRecord,
 } from '@vestara/activity-room';
 import { type RawData, WebSocket, type WebSocketServer } from 'ws';
-import { json } from '../http/response.js';
 import type { M11ARoomState } from './activity-room-m11a.js';
 
 // ─── M11B Protocol Messages ─────────────────────────────────────
@@ -129,7 +125,7 @@ function sendSubscribed(sink: M11BSink, cursor: ActivityCursor, frontier: number
   sink.send({ op: 'subscribed', cursor, frontier });
 }
 
-function sendActivity(sink: M11BSink, sequence: number, activity: ProjectionActivityRecord): void {
+function _sendActivity(sink: M11BSink, sequence: number, activity: ProjectionActivityRecord): void {
   sink.send({ op: 'activity', sequence, activity });
 }
 
@@ -162,8 +158,8 @@ function sendUnsubscribed(sink: M11BSink): void {
 export class M11BTransport {
   private readonly config: M11BTransportConfig;
   private readonly subscribers = new Map<string, SubscriberState>();
-  private wss: WebSocketServer | null = null;
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  private wss: WebSocketServer | null = null;
 
   constructor(config: M11BTransportConfig) {
     this.config = config;
@@ -437,7 +433,7 @@ export class M11BTransport {
   }
 
   /** Handle resync required (buffer overflow). */
-  private handleResync(connectionId: string, conn: ActivityStreamConnection): void {
+  private handleResync(connectionId: string, _conn: ActivityStreamConnection): void {
     const subscriber = this.subscribers.get(connectionId);
     if (!subscriber) return;
 

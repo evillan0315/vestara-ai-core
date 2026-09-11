@@ -12,19 +12,9 @@
  * status presentation across the workspace.
  */
 
-import { StatusIndicator, type StatusVariant } from '@vestara/ui';
+import { StatusIndicator } from '@vestara/ui';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
-
-// ─── Config ──────────────────────────────────────────────────
-
-const STATUS_CONFIG: Record<M11CConnectionState, { readonly label: string; readonly variant: StatusVariant }> = {
-  connecting: { label: 'Connecting', variant: 'warn' },
-  live: { label: 'Live', variant: 'live' },
-  reconnecting: { label: 'Reconnecting', variant: 'warn' },
-  offline: { label: 'Offline', variant: 'off' },
-  paused: { label: 'Paused', variant: 'idle' },
-  error: { label: 'Resyncing', variant: 'error' },
-};
+import { CONNECTION_STATUS_CONFIG } from './status-config';
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -33,7 +23,7 @@ interface M11CConnectionStatusProps {
 }
 
 export default function M11CConnectionStatus({ state }: M11CConnectionStatusProps) {
-  const config = STATUS_CONFIG[state] ?? STATUS_CONFIG.offline;
+  const config = CONNECTION_STATUS_CONFIG[state] ?? CONNECTION_STATUS_CONFIG.offline;
 
   return (
     <span
@@ -48,7 +38,7 @@ export default function M11CConnectionStatus({ state }: M11CConnectionStatusProp
         pulse={state === 'live'}
         ariaLabel={`Connection: ${config.label}`}
       />
-      <span className="text-[11px] text-zinc-400">{config.label}</span>
+      <span className="text-[11px] text-(--vestara-text-muted)">{config.label}</span>
     </span>
   );
 }

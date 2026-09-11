@@ -605,17 +605,17 @@ export function FloatingWindow({
   );
 
   // ── Minimize / Maximize / Restore ──
-  const minimize = useCallback(() => {
+  const _minimize = useCallback(() => {
     savedGeometryRef.current = { position, size };
     setState('minimized');
   }, [position, size]);
 
-  const maximize = useCallback(() => {
+  const _maximize = useCallback(() => {
     savedGeometryRef.current = { position, size };
     setState('maximized');
   }, [position, size]);
 
-  const restore = useCallback(() => {
+  const _restore = useCallback(() => {
     if (savedGeometryRef.current) {
       setPosition(savedGeometryRef.current.position);
       setSize(savedGeometryRef.current.size);

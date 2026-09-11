@@ -26,7 +26,7 @@
  * @see docs/blueprint/GA-UI-004-active-turn-ux.md
  */
 
-import React, { Profiler, useCallback, useEffect, useDeferredValue, memo, useRef, useState } from 'react';
+import React, { Profiler, useCallback, useEffect, useLayoutEffect, useDeferredValue, memo, useMemo, useRef, useState } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import { useProviderSettings } from '../../hooks/useProviderSettings';
@@ -49,6 +49,9 @@ import { ConversationHistory, type ActiveTurnState } from './ConversationHistory
 import { ExecutionControlsPopover } from './ExecutionControlsPopover';
 import { ExecutionTray } from './ExecutionTray';
 import { resolveDisplayTitle } from './conversationTitles';
+import { useSessionStatus } from '../../hooks/useSessionStatus';
+import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
+import { StatusIndicator } from '@vestara/ui';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -68,13 +71,6 @@ export interface ConversationPanelProps {
 
 /** Scroll distance (px) from the bottom within which the view still follows. */
 const NEAR_BOTTOM_PX = 96;
-
-/**
- * M11C-style bounded render window: only mount the latest N messages in the
- * DOM. Prevents unbounded DOM growth in long tool-rich conversations where
- * each MessageBubble contains an expensive MarkdownRenderer.
- */
-const RENDER_WINDOW = 100;
 
 /** React Profiler callback for performance monitoring (dev only). */
 function onRender(
@@ -379,7 +375,7 @@ function ActiveTurn({
  * permission carries OpenCode's native response semantics — Allow once /
  * Allow for session / Deny. Questions carry their bounded options.
  */
-function PendingInteractions({
+const PendingInteractions = memo(function PendingInteractions({
   permissions,
   questions,
   conversationId,
@@ -494,9 +490,9 @@ function PendingInteractions({
       })}
     </div>
   );
-}
+});
 
-function ComposeInput({
+const ComposeInput = memo(function ComposeInput({
   onSend,
   loading,
   onStop,
@@ -733,7 +729,7 @@ function ComposeInput({
       </div>
     </div>
   );
-}
+});
 
 /**
  * GA-SSE-003 §12: backend availability means the Vestara API/runtime boundary
@@ -898,6 +894,9 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   const scrollRef = useRef<HTMLDivElement>(null);
   const followRef = useRef(true);
   const [showJump, setShowJump] = useState(false);
+  // VES-PERF-001B: scroll anchor captured before prepending older messages so
+  // the viewport stays on the same content after the older window is inserted.
+  const olderScrollAnchorRef = useRef<{ height: number; top: number } | null>(null);
   const surface = useSurfaceContext();
   // GA-UI-008: shared provider/model selection (persisted via localStorage)
   const { settings: providerSettings, updateSettings: updateProviderSettings } = useProviderSettings();
@@ -1009,11 +1008,19 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       ? 'failed'
       : 'idle';
 
-  const historyItems = conversations.map((c) => ({
-    id: c.id,
-    displayTitle: resolveTitle(c.id, c.title),
-    updatedAt: c.updatedAt,
-  }));
+  // GA-STATE-001: poll session status for runtime status projection.
+  const { statusMap: sessionStatusMap } = useSessionStatus({ enabled: conversations.length > 0 });
+
+  const historyItems = useMemo(
+    () =>
+      conversations.map((c) => ({
+        id: c.id,
+        displayTitle: resolveTitle(c.id, c.title),
+        updatedAt: c.updatedAt,
+        runtimeSessionId: c.runtimeSessionId,
+      })),
+    [conversations, resolveTitle],
+  );
 
   // Follow-respecting auto-scroll (GA-UI-004 §6): follow only when the user
   // is already near the bottom; never force-scroll a user who scrolled up.
@@ -1048,6 +1055,27 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     setShowJump(false);
     el.focus({ preventScroll: true });
   }, []);
+
+  // VES-PERF-001B: load the next older message window, preserving scroll position.
+  const handleLoadOlderMessages = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    // Capture the pre-prepend geometry; the layout effect restores position.
+    olderScrollAnchorRef.current = { height: el.scrollHeight, top: el.scrollTop };
+    // Loading older history is an explicit intent to read up — stop following.
+    followRef.current = false;
+    void assistant.loadOlderMessages();
+  }, [assistant.loadOlderMessages]);
+
+  // Restore scroll position after older messages are prepended. Runs before
+  // paint so there is no visible jump.
+  useLayoutEffect(() => {
+    const el = scrollRef.current;
+    const anchor = olderScrollAnchorRef.current;
+    if (!el || !anchor) return;
+    olderScrollAnchorRef.current = null;
+    el.scrollTop = el.scrollHeight - anchor.height + anchor.top;
+  }, [assistant.messages]);
 
   // Auto-create conversation on first send if none selected
   const handleSend = useCallback(
@@ -1089,6 +1117,29 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       // clipboard unavailable — the affordance is best-effort
     }
   }, []);
+
+  // ── VES-PERF-001D: stable prop identities so streaming tokens do not force
+  // unrelated children (composer, provider selector, execution tray) to
+  // rerender. Correct identity before broad memoization.
+  const providerModelValue = useMemo(
+    () => ({ providerId: providerSettings.provider, modelId: providerSettings.model }),
+    [providerSettings.provider, providerSettings.model],
+  );
+
+  const handleProviderModelChange = useCallback(
+    (value: { providerId: string; modelId: string }) =>
+      updateProviderSettings({ provider: value.providerId, model: value.modelId }),
+    [updateProviderSettings],
+  );
+
+  const handleExecControlsToggle = useCallback(() => setExecControlsOpen((v) => !v), []);
+
+  // Elapsed-time origin for the active turn. Held in a ref so the value does
+  // not change on every streaming render (which would defeat memoization).
+  const turnStartedAtRef = useRef<number | null>(null);
+  if (isStreaming && turnStartedAtRef.current === null) turnStartedAtRef.current = Date.now();
+  if (!isStreaming) turnStartedAtRef.current = null;
+  const turnStartedAt = isStreaming ? (turnStartedAtRef.current ?? undefined) : undefined;
 
   const hasMessages = assistant.messages.length > 0;
   const showEmpty = !hasMessages && optimisticTurns.length === 0 && !isStreaming && !assistant.selectedId;
@@ -1139,6 +1190,21 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             <span className="min-w-0 flex-1 truncate text-[11px] font-semibold tracking-tight text-zinc-300">{currentTitle}</span>
+            {/* GA-STATE-001: runtime status indicator for selected conversation */}
+            {selectedSummary?.runtimeSessionId && (() => {
+              const runtimeStatus = resolveSessionRuntimeStatus(sessionStatusMap, selectedSummary.runtimeSessionId);
+              if (runtimeStatus === 'unknown') return null;
+              const variant = activeTurnState === 'generating' ? 'live' : activeTurnState === 'failed' ? 'error'
+                : runtimeStatus === 'active' ? 'live' : runtimeStatus === 'idle' ? 'idle' : runtimeStatus === 'failed' ? 'error' : 'off';
+              const label = activeTurnState === 'generating' ? 'Working' : activeTurnState === 'failed' ? 'Failed'
+                : runtimeStatus === 'active' ? 'Active' : runtimeStatus === 'idle' ? 'Idle' : runtimeStatus === 'failed' ? 'Failed' : '';
+              return (
+                <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500 shrink-0">
+                  <StatusIndicator variant={variant} size="xs" ariaLabel={`Status: ${label}`} />
+                  <span>{label}</span>
+                </span>
+              );
+            })()}
             <svg
               className={`h-3 w-3 shrink-0 text-zinc-600 transition-transform ${historyOpen ? 'rotate-180' : ''}`}
               fill="none"
@@ -1174,6 +1240,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             anchorRef={pickerRef}
             runtimeSessions={runtimeSessions}
             onResumeSession={onResumeSession}
+            sessionStatusMap={sessionStatusMap}
+            hasMoreConversations={assistant.listPagination?.hasMore}
+            loadingMoreConversations={assistant.loadingMoreConversations}
+            onLoadMoreConversations={assistant.loadMoreConversations}
           />
         )}
 
@@ -1253,7 +1323,23 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 space-y-6 focus:outline-none min-w-0"
           >
             <Profiler id="MessageList" onRender={onRender}>
-              {assistant.messages.slice(-RENDER_WINDOW).map((msg) => (
+              {/* VES-PERF-001B: load older history on demand */}
+              {assistant.messagesPagination?.hasMore && (
+                <div className="flex justify-center pb-1">
+                  <button
+                    type="button"
+                    onClick={handleLoadOlderMessages}
+                    disabled={assistant.loadingOlderMessages}
+                    data-testid="load-older-messages"
+                    className="rounded-full border border-zinc-700/60 bg-zinc-900/70 px-3 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-amber-500/40 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                  >
+                    {assistant.loadingOlderMessages
+                      ? 'Loading older messages…'
+                      : `Load older messages (${assistant.messagesPagination.total - assistant.messagesPagination.offset - assistant.messagesPagination.limit} older)`}
+                  </button>
+                </div>
+              )}
+              {assistant.messages.map((msg) => (
                 <MessageBubble key={msg.id} message={msg} />
               ))}
             {optimisticTurns.map((turn) => (
@@ -1304,7 +1390,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         active={isStreaming}
         operationCount={assistant.toolOperations?.length ?? 0}
         isCustom={execConfig.isCustom}
-        turnStartedAt={isStreaming ? Date.now() : undefined}
+        turnStartedAt={turnStartedAt}
         taskSnapshot={assistant.taskSnapshot ?? null}
         cancelled={assistant.streamState === 'failed'}
       />
@@ -1319,12 +1405,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           conversationKey={assistant.selectedId}
           // GA-UI-008: the selector contract is {providerId, modelId}; provider
           // settings persist as {provider, model}. Mapped at the boundary.
-          providerModel={{ providerId: providerSettings.provider, modelId: providerSettings.model }}
-          onProviderModelChange={(value) =>
-            updateProviderSettings({ provider: value.providerId, model: value.modelId })
-          }
+          providerModel={providerModelValue}
+          onProviderModelChange={handleProviderModelChange}
           execConfig={execConfig}
-          onExecControlsToggle={() => setExecControlsOpen((v) => !v)}
+          onExecControlsToggle={handleExecControlsToggle}
           execControlsRef={execGearRef}
         />
         {/* GA-EXEC-001: execution controls popover */}
@@ -1379,6 +1463,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             runtimeSessions={runtimeSessions}
             onResumeSession={onResumeSession}
             onLoadSession={handleLoadSession}
+            sessionStatusMap={sessionStatusMap}
+            hasMoreConversations={assistant.listPagination?.hasMore}
+            loadingMoreConversations={assistant.loadingMoreConversations}
+            onLoadMoreConversations={assistant.loadMoreConversations}
           />
         </div>
       </aside>

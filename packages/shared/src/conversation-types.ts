@@ -21,6 +21,13 @@ export interface Conversation {
   runtimeSessionId?: string;
   createdAt: string;
   updatedAt: string;
+  /** Pagination metadata (optional, only present when paginated). */
+  _pagination?: {
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  };
 }
 
 // ─── Tool Observation (GA-CTX-001) ──────────────────────────
@@ -84,6 +91,8 @@ export interface ConversationSummary {
   status: ConversationStatus;
   createdAt: string;
   updatedAt: string;
+  /** GA-STATE-001: OpenCode session ID for runtime status projection. */
+  runtimeSessionId?: string;
 }
 
 // ─── UserProfile (v4.0 Conversational Onboarding) ────────────

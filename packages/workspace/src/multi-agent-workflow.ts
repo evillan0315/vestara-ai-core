@@ -19,13 +19,7 @@
 
 import type { AgentHarnessRuntime, HarnessRunResult } from '@vestara/agent-harness';
 import type { RuntimeSessionRegistry } from '@vestara/opencode-runtime';
-import type {
-  AgentEnvironment,
-  RuntimeSessionBinding,
-  RuntimeSessionId,
-  TaskThreadId,
-  WorkflowRunId,
-} from '@vestara/types';
+import type { AgentEnvironment, RuntimeSessionBinding, TaskThreadId, WorkflowRunId } from '@vestara/types';
 import {
   type AcceptanceBoundary,
   parseAcceptanceDeclaration,
@@ -408,7 +402,7 @@ export class MultiAgentWorkflowOrchestrator {
           directory: this.environment.workspaceRoot,
           continuityPolicy: 'SHARED_WORKFLOW',
           creationReason: 'workflow-start',
-          workspaceId: this.session.harness['options']?.store?.toString() ?? 'default',
+          workspaceId: this.session.harness.store?.toString() ?? 'default',
         });
         runtimeSessionBinding = acquisition.binding;
       } catch (error) {

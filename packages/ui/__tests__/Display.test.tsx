@@ -153,7 +153,7 @@ describe('CardHeader', () => {
   });
 
   it('renders action', () => {
-    render(<CardHeader title="Title" action={<button>Edit</button>} />);
+    render(<CardHeader title="Title" action={<button type="button">Edit</button>} />);
     expect(screen.getByText('Edit')).toBeInTheDocument();
   });
 });
@@ -169,8 +169,8 @@ describe('CardActions', () => {
   it('renders actions', () => {
     render(
       <CardActions>
-        <button>Cancel</button>
-        <button>Save</button>
+        <button type="button">Cancel</button>
+        <button type="button">Save</button>
       </CardActions>,
     );
     expect(screen.getByText('Cancel')).toBeInTheDocument();

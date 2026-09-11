@@ -39,7 +39,7 @@ function loadPackageGraph(): Record<string, PkgInfo> {
       const pkgJson = path.join(fullDir, entry, 'package.json');
       if (!fs.existsSync(pkgJson)) continue;
       const pkg = JSON.parse(fs.readFileSync(pkgJson, 'utf8'));
-      if (!pkg.name || !pkg.name.startsWith('@vestara/')) continue;
+      if (!pkg.name?.startsWith('@vestara/')) continue;
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       packages[pkg.name] = {
         name: pkg.name,
@@ -64,14 +64,18 @@ function buildReverseDeps(packages: Record<string, PkgInfo>): Record<string, str
 
 function findOwningPackage(filePath: string, packages: Record<string, PkgInfo>): string | null {
   for (const [name, pkg] of Object.entries(packages)) {
-    if (filePath.startsWith(pkg.pkgPath + '/') || filePath.startsWith(pkg.pkgPath + '\\')) {
+    if (filePath.startsWith(`${pkg.pkgPath}/`) || filePath.startsWith(`${pkg.pkgPath}\\`)) {
       return name;
     }
   }
   return null;
 }
 
-function computeAffected(changedFiles: string[], packages: Record<string, PkgInfo>, reverseDeps: Record<string, string[]>): Map<string, string> {
+function computeAffected(
+  changedFiles: string[],
+  packages: Record<string, PkgInfo>,
+  reverseDeps: Record<string, string[]>,
+): Map<string, string> {
   const affected = new Map<string, string>();
 
   for (const file of changedFiles) {
@@ -80,8 +84,15 @@ function computeAffected(changedFiles: string[], packages: Record<string, PkgInf
   }
 
   // Global config changes
-  const globalFiles = ['tsconfig.json', 'vitest.config.ts', 'biome.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'package.json'];
-  if (changedFiles.some(f => globalFiles.some(g => f === g || f.endsWith('/' + g)))) {
+  const globalFiles = [
+    'tsconfig.json',
+    'vitest.config.ts',
+    'biome.json',
+    'pnpm-workspace.yaml',
+    'pnpm-lock.yaml',
+    'package.json',
+  ];
+  if (changedFiles.some((f) => globalFiles.some((g) => f === g || f.endsWith(`/${g}`)))) {
     for (const name of Object.keys(packages)) {
       if (!affected.has(name)) affected.set(name, 'GLOBAL INVALIDATION');
     }
@@ -91,7 +102,7 @@ function computeAffected(changedFiles: string[], packages: Record<string, PkgInf
   const queue = [...affected.keys()];
   while (queue.length > 0) {
     const pkg = queue.pop();
-    for (const dep of (reverseDeps[pkg] || [])) {
+    for (const dep of reverseDeps[pkg] || []) {
       if (!affected.has(dep)) {
         affected.set(dep, `DEPENDENT of ${pkg}`);
         queue.push(dep);
@@ -104,10 +115,18 @@ function computeAffected(changedFiles: string[], packages: Record<string, PkgInf
 
 function computeDogfoodClosure(packages: Record<string, PkgInfo>): Set<string> {
   const roots = [
-    '@vestara/api', '@vestara/workspace', '@vestara/agent-harness',
-    '@vestara/activity-room', '@vestara/conversation', '@vestara/provider-runtime',
-    '@vestara/opencode-runtime', '@vestara/evidence', '@vestara/memory',
-    '@vestara/interaction-app', '@vestara/worktree-runtime', '@vestara/tool-runtime',
+    '@vestara/api',
+    '@vestara/workspace',
+    '@vestara/agent-harness',
+    '@vestara/activity-room',
+    '@vestara/conversation',
+    '@vestara/provider-runtime',
+    '@vestara/opencode-runtime',
+    '@vestara/evidence',
+    '@vestara/memory',
+    '@vestara/interaction-app',
+    '@vestara/worktree-runtime',
+    '@vestara/tool-runtime',
     '@vestara/kernel',
   ];
   const closure = new Set<string>();
@@ -230,7 +249,7 @@ describe('VES-LEAN-003B: Affected Graph Logic', () => {
       // Change a tool-specific file
       const changed = ['packages/tools/shell/src/index.ts'];
       const affected = computeAffected(changed, packages, reverseDeps);
-      const unaffected = Object.keys(packages).filter(p => !affected.has(p));
+      const unaffected = Object.keys(packages).filter((p) => !affected.has(p));
       expect(unaffected.length).toBeGreaterThan(0);
       // @vestara/types is NOT affected by a shell tool change
       expect(unaffected).toContain('@vestara/types');
@@ -240,7 +259,7 @@ describe('VES-LEAN-003B: Affected Graph Logic', () => {
   describe('9. Affected tests selected', () => {
     it('affected packages have test directories', () => {
       const changed = ['packages/types/src/common.ts'];
-      const affected = computeAffected(changed, packages, reverseDeps);
+      const _affected = computeAffected(changed, packages, reverseDeps);
       // @vestara/types has test files
       const typesInfo = packages['@vestara/types'];
       expect(typesInfo).toBeDefined();
@@ -255,7 +274,7 @@ describe('VES-LEAN-003B: Affected Graph Logic', () => {
     });
 
     it('all packages have valid paths', () => {
-      for (const [name, pkg] of Object.entries(packages)) {
+      for (const [_name, pkg] of Object.entries(packages)) {
         expect(fs.existsSync(path.join(CWD, pkg.pkgPath, 'package.json'))).toBe(true);
       }
     });

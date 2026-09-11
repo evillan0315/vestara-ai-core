@@ -14,8 +14,6 @@
 
 import type {
   ChannelAction,
-  ChannelConfig,
-  ChannelConversationRef,
   ChannelDelivery,
   ChannelDeliveryResult,
   ChannelEvent,
@@ -263,7 +261,7 @@ export class DeliveryQueue {
   /**
    * Mark a delivery as failed and schedule retry.
    */
-  fail(deliveryId: string, error?: string): void {
+  fail(deliveryId: string, _error?: string): void {
     const entry = this.entries.get(deliveryId);
     if (!entry) return;
 

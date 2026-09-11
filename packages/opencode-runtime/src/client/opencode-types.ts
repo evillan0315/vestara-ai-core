@@ -48,8 +48,20 @@ export interface OpenCodeConfigModel {
     readonly reasoning?: boolean;
     readonly attachment?: boolean;
     readonly toolcall?: boolean;
-    readonly input?: { readonly text?: boolean; readonly image?: boolean; readonly audio?: boolean; readonly video?: boolean; readonly pdf?: boolean };
-    readonly output?: { readonly text?: boolean; readonly image?: boolean; readonly audio?: boolean; readonly video?: boolean; readonly pdf?: boolean };
+    readonly input?: {
+      readonly text?: boolean;
+      readonly image?: boolean;
+      readonly audio?: boolean;
+      readonly video?: boolean;
+      readonly pdf?: boolean;
+    };
+    readonly output?: {
+      readonly text?: boolean;
+      readonly image?: boolean;
+      readonly audio?: boolean;
+      readonly video?: boolean;
+      readonly pdf?: boolean;
+    };
     readonly interleaved?: boolean;
   };
   readonly cost?: {

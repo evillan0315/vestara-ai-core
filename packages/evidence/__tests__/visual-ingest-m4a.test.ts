@@ -139,7 +139,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
     const storeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'visual-ingest-m4a-integration-'));
     try {
       const artifacts = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
-      const manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
+      const _manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
       const bundles = new BundleStore(path.join(storeRoot, 'bundles'));
 
       // 1. Ingest PNG screenshots

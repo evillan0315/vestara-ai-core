@@ -74,10 +74,23 @@ export const TELEGRAM_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'telegram.baseline',
     produces: [
-      fingerprint('telegram_pairing_requests', ['id', 'telegram_user_id', 'token', 'status', 'created_at', 'expires_at']),
+      fingerprint('telegram_pairing_requests', [
+        'id',
+        'telegram_user_id',
+        'token',
+        'status',
+        'created_at',
+        'expires_at',
+      ]),
       fingerprint('telegram_identity_bindings', ['id', 'telegram_user_id', 'principal_id', 'active']),
       fingerprint('telegram_workspace_bindings', ['id', 'principal_id', 'workspace_id', 'preferred']),
-      fingerprint('telegram_conversation_bindings', ['id', 'principal_id', 'telegram_chat_id', 'vestara_conversation_id', 'status']),
+      fingerprint('telegram_conversation_bindings', [
+        'id',
+        'principal_id',
+        'telegram_chat_id',
+        'vestara_conversation_id',
+        'status',
+      ]),
     ],
     up: (db: Database) => {
       db.exec(TELEGRAM_BASELINE_DDL);

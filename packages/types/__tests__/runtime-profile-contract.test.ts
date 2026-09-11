@@ -18,11 +18,10 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  DOGFOOD_PROFILE,
-  resolveActivationPlan,
-  type ActivationPlan,
   type CapabilityDescriptor,
+  DOGFOOD_PROFILE,
   type RuntimeProfile,
+  resolveActivationPlan,
 } from '../src/index.js';
 
 // ─── Test Helpers ───────────────────────────────────────────
@@ -113,9 +112,7 @@ describe('VES-LEAN-002: Runtime Profile Contract', () => {
 
   describe('5. DISABLED/NONE is representable', () => {
     it('places capability in disabled set', () => {
-      const profile = makeProfile('test', [
-        makeCap({ id: 'a', requirement: 'disabled', activation: 'none' }),
-      ]);
+      const profile = makeProfile('test', [makeCap({ id: 'a', requirement: 'disabled', activation: 'none' })]);
       const plan = resolveActivationPlan(profile);
       expect(plan.disabled).toContain('a');
       expect(plan.eager).not.toContain('a');

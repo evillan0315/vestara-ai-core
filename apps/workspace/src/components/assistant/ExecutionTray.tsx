@@ -12,7 +12,7 @@
  * When idle without custom config: not rendered
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import type { AssistantExecutionDetail } from '@vestara/shared';
 import { AssistantTodoChecklist, todoVisualState } from './AssistantTodoChecklist';
 
@@ -59,7 +59,7 @@ function getTaskProgress(taskSnapshot: AssistantExecutionDetail | null | undefin
 
 // ─── Component ───────────────────────────────────────────────
 
-export function ExecutionTray({
+export const ExecutionTray = memo(function ExecutionTray({
   active,
   operationCount = 0,
   isCustom,
@@ -195,4 +195,4 @@ export function ExecutionTray({
       <span>Custom limits active</span>
     </div>
   );
-}
+});

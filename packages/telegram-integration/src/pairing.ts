@@ -99,7 +99,12 @@ export class TelegramPairingService {
   private tokenToRequest: Map<string, string> = new Map();
 
   constructor(config?: PairingConfig & { store?: TelegramPersistentStore }) {
-    this.config = { tokenLength: DEFAULT_CONFIG.tokenLength, tokenExpiryMs: DEFAULT_CONFIG.tokenExpiryMs, maxPendingPerUser: DEFAULT_CONFIG.maxPendingPerUser, ...config };
+    this.config = {
+      tokenLength: DEFAULT_CONFIG.tokenLength,
+      tokenExpiryMs: DEFAULT_CONFIG.tokenExpiryMs,
+      maxPendingPerUser: DEFAULT_CONFIG.maxPendingPerUser,
+      ...config,
+    };
     this.store = config?.store ?? null;
   }
 

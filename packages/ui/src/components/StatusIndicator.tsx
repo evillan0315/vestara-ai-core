@@ -33,11 +33,11 @@ export interface StatusIndicatorProps extends HTMLAttributes<HTMLSpanElement> {
 // ─── Styles ────────────────────────────────────────────────────
 
 const VARIANT_COLORS: Record<StatusVariant, string> = {
-  live: 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]',
-  warn: 'bg-amber-400 shadow-[0_0_6px_rgba(245,158,11,0.7)]',
-  error: 'bg-red-400 shadow-[0_0_6px_rgba(248,113,113,0.7)]',
-  idle: 'bg-zinc-500',
-  off: 'bg-zinc-700',
+  live: 'bg-(--vestara-status-active) shadow-[0_0_6px_var(--vestara-status-active)]',
+  warn: 'bg-(--vestara-status-warning) shadow-[0_0_6px_var(--vestara-status-warning)]',
+  error: 'bg-(--vestara-status-error) shadow-[0_0_6px_var(--vestara-status-error)]',
+  idle: 'bg-(--vestara-status-idle)',
+  off: 'bg-(--vestara-status-disabled)',
 };
 
 const SIZE_STYLES: Record<StatusSize, string> = {

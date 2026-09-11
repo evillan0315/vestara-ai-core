@@ -158,8 +158,15 @@ export async function handleConversationsRoute(
 
   if (method === 'GET' && p === '/api/conversations') {
     const userId = (req.headers?.['x-vestara-actor'] as string) || ACTOR;
-    const conversations = await ctx.conversationService.listConversations(userId);
-    json(res, 200, { conversations });
+    const url = new URL(req.url ?? '', 'http://127.0.0.1');
+    // VES-PERF-001C: bounded summary page. Message bodies are never returned.
+    const limit = Math.min(Number(url.searchParams.get('limit') ?? '25'), 100);
+    const offset = Math.max(Number(url.searchParams.get('offset') ?? '0'), 0);
+    const page = await ctx.conversationService.listConversationsPage(userId, { limit, offset });
+    json(res, 200, {
+      conversations: page.conversations,
+      pagination: { total: page.total, offset: page.offset, limit: page.limit, hasMore: page.hasMore },
+    });
     return true;
   }
 
@@ -229,7 +236,17 @@ export async function handleConversationsRoute(
   const action = match[2];
 
   if (method === 'GET' && !action) {
-    const conversation = await ctx.conversationService.getConversation(conversationId);
+    const url = new URL(req.url ?? '', 'http://127.0.0.1');
+    const limit = Math.min(Number(url.searchParams.get('limit') ?? '50'), 100);
+    const offset = Math.max(Number(url.searchParams.get('offset') ?? '0'), 0);
+    // VES-PERF-001B: newest-window-first by default; `order=asc` selects the oldest window.
+    const order = url.searchParams.get('order') === 'asc' ? 'asc' : 'desc';
+
+    const conversation = await ctx.conversationService.getConversation(conversationId, {
+      limit,
+      offset,
+      order,
+    });
     if (!conversation) {
       json(res, 404, { error: 'Conversation not found' });
       return true;
@@ -352,25 +369,34 @@ export async function handleConversationsRoute(
         if (chunk.type === 'text' && chunk.content) {
           if (!emit({ type: 'delta', content: chunk.content })) break;
         } else if (chunk.type === 'tool_call') {
-          if (!emit({
-            type: 'tool',
-            content: chunk.content ?? '',
-            name: chunk.name,
-            ...(chunk.detail ? { execution: chunk.detail } : {}),
-          })) break;
+          if (
+            !emit({
+              type: 'tool',
+              content: chunk.content ?? '',
+              name: chunk.name,
+              ...(chunk.detail ? { execution: chunk.detail } : {}),
+            })
+          )
+            break;
         } else if (chunk.type === 'tool_result') {
-          if (!emit({
-            type: 'tool_result',
-            content: chunk.content ?? '',
-            name: chunk.name,
-            ...(chunk.detail ? { execution: chunk.detail } : {}),
-          })) break;
+          if (
+            !emit({
+              type: 'tool_result',
+              content: chunk.content ?? '',
+              name: chunk.name,
+              ...(chunk.detail ? { execution: chunk.detail } : {}),
+            })
+          )
+            break;
         } else if (chunk.type === 'status') {
-          if (!emit({
-            type: 'status',
-            content: chunk.content ?? '',
-            ...(chunk.detail ? { execution: chunk.detail } : {}),
-          })) break;
+          if (
+            !emit({
+              type: 'status',
+              content: chunk.content ?? '',
+              ...(chunk.detail ? { execution: chunk.detail } : {}),
+            })
+          )
+            break;
         } else if (chunk.type === 'error') {
           emit({ type: 'error', content: chunk.content ?? 'Stream failed' });
         } else if (chunk.type === 'complete') {

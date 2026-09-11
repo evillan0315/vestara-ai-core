@@ -9,13 +9,9 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { HealthStatus, ServiceStatus, VestaraService } from '@vestara/shared';
 import {
-  type BrowserNavigationResult,
-  type BrowserObserveResult,
   BrowserObserver,
-  type BrowserScreenshotResult,
   BrowserSession,
   type BrowserSessionOptions,
-  type BrowserSnapshotResult,
   PlaywrightBrowserDriver,
 } from '@vestara/tools-browser';
 import {
@@ -31,7 +27,6 @@ import {
   BROWSER_PERMISSION_GRANTED,
   BROWSER_PERMISSION_REQUESTED,
   BROWSER_SESSION_CREATED,
-  BROWSER_SESSION_ERROR,
   BROWSER_SESSION_READY,
   BROWSER_SESSION_STOPPED,
   BROWSER_STEP_COMPLETED,
@@ -202,7 +197,7 @@ export class BrowserRuntimeService implements VestaraService {
   }
 
   async health(): Promise<HealthStatus> {
-    const activeSessions = [...this.sessions.values()].filter((s) => s.status !== 'closed').length;
+    const _activeSessions = [...this.sessions.values()].filter((s) => s.status !== 'closed').length;
     const hasErrors = this.stats.errors > 0;
     return {
       status: hasErrors ? 'degraded' : 'healthy',

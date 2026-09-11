@@ -2,7 +2,7 @@
 // normalizers, and OpenCodeAdapterBoundary. All tests are hermetic (zero live
 // sessions, zero paid providers).
 
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { OpenCodeAdapterBoundary } from '../src/client/opencode-adapter-boundary.js';
 import { OpenCodeHttpClient } from '../src/client/opencode-http-client.js';
 import type { OpenCodeRuntimeConfig } from '../src/config.js';
@@ -546,7 +546,7 @@ describe('OpenCodeAdapterBoundary', () => {
       await boundary.requestRaw({ method: 'GET', path: '/test', timeoutMs: 5_000 });
       const [, options] = fetchMock.mock.calls[0] as [string, RequestInit];
       const headers = options.headers as Record<string, string>;
-      expect(headers['Authorization']).toMatch(/^Basic /);
+      expect(headers.Authorization).toMatch(/^Basic /);
       expect(headers['X-Vestara-Source']).toBe('opencode-runtime');
     } finally {
       vi.restoreAllMocks();

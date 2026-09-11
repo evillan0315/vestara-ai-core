@@ -34,22 +34,15 @@
  *   CSP-020 → OVR-005 Activity Media Binding → OVR-005 Authority Completion
  */
 
-import type {
-  CreateMediaConnectionOptions,
-  CreateMediaConnectionResult,
-  MediaParticipantCapabilities,
-  MediaServer,
-} from '@vestara/media-runtime';
+import type { CreateMediaConnectionResult, MediaParticipantCapabilities, MediaServer } from '@vestara/media-runtime';
 import { consumeMediaConnectionCredential } from '@vestara/media-runtime';
 import type { ActivityMediaBindingStore } from './media-binding-store';
 import type {
   ActivityMediaBinding,
   ActivityMediaBindingId,
-  CreateBindingOptions,
   MediaParticipantJoinResult,
   MediaParticipantType,
   ParticipantResolver,
-  ResolvedParticipant,
 } from './media-binding-types';
 import { generateBindingId, PARTICIPANT_CAPABILITY_MAP } from './media-binding-types';
 

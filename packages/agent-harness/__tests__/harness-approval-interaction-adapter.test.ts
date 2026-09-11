@@ -1,4 +1,4 @@
-import type { ChoiceId, InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
+import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
 import { describe, expect, it, vi } from 'vitest';
 import {
   approvalInteractionId,
@@ -35,7 +35,7 @@ function createMockHarness(
   };
 }
 
-function createMockThreadResolver(threads?: Array<{ id: string; title: string }>): ThreadResolver {
+function _createMockThreadResolver(threads?: Array<{ id: string; title: string }>): ThreadResolver {
   const map = new Map(threads?.map((t) => [t.id, t]) ?? []);
   return {
     getThread: (threadId: string) => map.get(threadId),

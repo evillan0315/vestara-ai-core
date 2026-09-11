@@ -31,10 +31,9 @@ import type {
   InteractionPublicationPort,
   InteractionRespondedPayload,
 } from '@vestara/interaction-persistence';
-import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
+import { SqliteInteractionStore } from '@vestara/interaction-persistence';
 import type { ChoiceId, InteractionId, InteractionResponse, StructuredInteraction } from '@vestara/types';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { handleInteractionsRoute } from '../src/routes/interactions';
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -88,9 +87,9 @@ function createMockRes(): { res: http.ServerResponse; getResponse: () => MockRes
   return { res, getResponse: () => captured };
 }
 
-function createMockReq(body: unknown, headers: Record<string, string> = {}): http.IncomingMessage {
+function _createMockReq(body: unknown, headers: Record<string, string> = {}): http.IncomingMessage {
   const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
-  const stream = new (require('stream').Readable)({
+  const stream = new (require('node:stream').Readable)({
     read() {
       this.push(bodyStr);
       this.push(null);
@@ -138,14 +137,14 @@ describe('POST /api/interactions/:interactionId/responses', () => {
     if (fs.existsSync(dbPath)) fs.unlinkSync(dbPath);
   });
 
-  function makeHandler(svc?: InteractionService) {
-    const activeService = svc ?? service;
-    return async (req: http.IncomingMessage, res: http.ServerResponse) => {
+  function _makeHandler(svc?: InteractionService) {
+    const _activeService = svc ?? service;
+    return async (_req: http.IncomingMessage, _res: http.ServerResponse) => {
       // We need to inject the service into the handler's singleton
       // For testing, we override the module's lazy singleton by calling the handler
       // with a mocked getInteractionService
       const { res: mockRes, getResponse } = createMockRes();
-      const ctx = createMockCtx();
+      const _ctx = createMockCtx();
 
       // Patch the module-level singleton by importing the route module internals
       // Instead, we test through the actual route handler by providing a context
@@ -469,7 +468,7 @@ describe('POST /api/interactions/:interactionId/responses — strict body valida
 
   beforeEach(async () => {
     dbPath = tmpDb();
-    dbDir = path.join(dbPath + '-dir', '.vestara');
+    dbDir = path.join(`${dbPath}-dir`, '.vestara');
     testDbPath = path.join(dbDir, 'interactions.db');
     fs.mkdirSync(dbDir, { recursive: true });
     store = await SqliteInteractionStore.open(testDbPath);
@@ -492,7 +491,7 @@ describe('POST /api/interactions/:interactionId/responses — strict body valida
   async function dispatchRoute(body: unknown, headers: Record<string, string> = {}): Promise<MockResponse> {
     const bodyStr = JSON.stringify(body);
     const req = Object.assign(
-      new (require('stream').Readable)({
+      new (require('node:stream').Readable)({
         read() {
           this.push(bodyStr);
           this.push(null);
@@ -640,7 +639,7 @@ describe('POST /api/interactions/:interactionId/responses — strict body valida
 
   it('non-JSON body → 400', async () => {
     const req = Object.assign(
-      new (require('stream').Readable)({
+      new (require('node:stream').Readable)({
         read() {
           this.push('not json');
           this.push(null);

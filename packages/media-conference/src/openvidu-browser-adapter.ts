@@ -68,7 +68,7 @@ export class OpenViduBrowserAdapter implements BrowserAdapter {
     this.events = { ...this.events, ...events };
   }
 
-  async connect(url: string, token: string): Promise<void> {
+  async connect(_url: string, token: string): Promise<void> {
     // Resolve OpenVidu constructor — dynamic import so Vite bundles openvidu-browser.
     const Ctor = await resolveOpenViduCtor();
 

@@ -149,7 +149,7 @@ describe('M9IngestionBridge', () => {
         payload: { userId: 'user-1', title: 'Test' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -163,7 +163,7 @@ describe('M9IngestionBridge', () => {
         payload: { projectId: 'proj-1', taskId: 'task-1' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -189,8 +189,8 @@ describe('M9IngestionBridge', () => {
       });
 
       // Ingest twice with same EventBus event id
-      await bridge['ingest'](event1);
-      await bridge['ingest'](event2);
+      await bridge.ingest(event1);
+      await bridge.ingest(event2);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -208,8 +208,8 @@ describe('M9IngestionBridge', () => {
         payload: { agentId: 'dev', agentName: 'Dev' },
       });
 
-      await bridge['ingest'](event1);
-      await bridge['ingest'](event2);
+      await bridge.ingest(event1);
+      await bridge.ingest(event2);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(2);
@@ -226,7 +226,7 @@ describe('M9IngestionBridge', () => {
         payload: { userId: 'user-1', title: 'My Chat' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -241,7 +241,7 @@ describe('M9IngestionBridge', () => {
         payload: { agentId: 'developer', agentName: 'Developer', task: 'implement' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -256,7 +256,7 @@ describe('M9IngestionBridge', () => {
         payload: { agentId: 'verifier', agentName: 'Verifier', allPassed: true },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -270,7 +270,7 @@ describe('M9IngestionBridge', () => {
         payload: { agentId: 'dev', modelDisplayName: 'Dev', task: 'build feature X' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       const records = await store.query({ limit: 10 });
       expect(records.length).toBe(1);
@@ -347,7 +347,7 @@ describe('M9IngestionBridge', () => {
       });
 
       // Should not throw
-      await expect(bridge['ingest'](event)).resolves.toBeUndefined();
+      await expect(bridge.ingest(event)).resolves.toBeUndefined();
 
       // Should have logged the error
       expect(logger.warn).toHaveBeenCalledWith(
@@ -365,7 +365,7 @@ describe('M9IngestionBridge', () => {
         payload: { projectId: 'proj-1', taskId: 'task-1' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       // EventBus should still be functional
       expect(eventBus.emitted.length).toBe(0); // bridge doesn't emit to EventBus (I1-8)
@@ -379,7 +379,7 @@ describe('M9IngestionBridge', () => {
         payload: { userId: 'user-1' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       expect(logger.warn).toHaveBeenCalled();
       const call = logger.warn.mock.calls[0];
@@ -401,7 +401,7 @@ describe('M9IngestionBridge', () => {
       );
 
       for (const event of events) {
-        await bridge['ingest'](event);
+        await bridge.ingest(event);
       }
 
       const records = await store.query({ limit: 10 });
@@ -442,7 +442,7 @@ describe('M9IngestionBridge', () => {
         payload: { agentId: 'dev', agentName: 'Dev' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       // No EventBus emission from the bridge
       expect(eventBus.emitted.length).toBe(0);
@@ -509,7 +509,7 @@ describe('M9IngestionBridge', () => {
         payload: { userId: 'user-1' },
       });
 
-      await bridge['ingest'](event);
+      await bridge.ingest(event);
 
       // M9 store should have the record
       const m9Records = await store.query({ limit: 10 });
@@ -542,7 +542,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ingests conversation:created', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'conversation:created',
         payload: { userId: 'user-1', title: 'Chat' },
@@ -554,7 +554,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ingests conversation:response.completed', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'conversation:response.completed',
         payload: { tokens: 150 },
@@ -566,7 +566,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ingests agent:started', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'agent:started',
         payload: { agentId: 'dev', agentName: 'Developer', task: 'build' },
@@ -578,7 +578,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ingests agent:completed', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'agent:completed',
         payload: { agentId: 'dev', agentName: 'Developer' },
@@ -590,7 +590,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ingests orchestration.task.started', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'orchestration.task.started',
         payload: { projectId: 'proj-1', taskId: 'task-1' },
@@ -603,7 +603,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ignores workspace:discover.completed', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'workspace:discover.completed',
         payload: { fileCount: 100 },
@@ -614,7 +614,7 @@ describe('M9IngestionBridge: Event Coverage', () => {
   });
 
   it('ignores memory:indexed', async () => {
-    await bridge['ingest'](
+    await bridge.ingest(
       createMockEvent({
         type: 'memory:indexed',
         payload: { source: 'test' },

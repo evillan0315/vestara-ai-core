@@ -24,10 +24,10 @@
  * A capability progresses through these states; they are not collapsed.
  */
 export type CapabilityLifecycleState =
-  | 'known'     // Vestara understands the capability contract
+  | 'known' // Vestara understands the capability contract
   | 'installed' // Implementation is available to this installation
-  | 'enabled'   // Policy/configuration permits the capability
-  | 'active';   // Selected for current runtime, resources constructed
+  | 'enabled' // Policy/configuration permits the capability
+  | 'active'; // Selected for current runtime, resources constructed
 
 // ─── Requirement Dimension ──────────────────────────────────
 
@@ -36,8 +36,8 @@ export type CapabilityLifecycleState =
  * Independent of activation strategy.
  */
 export type CapabilityRequirement =
-  | 'required'  // Must be active for the selected runtime profile
-  | 'optional'  // May be active; not required by the surface
+  | 'required' // Must be active for the selected runtime profile
+  | 'optional' // May be active; not required by the surface
   | 'disabled'; // Must NOT be active for the selected runtime profile
 
 // ─── Activation Dimension ───────────────────────────────────
@@ -48,7 +48,7 @@ export type CapabilityRequirement =
  */
 export type CapabilityActivation =
   | 'eager' // Constructed and started during boot
-  | 'lazy'  // Constructed on first use, not at boot
+  | 'lazy' // Constructed on first use, not at boot
   | 'none'; // Never constructed; no resources allocated
 
 // ─── Capability Descriptor ──────────────────────────────────
@@ -369,10 +369,19 @@ export const DOGFOOD_PROFILE: RuntimeProfile = {
       requirement: 'required',
       activation: 'eager',
       dependencies: [
-        'kernel', 'event-bus', 'service-registry', 'health',
-        'conversation', 'workspace-runtime', 'provider-resolution',
-        'agent-harness', 'tool-runtime', 'evidence', 'memory',
-        'interaction', 'worktree',
+        'kernel',
+        'event-bus',
+        'service-registry',
+        'health',
+        'conversation',
+        'workspace-runtime',
+        'provider-resolution',
+        'agent-harness',
+        'tool-runtime',
+        'evidence',
+        'memory',
+        'interaction',
+        'worktree',
       ],
     },
     {

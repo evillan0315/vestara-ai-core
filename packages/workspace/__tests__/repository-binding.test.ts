@@ -346,7 +346,7 @@ describe('ARX-015 M5 — Repository Authority & Confinement', () => {
   describe('8. Symlink confinement', () => {
     it('rejects symlink file escape', () => {
       const binding = makeBinding({ canonicalPath: tmpDir });
-      const outsideDir = path.join(os.tmpdir(), 'm5-escape-target-' + Date.now());
+      const outsideDir = path.join(os.tmpdir(), `m5-escape-target-${Date.now()}`);
       fs.mkdirSync(outsideDir);
       fs.writeFileSync(path.join(outsideDir, 'secret.txt'), 'secret');
 
@@ -366,7 +366,7 @@ describe('ARX-015 M5 — Repository Authority & Confinement', () => {
 
     it('rejects symlink directory escape', () => {
       const binding = makeBinding({ canonicalPath: tmpDir });
-      const outsideDir = path.join(os.tmpdir(), 'm5-escape-dir-' + Date.now());
+      const outsideDir = path.join(os.tmpdir(), `m5-escape-dir-${Date.now()}`);
       fs.mkdirSync(outsideDir);
 
       // Create symlink inside workspace pointing to outside directory
@@ -408,7 +408,7 @@ describe('ARX-015 M5 — Repository Authority & Confinement', () => {
 
     it('validateSymlinkConfinement returns false for escape symlink', () => {
       const binding = makeBinding({ canonicalPath: tmpDir });
-      const outsideDir = path.join(os.tmpdir(), 'm5-symlink-escape-' + Date.now());
+      const outsideDir = path.join(os.tmpdir(), `m5-symlink-escape-${Date.now()}`);
       fs.mkdirSync(outsideDir);
 
       const symlinkPath = path.join(tmpDir, 'escape-link');
@@ -441,7 +441,7 @@ describe('ARX-015 M5 — Repository Authority & Confinement', () => {
     });
 
     it('explicit path to child succeeds (VESTARA_REPO or CLI arg)', () => {
-      const parentDir = path.join(tmpDir, 'projects');
+      const _parentDir = path.join(tmpDir, 'projects');
       const childDir = path.join(tmpDir, 'projects', 'vestara-ai-core');
       fs.mkdirSync(childDir, { recursive: true });
       createWorkspaceFixture(childDir, 'ai-core-ws');
@@ -494,7 +494,7 @@ describe('ARX-015 M5 — Repository Authority & Confinement', () => {
     });
 
     it('attempts against parent directory are rejected', () => {
-      const parentDir = path.join(tmpDir, 'parent-workspace');
+      const _parentDir = path.join(tmpDir, 'parent-workspace');
       const childDir = path.join(tmpDir, 'parent-workspace', 'child-repo');
       fs.mkdirSync(childDir, { recursive: true });
       createWorkspaceFixture(childDir, 'child-ws');

@@ -35,8 +35,6 @@ import type {
 } from '@vestara/shared';
 import type {
   AiInvocationRequest,
-  AiResolutionFacts,
-  AiResolutionRequest,
   ExecutionId,
   ExecutionMode,
   RequestId,

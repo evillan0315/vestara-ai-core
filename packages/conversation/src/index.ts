@@ -40,7 +40,13 @@ export interface ProviderExecutor {
 export interface ConversationStore {
   create(conversation: Conversation): Promise<void>;
   get(id: string): Promise<Conversation | null>;
+  getConversation(
+    id: string,
+    options?: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+  ): Promise<Conversation | null>;
   list(userId: string): Promise<ConversationSummary[]>;
+  /** VES-PERF-001C: bounded summary page for conversation history. */
+  listPage(userId: string, options?: { limit?: number; offset?: number }): Promise<ConversationListPage>;
   addMessage(conversationId: string, message: Message): Promise<void>;
   setStatus(id: string, status: Conversation['status']): Promise<void>;
   updateTitle(id: string, title: string): Promise<void>;
@@ -48,12 +54,29 @@ export interface ConversationStore {
   remove(id: string): Promise<void>;
 }
 
+/**
+ * VES-PERF-001C: a bounded, metadata-only page of conversation summaries.
+ * Never contains message bodies — history stays a lightweight projection.
+ */
+export interface ConversationListPage {
+  conversations: ConversationSummary[];
+  total: number;
+  offset: number;
+  limit: number;
+  hasMore: boolean;
+}
+
 export interface ConversationService {
   createConversation(userId?: string, options?: { runtimeSessionId?: string }): Promise<Conversation>;
   sendMessage(conversationId: string, content: string, options?: SendOptions): Promise<SendResult>;
   closeConversation(conversationId: string): Promise<void>;
   listConversations(userId?: string): Promise<ConversationSummary[]>;
-  getConversation(id: string): Promise<Conversation | null>;
+  /** VES-PERF-001C: bounded summary page (metadata only; never message bodies). */
+  listConversationsPage(userId?: string, options?: { limit?: number; offset?: number }): Promise<ConversationListPage>;
+  getConversation(
+    id: string,
+    options?: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+  ): Promise<Conversation | null>;
   deleteConversation(id: string): Promise<void>;
   sendMessageStream(conversationId: string, content: string, options?: SendOptions): AsyncIterable<StreamChunk>;
 }
@@ -117,11 +140,27 @@ export class DefaultConversationService implements ConversationService {
     this.store = options.store;
   }
 
+  /** Unbounded load — caches the complete conversation for internal operations. */
   private async loadIntoMemory(id: string): Promise<Conversation | null> {
     if (!this.store) return this.conversations.get(id) ?? null;
     const persisted = await this.store.get(id);
     if (persisted) this.conversations.set(id, persisted);
     return persisted ?? this.conversations.get(id) ?? null;
+  }
+
+  /**
+   * VES-PERF-001B: bounded window read. Never overwrites the in-memory cache
+   * with a partial window — the cache must always hold the complete conversation.
+   */
+  private async loadConversationWindow(
+    id: string,
+    options: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+  ): Promise<Conversation | null> {
+    if (!this.store) {
+      const cached = this.conversations.get(id) ?? null;
+      return cached ? windowConversation(cached, options) : null;
+    }
+    return this.store.getConversation(id, options);
   }
 
   async createConversation(userId = 'local', options?: { runtimeSessionId?: string }): Promise<Conversation> {
@@ -459,19 +498,88 @@ export class DefaultConversationService implements ConversationService {
         status: c.status,
         createdAt: c.createdAt,
         updatedAt: c.updatedAt,
+        runtimeSessionId: c.runtimeSessionId,
       }))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }
 
-  async getConversation(id: string): Promise<Conversation | null> {
-    if (this.store) return this.loadIntoMemory(id);
-    return this.conversations.get(id) ?? null;
+  async listConversationsPage(
+    userId = 'local',
+    options?: { limit?: number; offset?: number },
+  ): Promise<ConversationListPage> {
+    if (this.store) return this.store.listPage(userId, options);
+
+    const all = Array.from(this.conversations.values())
+      .filter((c) => c.status !== 'deleted')
+      .map<ConversationSummary>((c) => ({
+        id: c.id,
+        title: c.title,
+        messageCount: c.messages.length,
+        status: c.status,
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+        runtimeSessionId: c.runtimeSessionId,
+      }))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
+    const limit = options?.limit ?? 25;
+    const offset = options?.offset ?? 0;
+    return {
+      conversations: all.slice(offset, offset + limit),
+      total: all.length,
+      offset,
+      limit,
+      hasMore: offset + limit < all.length,
+    };
+  }
+
+  async getConversation(
+    id: string,
+    options?: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+  ): Promise<Conversation | null> {
+    return this.loadConversationWindow(id, options ?? {});
   }
 
   async deleteConversation(id: string): Promise<void> {
     if (this.store) await this.store.remove(id);
     this.conversations.delete(id);
   }
+}
+
+/**
+ * VES-PERF-001B: apply a bounded window to an in-memory conversation.
+ *
+ * Mirrors the SQL semantics used by the persistent store so the in-memory
+ * (store-less) path returns the same shape and ordering.
+ */
+function windowConversation(
+  conversation: Conversation,
+  options: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+): Conversation {
+  const limit = options.limit ?? 50;
+  const offset = options.offset ?? 0;
+  const newestFirst = (options.order ?? 'desc') === 'desc';
+
+  // Newest-first: reverse → window → reverse back, so the window is always
+  // returned in chronological order.
+  const window = newestFirst
+    ? [...conversation.messages]
+        .reverse()
+        .slice(offset, offset + limit)
+        .reverse()
+    : conversation.messages.slice(offset, offset + limit);
+
+  const total = conversation.messages.length;
+  return {
+    ...conversation,
+    messages: window,
+    _pagination: {
+      total,
+      offset,
+      limit,
+      hasMore: offset + limit < total,
+    },
+  };
 }
 
 // ─── GA-CTX-001: Tool Observation Helpers ────────────────────
@@ -489,9 +597,10 @@ const MAX_OBSERVATION_CONTENT = 2000;
 function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
   if (chunk.type === 'tool_call') {
     const detail = chunk.detail;
-    const content = detail && 'input' in detail
-      ? truncate(JSON.stringify(detail.input), MAX_OBSERVATION_CONTENT)
-      : chunk.content ?? '';
+    const content =
+      detail && 'input' in detail
+        ? truncate(JSON.stringify(detail.input), MAX_OBSERVATION_CONTENT)
+        : (chunk.content ?? '');
     return {
       toolCallId: chunk.id,
       toolName: chunk.name ?? 'unknown',
@@ -503,9 +612,12 @@ function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
 
   if (chunk.type === 'tool_result') {
     const detail = chunk.detail;
-    const status = detail && 'status' in detail
-      ? (detail.status as ToolObservation['status'])
-      : chunk.content?.startsWith('Error:') ? 'failed' : 'completed';
+    const status =
+      detail && 'status' in detail
+        ? (detail.status as ToolObservation['status'])
+        : chunk.content?.startsWith('Error:')
+          ? 'failed'
+          : 'completed';
     const content = truncate(chunk.content ?? '', MAX_OBSERVATION_CONTENT);
     const error = status === 'failed' ? content : undefined;
     return {
@@ -523,5 +635,5 @@ function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
 
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
-  return text.slice(0, max) + `… [truncated, ${text.length} chars total]`;
+  return `${text.slice(0, max)}… [truncated, ${text.length} chars total]`;
 }

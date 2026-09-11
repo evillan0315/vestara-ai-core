@@ -32,6 +32,9 @@ vi.mock('@vestara/ui', () => ({
   FloatingWindowContent: ({ children, className }: any) => (
     <div className={className} data-testid="floating-window-content">{children}</div>
   ),
+  StatusIndicator: ({ variant, ariaLabel }: any) => (
+    <span data-testid="status-indicator" data-variant={variant} aria-label={ariaLabel} />
+  ),
 }));
 
 const mockFetch = vi.fn();

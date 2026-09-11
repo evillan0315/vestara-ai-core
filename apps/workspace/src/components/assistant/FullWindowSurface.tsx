@@ -49,23 +49,23 @@ function FilesSummaryCard({ files }: { files: string[] }) {
   if (files.length === 0) return null;
 
   return (
-    <div className="mx-4 mb-3 p-3 rounded-xl border border-zinc-800/60 bg-zinc-900/50 backdrop-blur-sm">
+    <div className="mx-4 mb-3 p-3 rounded-xl border border-(--vestara-border-subtle) bg-(--vestara-surface-panel) backdrop-blur-sm">
       <div className="flex items-center gap-2 mb-2">
-        <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <svg className="w-4 h-4 text-(--vestara-accent-text)" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
         </svg>
-        <span className="text-xs font-medium text-zinc-300">
+        <span className="text-xs font-medium text-(--vestara-text-primary)">
           Files Modified ({files.length})
         </span>
       </div>
       <div className="space-y-1">
         {files.slice(0, 5).map((file) => (
-          <div key={file} className="flex items-center gap-2 text-[11px] text-zinc-500">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
+          <div key={file} className="flex items-center gap-2 text-[11px] text-(--vestara-text-muted)">
+            <span className="w-1.5 h-1.5 rounded-full bg-(--vestara-accent)" />
             <span className="truncate">{file}</span>
             <button
               type="button"
-              className="ml-auto text-amber-400 hover:underline cursor-pointer"
+              className="ml-auto text-(--vestara-accent-text) hover:underline cursor-pointer"
               title="Open in editor"
             >
               Open
@@ -73,7 +73,7 @@ function FilesSummaryCard({ files }: { files: string[] }) {
           </div>
         ))}
         {files.length > 5 && (
-          <div className="text-[11px] text-zinc-600">
+          <div className="text-[11px] text-(--vestara-text-disabled)">
             +{files.length - 5} more files
           </div>
         )}
@@ -121,17 +121,17 @@ export function FullWindowSurface({
       {/* Main content area — ConversationPanel handles its own sidebar in expanded mode */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header bar */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800/60 bg-zinc-950/80 backdrop-blur-sm">
+        <div className="flex items-center justify-between px-4 py-2 border-b border-(--vestara-border-subtle) bg-(--vestara-surface-canvas)/80 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_10px_rgba(245,158,11,0.4)]">
-              <svg className="h-3 w-3 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <svg className="h-3 w-3 text-(--vestara-surface-canvas)" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
-            <span className="text-sm font-semibold text-zinc-100">
+            <span className="text-sm font-semibold text-(--vestara-text-primary)">
               Vestara Assistant
             </span>
-            <span className="text-[10px] text-zinc-500">
+            <span className="text-[10px] text-(--vestara-text-muted)">
               · {assistant.selectedConversation?.title ?? 'New Conversation'}
             </span>
           </div>
@@ -140,7 +140,7 @@ export function FullWindowSurface({
               type="button"
               onClick={onNewConversation}
               aria-label="New conversation"
-              className="p-1.5 rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+              className="p-1.5 rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)"
               title="New conversation"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -151,7 +151,7 @@ export function FullWindowSurface({
               type="button"
               onClick={onMinimize}
               aria-label="Minimize"
-              className="p-1.5 rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+              className="p-1.5 rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)"
               title="Minimize"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -162,7 +162,7 @@ export function FullWindowSurface({
               type="button"
               onClick={onClose}
               aria-label="Close"
-              className="p-1.5 rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800/60 hover:text-zinc-300 cursor-pointer focus-visible:outline-2 focus-visible:outline-amber-500/60"
+              className="p-1.5 rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent)"
               title="Close"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

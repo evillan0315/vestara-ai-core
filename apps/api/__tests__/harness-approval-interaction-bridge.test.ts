@@ -1,6 +1,6 @@
 import { approvalInteractionId, CHOICE_APPROVE, CHOICE_REJECT } from '@vestara/agent-harness';
 import type { VestaraEvent } from '@vestara/shared';
-import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
+import type { InteractionId } from '@vestara/types';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createHarnessApprovalInteractionBridge,

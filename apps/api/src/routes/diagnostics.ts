@@ -217,7 +217,7 @@ export async function handleDiagnosticsRoute(
     const { Observer } = await import('@vestara/observer');
     const observer = new Observer();
     const status = url.searchParams.get('status') as import('@vestara/types').ObserverFindingStatus | null;
-    const findings = await observer['store'].listFindings(status ?? undefined);
+    const findings = await observer.store.listFindings(status ?? undefined);
     json(res, 200, { findings, total: findings.length });
     return true;
   }
@@ -226,7 +226,7 @@ export async function handleDiagnosticsRoute(
     const id = decodeURIComponent(p.split('/').pop()!);
     const { Observer } = await import('@vestara/observer');
     const observer = new Observer();
-    const finding = await observer['store'].getFinding(id);
+    const finding = await observer.store.getFinding(id);
     if (!finding) {
       json(res, 404, { error: 'Finding not found' });
       return true;
@@ -280,7 +280,7 @@ export async function handleDiagnosticsRoute(
     const { Observer } = await import('@vestara/observer');
     type ObserverFinding = import('@vestara/types').ObserverFinding;
     const observer = new Observer();
-    const allFindings = await observer['store'].listFindings();
+    const allFindings = await observer.store.listFindings();
     const activeFindings = allFindings.filter(
       (f: ObserverFinding) => f.status === 'observation' || f.status === 'hypothesis',
     );

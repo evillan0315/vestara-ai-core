@@ -11,15 +11,7 @@
  *   fromAgentLifecycle({ agentId, displayName, lifecycleType }) — agent lifecycle
  */
 
-import type {
-  ActivityEvent,
-  ActivityRecord,
-  ActivityRoomProjection,
-  ExecutionId,
-  WorkflowEvent,
-  WorkflowRunId,
-  WorkflowTaskId,
-} from '@vestara/types';
+import type { ExecutionId, WorkflowEvent, WorkflowRunId, WorkflowTaskId } from '@vestara/types';
 import initSqlJs from 'sql.js';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
@@ -33,7 +25,7 @@ import {
 
 // ─── Test Helpers ───────────────────────────────────────────
 
-const eventCounter = 0;
+const _eventCounter = 0;
 
 function makeWorkflowRunId(): WorkflowRunId {
   return `wr-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` as WorkflowRunId;
@@ -56,7 +48,7 @@ function makeWorkflowEvent(
   };
 }
 
-function ts(offsetMs = 0): string {
+function _ts(offsetMs = 0): string {
   return new Date(Date.now() + offsetMs).toISOString();
 }
 

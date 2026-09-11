@@ -9,7 +9,6 @@
 // 3. Enable regression testing of response shapes against the spec.
 
 import type { OpenCodeRuntimeConfig } from '../config';
-import { authenticationFailedError, sessionNotFoundError, upstreamError } from './opencode-errors';
 
 function basicAuthHeader(username: string, password: string): string {
   return `Basic ${Buffer.from(`${username}:${password}`).toString('base64')}`;

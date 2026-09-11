@@ -128,7 +128,7 @@ export class TelegramExecutionProjection {
   /**
    * Project a completion message.
    */
-  projectCompletion(executionId: string, summary: string, chatId: string): ChannelDelivery | null {
+  projectCompletion(_executionId: string, summary: string, chatId: string): ChannelDelivery | null {
     if (!this.config.sendCompletionMessage) return null;
 
     const message = this.config.completionTemplate.replace('{summary}', summary);
@@ -149,7 +149,7 @@ export class TelegramExecutionProjection {
   /**
    * Project a failure message.
    */
-  projectFailure(executionId: string, error: string, chatId: string): ChannelDelivery | null {
+  projectFailure(_executionId: string, error: string, chatId: string): ChannelDelivery | null {
     if (!this.config.sendFailureMessage) return null;
 
     const message = this.config.failureTemplate.replace('{error}', error);

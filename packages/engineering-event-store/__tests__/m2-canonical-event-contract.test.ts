@@ -2,7 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { fromOrchestrationEvent } from '@vestara/activity-room';
-import type { CorrelationId, ExecutionId, TraceId, WorkflowRunId } from '@vestara/types';
+import type { ExecutionId } from '@vestara/types';
 import { afterEach, describe, expect, it } from 'vitest';
 import { resolveCorrelationId, SqliteEngineeringEventStore } from '../src/index.js';
 
@@ -98,7 +98,7 @@ describe('ARX-015 M2 — Canonical Event Contract', () => {
       const dbPath = path.join(directory, 'events.db');
       const store = await SqliteEngineeringEventStore.open(dbPath);
 
-      const event = store.append({
+      const _event = store.append({
         type: 'tool.call.completed',
         source: 'test',
         actorId: 'agent',
@@ -347,7 +347,7 @@ describe('ARX-015 M2 — Canonical Event Contract', () => {
         payload: { complex: { nested: [1, 2, 3] } },
       };
 
-      const written = first.append(input);
+      const _written = first.append(input);
       first.close();
 
       const second = await SqliteEngineeringEventStore.open(dbPath);

@@ -155,6 +155,66 @@ describe('conversations routes', () => {
     expect(got.conversation.messages[1]?.content).toBe('Hello back');
   });
 
+  // ── VES-PERF-001B/C: bounded transport ──
+
+  it('bounds the conversation list and returns pagination metadata', async () => {
+    const ctx = makeContext(service());
+    for (let i = 0; i < 3; i++) await ctx.conversationService.createConversation('local');
+
+    const page1 = fakeResponse();
+    await handleConversationsRoute(
+      'GET',
+      '/api/conversations',
+      fakeRequest('GET', '/api/conversations?limit=2&offset=0'),
+      page1.res,
+      ctx,
+    );
+    const body1 = page1.body() as {
+      conversations: Array<{ id: string }>;
+      pagination: { total: number; offset: number; limit: number; hasMore: boolean };
+    };
+    expect(body1.conversations).toHaveLength(2);
+    expect(body1.pagination).toEqual({ total: 3, offset: 0, limit: 2, hasMore: true });
+
+    const page2 = fakeResponse();
+    await handleConversationsRoute(
+      'GET',
+      '/api/conversations',
+      fakeRequest('GET', '/api/conversations?limit=2&offset=2'),
+      page2.res,
+      ctx,
+    );
+    const body2 = page2.body() as {
+      conversations: Array<{ id: string }>;
+      pagination: { hasMore: boolean };
+    };
+    expect(body2.conversations).toHaveLength(1);
+    expect(body2.pagination.hasMore).toBe(false);
+
+    // Pages do not overlap.
+    const ids1 = new Set(body1.conversations.map((c) => c.id));
+    expect(body2.conversations.some((c) => ids1.has(c.id))).toBe(false);
+  });
+
+  it('bounds conversation messages and reports message pagination', async () => {
+    const ctx = makeContext(service());
+    const created = await ctx.conversationService.createConversation('local');
+
+    const detail = fakeResponse();
+    await handleConversationsRoute(
+      'GET',
+      `/api/conversations/${created.id}`,
+      fakeRequest('GET', `/api/conversations/${created.id}?limit=50`),
+      detail.res,
+      ctx,
+    );
+    const got = detail.body() as {
+      conversation: { messages: unknown[]; _pagination: { total: number; limit: number; hasMore: boolean } };
+    };
+    expect(got.conversation.messages).toHaveLength(0);
+    expect(got.conversation._pagination).toEqual({ total: 0, offset: 0, limit: 50, hasMore: false });
+  });
+
   it('deletes a conversation', async () => {
     const ctx = makeContext(service());
     const created = await ctx.conversationService.createConversation('local');

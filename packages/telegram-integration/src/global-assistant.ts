@@ -171,7 +171,7 @@ export class GlobalAssistantTextRouter {
   async routeMessage(
     message: ChannelMessage,
     identity: TelegramIdentityBinding,
-    workspace: WorkspaceBinding,
+    _workspace: WorkspaceBinding,
     conversation: ConversationBinding,
   ): Promise<MessageRouteResult> {
     const principalId = identity.principalId;
@@ -217,11 +217,10 @@ export class GlobalAssistantTextRouter {
     // 6. Execute through backend if available
     if (this.backend && message.text) {
       try {
-        const result = await this.backend.sendMessage(
-          conversation.vestaraConversationId,
-          message.text,
-          { model, provider },
-        );
+        const result = await this.backend.sendMessage(conversation.vestaraConversationId, message.text, {
+          model,
+          provider,
+        });
         return {
           status: 'routed',
           executionId: result.executionId ?? executionId,

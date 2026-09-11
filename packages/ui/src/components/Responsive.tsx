@@ -12,7 +12,7 @@
  */
 
 import { BREAKPOINTS } from '@vestara/ui-tokens';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -76,7 +76,11 @@ const DEFAULT_BREAKPOINTS = {
  * @param options - Optional configuration
  */
 export function useResponsiveLayout(options?: UseResponsiveLayoutOptions): ResponsiveState {
-  const breakpoints = { ...DEFAULT_BREAKPOINTS, ...options?.breakpoints };
+  const breakpoints = useMemo(
+    () => ({ ...DEFAULT_BREAKPOINTS, ...options?.breakpoints }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [options?.breakpoints],
+  );
 
   const [state, setState] = useState<ResponsiveState>(() => {
     if (typeof window === 'undefined') {
@@ -98,6 +102,8 @@ export function useResponsiveLayout(options?: UseResponsiveLayoutOptions): Respo
     return computeState(width, height, breakpoints);
   });
 
+  const { mobile, tablet, desktop, wide } = breakpoints;
+
   useEffect(() => {
     const handleResize = () => {
       const width = window.innerWidth;
@@ -107,7 +113,7 @@ export function useResponsiveLayout(options?: UseResponsiveLayoutOptions): Respo
 
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
-  }, [breakpoints.mobile, breakpoints.tablet, breakpoints.desktop, breakpoints.wide]);
+  }, [breakpoints]);
 
   return state;
 }
@@ -205,9 +211,9 @@ export function responsive<T>(
 export function mediaQuery(breakpoint: ResponsiveBreakpoint, direction: 'min' | 'max' = 'min'): string {
   const widths: Record<ResponsiveBreakpoint, number> = {
     mobile: 0,
-    tablet: parseInt(BREAKPOINTS.sm),
-    desktop: parseInt(BREAKPOINTS.lg),
-    wide: parseInt(BREAKPOINTS['2xl']),
+    tablet: parseInt(BREAKPOINTS.sm, 10),
+    desktop: parseInt(BREAKPOINTS.lg, 10),
+    wide: parseInt(BREAKPOINTS['2xl'], 10),
   };
 
   return `@media (${direction}-width: ${widths[breakpoint]}px)`;

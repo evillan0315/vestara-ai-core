@@ -202,7 +202,7 @@ async function main() {
     console.log('line metadata preserved:', proof.comparison.lineMetadataPreserved);
     console.log('content preserved:', proof.comparison.contentPreserved);
   }
-  console.log('resulting file:\n' + proof.actualResultFile);
+  console.log(`resulting file:\n${proof.actualResultFile}`);
 
   const outPath = join(REPO, 'docs', 'blueprint', 'GA-UX-PREMIUM-M3.1-live-evidence.json');
   writeFileSync(outPath, `${JSON.stringify(proof, null, 2)}\n`, 'utf8');

@@ -16,7 +16,7 @@ import type { Conversation, Message, ToolObservation } from '../src/index.js';
 
 // ─── Test Helpers ───────────────────────────────────────────
 
-function makeConversation(messages: Message[] = []): Conversation {
+function _makeConversation(messages: Message[] = []): Conversation {
   return {
     id: 'conv-test-1',
     userId: 'user-1',
@@ -141,7 +141,7 @@ describe('GA-CTX-001: Tool Observation Continuity', () => {
       const obs = makeToolObservation({
         toolCallId: 'tc-large',
         toolName: 'filesystem.read',
-        content: largeContent.slice(0, 2000) + '… [truncated, 5000 chars total]',
+        content: `${largeContent.slice(0, 2000)}… [truncated, 5000 chars total]`,
       });
 
       expect(obs.content.length).toBeLessThanOrEqual(2100);

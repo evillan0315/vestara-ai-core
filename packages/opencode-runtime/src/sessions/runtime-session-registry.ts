@@ -24,7 +24,6 @@
 import type {
   ContinuityPolicy,
   MaxPhysicalSessions,
-  RepositoryBindingId,
   RuntimeSessionAcquisitionInput,
   RuntimeSessionAcquisitionResult,
   RuntimeSessionBinding,
@@ -106,7 +105,7 @@ export const DEFAULT_MAX_PHYSICAL_SESSIONS: MaxPhysicalSessions = 1;
  * This enforces M5's invariant: OpenCode server CWD must never become
  * repository authority.
  */
-function validateDirectory(directory: string, expectedCanonicalPath: string): void {
+function _validateDirectory(directory: string, expectedCanonicalPath: string): void {
   if (directory !== expectedCanonicalPath) {
     throw new Error(
       `M7 INVARIANT VIOLATION: Session directory "${directory}" does not match ` +

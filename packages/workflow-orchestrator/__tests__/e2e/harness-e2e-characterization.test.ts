@@ -27,7 +27,7 @@ import { FilesystemRuntime } from '@vestara/filesystem-runtime';
 import type { AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemWriteTool, type ToolRuntime } from '@vestara/tool-runtime';
-import type { AgentEnvironment, AgentEnvironmentId, HarnessVerificationResult, TaskThreadId } from '@vestara/types';
+import type { AgentEnvironment, AgentEnvironmentId } from '@vestara/types';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 // ─── Constants ────────────────────────────────────────────────
@@ -456,7 +456,7 @@ describe('ARX-015 E2E CHARACTERIZATION — Live OpenCode Server', () => {
   let instrumentedClient: InstrumentedLiveClient;
   let provider: LiveProvider;
   let workspaceRoot: string;
-  let environment: AgentEnvironment;
+  let _environment: AgentEnvironment;
 
   beforeAll(async () => {
     const { OpenCodeHttpClient, resolveOpenCodeConfig } = await import('@vestara/opencode-runtime');
@@ -469,7 +469,7 @@ describe('ARX-015 E2E CHARACTERIZATION — Live OpenCode Server', () => {
     workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), `vestara-e2e-live-${E2E_RUN_ID}`));
     fs.writeFileSync(path.join(workspaceRoot, 'package.json'), JSON.stringify({ name: 'e2e-test', version: '1.0.0' }));
 
-    environment = {
+    _environment = {
       id: `env-live-${E2E_RUN_ID}` as AgentEnvironmentId,
       kind: 'local',
       workspaceRoot,
@@ -555,7 +555,7 @@ class InstrumentedLiveClient {
   }
 
   async createSession(input: LiveCreateInput, context: LiveRequestContext, signal?: AbortSignal): Promise<LiveSession> {
-    if (context.directory && context.directory.includes('.vestara')) {
+    if (context.directory?.includes('.vestara')) {
       throw new Error(
         `FAIL FAST: OpenCode session directory is .vestara (${context.directory}). ` +
           `Repository authority remediation is a prerequisite. ` +

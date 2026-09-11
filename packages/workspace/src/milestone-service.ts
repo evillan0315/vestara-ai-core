@@ -418,7 +418,8 @@ const MILESTONES: Milestone[] = [
     name: 'Provider/Model Configuration Convergence',
     era: 'Dashboard',
     status: 'completed',
-    description: 'OpenCode /config/providers → Vestara config endpoints, API keys stripped, backward-compatible /api/providers',
+    description:
+      'OpenCode /config/providers → Vestara config endpoints, API keys stripped, backward-compatible /api/providers',
   },
   {
     version: 'GA-DETACH-001',
@@ -432,7 +433,8 @@ const MILESTONES: Milestone[] = [
     name: 'Conversation Message Loading State',
     era: 'Dashboard',
     status: 'pending',
-    description: 'Explicit empty/loading/loaded/error distinction, contextual suggestion contract, presentation must not own recommendation intelligence',
+    description:
+      'Explicit empty/loading/loaded/error distinction, contextual suggestion contract, presentation must not own recommendation intelligence',
   },
   {
     version: 'PERF-001B',
@@ -453,14 +455,16 @@ const MILESTONES: Milestone[] = [
     name: 'Premium Diagnostic Center',
     era: 'Dashboard',
     status: 'pending',
-    description: 'Luxury dark-chamber design with instrument-precision gauges, contextual intelligence, and @vestara/ui components',
+    description:
+      'Luxury dark-chamber design with instrument-precision gauges, contextual intelligence, and @vestara/ui components',
   },
   {
     version: 'v7.14',
     name: 'Premium Marketplace Gallery',
     era: 'Dashboard',
     status: 'pending',
-    description: 'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
+    description:
+      'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
   },
   // Quality Era (late)
   {

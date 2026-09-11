@@ -868,6 +868,26 @@
   color: var(--ar-ink-muted);
 }
 
+.ar-stream-filter__search {
+  width: 140px;
+  padding: 0.25rem 0.5rem;
+  font-size: 11px;
+  color: var(--ar-ink);
+  background: var(--ar-surface-sunken);
+  border: 1px solid var(--ar-hairline);
+  border-radius: 6px;
+  outline: none;
+  transition: border-color 0.15s ease;
+}
+
+.ar-stream-filter__search::placeholder {
+  color: var(--ar-ink-dim);
+}
+
+.ar-stream-filter__search:focus {
+  border-color: var(--ar-gold);
+}
+
 /* ── Stream items ───────────────────────────────────────────── */
 
 .ar-item {

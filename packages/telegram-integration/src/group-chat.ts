@@ -213,7 +213,7 @@ export class TelegramGroupChatHandler {
     replyToMessageId?: string;
     mentionedUsernames?: string[];
   }): GroupMessageContext {
-    const chat = this.groupChats.get(params.chatId);
+    const _chat = this.groupChats.get(params.chatId);
 
     // Detect bot mention
     const botMentioned = params.mentionedUsernames?.includes(this.config.botUsername) ?? false;
@@ -313,7 +313,7 @@ export class TelegramGroupChatHandler {
 
   // ─── Internal Methods ───────────────────────────────────────
 
-  private isReplyToBotMessage(chatId: string, replyToMessageId: string): boolean {
+  private isReplyToBotMessage(_chatId: string, _replyToMessageId: string): boolean {
     // In production, would check if the replied-to message was from the bot
     // For now, return false as we don't track all messages
     return false;

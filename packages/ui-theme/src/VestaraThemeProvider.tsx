@@ -20,10 +20,10 @@
 
 import {
   ACCENT_PALETTES,
-  DARK_THEME,
-  LIGHT_THEME,
   type AccentColorTheme,
   type AccentPalette,
+  DARK_THEME,
+  LIGHT_THEME,
   type Theme,
 } from '@vestara/ui-tokens';
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
@@ -138,11 +138,7 @@ export interface VestaraThemeProviderProps {
   initialAccent?: AccentColorTheme;
 }
 
-export function VestaraThemeProvider({
-  children,
-  initialMode,
-  initialAccent,
-}: VestaraThemeProviderProps) {
+export function VestaraThemeProvider({ children, initialMode, initialAccent }: VestaraThemeProviderProps) {
   const [mode, setModeState] = useState<ThemeMode>(initialMode ?? getStoredMode);
   const [accentTheme, setAccentThemeState] = useState<AccentColorTheme>(initialAccent ?? getStoredAccent);
 
@@ -196,9 +192,5 @@ export function VestaraThemeProvider({
     [resolved, mode, setMode, toggle, accentTheme, setAccentTheme, theme],
   );
 
-  return (
-    <VestaraThemeContext.Provider value={state}>
-      {children}
-    </VestaraThemeContext.Provider>
-  );
+  return <VestaraThemeContext.Provider value={state}>{children}</VestaraThemeContext.Provider>;
 }

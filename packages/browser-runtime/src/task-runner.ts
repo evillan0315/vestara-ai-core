@@ -71,7 +71,7 @@ const DEFAULT_EXECUTORS: Record<BrowserStepAction, BrowserStepExecutor> = {
     return { url: result.url, title: result.title };
   },
 
-  async observe(step, session, key, signal) {
+  async observe(_step, session, key, signal) {
     const result = await session.observe(key, signal);
     return {
       observationId: result.observationId,
@@ -127,32 +127,32 @@ const DEFAULT_EXECUTORS: Record<BrowserStepAction, BrowserStepExecutor> = {
     return { direction, amount };
   },
 
-  async wait(step, session, key, signal) {
+  async wait(_step, session, key, signal) {
     const result = await session.waitForNavigation(key, signal);
     return { url: result.url, title: result.title };
   },
 
-  async back(step, session, key, signal) {
+  async back(_step, session, key, signal) {
     const result = await session.back(key, signal);
     return { url: result.url, title: result.title };
   },
 
-  async forward(step, session, key, signal) {
+  async forward(_step, session, key, signal) {
     const result = await session.forward(key, signal);
     return { url: result.url, title: result.title };
   },
 
-  async reload(step, session, key, signal) {
+  async reload(_step, session, key, signal) {
     const result = await session.reload(key, signal);
     return { url: result.url, title: result.title };
   },
 
-  async screenshot(step, session, key, signal) {
+  async screenshot(_step, session, key, signal) {
     const result = await session.screenshot(key, signal);
     return { url: result.url, width: result.width, height: result.height, size: result.bytes.byteLength };
   },
 
-  async extract(step, session, key, signal) {
+  async extract(_step, session, key, signal) {
     const result = await session.snapshot(key, signal);
     return { url: result.url, title: result.title, text: result.text };
   },

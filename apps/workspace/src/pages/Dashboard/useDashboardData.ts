@@ -29,14 +29,6 @@ export interface DashboardData {
   workflowProjections: WorkflowProjection[];
   projects: Record<string, unknown>[];
   sprints: { sprints: Record<string, unknown>[]; active: Record<string, unknown>[] };
-  logEvents: Array<{
-    id: string;
-    timestamp: string;
-    category: string;
-    type: string;
-    message: string;
-    actor: { name: string };
-  }>;
   loading: boolean;
   error: string | null;
   lastRefresh: string;
@@ -83,9 +75,6 @@ export function useDashboardData(): DashboardData {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState(new Date().toISOString());
-  const [logEvents, setLogEvents] = useState<
-    Array<{ id: string; timestamp: string; category: string; type: string; message: string; actor: { name: string } }>
-  >([]);
 
   const { connected, events } = useEventStream();
 
@@ -104,10 +93,9 @@ export function useDashboardData(): DashboardData {
       fetch('/api/sprints').then((r) => (r.ok ? r.json() : { sprints: [], active: [] })),
       fetch('/api/sessions/executions').then((r) => (r.ok ? r.json() : { sessions: [] })),
       fetch('/api/workflows').then((r) => (r.ok ? r.json() : { workflows: [] })),
-      fetch('/api/activity-log').then((r) => (r.ok ? r.json() : { events: [] })),
       fetch('/api/agent-threads').then((r) => (r.ok ? r.json() : { threads: [] })),
     ])
-      .then(([w, a, pl, sug, wf, ms, ex, h, pjs, sps, exs, wfs, logs, ths]) => {
+      .then(([w, a, pl, sug, wf, ms, ex, h, pjs, sps, exs, wfs, ths]) => {
         if (w) setWorkspace(w);
         setAgents(a);
         setPlans(pl);
@@ -119,7 +107,6 @@ export function useDashboardData(): DashboardData {
         if (sps) setSprints(sps);
         if (exs) setExecSessions(exs.sessions ?? []);
         if (wfs) setWorkflows(wfs.workflows ?? []);
-        if (logs?.events) setLogEvents(logs.events.slice(0, 5));
         if (ths?.threads) setHarnessThreads(ths.threads ?? []);
         setLastRefresh(now);
       })
@@ -149,7 +136,17 @@ export function useDashboardData(): DashboardData {
         return data?.projection ?? null;
       }),
     ).then((projections) => {
-      if (!cancelled) setWorkflowProjections(projections.filter((item): item is WorkflowProjection => item !== null));
+      if (!cancelled) {
+        // Deduplicate by workflowId — multiple sessions may map to the same workflow.
+        const seen = new Set<string>();
+        const unique = projections.filter((item): item is WorkflowProjection => {
+          if (item === null) return false;
+          if (seen.has(item.workflowId)) return false;
+          seen.add(item.workflowId);
+          return true;
+        });
+        setWorkflowProjections(unique);
+      }
     });
     return () => {
       cancelled = true;
@@ -237,7 +234,6 @@ export function useDashboardData(): DashboardData {
     workflowProjections,
     projects,
     sprints,
-    logEvents,
     loading,
     error,
     lastRefresh,

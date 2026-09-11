@@ -8,12 +8,11 @@
  * This is a projection layer — never an orchestration authority.
  */
 
-import type { ActivityActor, MembershipState, WorkflowRunId, WorkflowTaskId, WorkState } from '@vestara/types';
+import type { MembershipState, WorkState } from '@vestara/types';
 import type { ActivityCursor, ActivityRecord } from './m9-types';
 import type {
   ActivityRoomProjection,
   AttentionEntry,
-  AttentionSeverity,
   ContextualCapabilities,
   ParticipantProjection,
   StreamImportance,
@@ -487,7 +486,7 @@ export class ProjectionRuntime {
     }
 
     // Deduplicate interaction attention: at most one unacknowledged per interactionId
-    if (attention && attention.interactionId) {
+    if (attention?.interactionId) {
       const dup = this.attention.find(
         (a) => a.interactionId === attention.interactionId && a.reason === attention.reason && !a.acknowledged,
       );
@@ -512,9 +511,7 @@ export class ProjectionRuntime {
       const data = record.payload.data as Record<string, unknown> | undefined;
       const interactionId = typeof data?.interactionId === 'string' ? data.interactionId : undefined;
       if (interactionId) {
-        const toResolve = this.attention.find(
-          (a) => a.interactionId === interactionId && !a.acknowledged,
-        );
+        const toResolve = this.attention.find((a) => a.interactionId === interactionId && !a.acknowledged);
         if (toResolve) {
           const idx = this.attention.indexOf(toResolve);
           this.attention[idx] = { ...toResolve, acknowledged: true };
@@ -591,16 +588,6 @@ export class ProjectionRuntime {
       default:
         return undefined;
     }
-  }
-
-  private severityRank(s: AttentionSeverity): number {
-    const ranks: Record<AttentionSeverity, number> = {
-      critical: 4,
-      high: 3,
-      medium: 2,
-      low: 1,
-    };
-    return ranks[s];
   }
 
   // ─── Contextual Capabilities ──────────────────────────────

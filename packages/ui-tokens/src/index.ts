@@ -35,13 +35,17 @@ export {
   LIGHT_THEME,
   THEMES,
 } from './themes.js';
+export type {
+  AccentColorTheme,
+  AccentPalette,
+} from './tokens.js';
 export {
   ACCENT,
   ACCENT_PALETTES,
-  DEFAULT_ACCENT_THEME,
   BORDER,
   BREAKPOINTS,
   COLOR,
+  DEFAULT_ACCENT_THEME,
   DENSITY,
   ELEVATION,
   MOTION,
@@ -53,8 +57,4 @@ export {
   TEXT,
   TYPOGRAPHY,
   Z_INDEX,
-} from './tokens.js';
-export type {
-  AccentColorTheme,
-  AccentPalette,
 } from './tokens.js';

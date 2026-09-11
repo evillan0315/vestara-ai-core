@@ -26,11 +26,11 @@ import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
 import { handleBrowserRoute } from './routes/browser';
+import { handleCatalogRoute } from './routes/catalog';
 import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
-import { handleCatalogRoute } from './routes/catalog';
 import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
@@ -56,6 +56,7 @@ import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
 import { handleThemeBuilderRoute } from './routes/settings-theme-builder';
 import { handleTeamsRoute } from './routes/teams';
+import { handleTelegramRoute } from './routes/telegram';
 import { handleTelemetryRoute } from './routes/telemetry';
 import { handleTuiRoute } from './routes/tui';
 import { handleVerifierRoute } from './routes/verifier';
@@ -64,7 +65,6 @@ import { handleWorkersRoute } from './routes/workers';
 import { handleWorkflowRoute } from './routes/workflow';
 import { handleWorkspaceRoute } from './routes/workspace';
 import { handleWorktreeRoute } from './routes/worktrees';
-import { handleTelegramRoute } from './routes/telegram';
 import type { WorkspaceContext } from './workspace-context';
 
 /** Default overall HTTP request deadline (overridden by streaming routes). */

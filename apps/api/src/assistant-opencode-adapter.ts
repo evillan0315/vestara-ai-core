@@ -168,7 +168,7 @@ function deriveSessionTitle(userText: string): string {
  * name/id are descriptive identity. Selection label is display data only.
  */
 function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceContext']): string | undefined {
-  if (!surfaceContext || !surfaceContext.surface || !surfaceContext.workspace) return undefined;
+  if (!surfaceContext?.surface || !surfaceContext.workspace) return undefined;
   const { workspace, surface, selected } = surfaceContext;
   const lines = ['Current Vestara application context:', `Workspace: ${workspace.name}`];
   if (surface.section) lines.push(`Section: ${surface.section}`);
@@ -368,7 +368,10 @@ export async function* runAssistantOpenCodeTurn(
             if (detail.state === 'running') {
               toolCallCount++;
               const budgetError = checkBudget();
-              if (budgetError) { yield chunk('error', sequence++, { content: budgetError }); break; }
+              if (budgetError) {
+                yield chunk('error', sequence++, { content: budgetError });
+                break;
+              }
               yield chunk('tool_call', sequence++, { name: detail.tool, detail });
             } else {
               yield chunk('tool_result', sequence++, {
@@ -386,7 +389,10 @@ export async function* runAssistantOpenCodeTurn(
           if (detail && detail.kind === 'tool') {
             toolCallCount++;
             const budgetError = checkBudget();
-            if (budgetError) { yield chunk('error', sequence++, { content: budgetError }); break; }
+            if (budgetError) {
+              yield chunk('error', sequence++, { content: budgetError });
+              break;
+            }
             yield chunk('tool_call', sequence++, { name: detail.tool, detail });
           }
           break;

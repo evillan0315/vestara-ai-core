@@ -53,8 +53,8 @@ export class OpenViduMediaServer implements MediaServer {
   readonly provider = 'openvidu';
   readonly version = '2.25.0';
 
-  private readonly transport: OpenViduTransport;
   private readonly config: OpenViduConfig;
+  private readonly transport: OpenViduTransport;
 
   /** In-memory session registry (Vestara domain objects). */
   private readonly sessions = new Map<string, MediaSession>();
@@ -134,7 +134,7 @@ export class OpenViduMediaServer implements MediaServer {
     if (local?.externalSessionId) {
       try {
         // Sync with provider
-        const response = await this.transport.request<OpenViduSessionResponse>(
+        const _response = await this.transport.request<OpenViduSessionResponse>(
           'GET',
           OPENVIDU_PATHS.sessionById(local.externalSessionId),
         );

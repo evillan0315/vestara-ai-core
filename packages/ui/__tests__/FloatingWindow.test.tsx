@@ -115,7 +115,7 @@ describe('API surface', () => {
       useFloatingWindowManager,
     };
 
-    for (const [name, value] of Object.entries(exports)) {
+    for (const [_name, value] of Object.entries(exports)) {
       expect(value).toBeDefined();
       expect(typeof value).toBe('function');
     }

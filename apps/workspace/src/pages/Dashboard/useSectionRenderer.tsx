@@ -98,7 +98,7 @@ export function useSectionRenderer({
             dragSection={dragSection}
           />
         ),
-        'recent-activity': () => <RecentActivitySection logEvents={data.logEvents} dragSection={dragSection} />,
+        'recent-activity': () => <RecentActivitySection logEvents={[]} dragSection={dragSection} />,
       };
 
       const renderer = renderers[id];

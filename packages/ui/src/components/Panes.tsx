@@ -169,13 +169,16 @@ export function SplitPane({
 
       {/* Divider */}
       {resizable && (
-        <div
+        <button
+          type="button"
           className={`
             shrink-0 bg-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-accent-primary)]/30
             transition-colors duration-100
             ${direction === 'horizontal' ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize'}
           `}
+          aria-label={`Resize ${direction === 'horizontal' ? 'horizontal' : 'vertical'}`}
           onMouseDown={handleMouseDown}
+          tabIndex={0}
         />
       )}
 

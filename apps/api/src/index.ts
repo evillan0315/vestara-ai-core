@@ -98,7 +98,7 @@ async function main(): Promise<void> {
   // ARX-015: Agent lifecycle bridge — maps harness.* → canonical agent:started/completed
   // for M9 ingestion. Resolves model metadata from AgentStorage so participants
   // display the assigned model name rather than a generic role label.
-  const unsubAgentLifecycle = createAgentLifecycleBridge({
+  const _unsubAgentLifecycle = createAgentLifecycleBridge({
     eventBus: ctx.kernel.eventBus,
     agentModelResolver: {
       async resolve({ agentId }) {

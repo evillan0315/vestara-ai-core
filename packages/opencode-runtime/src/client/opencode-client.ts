@@ -24,7 +24,6 @@ import type {
   OpenCodePathInfo,
   OpenCodeProject,
   OpenCodeProviderSummary,
-  OpenCodeQuestionInfo,
   OpenCodeQuestionReply,
   OpenCodeQuestionRequest,
   OpenCodeRequestContext,

@@ -11,7 +11,7 @@
  * @see apps/workspace/src/components/ui/agents/ProviderModelPicker.tsx (legacy)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // ── Types (matches GET /api/opencode/config/providers response contract) ────
 
@@ -50,6 +50,12 @@ export interface SelectorProvider {
 interface ConfigProvidersResponse {
   readonly providers: SelectorProvider[];
   readonly default: Record<string, string>;
+  readonly pagination?: {
+    readonly total: number;
+    readonly offset: number;
+    readonly limit: number;
+    readonly hasMore: boolean;
+  };
 }
 
 // ── Component Props ────────────────────────────────────────────────────────
@@ -80,6 +86,9 @@ const FETCH_CACHE_MS = 30_000;
 /** Debounce delay for search queries (ms). */
 const SEARCH_DEBOUNCE_MS = 200;
 
+/** Page size for server-side pagination. */
+const PAGE_SIZE = 50;
+
 // ── Cache ──────────────────────────────────────────────────────────────────
 
 const providerCache = new Map<string, { data: ConfigProvidersResponse; timestamp: number }>();
@@ -100,7 +109,7 @@ function setCache(key: string, data: ConfigProvidersResponse): void {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export function ProviderModelSelector({
+export const ProviderModelSelector = memo(function ProviderModelSelector({
   value,
   onChange,
   disabled = false,
@@ -114,6 +123,13 @@ export function ProviderModelSelector({
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [focusIndex, setFocusIndex] = useState(-1);
+  const [pagination, setPagination] = useState<{
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  } | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
@@ -122,44 +138,83 @@ export function ProviderModelSelector({
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // ── Fetch configured providers from OpenCode ──
-  const fetchProviders = useCallback(async () => {
-    const cacheKey = 'config-providers';
-    const cached = getCached(cacheKey);
-    if (cached) {
-      setProviders(cached.providers);
-      setDefaults(cached.default);
-      return;
-    }
+  const fetchProviders = useCallback(
+    async (offset = 0, append = false) => {
+      const cacheKey = `config-providers-${search}-${offset}`;
+      if (!search && !append) {
+        const cached = getCached(cacheKey);
+        if (cached) {
+          setProviders(cached.providers);
+          setDefaults(cached.default);
+          setPagination(cached.pagination ?? null);
+          return;
+        }
+      }
 
-    abortControllerRef.current?.abort();
-    const controller = new AbortController();
-    abortControllerRef.current = controller;
+      abortControllerRef.current?.abort();
+      const controller = new AbortController();
+      abortControllerRef.current = controller;
 
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch('/api/opencode/config/providers', { signal: controller.signal });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const data: ConfigProvidersResponse = await res.json();
-      setProviders(data.providers);
-      setDefaults(data.default);
-      setCache(cacheKey, data);
-    } catch (err: unknown) {
-      if (err instanceof DOMException && err.name === 'AbortError') return;
-      setError(err instanceof Error ? err.message : 'Failed to load providers');
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+      if (append) {
+        setLoadingMore(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String(offset),
+        });
+        if (search) params.set('q', search);
+
+        const res = await fetch(`/api/opencode/config/providers?${params}`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ConfigProvidersResponse = await res.json();
+
+        if (append) {
+          // Merge new providers with existing ones
+          setProviders((prev) => {
+            const merged = [...prev];
+            for (const newProv of data.providers) {
+              const existing = merged.find((p) => p.id === newProv.id);
+              if (existing) {
+                // Append new models to existing provider
+                existing.models.push(...newProv.models);
+              } else {
+                merged.push(newProv);
+              }
+            }
+            return merged;
+          });
+        } else {
+          setProviders(data.providers);
+          setDefaults(data.default);
+        }
+
+        setPagination(data.pagination ?? null);
+        if (!search) setCache(cacheKey, data);
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setError(err instanceof Error ? err.message : 'Failed to load providers');
+      } finally {
+        setLoading(false);
+        setLoadingMore(false);
+      }
+    },
+    [search],
+  );
 
   // Fetch on open
   useEffect(() => {
     if (open) {
-      void fetchProviders();
+      void fetchProviders(0, false);
       setTimeout(() => searchRef.current?.focus(), 0);
     } else {
       setSearch('');
       setFocusIndex(-1);
+      setProviders([]);
+      setPagination(null);
       abortControllerRef.current?.abort();
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     }
@@ -167,7 +222,7 @@ export function ProviderModelSelector({
 
   // Fetch on mount so availability check works before first dropdown open
   useEffect(() => {
-    void fetchProviders();
+    void fetchProviders(0, false);
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup on unmount
@@ -194,17 +249,35 @@ export function ProviderModelSelector({
     [availableModels, value.modelId],
   );
 
-  // ── Search (client-side, scoped to selected provider) ──
-  const filteredModels = useMemo(() => {
-    if (!search.trim()) return availableModels;
-    const q = search.toLowerCase();
-    return availableModels.filter(
-      (m) =>
-        m.id.toLowerCase().includes(q) ||
-        m.name.toLowerCase().includes(q) ||
-        m.family?.toLowerCase().includes(q),
-    );
-  }, [availableModels, search]);
+  // ── Models to display (server-side paginated) ──
+  const filteredModels = availableModels;
+
+  // ── Search (server-side with debounce) ──
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      setSearch(value);
+      setFocusIndex(-1);
+
+      // Debounce search
+      if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
+      searchTimerRef.current = setTimeout(() => {
+        void fetchProviders(0, false);
+      }, SEARCH_DEBOUNCE_MS);
+    },
+    [fetchProviders],
+  );
+
+  // ── Infinite scroll ──
+  const handleScroll = useCallback(() => {
+    const list = listRef.current;
+    if (!list || loadingMore || !pagination?.hasMore) return;
+
+    // Load more when scrolled to within 50px of the bottom
+    if (list.scrollTop + list.clientHeight >= list.scrollHeight - 50) {
+      const nextOffset = pagination.offset + pagination.limit;
+      void fetchProviders(nextOffset, true);
+    }
+  }, [loadingMore, pagination, fetchProviders]);
 
   // ── Keyboard navigation ──
   const handleKeyDown = useCallback(
@@ -337,10 +410,7 @@ export function ProviderModelSelector({
               ref={searchRef}
               type="text"
               value={search}
-              onChange={(e) => {
-                setSearch(e.target.value);
-                setFocusIndex(-1);
-              }}
+              onChange={(e) => handleSearchChange(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Search models..."
               role="combobox"
@@ -353,7 +423,13 @@ export function ProviderModelSelector({
           </div>
 
           {/* Model list */}
-          <div ref={listRef} id="provider-model-list" role="listbox" className="max-h-96 overflow-y-auto">
+          <div
+            ref={listRef}
+            id="provider-model-list"
+            role="listbox"
+            className="max-h-96 overflow-y-auto"
+            onScroll={handleScroll}
+          >
             {loading && (
               <div className="px-3 py-4 text-center text-[10px] text-(--vestara-text-dim)">Loading providers...</div>
             )}
@@ -363,7 +439,7 @@ export function ProviderModelSelector({
                 <p className="text-[10px] text-red-400 mb-2">{error}</p>
                 <button
                   type="button"
-                  onClick={() => void fetchProviders()}
+                  onClick={() => void fetchProviders(0, false)}
                   className="text-[10px] text-(--vestara-accent-text) hover:underline cursor-pointer"
                 >
                   Retry
@@ -436,6 +512,20 @@ export function ProviderModelSelector({
                   </button>
                 );
               })}
+
+            {/* Infinite scroll loading indicator */}
+            {loadingMore && (
+              <div className="px-3 py-2 text-center text-[10px] text-(--vestara-text-dim)">
+                Loading more models...
+              </div>
+            )}
+
+            {/* Pagination info */}
+            {!loading && !error && pagination && pagination.total > 0 && (
+              <div className="px-3 py-1.5 text-center text-[9px] text-(--vestara-text-dim) border-t border-(--vestara-accent-border)">
+                Showing {filteredModels.length} of {pagination.total} models
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -444,4 +534,4 @@ export function ProviderModelSelector({
       {open && <div className="fixed inset-0 z-[90]" onClick={() => setOpen(false)} />}
     </div>
   );
-}
+});

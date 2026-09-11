@@ -108,7 +108,7 @@ export class WebRTCAudioCaptureProvider implements SpeakerCaptureProvider {
   async getDevices(): Promise<Array<{ id: string; name: string; isDefault: boolean }>> {
     if (!this.source) return [];
     const tracks = this._getAudioTracks();
-    return tracks.map((track, i) => ({
+    return tracks.map((_track, i) => ({
       id: `webrtc-track-${i}`,
       name: `WebRTC Audio Track ${i + 1}`,
       isDefault: i === 0,
@@ -456,7 +456,7 @@ export class MultiSourceAudioCapture {
    * Stop capturing from all sources.
    */
   async stopAll(): Promise<void> {
-    for (const [id, source] of this.sources) {
+    for (const [_id, source] of this.sources) {
       try {
         await source.stopCapture();
       } catch {

@@ -25,7 +25,7 @@ import type {
   OpenCodeSession,
   SendOpenCodeMessageAsyncInput,
 } from '@vestara/opencode-runtime';
-import type { AIProvider, CompletionRequest, CompletionResponse } from '@vestara/shared';
+import type { AIProvider } from '@vestara/shared';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 const REPOSITORY_DIR = '/home/user/projects/vestara/vestara-ai-core';
@@ -76,7 +76,7 @@ class InstrumentedClient implements OpenCodeClient {
     signal?: AbortSignal,
   ): Promise<OpenCodeSession> {
     // FAIL FAST: directory must not be .vestara
-    if (context.directory && context.directory.includes('.vestara')) {
+    if (context.directory?.includes('.vestara')) {
       throw new Error(
         `FAIL FAST: directory is .vestara (${context.directory}). ` +
           `Repository authority remediation is a prerequisite.`,
@@ -356,7 +356,7 @@ describe('ARX-015 LIVE — OpenCode Session Cardinality', () => {
 
   let client: InstrumentedClient;
   let provider: AIProvider;
-  let workspaceRoot: string;
+  let _workspaceRoot: string;
 
   beforeAll(async () => {
     // Dynamic imports to avoid loading OpenCode modules when server is not available
@@ -367,7 +367,7 @@ describe('ARX-015 LIVE — OpenCode Session Cardinality', () => {
     const inner = new OpenCodeHttpClient(config);
     client = new InstrumentedClient(inner);
 
-    workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), `vestara-live-${E2E_RUN_ID}`));
+    _workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), `vestara-live-${E2E_RUN_ID}`));
 
     provider = new OpenCodeRuntimeProvider({
       client: client as unknown as OpenCodeClient,

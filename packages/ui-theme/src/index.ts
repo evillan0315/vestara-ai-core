@@ -12,25 +12,24 @@
  *   @see docs/architecture/VES-DESIGN-002-CANONICAL-TOKEN-CONTRACT.md
  */
 
-export {
-  VestaraThemeProvider,
-  useVestaraTheme,
-} from './VestaraThemeProvider.js';
-export type {
-  VestaraThemeProviderProps,
-  VestaraThemeState,
-  ThemeMode,
-} from './VestaraThemeProvider.js';
-
-// Re-export canonical tokens for convenience
-export {
-  ACCENT_PALETTES,
-  DEFAULT_ACCENT_THEME,
-  DARK_THEME,
-  LIGHT_THEME,
-} from '@vestara/ui-tokens';
 export type {
   AccentColorTheme,
   AccentPalette,
   Theme,
 } from '@vestara/ui-tokens';
+// Re-export canonical tokens for convenience
+export {
+  ACCENT_PALETTES,
+  DARK_THEME,
+  DEFAULT_ACCENT_THEME,
+  LIGHT_THEME,
+} from '@vestara/ui-tokens';
+export type {
+  ThemeMode,
+  VestaraThemeProviderProps,
+  VestaraThemeState,
+} from './VestaraThemeProvider.js';
+export {
+  useVestaraTheme,
+  VestaraThemeProvider,
+} from './VestaraThemeProvider.js';

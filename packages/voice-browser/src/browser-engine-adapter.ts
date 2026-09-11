@@ -153,7 +153,7 @@ export class BrowserEngineAdapter implements BrowserEngine {
     }
   }
 
-  async getText(selector?: string): Promise<string> {
+  async getText(_selector?: string): Promise<string> {
     const result = await this.session().snapshot(this.key(), this.options.signal);
     return result.text;
   }

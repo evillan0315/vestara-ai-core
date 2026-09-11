@@ -409,7 +409,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // The activation plan determines which capabilities are EAGER/LAZY/DISABLED.
   const { resolveRuntimeProfile, isCapabilityActive, isCapabilityDisabled } = await import('./runtime-profile.js');
   const { profile, plan } = resolveRuntimeProfile(process.env);
-  const isDogfood = profile.id === 'dogfood';
+  const _isDogfood = profile.id === 'dogfood';
   console.log(`[runtime-profile] resolved: ${profile.id} (${profile.name})`);
   console.log(`[runtime-profile] eager: ${plan.eager.length} capabilities`);
   console.log(`[runtime-profile] lazy: ${plan.lazy.length} capabilities`);
@@ -505,22 +505,24 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     ],
     services: [
       ...(hostRuntime
-        ? [{
-            service: runtimeService(hostRuntime, '0.1.0'),
-            capabilities: [...hostRuntime.capabilities],
-            dependencies: ['kernel'],
-          }]
+        ? [
+            {
+              service: runtimeService(hostRuntime, '0.1.0'),
+              capabilities: [...hostRuntime.capabilities],
+              dependencies: ['kernel'],
+            },
+          ]
         : []),
       ...(bootRuntime
-        ? [{
-            service: runtimeService(bootRuntime, '0.1.0'),
-            capabilities: [...bootRuntime.capabilities],
-            dependencies: ['host-runtime'],
-          }]
+        ? [
+            {
+              service: runtimeService(bootRuntime, '0.1.0'),
+              capabilities: [...bootRuntime.capabilities],
+              dependencies: ['host-runtime'],
+            },
+          ]
         : []),
-      ...(browserRuntime
-        ? [{ service: browserRuntime, capabilities: ['browser'], dependencies: ['kernel'] }]
-        : []),
+      ...(browserRuntime ? [{ service: browserRuntime, capabilities: ['browser'], dependencies: ['kernel'] }] : []),
     ],
   });
   log('kernel-booted');

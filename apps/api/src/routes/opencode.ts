@@ -29,6 +29,7 @@ import {
 } from '@vestara/opencode-runtime';
 import { AuditAction, logAudit } from '../audit-log';
 import type { WorkspaceContext } from '../workspace-context';
+import { paginateConfiguredProviders } from './opencode-provider-pagination';
 import { json, readBody } from './types';
 
 let cachedConfig: ReturnType<typeof resolveOpenCodeConfig> | undefined;
@@ -118,27 +119,18 @@ export async function handleOpenCodeRoute(
 
   if (method === 'GET' && p === '/api/opencode/config/providers') {
     return withOpenCodeClient(res, async (client) => {
+      const url = new URL(_req.url ?? '', 'http://127.0.0.1');
       const config = await client.getConfigProviders();
-      // Normalize: strip API keys before sending to browser
-      const safeProviders = config.providers.map((prov) => ({
-        id: prov.id,
-        name: prov.name,
-        source: prov.source,
-        models: Object.values(prov.models).map((m) => ({
-          id: m.id,
-          name: m.name,
-          family: m.family,
-          status: m.status,
-          capabilities: m.capabilities,
-          cost: m.cost,
-          limit: m.limit,
-          api: m.api,
-          variants: m.variants,
-        })),
-      }));
+      // VES-PERF-001A: bounded transport — normalize (strip keys), filter, paginate.
+      const page = paginateConfiguredProviders(config.providers, {
+        limit: Number(url.searchParams.get('limit') ?? '50'),
+        offset: Number(url.searchParams.get('offset') ?? '0'),
+        search: url.searchParams.get('q') ?? '',
+      });
       json(res, 200, {
-        providers: safeProviders,
+        providers: page.providers,
         default: config.default,
+        pagination: page.pagination,
       });
     });
   }
@@ -309,14 +301,21 @@ export async function handleOpenCodeRoute(
     });
   }
 
+  // `/session/status` — singular form matching OpenCode's upstream endpoint.
+  if (method === 'GET' && p === '/api/opencode/session/status') {
+    return withOpenCodeClient(res, async (client) => {
+      json(res, 200, { status: await client.getSessionStatus(workspaceContext(_ctx)) });
+    });
+  }
+
   if (method === 'POST' && p === '/api/opencode/sessions') {
     return withOpenCodeClient(res, async (client) => {
       const raw = await readBody(_req);
       const body = parseJson(raw);
-      const directory = typeof body?.directory === 'string' ? body.directory : undefined;
+      const _directory = typeof body?.directory === 'string' ? body.directory : undefined;
       const title = typeof body?.title === 'string' ? body.title : undefined;
-      const agent = typeof body?.agent === 'string' ? body.agent : undefined;
-      const model =
+      const _agent = typeof body?.agent === 'string' ? body.agent : undefined;
+      const _model =
         body?.model && typeof body.model === 'object'
           ? (() => {
               const m = body.model as Record<string, unknown>;
@@ -607,7 +606,7 @@ export async function handleOpenCodeRoute(
   if (evidenceMatch && method === 'GET') {
     const sessionId = decodeURIComponent(evidenceMatch[1]);
     return withOpenCodeClient(res, async (client) => {
-      const workspaceId = workspaceIdOf(_ctx);
+      const _workspaceId = workspaceIdOf(_ctx);
       const ownership = await ensureSessionOwnership(sessionRegistry, client, sessionId, _ctx);
       if (!ownership.ok) throw ownership.error;
       const binding = sessionRegistry.get(sessionId);

@@ -1,18 +1,19 @@
 ---
 title: "VES-PERF-001 — Bounded Data Loading & UI Runtime Performance"
-version: 1.0.0
-status: audit-complete
+version: 1.1.0
+status: implemented
 owner: vestara
 recorded: 2026-09-11
 last-reviewed: 2026-09-11
-scope: "Zero-mutation audit. No code changes."
+scope: "Audit (v1.0) + bounded implementation PERF-001A–D. PERF-001E deferred pending profiling."
 ---
 
 # VES-PERF-001 — Bounded Data Loading & UI Runtime Performance
 
-**Status:** AUDIT COMPLETE — AWAITING AUTHORIZATION FOR IMPLEMENTATION
+**Status:** IMPLEMENTED — PERF-001A–D LANDED. PERF-001E DEFERRED PENDING PROFILING.
 
-**Scope:** Zero-mutation audit. No code changes during this phase.
+**Scope:** Bounded implementation across model discovery, conversation messages,
+conversation history, and streaming render isolation.
 
 **Motivation:** Significant UI degradation observed in the Floating/Global Assistant when opening Conversation History, conversations with substantial message history, Provider/Model selection, and loading/searching the model catalog. Similar risks may exist in Activity Room.
 
@@ -498,8 +499,25 @@ These may warrant separate investigation if profiling indicates they are contrib
 ## Status
 
 ```text
-AUDIT COMPLETE — IMPLEMENTATION AUTHORIZED IN BOUNDED STAGES
-Current stage: PERF-001A — Bounded Model Discovery
+IMPLEMENTED — PERF-001A–D LANDED
+Current stage: PERF-001E deferred pending profiling evidence
 ```
+
+### Implementation record (2026-09-11)
+
+| Stage | Change | Files |
+|-------|--------|-------|
+| **PERF-001A** | `GET /api/opencode/config/providers` gains `limit`/`offset`/`q`; pure `paginateConfiguredProviders` helper (allow-list projection, cap 100, search scoped); selector merges pages with infinite scroll and server-side debounced search; memoized | `apps/api/src/routes/opencode.ts`, `apps/api/src/routes/opencode-provider-pagination.ts`, `apps/workspace/src/components/ui/ProviderModelSelector.tsx` |
+| **PERF-001B** | `GET /api/conversations/:id` returns a bounded newest window (`limit` default 50, `order=desc`) with `_pagination`; store `getConversation` paginates and normalizes to chronological; `get()` stays unbounded; hook exposes `messagesPagination`, `loadingOlderMessages`, `loadOlderMessages`; panel prepends older windows with scroll-position preservation | `packages/conversation-runtime/src/conversation-store.ts`, `packages/conversation/src/index.ts`, `apps/api/src/routes/conversations.ts`, `apps/workspace/src/hooks/useAssistantConversation.ts`, `apps/workspace/src/components/assistant/ConversationPanel.tsx` |
+| **PERF-001C** | `GET /api/conversations` returns a bounded summary page (default 25) with `pagination`; store `listPage` + service `listConversationsPage`; history popover gains a "Load more" control | `packages/conversation-runtime/src/conversation-store.ts`, `packages/conversation/src/index.ts`, `apps/api/src/routes/conversations.ts`, `apps/workspace/src/hooks/useAssistantConversation.ts`, `apps/workspace/src/components/assistant/ConversationHistory.tsx` |
+| **PERF-001D** | Stable prop identities (`useMemo`/`useCallback`) before memoization; `React.memo` on `ComposeInput`, `ExecutionTray`, `PendingInteractions`, `ConversationHistory`, `ProviderModelSelector`; `useGAExecutionConfig` return stabilized; elapsed-time origin moved to a ref | `apps/workspace/src/components/assistant/ConversationPanel.tsx`, `ExecutionTray.tsx`, `ConversationHistory.tsx`, `apps/workspace/src/components/ui/ProviderModelSelector.tsx`, `apps/workspace/src/hooks/useGAExecutionConfig.ts` |
+| **PERF-001E** | Deferred. The audit gates this on React profiling demonstrating remaining cost; no new evidence was gathered. Large collapsed content is already lazy in existing surfaces. | — |
+
+### Invariants held
+
+- Persistence is not truncated. `store.get()` remains unbounded; `getConversation()` windows reads only.
+- Opening history never fetches message bodies (`listPage` is summary-only).
+- The in-memory conversation cache is never overwritten by a partial window.
+- Only allow-listed provider/model fields cross the browser boundary; secrets are not projected.
 
 Activity Room currently audits as bounded. Do not modify it without new evidence.

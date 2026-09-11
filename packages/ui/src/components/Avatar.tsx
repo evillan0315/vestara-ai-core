@@ -93,12 +93,13 @@ export function Avatar({
   return (
     <div
       className={`
-        ${sizeStyle.container} ${shapeStyle}
-        flex items-center justify-center
-        font-medium text-white
-        ${className}
-      `}
+          ${sizeStyle.container} ${shapeStyle}
+          flex items-center justify-center
+          font-medium text-white
+          ${className}
+        `}
       style={{ backgroundColor: color }}
+      role="img"
       aria-label={alt || initials || undefined}
     >
       {icon ? (

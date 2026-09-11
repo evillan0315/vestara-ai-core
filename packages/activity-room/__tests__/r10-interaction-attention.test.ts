@@ -9,8 +9,8 @@
  *   5. rebuild() produces equivalent attention state
  */
 
-import type { ActivityRecord, ActivityRecordId } from '../src/m9-types';
 import { describe, expect, it } from 'vitest';
+import type { ActivityRecord, ActivityRecordId } from '../src/m9-types';
 import { ProjectionRuntime } from '../src/m10-projection-runtime';
 
 // ─── Test Helpers ───────────────────────────────────────────
@@ -41,10 +41,7 @@ function makeInteractionPresentedRecord(interactionId: string, content = 'Approv
   };
 }
 
-function makeInteractionRespondedRecord(
-  interactionId: string,
-  selectedChoiceId = 'approve',
-): ActivityRecord {
+function makeInteractionRespondedRecord(interactionId: string, selectedChoiceId = 'approve'): ActivityRecord {
   return {
     activityId: `ar-${nextSeq++}` as ActivityRecordId,
     eventId: `interaction:responded:${interactionId}`,

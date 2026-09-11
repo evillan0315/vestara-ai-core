@@ -15,10 +15,8 @@
 import type {
   DiagnosticSeverity,
   DiagnosticSnapshot,
-  DiagnosticSourceHealth,
   ObserverConfidenceLevel,
   ObserverConfig,
-  ObserverEventType,
   ObserverFinding,
   ObserverFindingStatus,
   ObserverFindingStore,
@@ -47,9 +45,9 @@ import { DEFAULT_OBSERVER_CONFIG } from '@vestara/types';
  */
 export class Observer {
   private config: ObserverConfig;
-  private store: ObserverFindingStore;
   private findings: Map<string, ObserverFinding> = new Map();
   private unsubscribeFn: (() => void) | null = null;
+  readonly store: ObserverFindingStore;
 
   constructor(config: Partial<ObserverConfig> = {}, store?: ObserverFindingStore) {
     this.config = { ...DEFAULT_OBSERVER_CONFIG, ...config };
@@ -143,7 +141,6 @@ export class Observer {
         confidence = 0.4;
         description = `Warning detected in ${snapshot.source.name}`;
         break;
-      case 'info':
       default:
         confidence = 0.1;
         description = `Informational observation in ${snapshot.source.name}`;
@@ -162,7 +159,6 @@ export class Observer {
         confidence = Math.max(0, confidence - 0.3);
         description = `Source ${snapshot.source.name} is operating normally`;
         break;
-      case 'unknown':
       default:
         // Unknown health reduces confidence slightly
         confidence = Math.max(0, confidence - 0.1);
@@ -182,22 +178,6 @@ export class Observer {
     if (score >= 0.6) return 'high';
     if (score >= 0.3) return 'moderate';
     return 'low';
-  }
-
-  /**
-   * OBS-1: Convert a DiagnosticSeverity to an ObserverFindingStatus.
-   */
-  private severityToStatus(severity: DiagnosticSeverity): ObserverFindingStatus {
-    switch (severity) {
-      case 'critical':
-      case 'error':
-        return 'observation';
-      case 'warning':
-        return 'observation';
-      case 'info':
-      default:
-        return 'observation';
-    }
   }
 
   /**

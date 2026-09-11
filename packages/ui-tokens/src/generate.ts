@@ -19,8 +19,8 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DARK_THEME, LIGHT_THEME } from './themes.js';
 import { generateCSSVariables } from './css.js';
+import { DARK_THEME, LIGHT_THEME } from './themes.js';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const WORKSPACE_STYLES = path.resolve(HERE, '../../../apps/workspace/src/styles');

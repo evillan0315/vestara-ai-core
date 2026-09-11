@@ -48,6 +48,10 @@ export const COLOR = {
     running: '#4ade80',
     pending: '#f59e0b',
     disabled: '#52525b',
+    // GA-STATE-001: runtime session status tokens
+    active: '#4ade80', // busy/working — same as success/running
+    idle: '#71717a', // idle — neutral muted tone
+    unknown: '#52525b', // unknown — same as disabled
   },
 
   // Surface colors (VES-DESIGN-002 §P)
@@ -342,7 +346,16 @@ export const DENSITY = {
 
 // ─── Accent Palettes (VES-DESIGN-004) ─────────────────────────
 
-export type AccentColorTheme = 'gold' | 'amber' | 'emerald' | 'blue' | 'violet' | 'rose' | 'teal' | 'neutral' | 'orange';
+export type AccentColorTheme =
+  | 'gold'
+  | 'amber'
+  | 'emerald'
+  | 'blue'
+  | 'violet'
+  | 'rose'
+  | 'teal'
+  | 'neutral'
+  | 'orange';
 
 export interface AccentPalette {
   readonly label: string;

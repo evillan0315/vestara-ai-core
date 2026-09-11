@@ -15,14 +15,19 @@
  *   open; the parent optionally refreshes list metadata).
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type { OpenCodeSessionView } from '../../lib/opencode';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
+import type { OpenCodeSessionView, OpenCodeSessionViewStatus } from '../../lib/opencode';
 import { filterByTitle, groupConversations } from './conversationTitles';
+import { StatusIndicator } from '@vestara/ui';
+import type { SessionStatusMap } from '../../hooks/useSessionStatus';
+import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
 
 export interface HistoryItemData {
   id: string;
   displayTitle: string;
   updatedAt: string;
+  /** GA-STATE-001: OpenCode session ID for runtime status projection. */
+  runtimeSessionId?: string;
 }
 
 export type ActiveTurnState = 'idle' | 'generating' | 'failed';
@@ -52,6 +57,14 @@ export interface ConversationHistoryProps {
   onResumeSession?: (sessionId: string) => void;
   /** Callback when a session is clicked to load its messages. */
   onLoadSession?: (sessionId: string) => void;
+  /** GA-STATE-001: session status map for runtime status projection. */
+  sessionStatusMap?: SessionStatusMap;
+  /** VES-PERF-001C: more summary pages are available. */
+  hasMoreConversations?: boolean;
+  /** VES-PERF-001C: a further summary page is in flight. */
+  loadingMoreConversations?: boolean;
+  /** VES-PERF-001C: request the next summary page. */
+  onLoadMoreConversations?: () => void;
 }
 
 function formatTime(isoOrTimestamp: string): string {
@@ -60,7 +73,25 @@ function formatTime(isoOrTimestamp: string): string {
   return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ConversationHistory({
+/** GA-STATE-001: Map runtime status to StatusIndicator variant. */
+function runtimeStatusToVariant(
+  status: OpenCodeSessionViewStatus,
+  activeState: ActiveTurnState,
+): 'live' | 'warn' | 'error' | 'idle' | 'off' {
+  // If this is the selected conversation with an active turn, prefer the turn state.
+  if (activeState === 'generating') return 'live';
+  if (activeState === 'failed') return 'error';
+  // Otherwise, derive from runtime session status.
+  switch (status) {
+    case 'active': return 'live';
+    case 'idle': return 'idle';
+    case 'failed': return 'error';
+    case 'unknown':
+    default: return 'off';
+  }
+}
+
+export const ConversationHistory = memo(function ConversationHistory({
   items,
   selectedId,
   activeState,
@@ -72,6 +103,10 @@ export function ConversationHistory({
   runtimeSessions,
   onResumeSession,
   onLoadSession,
+  sessionStatusMap,
+  hasMoreConversations,
+  loadingMoreConversations,
+  onLoadMoreConversations,
 }: ConversationHistoryProps) {
   const [query, setQuery] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -261,6 +296,13 @@ export function ConversationHistory({
                 const isActive = item.id === selectedId;
                 const showGenerating = isActive && activeState === 'generating';
                 const showFailed = isActive && activeState === 'failed';
+                // GA-STATE-001: derive runtime status for this conversation.
+                const runtimeStatus = resolveSessionRuntimeStatus(sessionStatusMap ?? {}, item.runtimeSessionId);
+                const hasRuntimeStatus = item.runtimeSessionId && runtimeStatus !== 'unknown';
+                const statusVariant = runtimeStatusToVariant(runtimeStatus, isActive ? activeState : 'idle');
+                const statusLabel = hasRuntimeStatus
+                  ? (runtimeStatus === 'active' ? 'Active' : runtimeStatus === 'idle' ? 'Idle' : runtimeStatus === 'failed' ? 'Failed' : '')
+                  : '';
                 return (
                   <li key={item.id}>
                     <button
@@ -301,6 +343,13 @@ export function ConversationHistory({
                               ! failed
                             </span>
                           )}
+                          {/* GA-STATE-001: runtime status indicator */}
+                          {!showGenerating && !showFailed && hasRuntimeStatus && (
+                            <span className="inline-flex items-center gap-1 text-[10px] text-zinc-500">
+                              <StatusIndicator variant={statusVariant} size="xs" ariaLabel={`Status: ${statusLabel}`} />
+                              <span>{statusLabel}</span>
+                            </span>
+                          )}
                         </span>
                       </span>
                     </button>
@@ -310,6 +359,22 @@ export function ConversationHistory({
             </ul>
           </div>
         ))}
+
+        {/* VES-PERF-001C: bounded history — load the next summary page.
+            Hidden while searching (search filters the loaded page client-side). */}
+        {!query.trim() && hasMoreConversations && (
+          <div className="px-2 pt-2">
+            <button
+              type="button"
+              onClick={onLoadMoreConversations}
+              disabled={loadingMoreConversations}
+              data-testid="load-more-conversations"
+              className="w-full rounded-lg border border-zinc-700/50 bg-zinc-900/60 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:border-amber-500/40 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {loadingMoreConversations ? 'Loading…' : 'Load more'}
+            </button>
+          </div>
+        )}
 
         {/* GA-SESSION-003: runtime sessions for resume surface. Root sessions
             are primary resume targets; child sessions show lineage beneath
@@ -402,6 +467,6 @@ export function ConversationHistory({
       </div>
     </div>
   );
-}
+});
 
 export default ConversationHistory;

@@ -16,21 +16,20 @@
  *   VES-TG-001: Telegram Interaction Platform
  */
 
-import type * as http from 'node:http';
 import * as fs from 'node:fs';
+import type * as http from 'node:http';
 import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
+import type { ChannelMessage } from '@vestara/telegram-integration';
 import {
-  TelegramWebhookHandler,
-  TelegramPairingService,
-  TelegramWorkspaceBindingService,
-  TelegramConversationBindingService,
   GlobalAssistantTextRouter,
-  TelegramPersistentStore,
   TELEGRAM_MANIFEST,
-  normalizeTelegramUpdate,
+  TelegramConversationBindingService,
+  TelegramPairingService,
+  TelegramPersistentStore,
+  TelegramWebhookHandler,
+  TelegramWorkspaceBindingService,
 } from '@vestara/telegram-integration';
-import type { ChannelMessage, ExecutionResult } from '@vestara/telegram-integration';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -85,14 +84,10 @@ function getTextRouter(): GlobalAssistantTextRouter | null {
     textRouter = new GlobalAssistantTextRouter({
       backend: {
         sendMessage: async (conversationId, content, options) => {
-          const result = await workspaceContext!.conversationService.sendMessage(
-            conversationId,
-            content,
-            {
-              model: options?.model,
-              provider: options?.provider,
-            },
-          );
+          const result = await workspaceContext!.conversationService.sendMessage(conversationId, content, {
+            model: options?.model,
+            provider: options?.provider,
+          });
           return {
             executionId: `tg-exec-${Date.now()}`,
             success: true,
@@ -252,7 +247,7 @@ export async function handleTelegramRoute(
   res: http.ServerResponse,
   ctx: WorkspaceContext,
   _port: number,
-  url: URL,
+  _url: URL,
 ): Promise<boolean> {
   if (!p.startsWith('/api/telegram')) return false;
 

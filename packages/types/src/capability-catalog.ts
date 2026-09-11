@@ -13,11 +13,7 @@
  * Ownership: @vestara/types
  */
 
-import type {
-  CapabilityActivation,
-  CapabilityDescriptor,
-  CapabilityRequirement,
-} from './runtime-profile';
+import type { CapabilityActivation, CapabilityDescriptor, CapabilityRequirement } from './runtime-profile';
 
 // ─── Parking State ──────────────────────────────────────────
 
@@ -31,10 +27,10 @@ import type {
  *   - NOT deleted, deprecated, or unavailable
  */
 export type ParkingState =
-  | 'active'     // Part of the current runtime profile
-  | 'parked'     // Deliberately excluded from dogfood
+  | 'active' // Part of the current runtime profile
+  | 'parked' // Deliberately excluded from dogfood
   | 'experimental' // Available but not production-ready
-  | 'unknown';   // Insufficient evidence to classify
+  | 'unknown'; // Insufficient evidence to classify
 
 // ─── Capability Category ────────────────────────────────────
 
@@ -42,20 +38,20 @@ export type ParkingState =
  * High-level capability category for catalog organization.
  */
 export type CapabilityCategory =
-  | 'core'           // Kernel, infrastructure, shared services
-  | 'assistant'      // Global/Floating Assistant
-  | 'activity-room'  // Activity Room
-  | 'diagnostics'    // Runtime diagnostics
-  | 'execution'      // Workflow, task, agent execution
-  | 'provider'       // AI provider/model resolution
-  | 'tools'          // Tool capabilities (shell, git, browser, etc.)
-  | 'evidence'       // Evidence, verification, artifacts
-  | 'memory'         // Memory, knowledge, context
-  | 'integration'    // External integrations (Telegram, voice, etc.)
-  | 'ui'             // UI components, design system
-  | 'os'             // OS/boot/host runtime
-  | 'marketplace'    // Extension marketplace
-  | 'other';         // Uncategorized
+  | 'core' // Kernel, infrastructure, shared services
+  | 'assistant' // Global/Floating Assistant
+  | 'activity-room' // Activity Room
+  | 'diagnostics' // Runtime diagnostics
+  | 'execution' // Workflow, task, agent execution
+  | 'provider' // AI provider/model resolution
+  | 'tools' // Tool capabilities (shell, git, browser, etc.)
+  | 'evidence' // Evidence, verification, artifacts
+  | 'memory' // Memory, knowledge, context
+  | 'integration' // External integrations (Telegram, voice, etc.)
+  | 'ui' // UI components, design system
+  | 'os' // OS/boot/host runtime
+  | 'marketplace' // Extension marketplace
+  | 'other'; // Uncategorized
 
 // ─── Health Status ──────────────────────────────────────────
 
@@ -64,11 +60,11 @@ export type CapabilityCategory =
  * Never manufactured — only projected from canonical sources.
  */
 export type CapabilityHealth =
-  | 'verified'  // Has passing verification evidence
-  | 'pass'      // Tests pass, no formal verification
-  | 'fail'      // Known failures
-  | 'degraded'  // Partial functionality
-  | 'unknown';  // No evidence available
+  | 'verified' // Has passing verification evidence
+  | 'pass' // Tests pass, no formal verification
+  | 'fail' // Known failures
+  | 'degraded' // Partial functionality
+  | 'unknown'; // No evidence available
 
 // ─── Capability Catalog Entry ───────────────────────────────
 
@@ -155,9 +151,13 @@ export function projectCatalogEntry(
   } = {},
 ): CapabilityCatalogEntry {
   const parkingState: ParkingState =
-    descriptor.requirement === 'disabled' ? 'parked' :
-    descriptor.requirement === 'required' ? 'active' :
-    descriptor.requirement === 'optional' ? 'active' : 'unknown';
+    descriptor.requirement === 'disabled'
+      ? 'parked'
+      : descriptor.requirement === 'required'
+        ? 'active'
+        : descriptor.requirement === 'optional'
+          ? 'active'
+          : 'unknown';
 
   return {
     id: descriptor.id,
@@ -183,9 +183,7 @@ export function buildCatalog(
   descriptors: readonly CapabilityDescriptor[],
   enrichments?: Map<string, Partial<Parameters<typeof projectCatalogEntry>[1]>>,
 ): CapabilityCatalog {
-  const capabilities = descriptors.map((d) =>
-    projectCatalogEntry(d, enrichments?.get(d.id) ?? {}),
-  );
+  const capabilities = descriptors.map((d) => projectCatalogEntry(d, enrichments?.get(d.id) ?? {}));
 
   const summary = {
     total: capabilities.length,

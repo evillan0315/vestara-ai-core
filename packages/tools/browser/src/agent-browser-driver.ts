@@ -28,10 +28,10 @@
  *   treated as retryable and confirmed via `wait --load load`.
  */
 
-import { type ChildProcess, spawn } from 'child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'fs';
-import { tmpdir } from 'os';
-import { dirname, join } from 'path';
+import { type ChildProcess, spawn } from 'node:child_process';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
 import {
   abortError,
   type BrowserDriver,
@@ -670,7 +670,7 @@ export class AgentBrowserDriver implements BrowserDriver {
     const lineByRef = new Map<string, SnapshotTextLine>();
     for (const line of textSnapshot.split('\n')) {
       const parsed = parseSnapshotLine(line);
-      const ref = parsed?.attrs['ref'];
+      const ref = parsed?.attrs.ref;
       if (!ref) continue;
       lineByRef.set(ref, parsed);
     }
@@ -689,18 +689,18 @@ export class AgentBrowserDriver implements BrowserDriver {
       agentRefs.set(ref, agentKey);
 
       let level: number | undefined;
-      const levelRaw = attrs['level'];
+      const levelRaw = attrs.level;
       if (levelRaw !== undefined) {
         const parsedLevel = Number.parseInt(levelRaw, 10);
         if (!Number.isNaN(parsedLevel)) level = parsedLevel;
       }
       let checked: boolean | undefined;
-      if (attrs['checked'] === 'true') checked = true;
-      else if (attrs['checked'] === 'false') checked = false;
-      const disabled = attrs['disabled'] !== undefined;
+      if (attrs.checked === 'true') checked = true;
+      else if (attrs.checked === 'false') checked = false;
+      const disabled = attrs.disabled !== undefined;
       let expanded: boolean | undefined;
-      if (attrs['expanded'] === 'true') expanded = true;
-      else if (attrs['expanded'] === 'false') expanded = false;
+      if (attrs.expanded === 'true') expanded = true;
+      else if (attrs.expanded === 'false') expanded = false;
       const value =
         (role === 'combobox' ||
           role === 'searchbox' ||

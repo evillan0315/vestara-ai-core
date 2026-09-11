@@ -342,6 +342,10 @@ export class AgentHarnessRuntime {
     return this.options.eventBus;
   }
 
+  get store(): AgentHarnessOptions['store'] {
+    return this.options.store;
+  }
+
   createThread(input: StartThreadInput): TaskThread {
     this.environments.set(input.environment.id, input.environment);
     const thread = this.options.store.createThread({

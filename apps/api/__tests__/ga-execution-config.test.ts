@@ -14,8 +14,8 @@
  *   - Default turn timeout is 15 minutes (dogfood default)
  */
 
-import { describe, expect, it } from 'vitest';
 import type { GAExecutionConfig } from '@vestara/shared';
+import { describe, expect, it } from 'vitest';
 
 // ─── 1. Type Contract Tests ──────────────────────────────────
 

@@ -12,7 +12,7 @@ import { json } from './types';
 export async function handleNotificationsRoute(
   method: string,
   p: string,
-  req: http.IncomingMessage,
+  _req: http.IncomingMessage,
   res: http.ServerResponse,
   _ctx: WorkspaceContext,
 ): Promise<boolean> {

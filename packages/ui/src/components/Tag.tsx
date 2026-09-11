@@ -79,7 +79,8 @@ export function Tag({
   className = '',
 }: TagProps) {
   return (
-    <span
+    <button
+      type="button"
       className={`
         inline-flex items-center gap-1
         rounded-md font-medium
@@ -90,6 +91,16 @@ export function Tag({
         ${className}
       `}
       onClick={onClick}
+      onKeyDown={
+        onClick
+          ? (e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onClick();
+              }
+            }
+          : undefined
+      }
     >
       {icon && <span className="shrink-0">{icon}</span>}
       {children}
@@ -103,11 +114,18 @@ export function Tag({
           className="shrink-0 ml-0.5 rounded-full p-0.5 hover:bg-[var(--vestara-surface-interactive)] transition-colors cursor-pointer"
           aria-label="Remove"
         >
-          <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+          <svg
+            className="w-3 h-3"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            aria-hidden="true"
+          >
             <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
           </svg>
         </button>
       )}
-    </span>
+    </button>
   );
 }

@@ -23,13 +23,10 @@
  */
 
 import type {
-  RepositoryBindingId,
-  RuntimeSessionId,
   WorkflowEvent,
   WorkflowEventCallback,
   WorkflowEventType,
   WorkflowPlan,
-  WorkflowPlanId,
   WorkflowRun,
   WorkflowRunId,
   WorkflowRunStartInput,
@@ -115,7 +112,7 @@ function dependenciesSatisfied(
  * Under 'completed' condition, any non-completed terminal state blocks.
  * Under 'any' condition, only non-terminal states block.
  */
-function isDependencyBlocking(
+function _isDependencyBlocking(
   taskDef: WorkflowTaskDefinition,
   taskInstances: readonly WorkflowTaskInstance[],
 ): boolean {

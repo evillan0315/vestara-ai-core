@@ -20,14 +20,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import {
-  DOGFOOD_PROFILE,
-  FULL_PROFILE,
-  buildCatalog,
-  projectCatalogEntry,
-  type CapabilityCatalogEntry,
-  type CapabilityDescriptor,
-} from '../src/index.js';
+import { buildCatalog, type CapabilityDescriptor, DOGFOOD_PROFILE, projectCatalogEntry } from '../src/index.js';
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -194,8 +187,9 @@ describe('VES-LEAN-003C: Capability Catalog', () => {
     it('summary counts are correct', () => {
       const catalog = buildCatalog('dogfood', DOGFOOD_PROFILE.capabilities);
       expect(catalog.summary.total).toBe(catalog.capabilities.length);
-      expect(catalog.summary.active + catalog.summary.parked + catalog.summary.experimental + catalog.summary.unknown)
-        .toBe(catalog.summary.total);
+      expect(
+        catalog.summary.active + catalog.summary.parked + catalog.summary.experimental + catalog.summary.unknown,
+      ).toBe(catalog.summary.total);
     });
   });
 });

@@ -19,7 +19,7 @@ import type {
   WorkflowRunId,
   WorkflowTaskId,
 } from '@vestara/types';
-import type { ActivityEvent, ActivityPayload, ActivitySource, ActivityType } from './m9-types';
+import type { ActivityEvent, ActivityPayload, ActivityType } from './m9-types';
 
 // ─── M8 WorkflowEvent → ActivityEvent ──────────────────────
 

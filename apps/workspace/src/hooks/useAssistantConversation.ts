@@ -135,6 +135,12 @@ export interface UseAssistantConversationReturn {
   listError: string | null;
   /** Re-fetch conversation list metadata (e.g. when opening history). */
   refreshConversations: () => Promise<void>;
+  /** VES-PERF-001C: pagination metadata for the bounded history list. */
+  listPagination: { total: number; offset: number; limit: number; hasMore: boolean } | null;
+  /** VES-PERF-001C: true while a further history page is in flight. */
+  loadingMoreConversations: boolean;
+  /** VES-PERF-001C: append the next page of conversation summaries. */
+  loadMoreConversations: () => Promise<void>;
 
   // Selected conversation
   selectedId: string | null;
@@ -151,6 +157,15 @@ export interface UseAssistantConversationReturn {
   messagesLoading: boolean;
   messagesError: string | null;
   loadMessages: (conversationId: string) => Promise<void>;
+  /**
+   * VES-PERF-001B: pagination metadata for the currently selected conversation.
+   * `null` when no conversation is selected or the window is unbounded.
+   */
+  messagesPagination: { total: number; offset: number; limit: number; hasMore: boolean } | null;
+  /** VES-PERF-001B: true while an older-message page is in flight. */
+  loadingOlderMessages: boolean;
+  /** VES-PERF-001B: prepend the next older message window to `messages`. */
+  loadOlderMessages: () => Promise<void>;
 
   // Optimistic human turns (GA-UI-004): projected synchronously on send,
   // reconciled (removed) once canonical messages reload. Never persisted.
@@ -379,6 +394,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const [conversations, setConversations] = useState<ConversationSummary[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
+  // VES-PERF-001C: bounded history pagination.
+  const [listPagination, setListPagination] = useState<{
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  } | null>(null);
+  const [loadingMoreConversations, setLoadingMoreConversations] = useState(false);
 
   // ── Selection (transient client state) ──
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -388,6 +411,14 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [messagesError, setMessagesError] = useState<string | null>(null);
+  // VES-PERF-001B: bounded newest-window-first message loading.
+  const [messagesPagination, setMessagesPagination] = useState<{
+    total: number;
+    offset: number;
+    limit: number;
+    hasMore: boolean;
+  } | null>(null);
+  const [loadingOlderMessages, setLoadingOlderMessages] = useState(false);
 
   // ── Session messages (loaded from OpenCode runtime sessions) ──
   const [sessionMessages, setSessionMessages] = useState<Message[]>([]);
@@ -484,14 +515,45 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     setListLoading(true);
     setListError(null);
     try {
-      const data = await apiFetch<{ conversations: ConversationSummary[] }>('/api/conversations');
+      const data = await apiFetch<{
+        conversations: ConversationSummary[];
+        pagination?: { total: number; offset: number; limit: number; hasMore: boolean };
+      }>('/api/conversations');
       setConversations(data.conversations ?? []);
+      setListPagination(data.pagination ?? null);
     } catch (err) {
       setListError(err instanceof Error ? err.message : 'Failed to list conversations');
     } finally {
       setListLoading(false);
     }
   }, []);
+
+  // ── VES-PERF-001C: append the next page of conversation summaries ──
+  const loadMoreConversations = useCallback(async () => {
+    if (!listPagination?.hasMore || loadingMoreConversations) return;
+    setLoadingMoreConversations(true);
+    try {
+      const nextOffset = listPagination.offset + listPagination.limit;
+      const params = new URLSearchParams({
+        limit: String(listPagination.limit),
+        offset: String(nextOffset),
+      });
+      const data = await apiFetch<{
+        conversations: ConversationSummary[];
+        pagination?: { total: number; offset: number; limit: number; hasMore: boolean };
+      }>(`/api/conversations?${params}`);
+      // Append, de-duplicating by id in case a conversation moved between pages.
+      setConversations((prev) => {
+        const seen = new Set(prev.map((c) => c.id));
+        return [...prev, ...(data.conversations ?? []).filter((c) => !seen.has(c.id))];
+      });
+      setListPagination(data.pagination ?? null);
+    } catch {
+      // Keep the current page; the user can retry.
+    } finally {
+      setLoadingMoreConversations(false);
+    }
+  }, [listPagination, loadingMoreConversations]);
 
   useEffect(() => {
     refreshList();
@@ -528,13 +590,16 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setSelectedConversation(null);
       setMessages([]);
       setMessagesError(null);
+      setMessagesPagination(null);
+      setLoadingOlderMessages(false);
       if (id) {
-        // Load conversation details + messages
+        // Load conversation details + newest message window
         setMessagesLoading(true);
         apiFetch<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`)
           .then((data) => {
             setSelectedConversation(data.conversation);
             setMessages(data.conversation.messages ?? []);
+            setMessagesPagination(data.conversation._pagination ?? null);
           })
           .catch(() => {
             // Conversation may have been deleted server-side
@@ -598,10 +663,42 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         `/api/conversations/${encodeURIComponent(conversationId)}`,
       );
       setMessages(data.conversation.messages ?? []);
+      setMessagesPagination(data.conversation._pagination ?? null);
     } catch {
       setMessages([]);
+      setMessagesPagination(null);
     }
   }, []);
+
+  // ── VES-PERF-001B: load the next older message window ──
+  // Prepends older messages ahead of the current window. Chronological order
+  // is preserved because the API returns each window chronologically.
+  const loadOlderMessages = useCallback(async () => {
+    const conversationId = selectedIdRef.current;
+    if (!conversationId || !messagesPagination?.hasMore || loadingOlderMessages) return;
+
+    setLoadingOlderMessages(true);
+    try {
+      const nextOffset = messagesPagination.offset + messagesPagination.limit;
+      const params = new URLSearchParams({
+        limit: String(messagesPagination.limit),
+        offset: String(nextOffset),
+        order: 'desc',
+      });
+      const data = await apiFetch<{ conversation: Conversation }>(
+        `/api/conversations/${encodeURIComponent(conversationId)}?${params}`,
+      );
+      const older = data.conversation.messages ?? [];
+      // Guard against the selection changing mid-flight.
+      if (selectedIdRef.current !== conversationId) return;
+      setMessages((prev) => [...older, ...prev]);
+      setMessagesPagination(data.conversation._pagination ?? null);
+    } catch {
+      // Leave the current window intact; the user can retry.
+    } finally {
+      setLoadingOlderMessages(false);
+    }
+  }, [messagesPagination, loadingOlderMessages]);
 
   // ── Load messages from an OpenCode runtime session ──
   const loadSessionMessages = useCallback(async (sessionId: string) => {
@@ -1067,6 +1164,9 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     listLoading,
     listError,
     refreshConversations: refreshList,
+    listPagination,
+    loadingMoreConversations,
+    loadMoreConversations,
     selectedId,
     selectedConversation,
     selectConversation,
@@ -1076,6 +1176,9 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     messagesLoading,
     messagesError,
     loadMessages,
+    messagesPagination,
+    loadingOlderMessages,
+    loadOlderMessages,
     optimisticTurns,
     retryTurn,
     sendMessage,

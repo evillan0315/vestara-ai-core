@@ -10,7 +10,6 @@ import {
 import type {
   RepositoryBindingId,
   RuntimeSessionAcquisitionInput,
-  RuntimeSessionId,
   WorkflowRunId,
 } from '../src/sessions/runtime-session-types.js';
 
@@ -176,7 +175,7 @@ describe('M7 Repository authority: directory validation', () => {
     const canonicalPath = '/home/user/projects/vestara/vestara-ai-core';
 
     expect(parentCwd).not.toBe(canonicalPath);
-    expect(canonicalPath.startsWith(parentCwd + '/')).toBe(true);
+    expect(canonicalPath.startsWith(`${parentCwd}/`)).toBe(true);
     // The child is strictly deeper than the parent.
   });
 });

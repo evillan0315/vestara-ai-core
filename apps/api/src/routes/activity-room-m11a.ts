@@ -23,14 +23,11 @@
  * No exposure of SQLite schema, OpenCode internals, or provider internals.
  */
 
-import { randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
 import type {
   ActivityCursor,
-  ActivityEvent,
-  ActivityRecordId,
   ActivityRoomProjection,
   AttentionEntry,
   M9ActivityQuery,
@@ -39,14 +36,7 @@ import type {
   ParticipantProjection,
   WorkflowSummary,
 } from '@vestara/activity-room';
-import {
-  ActivityStreamConnection,
-  ActivityStreamHub,
-  DurableActivityStore,
-  type ActivityRecord as ProjectionActivityRecord,
-  ProjectionRuntime,
-  toProjectionRecord,
-} from '@vestara/activity-room';
+import { ActivityStreamHub, DurableActivityStore, ProjectionRuntime, toProjectionRecord } from '@vestara/activity-room';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 
@@ -562,7 +552,7 @@ async function composeParticipants(
 export async function handleM11AActivityRoomRoute(
   method: string,
   p: string,
-  req: http.IncomingMessage,
+  _req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
   _port: number,
@@ -716,7 +706,7 @@ export async function handleM11AActivityRoomRoute(
 
     const aggregatedItem = projection.stream.find((s) => s.aggregated !== undefined && s.streamItemId === streamItemId);
 
-    if (!aggregatedItem || !aggregatedItem.aggregated) {
+    if (!aggregatedItem?.aggregated) {
       json(res, 404, {
         error: { code: 'NOT_FOUND', message: `Aggregated activity not found: ${streamItemId}` },
       });

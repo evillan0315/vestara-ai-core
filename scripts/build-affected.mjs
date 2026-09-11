@@ -42,7 +42,7 @@ function findBaseRef() {
     try {
       git(`rev-parse --verify ${ref} 2>/dev/null`);
       return ref;
-    } catch { continue; }
+    } catch {}
   }
   return 'HEAD~1';
 }
@@ -59,12 +59,12 @@ function loadPackageGraph() {
       const pkgPath = path.join(fullDir, entry, 'package.json');
       if (!fs.existsSync(pkgPath)) continue;
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      if (!pkg.name || !pkg.name.startsWith('@vestara/')) continue;
+      if (!pkg.name?.startsWith('@vestara/')) continue;
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
       packages[pkg.name] = {
         name: pkg.name,
         path: path.join(dir, entry),
-        deps: Object.keys(allDeps).filter(d => d.startsWith('@vestara/')),
+        deps: Object.keys(allDeps).filter((d) => d.startsWith('@vestara/')),
       };
     }
   }
@@ -84,7 +84,7 @@ function buildReverseDeps(packages) {
 
 function findOwningPackage(filePath, packages) {
   for (const [name, pkg] of Object.entries(packages)) {
-    if (filePath.startsWith(pkg.path + '/') || filePath.startsWith(pkg.path + '\\')) {
+    if (filePath.startsWith(`${pkg.path}/`) || filePath.startsWith(`${pkg.path}\\`)) {
       return name;
     }
   }
@@ -102,8 +102,15 @@ function computeAffected(changedFiles, packages, reverseDeps) {
   }
 
   // Global config changes
-  const globalFiles = ['tsconfig.json', 'vitest.config.ts', 'biome.json', 'pnpm-workspace.yaml', 'pnpm-lock.yaml', 'package.json'];
-  if (changedFiles.some(f => globalFiles.some(g => f === g || f.endsWith('/' + g)))) {
+  const globalFiles = [
+    'tsconfig.json',
+    'vitest.config.ts',
+    'biome.json',
+    'pnpm-workspace.yaml',
+    'pnpm-lock.yaml',
+    'package.json',
+  ];
+  if (changedFiles.some((f) => globalFiles.some((g) => f === g || f.endsWith(`/${g}`)))) {
     for (const name of Object.keys(packages)) {
       if (!affected.has(name)) affected.set(name, 'GLOBAL INVALIDATION');
     }
@@ -113,7 +120,7 @@ function computeAffected(changedFiles, packages, reverseDeps) {
   const queue = [...affected.keys()];
   while (queue.length > 0) {
     const pkg = queue.pop();
-    for (const dep of (reverseDeps[pkg] || [])) {
+    for (const dep of reverseDeps[pkg] || []) {
       if (!affected.has(dep)) {
         affected.set(dep, `DEPENDENT of ${pkg}`);
         queue.push(dep);
@@ -126,10 +133,18 @@ function computeAffected(changedFiles, packages, reverseDeps) {
 
 function computeDogfoodClosure(packages) {
   const roots = [
-    '@vestara/api', '@vestara/workspace', '@vestara/agent-harness',
-    '@vestara/activity-room', '@vestara/conversation', '@vestara/provider-runtime',
-    '@vestara/opencode-runtime', '@vestara/evidence', '@vestara/memory',
-    '@vestara/interaction-app', '@vestara/worktree-runtime', '@vestara/tool-runtime',
+    '@vestara/api',
+    '@vestara/workspace',
+    '@vestara/agent-harness',
+    '@vestara/activity-room',
+    '@vestara/conversation',
+    '@vestara/provider-runtime',
+    '@vestara/opencode-runtime',
+    '@vestara/evidence',
+    '@vestara/memory',
+    '@vestara/interaction-app',
+    '@vestara/worktree-runtime',
+    '@vestara/tool-runtime',
     '@vestara/kernel',
   ];
   const closure = new Set();
@@ -167,9 +182,14 @@ function main() {
     // Get changed files
     let changedFiles = [];
     try {
-      changedFiles = git(`diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || echo ""`)
-        .split('\n').filter(Boolean);
-    } catch { /* empty */ }
+      changedFiles = git(
+        `diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || echo ""`,
+      )
+        .split('\n')
+        .filter(Boolean);
+    } catch {
+      /* empty */
+    }
 
     if (changedFiles.length === 0) {
       console.log('[build] No changes detected. Building all (full build).');

@@ -9,7 +9,6 @@
 import type {
   ActivityCursor,
   ActivityRecord,
-  ActivityRoomProjection,
   ExecutionId,
   WorkflowEvent,
   WorkflowRunId,

@@ -20,7 +20,7 @@
  * @see VESTARA-INTELLIGENCE-GA1-PREFLIGHT.md
  */
 
-import { FloatingWindow, FloatingWindowHeader, FloatingWindowContent } from '@vestara/ui';
+import { FloatingWindow, FloatingWindowHeader, FloatingWindowContent, StatusIndicator } from '@vestara/ui';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -89,19 +89,16 @@ export function FloatingPanel({
             </svg>
           </div>
           <div className="flex min-w-0 flex-col leading-none">
-            <span className="truncate text-xs font-semibold tracking-tight text-zinc-100">
+            <span className="truncate text-xs font-semibold tracking-tight text-(--vestara-text-primary)">
               Vestara Assistant
             </span>
             {conversationTitle ? (
-              <span className="mt-0.5 truncate text-[10px] text-zinc-500 max-w-[180px]" title={conversationTitle}>
+              <span className="mt-0.5 truncate text-[10px] text-(--vestara-text-muted) max-w-[180px]" title={conversationTitle}>
                 {conversationTitle}
               </span>
             ) : (
-              <span className="mt-0.5 flex items-center gap-1 text-[10px] text-zinc-500">
-                <span
-                  className="h-1.5 w-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.9)]"
-                  aria-hidden="true"
-                />
+              <span className="mt-0.5 flex items-center gap-1 text-[10px] text-(--vestara-text-muted)">
+                <StatusIndicator variant="live" size="xs" ariaLabel="Online" />
                 Online · Ready to help
               </span>
             )}
@@ -116,7 +113,7 @@ export function FloatingPanel({
               onClick={onNewConversation}
               aria-label="New conversation"
               title="New conversation"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
             >
               <svg
                 className="h-3.5 w-3.5"
@@ -139,7 +136,7 @@ export function FloatingPanel({
               onClick={onToggleExpanded}
               aria-label="Expand assistant"
               title="Expand"
-              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
+              className="flex h-7 w-7 items-center justify-center rounded-lg text-(--vestara-text-muted) transition-colors hover:bg-(--vestara-accent-bg) hover:text-(--vestara-accent) cursor-pointer focus-visible:outline-2 focus-visible:outline-(--vestara-accent-border-active)"
             >
               <svg
                 className="h-3 w-3"

@@ -85,7 +85,6 @@ class MockScriptProcessorNode {
   onaudioprocess: ((event: AudioProcessingEvent) => void) | null = null;
   connect = vi.fn();
   disconnect = vi.fn();
-  private listeners = new Map<string, Function>();
 
   // Test helper: trigger onaudioprocess
   triggerProcess(buffer: MockAudioBuffer) {
@@ -122,7 +121,7 @@ function createMockMediaStream(options?: { audio?: boolean; video?: boolean }): 
     getAudioTracks: () => tracks.filter((t) => t.kind === 'audio'),
     getVideoTracks: () => tracks.filter((t) => t.kind === 'video'),
     getTracks: () => tracks,
-    id: 'mock-stream-' + Math.random().toString(36).slice(2),
+    id: `mock-stream-${Math.random().toString(36).slice(2)}`,
     active: true,
     addEventListener: () => {},
     removeEventListener: () => {},

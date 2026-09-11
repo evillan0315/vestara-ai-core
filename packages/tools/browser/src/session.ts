@@ -458,7 +458,7 @@ export class PlaywrightBrowserDriver implements BrowserDriver {
     };
   }
 
-  async clickRef(ref: string, key: string, signal?: AbortSignal): Promise<void> {
+  async clickRef(_ref: string, _key: string, _signal?: AbortSignal): Promise<void> {
     throw new Error('clickRef must be called through BrowserSession');
   }
 

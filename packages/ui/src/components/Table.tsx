@@ -95,6 +95,7 @@ function SortIcon({ direction }: { direction: SortDirection }) {
         fill="none"
         stroke="currentColor"
         strokeWidth={2}
+        aria-hidden="true"
       >
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
       </svg>
@@ -104,6 +105,7 @@ function SortIcon({ direction }: { direction: SortDirection }) {
         fill="none"
         stroke="currentColor"
         strokeWidth={2}
+        aria-hidden="true"
       >
         <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
       </svg>
@@ -140,15 +142,21 @@ function Checkbox({
 function TableSkeleton({ rows, cols }: { rows: number; cols: number }) {
   return (
     <>
-      {Array.from({ length: rows }).map((_, i) => (
-        <tr key={i} className="border-b border-[var(--vestara-border-subtle)]">
-          {Array.from({ length: cols }).map((_, j) => (
-            <td key={j} className="px-4 py-3">
-              <div className="h-4 bg-[var(--vestara-surface-interactive)] rounded animate-pulse" />
-            </td>
-          ))}
-        </tr>
-      ))}
+      {Array.from({ length: rows }, (_, i) => {
+        const rowId = `row-${i}`;
+        return (
+          <tr key={rowId} className="border-b border-[var(--vestara-border-subtle)]">
+            {Array.from({ length: cols }, (_, j) => {
+              const cellId = `cell-${j}`;
+              return (
+                <td key={cellId} className="px-4 py-3">
+                  <div className="h-4 bg-[var(--vestara-surface-interactive)] rounded animate-pulse" />
+                </td>
+              );
+            })}
+          </tr>
+        );
+      })}
     </>
   );
 }

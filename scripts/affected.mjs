@@ -31,7 +31,9 @@ function git(cmd) {
 function getChangedFiles(base) {
   try {
     // Try comparing against the base ref
-    const output = git(`diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""`);
+    const output = git(
+      `diff --name-only ${base}...HEAD 2>/dev/null || git diff --name-only ${base} HEAD 2>/dev/null || git diff --name-only HEAD~1 HEAD 2>/dev/null || echo ""`,
+    );
     return output.split('\n').filter(Boolean);
   } catch {
     return [];
@@ -45,9 +47,7 @@ function findBaseRef() {
     try {
       git(`rev-parse --verify ${ref} 2>/dev/null`);
       return ref;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
   return 'HEAD~1';
 }
@@ -67,10 +67,10 @@ function loadPackageGraph() {
       if (!fs.existsSync(pkgPath)) continue;
 
       const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-      if (!pkg.name || !pkg.name.startsWith('@vestara/')) continue;
+      if (!pkg.name?.startsWith('@vestara/')) continue;
 
       const allDeps = { ...pkg.dependencies, ...pkg.devDependencies };
-      const internalDeps = Object.keys(allDeps).filter(d => d.startsWith('@vestara/'));
+      const internalDeps = Object.keys(allDeps).filter((d) => d.startsWith('@vestara/'));
 
       packages[pkg.name] = {
         name: pkg.name,
@@ -100,8 +100,8 @@ function buildReverseDeps(packages) {
 function findOwningPackage(filePath, packages) {
   // Find which package owns this file
   for (const [name, pkg] of Object.entries(packages)) {
-    const pkgDir = path.join(CWD, pkg.path);
-    if (filePath.startsWith(pkg.path + '/') || filePath.startsWith(pkg.path + '\\')) {
+    const _pkgDir = path.join(CWD, pkg.path);
+    if (filePath.startsWith(`${pkg.path}/`) || filePath.startsWith(`${pkg.path}\\`)) {
       return name;
     }
   }
@@ -121,14 +121,15 @@ function computeAffected(changedFiles, packages, reverseDeps) {
 
   // Phase 2: Config/global changes widen scope
   const globalFiles = [
-    'tsconfig.json', 'tsconfig.references.json',
-    'vitest.config.ts', 'biome.json',
-    'pnpm-workspace.yaml', 'pnpm-lock.yaml',
+    'tsconfig.json',
+    'tsconfig.references.json',
+    'vitest.config.ts',
+    'biome.json',
+    'pnpm-workspace.yaml',
+    'pnpm-lock.yaml',
     'package.json', // root package.json
   ];
-  const hasGlobalChange = changedFiles.some(f =>
-    globalFiles.some(g => f === g || f.endsWith('/' + g))
-  );
+  const hasGlobalChange = changedFiles.some((f) => globalFiles.some((g) => f === g || f.endsWith(`/${g}`)));
 
   if (hasGlobalChange) {
     // Global change: all packages are affected
@@ -211,7 +212,7 @@ function main() {
 
   if (showDogfood) {
     const closure = computeDogfoodClosure(packages);
-    const excluded = Object.keys(packages).filter(p => !closure.has(p));
+    const excluded = Object.keys(packages).filter((p) => !closure.has(p));
     console.log(`\n[dogfood] Build closure: ${closure.size} packages`);
     console.log(`[dogfood] Excluded: ${excluded.length} packages`);
     for (const pkg of [...closure].sort()) {
@@ -270,7 +271,9 @@ function main() {
 
   // Summary
   console.log(`\n[summary]`);
-  console.log(`  Changed projects:      ${new Set(changedFiles.map(f => findOwningPackage(f, packages)).filter(Boolean)).size}`);
+  console.log(
+    `  Changed projects:      ${new Set(changedFiles.map((f) => findOwningPackage(f, packages)).filter(Boolean)).size}`,
+  );
   console.log(`  Affected projects:     ${affected.size}`);
   console.log(`  Dogfood affected:      ${dogfoodAffected.size}`);
   console.log(`  Unaffected:            ${total - affected.size}`);

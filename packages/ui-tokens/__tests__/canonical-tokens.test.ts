@@ -6,9 +6,9 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { COLOR, SURFACE, TEXT, BORDER, ACCENT, MOTION, ELEVATION } from '../src/tokens.js';
+import { generateCSSVariables, generateRootCSS } from '../src/css.js';
 import { DARK_THEME, LIGHT_THEME, THEMES } from '../src/themes.js';
-import { generateCSSVariables, generateRootCSS, generateThemeCSS } from '../src/css.js';
+import { ACCENT, BORDER, COLOR, SURFACE, TEXT } from '../src/tokens.js';
 
 // ─── A. Canonical token generation is deterministic ─────────────
 
@@ -85,36 +85,26 @@ describe('C. Dark/light semantic contract parity', () => {
   });
 
   it('both themes have the same surface token keys', () => {
-    expect(Object.keys(DARK_THEME.surface).sort()).toEqual(
-      Object.keys(LIGHT_THEME.surface).sort(),
-    );
+    expect(Object.keys(DARK_THEME.surface).sort()).toEqual(Object.keys(LIGHT_THEME.surface).sort());
   });
 
   it('both themes have the same text token keys', () => {
-    expect(Object.keys(DARK_THEME.text).sort()).toEqual(
-      Object.keys(LIGHT_THEME.text).sort(),
-    );
+    expect(Object.keys(DARK_THEME.text).sort()).toEqual(Object.keys(LIGHT_THEME.text).sort());
   });
 
   it('both themes have the same border token keys', () => {
-    expect(Object.keys(DARK_THEME.border).sort()).toEqual(
-      Object.keys(LIGHT_THEME.border).sort(),
-    );
+    expect(Object.keys(DARK_THEME.border).sort()).toEqual(Object.keys(LIGHT_THEME.border).sort());
   });
 
   it('both themes have the same status token keys', () => {
-    expect(Object.keys(DARK_THEME.status).sort()).toEqual(
-      Object.keys(LIGHT_THEME.status).sort(),
-    );
+    expect(Object.keys(DARK_THEME.status).sort()).toEqual(Object.keys(LIGHT_THEME.status).sort());
   });
 
   it('dark and light produce different values for the same tokens', () => {
     const darkVars = generateCSSVariables(DARK_THEME);
     const lightVars = generateCSSVariables(LIGHT_THEME);
     // At least canvas should differ
-    expect(darkVars['--vestara-surface-canvas']).not.toBe(
-      lightVars['--vestara-surface-canvas'],
-    );
+    expect(darkVars['--vestara-surface-canvas']).not.toBe(lightVars['--vestara-surface-canvas']);
   });
 });
 
@@ -148,9 +138,7 @@ describe('D. Compatibility aliases', () => {
 
 describe('E. Status token families', () => {
   it('all required status families exist in the theme', () => {
-    const requiredStatuses = [
-      'success', 'warning', 'error', 'info', 'running', 'pending', 'disabled',
-    ] as const;
+    const requiredStatuses = ['success', 'warning', 'error', 'info', 'running', 'pending', 'disabled'] as const;
     for (const status of requiredStatuses) {
       expect(DARK_THEME.status[status]).toBeDefined();
       expect(LIGHT_THEME.status[status]).toBeDefined();
@@ -248,7 +236,7 @@ describe('I. Tailwind v4 consumption pattern', () => {
 
   it('all values are valid CSS values (not empty or undefined)', () => {
     const vars = generateCSSVariables(DARK_THEME);
-    for (const [key, value] of Object.entries(vars)) {
+    for (const [_key, value] of Object.entries(vars)) {
       expect(value).toBeTruthy();
       expect(typeof value).toBe('string');
       expect(value.length).toBeGreaterThan(0);

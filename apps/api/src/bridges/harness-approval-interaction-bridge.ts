@@ -22,19 +22,16 @@
  */
 
 import {
-  approvalInteractionId,
-  approvalToInteraction,
   findUncontinuedApprovals,
   type HarnessApprovalReader,
   interactionApprovalId,
   resolveFromInteractionResponse,
-  type ThreadInfo,
   type ThreadResolver,
 } from '@vestara/agent-harness';
 import type { EventBus } from '@vestara/event-bus';
 import type { InteractionService } from '@vestara/interaction-app';
 import type { VestaraEvent } from '@vestara/shared';
-import type { InteractionId, InteractionResponse } from '@vestara/types';
+import type { InteractionId } from '@vestara/types';
 
 /** Logger interface matching Vestara console conventions. */
 export interface BridgeLogger {

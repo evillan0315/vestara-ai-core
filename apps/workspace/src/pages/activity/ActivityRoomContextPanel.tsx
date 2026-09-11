@@ -4,6 +4,7 @@
  * Renders operational context backed by authoritative data:
  * - Activity Metrics (total events, participants, active agents)
  * - Recent Operations (last 5 stream items)
+ * - OpenCode Session Status (live from /api/opencode/session/status)
  * - Activity Stream Status (single truthful connection indicator)
  *
  * All data sources are READY/DERIVABLE from existing projections.
@@ -12,8 +13,10 @@
 
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
-import { StatusIndicator, type StatusVariant } from '@vestara/ui';
+import { StatusIndicator } from '@vestara/ui';
 import { formatRelative } from './activity-formatters';
+import { CONNECTION_STATUS_CONFIG } from './status-config';
+import { useSessionStatus } from '../../hooks/useSessionStatus';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -27,17 +30,6 @@ interface ActivityRoomContextPanelProps {
   /** Connection state for stream status. */
   readonly connectionState: M11CConnectionState;
 }
-
-// ─── Connection State Config ─────────────────────────────────
-
-const CONNECTION_STATUS: Record<M11CConnectionState, { label: string; variant: StatusVariant }> = {
-  connecting: { label: 'Connecting', variant: 'warn' },
-  live: { label: 'Connected', variant: 'live' },
-  reconnecting: { label: 'Reconnecting', variant: 'warn' },
-  offline: { label: 'Offline', variant: 'off' },
-  paused: { label: 'Paused', variant: 'idle' },
-  error: { label: 'Resyncing', variant: 'error' },
-};
 
 // ─── Severity Badge ──────────────────────────────────────────
 
@@ -103,7 +95,14 @@ export default function ActivityRoomContextPanel({
   const recentOperations = stream.slice(-5).reverse();
 
   // READY: connection status from room.state
-  const statusConfig = CONNECTION_STATUS[connectionState] ?? CONNECTION_STATUS.offline;
+  const statusConfig = CONNECTION_STATUS_CONFIG[connectionState] ?? CONNECTION_STATUS_CONFIG.offline;
+
+  // LIVE: OpenCode session status (polls /api/opencode/session/status)
+  const { statusMap } = useSessionStatus({ intervalMs: 5_000 });
+  const sessionEntries = Object.values(statusMap);
+  const activeSessions = sessionEntries.filter((s) => s === 'active').length;
+  const idleSessions = sessionEntries.filter((s) => s === 'idle').length;
+  const failedSessions = sessionEntries.filter((s) => s === 'failed').length;
 
   return (
     <div className="ar-context" role="region" aria-label="Operational context">
@@ -173,6 +172,44 @@ export default function ActivityRoomContextPanel({
           )}
         </div>
       </div>
+
+      {/* ── OpenCode Sessions ───────────────────────────────── */}
+      {sessionEntries.length > 0 && (
+        <div className="ar-context__section">
+          <div className="ar-context__section-header">
+            <h3 className="ar-context__title">OpenCode Sessions</h3>
+          </div>
+          <div className="ar-context__metrics">
+            {activeSessions > 0 && (
+              <div className="ar-metric">
+                <div className="ar-metric__icon ar-metric__icon--agents">◉</div>
+                <div>
+                  <p className="ar-metric__value">{activeSessions}</p>
+                  <p className="ar-metric__label">Active</p>
+                </div>
+              </div>
+            )}
+            {idleSessions > 0 && (
+              <div className="ar-metric">
+                <div className="ar-metric__icon ar-metric__icon--events">○</div>
+                <div>
+                  <p className="ar-metric__value">{idleSessions}</p>
+                  <p className="ar-metric__label">Idle</p>
+                </div>
+              </div>
+            )}
+            {failedSessions > 0 && (
+              <div className="ar-metric">
+                <div className="ar-metric__icon ar-metric__icon--error">✕</div>
+                <div>
+                  <p className="ar-metric__value">{failedSessions}</p>
+                  <p className="ar-metric__label">Failed</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Activity Stream Status ──────────────────────────── */}
       <div className="ar-context__section">

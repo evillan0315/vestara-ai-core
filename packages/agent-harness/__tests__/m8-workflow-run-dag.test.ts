@@ -20,7 +20,7 @@ import { validateDAG, WorkflowRunEngine } from '../src/workflow-run-engine.js';
 
 // ─── Constants ──────────────────────────────────────────────
 
-const CANONICAL_PATH = '/home/user/projects/vestara/vestara-ai-core';
+const _CANONICAL_PATH = '/home/user/projects/vestara/vestara-ai-core';
 const REPO_BINDING_ID = 'rb-m8-001' as RepositoryBindingId;
 const RUNTIME_SESSION_ID = 'rt-m8-001' as RuntimeSessionId;
 const EXECUTION_ID = 'exec-m8-001' as ExecutionId;

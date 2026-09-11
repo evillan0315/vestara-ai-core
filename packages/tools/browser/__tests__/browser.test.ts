@@ -65,7 +65,7 @@ class FakeBrowserDriver implements BrowserDriver {
     return { url: BASE, width: 640, height: 480, bytes: new Uint8Array([1, 2, 3, 4]) };
   }
 
-  async observe(key: string): Promise<BrowserObserveResult> {
+  async observe(_key: string): Promise<BrowserObserveResult> {
     this.observeCount++;
     return {
       url: BASE,
@@ -111,7 +111,7 @@ class FakeBrowserDriver implements BrowserDriver {
     this.reloadLog.push(key);
   }
 
-  async waitForNavigation(key: string): Promise<BrowserNavigationResult> {
+  async waitForNavigation(_key: string): Promise<BrowserNavigationResult> {
     return { url: BASE, title: 'Fake Page' };
   }
 

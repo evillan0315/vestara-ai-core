@@ -33,7 +33,6 @@ import type {
   WorkflowRunId,
   WorkflowTaskId,
 } from './ids';
-import type { RuntimeSessionBinding } from './runtime-session';
 
 // ─── Task Lifecycle ─────────────────────────────────────────
 

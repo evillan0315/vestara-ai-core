@@ -7,7 +7,6 @@ import {
   inspectCredential,
   isCredentialExpired,
   isMediaConnectionCredential,
-  type MediaConnectionCredential,
   sanitizeCredentialForLogging,
 } from '../src/media-connection-token';
 import {

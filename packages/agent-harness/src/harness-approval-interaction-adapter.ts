@@ -156,7 +156,7 @@ export function interpretApprovalResponse(selectedChoiceId: string): boolean | u
 export async function resolveFromInteractionResponse(
   interactionId: string,
   response: InteractionResponse,
-  harness: HarnessApprovalReader,
+  _harness: HarnessApprovalReader,
 ): Promise<{ resolved: boolean; approved?: boolean; error?: string }> {
   const approvalId = interactionApprovalId(interactionId);
   if (!approvalId) {

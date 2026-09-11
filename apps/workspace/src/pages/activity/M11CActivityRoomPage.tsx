@@ -29,6 +29,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { fetchM11AAggregateDrillDown, type M11AActivityRecord } from '../../lib/m11a-api';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
@@ -38,33 +39,30 @@ import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import M11CActivityStream from './M11CActivityStream';
 import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
+import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 
 // ─── Component ───────────────────────────────────────────────
 
 export default function M11CActivityRoomPage() {
   const room = useM11CActivityRoom();
+  const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
-  const [detailItem, setDetailItem] = useState<M11CStreamItem | null>(null);
-  const [agentControlParticipantId, setAgentControlParticipantId] = useState<string | undefined>(undefined);
-  const [replyToItem, setReplyToItem] = useState<M11CStreamItem | null>(null);
-  const [editingItem, setEditingItem] = useState<M11CStreamItem | null>(null);
-  const [threadActivityIds, setThreadActivityIds] = useState<readonly string[]>([]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
   const agentControlParticipant = useMemo(
-    () => agentControlParticipantId
-      ? room.participants.find((p) => p.participantId === agentControlParticipantId)
+    () => ui.agentControlParticipantId
+      ? room.participants.find((p) => p.participantId === ui.agentControlParticipantId)
       : undefined,
-    [agentControlParticipantId, room.participants],
+    [ui.agentControlParticipantId, room.participants],
   );
 
   const agentControlAgentId = useMemo(
-    () => agentControlParticipantId
-      ? resolveAgentIdFromParticipantId(agentControlParticipantId)
+    () => ui.agentControlParticipantId
+      ? resolveAgentIdFromParticipantId(ui.agentControlParticipantId)
       : null,
-    [agentControlParticipantId],
+    [ui.agentControlParticipantId],
   );
 
   // ─── Derived counts for context panel ──────────────────────
@@ -76,26 +74,10 @@ export default function M11CActivityRoomPage() {
     [room.participants],
   );
 
-  const handleOpenAgentControl = useCallback((participantId: string) => {
-    setAgentControlParticipantId(participantId);
-  }, []);
-
-  const handleCloseAgentControl = useCallback(() => {
-    setAgentControlParticipantId(undefined);
-  }, []);
-
   // ─── Callbacks ──────────────────────────────────────────
 
   const handleSelectParticipant = useCallback((id: string | undefined) => {
     setSelectedParticipantId(id);
-  }, []);
-
-  const handleOpenDetail = useCallback((item: M11CStreamItem) => {
-    setDetailItem(item);
-  }, []);
-
-  const handleCloseDetail = useCallback(() => {
-    setDetailItem(null);
   }, []);
 
   const [drillDownRecords, setDrillDownRecords] = useState<readonly M11AActivityRecord[]>([]);
@@ -106,25 +88,16 @@ export default function M11CActivityRoomPage() {
     try {
       const result = await fetchM11AAggregateDrillDown(aggregateId);
       setDrillDownRecords(result.records);
-      // Open the detail modal with a synthetic aggregated item
       const aggregateItem = room.stream.find((s) => s.id === aggregateId);
       if (aggregateItem) {
-        setDetailItem(aggregateItem);
+        ui.openDetail(aggregateItem);
       }
     } catch {
       // Drill-down failed — stay silent, user can retry
     } finally {
       setDrillDownLoading(false);
     }
-  }, [room.stream]);
-
-  const handleReply = useCallback((item: M11CStreamItem) => {
-    setReplyToItem(item);
-  }, []);
-
-  const handleClearReply = useCallback(() => {
-    setReplyToItem(null);
-  }, []);
+  }, [room.stream, ui.openDetail]);
 
   const handleRetract = useCallback(async (item: M11CStreamItem) => {
     try {
@@ -146,14 +119,6 @@ export default function M11CActivityRoomPage() {
     return item?.content;
   }, [room.stream]);
 
-  const handleEdit = useCallback((item: M11CStreamItem) => {
-    setEditingItem(item);
-  }, []);
-
-  const handleOpenThread = useCallback((activityIds: readonly string[]) => {
-    setThreadActivityIds(activityIds);
-  }, []);
-
   // ─── Connection state label ─────────────────────────────
 
   const stateLabel =
@@ -162,7 +127,7 @@ export default function M11CActivityRoomPage() {
     room.state === 'reconnecting' ? 'Reconnecting' :
     room.state === 'offline' ? 'Offline' :
     room.state === 'paused' ? 'Paused' :
-    room.state === 'error' ? 'Resyncing' :
+    room.state === 'error' ? 'Offline' :
     'Unknown';
 
   // ─── Room name ──────────────────────────────────────────
@@ -203,7 +168,7 @@ export default function M11CActivityRoomPage() {
           <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
           <span className="min-w-0 flex-1">{room.error}</span>
           <Pill variant="danger" size="sm" onClick={room.retry}>
-            Retry
+            Reconnect
           </Pill>
         </div>
       )}
@@ -233,7 +198,7 @@ export default function M11CActivityRoomPage() {
             participants={room.participants}
             selectedParticipantId={selectedParticipantId}
             onSelectParticipant={handleSelectParticipant}
-            onOpenAgentControl={handleOpenAgentControl}
+            onOpenAgentControl={ui.openAgentControl}
           />
         </aside>
 
@@ -249,13 +214,11 @@ export default function M11CActivityRoomPage() {
           {/* Workflow Summary */}
           {room.workflowSummary && (
             <div className="ar-strip">
-              <span
-                className={`inline-block h-1.5 w-1.5 rounded-full ${
-                  room.workflowSummary.status === 'running' ? 'bg-(--vestara-green) animate-pulse' :
-                  room.workflowSummary.status === 'completed' ? 'bg-(--vestara-green)' :
-                  room.workflowSummary.status === 'failed' ? 'bg-(--vestara-red)' :
-                  'bg-(--vestara-text-muted)'
-                }`}
+              <StatusIndicator
+                variant={WORKFLOW_STATUS_CONFIG[room.workflowSummary.status]?.variant ?? 'idle'}
+                size="xs"
+                pulse={WORKFLOW_STATUS_CONFIG[room.workflowSummary.status]?.pulse ?? false}
+                ariaLabel={`Workflow: ${room.workflowSummary.status}`}
               />
               <span className="ar-strip__status">{room.workflowSummary.status}</span>
               <span className="ar-strip__count">
@@ -276,12 +239,12 @@ export default function M11CActivityRoomPage() {
             onLoadOlder={room.loadOlder}
             onReportViewport={room.reportViewport}
             onClearUnread={room.clearUnread}
-            onOpenDetail={handleOpenDetail}
+            onOpenDetail={ui.openDetail}
             onDrillDown={handleDrillDown}
-            onReply={handleReply}
+            onReply={ui.setReplyTo}
             onRetract={handleRetract}
-            onEdit={handleEdit}
-            onOpenThread={handleOpenThread}
+            onEdit={ui.openEdit}
+            onOpenThread={ui.openThread}
             lookupAuthor={lookupAuthor}
             lookupContent={lookupContent}
             selectedParticipantId={selectedParticipantId}
@@ -290,7 +253,7 @@ export default function M11CActivityRoomPage() {
           />
 
           {/* Composer with reply-to support */}
-          <M11CComposer replyTo={replyToItem} onClearReply={handleClearReply} />
+          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} />
         </main>
 
         {/* Context panel (right column) — authoritative data only */}
@@ -305,34 +268,34 @@ export default function M11CActivityRoomPage() {
       </div>
 
       {/* ─── Detail Modal ───────────────────────────────── */}
-      {detailItem && (
+      {ui.detailItem && (
         <M11CDetailModal
-          item={detailItem}
+          item={ui.detailItem}
           drillDownRecords={drillDownRecords}
           drillDownLoading={drillDownLoading}
-          onClose={handleCloseDetail}
+          onClose={ui.closeDetail}
         />
       )}
 
       {/* ─── Edit Modal ───────────────────────────────── */}
-      {editingItem && (
+      {ui.editingItem && (
         <M11CEditModal
-          item={editingItem}
+          item={ui.editingItem}
           onSave={async (newContent) => {
-            await editActivityMessage(editingItem.id, newContent);
-            setEditingItem(null);
+            await editActivityMessage(ui.editingItem!.id, newContent);
+            ui.closeEdit();
           }}
-          onClose={() => setEditingItem(null)}
+          onClose={ui.closeEdit}
         />
       )}
 
       {/* ─── Thread View Modal ──────────────────────────── */}
-      {threadActivityIds.length > 0 && (
+      {ui.threadActivityIds.length > 0 && (
         <M11CThreadModal
-          activityIds={threadActivityIds}
+          activityIds={ui.threadActivityIds}
           lookupAuthor={lookupAuthor}
           lookupContent={lookupContent}
-          onClose={() => setThreadActivityIds([])}
+          onClose={ui.closeThread}
         />
       )}
 
@@ -340,7 +303,7 @@ export default function M11CActivityRoomPage() {
       {agentControlParticipant && agentControlAgentId && (
         <AgentProjectionDrawer
           open
-          onClose={handleCloseAgentControl}
+          onClose={ui.closeAgentControl}
           agentId={agentControlAgentId}
           participant={agentControlParticipant}
         />
@@ -412,37 +375,6 @@ function M11CComposer({
 
   return (
     <div className="ar-composer" role="form" aria-label="Message composer">
-      {/* Secondary actions */}
-      <div className="ar-composer__actions">
-        <button
-          type="button"
-          className="ar-composer__action"
-          aria-label="Attach file"
-          disabled
-          title="Attach file (coming soon)"
-        >
-          +
-        </button>
-        <button
-          type="button"
-          className="ar-composer__action"
-          aria-label="Mention participant"
-          disabled
-          title="Mention participant (coming soon)"
-        >
-          @
-        </button>
-        <button
-          type="button"
-          className="ar-composer__action"
-          aria-label="Run command"
-          disabled
-          title="Run command (coming soon)"
-        >
-          /
-        </button>
-      </div>
-
       {/* Input */}
       <input
         ref={inputRef}

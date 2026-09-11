@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ModelId, ProviderId, ProviderModelRef } from '../src/index.js';
+import type { ProviderModelRef } from '../src/index.js';
 import { isRoutingCapability, modelId, providerId, ROUTING_CAPABILITIES } from '../src/index.js';
 
 describe('RoutingCapability', () => {

@@ -125,6 +125,7 @@ export default function M11CActivityStream({
   const previousScrollHeight = useRef(0);
   const previousItemCount = useRef(0);
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // ─── Filtering ──────────────────────────────────────────
   // Uses canonical M11C stream `kind` values, not string matching.
@@ -162,8 +163,18 @@ export default function M11CActivityStream({
       });
     }
 
+    // Text search filter (content + actor name)
+    const query = searchQuery.trim().toLowerCase();
+    if (query) {
+      result = result.filter((item) => {
+        const contentMatch = item.content.toLowerCase().includes(query);
+        const actorMatch = item.actor.displayName.toLowerCase().includes(query);
+        return contentMatch || actorMatch;
+      });
+    }
+
     return result;
-  }, [items, selectedParticipantId, activeFilter]);
+  }, [items, selectedParticipantId, activeFilter, searchQuery]);
 
   // ─── Bounded Window ─────────────────────────────────────
 
@@ -223,8 +234,8 @@ export default function M11CActivityStream({
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* ── Filter Bar ──────────────────────────────────── */}
-      <div className="ar-stream-filter" role="tablist" aria-label="Filter activity stream">
-        <div className="ar-stream-filter__tabs">
+      <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
+        <div className="ar-stream-filter__tabs" role="tablist">
           {FILTER_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -239,6 +250,14 @@ export default function M11CActivityStream({
           ))}
         </div>
         <div className="ar-stream-filter__right">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search activity…"
+            className="ar-stream-filter__search"
+            aria-label="Search activity stream"
+          />
           <StatusIndicator
             variant={connectionState === 'live' ? 'live' : connectionState === 'paused' ? 'idle' : 'warn'}
             size="xs"

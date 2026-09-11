@@ -69,11 +69,11 @@ function analyze(label, { contentType, frames }) {
   const deltas = events.filter((e) => e.type === 'delta').map((e) => e.content ?? '');
   const fullText = deltas.join('');
   // Incremental growth proof: each successive delta should extend the text.
-  let grew = 0;
+  let _grew = 0;
   let accumulated = '';
   for (const d of deltas) {
     if (d.length > 0 && accumulated.length + d.length === fullText.slice(0, accumulated.length + d.length).length)
-      grew += 1;
+      _grew += 1;
     accumulated += d;
   }
   const statusCount = types.filter((t) => t === 'status').length;

@@ -17,7 +17,7 @@ import type {
   WorkflowTaskId,
   WorkState,
 } from '@vestara/types';
-import type { ActivityCursor, ActivityRecord } from './m9-types';
+import type { ActivityCursor } from './m9-types';
 
 // ─── Stream Item ────────────────────────────────────────────
 

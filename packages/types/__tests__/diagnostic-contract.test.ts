@@ -20,7 +20,6 @@ import type {
   DiagnosticSeverity,
   DiagnosticSnapshot,
   DiagnosticSourceHealth,
-  DiagnosticSourceKind,
   DiagnosticSourceRef,
 } from '../src/diagnostic';
 import { DIAGNOSTIC_SEVERITIES, DIAGNOSTIC_SOURCE_HEALTHS, DIAGNOSTIC_SOURCE_KINDS } from '../src/diagnostic';

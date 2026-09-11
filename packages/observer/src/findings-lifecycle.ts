@@ -161,7 +161,7 @@ export class FindingLifecycleManager {
     };
 
     // Update target to reference the merged finding
-    const updatedTarget: ObserverFinding = {
+    const _updatedTarget: ObserverFinding = {
       ...target,
       updatedAt: now,
       relatedFindingIds: [...new Set([...(target.relatedFindingIds ?? []), source.id])],

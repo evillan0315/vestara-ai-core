@@ -1,8 +1,8 @@
 import type { ChannelMessage } from '@vestara/channel-types';
 import { describe, expect, it } from 'vitest';
 import type { ConversationBinding } from '../src/conversation-binding';
-import { GlobalAssistantTextRouter } from '../src/global-assistant';
 import type { ExecutionBackend } from '../src/global-assistant';
+import { GlobalAssistantTextRouter } from '../src/global-assistant';
 import type { TelegramIdentityBinding } from '../src/pairing';
 import type { WorkspaceBinding } from '../src/workspace-binding';
 
@@ -71,7 +71,7 @@ function makeConversation(overrides: Partial<ConversationBinding> = {}): Convers
 
 function makeBackend(overrides: Partial<ExecutionBackend> = {}): ExecutionBackend {
   return {
-    sendMessage: async (conversationId, content, options) => ({
+    sendMessage: async (_conversationId, content, _options) => ({
       executionId: 'exec-backend-1',
       success: true,
       response: `Echo: ${content}`,
@@ -157,7 +157,9 @@ describe('GlobalAssistantTextRouter', () => {
 
     it('handles backend failure gracefully', async () => {
       const backend: ExecutionBackend = {
-        sendMessage: async () => { throw new Error('LLM unavailable'); },
+        sendMessage: async () => {
+          throw new Error('LLM unavailable');
+        },
       };
       const router = new GlobalAssistantTextRouter({ backend });
       const result = await router.routeMessage(makeMessage(), makeIdentity(), makeWorkspace(), makeConversation());
@@ -168,7 +170,9 @@ describe('GlobalAssistantTextRouter', () => {
 
     it('completes execution on backend error (concurrent slot freed)', async () => {
       const backend: ExecutionBackend = {
-        sendMessage: async () => { throw new Error('fail'); },
+        sendMessage: async () => {
+          throw new Error('fail');
+        },
       };
       const router = new GlobalAssistantTextRouter({ backend, maxConcurrentExecutions: 1, rateLimitPerMinute: 100 });
       const identity = makeIdentity();
@@ -257,7 +261,7 @@ describe('GlobalAssistantTextRouter', () => {
       await router.routeMessage(makeMessage(), identity, workspace, conversation);
 
       // Simulate window expiry
-      const rateLimits = router['rateLimits'] as Map<string, { count: number; windowStart: number }>;
+      const rateLimits = router.rateLimits as Map<string, { count: number; windowStart: number }>;
       const entry = rateLimits.get('p-1');
       if (entry) {
         entry.windowStart = Date.now() - 61000;

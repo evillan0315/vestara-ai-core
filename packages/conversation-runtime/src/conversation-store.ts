@@ -1,4 +1,4 @@
-import type { ConversationStore } from '@vestara/conversation';
+import type { ConversationListPage, ConversationStore } from '@vestara/conversation';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationStatus, ConversationSummary, Message } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
@@ -102,6 +102,7 @@ export class SqliteConversationStore implements ConversationStore {
     this._persist();
   }
 
+  /** Unbounded read — returns the complete conversation. Retained for backward compatibility. */
   async get(id: string): Promise<Conversation | null> {
     const db = await this._db();
     const row = dbGet(db, 'SELECT * FROM conversations WHERE id = ?', [id]);
@@ -123,6 +124,55 @@ export class SqliteConversationStore implements ConversationStore {
     };
   }
 
+  /**
+   * VES-PERF-001B: Bounded newest-window-first read.
+   *
+   * Defaults to the newest 50 messages. Messages are always returned in
+   * chronological order regardless of `order`; `order: 'desc'` selects the
+   * newest window (used for initial load and older-page loading), `order: 'asc'`
+   * selects the oldest window.
+   */
+  async getConversation(
+    id: string,
+    options?: { limit?: number; offset?: number; order?: 'asc' | 'desc' },
+  ): Promise<Conversation | null> {
+    const db = await this._db();
+    const row = dbGet(db, 'SELECT * FROM conversations WHERE id = ?', [id]);
+    if (!row) return null;
+
+    const limit = options?.limit ?? 50;
+    const offset = options?.offset ?? 0;
+    const newestFirst = (options?.order ?? 'desc') === 'desc';
+
+    // Select the window (newest-first when requested) then normalize to chronological.
+    const window = dbAll(
+      db,
+      `SELECT * FROM conversation_messages WHERE conversation_id = ? ORDER BY created_at ${newestFirst ? 'DESC' : 'ASC'}, rowid ${newestFirst ? 'DESC' : 'ASC'} LIMIT ? OFFSET ?`,
+      [id, limit, offset],
+    );
+    const messages = newestFirst ? window.reverse() : window;
+
+    const countRow = dbGet(db, 'SELECT COUNT(*) as count FROM conversation_messages WHERE conversation_id = ?', [id]);
+    const totalCount = (countRow?.count as number) ?? 0;
+
+    return {
+      id: row.id as string,
+      userId: row.user_id as string,
+      title: row.title as string,
+      status: row.status as ConversationStatus,
+      runtimeSessionId: (row.runtime_session_id as string) || undefined,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+      messages: messages.map((m) => this._rowToMessage(m)),
+      _pagination: {
+        total: totalCount,
+        offset,
+        limit,
+        hasMore: offset + limit < totalCount,
+      },
+    };
+  }
+
   async list(userId: string): Promise<ConversationSummary[]> {
     const db = await this._db();
     const rows = dbAll(
@@ -141,7 +191,42 @@ export class SqliteConversationStore implements ConversationStore {
       status: row.status as ConversationStatus,
       createdAt: row.created_at as string,
       updatedAt: row.updated_at as string,
+      runtimeSessionId: (row.runtime_session_id as string) || undefined,
     }));
+  }
+
+  async listPage(userId: string, options?: { limit?: number; offset?: number }): Promise<ConversationListPage> {
+    const db = await this._db();
+    const limit = options?.limit ?? 25;
+    const offset = options?.offset ?? 0;
+
+    const countRow = dbGet(
+      db,
+      `SELECT COUNT(*) AS count FROM conversations c WHERE c.user_id = ? AND c.status != 'deleted'`,
+      [userId],
+    );
+    const total = (countRow?.count as number) ?? 0;
+
+    const rows = dbAll(
+      db,
+      `SELECT c.*, COUNT(m.id) AS message_count
+       FROM conversations c
+       LEFT JOIN conversation_messages m ON m.conversation_id = c.id
+       WHERE c.user_id = ? AND c.status != 'deleted'
+       GROUP BY c.id ORDER BY c.updated_at DESC LIMIT ? OFFSET ?`,
+      [userId, limit, offset],
+    );
+    const conversations: ConversationSummary[] = rows.map((row: any) => ({
+      id: row.id as string,
+      title: row.title as string,
+      messageCount: Number(row.message_count ?? 0),
+      status: row.status as ConversationStatus,
+      createdAt: row.created_at as string,
+      updatedAt: row.updated_at as string,
+      runtimeSessionId: (row.runtime_session_id as string) || undefined,
+    }));
+
+    return { conversations, total, offset, limit, hasMore: offset + limit < total };
   }
 
   async addMessage(conversationId: string, message: Message): Promise<void> {

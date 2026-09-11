@@ -346,8 +346,8 @@ describe('Area 6: Deterministic ordering and cursor semantics', () => {
     const store = new IdempotentActivityStore();
 
     const r1 = await store.append(makeActivityEvent({ eventId: 'cur-1' }));
-    const r2 = await store.append(makeActivityEvent({ eventId: 'cur-2' }));
-    const r3 = await store.append(makeActivityEvent({ eventId: 'cur-3' }));
+    const _r2 = await store.append(makeActivityEvent({ eventId: 'cur-2' }));
+    const _r3 = await store.append(makeActivityEvent({ eventId: 'cur-3' }));
 
     const after = await store.getAfter({
       sequenceNumber: r1.sequenceNumber,
@@ -379,9 +379,9 @@ describe('Area 6: Deterministic ordering and cursor semantics', () => {
     const store = new IdempotentActivityStore();
 
     const r1 = await store.append(makeActivityEvent({ eventId: 'rep-1' }));
-    const r2 = await store.append(makeActivityEvent({ eventId: 'rep-2' }));
+    const _r2 = await store.append(makeActivityEvent({ eventId: 'rep-2' }));
     const r3 = await store.append(makeActivityEvent({ eventId: 'rep-3' }));
-    const r4 = await store.append(makeActivityEvent({ eventId: 'rep-4' }));
+    const _r4 = await store.append(makeActivityEvent({ eventId: 'rep-4' }));
 
     // Replay from r1 to r3 (exclusive from, inclusive to)
     const replayed = await store.replay(
@@ -451,14 +451,14 @@ describe('Area 8: Restart durability', () => {
     const store = new IdempotentActivityStore();
 
     // Append activities
-    const r1 = await store.append(
+    const _r1 = await store.append(
       makeActivityEvent({
         eventId: 'restart-1',
         type: 'workflow.started',
         workflowRunId: 'wr-restart' as WorkflowRunId,
       }),
     );
-    const r2 = await store.append(
+    const _r2 = await store.append(
       makeActivityEvent({
         eventId: 'restart-2',
         type: 'task.completed',
@@ -593,7 +593,7 @@ describe('Area 9: Query surface', () => {
     const store = new IdempotentActivityStore();
 
     const r1 = await store.append(makeActivityEvent({ eventId: 'qc-1' }));
-    const r2 = await store.append(makeActivityEvent({ eventId: 'qc-2' }));
+    const _r2 = await store.append(makeActivityEvent({ eventId: 'qc-2' }));
     await store.append(makeActivityEvent({ eventId: 'qc-3' }));
 
     const results = await store.query({
@@ -909,7 +909,7 @@ describe('Full scenario: end-to-end durable Activity Room', () => {
 
     // Append some events
     await store.append(makeActivityEvent({ eventId: 're-1' }));
-    const r2 = await store.append(makeActivityEvent({ eventId: 're-2' }));
+    const _r2 = await store.append(makeActivityEvent({ eventId: 're-2' }));
     await store.append(makeActivityEvent({ eventId: 're-3' }));
 
     // Get cursor
