@@ -18,8 +18,8 @@ import {
   AssetGridSkeleton,
   GalleryCard,
   InsightBanner,
-  MarketplaceStatPill,
 } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { PageHero } from '../layout/PageHero/PageHero.js';
 import { diagnosticsApi, formatBytes } from '../../lib/diagnostics';
 import { AgentMonitor } from './AgentMonitor';
 import { AiAnalyze } from './AiAnalyze';
@@ -70,70 +70,61 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
   const healthy = critical === 0;
 
   return (
-    <section className="mpg-hero mpg-enter" aria-label="Diagnostics highlights">
-      <div className="mpg-hero-copy">
-        <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--vestara-marketplace-primary)]">
-          <StatusDot color={paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'} label={paused ? 'Paused' : 'Live'} />
-          {paused ? 'Telemetry paused' : 'Live telemetry'}
-        </p>
-        <h1 className="mt-2 text-3xl font-bold tracking-tight text-[var(--vestara-text-primary)] sm:text-4xl">
-          Diagnostic Center
-        </h1>
-        <p className="mt-2 text-[15px] font-medium text-[var(--vestara-text-secondary)]">
-          System health, processes, and signals — instrument-grade, at a glance.
-        </p>
-        <p className="mt-4 max-w-md text-[13px] italic leading-relaxed text-[var(--vestara-text-secondary)]">
-          {summary
-            ? `${summary.os.hostname} · ${summary.workspace.name} · ${summary.os.platform} ${summary.os.arch}`
-            : 'Connecting to live system feeds…'}
-        </p>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button type="button" className="mpg-install-btn" onClick={onAnalyze} title="AI diagnostics analysis">
-            <AutoAwesomeRoundedIcon fontSize="inherit" /> Analyze with AI
-          </button>
-          <button type="button" className="mpg-pill" onClick={onExport} title="Export diagnostics report">
-            <DownloadRoundedIcon fontSize="inherit" /> Export report
-          </button>
-        </div>
-        <div className="mt-5 flex flex-wrap items-center gap-2">
-          <span className="mpg-tag-pill" style={{ color: 'var(--vestara-text-secondary)' }}>
-            <StatusDot color={healthy ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'} />
-            {healthy ? 'Systems nominal' : `${critical} critical`}
-          </span>
-          {readiness !== null && (
-            <MarketplaceStatPill label="ready" value={`${readiness}%`} />
-          )}
-          {summary && (
-            <MarketplaceStatPill label="CPU" value={`${Math.round(summary.cpu.usage)}%`} />
-          )}
-          {warnings > 0 && (
-            <MarketplaceStatPill label="warnings" value={warnings} color="text-[var(--vestara-status-warning)]" />
-          )}
-        </div>
-      </div>
-      <aside className="mpg-hero-checklist" aria-label="Signal snapshot">
-        <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--vestara-marketplace-primary)]">
-          Signal snapshot
-        </p>
-        <ul>
-          <li>
-            ◍ {summary ? `CPU ${Math.round(summary.cpu.usage)}% · ${summary.cpu.logicalCores} cores` : 'CPU …'}
-          </li>
-          <li>
-            ▤{' '}
-            {summary
-              ? `Memory ${Math.round((summary.memory.used / Math.max(1, summary.memory.total)) * 100)}% · ${formatBytes(summary.memory.used)}`
-              : 'Memory …'}
-          </li>
-          <li>
-            ✓{' '}
-            {summary != null
-              ? `Health ${summary.health.filter((h) => h.status === 'pass').length}/${summary.health.length} checks pass`
-              : 'Health …'}
-          </li>
-        </ul>
-      </aside>
-    </section>
+    <PageHero
+      eyebrow={paused ? 'Telemetry paused' : 'Live telemetry'}
+      statusColor={paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
+      title="Diagnostic Center"
+      subtitle="System health, processes, and signals — instrument-grade, at a glance."
+      quote={
+        summary
+          ? `${summary.os.hostname} · ${summary.workspace.name} · ${summary.os.platform} ${summary.os.arch}`
+          : 'Connecting to live system feeds…'
+      }
+      actions={[
+        {
+          label: 'Analyze with AI',
+          primary: true,
+          onClick: onAnalyze,
+          title: 'AI diagnostics analysis',
+          glyph: <AutoAwesomeRoundedIcon fontSize="inherit" />,
+        },
+        {
+          label: 'Export report',
+          onClick: onExport,
+          title: 'Export diagnostics report',
+          glyph: <DownloadRoundedIcon fontSize="inherit" />,
+        },
+      ]}
+      meta={
+        <span className="mpg-tag-pill" style={{ color: 'var(--vestara-text-secondary)' }}>
+          <StatusDot color={healthy ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'} />
+          {healthy ? 'Systems nominal' : `${critical} critical`}
+        </span>
+      }
+      stats={[
+        ...(readiness !== null ? [{ label: 'ready', value: `${readiness}%` }] : []),
+        ...(summary ? [{ label: 'CPU', value: `${Math.round(summary.cpu.usage)}%` }] : []),
+        ...(warnings > 0
+          ? [{ label: 'warnings', value: warnings, color: 'text-[var(--vestara-status-warning)]' }]
+          : []),
+      ]}
+      checklistTitle="Signal snapshot"
+      checklist={[
+        `◍ ${summary ? `CPU ${Math.round(summary.cpu.usage)}% · ${summary.cpu.logicalCores} cores` : 'CPU …'}`,
+        `▤ ${
+          summary
+            ? `Memory ${Math.round((summary.memory.used / Math.max(1, summary.memory.total)) * 100)}% · ${formatBytes(summary.memory.used)}`
+            : 'Memory …'
+        }`,
+        `✓ ${
+          summary != null
+            ? `Health ${summary.health.filter((h) => h.status === 'pass').length}/${summary.health.length} checks pass`
+            : 'Health …'
+        }`,
+      ]}
+      checklistLabel="Signal snapshot"
+      label="Diagnostics highlights"
+    />
   );
 }
 

@@ -8,7 +8,9 @@ export interface SidebarSectionProps extends PropsWithChildren {
 const SidebarSection: FC<SidebarSectionProps> = ({ title, collapsed, children }) => {
   return (
     <section className="space-y-2">
-      {!collapsed && (
+      {/* Unlabeled (curated flat) sections render no header — matches the
+          mock sidebar: one list with a divider, no group chrome. */}
+      {!collapsed && title !== '' && (
         <div className="px-4">
           <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
             {title}

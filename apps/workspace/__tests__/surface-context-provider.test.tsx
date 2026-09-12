@@ -45,24 +45,14 @@ vi.mock('react-router-dom', () => ({
   useLocation: () => ({ pathname: currentPath, search: '', hash: '', state: null }),
 }));
 
-// Mock navigation with a minimal set for testing
-vi.mock('../src/layouts/navigation', () => ({
-  NAV_CATEGORIES: [
-    {
-      title: 'Workspace',
-      items: [
-        { to: '/overview', title: 'Overview', icon: null },
-        { to: '/diagnostics', title: 'Diagnostics', icon: null },
-        { to: '/activity-v2', title: 'Activity Room (M11C)', icon: null },
-      ],
-    },
-    {
-      title: 'Engineering',
-      items: [
-        { to: '/sessions', title: 'Sessions', icon: null },
-        { to: '/artifacts', title: 'Artifacts', icon: null },
-      ],
-    },
+// Mock navigation registry with a minimal set for testing
+vi.mock('../src/layouts/workspace-navigation', () => ({
+  WORKSPACE_NAVIGATION: [
+    { id: 'overview', label: 'Overview', path: '/overview', icon: 'home', group: 'Workspace', order: 10, tier: 'primary' },
+    { id: 'diagnostics', label: 'Diagnostics', path: '/diagnostics', icon: 'diagnostics', group: 'Workspace', order: 20, tier: 'primary' },
+    { id: 'activity', label: 'Activity Room', path: '/activity', icon: 'activity', group: 'Workspace', order: 30, tier: 'primary' },
+    { id: 'sessions', label: 'Sessions', path: '/sessions', icon: 'sessions', group: 'Engineering', order: 40, tier: 'secondary' },
+    { id: 'artifacts', label: 'Artifacts', path: '/artifacts', icon: 'artifacts', group: 'Engineering', order: 50, tier: 'secondary' },
   ],
 }));
 
@@ -243,9 +233,10 @@ describe('SurfaceContextProvider', () => {
       await new Promise((r) => setTimeout(r, 0));
     });
 
-    // Surface Context still works — route info is from NAV_CATEGORIES, not Activity Room
-    expect(result.current.surface.routeId).toBe('/activity-v2');
-    expect(result.current.surface.title).toBe('Activity Room (M11C)');
+    // Surface Context still works — unlisted routes degrade to nulls
+    // (/activity-v2 is hidden from the navigation registry)
+    expect(result.current.surface.routeId).toBeNull();
+    expect(result.current.surface.title).toBeNull();
     expect(result.current.workspace.id).toBeDefined();
   });
 

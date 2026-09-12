@@ -20,7 +20,7 @@ export function DashboardListCard({
       className={clsx(
         'group overflow-hidden rounded-2xl',
         'border border-(--vestara-accent-border)',
-        'bg-(--vestara-surface)',
+        'bg-(--vestara-surface) bg-gradient-to-b from-black/50 via-transparent to-black/40',
         'shadow-[0_0_0_1px_var(--vestara-accent-bg),0_0_12px_color-mix(in_srgb,var(--vestara-accent)_10%,transparent),inset_0_1px_0_color-mix(in_srgb,var(--vestara-accent-light)_8%,transparent)]',
         'transition-all duration-300',
         'hover:border-(--vestara-accent-border-hover)',

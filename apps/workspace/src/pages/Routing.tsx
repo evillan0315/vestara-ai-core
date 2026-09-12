@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type AgentData, getAgents } from '../lib/api.js';
 import { VestaraModal } from '../components/ui/VestaraModal';
+import { PageHero } from '../components/layout/PageHero/PageHero.js';
 import {
   type EngineeringAgentRole,
   type ProviderModelRef,
@@ -23,7 +24,7 @@ const roles: readonly EngineeringAgentRole[] = [
 ];
 
 const panel =
-  'rounded-xl border border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface,var(--color-zinc-900))]';
+  'rounded-xl border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)]';
 const button =
   'rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-3 py-2 text-sm hover:border-[var(--vestara-accent-border)] disabled:cursor-not-allowed disabled:opacity-50';
 const select =
@@ -124,20 +125,24 @@ export default function RoutingPage() {
 
   return (
     <div className="space-y-6 p-[var(--vestara-spacing-page)] text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-      <header className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--vestara-accent-text)]">AI OS</p>
-          <h1 className="mt-1 text-2xl font-semibold">Engineering Routing</h1>
-          <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">
-            Select routing intent; the runtime validates and records the effective assignment.
-          </p>
-        </div>
-        <div className="text-right text-xs text-[var(--vestara-text-muted)]">
-          Revision {state.selection.revision}
-          <br />
-          Updated by {state.selection.updatedByClientId}
-        </div>
-      </header>
+      <PageHero
+        eyebrow="AI OS"
+        title="Engineering Routing"
+        subtitle="Select routing intent; the runtime validates and records the effective assignment."
+        stats={[
+          { label: 'revision', value: state.selection.revision },
+          { label: 'profiles', value: state.catalog.profiles.length },
+          { label: 'assignments', value: state.assignments.length },
+        ]}
+        checklistTitle="Active selection"
+        checklist={[
+          `◇ ${state.catalog.profiles.find((p) => p.id === draft.profileId)?.name ?? draft.profileId}`,
+          `◇ Revision ${state.selection.revision}`,
+          `◇ Updated by ${state.selection.updatedByClientId}`,
+        ]}
+        checklistLabel="Active routing selection"
+        label="Engineering routing highlights"
+      />
 
       {error && (
         <div role="alert" className="rounded-md border border-red-800 bg-red-950/40 p-3 text-sm text-red-300">

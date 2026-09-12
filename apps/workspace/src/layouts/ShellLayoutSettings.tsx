@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { PROFILES, useTheme } from '../lib/theme.js';
+import { PageHero } from '../components/layout/PageHero/PageHero.js';
 import { Button, focus, input, SearchIcon, surface } from '../pages/Settings/settings-ui.js';
 
 export interface SettingsNavigationItem {
@@ -137,29 +138,26 @@ export default function ShellLayoutSettings({
 
   return (
     <div className="min-h-[calc(100vh-4rem)] bg-(--vestara-color-bg-app,var(--color-zinc-950)) font-(--vestara-font-family) text-(--vestara-color-text-primary,var(--vestara-text))">
-      <header className="border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-[var(--vestara-spacing-page)] py-0">
+      <div className="px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)]">
         <div className="max-w-[var(--vestara-page-max-width)]">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-[10px] font-medium uppercase tracking-[0.18em] text-[var(--vestara-accent-text)]">
-                Workspace
-              </p>
-              <h1 className="mt-1 text-[clamp(1.4rem,2vw,1.75rem)] font-semibold tracking-tight">Settings</h1>
-              <p className="mt-1 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                Configure the visual, operational, and runtime behavior of Vestara.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-xs text-[var(--vestara-accent-text)]">
-                {activeProfile
-                  ? `${PROFILES.find((profile) => profile.id === activeProfile)?.label ?? activeProfile} profile`
-                  : 'Custom display'}
-              </span>
-              {!activeProfile && <Button onClick={resetSettings}>Reset display</Button>}
-            </div>
-          </div>
+          <PageHero
+            eyebrow="Workspace"
+            title="Settings"
+            subtitle="Configure the visual, operational, and runtime behavior of Vestara."
+            meta={
+              <div className="flex items-center gap-2">
+                <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-xs text-[var(--vestara-accent-text)]">
+                  {activeProfile
+                    ? `${PROFILES.find((profile) => profile.id === activeProfile)?.label ?? activeProfile} profile`
+                    : 'Custom display'}
+                </span>
+                {!activeProfile && <Button onClick={resetSettings}>Reset display</Button>}
+              </div>
+            }
+            label="Settings highlights"
+          />
         </div>
-      </header>
+      </div>
       <div className="lg:flex">
         <SettingsNavigation
           navigation={navigation}

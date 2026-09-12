@@ -44,7 +44,7 @@ export default function DashboardHeader({
   onStartWorkflow,
 }: DashboardHeaderProps) {
   return (
-    <div className="border border-(--vestara-accent-border) rounded-lg p-4 mb-4">
+    <div className="border border-(--vestara-accent-border) rounded-lg p-4 mb-4 bg-(--vestara-surface) bg-gradient-to-b from-black/50 via-transparent to-black/40">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="relative w-14 h-14 shrink-0">

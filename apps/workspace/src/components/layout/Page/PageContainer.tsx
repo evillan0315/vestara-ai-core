@@ -6,7 +6,7 @@ export interface PageContainerProps extends PropsWithChildren {
 
 export default function PageContainer({ children, fluid = false }: PageContainerProps) {
   return (
-    <main className="flex-1 overflow-auto bg-zinc-950">
+    <main className="shell-canvas flex-1 overflow-auto bg-(--vestara-shell-bg)">
       <div className={['h-full mx-auto w-full', fluid ? 'max-w-none' : 'max-w-[1800px]'].join(' ')}>{children}</div>
     </main>
   );

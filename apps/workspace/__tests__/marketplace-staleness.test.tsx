@@ -2,7 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { NAV_CATEGORIES } from '../src/layouts/navigation.js';
+import { WORKSPACE_NAVIGATION } from '../src/layouts/workspace-navigation.js';
 import { marketplaceClient } from '../src/lib/marketplace.js';
 import { openCodeQueryKeys } from '../src/lib/opencode.js';
 import { ThemeProvider } from '../src/lib/theme.js';
@@ -103,9 +103,9 @@ describe('Marketplace route and query-key registration', () => {
   });
 
   it('adds a Marketplace navigation entry', () => {
-    const nav = NAV_CATEGORIES.flatMap((c) => c.items).find((item) => item.to === '/marketplace');
+    const nav = WORKSPACE_NAVIGATION.find((entry) => entry.path === '/marketplace');
     expect(nav).toBeDefined();
-    expect(nav?.title).toBe('Marketplace');
+    expect(nav?.label).toBe('Marketplace');
   });
 
   it('keeps the OpenCode permissions query key stable alongside marketplace', () => {

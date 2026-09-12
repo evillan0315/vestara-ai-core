@@ -97,7 +97,10 @@ function applyAccentVariables(accent: AccentPalette | undefined) {
   root.style.setProperty('--vestara-accent', accent.hex);
   root.style.setProperty('--vestara-accent-light', accent.light);
   root.style.setProperty('--vestara-accent-dark', accent.dark);
-  root.style.setProperty('--vestara-accent-bg', accent.bg);
+  // --vestara-accent-bg is intentionally NOT stamped here: apps/workspace
+  // index.css derives it from the live --vestara-accent over the shell, so
+  // every bg-(--vestara-accent-bg) panel tracks the selected accent theme
+  // instead of freezing at the palette's translucent wash.
   root.style.setProperty('--vestara-accent-border', accent.border);
   root.style.setProperty('--vestara-accent-border-hover', accent.borderHover);
   root.style.setProperty('--vestara-accent-border-active', accent.borderActive);

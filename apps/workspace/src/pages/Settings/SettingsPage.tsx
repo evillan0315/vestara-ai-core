@@ -13,6 +13,7 @@ import {
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
 import { Button, input, SettingsRow, SettingsSection, Source, Status, surface, Toggle } from './settings-ui.js';
 import { ApiEndpointField } from './ApiEndpointField.js';
+import NavigationSettings from './NavigationSettings.js';
 import { TelegramSimulator } from './TelegramSimulator.js';
 
 interface SettingsData {
@@ -22,7 +23,7 @@ interface SettingsData {
   history: EventStoreStatusDto;
 }
 
-const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection'; label: string; description: string; code: string }> = [
+const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection' | 'navigation'; label: string; description: string; code: string }> = [
   { id: 'overview', label: 'Overview', description: 'Configuration and system health', code: 'OV' },
   { id: 'general', label: 'General', description: 'Workspace identity and interface', code: 'GN' },
   { id: 'runtime', label: 'Runtime', description: 'Runtime services and operations', code: 'RT' },
@@ -36,6 +37,7 @@ const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection'; label
   { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', code: 'TM' },
   { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', code: 'AD' },
   { id: 'telegram', label: 'Telegram', description: 'Telegram integration simulator', code: 'TG' },
+  { id: 'navigation', label: 'Navigation', description: 'Sidebar menus and custom entries', code: 'NV' },
   { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', code: 'CN' },
 ];
 
@@ -593,6 +595,7 @@ export default function SettingsPage() {
             />
           ))}
           <Route path="telegram" element={<TelegramSimulator />} />
+          <Route path="navigation" element={<NavigationSettings />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Routes>
       )}

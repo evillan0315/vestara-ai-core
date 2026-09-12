@@ -18,6 +18,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, EmptyState, StatusIndicator } from '@vestara/ui';
+import { PageHero } from '../../components/layout/PageHero/PageHero.js';
 
 // ─── Type accent colors ─────────────────────────────────────────
 // VES-DESIGN-005: canonical marketplace tokens (dark/light aware).
@@ -523,34 +524,27 @@ export function MarketplaceHero({
   searchPlaceholder?: string;
 }) {
   return (
-    <section className="mpg-hero" aria-label="Marketplace highlights">
-      <div className="mpg-hero-copy">
-        <h2 className="text-xl font-bold text-[var(--vestara-text-primary)] sm:text-2xl">Build More with Vestara</h2>
-        <p className="mt-1 max-w-xl text-sm text-[var(--vestara-text-secondary)]">
-          Agents, tools, templates, and integrations for a more capable tomorrow.
-        </p>
-        <div className="mpg-hero-search">
-          <span aria-hidden="true">⌕</span>
-          <label className="sr-only" htmlFor="marketplace-hero-search">
-            Search marketplace
-          </label>
-          <input
-            id="marketplace-hero-search"
-            value={query}
-            onChange={(e) => onQueryChange(e.target.value)}
-            placeholder={searchPlaceholder}
-          />
-        </div>
-      </div>
-      <aside className="mpg-hero-checklist" aria-label="Why extend">
-        <ul>
-          <li>◇ Extend your workspace</li>
-          <li>⬔ Automate your workflow</li>
-          <li>❖ Share with the community</li>
-          <li>⬣ Build what&apos;s next</li>
-        </ul>
-      </aside>
-    </section>
+    <PageHero
+      title="Build More with Vestara"
+      titleAs="h2"
+      subtitle="Agents, tools, templates, and integrations for a more capable tomorrow."
+      search={{
+        value: query,
+        onChange: onQueryChange,
+        placeholder: searchPlaceholder,
+        inputId: 'marketplace-hero-search',
+        label: 'Search marketplace',
+      }}
+      checklistTitle="Why extend"
+      checklist={[
+        '◇ Extend your workspace',
+        '⬔ Automate your workflow',
+        '❖ Share with the community',
+        '⬣ Build what\u2019s next',
+      ]}
+      checklistLabel="Why extend"
+      label="Marketplace highlights"
+    />
   );
 }
 

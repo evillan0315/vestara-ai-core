@@ -3,6 +3,11 @@ import KeyboardCommandKeyRoundedIcon from '@mui/icons-material/KeyboardCommandKe
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+  buildNavSearchIndex,
+  type NavSearchEntry,
+} from '../../../layouts/workspace-navigation.js';
+import { useNavigationStore } from '../../../lib/navigation-store.js';
 
 interface SearchResult {
   id: string;
@@ -13,22 +18,20 @@ interface SearchResult {
   icon?: string;
 }
 
-const PAGES: SearchResult[] = [
-  { id: 'overview', title: 'Overview', description: 'Workspace overview', path: '/overview', type: 'page' },
-  { id: 'dashboard', title: 'Dashboard', description: 'Workspace dashboard', path: '/dashboard', type: 'page' },
-  { id: 'activities', title: 'Activities', description: 'Notifications and logs', path: '/activities', type: 'page' },
-  { id: 'ops', title: 'Operations Center', description: 'Workspace operations', path: '/ops', type: 'page' },
-  { id: 'sessions', title: 'Sessions', description: 'Engineering sessions', path: '/sessions', type: 'page' },
-  { id: 'artifacts', title: 'Artifacts', description: 'Generated artifacts', path: '/artifacts', type: 'page' },
-  { id: 'projects', title: 'Projects', description: 'Browse engineering projects', path: '/projects', type: 'page' },
-  { id: 'requests', title: 'Requests', description: 'Feature requests', path: '/requests', type: 'page' },
-  { id: 'agents-page', title: 'Agent Control', description: 'Manage AI agents', path: '/agents', type: 'page' },
-  { id: 'knowledge', title: 'Knowledge', description: 'Knowledge graph', path: '/memory', type: 'page' },
-  { id: 'terminal', title: 'Terminal', description: 'Integrated terminal', path: '/terminal', type: 'page' },
-  { id: 'chat', title: 'Chat', description: 'AI chat', path: '/chat', type: 'page' },
-  { id: 'api', title: 'API Builder', description: 'Test REST endpoints', path: '/api-builder', type: 'page' },
-  { id: 'settings', title: 'Settings', description: 'Workspace settings', path: '/settings', type: 'page' },
-];
+/**
+ * Static page entries come from the canonical navigation registry
+ * (visible + hidden + user custom menus) — one page list for the
+ * sidebar, search, and breadcrumbs. Runtime results merge below.
+ */
+function navEntryToResult(entry: NavSearchEntry): SearchResult {
+  return {
+    id: `nav-${entry.id}`,
+    title: entry.label,
+    description: entry.description ?? entry.keywords?.slice(0, 3).join(' · ') ?? '',
+    path: entry.path,
+    type: 'page',
+  };
+}
 
 export default function CommandPalette() {
   const navigate = useNavigate();
@@ -40,6 +43,7 @@ export default function CommandPalette() {
   const [sessions, setSessions] = useState<SearchResult[]>([]);
   const [requests, setRequests] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const navStore = useNavigationStore();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -90,13 +94,40 @@ export default function CommandPalette() {
     return () => window.removeEventListener('open-command-palette', handler);
   }, [fetchData]);
 
-  const allResults = useMemo(() => [...PAGES, ...agents, ...projects, ...sessions, ...requests], [agents, projects, sessions, requests]);
+  const pages = useMemo(
+    () => buildNavSearchIndex(navStore.custom).map(navEntryToResult),
+    [navStore.custom],
+  );
+
+  const pageById = useMemo(() => {
+    const index = buildNavSearchIndex(navStore.custom);
+    return new Map(index.map((entry) => [`nav-${entry.id}`, entry]));
+  }, [navStore.custom]);
+
+  const chooseResult = useCallback(
+    (result: SearchResult) => {
+      const nav = pageById.get(result.id);
+      if (nav?.action === 'open-assistant') {
+        window.dispatchEvent(new CustomEvent('open-assistant'));
+      } else if (result.path) {
+        navigate(result.path);
+      }
+      setOpen(false);
+    },
+    [navigate, pageById],
+  );
+
+  const allResults = useMemo(() => [...pages, ...agents, ...projects, ...sessions, ...requests], [pages, agents, projects, sessions, requests]);
 
   const results = useMemo(() => {
     if (!query.trim()) return allResults;
     const q = query.toLowerCase();
-    return allResults.filter((r) => r.title.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q));
-  }, [query, allResults]);
+    return allResults.filter((r) => {
+      if (r.title.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q)) return true;
+      const nav = pageById.get(r.id);
+      return nav?.keywords?.some((k) => k.toLowerCase().includes(q)) ?? false;
+    });
+  }, [query, allResults, pageById]);
 
   useEffect(() => { setSelected(0); }, [query]);
 
@@ -120,7 +151,7 @@ export default function CommandPalette() {
             <div className="px-5 py-10 text-center text-sm text-(--vestara-text-muted) animate-pulse">Loading...</div>
           )}
           {results.map((result, index) => (
-            <button key={result.id} onClick={() => { if (result.path) navigate(result.path); setOpen(false); }}
+            <button key={result.id} onClick={() => chooseResult(result)}
               className={`flex w-full items-center gap-4 px-5 py-3 text-left transition-colors ${index === selected ? 'bg-(--vestara-accent-bg)' : 'hover:bg-(--vestara-accent-bg)'}`}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) text-sm">
                 {result.icon || <ArrowForwardRoundedIcon fontSize="small" className="text-(--vestara-text-2)" />}

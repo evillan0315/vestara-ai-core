@@ -23,6 +23,7 @@ import { PipelineTimeline } from './pipeline';
 import { PlansPanel, TasksPanel } from './plans';
 import { ProjectsPanel } from './projects';
 import { TraceabilityPanel } from './traceability';
+import { PageHero } from '../layout/PageHero/PageHero.js';
 import '../../styles/execution.css';
 
 const TABS: Array<{ id: ExecutionTab; label: string }> = [
@@ -125,6 +126,22 @@ function ExecutionPageInner() {
 
       <div className="exec-scroll">
         <div className="exec-content">
+          <PageHero
+            eyebrow={exec.paused ? 'Execution paused' : 'Live operations'}
+            statusColor={exec.paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
+            title="Execution Center"
+            subtitle="Plans, agents, and runs — live operational command."
+            stats={
+              exec.dashboard
+                ? [
+                    { label: 'sessions', value: exec.dashboard.sessions.length },
+                    { label: 'queued', value: exec.dashboard.queue.length },
+                    { label: 'plans', value: exec.dashboard.plans.length },
+                  ]
+                : undefined
+            }
+            label="Execution highlights"
+          />
           <OverviewCards />
 
           <PipelineTimeline />

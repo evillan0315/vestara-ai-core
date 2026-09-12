@@ -1,12 +1,17 @@
 import { Box, Typography } from '@mui/material';
 import type { JSX } from 'react';
+import { VestaraMark } from './branding/index.js';
 
 export interface LogoProps {
   collapsed?: boolean;
   orientation?: 'vertical' | 'horizontal';
   showText?: boolean;
   size?: number;
-  /** Custom logo URL — overrides the default `/logo.svg`. */
+  /**
+   * Custom logo image URL — renders an `<img>` instead of the themed mark.
+   * Omit (or pass null) for the inline `VestaraMark`, which re-tints
+   * automatically with the selected accent color.
+   */
   src?: string | null;
 }
 
@@ -19,7 +24,6 @@ export default function Logo({
 }: LogoProps): JSX.Element {
   const displayText = showText ?? !collapsed;
   const vertical = orientation === 'vertical';
-  const logoSrc = src || '/logo.svg';
 
   return (
     <Box
@@ -32,17 +36,21 @@ export default function Logo({
         gap: vertical ? 1.75 : 2,
       }}
     >
-      <Box
-        component="img"
-        src={logoSrc}
-        alt="Vestara"
-        sx={{
-          width: size,
-          height: size,
-          flexShrink: 0,
-          objectFit: 'contain',
-        }}
-      />
+      {src ? (
+        <Box
+          component="img"
+          src={src}
+          alt="Vestara"
+          sx={{
+            width: size,
+            height: size,
+            flexShrink: 0,
+            objectFit: 'contain',
+          }}
+        />
+      ) : (
+        <VestaraMark size={size} />
+      )}
 
       {displayText && (
         <Box

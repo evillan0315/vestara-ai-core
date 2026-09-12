@@ -500,9 +500,10 @@ async function composeParticipants(
       // Agent has lifecycle history — enrich with team/agent authority metadata
       composed.push({
         ...lifecycle,
-        // Enrich canonical identity from agent authority if available
-        displayName: agent.id,
-        modelDisplayName: agent.model || agent.name || undefined,
+        // Canonical identity: agent.name is the human-readable name (e.g. "Developer")
+        // agent.id is the stable key (e.g. "agent-developer") — not suitable for display
+        displayName: agent.name || agent.id,
+        modelDisplayName: agent.model || undefined,
         role: agent.role || lifecycle.role,
         modelId: agent.model || lifecycle.modelId,
         providerId: agent.provider || lifecycle.providerId,
@@ -515,8 +516,8 @@ async function composeParticipants(
       composed.push({
         participantId,
         type: 'agent' as const,
-        displayName: agent.id,
-        modelDisplayName: agent.model || agent.name || undefined,
+        displayName: agent.name || agent.id,
+        modelDisplayName: agent.model || undefined,
         role: agent.role || undefined,
         modelId: agent.model || undefined,
         providerId: agent.provider || undefined,

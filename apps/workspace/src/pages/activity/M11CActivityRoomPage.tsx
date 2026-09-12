@@ -72,12 +72,29 @@ export default function M11CActivityRoomPage() {
 
   // ─── Derived counts for context panel ──────────────────────
 
+  // Derive "at work" from authoritative workState, not from presence (which is UNKNOWN).
   const activeAgentCount = useMemo(
     () => room.participants.filter(
-      (p) => p.type !== 'human' && (p.presence === 'online' || p.presence === 'active'),
+      (p) => p.type !== 'human' && (p.workState === 'working' || p.workState === 'blocked' || p.workState === 'attention-required'),
     ).length,
     [room.participants],
   );
+
+  // Participant ID → display name lookup for enriching stream item actor names.
+  // Includes both participantId (agent-agent-developer) and raw actor.id (vestara) keys.
+  const participantNames = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of room.participants) {
+      map[p.participantId] = p.displayName;
+      // Also map the raw agent ID (e.g. "agent-developer") for stream items
+      // that use actor.id instead of participantId.
+      const rawId = p.participantId.replace(/^agent-/, '');
+      if (rawId !== p.participantId) map[rawId] = p.displayName;
+    }
+    // Known hardcoded agent IDs from M9 adapters that don't match AgentStorage
+    if (!map['vestara']) map['vestara'] = 'Assistant';
+    return map;
+  }, [room.participants]);
 
   // ─── Callbacks ──────────────────────────────────────────
 
@@ -254,6 +271,7 @@ export default function M11CActivityRoomPage() {
             selectedParticipantId={selectedParticipantId}
             submission={room.submission}
             onSubmitResponse={room.submitResponse}
+            participantNames={participantNames}
           />
 
           {/* Composer with reply-to support */}
@@ -342,7 +360,7 @@ function M11CComposer({
     try {
       await postActivityMessage({
         content: text,
-        targets: [{ type: 'broadcast' }],
+        targets: [{ type: 'all-agents' }],
         actor: { displayName: 'You', role: 'human' },
         referencedActivityIds: replyTo ? [replyTo.id] : undefined,
       });

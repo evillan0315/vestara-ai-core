@@ -15,7 +15,7 @@ interface AppSidebarProps {
 const AppSidebar: FC<AppSidebarProps> = ({ navigation, collapsed, onToggleCollapse }) => {
   return (
     <aside
-      className={`flex h-screen shrink-0 flex-col border-r border-(--vestara-accent-border) transition-all duration-200 ${collapsed ? 'w-16' : 'w-70'}`}
+      className={`shell-rail flex h-screen shrink-0 flex-col border-r border-(--vestara-accent-border) bg-(--vestara-shell-bg) transition-all duration-200 ${collapsed ? 'w-16' : 'w-70'}`}
     >
       <SidebarBrand collapsed={collapsed} />
 

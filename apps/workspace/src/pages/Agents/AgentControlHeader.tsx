@@ -1,3 +1,4 @@
+import { PageHero } from '../../components/layout/PageHero/PageHero.js';
 import type { ExecutionSummary } from './types';
 
 interface AgentControlHeaderProps {
@@ -31,54 +32,41 @@ export default function AgentControlHeader({
 }: AgentControlHeaderProps) {
   return (
     <>
-      {/* Header */}
-      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">Agent Control Center</h1>
-          <p className="text-[10px] text-(--vestara-text-muted) mt-1">
-            {activeCount} active · {agentsCount}/{totalSlots} registered · {teamsCount} teams · {executionsCount}{' '}
-            executions
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onAddAgent}
-            className="text-xs px-3 py-1.5 bg-amber-400/10 border border-amber-400/30 text-amber-400 rounded-lg hover:bg-amber-400/20 transition-colors cursor-pointer font-medium"
-          >
-            + Add Agent
-          </button>
-          <button
-            onClick={onAddTeam}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-          >
-            + Team
-          </button>
-          <button
-            onClick={onToggleWorkflow}
-            className="text-xs px-3 py-1.5 bg-purple-400/10 border border-purple-400/30 text-purple-400 rounded-lg hover:bg-purple-400/20 transition-colors cursor-pointer font-medium"
-            title="Run a multi-agent workflow (planner → developer → verifier → reviewer)"
-          >
-            ⚡ Run Workflow
-          </button>
-          {onSyncAgents && (
-            <button
-              onClick={onSyncAgents}
-              disabled={syncing}
-              className="text-xs px-3 py-1.5 bg-emerald-400/10 border border-emerald-400/30 text-emerald-400 rounded-lg hover:bg-emerald-400/20 transition-colors cursor-pointer font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              title="Sync canonical agents to .opencode/agents/*.md"
-            >
-              {syncing ? '⟳ Syncing…' : '↻ Sync Agents'}
-            </button>
-          )}
-          <button
-            onClick={onRefresh}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
-            title="Refresh"
-          >
-            ↻
-          </button>
-        </div>
-      </div>
+      <PageHero
+        eyebrow="Workforce"
+        statusColor={
+          activeCount > 0 ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)'
+        }
+        title="Agent Control Center"
+        subtitle={`${activeCount} active · ${agentsCount}/${totalSlots} registered · ${teamsCount} teams · ${executionsCount} executions`}
+        actions={[
+          { label: '+ Add Agent', primary: true, onClick: onAddAgent },
+          { label: '+ Team', onClick: onAddTeam },
+          {
+            label: '⚡ Run Workflow',
+            onClick: onToggleWorkflow,
+            title: 'Run a multi-agent workflow (planner → developer → verifier → reviewer)',
+          },
+          ...(onSyncAgents
+            ? [
+                {
+                  label: syncing ? '⟳ Syncing…' : '↻ Sync Agents',
+                  onClick: onSyncAgents,
+                  disabled: syncing,
+                  title: 'Sync canonical agents to .opencode/agents/*.md',
+                },
+              ]
+            : []),
+          { label: '↻', onClick: onRefresh, title: 'Refresh' },
+        ]}
+        stats={[
+          { label: 'registered', value: `${agentsCount}/${totalSlots}` },
+          { label: 'active', value: activeCount },
+          { label: 'executions', value: executionsCount },
+          { label: 'success', value: `${execSummary.successRate}%` },
+        ]}
+        label="Agent control highlights"
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">

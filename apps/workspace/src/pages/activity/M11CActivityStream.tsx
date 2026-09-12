@@ -25,7 +25,7 @@ import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../ho
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { EmptyState, StatusIndicator } from '@vestara/ui';
-import M11CStreamItemComponent from './M11CStreamItem';
+import { M11CStreamItemComponent } from './M11CStreamItem';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -76,6 +76,8 @@ interface M11CActivityStreamProps {
   readonly lookupContent?: (activityId: string) => string | undefined;
   /** Currently selected participant (for filtering). */
   readonly selectedParticipantId?: string;
+  /** Participant ID → display name lookup for enriching actor names in stream items. */
+  readonly participantNames?: Readonly<Record<string, string>>;
   /** AR-REC-R6: Ephemeral submission state for interaction responses. */
   readonly submission?: SubmissionState;
   /** AR-REC-R6: Submit a response to an interaction. */
@@ -118,6 +120,7 @@ export default function M11CActivityStream({
   lookupAuthor,
   lookupContent,
   selectedParticipantId,
+  participantNames,
   submission,
   onSubmitResponse,
 }: M11CActivityStreamProps) {
@@ -348,6 +351,7 @@ export default function M11CActivityStream({
                 lookupContent={lookupContent}
                 submission={submission}
                 onSubmitResponse={onSubmitResponse}
+                participantNames={participantNames}
               />
             ))}
           </>

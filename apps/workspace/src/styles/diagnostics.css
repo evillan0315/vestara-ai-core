@@ -11,7 +11,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: transparent;
+  background: var(--vestara-shell-bg, var(--color-zinc-950));
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
 }
@@ -131,9 +131,9 @@
   border-color: var(--vestara-accent-border-active) !important;
 }
 
-/* Cards — premium gallery card */
+/* Cards — premium gallery card on the shared shell background */
 .diag-card {
-  background: var(--vestara-surface, var(--vestara-surface-panel));
+  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   border-top: 2px solid var(--vestara-accent);
@@ -258,7 +258,7 @@
   border-bottom: 1px solid var(--vestara-border-subtle);
   position: sticky;
   top: 0;
-  background: var(--vestara-surface, var(--vestara-surface-panel));
+  background: var(--vestara-card-bg, var(--vestara-shell-bg, var(--vestara-surface-panel)));
   z-index: 1;
 }
 

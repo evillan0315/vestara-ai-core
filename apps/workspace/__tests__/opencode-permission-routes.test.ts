@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NAV_CATEGORIES } from '../src/layouts/navigation.js';
+import { WORKSPACE_NAVIGATION } from '../src/layouts/workspace-navigation.js';
 import {
   normalizePermissionRisk,
   normalizePermissionStatus,
@@ -18,9 +18,9 @@ describe('OpenCode permission route registration', () => {
   });
 
   it('adds an OpenCode Permissions navigation entry', () => {
-    const nav = NAV_CATEGORIES.flatMap((c) => c.items).find((item) => item.to === '/opencode/permissions');
+    const nav = WORKSPACE_NAVIGATION.find((entry) => entry.path === '/opencode/permissions');
     expect(nav).toBeDefined();
-    expect(nav?.title).toBe('OpenCode Permissions');
+    expect(nav?.label).toBe('OpenCode Permissions');
   });
 
   it('exposes a stable permissions query key', () => {

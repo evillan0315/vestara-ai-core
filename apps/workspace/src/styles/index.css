@@ -61,8 +61,14 @@
 
   /* ── Derived accent utilities (use dynamic accent variables) ──
      These reference the dynamic accent variables above and cannot
-     be pre-generated because their values change at runtime. */
-  --vestara-accent-bg: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
+     be pre-generated because their values change at runtime.
+     --vestara-accent-bg is anchored to the shell (not transparent) so
+     the ~100 utility panels using bg-(--vestara-accent-bg) sit deep
+     dashboard-style instead of glowing light. 16% accent keeps panels
+     deep while still reading as the theme color.
+     !important so no runtime stamper (old inline styles, theme-builder
+     preview, stale bundles) can overwrite it — this token is CSS-owned. */
+  --vestara-accent-bg: color-mix(in srgb, var(--vestara-accent) 16%, var(--vestara-shell-bg, var(--color-zinc-950))) !important;
   --vestara-accent-border: color-mix(in srgb, var(--vestara-accent) 25%, transparent);
   --vestara-accent-border-hover: color-mix(in srgb, var(--vestara-accent) 37%, transparent);
   --vestara-accent-border-active: var(--vestara-accent);
@@ -87,6 +93,25 @@
   --vestara-surface-elevated: var(--vestara-surface-panel-raised);
   --vestara-bg: var(--vestara-surface-canvas);
   --vestara-primary: var(--vestara-accent-primary);
+
+  /* ── Shared shell background (cross-page/component) ──
+     Matches the ShellLayout dark background (zinc-950 / canvas).
+     Alias over theme-aware --color-zinc-950 so dark AND light follow
+     automatically. Heroes, cards, chambers, diagnostics, and the shell
+     itself should reuse these instead of hard-coding panel/canvas. */
+  --vestara-shell-bg: var(--color-zinc-950);
+  /* Cards/panels: the selected accent, darkened dashboard-style — a deep
+     tint of the theme color pulled toward black over the shell. */
+  --vestara-card-bg: color-mix(in srgb, var(--vestara-accent) 12%, black 12%, var(--vestara-shell-bg));
+  --vestara-hero-bg: var(--vestara-shell-bg);
+  /* Text on solid accent (primary buttons, active pills): near-black with
+     a cast of the selected accent — readable on amber/gold in both modes
+     with no hardcoded hex. */
+  --vestara-on-accent: color-mix(in srgb, var(--vestara-accent) 15%, black);
+  /* Dashboard-depth shade for cards/panels: the same top-down veil
+     DashboardListCard/StatCard use (black/50 → transparent → black/40),
+     layered over the card base via background-image. */
+  --vestara-card-shade: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 35%, transparent 65%, rgba(0, 0, 0, 0.4));
 
   /* ── Font defaults (overridden by JS theme.tsx) ── */
   --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -174,6 +199,11 @@
   --chart-tooltip-border: #d4d4c8;
   --chart-tooltip-text: #3a3a34;
   --chart-axis: #c0c0b8;
+
+  /* Card shade — light mode: white sheen up top, faint slate foot */
+  --vestara-card-shade: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 35%, transparent 70%, rgba(15, 23, 42, 0.05));
+  /* Cards in light mode: pale tint of the accent over the light shell */
+  --vestara-card-bg: color-mix(in srgb, var(--vestara-accent) 8%, var(--vestara-shell-bg));
 }
 
 [data-theme="dark"] {
@@ -211,7 +241,7 @@
 }
 
 body {
-  background-color: var(--color-zinc-950);
+  background-color: var(--vestara-shell-bg, var(--color-zinc-950));
   color: var(--color-zinc-200);
   transition:
     background-color 0.2s ease,
@@ -540,7 +570,72 @@ body {
   border-radius: 2px;
 }
 
-/* ── ShellLayout ── */
+/* ── ShellLayout premium chrome ──
+   Gallery-grade shell: ambient top glow, glass topbar with gradient
+   hairline, rail with inset edge light, canvas vignette. All washes
+   derive from --vestara-accent / surface tokens so dark/light mode
+   and the selected accent propagate automatically. */
+.shell-root {
+  background-image: radial-gradient(
+    120% 40% at 50% -10%,
+    color-mix(in srgb, var(--vestara-accent) 5%, transparent),
+    transparent 65%
+  );
+}
+.shell-rail {
+  position: relative;
+  isolation: isolate;
+  background-image:
+    radial-gradient(100% 30% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 6%, transparent), transparent 70%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-card-bg) 55%, transparent), transparent 42%);
+  box-shadow:
+    inset -1px 0 0 color-mix(in srgb, var(--vestara-accent-light) 10%, transparent),
+    1px 0 12px rgba(0, 0, 0, 0.25);
+}
+.shell-rail::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--vestara-accent-border-hover), transparent);
+}
+.shell-topbar {
+  position: sticky;
+  background-color: color-mix(in srgb, var(--vestara-shell-bg) 84%, transparent);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 1px 16px rgba(0, 0, 0, 0.25);
+}
+.shell-topbar::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0 0;
+  height: 1px;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--vestara-accent-border-hover), transparent);
+}
+.shell-canvas {
+  background-image: radial-gradient(
+    90% 24% at 50% 0%,
+    color-mix(in srgb, var(--vestara-accent) 3%, transparent),
+    transparent 70%
+  );
+}
+/* Active nav item — gallery glow to match cards */
+.shell-rail a[aria-current="page"] {
+  box-shadow:
+    0 0 0 1px var(--vestara-surface-glow),
+    0 0 14px var(--vestara-surface-glow),
+    inset 0 1px 0 var(--vestara-surface-sheen);
+}
+[data-theme="light"] .shell-topbar {
+  background-color: color-mix(in srgb, var(--vestara-shell-bg) 90%, transparent);
+}
+[data-theme="light"] .shell-rail {
+  box-shadow:
+    inset -1px 0 0 color-mix(in srgb, var(--vestara-accent) 14%, transparent),
+    1px 0 12px rgba(15, 23, 42, 0.08);
+}
 .shell-header {
   border-bottom-color: var(--vestara-accent);
 }

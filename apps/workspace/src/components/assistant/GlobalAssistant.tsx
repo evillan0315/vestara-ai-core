@@ -220,6 +220,14 @@ export function GlobalAssistant() {
     openDockSoon();
   }, [openDockSoon]);
 
+  // Sidebar "Global Assistant" entry dispatches this (mirrors the
+  // command palette's `open-command-palette` precedent).
+  useEffect(() => {
+    const handler = () => setPanelOpen(true);
+    window.addEventListener('open-assistant', handler);
+    return () => window.removeEventListener('open-assistant', handler);
+  }, []);
+
   // Ctrl/⌘+J toggles the assistant. Escape closes the dock when visible.
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

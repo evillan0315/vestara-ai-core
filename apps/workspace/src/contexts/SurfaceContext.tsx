@@ -21,7 +21,7 @@ import type { SurfaceContext, SurfaceLocation, SurfaceReference, SurfaceWorkspac
 import { getWorkspaceIdentity } from '../lib/api';
 import { useGraph } from '../components/graph/GraphContext';
 import { parseEntityId } from '../lib/graph';
-import { NAV_CATEGORIES } from '../layouts/navigation';
+import { WORKSPACE_NAVIGATION } from '../layouts/workspace-navigation.js';
 
 // ─── Flatten navigation items for route matching ──────────────
 
@@ -31,13 +31,11 @@ interface NavEntry {
   section: string;
 }
 
-const NAV_ENTRIES: NavEntry[] = NAV_CATEGORIES.flatMap((category) =>
-  category.items.map((item) => ({
-    to: item.to,
-    title: item.title,
-    section: category.title,
-  })),
-);
+const NAV_ENTRIES: NavEntry[] = WORKSPACE_NAVIGATION.filter((entry) => entry.path).map((entry) => ({
+  to: entry.path as string,
+  title: entry.label,
+  section: entry.group,
+}));
 
 function resolveSurfaceLocation(pathname: string): SurfaceLocation {
   // Match longest path first to avoid prefix collisions (e.g., /sessions vs /sessions/:id)
@@ -92,7 +90,7 @@ export function SurfaceContextProvider({ children }: SurfaceContextProviderProps
     };
   }, []);
 
-  // Surface location — derived from React Router + NAV_CATEGORIES
+  // Surface location — derived from React Router + workspace navigation registry
   const surface: SurfaceLocation = useMemo(
     () => resolveSurfaceLocation(location.pathname),
     [location.pathname],

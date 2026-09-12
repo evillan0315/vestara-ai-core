@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { NAV_CATEGORIES } from '../src/layouts/navigation.js';
+import { WORKSPACE_NAVIGATION } from '../src/layouts/workspace-navigation.js';
 import { deriveSessionStatus, normalizeSession, openCodeQueryKeys } from '../src/lib/opencode.js';
 import { APP_ROUTES } from '../src/routes.js';
 
@@ -26,9 +26,9 @@ describe('OpenCode session route registration', () => {
   });
 
   it('adds an OpenCode Sessions navigation entry', () => {
-    const nav = NAV_CATEGORIES.flatMap((c) => c.items).find((item) => item.to === '/opencode/sessions');
+    const nav = WORKSPACE_NAVIGATION.find((entry) => entry.path === '/opencode/sessions');
     expect(nav).toBeDefined();
-    expect(nav?.title).toBe('OpenCode Sessions');
+    expect(nav?.label).toBe('OpenCode Sessions');
   });
 });
 

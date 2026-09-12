@@ -3,12 +3,8 @@ import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
 import type { FC } from 'react';
-import { useLocation } from 'react-router-dom';
-import { NAV_CATEGORIES } from '../../../layouts/navigation';
 import { useAuth } from '../../../lib/auth';
 import { useTheme } from '../../../lib/theme';
-import PageHeader from '../Page/PageHeader';
-import HeaderActions from './HeaderActions';
 import HeaderConnection from './HeaderConnection';
 import HeaderNotifications from './HeaderNotifications';
 import HeaderSearch from './HeaderSearch';
@@ -19,16 +15,11 @@ interface AppHeaderProps {
 }
 
 const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
-  const location = useLocation();
   const { actor } = useAuth();
   const { resolved, toggle } = useTheme();
 
-  const currentItem = NAV_CATEGORIES.flatMap((category) => category.items).find(
-    (item) => location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to)),
-  );
-
   return (
-    <header className="sticky top-0 z-40 flex h-16 items-center border-b border-(--vestara-accent-border) px-2">
+    <header className="shell-topbar sticky top-0 z-40 flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
       {/* Left */}
       <div className="flex items-center gap-4">
         <button
@@ -37,12 +28,6 @@ const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
         >
           <MenuRounded fontSize="small" />
         </button>
-        <PageHeader
-          title={currentItem?.title ?? 'Workspace'}
-          description="Overview of your workspace"
-          icon={currentItem?.icon ?? ''}
-          actions={<HeaderActions />}
-        />
       </div>
 
       {/* Center */}

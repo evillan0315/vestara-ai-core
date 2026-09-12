@@ -38,6 +38,8 @@ interface M11CStreamItemProps {
   readonly submission?: SubmissionState;
   /** AR-REC-R6: Submit a response to an interaction. */
   readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
+  /** Participant ID → display name lookup for enriching actor names. */
+  readonly participantNames?: Readonly<Record<string, string>>;
 }
 
 // ─── Visual Config ───────────────────────────────────────────
@@ -112,10 +114,15 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   lookupContent,
   submission,
   onSubmitResponse,
+  participantNames,
 }: M11CStreamItemProps) {
   const styles = IMPORTANCE_STYLES[item.importance] ?? IMPORTANCE_STYLES.secondary;
   const kindConfig = KIND_GLYPH[item.kind] ?? { glyph: '◆', color: 'text-(--vestara-blue)' };
   const medallion = ACTOR_TYPE_MEDALLION[item.actor.type] ?? ACTOR_TYPE_MEDALLION.system;
+
+  // Resolve actor display name: use participantNames lookup if available,
+  // falling back to the M9 record's displayName.
+  const resolvedActorName = participantNames?.[item.actor.id] ?? item.actor.displayName;
 
   const handleClick = useCallback(() => {
     if (item.aggregated && onDrillDown) {
@@ -127,9 +134,9 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
 
   const roleLabel = item.actor.role
     ? item.actor.role.charAt(0).toUpperCase() + item.actor.role.slice(1)
-    : item.actor.displayName;
+    : resolvedActorName;
 
-  const initial = (item.actor.displayName.trim()[0] ?? '?').toUpperCase();
+  const initial = (resolvedActorName.trim()[0] ?? '?').toUpperCase();
 
   // ─── Aggregated Item ────────────────────────────────────
   if (item.aggregated) {

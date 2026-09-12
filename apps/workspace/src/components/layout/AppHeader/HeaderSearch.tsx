@@ -7,7 +7,7 @@ const HeaderSearch: FC = () => {
   };
 
   return (
-    <div className="mx-10 hidden max-w-xl flex-1 lg:block">
+    <div className="hidden max-w-xl flex-1 lg:block">
       <button onClick={openSearch}
         className="flex h-11 w-full items-center gap-3 rounded-xl border border-(--vestara-accent-border) bg-primary-900/60 px-4 text-left transition hover:border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg)">
         <SearchRounded fontSize="small" className="text-(--vestara-text-2)" />

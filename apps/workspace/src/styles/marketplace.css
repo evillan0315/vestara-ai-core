@@ -21,7 +21,7 @@
   padding: 1.5rem;
   background:
     radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, var(--vestara-accent) 4%, transparent), transparent 62%),
-    color-mix(in srgb, var(--color-zinc-950) 96%, black);
+    var(--vestara-shell-bg, var(--color-zinc-950));
 }
 
 .mpg-chamber::before {
@@ -55,7 +55,7 @@
   padding: 0.375rem;
   border-radius: 9999px;
   border: 1px solid var(--vestara-accent-border);
-  background: color-mix(in srgb, var(--color-zinc-950) 92%, black);
+  background: var(--vestara-shell-bg, var(--color-zinc-950));
   backdrop-filter: blur(12px);
   width: fit-content;
   max-width: 100%;
@@ -75,7 +75,7 @@
 }
 
 .mpg-tab-active {
-  color: #fff;
+  color: var(--vestara-accent-text);
   background: color-mix(in srgb, var(--vestara-accent) 22%, transparent);
   border: 1px solid var(--vestara-accent-border-hover);
   box-shadow: 0 0 16px var(--vestara-surface-glow-hover);
@@ -88,7 +88,7 @@
   overflow: hidden;
   border-radius: 0.75rem;
   border: 1px solid var(--vestara-accent-border);
-  background: var(--vestara-surface, var(--color-zinc-900));
+  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
   box-shadow:
     0 0 0 1px var(--vestara-surface-glow),
     0 0 12px var(--vestara-surface-glow),
@@ -96,25 +96,8 @@
   transition: border-color 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
-.mpg-card::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  z-index: 1;
-  pointer-events: none;
-  background: linear-gradient(
-    135deg,
-    transparent 0%,
-    rgba(255, 100, 200, 0.035) 20%,
-    rgba(50, 200, 255, 0.025) 40%,
-    rgba(120, 255, 80, 0.02) 55%,
-    rgba(255, 200, 50, 0.025) 70%,
-    rgba(255, 100, 200, 0.035) 85%,
-    transparent 100%
-  );
-  background-size: 400% 340%;
-}
+/* Holographic overlay removed per design review — cards stay flat
+   so the deep accent base reads clean. */
 
 .mpg-card:hover {
   border-color: var(--vestara-accent-border-hover);
@@ -125,13 +108,10 @@
   transform: translateY(-2px);
 }
 
+/* Left accent bar — hidden per design review (cards stay clean;
+   delete this rule to restore the 3px rail). */
 .mpg-card-accent {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  z-index: 2;
+  display: none;
 }
 
 /* Staggered entrance */
@@ -150,27 +130,23 @@
   animation: mpg-enter 0.25s ease-out both;
 }
 
-/* Skeleton shimmer */
-@keyframes mpg-shimmer {
-  0% {
-    background-position: -400px 0;
-  }
+/* Skeleton — dashboard recipe: soft accent wash + gentle pulse.
+   Matches DashboardListCard loading rows everywhere. */
+@keyframes mpg-pulse {
+  0%,
   100% {
-    background-position: 400px 0;
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
   }
 }
 
 .mpg-skeleton {
   border-radius: 0.75rem;
   border: 1px solid var(--vestara-accent-border);
-  background: linear-gradient(
-    90deg,
-    color-mix(in srgb, var(--color-zinc-900) 80%, transparent) 25%,
-    color-mix(in srgb, var(--color-zinc-800) 80%, transparent) 50%,
-    color-mix(in srgb, var(--color-zinc-900) 80%, transparent) 75%
-  );
-  background-size: 800px 100%;
-  animation: mpg-shimmer 1.4s ease-in-out infinite;
+  background: color-mix(in srgb, var(--vestara-accent) 6%, transparent);
+  animation: mpg-pulse 1.6s ease-in-out infinite;
 }
 
 /* Top accent hairline for panels */
@@ -257,7 +233,9 @@
   min-width: 0;
 }
 
-/* Hero banner. */
+/* Hero banner — shared by Overview + Diagnostics (mpg-hero).
+   Base is the shared shell background so heroes read as one darker
+   surface with the shell. Light appearance is preserved below. */
 .mpg-hero {
   position: relative;
   overflow: hidden;
@@ -269,9 +247,15 @@
   border: 1px solid var(--vestara-accent-border);
   padding: 1.25rem 1.5rem;
   background:
+    radial-gradient(90% 130% at 85% 10%, color-mix(in srgb, var(--vestara-marketplace-primary) 15%, transparent), transparent 60%),
+    radial-gradient(70% 100% at 15% 0%, color-mix(in srgb, var(--vestara-accent) 8%, transparent), transparent 55%),
+    var(--vestara-hero-bg, var(--vestara-shell-bg, var(--vestara-surface-panel)));
+}
+[data-theme='light'] .mpg-hero {
+  background:
     radial-gradient(90% 130% at 85% 10%, color-mix(in srgb, var(--vestara-marketplace-primary) 22%, transparent), transparent 60%),
     radial-gradient(70% 100% at 15% 0%, color-mix(in srgb, var(--vestara-accent) 12%, transparent), transparent 55%),
-    var(--vestara-surface-panel);
+    var(--vestara-hero-bg, var(--vestara-shell-bg, var(--vestara-surface-panel)));
 }
 .mpg-hero-copy {
   min-width: min(100%, 320px);
@@ -304,7 +288,7 @@
   align-self: center;
   border-radius: var(--vestara-radius, 6px);
   border: 1px solid var(--vestara-border-subtle);
-  background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent);
+  background: var(--vestara-accent-bg);
   padding: 0.875rem 1rem;
 }
 .mpg-hero-checklist ul {
@@ -330,13 +314,10 @@
   border-color: var(--vestara-marketplace-primary-border);
 }
 .mpg-pill-active {
-  color: #fff;
-  background: var(--vestara-marketplace-primary);
-  border-color: var(--vestara-marketplace-primary-border);
-  box-shadow: 0 0 14px color-mix(in srgb, var(--vestara-marketplace-primary) 40%, transparent);
-}
-[data-theme='light'] .mpg-pill-active {
-  color: #fff;
+  color: var(--vestara-on-accent);
+  background: var(--vestara-accent);
+  border-color: var(--vestara-accent-border-active);
+  box-shadow: 0 0 14px var(--vestara-surface-glow-hover);
 }
 
 /* Sort button-menu (keeps a single native combobox on the page). */
@@ -432,9 +413,10 @@
   padding: 0.375rem 1rem;
   font-size: 0.8125rem;
   font-weight: 600;
-  color: #fff;
-  background: var(--vestara-marketplace-primary);
-  border: 1px solid var(--vestara-marketplace-primary-border);
+  color: var(--vestara-on-accent);
+  background: var(--vestara-accent);
+  border: 1px solid var(--vestara-accent-border-active);
+  box-shadow: 0 0 14px var(--vestara-surface-glow);
   transition: filter 0.15s ease;
 }
 .mpg-asset:hover .mpg-install-btn {
@@ -452,7 +434,7 @@
 .mpg-side-card {
   border-radius: var(--vestara-radius-lg, 8px);
   border: 1px solid var(--vestara-accent-border);
-  background: var(--vestara-surface-panel);
+  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
   padding: 1rem;
 }
 .mpg-category-row {
@@ -482,7 +464,7 @@
   border: 1px solid var(--vestara-accent-border);
   background:
     radial-gradient(100% 100% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 10%, transparent), transparent 70%),
-    var(--vestara-surface-panel);
+    var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
   padding: 1rem;
 }
 .mpg-publish-btn {

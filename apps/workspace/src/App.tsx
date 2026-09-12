@@ -2,10 +2,10 @@ import { type ComponentType, createElement, lazy, Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
+import { DynamicFavicon } from './components/branding/index.js';
 import { TelemetryProvider } from './contexts/TelemetryContext';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
-import { VestaraThemeProvider } from '@vestara/ui-theme';
 import { APP_ROUTES } from './routes';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -27,6 +27,7 @@ const QualificationDetailPage = lazy(() => import('./pages/QualificationDetail')
 const QualificationActivityPage = lazy(() => import('./pages/QualificationActivity'));
 const WorkersPage = lazy(() => import('./pages/Workers'));
 const ProjectsPage = lazy(() => import('./pages/Projects'));
+const Files = lazy(() => import('./pages/Files'));
 const FeatureRequests = lazy(() => import('./pages/FeatureRequests'));
 const Activities = lazy(() => import('./pages/Activities'));
 const M11CActivityRoomPage = lazy(() => import('./pages/activity/M11CActivityRoomPage'));
@@ -70,6 +71,7 @@ const PAGES: Record<string, ComponentType> = {
   'qualification-activity': QualificationActivityPage,
   workers: WorkersPage,
   projects: ProjectsPage,
+  files: Files,
   requests: FeatureRequests,
   activities: Activities,
   activity: M11CActivityRoomPage,
@@ -116,38 +118,41 @@ export default function App() {
 
   return (
     <ErrorBoundary>
-      <VestaraThemeProvider initialMode="dark" initialAccent="amber">
-        <ThemeProvider>
-          <TelemetryProvider>
-            <ToastProvider>
-              <Routes>
-                {publicRoutes.map((r) => (
-                  <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-                ))}
-                <Route element={<ShellLayout />}>
-                  {shellRoutes
-                    .filter((r) => !r.catchAll)
-                    .map((r) =>
-                      r.redirect ? (
-                        <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
-                      ) : (
-                        <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-                      ),
-                    )}
-                  <Route
-                    path="*"
-                    element={
-                      <LazyPage>
-                        <NotFound />
-                      </LazyPage>
-                    }
-                  />
-                </Route>
-              </Routes>
-            </ToastProvider>
-          </TelemetryProvider>
-        </ThemeProvider>
-      </VestaraThemeProvider>
+      {/* Single theme authority: lib/theme ThemeProvider (driven by the
+          Settings picker). The canonical VestaraThemeProvider wrapper was
+          removed — as the parent it overwrote --vestara-accent* with its
+          own hardcoded amber on every mount. */}
+      <ThemeProvider>
+        <DynamicFavicon />
+        <TelemetryProvider>
+          <ToastProvider>
+            <Routes>
+              {publicRoutes.map((r) => (
+                <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+              ))}
+              <Route element={<ShellLayout />}>
+                {shellRoutes
+                  .filter((r) => !r.catchAll)
+                  .map((r) =>
+                    r.redirect ? (
+                      <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
+                    ) : (
+                      <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                    ),
+                  )}
+                <Route
+                  path="*"
+                  element={
+                    <LazyPage>
+                      <NotFound />
+                    </LazyPage>
+                  }
+                />
+              </Route>
+            </Routes>
+          </ToastProvider>
+        </TelemetryProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }

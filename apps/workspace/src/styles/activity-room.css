@@ -1648,6 +1648,15 @@
   white-space: nowrap;
 }
 
+.ar-guest__model {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--ar-ink-muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  opacity: 0.7;
+}
+
 .ar-guest__name--agent-action {
   cursor: pointer;
   text-decoration: underline;

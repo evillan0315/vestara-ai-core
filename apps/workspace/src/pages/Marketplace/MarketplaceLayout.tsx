@@ -23,14 +23,10 @@ const TABS = [
 export default function MarketplaceLayout() {
   return (
     <div className="mpg-chamber">
-      <header className="mpg-market-header relative z-[2] mb-6">
-        <h1 className="text-xl font-semibold text-[var(--vestara-text-primary,var(--color-zinc-100))]">
-          Marketplace
-        </h1>
-        <p className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-          Engineering Exchange — discover, install, and update engineering assets.
-        </p>
-        <nav className="mpg-market-tabs mt-4" aria-label="Marketplace sections">
+      {/* Section identity lives here (tabs); each route owns its own
+          title via MarketplacePage — no duplicate "Marketplace" header. */}
+      <header className="mpg-market-header relative z-[2] mb-4">
+        <nav className="mpg-market-tabs" aria-label="Marketplace sections">
           {TABS.map((tab) => (
             <NavLink
               key={tab.to}

@@ -103,8 +103,9 @@ export default function M11CParticipantRail({
     );
   }
 
-  const activeCount = participants.filter((p) => p.presence === 'online' || p.presence === 'active').length;
-  const workingCount = participants.filter((p) => p.workState === 'working').length;
+  // Derive counts from authoritative workState, not from presence (which is UNKNOWN).
+  const activeCount = participants.filter((p) => p.workState === 'working' || p.workState === 'blocked' || p.workState === 'attention-required').length;
+  const totalCount = participants.length;
   const isFiltered = filtered !== null;
 
   return (
@@ -123,7 +124,7 @@ export default function M11CParticipantRail({
         >
           <span className="ar-rail__all-label">Participants</span>
           <span className="ar-rail__census">
-            <strong>{activeCount}</strong> present{workingCount > 0 ? <> · <strong>{workingCount}</strong> at work</> : ''}
+            <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}
           </span>
         </button>
       </div>
@@ -208,11 +209,9 @@ const ParticipantRow = memo(function ParticipantRow({
   const isHuman = participant.type === 'human';
   const canOpenDrawer = !isHuman && onOpenAgentControl;
 
-  // Presentation fallback: modelDisplayName for unnamed AI participants,
-  // canonical displayName for humans and named agents.
-  const presentationName = !isHuman && participant.modelDisplayName
-    ? participant.modelDisplayName
-    : participant.displayName;
+  // Primary identity: always use canonical displayName (agent name for agents, user name for humans).
+  // modelDisplayName is secondary metadata shown below the name.
+  const presentationName = participant.displayName;
 
   const initial = (presentationName.trim()[0] ?? '?').toUpperCase();
 
@@ -256,6 +255,10 @@ const ParticipantRow = memo(function ParticipantRow({
           >
             {presentationName}
           </span>
+          {/* Model as secondary metadata — subtle, not dominant */}
+          {!isHuman && participant.modelDisplayName && (
+            <span className="ar-guest__model">{participant.modelDisplayName}</span>
+          )}
           {/* Type badge — metadata, not conversational identity */}
           <Badge variant={isHuman ? 'info' : 'default'} size="sm">
             {isHuman ? 'Human' : 'Agent'}
