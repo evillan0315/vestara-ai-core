@@ -107,7 +107,7 @@ describe('Marketplace OperationCenter — event-driven state derivation', () => 
     await act(async () => {
       emit({ id: 'x', type: 'system.heartbeat', actor: 'system', timestamp: '2026-08-05T00:00:00.000Z' });
     });
-    await userEvent.click(screen.getByRole('button', { name: /Marketplace/ }));
-    expect(await screen.findByText('No recent operations.')).toBeTruthy();
+    // Premium gallery: the operation center auto-hides when no operations exist.
+    await waitFor(() => expect(screen.queryByRole('button', { name: /Marketplace/ })).toBeNull());
   });
 });

@@ -73,7 +73,9 @@ describe('Marketplace Installed — verification and uninstall loop', () => {
     mocks.installed.mockResolvedValueOnce([installedGitHelper]).mockResolvedValueOnce([]);
     renderInstalled();
     await screen.findByText('vestara.git-helper');
+    // Premium gallery: destructive actions require an explicit confirmation step.
     await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm uninstall' }));
     await waitFor(() => expect(mocks.uninstall).toHaveBeenCalledWith('vestara.git-helper'));
     expect(await screen.findByText('Nothing installed yet. Install from Discover.')).toBeTruthy();
   });
@@ -89,6 +91,7 @@ describe('Marketplace Installed — verification and uninstall loop', () => {
     renderInstalled();
     await screen.findByText('vestara.git-helper');
     await userEvent.click(screen.getByRole('button', { name: 'Uninstall' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Confirm uninstall' }));
     expect(await screen.findByText(/Operation failed: uninstall failed/)).toBeTruthy();
     expect(screen.getByText('vestara.git-helper')).toBeTruthy();
   });

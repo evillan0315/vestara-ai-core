@@ -1,159 +1,98 @@
-import { render, screen } from '@testing-library/react';
-import { describe, it, expect, vi } from 'vitest';
+// @vitest-environment jsdom
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import Overview from '../src/pages/Overview';
-import type { UnderstandingData } from '../src/pages/Overview/useUnderstanding';
+import { overviewFixture } from '../src/features/overview/overview.fixtures';
 
-// Mock the useUnderstanding hook
-vi.mock('../src/pages/Overview/useUnderstanding', () => ({
-  useUnderstanding: vi.fn(),
+vi.mock('../src/features/overview/hooks/useOverview', () => ({
+  useOverview: vi.fn(),
 }));
 
-const mockData: UnderstandingData = {
-  id: 'test-snapshot-id-12345678901234567890',
-  identity: {
-    name: 'Test Workspace',
-    primaryLanguage: 'typescript',
-    languageConfidence: 0.95,
-    framework: 'React',
-    architecture: 'monorepo',
-  },
-  architecture: {
-    kind: 'monorepo',
-    entryPoints: [
-      { path: 'packages/core/src/index.ts', role: 'app', confidence: 0.9 },
-      { path: 'packages/utils/src/index.ts', role: 'tool', confidence: 0.85 },
-    ],
-    dependencyCycles: [],
-    layers: [
-      { packageName: 'core', layer: 'services', confidence: 0.9 },
-      { packageName: 'utils', layer: 'tools', confidence: 0.85 },
-    ],
-  },
-  maturity: {
-    level: 'good',
-    healthScore: 7.5,
-    testCoverage: 'high',
-    documentationLevel: 'medium',
-    codeQuality: 'good',
-    risks: [
-      { category: 'dependency', severity: 'low', reason: 'Outdated package' },
-    ],
-  },
-  activity: {
-    currentMilestone: 'v1.0 Release',
-    recentChanges: [
-      { description: 'feat: add new component', author: 'developer', timestamp: new Date().toISOString() },
-    ],
-    activeBranches: ['main', 'feature/test'],
-    uncommittedWork: false,
-    stalledSince: null,
-  },
-  memory: {
-    recentDecisions: [
-      { title: 'Use TypeScript', summary: 'For type safety', timestamp: new Date().toISOString() },
-    ],
-    keyFacts: ['Built with React 19', 'Uses Tailwind CSS'],
-    memoryCount: 42,
-  },
-  state: {
-    status: 'ready',
-    isIndexed: true,
-    indexFreshness: 'fresh',
-    isCached: true,
-  },
-  summary: 'A modern workspace built with TypeScript and React.',
-};
+import { useOverview } from '../src/features/overview/hooks/useOverview';
 
-describe('Overview Page', () => {
+const mocked = vi.mocked(useOverview);
+
+// Overview renders inside ShellLayout's Outlet in production — Links need a
+// Router context, so tests mount inside MemoryRouter.
+function renderOverview() {
+  return render(
+    <MemoryRouter>
+      <Overview />
+    </MemoryRouter>,
+  );
+}
+
+describe('Overview Page (v2 dark premium)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('renders loading state', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: null, loading: true, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText(/Building understanding/)).toBeTruthy();
+    mocked.mockReturnValue({ data: null, isLoading: true, error: null, refetch: vi.fn() });
+    renderOverview();
+    expect(screen.getByLabelText(/Loading overview/)).toBeTruthy();
   });
 
-  it('renders error state', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: null, loading: false, error: 'API error: 503', refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText(/Failed to load workspace understanding/)).toBeTruthy();
+  it('renders v2 hero + sections with fixture data', () => {
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
+    renderOverview();
+    expect(screen.getByText('Build Without Limits')).toBeTruthy();
+    expect(screen.getByText('Continue Working')).toBeTruthy();
+    expect(screen.getByText('Recent Activity')).toBeTruthy();
+    expect(screen.getByText('Agents Status')).toBeTruthy();
+    expect(screen.getByText('Projects')).toBeTruthy();
+    expect(screen.getByText('System Resources')).toBeTruthy();
+    expect(screen.getByText('Marketplace Spotlight')).toBeTruthy();
+    expect(screen.getByText("Today's Focus")).toBeTruthy();
   });
 
-  it('renders overview with data', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Workspace Overview')).toBeTruthy();
-    expect(screen.getByText('Test Workspace')).toBeTruthy();
-    expect(screen.getByText(/TypeScript/)).toBeTruthy();
+  it('renders quick actions', () => {
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
+    renderOverview();
+    expect(screen.getByText('New Project')).toBeTruthy();
+    expect(screen.getByText('Create Workflow')).toBeTruthy();
+    expect(screen.getByText('Open Files')).toBeTruthy();
+    expect(screen.getByText('Launch Terminal')).toBeTruthy();
+    expect(screen.getByText('Explore Marketplace')).toBeTruthy();
   });
 
-  it('renders quick action buttons', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText(/Chat/)).toBeTruthy();
-    expect(screen.getByText(/Dashboard/)).toBeTruthy();
-    expect(screen.getByText(/Terminal/)).toBeTruthy();
-    expect(screen.getByText(/Knowledge/)).toBeTruthy();
+  it('renders agent presence rows', () => {
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
+    renderOverview();
+    expect(screen.getByText('vestara-planner')).toBeTruthy();
+    expect(screen.getByText('vestara-developer')).toBeTruthy();
+    expect(screen.getAllByText('Online').length).toBeGreaterThan(0);
   });
 
-  it('renders health card', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Health')).toBeTruthy();
-    expect(screen.getByText('7.5')).toBeTruthy();
+  it('renders system gauges', () => {
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
+    renderOverview();
+    expect(screen.getByLabelText(/CPU 18 percent/)).toBeTruthy();
+    expect(screen.getByLabelText(/Memory 62 percent/)).toBeTruthy();
   });
 
-  it('renders state card', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('State')).toBeTruthy();
-    expect(screen.getByText('ready')).toBeTruthy();
+  it('shows cached snapshot note with retry when live fetch failed', () => {
+    const refetch = vi.fn().mockResolvedValue(undefined);
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: 'network down', refetch });
+    renderOverview();
+    expect(screen.getByText(/cached snapshot/)).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /retry/i }));
+    expect(refetch).toHaveBeenCalled();
   });
 
-  it('renders activity card', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Activity')).toBeTruthy();
-    expect(screen.getByText('v1.0 Release')).toBeTruthy();
-  });
-
-  it('renders architecture card', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Architecture')).toBeTruthy();
-    expect(screen.getByText('Monorepo')).toBeTruthy();
-  });
-
-  it('renders decisions card', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Decisions & Knowledge')).toBeTruthy();
-    expect(screen.getByText('Use TypeScript')).toBeTruthy();
-  });
-
-  it('renders charts section', () => {
-    const { useUnderstanding } = require('../src/pages/Overview/useUnderstanding');
-    useUnderstanding.mockReturnValue({ data: mockData, loading: false, error: null, refetch: vi.fn() });
-
-    render(<Overview />);
-    expect(screen.getByText('Health Metrics')).toBeTruthy();
-    expect(screen.getByText('Layer Distribution')).toBeTruthy();
-    expect(screen.getByText('Entry Point Confidence')).toBeTruthy();
+  it('uses shell client-side navigation (no full-page reload links)', () => {
+    mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
+    renderOverview();
+    // Quick actions navigate inside the shell via react-router Links.
+    const projectLink = screen.getByRole('link', { name: /New Project/ });
+    expect(projectLink.getAttribute('href')).toBe('/projects');
+    // Section shortcuts route to their shell surfaces.
+    const viewAllHrefs = screen.getAllByRole('link', { name: 'View All' }).map((a) => a.getAttribute('href'));
+    expect(viewAllHrefs).toContain('/projects');
+    expect(viewAllHrefs).toContain('/agents');
+    for (const href of viewAllHrefs) {
+      expect(href).toMatch(/^\/(projects|agents|activity|marketplace|diagnostics)$/);
+    }
   });
 });

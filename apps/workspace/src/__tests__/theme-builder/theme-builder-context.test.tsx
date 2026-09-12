@@ -1,7 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeBuilderProvider, useThemeBuilder } from '../../lib/theme-builder-context.js';
-import type { CustomTheme, SemanticToken, TokenCategory } from '../../lib/theme.js';
+import { ACCENT_PALETTES, PROFILES, type CustomTheme, type SemanticToken, type TokenCategory } from '../../lib/theme.js';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ThemeBuilderProvider>{children}</ThemeBuilderProvider>
@@ -35,9 +35,9 @@ describe('ThemeBuilderProvider', () => {
     expect(result.current.editingTheme?.isBuiltIn).toBe(false);
   });
 
-  it('generates built-in themes (9 accents × 4 profiles = 36)', () => {
+  it('generates built-in themes for every accent × profile', () => {
     const { result } = renderHook(() => useThemeBuilder(), { wrapper });
-    expect(result.current.builtInThemes).toHaveLength(36);
+    expect(result.current.builtInThemes).toHaveLength(Object.keys(ACCENT_PALETTES).length * PROFILES.length);
   });
 
   it('loads custom themes from localStorage', () => {
@@ -260,7 +260,7 @@ describe('ThemeBuilderProvider', () => {
       await act(async () => {
         await result.current.deleteTheme(builtIn.id);
       });
-      expect(result.current.builtInThemes).toHaveLength(36);
+      expect(result.current.builtInThemes).toHaveLength(Object.keys(ACCENT_PALETTES).length * PROFILES.length);
     });
 
     it('resets editing theme if deleted theme was being edited', async () => {

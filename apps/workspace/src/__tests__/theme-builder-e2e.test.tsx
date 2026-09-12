@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeBuilderProvider, useThemeBuilder } from '../lib/theme-builder-context.js';
-import type { CustomTheme } from '../lib/theme.js';
+import { ACCENT_PALETTES, PROFILES, type CustomTheme } from '../lib/theme.js';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
   <ThemeBuilderProvider>{children}</ThemeBuilderProvider>
@@ -317,9 +317,9 @@ describe('Theme Builder E2E Flow', () => {
     expect(saved.darkTokens['--vestara-accent']).toBe('#f59e0b');
   });
 
-  it('verifies all 9 accent themes and 4 profiles generate 36 built-in themes', () => {
+  it('verifies every accent theme and profile generates the built-in theme matrix', () => {
     const { result } = renderHook(() => useThemeBuilder(), { wrapper });
-    expect(result.current.builtInThemes).toHaveLength(36);
+    expect(result.current.builtInThemes).toHaveLength(Object.keys(ACCENT_PALETTES).length * PROFILES.length);
 
     const accents = new Set(result.current.builtInThemes.map(t => t.baseThemeId));
     expect(accents.size).toBe(9);
@@ -339,10 +339,12 @@ describe('Theme Builder E2E Flow', () => {
     const profileIds = new Set(result.current.builtInThemes.map(t => t.profile.sidebarEnabled ? 'sidebar' : 'no-sidebar'));
     // Actually check profile combinations
     const profileLabels = new Set(result.current.builtInThemes.map(t => t.name.split(' · ')[1]));
-    expect(profileLabels.size).toBe(4);
+    expect(profileLabels.size).toBe(PROFILES.length);
     expect(profileLabels).toContain('Default');
     expect(profileLabels).toContain('Minimal');
     expect(profileLabels).toContain('Presentation');
     expect(profileLabels).toContain('Accessibility');
+    expect(profileLabels).toContain('Premium');
+    expect(profileLabels).toContain('Premium Dark');
   });
 });
