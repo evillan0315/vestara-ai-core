@@ -825,6 +825,8 @@ export interface WorkspaceProfile {
   description: string;
   icon: string;
   settings: ThemeSettings;
+  /** Optional theme mode applied with the profile (profiles without a mode keep the current mode). */
+  mode?: ThemeMode;
 }
 
 export const PROFILES: WorkspaceProfile[] = [
@@ -911,6 +913,52 @@ export const PROFILES: WorkspaceProfile[] = [
       fullScreen: false,
       sidebarEnabled: false,
       sidebarMode: 'icons',
+      leftBorderEnabled: false,
+      leftBorderColor: '',
+      leftBorderThickness: 0,
+    },
+  },
+  {
+    id: 'premium',
+    label: 'Premium',
+    description: 'Gallery glow · light mode · wide rail · large radius',
+    icon: '✦',
+    mode: 'light',
+    settings: {
+      fontFamily: 'system',
+      fontSize: 'medium',
+      fontWeight: 'normal',
+      sidebarWidth: 'wide',
+      spacing: 'comfortable',
+      radius: 'large',
+      fullWidth: true,
+      colorTheme: 'gold',
+      fullScreen: false,
+      sidebarEnabled: true,
+      sidebarMode: 'text',
+      leftBorderEnabled: false,
+      leftBorderColor: '',
+      leftBorderThickness: 0,
+    },
+  },
+  {
+    id: 'premium-dark',
+    label: 'Premium Dark',
+    description: 'Gallery glow · dark mode · wide rail · large radius',
+    icon: '✧',
+    mode: 'dark',
+    settings: {
+      fontFamily: 'system',
+      fontSize: 'medium',
+      fontWeight: 'normal',
+      sidebarWidth: 'wide',
+      spacing: 'comfortable',
+      radius: 'large',
+      fullWidth: true,
+      colorTheme: 'amber',
+      fullScreen: false,
+      sidebarEnabled: true,
+      sidebarMode: 'text',
       leftBorderEnabled: false,
       leftBorderColor: '',
       leftBorderThickness: 0,
@@ -1095,6 +1143,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     if (!profile) return;
     setActiveProfile(id);
     setSettingsState(profile.settings);
+    if (profile.mode) {
+      setModeState(profile.mode);
+      try {
+        localStorage.setItem(THEME_KEY, profile.mode);
+      } catch {}
+      // Durable: persist the profile's theme mode alongside its appearance.
+      void persistThemeMode(profile.mode).catch(() => {});
+    }
     try {
       localStorage.setItem(PROFILE_KEY, id);
       localStorage.setItem(SETTINGS_KEY, JSON.stringify(profile.settings));

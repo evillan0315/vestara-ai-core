@@ -85,6 +85,8 @@
   /* ── Legacy surface aliases (COMPATIBILITY — DEPRECATED) ── */
   --vestara-surface: var(--vestara-surface-canvas);
   --vestara-surface-elevated: var(--vestara-surface-panel-raised);
+  --vestara-bg: var(--vestara-surface-canvas);
+  --vestara-primary: var(--vestara-accent-primary);
 
   /* ── Font defaults (overridden by JS theme.tsx) ── */
   --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
