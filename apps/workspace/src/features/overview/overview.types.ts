@@ -66,7 +66,7 @@ export interface OverviewRecentWorkItem {
   readonly title: string;
 
   /** Item type */
-  readonly type: 'execution' | 'workflow' | 'conversation' | 'file';
+  readonly type: 'execution' | 'workflow' | 'conversation' | 'file' | 'project' | 'repository';
 
   /** Item status */
   readonly status: 'running' | 'completed' | 'paused' | 'failed';
@@ -76,6 +76,12 @@ export interface OverviewRecentWorkItem {
 
   /** Progress percentage (0-100) */
   readonly progress?: number;
+
+  /** VCS branch (v2 Continue Working row) */
+  readonly branch?: string;
+
+  /** Workspace-relative path (v2 Continue Working row) */
+  readonly path?: string;
 }
 
 // ─── Activity Item ─────────────────────────────────────────────
@@ -97,7 +103,13 @@ export interface OverviewActivityItem {
   readonly timestamp: string;
 
   /** Activity kind */
-  readonly kind: 'execution' | 'message' | 'file-change' | 'agent-action';
+  readonly kind: 'execution' | 'message' | 'file-change' | 'agent-action' | 'workflow' | 'issue' | 'module';
+
+  /** Short title for v2 Recent Activity row */
+  readonly title?: string;
+
+  /** Detail line for v2 Recent Activity row */
+  readonly detail?: string;
 }
 
 // ─── Agent Summary ─────────────────────────────────────────────
@@ -112,8 +124,8 @@ export interface OverviewAgentSummary {
   /** Agent role */
   readonly role: string;
 
-  /** Agent status */
-  readonly status: 'idle' | 'working' | 'offline';
+  /** Agent status — v2 adds online/busy presence; working kept as legacy alias of busy */
+  readonly status: 'online' | 'busy' | 'idle' | 'offline' | 'working';
 
   /** Current task (if working) */
   readonly currentTask?: string;
@@ -142,6 +154,12 @@ export interface OverviewProjectSummary {
 
   /** File count */
   readonly fileCount?: number;
+
+  /** Short description (v2 Projects card) */
+  readonly description?: string;
+
+  /** Starred / favorite (v2 Projects card) */
+  readonly starred?: boolean;
 }
 
 // ─── Resource Summary ──────────────────────────────────────────
@@ -156,11 +174,26 @@ export interface OverviewResourceSummary {
   /** Disk usage percentage (0-100, optional) */
   readonly disk?: number;
 
+  /** Network usage percentage (0-100, v2 gauge) */
+  readonly network?: number;
+
   /** System uptime */
   readonly uptime: string;
 
   /** Active sessions count */
   readonly activeSessions: number;
+
+  /** Human-readable detail lines for v2 gauges (e.g. "1.4 / 8 cores") */
+  readonly cpuDetail?: string;
+
+  /** Human-readable detail lines for v2 gauges (e.g. "4.9 / 8 GB") */
+  readonly memoryDetail?: string;
+
+  /** Human-readable detail lines for v2 gauges (e.g. "82 / 238 GB") */
+  readonly diskDetail?: string;
+
+  /** Human-readable network throughput (e.g. "12.4 MB/s up") */
+  readonly networkDetail?: string;
 }
 
 // ─── Marketplace Item ──────────────────────────────────────────
@@ -180,6 +213,12 @@ export interface OverviewMarketplaceItem {
 
   /** Item rating (0-5, optional) */
   readonly rating?: number;
+
+  /** Short description (v2 Spotlight card) */
+  readonly description?: string;
+
+  /** Rating count (v2 Spotlight card, e.g. 120) */
+  readonly ratingCount?: number;
 }
 
 // ─── Focus Item ────────────────────────────────────────────────
@@ -196,6 +235,9 @@ export interface OverviewFocusItem {
 
   /** Priority level */
   readonly priority: 'high' | 'medium' | 'low';
+
+  /** Checked state for v2 Today's Focus checklist */
+  readonly completed?: boolean;
 
   /** Optional action link */
   readonly action?: {

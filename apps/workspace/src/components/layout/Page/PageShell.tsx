@@ -63,7 +63,9 @@ function PageShellRoot({ children, fullViewport = true }: PageShellProps) {
     <PageShellContext.Provider value={{ sidebarOpen, toggleSidebar, closeSidebar }}>
       <div
         className={[
-          'flex flex-col bg-(--vestara-bg) text-(--vestara-text)',
+          // min-w-0 keeps flex/grid descendants from forcing horizontal
+          // overflow on narrow viewports; w-full fills the shell content.
+          'flex w-full min-w-0 flex-col bg-(--vestara-bg) text-(--vestara-text)',
           fullViewport ? 'h-full min-h-0' : '',
         ].join(' ')}
       >

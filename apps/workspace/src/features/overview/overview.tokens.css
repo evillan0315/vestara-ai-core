@@ -1,0 +1,131 @@
+/**
+ * VES-OVERVIEW-001: Overview Scoped Tokens
+ *
+ * Scoped `--ov-*` layer for the Overview surface. Every value derives
+ * from the canonical Vestara tokens (`--vestara-*`, generated from
+ * @vestara/ui-tokens) so mode (dark/light via [data-theme]) and the
+ * user-selected accent (via VestaraThemeProvider) propagate automatically.
+ *
+ * Never hard-code palette hex here — reference canonical vars or
+ * color-mix() expressions over them.
+ */
+
+/* ── Dark appearance (default) ── */
+:root {
+  /* Card + rows */
+  --ov-card-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --ov-card-hover-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --ov-row-hover-bg: rgba(255, 255, 255, 0.04);
+  --ov-row-hover-bg-soft: rgba(255, 255, 255, 0.03);
+  --ov-inset-bg: rgba(255, 255, 255, 0.02);
+
+  /* Icon tiles — translucent status washes (text pairs adapt per mode) */
+  --ov-tile-info-bg: var(--vestara-status-info-bg);
+  --ov-tile-info-fg: var(--vestara-status-info);
+  --ov-tile-accent-bg: var(--vestara-accent-bg);
+  --ov-tile-accent-fg: var(--vestara-accent-text);
+  --ov-tile-success-bg: var(--vestara-status-success-bg);
+  --ov-tile-success-fg: var(--vestara-status-success);
+  --ov-tile-warning-bg: var(--vestara-status-warning-bg);
+  --ov-tile-warning-fg: var(--vestara-status-warning);
+  --ov-tile-error-bg: var(--vestara-status-error-bg);
+  --ov-tile-error-fg: var(--vestara-status-error);
+  --ov-tile-muted-bg: color-mix(in srgb, var(--vestara-text-muted) 18%, transparent);
+  --ov-tile-muted-fg: var(--vestara-text-secondary);
+
+  /* Solid tiles (quick actions / projects) — canonical hues, mode-aware */
+  --ov-solid-info-bg: var(--vestara-status-info);
+  --ov-solid-accent-bg: var(--vestara-accent-primary);
+  --ov-solid-success-bg: var(--vestara-status-success);
+  --ov-solid-warning-bg: var(--vestara-status-warning);
+  --ov-solid-muted-bg: var(--vestara-text-muted);
+  --ov-solid-on-tile: #ffffff;
+
+  /* Ratings / favorites — marketplace gold */
+  --ov-star-active: var(--vestara-marketplace-rating);
+  --ov-star-idle: var(--vestara-text-disabled);
+  --ov-rating: var(--vestara-marketplace-rating);
+  --ov-featured-bg: var(--vestara-marketplace-featured-bg);
+  --ov-featured-text: var(--vestara-marketplace-featured-text);
+
+  /* Gauges */
+  --ov-gauge-track: rgba(255, 255, 255, 0.08);
+  --ov-gauge-cpu: var(--vestara-status-info);
+  --ov-gauge-memory: var(--vestara-status-warning);
+  --ov-gauge-disk: var(--vestara-status-success);
+  --ov-gauge-network: var(--vestara-status-success);
+
+  /* Presence */
+  --ov-presence-online: var(--vestara-status-success);
+  --ov-presence-busy: var(--vestara-status-warning);
+  --ov-presence-idle: var(--vestara-status-idle);
+  --ov-presence-offline: var(--vestara-status-error);
+
+  /* Checklist */
+  --ov-check-checked-bg: var(--vestara-status-success);
+  --ov-check-checked-border: var(--vestara-status-success);
+  --ov-check-checked-fg: #ffffff;
+
+  /* Hero — dusk premium (dark) */
+  --ov-hero-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  --ov-hero-backdrop:
+    radial-gradient(90% 130% at 78% 8%, color-mix(in srgb, var(--vestara-status-info) 35%, transparent) 0%, transparent 45%),
+    radial-gradient(70% 90% at 55% 100%, color-mix(in srgb, var(--vestara-accent-primary) 30%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, #0b1530 0%, #101d42 38%, #1b2a5e 58%, #0a1128 100%);
+  --ov-hero-shade:
+    linear-gradient(180deg, transparent 46%, rgba(4, 8, 20, 0.55) 62%, rgba(3, 6, 16, 0.9) 100%),
+    radial-gradient(38% 26% at 58% 62%, color-mix(in srgb, var(--vestara-accent-secondary) 50%, transparent) 0%, transparent 72%);
+  --ov-hero-mark: linear-gradient(180deg, #dbeafe 10%, var(--vestara-status-info) 45%, var(--vestara-accent-secondary) 90%);
+  --ov-hero-mark-shadow: 0 0 28px color-mix(in srgb, var(--vestara-status-info) 45%, transparent);
+  --ov-hero-eyebrow: var(--vestara-status-info);
+  --ov-hero-title: #ffffff;
+  --ov-hero-sub: var(--vestara-text-secondary);
+  --ov-hero-quote: var(--vestara-text-muted);
+  --ov-hero-meta: var(--vestara-text-muted);
+  --ov-hero-chip-bg: rgba(0, 0, 0, 0.3);
+  --ov-hero-chip-border: rgba(255, 255, 255, 0.1);
+  --ov-hero-chip-text: var(--vestara-text-primary);
+  --ov-hero-chip-icon-bg: rgba(255, 255, 255, 0.1);
+
+  /* Inspiration quote card */
+  --ov-quote-bg: linear-gradient(120deg, rgba(16, 29, 66, 0.95) 30%, rgba(27, 42, 94, 0.9) 60%, rgba(10, 17, 40, 0.95) 100%);
+  --ov-quote-text: var(--vestara-text-primary);
+  --ov-quote-sub: var(--vestara-text-muted);
+  --ov-quote-dot-active: var(--vestara-status-info);
+  --ov-quote-dot-idle: var(--vestara-text-disabled);
+
+  /* Marketplace install action — v2 gallery Install blue */
+  --ov-install-border: var(--vestara-marketplace-primary-border);
+  --ov-install-bg: var(--vestara-marketplace-primary-bg);
+  --ov-install-fg: var(--vestara-marketplace-primary);
+  --ov-install-solid-bg: var(--vestara-marketplace-primary);
+}
+
+/* ── Light appearance ── */
+[data-theme='light'] {
+  --ov-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --ov-card-hover-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  --ov-row-hover-bg: rgba(15, 23, 42, 0.04);
+  --ov-row-hover-bg-soft: rgba(15, 23, 42, 0.03);
+  --ov-inset-bg: rgba(15, 23, 42, 0.02);
+
+  --ov-gauge-track: rgba(15, 23, 42, 0.1);
+
+  --ov-hero-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  --ov-hero-backdrop:
+    radial-gradient(90% 130% at 78% 8%, color-mix(in srgb, var(--vestara-status-info) 22%, transparent) 0%, transparent 50%),
+    radial-gradient(70% 90% at 55% 100%, color-mix(in srgb, var(--vestara-accent-primary) 22%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, #e8eefc 0%, #f3eedd 55%, #ffffff 100%);
+  --ov-hero-shade:
+    linear-gradient(180deg, transparent 55%, rgba(255, 255, 255, 0.65) 100%),
+    radial-gradient(38% 26% at 58% 62%, color-mix(in srgb, var(--vestara-accent-primary) 28%, transparent) 0%, transparent 72%);
+  --ov-hero-mark: linear-gradient(180deg, var(--vestara-status-info) 10%, var(--vestara-accent-primary) 90%);
+  --ov-hero-mark-shadow: 0 0 22px color-mix(in srgb, var(--vestara-status-info) 30%, transparent);
+  --ov-hero-title: var(--vestara-text-primary);
+  --ov-hero-chip-bg: rgba(255, 255, 255, 0.72);
+  --ov-hero-chip-border: var(--vestara-border-default);
+  --ov-hero-chip-text: var(--vestara-text-secondary);
+  --ov-hero-chip-icon-bg: color-mix(in srgb, var(--vestara-text-muted) 14%, transparent);
+
+  --ov-quote-bg: linear-gradient(120deg, #e8eefc 0%, #f6ecd4 60%, #ffffff 100%);
+}

@@ -1,98 +1,80 @@
 /**
  * VES-OVERVIEW-001: Continue Working Component
  *
- * Recent work items with status and progress.
- *
- * Architecture Traceability:
- *   VES-OVERVIEW-001: Vestara Overview (phases 0-2)
- *   @see docs/blueprint/VESTARA-OVERVIEW-SCREEN.md
- *
- * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
+ * Marketplace rows (mpg-category-row) with mpg-icon-box tiles, branch
+ * pills, and time-ago.
  */
 
+import { Link } from 'react-router-dom';
+import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
 import type { OverviewRecentWorkItem } from '../overview.types';
+import { SectionCard } from './SectionCard';
 
 interface ContinueWorkingProps {
   items: readonly OverviewRecentWorkItem[];
 }
 
-const STATUS_STYLES = {
-  running: { dot: 'bg-emerald-400 animate-pulse', label: 'Running', bg: 'bg-emerald-500/10' },
-  completed: { dot: 'bg-blue-400', label: 'Completed', bg: 'bg-blue-500/10' },
-  paused: { dot: 'bg-amber-400', label: 'Paused', bg: 'bg-amber-500/10' },
-  failed: { dot: 'bg-red-400', label: 'Failed', bg: 'bg-red-500/10' },
-};
+function timeAgo(iso: string): string {
+  const mins = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  return `${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? '' : 's'} ago`;
+}
 
-const TYPE_ICONS = {
-  execution: '⚡',
-  workflow: '🔄',
-  conversation: '💬',
-  file: '📄',
-};
+const TILE_ACCENT = 'var(--vestara-status-info)';
 
 export function ContinueWorking({ items }: ContinueWorkingProps) {
   if (items.length === 0) {
     return (
-      <div className="rounded-xl border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-4">
-        <h2 className="text-sm font-semibold text-[var(--vestara-text-primary)] mb-3">
-          Continue Working
-        </h2>
-        <p className="text-sm text-[var(--vestara-text-muted)] text-center py-4">
-          No recent work items. Start a conversation or execute a workflow to begin.
-        </p>
-      </div>
+      <SectionCard title="Continue Working" actionLabel="View All" accent={TILE_ACCENT} index={0}>
+        <MarketplaceEmptyState message="No recent work. Start a conversation or execute a workflow to begin." />
+      </SectionCard>
     );
   }
 
   return (
-    <div className="rounded-xl border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-4">
-      <h2 className="text-sm font-semibold text-[var(--vestara-text-primary)] mb-3">
-        Continue Working
-      </h2>
-
-      <div className="space-y-2">
-        {items.map((item) => {
-          const statusStyle = STATUS_STYLES[item.status];
-          const icon = TYPE_ICONS[item.type];
-
-          return (
-            <div
-              key={item.id}
-              className={`flex items-center gap-3 p-3 rounded-lg ${statusStyle.bg} hover:opacity-80 transition-opacity cursor-pointer`}
+    <SectionCard title="Continue Working" actionLabel="View All" accent={TILE_ACCENT} index={0}>
+      <ul className="space-y-1">
+        {items.map((item, i) => (
+          <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
+            <Link
+              to={item.type === 'project' || item.type === 'repository' ? '/projects' : '/executions'}
+              className="mpg-category-row"
             >
-              <span className="text-lg">{icon}</span>
-
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-[var(--vestara-text-primary)] truncate">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mpg-icon-box"
+                  style={{
+                    color: TILE_ACCENT,
+                    background: `color-mix(in srgb, ${TILE_ACCENT} 14%, transparent)`,
+                    borderColor: `color-mix(in srgb, ${TILE_ACCENT} 35%, transparent)`,
+                    width: '2rem',
+                    height: '2rem',
+                    fontSize: '0.85rem',
+                    borderRadius: '0.5rem',
+                  }}
+                >
+                  {'</>'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13px] font-medium text-[var(--vestara-text-primary)]">
                     {item.title}
                   </span>
-                  <span className={`w-2 h-2 rounded-full ${statusStyle.dot}`} />
-                </div>
-                <div className="flex items-center gap-2 mt-0.5 text-[10px] text-[var(--vestara-text-muted)]">
-                  <span>{statusStyle.label}</span>
-                  <span>·</span>
-                  <span>{new Date(item.updatedAt).toLocaleDateString()}</span>
-                </div>
-              </div>
-
-              {item.progress !== undefined && (
-                <div className="w-16">
-                  <div className="h-1.5 bg-[var(--vestara-surface-canvas)] rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-[var(--vestara-accent-primary)] rounded-full transition-all duration-300"
-                      style={{ width: `${item.progress}%` }}
-                    />
-                  </div>
-                  <span className="text-[10px] text-[var(--vestara-text-muted)] text-right">
-                    {item.progress}%
-                  </span>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </div>
+                  <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{item.path ?? item.type}</span>
+                </span>
+              </span>
+              <span className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
+                <span className="mpg-tag-pill">
+                  <span aria-hidden="true">⑂</span> {item.branch ?? 'main'}
+                </span>
+                <span className="text-[10px] text-[var(--vestara-text-muted)]">{timeAgo(item.updatedAt)}</span>
+              </span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </SectionCard>
   );
 }
