@@ -34,6 +34,9 @@ const KIND_MAP: Record<string, ActivityRecord['kind']> = {
   'agent.completed': 'agent-message',
   'agent.failed': 'agent-message',
   'agent.cancelled': 'agent-message',
+  'tool.called': 'tool-call',
+  'tool.succeeded': 'tool-result',
+  'tool.failed': 'tool-result',
   'human.message': 'agent-message',
   'system.event': 'workflow',
   'interaction.presented': 'agent-message',
@@ -49,18 +52,54 @@ const KIND_MAP: Record<string, ActivityRecord['kind']> = {
  * essential fields needed for UI rendering.
  */
 export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
+  const kind = KIND_MAP[record.type] ?? 'workflow';
+  const actor = {
+    type: record.actor.type,
+    id: record.actor.id,
+    displayName: record.actor.displayName,
+    ...(record.actorId ? { role: record.actorId } : {}),
+  };
+  const agentId = record.actor.type === 'agent' ? record.actor.id : '';
+  const data = record.payload?.data as Record<string, unknown> | undefined;
+  const callID = (data?.callID as string) ?? '';
+  const toolName = (data?.toolName as string) ?? '';
+
+  // Tool activities have a distinct shape from agent-message
+  if (kind === 'tool-call') {
+    return {
+      id: String(record.activityId),
+      sequence: record.sequenceNumber,
+      timestamp: record.timestamp,
+      actor,
+      kind: 'tool-call',
+      agentId,
+      toolName,
+      callID,
+      evidenceRefs: [],
+    };
+  }
+  if (kind === 'tool-result') {
+    return {
+      id: String(record.activityId),
+      sequence: record.sequenceNumber,
+      timestamp: record.timestamp,
+      actor,
+      kind: 'tool-result',
+      agentId,
+      toolName,
+      callID,
+      status: record.type === 'tool.failed' ? 'failed' : 'completed',
+      evidenceRefs: [],
+    };
+  }
+
   return {
     id: String(record.activityId),
     sequence: record.sequenceNumber,
     timestamp: record.timestamp,
-    actor: {
-      type: record.actor.type,
-      id: record.actor.id,
-      displayName: record.actor.displayName,
-      ...(record.actorId ? { role: record.actorId } : {}),
-    },
-    kind: KIND_MAP[record.type] ?? 'workflow',
-    agentId: record.actor.type === 'agent' ? record.actor.id : undefined,
+    actor,
+    kind,
+    agentId,
     messageKind: 'message',
     content: record.payload?.message ?? '',
     workflowId: record.workflowRunId,

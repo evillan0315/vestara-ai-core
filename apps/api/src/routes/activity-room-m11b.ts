@@ -337,9 +337,23 @@ export class M11BTransport {
 
     // Create the subscriber state
     const attachedId = `m11b-sub-${connectionId}`;
+    // Transform ActivityStreamMessage (type field) → M11BMessage (op field)
+    // so the client receives the expected wire format.
     const connection = new ActivityStreamConnection({
       id: attachedId,
-      sink: { send: (msg: any) => m11bSink.send(msg) },
+      sink: {
+        send: (msg: ActivityStreamMessage) => {
+          if (msg.type === 'activity.appended') {
+            m11bSink.send({ op: 'activity', sequence: msg.sequence, activity: msg.activity });
+          } else if (msg.type === 'activity.resync-required') {
+            m11bSink.send({
+              op: 'resync-required',
+              earliestAvailableSequence: msg.earliestAvailableSequence,
+              latestSequence: msg.latestSequence,
+            });
+          }
+        },
+      },
       afterSequence,
       bufferCapacity: this.config.bufferCapacity,
       onResync: (conn) => this.handleResync(connectionId, conn),
@@ -362,7 +376,24 @@ export class M11BTransport {
     // The connection's checkpoint is afterSequence, so it will only deliver
     // records > afterSequence. Live records arriving during catch-up will be
     // buffered by the connection and flushed in order.
-    hub.attach(attachedId, { send: (msg: any) => m11bSink.send(msg) }, frontier);
+    // Transform ActivityStreamMessage (type field) → M11BMessage (op field).
+    hub.attach(
+      attachedId,
+      {
+        send: (msg: ActivityStreamMessage) => {
+          if (msg.type === 'activity.appended') {
+            m11bSink.send({ op: 'activity', sequence: msg.sequence, activity: msg.activity });
+          } else if (msg.type === 'activity.resync-required') {
+            m11bSink.send({
+              op: 'resync-required',
+              earliestAvailableSequence: msg.earliestAvailableSequence,
+              latestSequence: msg.latestSequence,
+            });
+          }
+        },
+      },
+      frontier,
+    );
 
     // Send subscribed confirmation with cursor and frontier
     const cursor: ActivityCursor = {

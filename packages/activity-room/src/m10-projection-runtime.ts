@@ -282,6 +282,11 @@ export class ProjectionRuntime {
         return 'activity';
       case 'agent.progress':
         return 'progress';
+      case 'tool.called':
+        return 'tool-call';
+      case 'tool.succeeded':
+      case 'tool.failed':
+        return 'tool-result';
       case 'task.runnable':
         return 'log';
       case 'task.failed':
@@ -312,6 +317,10 @@ export class ProjectionRuntime {
 
     // Agent assigned/completed is secondary
     if (record.type === 'agent.assigned' || record.type === 'agent.completed') return 'secondary';
+
+    // Tool operations are secondary (visible, not primary)
+    if (record.type === 'tool.called' || record.type === 'tool.succeeded' || record.type === 'tool.failed')
+      return 'secondary';
 
     // Interaction: presented is primary (decision needed), responded is secondary
     if (record.type === 'interaction.presented') return 'primary';

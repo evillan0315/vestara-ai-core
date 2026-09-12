@@ -110,6 +110,10 @@ function withSequence(record: ActivityRecord, sequence: number): ActivityRecord 
       return { ...record, sequence };
     case 'agent-message':
       return { ...record, sequence };
+    case 'tool-call':
+      return { ...record, sequence };
+    case 'tool-result':
+      return { ...record, sequence };
     case 'test':
       return { ...record, sequence };
     case 'verification':

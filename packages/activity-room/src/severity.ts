@@ -34,6 +34,12 @@ export function severityOf(record: ActivityRecord): ActivitySeverity {
       if (record.risk === 'high' || record.risk === 'critical') return 'warning';
       return 'info';
     }
+    case 'tool-call': {
+      return 'info';
+    }
+    case 'tool-result': {
+      return record.status === 'failed' ? 'error' : 'info';
+    }
     case 'test': {
       if (record.failed > 0) return 'error';
       if (record.passed > 0) return 'success';

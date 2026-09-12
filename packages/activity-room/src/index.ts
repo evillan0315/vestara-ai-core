@@ -27,6 +27,7 @@ export {
   fromHumanMessage,
   fromInteractionPresented,
   fromInteractionResponded,
+  fromToolEvent,
   fromWorkflowEvent,
 } from './m9-adapter';
 export { M9DeliveryVerifier } from './m9-delivery-verifier';

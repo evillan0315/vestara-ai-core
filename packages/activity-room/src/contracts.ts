@@ -58,7 +58,15 @@ export interface ActivityBase {
   readonly correctionOf?: string;
 }
 
-export type ActivityKind = 'workflow' | 'task' | 'agent-message' | 'test' | 'verification' | 'acceptance';
+export type ActivityKind =
+  | 'workflow'
+  | 'task'
+  | 'agent-message'
+  | 'tool-call'
+  | 'tool-result'
+  | 'test'
+  | 'verification'
+  | 'acceptance';
 
 /** Who a human message is addressed to (AAR-001E). Only `all-agents` and a
  * single `agent` are required initially. */
@@ -174,10 +182,27 @@ export interface AcceptanceActivity extends ActivityBase {
   readonly derivedBy: string;
 }
 
+export interface ToolCallActivity extends ActivityBase {
+  readonly kind: 'tool-call';
+  readonly agentId: string;
+  readonly toolName: string;
+  readonly callID: string;
+}
+
+export interface ToolResultActivity extends ActivityBase {
+  readonly kind: 'tool-result';
+  readonly agentId: string;
+  readonly toolName: string;
+  readonly callID: string;
+  readonly status: 'completed' | 'failed';
+}
+
 export type ActivityRecord =
   | WorkflowActivity
   | TaskActivity
   | AgentMessageActivity
+  | ToolCallActivity
+  | ToolResultActivity
   | TestActivity
   | VerificationActivity
   | AcceptanceActivity;
@@ -187,6 +212,8 @@ export const ACTIVITY_KINDS: readonly ActivityKind[] = [
   'workflow',
   'task',
   'agent-message',
+  'tool-call',
+  'tool-result',
   'test',
   'verification',
   'acceptance',

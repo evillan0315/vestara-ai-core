@@ -29,6 +29,8 @@ export type StreamItemKind =
   | 'conversation' // human messages
   | 'activity' // meaningful workflow/task/agent events
   | 'progress' // incremental progress updates
+  | 'tool-call' // tool invocation started
+  | 'tool-result' // tool invocation completed/failed
   | 'log' // detailed runtime logs
   | 'diagnostic' // error/failure details
   | 'evidence' // test results, verification output

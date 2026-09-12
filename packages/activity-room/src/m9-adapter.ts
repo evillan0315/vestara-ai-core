@@ -116,6 +116,15 @@ export interface HumanMessageInput {
   /** Display name. */
   readonly displayName: string;
 
+  /**
+   * Stable message identity from the authoritative conversation service.
+   * When provided, used to derive a deterministic eventId for deduplication.
+   */
+  readonly messageId?: string;
+
+  /** Conversation identity. */
+  readonly conversationId?: string;
+
   /** Workflow run context. */
   readonly workflowRunId?: WorkflowRunId;
 
@@ -141,12 +150,23 @@ export interface HumanMessageInput {
 /**
  * Convert a human message into a durable ActivityEvent.
  * Human messages are first-class durable facts that survive restart/reconnect.
+ *
+ * When `messageId` is provided (from the authoritative conversation service),
+ * the eventId is derived from it for stable deduplication across replays.
+ * Otherwise falls back to a timestamp-based id.
  */
 export function fromHumanMessage(input: HumanMessageInput): ActivityEvent {
   const now = new Date().toISOString();
 
+  // Stable eventId: derive from authoritative messageId when available.
+  // This ensures the same logical message produces the same M9 eventId
+  // across normal and recovery publication (F2 deduplication).
+  const eventId = input.messageId
+    ? `human.message:${input.messageId}`
+    : `hm-${input.userId}-${now}-${++adapterEventCounter}`;
+
   return {
-    eventId: `hm-${input.userId}-${now}-${++adapterEventCounter}`,
+    eventId,
     type: 'human.message',
     timestamp: now,
     executionId: input.executionId,
@@ -164,6 +184,8 @@ export function fromHumanMessage(input: HumanMessageInput): ActivityEvent {
     source: 'human-input',
     payload: {
       message: input.message,
+      ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+      ...(input.messageId ? { messageId: input.messageId } : {}),
     },
     visibility: 'all',
   };
@@ -335,5 +357,59 @@ export function fromInteractionResponded(input: InteractionRespondedInput): Acti
         correlationId: input.correlationId,
       },
     },
+  };
+}
+
+// ─── Tool Operation → ActivityEvent (AR-DOGFOOD-007) ───────
+
+export interface ToolEventInput {
+  /** Canonical ActivityType: 'tool.called' | 'tool.succeeded' | 'tool.failed' */
+  readonly lifecycleType: 'called' | 'succeeded' | 'failed';
+  /** OpenCode callID — authoritative operation correlation identifier. */
+  readonly callID: string;
+  /** Tool name (e.g. 'bash', 'read_file'). Safe summary only. */
+  readonly toolName: string;
+  /** Agent identity. */
+  readonly agentId?: string;
+}
+
+/**
+ * Convert an OpenCode tool lifecycle event into a durable ActivityEvent.
+ * Activity Room content is restricted to tool name and lifecycle state.
+ * No arguments, commands, prompts, file contents, or raw results.
+ */
+export function fromToolEvent(input: ToolEventInput): ActivityEvent {
+  const now = new Date().toISOString();
+  const type = `tool.${input.lifecycleType}` as ActivityType;
+  const agentId = input.agentId ?? 'vestara';
+
+  const message =
+    input.lifecycleType === 'called'
+      ? `${input.toolName} started`
+      : input.lifecycleType === 'succeeded'
+        ? `${input.toolName} completed`
+        : `${input.toolName} failed`;
+
+  return {
+    // Deterministic eventId: tool.{lifecycle}:${callID}
+    // Same operation + same transition → same eventId (replay-safe dedup).
+    // Same operation + different transition → different eventId.
+    eventId: `tool.${input.lifecycleType}:${input.callID}`,
+    type,
+    timestamp: now,
+    actor: {
+      type: 'agent',
+      id: agentId,
+      displayName: agentId,
+    },
+    source: 'runtime-session',
+    payload: {
+      message,
+      data: {
+        callID: input.callID,
+        toolName: input.toolName,
+      },
+    },
+    visibility: 'all',
   };
 }

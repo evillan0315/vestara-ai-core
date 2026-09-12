@@ -51,6 +51,10 @@ export type ActivityType =
   | 'agent.completed'
   | 'agent.failed'
   | 'agent.cancelled'
+  // Tool lifecycle (normalized from OpenCode runtime)
+  | 'tool.called'
+  | 'tool.succeeded'
+  | 'tool.failed'
   // Human interaction
   | 'human.message'
   // System

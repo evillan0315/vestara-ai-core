@@ -67,12 +67,12 @@ function createMockEventBus(): EventBus & { emitted: VestaraEvent[]; subscriptio
 function createMockEvent(overrides: Partial<VestaraEvent> = {}): VestaraEvent {
   return {
     id: `evt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    type: 'conversation:created',
+    type: 'conversation:message.sent',
     version: 1,
     timestamp: new Date().toISOString(),
     source: 'test',
     actor: { id: 'local', role: 'user' },
-    payload: { userId: 'test-user', title: 'Test' },
+    payload: { conversationId: 'conv-1', messageId: `msg-${Date.now()}`, content: 'Test message' },
     metadata: {
       correlationId: `cor-${Date.now()}`,
       causationId: undefined,
@@ -136,7 +136,7 @@ describe('M9IngestionBridge', () => {
   describe('I1-2: Event identity preservation', () => {
     it('preserves executionId from EventBus metadata', async () => {
       const event = createMockEvent({
-        type: 'conversation:created',
+        type: 'conversation:message.sent',
         actor: { id: 'user-1', role: 'user' },
         metadata: {
           correlationId: 'cor-1',
@@ -146,7 +146,7 @@ describe('M9IngestionBridge', () => {
           retryCount: 0,
           ttl: 60,
         },
-        payload: { userId: 'user-1', title: 'Test' },
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Test' },
       });
 
       await bridge.ingest(event);
@@ -219,11 +219,11 @@ describe('M9IngestionBridge', () => {
   // ─── I1-4: Typed normalization ─────────────────────────
 
   describe('I1-4: Typed normalization', () => {
-    it('uses fromHumanMessage for conversation:created', async () => {
+    it('uses fromHumanMessage for conversation:message.sent', async () => {
       const event = createMockEvent({
-        type: 'conversation:created',
+        type: 'conversation:message.sent',
         actor: { id: 'user-1', role: 'user' },
-        payload: { userId: 'user-1', title: 'My Chat' },
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Hello world' },
       });
 
       await bridge.ingest(event);
@@ -233,6 +233,7 @@ describe('M9IngestionBridge', () => {
       expect(records[0].type).toBe('human.message');
       expect(records[0].actor.type).toBe('human');
       expect(records[0].actor.id).toBe('user-1');
+      expect(records[0].payload.message).toBe('Hello world');
     });
 
     it('uses fromAgentLifecycle for agent:started', async () => {
@@ -328,7 +329,7 @@ describe('M9IngestionBridge', () => {
 
     it('returns INGEST patterns list', () => {
       const patterns = M9IngestionBridge.getIngestPatterns();
-      expect(patterns).toContain('conversation:created');
+      expect(patterns).toContain('conversation:message.sent');
       expect(patterns).toContain('agent:started');
       expect(patterns).toContain('orchestration.*');
     });
@@ -375,8 +376,8 @@ describe('M9IngestionBridge', () => {
       vi.spyOn(store, 'append').mockRejectedValueOnce(new Error('test error'));
 
       const event = createMockEvent({
-        type: 'conversation:created',
-        payload: { userId: 'user-1' },
+        type: 'conversation:message.sent',
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Test' },
       });
 
       await bridge.ingest(event);
@@ -421,12 +422,12 @@ describe('M9IngestionBridge', () => {
       bridge.start();
 
       const event = createMockEvent({
-        type: 'conversation:created',
-        payload: { userId: 'user-1' },
+        type: 'conversation:message.sent',
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Test' },
       });
 
       // Simulate EventBus delivery
-      const handlers = eventBus.subscriptions.get('conversation:created') ?? [];
+      const handlers = eventBus.subscriptions.get('conversation:message.sent') ?? [];
       for (const handler of handlers) {
         await handler(event);
       }
@@ -505,8 +506,8 @@ describe('M9IngestionBridge', () => {
     it('does not modify ActivityLogStore', async () => {
       // Bridge writes to M9, not ActivityLogStore
       const event = createMockEvent({
-        type: 'conversation:created',
-        payload: { userId: 'user-1' },
+        type: 'conversation:message.sent',
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Test' },
       });
 
       await bridge.ingest(event);
@@ -541,16 +542,27 @@ describe('M9IngestionBridge: Event Coverage', () => {
     bridge = new M9IngestionBridge({ store, eventBus });
   });
 
-  it('ingests conversation:created', async () => {
+  it('ingests conversation:message.sent', async () => {
     await bridge.ingest(
       createMockEvent({
-        type: 'conversation:created',
-        payload: { userId: 'user-1', title: 'Chat' },
+        type: 'conversation:message.sent',
+        payload: { conversationId: 'conv-1', messageId: 'msg-1', content: 'Hello' },
       }),
     );
     const records = await store.query({ limit: 10 });
     expect(records.length).toBe(1);
     expect(records[0].type).toBe('human.message');
+  });
+
+  it('defers conversation:created (lifecycle event, not a message)', async () => {
+    await bridge.ingest(
+      createMockEvent({
+        type: 'conversation:created',
+        payload: { conversationId: 'conv-1', userId: 'user-1', title: 'Chat' },
+      }),
+    );
+    const records = await store.query({ limit: 10 });
+    expect(records.length).toBe(0);
   });
 
   it('ingests conversation:response.completed', async () => {

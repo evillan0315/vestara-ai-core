@@ -22,7 +22,13 @@
 import type { EventBus } from '@vestara/event-bus';
 import type { Unsubscribe, VestaraEvent } from '@vestara/shared';
 import type { WorkflowRunId } from '@vestara/types';
-import { fromAgentLifecycle, fromHumanMessage, fromInteractionPresented, fromInteractionResponded } from './m9-adapter';
+import {
+  fromAgentLifecycle,
+  fromHumanMessage,
+  fromInteractionPresented,
+  fromInteractionResponded,
+  fromToolEvent,
+} from './m9-adapter';
 import type { ActivityEvent, M9ActivityStore } from './m9-types';
 
 // ─── Event Disposition (I1-5) ──────────────────────────────
@@ -44,22 +50,22 @@ interface PatternDisposition {
 const PATTERN_DISPOSITIONS: readonly PatternDisposition[] = [
   // ─── INGEST: Durable Activity Room facts ──────────────────
   {
-    pattern: 'conversation:created',
+    pattern: 'conversation:message.sent',
     disposition: 'INGEST',
-    reason: 'Human started a conversation — durable Activity Room fact',
+    reason: 'Human message sent — durable Activity Room fact (authoritative message content)',
     adapter: 'fromHumanMessage',
+  },
+  {
+    pattern: 'conversation:provider.request.started',
+    disposition: 'INGEST',
+    reason: 'Provider request started — authoritative execution start signal for Activity Room',
+    adapter: 'fromAgentLifecycle',
   },
   {
     pattern: 'conversation:response.completed',
     disposition: 'INGEST',
     reason: 'AI response completed — durable Activity Room fact',
     adapter: 'fromAgentLifecycle',
-  },
-  {
-    pattern: 'conversation:session.started',
-    disposition: 'INGEST',
-    reason: 'Conversation session started — durable Activity Room fact',
-    adapter: 'fromHumanMessage',
   },
   {
     pattern: 'plan:created',
@@ -122,6 +128,15 @@ const PATTERN_DISPOSITIONS: readonly PatternDisposition[] = [
     disposition: 'INGEST',
     reason: 'Interaction responded — durable Activity Room fact',
     adapter: 'fromInteractionResponded',
+  },
+  // ─── Tool lifecycle (OpenCode runtime) ─────────────────────
+  // Tool operations surface as message.part.updated with part.type=tool.
+  // The older session.next.tool.* events are not emitted by current OpenCode.
+  {
+    pattern: 'opencode.message.part.updated',
+    disposition: 'INGEST',
+    reason: 'Tool lifecycle via message part — durable Activity Room fact (OpenCode callID correlation)',
+    adapter: 'fromToolEvent',
   },
 
   // ─── IGNORE: Operational-only, not Activity Room facts ─────
@@ -187,6 +202,16 @@ const PATTERN_DISPOSITIONS: readonly PatternDisposition[] = [
   },
 
   // ─── DEFER: Future capability ──────────────────────────────
+  {
+    pattern: 'conversation:created',
+    disposition: 'DEFER',
+    reason: 'Conversation lifecycle — not a message. Human messages ingested via conversation:message.sent',
+  },
+  {
+    pattern: 'conversation:session.started',
+    disposition: 'DEFER',
+    reason: 'Session lifecycle — not a message. Human messages ingested via conversation:message.sent',
+  },
   {
     pattern: 'workspace:opened',
     disposition: 'DEFER',
@@ -333,13 +358,32 @@ export class M9IngestionBridge {
   /**
    * F2 correction: Derive the M9 eventId.
    * For interaction events, use the stable semantic identity from the payload.
+   * For human messages, use the authoritative messageId for stable deduplication.
+   * For tool events, use the adapter-generated eventId (derived from callID).
    * For all other events, preserve the existing delivery-based identity.
    */
-  private getSemanticEventId(event: VestaraEvent, _activityEvent: ActivityEvent): string {
+  private getSemanticEventId(event: VestaraEvent, activityEvent: ActivityEvent): string {
     if (event.type === 'interaction:presented' || event.type === 'interaction:responded') {
       // The adapter puts the semantic eventId (e.g. "interaction:presented:${interactionId}")
       // in the payload. Use it directly for stable deduplication.
       return (event.payload.eventId as string) || `${event.type}:${event.id}`;
+    }
+    if (event.type === 'conversation:message.sent') {
+      // Use the authoritative messageId from the conversation service for stable
+      // deduplication. Same logical message → same M9 eventId across replays.
+      const messageId = event.payload.messageId as string | undefined;
+      return messageId ? `human.message:${messageId}` : `${event.type}:${event.id}`;
+    }
+    if (event.type === 'opencode.message.part.updated') {
+      // The fromToolEvent adapter generates a deterministic eventId from callID.
+      // Use it for stable deduplication across replays of the same tool transition.
+      return activityEvent.eventId;
+    }
+    if (event.type === 'conversation:response.completed') {
+      // AR-DOGFOOD-009: Deterministic eventId from authoritative messageId.
+      // Same response message replay → same Activity eventId.
+      const messageId = event.payload.messageId as string | undefined;
+      return messageId ? `agent.completed:${messageId}` : `${event.type}:${event.id}`;
     }
     return `${event.type}:${event.id}`;
   }
@@ -351,29 +395,70 @@ export class M9IngestionBridge {
   private mapToActivityEvent(event: VestaraEvent): ActivityEvent | null {
     const type = event.type;
 
-    // ─── Conversation events → fromHumanMessage ────────────
-    if (type === 'conversation:created' || type === 'conversation:session.started') {
+    // ─── Human message → fromHumanMessage ─────────────────
+    // Uses actual message content from the authoritative conversation service.
+    // eventId is derived from messageId for stable deduplication.
+    if (type === 'conversation:message.sent') {
       const userId = (event.actor?.id as string) || (event.payload.userId as string) || 'local';
-      const displayName = (event.payload.userId as string) || 'User';
+      const displayName = (event.actor?.id as string) || (event.payload.userId as string) || 'User';
       return fromHumanMessage({
-        message: (event.payload.title as string) || type,
+        message: (event.payload.content as string) || '',
         userId,
         displayName,
+        messageId: event.payload.messageId as string | undefined,
+        conversationId: event.payload.conversationId as string | undefined,
+        executionId: event.metadata.executionId as any,
+        traceId: event.metadata.traceId as any,
+      });
+    }
+
+    // ─── Provider request started → agent.started ──────────
+    // Authoritative execution start signal from the conversation service.
+    // Different runtime producers (conversation service, agent harness) map to
+    // canonical Activity semantics downstream — this is NOT agent:started.
+    if (type === 'conversation:provider.request.started') {
+      const conversationId = (event.payload.conversationId as string) || 'unknown';
+      const model = (event.payload.model as string) || undefined;
+      return fromAgentLifecycle({
+        agentId: 'vestara',
+        displayName: 'Vestara',
+        lifecycleType: 'started',
+        message: model ? `Started work (${model})` : 'Started work',
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });
     }
 
     // ─── AI response completed → fromAgentLifecycle ────────
+    // AR-DOGFOOD-009: Use bounded contentPreview from authoritative conversation service.
+    // Activity Room shows a preview, not the full response (Conversation = authority).
+    // Provenance: conversationId + responseMessageId carried in payload.data.
     if (type === 'conversation:response.completed') {
-      return fromAgentLifecycle({
+      const contentPreview = (event.payload.contentPreview as string) || undefined;
+      const tokens = event.payload.tokens as number | undefined;
+      const conversationId = (event.payload.conversationId as string) || undefined;
+      const responseMessageId = (event.payload.messageId as string) || undefined;
+      const preview = contentPreview ? `${contentPreview}` : tokens ? `Completed (${tokens} tokens)` : 'Completed';
+      const base = fromAgentLifecycle({
         agentId: 'vestara',
         displayName: 'Vestara',
         lifecycleType: 'completed',
-        message: event.payload.tokens ? `Generated response (${event.payload.tokens} tokens)` : 'Generated response',
+        message: preview,
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });
+      // Carry provenance in payload.data for future navigation
+      return {
+        ...base,
+        payload: {
+          ...base.payload,
+          data: {
+            ...base.payload.data,
+            ...(conversationId ? { conversationId } : {}),
+            ...(responseMessageId ? { responseMessageId } : {}),
+          },
+        },
+      };
     }
 
     // ─── Agent lifecycle → fromAgentLifecycle ──────────────
@@ -438,6 +523,31 @@ export class M9IngestionBridge {
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });
+    }
+
+    // ─── Tool lifecycle (OpenCode runtime) ─────────────────
+    // Authoritative tool operation facts from OpenCode. Uses callID for
+    // stable correlation across called/succeeded/failed transitions.
+    // Tool events arrive as message.part.updated with part.type=tool.
+    if (type === 'opencode.message.part.updated') {
+      const outerPayload = (event.payload ?? {}) as Record<string, unknown>;
+      const innerPayload = (outerPayload.payload ?? outerPayload) as Record<string, unknown>;
+      const part = innerPayload.part as Record<string, unknown> | undefined;
+      if (part && part.type === 'tool') {
+        const callID = (part.callID as string) ?? (part.callId as string) ?? `${event.id}`;
+        const toolName = (part.tool as string) ?? (part.name as string) ?? 'unknown';
+        const state = (part.state as Record<string, unknown>)?.status as string | undefined;
+        const lifecycleType =
+          state === 'running'
+            ? 'called'
+            : state === 'completed' || state === 'completed'
+              ? 'succeeded'
+              : state === 'error' || state === 'failed'
+                ? 'failed'
+                : 'called'; // default to called for unknown states
+        return fromToolEvent({ lifecycleType: lifecycleType as 'called' | 'succeeded' | 'failed', callID, toolName });
+      }
+      return null; // non-tool part updates are not ingested
     }
 
     // ─── Orchestration events → generic ActivityEvent ──────
