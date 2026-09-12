@@ -42,6 +42,7 @@ interface WorkflowUnit {
   readonly lastActivity: string;
   readonly agentNames: readonly string[];
   readonly hasErrors: boolean;
+  readonly isActive: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────
@@ -90,6 +91,7 @@ function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly Workfl
       lastActivity: latest?.timestamp ?? '',
       agentNames: [...entry.agents],
       hasErrors: entry.hasErrors,
+      isActive: !entry.hasErrors && entry.events.some((e) => e.kind === 'activity' || e.kind === 'progress'),
     });
   }
 
@@ -194,6 +196,20 @@ export default function M11CWorkflowBrowser({
 
                 {isExpanded && (
                   <div className="ar-workflow-unit__detail">
+                    {/* Progress bar */}
+                    {unit.taskCount > 0 && (
+                      <div className="ar-workflow-unit__progress">
+                        <div className="ar-workflow-unit__progress-bar">
+                          <div
+                            className={`ar-workflow-unit__progress-fill ${unit.hasErrors ? 'ar-workflow-unit__progress-fill--error' : ''}`}
+                            style={{ width: `${Math.round((unit.completedTasks / unit.taskCount) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="ar-workflow-unit__progress-text">
+                          {unit.completedTasks}/{unit.taskCount} tasks
+                        </span>
+                      </div>
+                    )}
                     {unit.agentNames.length > 0 && (
                       <div className="ar-workflow-unit__agents">
                         <span className="ar-workflow-unit__detail-label">Agents:</span>
@@ -202,12 +218,6 @@ export default function M11CWorkflowBrowser({
                             {name}
                           </span>
                         ))}
-                      </div>
-                    )}
-                    {unit.taskCount > 0 && (
-                      <div className="ar-workflow-unit__tasks">
-                        <span className="ar-workflow-unit__detail-label">Tasks:</span>
-                        <span>{unit.completedTasks}/{unit.taskCount} completed</span>
                       </div>
                     )}
                   </div>

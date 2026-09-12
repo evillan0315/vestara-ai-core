@@ -875,6 +875,27 @@
   background: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
 }
 
+.ar-stream-filter__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  margin-left: 0.25rem;
+  border-radius: 0.5rem;
+  background: var(--ar-surface-sunken);
+  color: var(--ar-ink-muted);
+  font-size: 9px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.ar-stream-filter__tab--active .ar-stream-filter__count {
+  background: var(--ar-gold);
+  color: var(--ar-ink);
+}
+
 .ar-stream-filter__right {
   display: flex;
   align-items: center;
@@ -908,6 +929,143 @@
 
 .ar-stream-filter__search:focus {
   border-color: var(--ar-gold);
+}
+
+/* ── Docked Inspector Panel ──────────────────────────────────── */
+
+.ar-inspector {
+  display: none;
+  flex-direction: column;
+  height: 100%;
+  min-width: 0;
+  border-left: 1px solid var(--ar-hairline);
+  background: var(--ar-panel-bg);
+}
+
+@media (min-width: 1440px) {
+  .ar-inspector {
+    display: flex;
+    flex-shrink: 0;
+    width: 20rem;
+  }
+}
+
+.ar-inspector__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-inspector__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ar-ink);
+  margin: 0;
+}
+
+.ar-inspector__close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: none;
+  background: none;
+  color: var(--ar-ink-muted);
+  cursor: pointer;
+  border-radius: 4px;
+  font-size: 14px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ar-inspector__close:hover {
+  background: var(--ar-surface-sunken);
+  color: var(--ar-ink);
+}
+
+.ar-inspector__content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.5rem 0.75rem;
+}
+
+.ar-inspector__section {
+  margin-bottom: 0.75rem;
+}
+
+.ar-inspector__label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ar-ink-dim);
+  margin-bottom: 0.25rem;
+}
+
+.ar-inspector__value {
+  font-size: 12px;
+  color: var(--ar-ink);
+}
+
+.ar-inspector__row {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ar-inspector__muted {
+  color: var(--ar-ink-muted);
+  font-size: 11px;
+}
+
+.ar-inspector__content-text {
+  font-size: 12px;
+  color: var(--ar-ink-2);
+  line-height: 1.5;
+  word-break: break-word;
+}
+
+.ar-inspector__meta {
+  font-size: 11px;
+  color: var(--ar-ink-muted);
+  line-height: 1.6;
+}
+
+.ar-inspector__drill-down {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.ar-inspector__drill-down-item {
+  padding: 0.375rem 0.5rem;
+  border-radius: 6px;
+  background: var(--ar-surface-sunken);
+  border: 1px solid var(--ar-hairline);
+}
+
+.ar-inspector__drill-down-header {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 10px;
+  color: var(--ar-ink-muted);
+}
+
+.ar-inspector__drill-down-kind {
+  font-weight: 600;
+  color: var(--ar-ink-2);
+}
+
+.ar-inspector__drill-down-content {
+  font-size: 11px;
+  color: var(--ar-ink-2);
+  margin-top: 0.25rem;
+  line-clamp: 2;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Workflow Browser Column ─────────────────────────────────── */
@@ -1002,6 +1160,38 @@
   font-weight: 600;
   color: var(--ar-ink-muted);
   margin-right: 0.25rem;
+}
+
+.ar-workflow-unit__progress {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.375rem;
+}
+
+.ar-workflow-unit__progress-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--ar-surface-sunken);
+  overflow: hidden;
+}
+
+.ar-workflow-unit__progress-fill {
+  height: 100%;
+  border-radius: 2px;
+  background: var(--vestara-status-success);
+  transition: width 0.3s ease;
+}
+
+.ar-workflow-unit__progress-fill--error {
+  background: var(--vestara-status-error);
+}
+
+.ar-workflow-unit__progress-text {
+  font-size: 10px;
+  color: var(--ar-ink-muted);
+  white-space: nowrap;
 }
 
 .ar-workflow-unit__agents {
@@ -1530,6 +1720,21 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ar-ink-muted);
+}
+
+.ar-guest__unread {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1rem;
+  height: 1rem;
+  padding: 0 0.25rem;
+  border-radius: 0.5rem;
+  background: var(--vestara-status-error);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
 }
 
 .ar-guest__task {

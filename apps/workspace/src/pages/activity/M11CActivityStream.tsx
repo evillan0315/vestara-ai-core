@@ -127,6 +127,24 @@ export default function M11CActivityStream({
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // ─── Filter Counts ───────────────────────────────────────
+
+  const filterCounts = useMemo(() => {
+    const base = selectedParticipantId !== undefined
+      ? items.filter((item) => item.actor.id === selectedParticipantId)
+      : items;
+
+    return {
+      all: base.length,
+      conversations: base.filter((i) => i.kind === 'conversation').length,
+      agents: base.filter((i) => i.actor.type !== 'human').length,
+      humans: base.filter((i) => i.actor.type === 'human').length,
+      tools: base.filter((i) => i.kind === 'tool-call' || i.kind === 'tool-result').length,
+      executions: base.filter((i) => i.kind === 'activity' || i.kind === 'progress').length,
+      errors: base.filter((i) => i.kind === 'error').length,
+    };
+  }, [items, selectedParticipantId]);
+
   // ─── Filtering ──────────────────────────────────────────
   // Uses canonical M11C stream `kind` values, not string matching.
   // Error filter uses canonical `kind === 'error'` metadata.
@@ -236,18 +254,24 @@ export default function M11CActivityStream({
       {/* ── Filter Bar ──────────────────────────────────── */}
       <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
         <div className="ar-stream-filter__tabs" role="tablist">
-          {FILTER_TABS.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              aria-selected={activeFilter === tab.id}
-              className={`ar-stream-filter__tab ${activeFilter === tab.id ? 'ar-stream-filter__tab--active' : ''}`}
-              onClick={() => setActiveFilter(tab.id)}
-            >
-              {tab.label}
-            </button>
-          ))}
+          {FILTER_TABS.map((tab) => {
+            const count = filterCounts[tab.id];
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeFilter === tab.id}
+                className={`ar-stream-filter__tab ${activeFilter === tab.id ? 'ar-stream-filter__tab--active' : ''}`}
+                onClick={() => setActiveFilter(tab.id)}
+              >
+                {tab.label}
+                {count > 0 && (
+                  <span className="ar-stream-filter__count">{count > 999 ? '999+' : count}</span>
+                )}
+              </button>
+            );
+          })}
         </div>
         <div className="ar-stream-filter__right">
           <input

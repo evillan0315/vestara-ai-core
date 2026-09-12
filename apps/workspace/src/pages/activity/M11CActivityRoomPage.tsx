@@ -41,6 +41,7 @@ import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
 import M11CLiveNowStrip from './M11CLiveNowStrip';
 import M11CWorkflowBrowser from './M11CWorkflowBrowser';
+import M11CDockedInspector from './M11CDockedInspector';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 
@@ -258,26 +259,14 @@ export default function M11CActivityRoomPage() {
           <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} />
         </main>
 
-        {/* Context panel (right column) — authoritative data only */}
-        <aside className="ar-panel ar-panel--context">
-          <ActivityRoomContextPanel
-            stream={room.stream}
-            participantCount={room.participants.length}
-            activeAgentCount={activeAgentCount}
-            connectionState={room.state}
-          />
-        </aside>
-      </div>
-
-      {/* ─── Detail Modal ───────────────────────────────── */}
-      {ui.detailItem && (
-        <M11CDetailModal
+        {/* Docked Inspector (right column) — replaces context panel at >=1440px */}
+        <M11CDockedInspector
           item={ui.detailItem}
           drillDownRecords={drillDownRecords}
           drillDownLoading={drillDownLoading}
           onClose={ui.closeDetail}
         />
-      )}
+      </div>
 
       {/* ─── Edit Modal ───────────────────────────────── */}
       {ui.editingItem && (

@@ -32,6 +32,8 @@ interface M11CParticipantRailProps {
   readonly onSelectParticipant: (participantId: string | undefined) => void;
   /** Callback when an agent name is clicked/activated — opens Agent Control drawer. */
   readonly onOpenAgentControl?: (participantId: string) => void;
+  /** Unread counts per participant (keyed by participantId). */
+  readonly unreadCounts?: ReadonlyMap<string, number>;
 }
 
 // ─── Visual Config ───────────────────────────────────────────
@@ -49,6 +51,7 @@ export default function M11CParticipantRail({
   selectedParticipantId,
   onSelectParticipant,
   onOpenAgentControl,
+  unreadCounts,
 }: M11CParticipantRailProps) {
   // ─── Search and type filter state ─────────────────────────
   const [search, setSearch] = useState('');
@@ -161,6 +164,7 @@ export default function M11CParticipantRail({
               selected={selectedParticipantId === participant.participantId}
               onSelect={onSelectParticipant}
               onOpenAgentControl={onOpenAgentControl}
+              unreadCount={unreadCounts?.get(participant.participantId) ?? 0}
             />
           ))
         )}
@@ -190,11 +194,13 @@ function ParticipantRow({
   selected,
   onSelect,
   onOpenAgentControl,
+  unreadCount,
 }: {
   participant: ParticipantProjection;
   selected: boolean;
   onSelect: (id: string | undefined) => void;
   onOpenAgentControl?: (participantId: string) => void;
+  unreadCount?: number;
 }) {
   const presenceVariant = PRESENCE_VARIANT_CONFIG[participant.presence] ?? 'off';
   const workLabel = WORK_STATE_CONFIG[participant.workState]?.label ?? participant.workState;
@@ -257,6 +263,10 @@ function ParticipantRow({
           {/* Role badge — metadata */}
           {!isHuman && participant.role && (
             <Badge variant="default" size="sm" className="!text-[9px]">{participant.role}</Badge>
+          )}
+          {/* Unread badge */}
+          {unreadCount > 0 && (
+            <span className="ar-guest__unread">{unreadCount > 99 ? '99+' : unreadCount}</span>
           )}
         </span>
         <span className="ar-guest__sub">

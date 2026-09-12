@@ -57,15 +57,18 @@ const IMPORTANCE_STYLES: Record<string, { readonly text: string; readonly badge:
   },
 };
 
-const KIND_GLYPH: Record<string, string> = {
-  conversation: '❝',
-  activity: '◆',
-  progress: '◷',
-  log: '≡',
-  diagnostic: '⚠',
-  evidence: '✓',
-  telemetry: '∴',
-  interaction: '⚖',
+const KIND_GLYPH: Record<string, { readonly glyph: string; readonly color: string }> = {
+  conversation: { glyph: '❝', color: 'text-(--vestara-accent-text)' },
+  activity: { glyph: '◆', color: 'text-(--vestara-blue)' },
+  progress: { glyph: '◷', color: 'text-(--vestara-blue)' },
+  log: { glyph: '≡', color: 'text-(--vestara-text-muted)' },
+  diagnostic: { glyph: '⚠', color: 'text-(--vestara-status-warning)' },
+  evidence: { glyph: '✓', color: 'text-(--vestara-status-success)' },
+  telemetry: { glyph: '∴', color: 'text-(--vestara-text-muted)' },
+  interaction: { glyph: '⚖', color: 'text-(--vestara-blue)' },
+  'tool-call': { glyph: '⚙', color: 'text-(--vestara-status-tool)' },
+  'tool-result': { glyph: '⚙', color: 'text-(--vestara-status-tool)' },
+  error: { glyph: '✕', color: 'text-(--vestara-status-error)' },
 };
 
 const ACTOR_TYPE_MEDALLION: Record<string, string> = {
@@ -111,7 +114,7 @@ export default function M11CStreamItemComponent({
   onSubmitResponse,
 }: M11CStreamItemProps) {
   const styles = IMPORTANCE_STYLES[item.importance] ?? IMPORTANCE_STYLES.secondary;
-  const glyph = KIND_GLYPH[item.kind] ?? '◆';
+  const kindConfig = KIND_GLYPH[item.kind] ?? { glyph: '◆', color: 'text-(--vestara-blue)' };
   const medallion = ACTOR_TYPE_MEDALLION[item.actor.type] ?? ACTOR_TYPE_MEDALLION.system;
 
   const handleClick = useCallback(() => {
@@ -271,13 +274,13 @@ export default function M11CStreamItemComponent({
 
         <div className={`ar-item__content text-xs leading-relaxed ${styles.text}`}>
           {item.content || (
-            <span className="italic text-(--vestara-text-dim)">{glyph} {item.kind}</span>
+            <span className={`italic ${kindConfig.color}`}>{kindConfig.glyph} {item.kind}</span>
           )}
         </div>
 
         {/* Metadata line */}
         <div className="ar-item__meta">
-          <span aria-hidden="true">{glyph}</span>
+          <span aria-hidden="true" className={kindConfig.color}>{kindConfig.glyph}</span>
           {item.workflowRunId && (
             <span className="truncate">workflow: {item.workflowRunId.slice(0, 8)}</span>
           )}
