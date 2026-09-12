@@ -1,25 +1,26 @@
 /**
- * VES-DESIGN-004A: Registries — Registry Health Surface
+ * Marketplace Premium Gallery (v7.14) — Registries.
  *
- * Migrated to reusable Marketplace composition.
- * Preserves registry health display, rescan, and error reporting.
+ * Premium registry health cards with StatusIndicator glow, rescan,
+ * and error reporting.
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { Badge, Button } from '@vestara/ui';
 import type { MarketplaceOperationDto, MarketplaceRegistryStatus } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
+  InsightBanner,
   MarketplaceEmptyState,
-  MarketplaceErrorState,
   MarketplacePage,
   MarketplaceStatPill,
-  MarketplaceToolbar,
+  RegistryHealthLamp,
 } from './MarketplaceLayout-components.js';
 
-function healthStyles(status: string): string {
-  if (status === 'healthy') return 'text-emerald-300';
-  if (status === 'degraded') return 'text-amber-300';
-  return 'text-red-300';
+function healthVariant(status: string): 'success' | 'warning' | 'error' {
+  if (status === 'healthy') return 'success';
+  if (status === 'degraded') return 'warning';
+  return 'error';
 }
 
 function kindLabel(kind: string): string {
@@ -76,67 +77,58 @@ export default function Registries() {
         </div>
       }
       toolbar={
-        <MarketplaceToolbar
-          searchValue=""
-          onSearchChange={() => {}}
-          actions={
-            <button
-              type="button"
-              onClick={() => void rescan()}
-              className="rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-3 py-2 text-sm hover:border-[var(--vestara-accent-border)]"
-              disabled={busy}
-            >
-              {busy ? 'Scanning…' : 'Rescan registries'}
-            </button>
-          }
-        />
+        <div className="flex items-center gap-2">
+          <Button variant="secondary" size="md" onClick={() => void rescan()} loading={busy}>
+            {busy ? 'Scanning…' : 'Rescan registries'}
+          </Button>
+        </div>
       }
     >
       {notice && notice.status === 'failed' && (
-        <div className="rounded-lg border border-red-800/50 bg-red-950/30 px-4 py-3 text-sm text-red-300">
-          Operation failed: {notice.error?.message}
-        </div>
+        <InsightBanner severity="error" description={`Operation failed: ${notice.error?.message}`} />
       )}
       {notice && notice.status === 'completed' && notice.type === 'rescan' && (
-        <div className="inline-flex items-center gap-1 rounded-full border border-emerald-800 px-2 py-0.5 text-xs text-emerald-300">
+        <Badge variant="success" size="md">
           Registry scan completed
-        </div>
+        </Badge>
       )}
-      {error && <MarketplaceErrorState message={error} />}
+      {error && <InsightBanner severity="error" description={error} />}
 
       {registries.length === 0 ? (
         <MarketplaceEmptyState message="No registries configured." />
       ) : (
         <div className="space-y-3">
-          {registries.map((registry) => (
+          {registries.map((registry, i) => (
             <div
               key={registry.id}
-              className="rounded-xl border border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface,var(--color-zinc-900))] p-4"
+              className="mpg-card mpg-enter p-4"
+              style={{ animationDelay: `${Math.min(i, 8) * 30}ms` }}
             >
-              <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="relative z-[2] flex flex-wrap items-center justify-between gap-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
+                    <RegistryHealthLamp status={registry.health.status} />
                     <span className="truncate font-medium text-zinc-100">{registry.displayName}</span>
-                    <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-2 py-0.5 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    <Badge variant="default" size="md">
                       {kindLabel(registry.kind)}
-                    </span>
+                    </Badge>
                   </div>
-                  <div className="truncate text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <div className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                     {registry.id}
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className={`text-sm ${healthStyles(registry.health.status)}`}>
+                  <Badge variant={healthVariant(registry.health.status)} size="md" dot>
                     {registry.health.status}
-                  </span>
-                  <span className="text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  </Badge>
+                  <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                     {registry.health.assetCount} assets
                   </span>
                 </div>
               </div>
 
               {registry.health.roots && registry.health.roots.length > 0 && (
-                <ul className="mt-2 space-y-0.5">
+                <ul className="relative z-[2] mt-2 space-y-0.5">
                   {registry.health.roots.map((root) => (
                     <li key={root} className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                       {root}
@@ -145,13 +137,13 @@ export default function Registries() {
                 </ul>
               )}
               {registry.health.lastScanAt && (
-                <div className="mt-2 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <div className="relative z-[2] mt-2 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                   Last scan: {new Date(registry.health.lastScanAt).toLocaleString()}
                 </div>
               )}
               {registry.health.error && (
-                <div className="mt-2 rounded-md border border-red-800 bg-red-950/40 px-3 py-2 text-xs text-red-300">
-                  {registry.health.error}
+                <div className="relative z-[2] mt-2">
+                  <InsightBanner severity="error" description={registry.health.error} />
                 </div>
               )}
             </div>

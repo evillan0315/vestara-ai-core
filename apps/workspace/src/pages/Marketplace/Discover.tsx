@@ -1,114 +1,75 @@
 /**
- * VES-DESIGN-004A: Marketplace Discover — Premium Landing Surface
+ * Marketplace Discover (v2) — assets/vestara-marketplace-02-screen.png.
  *
- * Migrated to reusable Marketplace composition.
- * Uses MarketplacePage, MarketplaceStatPill, MarketplaceToolbar,
- * MarketplaceSection, MarketplaceEmptyState, MarketplaceLoadingState,
- * MarketplaceErrorState.
+ * Layout: hero ("Build More with Vestara" + checklist) → filter pills +
+ * sort → Featured (3) → All Items (4-col) + right rail (Popular Categories,
+ * Latest Releases, Publish CTA).
+ *
+ * Tokens: only var(--vestara-*) + --color-zinc-* via marketplace.css.
+ * No hardcoded hex; dark/light comes from generated-tokens.css + theme.tsx.
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Badge } from '@vestara/ui';
 import type { InstalledMarketplaceAsset, MarketplaceAsset, MarketplaceUpdateCandidate } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
+  AssetCard,
+  AssetGridSkeleton,
+  InsightBanner,
   MarketplaceEmptyState,
-  MarketplaceErrorState,
-  MarketplaceLoadingState,
+  MarketplaceFilterRow,
+  MarketplaceHero,
+  MarketplaceLoadingMessage,
   MarketplacePage,
   MarketplaceSection,
-  MarketplaceStatPill,
-  MarketplaceToolbar,
+  MarketplaceSidebarCard,
+  typeAccent,
+  type MarketplaceSortId,
 } from './MarketplaceLayout-components.js';
 
-// ─── Asset Card ─────────────────────────────────────────────
-
-function AssetCard({
-  asset,
-  installed,
-  update,
-}: {
-  asset: MarketplaceAsset;
-  installed?: InstalledMarketplaceAsset;
-  update?: MarketplaceUpdateCandidate;
-}) {
-  return (
-    <Link
-      to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
-      className="block rounded-xl border border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface,var(--color-zinc-900))] p-4 transition-all hover:border-sky-600 hover:shadow-lg hover:shadow-sky-900/20"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="truncate font-medium text-zinc-100">{asset.displayName}</span>
-            <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-2 py-0.5 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-              {asset.type}
-            </span>
-          </div>
-          <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-            {asset.packageName}
-          </div>
-        </div>
-        <div className="flex shrink-0 items-center gap-1.5">
-          <span
-            className={`text-sm ${asset.verification.checksumVerified ? 'text-emerald-400' : 'text-zinc-600'}`}
-            title={asset.verification.checksumVerified ? 'Checksum verified' : 'Not verified'}
-          >
-            {asset.verification.checksumVerified ? '✓' : '○'}
-          </span>
-          <span className="text-xs text-zinc-400">{asset.latestVersion}</span>
-        </div>
-      </div>
-      {asset.summary && (
-        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-          {asset.summary}
-        </p>
-      )}
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {installed && (
-          <span
-            className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
-              installed.updateStatus === 'update-available'
-                ? 'text-amber-300 border-amber-700'
-                : 'text-emerald-300 border-emerald-800'
-            }`}
-          >
-            installed {installed.installedVersion}
-          </span>
-        )}
-        {update && !update.compatible && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-red-800 px-2 py-0.5 text-xs text-red-300">
-            incompatible
-          </span>
-        )}
-        {!installed && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-2 py-0.5 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-            available
-          </span>
-        )}
-      </div>
-    </Link>
-  );
+function relativeTime(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const diffMs = Date.now() - then;
+  const days = Math.floor(diffMs / 86_400_000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1 day ago';
+  if (days < 7) return `${days} days ago`;
+  if (days < 30) {
+    const weeks = Math.floor(days / 7);
+    return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`;
+  }
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 month ago' : `${months} months ago`;
 }
 
-// ─── Category Card ──────────────────────────────────────────
-
-function CategoryCard({ name, count }: { name: string; count: number }) {
-  return (
-    <div className="rounded-xl border border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface,var(--color-zinc-900))] px-4 py-3 transition-all hover:border-sky-600 cursor-default">
-      <div className="font-medium text-sm text-zinc-200">{name}</div>
-      <div className="text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-        {count} asset{count !== 1 ? 's' : ''}
-      </div>
-    </div>
-  );
+function sortAssets(assets: MarketplaceAsset[], sort: MarketplaceSortId): MarketplaceAsset[] {
+  const copy = [...assets];
+  switch (sort) {
+    case 'name':
+      return copy.sort((a, b) => a.displayName.localeCompare(b.displayName));
+    case 'newest':
+      return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    case 'popular':
+      // No download/rating signal in the API — approximate with
+      // checksum-verified first, then newest. Never fabricate counts.
+      return copy.sort((a, b) => {
+        const verified = Number(b.verification.checksumVerified) - Number(a.verification.checksumVerified);
+        if (verified !== 0) return verified;
+        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+      });
+    case 'relevant':
+    default:
+      return copy;
+  }
 }
-
-// ─── Main Page ──────────────────────────────────────────────
 
 export default function Discover() {
   const [query, setQuery] = useState('');
   const [type, setType] = useState('');
+  const [sort, setSort] = useState<MarketplaceSortId>('relevant');
   const [categories, setCategories] = useState<Array<{ name: string; assetCount: number }>>([]);
   const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
   const [installed, setInstalled] = useState<Map<string, InstalledMarketplaceAsset>>(new Map());
@@ -149,87 +110,232 @@ export default function Discover() {
       .catch(() => {});
   }, []);
 
-  const installedCount = installed.size;
-  const updateCount = [...updates.values()].filter((u) => u.updateAvailable).length;
+  const sorted = useMemo(() => sortAssets(assets, sort), [assets, sort]);
+  const isFiltered = Boolean(query || type);
+  const featured = useMemo(() => (isFiltered ? [] : sorted.slice(0, 3)), [isFiltered, sorted]);
+  const popularCategories = useMemo(
+    () => [...categories].sort((a, b) => b.assetCount - a.assetCount).slice(0, 8),
+    [categories],
+  );
+  const latestReleases = useMemo(
+    () => [...assets].sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()).slice(0, 5),
+    [assets],
+  );
+
+  const filters = useMemo(() => {
+    if (categories.length === 0) return undefined;
+    return [
+      { id: '', label: 'All', active: !type },
+      ...categories.slice(0, 7).map((c) => ({ id: c.name, label: c.name, active: type === c.name })),
+    ];
+  }, [categories, type]);
+
+  const renderCard = (asset: MarketplaceAsset, i: number, isFeatured = false) => {
+    const installedEntry = installed.get(asset.packageName);
+    const update = updates.get(asset.packageName);
+    return (
+      <AssetCard
+        key={asset.id}
+        to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
+        displayName={asset.displayName}
+        packageName={asset.packageName}
+        publisherId={asset.publisherId}
+        type={asset.type}
+        summary={asset.summary}
+        tags={asset.tags}
+        latestVersion={asset.latestVersion}
+        verified={asset.verification.checksumVerified}
+        featured={isFeatured}
+        index={i}
+        statusFooter={
+          <>
+            {installedEntry && (
+              <Badge variant="success" size="md">
+                installed {installedEntry.installedVersion}
+              </Badge>
+            )}
+            {update && !update.compatible && (
+              <Badge variant="error" size="md">
+                incompatible
+              </Badge>
+            )}
+            {!installedEntry && (
+              <Badge variant="default" size="md">
+                not installed
+              </Badge>
+            )}
+          </>
+        }
+      />
+    );
+  };
 
   return (
     <MarketplacePage
-      title="Discover"
-      description="Find, install, and manage engineering assets for your Vestara environment."
-      stats={
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <MarketplaceStatPill label="Assets" value={assets.length} />
-          <MarketplaceStatPill label="Installed" value={installedCount} color="text-emerald-400" />
-          {updateCount > 0 && <MarketplaceStatPill label="Updates" value={updateCount} color="text-amber-400" />}
-          <MarketplaceStatPill label="Categories" value={categories.length} />
-        </div>
-      }
-      toolbar={
-        <MarketplaceToolbar
-          searchValue={query}
-          onSearchChange={setQuery}
-          searchPlaceholder="Search assets by name, publisher, or capability…"
-          filters={
-            categories.length > 0
-              ? [{ id: '', label: 'All types', active: !type }, ...categories.slice(0, 5).map((c) => ({ id: c.name, label: c.name, active: type === c.name }))]
-              : undefined
-          }
-          onFilterChange={setType}
-          actions={
+      title="Marketplace"
+      description="Discover and install modules, agents, templates, and tools to extend your Vestara workspace."
+    >
+      {registryErrors.length > 0 && (
+        <InsightBanner severity="warning" description={registryErrors.map((e) => <div key={e}>⚠ {e}</div>)} />
+      )}
+      {error && <MarketplaceEmptyState message={error} />}
+
+      <div className="mpg-discover">
+        <div className="mpg-discover-main">
+          <MarketplaceHero query={query} onQueryChange={setQuery} />
+
+          <MarketplaceFilterRow filters={filters} onFilterChange={setType} sort={sort} onSortChange={setSort} />
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Native type selector — keeps the combobox contract for filtering/tests. */}
+            <label className="sr-only" htmlFor="marketplace-type-filter">
+              Filter by type
+            </label>
+            <select
+              id="marketplace-type-filter"
+              aria-label="Filter by type"
+              value={type}
+              onChange={(event) => setType(event.target.value)}
+              className="mpg-native-select"
+            >
+              <option value="">All types</option>
+              {categories.map((c) => (
+                <option key={c.name} value={c.name}>
+                  {c.name}
+                </option>
+              ))}
+            </select>
             <button
               type="button"
               onClick={() => void load()}
-              className="rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-3 py-2 text-sm hover:border-[var(--vestara-accent-border)]"
+              className="mpg-native-select"
+              aria-label="Refresh"
             >
               Refresh
             </button>
-          }
-        />
-      }
-    >
-      {/* Errors */}
-      {registryErrors.length > 0 && (
-        <div className="rounded-lg border border-amber-800/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-300">
-          {registryErrors.map((e) => (
-            <div key={e}>⚠ {e}</div>
-          ))}
-        </div>
-      )}
-      {error && <MarketplaceErrorState message={error} />}
+          </div>
 
-      {/* Content */}
-      {loading ? (
-        <MarketplaceLoadingState message="Loading marketplace…" />
-      ) : assets.length === 0 ? (
-        <MarketplaceEmptyState message="No assets found." />
-      ) : (
-        <>
-          {/* Categories section */}
-          {categories.length > 0 && !query && !type && (
-            <MarketplaceSection title="Categories">
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                {categories.slice(0, 8).map((cat) => (
-                  <CategoryCard key={cat.name} name={cat.name} count={cat.assetCount} />
-                ))}
-              </div>
-            </MarketplaceSection>
+          {loading ? (
+            <AssetGridSkeleton count={6} />
+          ) : assets.length === 0 ? (
+            <MarketplaceEmptyState message="No assets found." />
+          ) : (
+            <>
+              {featured.length > 0 && (
+                <MarketplaceSection
+                  title="Featured"
+                  action={
+                    <Link to="/marketplace/categories" className="mpg-link">
+                      View All
+                    </Link>
+                  }
+                >
+                  <div className="grid gap-3 lg:grid-cols-3">
+                    {featured.map((asset, i) => renderCard(asset, i, true))}
+                  </div>
+                </MarketplaceSection>
+              )}
+
+              <MarketplaceSection title={isFiltered ? 'Results' : 'All Items'}>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                  {(featured.length > 0 ? sorted.slice(3) : sorted).map((asset, i) =>
+                    renderCard(asset, i + featured.length),
+                  )}
+                </div>
+                {featured.length > 0 && sorted.length <= 3 && (
+                  <p className="mt-2 text-xs text-[var(--vestara-text-muted)]">
+                    Showing all {sorted.length} assets — Featured highlights the first three.
+                  </p>
+                )}
+              </MarketplaceSection>
+            </>
           )}
+          {loading && assets.length > 0 && <MarketplaceLoadingMessage message="Loading marketplace…" />}
+        </div>
 
-          {/* Assets grid */}
-          <MarketplaceSection title={query || type ? 'Results' : 'All Assets'}>
-            <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-              {assets.map((asset) => (
-                <AssetCard
-                  key={asset.id}
-                  asset={asset}
-                  installed={installed.get(asset.packageName)}
-                  update={updates.get(asset.packageName)}
-                />
-              ))}
-            </div>
-          </MarketplaceSection>
-        </>
-      )}
+        <aside className="mpg-discover-side" aria-label="Marketplace sidebar">
+          <MarketplaceSidebarCard
+            title="Popular Categories"
+            action={
+              <Link to="/marketplace/categories" className="mpg-link">
+                View All
+              </Link>
+            }
+          >
+            {popularCategories.length === 0 ? (
+              <p className="text-xs text-[var(--vestara-text-muted)]">No categories yet.</p>
+            ) : (
+              <ul className="space-y-1">
+                {popularCategories.map((cat) => (
+                  <li key={cat.name}>
+                    <button
+                      type="button"
+                      onClick={() => setType(type === cat.name ? '' : cat.name)}
+                      aria-pressed={type === cat.name}
+                      className={`mpg-category-row ${type === cat.name ? 'mpg-category-row-active' : ''}`}
+                    >
+                      <span className="flex items-center gap-2">
+                        <span
+                          className="mpg-category-dot"
+                          style={{ background: typeAccent(cat.name) }}
+                          aria-hidden="true"
+                        />
+                        <span className="text-[13px] capitalize text-[var(--vestara-text-secondary)]">{cat.name}</span>
+                      </span>
+                      <span className="text-xs text-[var(--vestara-text-muted)]">
+                        {cat.assetCount} item{cat.assetCount === 1 ? '' : 's'}
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </MarketplaceSidebarCard>
+
+          <MarketplaceSidebarCard
+            title="Latest Releases"
+            action={
+              <Link to="/marketplace/updates" className="mpg-link">
+                View All
+              </Link>
+            }
+          >
+            {latestReleases.length === 0 ? (
+              <p className="text-xs text-[var(--vestara-text-muted)]">No releases yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {latestReleases.map((asset) => (
+                  <li key={asset.id} className="flex items-baseline justify-between gap-2 text-xs">
+                    {/* Version + name in ONE text node: keeps card names
+                        unique for exact-text queries (card stays the only
+                        element whose text equals the displayName). */}
+                    <Link
+                      to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
+                      className="min-w-0 truncate font-mono text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                      title={asset.displayName}
+                    >
+                      {`v${asset.latestVersion} · ${asset.displayName}`}
+                    </Link>
+                    <span className="shrink-0 text-[var(--vestara-text-disabled)]">
+                      {relativeTime(asset.updatedAt)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </MarketplaceSidebarCard>
+
+          <section className="mpg-publish-cta" aria-label="Publish to marketplace">
+            <h3 className="text-[13px] font-semibold text-[var(--vestara-text-primary)]">Publish Your Creation</h3>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--vestara-text-secondary)]">
+              Share your modules, agents, or templates with the Vestara community.
+            </p>
+            <Link to="/marketplace/publish" className="mpg-publish-btn">
+              Publish to Marketplace →
+            </Link>
+          </section>
+        </aside>
+      </div>
     </MarketplacePage>
   );
 }

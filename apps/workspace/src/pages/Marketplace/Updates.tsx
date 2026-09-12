@@ -1,19 +1,20 @@
 /**
- * VES-DESIGN-004A: Updates — Package Update Surface
+ * Marketplace Premium Gallery (v7.14) — Updates.
  *
- * Migrated to reusable Marketplace composition.
+ * Premium update groups with accent-colored borders per severity.
  * Preserves grouped update display (compatible/breaking/incompatible).
  */
 
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { Badge, Button } from '@vestara/ui';
 import type { MarketplaceUpdateCandidate } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
+  InsightBanner,
   MarketplaceEmptyState,
-  MarketplaceErrorState,
   MarketplacePage,
-  MarketplaceSection,
+  UpdateGroup,
 } from './MarketplaceLayout-components.js';
 
 function groupLabel(update: MarketplaceUpdateCandidate): 'compatible' | 'breaking' | 'incompatible' {
@@ -64,7 +65,7 @@ export default function Updates() {
       title="Updates"
       description="Review and apply available package updates."
     >
-      {error && <MarketplaceErrorState message={error} />}
+      {error && <InsightBanner severity="error" description={error} />}
 
       {updates.length === 0 && !error ? (
         <MarketplaceEmptyState message="All installed packages are up to date." />
@@ -73,14 +74,14 @@ export default function Updates() {
           const members = updates.filter((update) => groupLabel(update) === group.id);
           if (members.length === 0) return null;
           return (
-            <MarketplaceSection key={group.id} title={`${group.label} (${members.length})`}>
+            <UpdateGroup key={group.id} id={group.id} label={group.label} count={members.length}>
               <div className="space-y-2">
                 {members.map((update) => (
                   <div
                     key={update.packageName}
-                    className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface,var(--color-zinc-900))] p-4"
+                    className="mpg-card flex flex-wrap items-center justify-between gap-3 p-4"
                   >
-                    <div className="min-w-0">
+                    <div className="relative z-[2] min-w-0">
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/marketplace/assets/vestara/${encodeURIComponent(update.packageName)}`}
@@ -88,17 +89,11 @@ export default function Updates() {
                         >
                           {update.packageName}
                         </Link>
-                        <span
-                          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs ${
-                            update.updateType === 'major'
-                              ? 'text-amber-300 border-amber-700'
-                              : 'text-sky-300 border-sky-800'
-                          }`}
-                        >
+                        <Badge variant={update.updateType === 'major' ? 'warning' : 'info'} size="md">
                           {update.updateType}
-                        </span>
+                        </Badge>
                       </div>
-                      <div className="mt-1 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                      <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                         {update.installedVersion} → <span className="text-zinc-200">{update.targetVersion}</span>
                       </div>
                       {update.reason && (
@@ -108,19 +103,21 @@ export default function Updates() {
                       )}
                     </div>
                     {group.id !== 'incompatible' && (
-                      <button
-                        type="button"
-                        onClick={() => void applyUpdate(update.packageName)}
-                        className="rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-3 py-2 text-sm hover:border-[var(--vestara-accent-border)]"
-                        disabled={busy}
-                      >
-                        Update
-                      </button>
+                      <div className="relative z-[2]">
+                        <Button
+                          variant="secondary"
+                          size="md"
+                          onClick={() => void applyUpdate(update.packageName)}
+                          disabled={busy}
+                        >
+                          Update
+                        </Button>
+                      </div>
                     )}
                   </div>
                 ))}
               </div>
-            </MarketplaceSection>
+            </UpdateGroup>
           );
         })
       )}

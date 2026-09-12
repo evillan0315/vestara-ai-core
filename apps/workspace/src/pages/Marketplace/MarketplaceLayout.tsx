@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes } from 'react-router-dom';
+import '../../styles/marketplace.css';
 import AssetDetail from './AssetDetail.js';
 import Capabilities from './Capabilities.js';
 import Categories from './Categories.js';
@@ -7,7 +8,6 @@ import Installed from './Installed.js';
 import OperationCenter from './OperationCenter.js';
 import Publish from './Publish.js';
 import Registries from './Registries.js';
-import { muted } from './styles.js';
 import Updates from './Updates.js';
 
 const TABS = [
@@ -22,35 +22,39 @@ const TABS = [
 
 export default function MarketplaceLayout() {
   return (
-    <div className="p-6">
-      <header className="mb-6">
-        <h1 className="text-xl font-semibold">Marketplace</h1>
-        <p className={`text-sm ${muted}`}>Engineering Exchange — discover, install, and update engineering assets.</p>
-        <nav className="mt-4 flex gap-2 border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))]">
+    <div className="mpg-chamber">
+      <header className="mpg-market-header relative z-[2] mb-6">
+        <h1 className="text-xl font-semibold text-[var(--vestara-text-primary,var(--color-zinc-100))]">
+          Marketplace
+        </h1>
+        <p className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+          Engineering Exchange — discover, install, and update engineering assets.
+        </p>
+        <nav className="mpg-market-tabs mt-4" aria-label="Marketplace sections">
           {TABS.map((tab) => (
             <NavLink
               key={tab.to}
               to={tab.to}
               end={tab.end}
-              className={({ isActive }) =>
-                `-mb-px border-b-2 px-3 py-2 text-sm ${isActive ? 'border-sky-500 text-sky-400' : `border-transparent ${muted} hover:text-zinc-200`}`
-              }
+              className={({ isActive }) => `mpg-market-tab ${isActive ? 'mpg-market-tab-active' : ''}`}
             >
               {tab.label}
             </NavLink>
           ))}
         </nav>
       </header>
-      <Routes>
-        <Route index element={<Discover />} />
-        <Route path="capabilities" element={<Capabilities />} />
-        <Route path="publish" element={<Publish />} />
-        <Route path="categories" element={<Categories />} />
-        <Route path="installed" element={<Installed />} />
-        <Route path="updates" element={<Updates />} />
-        <Route path="registries" element={<Registries />} />
-        <Route path="assets/:publisher/:name" element={<AssetDetail />} />
-      </Routes>
+      <div className="relative z-[2]">
+        <Routes>
+          <Route index element={<Discover />} />
+          <Route path="capabilities" element={<Capabilities />} />
+          <Route path="publish" element={<Publish />} />
+          <Route path="categories" element={<Categories />} />
+          <Route path="installed" element={<Installed />} />
+          <Route path="updates" element={<Updates />} />
+          <Route path="registries" element={<Registries />} />
+          <Route path="assets/:publisher/:name" element={<AssetDetail />} />
+        </Routes>
+      </div>
       <OperationCenter />
     </div>
   );

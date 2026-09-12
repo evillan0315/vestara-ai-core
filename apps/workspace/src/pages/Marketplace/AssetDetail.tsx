@@ -1,18 +1,18 @@
+/**
+ * Marketplace Premium Gallery (v7.14) — AssetDetail.
+ *
+ * Premium product showcase with accent glow header, detail cards,
+ * and install review. Preserves the permissions/verification
+ * presentation contract.
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { Badge, Button } from '@vestara/ui';
 import type { InstalledMarketplaceAsset, MarketplaceAssetDetails } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import InstallReview from './InstallReview.js';
-import { button, buttonDanger, chip, muted, panel, panelBody, panelHeader } from './styles.js';
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section className={panel}>
-      <div className={panelHeader}>{title}</div>
-      <div className={panelBody}>{children}</div>
-    </section>
-  );
-}
+import { DetailCard, InsightBanner, TypeBadge, typeAccent } from './MarketplaceLayout-components.js';
 
 function contributionsOf(details: MarketplaceAssetDetails): Array<{ kind: string; label: string; ids: string[] }> {
   const contributions = details.manifest?.contributions ?? {};
@@ -67,157 +67,191 @@ export default function AssetDetail() {
     }
   };
 
-  if (error) return <div className="p-8 text-center text-sm text-red-300">{error}</div>;
-  if (!details) return <div className={`${panel} p-8 text-center text-sm ${muted}`}>Loading asset…</div>;
+  if (error) return <InsightBanner severity="error" description={error} />;
+  if (!details)
+    return (
+      <div className="mpg-card p-8 text-center text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+        Loading asset…
+      </div>
+    );
 
   const asset = details.asset;
   const contributions = contributionsOf(details);
   const ref = `${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`;
+  const accent = typeAccent(asset.type);
 
   return (
     <div className="space-y-4">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+      {/* Premium product showcase header */}
+      <header
+        className="mpg-card mpg-hairline-top flex flex-wrap items-start justify-between gap-3 p-5"
+        style={{ boxShadow: `0 0 24px var(--vestara-surface-glow), inset 0 1px 0 var(--vestara-surface-sheen)` }}
+      >
+        <div className="relative z-[2]">
           <div className="flex items-center gap-2">
-            <h1 className="text-xl font-semibold">{asset.displayName}</h1>
-            <span className={`${chip} ${muted}`}>{asset.type}</span>
+            <span className="inline-block h-5 w-1 rounded-full" style={{ background: accent }} aria-hidden="true" />
+            <h1 className="bg-gradient-to-r from-amber-200 via-amber-400 to-amber-200 bg-clip-text text-xl font-semibold text-transparent">
+              {asset.displayName}
+            </h1>
+            <TypeBadge type={asset.type} />
           </div>
-          <div className={`text-sm ${muted}`}>
+          <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
             {asset.publisherId} · {asset.packageName}@{asset.latestVersion} · {details.registryId} registry
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="relative z-[2] flex items-center gap-2">
           {installed ? (
             <>
-              <span className={`${chip} text-emerald-300`}>installed {installed.installedVersion}</span>
-              <button
-                type="button"
-                onClick={() => void toggleEnabled()}
-                className={installed.enabled ? buttonDanger : button}
+              <Badge variant="success" size="md">
+                installed {installed.installedVersion}
+              </Badge>
+              <Button
+                variant={installed.enabled ? 'danger' : 'secondary'}
+                size="sm"
                 disabled={busy}
+                onClick={() => void toggleEnabled()}
               >
                 {installed.enabled ? 'Disable' : 'Enable'}
-              </button>
+              </Button>
             </>
           ) : (
-            <button
-              type="button"
-              onClick={() => setShowReview((previous) => !previous)}
-              className="rounded-md bg-[var(--vestara-accent,var(--color-sky-600))] px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
+            <Button variant="primary" size="md" onClick={() => setShowReview((previous) => !previous)}>
               Install
-            </button>
+            </Button>
           )}
         </div>
       </header>
 
       {showReview && !installed && <InstallReview key={ref} details={details} onDone={() => void load()} />}
 
-      <Section title="Overview">
-        <p className="text-sm">{asset.summary}</p>
+      <DetailCard title="Overview">
+        <p className="text-sm text-zinc-200">{asset.summary}</p>
         {asset.description && asset.description !== asset.summary && (
-          <p className={`mt-2 text-sm ${muted}`}>{asset.description}</p>
+          <p className="mt-2 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{asset.description}</p>
         )}
         <div className="mt-3 flex flex-wrap gap-1">
           {details.capabilities.map((capability) => (
-            <span key={capability} className={`${chip} ${muted}`}>
+            <Badge key={capability} variant="default" size="md">
               {capability}
-            </span>
+            </Badge>
           ))}
         </div>
-      </Section>
+      </DetailCard>
 
       <div className="grid gap-4 lg:grid-cols-2">
-        <Section title="Versions">
+        <DetailCard title="Versions">
           <ul className="space-y-1 text-sm">
             {asset.versions.map((item) => (
               <li key={item.version} className="flex items-center justify-between">
                 <span>
-                  {item.version}
-                  {!item.isStable && <span className={`${chip} ml-2 ${muted}`}>preview</span>}
+                  <span className="font-mono">{item.version}</span>
+                  {!item.isStable && (
+                    <Badge variant="warning" size="sm" className="ml-2">
+                      preview
+                    </Badge>
+                  )}
                 </span>
-                <span className={`text-xs ${item.checksumVerified ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`font-mono text-xs ${item.checksumVerified ? 'text-emerald-400' : 'text-red-400'}`}>
                   {item.checksumVerified ? '✓ checksum' : '✗ checksum'}
                 </span>
               </li>
             ))}
           </ul>
-        </Section>
+        </DetailCard>
 
-        <Section title="Compatibility">
+        <DetailCard title="Compatibility">
           {asset.versions[0] && (
-            <ul className="space-y-1 text-sm">
+            <ul className="space-y-1 font-mono text-sm">
               <li>
-                <span className={muted}>Vestara:</span> {asset.versions[0].compatibility.vestara}
+                <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Vestara:</span>{' '}
+                {asset.versions[0].compatibility.vestara}
               </li>
               {asset.versions[0].compatibility.node && (
                 <li>
-                  <span className={muted}>Node:</span> {asset.versions[0].compatibility.node}
+                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Node:</span>{' '}
+                  {asset.versions[0].compatibility.node}
                 </li>
               )}
               {asset.versions[0].compatibility.operatingSystems?.length ? (
                 <li>
-                  <span className={muted}>OS:</span> {asset.versions[0].compatibility.operatingSystems.join(', ')}
+                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">OS:</span>{' '}
+                  {asset.versions[0].compatibility.operatingSystems.join(', ')}
                 </li>
               ) : null}
               {asset.versions[0].compatibility.architectures?.length ? (
                 <li>
-                  <span className={muted}>Arch:</span> {asset.versions[0].compatibility.architectures.join(', ')}
+                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Arch:</span>{' '}
+                  {asset.versions[0].compatibility.architectures.join(', ')}
                 </li>
               ) : null}
             </ul>
           )}
-        </Section>
+        </DetailCard>
 
-        <Section title="Dependencies">
+        <DetailCard title="Dependencies">
           {details.dependencies.length === 0 ? (
-            <div className={`text-sm ${muted}`}>None.</div>
+            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">None.</div>
           ) : (
             <ul className="space-y-1 text-sm">
               {details.dependencies.map((dependency) => (
                 <li key={`${dependency.packageName}@${dependency.version}`}>
-                  {dependency.packageName} <span className={muted}>@{dependency.version}</span>
-                  {dependency.optional && <span className={`${chip} ml-2 ${muted}`}>optional</span>}
+                  <span className="font-mono">{dependency.packageName}</span>{' '}
+                  <span className="font-mono text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    @{dependency.version}
+                  </span>
+                  {dependency.optional && (
+                    <Badge variant="default" size="sm" className="ml-2">
+                      optional
+                    </Badge>
+                  )}
                 </li>
               ))}
             </ul>
           )}
-        </Section>
+        </DetailCard>
 
-        <Section title="Permissions">
+        <DetailCard title="Permissions">
           {details.permissions.length === 0 ? (
-            <div className={`text-sm ${muted}`}>None requested.</div>
+            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">None requested.</div>
           ) : (
             <ul className="space-y-1 text-sm">
               {details.permissions.map((permission) => (
                 <li key={`${permission.capability}:${permission.scope}`}>
-                  <span className="text-amber-300">{permission.capability}</span>{' '}
-                  <span className={muted}>({permission.scope})</span>
+                  <Badge variant="warning" size="md">
+                    {permission.capability}
+                  </Badge>{' '}
+                  <span className="font-mono text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    ({permission.scope})
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-        </Section>
+        </DetailCard>
 
-        <Section title="Contributions">
+        <DetailCard title="Contributions">
           {contributions.length === 0 ? (
-            <div className={`text-sm ${muted}`}>No runtime contributions declared.</div>
+            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              No runtime contributions declared.
+            </div>
           ) : (
             <ul className="space-y-2 text-sm">
               {contributions.map((contribution) => (
                 <li key={contribution.kind} className="flex items-center justify-between">
-                  <span className="font-medium">{contribution.label}</span>
-                  <span className={`text-xs ${muted}`}>{contribution.ids.join(', ')}</span>
+                  <span className="font-medium text-zinc-200">{contribution.label}</span>
+                  <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    {contribution.ids.join(', ')}
+                  </span>
                 </li>
               ))}
             </ul>
           )}
-        </Section>
+        </DetailCard>
 
-        <Section title="Verification">
+        <DetailCard title="Verification">
           <ul className="space-y-1 text-sm">
             <li>
-              Checksum:{' '}
+              <span>Checksum: </span>
               {asset.verification.checksumVerified ? (
                 <span className="text-emerald-400">verified ✓</span>
               ) : (
@@ -225,18 +259,21 @@ export default function AssetDetail() {
               )}
             </li>
             <li>
-              Signature:{' '}
+              <span>Signature: </span>
               {asset.verification.signed ? (
                 <span className="text-emerald-400">declared</span>
               ) : (
-                <span className={muted}>none</span>
+                <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">none</span>
               )}
             </li>
             <li>
-              Runtime verified: <span className={muted}>no (discovery never executes packages)</span>
+              Runtime verified:{' '}
+              <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                no (discovery never executes packages)
+              </span>
             </li>
           </ul>
-        </Section>
+        </DetailCard>
       </div>
     </div>
   );
