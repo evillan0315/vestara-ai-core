@@ -12,7 +12,7 @@
 
 import { EventEmitter } from 'node:events';
 import type * as http from 'node:http';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 // Mock getActor to avoid the dynamic require('../auth') in types.ts
 vi.mock('../src/routes/types', () => ({
@@ -230,7 +230,7 @@ describe('POST /api/auth/login', () => {
 
   it('returns 401 for invalid token', async () => {
     const ctx = mockCtx();
-    const { res, status } = fakeResponse();
+    const { res } = fakeResponse();
     const req = fakeRequest('POST', '/api/auth/login', JSON.stringify({ token: 'invalid' }));
 
     await expect(handleAuthRoute('POST', '/api/auth/login', req, res, ctx, 3001)).rejects.toThrow();
@@ -267,7 +267,7 @@ describe('POST /api/auth/login', () => {
 
   it('rejects login with neither token nor username', async () => {
     const ctx = mockCtx();
-    const { res, status } = fakeResponse();
+    const { res } = fakeResponse();
     const req = fakeRequest('POST', '/api/auth/login', JSON.stringify({}));
 
     await expect(handleAuthRoute('POST', '/api/auth/login', req, res, ctx, 3001)).rejects.toThrow();

@@ -119,7 +119,6 @@ function formatTimeAgo(timestamp: string): string {
 export default function M11CWorkflowBrowser({
   stream,
   workflowSummary,
-  selectedParticipantId,
   onSelectWorkflow,
 }: WorkflowBrowserProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);

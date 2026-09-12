@@ -210,7 +210,6 @@ export default function M11CActivityRoomPage() {
           <M11CWorkflowBrowser
             stream={room.stream}
             workflowSummary={room.workflowSummary}
-            selectedParticipantId={selectedParticipantId}
           />
         </aside>
 
