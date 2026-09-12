@@ -82,6 +82,24 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-status-tool': theme.status.tool,
     '--vestara-status-tool-bg': theme.status.toolBg,
     '--vestara-status-tool-border': theme.status.toolBorder,
+
+    // VES-DESIGN-005: marketplace premium tokens
+    '--vestara-marketplace-primary': theme.marketplace.primary,
+    '--vestara-marketplace-primary-bg': theme.marketplace.primaryBg,
+    '--vestara-marketplace-primary-border': theme.marketplace.primaryBorder,
+    '--vestara-marketplace-rating': theme.marketplace.rating,
+    '--vestara-marketplace-featured-bg': theme.marketplace.featuredBg,
+    '--vestara-marketplace-featured-text': theme.marketplace.featuredText,
+    '--vestara-marketplace-agent': theme.marketplace.agent,
+    '--vestara-marketplace-skill': theme.marketplace.skill,
+    '--vestara-marketplace-provider': theme.marketplace.provider,
+    '--vestara-marketplace-theme': theme.marketplace.theme,
+    '--vestara-marketplace-workflow': theme.marketplace.workflow,
+    '--vestara-marketplace-mcp': theme.marketplace.mcp,
+    '--vestara-marketplace-command': theme.marketplace.command,
+    '--vestara-marketplace-module': theme.marketplace.module,
+    '--vestara-marketplace-plugin': theme.marketplace.plugin,
+    '--vestara-marketplace-standards': theme.marketplace.standards,
   };
 }
 

@@ -87,6 +87,21 @@ export const COLOR = {
     focus: '#f59e0b',
   },
 
+  // Marketplace premium hues (VES-DESIGN-005 §M)
+  // Sampled from assets/vestara-marketplace-screen.png (v1 violet gallery)
+  // and assets/vestara-marketplace-02-screen.png (v2 blue gallery).
+  // Categorical identity colors — identical in both appearances.
+  marketplace: {
+    primary: '#2f7bff', // v2 Install / pill / link blue
+    violet: '#8b5cf6', // v1 primary; agent + plugin tiles
+    blue: '#60a5fa', // skill + module tiles
+    green: '#34d399', // provider + standards-pack tiles
+    pink: '#f472b6', // theme tiles
+    amber: '#fbbf24', // workflow tiles + gold ratings
+    cyan: '#22d3ee', // mcp-server tiles
+    orange: '#fb923c', // command tiles
+  },
+
   // Zinc palette (raw values)
   zinc: {
     50: '#fafafa',

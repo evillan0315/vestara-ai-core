@@ -24,6 +24,7 @@ export {
 export type {
   AccentTheme,
   BorderTheme,
+  MarketplaceTheme,
   StatusTheme,
   SurfaceTheme,
   TextTheme,

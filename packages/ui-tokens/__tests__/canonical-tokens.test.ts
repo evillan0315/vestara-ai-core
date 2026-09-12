@@ -257,9 +257,51 @@ describe('I. Tailwind v4 consumption pattern', () => {
   });
 });
 
-// ─── J. Primitive token values match runtime identity ───────────
+// ─── L. Marketplace premium tokens (VES-DESIGN-005) ─────────────
 
-describe('J. Primitive values match runtime identity', () => {
+describe('L. Marketplace premium tokens', () => {
+  it('marketplace primary is v2 install blue in dark theme', () => {
+    expect(DARK_THEME.marketplace.primary).toBe('#2f7bff');
+  });
+
+  it('marketplace primary deepens for contrast in light theme', () => {
+    expect(LIGHT_THEME.marketplace.primary).toBe('#2563eb');
+  });
+
+  it('category hues match the premium gallery identity', () => {
+    expect(DARK_THEME.marketplace.agent).toBe(COLOR.marketplace.violet);
+    expect(DARK_THEME.marketplace.skill).toBe(COLOR.marketplace.blue);
+    expect(DARK_THEME.marketplace.provider).toBe(COLOR.marketplace.green);
+    expect(DARK_THEME.marketplace.theme).toBe(COLOR.marketplace.pink);
+    expect(DARK_THEME.marketplace.workflow).toBe(COLOR.marketplace.amber);
+    expect(DARK_THEME.marketplace.mcp).toBe(COLOR.marketplace.cyan);
+    expect(DARK_THEME.marketplace.command).toBe(COLOR.marketplace.orange);
+  });
+
+  it('generates --vestara-marketplace-* CSS variables', () => {
+    const vars = generateCSSVariables(DARK_THEME);
+    for (const key of [
+      '--vestara-marketplace-primary',
+      '--vestara-marketplace-primary-bg',
+      '--vestara-marketplace-primary-border',
+      '--vestara-marketplace-rating',
+      '--vestara-marketplace-featured-bg',
+      '--vestara-marketplace-featured-text',
+      '--vestara-marketplace-agent',
+      '--vestara-marketplace-workflow',
+    ]) {
+      expect(vars[key]).toBeDefined();
+    }
+  });
+
+  it('both themes expose the same marketplace contract', () => {
+    expect(Object.keys(DARK_THEME.marketplace).sort()).toEqual(Object.keys(LIGHT_THEME.marketplace).sort());
+  });
+});
+
+// ─── K. Primitive token values match runtime identity ───────────
+
+describe('K. Primitive values match runtime identity', () => {
   it('COLOR.brand.amber is #f59e0b (runtime amber)', () => {
     expect(COLOR.brand.amber).toBe('#f59e0b');
   });

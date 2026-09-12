@@ -91,6 +91,32 @@ export interface StatusTheme {
   toolBorder: string;
 }
 
+// ─── Marketplace Theme ─────────────────────────────────────────
+
+// VES-DESIGN-005: marketplace premium surface sampled from
+// assets/vestara-marketplace-screen.png + vestara-marketplace-02-screen.png.
+// Primary blue drives Install actions; category hues give each asset type
+// its gallery identity; rating gold drives stars + featured badges.
+
+export interface MarketplaceTheme {
+  primary: string;
+  primaryBg: string;
+  primaryBorder: string;
+  rating: string;
+  featuredBg: string;
+  featuredText: string;
+  agent: string;
+  skill: string;
+  provider: string;
+  theme: string;
+  workflow: string;
+  mcp: string;
+  command: string;
+  module: string;
+  plugin: string;
+  standards: string;
+}
+
 // ─── Complete Theme ────────────────────────────────────────────
 
 export interface Theme {
@@ -100,6 +126,7 @@ export interface Theme {
   border: BorderTheme;
   accent: AccentTheme;
   status: StatusTheme;
+  marketplace: MarketplaceTheme;
 }
 
 // ─── Dark Theme ────────────────────────────────────────────────
@@ -142,6 +169,24 @@ export const DARK_THEME: Theme = {
     tool: COLOR.status.tool,
     toolBg: COLOR.status.toolBg,
     toolBorder: COLOR.status.toolBorder,
+  },
+  marketplace: {
+    primary: COLOR.marketplace.primary,
+    primaryBg: 'rgba(47, 123, 255, 0.12)',
+    primaryBorder: 'rgba(47, 123, 255, 0.4)',
+    rating: COLOR.marketplace.amber,
+    featuredBg: 'rgba(251, 191, 36, 0.12)',
+    featuredText: COLOR.marketplace.amber,
+    agent: COLOR.marketplace.violet,
+    skill: COLOR.marketplace.blue,
+    provider: COLOR.marketplace.green,
+    theme: COLOR.marketplace.pink,
+    workflow: COLOR.marketplace.amber,
+    mcp: COLOR.marketplace.cyan,
+    command: COLOR.marketplace.orange,
+    module: COLOR.marketplace.blue,
+    plugin: COLOR.marketplace.violet,
+    standards: COLOR.marketplace.green,
   },
 };
 
@@ -202,6 +247,24 @@ export const LIGHT_THEME: Theme = {
     tool: '#0891b2', // Light mode: darker cyan for contrast
     toolBg: 'rgba(8, 145, 178, 0.08)',
     toolBorder: 'rgba(8, 145, 178, 0.2)',
+  },
+  marketplace: {
+    primary: '#2563eb', // Darker install blue for contrast on light backgrounds
+    primaryBg: 'rgba(37, 99, 235, 0.1)',
+    primaryBorder: 'rgba(37, 99, 235, 0.35)',
+    rating: '#b45309', // Darker gold for contrast on light backgrounds
+    featuredBg: 'rgba(180, 83, 9, 0.1)',
+    featuredText: '#b45309',
+    agent: COLOR.marketplace.violet,
+    skill: '#2563eb',
+    provider: '#059669',
+    theme: '#db2777',
+    workflow: '#b45309',
+    mcp: '#0891b2',
+    command: '#ea580c',
+    module: '#2563eb',
+    plugin: COLOR.marketplace.violet,
+    standards: '#059669',
   },
 };
 
