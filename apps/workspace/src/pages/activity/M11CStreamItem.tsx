@@ -10,7 +10,7 @@
  * Aggregated items use M10's referencedActivityIds/sequenceRange.
  */
 
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
@@ -100,7 +100,7 @@ function formatTimestamp(timestamp: string): string {
 
 // ─── Component ───────────────────────────────────────────────
 
-export default function M11CStreamItemComponent({
+export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   item,
   onOpenDetail,
   onDrillDown,
@@ -325,4 +325,4 @@ export default function M11CStreamItemComponent({
       )}
     </div>
   );
-}
+});

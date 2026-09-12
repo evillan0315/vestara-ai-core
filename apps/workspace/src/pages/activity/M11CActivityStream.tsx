@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
+import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { EmptyState, StatusIndicator } from '@vestara/ui';
 import M11CStreamItemComponent from './M11CStreamItem';
 
@@ -120,6 +121,7 @@ export default function M11CActivityStream({
   submission,
   onSubmitResponse,
 }: M11CActivityStreamProps) {
+  useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const previousScrollHeight = useRef(0);

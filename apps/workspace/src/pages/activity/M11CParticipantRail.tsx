@@ -18,7 +18,7 @@
 
 import type { ParticipantProjection } from '@vestara/activity-room';
 import { Badge, StatusIndicator } from '@vestara/ui';
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { PRESENCE_VARIANT_CONFIG, WORK_STATE_CONFIG } from './status-config';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -189,7 +189,7 @@ export default function M11CParticipantRail({
 
 // ─── Participant Row ─────────────────────────────────────────
 
-function ParticipantRow({
+const ParticipantRow = memo(function ParticipantRow({
   participant,
   selected,
   onSelect,
@@ -290,4 +290,4 @@ function ParticipantRow({
       </span>
     </button>
   );
-}
+});

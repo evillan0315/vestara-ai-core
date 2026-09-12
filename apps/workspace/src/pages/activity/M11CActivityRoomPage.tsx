@@ -30,6 +30,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
+import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AAggregateDrillDown, type M11AActivityRecord } from '../../lib/m11a-api';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
@@ -48,6 +49,7 @@ import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 // ─── Component ───────────────────────────────────────────────
 
 export default function M11CActivityRoomPage() {
+  useRenderProfiler('M11CActivityRoomPage');
   const room = useM11CActivityRoom();
   const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
