@@ -218,6 +218,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:message.sent',
       source: 'conversation-service',
       payload: { conversationId, messageId: userMessage.id, content },
+      actor: { id: conversation.userId, role: 'user' },
       metadata: {},
     });
 
@@ -315,6 +316,7 @@ export class DefaultConversationService implements ConversationService {
         contentLength: responseMessage.content.length,
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
+        contentPreview: boundedContentPreview(responseMessage.content),
       },
       metadata: {},
     });
@@ -363,6 +365,7 @@ export class DefaultConversationService implements ConversationService {
       type: 'conversation:message.sent',
       source: 'conversation-service',
       payload: { conversationId, messageId: userMessage.id, content },
+      actor: { id: conversation.userId, role: 'user' },
       metadata: {},
     });
 
@@ -460,6 +463,7 @@ export class DefaultConversationService implements ConversationService {
         contentLength: responseMessage.content.length,
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
+        contentPreview: boundedContentPreview(responseMessage.content),
       },
       metadata: {},
     });
@@ -636,4 +640,20 @@ function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
 function truncate(text: string, max: number): string {
   if (text.length <= max) return text;
   return `${text.slice(0, max)}… [truncated, ${text.length} chars total]`;
+}
+
+/**
+ * AR-DOGFOOD-009: Bounded content preview for Activity Room projection.
+ * Maximum 200 characters, cut at word boundary when practical.
+ * Empty/whitespace-only content returns undefined (caller falls back to neutral message).
+ */
+const CONTENT_PREVIEW_MAX = 200;
+
+function boundedContentPreview(content: string): string | undefined {
+  const trimmed = content.trim();
+  if (trimmed.length === 0) return undefined;
+  if (trimmed.length <= CONTENT_PREVIEW_MAX) return trimmed;
+  const slice = trimmed.slice(0, CONTENT_PREVIEW_MAX);
+  const boundary = Math.max(slice.lastIndexOf('\n'), slice.lastIndexOf(' '));
+  return boundary > CONTENT_PREVIEW_MAX * 0.5 ? slice.slice(0, boundary) : slice;
 }
