@@ -1,0 +1,94 @@
+/**
+ * VES-DIAGNOSTICS: Diagnostics Scoped Tokens
+ *
+ * Scoped `--dg-*` layer for the Diagnostic Center surface. Every value
+ * derives from the canonical Vestara tokens (`--vestara-*`, generated from
+ * @vestara/ui-tokens) so mode (dark/light via [data-theme]) and the
+ * user-selected accent (via VestaraThemeProvider) propagate automatically.
+ *
+ * Mirrors the Overview `--ov-*` layer (overview.tokens.css) so the two
+ * surfaces share the same premium gallery materials. Never hard-code
+ * palette hex here — reference canonical vars or color-mix() over them.
+ */
+
+/* ── Dark appearance (default) ── */
+:root {
+  /* Cards + rows */
+  --dg-card-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --dg-card-hover-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --dg-row-hover-bg: rgba(255, 255, 255, 0.04);
+  --dg-inset-bg: rgba(255, 255, 255, 0.02);
+
+  /* Icon tiles — translucent status washes */
+  --dg-tile-info-bg: var(--vestara-status-info-bg);
+  --dg-tile-info-fg: var(--vestara-status-info);
+  --dg-tile-accent-bg: var(--vestara-accent-bg);
+  --dg-tile-accent-fg: var(--vestara-accent-text);
+  --dg-tile-success-bg: var(--vestara-status-success-bg);
+  --dg-tile-success-fg: var(--vestara-status-success);
+  --dg-tile-warning-bg: var(--vestara-status-warning-bg);
+  --dg-tile-warning-fg: var(--vestara-status-warning);
+  --dg-tile-error-bg: var(--vestara-status-error-bg);
+  --dg-tile-error-fg: var(--vestara-status-error);
+  --dg-tile-muted-bg: color-mix(in srgb, var(--vestara-text-muted) 18%, transparent);
+  --dg-tile-muted-fg: var(--vestara-text-secondary);
+
+  /* Gauges */
+  --dg-gauge-track: rgba(255, 255, 255, 0.08);
+  --dg-gauge-cpu: var(--vestara-status-info);
+  --dg-gauge-memory: var(--vestara-status-warning);
+  --dg-gauge-swap: var(--vestara-accent-primary);
+  --dg-gauge-disk: var(--vestara-status-success);
+
+  /* Presence */
+  --dg-presence-online: var(--vestara-status-success);
+  --dg-presence-busy: var(--vestara-status-warning);
+  --dg-presence-idle: var(--vestara-status-idle);
+  --dg-presence-offline: var(--vestara-status-error);
+
+  /* Hero — instrument dusk premium (dark), same family as Overview hero */
+  --dg-hero-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  --dg-hero-backdrop:
+    radial-gradient(90% 130% at 78% 8%, color-mix(in srgb, var(--vestara-status-info) 35%, transparent) 0%, transparent 45%),
+    radial-gradient(70% 90% at 55% 100%, color-mix(in srgb, var(--vestara-accent-primary) 30%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, #0b1530 0%, #101d42 38%, #1b2a5e 58%, #0a1128 100%);
+  --dg-hero-shade:
+    linear-gradient(180deg, transparent 46%, rgba(4, 8, 20, 0.55) 62%, rgba(3, 6, 16, 0.9) 100%),
+    radial-gradient(38% 26% at 58% 62%, color-mix(in srgb, var(--vestara-accent-secondary) 50%, transparent) 0%, transparent 72%);
+  --dg-hero-mark: linear-gradient(180deg, #dbeafe 10%, var(--vestara-status-info) 45%, var(--vestara-accent-secondary) 90%);
+  --dg-hero-mark-shadow: 0 0 28px color-mix(in srgb, var(--vestara-status-info) 45%, transparent);
+  --dg-hero-eyebrow: var(--vestara-status-info);
+  --dg-hero-title: #ffffff;
+  --dg-hero-sub: var(--vestara-text-secondary);
+  --dg-hero-quote: var(--vestara-text-muted);
+  --dg-hero-chip-bg: rgba(0, 0, 0, 0.3);
+  --dg-hero-chip-border: rgba(255, 255, 255, 0.1);
+  --dg-hero-chip-text: var(--vestara-text-primary);
+  --dg-hero-chip-icon-bg: rgba(255, 255, 255, 0.1);
+}
+
+/* ── Light appearance ── */
+[data-theme='light'] {
+  --dg-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --dg-card-hover-shadow: 0 10px 28px rgba(15, 23, 42, 0.12);
+  --dg-row-hover-bg: rgba(15, 23, 42, 0.04);
+  --dg-inset-bg: rgba(15, 23, 42, 0.02);
+
+  --dg-gauge-track: rgba(15, 23, 42, 0.1);
+
+  --dg-hero-shadow: 0 12px 32px rgba(15, 23, 42, 0.14);
+  --dg-hero-backdrop:
+    radial-gradient(90% 130% at 78% 8%, color-mix(in srgb, var(--vestara-status-info) 22%, transparent) 0%, transparent 50%),
+    radial-gradient(70% 90% at 55% 100%, color-mix(in srgb, var(--vestara-accent-primary) 22%, transparent) 0%, transparent 55%),
+    linear-gradient(180deg, #e8eefc 0%, #f3eedd 55%, #ffffff 100%);
+  --dg-hero-shade:
+    linear-gradient(180deg, transparent 55%, rgba(255, 255, 255, 0.65) 100%),
+    radial-gradient(38% 26% at 58% 62%, color-mix(in srgb, var(--vestara-accent-primary) 28%, transparent) 0%, transparent 72%);
+  --dg-hero-mark: linear-gradient(180deg, var(--vestara-status-info) 10%, var(--vestara-accent-primary) 90%);
+  --dg-hero-mark-shadow: 0 0 22px color-mix(in srgb, var(--vestara-status-info) 30%, transparent);
+  --dg-hero-title: var(--vestara-text-primary);
+  --dg-hero-chip-bg: rgba(255, 255, 255, 0.72);
+  --dg-hero-chip-border: var(--vestara-border-default);
+  --dg-hero-chip-text: var(--vestara-text-secondary);
+  --dg-hero-chip-icon-bg: color-mix(in srgb, var(--vestara-text-muted) 14%, transparent);
+}

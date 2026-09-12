@@ -19,7 +19,7 @@ interface SparklineProps {
 export function Sparkline({ points, color = ACCENT, height = 36 }: SparklineProps) {
   if (points.length < 2) {
     return (
-      <div style={{ height }} className="flex items-center text-[10px] text-zinc-600">
+      <div style={{ height }} className="flex items-center text-[10px] text-[var(--vestara-text-muted)]">
         collecting…
       </div>
     );
@@ -63,7 +63,7 @@ export function HistoryChart({ points, color = ACCENT, height = 160, yDomain = [
   const data = points.map((p) => ({ t: new Date(p.t).toLocaleTimeString(), v: p.value }));
   return (
     <div style={{ height }}>
-      {label && <div className="text-[10px] uppercase tracking-wider text-zinc-500 mb-1">{label}</div>}
+      {label && <div className="mb-1 text-[10px] uppercase tracking-wider text-[var(--vestara-text-muted)]">{label}</div>}
       <ResponsiveContainer width="100%" height="100%">
         <AreaChart data={data} margin={{ top: 4, right: 8, bottom: 0, left: 0 }}>
           <defs>
@@ -74,7 +74,7 @@ export function HistoryChart({ points, color = ACCENT, height = 160, yDomain = [
           </defs>
           <XAxis
             dataKey="t"
-            tick={{ fontSize: 9, fill: 'var(--color-zinc-500)' }}
+            tick={{ fontSize: 9, fill: 'var(--vestara-text-muted)' }}
             tickLine={false}
             axisLine={false}
             minTickGap={40}
@@ -82,7 +82,7 @@ export function HistoryChart({ points, color = ACCENT, height = 160, yDomain = [
           <YAxis
             domain={yDomain}
             width={30}
-            tick={{ fontSize: 9, fill: 'var(--color-zinc-500)' }}
+            tick={{ fontSize: 9, fill: 'var(--vestara-text-muted)' }}
             tickLine={false}
             axisLine={false}
             unit="%"
@@ -134,7 +134,7 @@ export function Meter({ label, value, display, tone }: MeterProps) {
   return (
     <div>
       <div className="flex items-baseline justify-between gap-2">
-        <span className="text-[11px] text-zinc-400">{label}</span>
+        <span className="text-[11px] text-[var(--vestara-text-muted)]">{label}</span>
         <span className="text-[11px] font-medium tabular-nums" style={{ color }}>
           {display ?? `${pct.toFixed(1)}%`}
         </span>

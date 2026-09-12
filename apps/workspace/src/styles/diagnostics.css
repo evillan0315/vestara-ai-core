@@ -1,13 +1,17 @@
 /* ─────────────────────────────────────────────────────────────
-   Diagnostic Center styles
-   Uses the Workspace design tokens (--vestara-*, --color-zinc-*).
+   Diagnostic Center — premium gallery styles
+   Shared @vestara/ui materials + `--dg-*` scoped tokens
+   (diagnostics.tokens.css). Every value derives from canonical
+   `--vestara-*` tokens or color-mix() over them so dark/light mode
+   and the selected accent propagate automatically — same family
+   as Overview (`--ov-*`).
    ───────────────────────────────────────────────────────────── */
 
 .diag-page {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--color-zinc-950);
+  background: transparent;
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
 }
@@ -26,12 +30,12 @@
 .diag-title {
   font-size: var(--vestara-font-size-sm);
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
 }
 
 .diag-subtitle {
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 .diag-scroll {
@@ -47,6 +51,10 @@
   gap: 0.625rem;
 }
 
+.diag-panel {
+  min-width: 0;
+}
+
 .diag-icon-btn {
   display: inline-flex;
   align-items: center;
@@ -54,15 +62,15 @@
   width: 26px;
   height: 26px;
   border-radius: var(--vestara-radius);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 16px;
 }
 
 .diag-icon-btn:hover {
-  color: var(--color-zinc-200);
-  background: var(--color-zinc-800);
+  color: var(--vestara-text-primary);
+  background: var(--vestara-accent-bg);
 }
 
 .diag-btn {
@@ -70,9 +78,9 @@
   align-items: center;
   gap: 0.375rem;
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-300);
-  background: var(--color-zinc-900);
-  border: 1px solid var(--vestara-accent-border);
+  color: var(--vestara-text-secondary);
+  background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent);
+  border: 1px solid var(--vestara-border-default);
   border-radius: var(--vestara-radius);
   padding: 0.25rem 0.625rem;
   cursor: pointer;
@@ -81,8 +89,8 @@
 }
 
 .diag-btn:hover {
-  border-color: var(--vestara-accent-border-hover);
-  color: var(--color-zinc-100);
+  border-color: var(--vestara-marketplace-primary-border);
+  color: var(--vestara-text-primary);
 }
 
 .diag-btn-primary {
@@ -91,9 +99,9 @@
 }
 
 .diag-btn-danger {
-  color: var(--vestara-red, #f87171);
-  background: color-mix(in srgb, var(--vestara-red, #f87171) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--vestara-red, #f87171) 40%, transparent);
+  color: var(--vestara-status-error);
+  background: color-mix(in srgb, var(--vestara-status-error) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--vestara-status-error) 40%, transparent);
   border-radius: var(--vestara-radius);
   padding: 0.25rem 0.625rem;
   font-size: var(--vestara-font-size-xs);
@@ -101,7 +109,7 @@
 }
 
 .diag-btn-danger:hover {
-  background: color-mix(in srgb, var(--vestara-red, #f87171) 18%, transparent);
+  background: color-mix(in srgb, var(--vestara-status-error) 18%, transparent);
 }
 
 .diag-btn:disabled {
@@ -110,8 +118,8 @@
 }
 
 .diag-input {
-  background: var(--color-zinc-900) !important;
-  color: var(--color-zinc-300);
+  background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent) !important;
+  color: var(--vestara-text-secondary);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   font-size: var(--vestara-font-size-xs);
@@ -123,12 +131,16 @@
   border-color: var(--vestara-accent-border-active) !important;
 }
 
-/* Cards */
+/* Cards — premium gallery card */
 .diag-card {
-  background: var(--color-zinc-900);
+  background: var(--vestara-surface, var(--vestara-surface-panel));
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   border-top: 2px solid var(--vestara-accent);
+  box-shadow:
+    0 0 0 1px var(--vestara-surface-glow),
+    0 0 12px var(--vestara-surface-glow),
+    inset 0 1px 0 var(--vestara-surface-sheen);
   padding: 0.625rem;
   min-width: 0;
 }
@@ -142,13 +154,13 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 .diag-card-value {
   font-size: 1.05rem;
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
   margin-top: 0.125rem;
   white-space: nowrap;
   overflow: hidden;
@@ -157,7 +169,7 @@
 
 .diag-card-sub {
   font-size: 10px;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   margin-top: 0.125rem;
   white-space: nowrap;
   overflow: hidden;
@@ -174,7 +186,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-zinc-400);
+  color: var(--vestara-text-secondary);
   font-weight: var(--vestara-font-weight-medium);
 }
 
@@ -182,14 +194,14 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   margin-bottom: 0.375rem;
 }
 
 /* Meters */
 .diag-meter-track {
   height: 4px;
-  background: var(--color-zinc-800);
+  background: var(--dg-gauge-track);
   border-radius: 9999px;
   overflow: hidden;
   flex-shrink: 0;
@@ -201,7 +213,7 @@
   transition: width 0.3s ease;
 }
 
-/* Tabs */
+/* Tabs (legacy class kept tokenized; premium tab bar lives in DiagnosticsPage) */
 .diag-tabs {
   display: flex;
   gap: 0.25rem;
@@ -213,7 +225,7 @@
 .diag-tab {
   padding: 0.375rem 0.75rem;
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s ease;
@@ -221,7 +233,7 @@
 }
 
 .diag-tab:hover {
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
 }
 
 .diag-tab-active {
@@ -241,24 +253,24 @@
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid var(--color-zinc-800);
+  border-bottom: 1px solid var(--vestara-border-subtle);
   position: sticky;
   top: 0;
-  background: var(--color-zinc-900);
+  background: var(--vestara-surface, var(--vestara-surface-panel));
   z-index: 1;
 }
 
 .diag-table td {
   padding: 0.3rem 0.5rem;
-  color: var(--color-zinc-300);
-  border-bottom: 1px solid var(--color-zinc-800/50);
+  color: var(--vestara-text-secondary);
+  border-bottom: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 60%, transparent);
   vertical-align: middle;
 }
 
 .diag-table tbody tr:hover {
-  background: var(--color-zinc-800/40);
+  background: var(--dg-row-hover-bg);
 }
 
 .diag-table-scroll {
@@ -294,7 +306,7 @@
   white-space: nowrap;
   font-family: ui-monospace, "JetBrains Mono", "Fira Code", monospace;
   font-size: 10.5px;
-  color: var(--color-zinc-400);
+  color: var(--vestara-text-secondary);
 }
 
 /* Status chips / dots */
@@ -304,28 +316,28 @@
   letter-spacing: 0.04em;
   padding: 0.1rem 0.375rem;
   border-radius: 9999px;
-  border: 1px solid var(--color-zinc-700);
-  color: var(--color-zinc-400);
+  border: 1px solid var(--vestara-border-default);
+  color: var(--vestara-text-muted);
   white-space: nowrap;
 }
 
 .diag-status-pass {
-  color: var(--vestara-green, #4ade80) !important;
-  border-color: color-mix(in srgb, var(--vestara-green, #4ade80) 40%, transparent) !important;
+  color: var(--vestara-status-success) !important;
+  border-color: color-mix(in srgb, var(--vestara-status-success) 40%, transparent) !important;
 }
 
 .diag-status-warn {
-  color: var(--vestara-amber, #f59e0b) !important;
-  border-color: color-mix(in srgb, var(--vestara-amber, #f59e0b) 40%, transparent) !important;
+  color: var(--vestara-status-warning) !important;
+  border-color: color-mix(in srgb, var(--vestara-status-warning) 40%, transparent) !important;
 }
 
 .diag-status-fail {
-  color: var(--vestara-red, #f87171) !important;
-  border-color: color-mix(in srgb, var(--vestara-red, #f87171) 40%, transparent) !important;
+  color: var(--vestara-status-error) !important;
+  border-color: color-mix(in srgb, var(--vestara-status-error) 40%, transparent) !important;
 }
 
 .diag-status-unknown {
-  color: var(--color-zinc-500) !important;
+  color: var(--vestara-text-muted) !important;
 }
 
 .diag-status-dot {
@@ -334,7 +346,7 @@
   letter-spacing: 0.04em;
   padding: 0.1rem 0.375rem;
   border-radius: 9999px;
-  border: 1px solid var(--color-zinc-700);
+  border: 1px solid var(--vestara-border-default);
 }
 
 /* Stats */
@@ -342,34 +354,34 @@
   display: flex;
   flex-direction: column;
   gap: 0.125rem;
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
 }
 
 .diag-stat-wide {
-  background: var(--color-zinc-900);
+  background: var(--dg-inset-bg);
   padding: 0.5rem 0.625rem;
 }
 
 .diag-stat-value {
   font-size: 1rem;
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
 }
 
 .diag-stat-label {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 /* Agent cards */
 .diag-agent-card {
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
   min-width: 0;
@@ -384,13 +396,13 @@
 
 .diag-list li {
   padding: 0.2rem 0;
-  border-bottom: 1px solid var(--color-zinc-800/50);
+  border-bottom: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 60%, transparent);
 }
 
 .diag-list-path {
   font-family: ui-monospace, monospace;
   font-size: 10.5px;
-  color: var(--color-zinc-300);
+  color: var(--vestara-text-secondary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -406,9 +418,9 @@
 }
 
 .diag-event-row {
-  border-left: 3px solid var(--color-zinc-600);
+  border-left: 3px solid var(--vestara-text-muted);
   padding: 0.35rem 0.625rem;
-  background: var(--color-zinc-900);
+  background: var(--dg-inset-bg);
   border-radius: var(--vestara-radius);
 }
 
@@ -418,8 +430,8 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.35rem 0.5rem;
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   min-width: 0;
 }
@@ -436,18 +448,18 @@
 }
 
 .diag-alert-critical {
-  border-color: color-mix(in srgb, var(--vestara-red, #f87171) 40%, transparent);
-  background: color-mix(in srgb, var(--vestara-red, #f87171) 8%, transparent);
+  border-color: color-mix(in srgb, var(--vestara-status-error) 40%, transparent);
+  background: color-mix(in srgb, var(--vestara-status-error) 8%, transparent);
 }
 
 .diag-alert-warning {
-  border-color: color-mix(in srgb, var(--vestara-amber, #f59e0b) 40%, transparent);
-  background: color-mix(in srgb, var(--vestara-amber, #f59e0b) 8%, transparent);
+  border-color: color-mix(in srgb, var(--vestara-status-warning) 40%, transparent);
+  background: color-mix(in srgb, var(--vestara-status-warning) 8%, transparent);
 }
 
 .diag-alert-info {
-  border-color: var(--color-zinc-700);
-  background: var(--color-zinc-900);
+  border-color: var(--vestara-border-default);
+  background: var(--dg-inset-bg);
 }
 
 .diag-alert-tag {
@@ -458,26 +470,26 @@
 }
 
 .diag-alert-critical .diag-alert-tag {
-  color: var(--vestara-red, #f87171);
+  color: var(--vestara-status-error);
 }
 
 .diag-alert-warning .diag-alert-tag {
-  color: var(--vestara-amber, #f59e0b);
+  color: var(--vestara-status-warning);
 }
 
 .diag-alert-info .diag-alert-tag {
-  color: var(--color-zinc-400);
+  color: var(--vestara-text-secondary);
 }
 
 .diag-alert-msg {
   flex: 1;
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
 }
 
 .diag-alert-src {
   font-size: 9px;
   text-transform: uppercase;
-  color: var(--color-zinc-600);
+  color: var(--vestara-text-muted);
 }
 
 /* Drawer / modal */
@@ -492,7 +504,7 @@
 
 .diag-drawer-panel {
   width: min(420px, 92%);
-  background: var(--color-zinc-950);
+  background: var(--vestara-surface-panel);
   border-left: 1px solid var(--vestara-accent-border);
   display: flex;
   flex-direction: column;
@@ -506,7 +518,7 @@
   justify-content: space-between;
   padding: 0.625rem 0.75rem;
   border-bottom: 1px solid var(--vestara-accent-border);
-  background: var(--color-zinc-900);
+  background: var(--dg-inset-bg);
 }
 
 .diag-drawer-body {
@@ -518,14 +530,14 @@
 .diag-close-btn {
   background: none;
   border: none;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   font-size: 13px;
   padding: 0.25rem;
 }
 
 .diag-close-btn:hover {
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
 }
 
 .diag-modal {
@@ -541,7 +553,7 @@
 
 .diag-modal-panel {
   width: min(460px, 94%);
-  background: var(--color-zinc-950);
+  background: var(--vestara-surface-panel);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   padding: 1rem;
@@ -550,7 +562,7 @@
 .diag-analyze-panel {
   width: min(640px, 94%);
   height: 82%;
-  background: var(--color-zinc-950);
+  background: var(--vestara-surface-panel);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   display: flex;
@@ -559,8 +571,8 @@
 }
 
 .diag-answer {
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.75rem;
   max-height: 100%;
@@ -574,20 +586,20 @@
 /* Code */
 .diag-code-block {
   display: block;
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
   font-family: ui-monospace, monospace;
   font-size: 10.5px;
-  color: var(--color-zinc-300);
+  color: var(--vestara-text-secondary);
   white-space: pre-wrap;
   word-break: break-all;
 }
 
 .diag-code-inline {
-  background: var(--color-zinc-900);
-  border: 1px solid var(--color-zinc-800);
+  background: var(--dg-inset-bg);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: 4px;
   padding: 0.05em 0.35em;
   font-family: ui-monospace, monospace;
@@ -613,7 +625,7 @@
 
 .diag-empty {
   font-size: var(--vestara-font-size-sm);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   padding: 0.5rem 0;
 }
 
