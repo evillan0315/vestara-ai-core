@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNotifications } from '../lib/notifications';
+import { useMorningBriefing } from '../hooks/useMorningBriefing';
 
 interface LogEvent {
   id: string; timestamp: string; category: string; type: string;
@@ -40,6 +41,8 @@ export default function Activities() {
   const [filter, setFilter] = useState('all');
   const [search, setSearch] = useState('');
   const { notifications, unreadCount, markRead, markAllRead, refresh: refreshNotifs, loading: notifLoading } = useNotifications();
+  const { briefings, loading: briefingsLoading, refresh: refreshBriefings } = useMorningBriefing();
+  const [selectedBriefing, setSelectedBriefing] = useState<null | (typeof briefings)[number]>(null);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -90,12 +93,59 @@ export default function Activities() {
 
   return (
     <div>
+      {/* Morning Briefings — visible on both tabs with exact executedAt, links to Activities */}
+      <div className="mb-5 rounded-xl border border-[var(--vestara-amber)]/30 bg-[var(--vestara-amber)]/5 p-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-semibold text-[var(--vestara-amber)]">Morning Briefings — last {Math.min(briefings.length, 5)} runs (exact execution time)</h2>
+          <button onClick={() => refreshBriefings()} className="text-[10px] px-2 py-1 rounded border border-[var(--vestara-amber)]/30 hover:bg-[var(--vestara-amber)]/10">↻ Refresh</button>
+        </div>
+        {briefingsLoading ? (
+          <div className="text-xs text-[var(--vestara-text-muted)] mt-2 animate-pulse">Loading briefings…</div>
+        ) : briefings.length === 0 ? (
+          <div className="text-xs text-[var(--vestara-text-muted)] mt-2">No briefings yet — next run 08:00 local daily.</div>
+        ) : (
+          <div className="mt-2 space-y-1">
+            {briefings.slice(0, 5).map((b) => (
+              <button
+                key={b.id}
+                type="button"
+                onClick={() => setSelectedBriefing(b)}
+                className="w-full text-left flex items-center gap-2 p-2 rounded-lg border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] hover:border-[var(--vestara-amber)]/40 transition-colors cursor-pointer"
+              >
+                <span className="text-[10px] font-mono text-[var(--vestara-text-dim)]">{new Date(b.executedAt).toLocaleString(undefined, { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                <span className="text-[11px] text-[var(--vestara-text)] truncate flex-1">{b.summary}</span>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[var(--vestara-amber)]/15 text-[var(--vestara-amber)] border border-[var(--vestara-amber)]/20">view</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      {selectedBriefing && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" onClick={() => setSelectedBriefing(null)}>
+          <div className="w-full max-w-2xl max-h-[80vh] overflow-auto rounded-xl border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-4" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-2">
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--vestara-text)]">Briefing {selectedBriefing.id}</h3>
+                <p className="text-xs text-[var(--vestara-amber)]">Executed: {new Date(selectedBriefing.executedAt).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'long' })} — exact</p>
+                <p className="text-[10px] text-[var(--vestara-text-dim)]">Created: {new Date(selectedBriefing.createdAt).toLocaleString()}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedBriefing(null)} className="size-8 grid place-items-center rounded-lg border">×</button>
+            </div>
+            <div className="mt-3 space-y-3 text-xs">
+              <div><div className="font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">Repo Health</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{selectedBriefing.details.repoHealth || '(empty)'}</pre></div>
+              <div><div className="font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">Workspace Status</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{selectedBriefing.details.workspaceStatus || '(empty)'}</pre></div>
+              <div><div className="font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">Activity</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{selectedBriefing.details.activity || '(empty)'}</pre></div>
+              {selectedBriefing.details.fullContent && <div><div className="font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">Full</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{selectedBriefing.details.fullContent}</pre></div>}
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
         <div>
           <h1 className="text-lg font-bold text-(--vestara-text)">Activities</h1>
           <p className="text-[10px] text-(--vestara-text-muted) mt-1">
-            {notifications.length} notifications · {logEvents.length} log events
+            {notifications.length} notifications · {logEvents.length} log events · {briefings.length} briefings
           </p>
         </div>
         <div className="flex items-center gap-2">

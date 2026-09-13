@@ -1,5 +1,6 @@
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashPill, DashProgress, DashTile, enterDelay } from '../dashPremium';
 
 interface SprintsSectionProps {
   sprints: { active: Record<string, unknown>[] };
@@ -12,8 +13,8 @@ export default function SprintsSection({ sprints, execSessions, dragSection }: S
 
   return (
     <DashboardSection title="Active Sprints" icon="▤" dragSection={dragSection}>
-      <div className="space-y-2">
-        {sprints.active.map((s) => {
+      <ul className="space-y-1">
+        {sprints.active.map((s, i) => {
           const daysLeft = Math.max(0, Math.ceil((new Date(s.endDate as string).getTime() - Date.now()) / 86_400_000));
           const totalDays = Math.max(
             1,
@@ -22,34 +23,33 @@ export default function SprintsSection({ sprints, execSessions, dragSection }: S
             ),
           );
           const pct = Math.round(((totalDays - daysLeft) / totalDays) * 100);
+          const accent = daysLeft <= 3 ? '#ef4444' : '#22c55e';
           return (
-            <div
-              key={s.id as string}
-              className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]"
-              style={{ borderLeftColor: daysLeft <= 3 ? '#ef4444' : '#22c55e' }}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-sm font-medium text-(--vestara-text)">{s.name as string}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-[8px] text-(--vestara-text-dim) font-mono">{daysLeft > 0 ? `${daysLeft}d` : 'Ending'}</span>
-                  <span
-                    className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-medium ${daysLeft <= 3 ? 'bg-red-400/10 text-red-400' : 'bg-green-400/10 text-green-400'}`}
-                  >
-                    {s.status as string}
+            <li key={s.id as string} className="mpg-enter" style={enterDelay(i)}>
+              <div className="mpg-category-row group">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <DashTile accent={accent}>▤</DashTile>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                      {s.name as string}
+                      <span className="ml-2 font-mono text-[10px] font-normal text-[var(--vestara-text-muted)]">
+                        {daysLeft > 0 ? `${daysLeft}d left` : 'Ending'}
+                      </span>
+                    </span>
+                    {typeof s.goal === 'string' && s.goal && (
+                      <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{s.goal}</span>
+                    )}
+                    <span className="mt-1 block">
+                      <DashProgress value={pct} color={daysLeft <= 3 ? '#ef4444' : '#f59e0b'} />
+                    </span>
                   </span>
-                </div>
+                </span>
+                <DashPill dot={accent}>{s.status as string}</DashPill>
               </div>
-              {typeof s.goal === 'string' && s.goal && <div className="text-[10px] text-(--vestara-text-2) mb-1">{s.goal}</div>}
-              <div className="w-full bg-(--vestara-accent-bg) rounded-full h-1.5">
-                <div
-                  className={`h-1.5 rounded-full transition-all ${daysLeft <= 3 ? 'bg-red-500' : 'bg-amber-400'}`}
-                  style={{ width: `${Math.min(pct, 100)}%` }}
-                />
-              </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </DashboardSection>
   );
 }

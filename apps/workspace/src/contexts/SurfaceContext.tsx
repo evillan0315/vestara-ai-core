@@ -37,15 +37,40 @@ const NAV_ENTRIES: NavEntry[] = WORKSPACE_NAVIGATION.filter((entry) => entry.pat
   section: entry.group,
 }));
 
-function resolveSurfaceLocation(pathname: string): SurfaceLocation {
+function resolveSurfaceLocation(pathname: string, search?: string): SurfaceLocation {
   // Match longest path first to avoid prefix collisions (e.g., /sessions vs /sessions/:id)
   const match = [...NAV_ENTRIES]
     .sort((a, b) => b.to.length - a.to.length)
     .find((entry) => pathname === entry.to || (entry.to !== '/' && pathname.startsWith(entry.to + '/')) || (entry.to !== '/' && pathname === entry.to));
 
+  const searchParams = new URLSearchParams(search ?? '');
+  const tabParam = searchParams.get('tab');
+
+  // Tabs inside tabs: e.g. /settings/general?tab=typography → Typography tab
+  // and Intelligence parity: /intelligence/memory?tab=typography
+  // Make surface intelligence real-time: assistant sees the inner tab, not stale parent
+  const tabLabels: Record<string, string> = {
+    typography: 'Typography',
+    layout: 'Layout',
+    appearance: 'Appearance',
+    profiles: 'Profiles',
+    'theme-builder': 'Theme Builder',
+  };
+  if (tabParam && tabLabels[tabParam]) {
+    // For Settings General inner tabs and Intelligence leaves, surface should reflect inner tab
+    if (pathname === '/settings/general' || pathname.startsWith('/intelligence/')) {
+      return {
+        routeId: match?.to ?? pathname,
+        path: `${pathname}?tab=${tabParam}`,
+        title: tabLabels[tabParam],
+        section: match?.section ?? null,
+      };
+    }
+  }
+
   return {
     routeId: match?.to ?? null,
-    path: pathname,
+    path: tabParam ? `${pathname}?tab=${tabParam}` : pathname,
     title: match?.title ?? null,
     section: match?.section ?? null,
   };
@@ -91,9 +116,10 @@ export function SurfaceContextProvider({ children }: SurfaceContextProviderProps
   }, []);
 
   // Surface location — derived from React Router + workspace navigation registry
+  // Includes ?tab for tabs-inside-tabs so assistant is real-time aware (Typography inside General, Intelligence inner tabs)
   const surface: SurfaceLocation = useMemo(
-    () => resolveSurfaceLocation(location.pathname),
-    [location.pathname],
+    () => resolveSurfaceLocation(location.pathname, location.search),
+    [location.pathname, location.search],
   );
 
   // AR-009: Activity Room selection — set by Activity Room components

@@ -195,11 +195,7 @@ export async function handleWorkspaceRoute(
     }
     try {
       const session = ctx.runtime.getSession();
-      const result = await ctx.agentRuntime.run(
-        'agent-workspace-ui-tester',
-        'Run test + build for workspace-ui',
-        session,
-      );
+      const result = await ctx.agentRuntime.run('agent-verifier', 'Run test + build for workspace-ui', session);
       json(res, 200, {
         result: {
           status: result.execution.status,

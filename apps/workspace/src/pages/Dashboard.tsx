@@ -13,6 +13,8 @@ import DashboardHeader from './Dashboard/DashboardHeader';
 import { useDashboardData } from './Dashboard/useDashboardData';
 import { useDashboardLayout } from './Dashboard/useDashboardLayout';
 import { useSectionRenderer } from './Dashboard/useSectionRenderer';
+import '../styles/marketplace.css';
+import '../features/overview/overview.tokens.css';
 
 function useContinuity(data: ReturnType<typeof useDashboardData>): {
   context: ContinuityContext | null;
@@ -139,20 +141,28 @@ export default function Dashboard() {
 
   if (data.loading)
     return (
-      <div className="w-full animate-pulse">
-        <div className="mb-4">
-          <div className="h-8 w-64 bg-(--vestara-accent-bg) rounded mb-2" />
-          <div className="h-4 w-48 bg-(--vestara-accent-bg) rounded" />
-        </div>
-        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3 mb-6">
+      <div className="w-full min-w-0 space-y-4" role="status" aria-live="polite" aria-label="Loading dashboard">
+        <div className="mpg-skeleton h-44" />
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="h-20 bg-(--vestara-accent-bg) rounded-lg" />
+            <div key={i} className="mpg-skeleton h-20" />
           ))}
         </div>
+        <p className="sr-only">Loading workspace dashboard…</p>
       </div>
     );
 
-  if (data.error) return <div className="w-full py-8 text-center text-(--vestara-red)">{data.error}</div>;
+  if (data.error)
+    return (
+      <div className="w-full">
+        <div className="mpg-card flex items-center justify-between gap-3 p-4">
+          <p className="text-sm text-(--vestara-red)">{data.error}</p>
+          <button type="button" onClick={() => void data.refresh()} className="mpg-pill shrink-0">
+            Retry
+          </button>
+        </div>
+      </div>
+    );
 
   return (
     <div className="w-full" data-dragging={layout.dragId ? 'true' : undefined}>
@@ -178,19 +188,21 @@ export default function Dashboard() {
       />
 
       {/* Tab bar */}
-      <div className="flex items-center justify-between mb-2">
-        <div className="flex gap-0.5 bg-(--vestara-accent-bg) rounded-lg p-0.5">
+      <div className="flex items-center justify-between mb-3">
+        <div className="mpg-card flex gap-0.5 p-1">
           <button
             type="button"
             onClick={() => setTab(0)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 0 ? 'bg-zinc-700 text-(--vestara-text)' : 'text-(--vestara-text-2)hover:text-zinc-300'}`}
+            className={`mpg-pill cursor-pointer ${tab === 0 ? '' : 'opacity-60'}`}
+            aria-pressed={tab === 0}
           >
             Home
           </button>
           <button
             type="button"
             onClick={() => setTab(1)}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${tab === 1 ? 'bg-zinc-700 text-(--vestara-text)' : 'text-(--vestara-text-2)hover:text-zinc-300'}`}
+            className={`mpg-pill cursor-pointer ${tab === 1 ? '' : 'opacity-60'}`}
+            aria-pressed={tab === 1}
           >
             System
           </button>
@@ -198,7 +210,7 @@ export default function Dashboard() {
         <button
           type="button"
           onClick={() => setShowProjectDialog(true)}
-          className="flex items-center gap-1 text-xs px-3 py-1.5 accent-btn rounded cursor-pointer"
+          className="mpg-install-btn flex items-center gap-1 text-xs cursor-pointer"
         >
           <svg
             className="w-3.5 h-3.5"
@@ -309,7 +321,7 @@ export default function Dashboard() {
       {showWorkflowPicker && (
         <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 p-6" onClick={() => setShowWorkflowPicker(false)}>
           <div
-            className="w-full max-w-lg rounded-xl border border-(--vestara-accent-border) bg-[var(--vestara-accent-bg)] p-4"
+            className="mpg-card w-full max-w-lg p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-sm font-semibold text-(--vestara-text)">Start a New Workflow</h3>
@@ -339,7 +351,7 @@ export default function Dashboard() {
               <button
                 type="button"
                 onClick={() => setShowWorkflowPicker(false)}
-                className="rounded-md border border-(--vestara-accent-border) px-3 py-1.5 text-xs text-(--vestara-text-2) hover:text-zinc-300"
+                className="mpg-pill text-xs"
               >
                 Cancel
               </button>
@@ -347,7 +359,7 @@ export default function Dashboard() {
                 type="button"
                 onClick={() => void startWorkflow()}
                 disabled={wfStarting}
-                className="rounded-md bg-(--vestara-accent) px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mpg-install-btn text-xs disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {wfStarting ? 'Starting…' : 'Start workflow'}
               </button>

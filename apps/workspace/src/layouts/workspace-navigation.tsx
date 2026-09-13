@@ -55,6 +55,7 @@ export type WorkspaceNavGroupId =
   | 'workspace'
   | 'build'
   | 'automation'
+  | 'intelligence'
   | 'runtime'
   | 'operations'
   | 'extend'
@@ -182,6 +183,13 @@ export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
   { id: 'diagnostics', label: 'Diagnostics', path: '/diagnostics', icon: 'diagnostics', group: 'operations', order: 210, tier: 'secondary', description: 'System health, processes, and signals', keywords: ['diagnostics', 'health', 'processes', 'system'], hero: { eyebrow: 'Live telemetry', subtitle: 'System health, processes, and signals — instrument-grade, at a glance.' } },
   { id: 'graph', label: 'Engineering Graph', path: '/graph', icon: 'graph', group: 'build', order: 220, tier: 'secondary', description: 'Entities and relationships map', keywords: ['graph', 'engineering', 'map', 'relationships'], hero: { eyebrow: 'Navigation layer', subtitle: 'Entities, relationships, and health — the canonical map of the workspace.' } },
   { id: 'routing', label: 'Routing', path: '/routing', icon: 'routing', group: 'automation', order: 230, tier: 'secondary', description: 'Provider routing assignments', keywords: ['routing', 'providers', 'models', 'assignments'], hero: { eyebrow: 'AI OS', subtitle: 'Select routing intent; the runtime validates and records the effective assignment.' } },
+  // Intelligence grouping — canonical prefix /intelligence/*, covers knowledge/graph/routing/evidence/diagnostics
+  { id: 'intelligence', label: 'Intelligence', path: '/intelligence', icon: 'diagnostics', group: 'intelligence', order: 180, tier: 'secondary', description: 'Workspace intelligence — knowledge, graph, routing and evidence', keywords: ['intelligence', 'knowledge', 'graph', 'routing', 'evidence', 'ai'], hero: { eyebrow: 'Intelligence', subtitle: 'Knowledge, graph, routing and evidence — the intelligence layer.' } },
+  { id: 'intelligence-memory', label: 'Knowledge', path: '/intelligence/memory', icon: 'agents', group: 'intelligence', order: 181, tier: 'secondary', description: 'Knowledge graph', keywords: ['knowledge', 'memory', 'intelligence'] },
+  { id: 'intelligence-graph', label: 'Engineering Graph', path: '/intelligence/graph', icon: 'graph', group: 'intelligence', order: 182, tier: 'secondary', description: 'Entities and relationships map (intelligence)', keywords: ['graph', 'intelligence'] },
+  { id: 'intelligence-routing', label: 'Routing', path: '/intelligence/routing', icon: 'routing', group: 'intelligence', order: 183, tier: 'secondary', description: 'Provider routing assignments (intelligence)', keywords: ['routing', 'intelligence'] },
+  { id: 'intelligence-evidence', label: 'Evidence', path: '/intelligence/evidence', icon: 'files', group: 'intelligence', order: 184, tier: 'secondary', description: 'Verification evidence (intelligence)', keywords: ['evidence', 'intelligence'] },
+  { id: 'intelligence-diagnostics', label: 'Diagnostics', path: '/intelligence/diagnostics', icon: 'diagnostics', group: 'intelligence', order: 185, tier: 'secondary', description: 'System health and diagnostics (intelligence)', keywords: ['diagnostics', 'intelligence'] },
   { id: 'sessions', label: 'Sessions', path: '/sessions', icon: 'sessions', group: 'operations', order: 240, tier: 'secondary', description: 'Engineering sessions', keywords: ['sessions'] },
   { id: 'artifacts', label: 'Artifacts', path: '/artifacts', icon: 'artifacts', group: 'operations', order: 250, tier: 'secondary', description: 'Generated artifacts', keywords: ['artifacts'] },
   { id: 'ops', label: 'Operations', path: '/ops', icon: 'tools', group: 'operations', order: 260, tier: 'secondary', description: 'Workspace operations center', keywords: ['operations', 'ops', 'center'] },

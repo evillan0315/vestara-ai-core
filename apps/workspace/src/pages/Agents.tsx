@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import ExecutionDetailModal from '../components/ExecutionDetailModal';
 import { useToasts } from '../components/Toast';
 import { useEventStream } from '../lib/useEventStream';
 import { type MultiAgentWorkflowTemplateId, workflowApi } from '../lib/workflow';
@@ -16,16 +15,14 @@ import LiveActivityPanel from './Agents/LiveActivityPanel';
 import RuntimeStatusBar from './Agents/RuntimeStatusBar';
 import TeamCreatorModal from './Agents/TeamCreatorModal';
 import TeamsPanel from './Agents/TeamsPanel';
-import type { Agent, AgentStats, Execution, ExecutionSummary, HarnessSessionEntry, Team } from './Agents/types';
+import type { Agent, AgentStats, Execution, ExecutionSummary, Team } from './Agents/types';
 import WorkflowPanel from './Agents/WorkflowPanel';
+import '../styles/marketplace.css';
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [executions, setExecutions] = useState<Execution[]>([]);
-  const [selectedAgent, setSelectedAgent] = useState<Agent | null>(null);
-  const [selectedExecution, setSelectedExecution] = useState<Execution | null>(null);
-  const [harnessSessions, setHarnessSessions] = useState<HarnessSessionEntry[]>([]);
   const [showRegistry, setShowRegistry] = useState(false);
   const [showTeamCreator, setShowTeamCreator] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
@@ -42,11 +39,6 @@ export default function AgentsPage() {
       setExecutions(data.executions);
       const teamData = await apiFetch<{ teams: Team[] }>('/api/teams').catch(() => ({ teams: [] }));
       setTeams(teamData.teams);
-      const sessionData = await apiFetch<{
-        sessions: Array<{ id: string; workflowId?: string; goal?: string; status: string; createdAt: string }>;
-      }>('/api/sessions/executions').catch(() => null);
-      if (sessionData?.sessions)
-        setHarnessSessions(sessionData.sessions.filter((s) => (s.workflowId ?? '').startsWith('thread:')));
     } catch {}
   }, []);
 
@@ -167,7 +159,6 @@ export default function AgentsPage() {
     if (!window.confirm('Delete this agent?')) return;
     try {
       await apiFetch(`/api/agents/${id}`, { method: 'DELETE' });
-      if (selectedAgent?.id === id) setSelectedAgent(null);
       addToast({ type: 'success', message: 'Agent deleted' });
       load();
     } catch (err: any) {
@@ -297,17 +288,10 @@ export default function AgentsPage() {
 
       <AgentCategoryList
         agents={filteredAgents}
-        teams={teams}
-        executions={executions}
         agentStats={agentStats}
-        selectedAgent={selectedAgent}
-        harnessSessions={harnessSessions}
-        onSelectAgent={setSelectedAgent}
         onEditAgent={openEditAgent}
         onToggleStatus={(agent) => void toggleAgentStatus(agent)}
         onDeleteAgent={(id) => void deleteAgent(id)}
-        onOpenExecution={setSelectedExecution}
-        onLoad={load}
       />
 
       {/* Sidebar panels */}
@@ -331,13 +315,6 @@ export default function AgentsPage() {
         />
       )}
       {showTeamCreator && <TeamCreatorModal onSave={createTeam} onClose={() => setShowTeamCreator(false)} />}
-      {selectedExecution && (
-        <ExecutionDetailModal
-          execution={selectedExecution}
-          agents={agents}
-          onClose={() => setSelectedExecution(null)}
-        />
-      )}
     </div>
   );
 }

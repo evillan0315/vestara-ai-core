@@ -387,6 +387,30 @@ function makeClientTurnId(): string {
   return `turn-${Date.now()}-${clientTurnCounter}`;
 }
 
+// ── Sticky session: selected conversation persists across switches/reloads ──
+// Server remains authoritative for messages; localStorage only remembers
+// which conversation to reselect. GA-DETACH-001 still applies: switching
+// detaches the live stream, server execution continues, return reloads.
+const SELECTED_KEY = 'vestara:assistant:selected-conversation';
+function readStoredSelection(): string | null {
+  try {
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(SELECTED_KEY);
+    return raw && raw.length > 0 ? raw : null;
+  } catch {
+    return null;
+  }
+}
+function writeStoredSelection(id: string | null): void {
+  try {
+    if (typeof localStorage === 'undefined') return;
+    if (id) localStorage.setItem(SELECTED_KEY, id);
+    else localStorage.removeItem(SELECTED_KEY);
+  } catch {
+    // Persistence is best-effort; selection still works in-memory.
+  }
+}
+
 // ─── Hook ─────────────────────────────────────────────────────
 
 export function useAssistantConversation(): UseAssistantConversationReturn {
@@ -509,6 +533,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const selectedIdRef = useRef<string | null>(null);
   const lastConvIdRef = useRef<string | null>(null);
   const preserveOptimisticRef = useRef(false); // set while ensure-conversation runs inside a send
+  const restoredSelectionRef = useRef(false); // sticky-session restore runs once per mount
 
   // ── List conversations on mount ──
   const refreshList = useCallback(async () => {
@@ -587,6 +612,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       }
       setSelectedId(id);
       selectedIdRef.current = id;
+      writeStoredSelection(id);
       setSelectedConversation(null);
       setMessages([]);
       setMessagesError(null);
@@ -606,6 +632,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
             setSelectedConversation(null);
             setMessages([]);
             setMessagesError('Failed to load conversation');
+            if (readStoredSelection() === id) writeStoredSelection(null);
           })
           .finally(() => {
             setMessagesLoading(false);
@@ -616,6 +643,30 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     },
     [],
   );
+
+  // ── Sticky restore: once per mount, reselect the stored conversation ──
+  // Runs after the list loads. If the stored id still exists, reselect it
+  // (server reloads canonical messages). If deleted, drop the stale key.
+  useEffect(() => {
+    if (restoredSelectionRef.current || listLoading) return;
+    if (selectedIdRef.current) {
+      restoredSelectionRef.current = true;
+      return;
+    }
+    const stored = readStoredSelection();
+    if (!stored) {
+      restoredSelectionRef.current = true;
+      return;
+    }
+    if (conversations.some((c) => c.id === stored)) {
+      restoredSelectionRef.current = true;
+      selectConversation(stored);
+    } else if (conversations.length > 0 || listError) {
+      // List resolved but stored id is gone — drop stale key.
+      restoredSelectionRef.current = true;
+      writeStoredSelection(null);
+    }
+  }, [conversations, listLoading, listError, selectConversation]);
 
   // ── Create conversation ──
   const createConversation = useCallback(async (): Promise<string | null> => {

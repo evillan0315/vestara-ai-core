@@ -1,6 +1,8 @@
+import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
 import type { MilestoneResponse } from '../../../components/dashboard/constants';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashPill, DashTile, enterDelay } from '../dashPremium';
 
 interface ActiveDevSectionProps {
   activeMilestones: MilestoneResponse['milestones'];
@@ -18,70 +20,81 @@ export default function ActiveDevSection({
   if (activeMilestones.length === 0 && upcomingMilestones.length === 0) {
     return (
       <DashboardSection title="Active Development" icon="△" dragSection={dragSection}>
-        <div className="flex flex-col items-center justify-center p-5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
-          <div className="text-lg mb-1 opacity-20">🎯</div>
-          <p className="text-[10px] text-(--vestara-text-dim)">All milestones completed</p>
-        </div>
+        <MarketplaceEmptyState message="All milestones completed." />
       </DashboardSection>
     );
   }
 
   return (
     <DashboardSection title="Active Development" icon="△" dragSection={dragSection}>
-      <div className="space-y-2">
-        {activeMilestones.map((m) => (
-          <div
-            key={m.version}
-            className="flex items-center gap-3 p-3 bg-(--vestara-accent-bg) border border-l-[3px] rounded-lg"
-            style={{ borderLeftColor: '#f59e0b', borderColor: '#27272a' }}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
-                <span className="text-xs font-semibold text-amber-400">{m.version}</span>
-                <span className="text-sm text-(--vestara-text)">{m.name}</span>
+      <ul className="space-y-1">
+        {activeMilestones.map((m, i) => (
+          <li key={m.version} className="mpg-enter" style={enterDelay(i)}>
+            <div className="mpg-category-row group">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <DashTile accent="#f59e0b">△</DashTile>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                    <span className="mr-2 font-mono text-[11px] font-normal text-amber-400">{m.version}</span>
+                    {m.name}
+                  </span>
+                  <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{m.description}</span>
+                </span>
+              </span>
+              <span className="flex shrink-0 items-center gap-2">
                 <select
                   value={m.status}
                   onChange={(e) => updateMilestoneStatus(m.version, e.target.value)}
-                  className="bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded text-[8px] px-1 py-0.5 outline-none cursor-pointer"
+                  className="mpg-sort cursor-pointer"
+                  aria-label={`Status for ${m.name}`}
                 >
                   <option value="pending">Pending</option>
                   <option value="in_progress">In Progress</option>
                   <option value="completed">Completed</option>
                 </select>
-              </div>
-              <div className="text-[10px] text-(--vestara-text-2) mt-0.5">{m.description}</div>
+                <DashPill dot="#f59e0b">Active</DashPill>
+              </span>
             </div>
-          </div>
+          </li>
         ))}
-        {upcomingMilestones.length > 0 && (
-          <>
-            <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest pt-1 px-1">Next Up</div>
-            <div className="space-y-1">
-              {upcomingMilestones.map((m) => (
-                <div
-                  key={m.version}
-                  className="flex items-center gap-2 text-xs py-1 px-2 rounded hover:bg-(--vestara-accent-bg) transition-colors"
-                >
-                  <span className="w-2 h-2 rounded-full bg-(--vestara-text-dim) shrink-0" />
-                  <span className="text-[9px] font-mono text-(--vestara-text-muted) w-14">{m.version}</span>
-                  <span className="text-[10px] text-(--vestara-text-2) flex-1 truncate">{m.name}</span>
-                  <select
-                    value={m.status}
-                    onChange={(e) => updateMilestoneStatus(m.version, e.target.value)}
-                    className="bg-zinc-800 border border-zinc-700 text-(--vestara-text-2) rounded text-[7px] px-1 py-0.5 outline-none cursor-pointer"
-                  >
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                  <span className="text-[8px] text-(--vestara-text-dim) bg-zinc-800/50 rounded px-1 py-0.5">{m.era}</span>
+      </ul>
+      {upcomingMilestones.length > 0 && (
+        <>
+          <div className="px-1 pt-2 text-[9px] uppercase tracking-widest text-(--vestara-text-muted)">Next Up</div>
+          <ul className="space-y-1">
+            {upcomingMilestones.map((m, i) => (
+              <li key={m.version} className="mpg-enter" style={enterDelay(i)}>
+                <div className="mpg-category-row group">
+                  <span className="flex min-w-0 flex-1 items-center gap-3">
+                    <DashTile accent="#52525b">○</DashTile>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                        <span className="mr-2 font-mono text-[11px] font-normal text-[var(--vestara-text-muted)]">
+                          {m.version}
+                        </span>
+                        {m.name}
+                      </span>
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2">
+                    <select
+                      value={m.status}
+                      onChange={(e) => updateMilestoneStatus(m.version, e.target.value)}
+                      className="mpg-sort cursor-pointer"
+                      aria-label={`Status for ${m.name}`}
+                    >
+                      <option value="pending">Pending</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="completed">Completed</option>
+                    </select>
+                    <span className="mpg-tag-pill shrink-0">{m.era}</span>
+                  </span>
                 </div>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
     </DashboardSection>
   );
 }

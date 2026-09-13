@@ -17,7 +17,7 @@
  * - Humans: actor.type === 'human'
  * - Tools: kind === 'tool-call' || kind === 'tool-result'
  * - Executions: kind === 'activity' || kind === 'progress'
- * - Errors: kind === 'error' (canonical severity metadata, not string matching)
+ * - Errors: kind === 'diagnostic' (authoritative failure class, not string matching)
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -146,13 +146,16 @@ export default function M11CActivityStream({
       humans: base.filter((i) => i.actor.type === 'human').length,
       tools: base.filter((i) => i.kind === 'tool-call' || i.kind === 'tool-result').length,
       executions: base.filter((i) => i.kind === 'activity' || i.kind === 'progress').length,
-      errors: base.filter((i) => i.kind === 'error').length,
+      // 008D: no producer emits kind 'error' — the authoritative failure
+      // class is kind 'diagnostic' (M10 classifyKind). Deterministic kind
+      // mapping, not string matching.
+      errors: base.filter((i) => i.kind === 'diagnostic').length,
     };
   }, [items, selectedParticipantId]);
 
   // ─── Filtering ──────────────────────────────────────────
   // Uses canonical M11C stream `kind` values, not string matching.
-  // Error filter uses canonical `kind === 'error'` metadata.
+  // Error filter uses the authoritative failure class (kind 'diagnostic').
 
   const filtered = useMemo(() => {
     let result = items;
@@ -177,9 +180,8 @@ export default function M11CActivityStream({
           case 'executions':
             return item.kind === 'activity' || item.kind === 'progress';
           case 'errors':
-            // Canonical severity metadata: kind === 'error'
-            // Do NOT search item.content for error-like words.
-            return item.kind === 'error';
+            // Authoritative failure class (see filterCounts).
+            return item.kind === 'diagnostic';
           default:
             return true;
         }
@@ -256,23 +258,24 @@ export default function M11CActivityStream({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      {/* ── Filter Bar ──────────────────────────────────── */}
+      {/* ── Filter Bar (canonical pill tabs; kind-driven, not text) ── */}
       <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
-        <div className="ar-stream-filter__tabs" role="tablist">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" role="tablist" aria-label="Stream categories">
           {FILTER_TABS.map((tab) => {
             const count = filterCounts[tab.id];
+            const active = activeFilter === tab.id;
             return (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
-                aria-selected={activeFilter === tab.id}
-                className={`ar-stream-filter__tab ${activeFilter === tab.id ? 'ar-stream-filter__tab--active' : ''}`}
+                aria-selected={active}
                 onClick={() => setActiveFilter(tab.id)}
+                className={`inline-flex min-h-7 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border px-2.5 text-[var(--vestara-font-size-xs)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${active ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-[var(--vestara-border-default)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text)]'}`}
               >
                 {tab.label}
                 {count > 0 && (
-                  <span className="ar-stream-filter__count">{count > 999 ? '999+' : count}</span>
+                  <span className="font-mono tabular-nums opacity-80">{count > 999 ? '999+' : count}</span>
                 )}
               </button>
             );
@@ -314,7 +317,7 @@ export default function M11CActivityStream({
         ) : rendered.length === 0 ? (
           <EmptyState
             icon={<span className="text-2xl">❖</span>}
-            title="The room awaits."
+            title="Waiting for activity…"
             description="No activity yet. Start a workflow and its progress will appear here in real time."
             className="ar-empty"
           />

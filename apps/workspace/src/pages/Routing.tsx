@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type AgentData, getAgents } from '../lib/api.js';
 import { VestaraModal } from '../components/ui/VestaraModal';
-import { PageHero } from '../components/layout/PageHero/PageHero.js';
+import { RouteHero } from '../components/layout/PageHero/RouteHero';
 import {
   type EngineeringAgentRole,
   type ProviderModelRef,
@@ -125,23 +125,17 @@ export default function RoutingPage() {
 
   return (
     <div className="space-y-6 p-[var(--vestara-spacing-page)] text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-      <PageHero
-        eyebrow="AI OS"
-        title="Engineering Routing"
-        subtitle="Select routing intent; the runtime validates and records the effective assignment."
+      <RouteHero
         stats={[
           { label: 'revision', value: state.selection.revision },
           { label: 'profiles', value: state.catalog.profiles.length },
           { label: 'assignments', value: state.assignments.length },
         ]}
-        checklistTitle="Active selection"
         checklist={[
           `◇ ${state.catalog.profiles.find((p) => p.id === draft.profileId)?.name ?? draft.profileId}`,
           `◇ Revision ${state.selection.revision}`,
           `◇ Updated by ${state.selection.updatedByClientId}`,
         ]}
-        checklistLabel="Active routing selection"
-        label="Engineering routing highlights"
       />
 
       {error && (

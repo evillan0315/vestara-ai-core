@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/terminal-runtime",
+  "description": "Governed interactive shell sessions — session-scoped bash processes with idle/lifetime bounds, transcript ring, and secret redaction (GA-TERM-001 Phase 3)",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/terminal-runtime/__tests__"
+  },
+  "dependencies": {
+    "@vestara/shared": "workspace:*",
+    "node-pty": "^1.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashPill, DashProgress, DashTile, enterDelay } from '../dashPremium';
 
 interface ProjectsSectionProps {
   projects: Record<string, unknown>[];
@@ -15,13 +17,10 @@ export default function ProjectsSection({ projects, dragSection, onRefresh }: Pr
   return (
     <DashboardSection title="Projects" icon="▤" dragSection={dragSection}>
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-5 bg-primary-900/50 border border-(--vestara-accent-border) rounded-lg text-center">
-          <div className="text-lg mb-1 opacity-20">▤</div>
-          <p className="text-[10px] text-(--vestara-text-dim)">No projects</p>
-        </div>
+        <MarketplaceEmptyState message="No projects yet." />
       ) : (
-        <div className="space-y-2">
-          {projects.slice(0, 4).map((p) => {
+        <ul className="space-y-1">
+          {projects.slice(0, 4).map((p, i) => {
             const sc = (p.stats as { total: number; done: number; inProgress: number }) || {
               total: 0,
               done: 0,
@@ -35,8 +34,9 @@ export default function ProjectsSection({ projects, dragSection, onRefresh }: Pr
             };
             const isExpanded = expandedProject === p.id;
             const tasks = projectTasks[p.id as string] || [];
+            const accent = statusColors[p.status as string] || '#6b7280';
             return (
-              <div key={p.id as string}>
+              <li key={p.id as string} className="mpg-enter" style={enterDelay(i)}>
                 <div
                   onClick={async () => {
                     if (isExpanded) {
@@ -49,25 +49,23 @@ export default function ProjectsSection({ projects, dragSection, onRefresh }: Pr
                       if (d) setProjectTasks((prev) => ({ ...prev, [p.id as string]: d.tasks || [] }));
                     }
                   }}
-                  className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors cursor-pointer border-l-[3px]"
-                  style={{ borderLeftColor: statusColors[p.status as string] || '#6b7280' }}
+                  className="mpg-category-row group cursor-pointer"
                 >
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm text-(--vestara-text) truncate font-medium flex-1">{p.name as string}</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] text-(--vestara-text-muted)">
+                  <span className="flex min-w-0 flex-1 items-center gap-3">
+                    <DashTile accent={accent}>▤</DashTile>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                        {p.name as string}
+                      </span>
+                      <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">
                         {sc.total} tasks · {sc.done} done
                       </span>
-                      <span
-                        className={`text-[8px] px-1.5 py-0.5 rounded uppercase font-medium ${(p.status as string) === 'active' ? 'bg-green-400/10 text-green-400' : (p.status as string) === 'planning' ? 'bg-amber-400/10 text-amber-400' : 'bg-zinc-800 text-(--vestara-text-2)'}`}
-                      >
-                        {p.status as string}
+                      <span className="mt-1 block">
+                        <DashProgress value={pct} color={accent} />
                       </span>
-                    </div>
-                  </div>
-                  <div className="w-full bg-(--vestara-accent-bg) rounded-full h-1">
-                    <div className="h-1 rounded-full bg-green-500 transition-all" style={{ width: `${pct}%` }} />
-                  </div>
+                    </span>
+                  </span>
+                  <DashPill dot={accent}>{p.status as string}</DashPill>
                 </div>
                 {isExpanded && tasks.length > 0 && (
                   <div className="ml-3 mt-1 border-l-2 border-(--vestara-accent-border) pl-3 space-y-0.5">
@@ -102,14 +100,15 @@ export default function ProjectsSection({ projects, dragSection, onRefresh }: Pr
                       ))}
                   </div>
                 )}
-              </div>
+              </li>
             );
           })}
-          <a
-            href="/projects"
-            className="block text-[10px] text-(--vestara-text-muted) text-center py-1.5 hover:text-(--vestara-text-2) transition-colors rounded-lg bg-(--vestara-accent-bg) border border-(--vestara-accent-border)"
-          >
-            All Projects →
+        </ul>
+      )}
+      {projects.length > 0 && (
+        <div className="mt-2 text-center">
+          <a href="/projects" className="mpg-link">
+            All Projects<span aria-hidden="true"> ›</span>
           </a>
         </div>
       )}

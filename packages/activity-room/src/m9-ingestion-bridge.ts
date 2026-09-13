@@ -417,7 +417,7 @@ export class M9IngestionBridge {
     // Different runtime producers (conversation service, agent harness) map to
     // canonical Activity semantics downstream — this is NOT agent:started.
     if (type === 'conversation:provider.request.started') {
-      const conversationId = (event.payload.conversationId as string) || 'unknown';
+      const _conversationId = (event.payload.conversationId as string) || 'unknown';
       const model = (event.payload.model as string) || undefined;
       return fromAgentLifecycle({
         agentId: 'vestara',

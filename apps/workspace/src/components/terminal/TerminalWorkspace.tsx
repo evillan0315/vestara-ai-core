@@ -1,3 +1,18 @@
+/**
+ * GA-TERM-001 Phase 3 — real terminal workspace.
+ *
+ * Each tab is a server session (`POST /api/terminal/sessions`); the active
+ * tab holds one WebSocket to `/ws/terminal?sessionId=…` carrying raw frames:
+ * client `{op:'input'|'interrupt'|'resize'|'ping'}` → server
+ * `{op:'stdout'|'stderr'|'cwd'|'exit'|'error'}`. The backend `bash` owns the
+ * prompt and echo discipline except keystroke echo: piped stdio has no tty
+ * line discipline, so `TerminalPane` echoes locally and this workspace
+ * forwards complete lines (plus Ctrl-C/Ctrl-D control handling).
+ *
+ * Detaching (tab switch, socket drop) never kills the session — only the
+ * tab ×, idle timeout, lifetime deadline, or server shutdown does.
+ */
+
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { TerminalEmptyState } from './TerminalEmptyState';
 import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from './TerminalPane';
@@ -11,6 +26,7 @@ export default function TerminalWorkspace() {
     sessions,
     activeId,
     activeSession,
+    error: sessionError,
     addSession,
     removeSession,
     renameSession,
@@ -21,17 +37,15 @@ export default function TerminalWorkspace() {
   } = useTerminalSessions();
 
   const [connected, setConnected] = useState(false);
-  const [reconnectCount, setReconnectCount] = useState(0);
   const [uptime, setUptime] = useState(0);
+  // Sessions backed by the pty driver echo in-kernel: raw passthrough, no
+  // line buffering, no local echo. Spawn sessions keep line discipline.
+  const [ptySessions, setPtySessions] = useState<Readonly<Record<string, boolean>>>({});
+  const isPty = activeId !== null && ptySessions[activeId] === true;
   const wsRef = useRef<WebSocket | null>(null);
   const lineBufRef = useRef<Record<string, string>>({});
   const uptimeRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  const startUptime = useCallback(() => {
-    if (uptimeRef.current) clearInterval(uptimeRef.current);
-    setUptime(0);
-    uptimeRef.current = setInterval(() => setUptime((p) => p + 1), 1000);
-  }, []);
+  const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopUptime = useCallback(() => {
     if (uptimeRef.current) {
@@ -41,150 +55,171 @@ export default function TerminalWorkspace() {
     setUptime(0);
   }, []);
 
-  const connectWs = useCallback(() => {
-    const ws = new WebSocket(resolveWsUrl('/ws'));
-    wsRef.current = ws;
+  const closeSocket = useCallback(() => {
+    if (retryRef.current) {
+      clearTimeout(retryRef.current);
+      retryRef.current = null;
+    }
+    wsRef.current?.close();
+    wsRef.current = null;
+    setConnected(false);
+    stopUptime();
+  }, [stopUptime]);
 
-    ws.onopen = () => {
-      setConnected(true);
-      setReconnectCount(0);
-      ws.send(JSON.stringify({ op: 'subscribe', channels: ['workspace'] }));
-      startUptime();
-    };
+  const connectSession = useCallback(
+    (sessionId: string) => {
+      closeSocket();
+      setSessionStatus(sessionId, 'connecting');
+      const ws = new WebSocket(resolveWsUrl(`/ws/terminal?sessionId=${encodeURIComponent(sessionId)}`));
+      wsRef.current = ws;
 
-    ws.onclose = () => {
-      setConnected(false);
-      stopUptime();
-      setReconnectCount((c) => c + 1);
-      setTimeout(connectWs, 3000);
-    };
+      ws.onopen = () => {
+        setConnected(true);
+        setSessionStatus(sessionId, 'connected');
+        setUptime(0);
+        if (uptimeRef.current) clearInterval(uptimeRef.current);
+        uptimeRef.current = setInterval(() => setUptime((p) => p + 1), 1000);
+      };
 
-    ws.onerror = () => setConnected(false);
+      ws.onclose = () => {
+        if (wsRef.current !== ws) return;
+        wsRef.current = null;
+        setConnected(false);
+        stopUptime();
+        setSessionStatus(sessionId, 'disconnected');
+        // Reattach (never kill): the backend session survives socket drops.
+        retryRef.current = setTimeout(() => connectSession(sessionId), 3000);
+      };
 
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.op === 'output' && msg.sessionId && msg.text) {
-          writeToTerminal(msg.sessionId, msg.text);
-        } else if (msg.op === 'prompt' && msg.sessionId) {
-          writelnToTerminal(msg.sessionId, '');
-          lineBufRef.current[msg.sessionId] = '';
-        } else if (msg.op === 'stdout' && msg.sessionId) {
-          writeToTerminal(msg.sessionId, msg.text);
-        } else if (msg.op === 'stderr' && msg.sessionId) {
-          writeToTerminal(msg.sessionId, `\x1b[31m${msg.text}\x1b[0m`);
-        } else if (msg.op === 'exit' && msg.sessionId) {
-          setProcessStatus(msg.sessionId, 'completed', msg.code ?? 0);
-        } else if (msg.op === 'cwd' && msg.sessionId && msg.cwd) {
-          setCwd(msg.sessionId, msg.cwd);
+      ws.onerror = () => {
+        setSessionStatus(sessionId, 'error');
+      };
+
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data) as Record<string, unknown>;
+          if (msg.op === 'stdout' && typeof msg.text === 'string') {
+            writeToTerminal(sessionId, msg.text);
+          } else if (msg.op === 'stderr' && typeof msg.text === 'string') {
+            writeToTerminal(sessionId, `\x1b[31m${msg.text}\x1b[0m`);
+          } else if (msg.op === 'cwd' && typeof msg.cwd === 'string') {
+            setCwd(sessionId, msg.cwd);
+          } else if (msg.op === 'driver' && msg.driver === 'pty') {
+            setPtySessions((prev) => ({ ...prev, [sessionId]: true }));
+          } else if (msg.op === 'exit') {
+            const code = typeof msg.code === 'number' ? msg.code : 0;
+            setProcessStatus(sessionId, code === 0 ? 'completed' : 'failed', code);
+            writelnToTerminal(sessionId, `\r\n[session ended · exit ${code}]`);
+          } else if (msg.op === 'error' && typeof msg.error === 'string') {
+            writelnToTerminal(sessionId, `\r\n\x1b[31m${msg.error}\x1b[0m`);
+          }
+        } catch {
+          /* malformed frame — ignore */
         }
-      } catch {}
-    };
-  }, [startUptime, stopUptime, setProcessStatus, setCwd]);
+      };
+    },
+    [closeSocket, setCwd, setProcessStatus, setSessionStatus, stopUptime],
+  );
 
+  // One socket for the active tab; switching tabs detaches (session survives).
   useEffect(() => {
-    connectWs();
+    if (activeId) connectSession(activeId);
+    else closeSocket();
     return () => {
       wsRef.current?.close();
+      wsRef.current = null;
+      if (retryRef.current) {
+        clearTimeout(retryRef.current);
+        retryRef.current = null;
+      }
       stopUptime();
     };
-  }, []);
+    // connectSession/closeSocket are stable; activeId drives reconnection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
-  const execLocalCommand = useCallback(
-    (sessionId: string, cmd: string) => {
-      const args = cmd.split(/\s+/);
-      const main = args[0].toLowerCase();
-      if (main === 'help') {
-        writelnToTerminal(sessionId, '');
-        writelnToTerminal(sessionId, 'Available commands:');
-        writelnToTerminal(sessionId, '  help          Show this help');
-        writelnToTerminal(sessionId, '  clear         Clear terminal');
-        writelnToTerminal(sessionId, '  echo <text>   Print text');
-        writelnToTerminal(sessionId, '  date          Show current date/time');
-        writelnToTerminal(sessionId, '  whoami        Show user');
-        writelnToTerminal(sessionId, '  uptime        Show connection uptime');
-        writelnToTerminal(sessionId, '  status        Show connection status');
-        writelnToTerminal(sessionId, '  health        Show system health');
-      } else if (main === 'clear') {
-        clearTerminal(sessionId);
-      } else if (main === 'echo') {
-        writelnToTerminal(sessionId, args.slice(1).join(' '));
-      } else if (main === 'date') {
-        writelnToTerminal(sessionId, new Date().toString());
-      } else if (main === 'whoami') {
-        writelnToTerminal(sessionId, 'developer');
-      } else if (main === 'uptime') {
-        writelnToTerminal(sessionId, `Uptime: ${uptime}s`);
-      } else if (main === 'status') {
-        writelnToTerminal(sessionId, `Connected: ${connected}`);
-        writelnToTerminal(sessionId, `Reconnects: ${reconnectCount}`);
-        writelnToTerminal(sessionId, `Uptime: ${uptime}s`);
-      } else if (main === 'health') {
-        writelnToTerminal(sessionId, 'Vestara Terminal');
-        writelnToTerminal(sessionId, `  Backend: ${connected ? 'connected' : 'disconnected'}`);
-        writelnToTerminal(sessionId, `  Shell: bash (local mode)`);
-        writelnToTerminal(sessionId, `  Session: ${sessionId.slice(0, 12)}...`);
-      } else {
-        writelnToTerminal(sessionId, `Command not found: ${main}`);
-      }
-      setProcessStatus(sessionId, 'completed', 0);
-      writeToTerminal(sessionId, '\r\n$ ');
-    },
-    [connected, reconnectCount, uptime, setProcessStatus],
-  );
+  const sendInput = useCallback((sessionId: string, data: string) => {
+    const ws = wsRef.current;
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ op: 'input', data }));
+    } else {
+      writelnToTerminal(sessionId, '\r\n[not connected — retrying…]');
+    }
+  }, []);
 
   const handleTerminalData = useCallback(
     (sessionId: string, data: string) => {
-      const buf = lineBufRef.current[sessionId] || '';
-      let lastCr = false;
+      if (ptySessions[sessionId] === true) {
+        // Pty: raw passthrough — the kernel tty owns echo, line editing,
+        // and signals (Ctrl-C/Ctrl-D arrive as bytes the tty interprets).
+        // `clear` runs for real (terminfo present); nothing is local.
+        setProcessStatus(sessionId, 'running');
+        sendInput(sessionId, data);
+        return;
+      }
       for (const ch of data) {
-        if (ch === '\n' && lastCr) {
-          lastCr = false;
-          continue;
-        }
-        lastCr = ch === '\r';
-        if (ch === '\r' || ch === '\n') {
-          const cmd = buf.trim();
-          if (cmd) {
-            setProcessStatus(sessionId, 'running');
-            const ws = wsRef.current;
-            if (ws?.readyState === WebSocket.OPEN) {
-              ws.send(JSON.stringify({ op: 'repl', command: cmd, sessionId }));
-            } else {
-              execLocalCommand(sessionId, cmd);
-            }
-          } else {
-            writeToTerminal(sessionId, '\r\n$ ');
-          }
+        if (ch === '\x03') {
+          // Ctrl-C: foreground interrupt via the backend process group.
+          const ws = wsRef.current;
+          if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ op: 'interrupt' }));
+          writeToTerminal(sessionId, '^C\r\n');
           lineBufRef.current[sessionId] = '';
+          setProcessStatus(sessionId, 'running');
+        } else if (ch === '\x04') {
+          // Ctrl-D: EOF on stdin (shell exits at prompt). Only when the line
+          // is empty — otherwise ignore (no tty line editing to emulate).
+          if (!lineBufRef.current[sessionId]) sendInput(sessionId, '\x04');
+        } else if (ch === '\r' || ch === '\n') {
+          const cmd = (lineBufRef.current[sessionId] || '').trim();
+          lineBufRef.current[sessionId] = '';
+          if (cmd === 'clear') {
+            clearTerminal(sessionId);
+          } else if (cmd === 'help') {
+            // Display-only help; everything else executes in the backend shell.
+            writelnToTerminal(sessionId, '');
+            writelnToTerminal(sessionId, 'Vestara Terminal — real shell, workspace-scoped.');
+            writelnToTerminal(sessionId, '  clear         Clear this view (display only)');
+            writelnToTerminal(sessionId, '  Ctrl-C        Interrupt the foreground process');
+            writelnToTerminal(sessionId, '  Ctrl-D        End input (exits the shell at prompt)');
+            writelnToTerminal(sessionId, 'Everything else runs in bash under the workspace root.');
+          } else if (cmd) {
+            setProcessStatus(sessionId, 'running');
+            // The pane already echoed the line; the backend echoes nothing
+            // (piped stdio), so advance past it before the command output.
+            writeToTerminal(sessionId, '\r\n');
+            sendInput(sessionId, `${cmd}\n`);
+          } else {
+            // Empty line: the backend shell prints its own fresh prompt.
+            sendInput(sessionId, '\n');
+          }
         } else if (ch === '\x7f') {
-          lineBufRef.current[sessionId] = buf.slice(0, -1);
-        } else {
+          lineBufRef.current[sessionId] = (lineBufRef.current[sessionId] || '').slice(0, -1);
+        } else if (ch >= ' ' || ch === '\t') {
           lineBufRef.current[sessionId] = (lineBufRef.current[sessionId] || '') + ch;
         }
       }
     },
-    [setProcessStatus, execLocalCommand],
+    [ptySessions, sendInput, setProcessStatus],
   );
 
-  const handleNewSession = useCallback(() => {
-    const id = addSession('bash', '~');
+  const handleResize = useCallback((cols: number, rows: number) => {
     const ws = wsRef.current;
-    if (ws?.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ op: 'create_terminal', sessionId: id }));
-    }
-    setSessionStatus(id, 'connected');
-  }, [addSession, setSessionStatus]);
+    if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ op: 'resize', cols, rows }));
+  }, []);
+
+  const handleNewSession = useCallback(() => {
+    void addSession();
+  }, [addSession]);
 
   const handleCloseSession = useCallback(
     (id: string) => {
-      const ws = wsRef.current;
-      if (ws?.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ op: 'kill_terminal', sessionId: id }));
+      if (wsRef.current && activeId === id) {
+        wsRef.current.close();
+        wsRef.current = null;
       }
       removeSession(id);
     },
-    [removeSession],
+    [activeId, removeSession],
   );
 
   return (
@@ -203,17 +238,28 @@ export default function TerminalWorkspace() {
       <div className="flex-1 min-h-0 overflow-hidden" key={activeId || 'empty'}>
         {activeSession ? (
           <div className="w-full h-full">
-            <TerminalPane sessionId={activeSession.id} onData={(data) => handleTerminalData(activeSession.id, data)} />
+            <TerminalPane
+              sessionId={activeSession.id}
+              onData={(data) => handleTerminalData(activeSession.id, data)}
+              onResize={(cols, rows) => handleResize(cols, rows)}
+              localEcho={!isPty}
+            />
           </div>
         ) : (
           <TerminalEmptyState onNewSession={handleNewSession} />
         )}
       </div>
 
+      {sessionError && (
+        <div className="shrink-0 border-t border-red-500/30 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-300" role="alert">
+          {sessionError}
+        </div>
+      )}
+
       <TerminalStatusBar
         session={activeSession}
         connected={connected}
-        reconnectCount={reconnectCount}
+        reconnectCount={0}
         uptime={uptime}
       />
     </div>

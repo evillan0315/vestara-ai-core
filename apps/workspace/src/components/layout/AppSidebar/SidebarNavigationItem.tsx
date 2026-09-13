@@ -15,7 +15,9 @@ export interface SidebarNavigationItemProps {
 
 function dispatchNavAction(action: WorkspaceNavAction): void {
   if (action === 'open-assistant') {
-    window.dispatchEvent(new CustomEvent('open-assistant'));
+    // The navigation entry is the dedicated assistant destination, so open
+    // its full-window surface rather than the floating launcher panel.
+    window.dispatchEvent(new CustomEvent('open-assistant', { detail: { expanded: true } }));
   }
 }
 

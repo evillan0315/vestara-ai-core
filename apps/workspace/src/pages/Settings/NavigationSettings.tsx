@@ -31,9 +31,73 @@ import { Button, SettingsSection, Toggle, input } from './settings-ui.js';
 
 function RowShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-wrap items-center gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 first:border-t-0 sm:px-5">
+    <div className="flex items-center gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 first:border-t-0 sm:px-5">
       {children}
     </div>
+  );
+}
+
+/** Presentation labels for registry groups (ids stay authoritative in the model). */
+const NAV_GROUP_LABELS: Record<string, string> = {
+  workspace: 'Workspace',
+  build: 'Build',
+  automation: 'Automation',
+  runtime: 'Runtime',
+  operations: 'Operations',
+  extend: 'Extend',
+  system: 'System',
+};
+
+const NAV_GROUP_TILE_FG: Record<string, string> = {
+  workspace: 'var(--st-tile-workspace-fg)',
+  build: 'var(--st-tile-runtime-fg)',
+  automation: 'var(--st-tile-engineering-fg)',
+  runtime: 'var(--st-tile-runtime-fg)',
+  operations: 'var(--st-tile-operations-fg)',
+  extend: 'var(--st-tile-advanced-fg)',
+  system: 'var(--st-tile-advanced-fg)',
+};
+
+function NavIconTile({ iconKey, group }: { iconKey: WorkspaceNavIcon; group: string }) {
+  const tone = NAV_GROUP_TILE_FG[group] ?? 'var(--st-tile-advanced-fg)';
+  return (
+    <span
+      aria-hidden="true"
+      className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border [&_svg]:size-[18px]"
+      style={{
+        color: tone,
+        background: `color-mix(in srgb, ${tone} 12%, transparent)`,
+        borderColor: `color-mix(in srgb, ${tone} 30%, transparent)`,
+      }}
+    >
+      {navIcon(iconKey)}
+    </span>
+  );
+}
+
+function VisibilityToggle({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (value: boolean) => void;
+}) {
+  // Dedicated trailing control region (VES-DESIGN-007B): identical geometry
+  // on every row regardless of label/description/metadata length or
+  // enabled/disabled state. Content keeps flex:1 + min-width:0; the control
+  // owns a fixed aligned slot.
+  return (
+    <span className="ml-auto flex w-[5.5rem] shrink-0 items-center justify-end gap-2">
+      <span
+        aria-hidden="true"
+        className={`w-8 text-right text-xs font-medium ${checked ? 'text-[var(--vestara-green)]' : 'text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]'}`}
+      >
+        {checked ? 'On' : 'Off'}
+      </span>
+      <Toggle label={label} checked={checked} onChange={onChange} />
+    </span>
   );
 }
 
@@ -132,6 +196,21 @@ export default function NavigationSettings() {
     [],
   );
 
+  // Registry grouping drives the panels (no hardcoded domain content) —
+  // groups follow registry order; visibility semantics are unchanged.
+  const groupedRegistry = useMemo(() => {
+    const order: string[] = [];
+    const byGroup = new Map<string, typeof orderedRegistry>();
+    for (const entry of orderedRegistry) {
+      if (!byGroup.has(entry.group)) {
+        byGroup.set(entry.group, []);
+        order.push(entry.group);
+      }
+      byGroup.get(entry.group)?.push(entry);
+    }
+    return order.map((group) => ({ group, entries: byGroup.get(group) ?? [] }));
+  }, [orderedRegistry]);
+
   const toDraft = (c: CustomNavEntry): Draft => ({
     label: c.label,
     path: c.path,
@@ -141,36 +220,46 @@ export default function NavigationSettings() {
 
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
-      <SettingsSection
-        title="Sidebar menus"
-        description="Toggle any registry menu. Hiding is presentation only — pages stay reachable through search."
-      >
-        <div>
-          {orderedRegistry.map((entry) => {
-            const visible = visibleIds.has(entry.id);
-            return (
-              <RowShell key={entry.id}>
-                <span aria-hidden="true" className="text-[var(--vestara-text-muted)]">
-                  {navIcon(entry.icon)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                    {entry.label}
+      {groupedRegistry.map(({ group, entries }) => (
+        <SettingsSection
+          key={group}
+          title={NAV_GROUP_LABELS[group] ?? group}
+          description={`${entries.length} sidebar ${entries.length === 1 ? 'menu' : 'menus'}. Hiding is presentation only — pages stay reachable through search.`}
+        >
+          <div>
+            {entries.map((entry) => {
+              const visible = visibleIds.has(entry.id);
+              const metadata = `${entry.path ?? '(action)'} · ${entry.tier} · ${entry.group}`;
+              return (
+                <RowShell key={entry.id}>
+                  <NavIconTile iconKey={entry.icon} group={entry.group} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+                      {entry.label}
+                    </span>
+                    {entry.description && (
+                      <span className="mt-0.5 block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                        {entry.description}
+                      </span>
+                    )}
+                    <span
+                      className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                      title={metadata}
+                    >
+                      {metadata}
+                    </span>
                   </span>
-                  <span className="mt-0.5 block font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                    {entry.path ?? '(action)'} · {entry.tier} · {entry.group}
-                  </span>
-                </span>
-                <Toggle
-                  label={`${visible ? 'Hide' : 'Show'} ${entry.label} in sidebar`}
-                  checked={visible}
-                  onChange={(next) => setNavVisibility(entry.id, next)}
-                />
-              </RowShell>
-            );
-          })}
-        </div>
-      </SettingsSection>
+                  <VisibilityToggle
+                    label={`${visible ? 'Hide' : 'Show'} ${entry.label} in sidebar`}
+                    checked={visible}
+                    onChange={(next) => setNavVisibility(entry.id, next)}
+                  />
+                </RowShell>
+              );
+            })}
+          </div>
+        </SettingsSection>
+      ))}
 
       <SettingsSection
         title="Custom menus"
@@ -202,24 +291,27 @@ export default function NavigationSettings() {
               </div>
             ) : (
               <RowShell key={c.id}>
-                <span aria-hidden="true" className="text-[var(--vestara-text-muted)]">
-                  {navIcon(c.icon)}
-                </span>
+                <NavIconTile iconKey={c.icon} group="system" />
                 <span className="min-w-0 flex-1">
                   <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
                     {c.label}
                   </span>
-                  <span className="mt-0.5 block font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                  <span
+                    className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                    title={`${c.path} · order ${c.order}`}
+                  >
                     {c.path} · order {c.order}
                   </span>
                 </span>
-                <Toggle
+                <VisibilityToggle
                   label={`${c.visible !== false ? 'Hide' : 'Show'} ${c.label} in sidebar`}
                   checked={c.visible !== false}
                   onChange={(next) => updateCustomNavEntry(c.id, { visible: next })}
                 />
-                <Button onClick={() => setEditingId(c.id)}>Edit</Button>
-                <Button onClick={() => deleteCustomNavEntry(c.id)}>Delete</Button>
+                <span className="flex shrink-0 gap-2">
+                  <Button onClick={() => setEditingId(c.id)}>Edit</Button>
+                  <Button onClick={() => deleteCustomNavEntry(c.id)}>Delete</Button>
+                </span>
               </RowShell>
             ),
           )}

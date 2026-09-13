@@ -1,0 +1,84 @@
+/**
+ * VES-DESIGN-007A: Settings scoped tokens.
+ *
+ * Scoped `--st-*` layer for the Settings surface. Every value derives from
+ * the canonical Vestara tokens (`--vestara-*`) so mode (dark/light via
+ * [data-theme]) and the user-selected accent propagate automatically.
+ *
+ * Direction (per the generated premium reference + Overview):
+ * dark neutral base → subtle blue/navy elevation → restrained purple
+ * accent → semantic status colors. Purple guides attention; it does not
+ * fill every configuration container.
+ *
+ * Never hard-code palette hex here — reference canonical vars or
+ * color-mix() expressions over them.
+ */
+
+/* ── Dark appearance (default) ── */
+:root {
+  /* Configuration panel: navy-elevated neutral, hairline border, soft lift.
+     Replaces the saturated accent wash for large domain surfaces; the
+     accent survives in icon tiles, active states, and primary actions. */
+  --st-panel-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --st-panel-backdrop:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 6%, transparent) 0%, transparent 60%),
+    var(--vestara-surface-panel);
+  --st-panel-border: var(--vestara-border-subtle);
+
+  /* Hero summary chip: translucent dark tile on the hero banner. */
+  --st-chip-bg: rgba(0, 0, 0, 0.28);
+  --st-chip-border: var(--vestara-border-subtle);
+
+  /* Group-tinted icon tiles (canonical hues, translucent washes). */
+  --st-tile-workspace-fg: var(--vestara-accent-text);
+  --st-tile-runtime-fg: var(--vestara-status-info);
+  --st-tile-engineering-fg: var(--vestara-status-warning);
+  --st-tile-operations-fg: var(--vestara-status-success);
+  --st-tile-advanced-fg: var(--vestara-text-muted);
+}
+
+/* ── Light appearance ── */
+[data-theme='light'] {
+  --st-panel-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --st-panel-backdrop:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 8%, transparent) 0%, transparent 60%),
+    var(--vestara-surface-panel);
+  --st-chip-bg: rgba(255, 255, 255, 0.6);
+}
+
+/* ── Configuration panel ── */
+.st-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--vestara-radius-lg, 12px);
+  border: 1px solid var(--st-panel-border);
+  background: var(--st-panel-backdrop);
+  box-shadow: var(--st-panel-shadow);
+}
+
+/* ── Hero summary chip: domain label over answer value ── */
+.st-hero-chip {
+  border-radius: var(--vestara-radius, 8px);
+  border: 1px solid var(--st-chip-border);
+  background: var(--st-chip-bg);
+  padding: 0.5rem 0.875rem;
+  min-width: 7.5rem;
+}
+
+.st-hero-chip-label {
+  display: block;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--vestara-text-muted);
+}
+
+.st-hero-chip-value {
+  display: block;
+  margin-top: 0.125rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--vestara-text-primary);
+}

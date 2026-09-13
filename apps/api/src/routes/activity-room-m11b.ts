@@ -159,6 +159,7 @@ export class M11BTransport {
   private readonly config: M11BTransportConfig;
   private readonly subscribers = new Map<string, SubscriberState>();
   private heartbeatInterval: NodeJS.Timeout | null = null;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private wss: WebSocketServer | null = null;
 
   constructor(config: M11BTransportConfig) {

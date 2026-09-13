@@ -71,6 +71,11 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
     turnTimeoutMs: DEFAULTS.turnTimeoutMs,
     maxToolCalls: DEFAULTS.maxToolCalls,
   });
+  // GA-EXEC-001 fix: track explicit user intent for maxToolCalls so
+  // explicit 0 (unlimited) can be sent. DEFAULTS is 0, so a naïve
+  // `!== DEFAULTS` check would never send 0. Untouched 0 => undefined => adapter fallback 30.
+  // Touched 0 => {maxToolCalls:0} => adapter unlimited.
+  const [maxToolCallsTouched, setMaxToolCallsTouched] = useState(false);
 
   const setTurnTimeoutMs = useCallback((value: number) => {
     setConfig((prev) => ({
@@ -80,6 +85,7 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
   }, []);
 
   const setMaxToolCalls = useCallback((value: number) => {
+    setMaxToolCallsTouched(true);
     setConfig((prev) => ({
       ...prev,
       maxToolCalls: clamp(value, BOUNDS.maxToolCalls.min, BOUNDS.maxToolCalls.max),
@@ -87,6 +93,7 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
   }, []);
 
   const resetToDefaults = useCallback(() => {
+    setMaxToolCallsTouched(false);
     setConfig({
       turnTimeoutMs: DEFAULTS.turnTimeoutMs,
       maxToolCalls: DEFAULTS.maxToolCalls,
@@ -96,21 +103,25 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
   const toRequestConfig = useCallback((): GAExecutionConfig | undefined => {
     const cfg: GAExecutionConfig = {};
     if (config.turnTimeoutMs !== DEFAULTS.turnTimeoutMs) cfg.turnTimeoutMs = config.turnTimeoutMs;
-    if (config.maxToolCalls !== DEFAULTS.maxToolCalls) cfg.maxToolCalls = config.maxToolCalls;
+    if (maxToolCallsTouched) cfg.maxToolCalls = config.maxToolCalls;
+    else if (config.maxToolCalls !== DEFAULTS.maxToolCalls) cfg.maxToolCalls = config.maxToolCalls;
     return Object.keys(cfg).length > 0 ? cfg : undefined;
-  }, [config]);
+  }, [config, maxToolCallsTouched]);
 
   // VES-PERF-001D: stable identity so memoized children (ComposeInput,
   // ExecutionTray) are not forced to rerender on every streaming token.
+  // isCustom includes explicit unlimited (touched 0) so Reset appears and
+  // toRequestConfig actually sends 0.
+  const isCustom = isCustomState(config) || maxToolCallsTouched;
   return useMemo(
     () => ({
       config,
-      isCustom: isCustomState(config),
+      isCustom,
       setTurnTimeoutMs,
       setMaxToolCalls,
       resetToDefaults,
       toRequestConfig,
     }),
-    [config, setTurnTimeoutMs, setMaxToolCalls, resetToDefaults, toRequestConfig],
+    [config, isCustom, setTurnTimeoutMs, setMaxToolCalls, resetToDefaults, toRequestConfig],
   );
 }

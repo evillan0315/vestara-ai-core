@@ -82,6 +82,19 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) in CJS packages (the majority — verified in source; zero `.js`-suffixed relative imports) — do not add `.js` extensions unless the package has `"type": "module"` in its `package.json` (e.g. `@vestara/workspace-ui`). Parameterized SQL only (`prepare` + `bind`, no string interpolation).
 
+## UI/UX Governance (ENFORCED — all agents + humans) — see `docs/governance/UI-UX-GOVERNANCE.md` + skill `.opencode/skills/vestara-ui-ux/SKILL.md`
+
+**Strict when adding/changing UI/UX — violation = BLOCKER:**
+
+1. **Vestara design token mandatory** — every visual value from `packages/ui-tokens/src/tokens.ts` → `var(--vestara-*)` (`COLOR`, `SPACING`, `RADIUS`, `TYPOGRAPHY`, etc.). Validate via `pnpm vds:validate` (`scripts/vds-validate.mjs`).
+2. **Clean & modern** — Biome, no dead code/`console.log`/`TODO`, functional React 19, `SectionCard`/`GalleryCard`/`PageHero` composition.
+3. **NO HARDCODE** — no `#hex`, `bg-[#...]`, `style={{color:}}` with literals, no arbitrary `text-[12px]` not mapping to `TYPOGRAPHY`. Create token first if missing.
+4. **Tailwind v4 required but governed** — Tailwind is the renderer, tokens are authority. Every utility must map to `var(--vestara-*)`. No inline CSS or arbitrary utilities. If token missing, **create** `--vestara-{category}-{name}` (category ∈ `surface|text|border|accent|status|spacing|radius|elevation|motion|z-index|sizing|density|color`) in `packages/ui-tokens/src/tokens.ts` (and `src/css.ts`) — pattern `vestara-*`. Never `bg-[#...]`.
+5. **MUI v9 optional** — only for complicated UI (grids, pickers, dialogs). Agents **must** know latest MUI v9 (2026): `slots`/`slotProps` (not `components`), Emotion 11+, `createTheme` mapped to Vestara tokens. Verify via `ExternalScout`/`webfetch https://mui.com/material-ui/migration/migration-v9/` before use — do not hallucinate v5.
+6. **Data/mock** — API first → check mock server running (`:3002` / `apps/workspace/src/mocks/server.ts`) → else local fixtures (`*.fixtures.ts` like `overview.fixtures.ts`). Never hardcode arrays in JSX.
+
+Load `.opencode/skills/vestara-ui-ux/SKILL.md` on any UI task.
+
 ## Execution Governance
 
 **Investigate broadly. Mutate narrowly. Record adjacent findings. Return to acceptance criteria. Stop at the authorization boundary.**

@@ -37,10 +37,13 @@ const INSPECT_GRANT: OpenCodePermissions = {
 };
 
 /**
- * Global Assistant grant (GA-CAP-001). Full governed capability profile.
+ * Global Assistant grant (GA-CAP-001). Governed capability profile.
  *
- * The Assistant has full read, search, write, and shell capabilities.
- * All permissions are set to 'allow' for unrestricted access.
+ * Constrained for turn-latency: doom_loop is denied (no unbounded loops);
+ * task/webfetch/websearch are 'ask' (expensive fan-out / network requires
+ * explicit approval via the interaction broker); bash stays 'allow' (core
+ * run-commands capability) but is bounded by the per-turn maxToolCalls
+ * budget enforced in the OpenCode adapter.
  *
  * Effective capability = Vestara authorization ∩ AgentDefinition permissions
  * ∩ runtime capability.
@@ -52,16 +55,35 @@ const ASSISTANT_GRANT: OpenCodePermissions = {
   grep: 'allow',
   list: 'allow',
   bash: 'allow',
-  task: 'allow',
+  task: 'ask',
   external_directory: 'allow',
-  webfetch: 'allow',
-  websearch: 'allow',
+  webfetch: 'ask',
+  websearch: 'ask',
   todowrite: 'allow',
   lsp: 'allow',
   skill: 'allow',
   question: 'allow',
-  doom_loop: 'allow',
+  doom_loop: 'deny',
 };
+
+/**
+ * UI/UX Governance — ENFORCED for all agents on any UI/UX task (Director directive 2026-09-13).
+ * Every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) via packages/ui-tokens/src/css.ts.
+ * Tailwind v4 is renderer, tokens are authority. No #hex, no bg-[#], no inline CSS without token — create vestara-* token first.
+ * MUI v9 optional for complicated UI only (grids/pickers/dialogs) — must verify latest via ExternalScout/webfetch mui.com/migration-v9.
+ * Data: API → check mock server :3002 → else local *.fixtures.ts (overview.fixtures.ts) — never hardcode arrays in JSX.
+ * Load .opencode/skills/vestara-ui-ux/SKILL.md on any UI task. Full spec: docs/governance/UI-UX-GOVERNANCE.md + AGENTS.md UI/UX Governance.
+ */
+const UI_UX_GOVERNANCE = [
+  '---',
+  'UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md + .opencode/skills/vestara-ui-ux/SKILL.md):',
+  '- Vestara design token mandatory: every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) (COLOR/SPACING/RADIUS/TYPOGRAPHY) — validate via pnpm vds:validate',
+  '- Clean & modern: Biome, no dead code/console.log/TODO, functional React 19, SectionCard/GalleryCard/PageHero',
+  '- NO HARDCODE: no #hex, no bg-[#...], no style={{color:}} literals, no arbitrary text-[12px] without TYPOGRAPHY token — create token first if missing',
+  '- Tailwind v4 required but governed: every utility must map to var(--vestara-*) — no inline CSS; if token missing create --vestara-{category}-{name} in packages/ui-tokens/src/tokens.ts (category: surface|text|border|accent|status|spacing|radius|elevation|motion|z-index|sizing|density|color) pattern vestara-*',
+  '- MUI v9 optional for complicated UI only — must verify latest MUI v9 via ExternalScout/webfetch https://mui.com/material-ui/migration/migration-v9/ (slots/slotProps, not components) mapped to Vestara tokens',
+  '- Data/mock: API → check mock server :3002 (apps/workspace/src/mocks/server.ts) → else local fixtures *.fixtures.ts — never hardcode arrays in JSX',
+].join('\n');
 
 /**
  * Single source of truth for the unified agent platform.
@@ -152,6 +174,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '```',
       '',
       'Pass this report to the Planner agent. Do not suggest any actions.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -200,6 +223,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '- Write or update the necessary tests',
       '- Remove stale `.js`/`.d.ts` artifacts if generated',
       '- Report what was changed, why, and files touched',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -249,6 +273,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '```',
       '',
       'Do not implement anything. Do not edit files. Pass the plan to the Developer.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -303,6 +328,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '```',
       '',
       'Do not modify files. Flag any interpretation that weakens or replaces the acceptance object.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -362,6 +388,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '```',
       '',
       'Do not add commentary. Do not interpret beyond the evidence. Report facts only.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   // ─── AR-006: Global Assistant ──────────────────────────────
@@ -402,7 +429,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     opencodePrompt: [
       'You are the Vestara Assistant. You help users understand and work within their engineering workspace.',
       '',
-      'You have full system access and all permissions. You can:',
+      'You have governed workspace access. You can:',
       '- Answer questions about the project',
       '- Explain what is happening in the Activity Room',
       '- Help users understand workflow state',
@@ -412,14 +439,16 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '- Run any commands including sudo, systemctl, package installs, and credential access',
       '- Produce diffs and inspect dependencies',
       '- Access any directory on the system',
-      '- Use web fetch and search without restrictions',
+      '- Use web fetch and search when approved (may require user approval)',
+      '- Spawn subagents only when necessary (requires approval)',
       '- Execute bash commands without approval',
       '- Edit files without approval',
       '- Access external directories without approval',
       '',
-      'You have unrestricted access to the entire system. Use this access responsibly to help users with their engineering tasks.',
+      'Keep turns fast: batch independent reads/searches, prefer direct answers over exploration, avoid repeated tool rounds, and stop and summarize once you have enough context. Do not loop.',
       '',
       'Be concise and helpful. Reference specific activity records, workflows, or agents when relevant.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -478,6 +507,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '5. Report results with evidence artifacts',
       '',
       'You do not have edit, bash, or file system access. You only interact through browser tools.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
   {
@@ -544,6 +574,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       '- External libs verified against live docs',
       '',
       'Be concise. Produce clean, modular, functional code.',
+      UI_UX_GOVERNANCE,
     ].join('\n'),
   },
 ];

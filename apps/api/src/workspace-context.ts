@@ -54,6 +54,7 @@ import type { Runtime } from '@vestara/runtime';
 import type { ServiceStatus, VestaraService } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
 import { type OperationType, TelemetryRuntime } from '@vestara/telemetry';
+import { TerminalSessionRegistry } from '@vestara/terminal-runtime';
 import { FileThreadStore } from '@vestara/thread-runtime';
 import { FilesystemReadTool, FilesystemSearchTool, FilesystemWriteTool, ToolRuntime } from '@vestara/tool-runtime';
 import {
@@ -169,6 +170,8 @@ export interface WorkspaceContext {
   agentHarness: AgentHarnessRuntime;
   harnessSession: HarnessSession;
   browserRuntime?: BrowserRuntimeService;
+  /** GA-TERM-001 Phase 3: governed interactive shell sessions (single registry authority). */
+  terminalSessions: TerminalSessionRegistry;
   runtimeSessionRegistry: InstanceType<typeof InMemoryRuntimeSessionRegistry>;
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
@@ -407,7 +410,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // ── VES-LEAN-002: Runtime Profile Resolution ──────────────
   // Resolve the runtime profile before any service construction.
   // The activation plan determines which capabilities are EAGER/LAZY/DISABLED.
-  const { resolveRuntimeProfile, isCapabilityActive, isCapabilityDisabled } = await import('./runtime-profile.js');
+  const { resolveRuntimeProfile, isCapabilityActive } = await import('./runtime-profile.js');
   const { profile, plan } = resolveRuntimeProfile(process.env);
   const _isDogfood = profile.id === 'dogfood';
   console.log(`[runtime-profile] resolved: ${profile.id} (${profile.name})`);
@@ -1461,11 +1464,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     });
   }, 30_000);
 
-  // Workspace UI Tester auto-trigger (continuous-tester) — gated by default so
-  // the agent does not run unproductive autonomous work (its OpenCode-provider
-  // runs were failing in a loop and consuming resources without producing
-  // results). Durable participant; compute released until needed. Re-enable
-  // with VESTARA_UI_TESTER_AUTOTRIGGER=1 once the provider is healthy.
+  // Workspace UI verification auto-trigger — remapped from dropped
+  // `agent-workspace-ui-tester` to canonical `agent-verifier` (testing/
+  // diagnostics). Still gated by default; re-enable with
+  // VESTARA_UI_TESTER_AUTOTRIGGER=1 once the provider is healthy.
   const uiTesterAutotriggerEnabled = process.env.VESTARA_UI_TESTER_AUTOTRIGGER === '1';
   let workspaceUiWatcher: WorkspaceUiWatcher | undefined;
 
@@ -1473,9 +1475,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     ? (version: string) => {
         try {
           const session = runtime.getSession();
-          agentRuntime
-            .run('agent-workspace-ui-tester', `Auto-triggered by milestone update: ${version}`, session)
-            .catch(() => {});
+          agentRuntime.run('agent-verifier', `Auto-triggered by milestone update: ${version}`, session).catch(() => {});
         } catch {
           // fail silently
         }
@@ -1486,14 +1486,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     // Workspace UI Watcher — monitors workspace-ui file changes + milestone updates
     workspaceUiWatcher = new WorkspaceUiWatcher(abs, kernel.eventBus);
     workspaceUiWatcher.start(async (event) => {
-      // Trigger the workspace-ui tester agent on file changes or milestone updates
+      // Trigger verification on file changes or milestone updates
       try {
         const session = runtime.getSession();
-        await agentRuntime.run(
-          'agent-workspace-ui-tester',
-          `Auto-triggered by: ${event.type} — ${event.detail}`,
-          session,
-        );
+        await agentRuntime.run('agent-verifier', `Auto-triggered by: ${event.type} — ${event.detail}`, session);
       } catch {
         // Tester may fail silently if agent is not available
       }
@@ -1518,6 +1514,55 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   }
   log('boot-advanced');
 
+  // GA-TERM-001 Phase 3: governed interactive shell sessions. Ungated (like
+  // the conversation service): limits come from env, containment from the
+  // repo root. Lifecycle events (never output content) ride the event bus so
+  // `/ws` clients observe session start/end; transcripts stay in memory.
+  const terminalSessions = new TerminalSessionRegistry({ workspaceRoot: abs });
+  terminalSessions.start();
+  const emitTerminalEvent = (event: UiEvent): void => {
+    try {
+      publish(event);
+    } catch {
+      /* event-bus failures must not break session management */
+    }
+  };
+  terminalSessions.onEvent((event) => {
+    const base = {
+      id: `terminal-${event.sessionId}-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      actor: { id: 'terminal-runtime', name: 'Terminal', type: 'system' as const },
+    };
+    if (event.type === 'created') {
+      emitTerminalEvent({
+        ...base,
+        type: 'terminal.session.started',
+        category: 'system',
+        resource: { type: 'terminal-session', id: event.sessionId, name: event.cwd },
+        message: `Terminal session started in ${event.cwd}`,
+        metadata: { sessionId: event.sessionId, cwd: event.cwd, pid: event.pid },
+      });
+    } else if (event.type === 'exited') {
+      emitTerminalEvent({
+        ...base,
+        type: 'terminal.session.exited',
+        category: 'system',
+        resource: { type: 'terminal-session', id: event.sessionId, name: event.sessionId },
+        message: `Terminal session exited (${event.code ?? event.signal ?? 'unknown'})`,
+        metadata: { sessionId: event.sessionId, code: event.code, signal: event.signal },
+      });
+    } else {
+      emitTerminalEvent({
+        ...base,
+        type: 'terminal.session.killed',
+        category: 'system',
+        resource: { type: 'terminal-session', id: event.sessionId, name: event.sessionId },
+        message: `Terminal session killed (${event.reason})`,
+        metadata: { sessionId: event.sessionId, reason: event.reason },
+      });
+    }
+  });
+
   const context: WorkspaceContext = {
     kernel,
     hostRuntime,
@@ -1535,6 +1580,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     agentHarness,
     harnessSession,
     browserRuntime,
+    terminalSessions,
     runtimeSessionRegistry,
     multiAgentWorkflow,
     activityRoomStreams,
@@ -1607,6 +1653,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsubscribeEngineeringMemory();
       harnessApprovalBridgeDisposal.dispose();
       workspaceUiWatcher?.stop();
+      await terminalSessions.dispose();
       persistDb(db, dbPath);
       await documentation?.dispose();
       await marketplaceManager.shutdown();

@@ -1,7 +1,8 @@
 import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import ShellLayoutSettings from '../../layouts/ShellLayoutSettings.js';
+import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, useTheme } from '../../lib/theme.js';
 import { AppearanceControls } from './appearance-controls.js';
 import {
@@ -11,10 +12,24 @@ import {
   settingsClient,
 } from './settings-client.js';
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
-import { Button, input, SettingsRow, SettingsSection, Source, Status, surface, Toggle } from './settings-ui.js';
+import { SETTINGS_SECTIONS, settingsGroupLabel } from './settings-navigation.js';
+import {
+  Button,
+  FactRow,
+  SettingsDomainCard,
+  humanize,
+  input,
+  SettingsRow,
+  SettingsSection,
+  Source,
+  Status,
+  Toggle,
+} from './settings-ui.js';
 import { ApiEndpointField } from './ApiEndpointField.js';
 import NavigationSettings from './NavigationSettings.js';
 import { TelegramSimulator } from './TelegramSimulator.js';
+import HeroSettings from './HeroSettings.js';
+import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecutionSettings.js';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -23,135 +38,277 @@ interface SettingsData {
   history: EventStoreStatusDto;
 }
 
-const SECTIONS: Array<{ id: SettingsSectionId | 'overview' | 'connection' | 'navigation'; label: string; description: string; code: string }> = [
-  { id: 'overview', label: 'Overview', description: 'Configuration and system health', code: 'OV' },
-  { id: 'general', label: 'General', description: 'Workspace identity and interface', code: 'GN' },
-  { id: 'runtime', label: 'Runtime', description: 'Runtime services and operations', code: 'RT' },
-  { id: 'providers', label: 'AI Providers', description: 'Providers and models', code: 'AI' },
-  { id: 'agents', label: 'Agents', description: 'Agent execution policy', code: 'AG' },
-  { id: 'filesystem', label: 'Filesystem & Safety', description: 'Boundaries and risk controls', code: 'FS' },
-  { id: 'verification', label: 'Verification', description: 'Checks and evidence policy', code: 'VR' },
-  { id: 'cli', label: 'CLI Integration', description: 'CLI compatibility and transport', code: 'CL' },
-  { id: 'history', label: 'Engineering History', description: 'Temporal event store', code: 'EH' },
-  { id: 'notifications', label: 'Notifications', description: 'Operational notifications', code: 'NT' },
-  { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', code: 'TM' },
-  { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', code: 'AD' },
-  { id: 'telegram', label: 'Telegram', description: 'Telegram integration simulator', code: 'TG' },
-  { id: 'navigation', label: 'Navigation', description: 'Sidebar menus and custom entries', code: 'NV' },
-  { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', code: 'CN' },
-];
+const SECTIONS = SETTINGS_SECTIONS;
 
-function Overview({ data }: { data: SettingsData }) {
-  const navigate = useNavigate();
-  const { mode, settings, activeProfile } = useTheme();
-  const rows: Array<[string, string, ReactNode, SettingsSectionId, string]> = [
-    [
-      'Runtime',
-      'Runtime services and operations',
-      <Status key="runtime" value={data.runtime.status} />,
-      'runtime',
-      'RT',
-    ],
-    [
-      'CLI',
-      'Local command-line connection',
-      <Status key="cli" value={data.cli.runtimeConnected && data.cli.detected ? 'Connected' : 'Unavailable'} />,
-      'cli',
-      'CL',
-    ],
-    [
-      'AI Providers',
-      'Default inference provider',
-      String(data.configuration.settings.find((s) => s.key === 'providers.defaultProvider')?.value ?? 'Not configured'),
-      'providers',
-      'AI',
-    ],
-    [
-      'Filesystem Policy',
-      'Workspace write posture',
-      data.configuration.settings.find((s) => s.key === 'filesystem.dryRun')?.value
-        ? 'Dry-run protected'
-        : 'Active writes',
-      'filesystem',
-      'FS',
-    ],
-    [
-      'Verification',
-      'Evidence and checking profile',
-      String(data.configuration.settings.find((s) => s.key === 'verification.profile')?.value ?? 'standard'),
-      'verification',
-      'VR',
-    ],
-    [
-      'Engineering History',
-      'Temporal engineering event store',
-      <span key="history" className="font-mono tabular-nums">
-        {data.history.eventCount.toLocaleString()} events
-      </span>,
-      'history',
-      'EH',
-    ],
-    [
-      'Telemetry',
-      'Operational observability detail',
-      String(
-        data.configuration.settings.find((s) => s.key === 'telemetry.level')?.value ?? data.runtime.telemetryStatus,
-      ),
-      'telemetry',
-      'TM',
-    ],
-    [
-      'Configuration',
-      'Explicit workspace-level values',
-      <span key="configuration" className="tabular-nums">
-        {data.configuration.overrideCount} workspace overrides
-      </span>,
-      'general',
-      'GN',
-    ],
+function relativeTime(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const ms = Date.now() - new Date(iso).getTime();
+  if (Number.isNaN(ms)) return null;
+  const minutes = Math.max(0, Math.round(ms / 60000));
+  if (minutes < 1) return 'just now';
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`;
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+/**
+ * VES-DESIGN-007A: hero summary chips with the reference hierarchy — the
+ * domain is the label, the current state/value is the answer. Statuses
+ * (Ready, Connected) keep the semantic lamp; configuration values
+ * (OpenCode, Standard) stay plain text. All values project authoritative
+ * API/runtime state.
+ */
+function HeroSummaryChips({ data }: { data: SettingsData }) {
+  const settingValue = (key: string, fallback = 'Not configured') =>
+    String(data.configuration.settings.find((s) => s.key === key)?.value ?? fallback);
+  const cliConnected = data.cli.runtimeConnected && data.cli.detected;
+  const dryRun = data.configuration.settings.find((s) => s.key === 'filesystem.dryRun')?.value;
+  const chips: Array<{ label: string; status?: string; value?: string }> = [
+    { label: 'Runtime', status: humanize(data.runtime.status) },
+    { label: 'CLI', status: cliConnected ? 'Connected' : 'Unavailable' },
+    { label: 'AI Provider', value: humanize(settingValue('providers.defaultProvider')) },
+    { label: 'Filesystem', status: dryRun ? 'Protected' : 'Active' },
+    { label: 'Verification', value: humanize(settingValue('verification.profile', 'standard')) },
   ];
   return (
-    <div className="space-y-[var(--vestara-spacing-section)]">
-      <SettingsSection
-        title="Workspace Configuration"
-        description="Resolved state from the active Workspace API and runtime."
-      >
-        {rows.map(([label, description, value, section, code]) => (
-          <SettingsRow
-            key={label}
-            label={label}
-            description={description}
-            code={code}
-            value={value}
-            onClick={() => navigate(`/settings/${section}`)}
-          />
-        ))}
-      </SettingsSection>
-      <SettingsSection
-        title="Active Theme Profile"
-        description="Display preferences are applied immediately and persisted locally."
-        actions={<Button onClick={() => navigate('/settings/general')}>Open appearance</Button>}
-      >
-        <SettingsRow
-          label={
-            activeProfile
-              ? (PROFILES.find((profile) => profile.id === activeProfile)?.label ?? activeProfile)
-              : 'Custom'
-          }
-          description="Workspace profile"
-          value={
-            <span className="flex flex-wrap justify-end gap-2">
-              <Status value={mode} />
-              <span>{ACCENT_PALETTES[settings.colorTheme].label}</span>
+    <>
+      {chips.map((chip) => (
+        <span key={chip.label} className="st-hero-chip">
+          <span className="st-hero-chip-label">{chip.label}</span>
+          <span className="st-hero-chip-value">
+            {chip.status !== undefined ? <Status bare value={chip.status} /> : chip.value}
+          </span>
+        </span>
+      ))}
+    </>
+  );
+}
+
+function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => void }) {
+  const navigate = useNavigate();
+  const { resolved, settings, activeProfile } = useTheme();
+  const settingValue = (key: string, fallback = 'Not configured') =>
+    String(data.configuration.settings.find((s) => s.key === key)?.value ?? fallback);
+  const cliConnected = data.cli.runtimeConnected && data.cli.detected;
+  const dryRun = data.configuration.settings.find((s) => s.key === 'filesystem.dryRun')?.value;
+  const notificationsOn = data.configuration.settings.find((s) => s.key === 'notifications.enabled')?.value;
+  const maxConcurrent = data.configuration.settings.find((s) => s.key === 'agents.maxConcurrent')?.value;
+  const autoAssign = data.configuration.settings.find((s) => s.key === 'agents.autoAssign')?.value;
+  const protectedFiles = data.configuration.settings.find((s) => s.key === 'filesystem.protectedFiles')?.value;
+  const writablePaths = data.configuration.settings.find((s) => s.key === 'filesystem.writablePaths')?.value;
+  const updated = relativeTime(data.configuration.generatedAt);
+  const revisionShort = data.configuration.revision.slice(0, 8);
+
+  const openLink = (section: string, label: string) => (
+    <button
+      type="button"
+      onClick={() => navigate(`/settings/${section}`)}
+      className="mpg-link"
+      aria-label={`Open ${label} settings`}
+    >
+      Open<span aria-hidden="true"> ›</span>
+    </button>
+  );
+
+  // Rich card grammar (reference §10): overview → summarized. Every fact
+  // projects authoritative configuration/runtime/theme state; unknown stays
+  // unknown (rows without authority are omitted, not invented).
+  return (
+    <div className="space-y-4">
+      <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-lg font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+            Workspace Overview
+          </h2>
+          <p className="mt-0.5 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+            A quick view of your current configuration and system status.
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-3">
+          {updated && (
+            <span className="text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+              Last updated {updated}
             </span>
+          )}
+          <span title="Reload configuration and runtime state">
+            <Button onClick={onRefresh}>↺ Refresh</Button>
+          </span>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <SettingsDomainCard
+          index={0}
+          icon={navIcon('activity')}
+          iconTone="var(--vestara-status-info)"
+          title="Runtime & CLI"
+          badge={<Status value={humanize(data.runtime.status)} />}
+          description="Runtime services, CLI connection and execution environment."
+          action={openLink('runtime', 'Runtime')}
+        >
+          <FactRow label="Runtime" value={humanize(data.runtime.status)} isStatus />
+          <FactRow label="CLI" value={cliConnected ? 'Connected' : 'Unavailable'} isStatus />
+          <FactRow label="Version" value={<span className="font-mono">{data.runtime.runtimeVersion}</span>} />
+          <FactRow label="Event bus" value={humanize(data.runtime.eventBusStatus)} isStatus />
+        </SettingsDomainCard>
+
+        <SettingsDomainCard
+          index={1}
+          icon={navIcon('assistant')}
+          iconTone="var(--vestara-status-success)"
+          title="AI & Agents"
+          badge={
+            <Status
+              value={data.configuration.settings.some((s) => s.key === 'providers.defaultProvider') ? 'Configured' : 'Unknown'}
+            />
           }
-        />
-        <SettingsRow
-          label="Display system"
-          description={`${settings.fontFamily} typography · ${settings.spacing} spacing`}
-          value={`${settings.radius} radius · ${settings.sidebarWidth} rail`}
-        />
-      </SettingsSection>
+          description="Provider configuration and agent execution policy."
+          action={openLink('providers', 'AI Providers')}
+        >
+          <FactRow label="Provider" value={humanize(settingValue('providers.defaultProvider'))} />
+          <FactRow label="Model" value={settingValue('providers.defaultModel', 'Unknown')} />
+          <FactRow
+            label="Agents"
+            value={typeof maxConcurrent === 'number' ? `${maxConcurrent} max concurrent` : 'Unknown'}
+          />
+          <FactRow label="Assignment" value={autoAssign ? 'Auto-assign' : 'Manual'} />
+        </SettingsDomainCard>
+
+        <SettingsDomainCard
+          index={2}
+          icon={navIcon('files')}
+          iconTone="var(--vestara-status-warning)"
+          title="Security & Safety"
+          badge={<Status value={dryRun ? 'Protected' : 'Active'} />}
+          description="Filesystem policy, safety boundaries and risk controls."
+          action={openLink('filesystem', 'Filesystem & Safety')}
+        >
+          <FactRow label="Filesystem" value={dryRun ? 'Dry-run protected' : 'Active writes'} isStatus={Boolean(dryRun)} />
+          <FactRow label="Verification" value={humanize(settingValue('verification.profile', 'standard'))} />
+          <FactRow
+            label="Write scope"
+            value={
+              Array.isArray(writablePaths) ? (
+                <span className="font-mono text-xs" title={writablePaths.join(', ')}>
+                  {writablePaths.join(', ')}
+                </span>
+              ) : (
+                'Unknown'
+              )
+            }
+          />
+          <FactRow
+            label="Protected files"
+            value={Array.isArray(protectedFiles) ? `${protectedFiles.length} files` : 'Unknown'}
+          />
+        </SettingsDomainCard>
+
+        <SettingsDomainCard
+          index={3}
+          icon={navIcon('diagnostics')}
+          iconTone="var(--vestara-status-info)"
+          title="Operations"
+          badge={<Status value={humanize(data.runtime.telemetryStatus)} />}
+          description="Telemetry, notifications and operational configuration."
+          action={openLink('telemetry', 'Telemetry')}
+        >
+          <FactRow label="Telemetry" value={humanize(settingValue('telemetry.level', data.runtime.telemetryStatus))} />
+          <FactRow label="Notifications" value={notificationsOn ? 'Enabled' : 'Muted'} isStatus={Boolean(notificationsOn)} />
+          <FactRow
+            label="Workspace ID"
+            value={
+              <span className="max-w-36 truncate font-mono text-xs" title={data.runtime.workspaceId}>
+                {data.runtime.workspaceId}
+              </span>
+            }
+          />
+          <FactRow
+            label="Events"
+            value={<span className="font-mono tabular-nums">{data.history.eventCount.toLocaleString()}</span>}
+          />
+        </SettingsDomainCard>
+
+        <SettingsDomainCard
+          index={4}
+          icon={navIcon('settings')}
+          iconTone="var(--vestara-accent-text)"
+          title="Appearance"
+          badge={
+            <span className="mpg-tag-pill">{resolved === 'dark' ? 'Dark mode' : 'Light mode'}</span>
+          }
+          description="Theme, layout and display preferences."
+          action={openLink('general', 'Appearance')}
+        >
+          <FactRow label="Theme" value={resolved === 'dark' ? 'Vestara Dark' : 'Vestara Light'} />
+          <FactRow label="Density" value={humanize(settings.spacing)} />
+          <FactRow label="Accent color" value={ACCENT_PALETTES[settings.colorTheme].label} />
+          <FactRow
+            label="Profile"
+            value={activeProfile ? (PROFILES.find((p) => p.id === activeProfile)?.label ?? activeProfile) : 'Custom'}
+          />
+        </SettingsDomainCard>
+
+        <SettingsDomainCard
+          index={5}
+          icon={navIcon('tools')}
+          iconTone="var(--vestara-text-secondary)"
+          title="Configuration"
+          badge={
+            <Status
+              value={data.configuration.overrideCount > 0 ? `${data.configuration.overrideCount} overrides` : 'Defaults'}
+            />
+          }
+          description="Workspace-level configuration and overrides."
+          action={openLink('general', 'Configuration')}
+        >
+          <FactRow
+            label="Active overrides"
+            value={<span className="font-mono tabular-nums">{data.configuration.overrideCount}</span>}
+          />
+          <FactRow label="Revision" value={<span className="font-mono text-xs">{revisionShort}</span>} />
+          <FactRow label="Last updated" value={updated ?? 'Unknown'} />
+          <FactRow label="Workspace" value={settingValue('general.workspaceName', 'Vestara Workspace')} />
+        </SettingsDomainCard>
+      </div>
+
+      <div className="st-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
+        <span
+          aria-hidden="true"
+          className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-[var(--vestara-accent-text)] [&_svg]:size-[18px]"
+          style={{
+            color: 'var(--vestara-accent-text)',
+            background: 'color-mix(in srgb, var(--vestara-accent-text) 12%, transparent)',
+            borderColor: 'color-mix(in srgb, var(--vestara-accent-text) 30%, transparent)',
+          }}
+        >
+          {navIcon('generic')}
+        </span>
+        <span className="min-w-0 flex-1">
+          <span className="block text-[var(--vestara-font-size-base)] font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+            Need help?
+          </span>
+          <span className="block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+            Explore documentation, open the Global Assistant, or visit the Marketplace for extensions.
+          </span>
+        </span>
+        <span className="flex shrink-0 flex-wrap gap-2">
+          <Link to="/docs" className="mpg-pill" aria-label="Open documentation">
+            Open Documentation
+          </Link>
+          <button
+            type="button"
+            className="mpg-pill"
+            onClick={() => window.dispatchEvent(new CustomEvent('open-assistant'))}
+          >
+            Ask Global Assistant
+          </button>
+          <Link to="/marketplace" className="mpg-pill" aria-label="Browse Marketplace">
+            Browse Marketplace
+          </Link>
+        </span>
+      </div>
     </div>
   );
 }
@@ -498,16 +655,40 @@ function PolicySection({
 
 function LoadingState() {
   return (
-    <div role="status" aria-label="Loading settings" className="animate-pulse p-[var(--vestara-spacing-page)]">
-      <div className="h-3 w-20 rounded bg-[var(--color-zinc-800)]" />
-      <div className="mt-4 h-7 w-40 rounded bg-[var(--color-zinc-800)]" />
-      <div className={`mt-8 overflow-hidden rounded-[var(--vestara-radius-lg)] ${surface}`}>
-        {[1, 2, 3, 4, 5].map((item) => (
-          <div
-            key={item}
-            className="h-16 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] first:border-0"
-          />
+    <div role="status" aria-label="Loading settings" className="w-full min-w-0 space-y-4">
+      <div className="mpg-skeleton h-44" />
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {[1, 2, 3].map((item) => (
+          <div key={item} className="mpg-skeleton h-56" />
         ))}
+      </div>
+      <p className="sr-only">Loading workspace settings…</p>
+    </div>
+  );
+}
+
+/**
+ * Lightweight selected-domain heading (no second hero): gives the active
+ * domain visual ownership of the content column — Navigation → selected →
+ * domain title — while domain panels stay lighter section surfaces below.
+ */
+function DetailDomainHeader() {
+  const location = useLocation();
+  const segment = location.pathname.replace(/^\/settings\/?/, '').split('/')[0] ?? '';
+  const meta = SECTIONS.find((section) => section.id === segment);
+  if (!meta || meta.id === 'overview') return null;
+  return (
+    <div className="mb-4 flex min-w-0 flex-wrap items-end justify-between gap-2">
+      <div className="min-w-0">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+          {settingsGroupLabel(meta.group)} · Settings
+        </p>
+        <h2 className="mt-0.5 text-lg font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+          {meta.label}
+        </h2>
+        <p className="mt-0.5 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+          {meta.description}
+        </p>
       </div>
     </div>
   );
@@ -542,21 +723,26 @@ export default function SettingsPage() {
             .filter((setting) => setting.section === section.id)
             .map((setting) => setting.key)
             .join(' ') ?? '';
-        return `${section.label} ${section.description} ${settingKeys}`.toLowerCase().includes(query.toLowerCase());
+        return `${section.label} ${section.description} ${settingsGroupLabel(section.group)} ${settingKeys}`
+          .toLowerCase()
+          .includes(query.toLowerCase());
       }),
     [data, query],
   );
   const changed = (configuration: ResolvedConfiguration) =>
     setData((current) => (current ? { ...current, configuration } : current));
+  // Hero summary is a projection of authoritative API/runtime state —
+  // omitted entirely until loaded, never fabricated.
   return (
     <ShellLayoutSettings
       navigation={visible}
       totalNavigationItems={SECTIONS.length}
       query={query}
       onQueryChange={setQuery}
+      heroSummary={data ? <HeroSummaryChips data={data} /> : undefined}
     >
       {error ? (
-        <div role="alert" className={`rounded-[var(--vestara-radius-lg)] p-5 ${surface}`}>
+        <div role="alert" className="st-panel p-5">
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
            <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">{error}</p>
            <div className="mt-4 space-y-4">
@@ -569,9 +755,12 @@ export default function SettingsPage() {
       ) : !data ? (
         <LoadingState />
       ) : (
-        <Routes>
+        <>
+          <DetailDomainHeader />
+          <Routes>
           <Route index element={<Navigate to="overview" replace />} />
-          <Route path="overview" element={<Overview data={data} />} />
+          <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />
+          <Route path="hero" element={<HeroSettings />} />
           <Route path="general" element={<General configuration={data.configuration} onChanged={changed} />} />
           <Route path="runtime" element={<Runtime runtime={data.runtime} refresh={load} />} />
           <Route path="cli" element={<CliIntegration initial={data.cli} />} />
@@ -596,8 +785,10 @@ export default function SettingsPage() {
           ))}
           <Route path="telegram" element={<TelegramSimulator />} />
           <Route path="navigation" element={<NavigationSettings />} />
+          <Route path="assistant-execution" element={<AssistantExecutionSettings />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Routes>
+        </>
       )}
     </ShellLayoutSettings>
   );

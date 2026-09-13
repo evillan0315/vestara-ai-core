@@ -87,7 +87,9 @@ export class WebAudioObserver implements IAudioObserver {
   // Track ended listener (to auto-detach when track ends)
   private _trackEndedHandler: (() => void) | null = null;
   private _observedTrack: MediaStreamTrack | null = null;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private _currentStream: MediaStream | null = null;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private _currentSourceId: string | null = null;
 
   get state(): AudioObserverState {

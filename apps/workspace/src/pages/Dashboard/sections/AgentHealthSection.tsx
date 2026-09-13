@@ -13,7 +13,7 @@ export default function AgentHealthSection({ execStats, dragSection }: AgentHeal
   return (
     <DashboardSection title="Agent Health" icon="☰" dragSection={dragSection}>
       <div className="space-y-3">
-        <div className="flex items-center gap-3 p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
+        <div className="mpg-card flex items-center gap-3 p-3">
           <div className="w-14 h-14 shrink-0">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -69,28 +69,19 @@ export default function AgentHealthSection({ execStats, dragSection }: AgentHeal
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2">
-          <div className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px] border-l-accent">
+          <div className="mpg-card p-2 text-center">
             <div className="text-sm font-bold text-accent">{execStats.total}</div>
             <div className="text-[9px] text-(--vestara-text-muted)">Total</div>
           </div>
-          <div
-            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
-            style={{ borderLeftColor: '#10b981' }}
-          >
+          <div className="mpg-card p-2 text-center">
             <div className="text-sm font-bold text-green-400">{execStats.completed}</div>
             <div className="text-[9px] text-(--vestara-text-muted)">Done</div>
           </div>
-          <div
-            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
-            style={{ borderLeftColor: '#f59e0b' }}
-          >
+          <div className="mpg-card p-2 text-center">
             <div className="text-sm font-bold text-amber-400">{execStats.running}</div>
             <div className="text-[9px] text-(--vestara-text-muted)">Running</div>
           </div>
-          <div
-            className="p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-center border-l-[2px]"
-            style={{ borderLeftColor: '#ef4444' }}
-          >
+          <div className="mpg-card p-2 text-center">
             <div className="text-sm font-bold text-red-400">{execStats.failed}</div>
             <div className="text-[9px] text-(--vestara-text-muted)">Failed</div>
           </div>

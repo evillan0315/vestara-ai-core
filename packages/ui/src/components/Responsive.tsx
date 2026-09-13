@@ -102,7 +102,7 @@ export function useResponsiveLayout(options?: UseResponsiveLayoutOptions): Respo
     return computeState(width, height, breakpoints);
   });
 
-  const { mobile, tablet, desktop, wide } = breakpoints;
+  const { mobile: _mobile, tablet: _tablet, desktop: _desktop, wide: _wide } = breakpoints;
 
   useEffect(() => {
     const handleResize = () => {

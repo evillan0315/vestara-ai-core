@@ -466,6 +466,14 @@ const MILESTONES: Milestone[] = [
     description:
       'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
   },
+  {
+    version: 'GA-TERM-001',
+    name: 'Assistant Terminal Mode',
+    era: 'Dashboard',
+    status: 'pending',
+    description:
+      'Floating assistant doubles as a governed terminal: explicit $ shell mode in the composer over the existing bash tool path, terminal-grade output surface, Activity Room audit; true interactive pty deferred',
+  },
   // Quality Era (late)
   {
     version: 'v3.8',

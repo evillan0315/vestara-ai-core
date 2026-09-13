@@ -261,6 +261,36 @@
   min-width: min(100%, 320px);
   flex: 1 1 320px;
 }
+.mpg-hero-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 0.875rem;
+  flex: 0 1 260px;
+  min-width: min(100%, 220px);
+  margin-left: auto;
+  text-align: right;
+}
+.mpg-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+/* Compact density — page headers (e.g. Activity Room) where the banner
+   must read as a header, not compete with the content below. */
+.mpg-hero--compact {
+  padding: 1rem 1.25rem;
+}
+.mpg-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
 .mpg-hero-search {
   display: flex;
   align-items: center;
@@ -290,6 +320,12 @@
   border: 1px solid var(--vestara-border-subtle);
   background: var(--vestara-accent-bg);
   padding: 0.875rem 1rem;
+}
+.mpg-hero-side .mpg-hero-checklist {
+  flex: none;
+  align-self: stretch;
+  width: 100%;
+  text-align: left;
 }
 .mpg-hero-checklist ul {
   display: flex;

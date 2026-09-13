@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BOARD_COLUMNS, PRIORITY_COLORS, STATUS_COLORS, STATUS_OPTIONS } from './contanst';
 import type { ProjectData, SprintData, TaskData } from './types';
 import { VestaraModal } from '../../components/ui/VestaraModal';
+import { RouteHero } from '../../components/layout/PageHero/RouteHero';
 
 function progressColor(pct: number): string {
   if (pct >= 70) return '#10b981';
@@ -207,7 +208,11 @@ export default function ProjectsPage() {
   const totalTasks = projects.reduce((s, p) => s + (p.stats?.total ?? 0), 0);
   const totalDone = projects.reduce((s, p) => s + (p.stats?.done ?? 0), 0);
   const totalActive = projects.reduce((s, p) => s + (p.stats?.inProgress ?? 0), 0);
+  const totalBacklog = projects.reduce((s, p) => s + (p.stats?.backlog ?? 0), 0);
   const overallPct = totalTasks > 0 ? Math.round((totalDone / totalTasks) * 100) : 0;
+  const flaggedProjects = projects.filter(
+    (p) => p.priority === 'high' || p.priority === 'critical' || p.status === 'on_hold',
+  );
 
   const filteredProjects = projects.filter((p) => {
     if (!search.trim()) return true;
@@ -221,7 +226,7 @@ export default function ProjectsPage() {
 
   if (loading)
     return (
-      <div className="w-full px-4 animate-pulse">
+      <div className="w-full animate-pulse">
         <div className="mb-4">
           <div className="h-8 w-56 bg-(--vestara-accent-bg) rounded mb-2" />
           <div className="h-4 w-40 bg-(--vestara-accent-bg) rounded" />
@@ -240,64 +245,145 @@ export default function ProjectsPage() {
     );
 
   return (
-    <div className="w-full px-4">
-      {/* Header */}
-      <div className="flex items-start justify-between mb-4 flex-wrap gap-2">
-        <div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">Projects</h1>
-          <p className="text-[10px] text-(--vestara-text-muted) mt-0.5">
-            {projects.length} projects · {projects.filter((p) => p.status === 'active').length} active · {totalTasks}{' '}
-            tasks
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-(--vestara-text-dim) text-[9px]">🔍</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filter projects..."
-              className="w-40 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg pl-6 pr-2 py-1.5 text-[10px] text-(--vestara-text) placeholder-(--vestara-text-dim) outline-none focus:border-(--vestara-accent-border-active)"
-            />
-          </div>
-          <button onClick={load} className="text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer text-sm" title="Refresh">
-            ↻
-          </button>
-          <button
-            onClick={() => setShowNew(true)}
-            className="text-[10px] px-3 py-1.5 accent-btn rounded-lg cursor-pointer flex items-center gap-1"
-          >
-            <span>+</span> New Project
-          </button>
-        </div>
-      </div>
+    <>
+      {/* ─── Canonical workspace Hero (Activity Room grammar) ───
+          Text left; New Project / Refresh + status pills right.
+          Aggregate stats live in the hero — no separate stat row. */}
+      <RouteHero
+        search={{
+          value: search,
+          onChange: setSearch,
+          placeholder: 'Filter projects…',
+          inputId: 'projects-hero-search',
+          label: 'Filter projects',
+        }}
+        actions={[
+          { label: 'New Project', primary: true, glyph: '＋', onClick: () => setShowNew(true) },
+          { label: 'Refresh', glyph: '↻', onClick: () => void load(), title: 'Reload projects' },
+        ]}
+        meta={
+          <>
+            <span className="mpg-tag-pill">
+              {projects.filter((p) => p.status === 'active').length} active
+            </span>
+            <span className="mpg-tag-pill">{totalActive} in progress</span>
+            <span className="mpg-tag-pill">
+              {projects.filter((p) => p.status === 'on_hold').length} on hold
+            </span>
+          </>
+        }
+        stats={[
+          { label: 'projects', value: projects.length },
+          { label: 'active', value: projects.filter((p) => p.status === 'active').length },
+          { label: 'tasks', value: totalTasks },
+          { label: 'completion', value: `${overallPct}%` },
+        ]}
+      />
 
-      {/* Aggregate stats */}
+      {/* ─── Operational dashboard (workspace-wide, from loaded project stats) ─── */}
       {projects.length > 0 && (
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-          <StatCard label="Total Projects" value={projects.length} accent="#8b5cf6" compact />
-          <StatCard
-            label="Active"
-            value={projects.filter((p) => p.status === 'active').length}
-            accent="#10b981"
-            compact
-          />
-          <StatCard
-            label="On Hold"
-            value={projects.filter((p) => p.status === 'on_hold').length}
-            accent="#ef4444"
-            compact
-          />
-          <StatCard label="Total Tasks" value={totalTasks} accent="#3b82f6" compact />
-          <StatCard
-            label="Completion"
-            value={`${overallPct}%`}
-            sub={`${totalDone}/${totalTasks} tasks`}
-            accent={progressColor(overallPct)}
-            compact
-          />
-        </div>
+        <section aria-labelledby="projects-dashboard-title" className="mt-3 space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--vestara-accent)]">
+                Operational overview
+              </p>
+              <h2
+                id="projects-dashboard-title"
+                className="mt-1 text-base font-semibold text-[var(--vestara-text-primary)]"
+              >
+                Projects dashboard
+              </h2>
+            </div>
+            <span className="text-[11px] text-[var(--vestara-text-muted)]">
+              {overallPct}% task completion
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              { label: 'Completed', value: totalDone, tone: 'var(--vestara-status-success)' },
+              { label: 'In progress', value: totalActive, tone: 'var(--vestara-status-info)' },
+              { label: 'Backlog', value: totalBacklog, tone: 'var(--vestara-status-warning)' },
+              { label: 'Flagged', value: flaggedProjects.length, tone: 'var(--vestara-status-error)' },
+            ].map((item) => (
+              <div key={item.label} className="mpg-card min-w-0 p-4">
+                <span className="mpg-card-accent" style={{ background: item.tone }} aria-hidden="true" />
+                <div className="relative z-[2]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-[var(--vestara-text-primary)]">{item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
+            <div className="mpg-card p-4">
+              <div className="relative z-[2]">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xs font-semibold text-[var(--vestara-text-primary)]">Project progress</h3>
+                  <span className="text-[11px] text-[var(--vestara-text-muted)]">
+                    {totalDone} / {totalTasks}
+                  </span>
+                </div>
+                <ul className="mt-3 space-y-2">
+                  {projects.map((p) => {
+                    const done = p.stats?.done ?? 0;
+                    const total = p.stats?.total ?? 0;
+                    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+                    return (
+                      <li key={p.id}>
+                        <div className="flex items-center justify-between gap-3 text-[11px]">
+                          <span className="truncate text-[var(--vestara-text-secondary)]">{p.name}</span>
+                          <span className="shrink-0 tabular-nums text-[var(--vestara-text-muted)]">
+                            {done}/{total}
+                          </span>
+                        </div>
+                        <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[var(--vestara-accent-bg)]">
+                          <div
+                            className="h-full rounded-full transition-[width] duration-300"
+                            style={{ width: `${pct}%`, background: progressColor(pct) }}
+                          />
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            </div>
+
+            <div className="mpg-card p-4">
+              <div className="relative z-[2]">
+                <h3 className="text-xs font-semibold text-[var(--vestara-text-primary)]">Needs attention</h3>
+                {flaggedProjects.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {flaggedProjects.map((p) => (
+                      <li
+                        key={p.id}
+                        className="flex items-center justify-between gap-3 text-[11px] text-[var(--vestara-text-secondary)]"
+                      >
+                        <span className="truncate">{p.name}</span>
+                        <span className="flex shrink-0 gap-1">
+                          {(p.priority === 'high' || p.priority === 'critical') && (
+                            <span className="mpg-tag-pill">{p.priority}</span>
+                          )}
+                          {p.status === 'on_hold' && <span className="mpg-tag-pill">on hold</span>}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-3 text-[11px] text-[var(--vestara-text-muted)]">No flagged projects.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </section>
       )}
+
+      <div className="mt-3">
 
       {/* New project modal */}
       {showNew && (
@@ -1042,6 +1128,7 @@ export default function ProjectsPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

@@ -5,6 +5,7 @@ import {
   verifyChangeSet,
   type PlanData,
 } from '../../../lib/api';
+import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
 
@@ -175,13 +176,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
 
       {/* Plan groups by status */}
       {plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg text-center">
-          <div className="text-lg mb-1 opacity-20">△</div>
-          <p className="text-[10px] text-(--vestara-text-dim)">No plans yet</p>
-          <p className="text-[8px] text-(--vestara-text-dim) mt-1">
-            Create a plan with <code className="text-(--vestara-text-2)">plan &lt;goal&gt;</code> in the REPL
-          </p>
-        </div>
+        <MarketplaceEmptyState message="No plans yet — create one with plan <goal> in the REPL." />
       ) : (
         <div className="space-y-2">
           {grouped
@@ -209,12 +204,11 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
                     const taskPct = taskTotal > 0 ? Math.round((taskDone / taskTotal) * 100) : 0;
 
                     return (
-                      <div key={plan.id}>
+                      <div key={plan.id} className="mpg-enter" style={{ animationDelay: '0ms' }}>
                         {/* Plan card */}
                         <div
                           onClick={() => setExpandedPlan(isExpanded ? null : plan.id)}
-                          className="p-2.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors cursor-pointer border-l-[3px]"
-                          style={{ borderLeftColor: group.accent }}
+                          className="mpg-card cursor-pointer p-2.5"
                         >
                           {/* Title row */}
                           <div className="flex items-center gap-2 mb-1">
@@ -286,7 +280,7 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
 
                           {/* Task progress bar */}
                           {taskTotal > 0 && (
-                            <div className="mt-1.5 w-full bg-(--vestara-accent-bg) rounded-full h-1 overflow-hidden">
+                            <div className="bg-(--ov-gauge-track) mt-1.5 h-1 w-full overflow-hidden rounded-full">
                               <div
                                 className="h-1 rounded-full transition-all"
                                 style={{
@@ -374,18 +368,12 @@ export default function PlansSection({ plans, dragSection, onRefresh }: PlansSec
       )}
 
       {/* Links */}
-      <div className="flex gap-2 mt-2">
-        <a
-          href="/artifacts"
-          className="flex-1 block text-[10px] text-(--vestara-text-muted) text-center py-1.5 hover:text-(--vestara-text-2) transition-colors rounded-lg bg-(--vestara-accent-bg) border border-(--vestara-accent-border)"
-        >
-          All Plans & Artifacts →
+      <div className="mt-2 flex justify-center gap-4">
+        <a href="/artifacts" className="mpg-link">
+          All Plans & Artifacts<span aria-hidden="true"> ›</span>
         </a>
-        <a
-          href="/sessions"
-          className="flex-1 block text-[10px] text-(--vestara-text-muted) text-center py-1.5 hover:text-(--vestara-text-2) transition-colors rounded-lg bg-(--vestara-accent-bg) border border-(--vestara-accent-border)"
-        >
-          Execution Sessions →
+        <a href="/sessions" className="mpg-link">
+          Execution Sessions<span aria-hidden="true"> ›</span>
         </a>
       </div>
     </DashboardSection>

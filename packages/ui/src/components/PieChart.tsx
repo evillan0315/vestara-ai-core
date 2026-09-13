@@ -123,7 +123,7 @@ export function PieChart({
       <svg width={size} height={size} role="img" aria-label="Pie chart">
         <title>Pie chart</title>
         {/* Slices */}
-        {slices.map((slice, i) => (
+        {slices.map((slice, _i) => (
           <path
             key={slice.label}
             d={slice.pathD}
@@ -134,7 +134,7 @@ export function PieChart({
 
         {/* Labels */}
         {showLabels &&
-          slices.map((slice, i) => (
+          slices.map((slice, _i) => (
             <text
               key={`pie-${slice.label}`}
               x={slice.labelX}
@@ -153,7 +153,7 @@ export function PieChart({
       {/* Legend */}
       {showLegend && (
         <div className="space-y-1">
-          {slices.map((slice, i) => (
+          {slices.map((slice, _i) => (
             <div key={slice.label} className="flex items-center gap-2 text-xs">
               <span className="w-3 h-3 rounded" style={{ backgroundColor: slice.color }} />
               <span className="text-[var(--vestara-text-secondary)]">{slice.label}</span>

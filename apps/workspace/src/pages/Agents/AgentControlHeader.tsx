@@ -1,4 +1,4 @@
-import { PageHero } from '../../components/layout/PageHero/PageHero.js';
+import { RouteHero } from '../../components/layout/PageHero/RouteHero';
 import type { ExecutionSummary } from './types';
 
 interface AgentControlHeaderProps {
@@ -32,12 +32,11 @@ export default function AgentControlHeader({
 }: AgentControlHeaderProps) {
   return (
     <>
-      <PageHero
-        eyebrow="Workforce"
+      <RouteHero
+        routeId="agents"
         statusColor={
           activeCount > 0 ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)'
         }
-        title="Agent Control Center"
         subtitle={`${activeCount} active · ${agentsCount}/${totalSlots} registered · ${teamsCount} teams · ${executionsCount} executions`}
         actions={[
           { label: '+ Add Agent', primary: true, onClick: onAddAgent },
@@ -65,7 +64,6 @@ export default function AgentControlHeader({
           { label: 'executions', value: executionsCount },
           { label: 'success', value: `${execSummary.successRate}%` },
         ]}
-        label="Agent control highlights"
       />
 
       {/* Stat cards */}

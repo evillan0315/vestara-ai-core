@@ -223,7 +223,11 @@ export function GlobalAssistant() {
   // Sidebar "Global Assistant" entry dispatches this (mirrors the
   // command palette's `open-command-palette` precedent).
   useEffect(() => {
-    const handler = () => setPanelOpen(true);
+    const handler = (event: Event) => {
+      const expanded = event instanceof CustomEvent && event.detail?.expanded === true;
+      setPanelOpen(true);
+      setPanelExpanded(expanded);
+    };
     window.addEventListener('open-assistant', handler);
     return () => window.removeEventListener('open-assistant', handler);
   }, []);

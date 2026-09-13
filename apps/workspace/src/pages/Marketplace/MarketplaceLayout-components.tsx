@@ -18,7 +18,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, EmptyState, StatusIndicator } from '@vestara/ui';
-import { PageHero } from '../../components/layout/PageHero/PageHero.js';
+import { RouteHero } from '../../components/layout/PageHero/RouteHero';
 
 // ─── Type accent colors ─────────────────────────────────────────
 // VES-DESIGN-005: canonical marketplace tokens (dark/light aware).
@@ -524,9 +524,8 @@ export function MarketplaceHero({
   searchPlaceholder?: string;
 }) {
   return (
-    <PageHero
-      title="Build More with Vestara"
-      titleAs="h2"
+    <RouteHero
+      routeId="marketplace"
       subtitle="Agents, tools, templates, and integrations for a more capable tomorrow."
       search={{
         value: query,
@@ -535,15 +534,12 @@ export function MarketplaceHero({
         inputId: 'marketplace-hero-search',
         label: 'Search marketplace',
       }}
-      checklistTitle="Why extend"
       checklist={[
         '◇ Extend your workspace',
         '⬔ Automate your workflow',
         '❖ Share with the community',
         '⬣ Build what\u2019s next',
       ]}
-      checklistLabel="Why extend"
-      label="Marketplace highlights"
     />
   );
 }

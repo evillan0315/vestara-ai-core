@@ -11,7 +11,7 @@
  * output (credentials, tokens) is redacted by the projection layer.
  */
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TerminalExecutionDetail } from '@vestara/shared';
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -45,6 +45,18 @@ export interface AssistantTerminalProps {
 export function AssistantTerminal({ detail }: AssistantTerminalProps) {
   const [expanded, setExpanded] = useState(false);
   const toggle = useCallback(() => setExpanded((v) => !v), []);
+  const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+  // GA-TERM-001 Phase 2: client-observed elapsed clock for running commands.
+  // Anchored when the card first renders in `running` — the contract carries
+  // no started-at timestamp, so this is labeled as observed, never as
+  // authoritative. Authoritative `durationMs` replaces it on completion.
+  const runningSinceRef = useRef<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+  // Scrollback stick-to-bottom: follows new output while running unless the
+  // user scrolled up to read history.
+  const outputRef = useRef<HTMLDivElement>(null);
+  const stickRef = useRef(true);
 
   const isRunning = detail.state === 'running';
   const isFailed = detail.state === 'failed';
@@ -52,6 +64,63 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
   const hasExitCode = typeof detail.exitCode === 'number';
   const hasDuration = typeof detail.durationMs === 'number';
   const hasCwd = typeof detail.cwd === 'string' && detail.cwd.length > 0;
+
+  useEffect(() => {
+    if (!isRunning) {
+      runningSinceRef.current = null;
+      return;
+    }
+    if (runningSinceRef.current === null) runningSinceRef.current = Date.now();
+    const id = window.setInterval(() => {
+      if (runningSinceRef.current !== null) setElapsedMs(Date.now() - runningSinceRef.current);
+    }, 250);
+    return () => window.clearInterval(id);
+  }, [isRunning]);
+
+  // Follow live output to the bottom while expanded + running + user at bottom.
+  useEffect(() => {
+    if (!expanded || !isRunning || !stickRef.current) return;
+    outputRef.current?.scrollTo({ top: outputRef.current.scrollHeight });
+  }, [expanded, isRunning, detail.outputPreview]);
+
+  const handleScroll = useCallback(() => {
+    const el = outputRef.current;
+    if (!el) return;
+    stickRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24;
+  }, []);
+
+  const handleCopy = useCallback(async (e: React.SyntheticEvent) => {
+    // Never let code-action interaction bubble into a panel drag handler
+    // (same contract as CodeBlock + AssistantResponseActions).
+    e.stopPropagation();
+    if (!hasOutput) return;
+    const text = detail.outputPreview ?? '';
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setCopyFailed(false);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API unavailable (permissions) — textarea fallback.
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        setCopied(true);
+        setCopyFailed(false);
+        window.setTimeout(() => setCopied(false), 2000);
+      } catch {
+        setCopyFailed(true);
+        window.setTimeout(() => setCopyFailed(false), 2000);
+      }
+    }
+  }, [hasOutput, detail.outputPreview]);
 
   // Determine exit code styling
   const exitCodeOk = hasExitCode && detail.exitCode === 0;
@@ -127,6 +196,15 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
               {formatDuration(detail.durationMs!)}
             </span>
           )}
+          {isRunning && !hasDuration && (
+            <span
+              data-testid="terminal-elapsed"
+              title="Client-observed elapsed — the authoritative duration replaces it on completion"
+              className="text-[10px] text-amber-400/80 tabular-nums"
+            >
+              {formatDuration(elapsedMs)}
+            </span>
+          )}
         </div>
       </div>
 
@@ -143,12 +221,29 @@ export function AssistantTerminal({ detail }: AssistantTerminalProps) {
         </div>
       )}
 
-      {/* Output preview (expandable) */}
+      {/* Output preview (expandable) — scrollback follows live output while
+          running unless the user scrolled up; Copy never bubbles into a
+          panel drag handler. */}
       {hasOutput && expanded && (
-        <div data-testid="terminal-output" className="border-t border-zinc-800/70 px-3 py-2 max-h-48 overflow-y-auto">
-          <pre className="text-[11px] leading-relaxed text-zinc-400 font-mono whitespace-pre-wrap break-words">
-            {detail.outputPreview}
-          </pre>
+        <div data-testid="terminal-output" className="border-t border-zinc-800/70">
+          <div className="flex items-center justify-end px-3 pt-1.5">
+            <button
+              type="button"
+              onClick={handleCopy}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              aria-label="Copy terminal output"
+              title="Copy output"
+              className="text-[10px] text-zinc-500 hover:text-zinc-300 transition-colors flex items-center gap-1 px-1.5 py-0.5 rounded hover:bg-zinc-700/40 cursor-pointer"
+            >
+              {copyFailed ? 'Copy failed' : copied ? 'Copied' : 'Copy'}
+            </button>
+          </div>
+          <div ref={outputRef} onScroll={handleScroll} className="px-3 pb-2 max-h-64 overflow-y-auto">
+            <pre className="text-[11px] leading-relaxed text-zinc-400 font-mono whitespace-pre-wrap break-words">
+              {detail.outputPreview}
+            </pre>
+          </div>
         </div>
       )}
 

@@ -24,7 +24,9 @@ if (existsSync(ENV)) {
 const { OpenCodeHttpClient } = require(join(REPO, 'packages/opencode-runtime/dist/client/opencode-http-client.js'));
 const { resolveOpenCodeConfig } = require(join(REPO, 'packages/opencode-runtime/dist/config.js'));
 const { createAssistantOpenCodeExecutor } = require(join(REPO, 'apps/api/dist/assistant-opencode-adapter.js'));
-const { OpenCodeRuntimeProvider } = require(join(REPO, 'packages/providers/opencode/dist/index.js'));
+const { OpenCodeRuntimeProvider: _OpenCodeRuntimeProvider } = require(
+  join(REPO, 'packages/providers/opencode/dist/index.js'),
+);
 
 (async () => {
   const ocConfig = resolveOpenCodeConfig({});

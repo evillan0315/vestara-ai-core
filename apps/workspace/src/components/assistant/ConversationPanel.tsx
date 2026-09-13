@@ -49,8 +49,10 @@ import { ConversationHistory, type ActiveTurnState } from './ConversationHistory
 import { ExecutionControlsPopover } from './ExecutionControlsPopover';
 import { ExecutionTray } from './ExecutionTray';
 import { resolveDisplayTitle } from './conversationTitles';
+import { parseShellIntent, stripShellPrefix } from './shell-mode';
 import { useSessionStatus } from '../../hooks/useSessionStatus';
 import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
+import { getSuggestions } from '../../lib/api';
 import { StatusIndicator } from '@vestara/ui';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -503,6 +505,7 @@ const ComposeInput = memo(function ComposeInput({
   execConfig,
   onExecControlsToggle,
   execControlsRef,
+  workspaceName,
 }: {
   onSend: (text: string) => void;
   loading: boolean;
@@ -514,6 +517,8 @@ const ComposeInput = memo(function ComposeInput({
   execConfig?: { isCustom: boolean };
   onExecControlsToggle?: () => void;
   execControlsRef?: React.RefObject<HTMLButtonElement | null>;
+  /** Server-derived workspace name for the shell-mode cwd pill (GA-TERM-001). */
+  workspaceName?: string;
 }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -596,25 +601,65 @@ const ComposeInput = memo(function ComposeInput({
 
   const canSend = input.trim().length > 0 && !loading;
 
+  // GA-TERM-001 Phase 1: shell mode is derived per keystroke from the raw
+  // input — never stored — so deleting the prefix exits the mode. The text
+  // is always sent verbatim; this only drives presentation + explicit intent.
+  const shellIntent = useMemo(() => parseShellIntent(input), [input]);
+  const isShellMode = shellIntent !== null && !loading;
+
+  // Explicit exit: strip the prefix, keep the command as chat text.
+  const exitShellMode = useCallback(() => {
+    setInput((prev) => stripShellPrefix(prev));
+    textareaRef.current?.focus();
+  }, []);
+
   return (
     <div className="w-full border-t border-zinc-800/70 bg-gradient-to-t from-zinc-950 via-zinc-950 to-zinc-950/60 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
+      {/* GA-TERM-001: shell-mode pill — explicit per-turn opt-in indicator.
+          Removing the prefix (or ×) returns to chat. */}
+      {isShellMode && shellIntent && (
+        <div className="mb-2 flex items-center gap-2" data-testid="shell-mode-pill">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/30 bg-amber-500/[0.08] px-2.5 py-1 text-[10px] font-semibold text-amber-300">
+            <span className="font-mono" aria-hidden="true">$</span>
+            Shell
+            {workspaceName && workspaceName !== 'unknown' && (
+              <span className="font-mono font-normal text-amber-200/70">· {workspaceName}</span>
+            )}
+          </span>
+          <span className="truncate text-[10px] text-zinc-500">runs via the bash tool — permission applies</span>
+          <button
+            type="button"
+            onClick={exitShellMode}
+            aria-label="Exit shell mode, keep text as chat"
+            title="Exit shell mode"
+            className="ml-auto shrink-0 rounded-md px-2 py-1 text-[11px] text-zinc-500 transition-colors hover:bg-zinc-800/70 hover:text-zinc-300 cursor-pointer"
+          >
+            ×
+          </button>
+        </div>
+      )}
       {/* Primary input surface */}
-      <div className="relative rounded-2xl border border-zinc-700/60 bg-zinc-900/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] backdrop-blur transition-all focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/15 focus-within:bg-zinc-900">
+      <div className={`relative rounded-2xl border backdrop-blur transition-all ${isShellMode ? 'border-amber-500/40 bg-zinc-950/90 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-amber-500/60 focus-within:ring-2 focus-within:ring-amber-500/15' : 'border-zinc-700/60 bg-zinc-900/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/15 focus-within:bg-zinc-900'}`}>
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={loading ? 'Assistant is responding…' : 'Ask anything about your workspace…'}
-          aria-label="Message the assistant"
+          placeholder={loading ? 'Assistant is responding…' : isShellMode ? 'Run a shell command… (Enter to run)' : 'Ask anything about your workspace… ($ prefix for shell)'}
+          aria-label={isShellMode ? 'Run a shell command' : 'Message the assistant'}
           rows={1}
-          className="w-full resize-none bg-transparent pl-4 pr-12 py-3 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 focus:outline-none min-h-[44px] max-h-[120px]"
+          className={`w-full resize-none bg-transparent py-3 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 focus:outline-none min-h-[44px] max-h-[120px] ${isShellMode ? 'pl-9 pr-12 font-mono' : 'pl-4 pr-12'}`}
           onInput={(e) => {
             const target = e.target as HTMLTextAreaElement;
             target.style.height = 'auto';
             target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
           }}
         />
+        {isShellMode && (
+          <span className="pointer-events-none absolute left-3.5 top-3.5 font-mono text-[13px] text-amber-400/80" aria-hidden="true">
+            $
+          </span>
+        )}
         {/* Send / Stop button — inside input, far right */}
         {loading ? (
           <button
@@ -633,8 +678,8 @@ const ComposeInput = memo(function ComposeInput({
             type="button"
             onClick={handleSend}
             disabled={!canSend}
-            aria-label="Send message"
-            title="Send message"
+            aria-label={isShellMode ? 'Run shell command' : 'Send message'}
+            title={isShellMode ? 'Run command' : 'Send message'}
             className={`absolute right-2 bottom-2 flex h-8 w-8 items-center justify-center rounded-xl transition-all active:scale-95 ${
               canSend
                 ? 'bg-gradient-to-b from-amber-300 to-amber-500 text-zinc-950 shadow-[0_4px_12px_-4px_rgba(245,158,11,0.6)] ring-1 ring-white/20 hover:brightness-110 cursor-pointer'
@@ -805,12 +850,45 @@ interface AssistantSuggestion {
   readonly source: string;
 }
 
+type SuggestionSurface = {
+  section?: string | null;
+  routeId?: string | null;
+  selected?: { kind: string; id: string; label?: string | null };
+};
+
+function truncateLabel(value: string, max: number): string {
+  const clean = value.trim();
+  if (clean.length <= max) return clean;
+  return `${clean.slice(0, max - 1)}…`;
+}
+
 /**
  * Derive context-aware suggestions from the current surface.
  * The UI is a projection — suggestion policy lives here, not in a runtime.
  * Surface-specific suggestions replace generic defaults when context is available.
+ * A selected reference (Activity Room AR-009 / Inspector) takes priority over
+ * route-only suggestions. The label below is contextual text only — actual
+ * provenance remains structured (SurfaceContext.selected travels with the
+ * assistant turn via handleSend). Prompt text must never be parsed to
+ * reconstruct selection identity.
  */
-function getSuggestionsForSurface(surface?: { section?: string; routeId?: string }): AssistantSuggestion[] {
+function getSuggestionsForSurface(surface?: SuggestionSurface): AssistantSuggestion[] {
+  const selected = surface?.selected;
+  if (selected?.id) {
+    const kind = selected.kind ?? 'item';
+    const label = selected.label ?? selected.id;
+    // Contextual display text only (no raw IDs): structured identity lives in
+    // SurfaceContext.selected. NOTE (integration gap): the server adapter
+    // currently validates but mostly ignores selected — recorded, not
+    // compensated for here.
+    const ref = `${kind} "${label}"`;
+    return [
+      { id: 'summarize-selected', label: `Summarize ${truncateLabel(label, 24)}`, prompt: `Summarize the selected ${ref}.`, source: 'surface:selected' },
+      { id: 'explain-selected', label: `Explain ${truncateLabel(label, 24)}`, prompt: `Explain the selected ${ref}.`, source: 'surface:selected' },
+      { id: 'next-selected', label: 'Suggest next steps', prompt: `Suggest concrete next steps for the selected ${ref}.`, source: 'surface:selected' },
+    ];
+  }
+
   const routeId = surface?.routeId;
 
   // Surface-specific suggestions
@@ -846,8 +924,40 @@ function getSuggestionsForSurface(surface?: { section?: string; routeId?: string
   ];
 }
 
-function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: string) => void; surface?: { section?: string; routeId?: string } }) {
-  const suggestions = getSuggestionsForSurface(surface);
+// FREEZE NOTE (review): do not grow inline policy here (no more
+// `if route === …` / `if selected.kind === …` branches). When the next
+// surface/kind needs specialized policy, extract a dedicated suggestion
+// resolver; ConversationPanel renders suggestions, it does not own
+// suggestion intelligence. Full static route registry: DEFERRED.
+function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: string) => void; surface?: SuggestionSurface }) {
+  const base = getSuggestionsForSurface(surface);
+  const [health, setHealth] = useState<AssistantSuggestion[]>([]);
+
+  // Workspace-health suggestions (GET /api/suggestions) merge above the
+  // static surface suggestions. Best-effort: failure falls back to static.
+  useEffect(() => {
+    let cancelled = false;
+    getSuggestions()
+      .then((items) => {
+        if (cancelled) return;
+        const top = (items ?? []).filter((s) => s.priority === 'high' || s.priority === 'medium').slice(0, 2);
+        setHealth(
+          top.map((s) => ({
+            id: `health-${s.id}`,
+            label: truncateLabel(s.title, 32),
+            prompt: `Help me with: ${s.title}${s.description ? ` — ${s.description}` : ''}${s.impact ? ` Impact: ${s.impact}` : ''}${s.command ? ` Suggested command: ${s.command}` : ''}`,
+            source: 'workspace-health',
+          })),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHealth([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center" data-testid="assistant-suggestions">
       <div
@@ -864,7 +974,34 @@ function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: stri
         Ask about this workspace, inspect the repository, or start an engineering task.
       </p>
       <div className="flex flex-col gap-2 w-full max-w-[240px]">
-        {suggestions.map((s) => (
+        {health.length > 0 && (
+          <div className="text-[10px] font-medium uppercase tracking-wide text-amber-400/70">May need attention</div>
+        )}
+        {health.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => onSuggest(s.prompt)}
+            data-testid="assistant-suggestion-health"
+            title={s.label}
+            className="group flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-left text-[12px] text-amber-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-400/60 hover:bg-amber-500/15 hover:text-white"
+          >
+            <span className="flex-1 truncate font-medium">{s.label}</span>
+            <svg
+              className="h-3.5 w-3.5 shrink-0 text-amber-400/70 transition-all group-hover:translate-x-0.5 group-hover:text-amber-300"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+        ))}
+        {health.length > 0 && (
+          <div className="pt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Ask about this workspace</div>
+        )}
+        {base.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -1303,7 +1440,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
       {/* GA-UI-006: intentional new-conversation surface with suggestions */}
       {showSuggestions && !assistant.listLoading && (
         <div className="flex-1">
-          <SuggestionEmptyState onSuggest={handleSuggest} surface={surface.surface} />
+          <SuggestionEmptyState onSuggest={handleSuggest} surface={{ ...surface.surface, selected: surface.selected }} />
         </div>
       )}
 
@@ -1410,6 +1547,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           execConfig={execConfig}
           onExecControlsToggle={handleExecControlsToggle}
           execControlsRef={execGearRef}
+          workspaceName={surface.workspace.name}
         />
         {/* GA-EXEC-001: execution controls popover */}
         {execControlsOpen && (
@@ -1437,19 +1575,6 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         className="hidden w-[300px] shrink-0 flex-col border-r border-zinc-800/60 bg-zinc-950/60 backdrop-blur-sm md:flex min-h-0"
         data-testid="assistant-sidebar"
       >
-        <div className="shrink-0 border-b border-zinc-800/60 px-3 py-2.5 bg-zinc-900/40">
-          <div className="flex items-center gap-2">
-            <div className="flex h-5 w-5 items-center justify-center rounded-md bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_0_8px_rgba(245,158,11,0.4)]">
-              <svg className="h-3 w-3 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="min-w-0">
-              <div className="text-xs font-semibold text-zinc-200">Vestara Assistant</div>
-              <div className="truncate text-[10px] text-zinc-600">{surface.workspace.name}</div>
-            </div>
-          </div>
-        </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <ConversationHistory
             variant="rail"

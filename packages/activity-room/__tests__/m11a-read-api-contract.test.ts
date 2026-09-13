@@ -194,7 +194,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
 
   describe('INV-2: Bounded/Paginated Historical Activity Retrieval', () => {
     it('query with limit returns bounded results', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       // Query with limit=5
       const page = await store.query({ limit: 5 });
@@ -206,7 +206,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('query with after cursor returns subsequent records', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       // Get first 5
       const firstPage = await store.query({ limit: 5 });
@@ -228,7 +228,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('query with workflowRunId filter works', async () => {
-      const { workflowRunId, records } = await populateTestData();
+      const { workflowRunId, records: _records } = await populateTestData();
 
       const page = await store.query({ workflowRunId, limit: 100 });
       // All records should belong to this workflow
@@ -238,7 +238,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('query with actor filter works', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       const humanRecords = await store.query({ actor: 'human', limit: 100 });
       for (const record of humanRecords) {
@@ -252,7 +252,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('query with type filter works', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       const failedRecords = await store.query({ type: 'task.failed', limit: 100 });
       for (const record of failedRecords) {
@@ -434,7 +434,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
 
   describe('INV-8: Query Limits and Validation', () => {
     it('limit is capped at MAX_LIMIT (100)', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       // Request limit > MAX_LIMIT
       const page = await store.query({ limit: 500 });
@@ -443,7 +443,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('limit defaults to DEFAULT_LIMIT (50)', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
 
       const page = await store.query({});
       expect(page.length).toBeLessThanOrEqual(50);
@@ -575,7 +575,7 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
     });
 
     it('query does not mutate M9 store', async () => {
-      const { records } = await populateTestData();
+      const { records: _records } = await populateTestData();
       const before = await store.rebuild();
 
       // Run multiple queries
@@ -670,7 +670,13 @@ describe('M11A — Production Activity Room Read API Contract Tests', () => {
 
   describe('Full Collaborative Scenario', () => {
     it('end-to-end: human join → message → workflow → agents → complete → paginate history', async () => {
-      const { workflowRunId, executionId, task1, task2, records } = await populateTestData();
+      const {
+        workflowRunId: _workflowRunId,
+        executionId: _executionId,
+        task1: _task1,
+        task2: _task2,
+        records,
+      } = await populateTestData();
 
       // 1. Room snapshot
       const projection = runtime.rebuild(records);

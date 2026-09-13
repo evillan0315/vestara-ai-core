@@ -64,7 +64,7 @@ describe('GAExecutionConfig type contract', () => {
 
 const EXEC_CFG_BOUNDS = {
   turnTimeoutMs: { min: 10_000, max: 60 * 60_000 }, // 10s–60min
-  maxToolCalls: { min: 1, max: 200 },
+  maxToolCalls: { min: 0, max: 200 }, // 0 = unlimited
 } as const;
 
 function parseExecutionConfig(raw: unknown): GAExecutionConfig | undefined {
@@ -123,8 +123,13 @@ describe('parseExecutionConfig (server-side validation)', () => {
     expect(cfg).toEqual({ maxToolCalls: 20 });
   });
 
-  it('rejects maxToolCalls below minimum', () => {
+  it('accepts maxToolCalls 0 as unlimited', () => {
     const cfg = parseExecutionConfig({ maxToolCalls: 0 });
+    expect(cfg).toEqual({ maxToolCalls: 0 });
+  });
+
+  it('rejects maxToolCalls below minimum', () => {
+    const cfg = parseExecutionConfig({ maxToolCalls: -1 });
     expect(cfg).toBeUndefined();
   });
 

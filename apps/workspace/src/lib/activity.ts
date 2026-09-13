@@ -62,6 +62,7 @@ export interface ActivityMessagePayload {
   effect?: ActivityOrganizationalEffect;
   correctionOf?: string;
   actor?: { displayName?: string; role?: string };
+  executionConfig?: { maxToolCalls?: number; turnTimeoutMs?: number };
 }
 
 /** Sends a human message and resolves with the persisted, sequenced record. */

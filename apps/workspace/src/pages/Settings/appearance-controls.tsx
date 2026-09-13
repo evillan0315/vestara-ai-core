@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ACCENT_PALETTES, PROFILES, type ThemeSettings, useTheme } from '../../lib/theme.js';
 import { ThemeBuilderProvider } from '../../lib/theme-builder-context.js';
 import { ThemeBuilder } from './components/ThemeBuilder/index.js';
@@ -16,7 +17,18 @@ const APPEARANCE_TABS: Array<{ id: AppearanceTab; label: string; description: st
 
 export function AppearanceControls() {
   const { mode, resolved, settings, activeProfile, setMode, applyProfile, resetSettings, updateSetting } = useTheme();
-  const [activeTab, setActiveTab] = useState<AppearanceTab>('profiles');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const rawTab = searchParams.get('tab') as AppearanceTab | null;
+  const activeTab: AppearanceTab = rawTab && APPEARANCE_TABS.some((t) => t.id === rawTab) ? rawTab : 'profiles';
+  const setActiveTab = useCallback(
+    (tab: AppearanceTab) => {
+      const next = new URLSearchParams(searchParams);
+      if (tab === 'profiles') next.delete('tab');
+      else next.set('tab', tab);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
 
   const select = <K extends keyof ThemeSettings>(key: K, options: readonly ThemeSettings[K][]) => (
     <select

@@ -1,3 +1,4 @@
+import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef } from 'react';
 import '@xterm/xterm/css/xterm.css';
@@ -36,12 +37,20 @@ export function clearTerminal(id: string) {
 interface TerminalPaneProps {
   sessionId: string;
   onData: (data: string) => void;
+  /** Fired after fit with the display dimensions (recorded server-side). */
+  onResize?: (cols: number, rows: number) => void;
+  /** Keystroke echo. False for pty sessions (the kernel tty echoes). */
+  localEcho?: boolean;
 }
 
-export function TerminalPane({ sessionId, onData }: TerminalPaneProps) {
+export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
+  const localEchoRef = useRef(localEcho);
+  localEchoRef.current = localEcho;
 
   useEffect(() => {
     const el = containerRef.current;
@@ -57,6 +66,8 @@ export function TerminalPane({ sessionId, onData }: TerminalPaneProps) {
       lineHeight: 1.35,
       theme: THEME,
     });
+    const fit = new FitAddon();
+    term.loadAddon(fit);
     _termMap.set(sessionId, term);
 
     el.innerHTML = '';
@@ -65,17 +76,28 @@ export function TerminalPane({ sessionId, onData }: TerminalPaneProps) {
     xtermEl.style.height = '100%';
     el.appendChild(xtermEl);
     term.open(xtermEl);
+    try {
+      fit.fit();
+      onResizeRef.current?.(term.cols, term.rows);
+    } catch {
+      /* fit before layout — backend keeps spawn defaults */
+    }
 
-    term.writeln('Vestara Terminal ready.');
-    term.write('$ ');
-
+    // GA-TERM-001 Phase 3: no local prompt. The backend shell owns the
+    // prompt and all output; this pane only echoes keystrokes (piped stdio
+    // has no tty line discipline to echo for us) and forwards raw input.
+    // Reconnect replay arrives as server frames like any other output.
     term.onData((data) => {
       onDataRef.current(data);
-      for (const ch of data) {
-        if (ch === '\x7f') {
-          term.write('\b \b');
-        } else if (ch >= ' ') {
-          term.write(ch);
+      // Spawn-driver echo: piped stdio has no tty to echo for us. Pty
+      // sessions echo in-kernel — local echo would double-type.
+      if (localEchoRef.current) {
+        for (const ch of data) {
+          if (ch === '\x7f') {
+            term.write('\b \b');
+          } else if (ch >= ' ') {
+            term.write(ch);
+          }
         }
       }
     });
@@ -102,10 +124,20 @@ export function TerminalPane({ sessionId, onData }: TerminalPaneProps) {
     const t2 = setTimeout(focusTerm, 500);
     el.addEventListener('mousedown', focusTerm);
     el.addEventListener('click', focusTerm);
+    const ro = new ResizeObserver(() => {
+      try {
+        fit.fit();
+        onResizeRef.current?.(term.cols, term.rows);
+      } catch {
+        /* transient layout — ignore */
+      }
+    });
+    ro.observe(el);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      ro.disconnect();
       el.removeEventListener('mousedown', focusTerm);
       el.removeEventListener('click', focusTerm);
       _termMap.delete(sessionId);

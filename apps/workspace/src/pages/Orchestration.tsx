@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { VestaraModal } from '../components/ui/VestaraModal';
+import { RouteHero } from '../components/layout/PageHero/RouteHero';
 
 /**
  * Orchestration — multi-agent workflow projects (ADR-118 / PCS-025).
  *
- * Lists orchestrated projects with phase/status and task metrics, creates new
- * projects (create → analyze → plan → architecture → approve → execute), shows
- * per-project detail (tasks, audit, plan approval, resume), and renders the
- * Approval Gateway queue with Approve/Deny actions.
+ * Overview-grammar presentation (VES-OVERVIEW-001): shared PageHero with
+ * hero stats, premium mpg-card project list, skeleton + centered empty
+ * states. Data flow (create → analyze → plan → architecture → approve →
+ * execute), approval gateway actions, and detail loading are unchanged.
  */
 
 const API = '/api/orchestration';
@@ -79,15 +80,6 @@ const TASK_STATUS_BADGE: Record<string, string> = {
   retrying: 'bg-amber-500/15 text-amber-300',
   running: 'bg-blue-500/15 text-blue-300',
 };
-
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
-  return (
-    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: accent }}>
-      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">{label}</div>
-      <div className="text-lg font-bold text-(--vestara-text) mt-1">{value}</div>
-    </div>
-  );
-}
 
 async function fetchJson<T>(path: string): Promise<T | null> {
   try {
@@ -175,6 +167,32 @@ export default function OrchestrationPage() {
     return { total: projects.length, running: byStatus['running'] || 0, completed: byStatus['completed'] || 0, approvals };
   }, [projects, approvalsByProject]);
 
+  const dashboard = useMemo(() => {
+    const projectIds = new Set(projects.map((project) => project.id));
+    const metrics = Object.values(metricsByProject).filter((metric) => projectIds.has(metric.projectId));
+    const tasks = metrics.reduce(
+      (total, metric) => ({
+        total: total.total + metric.tasks.total,
+        completed: total.completed + metric.tasks.completed,
+        running: total.running + metric.tasks.running,
+        failed: total.failed + metric.tasks.failed,
+        blocked: total.blocked + metric.tasks.blocked,
+        awaitingApproval: total.awaitingApproval + metric.tasks.awaitingApproval,
+      }),
+      { total: 0, completed: 0, running: 0, failed: 0, blocked: 0, awaitingApproval: 0 },
+    );
+    const phases = projects.reduce<Record<string, number>>((counts, project) => {
+      counts[project.phase] = (counts[project.phase] ?? 0) + 1;
+      return counts;
+    }, {});
+    return {
+      tasks,
+      phases: Object.entries(phases).sort(([, a], [, b]) => b - a),
+      completion: tasks.total > 0 ? Math.round((tasks.completed / tasks.total) * 100) : 0,
+      attention: tasks.failed + tasks.blocked + tasks.awaitingApproval,
+    };
+  }, [projects, metricsByProject]);
+
   const resolveApproval = async (projectId: string, taskId: string, approved: boolean) => {
     setBusy(taskId);
     try {
@@ -254,64 +272,150 @@ export default function OrchestrationPage() {
   };
 
   return (
-    <div>
-      <div className="flex items-start justify-between mb-5 flex-wrap gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">Multi-Agent Orchestration</h1>
-          <p className="text-[10px] text-(--vestara-text-muted) mt-1">
-            WorkflowOrchestrator projects · task waves · approval gateway (ADR-118 / PCS-025)
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent) text-white rounded-lg hover:opacity-90 transition-opacity cursor-pointer font-medium"
-          >
-            + New project
-          </button>
-          <button
-            onClick={() => void refresh()}
-            className="text-xs px-3 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) rounded-lg hover:text-(--vestara-text) transition-colors cursor-pointer"
-          >
-            ↻ Refresh
-          </button>
-        </div>
-      </div>
+    <>
+      <h1 className="sr-only">Workflows</h1>
+      <div className="w-full min-w-0 space-y-4">
+        <RouteHero
+          actions={[
+            { label: 'New project', primary: true, glyph: '＋', onClick: () => setCreateOpen(true) },
+            { label: 'Refresh', glyph: '↻', onClick: () => void refresh(), title: 'Reload projects' },
+          ]}
+          stats={[
+            { label: 'projects', value: stats.total },
+            { label: 'running', value: stats.running },
+            { label: 'completed', value: stats.completed },
+            { label: 'awaiting approval', value: stats.approvals },
+          ]}
+        />
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
-        <StatCard label="Projects" value={stats.total} accent="#8b5cf6" />
-        <StatCard label="Running" value={stats.running} accent="#3b82f6" />
-        <StatCard label="Completed" value={stats.completed} accent="#10b981" />
-        <StatCard label="Awaiting approval" value={stats.approvals} accent={stats.approvals ? '#f59e0b' : '#52525b'} />
-      </div>
+        <section aria-labelledby="workflow-dashboard-title" className="space-y-3">
+          <div className="flex flex-wrap items-end justify-between gap-2">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--vestara-accent)]">
+                Operational overview
+              </p>
+              <h2 id="workflow-dashboard-title" className="mt-1 text-base font-semibold text-[var(--vestara-text-primary)]">
+                Workflow dashboard
+              </h2>
+            </div>
+            <span className="text-[11px] text-[var(--vestara-text-muted)]">
+              {loading ? 'Loading current state…' : `${dashboard.completion}% task completion`}
+            </span>
+          </div>
 
-      {loading ? (
-        <div className="text-center py-12 text-sm text-(--vestara-text-muted)">Loading projects...</div>
-      ) : projects.length === 0 ? (
-        <div className="text-center py-16 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg">
-          <div className="text-4xl text-(--vestara-text-2) mb-3">⚙</div>
-          <p className="text-sm text-(--vestara-text-2)">No orchestrated projects yet</p>
-          <button
-            onClick={() => setCreateOpen(true)}
-            className="mt-3 text-xs px-3 py-1.5 bg-(--vestara-accent) text-white rounded-lg hover:opacity-90 cursor-pointer"
-          >
-            Create your first project
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {projects.map((project) => {
-            const metrics = metricsByProject[project.id];
-            const approvals = approvalsByProject[project.id] ?? [];
-            const expanded = expandedId === project.id;
-            const projectDetail = detail[project.id];
-            return (
-              <div key={project.id} className="rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg)/40">
-                <button
-                  onClick={() => toggleExpand(project.id)}
-                  className="w-full text-left p-4 cursor-pointer"
-                >
-                  <div className="flex items-start justify-between flex-wrap gap-3">
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {[
+              { label: 'Total tasks', value: dashboard.tasks.total, tone: 'var(--vestara-accent)' },
+              { label: 'Completed', value: dashboard.tasks.completed, tone: 'var(--vestara-status-success)' },
+              { label: 'Running now', value: dashboard.tasks.running, tone: 'var(--vestara-status-info)' },
+              { label: 'Needs attention', value: dashboard.attention, tone: 'var(--vestara-status-warning)' },
+            ].map((item) => (
+              <div key={item.label} className="mpg-card min-w-0 p-4">
+                <span className="mpg-card-accent" style={{ background: item.tone }} aria-hidden="true" />
+                <div className="relative z-[2]">
+                  <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--vestara-text-muted)]">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-[var(--vestara-text-primary)]">{loading ? '—' : item.value}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.4fr)_minmax(16rem,1fr)]">
+            <div className="mpg-card p-4">
+              <div className="relative z-[2]">
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="text-xs font-semibold text-[var(--vestara-text-primary)]">Task progress</h3>
+                  <span className="text-[11px] text-[var(--vestara-text-muted)]">
+                    {dashboard.tasks.completed} / {dashboard.tasks.total}
+                  </span>
+                </div>
+                <div className="mt-3 h-2 overflow-hidden rounded-full bg-[var(--vestara-accent-bg)]">
+                  <div
+                    className="h-full rounded-full bg-[var(--vestara-status-success)] transition-[width] duration-300"
+                    style={{ width: `${dashboard.completion}%` }}
+                  />
+                </div>
+                <div className="mt-3 flex flex-wrap gap-2 text-[10px] text-[var(--vestara-text-muted)]">
+                  <span className="mpg-tag-pill">{dashboard.tasks.running} running</span>
+                  <span className="mpg-tag-pill">{dashboard.tasks.blocked} blocked</span>
+                  <span className="mpg-tag-pill">{dashboard.tasks.failed} failed</span>
+                  <span className="mpg-tag-pill">{dashboard.tasks.awaitingApproval} awaiting approval</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mpg-card p-4">
+              <div className="relative z-[2]">
+                <h3 className="text-xs font-semibold text-[var(--vestara-text-primary)]">Projects by phase</h3>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {dashboard.phases.length > 0 ? (
+                    dashboard.phases.map(([phase, count]) => (
+                      <span key={phase} className={`rounded-full border px-2 py-1 text-[10px] ${PHASE_BADGE[phase] ?? PHASE_BADGE.draft}`}>
+                        {phase.replaceAll('-', ' ')} · {count}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="text-[11px] text-[var(--vestara-text-muted)]">No project phases yet.</span>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {loading ? (
+          <div className="space-y-3" role="status" aria-live="polite" aria-label="Loading workflows">
+            <div className="mpg-skeleton h-10 w-48" />
+            <div className="mpg-skeleton h-36" />
+            <div className="mpg-skeleton h-36" />
+            <p className="sr-only">Loading orchestrated projects…</p>
+          </div>
+        ) : projects.length === 0 ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="mb-3 text-4xl" aria-hidden="true">
+                ⚙
+              </div>
+              <h2 className="text-lg font-semibold text-[var(--vestara-text-primary)]">No orchestrated projects yet</h2>
+              <p className="mt-1 text-sm text-[var(--vestara-text-secondary)]">
+                Draft a goal, gate the risky steps, and let the agents run the waves.
+              </p>
+              <button
+                onClick={() => setCreateOpen(true)}
+                className="mpg-install-btn mt-4"
+              >
+                Create your first project
+              </button>
+            </div>
+          </div>
+        ) : (
+          <section aria-label="Projects">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h2 className="text-[13px] font-semibold text-[var(--vestara-text-primary)]">
+                Projects{' '}
+                <span className="mpg-tag-pill ml-1">{projects.length}</span>
+              </h2>
+              <span className="text-[11px] text-[var(--vestara-text-muted)]">Expand a card for tasks, audit, and approvals</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {projects.map((project, i) => {
+                const metrics = metricsByProject[project.id];
+                const approvals = approvalsByProject[project.id] ?? [];
+                const expanded = expandedId === project.id;
+                const projectDetail = detail[project.id];
+                return (
+                  <div
+                    key={project.id}
+                    className="mpg-card mpg-enter min-w-0 p-4"
+                    style={{ animationDelay: `${Math.min(i, 12) * 40}ms` }}
+                  >
+                    <button
+                      onClick={() => toggleExpand(project.id)}
+                      className="w-full cursor-pointer text-left"
+                    >
+                      <div className="flex items-start justify-between flex-wrap gap-3">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
                         <h2 className="text-sm font-semibold text-(--vestara-text)">{project.name}</h2>
@@ -338,7 +442,7 @@ export default function OrchestrationPage() {
                 </button>
 
                 {approvals.length > 0 && (
-                  <div className="mx-4 mb-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
+                  <div className="mt-3 rounded-lg border border-amber-500/30 bg-amber-500/5 p-3">
                     <div className="text-xs font-medium text-amber-300 mb-2">Approval required</div>
                     <div className="space-y-2">
                       {approvals.map((task) => (
@@ -370,7 +474,7 @@ export default function OrchestrationPage() {
                 )}
 
                 {expanded && (
-                  <div className="border-t border-(--vestara-accent-border) p-4 space-y-4">
+                  <div className="mt-3 space-y-4 border-t border-(--vestara-accent-border) pt-4">
                     {projectDetail ? (
                       <>
                         <div className="flex items-center gap-2 flex-wrap">
@@ -437,11 +541,13 @@ export default function OrchestrationPage() {
                     )}
                   </div>
                 )}
-              </div>
-            );
-          })}
-        </div>
-      )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+      </div>
 
       {createOpen && (
         <VestaraModal onClose={() => setCreateOpen(false)} className="max-w-lg">
@@ -534,6 +640,6 @@ export default function OrchestrationPage() {
           </div>
         </VestaraModal>
       )}
-    </div>
+    </>
   );
 }

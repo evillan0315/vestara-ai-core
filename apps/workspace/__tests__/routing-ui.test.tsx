@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import RoutingPage from '../src/pages/Routing.js';
 
@@ -84,7 +85,11 @@ beforeEach(() => {
 
 describe('RoutingPage', () => {
   it('renders shared profiles, availability dimensions, and governed assignments', async () => {
-    render(<RoutingPage />);
+    render(
+      <MemoryRouter initialEntries={['/routing']}>
+        <RoutingPage />
+      </MemoryRouter>,
+    );
 
     expect(await screen.findByRole('heading', { name: 'Engineering Routing' })).toBeTruthy();
     expect(screen.getByRole('button', { name: /Balanced/ })).toBeTruthy();

@@ -26,6 +26,7 @@ import { SystemResources } from './components/SystemResources';
 import { TodayFocus } from './components/TodayFocus';
 import { AssetGridSkeleton, InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
+import { useMorningBriefing } from '../../hooks/useMorningBriefing';
 import '../../styles/marketplace.css';
 import './overview.tokens.css';
 
@@ -67,6 +68,7 @@ function SnapshotBanner({ onRetry }: { onRetry: () => void }) {
 
 export function OverviewScreen() {
   const { data, isLoading, error, refetch } = useOverview();
+  const { briefing: morningBriefing, loading: morningLoading } = useMorningBriefing();
 
   // min-w-0 on grid columns keeps long content from blowing out the grid on
   // narrow viewports.
@@ -108,6 +110,8 @@ export function OverviewScreen() {
             agentsOnline: data.agents.filter((a) => a.status === 'online' || a.status === 'busy' || a.status === 'working').length,
             activeWork: data.continueWorking.length,
           }}
+          briefing={morningBriefing}
+          briefingLoading={morningLoading}
         />
         <QuickActions />
 

@@ -1,5 +1,6 @@
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashPill, DashTile, enterDelay } from '../dashPremium';
 
 interface RecentSessionsSectionProps {
   execSessions: Record<string, unknown>[];
@@ -11,38 +12,36 @@ export default function RecentSessionsSection({ execSessions, dragSection }: Rec
 
   return (
     <DashboardSection title="Recent Sessions" icon="▶" dragSection={dragSection}>
-      <div className="space-y-1.5">
-        {execSessions.slice(0, 4).map((s) => (
-          <a
-            key={s.id as string}
-            href={`/sessions/${s.id}`}
-            className="flex items-center gap-2 p-2 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors border-l-[3px]"
-            style={{
-              borderLeftColor: s.status === 'completed' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b',
-            }}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="text-[9px] text-(--vestara-text) truncate font-medium">{s.goal as string}</div>
-              <div className="text-[8px] text-(--vestara-text-muted)">
-                {s.status as string} · {s.createdAt ? new Date(s.createdAt as string).toLocaleDateString() : ''}
-              </div>
-            </div>
-            <span
-              className={`text-[7px] px-1 py-0.5 rounded uppercase font-medium ${s.status === 'completed' ? 'bg-green-400/10 text-green-400' : s.status === 'failed' ? 'bg-red-400/10 text-red-400' : 'bg-amber-400/10 text-amber-400'}`}
-            >
-              {s.status as string}
-            </span>
+      <ul className="space-y-1">
+        {execSessions.slice(0, 4).map((s, i) => {
+          const accent = s.status === 'completed' ? '#10b981' : s.status === 'failed' ? '#ef4444' : '#f59e0b';
+          return (
+            <li key={s.id as string} className="mpg-enter" style={enterDelay(i)}>
+              <a href={`/sessions/${s.id}`} className="mpg-category-row group">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <DashTile accent={accent}>▶</DashTile>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                      {s.goal as string}
+                    </span>
+                    <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">
+                      {s.createdAt ? new Date(s.createdAt as string).toLocaleDateString() : ''}
+                    </span>
+                  </span>
+                </span>
+                <DashPill dot={accent}>{s.status as string}</DashPill>
+              </a>
+            </li>
+          );
+        })}
+      </ul>
+      {execSessions.length > 4 && (
+        <div className="mt-2 text-center">
+          <a href="/sessions" className="mpg-link">
+            View all sessions<span aria-hidden="true"> ›</span>
           </a>
-        ))}
-        {execSessions.length > 4 && (
-          <a
-            href="/sessions"
-            className="block text-[8px] text-(--vestara-text-muted) text-center py-1 hover:text-(--vestara-text-2) transition-colors rounded bg-zinc-800/20"
-          >
-            View all sessions →
-          </a>
-        )}
-      </div>
+        </div>
+      )}
     </DashboardSection>
   );
 }

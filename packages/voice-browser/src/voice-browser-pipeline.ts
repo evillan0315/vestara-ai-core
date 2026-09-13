@@ -87,6 +87,7 @@ export class DefaultVoiceBrowserPipeline implements VoiceBrowserPipeline {
   private _isListening = false;
   private _currentUrl: string | undefined;
   private audio: VestaraAudioService;
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private stt: VestaraSTTService;
   private browser: BrowserEngine;
   private renderer: UnifiedRenderer;

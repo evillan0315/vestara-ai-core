@@ -33,7 +33,7 @@ interface WorkflowBrowserProps {
   readonly onSelectWorkflow?: (workflowId: string | null) => void;
 }
 
-interface WorkflowUnit {
+export interface WorkflowUnit {
   readonly workflowId: string;
   readonly status: string;
   readonly taskCount: number;
@@ -48,7 +48,7 @@ interface WorkflowUnit {
 // ─── Helpers ─────────────────────────────────────────────────
 
 /** Derive workflow units from stream items. */
-function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly WorkflowUnit[] {
+export function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly WorkflowUnit[] {
   const workflowMap = new Map<string, {
     events: M11CStreamItem[];
     agents: Set<string>;
@@ -99,6 +99,19 @@ function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly Workfl
   return units.sort(
     (a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime(),
   );
+}
+
+/**
+ * Authoritative "active work exists" signal for adaptive composition (008F).
+ * Single derivation home shared with the browser below: a unit counts as
+ * active exactly as the browser defines it, or the latest projected summary
+ * is running. No inference beyond these authorities.
+ */
+export function hasActiveWork(
+  units: readonly WorkflowUnit[],
+  workflowSummary: WorkflowSummary | null,
+): boolean {
+  return units.some((u) => u.isActive) || workflowSummary?.status === 'running';
 }
 
 function formatTimeAgo(timestamp: string): string {

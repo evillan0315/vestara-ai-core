@@ -11,7 +11,8 @@
    Class prefix: ar-
    ───────────────────────────────────────────────────────────── */
 
-.ar-room {
+.ar-room,
+.shell-canvas {
   /* ── Chamber palette (dark default) ──
      Gold is a jewelry accent, not a paint. Large surfaces stay
      near-black warm charcoal; metallic gold appears only on
@@ -74,18 +75,42 @@
   --ar-amber: var(--vestara-amber);
   --ar-serif: Georgia, 'Times New Roman', 'Palatino Linotype', serif;
   --ar-drop-shadow: rgba(0, 0, 0, 0.5);
+}
 
+/* Chamber box frame — applies only when the .ar-room page wrapper is
+   present. The Activity Room page renders unwrapped (shell-canvas owns
+   layout), so this is inert there; variables above still scope via
+   .shell-canvas. */
+.ar-room {
   position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  height: 100%;
+  /* VES-DESIGN-008F: page owns scrolling (shell-canvas). The room is a
+     normal block stacking context — never a viewport-bound flex column
+     (which crushed shrinkable children once rails stopped scrolling
+     internally). Only the live stream list below keeps a bounded
+     internal scroll region. */
+  display: block;
+  height: auto;
   min-height: 0;
   padding: 0.875rem;
   isolation: isolate;
   border: 1px solid var(--ar-hairline);
   border-radius: 14px;
-  overflow: hidden;
+  overflow: visible;
+}
+
+/* Flow spacing for the legacy .ar-room wrapper (overlays are fixed, so
+   adjacent margins cannot disturb modals/drawers). Unwrapped pages use
+   mt-3 utilities on section siblings instead. */
+.ar-room > * + * {
+  margin-top: 0.75rem;
+}
+
+/* Live-feed scroll region: the Activity Stream list is the ONE legitimate
+   bounded scroller (008A/008F). Unbounded growth would push follow-live,
+   unread, and viewport reporting onto page scroll and break the frozen
+   realtime contracts. */
+.ar-panel--main .ar-scroll {
+  max-height: 44rem;
 }
 
 /* Ambient atmosphere — a dark holographic space. A cool spectral band
@@ -423,6 +448,9 @@
   .ar-panel--rail {
     display: flex;
     padding: 0.75rem;
+    /* VES-DESIGN-008C: page owns rail scrolling — no nested scrollbar. */
+    max-height: none;
+    overflow: visible;
   }
 }
 
@@ -430,8 +458,11 @@
   .ar-panel--rail {
     flex-shrink: 0;
     width: 18rem;
-    max-height: none;
-    overflow: hidden;
+    /* Bounded rail with its own scroll: long rosters must not push the
+       stream down the page. (Overrides the 008C page-owned-scroll rule
+       for desktop; mobile/tablet keep page scroll.) */
+    max-height: calc(100vh - 12rem);
+    overflow-y: auto;
   }
 }
 
@@ -441,6 +472,26 @@
   display: none;
   min-width: 0;
   overflow: hidden;
+}
+
+/* Active-work strip above the stream: the browser renders inline in the
+   main panel (never a middle grid column). Column chrome is neutralized
+   and the unit list is capped so the stream stays the dominant share. */
+.ar-workflow-strip {
+  margin-bottom: 0.625rem;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 8px;
+  background: var(--ar-rail-bg);
+  overflow: hidden;
+}
+.ar-workflow-strip .ar-workflow-browser {
+  height: auto;
+  border-right: none;
+  background: transparent;
+}
+.ar-workflow-strip .ar-workflow-browser__list {
+  flex: none;
+  max-height: 12rem;
 }
 
 @media (min-width: 1024px) {
@@ -832,6 +883,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.5rem;
   padding: 0.375rem 0.5rem;
   border-bottom: 1px solid var(--ar-hairline);
   flex-shrink: 0;
@@ -2218,7 +2271,8 @@
 /* ── Light theme (aligned with the workspace theme toggle) ────
    Same restraint: ivory chamber, darker burnished gold details. */
 
-[data-theme='light'] .ar-room {
+[data-theme='light'] .ar-room,
+[data-theme='light'] .shell-canvas {
   /* Light theme: darker accent variants for contrast on ivory. */
   --ar-gold-light: var(--vestara-accent);
   --ar-gold-deep: var(--vestara-accent-dark);
@@ -2233,7 +2287,10 @@
   --ar-chrome: color-mix(in srgb, var(--color-zinc-50) 96%, var(--vestara-accent));
   --ar-surface: color-mix(in srgb, var(--color-zinc-50) 90%, var(--vestara-accent));
   --ar-surface-raised: color-mix(in srgb, var(--color-zinc-100) 88%, var(--vestara-accent));
-  /* Panels as their own lifted plane: frosted ivory over the foil wall. */
+  /* Panels as their own lifted plane: frosted ivory over the foil wall.
+     Opaque-ish base: the translucent layers above compose over it instead
+     of the dark shell (phase 2: panel interiors followed tokens but the
+     container washed dark in light mode). */
   --ar-panel-bg:
     radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, white 46%, transparent), transparent 62%),
     color-mix(in srgb, white 55%, transparent);
@@ -2247,6 +2304,12 @@
   --ar-rail-bg:
     radial-gradient(120% 60% at 50% -30%, color-mix(in srgb, white 40%, transparent), transparent 60%),
     color-mix(in srgb, var(--color-zinc-100) 62%, transparent);
+}
+
+/* Light panels need an opaque-ish base: the translucent --ar-panel-bg and
+   --ar-rail-bg layers above compose over it instead of the dark shell. */
+[data-theme='light'] .ar-panel {
+  background-color: color-mix(in srgb, white 88%, transparent);
 }
 
 [data-theme='light'] .ar-room::before {

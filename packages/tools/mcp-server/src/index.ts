@@ -69,7 +69,7 @@ async function requestApproval(op: FsOperation): Promise<void> {
       body: JSON.stringify({ userId: 'mcp-server' }),
     });
     if (!res.ok) return;
-    const { conversation } = (await res.json()) as { conversation: { id: string } };
+    const { conversation: _conversation } = (await res.json()) as { conversation: { id: string } };
 
     // Surface the permission request via the conversation's stream
     // The Vestara API will handle the approval UI

@@ -22,10 +22,12 @@ const TABS = [
 
 export default function MarketplaceLayout() {
   return (
-    <div className="mpg-chamber">
+    <div className="w-full min-w-0 space-y-4">
+      {/* ShellLayout owns the page canvas, gutters, and background. Marketplace
+          contributes only its navigation and gallery content, like Overview. */}
       {/* Section identity lives here (tabs); each route owns its own
           title via MarketplacePage — no duplicate "Marketplace" header. */}
-      <header className="mpg-market-header relative z-[2] mb-4">
+      <header className="mpg-market-header relative z-[2]">
         <nav className="mpg-market-tabs" aria-label="Marketplace sections">
           {TABS.map((tab) => (
             <NavLink
@@ -39,7 +41,7 @@ export default function MarketplaceLayout() {
           ))}
         </nav>
       </header>
-      <div className="relative z-[2]">
+      <div className="relative z-[2] min-w-0">
         <Routes>
           <Route index element={<Discover />} />
           <Route path="capabilities" element={<Capabilities />} />

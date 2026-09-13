@@ -19,7 +19,7 @@ import {
   GalleryCard,
   InsightBanner,
 } from '../../pages/Marketplace/MarketplaceLayout-components.js';
-import { PageHero } from '../layout/PageHero/PageHero.js';
+import { RouteHero } from '../layout/PageHero/RouteHero';
 import { diagnosticsApi, formatBytes } from '../../lib/diagnostics';
 import { AgentMonitor } from './AgentMonitor';
 import { AiAnalyze } from './AiAnalyze';
@@ -70,11 +70,10 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
   const healthy = critical === 0;
 
   return (
-    <PageHero
+    <RouteHero
+      routeId="diagnostics"
       eyebrow={paused ? 'Telemetry paused' : 'Live telemetry'}
       statusColor={paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
-      title="Diagnostic Center"
-      subtitle="System health, processes, and signals — instrument-grade, at a glance."
       quote={
         summary
           ? `${summary.os.hostname} · ${summary.workspace.name} · ${summary.os.platform} ${summary.os.arch}`
@@ -108,7 +107,6 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
           ? [{ label: 'warnings', value: warnings, color: 'text-[var(--vestara-status-warning)]' }]
           : []),
       ]}
-      checklistTitle="Signal snapshot"
       checklist={[
         `◍ ${summary ? `CPU ${Math.round(summary.cpu.usage)}% · ${summary.cpu.logicalCores} cores` : 'CPU …'}`,
         `▤ ${
@@ -122,8 +120,6 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
             : 'Health …'
         }`,
       ]}
-      checklistLabel="Signal snapshot"
-      label="Diagnostics highlights"
     />
   );
 }

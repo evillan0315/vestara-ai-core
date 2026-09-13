@@ -99,7 +99,13 @@ const SIZE_STYLES: Record<ListSize, { item: string; text: string }> = {
 
 // ─── List Component ────────────────────────────────────────────
 
-export function List({ size = 'md', dividers = false, bordered = false, className = '', children }: ListProps) {
+export function List({
+  size: _size = 'md',
+  dividers: _dividers = false,
+  bordered = false,
+  className = '',
+  children,
+}: ListProps) {
   return (
     <ul
       className={`

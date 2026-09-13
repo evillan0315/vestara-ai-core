@@ -677,4 +677,44 @@ The next authorized action is to proceed with the recommended R3 milestone, subj
 
 ---
 
-> **Reconciliation complete. All R0–R13 requirements traced. Next milestone recommended: R3 — Shared UI Foundation.**
+### Addendum 2026-09-13 — Fix 1+2: executionConfig attribution + @mention targeting (authorized Fix 1+2 → ARX-015)
+
+**Authorized:** `authorize Fix 1+2 → ARX-015` (Director)
+**Classification:** Fix 1 BLOCKER, Fix 2 ADJACENT (does not advance R3 scope)
+
+| Fix | Files | Effect | Evidence |
+|-----|-------|--------|----------|
+| **Fix 1 — executionConfig forwarding** | `packages/activity-room/src/assistant-turn.ts` (+`executionConfig` to `TriggerAssistantTurnOptions` → `sendOptions.executionConfig`), `apps/api/src/routes/activity-room.ts` (extract `body.executionConfig` for both `/api/messages` and `/api/agents/:id/messages`) | Activity Room turns no longer silently fall back to `DEFAULT_MAX_TOOL_CALLS=30` (`apps/api/src/assistant-opencode-adapter.ts:116`). UI-touched `maxToolCalls`/`turnTimeoutMs` from Global Assistant (`useGAExecutionConfig` → `toRequestConfig()` → `POST .../stream {executionConfig}`) now propagates via `triggerAssistantTurn`. Resolves `Tool call limit reached: 30` on long Planner/analysis turns when user has raised budget. | `build-order.sh PASS`, `lint:check PASS (1629 files)`, `dependencies:check PASS`, `ga-execution-config.test.ts 33/33 PASS`, evidence bundle `.vestara/evidence/fix1-fix2-executionConfig-attribution.json` |
+| **Fix 2 — @mention targeting** | `apps/workspace/src/lib/activity.ts` (`ActivityMessagePayload.executionConfig`), `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` (`M11CComposer` @vestara/@assistant→`targets:[{agent:'agent-assistant'}]`) | `@vestara Analyze...` in M11C composer now maps to `agent-assistant` target so `handleActivityRoomRoute` branch `triggerAssistantTurn` fires (`activity-room.ts:182/202`). Previously always `all-agents` → no turn, appeared as "nothing happens" with no stream item. Error already surfaced via `catch→setError` (no silent drop). | Same verification as Fix 1 |
+
+**Milestone impact:** R3 remains the BLOCKER (no `RecommendationCard`/`DecisionGroup` etc.). Fixes 1+2 are pre-R3 attribution repairs that keep R5 (governed submission) honest under `REC-GOV-01..08` and do not introduce operation dispatch.
+
+### Addendum 2026-09-13 — Plan: maxToolCalls badge to Activity Room composer (approved plan)
+
+**Approved:** `approve plan` — add maxToolCalls badge to Activity Room composer
+**Implemented by:** vestara-developer (minimal, display-only)
+
+| Change | File | Observable |
+|--------|------|------------|
+| Badge display-only via `useGAExecutionConfig` | `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` (`M11CComposer` imports `useGAExecutionConfig`, renders pill `unlimited` or `N calls` with `var(--vestara-*)`, `title` explains adapter fallback 30) | Composer now shows `unlimited` or `80 calls` pill next to `All agents` chip; updates when ExecutionControls changes |
+
+**Verification:** `bash build-order.sh PASS` (116 projects), `pnpm lint:check PASS` (1630 files), `pnpm dependencies:check PASS`
+
+### Addendum 2026-09-13 — Fix 3: raise default 30→80 + badge truthfulness (authorized → ARX-015)
+
+**Authorized:** `Auhorized the propose fix` (Director) — Fix 3 + Future Settings plan
+**Info alert:** `Assistant response failed: Tool call limit reached: 30` in Global Assistant + session kick (detached→failed) on long turns
+
+| Fix | File | Change |
+|-----|------|--------|
+| **Fix 3 — default budget 30→80** | `apps/api/src/assistant-opencode-adapter.ts:116` | `DEFAULT_MAX_TOOL_CALLS` `30`→`80` (env `VESTARA_GA_MAX_TOOL_CALLS` still overrides). Dirty-worktree (~60 calls) now passes without touching gear; `>80` still requires ExecutionControls `0=unlimited` or higher |
+| **Badge truthfulness** | `apps/workspace/src/pages/activity/M11CActivityRoomPage.tsx` (`M11CComposer`) | `isCustom` + `isUntouchedDefault` → untouched shows `80 calls (default)` not `unlimited`; touched `0` shows `unlimited`. Title explains effective vs touched |
+
+**Verification:** `build PASS` (116), `lint PASS` (1630), evidence `.vestara/evidence/fix3-badge-truth-and-settings-plan.json`
+
+**Future plan (not in Fix 3 scope) — Settings: Execution + Tools:**
+- **Placement:** `Settings` → `Runtime & AI` → new `Assistant Execution` (`assistant-execution`) section (`settings-navigation.ts`) — or extend `agents`. Authority stays `@vestara/configuration`.
+- **Persisted keys:** `assistant.execution.maxToolCalls` (0..200, default 80), `assistant.execution.turnTimeoutMs` (10s..3600s, default 900s) — replaces session-local `useGAExecutionConfig`.
+- **Tools visibility:** Display-only matrix of `AssistantCapabilityPolicy` / `ASSISTANT_GRANT` tools (`read/edit/bash/glob/grep/task/webfetch/websearch/external_directory/question` → `allow/ask/deny`) with FactRows for provenance; badge links to `/settings/assistant-execution`. `var(--vestara-*)` only.
+
+> **Reconciliation complete. All R0–R13 requirements traced. Next milestone recommended: R3 — Shared UI Foundation. (Addendum 2026-09-13 Fix 1+2 + badge + Fix 3 recorded; Settings Execution+Tools planned)**

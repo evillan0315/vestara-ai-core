@@ -23,8 +23,15 @@ export default function SystemSection({
       <div className="space-y-1.5 text-[11px]">
         <div className="flex items-center justify-between">
           <span className="text-(--vestara-text-muted)">Status</span>
-          <span className={`flex items-center gap-1 ${connected ? 'text-green-400' : 'text-red-400'}`}>
-            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+          <span className="mpg-tag-pill">
+            <span
+              aria-hidden="true"
+              className="mr-1 inline-block h-1.5 w-1.5 rounded-full"
+              style={{
+                background: connected ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)',
+                boxShadow: `0 0 6px ${connected ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'}`,
+              }}
+            />
             {connected ? 'Connected' : 'Disconnected'}
           </span>
         </div>

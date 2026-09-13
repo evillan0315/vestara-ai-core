@@ -53,6 +53,7 @@ export class OpenViduMediaServer implements MediaServer {
   readonly provider = 'openvidu';
   readonly version = '2.25.0';
 
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private readonly config: OpenViduConfig;
   private readonly transport: OpenViduTransport;
 

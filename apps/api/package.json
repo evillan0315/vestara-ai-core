@@ -50,6 +50,7 @@
     "@vestara/stt": "workspace:*",
     "@vestara/telemetry": "workspace:*",
     "@vestara/telegram-integration": "workspace:*",
+    "@vestara/terminal-runtime": "workspace:*",
     "@vestara/thread-runtime": "workspace:*",
     "@vestara/tool-runtime": "workspace:*",
     "@vestara/tools-browser": "workspace:*",

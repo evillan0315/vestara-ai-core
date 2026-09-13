@@ -58,12 +58,16 @@ export interface PageHeroProps {
   stats?: PageHeroStat[];
   /** Custom row (tag pills, status pills) rendered before the stats. */
   meta?: ReactNode;
+  /** Where to render meta/stats: 'copy' (left, under text) or 'side' (right, under actions). Defaults to 'copy'. */
+  metaPosition?: 'copy' | 'side';
   /** Checklist card title (accent) + rows. Omit for a copy-only hero. */
   checklistTitle?: string;
   checklist?: string[];
   checklistLabel?: string;
   /** aria-label for the banner. Defaults to "<title> highlights". */
   label?: string;
+  /** Extra class for the banner (e.g. density variants like `mpg-hero--compact`). */
+  className?: string;
 }
 
 function HeroStatPill({ label, value, color = 'text-zinc-100' }: PageHeroStat) {
@@ -88,15 +92,25 @@ export function PageHero({
   actions,
   stats,
   meta,
+  metaPosition = 'copy',
   checklistTitle,
   checklist,
   checklistLabel,
   label,
+  className,
 }: PageHeroProps) {
   const Title = titleAs;
+  const hasMeta = Boolean(meta) || (stats && stats.length > 0);
+  const hasSide =
+    (actions && actions.length > 0) ||
+    (checklist && checklist.length > 0) ||
+    (metaPosition === 'side' && hasMeta);
   return (
-    <section className="mpg-hero mpg-enter" aria-label={label ?? `${title} highlights`}>
-      <div className="mpg-hero-copy">
+    <section
+      className={className ? `mpg-hero mpg-enter ${className}` : 'mpg-hero mpg-enter'}
+      aria-label={label ?? `${title} highlights`}
+    >
+      <div className="mpg-hero-copy min-w-0 overflow-hidden">
         {eyebrow && (
           <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--vestara-accent)]">
             <span
@@ -107,7 +121,10 @@ export function PageHero({
             {eyebrow}
           </p>
         )}
-        <Title className="mt-2 text-3xl font-bold tracking-tight text-[var(--vestara-text-primary)] sm:text-4xl">
+        <Title
+          className="mt-2 block max-w-full truncate whitespace-nowrap text-[28px] font-bold tracking-tight text-[var(--vestara-text-primary)] sm:text-[34px]"
+          title={typeof title === 'string' ? title : undefined}
+        >
           {title}
         </Title>
         {subtitle && (
@@ -132,40 +149,7 @@ export function PageHero({
             />
           </div>
         )}
-        {actions && actions.length > 0 && (
-          <div className="mt-5 flex flex-wrap items-center gap-2">
-            {actions.map((action) =>
-              action.to ? (
-                <Link
-                  key={action.label}
-                  to={action.to}
-                  className={action.primary ? 'mpg-install-btn' : 'mpg-pill'}
-                  title={action.title}
-                >
-                  {action.glyph && (
-                    <span aria-hidden="true">{action.glyph} </span>
-                  )}
-                  {action.label}
-                </Link>
-              ) : (
-                <button
-                  key={action.label}
-                  type="button"
-                  onClick={action.onClick}
-                  disabled={action.disabled}
-                  className={action.primary ? 'mpg-install-btn' : 'mpg-pill'}
-                  title={action.title}
-                >
-                  {action.glyph && (
-                    <span aria-hidden="true">{action.glyph} </span>
-                  )}
-                  {action.label}
-                </button>
-              ),
-            )}
-          </div>
-        )}
-        {(meta || (stats && stats.length > 0)) && (
+        {(metaPosition !== 'side' && (meta || (stats && stats.length > 0))) && (
           <div className="mt-5 flex flex-wrap items-center gap-2">
             {meta}
             {stats?.map((stat) => (
@@ -174,19 +158,63 @@ export function PageHero({
           </div>
         )}
       </div>
-      {checklist && checklist.length > 0 && (
-        <aside className="mpg-hero-checklist" aria-label={checklistLabel ?? checklistTitle ?? 'Highlights'}>
-          {checklistTitle && (
-            <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--vestara-accent)]">
-              {checklistTitle}
-            </p>
+      {hasSide && (
+        <div className="mpg-hero-side">
+          {actions && actions.length > 0 && (
+            <div className="mpg-hero-actions">
+              {actions.map((action) =>
+                action.to ? (
+                  <Link
+                    key={action.label}
+                    to={action.to}
+                    className={action.primary ? 'mpg-install-btn' : 'mpg-pill'}
+                    title={action.title}
+                  >
+                    {action.glyph && <span aria-hidden="true">{action.glyph} </span>}
+                    {action.label}
+                  </Link>
+                ) : (
+                  <button
+                    key={action.label}
+                    type="button"
+                    onClick={action.onClick}
+                    disabled={action.disabled}
+                    className={action.primary ? 'mpg-install-btn' : 'mpg-pill'}
+                    title={action.title}
+                  >
+                    {action.glyph && <span aria-hidden="true">{action.glyph} </span>}
+                    {action.label}
+                  </button>
+                ),
+              )}
+            </div>
           )}
-          <ul>
-            {checklist.map((item) => (
-              <li key={item}>{item}</li>
-            ))}
-          </ul>
-        </aside>
+          {metaPosition === 'side' && hasMeta && (
+            <div className="mpg-hero-meta">
+              {meta}
+              {stats?.map((stat) => (
+                <HeroStatPill key={stat.label} {...stat} />
+              ))}
+            </div>
+          )}
+          {checklist && checklist.length > 0 && (
+            <aside
+              className="mpg-hero-checklist"
+              aria-label={checklistLabel ?? checklistTitle ?? 'Highlights'}
+            >
+              {checklistTitle && (
+                <p className="mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--vestara-accent)]">
+                  {checklistTitle}
+                </p>
+              )}
+              <ul>
+                {checklist.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </aside>
+          )}
+        </div>
       )}
     </section>
   );

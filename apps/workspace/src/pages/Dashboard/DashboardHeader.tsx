@@ -1,3 +1,4 @@
+import { RouteHero } from '../../components/layout/PageHero/RouteHero';
 import { StatCard } from '../../components/dashboard';
 import type { MilestoneResponse } from '../../components/dashboard/constants';
 import type { AgentData, WorkspaceData } from '../../lib/api';
@@ -43,8 +44,44 @@ export default function DashboardHeader({
   execSessions,
   onStartWorkflow,
 }: DashboardHeaderProps) {
+  const activeAgents = agents.filter((a) => a.status === 'active').length;
+  const healthy = workspace?.healthScore == null || workspace.healthScore >= 7;
   return (
-    <div className="border border-(--vestara-accent-border) rounded-lg p-4 mb-4 bg-(--vestara-surface) bg-gradient-to-b from-black/50 via-transparent to-black/40">
+    <>
+      <RouteHero
+        routeId="dashboard"
+        statusColor={connected ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'}
+        title={workspace?.name ?? 'Dashboard'}
+        subtitle={`${workspace?.fileCount ?? 0} files · ${workspace?.packageCount ?? 0} packages · ${events.length} events · ${agents.length} agents`}
+        actions={[
+          { label: '▶ Start Workflow', primary: true, onClick: onStartWorkflow },
+          { label: '🎛️ Ops Center', to: '/ops' },
+          { label: '▤ Sessions', to: '/sessions' },
+          { label: '☰ Agents', to: '/agents' },
+          { label: '◇ Artifacts', to: '/artifacts' },
+        ]}
+        meta={
+          <span className="mpg-tag-pill" style={{ color: 'var(--vestara-text-secondary)' }}>
+            <span
+              aria-hidden="true"
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{
+                background: healthy ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)',
+                boxShadow: `0 0 6px ${healthy ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)'}`,
+              }}
+            />
+            {workspace?.healthScore != null ? `Health ${workspace.healthScore.toFixed(1)}/10` : connected ? 'Online' : 'Offline'}
+          </span>
+        }
+        stats={[
+          { label: 'executions', value: execStats.total },
+          { label: 'running', value: execStats.running },
+          { label: 'agents', value: `${activeAgents}/${agents.length}` },
+          { label: 'milestones', value: `${milestones?.progress.completed ?? 0}/${milestones?.progress.total ?? 43}` },
+        ]}
+      />
+
+      <div className="mpg-card mb-4 p-4">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-4">
           <div className="relative w-14 h-14 shrink-0">
@@ -99,18 +136,18 @@ export default function DashboardHeader({
             />
             {autoRefresh ? 'LIVE' : 'REFRESH'}
           </button>
-          <button onClick={onRefresh} className="cursor-pointer text-sm">
+          <button onClick={onRefresh} className="mpg-pill cursor-pointer text-sm" title="Refresh">
             ↻
           </button>
           <div className="relative">
             <button
               onClick={onToggleSectionPicker}
-              className="text-[9px] px-2 py-1 access-btn rounded  transition-colors cursor-pointer flex items-center gap-1"
+              className="mpg-pill flex cursor-pointer items-center gap-1 text-[9px] transition-colors"
             >
               <span>⊞</span> Sections
             </button>
             {showSectionPicker && (
-              <div className="absolute right-0 top-7 w-48 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg shadow-xl z-50 py-1 max-h-72 overflow-y-auto">
+              <div className="mpg-card absolute right-0 top-7 z-50 max-h-72 w-48 overflow-y-auto py-1">
                 {sectionOrder
                   .filter((id) => id !== 'system')
                   .map((id) => (
@@ -161,39 +198,7 @@ export default function DashboardHeader({
         <StatCard label="Sessions" value={execSessions.length} accent="var(--vestara-accent)" />
       </div>
 
-      {/* Actions */}
-      <div className="flex gap-2 mt-3 flex-wrap">
-        <a
-          href="/ops"
-          className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg transition-all cursor-pointer"
-        >
-          <span>🎛️</span> Ops Center
-        </a>
-        <a
-          href="/sessions"
-          className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg transition-all cursor-pointer"
-        >
-          ▤ Sessions
-        </a>
-        <a
-          href="/agents"
-          className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg transition-all cursor-pointer"
-        >
-          ☰ Agents
-        </a>
-        <a
-          href="/artifacts"
-          className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg transition-all cursor-pointer"
-        >
-          ◇ Artifacts
-        </a>
-        <button
-          onClick={onStartWorkflow}
-          className="text-[10px] px-3 py-1.5 border border-(--vestara-accent-border) rounded-lg cursor-pointer flex items-center gap-1"
-        >
-          <span>▶</span> Start Workflow
-        </button>
       </div>
-    </div>
+    </>
   );
 }

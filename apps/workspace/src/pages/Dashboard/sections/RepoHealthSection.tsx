@@ -40,7 +40,7 @@ export default function RepoHealthSection({ workspace, execStats, dragSection }:
 
   return (
     <DashboardSection title="Repository Health" icon="◈" dragSection={dragSection}>
-      <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-3">
+      <div className="mpg-card p-3">
         <div className="flex items-center gap-4 mb-2">
           <div className="relative w-14 h-14 shrink-0">
             <svg className="w-14 h-14 -rotate-90" viewBox="0 0 72 72">
@@ -79,7 +79,7 @@ export default function RepoHealthSection({ workspace, execStats, dragSection }:
             return (
               <div key={m.label} className="flex items-center gap-2">
                 <span className="text-[9px] text-(--vestara-text-2) w-[72px] shrink-0">{m.label}</span>
-                <div className="flex-1 h-1.5 bg-(--vestara-accent-bg) rounded-full overflow-hidden">
+                <div className="bg-(--ov-gauge-track) h-1.5 flex-1 overflow-hidden rounded-full">
                   <div
                     className="h-full rounded-full transition-all"
                     style={{ width: `${pct}%`, backgroundColor: 'var(--vestara-accent)' }}

@@ -148,7 +148,7 @@ describe('MediaConnectionCredential', () => {
 
   it('destructuring omits secret', () => {
     const cred = createMediaConnectionCredential(credentialData);
-    const { connectionId, sessionId, provider, issuedAt, expiresAt } = cred;
+    const { connectionId, sessionId, provider, issuedAt: _issuedAt, expiresAt: _expiresAt } = cred;
 
     expect(connectionId).toBe('conn-1');
     expect(sessionId).toBe('sess-1');

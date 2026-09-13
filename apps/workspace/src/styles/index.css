@@ -270,8 +270,20 @@ body {
 }
 
 /* ── Markdown ── */
+/* Floating Assistant: prose lives directly on the canvas — transparent
+   background on all text elements. Containment survives ONLY inside
+   fenced code blocks (CodeBlock) and tables. */
+.markdown {
+  background: transparent;
+  color: var(--color-zinc-300);
+  font-size: 13px;
+  line-height: 1.7;
+}
 .markdown p {
-  margin: 0.5em 0;
+  margin: 0.6em 0;
+  background: transparent;
+  color: var(--color-zinc-300);
+  line-height: 1.7;
 }
 /* GA-UI-005: long URLs, hashes, and repo-relative paths wrap instead of
    breaking narrow panels. Scoped to prose/table elements only — pre/code
@@ -293,16 +305,22 @@ body {
 .markdown ul,
 .markdown ol {
   padding-left: 1.25em;
-  margin: 0.5em 0;
+  margin: 0.6em 0;
+  background: transparent;
 }
 .markdown li {
-  margin: 0.25em 0;
+  margin: 0.35em 0;
+  background: transparent;
+  color: var(--color-zinc-300);
+  line-height: 1.7;
 }
 .markdown code {
   border-radius: 4px;
   padding: 0.125em 0.375em;
   font-size: 0.875em;
   font-family: "JetBrains Mono", "Fira Code", monospace;
+  background: transparent;
+  color: var(--vestara-accent-text);
 }
 .markdown pre {
   border-radius: 6px;
@@ -315,20 +333,24 @@ body {
   font-size: 0.8125em;
 }
 .markdown strong {
-  color: var(--color-zinc-200);
+  color: var(--color-zinc-100);
   font-weight: 600;
+  background: transparent;
 }
 .markdown a {
   color: var(--vestara-accent-text);
   text-decoration: underline;
+  background: transparent;
 }
 .markdown h1,
 .markdown h2,
 .markdown h3,
 .markdown h4 {
-  color: var(--color-zinc-200);
+  color: var(--color-zinc-100);
   font-weight: 600;
-  margin: 0.75em 0 0.25em;
+  margin: 0.9em 0 0.35em;
+  background: transparent;
+  line-height: 1.4;
 }
 .markdown h1 {
   font-size: 1.125em;
@@ -341,10 +363,12 @@ body {
   font-size: 0.9375em;
 }
 .markdown blockquote {
-  border-left: 3px solid var(--color-zinc-700);
+  border-left: 3px solid var(--vestara-accent-border-active);
   padding-left: 0.75em;
-  margin: 0.5em 0;
-  color: var(--color-zinc-400);
+  margin: 0.6em 0;
+  color: var(--color-zinc-300);
+  background: transparent;
+  line-height: 1.7;
 }
 .markdown hr {
   border-color: var(--color-zinc-700);

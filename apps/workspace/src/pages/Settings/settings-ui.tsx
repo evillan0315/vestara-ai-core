@@ -1,5 +1,13 @@
 import type { ResolvedSetting } from '@vestara/configuration';
 import type { ReactNode } from 'react';
+import { StatusIndicator, type StatusVariant } from '@vestara/ui';
+import '../../styles/marketplace.css';
+import './settings.tokens.css';
+
+/** Presentation-only capitalization for hero/card labels. Values stay authoritative. */
+export function humanize(value: string): string {
+  return value.length ? value.charAt(0).toUpperCase() + value.slice(1) : value;
+}
 
 export const surface =
   'border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)]';
@@ -31,16 +39,30 @@ export function SearchIcon() {
   );
 }
 
-export function Status({ value }: { value: string | boolean }) {
+export function Status({ value, bare = false }: { value: string | boolean; bare?: boolean }) {
   const normalized = String(value).toLowerCase();
   const positive =
     value === true || ['healthy', 'running', 'available', 'connected', 'passed', 'ok', 'ready'].includes(normalized);
   const negative = value === false || ['failed', 'error', 'unavailable', 'degraded'].includes(normalized);
+  // Canonical lamp owns the dot; the pill carries the label. Unknown stays
+  // neutral — statuses are never inferred for appearance. `bare` renders the
+  // borderless hero/card form (colored text + lamp, no pill container).
+  const variant: StatusVariant = positive ? 'live' : negative ? 'error' : 'idle';
+  if (bare) {
+    return (
+      <span
+        className={`inline-flex items-center gap-1.5 text-[var(--vestara-font-size-sm)] font-medium ${positive ? 'text-[var(--vestara-green)]' : negative ? 'text-[var(--vestara-red)]' : 'text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
+      >
+        <StatusIndicator variant={variant} size="xs" pulse={false} aria-hidden />
+        {String(value)}
+      </span>
+    );
+  }
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-[var(--vestara-radius-full)] border px-2 py-0.5 text-[var(--vestara-font-size-xs)] font-medium ${positive ? 'border-[color-mix(in_srgb,var(--vestara-green)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-green)_9%,transparent)] text-[var(--vestara-green)]' : negative ? 'border-[color-mix(in_srgb,var(--vestara-red)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-red)_8%,transparent)] text-[var(--vestara-red)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
     >
-      <span className="size-1.5 rounded-full bg-current" />
+      <StatusIndicator variant={variant} size="xs" pulse={false} aria-hidden />
       {String(value)}
     </span>
   );
@@ -60,18 +82,32 @@ export interface SettingsRowProps {
   label: string;
   description?: string;
   value?: ReactNode;
+  /** Legacy two-letter tile. Rendered only when no icon is provided. */
   code?: string;
+  /** Canonical workspace icon tile — preferred over `code`. */
+  icon?: ReactNode;
   onClick?: () => void;
   children?: ReactNode;
 }
 
-export function SettingsRow({ label, description, value, code, onClick, children }: SettingsRowProps) {
+export function SettingsRow({ label, description, value, code, icon, onClick, children }: SettingsRowProps) {
   const content = (
     <>
       <span className="flex min-w-0 items-center gap-3">
-        <span className="hidden size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] font-mono text-[10px] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:grid">
-          {code}
-        </span>
+        {icon ? (
+          <span
+            aria-hidden="true"
+            className="grid size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)] [&_svg]:size-4"
+          >
+            {icon}
+          </span>
+        ) : (
+          code && (
+            <span className="hidden size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] font-mono text-[10px] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:grid">
+              {code}
+            </span>
+          )
+        )}
         <span className="min-w-0">
           <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
             {label}
@@ -111,10 +147,11 @@ export function SettingsSection({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  // VES-DESIGN-007A: navy-elevated configuration panel (st-panel). Dark
+  // neutral base + subtle blue elevation + hairline border; purple survives
+  // in tiles, active states, and primary actions — it guides, not fills.
   return (
-    <section
-      className={`overflow-hidden rounded-[var(--vestara-radius-lg)] ${surface} shadow-[0_1px_0_rgb(255_255_255/0.02)_inset,0_12px_36px_rgb(0_0_0/0.18)]`}
-    >
+    <section className="st-panel mpg-enter overflow-hidden">
       <header className="flex items-start justify-between gap-4 border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-4 sm:px-5">
         <div>
           <h2 className="text-[var(--vestara-font-size-base)] font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
@@ -130,6 +167,109 @@ export function SettingsSection({
       </header>
       <div>{children}</div>
     </section>
+  );
+}
+
+/**
+ * VES-DESIGN-007A: domain summary card for /settings/overview.
+ *
+ * Settings-specific composition over generic grammar (st-panel surface,
+ * canonical icon tile, Status pill): icon + title + status badge header,
+ * muted description, then compact fact rows. Keeps overview → summarized
+ * while domains stay organized below.
+ */
+export function SettingsDomainCard({
+  icon,
+  iconTone = 'var(--vestara-accent-text)',
+  title,
+  badge,
+  description,
+  action,
+  children,
+  index = 0,
+}: {
+  icon: ReactNode;
+  iconTone?: string;
+  title: string;
+  badge?: ReactNode;
+  description?: string;
+  action?: ReactNode;
+  children: ReactNode;
+  index?: number;
+}) {
+  return (
+    <section
+      aria-label={title}
+      className="st-panel mpg-enter flex min-w-0 flex-col p-4"
+      style={{ animationDelay: `${Math.min(index, 12) * 40}ms` }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span className="flex min-w-0 items-center gap-2.5">
+          <span
+            aria-hidden="true"
+            className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-[var(--vestara-accent-text)] [&_svg]:size-[18px]"
+            style={{
+              color: iconTone,
+              background: `color-mix(in srgb, ${iconTone} 12%, transparent)`,
+              borderColor: `color-mix(in srgb, ${iconTone} 30%, transparent)`,
+            }}
+          >
+            {icon}
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[var(--vestara-font-size-base)] font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+              {title}
+            </span>
+          </span>
+        </span>
+        {badge && <span className="shrink-0">{badge}</span>}
+      </div>
+      {description && (
+        <p className="mt-2 text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+          {description}
+        </p>
+      )}
+      <div className="mt-2 min-w-0 flex-1">{children}</div>
+      {action && <div className="mt-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-3">{action}</div>}
+    </section>
+  );
+}
+
+/**
+ * Compact key/value fact row for domain cards. Statuses render as semantic
+ * (bare lamp + colored text); plain configuration values stay plain primary
+ * text — the semantic distinction is preserved, not flattened.
+ */
+export function FactRow({
+  icon,
+  label,
+  value,
+  isStatus = false,
+  title,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: ReactNode;
+  isStatus?: boolean;
+  title?: string;
+}) {
+  return (
+    <div
+      className="flex min-w-0 items-center gap-2 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-2 first:border-t-0"
+      title={title}
+    >
+      {icon && (
+        <span aria-hidden="true" className="shrink-0 text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] [&_svg]:size-4">
+          {icon}
+        </span>
+      )}
+      <span className="min-w-0 flex-1 truncate text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+        {label}
+      </span>
+      <span className="shrink-0 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+        {isStatus && typeof value === 'string' ? <Status bare value={value} /> : value}
+      </span>
+    </div>
   );
 }
 
@@ -149,7 +289,7 @@ export function Button({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className={`min-h-9 rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-sm)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focus} ${primary ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--color-zinc-950)] hover:bg-[var(--vestara-accent-light)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
+      className={`min-h-9 whitespace-nowrap rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-sm)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focus} ${primary ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--color-zinc-950)] hover:bg-[var(--vestara-accent-light)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
     >
       {children}
     </button>
@@ -206,7 +346,7 @@ export function Toggle({
       className={`relative h-6 w-10 rounded-[var(--vestara-radius-full)] border transition-colors ${focus} ${checked ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent)]' : 'border-[var(--vestara-color-border-strong,var(--color-zinc-600))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))]'}`}
     >
       <span
-        className={`absolute top-0.5 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-[18px]' : 'translate-x-0.5'}`}
+        className={`absolute top-0.5 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
       />
     </button>
   );

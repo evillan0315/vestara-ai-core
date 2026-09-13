@@ -13,7 +13,7 @@ import type { GraphEntity, GraphEvent, GraphRelationship } from '../../lib/graph
 import { entityId, graphApi } from '../../lib/graph';
 import { DocMarkdown } from '../docs/DocMarkdown';
 import { inspectEntity, useGraph } from './GraphContext';
-import { PageHero } from '../layout/PageHero/PageHero.js';
+import { RouteHero } from '../layout/PageHero/RouteHero';
 import { RelationshipExplorer } from './RelationshipExplorer';
 import '../../styles/graph.css';
 
@@ -175,10 +175,7 @@ export function GraphPage() {
 
       <div className="graph-scroll">
         <div className="graph-content">
-          <PageHero
-            eyebrow="Navigation layer"
-            title="Engineering Graph"
-            subtitle="Entities, relationships, and health — the canonical map of the workspace."
+          <RouteHero
             stats={[
               ...(graph.stats
                 ? [
@@ -188,7 +185,6 @@ export function GraphPage() {
                 : []),
               ...(graph.health ? [{ label: 'coverage', value: `${graph.health.coverage}%` }] : []),
             ]}
-            label="Engineering graph highlights"
           />
           {/* Stats + health */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-2">

@@ -2309,6 +2309,37 @@ vestara provider status ollama
 
 ---
 
+### GA-TERM-001 — Assistant Terminal Mode 🔷 Planned
+
+**Objective**: Let the floating assistant double as a governed terminal — an explicit `$` shell mode in the composer that reuses the existing bash tool path, with terminal-grade output and full Activity Room audit. True interactive pty is explicitly deferred.
+
+**Phases**:
+
+| Phase | Scope |
+|-------|-------|
+| 1. `$` shell mode | Leading `$ ` / `/terminal` prefix switches the composer from chat to shell intent; explicit, reversible, per-turn opt-in |
+| 2. Output surface | Scrollback, copy, exit-code chip, elapsed time, collapsible stdout/stderr over the existing `assistant.execution.v1` terminal detail |
+| 3. Audit | Every shell turn recorded to the Activity Room as `tool.called` / `tool.succeeded` with cwd + `execution_id` binding; "Open in Activity Room" link for long runs |
+| Deferred. Interactive pty | node-pty driver behind `VESTARA_TERMINAL_DRIVER=pty` (default `spawn`): true tty echo/job control/full-screen programs, per-session driver recorded + projected to the client for echo discipline, fail-closed fallback to spawn |
+
+**Governance**:
+
+- Capability ≠ Authority — shell mode requires explicit user toggle; a human message never becomes an authorized action by default (AAR-001E)
+- Scoped to `VESTARA_REPO`, `external_directory: deny` by default; agent owns only processes it creates, targeted kill only
+- UI lifecycle ≠ execution lifecycle — tab close must not orphan shells; SSE disconnect ≠ cancel
+- No `curl | sh` output executed from rendered markdown; preview is static-only
+
+**Key artifacts**:
+
+- `apps/workspace/src/components/assistant/ConversationPanel.tsx` — composer shell-mode toggle + cwd indicator
+- `apps/workspace/src/components/assistant/AssistantToolCard.tsx` — terminal-grade output (exit code, elapsed, scrollback)
+- `apps/workspace/src/hooks/useAssistantConversation.ts` — `StructuredTerminalOperation` shell-turn wiring
+- `packages/workspace/src/milestone-service.ts` — `GA-TERM-001` (Dashboard, pending)
+
+**Status**: 🔷 Planned
+
+---
+
 ### v8.0 — Multi-User Collaboration 🔶 In Progress
 
 **Objective**: Enable multiple users to collaborate within the same workspace with real-time presence, shared dashboards, and role-based access control.

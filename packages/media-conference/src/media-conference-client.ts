@@ -60,6 +60,7 @@ export class MediaConferenceClient {
   private adapter: BrowserAdapter | null = null;
   private publisher: import('./types.js').PublisherHandle | null = null;
   private readonly subscribers = new Map<string, SubscriberHandle>();
+  // biome-ignore lint/correctness/noUnusedPrivateClassMembers: retained — false positive, used via runtime
   private context: unknown = null;
 
   // Callbacks

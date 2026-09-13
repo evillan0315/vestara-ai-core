@@ -15,6 +15,27 @@ import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../ho
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
 import type { InteractionFeedbackState } from '../../components/interaction/InteractionAsyncFeedback';
+import { StatusIndicator } from '@vestara/ui';
+import '../../styles/marketplace.css';
+
+// ─── Status badge (canonical semantic tokens) ────────────────
+
+function StatusBadge({ label, tone }: { label: string; tone: 'error' | 'success' }) {
+  const color = tone === 'error' ? 'var(--vestara-status-error)' : 'var(--vestara-status-success)';
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-[var(--vestara-radius-full)] border px-1.5 py-px text-[10px] font-medium"
+      style={{
+        color,
+        background: `color-mix(in srgb, ${color} 9%, transparent)`,
+        borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
+      }}
+    >
+      <StatusIndicator variant={tone === 'error' ? 'error' : 'live'} size="xs" pulse={false} aria-hidden />
+      {label}
+    </span>
+  );
+}
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -44,40 +65,150 @@ interface M11CStreamItemProps {
 
 // ─── Visual Config ───────────────────────────────────────────
 
-const IMPORTANCE_STYLES: Record<string, { readonly text: string; readonly badge: string }> = {
-  primary: {
-    text: 'text-(--vestara-text)',
-    badge: 'text-(--vestara-accent-text)',
+// ─── 008D presentation taxonomy ──────────────────────────────
+//
+// Maps AUTHORITATIVE stream kinds to presentation classes. NOT a
+// domain-event taxonomy: iconography, density, and emphasis only — never
+// persisted meaning, ordering, or identity.
+//
+// Kind provenance (audited 008D):
+//   human.message           → conversation (primary)
+//   agent.started/completed → activity (secondary). Start vs completion are
+//                             INDISTINGUISHABLE at M11C (no source-type field
+//                             survives projection), so WORK is uniform.
+//   agent.progress          → progress (muted)
+//   tool.called             → tool-call; tool.succeeded/failed → tool-result.
+//                             Succeeded vs failed are INDISTINGUISHABLE (no
+//                             error flag survives projection; recorded debt).
+//   task/workflow lifecycle → activity/log; task/agent/workflow.failed →
+//                             diagnostic (the authoritative failure class)
+//   system.event            → evidence (with data) / telemetry
+//   interaction.*           → interaction (owns its card, untouched)
+// Rendered "edit started"-style labels are adapter-authored payload.message
+// strings, not kinds. No callID exists in the projection chain, so pairing
+// is limited to shared subordinate markers by kind.
+
+type VisualClass =
+  | 'human'
+  | 'agent-note'
+  | 'work'
+  | 'tool'
+  | 'quiet'
+  | 'attention'
+  | 'verification'
+  | 'unknown';
+
+function classifyVisual(item: StreamItemType): VisualClass {
+  switch (item.kind) {
+    case 'conversation':
+      return item.actor.type === 'human' ? 'human' : 'agent-note';
+    case 'activity':
+      return 'work';
+    case 'tool-call':
+    case 'tool-result':
+      return 'tool';
+    case 'progress':
+    case 'log':
+    case 'telemetry':
+      return 'quiet';
+    case 'diagnostic':
+      return 'attention';
+    case 'evidence':
+      return 'verification';
+    default:
+      return 'unknown';
+  }
+}
+
+interface ClassConfig {
+  readonly glyph: string;
+  readonly tone: string;
+  readonly container: string;
+  readonly heading: string;
+}
+
+const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
+  human: {
+    glyph: '✎',
+    tone: 'var(--vestara-status-info)',
+    container:
+      'border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2.5',
+    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
   },
-  secondary: {
-    text: 'text-(--color-zinc-300)',
-    badge: 'text-(--vestara-text-muted)',
+  'agent-note': {
+    glyph: '❝',
+    tone: 'var(--vestara-accent-text)',
+    container: 'border border-[var(--vestara-border-subtle)] px-3 py-2',
+    heading: 'text-xs text-[var(--vestara-text-secondary)]',
   },
-  muted: {
-    text: 'text-(--vestara-text-muted)',
-    badge: 'text-(--vestara-text-dim)',
+  work: {
+    glyph: '◆',
+    tone: 'var(--vestara-accent-text)',
+    container: 'border border-[var(--vestara-border-subtle)] px-3 py-2',
+    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+  },
+  tool: {
+    glyph: '⚙',
+    tone: 'var(--vestara-status-tool)',
+    container: 'border border-transparent px-3 py-1.5',
+    heading: 'font-mono text-xs text-[var(--vestara-text-secondary)]',
+  },
+  quiet: {
+    glyph: '·',
+    tone: 'var(--vestara-text-muted)',
+    container: 'border border-transparent px-3 py-1',
+    heading: 'text-xs text-[var(--vestara-text-muted)]',
+  },
+  attention: {
+    glyph: '⚠',
+    tone: 'var(--vestara-status-error)',
+    container: 'border px-3 py-2',
+    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+  },
+  verification: {
+    glyph: '✓',
+    tone: 'var(--vestara-status-success)',
+    container: 'border px-3 py-2',
+    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+  },
+  unknown: {
+    glyph: '◆',
+    tone: 'var(--vestara-text-muted)',
+    container: 'border border-transparent px-3 py-1.5',
+    heading: 'text-xs text-[var(--vestara-text-secondary)]',
   },
 };
 
-const KIND_GLYPH: Record<string, { readonly glyph: string; readonly color: string }> = {
-  conversation: { glyph: '❝', color: 'text-(--vestara-accent-text)' },
-  activity: { glyph: '◆', color: 'text-(--vestara-blue)' },
-  progress: { glyph: '◷', color: 'text-(--vestara-blue)' },
-  log: { glyph: '≡', color: 'text-(--vestara-text-muted)' },
-  diagnostic: { glyph: '⚠', color: 'text-(--vestara-status-warning)' },
-  evidence: { glyph: '✓', color: 'text-(--vestara-status-success)' },
-  telemetry: { glyph: '∴', color: 'text-(--vestara-text-muted)' },
-  interaction: { glyph: '⚖', color: 'text-(--vestara-blue)' },
-  'tool-call': { glyph: '⚙', color: 'text-(--vestara-status-tool)' },
-  'tool-result': { glyph: '⚙', color: 'text-(--vestara-status-tool)' },
-  error: { glyph: '✕', color: 'text-(--vestara-status-error)' },
-};
+// ─── Actor resolution (presentation honesty, 008C rule) ──────
 
-const ACTOR_TYPE_MEDALLION: Record<string, string> = {
-  human: 'ar-medallion--human',
-  agent: 'ar-medallion--agent',
-  system: 'ar-medallion--system',
-};
+interface ResolvedStreamActor {
+  readonly name: string;
+  readonly unknown: boolean;
+  /** Raw identifier preserved as subordinate metadata when id-only. */
+  readonly idMeta?: string;
+}
+
+function resolveStreamActor(
+  item: StreamItemType,
+  participantNames?: Readonly<Record<string, string>>,
+): ResolvedStreamActor {
+  const raw = (participantNames?.[item.actor.id] ?? item.actor.displayName)?.trim() ?? '';
+  if (item.actor.type === 'human') {
+    return raw ? { name: raw, unknown: false } : { name: 'Unknown', unknown: true };
+  }
+  if (!raw) {
+    return {
+      name: item.actor.type === 'system' ? 'System' : 'Unknown agent',
+      unknown: true,
+      idMeta: item.actor.id,
+    };
+  }
+  if (raw === item.actor.id) {
+    // Id-only authority: honest identifier presentation, never a name.
+    return { name: 'Unknown agent', unknown: true, idMeta: item.actor.id };
+  }
+  return { name: raw, unknown: false };
+}
 
 // ─── Helpers ─────────────────────────────────────────────────
 
@@ -116,13 +247,9 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   onSubmitResponse,
   participantNames,
 }: M11CStreamItemProps) {
-  const styles = IMPORTANCE_STYLES[item.importance] ?? IMPORTANCE_STYLES.secondary;
-  const kindConfig = KIND_GLYPH[item.kind] ?? { glyph: '◆', color: 'text-(--vestara-blue)' };
-  const medallion = ACTOR_TYPE_MEDALLION[item.actor.type] ?? ACTOR_TYPE_MEDALLION.system;
-
-  // Resolve actor display name: use participantNames lookup if available,
-  // falling back to the M9 record's displayName.
-  const resolvedActorName = participantNames?.[item.actor.id] ?? item.actor.displayName;
+  const visual = classifyVisual(item);
+  const config = CLASS_CONFIG[visual];
+  const actor = resolveStreamActor(item, participantNames);
 
   const handleClick = useCallback(() => {
     if (item.aggregated && onDrillDown) {
@@ -132,11 +259,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
     }
   }, [item, onOpenDetail, onDrillDown]);
 
-  const roleLabel = item.actor.role
-    ? item.actor.role.charAt(0).toUpperCase() + item.actor.role.slice(1)
-    : resolvedActorName;
-
-  const initial = (resolvedActorName.trim()[0] ?? '?').toUpperCase();
+  const initial = actor.unknown ? '?' : (actor.name.trim()[0] ?? '?').toUpperCase();
 
   // ─── Aggregated Item ────────────────────────────────────
   if (item.aggregated) {
@@ -235,22 +358,69 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   }
 
   // ─── Standard Item ──────────────────────────────────────
+  // Anatomy: [semantic tile] Actor/source + timestamp / heading + badge /
+  // description / safe metadata. Density follows class: meaningful events
+  // read as timeline nodes, routine operations as compact rows.
+  const showBadge = visual === 'human' || visual === 'work' || visual === 'attention' || visual === 'verification';
   return (
     <div
-      className={`ar-item ar-item--${item.importance} rounded-lg ${
-        item.fresh ? 'ar-item--fresh animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
+      className={`flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.container} ${
+        item.fresh ? 'animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
       }`}
+      style={
+        visual === 'attention'
+          ? {
+              borderColor: 'color-mix(in srgb, var(--vestara-status-error) 35%, transparent)',
+              background: 'color-mix(in srgb, var(--vestara-status-error) 7%, transparent)',
+            }
+          : visual === 'verification'
+            ? {
+                borderColor: 'color-mix(in srgb, var(--vestara-status-success) 30%, transparent)',
+                background: 'color-mix(in srgb, var(--vestara-status-success) 6%, transparent)',
+              }
+            : undefined
+      }
     >
-      {/* Insignia */}
-      <span className={`ar-medallion ar-medallion--sm ${medallion}`} aria-hidden="true">
-        {initial}
+      {/* Semantic tile (class only — never status) */}
+      <span
+        aria-hidden="true"
+        className="grid size-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-xs font-semibold"
+        style={{
+          color: config.tone,
+          background: `color-mix(in srgb, ${config.tone} 12%, transparent)`,
+          borderColor: `color-mix(in srgb, ${config.tone} 30%, transparent)`,
+        }}
+      >
+        {visual === 'human' || visual === 'agent-note' ? initial : config.glyph}
       </span>
 
       {/* Body */}
-      <div className="ar-item__body">
-        <div className="ar-item__head">
-          <span className="ar-item__actor">{roleLabel}</span>
-          <span className="ar-item__time">{formatTimestamp(item.timestamp)}</span>
+      <div className="min-w-0 flex-1">
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate text-[13px] font-medium text-[var(--vestara-text)]">
+              {actor.name}
+            </span>
+            {item.actor.role && (
+              <span className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-1.5 text-[10px] capitalize text-[var(--vestara-text-muted)]">
+                {item.actor.role}
+              </span>
+            )}
+            {actor.idMeta && (
+              <span
+                className="max-w-40 truncate font-mono text-[10px] text-[var(--vestara-text-muted)]"
+                title={actor.idMeta}
+              >
+                {actor.idMeta}
+              </span>
+            )}
+          </span>
+          <span
+            className="shrink-0 text-[11px] text-[var(--vestara-text-muted)]"
+            title={item.timestamp}
+          >
+            {formatTimestamp(item.timestamp)}
+          </span>
         </div>
 
         {/* Reply indicator — clickable to open thread view */}
@@ -258,11 +428,11 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenThread?.(item.referencedActivityIds!); }}
-            className="mb-1.5 rounded-md border border-zinc-800/50 bg-zinc-900/30 px-2 py-1.5 text-left w-full hover:bg-zinc-800/30 transition-colors cursor-pointer"
+            className="mb-1.5 w-full cursor-pointer rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--vestara-accent-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
             aria-label={`View thread with ${lookupAuthor ? item.referencedActivityIds.map((id) => lookupAuthor(id) ?? 'someone').join(', ') : `${item.referencedActivityIds.length} messages`}`}
           >
-            <div className="flex items-center gap-1 text-[10px] text-zinc-500 mb-0.5">
-              <svg className="w-3 h-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-[var(--vestara-text-muted)]">
+              <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
               </svg>
               <span className="font-medium">
@@ -272,31 +442,33 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               </span>
             </div>
             {lookupContent && item.referencedActivityIds[0] && (
-              <div className="text-[10px] text-zinc-600 line-clamp-1 pl-4">
+              <div className="line-clamp-1 pl-4 text-[10px] text-[var(--vestara-text-muted)]">
                 {lookupContent(item.referencedActivityIds[0])}
               </div>
             )}
           </button>
         )}
 
-        <div className={`ar-item__content text-xs leading-relaxed ${styles.text}`}>
-          {item.content || (
-            <span className={`italic ${kindConfig.color}`}>{kindConfig.glyph} {item.kind}</span>
-          )}
+        <div className={`mt-0.5 leading-relaxed ${config.heading}`}>
+          {item.content || <span className="italic">{item.kind}</span>}
         </div>
 
         {/* Metadata line */}
-        <div className="ar-item__meta">
-          <span aria-hidden="true" className={kindConfig.color}>{kindConfig.glyph}</span>
+        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--vestara-text-muted)]">
+          {showBadge && <span className="mpg-tag-pill">{item.kind}</span>}
+          {visual === 'attention' && <StatusBadge label={item.kind} tone="error" />}
+          {visual === 'verification' && <StatusBadge label={item.kind} tone="success" />}
           {item.workflowRunId && (
-            <span className="truncate">workflow: {item.workflowRunId.slice(0, 8)}</span>
+            <span className="truncate font-mono" title={item.workflowRunId}>
+              workflow: {item.workflowRunId.slice(0, 8)}
+            </span>
           )}
           {onReply && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onReply(item); }}
-              className="text-[10px] text-zinc-600 hover:text-zinc-400 transition-colors cursor-pointer"
-              aria-label={`Reply to ${item.actor.displayName}`}
+              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              aria-label={`Reply to ${actor.name}`}
             >
               Reply
             </button>
@@ -305,8 +477,8 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-              className="text-[10px] text-zinc-700 hover:text-zinc-400 transition-colors cursor-pointer"
-              aria-label={`Edit message from ${item.actor.displayName}`}
+              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              aria-label={`Edit message from ${actor.name}`}
             >
               Edit
             </button>
@@ -315,21 +487,14 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onRetract(item); }}
-              className="text-[10px] text-zinc-700 hover:text-red-400 transition-colors cursor-pointer"
-              aria-label={`Retract message from ${item.actor.displayName}`}
+              className="cursor-pointer transition-colors hover:text-[var(--vestara-red)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              aria-label={`Retract message from ${actor.name}`}
             >
               Retract
             </button>
           )}
         </div>
       </div>
-
-      {/* Importance badge (for primary items) */}
-      {item.importance === 'primary' && (
-        <span className={`ar-item__kind ${styles.badge}`}>
-          {item.kind}
-        </span>
-      )}
     </div>
   );
 });

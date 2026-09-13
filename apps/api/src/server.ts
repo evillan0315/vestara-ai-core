@@ -43,6 +43,7 @@ import { handleMediaRoute } from './routes/media';
 import { handleMemoryRoute } from './routes/memory';
 import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
+import { handleMorningBriefingsRoute } from './routes/morning-briefings';
 import { handleNotificationsRoute } from './routes/notifications';
 import { handleOpenCodeRoute } from './routes/opencode';
 import { handleOrchestrationRoute } from './routes/orchestration';
@@ -58,6 +59,7 @@ import { handleThemeBuilderRoute } from './routes/settings-theme-builder';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelegramRoute } from './routes/telegram';
 import { handleTelemetryRoute } from './routes/telemetry';
+import { handleTerminalRoute } from './routes/terminal';
 import { handleTuiRoute } from './routes/tui';
 import { handleVerifierRoute } from './routes/verifier';
 import { handleVoiceRoute } from './routes/voice';
@@ -184,6 +186,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/agents', '/api/capabilities'], handler: handleAgentsRoute },
   { prefixes: ['/api/teams'], handler: handleTeamsRoute },
   { prefixes: ['/api/schedules'], handler: handleSchedulesRoute },
+  { prefixes: ['/api/morning-briefings'], handler: handleMorningBriefingsRoute },
   { prefixes: ['/api/milestones'], handler: handleMilestonesRoute },
   { prefixes: ['/api/requests'], handler: handleFeatureRequestsRoute },
   {
@@ -204,6 +207,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/opencode'], handler: handleOpenCodeRoute },
   { prefixes: ['/api/telemetry'], handler: handleTelemetryRoute },
   { prefixes: ['/api/tui'], handler: tuiAdapter },
+  { prefixes: ['/api/terminal'], handler: handleTerminalRoute },
   { prefixes: ['/api/voice'], handler: handleVoiceRoute },
   { prefixes: ['/api/telegram'], handler: handleTelegramRoute },
 ];
@@ -559,6 +563,10 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
   }
   const activityWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
   const m11bWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+  // GA-TERM-001 Phase 3: one socket per attached terminal session. Closing the
+  // socket detaches the viewer — the session survives (UI lifecycle ≠
+  // execution lifecycle) until killed, timed out, or server shutdown.
+  const terminalWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
 
   // M11B transport will be initialized after server creation
   let m11bTransport: M11BTransport | null = null;
@@ -605,6 +613,10 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
     }
     if (pathname === '/ws/activity-room/v1') {
       m11bWss.handleUpgrade(req, socket, head, (ws) => m11bWss.emit('connection', ws, req));
+      return;
+    }
+    if (pathname === '/ws/terminal') {
+      terminalWss.handleUpgrade(req, socket, head, (ws) => terminalWss.emit('connection', ws, req));
       return;
     }
     socket.destroy();
@@ -738,6 +750,128 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
       if (attachedId !== undefined) activityRoom.hub.detach(attachedId);
       attachedId = undefined;
     });
+    ws.on('error', () => {});
+  });
+
+  // ─── Terminal sessions (/ws/terminal?sessionId=…) ────────────────────
+  // Interactive shell streaming for GA-TERM-001 Phase 3. Client frames:
+  // `{op:'input', data}`, `{op:'interrupt'}`, `{op:'resize', cols, rows}`,
+  // `{op:'ping'}`. Server frames: `{op:'stdout'|'stderr', text}`,
+  // `{op:'cwd', cwd}`, `{op:'exit', code, signal}`, `{op:'error', error}`,
+  // `{op:'pong'}`. Detach on socket close never kills the session.
+  terminalWss.on('connection', (ws, req) => {
+    const connectionId = connectionIdOf(ws);
+    let sessionId: string | undefined;
+    let detach: (() => void) | undefined;
+    try {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+      const raw = url.searchParams.get('sessionId') ?? '';
+      if (!raw) throw new Error('missing sessionId');
+      sessionId = raw;
+    } catch {
+      wsSend(ws, { op: 'error', error: 'missing sessionId' });
+      ws.close(1008, 'missing sessionId');
+      return;
+    }
+    const id = sessionId;
+    const registry = ctx.terminalSessions;
+    const info = registry.get(id);
+    if (!info) {
+      wsSend(ws, { op: 'error', error: 'Unknown terminal session' });
+      ws.close(1008, 'unknown session');
+      return;
+    }
+    logger.info({ event: 'ws.terminal.attached', connectionId, sessionId: id });
+    // Reconnect replay: redacted transcript tail, then live from here.
+    const replay = registry.transcript(id) ?? '';
+    if (replay) wsSend(ws, { op: 'stdout', text: replay });
+    wsSend(ws, { op: 'cwd', cwd: info.cwd });
+    // Driver tells the client its echo discipline: pty echoes in-kernel
+    // (client must NOT echo), spawn needs client-side keystroke echo.
+    wsSend(ws, { op: 'driver', driver: info.driver });
+    if (info.state !== 'running') {
+      wsSend(ws, { op: 'exit', code: info.exitCode, signal: null });
+    }
+    try {
+      detach = registry.attach(id, {
+        onStdout: (_sid, text) => {
+          if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 256 * 1024) return;
+          wsSend(ws, { op: 'stdout', text });
+        },
+        onStderr: (_sid, text) => {
+          if (ws.readyState !== WebSocket.OPEN || ws.bufferedAmount > 256 * 1024) return;
+          wsSend(ws, { op: 'stderr', text });
+        },
+      });
+    } catch {
+      wsSend(ws, { op: 'error', error: 'Attach failed' });
+      ws.close(1011, 'attach failed');
+      return;
+    }
+    // Terminal exit → push the exit frame (the session record stays for replay).
+    const exitPoll = setInterval(() => {
+      const current = registry.get(id);
+      if (current && current.state !== 'running') {
+        wsSend(ws, { op: 'exit', code: current.exitCode, signal: null });
+        clearInterval(exitPoll);
+      }
+    }, 1000);
+    exitPoll.unref?.();
+    // Keep long-running sessions alive through idle proxies.
+    const ping = setInterval(() => {
+      if (ws.readyState !== WebSocket.OPEN) return;
+      try {
+        ws.ping();
+      } catch {
+        /* swept on close */
+      }
+    }, 25_000);
+    ping.unref?.();
+
+    ws.on('message', (data: RawData) => {
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(data.toString('utf8'));
+      } catch {
+        wsSend(ws, { op: 'error', error: 'invalid message' });
+        return;
+      }
+      if (parsed === null || typeof parsed !== 'object') return;
+      const message = parsed as Record<string, unknown>;
+      try {
+        if (message.op === 'ping') {
+          wsSend(ws, { op: 'pong' });
+        } else if (message.op === 'input') {
+          const text = typeof message.data === 'string' ? message.data : '';
+          if (!text) return;
+          if (text.length > 64 * 1024) {
+            wsSend(ws, { op: 'error', error: 'input frame too large' });
+            return;
+          }
+          // Ctrl-D semantics: bare ETX character ends stdin (shell exits on EOF).
+          registry.write(id, text);
+        } else if (message.op === 'interrupt') {
+          registry.interrupt(id);
+        } else if (message.op === 'resize') {
+          const cols = typeof message.cols === 'number' ? message.cols : 80;
+          const rows = typeof message.rows === 'number' ? message.rows : 24;
+          registry.resize(id, cols, rows);
+        }
+      } catch (err) {
+        wsSend(ws, { op: 'error', error: err instanceof Error ? err.message : 'terminal op failed' });
+      }
+    });
+    const cleanup = () => {
+      clearInterval(exitPoll);
+      clearInterval(ping);
+      try {
+        detach?.();
+      } catch {
+        /* already detached */
+      }
+      logger.info({ event: 'ws.terminal.detached', connectionId, sessionId: id });
+    };
+    ws.on('close', cleanup);
     ws.on('error', () => {});
   });
 

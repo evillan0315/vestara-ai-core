@@ -11,7 +11,7 @@ const ACTOR = 'workspace-ui';
 /** Bounds for GA execution config values (Vestara-owned limits). */
 const EXEC_CFG_BOUNDS = {
   turnTimeoutMs: { min: 10_000, max: 60 * 60_000 }, // 10s–60min
-  maxToolCalls: { min: 1, max: 200 },
+  maxToolCalls: { min: 0, max: 200 }, // 0 = unlimited (adapter: maxToolCalls>0 check)
 } as const;
 
 /**

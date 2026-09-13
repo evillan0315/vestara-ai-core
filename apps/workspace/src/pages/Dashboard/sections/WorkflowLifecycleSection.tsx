@@ -80,18 +80,16 @@ export default function WorkflowLifecycleSection({
         <button
           type="button"
           onClick={() => setShowChanges((current) => !current)}
-          className="text-[9px] px-2 py-1 rounded bg-(--vestara-accent-bg) border border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
+          className={`mpg-pill cursor-pointer text-[9px] ${showChanges ? 'mpg-pill-active' : ''}`}
+          aria-pressed={showChanges}
         >
           {showChanges ? 'Hide changes' : 'Show changes'}
         </button>
         <button
           type="button"
           onClick={() => setShowDiagram((current) => !current)}
-          className={`text-[9px] px-2 py-1 rounded border cursor-pointer ${
-            showDiagram
-              ? 'bg-(--vestara-accent-bg) border-(--vestara-accent-border-active) text-(--vestara-accent-text)'
-              : 'bg-(--vestara-accent-bg) border-(--vestara-accent-border) text-(--vestara-text-2) hover:text-(--vestara-text)'
-          }`}
+          className={`mpg-pill cursor-pointer text-[9px] ${showDiagram ? 'mpg-pill-active' : ''}`}
+          aria-pressed={showDiagram}
         >
           {showDiagram ? 'Hide diagram' : 'Diagram'}
         </button>
@@ -109,7 +107,7 @@ export default function WorkflowLifecycleSection({
             <WorkflowRail workflow={workflow} />
             {showDiagram && <WorkflowDiagram workflow={workflow} />}
             {showChanges && workflow.changes.files.length > 0 && (
-              <div className="mt-1 p-2 bg-black/30 border border-(--vestara-accent-border)/50 rounded-md">
+              <div className="mpg-card mt-1 p-2">
                 <div className="text-[9px] uppercase tracking-wider text-(--vestara-text-muted) mb-1">
                   Changed files ({workflow.changes.files.length}) · {workflow.changes.summary}
                 </div>

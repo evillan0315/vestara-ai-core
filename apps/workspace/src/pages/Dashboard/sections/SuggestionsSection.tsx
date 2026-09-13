@@ -1,5 +1,6 @@
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashPill, DashTile, enterDelay } from '../dashPremium';
 
 interface Suggestion {
   id: string;
@@ -32,33 +33,29 @@ export default function SuggestionsSection({ suggestions, dragSection }: Suggest
 
   return (
     <DashboardSection title="Suggestions" icon="💡" dragSection={dragSection}>
-      <div className="space-y-2">
+      <ul className="space-y-1">
         {suggestions.slice(0, 5).map((s, i) => {
-          const borderColor = s.priority === 'high' ? '#ef4444' : s.priority === 'medium' ? '#f59e0b' : '#52525b';
+          const accent = s.priority === 'high' ? '#ef4444' : s.priority === 'medium' ? '#f59e0b' : '#52525b';
           return (
-            <div
-              key={s.id || i}
-              className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg hover:border-(--vestara-accent-border-hover) transition-colors border-l-[3px]"
-              style={{ borderLeftColor: borderColor }}
-            >
-              <div className="flex items-start gap-2">
-                <span className="text-sm shrink-0 mt-0.5">{ICON_MAP[s.category || ''] || '💡'}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-(--vestara-text) font-medium">{s.title}</span>
-                    <span
-                      className={`text-[8px] px-1 py-0.5 rounded uppercase font-semibold ${s.priority === 'high' ? 'bg-red-400/10 text-red-400' : s.priority === 'medium' ? 'bg-amber-400/10 text-amber-400' : 'bg-zinc-800 text-(--vestara-text-2)'}`}
-                    >
-                      {s.priority}
+            <li key={s.id || i} className="mpg-enter" style={enterDelay(i)}>
+              <div className="mpg-category-row group">
+                <span className="flex min-w-0 flex-1 items-center gap-3">
+                  <DashTile accent={accent}>{ICON_MAP[s.category || ''] || '💡'}</DashTile>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                      {s.title}
                     </span>
-                  </div>
-                  {s.description && <div className="text-[10px] text-(--vestara-text-2) mt-0.5">{s.description}</div>}
-                </div>
+                    {s.description && (
+                      <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{s.description}</span>
+                    )}
+                  </span>
+                </span>
+                <DashPill dot={accent}>{s.priority}</DashPill>
               </div>
-            </div>
+            </li>
           );
         })}
-      </div>
+      </ul>
     </DashboardSection>
   );
 }

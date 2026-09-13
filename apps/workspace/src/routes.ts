@@ -62,6 +62,13 @@ export const APP_ROUTES: AppRoute[] = [
   { id: 'chat', path: '/chat', title: 'Chat', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'meet', path: '/meet', title: 'Vestara Meet', requiresAuth: false, enabled: true, layout: 'shell' },
   { id: 'memory', path: '/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
+  // Intelligence grouping — canonical prefix /intelligence/* (legacy paths redirect)
+  { id: 'intelligence', path: '/intelligence', title: 'Intelligence', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'intelligence-memory', path: '/intelligence/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'intelligence-graph', path: '/intelligence/graph', title: 'Engineering Graph', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'intelligence-routing', path: '/intelligence/routing', title: 'Routing', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'intelligence-evidence', path: '/intelligence/evidence', title: 'Evidence', requiresAuth: true, enabled: true, layout: 'shell' },
+  { id: 'intelligence-diagnostics', path: '/intelligence/diagnostics', title: 'Diagnostics', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'terminal', path: '/terminal', title: 'Terminal', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'ops', path: '/ops', title: 'Operations', requiresAuth: true, enabled: true, layout: 'shell' },
   {

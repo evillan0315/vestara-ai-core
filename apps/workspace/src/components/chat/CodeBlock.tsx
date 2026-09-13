@@ -29,7 +29,7 @@ export function CodeBlock({
 
   if (isInline) {
     return (
-      <code className="px-1.5 py-0.5 bg-zinc-800 border border-zinc-700 rounded text-[12.5px] text-zinc-200 font-mono">
+      <code className="px-1 py-px bg-transparent border-0 rounded text-[12.5px] text-(--vestara-accent-text) font-mono">
         {text}
       </code>
     );
@@ -65,8 +65,8 @@ export function CodeBlock({
 
   return (
     <>
-      <div className="group relative my-2 rounded-lg overflow-hidden border border-(--vestara-accent-border) bg-(--vestara-accent-bg)">
-        <div className="flex items-center justify-between px-4 py-1.5 bg-(--vestara-accent-bg) border-b border-(--vestara-accent-border)">
+      <div className="group relative my-2 rounded-lg overflow-hidden border border-(--vestara-accent-border) bg-transparent">
+        <div className="flex items-center justify-between px-4 py-1.5 bg-transparent border-b border-(--vestara-accent-border)">
           <span className="text-[11px] text-zinc-500 font-mono">{lang || 'code'}</span>
           <div className="flex items-center gap-1">
             {canPreview && (

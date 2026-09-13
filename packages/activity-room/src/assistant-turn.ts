@@ -80,6 +80,8 @@ export interface TriggerAssistantTurnOptions {
   readonly agentStorage?: AssistantAgentStorage;
   /** Logger for diagnostics. */
   readonly logger?: AssistantLogger;
+  /** Per-turn execution config (Vestara-owned limits, e.g. maxToolCalls). */
+  readonly executionConfig?: { readonly maxToolCalls?: number; readonly turnTimeoutMs?: number };
 }
 
 /** Resolved execution configuration from agent definition. */
@@ -120,7 +122,7 @@ async function resolveAssistantConfig(agentStorage?: AssistantAgentStorage): Pro
  *   5. Return AssistantTurnResult
  */
 export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions): Promise<AssistantTurnResult> {
-  const { humanRecord, service, conversationService, agentStorage, logger } = options;
+  const { humanRecord, service, conversationService, agentStorage, logger, executionConfig } = options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
 
@@ -154,6 +156,9 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     };
     if (agentConfig.model) {
       sendOptions.model = agentConfig.model;
+    }
+    if (executionConfig) {
+      sendOptions.executionConfig = executionConfig;
     }
 
     const response = await conversationService.sendMessage(conversation.id, humanRecord.content, sendOptions);

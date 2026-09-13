@@ -1,5 +1,6 @@
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
+import { DashTile, enterDelay } from '../dashPremium';
 
 interface ActivityLogEntry {
   id: string;
@@ -20,28 +21,29 @@ export default function RecentActivitySection({ logEvents, dragSection }: Recent
 
   return (
     <DashboardSection title="Recent Activity" icon="📋" dragSection={dragSection}>
-      <div className="space-y-1">
-        {logEvents.map((e) => (
-          <div
-            key={e.id}
-            className="flex items-start gap-2 p-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border)/50 rounded border-l-2"
-            style={{ borderLeftColor: '#6b7280' }}
-          >
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-1.5 text-[8px] text-(--vestara-text-dim)">
-                <span>{new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                <span>·</span>
-                <span className="capitalize text-(--vestara-text-muted)">{e.category}</span>
-              </div>
-              <div className="text-[9px] text-(--vestara-text-2) truncate">{e.message}</div>
+      <ul className="space-y-1">
+        {logEvents.map((e, i) => (
+          <li key={e.id} className="mpg-enter" style={enterDelay(i)}>
+            <div className="mpg-category-row group">
+              <span className="flex min-w-0 flex-1 items-center gap-3">
+                <DashTile accent="#6b7280">📋</DashTile>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
+                    {e.message}
+                  </span>
+                  <span className="block truncate text-[11px] capitalize text-[var(--vestara-text-muted)]">
+                    {new Date(e.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · {e.category} ·{' '}
+                    {e.actor.name}
+                  </span>
+                </span>
+              </span>
             </div>
-          </div>
+          </li>
         ))}
-        <a
-          href="/logs"
-          className="block text-[8px] text-(--vestara-text-muted) text-center py-1 hover:text-(--vestara-text-2) transition-colors rounded bg-zinc-800/20"
-        >
-          View all logs →
+      </ul>
+      <div className="mt-2 text-center">
+        <a href="/logs" className="mpg-link">
+          View all logs<span aria-hidden="true"> ›</span>
         </a>
       </div>
     </DashboardSection>

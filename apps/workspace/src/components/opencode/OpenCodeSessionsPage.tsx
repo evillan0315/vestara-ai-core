@@ -1,8 +1,7 @@
-import AddRoundedIcon from '@mui/icons-material/AddRounded';
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { type OpenCodeSessionView, type OpenCodeSessionViewStatus, openCodeApi } from '../../lib/opencode';
+import { RouteHero } from '../layout/PageHero/RouteHero';
 import { OpenCodeSessionDeleteDialog } from './OpenCodeSessionDeleteDialog';
 import { OpenCodeSessionEmptyState } from './OpenCodeSessionEmptyState';
 import { OpenCodeSessionTable } from './OpenCodeSessionTable';
@@ -65,6 +64,16 @@ export function OpenCodeSessionsPage() {
     });
   }, [sessions, search, filter]);
 
+  const sessionStats = useMemo(() => {
+    const values = sessions ?? [];
+    return {
+      total: values.length,
+      active: values.filter((session) => session.status === 'active').length,
+      idle: values.filter((session) => session.status === 'idle').length,
+      failed: values.filter((session) => session.status === 'failed').length,
+    };
+  }, [sessions]);
+
   const handleRename = async (session: OpenCodeSessionView, title: string) => {
     const updated = await openCodeApi.renameSession(session.id, title);
     if (updated) {
@@ -93,32 +102,43 @@ export function OpenCodeSessionsPage() {
   };
 
   return (
-    <div className="w-full">
-      <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-        <div>
-          <h1 className="text-lg font-bold text-(--vestara-text)">OpenCode Sessions</h1>
-          <p className="text-[10px] text-(--vestara-text-muted) mt-1">
-            Governed engineering sessions managed through Vestara
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => void load()}
-            className="flex items-center gap-1 text-[10px] px-2 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-md text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer"
-          >
-            <RefreshRoundedIcon fontSize="inherit" /> Refresh
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate('/opencode/sessions/new')}
-            disabled={view === 'offline'}
-            className="flex items-center gap-1 text-[10px] px-2 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-md text-(--vestara-text-2) hover:text-(--vestara-text) cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            <AddRoundedIcon fontSize="inherit" /> New Session
-          </button>
-        </div>
-      </div>
+    <div className="w-full min-w-0 space-y-4">
+      <RouteHero
+        routeId="opencode-sessions"
+        eyebrow={view === 'offline' ? 'Runtime offline' : view === 'loading' ? 'Connecting' : 'OpenCode runtime'}
+        statusColor={
+          view === 'offline'
+            ? 'var(--vestara-status-error)'
+            : view === 'loading'
+              ? 'var(--vestara-status-warning)'
+              : 'var(--vestara-status-success)'
+        }
+        search={
+          view === 'ready' && sessionStats.total > 0
+            ? {
+                value: search,
+                onChange: setSearch,
+                placeholder: 'Search sessions…',
+                inputId: 'opencode-session-search',
+                label: 'Search OpenCode sessions',
+              }
+            : undefined
+        }
+        actions={[
+          { label: 'New Session', primary: true, glyph: '＋', onClick: () => navigate('/opencode/sessions/new'), disabled: view === 'offline' },
+          { label: 'Refresh', glyph: '↻', onClick: () => void load() },
+        ]}
+        stats={
+          view === 'ready'
+            ? [
+                { label: 'sessions', value: sessionStats.total },
+                { label: 'active', value: sessionStats.active },
+                { label: 'idle', value: sessionStats.idle },
+                { label: 'failed', value: sessionStats.failed },
+              ]
+            : undefined
+        }
+      />
 
       {view === 'loading' && (
         <div className="p-6 text-center text-[11px] text-(--vestara-text-muted) animate-pulse">Loading sessions…</div>
@@ -152,13 +172,10 @@ export function OpenCodeSessionsPage() {
             <OpenCodeSessionEmptyState />
           ) : (
             <>
-              <div className="flex flex-wrap gap-2 mb-3">
-                <input
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search sessions…"
-                  className="text-[11px] px-2.5 py-1.5 bg-zinc-900 border border-(--vestara-accent-border) rounded-md text-(--vestara-text) placeholder:text-(--vestara-text-dim) w-52"
-                />
+               <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 mb-3">
+                 <span className="px-1 text-[10px] font-medium text-(--vestara-text-muted)">
+                   {filtered.length} of {sessions.length} sessions
+                 </span>
                 <div className="flex gap-1">
                   {FILTERS.map((f) => (
                     <button

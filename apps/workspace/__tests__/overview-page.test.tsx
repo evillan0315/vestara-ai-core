@@ -17,7 +17,7 @@ const mocked = vi.mocked(useOverview);
 // Router context, so tests mount inside MemoryRouter.
 function renderOverview() {
   return render(
-    <MemoryRouter>
+    <MemoryRouter initialEntries={['/overview']}>
       <Overview />
     </MemoryRouter>,
   );

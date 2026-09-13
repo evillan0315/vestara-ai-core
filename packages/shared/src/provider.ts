@@ -167,7 +167,7 @@ export interface CompletionRequest {
 export interface GAExecutionConfig {
   /** Hard cap for a single turn in milliseconds. Default: 900000 (15 min). */
   readonly turnTimeoutMs?: number;
-  /** Maximum tool invocations per turn. undefined = unlimited. */
+  /** Maximum tool invocations per turn. undefined = adapter default (30), 0 = unlimited, 1..200 = capped. */
   readonly maxToolCalls?: number;
 }
 

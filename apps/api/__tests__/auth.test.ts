@@ -41,9 +41,6 @@ vi.mock('../src/routes/types', () => ({
     return Buffer.concat(chunks).toString();
   },
   ApiError: class extends Error {
-    constructor(message: string) {
-      super(message);
-    }
     static unauthorized(msg: string) {
       const e = new Error(msg);
       (e as any).status = 401;

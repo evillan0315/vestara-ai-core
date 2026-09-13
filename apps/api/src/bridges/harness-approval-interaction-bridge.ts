@@ -80,7 +80,7 @@ export function createHarnessApprovalInteractionBridge(
     eventBus,
     interactionService,
     harness,
-    threadResolver,
+    threadResolver: _threadResolver,
     listThreadIds,
     logger,
     maxReconciliationRetries = 3,

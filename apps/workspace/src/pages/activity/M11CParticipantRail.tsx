@@ -1,25 +1,36 @@
 /**
- * M11C Projection-Driven Participant Panel
+ * M11C Projection-Driven Participant Panel (VES-DESIGN-008C presentation)
  *
  * Renders participants from M10 ParticipantProjection (via M11A API).
  * Zero hardcoded teams, roles, or model names. Activity Room is a generic
  * consumer of participant/team information — it does not define teams.
  *
- * Presentation fallback: `modelDisplayName ?? displayName` for unnamed
- * AI participants. Canonical identity is never mutated.
+ * Identity honesty (008C audit — presentation only, never new authority):
+ * - displayName is authoritative PER CONTRACT, but for unnamed agents it
+ *   carries the stable agent/model id (e.g. "mimo-v2.5-free"), which must
+ *   not masquerade as a chosen actor name.
+ * - Rule: displayName that merely echoes modelId is demoted to secondary
+ *   metadata; the primary becomes modelDisplayName (the contract-sanctioned
+ *   presentation fallback) or "Unknown agent".
+ * - FIRST BROKEN BOUNDARY (recorded, not repaired here): upstream adapters
+ *   emit model ids as actor.displayName (M9 adapter/agent contracts); M10
+ *   passes them through. A future semantic milestone must establish chosen
+ *   agent identity upstream. M11C must not invent it.
+ *
+ * Presence honesty: M10 never resolves presence today (uniform 'offline'
+ * default — "resolved independently" path is unwired). Presence lamps render
+ * ONLY for positively-resolved states (online/active/busy/away); otherwise
+ * presence is omitted, never inferred from workState. Work state renders
+ * from WORK_STATE_CONFIG; the M10 resting value 'available' (absent from
+ * the config) carries no information and renders no claim.
  *
  * Humans and agents share the same component contract.
- *
- * Premium UX: adds search and type filter while preserving team grouping.
- * When search/filter is active, global search across participants with
- * prioritized matching over team hierarchy. Normal grouped presentation
- * restores when search/filter clears.
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
 import { Badge, StatusIndicator } from '@vestara/ui';
 import { memo, useMemo, useState } from 'react';
-import { PRESENCE_VARIANT_CONFIG, WORK_STATE_CONFIG } from './status-config';
+import { WORK_STATE_CONFIG, PRESENCE_VARIANT_CONFIG } from './status-config';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -36,13 +47,50 @@ interface M11CParticipantRailProps {
   readonly unreadCounts?: ReadonlyMap<string, number>;
 }
 
-// ─── Visual Config ───────────────────────────────────────────
+// ─── Identity resolution (presentation fallback only) ────────
+
+interface ResolvedIdentity {
+  /** Primary human-facing name — never a bare model id. */
+  readonly name: string;
+  /** True when no authoritative identity exists upstream. */
+  readonly unknown: boolean;
+  /** Secondary metadata line (model · provider), when available. */
+  readonly meta?: string;
+}
+
+function resolveIdentity(p: ParticipantProjection): ResolvedIdentity {
+  if (p.type === 'human') {
+    return { name: p.displayName, unknown: false };
+  }
+  const idLike = !p.displayName || p.displayName === p.modelId;
+  if (!idLike) {
+    const meta = [p.modelId, p.providerId].filter(Boolean).join(' · ');
+    return { name: p.displayName, unknown: false, meta: meta || undefined };
+  }
+  const meta = [p.modelId, p.providerId].filter(Boolean).join(' · ');
+  return { name: p.modelDisplayName ?? 'Unknown agent', unknown: !p.modelDisplayName, meta: meta || undefined };
+}
+
+/** Presence states that constitute a positively-resolved claim. Compared as
+    strings: today's PresenceState union cannot express them, which is
+    exactly why presence must stay omitted until the contract grows. */
+function resolvedPresence(p: ParticipantProjection): string | null {
+  const presence: string = p.presence;
+  return presence === 'online' || presence === 'active' || presence === 'busy' || presence === 'away' ? presence : null;
+}
+
+// ─── Membership ──────────────────────────────────────────────
 
 const MEMBERSHIP_LABEL: Record<string, string> = {
   member: '',
   observer: 'Observer',
   guest: 'Guest',
 };
+
+// ─── Shared presentation classes (canonical tokens only) ─────
+
+const TILE_BASE =
+  'grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-sm font-semibold [&_svg]:size-[18px]';
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -58,21 +106,21 @@ export default function M11CParticipantRail({
   const [typeFilter, setTypeFilter] = useState<'all' | 'human' | 'agent'>('all');
 
   // ─── Filtered participants ────────────────────────────────
-  // When search/filter is active, global search across participants
-  // with prioritized matching over team hierarchy.
+  // Model/provider stay searchable (secondary recall) but are never
+  // primary visual identity.
   const filtered = useMemo(() => {
     const hasFilter = search.trim() !== '' || typeFilter !== 'all';
     if (!hasFilter) return null; // null = use normal grouped presentation
 
     const searchLower = search.toLowerCase().trim();
     return participants.filter((p) => {
-      // Type filter
       if (typeFilter !== 'all' && p.type !== typeFilter) return false;
-      // Search filter
       if (searchLower) {
-        const name = (p.modelDisplayName ?? p.displayName).toLowerCase();
-        const role = (p.role ?? '').toLowerCase();
-        return name.includes(searchLower) || role.includes(searchLower);
+        const id = resolveIdentity(p);
+        const haystack = [id.name, p.role ?? '', p.modelDisplayName ?? '', p.modelId ?? '', p.providerId ?? '']
+          .join(' ')
+          .toLowerCase();
+        return haystack.includes(searchLower);
       }
       return true;
     });
@@ -93,17 +141,16 @@ export default function M11CParticipantRail({
 
   if (participants.length === 0) {
     return (
-      <div className="ar-rail">
-        <div className="ar-rail__head">
-          <div className="ar-kicker">In attendance</div>
-          <div className="ar-rail__all-label">Participants</div>
-        </div>
-        <div className="ar-rail__empty">No participants yet.</div>
+      <div className="ar-rail" role="region" aria-label="Participants">
+        <p className="ar-kicker">Participants</p>
+        <p className="ar-rail__empty">No participants yet.</p>
       </div>
     );
   }
 
-  // Derive counts from authoritative workState, not from presence (which is UNKNOWN).
+  // Counts from authoritative workState, not from presence (UNKNOWN).
+  // "total" counts projections; "at work" counts working/blocked/
+  // attention-required. Presence is never claimed.
   const activeCount = participants.filter((p) => p.workState === 'working' || p.workState === 'blocked' || p.workState === 'attention-required').length;
   const totalCount = participants.length;
   const isFiltered = filtered !== null;
@@ -111,7 +158,7 @@ export default function M11CParticipantRail({
   return (
     <div className="ar-rail" role="region" aria-label="Participants">
       <div className="ar-rail__head">
-        <div className="ar-kicker">In attendance</div>
+        <p className="ar-kicker">Participants</p>
         <button
           type="button"
           onClick={() => {
@@ -122,7 +169,7 @@ export default function M11CParticipantRail({
           className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
           aria-pressed={selectedParticipantId === undefined && !isFiltered}
         >
-          <span className="ar-rail__all-label">Participants</span>
+          <span className="ar-rail__all-label">Everyone</span>
           <span className="ar-rail__census">
             <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}
           </span>
@@ -141,20 +188,28 @@ export default function M11CParticipantRail({
             aria-label="Search participants"
           />
         </div>
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value as 'all' | 'human' | 'agent')}
-          className="ar-rail__type-filter"
+        <div
+          role="group"
           aria-label="Filter by type"
+          className="inline-flex flex-wrap gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] p-1"
         >
-          <option value="all">All Types</option>
-          <option value="agent">Agent</option>
-          <option value="human">Human</option>
-        </select>
+          {(['all', 'human', 'agent'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={typeFilter === option}
+              onClick={() => setTypeFilter(option)}
+              className={`min-h-7 rounded-[var(--vestara-radius)] border px-2.5 text-[var(--vestara-font-size-xs)] capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${typeFilter === option ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-transparent text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text)]'}`}
+            >
+              {option === 'all' ? 'All' : option === 'human' ? 'Humans' : 'Agents'}
+            </button>
+          ))}
+        </div>
       </div>
 
-      {/* ── Participant list ──────────────────────────────── */}
-      <div className="ar-rail__list ar-scroll" role="list">
+      {/* ── Participant list ─────────────────────────────────
+          Page owns scrolling (008A finding): no nested rail scrollbar. */}
+      <div className="ar-rail__list" role="list">
         {grouped.length === 0 ? (
           <div className="ar-rail__empty">No matching participants.</div>
         ) : (
@@ -195,7 +250,7 @@ const ParticipantRow = memo(function ParticipantRow({
   selected,
   onSelect,
   onOpenAgentControl,
-  unreadCount,
+  unreadCount = 0,
 }: {
   participant: ParticipantProjection;
   selected: boolean;
@@ -203,17 +258,24 @@ const ParticipantRow = memo(function ParticipantRow({
   onOpenAgentControl?: (participantId: string) => void;
   unreadCount?: number;
 }) {
-  const presenceVariant = PRESENCE_VARIANT_CONFIG[participant.presence] ?? 'off';
-  const workLabel = WORK_STATE_CONFIG[participant.workState]?.label ?? participant.workState;
-  const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
   const isHuman = participant.type === 'human';
   const canOpenDrawer = !isHuman && onOpenAgentControl;
+  const identity = resolveIdentity(participant);
+  const initial = identity.unknown ? '?' : (identity.name.trim()[0] ?? '?').toUpperCase();
 
-  // Primary identity: always use canonical displayName (agent name for agents, user name for humans).
-  // modelDisplayName is secondary metadata shown below the name.
-  const presentationName = participant.displayName;
+  // Work state from the contract config only. The M10 resting value
+  // 'available' is absent from the config: it carries no information and
+  // renders no claim (never a presence word).
+  const work = WORK_STATE_CONFIG[participant.workState];
+  const presence = resolvedPresence(participant);
+  const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
 
-  const initial = (presentationName.trim()[0] ?? '?').toUpperCase();
+  // Tile tone decorates actor TYPE only — never status, presence, or health.
+  const tileTone = isHuman
+    ? 'var(--vestara-status-info)'
+    : identity.unknown
+      ? 'var(--vestara-text-muted)'
+      : 'var(--vestara-accent-text)';
 
   const handleNameClick = (e: React.MouseEvent) => {
     if (!canOpenDrawer) return;
@@ -234,62 +296,75 @@ const ParticipantRow = memo(function ParticipantRow({
     <button
       type="button"
       onClick={() => onSelect(selected ? undefined : participant.participantId)}
-      className={`ar-guest ${selected ? 'ar-guest--selected' : ''}`}
       aria-pressed={selected}
+      aria-label={`${identity.name}, ${isHuman ? 'human' : 'agent'}${work ? `, ${work.label}` : ''}`}
+      className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[var(--vestara-radius)] border px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-accent-bg)]'}`}
     >
-      {/* Insignia */}
-      <span className={`ar-medallion ${isHuman ? 'ar-medallion--human' : 'ar-medallion--agent'}`} aria-hidden="true">
+      {/* Actor-type tile (type only — never status) */}
+      <span
+        aria-hidden="true"
+        className={TILE_BASE}
+        style={{
+          color: tileTone,
+          background: `color-mix(in srgb, ${tileTone} 12%, transparent)`,
+          borderColor: `color-mix(in srgb, ${tileTone} 30%, transparent)`,
+        }}
+      >
         {initial}
       </span>
 
-      <span className="ar-guest__body">
-        <span className="ar-guest__top">
-          {/* Display name — clickable for agents to open Agent Control drawer */}
+      <span className="min-w-0 flex-1">
+        {/* Primary identity + kind */}
+        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span
-            className={`ar-guest__name ${canOpenDrawer ? 'ar-guest__name--agent-action' : ''}`}
+            className={canOpenDrawer ? 'cursor-pointer truncate text-sm font-medium text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-medium text-[var(--vestara-text)]'}
             role={canOpenDrawer ? 'button' : undefined}
             tabIndex={canOpenDrawer ? 0 : undefined}
-            aria-label={canOpenDrawer ? `Open agent control for ${participant.displayName}` : undefined}
+            aria-label={canOpenDrawer ? `Open agent control for ${identity.name}` : undefined}
             onClick={canOpenDrawer ? handleNameClick : undefined}
             onKeyDown={canOpenDrawer ? handleNameKeyDown : undefined}
           >
-            {presentationName}
+            {identity.name}
           </span>
-          {/* Model as secondary metadata — subtle, not dominant */}
-          {!isHuman && participant.modelDisplayName && (
-            <span className="ar-guest__model">{participant.modelDisplayName}</span>
-          )}
-          {/* Type badge — metadata, not conversational identity */}
           <Badge variant={isHuman ? 'info' : 'default'} size="sm">
             {isHuman ? 'Human' : 'Agent'}
           </Badge>
-          {/* Role badge — metadata */}
           {!isHuman && participant.role && (
-            <Badge variant="default" size="sm" className="!text-[9px]">{participant.role}</Badge>
+            <span className="truncate text-[11px] capitalize text-[var(--vestara-text-muted)]">
+              {participant.role}
+            </span>
           )}
-          {/* Unread badge */}
           {unreadCount > 0 && (
-            <span className="ar-guest__unread">{unreadCount > 99 ? '99+' : unreadCount}</span>
+            <span className="rounded-[var(--vestara-radius-full)] bg-[var(--vestara-accent)] px-1.5 text-[10px] font-semibold text-[var(--color-zinc-950)]">
+              {unreadCount > 99 ? '99+' : unreadCount}
+            </span>
           )}
         </span>
-        <span className="ar-guest__sub">
-          {/* Presence indicator */}
-          <StatusIndicator
-            variant={presenceVariant}
-            size="xs"
-            pulse={participant.presence === 'online' || participant.presence === 'active'}
-            ariaLabel={`Presence: ${participant.presence}`}
-          />
-          <span>{workLabel}</span>
-          {membershipLabel && <span className="ar-guest__membership">{membershipLabel}</span>}
-        </span>
-
-        {/* Current assignment */}
-        {participant.currentAssignment && (
-          <span className="ar-guest__task">
-            {participant.currentAssignment.taskTitle ?? participant.currentAssignment.taskId}
+        {/* Secondary: model · provider (metadata, never identity) */}
+        {identity.meta && (
+          <span className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">
+            {identity.meta}
           </span>
         )}
+        {/* Tertiary: work state (authoritative) + assignment + membership */}
+        <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--vestara-text-muted)]">
+          {presence && (
+            <span className="inline-flex items-center gap-1 capitalize">
+              <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
+              {presence}
+            </span>
+          )}
+          {work && (
+            <span className="inline-flex items-center gap-1">
+              <StatusIndicator variant={work.variant} size="xs" pulse={false} aria-hidden />
+              {participant.currentAssignment?.taskTitle ?? work.label}
+            </span>
+          )}
+          {!work && participant.currentAssignment?.taskTitle && (
+            <span className="truncate">{participant.currentAssignment.taskTitle}</span>
+          )}
+          {membershipLabel && <span>{membershipLabel}</span>}
+        </span>
       </span>
     </button>
   );

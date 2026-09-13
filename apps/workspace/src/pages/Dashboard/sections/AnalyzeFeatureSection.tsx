@@ -45,17 +45,17 @@ export default function AnalyzeFeatureSection({ dragSection }: AnalyzeFeatureSec
         <button
           onClick={analyze}
           disabled={analyzing || !featureInput.trim()}
-          className="text-[10px] px-3 py-2 accent-btn rounded disabled:opacity-30 cursor-pointer shrink-0"
+          className="mpg-install-btn shrink-0 cursor-pointer text-[10px] disabled:opacity-30"
         >
           {analyzing ? '⟳' : 'Analyze'}
         </button>
       </div>
       {featureAnalysis && (
-        <div className="mt-2 p-3 bg-zinc-800/50 border border-zinc-700 rounded-lg text-xs text-(--vestara-text) whitespace-pre-wrap font-mono text-[10px] leading-relaxed max-h-48 overflow-y-auto">
+        <div className="mpg-card mt-2 max-h-48 overflow-y-auto p-3 font-mono text-[10px] leading-relaxed whitespace-pre-wrap text-(--vestara-text)">
           {featureAnalysis}
           <button
             onClick={() => setFeatureAnalysis(null)}
-            className="block mt-1 text-[9px] text-(--vestara-text-muted) hover:text-(--vestara-text-2) cursor-pointer"
+            className="mpg-link mt-1 block cursor-pointer"
           >
             Clear
           </button>

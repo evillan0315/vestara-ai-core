@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ResolvedConfiguration } from '@vestara/configuration';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -110,8 +111,9 @@ describe('premium settings control surface', () => {
 
   it('preserves overview navigation and exposes semantic runtime status', async () => {
     renderSettings();
-    expect(await screen.findByRole('heading', { name: 'Workspace Configuration' })).toBeTruthy();
-    expect(screen.getAllByText('running').length).toBeGreaterThan(0);
+    // Hero eyebrow carries the workspace-configuration identity; the title is "Settings".
+    expect(await screen.findByText('Workspace Configuration')).toBeTruthy();
+    expect(screen.getAllByText(/running/i).length).toBeGreaterThan(0);
     expect(
       screen.getAllByRole('link', { name: /Overview/ }).every((link) => link.getAttribute('aria-current') === 'page'),
     ).toBe(true);
@@ -119,7 +121,7 @@ describe('premium settings control surface', () => {
 
   it('filters categories and exposes a clear action for empty results', async () => {
     renderSettings();
-    await screen.findByRole('heading', { name: 'Workspace Configuration' });
+    await screen.findByText('Workspace Configuration');
     fireEvent.change(screen.getAllByLabelText('Search settings')[0], { target: { value: 'impossible-query' } });
     expect(screen.getAllByText('No settings found').length).toBeGreaterThan(0);
     fireEvent.click(screen.getAllByRole('button', { name: 'Clear search' })[0]);

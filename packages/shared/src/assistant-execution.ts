@@ -372,10 +372,13 @@ function boundedHunks(value: unknown): { items: readonly AssistantEditHunk[] | u
       truncated = true; // content not a string → evidence lost
       continue;
     }
-    const content =
-      record.content.length > ASSISTANT_EXECUTION_BOUNDS.hunkContent
-        ? ((truncated = true), record.content.slice(0, ASSISTANT_EXECUTION_BOUNDS.hunkContent))
-        : record.content;
+    let content: string;
+    if (record.content.length > ASSISTANT_EXECUTION_BOUNDS.hunkContent) {
+      truncated = true;
+      content = record.content.slice(0, ASSISTANT_EXECUTION_BOUNDS.hunkContent);
+    } else {
+      content = record.content;
+    }
     if (aggregate + content.length > ASSISTANT_EXECUTION_BOUNDS.hunkContentTotal) {
       truncated = true;
       break; // aggregate bound hit — remaining hunks are dropped

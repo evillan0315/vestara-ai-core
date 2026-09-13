@@ -101,8 +101,49 @@ async function fetchAgents(): Promise<readonly OverviewAgentSummary[]> {
   }));
 }
 
+interface GitHubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  language: string | null;
+  pushed_at: string;
+  updated_at: string;
+  archived: boolean;
+  disabled: boolean;
+  stargazers_count: number;
+}
+
+function githubOwnerFromRemote(remote: unknown): string | null {
+  if (typeof remote !== 'string') return null;
+  const m = remote.match(/github\.com[/:]([^/]+)\//);
+  return m?.[1] ?? null;
+}
+
 async function fetchProjects(): Promise<readonly OverviewProjectSummary[]> {
-  return overviewFixture.projects;
+  try {
+    // Derive the GitHub owner from the workspace fingerprint so we list
+    // the user's own repos instead of a hardcoded account.
+    const ws = await apiFetch<{ fingerprint?: { gitRemote?: string } }>('/api/workspace');
+    const owner = githubOwnerFromRemote(ws?.fingerprint?.gitRemote) ?? 'evillan0315';
+    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(owner)}/repos?sort=updated&per_page=5&type=owner`, {
+      headers: { Accept: 'application/vnd.github.v3+json' },
+    });
+    if (!res.ok) return overviewFixture.projects;
+    const repos = (await res.json()) as GitHubRepo[];
+    if (!Array.isArray(repos) || repos.length === 0) return overviewFixture.projects;
+    return repos.map((r) => ({
+      id: String(r.id),
+      name: r.name,
+      description: r.description ?? r.full_name,
+      language: r.language ?? undefined,
+      health: r.archived || r.disabled ? ('degraded' as const) : ('healthy' as const),
+      lastActivity: r.pushed_at ?? r.updated_at,
+      starred: r.stargazers_count > 0,
+    }));
+  } catch {
+    return overviewFixture.projects;
+  }
 }
 
 async function fetchResources(): Promise<OverviewResourceSummary> {

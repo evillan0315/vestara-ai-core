@@ -5,11 +5,6 @@
  * pipeline timeline · tabbed operational views. Wrapped in ExecutionProvider.
  */
 
-import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded';
-import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
-import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
-import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
-import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import { useState } from 'react';
 import { AgentsPanel } from './agents';
 import { ExecutionAnalyze } from './analyze';
@@ -23,7 +18,7 @@ import { PipelineTimeline } from './pipeline';
 import { PlansPanel, TasksPanel } from './plans';
 import { ProjectsPanel } from './projects';
 import { TraceabilityPanel } from './traceability';
-import { PageHero } from '../layout/PageHero/PageHero.js';
+import { RouteHero } from '../layout/PageHero/RouteHero';
 import '../../styles/execution.css';
 
 const TABS: Array<{ id: ExecutionTab; label: string }> = [
@@ -68,26 +63,36 @@ function ExecutionPageInner() {
   };
 
   return (
-    <div className="exec-page h-[calc(100vh-7rem)]">
-      <div className="exec-toolbar">
-        <div className="flex items-center gap-2">
-          <span className="exec-title">Execution Center</span>
-          {exec.dashboard && (
-            <span className="exec-subtitle">
-              {exec.dashboard.sessions.length} sessions · {exec.dashboard.queue.length} queue items
-            </span>
-          )}
-        </div>
+    <div className="w-full min-w-0 space-y-4">
+      <RouteHero
+        routeId="execution"
+        eyebrow={exec.paused ? 'Execution paused' : 'Live operations'}
+        statusColor={exec.paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
+        stats={
+          exec.dashboard
+            ? [
+                { label: 'sessions', value: exec.dashboard.sessions.length },
+                { label: 'queued', value: exec.dashboard.queue.length },
+                { label: 'plans', value: exec.dashboard.plans.length },
+              ]
+            : undefined
+        }
+        actions={[
+          {
+            label: exec.paused ? 'Resume' : 'Pause',
+            glyph: exec.paused ? '▶' : 'Ⅱ',
+            onClick: exec.togglePause,
+            title: exec.paused ? 'Resume live updates' : 'Pause live updates',
+          },
+          { label: 'Refresh', glyph: '↻', onClick: exec.refresh, title: 'Refresh now' },
+          { label: 'Report', glyph: '⇩', onClick: exportReport, disabled: !exec.dashboard, title: 'Export execution report' },
+          { label: 'AI Analysis', primary: true, glyph: '✦', onClick: () => setAiOpen(true), title: 'AI execution analysis' },
+        ]}
+      />
+
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2">
+        <span className="text-[10px] font-medium uppercase tracking-wider text-(--vestara-text-muted)">Refresh interval</span>
         <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            className="exec-icon-btn"
-            onClick={exec.togglePause}
-            title={exec.paused ? 'Resume' : 'Pause'}
-            aria-label={exec.paused ? 'Resume live updates' : 'Pause live updates'}
-          >
-            {exec.paused ? <PlayArrowRoundedIcon fontSize="inherit" /> : <PauseRoundedIcon fontSize="inherit" />}
-          </button>
           <select
             value={exec.interval}
             onChange={(e) => exec.setInterval(Number(e.target.value))}
@@ -101,79 +106,41 @@ function ExecutionPageInner() {
               </option>
             ))}
           </select>
-          <button
-            type="button"
-            className="exec-icon-btn"
-            onClick={exec.refresh}
-            title="Refresh now"
-            aria-label="Refresh now"
-          >
-            <RefreshRoundedIcon fontSize="inherit" />
-          </button>
-          <button type="button" className="exec-btn" onClick={exportReport} title="Export execution report">
-            <DownloadRoundedIcon fontSize="inherit" /> Report
-          </button>
-          <button
-            type="button"
-            className="exec-btn exec-btn-primary"
-            onClick={() => setAiOpen(true)}
-            title="AI execution analysis"
-          >
-            <AutoAwesomeRoundedIcon fontSize="inherit" /> AI
-          </button>
         </div>
       </div>
 
-      <div className="exec-scroll">
-        <div className="exec-content">
-          <PageHero
-            eyebrow={exec.paused ? 'Execution paused' : 'Live operations'}
-            statusColor={exec.paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
-            title="Execution Center"
-            subtitle="Plans, agents, and runs — live operational command."
-            stats={
-              exec.dashboard
-                ? [
-                    { label: 'sessions', value: exec.dashboard.sessions.length },
-                    { label: 'queued', value: exec.dashboard.queue.length },
-                    { label: 'plans', value: exec.dashboard.plans.length },
-                  ]
-                : undefined
-            }
-            label="Execution highlights"
-          />
-          <OverviewCards />
+      <div className="flex min-w-0 flex-col gap-3">
+        <OverviewCards />
 
-          <PipelineTimeline />
+        <PipelineTimeline />
 
-          <div className="exec-tabs" role="tablist" aria-label="Execution sections">
-            {TABS.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="tab"
-                aria-selected={exec.activeTab === t.id}
-                className={`exec-tab ${exec.activeTab === t.id ? 'exec-tab-active' : ''}`}
-                onClick={() => exec.setActiveTab(t.id)}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
-
-          {exec.activeTab === 'overview' && <MetricsPanel />}
-          {exec.activeTab === 'projects' && <ProjectsPanel />}
-          {exec.activeTab === 'plans' && <PlansPanel />}
-          {exec.activeTab === 'tasks' && <TasksPanel />}
-          {exec.activeTab === 'agents' && <AgentsPanel />}
-          {exec.activeTab === 'executions' && <ExecutionsPanel />}
-          {exec.activeTab === 'artifacts' && <ArtifactsPanel />}
-          {exec.activeTab === 'approvals' && <ApprovalsPanel />}
-          {exec.activeTab === 'filesystem' && <FilesystemPanel />}
-          {exec.activeTab === 'events' && <EventsPanel />}
-          {exec.activeTab === 'metrics' && <MetricsPanel />}
-          {exec.activeTab === 'traceability' && <TraceabilityPanel />}
+        <div className="exec-tabs" role="tablist" aria-label="Execution sections">
+          {TABS.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="tab"
+              aria-selected={exec.activeTab === t.id}
+              className={`exec-tab ${exec.activeTab === t.id ? 'exec-tab-active' : ''}`}
+              onClick={() => exec.setActiveTab(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
+
+        {exec.activeTab === 'overview' && <MetricsPanel />}
+        {exec.activeTab === 'projects' && <ProjectsPanel />}
+        {exec.activeTab === 'plans' && <PlansPanel />}
+        {exec.activeTab === 'tasks' && <TasksPanel />}
+        {exec.activeTab === 'agents' && <AgentsPanel />}
+        {exec.activeTab === 'executions' && <ExecutionsPanel />}
+        {exec.activeTab === 'artifacts' && <ArtifactsPanel />}
+        {exec.activeTab === 'approvals' && <ApprovalsPanel />}
+        {exec.activeTab === 'filesystem' && <FilesystemPanel />}
+        {exec.activeTab === 'events' && <EventsPanel />}
+        {exec.activeTab === 'metrics' && <MetricsPanel />}
+        {exec.activeTab === 'traceability' && <TraceabilityPanel />}
       </div>
 
       <ExecutionAnalyze open={aiOpen} onClose={() => setAiOpen(false)} />

@@ -178,13 +178,18 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
-      // AR-006: Trigger Assistant turn for targeted messages
+      // AR-006: Trigger Assistant turn for targeted messages — forward executionConfig when provided
       if (record.agentId && record.agentId !== 'all-agents') {
+        const executionConfig =
+          body.executionConfig && typeof body.executionConfig === 'object'
+            ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
+            : undefined;
         void triggerAssistantTurn({
           humanRecord: record,
           service: room.service,
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
+          ...(executionConfig ? { executionConfig } : {}),
         });
       }
     }
@@ -198,13 +203,18 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
-      // AR-006: Trigger Assistant turn for direct agent messages
+      // AR-006: Trigger Assistant turn for direct agent messages — forward executionConfig when provided
       if (agentId === 'agent-assistant') {
+        const executionConfig =
+          body.executionConfig && typeof body.executionConfig === 'object'
+            ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
+            : undefined;
         void triggerAssistantTurn({
           humanRecord: record,
           service: room.service,
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
+          ...(executionConfig ? { executionConfig } : {}),
         });
       }
     }
