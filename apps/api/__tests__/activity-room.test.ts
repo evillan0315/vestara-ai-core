@@ -90,10 +90,15 @@ function fakeRequest(body: unknown): http.IncomingMessage {
   return req;
 }
 
-async function post(room: ActivityRoom, path: string, body: unknown): Promise<{ status: number; body: unknown }> {
+async function post(
+  room: ActivityRoom,
+  path: string,
+  body: unknown,
+  ctx: unknown = undefined,
+): Promise<{ status: number; body: unknown }> {
   const { res, body: responseBody, status } = fakeResponse();
   const url = new URL(`http://127.0.0.1:3001${path}`);
-  await handleActivityRoomRoute('POST', url.pathname, fakeRequest(body), res, undefined as never, 3001, url, room);
+  await handleActivityRoomRoute('POST', url.pathname, fakeRequest(body), res, ctx as never, 3001, url, room);
   return { status: status(), body: responseBody() };
 }
 
@@ -215,6 +220,25 @@ describe('Activity Room messaging (AAR-001E)', () => {
     });
     expect(status).toBe(201);
     expect((body as { record: { agentId: string } }).record.agentId).toBe('engineer');
+  });
+
+  it('targets turn-capable agents (@assistant/@developer/@reviewer/@planner)', async () => {
+    const room = await seedRoom();
+    for (const agentId of ['agent-assistant', 'agent-developer', 'agent-reviewer', 'agent-planner']) {
+      // Minimal ctx: targeted posts read turn config off ctx; no turn runtime
+      // here, so the trigger degrades gracefully without firing.
+      const { status, body } = await post(
+        room,
+        '/api/messages',
+        {
+          content: `@${agentId.replace(/^agent-/, '')} please respond.`,
+          targets: [{ type: 'agent', agentId }],
+        },
+        {},
+      );
+      expect(status).toBe(201);
+      expect((body as { record: { agentId: string } }).record.agentId).toBe(agentId);
+    }
   });
 
   it('rejects empty content', async () => {

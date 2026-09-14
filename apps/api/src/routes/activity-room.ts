@@ -8,7 +8,13 @@ import type {
   AgentMessageActivity,
   MessageTarget,
 } from '@vestara/activity-room';
-import { fromHumanMessage, projectEffectiveState, toActivityBatch, triggerAssistantTurn } from '@vestara/activity-room';
+import {
+  fromAgentLifecycle,
+  fromHumanMessage,
+  projectEffectiveState,
+  toActivityBatch,
+  triggerAssistantTurn,
+} from '@vestara/activity-room';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
@@ -178,19 +184,33 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
-      // AR-006: Trigger Assistant turn for targeted messages — forward executionConfig when provided
+      // AR-006: Trigger an agent turn for targeted messages (@assistant,
+      // @developer, @reviewer, @planner) — forward executionConfig when
+      // provided. Unknown targeted ids keep the legacy Assistant turn.
       if (record.agentId && record.agentId !== 'all-agents') {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
+        const turnAgentId = TURN_CAPABLE_AGENTS.has(record.agentId) ? record.agentId : 'agent-assistant';
         void triggerAssistantTurn({
+          agentId: turnAgentId,
           humanRecord: record,
           service: room.service,
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
-        });
+        })
+          .then((result) => {
+            // Mirror completed turn replies into M9 so they appear on the
+            // M11C surface (the legacy append above is M11C-invisible).
+            if (result.status === 'completed' && result.content) {
+              void mirrorAgentReplyToM9(turnAgentId, result.content);
+            }
+          })
+          .catch(() => {
+            /* turn failures are already captured in the result */
+          });
       }
     }
     return true;
@@ -203,19 +223,28 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
-      // AR-006: Trigger Assistant turn for direct agent messages — forward executionConfig when provided
-      if (agentId === 'agent-assistant') {
+      // AR-006: Trigger an agent turn for direct agent messages — forward executionConfig when provided
+      if (TURN_CAPABLE_AGENTS.has(agentId)) {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
         void triggerAssistantTurn({
+          agentId,
           humanRecord: record,
           service: room.service,
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
-        });
+        })
+          .then((result) => {
+            if (result.status === 'completed' && result.content) {
+              void mirrorAgentReplyToM9(agentId, result.content);
+            }
+          })
+          .catch(() => {
+            /* turn failures are already captured in the result */
+          });
       }
     }
     return true;
@@ -501,6 +530,44 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
   // even without an @mention in the content.
   if (record.agentId !== undefined && record.agentId !== 'all-agents') forced.add(record.agentId);
   messageReceipts.registerMessage(record, participantAgentIds, agentRoles, forced.size > 0 ? forced : undefined);
+}
+
+/**
+ * Agent ids that take conversation-runtime turns when a composer message
+ * targets them (@assistant, @developer, @reviewer, @planner).
+ */
+const TURN_CAPABLE_AGENTS = new Set(['agent-assistant', 'agent-developer', 'agent-reviewer', 'agent-planner']);
+
+/** Display names and roles for turn-capable agents (registry fallback). */
+const TURN_AGENT_IDENTITY: Record<string, { displayName: string; role: string }> = {
+  'agent-assistant': { displayName: 'Assistant', role: 'assistant' },
+  'agent-developer': { displayName: 'Developer', role: 'developer' },
+  'agent-reviewer': { displayName: 'Reviewer', role: 'reviewer' },
+  'agent-planner': { displayName: 'Planner', role: 'planning' },
+};
+
+/**
+ * Mirror a completed agent turn reply into the M9 durable store via the
+ * canonical `fromAgentLifecycle` adapter, so the reply appears on the M11C
+ * surface (the turn's legacy append is M11C-invisible). Best-effort: throws
+ * nothing; failures are logged.
+ */
+async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<void> {
+  try {
+    const { getM11ARoom } = await import('./activity-room-m11a.js');
+    const identity = TURN_AGENT_IDENTITY[agentId] ?? { displayName: agentId, role: agentId };
+    await getM11ARoom().store.append(
+      fromAgentLifecycle({
+        agentId,
+        displayName: identity.displayName,
+        lifecycleType: 'completed',
+        message: content,
+        role: identity.role,
+      }),
+    );
+  } catch (error) {
+    console.warn('[activity-room] M9 reply mirror failed:', error instanceof Error ? error.message : error);
+  }
 }
 
 /**

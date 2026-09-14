@@ -42,6 +42,7 @@ interface AssistantLogger {
 /** Canonical agent definition interface (subset). */
 interface AssistantAgentDefinition {
   readonly id: string;
+  readonly name?: string;
   readonly provider?: string;
   readonly model?: string;
 }
@@ -70,6 +71,12 @@ interface AssistantConversationService {
 
 /** Options for triggering an Assistant turn. */
 export interface TriggerAssistantTurnOptions {
+  /**
+   * The agent taking the turn. Defaults to 'agent-assistant' (legacy AR-006
+   * behavior). The route allowlists turn-capable ids (assistant, developer,
+   * reviewer, planner); config/display resolve from AgentDefinition.
+   */
+  readonly agentId?: string;
   /** The persisted human message record. */
   readonly humanRecord: AgentMessageActivity;
   /** The Activity Projection Service for response persistence. */
@@ -88,26 +95,39 @@ export interface TriggerAssistantTurnOptions {
 interface AssistantExecutionConfig {
   readonly provider?: string;
   readonly model?: string;
+  readonly displayName?: string;
 }
 
+/** Fallback display names when AgentDefinition carries none. */
+const AGENT_DISPLAY_NAMES: Record<string, string> = {
+  'agent-assistant': 'Assistant',
+  'agent-developer': 'Developer',
+  'agent-reviewer': 'Reviewer',
+  'agent-planner': 'Planner',
+};
+
 /**
- * Resolve agent-assistant configuration from the canonical AgentDefinition.
+ * Resolve agent configuration from the canonical AgentDefinition.
  *
  * Provider/model resolution follows Vestara precedence:
  *   1. Agent-level configuration (from AgentDefinition)
  *   2. Global/default configuration (from Conversation Runtime)
  *
- * This ensures the Assistant's identity influences execution configuration.
+ * This ensures the agent's identity influences execution configuration.
  */
-async function resolveAssistantConfig(agentStorage?: AssistantAgentStorage): Promise<AssistantExecutionConfig> {
-  if (!agentStorage) return {};
+async function resolveAssistantConfig(
+  agentId: string,
+  agentStorage?: AssistantAgentStorage,
+): Promise<AssistantExecutionConfig> {
+  if (!agentStorage) return { displayName: AGENT_DISPLAY_NAMES[agentId] };
 
-  const agent = await agentStorage.getAgent('agent-assistant');
-  if (!agent) return {};
+  const agent = await agentStorage.getAgent(agentId);
+  if (!agent) return { displayName: AGENT_DISPLAY_NAMES[agentId] };
 
   return {
     provider: agent.provider,
     model: agent.model,
+    displayName: agent.name ?? AGENT_DISPLAY_NAMES[agentId],
   };
 }
 
@@ -122,7 +142,8 @@ async function resolveAssistantConfig(agentStorage?: AssistantAgentStorage): Pro
  *   5. Return AssistantTurnResult
  */
 export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions): Promise<AssistantTurnResult> {
-  const { humanRecord, service, conversationService, agentStorage, logger, executionConfig } = options;
+  const { agentId = 'agent-assistant', humanRecord, service, conversationService, agentStorage, logger, executionConfig } =
+    options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
 
@@ -131,7 +152,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     return {
       conversationId: humanRecord.sessionId ?? 'unknown',
       humanMessageId: humanRecord.id,
-      agentId: 'agent-assistant',
+      agentId,
       correlationId,
       status: 'failed',
       failure: 'Conversation service not available',
@@ -140,19 +161,20 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
   }
 
   try {
-    // 1. Resolve agent-assistant configuration from canonical AgentDefinition
-    const agentConfig = await resolveAssistantConfig(agentStorage);
+    // 1. Resolve agent configuration from canonical AgentDefinition
+    const agentConfig = await resolveAssistantConfig(agentId, agentStorage);
+    const displayName = agentConfig.displayName ?? 'Assistant';
 
     // 2. Create conversation
-    const conversation = await conversationService.createConversation('assistant', {
-      agentId: 'agent-assistant',
+    const conversation = await conversationService.createConversation(agentId, {
+      agentId,
       correlationId,
     });
 
     // 3. Send message through conversation service (provider execution)
-    //    Pass agent-assistant's model via SendOptions to override default
+    //    Pass the agent's model via SendOptions to override default
     const sendOptions: Record<string, unknown> = {
-      agentId: 'agent-assistant',
+      agentId,
     };
     if (agentConfig.model) {
       sendOptions.model = agentConfig.model;
@@ -163,7 +185,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
 
     const response = await conversationService.sendMessage(conversation.id, humanRecord.content, sendOptions);
 
-    // 4. Persist Assistant response in Activity Room
+    // 4. Persist agent response in Activity Room
     if (response.response.content) {
       const assistantRecord: AgentMessageActivity = {
         id: `activity:msg:${randomUUID()}`,
@@ -171,11 +193,11 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
         timestamp: new Date().toISOString(),
         actor: {
           type: 'agent',
-          id: 'agent-assistant',
-          displayName: 'Assistant',
+          id: agentId,
+          displayName,
         },
         kind: 'agent-message',
-        agentId: 'agent-assistant',
+        agentId,
         messageKind: 'message',
         content: response.response.content,
         correlationId,
@@ -188,7 +210,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
         conversationId: conversation.id,
         humanMessageId: humanRecord.id,
         assistantMessageId: appended.id,
-        agentId: 'agent-assistant',
+        agentId,
         correlationId,
         status: 'completed',
         content: response.response.content,
@@ -200,7 +222,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     return {
       conversationId: conversation.id,
       humanMessageId: humanRecord.id,
-      agentId: 'agent-assistant',
+      agentId,
       correlationId,
       status: 'failed',
       failure: 'No response content',
@@ -217,7 +239,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     return {
       conversationId: humanRecord.sessionId ?? 'unknown',
       humanMessageId: humanRecord.id,
-      agentId: 'agent-assistant',
+      agentId,
       correlationId,
       status: 'failed',
       failure: error instanceof Error ? error.message : String(error),

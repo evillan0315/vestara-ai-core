@@ -431,6 +431,26 @@ export default function M11CActivityRoomPage() {
   );
 }
 
+/**
+ * Recognized @mention aliases → explicit agent targets. The targeted agent
+ * takes a conversation-runtime turn on send (server allowlist mirrors this
+ * set); unrecognized mentions stay a plain all-agents broadcast.
+ */
+const AGENT_MENTION_TARGETS = [
+  { pattern: /@(?:vestara|assistant|agent-assistant)\b/i, agentId: 'agent-assistant' },
+  { pattern: /@(?:developer|agent-developer)\b/i, agentId: 'agent-developer' },
+  { pattern: /@(?:reviewer|agent-reviewer)\b/i, agentId: 'agent-reviewer' },
+  { pattern: /@(?:planner|agent-planner)\b/i, agentId: 'agent-planner' },
+] as const;
+
+/** Chip labels for targeted agents. */
+const MENTION_TARGET_LABELS: Record<string, string> = {
+  'agent-assistant': 'Assistant',
+  'agent-developer': 'Developer',
+  'agent-reviewer': 'Reviewer',
+  'agent-planner': 'Planner',
+};
+
 // ─── Visual/Non-Mutating Composer ──────────────────────────
 
 /**
@@ -467,11 +487,13 @@ function M11CComposer({
     setSending(true);
     setError(null);
     try {
-      // Fix 2: @vestara/@assistant maps to agent-assistant target so triggerAssistantTurn fires (AR-006)
-      // Without this, M11C always sent all-agents → no Assistant turn, appearing as "nothing happens"
-      const isAssistantMention = /@(?:vestara|assistant|agent-assistant)\b/i.test(text);
-      const targets = isAssistantMention
-        ? ([{ type: 'agent', agentId: 'agent-assistant' }] as const)
+      // @mention routing: a recognized agent alias targets that agent so its
+      // turn fires (AR-006 generalized beyond the Assistant). First alias
+      // wins; anything else broadcasts to all agents. Without this, M11C
+      // always sent all-agents → no turn, appearing as "nothing happens".
+      const mentionTarget = AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(text));
+      const targets = mentionTarget
+        ? ([{ type: 'agent', agentId: mentionTarget.agentId }] as const)
         : ([{ type: 'all-agents' }] as const);
       await postActivityMessage({
         content: text,
@@ -498,10 +520,17 @@ function M11CComposer({
     [handleSend],
   );
 
+  // Live target preview: reflects the @mention alias the send path will use.
+  const previewTarget = AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(value));
+  const previewLabel = previewTarget ? MENTION_TARGET_LABELS[previewTarget.agentId] : 'All agents';
+  const previewTitle = previewTarget
+    ? `This message will target ${previewLabel} and trigger its turn`
+    : 'Messages from this composer are addressed to all agents in this room';
+
   return (
     // VES-DESIGN-008E: first-class human participation surface. Bounded
-    // composition — target chip (truthful fixed contract: all-agents, no
-    // picker), input, send — plus reply-context strip and error row. Logic,
+    // composition — live target chip (all-agents, or the @mention alias),
+    // input, send — plus reply-context strip and error row. Logic,
     // keyboard (Enter sends), validation, and states are unchanged. No
     // delivery/permission claims: HTTP 201 establishes none (recorded gap).
     <div
@@ -530,13 +559,13 @@ function M11CComposer({
       )}
 
       <div className="flex min-w-0 flex-wrap items-center gap-2">
-        {/* Target: fixed all-agents contract, presented truthfully */}
+        {/* Target: live @mention preview, presented truthfully */}
         <span
           className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
-          title="Messages from this composer are addressed to all agents in this room"
+          title={previewTitle}
         >
           <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
-          All agents
+          {previewLabel}
         </span>
         {/* Input */}
         <input
