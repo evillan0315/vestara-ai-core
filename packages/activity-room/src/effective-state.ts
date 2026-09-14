@@ -56,11 +56,15 @@ const RESOLVING_EFFECTS = new Set<ActivityOrganizationalEffect>([
   'intervention',
 ]);
 
-/** A record resolves an earlier open item when it references it or closes its unit. */
+/** A record resolves an earlier open item when it explicitly references it, or when
+ * a broadcast disposition (no relatesTo) closes its unit. Scoped dispositions
+ * (relatesTo non-empty) resolve only their referenced targets — concurrent open
+ * items in the same unit stay open. */
 function resolves(record: ActivityRecord, item: ActivityRecord): boolean {
   if (record.sequence <= item.sequence) return false;
   if (record.correctionOf === item.id) return true;
   if (record.relatesTo?.includes(item.id)) return true;
+  if ((record.relatesTo?.length ?? 0) > 0) return false;
   if (RESOLVING_EFFECTS.has(record.effect ?? 'message')) {
     if (record.workflowId !== undefined && record.workflowId === item.workflowId) return true;
     if (record.sessionId !== undefined && record.sessionId === item.sessionId) return true;

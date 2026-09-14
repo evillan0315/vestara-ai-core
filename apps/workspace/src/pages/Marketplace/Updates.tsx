@@ -85,7 +85,7 @@ export default function Updates() {
                       <div className="flex items-center gap-2">
                         <Link
                           to={`/marketplace/assets/vestara/${encodeURIComponent(update.packageName)}`}
-                          className="font-medium text-zinc-100 hover:text-sky-300"
+                          className="font-medium text-[var(--vestara-text-primary)] hover:text-[var(--vestara-status-info)]"
                         >
                           {update.packageName}
                         </Link>
@@ -94,7 +94,7 @@ export default function Updates() {
                         </Badge>
                       </div>
                       <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
-                        {update.installedVersion} → <span className="text-zinc-200">{update.targetVersion}</span>
+                        {update.installedVersion} → <span className="text-[var(--vestara-text-primary)]">{update.targetVersion}</span>
                       </div>
                       {update.reason && (
                         <div className="mt-1 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">

@@ -22,25 +22,25 @@ import {
 // ─── State Config ───────────────────────────────────────────
 
 const STATE_ACCENT: Record<string, string> = {
-  active: '#34d399',
-  parked: '#71717a',
-  experimental: '#fbbf24',
-  unknown: '#52525b',
+  active: 'var(--vestara-status-success)',
+  parked: 'var(--vestara-status-idle)',
+  experimental: 'var(--vestara-status-warning)',
+  unknown: 'var(--vestara-status-unknown)',
 };
 
 const STATE_CONFIG: Record<string, { dot: string; bg: string; text: string; label: string }> = {
-  active: { dot: 'bg-emerald-400', bg: 'bg-emerald-400/10', text: 'text-emerald-300', label: 'Active' },
-  parked: { dot: 'bg-zinc-500', bg: 'bg-zinc-500/10', text: 'text-zinc-400', label: 'Parked' },
-  experimental: { dot: 'bg-amber-400', bg: 'bg-amber-400/10', text: 'text-amber-300', label: 'Experimental' },
-  unknown: { dot: 'bg-zinc-600', bg: 'bg-zinc-600/10', text: 'text-zinc-500', label: 'Unknown' },
+  active: { dot: 'bg-[var(--vestara-status-success)]', bg: 'bg-[var(--vestara-status-success-bg)]', text: 'text-[var(--vestara-status-success)]', label: 'Active' },
+  parked: { dot: 'bg-[var(--vestara-status-idle)]', bg: 'bg-[var(--vestara-status-disabled)]/10', text: 'text-[var(--vestara-text-muted)]', label: 'Parked' },
+  experimental: { dot: 'bg-[var(--vestara-status-warning)]', bg: 'bg-[var(--vestara-status-warning-bg)]', text: 'text-[var(--vestara-status-warning)]', label: 'Experimental' },
+  unknown: { dot: 'bg-[var(--vestara-status-unknown)]', bg: 'bg-[var(--vestara-status-unknown)]/10', text: 'text-[var(--vestara-status-unknown)]', label: 'Unknown' },
 };
 
 const HEALTH_CONFIG: Record<string, { text: string; icon: string }> = {
-  verified: { text: 'text-emerald-400', icon: '✓' },
-  pass: { text: 'text-emerald-300', icon: '✓' },
-  fail: { text: 'text-red-400', icon: '✕' },
-  degraded: { text: 'text-amber-400', icon: '⚠' },
-  unknown: { text: 'text-zinc-500', icon: '?' },
+  verified: { text: 'text-[var(--vestara-status-success)]', icon: '✓' },
+  pass: { text: 'text-[var(--vestara-status-success)]', icon: '✓' },
+  fail: { text: 'text-[var(--vestara-status-error)]', icon: '✕' },
+  degraded: { text: 'text-[var(--vestara-status-warning)]', icon: '⚠' },
+  unknown: { text: 'text-[var(--vestara-status-unknown)]', icon: '?' },
 };
 
 const CATEGORY_ICONS: Record<string, string> = {
@@ -95,7 +95,7 @@ function CapabilityCard({
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <span className="text-lg">{icon}</span>
-              <span className="truncate font-medium text-zinc-100">{cap.name}</span>
+              <span className="truncate font-medium text-[var(--vestara-text-primary)]">{cap.name}</span>
             </div>
             <div className="mt-0.5 font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">{cap.id}</div>
           </div>
@@ -114,7 +114,7 @@ function CapabilityCard({
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
           <Badge variant="default" size="md">{cap.category}</Badge>
           <Badge variant="default" size="md">{cap.activation}</Badge>
-          <span className={`inline-flex items-center gap-1 rounded-full border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-2 py-0.5 text-xs ${health.text}`}>
+          <span className={`inline-flex items-center gap-1 rounded-full border border-[var(--vestara-border-subtle)] px-2 py-0.5 text-xs ${health.text}`}>
             {health.icon} {cap.health}
           </span>
           {cap.packages.length > 0 && (
@@ -159,7 +159,7 @@ function CapabilityDetail({
           </Button>
         </div>
 
-        {cap.description && <p className="text-sm leading-relaxed text-zinc-300">{cap.description}</p>}
+        {cap.description && <p className="text-sm leading-relaxed text-[var(--vestara-text-muted)]">{cap.description}</p>}
 
         <div className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${state.bg} ${state.text}`}>
           <span className={`inline-block h-2 w-2 rounded-full ${state.dot}`} />
@@ -174,15 +174,15 @@ function CapabilityDetail({
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Category</span>
-            <div className="mt-1 text-zinc-200">{cap.category}</div>
+            <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.category}</div>
           </div>
           <div>
             <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Requirement</span>
-            <div className="mt-1 text-zinc-200">{cap.requirement}</div>
+            <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.requirement}</div>
           </div>
           <div>
             <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Activation</span>
-            <div className="mt-1 text-zinc-200">{cap.activation}</div>
+            <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.activation}</div>
           </div>
           <div>
             <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Health</span>
@@ -290,10 +290,10 @@ export default function Capabilities() {
         catalog ? (
           <div className="flex flex-wrap gap-3">
             <MarketplaceStatPill label="Total" value={catalog.summary.total} />
-            <MarketplaceStatPill label="Active" value={catalog.summary.active} color="text-emerald-400" />
-            <MarketplaceStatPill label="Parked" value={catalog.summary.parked} color="text-zinc-400" />
+            <MarketplaceStatPill label="Active" value={catalog.summary.active} color="text-[var(--vestara-status-success)]" />
+            <MarketplaceStatPill label="Parked" value={catalog.summary.parked} color="text-[var(--vestara-text-muted)]" />
             {catalog.summary.experimental > 0 && (
-              <MarketplaceStatPill label="Experimental" value={catalog.summary.experimental} color="text-amber-400" />
+              <MarketplaceStatPill label="Experimental" value={catalog.summary.experimental} color="text-[var(--vestara-status-warning)]" />
             )}
           </div>
         ) : undefined

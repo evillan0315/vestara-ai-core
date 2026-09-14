@@ -116,24 +116,24 @@ export function OverviewScreen() {
         <QuickActions />
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-          {/* Column 1 */}
+          {/* Column 1 — resume + act: highest scan priority */}
           <div className="min-w-0 space-y-4">
             <ContinueWorking items={data.continueWorking} />
-            <ProjectsSummary projects={data.projects} />
+            <TodayFocus items={data.focus} />
           </div>
 
-          {/* Column 2 */}
+          {/* Column 2 — activity-led */}
           <div className="min-w-0 space-y-4">
             <RecentActivity items={data.recentActivity} />
             <SystemResources resources={data.resources} />
             <MarketplaceSpotlight items={data.marketplace} />
           </div>
 
-          {/* Column 3 */}
+          {/* Column 3 — status + reference; inspiration demoted to bottom */}
           <div className="min-w-0 space-y-4">
             <AgentStatus agents={data.agents} />
+            <ProjectsSummary projects={data.projects} />
             <InspirationCard />
-            <TodayFocus items={data.focus} />
           </div>
         </div>
       </div>

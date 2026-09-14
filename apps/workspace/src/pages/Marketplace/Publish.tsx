@@ -51,27 +51,27 @@ export default function Publish() {
         <div className="mpg-card mpg-hairline-top space-y-4 p-5">
           <div className="relative z-[2] space-y-4">
             <label className="block">
-              <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <span className="text-xs font-medium text-[var(--vestara-text-muted)]">
                 Package directory path
               </span>
               <input
-                className="mt-1 w-full rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] bg-[var(--vestara-color-bg-workspace,var(--color-zinc-950))] px-3 py-2 font-mono text-sm"
+                className="mt-1 w-full rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 font-mono text-sm"
                 placeholder="/path/to/package (contains vestara-package.json)"
                 value={sourcePath}
                 onChange={(event) => setSourcePath(event.target.value)}
               />
               {!valid && (
-                <span className="mt-1 block text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <span className="mt-1 block text-xs text-[var(--vestara-text-muted)]">
                   Enter the absolute path to a directory containing vestara-package.json.
                 </span>
               )}
             </label>
             <label className="block">
-              <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <span className="text-xs font-medium text-[var(--vestara-text-muted)]">
                 Ed25519 signing key (PEM, optional)
               </span>
               <textarea
-                className="mt-1 w-full rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] bg-[var(--vestara-color-bg-workspace,var(--color-zinc-950))] px-3 py-2 font-mono text-sm"
+                className="mt-1 w-full rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 font-mono text-sm"
                 rows={4}
                 placeholder="-----BEGIN PRIVATE KEY-----"
                 value={key}
@@ -98,29 +98,29 @@ export default function Publish() {
               <Badge variant="success" size="md">
                 published
               </Badge>
-              <span className="font-mono text-sm font-medium text-zinc-100">
+              <span className="font-mono text-sm font-medium text-[var(--vestara-text-primary)]">
                 {published.publisherId}/{published.packageName}@{published.version}
               </span>
-              <span className="text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <span className="text-xs text-[var(--vestara-text-muted)]">
                 {published.signed ? (published.signatureValid ? 'signed ✓' : 'signature invalid') : 'unsigned'}
               </span>
             </div>
             <dl className="mt-3 space-y-1 font-mono text-xs">
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted,var(--color-zinc-400))]">digest</dt>
-                <dd className="break-all text-zinc-300">{published.digest}</dd>
+                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted)]">digest</dt>
+                <dd className="break-all text-[var(--vestara-text-secondary)]">{published.digest}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted,var(--color-zinc-400))]">registered</dt>
-                <dd className="break-all text-zinc-300">{published.targetPath}</dd>
+                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted)]">registered</dt>
+                <dd className="break-all text-[var(--vestara-text-secondary)]">{published.targetPath}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted,var(--color-zinc-400))]">published</dt>
-                <dd className="text-zinc-300">{new Date(published.publishedAt).toLocaleString()}</dd>
+                <dt className="w-24 shrink-0 text-[var(--vestara-text-muted)]">published</dt>
+                <dd className="text-[var(--vestara-text-secondary)]">{new Date(published.publishedAt).toLocaleString()}</dd>
               </div>
             </dl>
             <div className="mt-3">
-              <Link to="/marketplace" className="text-sm text-sky-400 hover:underline">
+              <Link to="/marketplace" className="text-sm text-[var(--vestara-status-info)] hover:underline">
                 View in Discover →
               </Link>
             </div>

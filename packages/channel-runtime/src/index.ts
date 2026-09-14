@@ -20,6 +20,7 @@ import type {
   ChannelKind,
   ChannelMessage,
 } from '@vestara/channel-types';
+import { isChannelDelivery, isChannelMessage } from '@vestara/channel-types';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -99,8 +100,13 @@ export class ChannelGateway {
 
   /**
    * Process an incoming message.
+   * The gateway validates the canonical envelope and routes without
+   * owning conversation or execution state.
    */
   async processMessage(message: ChannelMessage): Promise<ChannelEvent> {
+    if (!isChannelMessage(message)) {
+      throw new Error('Invalid ChannelMessage envelope');
+    }
     const adapter = this.getAdapter(message.channel);
     if (!adapter) {
       throw new Error(`No adapter registered for channel: ${message.channel}`);
@@ -119,6 +125,15 @@ export class ChannelGateway {
    * Process an incoming action.
    */
   async processAction(action: ChannelAction): Promise<ChannelEvent> {
+    if (
+      typeof action !== 'object' ||
+      action === null ||
+      typeof (action as ChannelAction).id !== 'string' ||
+      typeof (action as ChannelAction).channel !== 'string' ||
+      typeof (action as ChannelAction).type !== 'string'
+    ) {
+      throw new Error('Invalid ChannelAction envelope');
+    }
     const adapter = this.getAdapter(action.channel);
     if (!adapter) {
       throw new Error(`No adapter registered for channel: ${action.channel}`);
@@ -137,6 +152,9 @@ export class ChannelGateway {
    * Send a delivery to a channel.
    */
   async sendDelivery(delivery: ChannelDelivery): Promise<ChannelDeliveryResult> {
+    if (!isChannelDelivery(delivery)) {
+      throw new Error('Invalid ChannelDelivery envelope');
+    }
     const adapter = this.getAdapter(delivery.channel);
     if (!adapter) {
       throw new Error(`No adapter registered for channel: ${delivery.channel}`);

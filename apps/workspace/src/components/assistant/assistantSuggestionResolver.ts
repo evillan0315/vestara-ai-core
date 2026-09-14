@@ -29,10 +29,14 @@ import type { SurfaceContext, SurfaceLocation } from '@vestara/types';
 import { WORKSPACE_NAVIGATION } from '../../layouts/workspace-navigation.js';
 import { ROUTE_HERO_CONFIG } from '../layout/PageHero/route-hero-config.js';
 import { SETTINGS_SECTIONS } from '../../pages/Settings/settings-navigation.js';
+import {
+  UX_RECOMMENDATION_FALLBACK_FIXTURES,
+  UX_ROUTE_RECOMMENDATION_FIXTURES,
+} from './assistantUxSuggestions.fixtures.js';
 
 // ─── Suggestion Model ──────────────────────────────────────────
 
-export type SuggestionCategory = 'context' | 'workspace' | 'attention' | 'quick_action';
+export type SuggestionCategory = 'context' | 'workspace' | 'attention' | 'quick_action' | 'design';
 
 export interface AssistantSuggestion {
   readonly id: string;
@@ -54,6 +58,8 @@ export interface ResolvedLaunchSurface {
   readonly contextCard: AssistantContextCard;
   readonly contextual: readonly AssistantSuggestion[];
   readonly quickActions: readonly AssistantSuggestion[];
+  /** GA-UX-002: UI/UX suggestions and recommendations for the current surface. */
+  readonly uxRecommendations: readonly AssistantSuggestion[];
 }
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -329,10 +335,47 @@ function normalizeRouteKey(surface: SurfaceLocation): string | null {
   return raw.replace(/^\//, '').split('/')[0].split('?')[0].replace('/*', '') || null;
 }
 
+// ─── UI/UX recommendations ─────────────────────────────────────
+// Static fixture-backed vocabulary (never inline arrays in JSX).
+// Selected entities get a bounded design set; routes get their own table;
+// everything else falls back to the generic fixtures.
+
+function selectedUxRecommendations(selected: NonNullable<SurfaceContext['selected']>): AssistantSuggestion[] {
+  const label = selected.label ?? selected.id;
+  const kind = selected.kind ?? 'item';
+  const ref = `${kind} "${label}"`;
+  return [
+    {
+      id: 'ux-sel-improve',
+      label: `Improve ${truncateLabel(label, 22)} display`,
+      prompt: `Review how the selected ${ref} is displayed and suggest UI/UX improvements for clarity and consistency.`,
+      category: 'design',
+    },
+    {
+      id: 'ux-sel-accessibility',
+      label: 'Check selection accessibility',
+      prompt: `Check the selected ${ref} presentation for accessibility (contrast, focus, labels) and recommend fixes.`,
+      category: 'design',
+    },
+  ];
+}
+
+export function resolveUxRecommendations(
+  surface: SurfaceLocation,
+  selected?: SurfaceContext['selected'],
+): readonly AssistantSuggestion[] {
+  if (selected?.id) return selectedUxRecommendations(selected);
+  if (surface.path?.startsWith('/settings')) return UX_ROUTE_RECOMMENDATION_FIXTURES.settings;
+  const key = normalizeRouteKey(surface);
+  if (key && UX_ROUTE_RECOMMENDATION_FIXTURES[key]) return UX_ROUTE_RECOMMENDATION_FIXTURES[key];
+  return UX_RECOMMENDATION_FALLBACK_FIXTURES;
+}
+
 // ─── Main resolver ────────────────────────────────────────────
 
 export function resolveAssistantSuggestions(surface: SurfaceLocation, selected?: SurfaceContext['selected']): ResolvedLaunchSurface {
   const contextCard = resolveContextCard(surface);
+  const uxRecommendations = resolveUxRecommendations(surface, selected);
 
   // Priority 1: selected entity
   if (selected?.id) {
@@ -340,6 +383,7 @@ export function resolveAssistantSuggestions(surface: SurfaceLocation, selected?:
       contextCard,
       contextual: selectedSuggestions(selected),
       quickActions: QUICK_ACTIONS,
+      uxRecommendations,
     };
   }
 
@@ -350,6 +394,7 @@ export function resolveAssistantSuggestions(surface: SurfaceLocation, selected?:
       contextCard,
       contextual: settingsSuggestions(surface.path),
       quickActions: QUICK_ACTIONS,
+      uxRecommendations,
     };
   }
 
@@ -359,6 +404,7 @@ export function resolveAssistantSuggestions(surface: SurfaceLocation, selected?:
       contextCard,
       contextual: ROUTE_SUGGESTIONS[key],
       quickActions: QUICK_ACTIONS,
+      uxRecommendations,
     };
   }
 
@@ -374,5 +420,6 @@ export function resolveAssistantSuggestions(surface: SurfaceLocation, selected?:
     contextCard,
     contextual: fallbackContextual,
     quickActions: QUICK_ACTIONS,
+    uxRecommendations,
   };
 }

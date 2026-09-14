@@ -42,7 +42,7 @@ export default function Categories() {
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
         <aside className="mpg-card mpg-hairline-top h-fit p-3">
           <div className="relative z-[2]">
-            <div className="px-2 pb-2 text-sm font-semibold text-zinc-200">Categories</div>
+            <div className="px-2 pb-2 text-sm font-semibold text-[var(--vestara-text-primary)]">Categories</div>
             {categories.length === 0 && !loading && (
               <div className="px-2 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                 No categories yet.
@@ -68,7 +68,7 @@ export default function Categories() {
                 }
               >
                 <span>{category.name}</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] px-2 py-0.5 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-border-subtle)] px-2 py-0.5 text-xs text-[var(--vestara-text-muted)]">
                   {category.assetCount}
                 </span>
               </button>

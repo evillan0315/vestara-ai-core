@@ -881,6 +881,7 @@ function SuggestionEmptyState({
   const contextCard = resolved.contextCard;
   const contextual = resolved.contextual;
   const quickActions = resolved.quickActions;
+  const uxRecommendations = resolved.uxRecommendations;
   const [attention, setAttention] = useState<AssistantSuggestion[]>([]);
 
   // Best-effort backend attention (GET /api/suggestions). Progressive loading:
@@ -1014,6 +1015,56 @@ function SuggestionEmptyState({
                 </button>
               ))}
             </div>
+          </div>
+        )}
+
+        {/* UI/UX suggestions and recommendations — route-aware via resolver, fixture-backed. */}
+        {uxRecommendations.length > 0 && (
+          <div className="w-full" data-testid="assistant-ux-section" aria-label="UI/UX recommendations">
+            <div className="mb-[var(--vestara-spacing-element)] text-[length:var(--vestara-font-size-xs)] font-semibold uppercase tracking-wide text-[var(--vestara-text-muted)]">
+              UI/UX recommendations
+            </div>
+            <div className="grid grid-cols-1 gap-[var(--vestara-spacing-element)] sm:grid-cols-2">
+              {uxRecommendations.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onSuggest(s.prompt)}
+                  data-testid="assistant-suggestion-ux"
+                  title={s.prompt}
+                  className="group flex items-center gap-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] px-[var(--vestara-spacing-section)] py-[var(--vestara-spacing-element)] text-left text-[length:var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)] transition-colors hover:border-[var(--vestara-border-focus)]"
+                >
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 text-[var(--vestara-status-info)]"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M9.53 16.122a3 3 0 00-5.78 1.128 2.25 2.25 0 01-2.4 2.245 4.5 4.5 0 008.4-2.245c0-.399-.078-.78-.22-1.128zm0 0a15.998 15.998 0 003.388-1.62m-5.043-.025a15.994 15.994 0 011.622-3.395m3.42 3.42a15.995 15.995 0 004.043-1.622m-4.043 1.622a15.996 15.996 0 001.622-3.395m-1.622 3.395a15.996 15.996 0 01-1.622-3.395m3.244 3.395a15.996 15.996 0 003.395-1.622m-3.395 1.622a15.995 15.995 0 01-3.395-1.622"
+                    />
+                  </svg>
+                  <span className="flex-1 leading-tight">{s.label}</span>
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 text-[var(--vestara-text-muted)] transition-all group-hover:translate-x-0.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+            <p className="mt-[var(--vestara-spacing-element)] text-[length:var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+              Grounded in Vestara tokens — ask for layout, accessibility, or visual polish on this page.
+            </p>
           </div>
         )}
 

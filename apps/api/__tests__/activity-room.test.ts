@@ -90,6 +90,15 @@ function fakeRequest(body: unknown): http.IncomingMessage {
   return req;
 }
 
+function fakeRawRequest(raw: string): http.IncomingMessage {
+  const req = new EventEmitter() as unknown as http.IncomingMessage;
+  queueMicrotask(() => {
+    req.emit('data', Buffer.from(raw));
+    req.emit('end');
+  });
+  return req;
+}
+
 async function post(
   room: ActivityRoom,
   path: string,
@@ -192,6 +201,26 @@ describe('Activity Room history API', () => {
     const serialized = JSON.stringify(all.body);
     expect(serialized).not.toMatch(/sk-[A-Za-z0-9]{20,}/);
     expect(serialized).toContain('[REDACTED]');
+  });
+
+  it('filters acceptance/tool-call/tool-result kinds (no allowlist drift)', async () => {
+    const room = await seedRoom();
+    await room.service.appendActivity({
+      id: 'acceptance-1',
+      sequence: 0,
+      timestamp: '2026-08-06T12:00:04.000Z',
+      actor: { type: 'system', id: 'orchestrator', displayName: 'Orchestrator' },
+      kind: 'acceptance',
+      workflowId: 'wfo-a',
+      objective: 'ship',
+      obligations: [],
+      materialUncertainties: [],
+      conditional: false,
+      derivedBy: 'test',
+      evidenceRefs: [],
+    });
+    const acceptance = await get(room, '/api/activity-room?kind=acceptance');
+    expect((acceptance.body as { records: { kind: string }[] }).records.map((r) => r.kind)).toEqual(['acceptance']);
   });
 });
 
@@ -379,6 +408,38 @@ describe('Activity Room messaging (AAR-001E)', () => {
     });
     expect(status).toBe(400);
     expect((body as { error: { code: string } }).error.code).toBe('UNKNOWN_CORRECTION_TARGET');
+  });
+
+  it('rejects malformed JSON as INVALID_BODY, not EMPTY_CONTENT', async () => {
+    const room = await seedRoom();
+    const { res, body, status } = (() => {
+      let s = 0;
+      let b: unknown = null;
+      const r = new EventEmitter() as unknown as http.ServerResponse & { headersSent: boolean };
+      r.headersSent = false;
+      r.writeHead = (code: number) => {
+        s = code;
+        return r as unknown as http.ServerResponse;
+      };
+      r.end = (data?: unknown) => {
+        b = typeof data === 'string' ? JSON.parse(data) : data;
+        return r as unknown as http.ServerResponse;
+      };
+      return { res: r, body: () => b, status: () => s };
+    })();
+    const url = new URL('http://127.0.0.1:3001/api/messages');
+    await handleActivityRoomRoute(
+      'POST',
+      url.pathname,
+      fakeRawRequest('{bad-json'),
+      res,
+      undefined as never,
+      3001,
+      url,
+      room,
+    );
+    expect(status()).toBe(400);
+    expect((body() as { error: { code: string } }).error.code).toBe('INVALID_BODY');
   });
 });
 

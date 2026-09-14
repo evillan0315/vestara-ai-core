@@ -125,7 +125,7 @@ export default function AssetDetail() {
       {showReview && !installed && <InstallReview key={ref} details={details} onDone={() => void load()} />}
 
       <DetailCard title="Overview">
-        <p className="text-sm text-zinc-200">{asset.summary}</p>
+        <p className="text-sm text-[var(--vestara-text-secondary)]">{asset.summary}</p>
         {asset.description && asset.description !== asset.summary && (
           <p className="mt-2 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{asset.description}</p>
         )}
@@ -151,7 +151,7 @@ export default function AssetDetail() {
                     </Badge>
                   )}
                 </span>
-                <span className={`font-mono text-xs ${item.checksumVerified ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`font-mono text-xs ${item.checksumVerified ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-status-error)]'}`}>
                   {item.checksumVerified ? '✓ checksum' : '✗ checksum'}
                 </span>
               </li>
@@ -238,7 +238,7 @@ export default function AssetDetail() {
             <ul className="space-y-2 text-sm">
               {contributions.map((contribution) => (
                 <li key={contribution.kind} className="flex items-center justify-between">
-                  <span className="font-medium text-zinc-200">{contribution.label}</span>
+                  <span className="font-medium text-[var(--vestara-text-primary)]">{contribution.label}</span>
                   <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
                     {contribution.ids.join(', ')}
                   </span>
@@ -253,15 +253,15 @@ export default function AssetDetail() {
             <li>
               <span>Checksum: </span>
               {asset.verification.checksumVerified ? (
-                <span className="text-emerald-400">verified ✓</span>
+                <span className="text-[var(--vestara-status-success)]">verified ✓</span>
               ) : (
-                <span className="text-red-400">mismatch ✗</span>
+                <span className="text-[var(--vestara-status-error)]">mismatch ✗</span>
               )}
             </li>
             <li>
               <span>Signature: </span>
               {asset.verification.signed ? (
-                <span className="text-emerald-400">declared</span>
+                <span className="text-[var(--vestara-status-success)]">declared</span>
               ) : (
                 <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">none</span>
               )}

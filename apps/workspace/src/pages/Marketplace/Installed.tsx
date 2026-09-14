@@ -104,7 +104,7 @@ export default function Installed() {
                     const [publisherId, packageName] = row.assetId.split('/');
                     const assetPath = `/marketplace/assets/${encodeURIComponent(publisherId ?? '')}/${encodeURIComponent(packageName ?? row.packageName)}`;
                     return (
-                      <Link to={assetPath} className="font-medium text-zinc-100 hover:text-sky-300">
+                      <Link to={assetPath} className="font-medium text-[var(--vestara-text-primary)] hover:text-[var(--vestara-status-info)]">
                         {row.packageName}
                       </Link>
                     );
@@ -116,7 +116,7 @@ export default function Installed() {
                   key: 'installedVersion',
                   sortable: true,
                   render: (_value, row) => (
-                    <span className="font-mono text-zinc-300">{row.installedVersion}</span>
+                    <span className="font-mono text-[var(--vestara-text-secondary)]">{row.installedVersion}</span>
                   ),
                 },
                 {

@@ -9,6 +9,7 @@ import type {
   MessageTarget,
 } from '@vestara/activity-room';
 import {
+  ACTIVITY_KINDS,
   fromAgentLifecycle,
   fromHumanMessage,
   projectEffectiveState,
@@ -21,7 +22,8 @@ import { json } from '../http/response';
 import * as messageReceipts from '../message-receipts';
 import type { WorkspaceContext } from '../workspace-context';
 
-const ACTIVITY_KIND_VALUES = new Set(['workflow', 'task', 'agent-message', 'test', 'verification']);
+/** Canonical kind allowlist — single-sourced from @vestara/activity-room to prevent drift. */
+const ACTIVITY_KIND_VALUES = new Set<string>(ACTIVITY_KINDS);
 const SEVERITY_VALUES = new Set(['info', 'success', 'warning', 'error']);
 
 const EFFECT_VALUES = new Set<ActivityOrganizationalEffect>([
@@ -179,7 +181,12 @@ export async function handleActivityRoomRoute(
   }
 
   if (method === 'POST' && p === '/api/messages') {
-    const body = await parseBody(req);
+    const parsed = await parseBody(req);
+    if (!parsed.ok) {
+      json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body must be valid JSON' } });
+      return true;
+    }
+    const body = parsed.body;
     if (await handleMessageCommand(ctx, res, body)) return true;
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
@@ -221,7 +228,12 @@ export async function handleActivityRoomRoute(
   const direct = p.match(/^\/api\/agents\/([^/]+)\/messages$/);
   if (method === 'POST' && direct !== null) {
     const agentId = decodeURIComponent(direct[1]);
-    const body = await parseBody(req);
+    const parsed = await parseBody(req);
+    if (!parsed.ok) {
+      json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body must be valid JSON' } });
+      return true;
+    }
+    const body = parsed.body;
     const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
@@ -307,13 +319,17 @@ function readBody(req: http.IncomingMessage): Promise<string> {
 }
 
 /** Read + parse the request body once (callers must not read the stream again). */
-async function parseBody(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+async function parseBody(
+  req: http.IncomingMessage,
+): Promise<{ ok: true; body: Record<string, unknown> } | { ok: false }> {
   try {
     const raw = await readBody(req);
-    const parsed = raw ? (JSON.parse(raw) as unknown) : {};
-    return parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : {};
+    if (!raw) return { ok: true, body: {} };
+    const parsed = JSON.parse(raw) as unknown;
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ok: false };
+    return { ok: true, body: parsed as Record<string, unknown> };
   } catch {
-    return {};
+    return { ok: false };
   }
 }
 
@@ -574,13 +590,38 @@ const TURN_AGENT_IDENTITY: Record<string, { displayName: string; role: string }>
 };
 
 /**
+ * Phase A observability for the legacy→M9 bridge (dual-store convergence).
+ * Counts successes/failures so silent `catch→warn` loss becomes visible in
+ * logs and (via M11A snapshot debug) in the room. Never throws: a mirror
+ * failure must not fail an appended message.
+ */
+export const m9MirrorStats = {
+  humanOk: 0,
+  humanFailed: 0,
+  replyOk: 0,
+  replyFailed: 0,
+  lastErrorAt: null as string | null,
+  lastMessageId: null as string | null,
+};
+
+function recordMirrorFailure(messageId: string | null, error: unknown): void {
+  m9MirrorStats.lastErrorAt = new Date().toISOString();
+  m9MirrorStats.lastMessageId = messageId;
+  console.warn(
+    '[activity-room] M9 mirror failed:',
+    messageId ?? 'unknown',
+    error instanceof Error ? error.message : error,
+  );
+}
+
+/**
  * Mirror a completed agent turn reply into the M9 durable store via the
  * canonical `fromAgentLifecycle` adapter, so the reply appears on the M11C
  * surface (the turn's legacy append is M11C-invisible). Best-effort: throws
- * nothing; failures are logged.
+ * nothing; failures are counted + logged.
  */
 async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<void> {
-  try {
+  const attempt = async (): Promise<void> => {
     const { getM11ARoom } = await import('./activity-room-m11a.js');
     const identity = TURN_AGENT_IDENTITY[agentId] ?? { displayName: agentId, role: agentId };
     await getM11ARoom().store.append(
@@ -592,8 +633,18 @@ async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<v
         role: identity.role,
       }),
     );
+  };
+  try {
+    await attempt();
+    m9MirrorStats.replyOk += 1;
   } catch (error) {
-    console.warn('[activity-room] M9 reply mirror failed:', error instanceof Error ? error.message : error);
+    try {
+      await attempt();
+      m9MirrorStats.replyOk += 1;
+    } catch (retryError) {
+      m9MirrorStats.replyFailed += 1;
+      recordMirrorFailure(null, retryError instanceof Error ? retryError : error);
+    }
   }
 }
 
@@ -603,10 +654,10 @@ async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<v
  * (`human.message` → conversation, primary), and broadcasts it live over M11B,
  * so the M11C surface shows the sent message. The legacy record id seeds the
  * M9 eventId for stable deduplication across retries. Best-effort: throws
- * nothing (M11A may be uninitialized in tests); failures are logged.
+ * nothing (M11A may be uninitialized in tests); failures are counted + logged.
  */
 async function mirrorHumanMessageToM9(appended: AgentMessageActivity): Promise<void> {
-  try {
+  const attempt = async (): Promise<void> => {
     const { getM11ARoom } = await import('./activity-room-m11a.js');
     const m9Store = getM11ARoom().store;
     await m9Store.append(
@@ -617,8 +668,18 @@ async function mirrorHumanMessageToM9(appended: AgentMessageActivity): Promise<v
         messageId: appended.id,
       }),
     );
+  };
+  try {
+    await attempt();
+    m9MirrorStats.humanOk += 1;
   } catch (error) {
-    console.warn('[activity-room] M9 mirror failed:', error instanceof Error ? error.message : error);
+    try {
+      await attempt();
+      m9MirrorStats.humanOk += 1;
+    } catch (retryError) {
+      m9MirrorStats.humanFailed += 1;
+      recordMirrorFailure(appended.id, retryError instanceof Error ? retryError : error);
+    }
   }
 }
 

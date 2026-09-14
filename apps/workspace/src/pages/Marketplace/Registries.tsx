@@ -73,7 +73,7 @@ export default function Registries() {
       stats={
         <div className="flex flex-wrap gap-3">
           <MarketplaceStatPill label="Registries" value={registries.length} />
-          <MarketplaceStatPill label="Assets Indexed" value={totalAssets} color="text-emerald-400" />
+          <MarketplaceStatPill label="Assets Indexed" value={totalAssets} color="text-[var(--vestara-status-success)]" />
         </div>
       }
       toolbar={
@@ -108,7 +108,7 @@ export default function Registries() {
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <RegistryHealthLamp status={registry.health.status} />
-                    <span className="truncate font-medium text-zinc-100">{registry.displayName}</span>
+                    <span className="truncate font-medium text-[var(--vestara-text-primary)]">{registry.displayName}</span>
                     <Badge variant="default" size="md">
                       {kindLabel(registry.kind)}
                     </Badge>

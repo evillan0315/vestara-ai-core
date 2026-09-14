@@ -1,7 +1,7 @@
 ---
 title: "VES-TG-001 — Telegram Interaction Platform"
 version: 1.0.0
-status: proposed
+status: in-progress
 owner: vestara
 created: 2026-09-09
 last-reviewed: 2026-09-09

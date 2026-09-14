@@ -303,3 +303,71 @@ export type ChannelEventType =
   | 'typing.stopped'
   | 'member.joined'
   | 'member.left';
+
+// ─── Runtime Envelope Guards ───────────────────────────────────
+// Types alone cannot reject malformed runtime input, so these minimal
+// guards enforce the canonical envelope boundary without importing
+// any channel-specific types.
+
+const CHANNEL_KINDS: readonly ChannelKind[] = [
+  'web',
+  'telegram',
+  'mobile',
+  'desktop',
+  'cli',
+  'slack',
+  'discord',
+  'other',
+];
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+export function isChannelIdentity(value: unknown): value is ChannelIdentity {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.channel === 'string' &&
+    CHANNEL_KINDS.includes(value.channel as ChannelKind) &&
+    typeof value.externalId === 'string' &&
+    value.externalId.length > 0
+  );
+}
+
+export function isChannelConversationRef(value: unknown): value is ChannelConversationRef {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.channel === 'string' &&
+    CHANNEL_KINDS.includes(value.channel as ChannelKind) &&
+    typeof value.externalId === 'string' &&
+    value.externalId.length > 0 &&
+    (value.type === 'direct' || value.type === 'group' || value.type === 'channel')
+  );
+}
+
+export function isChannelMessage(value: unknown): value is ChannelMessage {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    typeof value.channel === 'string' &&
+    CHANNEL_KINDS.includes(value.channel as ChannelKind) &&
+    isChannelIdentity(value.sender) &&
+    isChannelConversationRef(value.conversation) &&
+    typeof value.timestamp === 'string' &&
+    value.timestamp.length > 0
+  );
+}
+
+export function isChannelDelivery(value: unknown): value is ChannelDelivery {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    value.id.length > 0 &&
+    typeof value.channel === 'string' &&
+    CHANNEL_KINDS.includes(value.channel as ChannelKind) &&
+    isChannelConversationRef(value.conversation) &&
+    isRecord(value.content) &&
+    (value.priority === 'low' || value.priority === 'normal' || value.priority === 'high')
+  );
+}

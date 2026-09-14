@@ -80,6 +80,32 @@ describe('projectEffectiveState (Direction 2)', () => {
     ]);
   });
 
+  it('keeps concurrent opens when a scoped disposition references only one target', () => {
+    const hold1 = message('activity:hold-1', 1, { effect: 'hold', workflowId: 'wfo-1' });
+    const hold2 = message('activity:hold-2', 2, { effect: 'hold', workflowId: 'wfo-1' });
+    const scoped = message('activity:dec-1', 3, {
+      effect: 'decision',
+      workflowId: 'wfo-1',
+      relatesTo: ['activity:hold-1'],
+      content: 'Release hold-1 only',
+    });
+    const state = projectEffectiveState([hold1, hold2, scoped]);
+    expect(state.open.map((item) => item.id)).toEqual(['activity:hold-2']);
+    expect(state.needsAttention).toBe(1);
+  });
+
+  it('closes all unit opens on a broadcast disposition with no relatesTo', () => {
+    const hold1 = message('activity:hold-1', 1, { effect: 'hold', workflowId: 'wfo-1' });
+    const hold2 = message('activity:hold-2', 2, { effect: 'hold', workflowId: 'wfo-1' });
+    const broadcast = message('activity:close-1', 3, {
+      effect: 'closure',
+      workflowId: 'wfo-1',
+      content: 'Close track',
+    });
+    const state = projectEffectiveState([hold1, hold2, broadcast]);
+    expect(state.open).toHaveLength(0);
+  });
+
   it('is a pure recomputation: the same history always yields the same derived state', () => {
     const records = [
       message('activity:orig-1', 1, { actor: { type: 'human', id: 'dev', displayName: 'Developer' } }),

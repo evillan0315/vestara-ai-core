@@ -255,9 +255,11 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
   const titles = useMemo(() => getTitlesForTopic(todayTopic, { briefing, workspace, stats }), [todayTopic, briefing, workspace, stats]);
   const [titleIdx, setTitleIdx] = useState(0);
 
-  // Real-time rotation within today's topic — interval comes from Settings (5s/8s/10s/15s)
+  // Real-time rotation within today's topic — interval comes from Settings (5s/8s/10s/15s).
+  // Respects prefers-reduced-motion: rotation becomes manual (topic still shifts daily).
   useEffect(() => {
     setTitleIdx(0);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const id = setInterval(() => {
       setTitleIdx((i) => (i + 1) % titles.length);
     }, intervalMs);
@@ -267,13 +269,16 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
   const dynamicTitle = titles[titleIdx] ?? 'Build Without Limits';
   const topicLabel = TOPIC_LABELS[todayTopic];
   const heroExtras = useMemo(() => getHeroExtras(todayTopic, { briefing, workspace, stats, onOpenBriefing: () => setOpen(true) }), [todayTopic, briefing, workspace, stats]);
+  // Stable H1 for scannability — rotating topic line demoted to subtitle.
+  const { greeting: stableGreeting } = getTimeBasedGreeting();
+  const stableTitle = `${stableGreeting} Director`;
 
   return (
     <>
       <RouteHero
-        title={dynamicTitle}
+        title={stableTitle}
         eyebrow={`Welcome to Vestara · ${topicLabel} · ${new Date().toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`}
-        subtitle={undefined}
+        subtitle={dynamicTitle}
         actions={heroExtras.actions as any}
         checklistTitle={heroExtras.checklistTitle}
         checklist={heroExtras.checklist}
@@ -300,11 +305,7 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
               ]
             : undefined
         }
-        quote={
-          briefing
-            ? `${human?.emoji ?? '☀️'} ${human?.greeting ?? 'Good Morning Director, here is your morning briefing for today.'} — ${formatTime(briefing.executedAt)} · ${human?.bullets[0] ?? ''}`
-            : undefined
-        }
+        quote={undefined}
       />
       {briefing && (
         <button

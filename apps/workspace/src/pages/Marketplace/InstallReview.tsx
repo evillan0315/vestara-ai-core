@@ -69,7 +69,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
             <select
               value={version}
               onChange={(event) => setVersion(event.target.value)}
-              className="mt-1 block w-40 rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] bg-[var(--vestara-color-bg-workspace,var(--color-zinc-950))] px-2 py-1.5 text-sm"
+              className="mt-1 block w-40 rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-2 py-1.5 text-sm"
             >
               {details.asset.versions.map((item) => (
                 <option key={item.version} value={item.version}>
@@ -91,12 +91,12 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
                 Packages to install ({plan.installOrder.length})
               </div>
               {plan.installOrder.length === 0 && (
-                <div className="text-sm text-emerald-300">Already installed at the selected version.</div>
+                <div className="text-sm text-[var(--vestara-status-success)]">Already installed at the selected version.</div>
               )}
               <ol className="list-decimal space-y-0.5 pl-5 font-mono text-sm">
                 {plan.installOrder.map((pkg) => (
                   <li key={`${pkg.packageName}@${pkg.version}`}>
-                    <span className="text-zinc-200">{pkg.packageName}</span>{' '}
+                    <span className="text-[var(--vestara-text-primary)]">{pkg.packageName}</span>{' '}
                     <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">@{pkg.version}</span>
                   </li>
                 ))}
@@ -141,7 +141,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
             </div>
           </div>
         )}
-        {error && <div className="mt-3 text-sm text-red-300">{error}</div>}
+        {error && <div className="mt-3 text-sm text-[var(--vestara-status-error)]">{error}</div>}
       </div>
     </div>
   );

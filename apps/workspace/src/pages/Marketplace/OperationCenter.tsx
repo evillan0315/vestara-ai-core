@@ -55,7 +55,7 @@ export default function OperationCenter() {
                 background: 'color-mix(in srgb, var(--vestara-accent) 30%, transparent)',
                 border: '1px solid var(--vestara-accent-border-hover)',
                 boxShadow: '0 0 24px var(--vestara-surface-glow-hover)',
-                color: '#fff',
+                color: 'var(--vestara-text-primary)',
               }
             : {
                 background: 'color-mix(in srgb, var(--color-zinc-900) 90%, transparent)',
@@ -69,7 +69,7 @@ export default function OperationCenter() {
       {open && (
         <div className="mpg-card mpg-hairline-top fixed bottom-16 right-4 z-40 max-h-96 w-80 overflow-y-auto backdrop-blur-xl">
           <div className="relative z-[2]">
-            <div className="border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 text-sm font-semibold text-zinc-100">
+            <div className="border-b border-[var(--vestara-border-subtle)] px-4 py-3 text-sm font-semibold text-[var(--vestara-text-primary)]">
               Marketplace Operations
             </div>
             {operations.length === 0 && (
@@ -80,10 +80,10 @@ export default function OperationCenter() {
             {operations.map((operation) => (
               <div
                 key={operation.key}
-                className="flex items-center justify-between gap-2 border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-2 last:border-b-0"
+                className="flex items-center justify-between gap-2 border-b border-[var(--vestara-border-subtle)] px-4 py-2 last:border-b-0"
               >
                 <div className="min-w-0">
-                  <div className="truncate font-mono text-sm text-zinc-200">
+                  <div className="truncate font-mono text-sm text-[var(--vestara-text-primary)]">
                     {operation.packageName ?? operation.eventType}
                   </div>
                   <div className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">

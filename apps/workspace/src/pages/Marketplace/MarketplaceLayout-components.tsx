@@ -147,10 +147,10 @@ export function AssetCard({
           <div className="min-w-0 flex-1">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-[var(--vestara-text-primary,var(--color-zinc-100))]">
+                <div className="truncate text-sm font-semibold text-[var(--vestara-text-primary)]">
                   {displayName}
                 </div>
-                <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted)]">
                   {publisherId ?? packageName.split('.')[0] ?? 'vestara'}
                 </div>
               </div>
@@ -159,7 +159,7 @@ export function AssetCard({
           </div>
         </div>
         {summary && (
-          <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-[var(--vestara-text-secondary,var(--color-zinc-400))]">
+          <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]">
             {summary}
           </p>
         )}
@@ -202,10 +202,10 @@ export interface InsightBannerProps {
 }
 
 const INSIGHT_STYLES: Record<InsightBannerProps['severity'], string> = {
-  info: 'border-sky-800/50 bg-sky-950/30 text-sky-300',
-  warning: 'border-amber-800/50 bg-amber-950/30 text-amber-300',
-  error: 'border-red-800/50 bg-red-950/30 text-red-300',
-  success: 'border-emerald-800/50 bg-emerald-950/30 text-emerald-300',
+  info: 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] text-[var(--vestara-status-info)]',
+  warning: 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]',
+  error: 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]',
+  success: 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]',
 };
 
 export function InsightBanner({ severity, title, description, action }: InsightBannerProps) {
@@ -224,7 +224,7 @@ export function DetailCard({ title, children }: { title: string; children: React
   return (
     <section className="mpg-card mpg-hairline-top">
       <div className="relative z-[2]">
-        <div className="border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 text-sm font-semibold text-zinc-100">
+        <div className="border-b border-[var(--vestara-border-subtle)] px-4 py-3 text-sm font-semibold text-[var(--vestara-text-primary)]">
           {title}
         </div>
         <div className="p-4">{children}</div>
@@ -236,9 +236,9 @@ export function DetailCard({ title, children }: { title: string; children: React
 // ─── UpdateGroup ────────────────────────────────────────────────
 
 const UPDATE_ACCENTS: Record<string, string> = {
-  compatible: '#34d399',
-  breaking: '#fbbf24',
-  incompatible: '#f87171',
+  compatible: 'var(--vestara-marketplace-provider)',
+  breaking: 'var(--vestara-marketplace-workflow)',
+  incompatible: 'var(--vestara-status-error)',
 };
 
 export function UpdateGroup({
@@ -255,7 +255,7 @@ export function UpdateGroup({
   const accent = UPDATE_ACCENTS[id] ?? 'var(--vestara-accent)';
   return (
     <div>
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-300">
+      <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-[var(--vestara-text-secondary)]">
         <span className="inline-block h-2 w-2 rounded-full" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
         {label} ({count})
       </h3>
@@ -367,9 +367,9 @@ export function MarketplacePage({ title, description, stats, toolbar, children }
     <div className="space-y-6">
       <div className="space-y-4">
         <div>
-          <h2 className="text-2xl font-bold text-[var(--vestara-text-primary,var(--color-zinc-100))]">{title}</h2>
+          <h2 className="text-2xl font-bold text-[var(--vestara-text-primary)]">{title}</h2>
           {description && (
-            <p className="mt-1 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{description}</p>
+            <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">{description}</p>
           )}
         </div>
         {stats}
@@ -388,12 +388,12 @@ export interface MarketplaceStatPillProps {
   color?: string;
 }
 
-export function MarketplaceStatPill({ label, value, color = 'text-zinc-100' }: MarketplaceStatPillProps) {
+export function MarketplaceStatPill({ label, value, color = 'text-[var(--vestara-text-primary)]' }: MarketplaceStatPillProps) {
   return (
     <div className="mpg-card flex items-center gap-2 px-3 py-2">
       <span className="relative z-[2] flex items-center gap-2">
         <span className={`text-lg font-bold ${color}`}>{value}</span>
-        <span className="text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">{label}</span>
+        <span className="text-xs text-[var(--vestara-text-muted)]">{label}</span>
       </span>
     </div>
   );
@@ -424,7 +424,7 @@ export function MarketplaceToolbar({
         value={searchValue}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder={searchPlaceholder}
-        className="w-full max-w-md rounded-md border border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] bg-[var(--vestara-color-bg-workspace,var(--color-zinc-950))] px-3 py-2 text-sm"
+        className="w-full max-w-md rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 text-sm"
       />
       {filters?.map((f) => (
         <button
@@ -434,7 +434,7 @@ export function MarketplaceToolbar({
           className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
             f.active
               ? 'border-[var(--vestara-accent-border-hover)] text-white shadow-[0_0_16px_var(--vestara-surface-glow-hover)]'
-              : 'border-[var(--vestara-color-border-subtle,var(--color-zinc-700))] text-[var(--vestara-text-muted,var(--color-zinc-400))] hover:text-zinc-200'
+              : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]'
           }`}
           style={f.active ? { background: 'color-mix(in srgb, var(--vestara-accent) 22%, transparent)' } : undefined}
         >
@@ -475,7 +475,7 @@ export function MarketplaceLoadingState({ message = 'Loading…' }: MarketplaceL
 export function MarketplaceLoadingMessage({ message = 'Loading…' }: MarketplaceLoadingStateProps) {
   return (
     <div className="mpg-card p-12 text-center">
-      <div className="relative z-[2] text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{message}</div>
+      <div className="relative z-[2] text-sm text-[var(--vestara-text-muted)]">{message}</div>
     </div>
   );
 }
