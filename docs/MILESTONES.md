@@ -3129,6 +3129,7 @@ interface OverviewViewModel {
 | API Builder UI | v7.8 | API Builder UI/UX Enhancement (live endpoints, history persistence, env vars, code snippets, keyboard shortcuts, response tree view, tabs) | ✅ Complete |
 | Dashboard UI | v7.9 | Dashboard & Settings UI Consistency (MUI→Tailwind, CSS variable fixes) | ✅ Complete |
 | CLI/API Alignment | v7.10 | CLI/API Runtime Alignment (boot sequence, context pattern, lifecycle management) | ✅ Complete |
+| **Audio Assistant** | **v7.17** | **Optional microphone/STT and streaming TTS/speaker integration for the Global Assistant** | 🔷 Planned |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
@@ -3475,6 +3476,41 @@ Read evaluation report → Pick weakest producer → Improve only that producer 
 * Manual: reload `/settings/general?tab=appearance` → ask assistant “What page am I on?” → server log `surfaceContext.surface.path='/settings/general?tab=appearance'` and reply `System -> Settings -> General -> Appearance` without telling it; same for `/intelligence/memory?tab=layout`
 
 **Status**: 🔷 Planned — code staged in `95f8acc`, awaiting reload verification + `UNKNOWN` handling (no-memory fallback)
+
+---
+
+### v7.17 — Audio-Enabled Global Assistant 🔷 Planned
+
+**Objective**: Integrate optional microphone input and spoken assistant output into the Global Assistant while preserving the existing text/SSE execution path. Audio must degrade cleanly to text-only operation when permissions, devices, or providers are unavailable.
+
+**Plan**: `docs/plans/audio-assistant-integration-plan.md`
+
+**Architecture**:
+
+```text
+Microphone → VAD → STT → Assistant turn → TTS → Speaker
+```
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| AA-001 | Versioned audio transport contract and cancellation semantics | Contract tests pass |
+| AA-002 | Assistant audio-session coordinator and provider health composition | Lifecycle and degraded-mode tests pass |
+| AA-003 | Microphone → VAD → STT → Assistant input path | One spoken utterance produces one assistant turn |
+| AA-004 | Assistant text → streaming TTS → speaker output | Playback and interruption tests pass |
+| AA-005 | API/client voice-session integration and text fallback | Voice and text paths work end-to-end |
+| AA-006 | Privacy, observability, failure matrix, and feature-flag rollout | CI, smoke, and fallback verification pass |
+
+**Constraints**:
+
+- Text remains the source of truth for assistant execution; raw audio is not sent to OpenCode.
+- Microphone capture requires explicit user permission and activation.
+- Only one active voice turn is allowed per conversation; new speech or Stop interrupts playback.
+- Raw audio retention is disabled by default.
+- Provider availability must not be represented as proof of provider/model execution provenance.
+
+**Status**: 🔷 Planned
 
 ---
 

@@ -1,7 +1,7 @@
 ---
 description: "Interact with web applications through a governed browser session — observe, navigate, click, type, and collect evidence."
 mode: subagent
-model: opencode/mimo-v2.5-free
+model: opencode-go/muse-spark-1.3-contributor
 permission:
   read: allow
   edit: deny

@@ -32,7 +32,7 @@ const TIMEOUT_OPTIONS = [
 
 export default function AssistantExecutionSettings() {
   const { config, setMaxToolCalls, setTurnTimeoutMs, resetToDefaults, isCustom } = useGAExecutionConfig();
-  const effectiveMax = config.maxToolCalls === 0 && !isCustom ? 80 : config.maxToolCalls;
+  const effectiveMax = config.maxToolCalls;
   const effectiveLabel = effectiveMax === 0 ? 'unlimited' : `${effectiveMax} calls`;
 
   return (
@@ -43,7 +43,7 @@ export default function AssistantExecutionSettings() {
       >
         <SettingsRow
           label="Max tool calls"
-          description="Per-turn tool invocation budget. 0 = unlimited, 1–200 = capped. Adapter default is 80 when untouched (env VESTARA_GA_MAX_TOOL_CALLS overrides)."
+          description="Per-turn tool invocation budget. 0 = unlimited (default), 1–200 = capped. Adapter default is unlimited when untouched (env VESTARA_GA_MAX_TOOL_CALLS overrides)."
           value={
             <span className="flex items-center gap-3">
               <input
@@ -87,13 +87,13 @@ export default function AssistantExecutionSettings() {
             Reset to defaults
           </button>
           <span className="self-center text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-            {isCustom ? 'Custom budget active' : 'Using adapter defaults (80 calls, 15m)'}
+            {isCustom ? 'Custom budget active' : 'Using adapter defaults (unlimited calls, 15m)'}
           </span>
         </div>
         <FactRow
           label="Effective budget (next turn)"
           value={effectiveLabel}
-          title={isCustom ? 'Persisted override' : 'Adapter default 80 (untouched, until you change it)'}
+          title={isCustom ? 'Persisted override' : 'Adapter default unlimited (untouched, until you change it)'}
         />
         <FactRow
           label="Composer badge"

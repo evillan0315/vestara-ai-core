@@ -245,7 +245,7 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
   },
   'assistantExecution.maxToolCalls': {
     section: 'assistant-execution',
-    defaultValue: 30,
+    defaultValue: 0,
     validate: (value: unknown): value is number =>
       typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 200,
   },

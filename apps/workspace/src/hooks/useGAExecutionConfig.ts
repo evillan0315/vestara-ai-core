@@ -73,7 +73,7 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
   });
   // GA-EXEC-001 fix: track explicit user intent for maxToolCalls so
   // explicit 0 (unlimited) can be sent. DEFAULTS is 0, so a naïve
-  // `!== DEFAULTS` check would never send 0. Untouched 0 => undefined => adapter fallback 30.
+  // `!== DEFAULTS` check would never send 0. Untouched 0 => undefined => adapter default unlimited (0).
   // Touched 0 => {maxToolCalls:0} => adapter unlimited.
   const [maxToolCallsTouched, setMaxToolCallsTouched] = useState(false);
 

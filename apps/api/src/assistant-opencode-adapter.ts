@@ -114,9 +114,13 @@ const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) || 15 * 6
 // Bounds turns that arrive without an explicit executionConfig.maxToolCalls
 // (e.g. Activity Room fire-and-forget turns). Explicit 0 still means
 // unlimited; explicit 1–200 overrides this default.
-// Fix 3 (2026-09-13): raised 30→80 so dirty-worktree/analysis turns (~60 calls) no longer hit the bound
-// before the user touches ExecutionControls; env VESTARA_GA_MAX_TOOL_CALLS still overrides.
-const DEFAULT_MAX_TOOL_CALLS = Number(process.env.VESTARA_GA_MAX_TOOL_CALLS) || 80;
+// Default is 0 (unlimited); env VESTARA_GA_MAX_TOOL_CALLS still overrides.
+const DEFAULT_MAX_TOOL_CALLS = (() => {
+  const raw = process.env.VESTARA_GA_MAX_TOOL_CALLS;
+  if (raw === undefined || raw === '') return 0;
+  const n = Number(raw);
+  return Number.isFinite(n) ? Math.floor(n) : 0;
+})();
 
 /**
  * Transport label used ONLY when no real provider resolution is available
@@ -219,8 +223,8 @@ export async function* runAssistantOpenCodeTurn(
   const turnTimeoutMs = execCfg?.turnTimeoutMs ?? defaultTimeout;
   // GA-EXEC-001: maxToolCalls is the canonical tool-invocation budget.
   // maxOperations was removed — it counted the same events as maxToolCalls.
-  // Falls back to DEFAULT_MAX_TOOL_CALLS so unconstrained turns cannot loop
-  // for the full 15min deadline (observed: ~100 tool calls / 3min on free tier).
+  // Falls back to DEFAULT_MAX_TOOL_CALLS (0 = unlimited). Only the
+  // 15min turn timeout bounds unconstrained turns.
   const maxToolCalls = execCfg?.maxToolCalls ?? DEFAULT_MAX_TOOL_CALLS;
   const context = { workspaceId, directory };
   const userText = lastUserText(request.messages);

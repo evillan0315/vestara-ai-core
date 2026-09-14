@@ -1,7 +1,7 @@
 ---
 description: "Executes coding subtasks in sequence, ensuring completion as specified."
 mode: subagent
-model: opencode/mimo-v2.5-free
+model: opencode-go/muse-spark-1.3-contributor
 permission:
   read: allow
   edit: allow

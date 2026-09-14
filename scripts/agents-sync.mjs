@@ -22,7 +22,8 @@ const { CANONICAL_AGENTS } = await import(dataUrl);
 
 function renderMd(agent) {
   const p = agent.opencodePermissions;
-  const model = agent.model?.startsWith('opencode/') ? agent.model : `opencode/${agent.model ?? ''}`;
+  const providerPrefix = agent.provider ?? 'opencode-go';
+  const model = agent.model?.includes('/') ? agent.model : `${providerPrefix}/${agent.model ?? ''}`;
   // OpenCode permission keys. Note: no `write` key — writes/edits/patches are
   // gated by `edit`. Optional single-tool keys are emitted only when set.
   const permissionKeys = [

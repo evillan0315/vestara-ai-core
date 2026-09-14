@@ -7,8 +7,9 @@
  * registry API the Agent Control modal uses (`PUT /api/agents/:id`).
  */
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
+import { ProviderModelSelector } from '../../components/ui/ProviderModelSelector';
 import type { WorkflowParticipant } from './activity-types';
 
 export interface AgentDetailDrawerProps {
@@ -20,12 +21,6 @@ export interface AgentDetailDrawerProps {
   participant?: WorkflowParticipant | null;
   /** Fired after a successful provider/model/runtime-agent save. */
   onSaved?: () => void;
-}
-
-interface ProviderOption {
-  id: string;
-  name: string;
-  models: string[];
 }
 
 interface RegisteredAgent {
@@ -66,7 +61,6 @@ export default function AgentDetailDrawer({
   onSaved,
 }: AgentDetailDrawerProps) {
   const [agent, setAgent] = useState<RegisteredAgent | null>(null);
-  const [providers, setProviders] = useState<ProviderOption[]>([]);
   const [runtimeAgents, setRuntimeAgents] = useState<RuntimeAgentOption[]>([]);
   const [loading, setLoading] = useState(false);
   const [provider, setProvider] = useState('');
@@ -81,9 +75,8 @@ export default function AgentDetailDrawer({
     setLoading(true);
     setError(undefined);
     setSavedAt(undefined);
-    const [agentsRes, providersRes, runtimeRes] = await Promise.all([
+    const [agentsRes, runtimeRes] = await Promise.all([
       fetchJSON<{ agents: RegisteredAgent[] }>('/api/agents'),
-      fetchJSON<{ providers: ProviderOption[] }>('/api/opencode/providers'),
       fetchJSON<{ agents: RuntimeAgentOption[] }>('/api/opencode/agents'),
     ]);
     const candidates = agentsRes?.agents ?? [];
@@ -94,9 +87,6 @@ export default function AgentDetailDrawer({
         agentKey(candidate.role) === agentKey(agentId),
     );
     setAgent(found ?? null);
-    setProviders(
-      (providersRes?.providers ?? []).map((p) => ({ id: p.id, name: p.name ?? p.id, models: p.models ?? [] })),
-    );
     setRuntimeAgents(runtimeRes?.agents ?? []);
     setProvider(found?.provider ?? '');
     setModel(found?.model ?? '');
@@ -108,18 +98,10 @@ export default function AgentDetailDrawer({
     void load();
   }, [load]);
 
-  const providerModels = useMemo(
-    () => providers.find((p) => p.id === provider)?.models ?? [],
-    [providers, provider],
-  );
-
-  const modelOptions = useMemo(() => {
-    const options = providerModels.map((id) => ({ id }));
-    if (model && !options.some((option) => option.id === model)) {
-      options.unshift({ id: model });
-    }
-    return options;
-  }, [providerModels, model]);
+  const handleProviderModelChange = useCallback((value: { providerId: string; modelId: string }) => {
+    setProvider(value.providerId);
+    setModel(value.modelId);
+  }, []);
 
   const save = async () => {
     if (!agent) {
@@ -217,7 +199,8 @@ export default function AgentDetailDrawer({
             Runtime execution
           </div>
           <p className="mb-3 text-[10px] text-(--vestara-text-muted)">
-            Providers and models load from the OpenCode runtime discovery — the same source the agent harness uses.
+            Providers and models load from the configured OpenCode working set — the same source the Global
+            Assistant uses.
           </p>
           {loading ? (
             <div className="text-[10px] text-(--vestara-text-muted)">Loading provider/model…</div>
@@ -250,53 +233,12 @@ export default function AgentDetailDrawer({
                 </select>
               </div>
               <div>
-                <label className={labelClass}>Provider</label>
-                <select
-                  value={provider}
-                  onChange={(e) => {
-                    setProvider(e.target.value);
-                    const next = providers.find((p) => p.id === e.target.value);
-                    const firstModel = next?.models[0];
-                    if (firstModel) setModel(firstModel);
-                  }}
-                  disabled={!agent || providers.length === 0}
-                  className={`${inputClass} cursor-pointer`}
-                >
-                  {providers.length === 0 && <option value="">No providers discovered</option>}
-                  {agent?.provider && !providers.some((p) => p.id === agent.provider) && (
-                    <option value={agent.provider}>{agent.provider} (current)</option>
-                  )}
-                  {providers.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className={labelClass}>Model</label>
-                {modelOptions.length > 0 ? (
-                  <select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    disabled={!agent}
-                    className={`${inputClass} cursor-pointer`}
-                  >
-                    {modelOptions.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.id}
-                      </option>
-                    ))}
-                  </select>
-                ) : (
-                  <input
-                    value={model}
-                    onChange={(e) => setModel(e.target.value)}
-                    disabled={!agent}
-                    placeholder={provider ? `No models for ${provider} — enter a model id` : 'Model id'}
-                    className={inputClass}
-                  />
-                )}
+                <span className={labelClass}>Provider / model</span>
+                <ProviderModelSelector
+                  value={{ providerId: provider, modelId: model }}
+                  onChange={handleProviderModelChange}
+                  disabled={!agent}
+                />
               </div>
               {error && (
                 <p className="rounded-lg border border-(--vestara-red-border) bg-(--vestara-red-bg) px-3 py-2 text-[10px] text-(--vestara-red)" role="alert">
