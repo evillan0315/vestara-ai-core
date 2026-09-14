@@ -10,12 +10,17 @@ export type SettingsSectionId =
   | 'runtime'
   | 'providers'
   | 'agents'
+  | 'assistant-execution'
+  | 'browser'
   | 'filesystem'
   | 'verification'
   | 'cli'
   | 'history'
   | 'notifications'
   | 'telemetry'
+  | 'navigation'
+  | 'hero'
+  | 'connection'
   | 'advanced'
   | 'telegram';
 
@@ -218,6 +223,36 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
     section: 'telemetry',
     defaultValue: 'detailed',
     validate: oneOf(['minimal', 'standard', 'detailed']),
+  },
+  'browser.driver': {
+    section: 'browser',
+    defaultValue: 'playwright',
+    validate: oneOf(['playwright', 'agent-browser']),
+  },
+  'browser.allowedOrigins': { section: 'browser', defaultValue: ['*'], validate: stringArray },
+  'browser.maxSessions': { section: 'browser', defaultValue: 4, validate: positiveInteger },
+  'browser.idleTimeoutMs': { section: 'browser', defaultValue: 600_000, validate: positiveInteger },
+  'browser.screenshotRedaction': {
+    section: 'browser',
+    defaultValue: 'off',
+    validate: oneOf(['off', 'secrets', 'full']),
+  },
+  'assistantExecution.turnTimeoutMs': {
+    section: 'assistant-execution',
+    defaultValue: 900_000,
+    validate: (value: unknown): value is number =>
+      typeof value === 'number' && Number.isInteger(value) && value >= 10_000 && value <= 3_600_000,
+  },
+  'assistantExecution.maxToolCalls': {
+    section: 'assistant-execution',
+    defaultValue: 30,
+    validate: (value: unknown): value is number =>
+      typeof value === 'number' && Number.isInteger(value) && value >= 0 && value <= 200,
+  },
+  'assistantExecution.defaultProvider': {
+    section: 'assistant-execution',
+    defaultValue: 'opencode',
+    validate: stringValue,
   },
   'advanced.experimentalFeatures': { section: 'advanced', defaultValue: false, validate: booleanValue },
 };

@@ -21,6 +21,7 @@ export const ASSISTANT_EXECUTION_VERSION = 1 as const;
 
 export type AssistantExecutionKind =
   | 'tool' // generic tool activity
+  | 'read' // file read observation (GA-TOOL-UX-001B structured Read evidence)
   | 'edit' // file edit (diff evidence, not rendered in M3)
   | 'terminal' // shell execution
   | 'task-snapshot' // OpenCode local todo snapshot
@@ -79,6 +80,13 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
    * truncation beyond it, flagged via `patchTruncated`.
    */
   patchContent: 20_000,
+  /**
+   * Max chars for structured Read content evidence (GA-TOOL-UX-001B).
+   * Enough to prove the structured viewer without turning conversations
+   * into source-code archives. Deterministic truncation beyond it, flagged
+   * via `contentTruncated`.
+   */
+  readContentPreview: 2_000,
 } as const;
 
 // ─── Common envelope ──────────────────────────────────────────
@@ -174,6 +182,58 @@ export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly beforeAfterProvenance: 'unavailable';
 }
 
+/**
+ * File provenance for a Read observation (GA-TOOL-UX-001B).
+ *
+ * - `runtime-provided`: derived from the runtime result (`state.title`).
+ * - `request-context`: derived from the requested `input.filePath` — the file
+ *   was requested but no result evidence exists yet (running) or at all
+ *   (failed). Never presented as successfully-read evidence.
+ * - `unavailable`: no file identity available.
+ */
+export type ReadFileProvenance = 'runtime-provided' | 'request-context' | 'unavailable';
+
+/**
+ * Content/range provenance for a Read observation.
+ *
+ * - `runtime-provided`: parsed server-side from the verified runtime Read
+ *   wrapper (`<path>/<type>/<content>`).
+ * - `unavailable`: unknown/unrecognized wrapper (metadata-only rendering) or
+ *   no result yet (running).
+ */
+export type ReadContentProvenance = 'runtime-provided' | 'unavailable';
+
+export interface ReadExecutionDetail extends AssistantExecutionBase {
+  readonly kind: 'read';
+  /**
+   * Repository-relative path (≤ ASSISTANT_EXECUTION_BOUNDS.path).
+   * Never a bare absolute external path — absolute paths are rejected by
+   * the normalizer so they can degrade to generic handling upstream.
+   */
+  readonly file: string;
+  /** How `file` was derived — request context is never result evidence. */
+  readonly fileProvenance: ReadFileProvenance;
+  /** First displayed line number (1-based), when the runtime supplied numbered lines. */
+  readonly offset?: number;
+  /** Number of content lines carried in `contentPreview`. */
+  readonly lineCount?: number;
+  /** Total file lines from the runtime trailer, when supplied. */
+  readonly totalLines?: number;
+  /**
+   * Numbered content lines as returned by the runtime,
+   * ≤ ASSISTANT_EXECUTION_BOUNDS.readContentPreview (completed only).
+   */
+  readonly contentPreview?: string;
+  /** True whenever truncation occurred (OpenCode, wrapper/body cap, or evidence bound). */
+  readonly contentTruncated: boolean;
+  readonly contentProvenance: ReadContentProvenance;
+  readonly rangeProvenance: ReadContentProvenance;
+  /** Bounded error (failed only). */
+  readonly error?: string;
+  /** Authoritative duration (time.end − time.start), when the runtime supplies it. */
+  readonly durationMs?: number;
+}
+
 export interface TerminalExecutionDetail extends AssistantExecutionBase {
   readonly kind: 'terminal';
   /** Bounded command, ≤ ASSISTANT_EXECUTION_BOUNDS.command. */
@@ -255,6 +315,7 @@ export interface GenericToolExecutionDetail extends AssistantExecutionBase {
 
 export type AssistantExecutionDetail =
   | ToolExecutionDetail
+  | ReadExecutionDetail
   | EditExecutionDetail
   | TerminalExecutionDetail
   | TaskSnapshotDetail
@@ -400,6 +461,23 @@ function boundedDiffLine(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
 }
 
+/** Non-negative integer metadata (offsets, counts); anything else → undefined. */
+function boundedNonNegativeInt(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 0 ? value : undefined;
+}
+
+/**
+ * Bare absolute external paths — and root-escaping `..` segments — must
+ * never enter persisted/presented Read evidence (GA-TOOL-UX-001B §6).
+ * Relative paths and bare filenames pass. Rejected details degrade to
+ * generic handling upstream.
+ */
+function isUnsafePath(value: string): boolean {
+  return (
+    value.startsWith('/') || /^[A-Za-z]:[\\/]/.test(value) || value.startsWith('\\\\') || /(^|\/)\.\.(\/|$)/.test(value)
+  );
+}
+
 /**
  * Bound the opaque runtime patch evidence (GA-UX-PREMIUM M3.2).
  *
@@ -464,6 +542,45 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         tool: base.tool ?? 'tool',
         title: boundedString(record.title, 200),
         preview: state === 'completed' ? boundedString(record.preview, ASSISTANT_EXECUTION_BOUNDS.preview) : undefined,
+        error: state === 'failed' ? boundedString(record.error, ASSISTANT_EXECUTION_BOUNDS.error) : undefined,
+        durationMs: boundedNumber(record.durationMs),
+      };
+    }
+    case 'read': {
+      const file = boundedString(record.file, ASSISTANT_EXECUTION_BOUNDS.path);
+      // Never persist or present a bare absolute external path (or a
+      // root-escaping relative path). The caller degrades to generic
+      // handling when this returns undefined.
+      if (!file || isUnsafePath(file)) return undefined;
+      const fileProvenance = ['runtime-provided', 'request-context', 'unavailable'].includes(
+        record.fileProvenance as string,
+      )
+        ? (record.fileProvenance as ReadFileProvenance)
+        : 'unavailable';
+      const contentProvenance =
+        record.contentProvenance === 'runtime-provided' ? ('runtime-provided' as const) : ('unavailable' as const);
+      const rangeProvenance =
+        record.rangeProvenance === 'runtime-provided' ? ('runtime-provided' as const) : ('unavailable' as const);
+      const offset = boundedNonNegativeInt(record.offset);
+      const lineCount = boundedNonNegativeInt(record.lineCount);
+      const totalLines = boundedNonNegativeInt(record.totalLines);
+      return {
+        ...base,
+        kind: 'read',
+        tool: base.tool ?? 'read',
+        file,
+        fileProvenance,
+        offset,
+        lineCount,
+        totalLines,
+        contentPreview:
+          state === 'completed'
+            ? boundedString(record.contentPreview, ASSISTANT_EXECUTION_BOUNDS.readContentPreview)
+            : undefined,
+        // Running/failed carry no content — a truncation flag would be a lie.
+        contentTruncated: state === 'completed' ? record.contentTruncated === true : false,
+        contentProvenance: state === 'completed' ? contentProvenance : 'unavailable',
+        rangeProvenance: state === 'completed' ? rangeProvenance : 'unavailable',
         error: state === 'failed' ? boundedString(record.error, ASSISTANT_EXECUTION_BOUNDS.error) : undefined,
         durationMs: boundedNumber(record.durationMs),
       };

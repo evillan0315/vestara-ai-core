@@ -71,9 +71,14 @@ export class DefaultContextAssembler implements ContextAssembler {
         // THEN the assistant's interpretation (what the model concluded).
         // This preserves semantic chronology: observation → interpretation.
         const obsSummary = msg.toolObservations
-          .map(
-            (obs) =>
-              `[Tool: ${obs.toolName}] ${obs.status === 'completed' ? obs.content.slice(0, 500) : obs.status === 'failed' ? `FAILED: ${obs.error ?? obs.content.slice(0, 200)}` : 'denied'}`,
+          .map((obs) =>
+            obs.status === 'completed'
+              ? `[Tool: ${obs.toolName}] ${obs.content.slice(0, 500)}`
+              : obs.status === 'failed'
+                ? `[Tool: ${obs.toolName}] FAILED: ${obs.error ?? obs.content.slice(0, 200)}`
+                : obs.status === 'running'
+                  ? `[Tool: ${obs.toolName}] RUNNING (no result yet)`
+                  : `[Tool: ${obs.toolName}] denied`,
           )
           .join('\n');
         if (obsSummary) {

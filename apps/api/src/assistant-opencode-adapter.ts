@@ -46,6 +46,7 @@ import {
   projectPermissionResolved,
   projectQuestionAsked,
   projectQuestionResolved,
+  projectReadObservation,
   projectTerminalCompleted,
   projectTerminalStarted,
   projectTodoSnapshot,
@@ -279,6 +280,17 @@ export async function* runAssistantOpenCodeTurn(
   // GA-DETACH-001: Track how the turn ended. This determines whether the
   // OpenCode session should be aborted or left running for reattachment.
   let termination: TurnTermination = 'failed'; // default to failed; updated on exit
+  // Explicit Stop (POST /cancel → turn signal): classify as 'cancelled' so
+  // the finally block aborts the session AND the termination is truthful.
+  // Deadline/tool-budget exits keep their own classifications; disconnect
+  // never fires this signal, so DETACHED stays DETACHED.
+  request.signal?.addEventListener(
+    'abort',
+    () => {
+      termination = 'cancelled';
+    },
+    { once: true },
+  );
 
   try {
     // GA-SSE-003B: submit asynchronously (POST /session/:id/prompt_async).
@@ -373,8 +385,12 @@ export async function* runAssistantOpenCodeTurn(
         }
         case 'message.part.updated': {
           // LIVE path: tool calls surface as tool parts on this event.
-          const detail = projectMessagePartUpdated(event);
-          if (detail && detail.kind === 'tool') {
+          // GA-TOOL-UX-001B: read parts project structured read evidence
+          // (server-side wrapper parse); all other tools keep the generic
+          // projection. Unknown tools remain generic.
+          const detail = projectReadObservation(event, directory) ?? projectMessagePartUpdated(event);
+          if (detail && (detail.kind === 'tool' || detail.kind === 'read')) {
+            const toolName = detail.tool ?? 'read';
             if (detail.state === 'running') {
               toolCallCount++;
               const budgetError = checkBudget();
@@ -382,11 +398,19 @@ export async function* runAssistantOpenCodeTurn(
                 yield chunk('error', sequence++, { content: budgetError });
                 break;
               }
-              yield chunk('tool_call', sequence++, { name: detail.tool, detail });
+              yield chunk('tool_call', sequence++, { name: toolName, detail });
             } else {
+              // Read results ride the structured detail; chunk content stays
+              // within the M2 200-char boundary for the transient surface.
+              const resultContent =
+                detail.state === 'failed'
+                  ? (detail.error ?? 'Tool failed')
+                  : detail.kind === 'read'
+                    ? (detail.contentPreview ?? '').slice(0, 200) || toolName
+                    : (detail.preview ?? '');
               yield chunk('tool_result', sequence++, {
-                name: detail.tool,
-                content: detail.state === 'failed' ? (detail.error ?? 'Tool failed') : (detail.preview ?? ''),
+                name: toolName,
+                content: resultContent,
                 detail,
               });
             }

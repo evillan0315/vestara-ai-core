@@ -142,6 +142,31 @@ export const CONVERSATION_MIGRATIONS: readonly MigrationStep[] = [
       db.exec(`ALTER TABLE conversations ADD COLUMN runtime_session_id TEXT`);
     },
   },
+  {
+    // GA-TOOL-UX-001B: durable tool observations. Persisted as JSON text on
+    // the message row (matches the Message aggregate: observations belong to
+    // the assistant message, never a separate table). Uses addColumnIfMissing
+    // so legacy databases adopt safely.
+    name: 'conversation_messages.add-tool-observations-json',
+    produces: [
+      fingerprint('conversation_messages', [
+        'id',
+        'conversation_id',
+        'role',
+        'content',
+        'provider',
+        'model',
+        'tokens',
+        'cost',
+        'latency',
+        'created_at',
+        'tool_observations_json',
+      ]),
+    ],
+    up: (db: Database, ctx) => {
+      ctx.addColumnIfMissing(db, 'conversation_messages', 'tool_observations_json', 'TEXT');
+    },
+  },
 ];
 
 const USER_PROFILE_BASELINE_DDL = `

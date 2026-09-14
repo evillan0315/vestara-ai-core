@@ -36,20 +36,53 @@ export interface Conversation {
 // Observation ≠ interpretation — the raw tool output is preserved
 // independently from the assistant's natural-language summary.
 
+import type { ReadExecutionDetail } from './assistant-execution.js';
+
+/** Lifecycle of a persisted tool observation. */
+export type ToolObservationStatus = 'running' | 'completed' | 'failed' | 'denied';
+
+/**
+ * Which structured renderer owns this observation.
+ * `read` requires the accompanying `read` detail; everything else is `generic`.
+ * Unknown tools remain generic — never guessed.
+ */
+export type ToolObservationKind = 'read' | 'generic';
+
 /**
  * A bounded representation of a tool invocation and its result.
  * Persisted with the assistant message so subsequent turns can
  * reference what tools actually did, not just what the assistant said.
+ *
+ * GA-TOOL-UX-001B lifecycle model (explicit domain decision):
+ * persisted evidence is one entry per operation — a newer observation for a
+ * known `operationId` replaces the earlier one, except a stale `running`
+ * projection never clobbers terminal evidence. Running observations persist
+ * only when no terminal evidence arrived (aborted/detached turns).
+ * OPERATION IDENTITY (`operationId`, the OpenCode `callID` when known) is
+ * durable correlation; transport chunk ids are not.
  */
 export interface ToolObservation {
-  /** Stable identity for this tool call (from the provider). */
+  /**
+   * Stable identity for this tool call — the OpenCode `callID`
+   * (`operationId`) when known, else the transport chunk id.
+   */
   readonly toolCallId: string;
+
+  /**
+   * Durable operation correlation — the OpenCode `callID` when the runtime
+   * supplied it. Observations sharing an `operationId` describe one
+   * operation's lifecycle (started/completed). Never a UI-generated id.
+   */
+  readonly operationId?: string;
+
+  /** Structured renderer ownership. Absent (legacy) means `generic`. */
+  readonly observationKind?: ToolObservationKind;
 
   /** Tool name (e.g. 'filesystem.read', 'shell.execute'). */
   readonly toolName: string;
 
-  /** Whether the tool call succeeded, failed, or was denied. */
-  readonly status: 'completed' | 'failed' | 'denied';
+  /** Whether the tool call is running, succeeded, failed, or was denied. */
+  readonly status: ToolObservationStatus;
 
   /** Timestamp of the observation. */
   readonly timestamp: string;
@@ -63,6 +96,9 @@ export interface ToolObservation {
 
   /** Error message if status is 'failed' or 'denied'. */
   readonly error?: string;
+
+  /** Structured Read evidence — present only when `observationKind` is `read`. */
+  readonly read?: ReadExecutionDetail;
 }
 
 export interface Message {

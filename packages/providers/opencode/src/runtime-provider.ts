@@ -206,6 +206,9 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     const isEphemeral = !request.runtimeSessionId;
     try {
       const format = request.jsonSchema ? { type: 'json_schema' as const, schema: request.jsonSchema } : undefined;
+      const explicitModel = explicitModelOf(request.model, this.id);
+      const modelId = explicitModel ?? this.modelId;
+      const model = resolved.providerId || modelId ? { providerID: resolved.providerId, modelID: modelId } : undefined;
       const { text, structuredOutput } = await this.streamReply(
         sessionId,
         renderPrompt(request),
@@ -214,9 +217,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
         request.onExecutionEvent,
         // Execution binding: agent + model sent with the message, not the session.
         request.agent ?? this.agent,
-        resolved.providerId && (explicitModelOf(request.model, this.id) ?? this.modelId)
-          ? { providerID: resolved.providerId, modelID: explicitModelOf(request.model, this.id) ?? this.modelId! }
-          : undefined,
+        model,
       );
       return {
         id: `ocrt-${Date.now()}`,
@@ -278,15 +279,18 @@ export class OpenCodeRuntimeProvider implements AIProvider {
    * determines execution identity: only an explicit, demonstrably-resolvable
    * assignment selects a provider; otherwise the runtime's configured default
    * is used (the session is created without forcing a provider).
+   *
+   * Resolution priority:
+   *   1. Explicit provider from the model string (e.g. "opencode/mimo-v2.5-free")
+   *      — per-agent provider wiring from the Agent Registry takes precedence.
+   *   2. Preferred provider from constructor options or environment.
+   *   3. Runtime default (no provider forced).
    */
   private resolveProvider(modelId: string | undefined): ProviderResolution {
     const discovered = new Set(this.models.map((model) => model.id));
-    if (this.preferredProviderId) {
-      if (discovered.has(this.preferredProviderId)) {
-        return { providerId: this.preferredProviderId, reason: 'preferred', defaultResolution: false };
-      }
-      return { providerId: undefined, reason: 'preferred-unavailable', defaultResolution: true };
-    }
+
+    // 1. Check explicit provider from the model string first — this enables
+    //    per-agent provider wiring where each agent has its own provider/model.
     const explicit = explicitProviderOf(modelId);
     if (explicit !== undefined && discovered.has(explicit)) {
       return { providerId: explicit, reason: 'explicit-model', defaultResolution: false };
@@ -294,6 +298,16 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     if (explicit !== undefined) {
       return { providerId: undefined, reason: 'explicit-unresolvable', defaultResolution: true };
     }
+
+    // 2. Fall back to preferred provider when no explicit provider is in the model string.
+    if (this.preferredProviderId) {
+      if (discovered.has(this.preferredProviderId)) {
+        return { providerId: this.preferredProviderId, reason: 'preferred', defaultResolution: false };
+      }
+      return { providerId: undefined, reason: 'preferred-unavailable', defaultResolution: true };
+    }
+
+    // 3. Runtime default.
     return { providerId: undefined, reason: 'default', defaultResolution: true };
   }
 
@@ -325,7 +339,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     externalSignal?: AbortSignal,
     onExecutionEvent?: (event: ProviderExecutionEvent) => void,
     agent?: string,
-    model?: { providerID: string; modelID: string },
+    model?: { providerID?: string; modelID?: string },
   ): Promise<{ text: string; structuredOutput?: unknown }> {
     const controller = new AbortController();
     const onExternalAbort = () => controller.abort();
@@ -344,13 +358,22 @@ export class OpenCodeRuntimeProvider implements AIProvider {
       }, this.streamIdleTimeoutMs);
     };
     try {
+      // Build the sendMessageAsync input. The OpenCode contract requires both
+      // providerId and modelId when model is present, but the runtime also
+      // accepts partial model info (provider-only or model-only) for per-agent
+      // provider wiring and bare model passthrough. We construct the typed
+      // input and widen the model field to support both cases.
+      const modelObj =
+        model?.providerID || model?.modelID
+          ? ({ providerId: model.providerID, modelId: model.modelID } as { providerId: string; modelId: string })
+          : undefined;
       await this.client().sendMessageAsync(
         sessionId,
         {
           parts: [{ type: 'text', text: prompt }],
           ...(format ? { format } : {}),
           ...(agent ? { agent } : {}),
-          ...(model ? { model: { providerId: model.providerID, modelId: model.modelID } } : {}),
+          ...(modelObj ? { model: modelObj } : {}),
         },
         context,
       );

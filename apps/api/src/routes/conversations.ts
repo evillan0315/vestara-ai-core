@@ -6,6 +6,39 @@ import { CORS, json, readBody } from './types';
 
 const ACTOR = 'workspace-ui';
 
+// ─── Explicit Stop (user-initiated cancellation) ────────────
+// In-flight turn AbortControllers keyed by conversationId. The stream
+// handler registers its controller here; POST /cancel fires ONLY the
+// matching controller. HTTP/SSE disconnect NEVER touches this map —
+// detach stays detach. Firing the signal is the existing GA-DETACH-001
+// authority: the adapter classifies signal-abort as 'cancelled' and
+// aborts the OpenCode session in its finally block. No second authority.
+const inflightTurnControllers = new Map<string, AbortController>();
+
+/** Register the in-flight turn controller (test-visible). */
+export function registerTurnController(conversationId: string, controller: AbortController): void {
+  inflightTurnControllers.set(conversationId, controller);
+}
+
+/** Release the controller when the turn settles (test-visible). */
+export function releaseTurnController(conversationId: string, controller: AbortController): void {
+  if (inflightTurnControllers.get(conversationId) === controller) {
+    inflightTurnControllers.delete(conversationId);
+  }
+}
+
+/**
+ * Fire ONLY the matching turn's signal. Returns true when a controller
+ * was signalled. Repeated calls are safe (AbortController.abort is a
+ * no-op after the first fire); unknown ids return false.
+ */
+export function cancelTurn(conversationId: string): boolean {
+  const controller = inflightTurnControllers.get(conversationId);
+  if (!controller) return false;
+  controller.abort();
+  return true;
+}
+
 // ─── GA-EXEC-001: Execution Config Validation ──────────────────
 
 /** Bounds for GA execution config values (Vestara-owned limits). */
@@ -230,6 +263,24 @@ export async function handleConversationsRoute(
     return true;
   }
 
+  // Explicit Stop: cancel ONLY the matching in-flight turn. Disconnect,
+  // navigation, and SSE close never reach this endpoint — they only set
+  // clientDisconnected in the stream handler. Unknown/stale ids are NOT
+  // errors (Stop is idempotent; the turn may already have settled).
+  const cancelMatch = p.match(/^\/api\/conversations\/([^/]+)\/cancel$/);
+  if (cancelMatch && method === 'POST') {
+    const cancelId = decodeURIComponent(cancelMatch[1] as string);
+    const cancelled = cancelTurn(cancelId);
+    json(
+      res,
+      200,
+      cancelled
+        ? { cancelled: true, conversationId: cancelId }
+        : { cancelled: false, reason: 'no_inflight_turn', conversationId: cancelId },
+    );
+    return true;
+  }
+
   const match = p.match(/^\/api\/conversations\/([^/]+)(?:\/(messages|stream))?$/);
   if (!match) return false;
   const conversationId = decodeURIComponent(match[1] as string);
@@ -344,12 +395,13 @@ export async function handleConversationsRoute(
     };
     // GA-DETACH-001: Client disconnect does NOT abort the execution.
     // The OpenCode session continues server-side. Only explicit cancellation
-    // (Stop button, API abort) terminates the execution. The adapter's
+    // (Stop button → POST /cancel) terminates the execution. The adapter's
     // finally block uses TurnTermination to decide whether to abort.
     //
     // We use a AbortController that is NEVER triggered by client disconnect.
-    // It can only be triggered by explicit cancellation via the abort endpoint.
+    // It can only be triggered by explicit cancellation via the cancel endpoint.
     const abort = new AbortController();
+    registerTurnController(conversationId, abort);
     // DO NOT link res.on('close') to abort.abort() — that would detach=cancel.
     // The signal is passed to sendMessageStream but only fires on explicit cancel.
     try {
@@ -406,6 +458,7 @@ export async function handleConversationsRoute(
     } catch (error) {
       emit({ type: 'error', content: error instanceof Error ? error.message : 'Stream failed' });
     } finally {
+      releaseTurnController(conversationId, abort);
       res.removeListener('close', onClientDisconnect);
       res.end();
     }

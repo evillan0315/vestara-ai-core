@@ -413,9 +413,13 @@ export class DefaultConversationService implements ConversationService {
         } else if (chunk.type === 'reasoning') {
           yield chunk; // pass through
         } else if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
-          // GA-CTX-001: collect tool observations for persistence
+          // GA-CTX-001: collect tool observations for persistence.
+          // GA-TOOL-UX-001B: explicit lifecycle upsert — a terminal
+          // observation for a known operationId replaces its running
+          // projection (one durable snapshot per operation; running
+          // evidence persists only when no terminal arrived).
           const observation = chunkToObservation(chunk);
-          if (observation) toolObservations.push(observation);
+          if (observation) upsertObservation(toolObservations, observation);
           yield chunk; // pass through
         } else if (chunk.type === 'status' || chunk.type === 'citation') {
           yield chunk; // pass through
@@ -597,44 +601,103 @@ const MAX_OBSERVATION_CONTENT = 2000;
 /**
  * Convert a StreamChunk (tool_call or tool_result) into a ToolObservation.
  * Bounded: large content is truncated, not copied verbatim.
+ *
+ * GA-TOOL-UX-001B lifecycle model (explicit domain decision):
+ * - Durable operation identity is `detail.operationId` (the OpenCode
+ *   `callID` when the runtime supplied it) — never the transport chunk id.
+ *   `toolCallId` carries the operationId when known, else the chunk id.
+ * - `tool_call` projects a `running` observation (request context only);
+ *   `tool_result` projects the terminal observation. The caller upserts by
+ *   operationId so one operation persists one terminal snapshot.
+ * - Structured `read` evidence rides `detail` (kind `read`); every other
+ *   tool stays `generic`. Unknown tools remain generic — never guessed.
  */
 function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
+  const detail = chunk.detail;
+  const operationId = detail?.operationId;
+  const toolName = chunk.name ?? detail?.tool ?? 'unknown';
+  const timestamp = chunk.metadata.timestamp;
+  const readDetail = detail?.kind === 'read' ? detail : undefined;
+
   if (chunk.type === 'tool_call') {
-    const detail = chunk.detail;
-    const content =
-      detail && 'input' in detail
-        ? truncate(JSON.stringify(detail.input), MAX_OBSERVATION_CONTENT)
-        : (chunk.content ?? '');
     return {
-      toolCallId: chunk.id,
-      toolName: chunk.name ?? 'unknown',
-      status: 'completed',
-      timestamp: chunk.metadata.timestamp,
-      content,
+      toolCallId: operationId ?? chunk.id,
+      ...(operationId ? { operationId } : {}),
+      ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
+      toolName,
+      status: 'running',
+      timestamp,
+      content: '',
     };
   }
 
   if (chunk.type === 'tool_result') {
-    const detail = chunk.detail;
-    const status =
-      detail && 'status' in detail
-        ? (detail.status as ToolObservation['status'])
-        : chunk.content?.startsWith('Error:')
-          ? 'failed'
-          : 'completed';
-    const content = truncate(chunk.content ?? '', MAX_OBSERVATION_CONTENT);
-    const error = status === 'failed' ? content : undefined;
+    const state = detail?.state;
+    const status: ToolObservation['status'] =
+      state === 'failed'
+        ? 'failed'
+        : state === 'running'
+          ? 'running'
+          : state === 'completed'
+            ? 'completed'
+            : chunk.content?.startsWith('Error:')
+              ? 'failed'
+              : 'completed';
+    // Read evidence comes from the structured detail (parsed server-side),
+    // never from the bounded chunk-content projection.
+    const content = readDetail?.contentPreview ?? truncate(chunk.content ?? '', MAX_OBSERVATION_CONTENT);
+    const error =
+      status === 'failed'
+        ? truncate(
+            detail && 'error' in detail && typeof detail.error === 'string' ? detail.error : content,
+            MAX_OBSERVATION_CONTENT,
+          )
+        : undefined;
     return {
-      toolCallId: chunk.id,
-      toolName: chunk.name ?? 'unknown',
+      toolCallId: operationId ?? chunk.id,
+      ...(operationId ? { operationId } : {}),
+      ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
+      toolName,
       status,
-      timestamp: chunk.metadata.timestamp,
+      timestamp,
       content,
       ...(error ? { error } : {}),
     };
   }
 
   return undefined;
+}
+
+/**
+ * Explicit lifecycle upsert for persisted tool observations.
+ *
+ * One durable entry per `operationId`: a newer observation for a known
+ * operation replaces the earlier one, except a stale `running` projection
+ * never clobbers terminal evidence. The runtime may emit several running
+ * projections for one operation (progress updates) before the terminal —
+ * only the latest running projection is kept until the terminal arrives.
+ * Running projections without a later terminal (aborted/detached turns)
+ * are preserved. Observations without an operationId (legacy
+ * transport-only identity) always append.
+ */
+function upsertObservation(list: ToolObservation[], observation: ToolObservation): void {
+  const operationId = observation.operationId;
+  if (operationId) {
+    const index = list.findIndex((entry) => entry.operationId === operationId);
+    if (index >= 0) {
+      const existing = list[index];
+      const existingTerminal =
+        existing.status === 'completed' || existing.status === 'failed' || existing.status === 'denied';
+      const incomingTerminal =
+        observation.status === 'completed' || observation.status === 'failed' || observation.status === 'denied';
+      if (incomingTerminal || !existingTerminal) {
+        list[index] = observation;
+        return;
+      }
+      return;
+    }
+  }
+  list.push(observation);
 }
 
 function truncate(text: string, max: number): string {

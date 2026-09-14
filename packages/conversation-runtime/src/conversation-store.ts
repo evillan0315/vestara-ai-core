@@ -1,6 +1,6 @@
 import type { ConversationListPage, ConversationStore } from '@vestara/conversation';
 import type { Logger } from '@vestara/logger';
-import type { Conversation, ConversationStatus, ConversationSummary, Message } from '@vestara/shared';
+import type { Conversation, ConversationStatus, ConversationSummary, Message, ToolObservation } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
 import { CONVERSATION_MANIFEST } from './migrations';
 
@@ -35,6 +35,33 @@ function dbAll(db: any, sql: string, params?: any[]): any[] {
   while (stmt.step()) results.push(stmt.getAsObject());
   stmt.free();
   return results;
+}
+
+/**
+ * GA-TOOL-UX-001B: parse the persisted `tool_observations_json` column.
+ * Returns the observations when the payload is a non-empty array of
+ * minimally-shaped observations, else undefined (absent/malformed payloads
+ * degrade to no observations — never a crash, never partial garbage).
+ */
+function parseToolObservations(value: unknown): readonly ToolObservation[] | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) return undefined;
+  const observations = parsed.filter(
+    (item): item is ToolObservation =>
+      !!item &&
+      typeof item === 'object' &&
+      typeof (item as Record<string, unknown>).toolCallId === 'string' &&
+      typeof (item as Record<string, unknown>).toolName === 'string' &&
+      typeof (item as Record<string, unknown>).timestamp === 'string' &&
+      typeof (item as Record<string, unknown>).content === 'string',
+  );
+  return observations.length > 0 ? observations : undefined;
 }
 
 /**
@@ -231,24 +258,56 @@ export class SqliteConversationStore implements ConversationStore {
 
   async addMessage(conversationId: string, message: Message): Promise<void> {
     const db = await this._db();
-    dbRun(
-      db,
-      `INSERT INTO conversation_messages
-       (id, conversation_id, role, content, provider, model, tokens, cost, latency, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [
-        message.id,
-        conversationId,
-        message.role,
-        message.content,
-        message.provider ?? null,
-        message.model ?? null,
-        message.tokens ?? null,
-        message.cost ?? null,
-        message.latency ?? null,
-        message.createdAt,
-      ],
-    );
+    // GA-TOOL-UX-001B: durable tool observations ride the message row as
+    // JSON (observations belong to the assistant message aggregate).
+    // Legacy databases without the column fall back to the column-less
+    // insert so old schemas keep working.
+    const observationsJson =
+      message.toolObservations && message.toolObservations.length > 0 ? JSON.stringify(message.toolObservations) : null;
+    try {
+      dbRun(
+        db,
+        `INSERT INTO conversation_messages
+         (id, conversation_id, role, content, provider, model, tokens, cost, latency, created_at, tool_observations_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message.id,
+          conversationId,
+          message.role,
+          message.content,
+          message.provider ?? null,
+          message.model ?? null,
+          message.tokens ?? null,
+          message.cost ?? null,
+          message.latency ?? null,
+          message.createdAt,
+          observationsJson,
+        ],
+      );
+    } catch (error) {
+      // Legacy databases predate the observations column: fall back to the
+      // column-less insert (observations are dropped, messages are not).
+      // Any other failure is real — rethrow instead of losing the message.
+      if (!String((error as Error)?.message ?? error).includes('no such column')) throw error;
+      dbRun(
+        db,
+        `INSERT INTO conversation_messages
+         (id, conversation_id, role, content, provider, model, tokens, cost, latency, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+          message.id,
+          conversationId,
+          message.role,
+          message.content,
+          message.provider ?? null,
+          message.model ?? null,
+          message.tokens ?? null,
+          message.cost ?? null,
+          message.latency ?? null,
+          message.createdAt,
+        ],
+      );
+    }
     dbRun(db, 'UPDATE conversations SET updated_at = ? WHERE id = ?', [message.createdAt, conversationId]);
     this._persist();
   }
@@ -283,6 +342,9 @@ export class SqliteConversationStore implements ConversationStore {
   }
 
   private _rowToMessage(row: Record<string, unknown>): Message {
+    // GA-TOOL-UX-001B: recover durable tool observations. Malformed or
+    // non-array payloads degrade to absent (never a crash, never partial).
+    const toolObservations = parseToolObservations(row.tool_observations_json);
     return {
       id: row.id as string,
       conversationId: row.conversation_id as string,
@@ -294,6 +356,7 @@ export class SqliteConversationStore implements ConversationStore {
       cost: (row.cost as number) ?? undefined,
       latency: (row.latency as number) ?? undefined,
       createdAt: row.created_at as string,
+      ...(toolObservations ? { toolObservations } : {}),
     };
   }
 

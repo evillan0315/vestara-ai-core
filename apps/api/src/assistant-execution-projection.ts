@@ -15,6 +15,7 @@
  */
 
 import {
+  ASSISTANT_EXECUTION_BOUNDS,
   ASSISTANT_EXECUTION_CONTRACT,
   ASSISTANT_EXECUTION_VERSION,
   type AssistantExecutionDetail,
@@ -204,6 +205,219 @@ export function projectMessagePartUpdated(event: OpenCodeEventLike): AssistantEx
     toolPayload.preview = str(state?.output) ?? str(state?.title);
   }
   return projectDetail(toolPayload);
+}
+
+/**
+ * GA-TOOL-UX-001B — server-side OpenCode Read wrapper parse.
+ *
+ * Verified live grammar (OpenCode 1.18.27 `read` tool `state.output`):
+ *   <path>{abs}</path>\n<type>file</type>\n<content>\n{numbered lines}\n[(trailer)]\n</content>
+ * Numbered lines look like `1: alpha`; the trailer looks like
+ * `(End of file - total 5 lines)`. NEVER parsed in React — this module is
+ * server-only (apps/api, never imported by the browser bundle).
+ *
+ * Unknown/unrecognized wrappers yield metadata-only evidence
+ * (`contentProvenance: 'unavailable'`) — never guessed.
+ */
+export interface ParsedReadOutput {
+  readonly contentPreview?: string;
+  readonly lineCount?: number;
+  readonly offset?: number;
+  readonly totalLines?: number;
+  readonly contentTruncated: boolean;
+  readonly contentProvenance: 'runtime-provided' | 'unavailable';
+  readonly rangeProvenance: 'runtime-provided' | 'unavailable';
+}
+
+const READ_WRAPPER_RE =
+  /^<path>([\s\S]*?)<\/path>\r?\n<type>([\s\S]*?)<\/type>\r?\n<content>\n([\s\S]*?)(?:<\/content>\s*)?$/;
+const READ_LINE_RE = /^(\d+): ?(.*)$/;
+const READ_TOTAL_RE = /\btotal (\d+) lines\b/;
+const READ_TRUNCATION_RE = /truncat/i;
+
+function unknownReadOutput(): ParsedReadOutput {
+  return { contentTruncated: false, contentProvenance: 'unavailable', rangeProvenance: 'unavailable' };
+}
+
+export function parseReadOutput(output: unknown): ParsedReadOutput {
+  if (typeof output !== 'string') return unknownReadOutput();
+  const match = READ_WRAPPER_RE.exec(output);
+  if (!match) return unknownReadOutput();
+  if (match[2].trim() !== 'file') return unknownReadOutput();
+  const body = match[3];
+  const openCodeTruncated = READ_TRUNCATION_RE.test(body);
+  const entries: Array<{ n: number; line: string }> = [];
+  let totalLines: number | undefined;
+  for (const rawLine of body.split('\n')) {
+    const totalMatch = READ_TOTAL_RE.exec(rawLine);
+    if (totalMatch) {
+      const total = Number(totalMatch[1]);
+      if (Number.isInteger(total) && total >= 0) totalLines = total;
+      continue;
+    }
+    const lineMatch = READ_LINE_RE.exec(rawLine);
+    if (lineMatch) {
+      const n = Number(lineMatch[1]);
+      if (Number.isInteger(n) && n >= 0) entries.push({ n, line: rawLine });
+    }
+  }
+  if (entries.length === 0 && totalLines === undefined) return unknownReadOutput();
+  // Bound to whole lines at the evidence budget (≤2000 chars).
+  const budget = ASSISTANT_EXECUTION_BOUNDS.readContentPreview;
+  const kept: string[] = [];
+  let used = 0;
+  let sliced = false;
+  for (const entry of entries) {
+    const cost = entry.line.length + 1; // + newline separator
+    if (used + cost > budget && kept.length > 0) {
+      sliced = true;
+      break;
+    }
+    kept.push(entry.line);
+    used += cost;
+  }
+  return {
+    contentPreview: kept.length > 0 ? kept.join('\n') : undefined,
+    lineCount: entries.length,
+    offset: entries.length > 0 ? entries[0].n : undefined,
+    totalLines,
+    contentTruncated: sliced || openCodeTruncated,
+    contentProvenance: 'runtime-provided',
+    rangeProvenance: 'runtime-provided',
+  };
+}
+
+/** Allowlisted read-tool request input (`state.input` — required by the ToolState schema). */
+function readRequestInput(value: unknown): { filePath?: string; offset?: number; limit?: number } {
+  if (!value || typeof value !== 'object') return {};
+  const record = value as Record<string, unknown>;
+  return {
+    filePath: str(record.filePath),
+    offset: num(record.offset) !== undefined && Number.isInteger(record.offset) ? num(record.offset) : undefined,
+    limit: num(record.limit) !== undefined && Number.isInteger(record.limit) ? num(record.limit) : undefined,
+  };
+}
+
+/**
+ * Relativize a path against the repository root for persisted evidence.
+ * Already-relative paths pass through. Absolute paths inside the root become
+ * relative; absolute paths outside the root degrade to their basename.
+ * Any result escaping the root via `..` segments degrades to its basename —
+ * the machine's absolute workspace path (and its depth) is never persisted
+ * or presented.
+ */
+function relativizeForEvidence(path: string, repoDir?: string): string {
+  const relativized = relativize(path, repoDir);
+  if (/(^|\/)\.\.(\/|$)/.test(relativized)) {
+    const base = relativized.split('/').pop() ?? relativized;
+    return base || relativized;
+  }
+  return relativized;
+}
+
+function relativize(path: string, repoDir?: string): string {
+  if (!path.startsWith('/')) return path;
+  if (repoDir) {
+    const root = repoDir.endsWith('/') ? repoDir : `${repoDir}/`;
+    if (path === repoDir) return '.';
+    if (path.startsWith(root)) return path.slice(root.length);
+  }
+  const base = path.split('/').pop() ?? path;
+  return base || path;
+}
+
+/**
+ * `message.part.updated` with a `read` tool part → structured `read` detail.
+ *
+ * Lifecycle (operationId = OpenCode `callID` in every state):
+ * - running/pending: file from the request `input.filePath`
+ *   (`fileProvenance: 'request-context'`), falling back to the runtime title
+ *   when present. No content/range evidence yet.
+ * - completed: file from the result `state.title` (`runtime-provided`);
+ *   content parsed server-side from `state.output`.
+ * - error: file from title when present, else request input; bounded error.
+ *
+ * Returns undefined for non-read parts or when no callID exists — the caller
+ * falls back to the generic tool projection (unknown tools stay generic).
+ */
+export function projectReadObservation(
+  event: OpenCodeEventLike,
+  repoDir?: string,
+): AssistantExecutionDetail | undefined {
+  if (!isEvent(event, EVENT.messagePartUpdated)) return undefined;
+  const payload = event.payload ?? {};
+  const part = payload.part as Record<string, unknown> | undefined;
+  if (part?.type !== 'tool' || part.tool !== 'read') return undefined;
+  const callID = str(part.callID);
+  if (!callID) return undefined;
+  const state = (part.state ?? {}) as Record<string, unknown>;
+  const status = str(state.status);
+  const time = state.time as Record<string, unknown> | undefined;
+  const startedAt = num(time?.start);
+  const endedAt = num(time?.end);
+  const durationMs = startedAt !== undefined && endedAt !== undefined ? Math.max(0, endedAt - startedAt) : undefined;
+  const timestamp = endedAt ?? num(payload.time) ?? Date.now();
+  const title = str(state.title);
+  const input = readRequestInput(state.input);
+  const envelopeState: 'running' | 'completed' | 'failed' =
+    status === 'error' ? 'failed' : status === 'completed' ? 'completed' : 'running';
+
+  if (envelopeState === 'completed') {
+    const parsed = parseReadOutput(state.output);
+    const file = title ?? (input.filePath ? relativizeForEvidence(input.filePath, repoDir) : undefined);
+    if (!file) return undefined;
+    return projectDetail({
+      ...baseEnvelope(callID, 'completed', payload, 'read'),
+      kind: 'read',
+      tool: 'read',
+      file: relativizeForEvidence(file, repoDir),
+      fileProvenance: title ? 'runtime-provided' : 'request-context',
+      offset: parsed.offset,
+      lineCount: parsed.lineCount,
+      totalLines: parsed.totalLines,
+      contentPreview: parsed.contentPreview,
+      contentTruncated: parsed.contentTruncated,
+      contentProvenance: parsed.contentProvenance,
+      rangeProvenance: parsed.rangeProvenance,
+      durationMs,
+      timestamp,
+    });
+  }
+
+  if (envelopeState === 'failed') {
+    const file = title ?? (input.filePath ? relativizeForEvidence(input.filePath, repoDir) : undefined);
+    if (!file) return undefined;
+    return projectDetail({
+      ...baseEnvelope(callID, 'failed', payload, 'read'),
+      kind: 'read',
+      tool: 'read',
+      file: relativizeForEvidence(file, repoDir),
+      // A requested path is request context — never successful-result evidence.
+      fileProvenance: title ? 'runtime-provided' : 'request-context',
+      contentTruncated: false,
+      contentProvenance: 'unavailable',
+      rangeProvenance: 'unavailable',
+      error: str(state.error) ?? 'Read failed',
+      durationMs,
+      timestamp,
+    });
+  }
+
+  // running / pending: request context only — no content/range/result claims.
+  const file = title ?? (input.filePath ? relativizeForEvidence(input.filePath, repoDir) : undefined);
+  if (!file) return undefined;
+  return projectDetail({
+    ...baseEnvelope(callID, 'running', payload, 'read'),
+    kind: 'read',
+    tool: 'read',
+    file: relativizeForEvidence(file, repoDir),
+    fileProvenance: title ? 'runtime-provided' : 'request-context',
+    contentTruncated: false,
+    contentProvenance: 'unavailable',
+    rangeProvenance: 'unavailable',
+    durationMs,
+    timestamp,
+  });
 }
 
 /** `permission.v2.asked` / `permission.asked` → requested permission (allowlisted fields only). */

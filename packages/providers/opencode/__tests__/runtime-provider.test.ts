@@ -59,8 +59,8 @@ function mockClient(options?: {
       calls.push({ method: 'createSession', body: input });
       return { id: 'session-1' };
     }),
-    sendMessageAsync: vi.fn(async () => {
-      calls.push({ method: 'sendMessageAsync' });
+    sendMessageAsync: vi.fn(async (_sessionId: string, body: unknown) => {
+      calls.push({ method: 'sendMessageAsync', body });
     }),
     abortSession: vi.fn(async () => true),
     listMessages: vi.fn(async () => []),
@@ -77,12 +77,26 @@ function mockClient(options?: {
   return { client, calls };
 }
 
-function createCallModel(calls: Array<{ method: string; body?: unknown }>): unknown {
-  const createCall = calls.find((c) => c.method === 'createSession');
-  expect(createCall).toBeDefined();
-  const body = (createCall?.body as { providerID?: string; modelID?: string } | undefined) ?? {};
-  if (body.providerID === undefined && body.modelID === undefined) return undefined;
-  return { providerID: body.providerID, modelID: body.modelID };
+/**
+ * Extract the model/provider from the sendMessageAsync call — the model
+ * information is sent with the prompt, not the session creation.
+ */
+function sendMessageModel(calls: Array<{ method: string; body?: unknown }>): unknown {
+  const sendCall = calls.find((c) => c.method === 'sendMessageAsync');
+  if (!sendCall) return undefined;
+  const body = (sendCall.body as { model?: { providerId?: string; modelId?: string } } | undefined) ?? {};
+  if (!body.model) return undefined;
+  return { providerID: body.model.providerId, modelID: body.model.modelId };
+}
+
+/**
+ * Extract the agent from the sendMessageAsync call.
+ */
+function sendMessageAgent(calls: Array<{ method: string; body?: unknown }>): string | undefined {
+  const sendCall = calls.find((c) => c.method === 'sendMessageAsync');
+  if (!sendCall) return undefined;
+  const body = (sendCall.body as { agent?: string } | undefined) ?? {};
+  return body.agent;
 }
 
 describe('OpenCodeRuntimeProvider', () => {
@@ -114,7 +128,7 @@ describe('OpenCodeRuntimeProvider', () => {
     // Discovery order must not determine execution identity: the session is
     // created without forcing a provider or model, so the runtime's configured
     // default governs.
-    expect(createCallModel(calls)).toBeUndefined();
+    expect(sendMessageModel(calls)).toBeUndefined();
     expect(response.resolution).toEqual({
       providerId: undefined,
       reason: 'default',
@@ -162,9 +176,9 @@ describe('OpenCodeRuntimeProvider', () => {
     ]);
 
     expect(ra.resolution).toEqual(rb.resolution);
-    expect(createCallModel(a.calls)).toBeUndefined();
-    expect(createCallModel(b.calls)).toBeUndefined();
-    expect(createCallModel(a.calls)).toBe(createCallModel(b.calls));
+    expect(sendMessageModel(a.calls)).toBeUndefined();
+    expect(sendMessageModel(b.calls)).toBeUndefined();
+    expect(sendMessageModel(a.calls)).toBe(sendMessageModel(b.calls));
   });
 
   it('does not force an unavailable first provider — it falls back to default resolution', async () => {
@@ -175,7 +189,7 @@ describe('OpenCodeRuntimeProvider', () => {
 
     await provider.complete({ model: 'opencode-runtime', messages: [{ role: 'user', content: 'hi' }] });
 
-    expect(createCallModel(calls)).toBeUndefined();
+    expect(sendMessageModel(calls)).toBeUndefined();
     const createCall = calls.find((c) => c.method === 'createSession');
     const model = (createCall?.body as { model?: { providerID?: string } } | undefined)?.model;
     expect(model?.providerID).not.toBe('zhipuai');
@@ -190,10 +204,35 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
+    expect(sendMessageModel(calls)).toEqual({ providerID: 'opencode', modelID: undefined });
     expect(response.resolution).toEqual({
       providerId: 'opencode',
       reason: 'preferred',
+      defaultResolution: false,
+    });
+  });
+
+  it('uses explicit model provider over preferred provider for per-agent wiring', async () => {
+    // When both preferredProviderId and an explicit model provider are set,
+    // the explicit model provider wins — this enables per-agent provider wiring
+    // where each agent has its own provider/model in the Agent Registry.
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({
+      client: client as never,
+      preferredProviderId: 'opencode',
+    });
+
+    const response = await provider.complete({
+      model: 'opencode-go/deepseek-v4-flash-free',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    // The explicit provider 'opencode-go' from the model string takes precedence
+    // over the preferred 'opencode' provider.
+    expect(sendMessageModel(calls)).toEqual({ providerID: 'opencode-go', modelID: 'deepseek-v4-flash-free' });
+    expect(response.resolution).toEqual({
+      providerId: 'opencode-go',
+      reason: 'explicit-model',
       defaultResolution: false,
     });
   });
@@ -210,7 +249,7 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toBeUndefined();
+    expect(sendMessageModel(calls)).toBeUndefined();
     expect(response.resolution).toEqual({
       providerId: undefined,
       reason: 'preferred-unavailable',
@@ -227,7 +266,7 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toEqual({ providerID: 'opencode', modelID: 'deepseek-v4-flash-free' });
+    expect(sendMessageModel(calls)).toEqual({ providerID: 'opencode', modelID: 'deepseek-v4-flash-free' });
     expect(response.resolution).toEqual({
       providerId: 'opencode',
       reason: 'explicit-model',
@@ -246,7 +285,7 @@ describe('OpenCodeRuntimeProvider', () => {
 
     // The model is honored; no provider is forced so the runtime's configured
     // default provider executes it.
-    expect(createCallModel(calls)).toEqual({ providerID: undefined, modelID: 'deepseek-v4-flash-free' });
+    expect(sendMessageModel(calls)).toEqual({ providerID: undefined, modelID: 'deepseek-v4-flash-free' });
     expect(response.resolution).toEqual({
       providerId: undefined,
       reason: 'default',
@@ -263,7 +302,30 @@ describe('OpenCodeRuntimeProvider', () => {
       messages: [{ role: 'user', content: 'hi' }],
     });
 
-    expect(createCallModel(calls)).toEqual({ providerID: undefined, modelID: 'some-model' });
+    expect(sendMessageModel(calls)).toEqual({ providerID: undefined, modelID: 'some-model' });
+    expect(response.resolution).toEqual({
+      providerId: undefined,
+      reason: 'explicit-unresolvable',
+      defaultResolution: true,
+    });
+  });
+
+  it('returns explicit-unresolvable when model provider is not discovered even with preferred set', async () => {
+    // When the model string specifies a provider that is not discovered,
+    // the resolution is explicit-unresolvable — the preferred provider is NOT
+    // used as a fallback because the caller explicitly requested a different one.
+    const { client, calls } = mockClient();
+    const provider = new OpenCodeRuntimeProvider({
+      client: client as never,
+      preferredProviderId: 'opencode',
+    });
+
+    const response = await provider.complete({
+      model: 'nonexistent-provider/some-model',
+      messages: [{ role: 'user', content: 'hi' }],
+    });
+
+    expect(sendMessageModel(calls)).toEqual({ providerID: undefined, modelID: 'some-model' });
     expect(response.resolution).toEqual({
       providerId: undefined,
       reason: 'explicit-unresolvable',
@@ -282,7 +344,7 @@ describe('OpenCodeRuntimeProvider', () => {
     });
 
     expect(response.content).toBe('Plan: add the endpoint');
-    expect(createCallModel(calls)).toBeUndefined();
+    expect(sendMessageModel(calls)).toBeUndefined();
     expect(response.resolution?.reason).toBe('default');
   });
 
@@ -299,15 +361,13 @@ describe('OpenCodeRuntimeProvider', () => {
     });
   });
 
-  it('passes the configured runtime agent to the created session', async () => {
+  it('passes the configured runtime agent to the message', async () => {
     const { client, calls } = mockClient();
     const provider = new OpenCodeRuntimeProvider({ client: client as never, agent: 'planner' });
 
     await provider.complete({ model: 'x', messages: [{ role: 'user', content: 'plan' }] });
 
-    const createCall = calls.find((c) => c.method === 'createSession');
-    expect(createCall).toBeDefined();
-    expect((createCall.body as { agent?: string }).agent).toBe('planner');
+    expect(sendMessageAgent(calls)).toBe('planner');
   });
 
   it('reports an unhealthy status when the runtime is unreachable', async () => {

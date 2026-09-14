@@ -509,5 +509,146 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       // DETACHED turns should NOT abort the session (no explicit cancellation)
       expect(abortedSessions).toHaveLength(0);
     });
+
+    it('CANCELLED: abort targets ONLY the resolved session id', async () => {
+      const abortedSessions: string[] = [];
+      const controller = new AbortController();
+      const client: Partial<OpenCodeHttpClient> = {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: async function* (_ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
+          // Block until the adapter aborts the reader on explicit cancel.
+          await new Promise<void>((resolve) => {
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+        } as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+        abortSession: async (id: string) => {
+          abortedSessions.push(id);
+        },
+      };
+
+      const turnPromise = (async () => {
+        const chunks: StreamChunk[] = [];
+        for await (const item of runAssistantOpenCodeTurn(
+          {
+            client: client as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            turnTimeoutMs: 30000,
+          },
+          { ...makeRequest(), signal: controller.signal },
+        )) {
+          chunks.push(item);
+        }
+        return chunks;
+      })();
+
+      setTimeout(() => controller.abort(), 50);
+      await turnPromise;
+
+      // Exactly the turn's own session — no other session touched.
+      expect(abortedSessions).toEqual(['sess-1']);
+    });
+
+    it('CANCELLED: repeated abort is idempotent — one session abort', async () => {
+      const abortedSessions: string[] = [];
+      const controller = new AbortController();
+      const client: Partial<OpenCodeHttpClient> = {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: async function* (_ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
+          await new Promise<void>((resolve) => {
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+        } as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+        abortSession: async (id: string) => {
+          abortedSessions.push(id);
+        },
+      };
+
+      const turnPromise = (async () => {
+        const chunks: StreamChunk[] = [];
+        for await (const item of runAssistantOpenCodeTurn(
+          {
+            client: client as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            turnTimeoutMs: 30000,
+          },
+          { ...makeRequest(), signal: controller.signal },
+        )) {
+          chunks.push(item);
+        }
+        return chunks;
+      })();
+
+      // Three rapid Stops — AbortSignal fires once, finally runs once.
+      setTimeout(() => {
+        controller.abort();
+        controller.abort();
+        controller.abort();
+      }, 50);
+      const chunks = await turnPromise;
+
+      expect(chunks.length).toBeGreaterThan(0);
+      expect(abortedSessions).toHaveLength(1);
+    });
+
+    it('CANCELLED: response ends WITHOUT deadline/tool error content — states stay separable', async () => {
+      const abortedSessions: string[] = [];
+      const controller = new AbortController();
+      const client: Partial<OpenCodeHttpClient> = {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: async function* (_ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Partial...' });
+          await new Promise<void>((resolve) => {
+            signal?.addEventListener('abort', () => resolve(), { once: true });
+          });
+        } as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+        abortSession: async (id: string) => {
+          abortedSessions.push(id);
+        },
+      };
+
+      const chunks: StreamChunk[] = [];
+      const turnPromise = (async () => {
+        for await (const item of runAssistantOpenCodeTurn(
+          {
+            client: client as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            turnTimeoutMs: 30000,
+          },
+          { ...makeRequest(), signal: controller.signal },
+        )) {
+          chunks.push(item);
+        }
+      })();
+
+      setTimeout(() => controller.abort(), 50);
+      await turnPromise;
+
+      // Response: partial content, ended, but NOT a deadline/tool failure.
+      expect(chunks.some((c) => c.type === 'text')).toBe(true);
+      const errors = chunks.filter((c) => c.type === 'error');
+      for (const error of errors) {
+        expect(error.content ?? '').not.toContain('deadline');
+        expect(error.content ?? '').not.toContain('Tool call limit');
+      }
+      // Runtime session: explicitly aborted exactly once.
+      expect(abortedSessions).toEqual(['sess-1']);
+    });
   });
 });
