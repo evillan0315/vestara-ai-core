@@ -118,6 +118,17 @@ export interface Message {
    * natural-language interpretation. Subsequent turns can reference these.
    */
   toolObservations?: readonly ToolObservation[];
+  /**
+   * GA-EXEC-002: structured execution result. Carries how the turn ended
+   * (termination, tool-call count, elapsed time) independently from the
+   * message content. Enables the UI to display structured failure
+   * information instead of raw error text.
+   */
+  executionResult?: {
+    termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
+    toolCallCount: number;
+    elapsedMs: number;
+  };
 }
 
 export interface ConversationSummary {

@@ -31,6 +31,16 @@ export interface ChunkMetadata {
     totalTokens: number;
   };
   latency?: number;
+  /**
+   * GA-EXEC-002: structured execution result emitted as the final meta chunk.
+   * Carries how the turn ended (termination, tool-call count, elapsed time)
+   * independently from the response content.
+   */
+  executionResult?: {
+    termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
+    toolCallCount: number;
+    elapsedMs: number;
+  };
 }
 
 export interface StreamChunk {
