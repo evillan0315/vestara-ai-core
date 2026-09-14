@@ -8,7 +8,7 @@ import type {
   AgentMessageActivity,
   MessageTarget,
 } from '@vestara/activity-room';
-import { projectEffectiveState, toActivityBatch, triggerAssistantTurn } from '@vestara/activity-room';
+import { fromHumanMessage, projectEffectiveState, toActivityBatch, triggerAssistantTurn } from '@vestara/activity-room';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
@@ -458,6 +458,11 @@ async function sendActivityMessage(
       /* receipt seeding is best-effort */
     }
     json(res, 201, { record: appended });
+    // M11C visibility: the Activity Room page reads the M9 projection (M11A
+    // snapshot + M11B live), not the legacy store above. Mirror the human
+    // message into M9 so the sent message actually appears. Fire-and-forget:
+    // a mirror failure must not fail an appended message.
+    void mirrorHumanMessageToM9(appended);
     return appended;
   } catch (error) {
     json(res, 500, {
@@ -496,6 +501,31 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
   // even without an @mention in the content.
   if (record.agentId !== undefined && record.agentId !== 'all-agents') forced.add(record.agentId);
   messageReceipts.registerMessage(record, participantAgentIds, agentRoles, forced.size > 0 ? forced : undefined);
+}
+
+/**
+ * Mirror a composer human message into the M9 durable store via the canonical
+ * `fromHumanMessage` adapter. The M11A watcher picks it up, projects it
+ * (`human.message` → conversation, primary), and broadcasts it live over M11B,
+ * so the M11C surface shows the sent message. The legacy record id seeds the
+ * M9 eventId for stable deduplication across retries. Best-effort: throws
+ * nothing (M11A may be uninitialized in tests); failures are logged.
+ */
+async function mirrorHumanMessageToM9(appended: AgentMessageActivity): Promise<void> {
+  try {
+    const { getM11ARoom } = await import('./activity-room-m11a.js');
+    const m9Store = getM11ARoom().store;
+    await m9Store.append(
+      fromHumanMessage({
+        message: appended.content,
+        userId: appended.actor.id,
+        displayName: appended.actor.displayName,
+        messageId: appended.id,
+      }),
+    );
+  } catch (error) {
+    console.warn('[activity-room] M9 mirror failed:', error instanceof Error ? error.message : error);
+  }
 }
 
 /**

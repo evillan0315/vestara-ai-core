@@ -28,7 +28,7 @@
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
-import { Badge, StatusIndicator } from '@vestara/ui';
+import { StatusIndicator } from '@vestara/ui';
 import { memo, useMemo, useState } from 'react';
 import { WORK_STATE_CONFIG, PRESENCE_VARIANT_CONFIG } from './status-config';
 
@@ -90,7 +90,7 @@ const MEMBERSHIP_LABEL: Record<string, string> = {
 // ─── Shared presentation classes (canonical tokens only) ─────
 
 const TILE_BASE =
-  'grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-sm font-semibold [&_svg]:size-[18px]';
+  'grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border font-serif text-base font-semibold shadow-[0_2px_10px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.08)] [&_svg]:size-[18px]';
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -191,7 +191,7 @@ export default function M11CParticipantRail({
         <div
           role="group"
           aria-label="Filter by type"
-          className="inline-flex flex-wrap gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] p-1"
+          className="inline-flex max-w-full min-w-0 flex-wrap gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] p-1"
         >
           {(['all', 'human', 'agent'] as const).map((option) => (
             <button
@@ -276,6 +276,7 @@ const ParticipantRow = memo(function ParticipantRow({
     : identity.unknown
       ? 'var(--vestara-text-muted)'
       : 'var(--vestara-accent-text)';
+  const tileGlow = `0 0 12px color-mix(in srgb, ${tileTone} 25%, transparent)`;
 
   const handleNameClick = (e: React.MouseEvent) => {
     if (!canOpenDrawer) return;
@@ -298,7 +299,7 @@ const ParticipantRow = memo(function ParticipantRow({
       onClick={() => onSelect(selected ? undefined : participant.participantId)}
       aria-pressed={selected}
       aria-label={`${identity.name}, ${isHuman ? 'human' : 'agent'}${work ? `, ${work.label}` : ''}`}
-      className={`group flex w-full min-w-0 items-center gap-2.5 rounded-[var(--vestara-radius)] border px-2 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-accent-bg)]'}`}
+      className={`group flex w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
     >
       {/* Actor-type tile (type only — never status) */}
       <span
@@ -306,8 +307,9 @@ const ParticipantRow = memo(function ParticipantRow({
         className={TILE_BASE}
         style={{
           color: tileTone,
-          background: `color-mix(in srgb, ${tileTone} 12%, transparent)`,
-          borderColor: `color-mix(in srgb, ${tileTone} 30%, transparent)`,
+          background: `radial-gradient(circle at 32% 26%, color-mix(in srgb, ${tileTone} 22%, transparent), transparent 60%), color-mix(in srgb, ${tileTone} 10%, transparent)`,
+          borderColor: `color-mix(in srgb, ${tileTone} 45%, transparent)`,
+          boxShadow: tileGlow,
         }}
       >
         {initial}
@@ -317,7 +319,7 @@ const ParticipantRow = memo(function ParticipantRow({
         {/* Primary identity + kind */}
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span
-            className={canOpenDrawer ? 'cursor-pointer truncate text-sm font-medium text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-medium text-[var(--vestara-text)]'}
+            className={canOpenDrawer ? 'cursor-pointer truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]'}
             role={canOpenDrawer ? 'button' : undefined}
             tabIndex={canOpenDrawer ? 0 : undefined}
             aria-label={canOpenDrawer ? `Open agent control for ${identity.name}` : undefined}
@@ -326,16 +328,13 @@ const ParticipantRow = memo(function ParticipantRow({
           >
             {identity.name}
           </span>
-          <Badge variant={isHuman ? 'info' : 'default'} size="sm">
-            {isHuman ? 'Human' : 'Agent'}
-          </Badge>
           {!isHuman && participant.role && (
             <span className="truncate text-[11px] capitalize text-[var(--vestara-text-muted)]">
               {participant.role}
             </span>
           )}
           {unreadCount > 0 && (
-            <span className="rounded-[var(--vestara-radius-full)] bg-[var(--vestara-accent)] px-1.5 text-[10px] font-semibold text-[var(--color-zinc-950)]">
+            <span className="rounded-[var(--vestara-radius-full)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_60%,var(--vestara-accent-dark))] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-zinc-950)] shadow-[0_2px_10px_var(--vestara-accent-bg)]">
               {unreadCount > 99 ? '99+' : unreadCount}
             </span>
           )}
@@ -356,7 +355,7 @@ const ParticipantRow = memo(function ParticipantRow({
           )}
           {work && (
             <span className="inline-flex items-center gap-1">
-              <StatusIndicator variant={work.variant} size="xs" pulse={false} aria-hidden />
+              <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
               {participant.currentAssignment?.taskTitle ?? work.label}
             </span>
           )}

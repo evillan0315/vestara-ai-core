@@ -36,7 +36,6 @@ import { postActivityMessage, retractActivityMessage, editActivityMessage } from
 import { Pill, StatusIndicator } from '@vestara/ui';
 import { RouteHero } from '../../components/layout/PageHero/RouteHero';
 import { useMorningBriefing } from '../../hooks/useMorningBriefing';
-import { useGAExecutionConfig } from '../../hooks/useGAExecutionConfig';
 import '../../styles/activity-room.css';
 
 function getTimeBasedGreeting(now = new Date()) {
@@ -178,18 +177,24 @@ export default function M11CActivityRoomPage() {
   // Stream owns the flexible share; rails keep bounded widths. Active
   // workflows render as a strip above the stream (never a middle column),
   // so the grid is at most rail + stream + inspector. The inspector track
-  // is `auto` and collapses when the (null-gated, CSS-hidden <1440px)
-  // inspector renders nothing. Exactly one lg template applies — never
-  // two competing column definitions.
+  // exists only at >=1440px where it docks; below that it is a fixed
+  // overlay drawer with no grid track. Exactly one lg template applies —
+  // never two competing column definitions.
   const workingAreaGrid = [
-    'grid min-w-0 grid-cols-1 gap-4 mt-3',
+    // Fit-to-screen: full-width grid that never forces horizontal overflow.
+    // Rail + stream at lg; the inspector track exists only at >=1440px where
+    // .ar-inspector actually docks (below that it renders as an overlay
+    // drawer, so no grid track is reserved for it). At lg the single row
+    // stretches to fill the viewport-fit column (see .ar-workarea).
+    'grid w-full max-w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 mt-3 ar-workarea',
     detailOpen
-      ? 'lg:grid-cols-[18rem_minmax(0,1fr)_auto]'
-      : 'lg:grid-cols-[18rem_minmax(0,1fr)]',
+      ? 'ar-workarea--detail lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,20rem)]'
+      : 'lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,16rem)]',
+    'lg:grid-rows-[minmax(0,1fr)]',
   ].join(' ');
 
   return (
-    <>
+    <div className="ar-page min-w-0 w-full max-w-full">
       {/* ─── Canonical workspace Hero (VES-DESIGN-008B) ─────────
           Replaces the hand-rolled ar-plinth. Hierarchy:
           STATUS (connection) vs METADATA (records/cursor) vs ACTION
@@ -230,7 +235,7 @@ export default function M11CActivityRoomPage() {
         <button
           type="button"
           onClick={() => setMorningOpen(true)}
-          className="mt-3 flex w-full items-center gap-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-amber)]/30 bg-[var(--vestara-amber)]/10 px-4 py-3 text-left hover:bg-[var(--vestara-amber)]/15 transition-colors cursor-pointer"
+          className="mt-3 flex w-full max-w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-amber)]/30 bg-[var(--vestara-amber)]/10 px-4 py-3 text-left hover:bg-[var(--vestara-amber)]/15 transition-colors cursor-pointer"
         >
           <span className="text-[var(--vestara-amber)]">{emoji}</span>
           <span className="min-w-0 flex-1">
@@ -251,11 +256,11 @@ export default function M11CActivityRoomPage() {
               </div>
               <button type="button" onClick={() => setMorningOpen(false)} className="size-8 grid place-items-center rounded-lg border">×</button>
             </div>
-            <div className="mt-3 space-y-3 text-xs">
-              <div><div className="font-semibold uppercase">Repo Health</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.repoHealth || '(empty)'}</pre></div>
-              <div><div className="font-semibold uppercase">Workspace Status</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.workspaceStatus || '(empty)'}</pre></div>
-              <div><div className="font-semibold uppercase">Activity</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.activity || '(empty)'}</pre></div>
-              {morningBriefing.details.fullContent && <div><div className="font-semibold uppercase">Full</div><pre className="mt-1 whitespace-pre-wrap rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.fullContent}</pre></div>}
+            <div className="mt-3 min-w-0 space-y-3 text-xs">
+              <div className="min-w-0"><div className="font-semibold uppercase">Repo Health</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.repoHealth || '(empty)'}</pre></div>
+              <div className="min-w-0"><div className="font-semibold uppercase">Workspace Status</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.workspaceStatus || '(empty)'}</pre></div>
+              <div className="min-w-0"><div className="font-semibold uppercase">Activity</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.activity || '(empty)'}</pre></div>
+              {morningBriefing.details.fullContent && <div className="min-w-0"><div className="font-semibold uppercase">Full</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.fullContent}</pre></div>}
             </div>
           </div>
         </div>
@@ -285,7 +290,7 @@ export default function M11CActivityRoomPage() {
           exists — otherwise a compact disclosure preserves browsing
           without spending a permanent column on "0 workflows". */}
       {!hasActiveWorkflows && (
-        <details className="mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5">
+        <details className="ar-workflows-disclosure mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5">
           <summary className="cursor-pointer text-sm font-medium text-[var(--vestara-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset">
             Workflows · {workflowUnits.length}
             <span className="ml-2 text-xs font-normal text-[var(--vestara-text-muted)]">
@@ -302,7 +307,7 @@ export default function M11CActivityRoomPage() {
       )}
       <div className={workingAreaGrid}>
         {/* Participant Rail (projection-driven; page owns scrolling) */}
-        <aside className="ar-panel ar-panel--rail">
+        <aside className="ar-panel ar-panel--rail min-w-0 max-w-full">
           <M11CParticipantRail
             participants={room.participants}
             selectedParticipantId={selectedParticipantId}
@@ -312,7 +317,7 @@ export default function M11CActivityRoomPage() {
         </aside>
 
         {/* Center Stream (the salon) */}
-        <main className="ar-panel ar-panel--main">
+        <main className="ar-panel ar-panel--main min-w-0 max-w-full">
           <div className="ar-panel__head">
             <div className="ar-panel__label" aria-live="polite">
               {selectedParticipantId === undefined ? 'Activity Stream' : `Activity — ${selectedParticipantId}`}
@@ -320,23 +325,28 @@ export default function M11CActivityRoomPage() {
             <span className="ar-panel__hint">{room.paused ? `${room.unread} buffered` : stateLabel}</span>
           </div>
 
-          {/* Active-work strip: workflows live above the stream, never as
-              a middle column. Collapsed disclosure below covers idle. */}
+          {/* Composer first: always at the top of the panel, always in
+              view — never pushed below the fold or covered by floating
+              chrome at the viewport bottom. */}
+          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} />
+
+          {/* Live Now Strip (collapses to nothing when nobody is live) */}
+          <M11CLiveNowStrip
+            participants={room.participants}
+            stream={room.stream}
+          />
+
+          {/* Active-work strip: inline fallback where the right workflows
+              panel is unavailable — below xl, or while the inspector owns
+              the right side. Hidden by CSS wherever the aside shows. */}
           {hasActiveWorkflows && (
-            <div className="ar-workflow-strip">
+            <div className="ar-workflow-strip ar-workflow-strip--inline">
               <M11CWorkflowBrowser
                 stream={room.stream}
                 workflowSummary={room.workflowSummary}
               />
             </div>
           )}
-
-          {/* Live Now Strip */}
-          <M11CLiveNowStrip
-            participants={room.participants}
-            stream={room.stream}
-            isLive={room.state === 'live'}
-          />
 
           {/* Stream */}
           <M11CActivityStream
@@ -363,10 +373,19 @@ export default function M11CActivityRoomPage() {
             onSubmitResponse={room.submitResponse}
             participantNames={participantNames}
           />
-
-          {/* Composer with reply-to support */}
-          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} />
         </main>
+
+        {/* Workflows right panel (xl+): the browser lives here instead of
+            above the stream. Hidden while the inspector docks so the
+            stream keeps room; the inline strip covers that case. */}
+        {!detailOpen && (
+          <aside className="ar-panel ar-panel--workflows min-w-0 max-w-full" aria-label="Workflows">
+            <M11CWorkflowBrowser
+              stream={room.stream}
+              workflowSummary={room.workflowSummary}
+            />
+          </aside>
+        )}
 
         {/* Docked Inspector (right column) — replaces context panel at >=1440px */}
         <M11CDockedInspector
@@ -408,7 +427,7 @@ export default function M11CActivityRoomPage() {
           participant={agentControlParticipant}
         />
       )}
-    </>
+    </div>
   );
 }
 
@@ -432,20 +451,6 @@ function M11CComposer({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  // Display-only badge: canonical GAExecutionConfig budget (Fix 1 attribution)
-  // Fix 3: badge is truthful — untouched 0 means adapter default 80, not "unlimited"
-  const { config: execConfig, isCustom } = useGAExecutionConfig();
-  const isUntouchedDefault = execConfig.maxToolCalls === 0 && !isCustom;
-  const maxToolCallsLabel = isUntouchedDefault
-    ? '80 calls'
-    : execConfig.maxToolCalls === 0
-      ? 'unlimited'
-      : `${execConfig.maxToolCalls} calls`;
-  const maxToolCallsHint = isUntouchedDefault
-    ? 'maxToolCalls: 80 (adapter default, untouched) — raise in Settings or ExecutionControls; 0 = unlimited when touched'
-    : execConfig.maxToolCalls === 0
-      ? 'maxToolCalls: unlimited (touched) — adapter budget disabled'
-      : `maxToolCalls: ${execConfig.maxToolCalls} (adapter enforces per-turn limit; default 80 when untouched)`;
 
   // Pre-fill with @mention when replying
   useEffect(() => {
@@ -500,13 +505,13 @@ function M11CComposer({
     // keyboard (Enter sends), validation, and states are unchanged. No
     // delivery/permission claims: HTTP 201 establishes none (recorded gap).
     <div
-      className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] p-2 focus-within:border-[var(--vestara-accent-border-hover)]"
+      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[linear-gradient(180deg,var(--vestara-accent-bg),transparent_55%),var(--vestara-surface-panel-raised)] p-2.5 shadow-[0_10px_36px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_var(--vestara-surface-sheen)] transition-shadow duration-200 focus-within:border-[var(--vestara-accent-border-hover)] focus-within:shadow-[0_0_0_1px_var(--vestara-accent-border-hover),0_0_32px_var(--vestara-accent-bg)]"
       role="form"
       aria-label="Message composer"
     >
       {/* Reply context — existing referencedActivityIds mechanism only */}
       {replyTo && (
-        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1 text-xs text-[var(--vestara-text-muted)]">
+        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] shadow-[inset_2px_0_0_var(--vestara-accent)]">
           <span aria-hidden="true">↩</span>
           <span className="min-w-0 flex-1 truncate">
             Replying to <strong className="font-medium text-[var(--vestara-text-secondary)]">{replyTo.actor.displayName}</strong>
@@ -524,28 +529,15 @@ function M11CComposer({
         </div>
       )}
 
-      <div className="flex min-w-0 items-center gap-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         {/* Target: fixed all-agents contract, presented truthfully */}
         <span
-          className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-2 py-0.5 text-[11px] font-medium text-[var(--vestara-text-muted)]"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
           title="Messages from this composer are addressed to all agents in this room"
         >
+          <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
           All agents
         </span>
-        {/* maxToolCalls badge — display-only, no write path (approved plan) */}
-        <span
-          className="shrink-0 rounded-[var(--vestara-radius-full)] border px-2 py-0.5 text-[10px] font-medium"
-          style={{
-            borderColor: 'var(--vestara-border-subtle)',
-            color: 'var(--vestara-text-muted)',
-            background: 'var(--vestara-surface-panel)',
-          }}
-          title={maxToolCallsHint}
-          aria-label={`Tool budget ${maxToolCallsLabel}`}
-        >
-          {maxToolCallsLabel}
-        </span>
-
         {/* Input */}
         <input
           ref={inputRef}
@@ -554,10 +546,18 @@ function M11CComposer({
           onChange={(e) => { setValue(e.target.value); setError(null); }}
           onKeyDown={handleKeyDown}
           placeholder={sending ? 'Sending…' : 'Message the room…'}
-          className="min-h-9 min-w-0 flex-1 bg-transparent text-sm text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-muted)] focus:outline-none disabled:opacity-60"
+          className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-sm text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:outline-none disabled:opacity-60"
           disabled={sending}
           aria-label="Message input"
         />
+
+        {/* Keyboard hint */}
+        <kbd
+          aria-hidden="true"
+          className="hidden shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-dim)] sm:inline-block"
+        >
+          ↵
+        </kbd>
 
         {/* Send */}
         <button
@@ -565,7 +565,7 @@ function M11CComposer({
           onClick={handleSend}
           disabled={!value.trim() || sending}
           aria-label={sending ? 'Sending message' : 'Send message'}
-          className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-lg leading-none text-[var(--color-zinc-950)] transition-colors hover:bg-[var(--vestara-accent-light)] disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
+          className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_55%,var(--vestara-accent-dark))] text-lg leading-none text-[var(--color-zinc-950)] shadow-[0_4px_16px_-4px_var(--vestara-accent-bg),0_0_12px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_6px_20px_-4px_var(--vestara-accent-bg),0_0_18px_var(--vestara-accent-bg)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
         >
           <span aria-hidden="true">{sending ? '…' : '→'}</span>
         </button>

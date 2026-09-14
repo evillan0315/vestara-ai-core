@@ -183,7 +183,85 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
   };
 }
 
-function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean = true): M11CStreamItem {
+/**
+ * Map a projection `kind` (toProjectionRecord wire shape) to a stream kind,
+ * mirroring M10's classifyKind as closely as the wire fields allow. The wire
+ * carries no M9 type, so agent messages split on actor: human → conversation,
+ * agent → activity.
+ */
+function projectionKindToStreamKind(projectionKind: string, actorType: string): string {
+  switch (projectionKind) {
+    case 'agent-message':
+      return actorType === 'human' ? 'conversation' : 'activity';
+    case 'workflow':
+    case 'task':
+    case 'acceptance':
+      return 'activity';
+    case 'tool-call':
+      return 'tool-call';
+    case 'tool-result':
+      return 'tool-result';
+    case 'test':
+    case 'verification':
+      return 'evidence';
+    default:
+      return 'activity';
+  }
+}
+
+/** Projection wire shape delivered by M11B (toProjectionRecord output). */
+interface ProjectionWireRecord {
+  readonly id: string;
+  readonly sequence: number;
+  readonly timestamp: string;
+  readonly kind: string;
+  readonly actor: { readonly type: string; readonly id: string; readonly displayName: string; readonly role?: string };
+  readonly content?: string;
+  readonly toolName?: string;
+  readonly callID?: string;
+  readonly workflowId?: string;
+  readonly sessionId?: string;
+  readonly referencedActivityIds?: readonly string[];
+}
+
+/**
+ * Convert a live-arriving record to a stream item.
+ *
+ * Two wire shapes reach this converter and both must work:
+ * - M11B live delivery: toProjectionRecord output (id/sequence/kind/content).
+ * - /v1/activities history pages: raw M9 records
+ *   (activityId/sequenceNumber/type/payload).
+ * M9 records never carry a `kind` field, so its presence selects the branch.
+ */
+export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean = true): M11CStreamItem {
+  const wire = activity as Partial<ProjectionWireRecord> & M11AActivityRecord;
+  if (typeof wire.kind === 'string' && typeof wire.id === 'string' && typeof wire.sequence === 'number') {
+    const record = wire as ProjectionWireRecord & M11AActivityRecord;
+    const kind = projectionKindToStreamKind(record.kind, record.actor.type);
+    const importance: M11CStreamItem['importance'] =
+      kind === 'conversation' ? 'primary' : kind === 'tool-call' || kind === 'tool-result' ? 'muted' : 'secondary';
+    const actorRole = typeof record.actor.role === 'string' ? record.actor.role : undefined;
+    return {
+      id: record.id,
+      sequence: record.sequence,
+      timestamp: record.timestamp,
+      kind,
+      importance,
+      actor: {
+        type: record.actor.type,
+        id: record.actor.id,
+        displayName: record.actor.displayName,
+        ...(actorRole ? { role: actorRole } : {}),
+      },
+      content: record.content ?? record.toolName ?? record.callID ?? '',
+      workflowRunId: typeof record.workflowId === 'string' ? record.workflowId : undefined,
+      executionId: record.executionId,
+      taskId: record.taskId,
+      fresh,
+      referencedActivityIds: Array.isArray(record.referencedActivityIds) ? record.referencedActivityIds : undefined,
+    };
+  }
+
   // Map M9 type to stream kind (simplified — full mapping lives in M10)
   const kindMap: Record<string, string> = {
     'workflow.started': 'activity',

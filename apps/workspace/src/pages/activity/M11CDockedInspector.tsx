@@ -84,13 +84,17 @@ export default function DockedInspector({
   })();
 
   return (
-    <div
-      ref={panelRef}
-      className="ar-inspector"
-      role="complementary"
-      aria-label="Activity detail"
-      tabIndex={-1}
-    >
+    <>
+      {/* Dimming layer for overlay modes (drawer/sheet below docking width).
+          Hidden by CSS wherever the inspector docks. */}
+      <div className="ar-inspector-backdrop" onClick={onClose} aria-hidden="true" />
+      <div
+        ref={panelRef}
+        className="ar-inspector"
+        role="complementary"
+        aria-label="Activity detail"
+        tabIndex={-1}
+      >
       {/* Header */}
       <div className="ar-inspector__header">
         <h3 className="ar-inspector__title">Detail</h3>
@@ -192,6 +196,7 @@ export default function DockedInspector({
           </div>
         )}
       </div>
-    </div>
+      </div>
+    </>
   );
 }

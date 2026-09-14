@@ -105,12 +105,137 @@
   margin-top: 0.75rem;
 }
 
+/* Page root (M11CActivityRoomPage .ar-page) — fit-to-screen guard.
+   The page renders as a fragment child of the shell's padded outlet, so
+   it must never force horizontal overflow: every descendant chain keeps
+   min-width:0 and long content wraps instead of pushing the viewport. */
+.ar-page {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  min-height: 0;
+  /* clip (not hidden): guards horizontal overflow without creating a
+     scroll container, so sticky children keep working. */
+  overflow-x: clip;
+}
+
+.ar-page > * {
+  max-width: 100%;
+}
+
+/* Viewport-fit (desktop ≥1024px): the room spans exactly from below the
+   breadcrumbs to the viewport bottom — header h-16 (4rem) + container
+   pt-6 (1.5rem) + breadcrumbs (~1.5rem + mb-5) + container pb-8 (2rem)
+   = 10rem of shell chrome. The page owns no scroll here: hero/banners
+   keep natural height, the working area takes the rest, the stream
+   scrolls internally, and the composer stays pinned in view. A min-height
+   floor keeps short viewports usable via the shell's page scroll. */
+@media (min-width: 1024px) {
+  .ar-page {
+    /* +20px chrome correction so the room ends flush with the viewport. */
+    height: calc(100vh - 10rem + 20px);
+    height: calc(100dvh - 10rem + 20px);
+    min-height: 30rem;
+    overflow: hidden;
+  }
+
+  .ar-page > * {
+    flex-shrink: 0;
+  }
+
+  .ar-page > .ar-workarea {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* Main panel children: chrome stays fixed, only the stream flexes.
+     Doubled selector wins over the earlier min-height:28rem rule. */
+  .ar-page .ar-panel--main {
+    min-height: 0;
+  }
+
+  .ar-panel--main > .ar-panel__head,
+  .ar-panel--main > .ar-workflow-strip,
+  .ar-panel--main > .ar-live-now {
+    flex-shrink: 0;
+  }
+
+  /* Bounded by the flex parent — still the one legitimate scroller. */
+  .ar-panel--main .ar-scroll {
+    max-height: none;
+  }
+}
+
+/* Below desktop the page scrolls naturally; the composer sticks to the
+   top of the viewport so it stays visible while reading history. */
+@media (max-width: 1023px) {
+  .ar-composer-pin {
+    position: sticky;
+    top: 0.5rem;
+    z-index: 20;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+  }
+}
+
+/* Stream status footer never surrenders space in the flex column. */
+.ar-foot {
+  flex-shrink: 0;
+}
+
+/* ── Workflows right panel ────────────────────────────────────
+   Hidden below xl (the inline strip/disclosure cover those widths).
+   At xl+ the browser docks right; the inline variants hide wherever
+   the aside is visible, and the aside unmounts while the inspector
+   docks so the stream keeps room. */
+
+.ar-panel--workflows {
+  display: none;
+  min-width: 0;
+  max-width: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
+  padding: 0.625rem;
+}
+
+.ar-panel--workflows .ar-workflow-browser {
+  border-right: none;
+}
+
+@media (min-width: 1280px) {
+  .ar-panel--workflows {
+    display: flex;
+    flex-shrink: 0;
+    width: 16rem;
+  }
+
+  .ar-workarea:not(.ar-workarea--detail) .ar-workflow-strip--inline,
+  .ar-workarea:not(.ar-workarea--detail) .ar-workflows-disclosure {
+    display: none;
+  }
+}
+
 /* Live-feed scroll region: the Activity Stream list is the ONE legitimate
    bounded scroller (008A/008F). Unbounded growth would push follow-live,
    unread, and viewport reporting onto page scroll and break the frozen
-   realtime contracts. */
+   realtime contracts. The bound is viewport-aware so the stream + composer
+   fit on screen instead of running past the fold on short viewports. */
 .ar-panel--main .ar-scroll {
   max-height: 44rem;
+  max-height: min(44rem, calc(100vh - 26rem));
+  max-height: min(44rem, calc(100dvh - 26rem));
+  min-height: 12rem;
+}
+
+@media (max-width: 639px) {
+  .ar-panel--main .ar-scroll {
+    max-height: 32rem;
+    max-height: min(32rem, calc(100vh - 22rem));
+    max-height: min(32rem, calc(100dvh - 22rem));
+    min-height: 10rem;
+  }
 }
 
 /* Ambient atmosphere — a dark holographic space. A cool spectral band
@@ -409,6 +534,8 @@
   gap: 0.75rem;
   flex: 1;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 @media (min-width: 768px) {
@@ -424,6 +551,8 @@
   display: flex;
   flex-direction: column;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--ar-hairline-strong);
   border-radius: 10px;
   background: var(--ar-panel-bg);
@@ -438,6 +567,8 @@
 
 .ar-panel--rail {
   display: none;
+  min-width: 0;
+  max-width: 100%;
   max-height: 14rem;
   overflow-y: auto;
   padding: 0.625rem;
@@ -479,6 +610,8 @@
    and the unit list is capped so the stream stays the dominant share. */
 .ar-workflow-strip {
   margin-bottom: 0.625rem;
+  min-width: 0;
+  max-width: 100%;
   border: 1px solid var(--ar-hairline);
   border-radius: 8px;
   background: var(--ar-rail-bg);
@@ -523,14 +656,26 @@
 }
 
 .ar-panel--main {
+  position: relative;
   flex: 1;
   min-width: 0;
-  min-height: 28rem;
+  max-width: 100%;
+  min-height: 20rem;
+  /* clip (not hidden): contains the jump button without breaking the
+     sticky composer on mobile. */
+  overflow: clip;
   padding: 0.625rem 0.75rem 0.75rem;
+}
+
+/* Composer wrapper (M11CComposer root): never surrender space in the
+   flex column; sticks to the viewport bottom below desktop. */
+.ar-composer-pin {
+  flex-shrink: 0;
 }
 
 @media (min-width: 640px) {
   .ar-panel--main {
+    min-height: 28rem;
     padding: 0.75rem 0.875rem 0.875rem;
   }
 }
@@ -952,7 +1097,10 @@
 .ar-stream-filter__right {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 0.375rem;
+  min-width: 0;
+  max-width: 100%;
   flex-shrink: 0;
 }
 
@@ -965,7 +1113,10 @@
 }
 
 .ar-stream-filter__search {
-  width: 140px;
+  flex: 1 1 auto;
+  width: 100%;
+  max-width: 140px;
+  min-width: 0;
   padding: 0.25rem 0.5rem;
   font-size: 11px;
   color: var(--ar-ink);
@@ -990,9 +1141,16 @@
   display: none;
   flex-direction: column;
   height: 100%;
+  min-height: 0;
   min-width: 0;
+  max-width: 100%;
   border-left: 1px solid var(--ar-hairline);
   background: var(--ar-panel-bg);
+}
+
+/* Dimming layer behind the overlay drawer/sheet. Never shown docked. */
+.ar-inspector-backdrop {
+  display: none;
 }
 
 @media (min-width: 1440px) {
@@ -1000,6 +1158,57 @@
     display: flex;
     flex-shrink: 0;
     width: 20rem;
+    max-height: 100%;
+    overflow: hidden;
+  }
+}
+
+/* Below docking width the inspector renders as an overlay instead of
+   reserving grid space (the grid has no inspector track there): a right
+   drawer on tablet/desktop, a bottom sheet on phones. Without this the
+   detail selection would open an invisible panel. */
+@media (max-width: 1439px) {
+  .ar-inspector-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 58;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+  }
+
+  .ar-inspector {
+    display: flex;
+    position: fixed;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 59;
+    height: auto;
+    max-height: none;
+    width: 20rem;
+    width: min(20rem, calc(100vw - 2rem));
+    max-width: calc(100vw - 2rem);
+    border-left: 1px solid var(--ar-hairline-strong);
+    border-radius: 0;
+    box-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+  }
+}
+
+@media (max-width: 639px) {
+  .ar-inspector {
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    width: 100%;
+    max-width: 100%;
+    max-height: 70vh;
+    max-height: min(70dvh, 32rem);
+    border-left: none;
+    border-top: 1px solid var(--ar-hairline-strong);
+    border-radius: 12px 12px 0 0;
   }
 }
 
@@ -1040,6 +1249,7 @@
 
 .ar-inspector__content {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 0.5rem 0.75rem;
 }
@@ -1060,6 +1270,8 @@
 .ar-inspector__value {
   font-size: 12px;
   color: var(--ar-ink);
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ar-inspector__row {
@@ -1077,13 +1289,17 @@
   font-size: 12px;
   color: var(--ar-ink-2);
   line-height: 1.5;
+  min-width: 0;
   word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .ar-inspector__meta {
   font-size: 11px;
   color: var(--ar-ink-muted);
   line-height: 1.6;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .ar-inspector__drill-down {
@@ -1116,9 +1332,11 @@
   font-size: 11px;
   color: var(--ar-ink-2);
   margin-top: 0.25rem;
+  min-width: 0;
   line-clamp: 2;
   overflow: hidden;
   text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 
 /* ── Workflow Browser Column ─────────────────────────────────── */
@@ -1336,7 +1554,14 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  min-width: 0;
   max-width: 240px;
+}
+
+@media (max-width: 639px) {
+  .ar-live-now__narrative {
+    max-width: 40vw;
+  }
 }
 
 /* ── Stream items ───────────────────────────────────────────── */
@@ -1495,6 +1720,8 @@
   gap: 0.625rem;
   height: 100%;
   min-height: 0;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ar-rail__head {
@@ -1521,6 +1748,7 @@
   display: flex;
   flex: 1;
   min-height: 0;
+  min-width: 0;
   flex-direction: column;
   gap: 0.25rem;
   padding: 0.125rem;
@@ -1537,33 +1765,40 @@
 
 .ar-rail__filters {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.375rem;
+  min-width: 0;
   padding: 0.375rem 0;
   border-bottom: 1px solid var(--ar-hairline);
 }
 
 .ar-rail__search {
   flex: 1;
+  min-width: 0;
   position: relative;
 }
 
 .ar-rail__search-input {
   width: 100%;
-  height: 1.625rem;
-  padding: 0 0.5rem;
-  border-radius: 6px;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border-radius: 8px;
   border: 1px solid var(--ar-hairline);
-  background: var(--ar-surface-sunken);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, white 2%, transparent), transparent 50%),
+    var(--ar-surface-sunken);
   color: var(--ar-ink);
-  font-size: 10px;
-  letter-spacing: 0.04em;
+  font-size: 11px;
+  letter-spacing: 0.02em;
   outline: none;
   transition: border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
 .ar-rail__search-input:focus {
   border-color: var(--ar-hairline-strong);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--vestara-accent) 10%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--vestara-accent) 12%, transparent),
+    0 0 14px color-mix(in srgb, var(--vestara-accent) 8%, transparent);
 }
 
 .ar-rail__search-input::placeholder {
@@ -1625,19 +1860,36 @@
   justify-content: space-between;
   gap: 0.5rem;
   width: 100%;
-  padding: 0.375rem 0.625rem;
+  padding: 0.625rem 0.75rem;
   text-align: left;
   cursor: pointer;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  transition: background 0.18s ease, border-color 0.18s ease;
+  border: 1px solid var(--ar-hairline);
+  border-radius: 10px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 7%, transparent), transparent 60%),
+    var(--ar-surface-raised);
+  box-shadow:
+    inset 0 1px 0 var(--ar-sheen),
+    0 4px 14px -8px rgba(0, 0, 0, 0.7);
+  transition: background 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.ar-rail__all:hover,
+.ar-rail__all:hover {
+  border-color: var(--ar-hairline-strong);
+  box-shadow:
+    inset 0 1px 0 var(--ar-sheen),
+    0 4px 14px -8px rgba(0, 0, 0, 0.7),
+    0 0 12px color-mix(in srgb, var(--ar-gold) 10%, transparent);
+}
+
 .ar-rail__all--active {
-  border-color: var(--ar-hairline);
-  background: var(--ar-gold-veil);
+  border-color: var(--ar-hairline-strong);
+  background:
+    linear-gradient(90deg, var(--ar-gold-veil), transparent 80%),
+    var(--ar-surface-raised);
+  box-shadow:
+    inset 2px 0 0 color-mix(in srgb, var(--vestara-accent-dark) 85%, transparent),
+    0 0 14px color-mix(in srgb, var(--ar-gold) 12%, transparent);
 }
 
 .ar-rail__all-label {
@@ -1963,11 +2215,13 @@
 
 .ar-jump {
   position: absolute;
+  z-index: 10;
   right: 1rem;
   bottom: 2.25rem;
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
+  max-width: calc(100% - 2rem);
   padding: 0.375rem 0.875rem;
   font-size: 11px;
   font-weight: 600;
@@ -2143,9 +2397,12 @@
 }
 
 .ar-modal {
-  max-width: 32rem;
+  width: 32rem;
+  width: min(32rem, calc(100vw - 2rem));
+  max-width: 100%;
   margin: 0 1rem;
   max-height: 85vh;
+  max-height: min(85vh, 85dvh);
   overflow-y: auto;
   padding: 1.125rem 1.25rem;
   border: 1px solid var(--ar-hairline-strong);

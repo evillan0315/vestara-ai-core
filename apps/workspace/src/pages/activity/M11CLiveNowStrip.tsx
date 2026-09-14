@@ -27,8 +27,6 @@ interface LiveNowStripProps {
   readonly participants: readonly ParticipantProjection[];
   /** Recent stream items (last N) to derive live narrative. */
   readonly stream: readonly M11CStreamItem[];
-  /** Whether the room is connected and live. */
-  readonly isLive: boolean;
 }
 
 interface LiveParticipant {
@@ -67,7 +65,6 @@ function deriveLatestContent(
 export default function M11CLiveNowStrip({
   participants,
   stream,
-  isLive,
 }: LiveNowStripProps) {
   // Only show participants who are online or active
   const liveParticipants = useMemo(() => {
@@ -97,14 +94,10 @@ export default function M11CLiveNowStrip({
     );
   }, [participants, stream]);
 
+  // No idle placeholder: when nobody is live the strip collapses entirely
+  // and the stream owns the space.
   if (liveParticipants.length === 0) {
-    return (
-      <div className="ar-live-now" role="status" aria-live="polite">
-        <span className="ar-live-now__idle">
-          {isLive ? 'No active participants' : 'Waiting for connection…'}
-        </span>
-      </div>
-    );
+    return null;
   }
 
   return (

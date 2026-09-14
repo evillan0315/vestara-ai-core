@@ -10,7 +10,7 @@
  * Aggregated items use M10's referencedActivityIds/sequenceRange.
  */
 
-import { memo, useCallback } from 'react';
+import { memo, useCallback, useState } from 'react';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
@@ -88,6 +88,9 @@ interface M11CStreamItemProps {
 // strings, not kinds. No callID exists in the projection chain, so pairing
 // is limited to shared subordinate markers by kind.
 
+/** Content length above which a stream item body starts collapsed. */
+const COLLAPSE_THRESHOLD = 280;
+
 type VisualClass =
   | 'human'
   | 'agent-note'
@@ -132,14 +135,15 @@ const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
     glyph: '✎',
     tone: 'var(--vestara-status-info)',
     container:
-      'border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2.5',
-    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+      'border border-[var(--vestara-border-default)] bg-[linear-gradient(180deg,var(--vestara-accent-bg),transparent_45%),var(--vestara-surface-panel-raised)] px-3.5 py-3 shadow-[inset_2px_0_0_var(--vestara-status-info),0_8px_20px_-12px_rgba(0,0,0,0.7)]',
+    heading: 'text-sm font-medium leading-relaxed text-[var(--vestara-text)]',
   },
   'agent-note': {
     glyph: '❝',
     tone: 'var(--vestara-accent-text)',
-    container: 'border border-[var(--vestara-border-subtle)] px-3 py-2',
-    heading: 'text-xs text-[var(--vestara-text-secondary)]',
+    container:
+      'border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3.5 py-2.5 shadow-[inset_2px_0_0_var(--vestara-accent)]',
+    heading: 'text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]',
   },
   work: {
     glyph: '◆',
@@ -260,6 +264,25 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   }, [item, onOpenDetail, onDrillDown]);
 
   const initial = actor.unknown ? '?' : (actor.name.trim()[0] ?? '?').toUpperCase();
+
+  // Collapsible body: logs, activities, and items with long content render
+  // clamped with a Show more/less toggle instead of pushing the stream.
+  const collapsible = (item.content?.length ?? 0) > COLLAPSE_THRESHOLD;
+  const [expanded, setExpanded] = useState(false);
+
+  const toggleExpanded = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpanded((v) => !v);
+  }, []);
+
+  // Accordion: every log, activity, and item collapses to its header row,
+  // leaving the actor + timestamp visible while the body hides.
+  const [collapsed, setCollapsed] = useState(false);
+
+  const toggleCollapsed = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCollapsed((v) => !v);
+  }, []);
 
   // ─── Aggregated Item ────────────────────────────────────
   if (item.aggregated) {
@@ -415,14 +438,28 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               </span>
             )}
           </span>
-          <span
-            className="shrink-0 text-[11px] text-[var(--vestara-text-muted)]"
-            title={item.timestamp}
-          >
-            {formatTimestamp(item.timestamp)}
+          <span className="flex shrink-0 items-center gap-1">
+            <span
+              className="text-[11px] text-[var(--vestara-text-muted)]"
+              title={item.timestamp}
+            >
+              {formatTimestamp(item.timestamp)}
+            </span>
+            <button
+              type="button"
+              onClick={toggleCollapsed}
+              aria-expanded={!collapsed}
+              aria-label={collapsed ? `Expand ${actor.name} activity` : `Collapse ${actor.name} activity`}
+              className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            >
+              <span aria-hidden="true" className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}>▾</span>
+            </button>
           </span>
         </div>
 
+        {/* Accordion body: reply context, content, and actions */}
+        {!collapsed && (
+        <>
         {/* Reply indicator — clickable to open thread view */}
         {item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
           <button
@@ -449,12 +486,23 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           </button>
         )}
 
-        <div className={`mt-0.5 leading-relaxed ${config.heading}`}>
+        <div className={`mt-0.5 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere] ${!expanded && collapsible ? 'line-clamp-3' : ''} ${config.heading}`}>
           {item.content || <span className="italic">{item.kind}</span>}
         </div>
 
         {/* Metadata line */}
         <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--vestara-text-muted)]">
+          {collapsible && (
+            <button
+              type="button"
+              onClick={toggleExpanded}
+              aria-expanded={expanded}
+              aria-label={expanded ? 'Collapse message' : 'Expand message'}
+              className="shrink-0 cursor-pointer font-semibold text-[var(--vestara-accent-text)] transition-colors hover:text-[var(--vestara-accent-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            >
+              {expanded ? '▴ Show less' : '▾ Show more'}
+            </button>
+          )}
           {showBadge && <span className="mpg-tag-pill">{item.kind}</span>}
           {visual === 'attention' && <StatusBadge label={item.kind} tone="error" />}
           {visual === 'verification' && <StatusBadge label={item.kind} tone="success" />}
@@ -494,6 +542,8 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             </button>
           )}
         </div>
+        </>
+        )}
       </div>
     </div>
   );
