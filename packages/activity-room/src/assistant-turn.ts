@@ -73,8 +73,9 @@ interface AssistantConversationService {
 export interface TriggerAssistantTurnOptions {
   /**
    * The agent taking the turn. Defaults to 'agent-assistant' (legacy AR-006
-   * behavior). The route allowlists turn-capable ids (assistant, developer,
-   * reviewer, planner); config/display resolve from AgentDefinition.
+   * behavior). The route allowlists turn-capable ids (assistant, context,
+   * planner, developer, reviewer, verifier); config/display resolve from
+   * AgentDefinition.
    */
   readonly agentId?: string;
   /** The persisted human message record. */
@@ -101,9 +102,11 @@ interface AssistantExecutionConfig {
 /** Fallback display names when AgentDefinition carries none. */
 const AGENT_DISPLAY_NAMES: Record<string, string> = {
   'agent-assistant': 'Assistant',
+  'agent-context': 'Context',
   'agent-developer': 'Developer',
   'agent-reviewer': 'Reviewer',
   'agent-planner': 'Planner',
+  'agent-verifier': 'Verifier',
 };
 
 /**
@@ -142,8 +145,15 @@ async function resolveAssistantConfig(
  *   5. Return AssistantTurnResult
  */
 export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions): Promise<AssistantTurnResult> {
-  const { agentId = 'agent-assistant', humanRecord, service, conversationService, agentStorage, logger, executionConfig } =
-    options;
+  const {
+    agentId = 'agent-assistant',
+    humanRecord,
+    service,
+    conversationService,
+    agentStorage,
+    logger,
+    executionConfig,
+  } = options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
 

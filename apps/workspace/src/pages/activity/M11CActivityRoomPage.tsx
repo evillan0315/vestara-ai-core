@@ -328,7 +328,7 @@ export default function M11CActivityRoomPage() {
           {/* Composer first: always at the top of the panel, always in
               view — never pushed below the fold or covered by floating
               chrome at the viewport bottom. */}
-          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} />
+          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} participants={room.participants} />
 
           {/* Live Now Strip (collapses to nothing when nobody is live) */}
           <M11CLiveNowStrip
@@ -434,21 +434,27 @@ export default function M11CActivityRoomPage() {
 /**
  * Recognized @mention aliases → explicit agent targets. The targeted agent
  * takes a conversation-runtime turn on send (server allowlist mirrors this
- * set); unrecognized mentions stay a plain all-agents broadcast.
+ * set); unrecognized mentions stay a plain all-agents broadcast (no turn,
+ * never an Assistant fallback). Browser/coder are intentionally NOT
+ * addressable here: browser owns its surface, coder works via developer.
  */
 const AGENT_MENTION_TARGETS = [
   { pattern: /@(?:vestara|assistant|agent-assistant)\b/i, agentId: 'agent-assistant' },
+  { pattern: /@(?:context|agent-context)\b/i, agentId: 'agent-context' },
   { pattern: /@(?:developer|agent-developer)\b/i, agentId: 'agent-developer' },
   { pattern: /@(?:reviewer|agent-reviewer)\b/i, agentId: 'agent-reviewer' },
   { pattern: /@(?:planner|agent-planner)\b/i, agentId: 'agent-planner' },
+  { pattern: /@(?:verifier|agent-verifier)\b/i, agentId: 'agent-verifier' },
 ] as const;
 
 /** Chip labels for targeted agents. */
 const MENTION_TARGET_LABELS: Record<string, string> = {
   'agent-assistant': 'Assistant',
+  'agent-context': 'Context',
   'agent-developer': 'Developer',
   'agent-reviewer': 'Reviewer',
   'agent-planner': 'Planner',
+  'agent-verifier': 'Verifier',
 };
 
 // ─── Visual/Non-Mutating Composer ──────────────────────────
@@ -460,16 +466,52 @@ const MENTION_TARGET_LABELS: Record<string, string> = {
  *
  * Premium UX: clean input with integrated send, compact secondary actions.
  */
+/** Minimal participant fields the composer picker needs (subset of ParticipantProjection). */
+interface ParticipantOption {
+  readonly participantId: string;
+  readonly displayName: string;
+  readonly role?: string;
+  readonly modelId?: string;
+  readonly providerId?: string;
+  readonly modelDisplayName?: string;
+  readonly workState?: string;
+}
+
+/** participantId (agent-agent-*) → canonical room agentId for addressable targets. */
+function participantToAgentId(participantId: string): string | null {
+  const raw = participantId.replace(/^agent-/, '');
+  const match = AGENT_MENTION_TARGETS.find((entry) => {
+    const id = entry.agentId;
+    return raw === id;
+  });
+  return match ? match.agentId : null;
+}
+
+/** @alias text inserted by the picker for a canonical agentId. */
+const AGENT_ALIASES: Record<string, string> = {
+  'agent-assistant': 'assistant',
+  'agent-context': 'context',
+  'agent-developer': 'developer',
+  'agent-reviewer': 'reviewer',
+  'agent-planner': 'planner',
+  'agent-verifier': 'verifier',
+};
+
 function M11CComposer({
   replyTo,
   onClearReply,
+  participants = [],
 }: {
   replyTo?: M11CStreamItem | null;
   onClearReply?: () => void;
+  participants?: readonly ParticipantOption[];
 }) {
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mentionOpen, setMentionOpen] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState('');
+  const [structuredTarget, setStructuredTarget] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Pre-fill with @mention when replying
@@ -487,11 +529,12 @@ function M11CComposer({
     setSending(true);
     setError(null);
     try {
-      // @mention routing: a recognized agent alias targets that agent so its
-      // turn fires (AR-006 generalized beyond the Assistant). First alias
-      // wins; anything else broadcasts to all agents. Without this, M11C
-      // always sent all-agents → no turn, appearing as "nothing happens".
-      const mentionTarget = AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(text));
+      // Structured target (picker) wins; otherwise a recognized @alias in
+      // text targets that agent. Anything else broadcasts (no turn, no
+      // fallback). First alias wins.
+      const mentionTarget = structuredTarget
+        ? { agentId: structuredTarget }
+        : AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(text));
       const targets = mentionTarget
         ? ([{ type: 'agent', agentId: mentionTarget.agentId }] as const)
         : ([{ type: 'all-agents' }] as const);
@@ -502,30 +545,93 @@ function M11CComposer({
         referencedActivityIds: replyTo ? [replyTo.id] : undefined,
       });
       setValue('');
+      setStructuredTarget(null);
+      setMentionOpen(false);
       onClearReply?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send');
     } finally {
       setSending(false);
     }
-  }, [value, sending, replyTo, onClearReply]);
+  }, [value, sending, replyTo, onClearReply, structuredTarget]);
+
+  const handleChange = useCallback((next: string) => {
+    setValue(next);
+    setError(null);
+    if (structuredTarget) setStructuredTarget(null);
+    const at = next.lastIndexOf('@');
+    if (at !== -1 && !next.slice(at + 1).includes(' ')) {
+      setMentionQuery(next.slice(at + 1));
+      setMentionOpen(true);
+    } else {
+      setMentionOpen(false);
+    }
+  }, [structuredTarget]);
+
+  const chooseMention = useCallback((agentId: string) => {
+    const alias = AGENT_ALIASES[agentId] ?? agentId;
+    setStructuredTarget(agentId);
+    setMentionOpen(false);
+    setValue((prev) => {
+      const at = prev.lastIndexOf('@');
+      if (at === -1) return `@${alias} ${prev}`;
+      return `${prev.slice(0, at)}@${alias} `;
+    });
+    inputRef.current?.focus();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
         handleSend();
+        return;
+      }
+      if (e.key === 'Escape' && mentionOpen) {
+        e.preventDefault();
+        setMentionOpen(false);
       }
     },
-    [handleSend],
+    [handleSend, mentionOpen],
   );
 
-  // Live target preview: reflects the @mention alias the send path will use.
-  const previewTarget = AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(value));
-  const previewLabel = previewTarget ? MENTION_TARGET_LABELS[previewTarget.agentId] : 'All agents';
+  // Live target preview: structured picker wins, else the @alias the send
+  // path will use. Addressable targets trigger that agent's turn.
+  const previewTarget = structuredTarget
+    ? { agentId: structuredTarget }
+    : AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(value));
+  const previewLabel = previewTarget ? (MENTION_TARGET_LABELS[previewTarget.agentId] ?? previewTarget.agentId) : 'All agents';
   const previewTitle = previewTarget
     ? `This message will target ${previewLabel} and trigger its turn`
-    : 'Messages from this composer are addressed to all agents in this room';
+    : 'Messages from this composer are addressed to all agents in this room (no turn)';
+
+  // Picker entries: addressable agents from live participants when
+  // available, else the static contract set (never advertise browser/coder).
+  const pickerEntries = useMemo(() => {
+    const byAgent = new Map<string, ParticipantOption>();
+    for (const p of participants) {
+      const agentId = participantToAgentId(p.participantId);
+      if (agentId && !byAgent.has(agentId)) byAgent.set(agentId, p);
+    }
+    const q = mentionQuery.toLowerCase();
+    const matches = (agentId: string, label: string) =>
+      q.length === 0 || agentId.toLowerCase().includes(q) || label.toLowerCase().includes(q);
+    const entries: Array<{ agentId: string; label: string; role?: string; meta?: string; state?: string }> = [];
+    for (const target of AGENT_MENTION_TARGETS) {
+      const label = MENTION_TARGET_LABELS[target.agentId] ?? target.agentId;
+      if (!matches(target.agentId, label)) continue;
+      const p = byAgent.get(target.agentId);
+      const meta = p ? [p.modelDisplayName ?? p.modelId, p.providerId].filter(Boolean).join(' · ') : undefined;
+      entries.push({
+        agentId: target.agentId,
+        label,
+        role: p?.role,
+        meta,
+        state: p?.workState,
+      });
+    }
+    return entries;
+  }, [participants, mentionQuery]);
 
   return (
     // VES-DESIGN-008E: first-class human participation surface. Bounded
@@ -567,18 +673,65 @@ function M11CComposer({
           <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
           {previewLabel}
         </span>
-        {/* Input */}
-        <input
-          ref={inputRef}
-          type="text"
-          value={value}
-          onChange={(e) => { setValue(e.target.value); setError(null); }}
-          onKeyDown={handleKeyDown}
-          placeholder={sending ? 'Sending…' : 'Message the room…'}
-          className="min-h-10 min-w-0 flex-1 bg-transparent px-1 text-sm text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:outline-none disabled:opacity-60"
-          disabled={sending}
-          aria-label="Message input"
-        />
+        {/* Input + @mention picker */}
+        <div className="relative min-w-0 flex-1">
+          <input
+            ref={inputRef}
+            type="text"
+            value={value}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder={sending ? 'Sending…' : 'Message the room… (@ for agents)'}
+            className="min-h-10 min-w-0 w-full bg-transparent px-1 text-sm text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:outline-none disabled:opacity-60"
+            disabled={sending}
+            aria-label="Message input"
+            aria-expanded={mentionOpen}
+            aria-autocomplete="list"
+          />
+          {mentionOpen && (
+            <div
+              role="listbox"
+              aria-label="Mention agents"
+              className="absolute bottom-full left-0 z-10 mb-1 max-h-64 w-72 overflow-y-auto rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-panel-raised)] p-1 shadow-2xl"
+            >
+              {pickerEntries.length === 0 ? (
+                <div className="px-2 py-1 text-[11px] text-[var(--vestara-text-muted)]">No matching agents.</div>
+              ) : (
+                pickerEntries.map((entry) => (
+                  <button
+                    key={entry.agentId}
+                    type="button"
+                    role="option"
+                    aria-selected={structuredTarget === entry.agentId}
+                    onClick={() => chooseMention(entry.agentId)}
+                    className="flex w-full items-center gap-2 rounded-[var(--vestara-radius)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--vestara-accent-bg)]"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="grid size-6 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[10px] font-semibold text-[var(--vestara-accent-text)]"
+                    >
+                      {entry.label.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="flex items-center gap-2">
+                        <span className="truncate text-xs font-medium text-[var(--vestara-text)]">{entry.label}</span>
+                        {entry.role && (
+                          <span className="shrink-0 text-[10px] capitalize text-[var(--vestara-text-muted)]">{entry.role}</span>
+                        )}
+                      </span>
+                      {entry.meta && (
+                        <span className="block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">{entry.meta}</span>
+                      )}
+                    </span>
+                    {entry.state && (
+                      <span className="shrink-0 text-[10px] capitalize text-[var(--vestara-text-muted)]">{entry.state}</span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
 
         {/* Keyboard hint */}
         <kbd

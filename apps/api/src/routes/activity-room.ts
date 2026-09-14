@@ -184,15 +184,15 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
-      // AR-006: Trigger an agent turn for targeted messages (@assistant,
-      // @developer, @reviewer, @planner) — forward executionConfig when
-      // provided. Unknown targeted ids keep the legacy Assistant turn.
-      if (record.agentId && record.agentId !== 'all-agents') {
+      // AR-006: Trigger an agent turn for targeted messages from addressable
+      // agents only. Non-addressable targets (browser/coder/unknown) produce
+      // NO turn — never fall back to Assistant (AR Convergence step 3).
+      if (record.agentId && TURN_CAPABLE_AGENTS.has(record.agentId)) {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
-        const turnAgentId = TURN_CAPABLE_AGENTS.has(record.agentId) ? record.agentId : 'agent-assistant';
+        const turnAgentId = record.agentId;
         void triggerAssistantTurn({
           agentId: turnAgentId,
           humanRecord: record,
@@ -534,16 +534,30 @@ function registerReceiptsForMessage(ctx: WorkspaceContext, record: AgentMessageA
 
 /**
  * Agent ids that take conversation-runtime turns when a composer message
- * targets them (@assistant, @developer, @reviewer, @planner).
+ * targets them (@assistant, @context, @planner, @developer, @reviewer,
+ * @verifier). Addressability contract (AR Convergence step 2):
+ * - assistant/context/planner/developer/reviewer/verifier = addressable
+ * - browser/coder/all-agents/unknown = NOT addressable (no turn, no fallback)
+ * Step 3 removed the silent Assistant fallback: a non-addressable target
+ * must never impersonate another agent.
  */
-const TURN_CAPABLE_AGENTS = new Set(['agent-assistant', 'agent-developer', 'agent-reviewer', 'agent-planner']);
+const TURN_CAPABLE_AGENTS = new Set([
+  'agent-assistant',
+  'agent-context',
+  'agent-planner',
+  'agent-developer',
+  'agent-reviewer',
+  'agent-verifier',
+]);
 
 /** Display names and roles for turn-capable agents (registry fallback). */
 const TURN_AGENT_IDENTITY: Record<string, { displayName: string; role: string }> = {
   'agent-assistant': { displayName: 'Assistant', role: 'assistant' },
+  'agent-context': { displayName: 'Context', role: 'context' },
   'agent-developer': { displayName: 'Developer', role: 'developer' },
   'agent-reviewer': { displayName: 'Reviewer', role: 'reviewer' },
   'agent-planner': { displayName: 'Planner', role: 'planning' },
+  'agent-verifier': { displayName: 'Verifier', role: 'verifier' },
 };
 
 /**
