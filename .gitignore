@@ -6,6 +6,7 @@ node_modules/
 # Stale compiled artifacts next to .ts sources
 *.js
 *.d.ts
+!types/sql-js.d.ts
 
 # Keep vitest config source only
 vitest.config.js
@@ -332,6 +333,7 @@ release/
 ###############################################################################
 
 models/
+!packages/trust/src/models/
 checkpoints/
 weights/
 embeddings/
