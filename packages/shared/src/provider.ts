@@ -212,4 +212,15 @@ export interface CompletionResponse {
     /** GA-RUNTIME-001: the OpenCode session that carried this completion (set when one was acquired). */
     runtimeSessionId?: string;
   };
+  /**
+   * GA-EXEC-002: structured execution result. Carries how the turn ended
+   * (termination, tool-call count, elapsed time) independently from the
+   * response content. Enables the UI to display structured failure
+   * information instead of raw error text.
+   */
+  executionResult?: {
+    termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
+    toolCallCount: number;
+    elapsedMs: number;
+  };
 }
