@@ -68,7 +68,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 ## CI (`/.github/workflows/ci.yml`)
 
-`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
+`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
 
 ## Runtime Env
 

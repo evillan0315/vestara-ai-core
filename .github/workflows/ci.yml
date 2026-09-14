@@ -50,6 +50,9 @@ jobs:
       - name: Documentation drift gate
         run: pnpm documentation:check
 
+      - name: Documentation governance (strict)
+        run: pnpm docs:govern
+
       - name: Upload documentation baseline evidence
         if: always()
         uses: actions/upload-artifact@v4
