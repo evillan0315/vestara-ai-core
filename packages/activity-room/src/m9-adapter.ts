@@ -125,6 +125,12 @@ export interface HumanMessageInput {
   /** Conversation identity. */
   readonly conversationId?: string;
 
+  /**
+   * Client/surface attribution (e.g. 'workspace-ui') — where the principal
+   * acted from. Informational only; never principal identity, never authorship.
+   */
+  readonly surface?: string;
+
   /** Workflow run context. */
   readonly workflowRunId?: WorkflowRunId;
 
@@ -186,6 +192,8 @@ export function fromHumanMessage(input: HumanMessageInput): ActivityEvent {
       message: input.message,
       ...(input.conversationId ? { conversationId: input.conversationId } : {}),
       ...(input.messageId ? { messageId: input.messageId } : {}),
+      // Surface travels as data (never actor identity): Principal ≠ Surface.
+      ...(input.surface ? { data: { surface: input.surface } } : {}),
     },
     visibility: 'all',
   };

@@ -67,7 +67,7 @@ export interface ConversationListPage {
 }
 
 export interface ConversationService {
-  createConversation(userId?: string, options?: { runtimeSessionId?: string }): Promise<Conversation>;
+  createConversation(userId?: string, options?: { runtimeSessionId?: string; agentId?: string }): Promise<Conversation>;
   sendMessage(conversationId: string, content: string, options?: SendOptions): Promise<SendResult>;
   closeConversation(conversationId: string): Promise<void>;
   listConversations(userId?: string): Promise<ConversationSummary[]>;
@@ -83,6 +83,17 @@ export interface ConversationService {
 
 export interface SendOptions {
   model?: string;
+  /**
+   * Target agent identity (e.g. 'agent-planner') — who the turn is addressed
+   * to. Selects execution configuration only; NEVER the message author.
+   * The author is always the conversation's userId (human principal).
+   */
+  agentId?: string;
+  /**
+   * Client/surface attribution (e.g. 'workspace-ui') — where the human
+   * principal acted from. Informational only; never principal identity.
+   */
+  surface?: string;
   /**
    * GA-RUNTIME-001: requested upstream provider ID (browser selection).
    * Bounded server-side; never trusted as execution authority.
@@ -163,13 +174,18 @@ export class DefaultConversationService implements ConversationService {
     return this.store.getConversation(id, options);
   }
 
-  async createConversation(userId = 'local', options?: { runtimeSessionId?: string }): Promise<Conversation> {
+  async createConversation(
+    userId = 'local',
+    options?: { runtimeSessionId?: string; agentId?: string },
+  ): Promise<Conversation> {
     const id = generateId('conv');
     const now = new Date().toISOString();
 
     const conversation: Conversation = {
       id,
       userId,
+      // GA-4.4: target/owning agent recorded separately — userId stays the human principal.
+      ...(options?.agentId ? { agentId: options.agentId } : {}),
       title: `Conversation ${++conversationCounter}`,
       messages: [],
       status: 'active',
@@ -217,7 +233,15 @@ export class DefaultConversationService implements ConversationService {
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
       source: 'conversation-service',
-      payload: { conversationId, messageId: userMessage.id, content },
+      // Principal (conversation.userId) stays the author; target/surface ride
+      // the payload so ingestion never conflates them into authorship.
+      payload: {
+        conversationId,
+        messageId: userMessage.id,
+        content,
+        ...(options.agentId ? { targetAgentId: options.agentId } : {}),
+        ...(options.surface ? { surface: options.surface } : {}),
+      },
       actor: { id: conversation.userId, role: 'user' },
       metadata: {},
     });
@@ -364,7 +388,14 @@ export class DefaultConversationService implements ConversationService {
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
       source: 'conversation-service',
-      payload: { conversationId, messageId: userMessage.id, content },
+      // Same principal/target/surface split as sendMessage (streaming path).
+      payload: {
+        conversationId,
+        messageId: userMessage.id,
+        content,
+        ...(options.agentId ? { targetAgentId: options.agentId } : {}),
+        ...(options.surface ? { surface: options.surface } : {}),
+      },
       actor: { id: conversation.userId, role: 'user' },
       metadata: {},
     });

@@ -542,6 +542,10 @@ function M11CComposer({
         content: text,
         targets: [...targets],
         actor: { displayName: 'You', role: 'human' },
+        // Surface attestation: this composer speaks FROM the Workspace UI.
+        // The principal stays the human actor above; the target stays in
+        // targets. Principal ≠ Surface ≠ Target.
+        surface: 'workspace-ui',
         referencedActivityIds: replyTo ? [replyTo.id] : undefined,
       });
       setValue('');

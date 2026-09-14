@@ -121,6 +121,14 @@ export class ProjectionRuntime {
 
   private updateParticipantFromRecord(record: ActivityRecord): void {
     const actor = record.actor;
+    // Phase A compatibility guard — NOT canonical identity (this runtime has
+    // no agent authority; canonical checks live at ingestion and M11A
+    // admission). A human-typed actor carrying an agent-style id is a
+    // turn-target leak, never a human author: skip participant manufacture.
+    // The record itself is preserved in history and stream.
+    if (actor.type === 'human' && actor.id.startsWith('agent-')) {
+      return;
+    }
     const participantId = `${actor.type}-${actor.id}`;
 
     const existing = this.participants.get(participantId);

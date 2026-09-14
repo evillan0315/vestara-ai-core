@@ -91,6 +91,20 @@ async function main(): Promise<void> {
     store: m11aRoom.store,
     eventBus: ctx.kernel.eventBus,
     logger: ctx.kernel.logger,
+    // Phase A: canonical agent-identity resolver for the fail-closed
+    // human-message guard (a turn target leaked into userId must never
+    // manufacture a Human participant). Same AgentStorage authority as
+    // the lifecycle bridge below.
+    agentIdResolver: {
+      async isCanonicalAgentId(id: string): Promise<boolean> {
+        try {
+          const stored = await ctx.agents.listAgents();
+          return stored.some((a) => a.id === id);
+        } catch {
+          return false;
+        }
+      },
+    },
   });
   m9Bridge.start();
   bootMark('m9-bridge-started');

@@ -459,3 +459,67 @@ describe('Visual Edit durability (milestone regression)', () => {
     expect(body.overrides['msg-1'].alignment).toBe('right');
   });
 });
+
+describe('Phase A — participant admission predicate', () => {
+  // Imported lazily: the route module is heavyweight; the predicate is pure.
+  it('admits genuine unknown humans, quarantines agent leaks and surfaces', async () => {
+    const { isAdmittedHumanParticipant } = await import('../src/routes/activity-room-m11a');
+    const canonical = new Set(['agent-planner', 'agent-assistant']);
+    expect(isAdmittedHumanParticipant('human-you', canonical)).toBe(true);
+    expect(isAdmittedHumanParticipant('human-agent-planner', canonical)).toBe(false);
+    expect(isAdmittedHumanParticipant('human-agent-assistant', canonical)).toBe(false);
+    expect(isAdmittedHumanParticipant('human-workspace-ui', canonical)).toBe(false);
+    expect(isAdmittedHumanParticipant('agent-agent-planner', canonical)).toBe(false);
+    expect(isAdmittedHumanParticipant('human-eddie', new Set())).toBe(true);
+  });
+});
+
+describe('Phase A — turn principal/surface/target threading', () => {
+  it('POST /api/messages carries principal userId, separate target and surface', async () => {
+    const room = await seedRoom();
+    const captured: { userId?: string; options?: Record<string, unknown>; sendOptions?: Record<string, unknown> } = {};
+    const ctx = {
+      conversationService: {
+        createConversation: async (userId: string, options?: Record<string, unknown>) => {
+          captured.userId = userId;
+          captured.options = options;
+          return { id: 'conv-phase-a-route' };
+        },
+        // Empty content: exercises threading without firing the M9 reply mirror.
+        sendMessage: async (_id: string, _content: string, options?: Record<string, unknown>) => {
+          captured.sendOptions = options;
+          return {
+            message: { content: '@planner hi' },
+            response: { content: '' },
+            latency: 1,
+          };
+        },
+      },
+      agents: {
+        getAgent: async (id: string) => ({ id, name: 'Planner', provider: 'opencode-go', model: 'muse-spark-1.3' }),
+      },
+    };
+    const { status } = await post(
+      room,
+      '/api/messages',
+      {
+        content: '@planner hi',
+        targets: [{ type: 'agent', agentId: 'agent-planner' }],
+        actor: { displayName: 'You', role: 'human' },
+        surface: 'workspace-ui',
+      },
+      ctx,
+    );
+    expect(status).toBe(201);
+    // The async turn fires via void — poll briefly for send capture.
+    const deadline = Date.now() + 5000;
+    while (captured.sendOptions === undefined && Date.now() < deadline) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    // Principal: human author — never the mentioned agent.
+    expect(captured.userId).toBe('you');
+    expect(captured.options?.agentId).toBe('agent-planner');
+    expect(captured.sendOptions?.agentId).toBe('agent-planner');
+    expect(captured.sendOptions?.surface).toBe('workspace-ui');
+  });
+});

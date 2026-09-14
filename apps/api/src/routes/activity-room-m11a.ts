@@ -436,6 +436,27 @@ function sanitizeWorkflowSummary(w: WorkflowSummary): Record<string, unknown> {
 // ─── Authority Composition ────────────────────────────────────────
 
 /**
+ * Actor ids that are client/surface attribution, never human principals.
+ * 'workspace-ui' is the surface default used by the conversations API
+ * (ACTOR constant there). A surface is where a principal acted, not who
+ * acted — it must never manufacture a Human participant. Principal ≠ Surface.
+ */
+const SURFACE_ACTOR_IDS = new Set(['workspace-ui']);
+
+/**
+ * Phase A fail-closed admission predicate for lifecycle human participants.
+ * Pure and unit-testable. Admits only when the raw actor id is neither a
+ * canonical agent id (turn-target leak) nor a surface attribution (client,
+ * not principal). Anything else stays unlisted (UNKNOWN) rather than
+ * manufacturing a Human participant. Storage and history are untouched.
+ */
+export function isAdmittedHumanParticipant(participantId: string, canonicalAgentIds: ReadonlySet<string>): boolean {
+  if (!participantId.startsWith('human-')) return false;
+  const rawId = participantId.slice('human-'.length);
+  return !canonicalAgentIds.has(rawId) && !SURFACE_ACTOR_IDS.has(rawId);
+}
+
+/**
  * Compose Activity Room participants from two authoritative sources:
  *
  * 1. M10 projection (lifecycle-derived): runtime presence, work state, current assignment
@@ -533,9 +554,16 @@ async function composeParticipants(
     seenIds.add(participantId);
   }
 
-  // 3b. Add human participants from lifecycle projection (not in AgentStorage)
+  // 3b. Add human participants from lifecycle projection (not in AgentStorage).
+  // Phase A fail-closed admission: a human-typed id matching a canonical
+  // agent id is a turn-target leak, and surface ids are client attribution —
+  // neither is a human principal. Such rows are quarantined (excluded here,
+  // preserved in storage and stream): they must never manufacture Humans.
+  // UNKNOWN stays unlisted rather than guessing.
+  const canonicalAgentIds = new Set(allAgents.map((agent) => agent.id));
   for (const p of lifecycleParticipants) {
     if (p.type === 'human' && !seenIds.has(p.participantId)) {
+      if (!isAdmittedHumanParticipant(p.participantId, canonicalAgentIds)) continue;
       composed.push(p);
       seenIds.add(p.participantId);
     }

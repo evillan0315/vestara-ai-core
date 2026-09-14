@@ -90,6 +90,11 @@ export interface TriggerAssistantTurnOptions {
   readonly logger?: AssistantLogger;
   /** Per-turn execution config (Vestara-owned limits, e.g. maxToolCalls). */
   readonly executionConfig?: { readonly maxToolCalls?: number; readonly turnTimeoutMs?: number };
+  /**
+   * Client/surface attribution (e.g. 'workspace-ui') — where the principal
+   * acted from. Informational only; never principal identity.
+   */
+  readonly surface?: string;
 }
 
 /** Resolved execution configuration from agent definition. */
@@ -153,6 +158,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     agentStorage,
     logger,
     executionConfig,
+    surface,
   } = options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
@@ -175,17 +181,25 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     const agentConfig = await resolveAssistantConfig(agentId, agentStorage);
     const displayName = agentConfig.displayName ?? 'Assistant';
 
-    // 2. Create conversation
-    const conversation = await conversationService.createConversation(agentId, {
+    // 2. Create conversation owned by the HUMAN PRINCIPAL. The target agent
+    //    travels separately (options.agentId) — writing it into userId is the
+    //    identity-overload defect (Phase A): it made agents the authors of
+    //    human messages downstream. Being mentioned never makes one a speaker.
+    const principalId = humanRecord.actor.id;
+    const conversation = await conversationService.createConversation(principalId, {
       agentId,
       correlationId,
     });
 
     // 3. Send message through conversation service (provider execution)
-    //    Pass the agent's model via SendOptions to override default
+    //    Pass the agent's model via SendOptions to override default.
+    //    agentId here is TARGET selection only; surface is attribution only.
     const sendOptions: Record<string, unknown> = {
       agentId,
     };
+    if (surface) {
+      sendOptions.surface = surface;
+    }
     if (agentConfig.model) {
       sendOptions.model = agentConfig.model;
     }

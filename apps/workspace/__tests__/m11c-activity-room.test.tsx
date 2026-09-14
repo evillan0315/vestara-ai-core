@@ -1,6 +1,8 @@
 /**
  * M11C Activity Room UI Tests
  *
+ * @vitest-environment jsdom
+ *
  * Tests for:
  * - Snapshot → catch-up → live lifecycle
  * - Disconnect/reconnect without reload
@@ -19,7 +21,7 @@ import { ThemeProvider } from '../src/lib/theme.js';
 import M11CActivityRoomPage from '../src/pages/activity/M11CActivityRoomPage.js';
 import M11CParticipantRail from '../src/pages/activity/M11CParticipantRail.js';
 import M11CConnectionStatus from '../src/pages/activity/M11CConnectionStatus.js';
-import M11CStreamItemComponent from '../src/pages/activity/M11CStreamItem.js';
+import { M11CStreamItemComponent } from '../src/pages/activity/M11CStreamItem.js';
 import type { M11CConnectionState, M11CStreamItem } from '../src/hooks/useM11CActivityRoom.js';
 import type { ParticipantProjection } from '@vestara/activity-room';
 
@@ -380,7 +382,7 @@ describe('M11C Activity Room Page', () => {
       </ThemeProvider>,
     );
     await waitFor(() => {
-      const input = screen.getByPlaceholderText('Reference…');
+      const input = screen.getByPlaceholderText('Message the room… (@ for agents)');
       expect(input).toBeDefined();
       expect((input as HTMLInputElement).disabled).toBe(true);
     });

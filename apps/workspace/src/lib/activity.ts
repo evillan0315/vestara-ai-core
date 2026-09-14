@@ -63,6 +63,11 @@ export interface ActivityMessagePayload {
   correctionOf?: string;
   actor?: { displayName?: string; role?: string };
   executionConfig?: { maxToolCalls?: number; turnTimeoutMs?: number };
+  /**
+   * Client/surface attribution (e.g. 'workspace-ui') attested by the sending
+   * surface. Informational only — never principal identity, never authorship.
+   */
+  surface?: string;
 }
 
 /** Sends a human message and resolves with the persisted, sequenced record. */

@@ -193,6 +193,7 @@ export async function handleActivityRoomRoute(
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
         const turnAgentId = record.agentId;
+        const surface = surfaceOf(body);
         void triggerAssistantTurn({
           agentId: turnAgentId,
           humanRecord: record,
@@ -200,6 +201,7 @@ export async function handleActivityRoomRoute(
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
+          ...(surface ? { surface } : {}),
         })
           .then((result) => {
             // Mirror completed turn replies into M9 so they appear on the
@@ -229,6 +231,7 @@ export async function handleActivityRoomRoute(
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
+        const surface = surfaceOf(body);
         void triggerAssistantTurn({
           agentId,
           humanRecord: record,
@@ -236,6 +239,7 @@ export async function handleActivityRoomRoute(
           conversationService: ctx.conversationService,
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
+          ...(surface ? { surface } : {}),
         })
           .then((result) => {
             if (result.status === 'completed' && result.content) {
@@ -353,6 +357,15 @@ async function handleMessageCommand(
 }
 function stringField(value: unknown): string | undefined {
   return typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+/**
+ * Client/surface attribution from the message body (e.g. 'workspace-ui').
+ * Attested by the sending surface; informational only — never principal
+ * identity, never authorship. Absent → UNKNOWN (never manufactured).
+ */
+function surfaceOf(body: Record<string, unknown>): string | undefined {
+  return stringField(body.surface);
 }
 
 function parseEffect(value: unknown): ActivityOrganizationalEffect | undefined {

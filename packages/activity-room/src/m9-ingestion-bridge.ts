@@ -241,6 +241,17 @@ export interface M9IngestionBridgeOptions {
     warn: (msg: string, ctx?: Record<string, unknown>) => void;
     info: (msg: string, ctx?: Record<string, unknown>) => void;
   };
+  /**
+   * Canonical agent-identity resolver (wired to AgentStorage at the composition
+   * root). Used ONLY as a fail-closed compatibility guard: a
+   * `conversation:message.sent` event whose userId is a known canonical agent
+   * id is a turn-target leak, not a human author — it is skipped (the
+   * principal-authored message survives via the Activity Room mirror path).
+   * Absent resolver → legacy behavior preserved (documented compat gap).
+   */
+  readonly agentIdResolver?: {
+    isCanonicalAgentId(id: string): Promise<boolean>;
+  };
 }
 
 /**
@@ -254,6 +265,7 @@ export class M9IngestionBridge {
   private readonly store: M9ActivityStore;
   private readonly eventBus: EventBus;
   private readonly logger?: M9IngestionBridgeOptions['logger'];
+  private readonly agentIdResolver?: M9IngestionBridgeOptions['agentIdResolver'];
   private readonly unsubscribers: Unsubscribe[] = [];
   private started = false;
 
@@ -261,6 +273,7 @@ export class M9IngestionBridge {
     this.store = options.store;
     this.eventBus = options.eventBus;
     this.logger = options.logger;
+    this.agentIdResolver = options.agentIdResolver;
   }
 
   /**
@@ -331,6 +344,25 @@ export class M9IngestionBridge {
    */
   private async ingest(event: VestaraEvent): Promise<void> {
     try {
+      // Fail-closed compatibility guard (Phase A): a human-message event whose
+      // userId is a known canonical agent id carries a turn target, not a
+      // human author. Skipping prevents manufacturing Human participants.
+      // The principal-authored message survives via the Activity Room mirror.
+      if (event.type === 'conversation:message.sent' && this.agentIdResolver) {
+        const userId = (event.actor?.id as string) || (event.payload.userId as string) || 'local';
+        try {
+          if (await this.agentIdResolver.isCanonicalAgentId(userId)) {
+            this.logger?.warn('M9IngestionBridge: skipped agent-id human message (target leak)', {
+              userId,
+              eventId: event.id,
+            });
+            return;
+          }
+        } catch {
+          // Resolver failure → legacy behavior (ingest); never fail closed on
+          // infrastructure error, only on positive canonical evidence.
+        }
+      }
       const activityEvent = this.mapToActivityEvent(event);
       if (activityEvent === null) {
         return;
@@ -407,6 +439,8 @@ export class M9IngestionBridge {
         displayName,
         messageId: event.payload.messageId as string | undefined,
         conversationId: event.payload.conversationId as string | undefined,
+        // Surface attribution threads through (never authorship).
+        surface: event.payload.surface as string | undefined,
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });
