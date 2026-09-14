@@ -7,8 +7,8 @@ export default function NotFound() {
       <h1 className="text-xl font-semibold text-zinc-300 mb-2">Page not found</h1>
       <p className="text-sm text-(--vestara-text-2)mb-6">The page you're looking for doesn't exist or has been moved.</p>
       <div className="flex gap-3 justify-center">
-        <Link to="/dashboard" className="text-xs px-4 py-2 accent-btn rounded">
-          Go to Dashboard
+        <Link to="/overview" className="text-xs px-4 py-2 accent-btn rounded">
+          Go to Overview
         </Link>
         <button
           onClick={() => window.history.back()}
@@ -21,7 +21,7 @@ export default function NotFound() {
         <p>
           Keyboard shortcut: press{' '}
           <kbd className="px-1 py-0.5 bg-zinc-800 border border-(--vestara-accent-border) rounded font-mono">g</kbd> then{' '}
-          <kbd className="px-1 py-0.5 bg-zinc-800 border border-(--vestara-accent-border) rounded font-mono">d</kbd> for Dashboard
+          <kbd className="px-1 py-0.5 bg-zinc-800 border border-(--vestara-accent-border) rounded font-mono">o</kbd> for Overview
         </p>
       </div>
     </div>

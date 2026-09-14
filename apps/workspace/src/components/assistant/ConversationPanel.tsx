@@ -39,12 +39,13 @@ import type {
   StructuredVerificationOperation,
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
-import type { AssistantExecutionDetail } from '@vestara/shared';
+import type { AssistantExecutionDetail, ToolObservation } from '@vestara/shared';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { ProviderModelSelector } from '../ui/ProviderModelSelector';
 import { AssistantResponseActions } from './AssistantResponseActions';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
+import { ToolObservationRenderer } from './ToolObservationRenderer';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
 import { ExecutionControlsPopover } from './ExecutionControlsPopover';
 import { ExecutionTray } from './ExecutionTray';
@@ -54,6 +55,10 @@ import { useSessionStatus } from '../../hooks/useSessionStatus';
 import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
 import { getSuggestions } from '../../lib/api';
 import { StatusIndicator } from '@vestara/ui';
+import {
+  resolveAssistantSuggestions,
+  type AssistantSuggestion,
+} from './assistantSuggestionResolver';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -136,7 +141,19 @@ function AssistantLabel({ model }: { model?: string }) {
  * rich content (fenced code blocks, tables) and future M4–M7 surfaces
  * (diff, terminal, task list, permission, verification, artifact).
  */
-const MessageBubble = memo(function MessageBubble({ message }: { message: { role: string; content: string; createdAt: string; model?: string } }) {
+const MessageBubble = memo(function MessageBubble({
+  message,
+  onOpenInEditor,
+}: {
+  message: {
+    role: string;
+    content: string;
+    createdAt: string;
+    model?: string;
+    toolObservations?: readonly ToolObservation[];
+  };
+  onOpenInEditor?: (file: string) => void;
+}) {
   const isUser = message.role === 'user';
   const isAssistant = message.role === 'assistant';
 
@@ -171,6 +188,11 @@ const MessageBubble = memo(function MessageBubble({ message }: { message: { role
         >
           <MarkdownRenderer content={message.content} />
         </div>
+        {/* GA-TOOL-UX-001B: durable historical tool evidence (persisted
+            observations, not the transient execution timeline). */}
+        {isAssistant && message.toolObservations && message.toolObservations.length > 0 && (
+          <ToolObservationRenderer observations={message.toolObservations} onOpenInEditor={onOpenInEditor} />
+        )}
         {isAssistant && (
           <AssistantResponseActions content={message.content} failed={isFailedAssistantContent(message.content)} />
         )}
@@ -645,7 +667,7 @@ const ComposeInput = memo(function ComposeInput({
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={loading ? 'Assistant is responding…' : isShellMode ? 'Run a shell command… (Enter to run)' : 'Ask anything about your workspace… ($ prefix for shell)'}
+          placeholder={loading ? 'Assistant is responding…' : isShellMode ? 'Run a shell command… (Enter to run)' : 'Ask anything about this workspace…'}
           aria-label={isShellMode ? 'Run a shell command' : 'Message the assistant'}
           rows={1}
           className={`w-full resize-none bg-transparent py-3 text-[13px] leading-relaxed text-zinc-100 placeholder-zinc-600 focus:outline-none min-h-[44px] max-h-[120px] ${isShellMode ? 'pl-9 pr-12 font-mono' : 'pl-4 pr-12'}`}
@@ -841,117 +863,46 @@ function SurfaceContextBadge({ surface }: { surface: { routeId: string | null; p
   );
 }
 
-// ─── GA-UX-001: suggestion contract (presentation only) ────────
+// ─── GA-UX-002: premium launch surface (resolver-owned) ─────
+// Policy extracted to assistantSuggestionResolver.ts:
+//   SurfaceContext → AssistantSuggestionResolver → SuggestionModel[] → ConversationPanel
+// ConversationPanel renders; it does not own suggestion intelligence.
 
-interface AssistantSuggestion {
-  readonly id: string;
-  readonly label: string;
-  readonly prompt: string;
-  readonly source: string;
-}
-
-type SuggestionSurface = {
-  section?: string | null;
-  routeId?: string | null;
+function SuggestionEmptyState({
+  onSuggest,
+  surface,
+  selected,
+}: {
+  onSuggest: (prompt: string) => void;
+  surface: { routeId: string | null; path: string; title: string | null; section: string | null };
   selected?: { kind: string; id: string; label?: string | null };
-};
+}) {
+  const resolved = useMemo(() => resolveAssistantSuggestions(surface, selected), [surface, selected]);
+  const contextCard = resolved.contextCard;
+  const contextual = resolved.contextual;
+  const quickActions = resolved.quickActions;
+  const [attention, setAttention] = useState<AssistantSuggestion[]>([]);
 
-function truncateLabel(value: string, max: number): string {
-  const clean = value.trim();
-  if (clean.length <= max) return clean;
-  return `${clean.slice(0, max - 1)}…`;
-}
-
-/**
- * Derive context-aware suggestions from the current surface.
- * The UI is a projection — suggestion policy lives here, not in a runtime.
- * Surface-specific suggestions replace generic defaults when context is available.
- * A selected reference (Activity Room AR-009 / Inspector) takes priority over
- * route-only suggestions. The label below is contextual text only — actual
- * provenance remains structured (SurfaceContext.selected travels with the
- * assistant turn via handleSend). Prompt text must never be parsed to
- * reconstruct selection identity.
- */
-function getSuggestionsForSurface(surface?: SuggestionSurface): AssistantSuggestion[] {
-  const selected = surface?.selected;
-  if (selected?.id) {
-    const kind = selected.kind ?? 'item';
-    const label = selected.label ?? selected.id;
-    // Contextual display text only (no raw IDs): structured identity lives in
-    // SurfaceContext.selected. NOTE (integration gap): the server adapter
-    // currently validates but mostly ignores selected — recorded, not
-    // compensated for here.
-    const ref = `${kind} "${label}"`;
-    return [
-      { id: 'summarize-selected', label: `Summarize ${truncateLabel(label, 24)}`, prompt: `Summarize the selected ${ref}.`, source: 'surface:selected' },
-      { id: 'explain-selected', label: `Explain ${truncateLabel(label, 24)}`, prompt: `Explain the selected ${ref}.`, source: 'surface:selected' },
-      { id: 'next-selected', label: 'Suggest next steps', prompt: `Suggest concrete next steps for the selected ${ref}.`, source: 'surface:selected' },
-    ];
-  }
-
-  const routeId = surface?.routeId;
-
-  // Surface-specific suggestions
-  if (routeId === 'activity') {
-    return [
-      { id: 'review-activity', label: 'Review recent activity', prompt: 'Review the recent activity and summarize what happened.', source: 'surface:activity' },
-      { id: 'show-executions', label: 'Show active executions', prompt: 'Show me the currently active executions and their status.', source: 'surface:activity' },
-      { id: 'explain-latest', label: 'Explain the latest operation', prompt: 'Explain the most recent operation in detail.', source: 'surface:activity' },
-    ];
-  }
-
-  if (routeId === 'projects' || routeId === 'engineering') {
-    return [
-      { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'surface:engineering' },
-      { id: 'check-status', label: 'Check project status', prompt: 'Check the project status and report any issues.', source: 'surface:engineering' },
-      { id: 'review-changes', label: 'Review recent changes', prompt: 'Review the recent changes and summarize what was modified.', source: 'surface:engineering' },
-    ];
-  }
-
-  if (routeId === 'agents') {
-    return [
-      { id: 'agent-status', label: 'Check agent status', prompt: 'Show the current status of all agents and their recent activity.', source: 'surface:agents' },
-      { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'surface:agents' },
-      { id: 'explain-architecture', label: 'Explain architecture', prompt: 'Explain the main architecture of this project.', source: 'surface:agents' },
-    ];
-  }
-
-  // Default suggestions (no specific surface context)
-  return [
-    { id: 'inspect-repo', label: 'Inspect repository', prompt: 'Inspect the repository and summarize its current state.', source: 'default' },
-    { id: 'check-status', label: 'Check project status', prompt: 'Check the repository status.', source: 'default' },
-    { id: 'explain-architecture', label: 'Explain architecture', prompt: 'Explain the main architecture of this project.', source: 'default' },
-  ];
-}
-
-// FREEZE NOTE (review): do not grow inline policy here (no more
-// `if route === …` / `if selected.kind === …` branches). When the next
-// surface/kind needs specialized policy, extract a dedicated suggestion
-// resolver; ConversationPanel renders suggestions, it does not own
-// suggestion intelligence. Full static route registry: DEFERRED.
-function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: string) => void; surface?: SuggestionSurface }) {
-  const base = getSuggestionsForSurface(surface);
-  const [health, setHealth] = useState<AssistantSuggestion[]>([]);
-
-  // Workspace-health suggestions (GET /api/suggestions) merge above the
-  // static surface suggestions. Best-effort: failure falls back to static.
+  // Best-effort backend attention (GET /api/suggestions). Progressive loading:
+  // contextual suggestions render immediately; attention appears when available.
+  // No blocking spinner for the entire empty state.
   useEffect(() => {
     let cancelled = false;
     getSuggestions()
       .then((items) => {
         if (cancelled) return;
         const top = (items ?? []).filter((s) => s.priority === 'high' || s.priority === 'medium').slice(0, 2);
-        setHealth(
-          top.map((s) => ({
-            id: `health-${s.id}`,
-            label: truncateLabel(s.title, 32),
-            prompt: `Help me with: ${s.title}${s.description ? ` — ${s.description}` : ''}${s.impact ? ` Impact: ${s.impact}` : ''}${s.command ? ` Suggested command: ${s.command}` : ''}`,
-            source: 'workspace-health',
-          })),
-        );
+        const mapped: AssistantSuggestion[] = top.map((s) => ({
+          id: `attention-${s.id}`,
+          label: s.title.trim().slice(0, 32),
+          prompt: `Help me with: ${s.title}${s.description ? ` — ${s.description}` : ''}${s.impact ? ` Impact: ${s.impact}` : ''}${s.command ? ` Suggested command: ${s.command}` : ''}`,
+          category: 'attention' as const,
+          priority: s.priority as 'high' | 'medium',
+        }));
+        setAttention(mapped);
       })
       .catch(() => {
-        if (!cancelled) setHealth([]);
+        if (!cancelled) setAttention([]);
       });
     return () => {
       cancelled = true;
@@ -959,67 +910,134 @@ function SuggestionEmptyState({ onSuggest, surface }: { onSuggest: (prompt: stri
   }, []);
 
   return (
-    <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center" data-testid="assistant-suggestions">
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-12 left-1/2 h-44 w-44 -translate-x-1/2 rounded-full bg-amber-500/15 blur-3xl"
-      />
-      <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_8px_28px_-8px_rgba(245,158,11,0.7)] ring-1 ring-white/25">
-        <svg className="h-6 w-6 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-        </svg>
-      </div>
-      <div className="mb-1 text-sm font-semibold tracking-tight text-zinc-100">How can I help?</div>
-      <p className="text-[11px] leading-relaxed text-zinc-500 mb-4 max-w-[230px]">
-        Ask about this workspace, inspect the repository, or start an engineering task.
-      </p>
-      <div className="flex flex-col gap-2 w-full max-w-[240px]">
-        {health.length > 0 && (
-          <div className="text-[10px] font-medium uppercase tracking-wide text-amber-400/70">May need attention</div>
-        )}
-        {health.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => onSuggest(s.prompt)}
-            data-testid="assistant-suggestion-health"
-            title={s.label}
-            className="group flex items-center gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-left text-[12px] text-amber-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-400/60 hover:bg-amber-500/15 hover:text-white"
-          >
-            <span className="flex-1 truncate font-medium">{s.label}</span>
-            <svg
-              className="h-3.5 w-3.5 shrink-0 text-amber-400/70 transition-all group-hover:translate-x-0.5 group-hover:text-amber-300"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+    <div
+      className="flex h-full flex-col overflow-y-auto overflow-x-hidden"
+      data-testid="assistant-suggestions"
+      aria-label="Assistant launch surface"
+    >
+      <div className="mx-auto flex w-full max-w-[440px] flex-col items-center gap-6 px-6 py-8">
+        {/* Identity + header */}
+        <div className="flex flex-col items-center text-center">
+          <div className="relative mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 shadow-[0_8px_28px_-8px_rgba(245,158,11,0.7)] ring-1 ring-white/25">
+            <svg className="h-6 w-6 text-zinc-950" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-          </button>
-        ))}
-        {health.length > 0 && (
-          <div className="pt-1 text-[10px] font-medium uppercase tracking-wide text-zinc-500">Ask about this workspace</div>
-        )}
-        {base.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => onSuggest(s.prompt)}
-            className="group flex items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/70 px-3 py-2 text-left text-[12px] text-zinc-300 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-500/40 hover:bg-zinc-800/80 hover:text-zinc-50 hover:shadow-[0_4px_16px_-4px_rgba(245,158,11,0.25)]"
+          </div>
+          <h2 className="text-[17px] font-semibold tracking-tight text-zinc-100">How can I help?</h2>
+          <p className="mt-1.5 max-w-[320px] text-[12px] leading-relaxed text-zinc-500">{contextCard.description}</p>
+        </div>
+
+        {/* Selected context indicator */}
+        {selected?.id && (
+          <div
+            className="flex w-full items-center gap-2 rounded-xl border border-sky-500/20 bg-sky-500/[0.06] px-3 py-2"
+            data-testid="assistant-selected-context"
           >
-            <span className="flex-1 truncate font-medium">{s.label}</span>
-            <svg
-              className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-amber-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-            </svg>
-          </button>
-        ))}
+            <span className="rounded-full bg-sky-500/15 px-1.5 py-px text-[9px] font-semibold uppercase tracking-wide text-sky-300">Selected</span>
+            <span className="truncate text-[11px] font-medium text-zinc-300">
+              {selected.kind} · {selected.label ?? selected.id}
+            </span>
+          </div>
+        )}
+
+        {/* Current Context card */}
+        <div
+          className="w-full rounded-2xl border border-zinc-800/60 bg-gradient-to-b from-zinc-900/70 to-zinc-900/30 p-4 text-left shadow-[0_4px_24px_-8px_rgba(0,0,0,0.6)] backdrop-blur"
+          data-testid="assistant-context-card"
+        >
+          <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-zinc-600">Current Context</div>
+          <div className="mt-1 flex items-baseline gap-1.5">
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-amber-300/80">{contextCard.eyebrow}</span>
+          </div>
+          <div className="mt-1 text-[13px] font-semibold tracking-tight text-zinc-100">{contextCard.title}</div>
+          <p className="mt-1 text-[11px] leading-relaxed text-zinc-500">{contextCard.description}</p>
+          <div className="mt-2 truncate text-[10px] font-mono text-zinc-600">{contextCard.path}</div>
+        </div>
+
+        {/* Suggested for this page */}
+        <div className="w-full">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-500">
+            {selected?.id ? 'Suggested for selection' : 'Suggested for this page'}
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {contextual.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onSuggest(s.prompt)}
+                data-testid="assistant-suggestion-context"
+                title={s.prompt}
+                className="group flex items-center gap-2 rounded-xl border border-zinc-700/50 bg-zinc-900/70 px-3 py-2.5 text-left text-[12px] font-medium text-zinc-200 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-500/40 hover:bg-zinc-800/80 hover:text-zinc-50 hover:shadow-[0_4px_16px_-4px_rgba(245,158,11,0.25)]"
+              >
+                <span className="flex-1 leading-tight">{s.label}</span>
+                <svg
+                  className="h-3.5 w-3.5 shrink-0 text-zinc-600 transition-all group-hover:translate-x-0.5 group-hover:text-amber-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                  aria-hidden="true"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* May need attention — progressive, authoritative only */}
+        {attention.length > 0 && (
+          <div className="w-full" data-testid="assistant-attention-section">
+            <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-400/70">May need attention</div>
+            <div className="flex flex-col gap-2">
+              {attention.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => onSuggest(s.prompt)}
+                  data-testid="assistant-suggestion-health"
+                  title={s.label}
+                  className="group flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/[0.08] px-3 py-2.5 text-left text-[12px] font-medium text-amber-100 shadow-[0_2px_8px_-2px_rgba(0,0,0,0.5)] transition-all hover:border-amber-400/50 hover:bg-amber-500/[0.12] hover:text-white"
+                >
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-400 motion-safe:animate-pulse" aria-hidden="true" />
+                  <span className="flex-1 leading-tight">{s.label}</span>
+                  <svg
+                    className="h-3.5 w-3.5 shrink-0 text-amber-400/60 transition-all group-hover:translate-x-0.5 group-hover:text-amber-300"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Workspace recommendations — omitted unless authoritative sources exist.
+            Future: diagnostics / execution evidence / configuration enrichment. */}
+
+        {/* Quick actions */}
+        <div className="w-full">
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-zinc-600">Quick actions</div>
+          <div className="flex flex-wrap gap-2">
+            {quickActions.map((s) => (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => onSuggest(s.prompt)}
+                data-testid="assistant-suggestion-quick"
+                title={s.prompt}
+                className="rounded-full border border-zinc-700/50 bg-zinc-800/50 px-3 py-1.5 text-[11px] font-medium text-zinc-400 transition-colors hover:border-zinc-600 hover:bg-zinc-800 hover:text-zinc-200"
+              >
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -1437,10 +1455,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         </div>
       )}
 
-      {/* GA-UI-006: intentional new-conversation surface with suggestions */}
+      {/* GA-UX-002: context-aware launch surface — route-aware via resolver */}
       {showSuggestions && !assistant.listLoading && (
-        <div className="flex-1">
-          <SuggestionEmptyState onSuggest={handleSuggest} surface={{ ...surface.surface, selected: surface.selected }} />
+        <div className="flex-1 min-h-0">
+          <SuggestionEmptyState onSuggest={handleSuggest} surface={surface.surface} selected={surface.selected} />
         </div>
       )}
 
@@ -1477,7 +1495,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
                 </div>
               )}
               {assistant.messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} />
+                <MessageBubble key={msg.id} message={msg} onOpenInEditor={openInEditorFallback} />
               ))}
             {optimisticTurns.map((turn) => (
               <OptimisticHumanBubble key={turn.clientTurnId} turn={turn} onRetry={handleRetry} />

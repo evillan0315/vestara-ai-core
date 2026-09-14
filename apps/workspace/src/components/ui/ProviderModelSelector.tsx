@@ -4,6 +4,12 @@
  * GA-PROVIDER-001: Consumes /api/opencode/config/providers for the effective
  * configured provider/model working set from OpenCode.
  *
+ * GA-PROVIDER-002A: separates BROWSE working set (paginated/searchable,
+ * ephemeral, may be discarded on close) from SELECTED-MODEL resolution
+ * (targeted server-backed `?q=<modelId>` lookup, stable while closed).
+ * Availability presentation derives ONLY from targeted resolution — never
+ * from the visible dropdown page, loading state, or closed state.
+ *
  * Sources from GET /api/opencode/config/providers — no hardcoded catalog.
  * Provider → model relationship: selecting a provider filters models.
  * Search is case-insensitive with keyboard navigation.
@@ -107,6 +113,46 @@ function setCache(key: string, data: ConfigProvidersResponse): void {
   providerCache.set(key, { data, timestamp: Date.now() });
 }
 
+// ── GA-PROVIDER-002A: selected-model resolution ─────────────────────
+// Truthful availability vocabulary. RESOLVING = targeted lookup in flight.
+// AVAILABLE = authoritative source positively resolved providerId+modelId.
+// UNAVAILABLE = authoritative source positively establishes absence/disabled
+//   (complete, non-truncated response without an exact enabled match).
+// UNKNOWN = fetch failed or response truncated (hasMore) — insufficient evidence.
+
+export type SelectedModelState = 'idle' | 'resolving' | 'available' | 'unavailable' | 'unknown';
+
+interface SelectedResolution {
+  readonly state: SelectedModelState;
+  readonly providerName?: string;
+  readonly modelName?: string;
+}
+
+/** Targeted lookup bound — server MAX_LIMIT, never the full catalog. */
+const SELECTED_LOOKUP_LIMIT = 100;
+
+const selectedCache = new Map<string, { data: SelectedResolution; timestamp: number }>();
+
+function getSelectedCached(key: string): SelectedResolution | null {
+  const entry = selectedCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.timestamp > FETCH_CACHE_MS) {
+    selectedCache.delete(key);
+    return null;
+  }
+  return entry.data;
+}
+
+function setSelectedCache(key: string, data: SelectedResolution): void {
+  selectedCache.set(key, { data, timestamp: Date.now() });
+}
+
+/** Test-only: reset module caches so regression tests stay independent. */
+export function __resetProviderModelSelectorCachesForTests(): void {
+  providerCache.clear();
+  selectedCache.clear();
+}
+
 // ── Component ──────────────────────────────────────────────────────────────
 
 export const ProviderModelSelector = memo(function ProviderModelSelector({
@@ -136,6 +182,9 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
   const listRef = useRef<HTMLDivElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
   const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // GA-PROVIDER-002A: independent controller — closing the dropdown aborts
+  // BROWSE fetches only, never the targeted selected-model resolution.
+  const selectedAbortRef = useRef<AbortController | null>(null);
 
   // ── Fetch configured providers from OpenCode ──
   const fetchProviders = useCallback(
@@ -229,11 +278,98 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
   useEffect(() => {
     return () => {
       abortControllerRef.current?.abort();
+      selectedAbortRef.current?.abort();
       if (searchTimerRef.current) clearTimeout(searchTimerRef.current);
     };
   }, []);
 
-  // ── Provider → model scoping ──
+  // ── GA-PROVIDER-002A: targeted selected-model resolution ──────
+  // Independent of the BROWSE working set (paginated page, cleared on
+  // close, search-filtered). Canonical identity is providerId + modelId —
+  // never display-name matching. Closing/searching/pagination must not
+  // change this state.
+  const [selectedResolution, setSelectedResolution] = useState<SelectedResolution>({ state: 'idle' });
+
+  useEffect(() => {
+    const providerId = value.providerId;
+    const modelId = value.modelId;
+    if (!providerId || !modelId) {
+      selectedAbortRef.current?.abort();
+      setSelectedResolution({ state: 'idle' });
+      return;
+    }
+    const cacheKey = `selected-${providerId}::${modelId}`;
+    const cached = getSelectedCached(cacheKey);
+    if (cached) {
+      setSelectedResolution(cached);
+      return;
+    }
+    let cancelled = false;
+    selectedAbortRef.current?.abort();
+    const controller = new AbortController();
+    selectedAbortRef.current = controller;
+    setSelectedResolution({ state: 'resolving' });
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          limit: String(SELECTED_LOOKUP_LIMIT),
+          offset: '0',
+          q: modelId,
+        });
+        const res = await fetch(`/api/opencode/config/providers?${params}`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data: ConfigProvidersResponse = await res.json();
+        if (cancelled || controller.signal.aborted) return;
+        // Canonical exact match — providerId + modelId, never display names.
+        const provider = (data.providers ?? []).find((p) => p.id === providerId) ?? null;
+        const enabledModel = provider?.models.find((m) => m.id === modelId && m.status !== 'disabled') ?? null;
+        if (enabledModel && provider) {
+          const resolved: SelectedResolution = {
+            state: 'available',
+            providerName: provider.name,
+            modelName: enabledModel.name,
+          };
+          setSelectedCache(cacheKey, resolved);
+          setSelectedResolution(resolved);
+          return;
+        }
+        const anyModel = provider?.models.find((m) => m.id === modelId) ?? null;
+        if (anyModel) {
+          // Present but disabled → positively unavailable under the
+          // configured-membership contract being presented.
+          const resolved: SelectedResolution = {
+            state: 'unavailable',
+            providerName: provider?.name,
+            modelName: anyModel.name,
+          };
+          setSelectedCache(cacheKey, resolved);
+          setSelectedResolution(resolved);
+          return;
+        }
+        const hasMore = data.pagination?.hasMore ?? false;
+        if (hasMore) {
+          // Truncated search page without an exact match — insufficient
+          // evidence to claim absence. Neutral, never "unavailable".
+          const resolved: SelectedResolution = { state: 'unknown' };
+          setSelectedCache(cacheKey, resolved);
+          setSelectedResolution(resolved);
+          return;
+        }
+        const resolved: SelectedResolution = { state: 'unavailable' };
+        setSelectedCache(cacheKey, resolved);
+        setSelectedResolution(resolved);
+      } catch (err: unknown) {
+        if (cancelled || controller.signal.aborted) return;
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setSelectedResolution({ state: 'unknown' });
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [value.providerId, value.modelId]);
+
+  // ── Provider → model scoping (BROWSE working set — dropdown only) ──
   const selectedProvider = useMemo(
     () => providers.find((p) => p.id === value.providerId) ?? null,
     [providers, value.providerId],
@@ -243,11 +379,6 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
     if (!selectedProvider) return [];
     return selectedProvider.models.filter((m) => m.status !== 'disabled');
   }, [selectedProvider]);
-
-  const isModelAvailable = useMemo(
-    () => availableModels.some((m) => m.id === value.modelId),
-    [availableModels, value.modelId],
-  );
 
   // ── Models to display (server-side paginated) ──
   const filteredModels = availableModels;
@@ -318,14 +449,26 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
   }, [focusIndex]);
 
   // ── Display label ──
+  // GA-PROVIDER-002A: prefer targeted-resolution names (stable while
+  // closed); fall back to browse-page names only while browsing, else the
+  // raw requested modelId. Never fabricates availability from the label.
   const currentLabel = useMemo(() => {
+    if (selectedResolution.state === 'available' && selectedResolution.providerName && selectedResolution.modelName) {
+      return `${selectedResolution.providerName} / ${selectedResolution.modelName}`;
+    }
     if (selectedProvider) {
       const model = availableModels.find((m) => m.id === value.modelId);
       if (model) return `${selectedProvider.name} / ${model.name}`;
+      if (selectedResolution.state === 'unavailable' && selectedResolution.providerName) {
+        return selectedResolution.providerName;
+      }
       return selectedProvider.name;
     }
+    if ((selectedResolution.state === 'unavailable' || selectedResolution.state === 'unknown') && selectedResolution.providerName && selectedResolution.modelName) {
+      return `${selectedResolution.providerName} / ${selectedResolution.modelName}`;
+    }
     return value.modelId || 'Select model';
-  }, [selectedProvider, availableModels, value.modelId]);
+  }, [selectedResolution, selectedProvider, availableModels, value.modelId]);
 
   // ── Handle provider change ──
   const handleProviderChange = useCallback(
@@ -377,9 +520,18 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
         )}
       </button>
 
-      {/* Unavailable model indicator */}
-      {!isModelAvailable && value.modelId && !open && (
-        <div className="text-[9px] text-amber-400 mt-0.5">Model unavailable</div>
+      {/* GA-PROVIDER-002A: truthful availability — derives ONLY from
+          targeted selected-model resolution. BROWSE page, loading,
+          search-filtering, and closed state never imply unavailability. */}
+      {selectedResolution.state === 'unavailable' && value.modelId && !open && (
+        <div className="text-[9px] text-amber-400 mt-0.5" data-testid="provider-model-unavailable">
+          Model unavailable
+        </div>
+      )}
+      {selectedResolution.state === 'unknown' && value.modelId && !open && (
+        <div className="text-[9px] text-zinc-500 mt-0.5" data-testid="provider-model-unknown">
+          Model status unknown
+        </div>
       )}
 
       {/* Popover — opens upward to avoid panel clipping */}

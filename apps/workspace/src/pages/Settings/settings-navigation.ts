@@ -58,6 +58,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'providers', label: 'AI Providers', description: 'Providers and models', group: 'runtime-ai', icon: 'assistant', code: 'AI' },
   { id: 'agents', label: 'Agents', description: 'Agent execution policy', group: 'runtime-ai', icon: 'agents', code: 'AG' },
   { id: 'assistant-execution', label: 'Assistant Execution', description: 'Turn budgets, timeouts and tool visibility', group: 'runtime-ai', icon: 'assistant', code: 'AX' },
+  { id: 'browser', label: 'Browser', description: 'Browser automation policy and driver', group: 'runtime-ai', icon: 'terminal', code: 'BR' },
   { id: 'filesystem', label: 'Filesystem & Safety', description: 'Boundaries and risk controls', group: 'engineering', icon: 'files', code: 'FS' },
   { id: 'verification', label: 'Verification', description: 'Checks and evidence policy', group: 'engineering', icon: 'workflows', code: 'VR' },
   { id: 'cli', label: 'CLI Integration', description: 'CLI compatibility and transport', group: 'engineering', icon: 'terminal', code: 'CL' },

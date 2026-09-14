@@ -26,7 +26,8 @@ const FEEDBACK_RESET_MS = 1600;
 
 type Feedback = 'copied' | 'copied-share' | 'copy-failed' | 'share-failed' | null;
 
-async function copyTextToClipboard(text: string): Promise<boolean> {
+/** Shared clipboard helper (also used by ToolObservationRenderer for persisted evidence). */
+export async function copyTextToClipboard(text: string): Promise<boolean> {
   try {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);

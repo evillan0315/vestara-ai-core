@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -58,7 +59,8 @@ describe('Marketplace AssetDetail — permissions and verification presentation'
   it('shows install action for a not-installed product', async () => {
     mocks.asset.mockResolvedValue(gitHelperDetails);
     renderDetail();
-    expect(await screen.findByRole('button', { name: 'Install' })).toBeTruthy();
+    const installButtons = await screen.findAllByRole('button', { name: 'Install' });
+    expect(installButtons.length).toBeGreaterThanOrEqual(1);
     expect(screen.queryByText(/installed 0\.4\.1/)).toBeNull();
   });
 
@@ -66,8 +68,9 @@ describe('Marketplace AssetDetail — permissions and verification presentation'
     mocks.asset.mockResolvedValue(gitHelperDetails);
     mocks.installed.mockResolvedValue([installedGitHelper]);
     renderDetail();
-    expect(await screen.findByText(/installed 0\.4\.1/)).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Install' })).toBeNull();
+    const badges = await screen.findAllByText(/installed 0\.4\.1/);
+    expect(badges.length).toBeGreaterThanOrEqual(1);
+    expect(screen.queryAllByRole('button', { name: 'Install' })).toHaveLength(0);
   });
 
   it('renders the verification section with checksum result for executable products', async () => {
@@ -104,10 +107,48 @@ describe('Marketplace AssetDetail — permissions and verification presentation'
       asset: { packageName: 'vestara.git-helper' },
     });
     renderDetail();
-    await userEvent.click(await screen.findByRole('button', { name: 'Install' }));
+    const installButtons = await screen.findAllByRole('button', { name: 'Install' });
+    await userEvent.click(installButtons[0]);
     expect(await screen.findByText('Review installation')).toBeTruthy();
     await userEvent.click(screen.getByRole('button', { name: 'Review installation' }));
     expect(await screen.findByText('Requested permissions')).toBeTruthy();
     await waitFor(() => expect(mocks.install).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true })));
+  });
+
+  it('renders verified footer with checksum indicator and version', async () => {
+    mocks.asset.mockResolvedValue(gitHelperDetails);
+    renderDetail();
+    await screen.findByText('Vestara Git Helper');
+    const footer = screen.getByTestId('asset-detail-footer');
+    expect(footer).toBeTruthy();
+    expect(footer.textContent).toContain('✓');
+    expect(footer.textContent).toContain('0.4.1');
+  });
+
+  it('renders integrity verified badge in footer when details report it', async () => {
+    mocks.asset.mockResolvedValue(gitHelperDetails);
+    renderDetail();
+    await screen.findByText('Vestara Git Helper');
+    const footer = screen.getByTestId('asset-detail-footer');
+    expect(footer.textContent).toContain('integrity verified');
+  });
+
+  it('shows install button in footer when not installed', async () => {
+    mocks.asset.mockResolvedValue(gitHelperDetails);
+    renderDetail();
+    await screen.findByText('Vestara Git Helper');
+    const footer = screen.getByTestId('asset-detail-footer');
+    const installButtons = footer.querySelectorAll('button');
+    const installButton = Array.from(installButtons).find((btn) => btn.textContent?.includes('Install'));
+    expect(installButton).toBeTruthy();
+  });
+
+  it('shows installed badge in footer when already installed', async () => {
+    mocks.asset.mockResolvedValue(gitHelperDetails);
+    mocks.installed.mockResolvedValue([installedGitHelper]);
+    renderDetail();
+    await screen.findByText('Vestara Git Helper');
+    const footer = screen.getByTestId('asset-detail-footer');
+    expect(footer.textContent).toContain('installed 0.4.1');
   });
 });

@@ -22,10 +22,10 @@ describe('workspace navigation registry', () => {
     }
   });
 
-  it('exposes the mock sidebar order: Home … Marketplace — Tools, Settings', () => {
+  it('exposes the mock sidebar order: Overview … Marketplace — Tools, Settings', () => {
     const titles = buildWorkspaceNavigation()[0].items.map((i) => i.title);
     expect(titles).toEqual([
-      'Home',
+      'Overview',
       'Global Assistant',
       'Activity Room',
       'Executions',

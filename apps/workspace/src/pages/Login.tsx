@@ -42,7 +42,7 @@ export default function Login() {
 
     setActor(n);
     setSubmitting(false);
-    navigate('/dashboard', { replace: true });
+    navigate('/overview', { replace: true });
   };
 
   return (

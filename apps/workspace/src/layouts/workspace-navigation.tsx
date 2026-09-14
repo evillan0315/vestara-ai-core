@@ -16,7 +16,7 @@
  *   capabilityId is dropped only when that capability is parked.
  *
  * The curated VISIBLE set matches assets/vestara-agents-screen.png:
- * Home, Global Assistant, Activity Room, Executions, Agents, Workflows,
+ * Overview, Global Assistant, Activity Room, Executions, Agents, Workflows,
  * Projects, Files, Terminal, Marketplace — divider — Tools, Settings.
  * Everything else is registered but hidden (discovery tier), so the
  * command palette can still find it.
@@ -157,7 +157,7 @@ export { ApiRoundedIcon, ChatRoundedIcon, DnsRoundedIcon, LightbulbRoundedIcon, 
 // ─── Registry ────────────────────────────────────────────────────
 // Curated visible order follows assets/vestara-agents-screen.png.
 // Label/path remaps (ADAPT, not fabrication):
-//   Home → /overview (workspace landing template)
+//   Overview → /overview (canonical workspace landing template)
 //   Executions → /execution · Workflows → /orchestration (the flows surface)
 //   Files → /files (thin reuse of the execution FilesystemPanel; fixes the
 //     dead /files link QuickActions already points at)
@@ -165,7 +165,7 @@ export { ApiRoundedIcon, ChatRoundedIcon, DnsRoundedIcon, LightbulbRoundedIcon, 
 
 export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
   // ── Primary (sidebar, mock order) ──
-  { id: 'overview', label: 'Home', path: '/overview', icon: 'home', group: 'workspace', order: 10, tier: 'primary', description: 'Workspace landing', keywords: ['home', 'overview', 'landing', 'start'], hero: { eyebrow: 'Welcome to Vestara', subtitle: 'Agents. Workflows. Tools. A more capable you.' } },
+  { id: 'overview', label: 'Overview', path: '/overview', icon: 'home', group: 'workspace', order: 10, tier: 'primary', description: 'Workspace landing', keywords: ['home', 'overview', 'landing', 'start'], hero: { eyebrow: 'Welcome to Vestara', subtitle: 'Agents. Workflows. Tools. A more capable you.' } },
   { id: 'global-assistant', label: 'Global Assistant', icon: 'assistant', group: 'workspace', order: 20, tier: 'primary', description: 'Open the floating AI assistant', keywords: ['assistant', 'ai', 'chat', 'help'], action: 'open-assistant' },
   { id: 'activity', label: 'Activity Room', path: '/activity', icon: 'activity', group: 'workspace', order: 30, tier: 'primary', description: 'Live agent and workflow activity', keywords: ['activity', 'room', 'live', 'feed'] },
   { id: 'execution', label: 'Executions', path: '/execution', icon: 'executions', group: 'build', order: 40, tier: 'primary', description: 'Plans, agents, and runs', keywords: ['executions', 'execution', 'runs', 'plans', 'ops'], hero: { eyebrow: 'Live operations', subtitle: 'Plans, agents, and runs — live operational command.' } },
@@ -179,7 +179,9 @@ export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
   { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings', group: 'system', order: 120, tier: 'primary', description: 'Workspace configuration', keywords: ['settings', 'configuration', 'preferences', 'theme'] },
 
   // ── Secondary (reachable from parents, searchable) ──
-  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: 'dashboard', group: 'workspace', order: 200, tier: 'secondary', description: 'Workspace dashboard', keywords: ['dashboard', 'health', 'stats'] },
+  // Legacy Dashboard entry: retained (searchable) for old bookmarks. The
+  // /dashboard route itself redirects to /overview (routes.ts authority).
+  { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: 'dashboard', group: 'workspace', order: 200, tier: 'secondary', description: 'Legacy workspace dashboard (redirects to Overview)', keywords: ['dashboard', 'health', 'stats', 'legacy'] },
   { id: 'diagnostics', label: 'Diagnostics', path: '/diagnostics', icon: 'diagnostics', group: 'operations', order: 210, tier: 'secondary', description: 'System health, processes, and signals', keywords: ['diagnostics', 'health', 'processes', 'system'], hero: { eyebrow: 'Live telemetry', subtitle: 'System health, processes, and signals — instrument-grade, at a glance.' } },
   { id: 'graph', label: 'Engineering Graph', path: '/graph', icon: 'graph', group: 'build', order: 220, tier: 'secondary', description: 'Entities and relationships map', keywords: ['graph', 'engineering', 'map', 'relationships'], hero: { eyebrow: 'Navigation layer', subtitle: 'Entities, relationships, and health — the canonical map of the workspace.' } },
   { id: 'routing', label: 'Routing', path: '/routing', icon: 'routing', group: 'automation', order: 230, tier: 'secondary', description: 'Provider routing assignments', keywords: ['routing', 'providers', 'models', 'assignments'], hero: { eyebrow: 'AI OS', subtitle: 'Select routing intent; the runtime validates and records the effective assignment.' } },

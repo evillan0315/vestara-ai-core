@@ -15,7 +15,7 @@ const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['⌘W', 'Ctrl+W'], description: 'Close API tab' },
   { keys: ['Escape'], description: 'Close dialog / exit focus mode' },
   { keys: ['?'], description: 'Toggle this help modal' },
-  { keys: ['G then D'], description: 'Navigate to Dashboard' },
+  { keys: ['G then O'], description: 'Navigate to Overview' },
   { keys: ['G then S'], description: 'Navigate to Sessions' },
   { keys: ['G then A'], description: 'Navigate to Agents' },
   { keys: ['G then C'], description: 'Navigate to Chat' },

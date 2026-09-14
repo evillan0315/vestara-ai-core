@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: '◈' },
+  { to: '/overview', label: 'Overview', icon: '◈' },
   { to: '/sessions', label: 'Sessions', icon: '▸' },
   { to: '/artifacts', label: 'Artifacts', icon: '◇' },
   { to: '/agents', label: 'Agents', icon: '☰' },

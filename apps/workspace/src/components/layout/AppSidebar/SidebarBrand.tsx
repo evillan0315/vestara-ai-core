@@ -10,7 +10,7 @@ interface SidebarBrandProps {
 const SidebarBrand: FC<SidebarBrandProps> = ({ collapsed }) => {
   return (
     <Link
-      to="/dashboard"
+      to="/overview"
       className="flex items-center justify-center border-b border-(--vestara-accent-border) px-3 py-2 transition-colors"
     >
       <div className="min-w-0">

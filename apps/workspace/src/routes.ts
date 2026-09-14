@@ -29,15 +29,26 @@ export const APP_ROUTES: AppRoute[] = [
   {
     id: 'redirect-root',
     path: '/',
-    title: 'Home',
+    title: 'Overview',
     requiresAuth: false,
     enabled: false,
     layout: 'shell',
-    redirect: '/dashboard',
+    redirect: '/overview',
   },
 
   { id: 'overview', path: '/overview', title: 'Overview', requiresAuth: false, enabled: true, layout: 'shell' },
-  { id: 'dashboard', path: '/dashboard', title: 'Dashboard', requiresAuth: false, enabled: true, layout: 'shell' },
+  // Legacy Dashboard URL — preserved as a redirect so old bookmarks/deep
+  // links land on the canonical Overview route. The Dashboard page component
+  // is intentionally unreachable via navigation (no Dashboard API traffic).
+  {
+    id: 'dashboard',
+    path: '/dashboard',
+    title: 'Dashboard',
+    requiresAuth: false,
+    enabled: false,
+    layout: 'shell',
+    redirect: '/overview',
+  },
   {
     id: 'live-browser',
     path: '/live-browser',

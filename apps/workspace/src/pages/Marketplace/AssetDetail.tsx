@@ -275,6 +275,48 @@ export default function AssetDetail() {
           </ul>
         </DetailCard>
       </div>
+
+      {/* Verified footer + install affordance */}
+      <footer
+        className="mpg-card mpg-hairline-top flex flex-wrap items-center justify-between gap-3 p-4"
+        data-testid="asset-detail-footer"
+      >
+        <div className="relative z-[2] flex min-w-0 items-center gap-3 text-sm">
+          <span
+            className={asset.verification.checksumVerified ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-text-disabled)]'}
+            title={asset.verification.checksumVerified ? 'Checksum verified' : 'Not verified'}
+          >
+            {asset.verification.checksumVerified ? '✓' : '○'}
+          </span>
+          <span className="font-mono text-[var(--vestara-text-muted)]">{asset.latestVersion}</span>
+          {details.integrityVerified && (
+            <Badge variant="success" size="sm">
+              integrity verified
+            </Badge>
+          )}
+        </div>
+        <div className="relative z-[2] flex items-center gap-2">
+          {installed ? (
+            <>
+              <Badge variant="success" size="md">
+                installed {installed.installedVersion}
+              </Badge>
+              <Button
+                variant={installed.enabled ? 'danger' : 'secondary'}
+                size="sm"
+                disabled={busy}
+                onClick={() => void toggleEnabled()}
+              >
+                {installed.enabled ? 'Disable' : 'Enable'}
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" size="md" onClick={() => setShowReview((previous) => !previous)}>
+              Install
+            </Button>
+          )}
+        </div>
+      </footer>
     </div>
   );
 }

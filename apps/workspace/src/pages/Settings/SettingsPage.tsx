@@ -770,6 +770,8 @@ export default function SettingsPage() {
             [
               'providers',
               'agents',
+              'assistant-execution',
+              'browser',
               'filesystem',
               'verification',
               'notifications',

@@ -185,7 +185,7 @@ function getHeroExtras(topic: TopicId, ctx: { briefing?: MorningBriefing | null;
       return {
         actions: [
           { label: 'View Briefing', onClick: ctx.onOpenBriefing, glyph: '☀️' },
-          { label: "Today's Focus", to: '/dashboard', glyph: '◇' },
+          { label: "Today's Focus", to: '/activity', glyph: '◇' },
         ],
         checklistTitle: 'Director’s Insight — Today',
         checklist: ctx.briefing ? humanizeBriefing(ctx.briefing).bullets.slice(1, 4).map((b) => `◇ ${b.slice(0, 48)}`) : ['◇ Orchestrate with AI agents', '◇ Review 3 modified files', '◇ Health 8.2/10 — docs next'],

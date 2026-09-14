@@ -15,7 +15,7 @@ describe('useWorkspaceNavigation', () => {
     const { result } = renderHook(() => useWorkspaceNavigation());
     expect(result.current).toHaveLength(1);
     expect(result.current[0].items.map((i) => i.title)).toEqual([
-      'Home',
+      'Overview',
       'Global Assistant',
       'Activity Room',
       'Executions',

@@ -1141,10 +1141,19 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   );
 
   // ── Abort stream ──
-  // GA-DETACH-001: Explicit cancellation (Stop button). This DOES abort the
-  // server-side execution via the AbortController signal. The adapter
-  // classifies this as 'cancelled' and aborts the OpenCode session.
+  // Explicit Stop: a real cancellation action, NOT inferred from transport.
+  // 1. POST /cancel fires ONLY this conversation's server turn signal, so
+  //    the Vestara execution receives cancellation and the adapter aborts
+  //    the OpenCode session (TurnTermination 'cancelled').
+  // 2. Aborting the fetch then closes the client transport (stops rendering).
+  // Navigation/refresh/transport loss never call this — selectConversation
+  // detaches without cancelling. Cancel POST failure never blocks the
+  // transport close (best-effort server signal, guaranteed client stop).
   const abortStream = useCallback(() => {
+    const convId = lastConvIdRef.current ?? selectedIdRef.current;
+    if (convId) {
+      fetch(`/api/conversations/${encodeURIComponent(convId)}/cancel`, { method: 'POST' }).catch(() => {});
+    }
     abortRef.current?.abort();
     abortRef.current = null;
     streamIdRef.current += 1; // invalidate the in-flight stream loop
@@ -1157,7 +1166,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     // Reconcile: the human message was already persisted server-side, so
     // reload canonical messages and drop the in-flight optimistic entry.
     // Failed entries (never persisted) are preserved for Retry.
-    const convId = lastConvIdRef.current ?? selectedIdRef.current;
+    // (reuses convId from above — explicit Stop cancel + reconcile share it)
     if (convId) {
       loadMessages(convId)
         .catch(() => {})
