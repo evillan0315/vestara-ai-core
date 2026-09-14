@@ -167,6 +167,31 @@ export const CONVERSATION_MIGRATIONS: readonly MigrationStep[] = [
       ctx.addColumnIfMissing(db, 'conversation_messages', 'tool_observations_json', 'TEXT');
     },
   },
+  // GA-EXEC-002: structured execution result — how the turn ended (termination,
+  // tool-call count, elapsed time). Enables the UI to display structured failure
+  // information instead of raw error text.
+  {
+    name: 'conversation_messages.add-execution-result-json',
+    produces: [
+      fingerprint('conversation_messages', [
+        'id',
+        'conversation_id',
+        'role',
+        'content',
+        'provider',
+        'model',
+        'tokens',
+        'cost',
+        'latency',
+        'created_at',
+        'tool_observations_json',
+        'execution_result_json',
+      ]),
+    ],
+    up: (db: Database, ctx) => {
+      ctx.addColumnIfMissing(db, 'conversation_messages', 'execution_result_json', 'TEXT');
+    },
+  },
 ];
 
 const USER_PROFILE_BASELINE_DDL = `

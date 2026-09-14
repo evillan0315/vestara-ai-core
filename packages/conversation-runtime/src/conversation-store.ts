@@ -65,6 +65,38 @@ function parseToolObservations(value: unknown): readonly ToolObservation[] | und
 }
 
 /**
+ * GA-EXEC-002: parse the persisted `execution_result_json` column.
+ * Returns the structured execution result when the payload is a valid object
+ * with the expected fields, else undefined (absent/malformed payloads degrade
+ * gracefully — never a crash).
+ */
+function parseExecutionResult(value: unknown): Message['executionResult'] {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return undefined;
+  }
+  if (!parsed || typeof parsed !== 'object') return undefined;
+  const obj = parsed as Record<string, unknown>;
+  const validTerminations = ['completed', 'failed', 'timeout', 'cancelled', 'detached'];
+  if (
+    typeof obj.termination !== 'string' ||
+    !validTerminations.includes(obj.termination) ||
+    typeof obj.toolCallCount !== 'number' ||
+    typeof obj.elapsedMs !== 'number'
+  ) {
+    return undefined;
+  }
+  return {
+    termination: obj.termination as Message['executionResult'] extends { termination: infer T } ? T : never,
+    toolCallCount: obj.toolCallCount,
+    elapsedMs: obj.elapsedMs,
+  };
+}
+
+/**
  * SQLite-backed `ConversationStore` for `@vestara/conversation`. Persists the
  * conversation + message rows so chat history survives restart. Uses the same
  * sql.js pattern as `SqliteConversationSessionStore`; each store owns its own
@@ -264,12 +296,14 @@ export class SqliteConversationStore implements ConversationStore {
     // insert so old schemas keep working.
     const observationsJson =
       message.toolObservations && message.toolObservations.length > 0 ? JSON.stringify(message.toolObservations) : null;
+    // GA-EXEC-002: durable execution result rides the message row as JSON.
+    const executionResultJson = message.executionResult ? JSON.stringify(message.executionResult) : null;
     try {
       dbRun(
         db,
         `INSERT INTO conversation_messages
-         (id, conversation_id, role, content, provider, model, tokens, cost, latency, created_at, tool_observations_json)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         (id, conversation_id, role, content, provider, model, tokens, cost, latency, created_at, tool_observations_json, execution_result_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           message.id,
           conversationId,
@@ -282,6 +316,7 @@ export class SqliteConversationStore implements ConversationStore {
           message.latency ?? null,
           message.createdAt,
           observationsJson,
+          executionResultJson,
         ],
       );
     } catch (error) {
@@ -345,6 +380,9 @@ export class SqliteConversationStore implements ConversationStore {
     // GA-TOOL-UX-001B: recover durable tool observations. Malformed or
     // non-array payloads degrade to absent (never a crash, never partial).
     const toolObservations = parseToolObservations(row.tool_observations_json);
+    // GA-EXEC-002: recover durable execution result. Malformed or missing
+    // payloads degrade to absent (never a crash).
+    const executionResult = parseExecutionResult(row.execution_result_json);
     return {
       id: row.id as string,
       conversationId: row.conversation_id as string,
@@ -357,6 +395,7 @@ export class SqliteConversationStore implements ConversationStore {
       latency: (row.latency as number) ?? undefined,
       createdAt: row.created_at as string,
       ...(toolObservations ? { toolObservations } : {}),
+      ...(executionResult ? { executionResult } : {}),
     };
   }
 
