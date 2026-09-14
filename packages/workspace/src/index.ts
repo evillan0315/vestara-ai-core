@@ -200,9 +200,47 @@ export type {
   Sprint,
   SprintStatus,
 } from './project-types';
+export type {
+  ChangeObservationDeps,
+  CloseObservationInput,
+  CloseObservationResult,
+  ObservationCloseFailure,
+  ObservationCloseFailureReason,
+} from './repository-change-observation';
+export { closeExecutionObservation } from './repository-change-observation';
+export type {
+  DiscoveryBindingEvidence,
+  DiscoveryFingerprintEvidence,
+  DiscoveryGitService,
+  ObservationFailure,
+  ObservationFailureReason,
+  ObserveRepositoryInput,
+  ObserveRepositoryResult,
+  RepositoryDiscoveryAdapterDeps,
+  RepositoryObservation,
+} from './repository-discovery-adapter';
+export { observeRepository } from './repository-discovery-adapter';
+export type {
+  BindExecutionRepositoryContextInput,
+  BindExecutionRepositoryContextResult,
+  ContextBindFailure,
+  ContextBindFailureReason,
+  ExecutionRepositoryContextDeps,
+} from './repository-execution-context';
+export { bindExecutionRepositoryContext } from './repository-execution-context';
 export { createFingerprint } from './repository-fingerprint';
 export { RepositoryIntelligence } from './repository-intelligence';
 export { RepositoryPresenter } from './repository-presenter';
+export type {
+  CorrelationRecordFailure,
+  CorrelationRecordFailureReason,
+  RecordSessionCorrelationInput,
+  RecordSessionCorrelationResult,
+  SessionCorrelationRecorderDeps,
+} from './repository-session-correlation';
+export { recordRuntimeSessionCorrelation } from './repository-session-correlation';
+export type { CaptureSnapshotInput, CaptureSnapshotResult, SnapshotRuntimeDeps } from './repository-snapshot-runtime';
+export { captureRepositorySnapshot, pathDescriptor, snapshotStateDigest } from './repository-snapshot-runtime';
 export type { DependencyResolverConfig } from './runtime/dependency-resolver';
 // Runtime composition primitives
 export { DependencyResolver, MissingDependencyError, RuntimeDependencyCycleError } from './runtime/dependency-resolver';

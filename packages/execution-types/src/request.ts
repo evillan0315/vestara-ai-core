@@ -11,6 +11,7 @@
  * Runtime-specific fields are NOT included.
  */
 
+import type { ExecutionRepositoryContext } from '@vestara/repository-contracts';
 import type { ExecutionId, WorkflowRunId, WorkflowTaskId } from './identity.js';
 import type { ExecutionTimeoutConfig } from './result.js';
 
@@ -30,6 +31,13 @@ export interface ExecutionContext {
   readonly repositoryDir?: string;
   readonly workspaceId?: string;
   readonly surfaceContext?: Record<string, unknown>;
+  /**
+   * Explicit repository baseline bound at execution start (VES-REPO-005).
+   * Optional for backward compatibility. When present, the runtime receives
+   * it as bounded context — it does not become repository authority, and
+   * neither `repositoryDir` nor `workspaceId` may substitute for it.
+   */
+  readonly repositoryContext?: ExecutionRepositoryContext;
 }
 
 /**

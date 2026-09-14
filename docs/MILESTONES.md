@@ -3457,6 +3457,27 @@ Read evaluation report → Pick weakest producer → Improve only that producer 
 
 ---
 
+### v7.16 — Intelligence Route Real-Time (Breadcrumbs + Assistant Context) 🔷 Planned
+
+**Objective**: Make `Breadcrumbs` and `vestara-assistant` truly route-aware in real-time for **tabs inside tabs** (e.g. `System -> Settings -> General -> Typography/Layout` and `Intelligence -> Knowledge/Graph`) — never from cached conversation memory. Assistant answer to “What page am I on?” must come from live `TurnSurfaceContext`, not earlier tells.
+
+**Gap observed 2026-09-13**: `SurfaceContextProvider` watched only `location.pathname`; `AppearanceControls` inner tabs used `useState` (no URL) → `surfaceContext.path` stale (`/settings` vs `/settings/general?tab=typography`). Assistant fell back to memory and hallucinated (`Layout` when user was on `Appearance`).
+
+**Scope:**
+* `apps/workspace/src/contexts/SurfaceContext.tsx` — `resolveSurfaceLocation(pathname, search)` with `?tab=` mapping (`typography/layout/appearance` → title), deps `[pathname, search]`
+* `apps/workspace/src/pages/Settings/appearance-controls.tsx` — `useSearchParams ?tab=` (done, `profiles` default no param)
+* `apps/workspace/src/components/layout/Breadcrumbs/useBreadcrumbs.ts` — `buildBreadcrumbs(pathname, search)` live for `System -> Settings -> General -> Typography` and `Intelligence -> Knowledge -> Typography` parity; `SettingsBreadcrumbs` delegates
+* `apps/workspace/src/layouts/ShellLayout.tsx` + `workspace-navigation.tsx` + `routes.ts` — `/intelligence/*` canonical group
+
+**Verification:**
+* `pnpm build && pnpm lint:check && pnpm dependencies:check` — green (already)
+* Vitest: `buildBreadcrumbs('/settings/general','?tab=appearance') → System->Settings->General->Appearance`; `SurfaceContextProvider` renders `Typography` for `?tab=typography`
+* Manual: reload `/settings/general?tab=appearance` → ask assistant “What page am I on?” → server log `surfaceContext.surface.path='/settings/general?tab=appearance'` and reply `System -> Settings -> General -> Appearance` without telling it; same for `/intelligence/memory?tab=layout`
+
+**Status**: 🔷 Planned — code staged in `95f8acc`, awaiting reload verification + `UNKNOWN` handling (no-memory fallback)
+
+---
+
 ## Capability Validation Era
 
 ### CAP-001 Validation Run #001 ✅ Complete
@@ -3547,3 +3568,48 @@ Developer → pnpm vestara validate <workspace> → WorkspaceUnderstanding → O
 - Do not silently take over the webhook at `chatv.swinglifestyle.com`
 
 **Status**: 🔄 In Progress (OVR-000–OVR-007 frozen, OVR-008 implementation complete / acceptance blocked, OVR-009A–009B frozen, OVR-009C not started)
+
+---
+
+## Repository Awareness Era
+
+### VES-REPO — Repository Awareness & Concurrent Change Governance 🔷 Proposed
+
+**Objective**: Foundational program below Developer orchestration, Activity Room, Global Assistant, and any coding runtime. Vestara cannot safely coordinate multiple engineering sessions until it can distinguish repository truth, pre-existing changes, session-owned changes, overlapping authority, dependencies, and concurrent mutation. OpenCode is one runtime underneath this architecture, not its owner.
+
+**Blueprint**: `docs/blueprint/VES-REPO-repository-awareness-concurrent-change-governance.md`
+
+**Governing rule**: Many actors may observe and reason concurrently. Mutation requires explicit repository context, a known baseline, declared change scope, and governed authority. Concurrent mutation is permitted only when compatibility is established. Unknown overlap holds mutation. Every resulting change remains attributable, verifiable, and recoverable.
+
+**Frozen invariants**: REPO-INV-001 repository state ≠ session ownership · 002 session ≠ execution ≠ changeset identity · 003 concurrent reasoning allowed · 004 concurrent mutation requires proven compatibility · 005 UNKNOWN holds mutation · 006 file separation ≠ semantic separation · 007 observation ≠ authority · 008 baseline precedes attribution · 009 verification binds to identified state · 010 human changes first-class · 011 session termination ≠ rollback · 012 Git conflict is one conflict class.
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| VES-REPO-001 | Repository Awareness Baseline audit (no mutation) | Capability/authority/lineage maps, REUSE/ADAPT/CREATE |
+| VES-REPO-002 | Canonical repository contracts (leaf, no Git/OpenCode/UI) | Types compile |
+| VES-REPO-003 | Repository discovery adapter (read-only truth) | Root/branch/HEAD/status proven |
+| VES-REPO-004 | Snapshot runtime capture/compare | S0/S1 diff proven |
+| VES-REPO-005 | Execution repository context | Every bound execution has repo/baseline/mode/intent |
+| VES-REPO-006 | Runtime session correlation (Workflow→Execution→Repo→OpenCode) | Lineage stored; fixes VES-AUDIT-001 session gap |
+| VES-REPO-007 | Change detection at boundaries | Observed ChangeSet, no overclaimed attribution |
+| VES-REPO-008 | Change attribution (PROVEN/CORRELATED/AMBIGUOUS/UNKNOWN) | operation→file→execution→session evidence |
+| VES-REPO-009 | Active work registry | Concurrent sessions visible |
+| VES-REPO-010 | Conflict detection v1 (provable only) | Path/scope/baseline/HEAD/verification drift |
+| VES-REPO-011 | Dependency-aware conflicts via Engineering Graph | DEPENDENCY_OVERLAP coordination |
+| VES-REPO-012 | Mutation coordination ALLOW/HOLD/DENY | `requestMutationAuthority` enforced |
+| VES-REPO-013 | Mutation leases (expiry/recovery, not permanent locks) | Crash-safe |
+| VES-REPO-014 | Verification binding (stale on mid-run mutation) | Strengthens Completion ≠ Verification |
+| VES-REPO-015 | Activity Room projection | Repo + active work + lineage + conflicts |
+| VES-REPO-016 | Global Assistant awareness | Grounded “why waiting” answers |
+| VES-REPO-017 | Human/external change detection | UNKNOWN attribution, truthful |
+| VES-REPO-018 | Crash/restart recovery | Interrupted/unverified/expired → recovery |
+| VES-REPO-019 | Multi-session dogfood (A–F scenarios) | Read/read, independent mutate, collision HOLD, verify STALE, external HOLD |
+| VES-REPO-020 | Evidence & freeze | 13 freeze proofs incl. lineage + projection + explanation |
+
+**Phases**: I UNDERSTAND (001) → FREEZE · II OBSERVE (002–008) → DOGFOOD · III COORDINATE (009–014) → DOGFOOD · IV EXPERIENCE (015–020).
+
+**Immediate next**: only VES-REPO-001 audit. Do not build runtime/UI until audit freezes.
+
+**Status**: 🔷 Proposed (blueprint `v0.1.0` written 2026-09-13; VES-REPO-001 baseline audit complete — zero-mutation report delivered, READY FOR VES-REPO-002 with constraints; VES-REPO-002 leaf contracts delivered as `@vestara/repository-contracts` v0.1.0 — 10 modules, 25 tests, Layer-0 verified, full build green; VES-REPO-003 discovery adapter delivered as `observeRepository` in `@vestara/workspace` (`repository-discovery-adapter.ts`, 11 tests) — read-only projection of RepositoryBinding/Fingerprint/GitService into canonical identity/state with explicit race/failure behavior, full build green; VES-REPO-004 snapshot runtime delivered (`captureRepositorySnapshot`/`snapshotStateDigest` in `@vestara/workspace`, pure `compareSnapshots` in contracts — capture/compare over observeRepository with contentHash digests, no store, full build green; VES-REPO-005 execution repository context delivered (`ExecutionRepositoryContext` in contracts, `bindExecutionRepositoryContext` in `@vestara/workspace`, optional `repositoryContext` on `ExecutionContext` for port propagation — fail-closed binding, full build green; VES-REPO-006 session correlation delivered (`RuntimeSessionCorrelation` in contracts, `recordRuntimeSessionCorrelation` in `@vestara/workspace` — explicit ExecutionId↔RuntimeSessionId pairing with asserted created/reused/resumed origin, full build green; VES-REPO-007 change detection delivered (`ObservedRepositoryChange` in contracts, `closeExecutionObservation` in `@vestara/workspace` — exact-S0 close over S1 with real comparison, difference evidence without causation, full build green; VES-REPO-008 attribution delivered (pure `evaluateAttribution` in contracts — two-fact CORRELATED bar, direct-write PROVEN threshold currently unreachable by inspection, mixed/unknown fail-safes, ChangeSet only when semantically valid, full build green; VES-REPO-001→008 ACCEPTED. HOLD 009 — frozen at the clean 008 boundary pending Activity Room dogfood readiness. Dogfood evidence (2026-09-14): Global Assistant response failures (`Tool call limit reached: 80 tool calls`; `Execution deadline exceeded`) coexisting with successful underlying runtime completion — response ≠ execution ≠ session lifecycles, to be represented separately)
