@@ -609,7 +609,7 @@ export async function handleM11AActivityRoomRoute(
     json(res, 200, {
       room: projection.room,
       participants: participants.map(sanitizeParticipant),
-      stream: projection.stream.map(sanitizeStreamItem).slice(0, 50), // Bounded preview
+      stream: projection.stream.map(sanitizeStreamItem).slice(-50), // Bounded preview: latest window, not oldest
       workflowSummary: projection.workflowSummary ? sanitizeWorkflowSummary(projection.workflowSummary) : null,
       attention: projection.attention.map(sanitizeAttention),
       contextualCapabilities: projection.contextualCapabilities,
