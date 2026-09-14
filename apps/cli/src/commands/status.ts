@@ -448,12 +448,35 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   }
 
   if (sections.includes('apiGateway')) {
-    if (useStructuredFormat) {
-      data.apiGateway = { status: 'not_implemented' };
-    } else if (!useBrief) {
-      console.log(`  ${BOLD}API Gateway${RESET}`);
-      console.log(`    Status:      ${GRAY}Not implemented${RESET}`);
-      console.log();
+    try {
+      const apiUrl = process.env.VESTARA_API_URL || 'http://127.0.0.1:3001';
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 500);
+      const res = await fetch(`${apiUrl}/api/health/ready`, { signal: controller.signal }).catch(() => null);
+      clearTimeout(timeout);
+      const reachable = res?.ok === true;
+      const statusCode = res?.status ?? null;
+
+      if (useStructuredFormat) {
+        data.apiGateway = {
+          reachable,
+          url: apiUrl,
+          statusCode,
+          status: reachable ? 'healthy' : 'unreachable',
+        };
+      } else if (!useBrief) {
+        console.log(`  ${BOLD}API Gateway${RESET}`);
+        console.log(`    Status:      ${reachable ? `${GREEN}healthy${RESET}` : `${RED}unreachable${RESET}`}`);
+        console.log(`    URL:         ${apiUrl}`);
+        if (statusCode) console.log(`    StatusCode:  ${statusCode}`);
+        console.log();
+      }
+    } catch {
+      if (useStructuredFormat) {
+        data.apiGateway = { reachable: false, status: 'error' };
+      } else if (!useBrief) {
+        console.log(`  ${BOLD}API Gateway${RESET} ${GRAY}(not available)${RESET}\n`);
+      }
     }
   }
 
@@ -515,22 +538,101 @@ export async function runSystemStatus(cliArgs?: string[]): Promise<void> {
   }
 
   if (sections.includes('routing')) {
-    if (useStructuredFormat) {
-      data.routing = { status: 'not_implemented' };
-    } else if (!useBrief) {
-      console.log(`  ${BOLD}Routing${RESET}`);
-      console.log(`    Status:      ${GRAY}Not implemented${RESET}`);
-      console.log();
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const routingPath = path.join(process.cwd(), '.vestara', 'routing.json');
+      const exists = fs.existsSync(routingPath);
+
+      if (exists) {
+        const routing = JSON.parse(fs.readFileSync(routingPath, 'utf-8'));
+        const selection = routing.selection ?? {};
+        const roleCount = Object.keys(selection.roles ?? {}).length;
+        const assignmentsPath = path.join(process.cwd(), '.vestara', 'routing-assignments.json');
+        const assignmentsExist = fs.existsSync(assignmentsPath);
+        let assignmentCount = 0;
+        if (assignmentsExist) {
+          const assignments = JSON.parse(fs.readFileSync(assignmentsPath, 'utf-8'));
+          assignmentCount = (assignments.assignments ?? []).length;
+        }
+
+        if (useStructuredFormat) {
+          data.routing = {
+            profile: selection.profileId ?? 'unknown',
+            revision: routing.revision ?? 0,
+            updatedAt: routing.updatedAt ?? null,
+            roles: roleCount,
+            assignments: assignmentCount,
+            configFile: routingPath,
+          };
+        } else if (!useBrief) {
+          console.log(`  ${BOLD}Routing${RESET}`);
+          console.log(`    Profile:     ${selection.profileId ?? 'unknown'}`);
+          console.log(`    Revision:    ${routing.revision ?? 0}`);
+          console.log(`    Roles:       ${roleCount}`);
+          console.log(`    Assignments: ${assignmentCount}`);
+          if (routing.updatedAt) console.log(`    Updated:     ${routing.updatedAt}`);
+          console.log();
+        }
+      } else {
+        if (useStructuredFormat) {
+          data.routing = { configFile: routingPath, exists: false };
+        } else if (!useBrief) {
+          console.log(`  ${BOLD}Routing${RESET} ${GRAY}(no routing config)${RESET}\n`);
+        }
+      }
+    } catch {
+      if (useStructuredFormat) {
+        data.routing = { status: 'error' };
+      } else if (!useBrief) {
+        console.log(`  ${BOLD}Routing${RESET} ${GRAY}(not available)${RESET}\n`);
+      }
     }
   }
 
   if (sections.includes('database')) {
-    if (useStructuredFormat) {
-      data.database = { status: 'not_implemented' };
-    } else if (!useBrief) {
-      console.log(`  ${BOLD}Database${RESET}`);
-      console.log(`    Status:      ${GRAY}Not implemented${RESET}`);
-      console.log();
+    try {
+      const fs = await import('node:fs');
+      const path = await import('node:path');
+      const dbPath = path.join(process.cwd(), '.vestara', 'plans', 'plans.db');
+      const exists = fs.existsSync(dbPath);
+      let fileSize = 0;
+      let tableCount = 0;
+
+      if (exists) {
+        fileSize = fs.statSync(dbPath).size;
+        const db = await openSharedDb(dbPath);
+        const result = db.exec("SELECT name FROM sqlite_master WHERE type='table'");
+        tableCount = result.length > 0 ? result[0].values.length : 0;
+        db.close();
+      }
+
+      if (useStructuredFormat) {
+        data.database = {
+          exists,
+          path: dbPath,
+          fileSizeBytes: fileSize,
+          fileSizeMB: Math.round((fileSize / 1024 / 1024) * 100) / 100,
+          tables: tableCount,
+          engine: 'sql.js (in-memory WASM SQLite)',
+        };
+      } else if (!useBrief) {
+        console.log(`  ${BOLD}Database${RESET}`);
+        console.log(`    Exists:      ${exists ? `${GREEN}yes${RESET}` : `${RED}no${RESET}`}`);
+        if (exists) {
+          console.log(`    Path:        ${dbPath}`);
+          console.log(`    Size:        ${Math.round((fileSize / 1024 / 1024) * 100) / 100} MB`);
+          console.log(`    Tables:      ${tableCount}`);
+        }
+        console.log(`    Engine:      sql.js (WASM SQLite)`);
+        console.log();
+      }
+    } catch {
+      if (useStructuredFormat) {
+        data.database = { status: 'error' };
+      } else if (!useBrief) {
+        console.log(`  ${BOLD}Database${RESET} ${GRAY}(not available)${RESET}\n`);
+      }
     }
   }
 

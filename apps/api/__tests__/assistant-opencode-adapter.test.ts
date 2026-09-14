@@ -407,6 +407,7 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
         } as OpenCodeHttpClient['openEventStream'],
         getSessionDiff: async () => [] as never,
         getSessionTodos: async () => [] as never,
+        abortSession: async () => undefined,
       };
 
       const chunks: StreamChunk[] = [];

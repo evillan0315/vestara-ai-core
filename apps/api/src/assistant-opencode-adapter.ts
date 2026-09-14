@@ -746,6 +746,22 @@ export async function* runAssistantOpenCodeTurn(
     } catch {
       // todos unavailable — task projection stays absent (explicit absence)
     }
+
+    // GA-EXEC-002: yield a final meta chunk with structured execution result.
+    // The complete() method extracts this to populate CompletionResponse.executionResult,
+    // separating the turn's termination reason from the response content.
+    const elapsedMs = Date.now() - (deadline - turnTimeoutMs);
+    yield chunk('meta', sequence++, {
+      content: undefined,
+      metadata: {
+        sequence,
+        timestamp: new Date().toISOString(),
+        provider: turnProvider,
+        model: turnModel?.modelID,
+        runtimeSessionId: resolvedSessionId,
+        executionResult: { termination, toolCallCount, elapsedMs },
+      },
+    });
   } finally {
     controller.abort();
     request.signal?.removeEventListener('abort', onAbort);
@@ -756,8 +772,11 @@ export async function* runAssistantOpenCodeTurn(
     // - CANCELLED: signal IS aborted (explicit Stop), abort session.
     // - TIMEOUT: deadline expired, abort session.
     // - FAILED: runtime error, abort session.
+    // GA-EXEC-002: timeout and tool-limit now auto-abort without requiring
+    // explicit cancellation — the session must not remain alive after Vestara
+    // has declared the turn failed.
     const explicitCancellation = request.signal?.aborted === true;
-    if (requiresAbort(termination) && explicitCancellation) {
+    if (requiresAbort(termination)) {
       try {
         await client.abortSession(resolvedSessionId, context);
       } catch {
@@ -825,6 +844,10 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         .join('');
       const failed = chunks.find((item) => item.type === 'error');
       const turnModel = await resolveProvider(request);
+      // GA-EXEC-002: extract structured execution result from the final meta chunk.
+      // Separates the turn's termination reason from the response content.
+      const metaChunk = chunks.find((item) => item.type === 'meta');
+      const executionResult = metaChunk?.metadata?.executionResult;
       return {
         id: `conv-${Date.now()}`,
         // GA-RUNTIME-001 H: the response model is the ACTUAL execution binding.
@@ -833,6 +856,7 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         content: failed ? (failed.content ?? 'Assistant turn failed') : content,
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: 0,
+        ...(executionResult ? { executionResult } : {}),
         ...(sessionId
           ? {
               resolution: {
