@@ -78,6 +78,19 @@ export type {
   RuntimeBindingInput,
 } from './binding.js';
 
+// ── Instruction layering (AR-GA-CORE-005 §5–§6) ──────────────────────────
+
+export type {
+  ExpectedResult,
+  RoleInstructionRef,
+  TaskEnvelope,
+  TaskInstruction,
+  TaskScope,
+  TurnRoutingMode,
+  VerificationRequirement,
+} from './instruction.js';
+export { isDeltaOnlyEnvelope, TURN_ROUTING_MODES } from './instruction.js';
+
 // ── Activity ────────────────────────────────────────────────────────────────
 
 export type {

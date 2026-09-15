@@ -2827,6 +2827,388 @@ The catalog handler (`apps/api/src/routes/catalog.ts`) returns `true` for ANY no
 
 ---
 
+## CI Observation & Verification Milestone
+
+### CI-OBS-001 — GitHub CI Observation & Verification 🔶 Planned
+
+**Priority**: P0 — highest current milestone priority
+
+**Placement**: Before Vestara Live OS Alpha
+
+**Objective**: Remove manual GitHub CI babysitting from Vestara's engineering loop. Vestara must be able to associate a pushed commit with its GitHub Actions verification, observe checks through terminal state, retrieve failure evidence, classify findings without inventing causes, and expose the resulting verification state to Vestara.
+
+**This milestone is observation, evidence and review first. It does not grant autonomous repository mutation authority.**
+
+**Core lifecycle**:
+
+```text
+Governed Execution
+      ↓
+Local Verification
+      ↓
+Commit
+      ↓
+Push
+      ↓
+GitHub CI Pending
+      ↓
+CI Observation
+      ↓
+┌──────────────┐
+│              │
+PASS         FAILURE
+│              │
+▼              ▼
+Evidence     Retrieve logs
+│              ↓
+│           Classify
+│              ↓
+│           Finding
+│              ↓
+└──────→ Verification Result
+               ↓
+         Activity Room
+```
+
+---
+
+#### CI-OBS-001A — Ownership and Integration Audit
+
+**Zero-mutation audit first.**
+
+Establish existing ownership for GitHub integration, execution/evidence contracts, verification, Activity Room projection, repository identity/change sets, notifications and workflow state.
+
+Determine whether Vestara already has reusable GitHub API/client capability before introducing anything new.
+
+Establish the authoritative identity tuple:
+
+- Repository
+- Commit SHA
+- Push
+- Workflow Run
+- Job
+- Check
+- Attempt
+
+These identities must not be conflated.
+
+Deliver an ownership map, gaps and proposed minimal integration boundary. **HOLD before implementation if ownership conflicts are discovered.**
+
+---
+
+#### CI-OBS-001B — Canonical CI Observation Contracts
+
+Define provider-neutral contracts rather than allowing GitHub response shapes to become Vestara domain contracts.
+
+**Minimum concepts**:
+
+- `CIVerificationRun`
+- `CICheck`
+- `CIJob`
+- `CIStatus`
+- `CIConclusion`
+- `CIFailureEvidence`
+- `CIFinding`
+- `CIHypothesis`
+- `CIClassification`
+- `CIObservation`
+
+**Suggested lifecycle**:
+
+```text
+DISCOVERED → QUEUED → RUNNING → COMPLETED
+```
+
+**Terminal conclusions**:
+
+- `PASSED`
+- `FAILED`
+- `CANCELLED`
+- `TIMED_OUT`
+- `SKIPPED`
+- `UNKNOWN`
+
+Preserve GitHub's raw conclusion separately when useful.
+
+---
+
+#### CI-OBS-001C — GitHub Actions Adapter
+
+Implement the GitHub-specific adapter behind the provider-neutral port.
+
+**Required capabilities**:
+
+- Locate workflow/check runs for an exact commit SHA
+- Retrieve workflow/job/check state
+- Retrieve relevant failed-step logs
+- Identify reruns/attempts
+- Preserve URLs/IDs as provenance
+- Detect terminal state
+- Distinguish GitHub API/retrieval failure from CI failure
+
+Prefer event/webhook-driven observation eventually. Polling is acceptable for the initial dogfood implementation if that is materially simpler, but the domain contract must not depend on polling.
+
+**Do not poll aggressively.**
+
+---
+
+#### CI-OBS-001D — Evidence-backed CI Reviewer
+
+Add a reviewer capable of turning raw CI evidence into structured findings.
+
+**Classification vocabulary** (initially small):
+
+- `CODE`
+- `TEST`
+- `BUILD`
+- `CONTRACT`
+- `CONFIGURATION`
+- `DEPENDENCY`
+- `INFRASTRUCTURE`
+- `RESOURCE`
+- `FLAKE`
+- `CANCELLED`
+- `UNKNOWN`
+
+**Classification is a finding, not authority.**
+
+**Critical invariant**: Failure observation ≠ explanation.
+
+**Example**:
+
+> **Observation**: Vitest worker exited unexpectedly.
+>
+> **Hypothesis**: Resource exhaustion.
+>
+> **Evidence**: Insufficient.
+>
+> **Classification**: UNKNOWN.
+
+The Reviewer must be allowed to reject recommendations that contradict current evidence.
+
+---
+
+#### CI-OBS-001E — Hypothesis/Finding Memory
+
+Prevent repeated investigation of already-tested hypotheses.
+
+**Example**:
+
+> **Hypothesis**: OpenCode generated contracts are stale.
+>
+> **Commit**: 449ba59
+>
+> **Evidence**: 472 generated contracts, byte-identical output, spec:check COMPATIBLE
+>
+> **Finding**: REJECTED
+
+A future review may reuse that finding only when its scope remains applicable.
+
+New contradictory evidence must be capable of reopening it.
+
+**Never convert a historical finding into a universal truth.**
+
+---
+
+#### CI-OBS-001F — Activity Room Projection
+
+Project meaningful CI lifecycle events into Activity Room:
+
+**Running example**:
+
+```text
+GitHub CI
+449ba59 · build-and-test
+RUNNING
+Fast Tests
+```
+
+**Failure example**:
+
+```text
+GitHub CI
+449ba59
+FAILED
+Evidence
+ga-ui-006-conversation-navigation
+Worker exited unexpectedly
+Classification
+UNKNOWN
+Reviewer
+Investigation required
+```
+
+**Pass example**:
+
+```text
+GitHub CI
+449ba59
+VERIFIED
+✓ build-and-test
+✓ desktop-build
+✓ visual-regression
+```
+
+Do not flood Activity Room with every GitHub log line. Project lifecycle transitions, findings and evidence summaries; full logs remain inspectable.
+
+---
+
+#### CI-OBS-001G — Global Assistant Integration
+
+The Global Assistant should be able to answer:
+
+- "Did my last commit pass CI?"
+- "What failed?"
+- "Why does Vestara think it failed?"
+- "What evidence supports that?"
+- "Has this failure happened before?"
+- "What should we investigate next?"
+
+Answers must distinguish:
+
+- **Observed**
+- **Inferred**
+- **Previously established**
+- **Rejected hypothesis**
+- **UNKNOWN**
+
+---
+
+#### CI-OBS-001H — Workflow Integration
+
+Introduce CI as a verification state in the engineering lifecycle without making CI sovereign.
+
+```text
+Implementation
+→ Local Verification
+→ Commit
+→ Push
+→ CI_PENDING
+→ CI_RUNNING
+→ CI_PASSED / CI_FAILED / CI_UNKNOWN
+→ Evidence
+→ Completion eligibility
+```
+
+**Push ≠ completion.**
+
+**CI pass ≠ proof that the objective is correct.**
+
+CI is one evidence-producing verification authority within its declared scope.
+
+---
+
+#### CI-OBS-001I — Notifications
+
+Eddie should not need to watch GitHub.
+
+**Notify only on meaningful transitions**:
+
+- All required checks passed
+- Required check failed
+- Run cancelled/timed out
+- CI observation itself failed
+- Human decision required
+
+Avoid notifications for every job/step transition.
+
+Telegram can eventually receive the same canonical notification projection rather than implementing separate CI semantics.
+
+---
+
+#### CI-OBS-001J — Governed Repair Boundary
+
+Initial release must not automatically repair failures.
+
+**Allowed**:
+
+- Observe
+- Retrieve
+- Correlate
+- Analyze
+- Classify
+- Recommend
+- Request authorized follow-up
+
+**Not automatically authorized**:
+
+- Edit
+- Commit
+- Push
+- Rerun arbitrary workflows
+- Merge
+- Change GitHub settings
+
+Future workflow policy may authorize bounded repair loops, but that requires a separate authority contract.
+
+---
+
+**Acceptance dogfood**:
+
+Use Vestara itself. Have Developer/Muse make an authorized small change and push it. Eddie must not open GitHub Actions.
+
+Vestara must:
+
+- Identify the pushed SHA
+- Discover its CI run
+- Show pending/running state
+- Observe all required checks
+- Report PASS or FAILURE
+- If failed, retrieve the relevant evidence
+- Produce an evidence-backed finding
+- Expose it in Activity Room
+- Answer questions about it through Global Assistant
+- Preserve UNKNOWN where causality cannot be established
+
+Then deliberately introduce a safe test failure and repeat the process.
+
+**Acceptance criterion**: Eddie can know whether his commit passed and understand the evidence for a failure without opening GitHub.
+
+**Explicit non-goals** — Do not build:
+
+- Autonomous CI repair
+- Automatic merge
+- General GitHub administration
+- Copilot integration
+- PR management platform
+- Deployment orchestration
+- Broad GitHub issue management
+- Live OS integration
+
+Those remain future capabilities.
+
+**Governance invariants** — Preserve:
+
+- Claim ≠ Evidence
+- Failure ≠ Root Cause
+- Recommendation ≠ Authority
+- Push ≠ Completion
+- CI Pass ≠ Objective Verification
+- UNKNOWN is valid evidence
+- Observation must not silently become mutation authority
+
+**First action is CI-OBS-001A audit only. Do not begin implementation until ownership/integration boundaries are established.**
+
+**Status**: 🔶 Planned
+
+**Freeze & Reviewer evidence (2026-09-15, status sync only — no behavior change)**:
+
+- CI-OBS-001A — **FROZEN**.
+- CI-OBS-001B — repository-verified **FROZEN** (`packages/ci-contracts/`, Layer-0 leaf, zero dependencies).
+- CI-OBS-001C — repository-verified **FROZEN** (pre-freeze semantic correction: unrecognized provider status → `discovered`, never `running`; no 001B change required).
+- CI-UI-001 — repository-verified **FROZEN** (Settings → Integrations → Continuous Integration surface, read-only/disabled-first).
+- MAJOR-1 — **RESOLVED** with final Reviewer confirmation of the trust boundary: absolute provider URLs require https:, must match the configured trusted origin, validated before any authorization header is attached; refusals are retrieval failures.
+- Verification confirmed: contracts + adapter **132/132** (62 contracts + 70 adapter); CI Settings **9/9**.
+- CI-OBS-001D/E-000 — repository-verified **FROZEN** (historical ownership baseline; MINOR-6 scoping applied).
+- CI-OBS-001D-001 — repository-verified **FROZEN** (reviewer decision contract; 001D-001 notes MAJOR-1/MINOR-1..5/OBSERVATION-1..3 closed, MAJOR-2 without actionable content; timed_out reconciled fail-closed).
+- CI-OBS-001D kernel — implemented and **APPROVED** (`packages/ci-reviewer/`, stateless pure function; T1–T15/I1–I13/V1–V15 verified 47/47).
+- Instruction Contract — repository-verified **FROZEN**/**ACCEPTED** (`packages/execution-types/src/instruction.ts`: RoleInstruction reference + TaskInstruction/TaskEnvelope delta, owned per AR-GA-CORE-005; layering verified 4/4; no parallel subsystem).
+- Deferred debt from the earlier 001B/C/UI Reviewer gate (recorded, not reopened; labels belong to that round and are distinct from the closed 001D-001 notes above): MINOR-1, MINOR-2, OBSERVATION-1, OBSERVATION-2.
+- Unrelated pre-existing repository debt recorded separately (proven identical on clean HEAD): `vds:validate` 9 failures, workspace-ui build 379 errors, `settings-ui.test.tsx` 1 failure.
+- CI-OBS-001D → CI-OBS-001J: not begun.
+
+---
+
 ## OS Boot Experience Milestone
 
 ### VOS-BOOT-001 — Vestara Unified Boot Experience 🔶 Planned
@@ -3132,6 +3514,7 @@ interface OverviewViewModel {
 | **Audio Assistant** | **v7.17** | **Optional microphone/STT and streaming TTS/speaker integration for the Global Assistant** | 🔷 Planned |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
+| **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
@@ -3799,6 +4182,25 @@ A browser, Workspace UI, Telegram, CLI, mobile application, or other client is a
 
 An external Telegram identifier is an ExternalIdentity, not automatically another human.
 
+**Canonical relationships (normative, parked spec — no behavior change)**:
+
+```text
+Human → Principal → ExternalIdentity[]
+```
+
+- One governed Vestara Principal per human; one Principal may own multiple ExternalIdentities (Google, GitHub, future providers, Telegram-linked identity).
+- One ExternalIdentity must not silently resolve to multiple Principals; ambiguous or colliding claims stay UNKNOWN pending governed resolution.
+- Unlinking an ExternalIdentity never deletes the Principal/Human; provider revocation never automatically deletes canonical identity.
+
+```text
+External provider → adapter → ExternalIdentity → Principal
+```
+
+- Google OAuth/OIDC, GitHub OAuth, and future external/social identity providers integrate only through provider adapters at the boundary.
+- Adapters translate provider claims into canonical `ExternalIdentity`; canonical identity ownership never moves into adapters.
+- Provider-specific concepts belong in adapters only. Core contracts must not introduce `GoogleUser`, `GitHubUser`, or equivalent provider-shaped types; future providers are added as new adapters without changing canonical ownership.
+- Telegram is a future identity + participation surface, not merely an OAuth provider: a Telegram identifier is an ExternalIdentity candidate and Telegram is a Surface/channel; linking still requires explicit governed proof. `HumanPrincipal via Surface Telegram` ≠ `Telegram = human`.
+
 **Architectural target**:
 
 ```text
@@ -3808,10 +4210,11 @@ Human Principal
 │
 ├── Authentication Identities
 │
-├── External Identities
-│   ├── Telegram
-│   ├── GitHub
-│   └── future providers
+├── External Identities (canonical ExternalIdentity[]; provider-neutral)
+│   ├── Google (OAuth/OIDC — via adapter only)
+│   ├── GitHub (OAuth — via adapter only)
+│   ├── Telegram (surface + future identity — not an OAuth provider)
+│   └── future providers (new adapters; no canonical ownership change)
 │
 ├── Workspace Memberships
 │   ├── Role assignments
@@ -3843,37 +4246,54 @@ This model must allow one human to interact through multiple surfaces without Ve
 12. A disabled identity/session must not silently retain access.
 13. Human and Agent identity must not be conflated even if both implement common Principal contracts.
 14. Administrative capability is governed authority, not merely a UI role label.
+15. Authentication ≠ Authorization (OAuth restatement): a successful Google/GitHub sign-in proves control of the provider account at that moment, not Vestara authority.
+16. OAuth account ≠ Vestara Principal: a Google/GitHub account is a provider claim; it becomes usable only when a governed adapter resolves it to an `ExternalIdentity` owned by exactly one Principal.
+17. Matching email/username ≠ identity proof: email or handle equality across providers (or with an existing profile) is a collision hint, never proof; it must route to conflict handling, never auto-merge.
+18. External identity linking requires explicit governed proof/authorization: link and unlink are authorized, auditable mutations with provenance; no silent or heuristic linking.
+19. One Principal may own multiple ExternalIdentities (Google + GitHub + future providers + Telegram-linked identity on one governed Principal is the supported shape).
+20. One ExternalIdentity must not silently resolve to multiple Principals: duplicate/collision claims stay UNKNOWN or conflicted until governed resolution; never fan out.
+21. Unlinking an ExternalIdentity ≠ deleting the Principal/Human: unlink withdraws that authentication path; canonical identity, memberships, and history remain governed separately.
+22. Provider revocation ≠ automatically deleting canonical identity: revocation (user revokes at provider, provider suspends app, token revoked) withdraws trust in that path; canonical identity/history retention and session consequences are governed separately and must be explicit (including account-recovery considerations).
+23. Surface Identity ≠ Authentication Identity: the Surface a human arrives via (Workspace UI, Telegram, CLI, API) informs context only; it never authenticates by itself and never grants authority.
+24. Membership/Role/Permission must never be inferred from OAuth provider identity: provider claims (email domain, GitHub org, Google groups) are not Vestara membership or role evidence; roles act only via the existing authorization path.
+25. Canonical contracts stay provider-neutral: no `GoogleUser`/`GitHubUser` (or equivalent) core types; provider-specific concepts belong in adapters. SAML, SCIM, enterprise federation, and biometrics stay out of current implementation scope (future compatibility may be documented without adding implementation milestones).
 
-**Reuse before invention**: before designing new contracts, UIM-001 audits existing capabilities — Authentication Platform, Identity/Principal contracts, AuthorizationService, permission contracts, session runtime, workspace concepts, Activity Room participant identity, conversation/message actor identity, Telegram principal/external identity handling, Global Assistant principal/surface context, configuration and secret handling, existing user/account/profile code. New ownership only where existing ownership is insufficient.
+**Reuse before invention**: before designing new contracts, UIM-001 audits existing capabilities — Authentication Platform, Identity/Principal contracts, AuthorizationService, permission contracts, session runtime, workspace concepts, Activity Room participant identity, conversation/message actor identity, Telegram principal/external identity handling, Global Assistant principal/surface context, configuration and secret handling, existing user/account/profile code (including the legacy `apps/workspace/src/pages/Settings/components/account/AccountSettings.tsx` Users CRUD, which is NOT canonical UIM authority and must first receive KEEP/ADAPT/REBUILD/RETIRE classification during UIM-001 — no remediation during the audit). New ownership only where existing ownership is insufficient. The existing Auth Platform, Principal, Session, Permission, and authorization authorities are reused; UIM must not create competing ownership. OAuth adapters reuse these authorities and own only provider translation (Google OIDC claims, GitHub OAuth profile/emails) — never canonical identity, membership, roles, permissions, or sessions.
+
+**Refined logical sequence (parked spec; UIM-001 → UIM-016 numbering unchanged)**: Ownership Audit → Canonical Identity Contracts → External Identity Runtime → Google/GitHub OAuth Adapters → Account Linking/Recovery → Surface Convergence → Membership/Roles/Permissions → Sessions → Service/API → Settings UI → Activity Room/Assistant convergence → Audit/Invitations → Dogfood → Freeze. The External-Identity stages are scoped as explicit sub-stages within UIM-003 (003a runtime, 003b adapters, 003c linking/recovery) precisely to avoid renumbering UIM-001 → UIM-016 and to avoid ownership churn; see numbering note under Status.
 
 **Milestone sequence**:
 
 | Milestone | Deliverable | Gate |
 |-----------|-------------|------|
-| UIM-001 | Cross-Platform Identity & User Ownership Audit (zero mutation) — ownership matrix + KEEP/ADAPT/REBUILD/RETIRE per representation (User, Human, Principal, Identity, ExternalIdentity, Session, Surface, WorkspaceMember, Role, Permission, Participant, Actor); Activity Room `You`/`workspace-ui`/`tg-principal-*`/simulation-principal evidence included, not remediated | Ownership matrix delivered; no code changed |
-| UIM-002 | Canonical Human Principal & User contracts (`HumanPrincipal`, `UserProfile`, `UserStatus`, `IdentityReference`, lifecycle: invited/active/suspended/disabled/deleted) without duplicating generic Principal ownership | Contracts compile; no unsupported concepts encoded |
-| UIM-003 | External Identity & Account Linking (`ExternalIdentity{provider, externalSubjectId, principalId?, link status}`); Telegram first dogfood, provider-neutral; governed link/unlink/conflict/recovery/UNKNOWN/duplicate-detection; never merge on names/heuristics | Link/unlink/conflict tests pass |
-| UIM-004 | Surface/Client Identity Separation — canonical surface representation (Workspace UI, desktop, mobile, Telegram, CLI, API); `HumanPrincipal Eddie via Surface Telegram`, never `Telegram = Eddie`; surface informs context, grants no authority | Surface-authority separation tests pass |
-| UIM-005 | Workspace Membership (`WorkspaceMembership{principalId, workspaceId, status, roleAssignments}`); invitation/acceptance/suspension/removal + historical representation; membership is not permission authority | Membership lifecycle tests pass |
-| UIM-006 | Roles & Permission Assignment integrated with existing authorization contracts (no competing ACL); role assignment as authorization input, policy evaluation authoritative; no `role === admin → allow` hard-coding | Authorization-path tests pass |
-| UIM-007 | Session & Device Management — active sessions, creation metadata, last activity, originating surface, revoke-one/revoke-others, expiry, suspicious-session representation; never expose credentials/secrets | Session revocation tests pass |
-| UIM-008 | User Administration Service/API (list/search/inspect/invite/update-profile/membership/roles/links/suspend/sessions); every mutation authorized, governed, auditable | All mutations produce evidence |
-| UIM-009 | User Management UI (Directory/Invitations/Access-Security; Detail: Overview/Identity/Workspaces/Roles/External/Sessions/Activity) via Design System → Layout → Presentation → Domain → Page; `@vestara/ui-tokens`, Tailwind v4 token utilities only | `pnpm vds:validate` passes; zero hardcode |
-| UIM-010 | Activity Room Identity Convergence — `Eddie Villanueva · via Telegram` = one principal, two surfaces; technical provenance inspectable; legacy records classified honestly, never rewritten; coordinates with (not replaces) existing convergence work | Projection tests pass |
+| UIM-001 | Cross-Platform Identity & User Ownership Audit (zero mutation) — ownership matrix + KEEP/ADAPT/REBUILD/RETIRE per representation (User, Human, Principal, Identity, ExternalIdentity, Session, Surface, WorkspaceMember, Role, Permission, Participant, Actor); includes OAuth-relevant seams (any existing Google/GitHub touchpoints, adapter seam, secret/config handling) and Activity Room `You`/`workspace-ui`/`tg-principal-*`/simulation-principal evidence, included not remediated; legacy `AccountSettings.tsx` Users CRUD classified (not canonical authority), not remediated | Ownership matrix delivered; no code changed |
+| UIM-002 | Canonical Human Principal & User contracts (`HumanPrincipal`, `UserProfile`, `UserStatus`, `IdentityReference`, lifecycle: invited/active/suspended/disabled/deleted) encoding `Human → Principal → ExternalIdentity[]` without duplicating generic Principal ownership; provider-neutral (no `GoogleUser`/`GitHubUser` core types) | Contracts compile; no unsupported concepts encoded |
+| UIM-003 | External Identity Runtime + Google/GitHub OAuth Adapters + Account Linking/Recovery — explicit sub-stages, one milestone to preserve numbering: (003a) provider-neutral `ExternalIdentity{provider, externalSubjectId, principalId?, link status}` runtime (`provider → adapter → ExternalIdentity → Principal`; one Principal ↔ many ExternalIdentities; one ExternalIdentity ↛ many Principals; UNKNOWN/collision semantics; never merge on email/username/heuristics); (003b) Google OAuth/OIDC + GitHub OAuth adapters at the boundary only (provider claims → canonical ExternalIdentity; provider-specific concepts stay in adapters; future providers add adapters without canonical change; Telegram is NOT an OAuth adapter — surface + future identity); (003c) governed link/unlink/conflict/duplicate-detection/recovery (explicit proof/authorization; unlink ≠ delete Principal; provider revocation ≠ auto-delete; revocation/recovery consequences explicit) | Link/unlink/conflict/revocation semantics specified with tests-first gates; no provider types in core |
+| UIM-004 | Surface/Client Identity Separation + Surface Convergence — canonical surface representation (Workspace UI, desktop, mobile, Telegram, CLI, API); Surface Identity ≠ Authentication Identity; `HumanPrincipal Eddie via Surface Telegram`, never `Telegram = Eddie`; Telegram as participation surface (and future identity candidate via UIM-003 linking, not via surface arrival); surface informs context, grants no authority | Surface-authority separation tests pass |
+| UIM-005 | Workspace Membership (`WorkspaceMembership{principalId, workspaceId, status, roleAssignments}`); invitation/acceptance/suspension/removal + historical representation; membership is not permission authority and is never inferred from OAuth provider identity (email domain / GitHub org / groups are not membership evidence) | Membership lifecycle tests pass |
+| UIM-006 | Roles & Permission Assignment integrated with existing authorization contracts (no competing ACL); role assignment as authorization input, policy evaluation authoritative; no `role === admin → allow` hard-coding; never derived from OAuth provider claims | Authorization-path tests pass |
+| UIM-007 | Session & Device Management — active sessions, creation metadata, last activity, originating surface, revoke-one/revoke-others, expiry, suspicious-session representation; provider-revocation vs session-revocation distinguished (provider trust withdrawal does not silently equal session kill-all; consequences explicit); never expose credentials/secrets | Session revocation tests pass |
+| UIM-008 | User Administration Service/API (list/search/inspect/invite/update-profile/membership/roles/links/suspend/sessions); link/unlink/collision-resolution/revocation-handling as governed auditable mutations reusing Auth/Principal/Session/Permission authorities; every mutation authorized, governed, auditable | All mutations produce evidence |
+| UIM-009 | User Management / Settings UI (Directory/Invitations/Access-Security; Detail: Overview/Identity/Workspaces/Roles/External/Sessions/Activity) surfacing linked ExternalIdentities, link/unlink flows, collision/revocation/recovery states via Design System → Layout → Presentation → Domain → Page; `@vestara/ui-tokens`, Tailwind v4 token utilities only | `pnpm vds:validate` passes; zero hardcode |
+| UIM-010 | Activity Room Identity Convergence — `Eddie Villanueva · via Telegram` = one principal, two surfaces; OAuth-linked identities project truthfully with technical provenance inspectable; legacy records classified honestly, never rewritten; coordinates with (not replaces) existing convergence work | Projection tests pass |
 | UIM-011 | Global Assistant User Context — consumes principal/workspace/surface context; User Identity ≠ Surface ≠ Conversation ≠ Execution ≠ Authority; context never grants permissions | Context/authority separation tests pass |
-| UIM-012 | Audit & Security History — sign-in/session/linking/membership/role/admin/revocation/suspension events; observed vs claimed vs verified vs interpreted distinguished | History projection tests pass |
+| UIM-012 | Audit & Security History — sign-in/session/linking/unlinking/collision/revocation/membership/role/admin/suspension events; observed vs claimed vs verified vs interpreted distinguished; provider revocation and recovery events first-class | History projection tests pass |
 | UIM-013 | Invitations & Onboarding Integration — invitation → identity → membership → governance → ready; no second onboarding authority | Invitation flow tests pass |
-| UIM-014 | Multi-Surface Dogfood — one human via Workspace UI + Telegram, one canonical identity; attribution, provenance, membership, permissions, projection, context, sessions, history verified | Dogfood evidence delivered |
+| UIM-014 | Multi-Surface Dogfood — one human via Workspace UI + Telegram (+ Google/GitHub-linked sign-in where governed), one canonical identity; attribution, provenance, membership, permissions, projection, context, sessions, history verified | Dogfood evidence delivered |
 | UIM-015 | Multi-User Dogfood — second controlled human; isolation, membership, roles, permission differences, attribution, admin boundaries verified; proves it works beyond Customer #1 | Two-user evidence delivered |
-| UIM-016 | Verification, Evidence & Freeze — architecture/contract/security/authorization/API/persistence/UI/integration/Activity-Room/Assistant/Telegram/session/multi-user verification; freeze only on dogfood evidence | Freeze proofs delivered |
+| UIM-016 | Verification, Evidence & Freeze — architecture/contract/security/authorization/API/persistence/UI/integration/Activity-Room/Assistant/Telegram/session/multi-user/external-identity/adapter verification (Google/GitHub adapters adapter-contained; core stays provider-neutral); freeze only on dogfood evidence | Freeze proofs delivered |
 
-**Required acceptance scenarios** (eventual): one human across Workspace UI + Telegram stays one principal; Telegram identity links/unlinks without fabrication; `workspace-ui` stays a surface; two humans stay distinguishable; membership ≠ admin; roles act only via authorization path; suspended users lose access with history intact; revocation actually revokes; agents distinct from humans; Activity Room shows identity + surface truthfully; Assistant understands context without deriving authority; deleted-identity history stays attributable; ambiguous linkage stays UNKNOWN; every privileged mutation auditable.
+**Explicit audit question recorded for UIM-001 (2026-09-15, spec-only)**: Which existing authority, if any, owns the canonical Principal ↔ ExternalIdentity linkage? UIM-001 must audit existing Auth Platform, Principal, Session, ExternalIdentity, credential, authorization, and persistence ownership before proposing a new owner. The roadmap does not determine that ownership.
 
-**Explicit non-goals (initial)**: enterprise SSO/SAML, SCIM, org-wide federation, social profiles, complex org hierarchy, behavioral scoring, biometrics, AI-generated authorization policy, rewriting historical identity data.
+**Required acceptance scenarios** (eventual): one human across Workspace UI + Telegram stays one principal; Google and GitHub accounts link to one governed Principal via adapters with explicit proof; same-email/different-provider accounts do NOT auto-merge (collision → UNKNOWN/conflict flow); Telegram identity links/unlinks without fabrication; `workspace-ui` stays a surface (Surface ≠ Authentication Identity); unlinking an ExternalIdentity leaves Principal/Human intact; provider revocation withdraws trust without auto-deleting canonical identity (recovery path explicit); two humans stay distinguishable (one ExternalIdentity never silently serves two Principals); membership ≠ admin and is never inferred from provider claims; roles act only via authorization path; suspended users lose access with history intact; revocation actually revokes; agents distinct from humans; Activity Room shows identity + surface truthfully; Assistant understands context without deriving authority; deleted-identity history stays attributable; ambiguous linkage stays UNKNOWN; every privileged mutation (including link/unlink/revocation-handling) auditable.
 
-**Depends on**: Authentication Platform, authorization/permission contracts, session runtime, Activity Room projection, Telegram integration (external-identity dogfood), Global Assistant context.
+**Explicit non-goals (initial)**: enterprise SSO/SAML, SCIM, org-wide federation, social profiles, complex org hierarchy, behavioral scoring, biometrics, AI-generated authorization policy, rewriting historical identity data. Future SAML/federation compatibility may be documented as adapter-shaped extension points without adding implementation milestones.
 
-**Status**: 🔷 Proposed/Parked (proposal written 2026-09-15; UIM-001 NOT authorized — zero implementation until explicitly approved)
+**Depends on**: Authentication Platform (including its OAuth touchpoints as the future adapter seam — reused, not forked), authorization/permission contracts, session runtime, Activity Room projection, Telegram integration (identity + participation surface dogfood, not an OAuth provider), Global Assistant context.
+
+**Numbering/ownership note (refinement 2026-09-15, spec-only)**: UIM-001 → UIM-016 numbering and existing ownership are unchanged by this refinement. The requested `Runtime → Adapters → Linking/Recovery` staging is scoped as UIM-003a/003b/003c inside UIM-003 to avoid renumbering downstream milestones (UIM-004 → UIM-016), database/plan references, and ownership churn. Canonical ownership stays with the existing Auth Platform / Principal / Session / Permission / authorization authorities; adapters own provider translation only. No `GoogleUser`/`GitHubUser` core types; no new implementation milestones for SAML/SCIM/federation/biometrics.
+
+**Status**: 🔷 Proposed/Parked (proposal written 2026-09-15, refined 2026-09-15 for External Identity & OAuth; UIM-001 NOT authorized — zero implementation until explicitly approved. No runtime code, OAuth client, callback route, database schema, UI implementation, or authentication behavior changed by this refinement.)
 
 ---
 

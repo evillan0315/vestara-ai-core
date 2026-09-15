@@ -15,6 +15,7 @@
 
 import { AgentStatus } from './components/AgentStatus';
 import { ContinueWorking } from './components/ContinueWorking';
+import { MilestonesSummary } from './components/MilestonesSummary';
 import { OverviewHero } from './components/OverviewHero';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
@@ -126,6 +127,7 @@ export function OverviewScreen() {
           <div className="min-w-0 space-y-4">
             <ContinueWorking items={data.continueWorking} />
             <TodayFocus items={data.focus} />
+            <MilestonesSummary />
           </div>
 
           {/* Column 2 — activity + system status */}

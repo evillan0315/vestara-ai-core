@@ -30,6 +30,7 @@ import NavigationSettings from './NavigationSettings.js';
 import { TelegramSimulator } from './TelegramSimulator.js';
 import HeroSettings from './HeroSettings.js';
 import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecutionSettings.js';
+import { CISettings } from './CI/CISettings.js';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -788,6 +789,7 @@ export default function SettingsPage() {
           <Route path="telegram" element={<TelegramSimulator />} />
           <Route path="navigation" element={<NavigationSettings />} />
           <Route path="assistant-execution" element={<AssistantExecutionSettings />} />
+          <Route path="ci" element={<CISettings />} />
           <Route path="*" element={<Navigate to="overview" replace />} />
         </Routes>
         </>

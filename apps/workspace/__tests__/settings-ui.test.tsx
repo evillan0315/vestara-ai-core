@@ -114,9 +114,14 @@ describe('premium settings control surface', () => {
     // Hero eyebrow carries the workspace-configuration identity; the title is "Settings".
     expect(await screen.findByText('Workspace Configuration')).toBeTruthy();
     expect(screen.getAllByText(/running/i).length).toBeGreaterThan(0);
-    expect(
-      screen.getAllByRole('link', { name: /Overview/ }).every((link) => link.getAttribute('aria-current') === 'page'),
-    ).toBe(true);
+    // Scope to Overview-destination links: sibling nav entries (e.g. Hero &
+    // Briefing, whose description mentions "Overview") share no destination
+    // and must not satisfy this assertion.
+    const overviewLinks = screen
+      .getAllByRole('link')
+      .filter((link) => link.getAttribute('href') === '/settings/overview');
+    expect(overviewLinks.length).toBeGreaterThan(0);
+    expect(overviewLinks.every((link) => link.getAttribute('aria-current') === 'page')).toBe(true);
   });
 
   it('filters categories and exposes a clear action for empty results', async () => {

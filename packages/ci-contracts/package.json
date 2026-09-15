@@ -1,0 +1,16 @@
+{
+  "name": "@vestara/ci-contracts",
+  "description": "Layer-0 leaf contracts for CI Observation & Verification — provider-neutral vocabulary, lifecycle, identities, and finding types",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/ci-contracts/__tests__"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}

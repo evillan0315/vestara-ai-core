@@ -64,6 +64,7 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'cli', label: 'CLI Integration', description: 'CLI compatibility and transport', group: 'engineering', icon: 'terminal', code: 'CL' },
   { id: 'history', label: 'Engineering History', description: 'Temporal event store', group: 'engineering', icon: 'sessions', code: 'EH' },
   { id: 'notifications', label: 'Notifications', description: 'Operational notifications', group: 'operations', icon: 'executions', code: 'NT' },
+  { id: 'ci', label: 'Continuous Integration', description: 'GitHub Actions integration and observation', group: 'operations', icon: 'workflows', code: 'CI' },
   { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', group: 'operations', icon: 'diagnostics', code: 'TM' },
   { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', group: 'operations', icon: 'tools', code: 'CN' },
   { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', group: 'advanced', icon: 'generic', code: 'AD' },

@@ -642,6 +642,15 @@ const MILESTONES: Milestone[] = [
     status: 'pending',
     description: 'Three-column premium operations layout, 8 phases',
   },
+  // CI Observation & Verification
+  {
+    version: 'CI-OBS-001',
+    name: 'GitHub CI Observation & Verification',
+    era: 'CI',
+    status: 'pending',
+    description:
+      'Observation, evidence and review of GitHub CI — associate commits with CI runs, observe checks, retrieve failure evidence, classify findings, expose verification state to Vestara',
+  },
   // OS Boot Experience
   {
     version: 'VOS-BOOT-001',
@@ -751,7 +760,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Zero-mutation audit of User/Human/Principal/Identity/ExternalIdentity/Session/Surface/WorkspaceMember/Role/Permission/Participant/Actor; ownership matrix + KEEP/ADAPT/REBUILD/RETIRE',
+      'Zero-mutation audit of User/Human/Principal/Identity/ExternalIdentity/Session/Surface/WorkspaceMember/Role/Permission/Participant/Actor + OAuth seams; ownership matrix + KEEP/ADAPT/REBUILD/RETIRE; legacy AccountSettings Users CRUD classified, not canonical, not remediated',
   },
   {
     version: 'UIM-002',
@@ -759,7 +768,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'HumanPrincipal, UserProfile, UserStatus, IdentityReference + invited/active/suspended/disabled/deleted lifecycle; no duplication of Principal ownership',
+      'HumanPrincipal, UserProfile, UserStatus, IdentityReference + invited/active/suspended/disabled/deleted lifecycle encoding Human → Principal → ExternalIdentity[]; provider-neutral, no GoogleUser/GitHubUser core types; no duplication of Principal ownership',
   },
   {
     version: 'UIM-003',
@@ -767,7 +776,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Provider-neutral ExternalIdentity with governed link/unlink/conflict/recovery/UNKNOWN semantics; Telegram first dogfood; never merge on heuristics',
+      'Provider-neutral ExternalIdentity runtime (provider → adapter → ExternalIdentity → Principal; 003a) + Google OIDC/GitHub OAuth adapters at boundary only (003b; Telegram is surface, not OAuth adapter) + governed link/unlink/collision/revocation/recovery (003c; email/username ≠ proof; unlink ≠ delete; revocation ≠ auto-delete; UNKNOWN on ambiguity)',
   },
   {
     version: 'UIM-004',
@@ -775,7 +784,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Canonical surface representation; HumanPrincipal via Surface, never Surface = principal; surface informs context, grants no authority',
+      'Canonical surface representation; HumanPrincipal via Surface, never Surface = principal; Surface Identity ≠ Authentication Identity; Telegram as participation surface; surface informs context, grants no authority',
   },
   {
     version: 'UIM-005',
@@ -783,7 +792,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Canonical WorkspaceMembership with invitation/acceptance/suspension/removal + historical representation; membership is not permission authority',
+      'Canonical WorkspaceMembership with invitation/acceptance/suspension/removal + historical representation; membership is not permission authority and is never inferred from OAuth provider identity',
   },
   {
     version: 'UIM-006',
@@ -791,7 +800,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Role assignment integrated with existing authorization contracts; policy evaluation authoritative; no role-equals-admin hard-coding',
+      'Role assignment integrated with existing authorization contracts and never derived from OAuth provider claims; policy evaluation authoritative; no role-equals-admin hard-coding',
   },
   {
     version: 'UIM-007',
@@ -799,21 +808,23 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Session visibility, metadata, revoke-one/revoke-others, expiry, suspicious-session representation; never expose credentials',
+      'Session visibility, metadata, revoke-one/revoke-others, expiry, suspicious-session representation; provider-revocation vs session-revocation distinguished with explicit consequences; never expose credentials',
   },
   {
     version: 'UIM-008',
     name: 'User Administration Service/API',
     era: 'Identity',
     status: 'pending',
-    description: 'Governed user-management operations; every mutation authorized and auditable',
+    description:
+      'Governed user-management operations reusing Auth/Principal/Session/Permission authorities; link/unlink/collision/revocation as authorized auditable mutations; every mutation authorized and auditable',
   },
   {
     version: 'UIM-009',
     name: 'User Management UI',
     era: 'Identity',
     status: 'pending',
-    description: 'Directory/Invitations/Access-Security + User Detail via design system tokens; zero hardcode',
+    description:
+      'Directory/Invitations/Access-Security + User Detail surfacing linked ExternalIdentities and collision/revocation/recovery states via design system tokens; zero hardcode',
   },
   {
     version: 'UIM-010',
@@ -821,7 +832,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'One principal across surfaces in projection; provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
+      'One principal across surfaces in projection with OAuth-linked identities shown truthfully; provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
   },
   {
     version: 'UIM-011',
@@ -837,7 +848,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Inspectable sign-in/linking/membership/role/admin/revocation/suspension history; observed vs claimed vs verified distinguished',
+      'Inspectable sign-in/linking/unlinking/collision/revocation/membership/role/admin/suspension history with recovery events first-class; observed vs claimed vs verified distinguished',
   },
   {
     version: 'UIM-013',
@@ -852,7 +863,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'One human via Workspace UI + Telegram, one canonical identity; full attribution/provenance/permission/history verification',
+      'One human via Workspace UI + Telegram (+ governed Google/GitHub-linked sign-in), one canonical identity; full attribution/provenance/permission/history verification',
   },
   {
     version: 'UIM-015',
@@ -868,7 +879,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Full architecture/contract/security/authorization/API/persistence/UI/integration verification; freeze only on dogfood evidence',
+      'Full architecture/contract/security/authorization/API/persistence/UI/integration verification with adapters adapter-contained and core provider-neutral; freeze only on dogfood evidence',
   },
 ];
 
