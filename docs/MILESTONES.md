@@ -3140,6 +3140,8 @@ interface OverviewViewModel {
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |
 | **AI-Native** | **v10.0–v10.1** | **Autonomous Platform, Universal Protocol** | 🔶 Vision |
+| **Marketplace** | **SRX** | **Vestara Interactive Results — Structured, actionable result presentations via Marketplace extension** | 🔷 Proposed |
+| **Identity** | **UIM** | **Vestara User & Identity Management — Canonical human identity, membership, external identity, sessions, administration (UIM-001–UIM-016)** | 🔷 Proposed/Parked |
 
 ---
 
@@ -3649,3 +3651,259 @@ Developer → pnpm vestara validate <workspace> → WorkspaceUnderstanding → O
 **Immediate next**: only VES-REPO-001 audit. Do not build runtime/UI until audit freezes.
 
 **Status**: 🔷 Proposed (blueprint `v0.1.0` written 2026-09-13; VES-REPO-001 baseline audit complete — zero-mutation report delivered, READY FOR VES-REPO-002 with constraints; VES-REPO-002 leaf contracts delivered as `@vestara/repository-contracts` v0.1.0 — 10 modules, 25 tests, Layer-0 verified, full build green; VES-REPO-003 discovery adapter delivered as `observeRepository` in `@vestara/workspace` (`repository-discovery-adapter.ts`, 11 tests) — read-only projection of RepositoryBinding/Fingerprint/GitService into canonical identity/state with explicit race/failure behavior, full build green; VES-REPO-004 snapshot runtime delivered (`captureRepositorySnapshot`/`snapshotStateDigest` in `@vestara/workspace`, pure `compareSnapshots` in contracts — capture/compare over observeRepository with contentHash digests, no store, full build green; VES-REPO-005 execution repository context delivered (`ExecutionRepositoryContext` in contracts, `bindExecutionRepositoryContext` in `@vestara/workspace`, optional `repositoryContext` on `ExecutionContext` for port propagation — fail-closed binding, full build green; VES-REPO-006 session correlation delivered (`RuntimeSessionCorrelation` in contracts, `recordRuntimeSessionCorrelation` in `@vestara/workspace` — explicit ExecutionId↔RuntimeSessionId pairing with asserted created/reused/resumed origin, full build green; VES-REPO-007 change detection delivered (`ObservedRepositoryChange` in contracts, `closeExecutionObservation` in `@vestara/workspace` — exact-S0 close over S1 with real comparison, difference evidence without causation, full build green; VES-REPO-008 attribution delivered (pure `evaluateAttribution` in contracts — two-fact CORRELATED bar, direct-write PROVEN threshold currently unreachable by inspection, mixed/unknown fail-safes, ChangeSet only when semantically valid, full build green; VES-REPO-001→008 ACCEPTED. HOLD 009 — frozen at the clean 008 boundary pending Activity Room dogfood readiness. Dogfood evidence (2026-09-14): Global Assistant response failures (`Tool call limit reached: 80 tool calls`; `Execution deadline exceeded`) coexisting with successful underlying runtime completion — response ≠ execution ≠ session lifecycles, to be represented separately)
+
+---
+
+## Marketplace Era
+
+### SRX — Vestara Interactive Results 🔷 Proposed
+
+**Objective**: Transform ordinary Global Assistant output into structured, interactive, actionable result presentations via a first-class Marketplace extension. The base Assistant remains conversational; richer interpretation and interactive presentation become an installable capability — creating a clean product boundary and a credible premium SKU without compromising core architecture.
+
+**Working name**: Vestara Interactive Results
+
+**Architectural capability**: `structured-results`
+
+**Blueprint**: This milestone definition (inline plan; to be extracted to `docs/blueprint/SRX-interactive-results.md` during SRX-001).
+
+**Governing rule**: The extension may interpret, organize, present, and propose actions. It does not gain execution authority. This is an invariant.
+
+**Critical boundary**:
+
+```text
+Extension installed      → Rich interactive result
+Extension disabled       → Normal Assistant response
+Extension removed        → Normal Assistant response
+```
+
+No Assistant functionality should break. That is the Marketplace test.
+
+**Architecture**:
+
+```text
+Raw / structured AI result
+        ↓
+Result interpretation
+        ↓
+Structured presentation model
+        ↓
+Rich readable UI
+        ↓
+Suggested actions
+        ↓
+User selects action
+        ↓
+Normal governed Global Assistant execution
+```
+
+**Core vs Extension boundary**:
+
+Core (`@vestara/global-assistant` etc.) exposes extension points but must not know about Interactive Results specifically:
+
+```ts
+interface AssistantResultExtension {
+  canHandle(result: AssistantResult): Promise<boolean>;
+  transform(result: AssistantResult, context: ResultExtensionContext): Promise<ResultProjection>;
+}
+```
+
+Extension (`@vestara/ext-structured-results`) is installable, uninstallable, enableable, disableable, versioned, permission-aware, configurable, entitlement-aware, observable, and sandboxable.
+
+**Two operating modes**:
+
+1. **Native structured mode** (preferred): Model/runtime emits `AssistantResult` with `summary`, `findings[]`, `recommendations[]`, `evidence[]`, `suggestedActions[]`.
+2. **Interpretation mode** (compatibility fallback): Extension receives ordinary Markdown response and produces a structured projection. Inferred structure must remain distinguishable from authoritative structure.
+
+**Suggested Action trust model**:
+
+```text
+SuggestedAction ≠ ExecutionRequest
+```
+
+Clicking `[ Fix token references ]` means: `SuggestedAction → User selection → User Intent → Assistant Turn → Intent/Execution resolution → Permission evaluation → Execution`. Never: `button → tool.execute()` (prohibited).
+
+**Action trust levels** (visually distinguishable):
+
+- **READ**: Explain, Inspect, Show evidence
+- **PLAN**: Create implementation plan, Compare approaches
+- **WRITE**: Apply recommended fixes, Update configuration
+- **CRITICAL**: Delete, Deploy, Reset
+
+Extension can recommend any permitted action type. It cannot approve it.
+
+**Result types** (v1): analysis, review, recommendation, plan, comparison, diagnostic, verification, implementation-result, status. Each may have an optimized renderer via a Result Renderer Registry.
+
+**Free vs Premium split**:
+
+- **Vestara Core**: Normal Markdown Assistant with simple built-in follow-up suggestions (`[ Explain more ]`, `[ Continue ]`)
+- **Interactive Results — Premium**: Rich structured result cards, dynamic recommendations, context-aware actions, finding/recommendation extraction, evidence organization, tool trace compression, specialized renderers, result history, cross-result actions, custom renderers
+
+**Key architectural invariants**:
+
+1. Extension interprets, organizes, presents, proposes. Never executes.
+2. SuggestedAction → User Intent → Assistant Turn → Permission evaluation → Execution. Never button → tool.execute().
+3. `@vestara/assistant-result-contracts` is Layer-0, provider-independent, no React/runtime deps.
+4. Extension disabled/removed = normal Assistant response. No hidden dependencies.
+5. Inferred structure distinguishable from authoritative structure via `provenance.source`.
+6. Extensions propose declarative intents, not executable commands.
+7. Activity Room, Telegram, and other surfaces consume the same Result Projection.
+8. Entitlement checks live in Marketplace runtime, not in Global Assistant core.
+
+**Depends on**: Marketplace extension runtime (existing module architecture), Global Assistant (v4.x+), Activity Room projection infrastructure.
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| SRX-001 | Architecture & Ownership Audit — audit current Assistant response/result/message/rendering, Marketplace extension contracts/runtime, permissions, Activity Room projection, UI extension points | Zero mutation; capability/authority/extension-point maps delivered |
+| SRX-002 | Structured Result Contracts — provider/UI-independent `StructuredAssistantResult`, sections, findings, recommendations, evidence, provenance, `SuggestedAction` in `@vestara/assistant-result-contracts` (Layer-0) | Types compile; no React/runtime/provider deps; 25+ contract tests |
+| SRX-003 | Global Assistant Extension Port — generic result extension interface and lifecycle; Assistant behaves identically when no extension exists | Extension installed = rich result; disabled/removed = normal response; zero regression |
+| SRX-004 | Marketplace Package — `@vestara/ext-structured-results` with manifest, dependencies, capabilities, install/uninstall/enable/disable lifecycle | `pnpm vestara marketplace install vestara.structured-results` works; manifest validated |
+| SRX-005 | Native Structured Results — compatible Assistant execution produces structured results without Markdown interpretation | Structured model output renders as interactive result card |
+| SRX-006 | Result Interpreter — transform ordinary Markdown responses into structured projections with raw response retention, confidence scoring, provenance, and UNKNOWN behavior | Interpreted result has `provenance.source = 'interpreted'`; low-confidence falls back to original |
+| SRX-007 | Interactive Renderer — result header, summary, findings, recommendations, evidence, collapsed tool activity, technical details, raw-response fallback using canonical Vestara tokens | All components use `var(--vestara-*)`; zero hardcode; `pnpm vds:validate` passes |
+| SRX-008 | Governed Suggested Actions — buttons generate user intent/new turns; cannot directly invoke tools or bypass permissions | Click action → new assistant turn; audit log proves no tool bypass |
+| SRX-009 | Entitlements & Premium Packaging — Marketplace entitlement capability without hardcoding subscription logic into Global Assistant | `entitlement.check()` gates activation; no `user.plan` in core Assistant |
+| SRX-010 | Dogfood & Freeze — primary acceptance case is the "Review token usage" scenario; test planning, verification, diagnostics, read/write recommendations, extension disabled/uninstalled, malformed output, interpretation failure, permission denial | All 10 scenarios pass; build green; freeze proofs delivered |
+
+**Phases**: I AUDIT (001) → CONTRACTS (002) → EXTENSION (003–004) → STRUCTURED (005) → INTERPRET (006) → RENDER (007) → ACTIONS (008) → ENTITLE (009) → FREEZE (010).
+
+**Acceptance test**: User triggers "Review token usage" → Assistant works normally → instead of wall of text, structured result card appears with findings, metrics, recommended next step, and action buttons → user clicks `[ Create implementation plan ]` → Vestara records SuggestedAction selected → new human intent → assistant turn → planner/execution path → no authority bypass → disable extension → same request returns normal response (proves it is genuinely an extension, not a hidden dependency).
+
+**Status**: 🔷 Proposed (comprehensive plan written 2026-09-15; ready for SRX-001 Architecture & Ownership Audit)
+
+---
+
+## Identity Era
+
+### UIM — Vestara User & Identity Management 🔷 Proposed/Parked
+
+**Objective**: Build Vestara's canonical human identity, workspace membership, access-management, external-identity, session, and user-administration capability.
+
+This must not become a generic CRUD users module.
+
+**Status: Proposed/Parked. No implementation is authorized by creation of this milestone. Do not begin UIM-001 without explicit authorization.**
+
+**Distinctions that must remain distinct**:
+
+```text
+Identity ≠ Authority ≠ Context ≠ Intelligence
+
+Principal ≠ Surface ≠ ExternalIdentity ≠ Session
+          ≠ WorkspaceMembership ≠ Role ≠ Permission
+```
+
+Humans and AI Individuals may participate in common governance through principals, but User Management and Agent Management remain separate management domains.
+
+A browser, Workspace UI, Telegram, CLI, mobile application, or other client is a surface/channel, not a human principal.
+
+An external Telegram identifier is an ExternalIdentity, not automatically another human.
+
+**Architectural target**:
+
+```text
+Human Principal
+│
+├── User Profile
+│
+├── Authentication Identities
+│
+├── External Identities
+│   ├── Telegram
+│   ├── GitHub
+│   └── future providers
+│
+├── Workspace Memberships
+│   ├── Role assignments
+│   └── permission/authority relationships
+│
+├── Sessions
+│   ├── browser/desktop
+│   ├── mobile
+│   └── remote surfaces
+│
+└── Activity / security / governance history
+```
+
+This model must allow one human to interact through multiple surfaces without Vestara manufacturing multiple humans.
+
+**Mandatory invariants**:
+
+1. Authentication does not itself confer authorization.
+2. Identity does not confer authority.
+3. Surface does not become principal.
+4. External identity does not automatically become canonical identity.
+5. Workspace membership does not automatically imply administrator authority.
+6. Role assignment does not bypass permission/governance evaluation.
+7. Display-name similarity is not identity evidence.
+8. Historical activity must not be rewritten merely to make current identity projection cleaner.
+9. Deleted/disabled users must remain representable in historical evidence.
+10. UNKNOWN identity relationships remain UNKNOWN.
+11. Account linking requires explicit, governed evidence.
+12. A disabled identity/session must not silently retain access.
+13. Human and Agent identity must not be conflated even if both implement common Principal contracts.
+14. Administrative capability is governed authority, not merely a UI role label.
+
+**Reuse before invention**: before designing new contracts, UIM-001 audits existing capabilities — Authentication Platform, Identity/Principal contracts, AuthorizationService, permission contracts, session runtime, workspace concepts, Activity Room participant identity, conversation/message actor identity, Telegram principal/external identity handling, Global Assistant principal/surface context, configuration and secret handling, existing user/account/profile code. New ownership only where existing ownership is insufficient.
+
+**Milestone sequence**:
+
+| Milestone | Deliverable | Gate |
+|-----------|-------------|------|
+| UIM-001 | Cross-Platform Identity & User Ownership Audit (zero mutation) — ownership matrix + KEEP/ADAPT/REBUILD/RETIRE per representation (User, Human, Principal, Identity, ExternalIdentity, Session, Surface, WorkspaceMember, Role, Permission, Participant, Actor); Activity Room `You`/`workspace-ui`/`tg-principal-*`/simulation-principal evidence included, not remediated | Ownership matrix delivered; no code changed |
+| UIM-002 | Canonical Human Principal & User contracts (`HumanPrincipal`, `UserProfile`, `UserStatus`, `IdentityReference`, lifecycle: invited/active/suspended/disabled/deleted) without duplicating generic Principal ownership | Contracts compile; no unsupported concepts encoded |
+| UIM-003 | External Identity & Account Linking (`ExternalIdentity{provider, externalSubjectId, principalId?, link status}`); Telegram first dogfood, provider-neutral; governed link/unlink/conflict/recovery/UNKNOWN/duplicate-detection; never merge on names/heuristics | Link/unlink/conflict tests pass |
+| UIM-004 | Surface/Client Identity Separation — canonical surface representation (Workspace UI, desktop, mobile, Telegram, CLI, API); `HumanPrincipal Eddie via Surface Telegram`, never `Telegram = Eddie`; surface informs context, grants no authority | Surface-authority separation tests pass |
+| UIM-005 | Workspace Membership (`WorkspaceMembership{principalId, workspaceId, status, roleAssignments}`); invitation/acceptance/suspension/removal + historical representation; membership is not permission authority | Membership lifecycle tests pass |
+| UIM-006 | Roles & Permission Assignment integrated with existing authorization contracts (no competing ACL); role assignment as authorization input, policy evaluation authoritative; no `role === admin → allow` hard-coding | Authorization-path tests pass |
+| UIM-007 | Session & Device Management — active sessions, creation metadata, last activity, originating surface, revoke-one/revoke-others, expiry, suspicious-session representation; never expose credentials/secrets | Session revocation tests pass |
+| UIM-008 | User Administration Service/API (list/search/inspect/invite/update-profile/membership/roles/links/suspend/sessions); every mutation authorized, governed, auditable | All mutations produce evidence |
+| UIM-009 | User Management UI (Directory/Invitations/Access-Security; Detail: Overview/Identity/Workspaces/Roles/External/Sessions/Activity) via Design System → Layout → Presentation → Domain → Page; `@vestara/ui-tokens`, Tailwind v4 token utilities only | `pnpm vds:validate` passes; zero hardcode |
+| UIM-010 | Activity Room Identity Convergence — `Eddie Villanueva · via Telegram` = one principal, two surfaces; technical provenance inspectable; legacy records classified honestly, never rewritten; coordinates with (not replaces) existing convergence work | Projection tests pass |
+| UIM-011 | Global Assistant User Context — consumes principal/workspace/surface context; User Identity ≠ Surface ≠ Conversation ≠ Execution ≠ Authority; context never grants permissions | Context/authority separation tests pass |
+| UIM-012 | Audit & Security History — sign-in/session/linking/membership/role/admin/revocation/suspension events; observed vs claimed vs verified vs interpreted distinguished | History projection tests pass |
+| UIM-013 | Invitations & Onboarding Integration — invitation → identity → membership → governance → ready; no second onboarding authority | Invitation flow tests pass |
+| UIM-014 | Multi-Surface Dogfood — one human via Workspace UI + Telegram, one canonical identity; attribution, provenance, membership, permissions, projection, context, sessions, history verified | Dogfood evidence delivered |
+| UIM-015 | Multi-User Dogfood — second controlled human; isolation, membership, roles, permission differences, attribution, admin boundaries verified; proves it works beyond Customer #1 | Two-user evidence delivered |
+| UIM-016 | Verification, Evidence & Freeze — architecture/contract/security/authorization/API/persistence/UI/integration/Activity-Room/Assistant/Telegram/session/multi-user verification; freeze only on dogfood evidence | Freeze proofs delivered |
+
+**Required acceptance scenarios** (eventual): one human across Workspace UI + Telegram stays one principal; Telegram identity links/unlinks without fabrication; `workspace-ui` stays a surface; two humans stay distinguishable; membership ≠ admin; roles act only via authorization path; suspended users lose access with history intact; revocation actually revokes; agents distinct from humans; Activity Room shows identity + surface truthfully; Assistant understands context without deriving authority; deleted-identity history stays attributable; ambiguous linkage stays UNKNOWN; every privileged mutation auditable.
+
+**Explicit non-goals (initial)**: enterprise SSO/SAML, SCIM, org-wide federation, social profiles, complex org hierarchy, behavioral scoring, biometrics, AI-generated authorization policy, rewriting historical identity data.
+
+**Depends on**: Authentication Platform, authorization/permission contracts, session runtime, Activity Room projection, Telegram integration (external-identity dogfood), Global Assistant context.
+
+**Status**: 🔷 Proposed/Parked (proposal written 2026-09-15; UIM-001 NOT authorized — zero implementation until explicitly approved)
+
+---
+
+## Global Assistant Reload Survival (GA-DETACH-001 hardening) ✅ Implemented 2026-09-15
+
+**Invariant**: UI lifetime ≠ Vestara execution lifetime ≠ OpenCode session lifetime.
+
+**What changed** (narrow, production-correct):
+
+- `POST /api/conversations/:id/stream` drains a disconnected turn to natural completion instead of breaking the generator (`break` → `continue`). Breaking called `generator.return()` → adapter `finally` → `abortSession`, which made reload == cancel.
+- Adapter `TurnTermination` default `failed` → `detached`; genuine exceptions promote to `failed` via `catch`, and a stream that is fully consumed without idle/timeout/cancel promotes to `failed` after the event loop (abnormal end still settles via abort — GA-RUNTIME-001 cancel-safety preserved). Early consumer return (`generator.return()` on reload disconnect) jumps straight to `finally` and never reaches either promotion, so it stays `detached`. Explicit Stop (`POST /cancel` → signal) still classifies `cancelled` and aborts exactly the matching session.
+- `GET /api/conversations/:id/active` exposes authoritative in-flight truth plus persisted `runtimeSessionId` for reloaded-UI discovery. Second `POST /stream` while in-flight returns `409 conversation-busy` (reattach ≠ create).
+- `useAssistantConversation` probes `/active` on selection restore and polls (2s) until settlement, then reloads canonical messages. Pre-reload partial deltas are not replayed — only the persisted completion is presented.
+
+**Dogfood / runtime evidence (2026-09-15, recorded honestly)**:
+
+- Browser reload no longer cancels the active OpenCode execution — proven at handler level: built-`dist` drain script with a slow 3-chunk provider, SSE `close` fired mid-turn (20ms), handler drained all chunks and persisted the full assistant message (`fullDrain:true`, 1 write before close).
+- OpenCode execution/session survival across browser reload was runtime-observed at the adapter/handler level (mocked OpenCode transport: early `generator.return()` → zero `abortSession` calls; 6/6 `assistant-reload-survival` tests pass).
+- Vestara retained/restored the conversation result after reload — drain script persisted `part1 part2 part3` despite transport loss; reloaded UI path reloads canonical messages on settlement.
+- Explicit Vestara Stop was runtime-observed stopping the corresponding OpenCode work — `explicit Stop DOES abort` test (`aborted == ['sess-1']`); pre-existing `CANCELLED` adapter tests still pass (19/19).
+- Disconnect/detach remains distinct from explicit cancellation — `requiresAbort` only fires on `cancelled`/`timeout`/`failed`; `completed`/`detached` never abort.
+- Full live browser → running dev API (`:3001`) → real-model OpenCode (`:4096`) reload dogfood was NOT performed in this session: the dev API process predates the fix and was deliberately not restarted (process-ownership boundary). Live services were probed read-only (`:4096 healthy:true`, `:3001` conversations list OK). Owner restarts the API to pick up the rebuilt `dist`, then repeats a real long-turn reload.
+
+**Explicitly not claimed**:
+
+- Server/API restart recovery was not proven and must not be claimed (in-flight controllers are process memory; only `runtime_session_id` adoption on the next turn exists).
+- Durable live-delta replay across reload is not currently supported (no server-side observation replay buffer; reattach polls canonical state, deltas before reload are not reconstructed).
+
+**Remaining UNKNOWNs**: second-prompt-on-busy-session behavior via direct `/api/opencode/*` callers (unreachable via Assistant route due to 409, not probed); permission/question turns blocked on `interactionBroker.await*` during reload re-projection scope; drain cost of very long turns on closed transports under load (bounded by the 15min turn timeout, not load-tested).
+
+**Tests** (`vitest --maxWorkers=2`, 2026-09-15): `assistant-reload-survival` 6/6, `assistant-opencode-adapter` 19/19, `conversations` 12/12, `conversations-cancel` + `ga-execution-config` + survival combined 56/56, `packages/conversation` 81/81, `telegram-route` + `telegram-integration` 204/204, `ga-ui-007-global-assistant-window` 9/9. `ga-runtime-001` 24/26 — the 2 ASK-permission failures also fail on the unmodified tree (pre-existing, unrelated to this change; verified by reverting the adapter and re-running). Full-repo `test:fast` and full `apps/api` directory runs do not complete on this box (hang past 280–850s with the director's live dev API on `:3001` running; per repo guidance the live runtime must be stopped first, which was deliberately not done — process-ownership boundary).
+
+**Status**: ✅ Implemented + unit/handler-verified; pending owner API restart + live-model reload dogfood.

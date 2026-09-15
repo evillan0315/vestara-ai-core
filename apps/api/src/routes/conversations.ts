@@ -28,6 +28,19 @@ export function releaseTurnController(conversationId: string, controller: AbortC
 }
 
 /**
+ * Whether a Vestara execution is actively running for this conversation.
+ * Authoritative server truth for reload/reattach discovery: the in-flight
+ * turn controller exists from stream-start until turn settle (complete,
+ * failed, timeout, or explicit cancel). Browser reload never clears it —
+ * only turn settlement or POST /cancel does. UI must query this (via
+ * GET /active) after reload and reattach/poll rather than starting a
+ * second turn.
+ */
+export function isTurnActive(conversationId: string): boolean {
+  return inflightTurnControllers.has(conversationId);
+}
+
+/**
  * Fire ONLY the matching turn's signal. Returns true when a controller
  * was signalled. Repeated calls are safe (AbortController.abort is a
  * no-op after the first fire); unknown ids return false.
@@ -281,6 +294,27 @@ export async function handleConversationsRoute(
     return true;
   }
 
+  // Reattach discovery: authoritative active-execution truth for a
+  // reloaded UI. Returns whether a Vestara turn is in-flight for this
+  // conversation plus the persisted OpenCode runtime/session identity
+  // (conversation.runtimeSessionId) so the client can reattach/poll the
+  // SAME execution instead of starting a second one. Never creates work.
+  const activeMatch = p.match(/^\/api\/conversations\/([^/]+)\/active$/);
+  if (activeMatch && method === 'GET') {
+    const activeId = decodeURIComponent(activeMatch[1] as string);
+    const conversation = await ctx.conversationService.getConversation(activeId, { limit: 0, offset: 0 });
+    if (!conversation) {
+      json(res, 404, { error: 'Conversation not found' });
+      return true;
+    }
+    json(res, 200, {
+      conversationId: activeId,
+      active: isTurnActive(activeId),
+      ...(conversation.runtimeSessionId ? { runtimeSessionId: conversation.runtimeSessionId } : {}),
+    });
+    return true;
+  }
+
   const match = p.match(/^\/api\/conversations\/([^/]+)(?:\/(messages|stream))?$/);
   if (!match) return false;
   const conversationId = decodeURIComponent(match[1] as string);
@@ -356,6 +390,14 @@ export async function handleConversationsRoute(
       json(res, 400, { error: error instanceof Error ? error.message : 'Invalid provider/model' });
       return true;
     }
+    // Reattach ≠ create: while a turn is in-flight for this conversation,
+    // a second POST /stream must NOT start a duplicate execution (a reloaded
+    // UI reattaching would otherwise manufacture a second OpenCode session).
+    // The reloaded client must query GET /active and poll instead.
+    if (isTurnActive(conversationId)) {
+      json(res, 409, { error: 'conversation-busy', conversationId });
+      return true;
+    }
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -414,12 +456,18 @@ export async function handleConversationsRoute(
         signal: abort.signal,
         executionConfig,
       })) {
-        // GA-DETACH-001: If client disconnected, stop sending events.
-        // The execution continues server-side (no abort signal sent).
-        if (clientDisconnected) break;
+        // GA-DETACH-001: If the client disconnected, DRAIN the execution to
+        // natural completion instead of breaking. Breaking the for-await
+        // calls generator.return() on sendMessageStream → the adapter
+        // finally → abortSession, which made reload == cancel. Draining
+        // keeps UI lifetime ≠ execution lifetime: the turn persists its
+        // full assistant message truthfully while the closed transport
+        // simply stops receiving events. Reattach polls GET /active +
+        // GET conversation; it never opens a second stream (409 above).
+        if (clientDisconnected) continue;
 
         if (chunk.type === 'text' && chunk.content) {
-          if (!emit({ type: 'delta', content: chunk.content })) break;
+          if (!emit({ type: 'delta', content: chunk.content })) continue;
         } else if (chunk.type === 'tool_call') {
           if (
             !emit({
@@ -429,7 +477,7 @@ export async function handleConversationsRoute(
               ...(chunk.detail ? { execution: chunk.detail } : {}),
             })
           )
-            break;
+            continue;
         } else if (chunk.type === 'tool_result') {
           if (
             !emit({
@@ -439,7 +487,7 @@ export async function handleConversationsRoute(
               ...(chunk.detail ? { execution: chunk.detail } : {}),
             })
           )
-            break;
+            continue;
         } else if (chunk.type === 'status') {
           if (
             !emit({
@@ -448,7 +496,7 @@ export async function handleConversationsRoute(
               ...(chunk.detail ? { execution: chunk.detail } : {}),
             })
           )
-            break;
+            continue;
         } else if (chunk.type === 'error') {
           emit({ type: 'error', content: chunk.content ?? 'Stream failed' });
         } else if (chunk.type === 'complete') {

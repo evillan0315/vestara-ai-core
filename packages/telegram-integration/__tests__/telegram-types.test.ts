@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import * as adapterIndex from '../src/index.js';
 import type { TelegramCallbackQuery, TelegramMessage, TelegramUpdate } from '../src/telegram-types';
 import {
+  buildTelegramEditPayload,
+  buildTelegramSendPayload,
   normalizeTelegramCallbackQuery,
+  normalizeTelegramCommand,
   normalizeTelegramMessage,
   normalizeTelegramUpdate,
+  parseTelegramCommand,
 } from '../src/telegram-types';
 
 // ─── Helpers ───────────────────────────────────────────────────
@@ -256,5 +261,126 @@ describe('normalizeTelegramUpdate', () => {
     const result = normalizeTelegramUpdate(update);
 
     expect(result).toBeNull();
+  });
+});
+
+// ─── Command Parsing ───────────────────────────────────────────
+
+describe('parseTelegramCommand', () => {
+  it('parses a bare command', () => {
+    expect(parseTelegramCommand('/status')).toEqual({ command: 'status', args: [] });
+  });
+
+  it('parses a command with args', () => {
+    expect(parseTelegramCommand('/model mimo-v2.5-free')).toEqual({
+      command: 'model',
+      args: ['mimo-v2.5-free'],
+    });
+  });
+
+  it('strips @botname suffix', () => {
+    expect(parseTelegramCommand('/status@mybot --verbose')).toEqual({
+      command: 'status',
+      args: ['--verbose'],
+    });
+  });
+
+  it('returns null for non-command text', () => {
+    expect(parseTelegramCommand('hello world')).toBeNull();
+    expect(parseTelegramCommand('')).toBeNull();
+    expect(parseTelegramCommand(undefined)).toBeNull();
+    expect(parseTelegramCommand('/')).toBeNull();
+  });
+});
+
+describe('normalizeTelegramCommand', () => {
+  it('converts /start to a canonical command action', () => {
+    const action = normalizeTelegramCommand(makeTelegramMessage({ text: '/start' }));
+    expect(action).not.toBeNull();
+    expect(action!.type).toBe('command');
+    expect(action!.payload).toEqual({ type: 'command', command: '/start', args: [] });
+    expect(action!.channel).toBe('telegram');
+  });
+
+  it('converts /model with args to a canonical command action', () => {
+    const action = normalizeTelegramCommand(makeTelegramMessage({ text: '/model foo bar' }));
+    expect(action!.payload).toEqual({ type: 'command', command: '/model', args: ['foo', 'bar'] });
+  });
+
+  it('returns null for plain text', () => {
+    expect(normalizeTelegramCommand(makeTelegramMessage({ text: 'hi' }))).toBeNull();
+  });
+});
+
+// ─── Additional Attachments ────────────────────────────────────
+
+describe('normalizeTelegramMessage attachments', () => {
+  it('normalizes audio attachments', () => {
+    const result = normalizeTelegramMessage(
+      makeTelegramMessage({ audio: { file_id: 'aud-1', file_name: 'song.mp3' } }),
+    );
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments![0].type).toBe('audio');
+  });
+
+  it('normalizes video attachments', () => {
+    const result = normalizeTelegramMessage(
+      makeTelegramMessage({ video: { file_id: 'vid-1', file_name: 'clip.mp4' } }),
+    );
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments![0].type).toBe('video');
+  });
+
+  it('normalizes sticker attachments', () => {
+    const result = normalizeTelegramMessage(makeTelegramMessage({ sticker: { file_id: 'stk-1' } }));
+    expect(result.attachments).toHaveLength(1);
+    expect(result.attachments![0].type).toBe('sticker');
+  });
+});
+
+// ─── Delivery Payload Builders ─────────────────────────────────
+
+describe('telegram delivery payload builders', () => {
+  it('builds a sendMessage payload from a canonical delivery', () => {
+    const payload = buildTelegramSendPayload({
+      id: 'd-1',
+      channel: 'telegram',
+      conversation: { channel: 'telegram', externalId: '42', type: 'direct' },
+      content: {
+        text: 'hi',
+        inlineKeyboard: [[{ text: 'Approve', callbackData: 'approve:1' }]],
+      },
+      priority: 'normal',
+    });
+    expect(payload).toMatchObject({
+      chat_id: '42',
+      text: 'hi',
+      reply_markup: { inline_keyboard: [[{ text: 'Approve', callback_data: 'approve:1' }]] },
+    });
+  });
+
+  it('builds an editMessageText payload from a canonical delivery', () => {
+    const payload = buildTelegramEditPayload({
+      id: 'd-2',
+      channel: 'telegram',
+      conversation: { channel: 'telegram', externalId: '42', type: 'direct' },
+      content: { text: 'updated' },
+      editMessageId: '777',
+      priority: 'normal',
+    });
+    expect(payload).toMatchObject({ chat_id: '42', message_id: '777', text: 'updated' });
+  });
+});
+
+// ─── Boundary Confinement ──────────────────────────────────────
+
+describe('telegram adapter boundary confinement', () => {
+  it('does not re-export raw Telegram Bot API types', () => {
+    const mod = adapterIndex as Record<string, unknown>;
+    expect(mod.TelegramUpdate).toBeUndefined();
+    expect(mod.TelegramChat).toBeUndefined();
+    expect(mod.TelegramMessage).toBeUndefined();
+    expect(mod.TelegramCallbackQuery).toBeUndefined();
+    expect(mod.TelegramUser).toBeUndefined();
   });
 });

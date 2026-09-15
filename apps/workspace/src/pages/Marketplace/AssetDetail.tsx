@@ -70,7 +70,7 @@ export default function AssetDetail() {
   if (error) return <InsightBanner severity="error" description={error} />;
   if (!details)
     return (
-      <div className="mpg-card p-8 text-center text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+      <div className="mpg-card p-8 text-center text-sm text-[var(--vestara-text-muted)]">
         Loading asset…
       </div>
     );
@@ -95,7 +95,7 @@ export default function AssetDetail() {
             </h1>
             <TypeBadge type={asset.type} />
           </div>
-          <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+          <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted)]">
             {asset.publisherId} · {asset.packageName}@{asset.latestVersion} · {details.registryId} registry
           </div>
         </div>
@@ -127,7 +127,7 @@ export default function AssetDetail() {
       <DetailCard title="Overview">
         <p className="text-sm text-[var(--vestara-text-secondary)]">{asset.summary}</p>
         {asset.description && asset.description !== asset.summary && (
-          <p className="mt-2 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{asset.description}</p>
+          <p className="mt-2 text-sm text-[var(--vestara-text-muted)]">{asset.description}</p>
         )}
         <div className="mt-3 flex flex-wrap gap-1">
           {details.capabilities.map((capability) => (
@@ -163,24 +163,24 @@ export default function AssetDetail() {
           {asset.versions[0] && (
             <ul className="space-y-1 font-mono text-sm">
               <li>
-                <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Vestara:</span>{' '}
+                <span className="text-[var(--vestara-text-muted)]">Vestara:</span>{' '}
                 {asset.versions[0].compatibility.vestara}
               </li>
               {asset.versions[0].compatibility.node && (
                 <li>
-                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Node:</span>{' '}
+                  <span className="text-[var(--vestara-text-muted)]">Node:</span>{' '}
                   {asset.versions[0].compatibility.node}
                 </li>
               )}
               {asset.versions[0].compatibility.operatingSystems?.length ? (
                 <li>
-                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">OS:</span>{' '}
+                  <span className="text-[var(--vestara-text-muted)]">OS:</span>{' '}
                   {asset.versions[0].compatibility.operatingSystems.join(', ')}
                 </li>
               ) : null}
               {asset.versions[0].compatibility.architectures?.length ? (
                 <li>
-                  <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Arch:</span>{' '}
+                  <span className="text-[var(--vestara-text-muted)]">Arch:</span>{' '}
                   {asset.versions[0].compatibility.architectures.join(', ')}
                 </li>
               ) : null}
@@ -190,13 +190,13 @@ export default function AssetDetail() {
 
         <DetailCard title="Dependencies">
           {details.dependencies.length === 0 ? (
-            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">None.</div>
+            <div className="text-sm text-[var(--vestara-text-muted)]">None.</div>
           ) : (
             <ul className="space-y-1 text-sm">
               {details.dependencies.map((dependency) => (
                 <li key={`${dependency.packageName}@${dependency.version}`}>
                   <span className="font-mono">{dependency.packageName}</span>{' '}
-                  <span className="font-mono text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <span className="font-mono text-[var(--vestara-text-muted)]">
                     @{dependency.version}
                   </span>
                   {dependency.optional && (
@@ -212,7 +212,7 @@ export default function AssetDetail() {
 
         <DetailCard title="Permissions">
           {details.permissions.length === 0 ? (
-            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">None requested.</div>
+            <div className="text-sm text-[var(--vestara-text-muted)]">None requested.</div>
           ) : (
             <ul className="space-y-1 text-sm">
               {details.permissions.map((permission) => (
@@ -220,7 +220,7 @@ export default function AssetDetail() {
                   <Badge variant="warning" size="md">
                     {permission.capability}
                   </Badge>{' '}
-                  <span className="font-mono text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <span className="font-mono text-[var(--vestara-text-muted)]">
                     ({permission.scope})
                   </span>
                 </li>
@@ -231,7 +231,7 @@ export default function AssetDetail() {
 
         <DetailCard title="Contributions">
           {contributions.length === 0 ? (
-            <div className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+            <div className="text-sm text-[var(--vestara-text-muted)]">
               No runtime contributions declared.
             </div>
           ) : (
@@ -239,7 +239,7 @@ export default function AssetDetail() {
               {contributions.map((contribution) => (
                 <li key={contribution.kind} className="flex items-center justify-between">
                   <span className="font-medium text-[var(--vestara-text-primary)]">{contribution.label}</span>
-                  <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <span className="font-mono text-xs text-[var(--vestara-text-muted)]">
                     {contribution.ids.join(', ')}
                   </span>
                 </li>
@@ -263,12 +263,12 @@ export default function AssetDetail() {
               {asset.verification.signed ? (
                 <span className="text-[var(--vestara-status-success)]">declared</span>
               ) : (
-                <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">none</span>
+                <span className="text-[var(--vestara-text-muted)]">none</span>
               )}
             </li>
             <li>
               Runtime verified:{' '}
-              <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <span className="text-[var(--vestara-text-muted)]">
                 no (discovery never executes packages)
               </span>
             </li>

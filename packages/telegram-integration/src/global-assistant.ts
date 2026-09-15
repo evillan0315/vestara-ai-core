@@ -129,8 +129,8 @@ export interface ExecutionResult {
 const DEFAULT_CONFIG: Required<GlobalAssistantConfig> = {
   maxConcurrentExecutions: 3,
   rateLimitPerMinute: 20,
-  defaultModel: 'mimo-v2.5-free',
-  defaultProvider: 'opencode',
+  defaultModel: 'muse-spark-1.3-contributor',
+  defaultProvider: 'opencode-go',
   autoResumeConversation: true,
 };
 

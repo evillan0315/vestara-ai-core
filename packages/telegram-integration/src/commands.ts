@@ -11,6 +11,9 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import type { TelegramConversationBindingService } from './conversation-binding';
+import type { TelegramWorkspaceBindingService } from './workspace-binding';
+
 // ─── Types ─────────────────────────────────────────────────────
 
 export type CommandCategory = 'workspace' | 'conversation' | 'help' | 'admin';
@@ -74,6 +77,33 @@ export interface CommandHandler {
   execute(context: CommandContext): Promise<CommandResult> | CommandResult;
 }
 
+/**
+ * Authoritative read sources for basic commands (TG-012).
+ *
+ * Commands are read-only projections over the TG-008 workspace binding
+ * and TG-009 conversation binding authorities. They never own
+ * conversations, executions, or permissions (TG-S1/S2/S3) and never
+ * invoke execution — non-command text still enters the natural-language
+ * Global Assistant path (TG-010).
+ */
+export interface CommandServiceProviders {
+  /** TG-008 workspace binding authority (read-only projection) */
+  readonly workspaceBindings?: Pick<
+    TelegramWorkspaceBindingService,
+    'getBindingsByPrincipal' | 'getPreferredWorkspace'
+  >;
+  /** TG-009 conversation binding authority (read-only projection) */
+  readonly conversationBindings?: Pick<
+    TelegramConversationBindingService,
+    'getBindingsByPrincipal' | 'getActiveBinding'
+  >;
+}
+
+export interface CommandRegistryConfig {
+  /** Authoritative services backing /status, /workspace, /conversations */
+  readonly providers?: CommandServiceProviders;
+}
+
 // ─── Built-in Commands ─────────────────────────────────────────
 
 const BUILTIN_COMMANDS: TelegramCommand[] = [
@@ -126,6 +156,14 @@ const BUILTIN_COMMANDS: TelegramCommand[] = [
     adminOnly: false,
   },
   {
+    name: 'conversations',
+    description: 'List conversations bound to your chats',
+    category: 'conversation',
+    usage: '/conversations',
+    requiresAuth: true,
+    adminOnly: false,
+  },
+  {
     name: 'model',
     description: 'Change the AI model',
     category: 'conversation',
@@ -172,8 +210,10 @@ const BUILTIN_COMMANDS: TelegramCommand[] = [
 export class TelegramCommandRegistry {
   private commands: Map<string, TelegramCommand> = new Map();
   private handlers: Map<string, CommandHandler> = new Map();
+  private providers: CommandServiceProviders;
 
-  constructor() {
+  constructor(config?: CommandRegistryConfig) {
+    this.providers = config?.providers ?? {};
     // Register built-in commands
     for (const cmd of BUILTIN_COMMANDS) {
       this.commands.set(cmd.name, cmd);
@@ -321,15 +361,14 @@ export class TelegramCommandRegistry {
       case 'status':
         return {
           success: true,
-          response: [
-            '📊 Session Status',
-            '',
-            `Workspace: ${context.workspaceId ?? 'Not selected'}`,
-            `Principal: ${context.principalId ?? 'Not authenticated'}`,
-            `Chat: ${context.telegramChatId}`,
-            `Chat Type: ${context.telegramChatType}`,
-          ].join('\n'),
+          response: this.buildStatusResponse(context),
         };
+
+      case 'workspace':
+        return this.handleWorkspaceCommand(context);
+
+      case 'conversations':
+        return this.handleConversationsCommand(context);
 
       case 'pair':
         return {
@@ -353,6 +392,123 @@ export class TelegramCommandRegistry {
           response: `Command /${commandName} is not implemented.`,
         };
     }
+  }
+
+  /**
+   * Build /status from authoritative binding services when connected,
+   * falling back to the session context echo when they are absent.
+   */
+  private buildStatusResponse(context: CommandContext): string {
+    const lines: string[] = ['📊 Session Status', ''];
+
+    if (context.principalId && this.providers.workspaceBindings) {
+      const preferred = this.providers.workspaceBindings.getPreferredWorkspace(context.principalId);
+      lines.push(`Workspace: ${preferred ? `${preferred.workspaceName} (${preferred.workspaceId})` : 'Not selected'}`);
+    } else {
+      lines.push(`Workspace: ${context.workspaceId ?? 'Not selected'}`);
+    }
+
+    if (context.principalId && this.providers.conversationBindings) {
+      const bindings = this.providers.conversationBindings.getBindingsByPrincipal(context.principalId);
+      const active = this.providers.conversationBindings.getActiveBinding(context.telegramChatId, context.principalId);
+      const activeSuffix = active
+        ? ` (this chat: ${active.vestaraConversationTitle ?? active.vestaraConversationId})`
+        : '';
+      lines.push(`Conversations: ${bindings.length} bound${activeSuffix}`);
+    }
+
+    lines.push(`Principal: ${context.principalId ?? 'Not authenticated'}`);
+    lines.push(`Chat: ${context.telegramChatId}`);
+    lines.push(`Chat Type: ${context.telegramChatType}`);
+    return lines.join('\n');
+  }
+
+  /**
+   * Handle /workspace [list|info] as a read-only projection over TG-008.
+   */
+  private handleWorkspaceCommand(context: CommandContext): CommandResult {
+    const principalId = context.principalId;
+    if (!principalId) {
+      return {
+        success: false,
+        response: 'You need to pair your Telegram account first. Use /pair to get started.',
+      };
+    }
+    const source = this.providers.workspaceBindings;
+    if (!source) {
+      return {
+        success: false,
+        response: 'Workspace service is not connected. Try again later.',
+      };
+    }
+
+    const sub = context.args[0]?.toLowerCase() ?? 'list';
+    if (sub === 'info') {
+      const preferred = source.getPreferredWorkspace(principalId);
+      if (!preferred) {
+        return {
+          success: true,
+          response: 'No preferred workspace selected. Use /workspace list to see your workspaces.',
+        };
+      }
+      return {
+        success: true,
+        response: [
+          '📁 Workspace',
+          '',
+          `Name: ${preferred.workspaceName}`,
+          `ID: ${preferred.workspaceId}`,
+          `Last accessed: ${preferred.lastAccessedAt}`,
+        ].join('\n'),
+      };
+    }
+
+    if (sub !== 'list') {
+      return { success: true, response: `Usage: /workspace [list|info]` };
+    }
+
+    const bindings = source.getBindingsByPrincipal(principalId);
+    if (bindings.length === 0) {
+      return { success: true, response: 'No workspaces bound to your account yet.' };
+    }
+    const lines: string[] = ['📁 Workspaces', ''];
+    for (const b of bindings) {
+      lines.push(`• ${b.workspaceName} (${b.workspaceId})${b.preferred ? ' — preferred' : ''}`);
+    }
+    return { success: true, response: lines.join('\n') };
+  }
+
+  /**
+   * Handle /conversations as a read-only projection over TG-009.
+   */
+  private handleConversationsCommand(context: CommandContext): CommandResult {
+    const principalId = context.principalId;
+    if (!principalId) {
+      return {
+        success: false,
+        response: 'You need to pair your Telegram account first. Use /pair to get started.',
+      };
+    }
+    const source = this.providers.conversationBindings;
+    if (!source) {
+      return {
+        success: false,
+        response: 'Conversation service is not connected. Try again later.',
+      };
+    }
+
+    const bindings = source.getBindingsByPrincipal(principalId);
+    if (bindings.length === 0) {
+      return { success: true, response: 'No conversations bound to your chats yet. Just send a message to start.' };
+    }
+    const active = source.getActiveBinding(context.telegramChatId, principalId);
+    const lines: string[] = ['💬 Conversations', ''];
+    for (const b of bindings) {
+      const title = b.vestaraConversationTitle ?? b.vestaraConversationId;
+      const marker = active && active.id === b.id ? ' (this chat)' : '';
+      lines.push(`• ${title} [${b.status}] — chat ${b.telegramChatId}${marker}`);
+    }
+    return { success: true, response: lines.join('\n') };
   }
 
   private formatCategory(category: CommandCategory): string {

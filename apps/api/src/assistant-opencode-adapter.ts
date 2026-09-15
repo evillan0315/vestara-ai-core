@@ -283,7 +283,11 @@ export async function* runAssistantOpenCodeTurn(
   let sequence = 0;
   // GA-DETACH-001: Track how the turn ended. This determines whether the
   // OpenCode session should be aborted or left running for reattachment.
-  let termination: TurnTermination = 'failed'; // default to failed; updated on exit
+  // Default is DETACHED (observer went away / generator returned early):
+  // disconnect must never become abort. Explicit failure paths set FAILED
+  // (session.error, unexpected exception via the catch below); idle sets
+  // COMPLETED; deadline sets TIMEOUT; explicit Stop sets CANCELLED.
+  let termination: TurnTermination = 'detached';
   // Explicit Stop (POST /cancel → turn signal): classify as 'cancelled' so
   // the finally block aborts the session AND the termination is truthful.
   // Deadline/tool-budget exits keep their own classifications; disconnect
@@ -705,6 +709,15 @@ export async function* runAssistantOpenCodeTurn(
       }
     }
 
+    // A turn that exhausts the event stream without idle/timeout/cancel is
+    // an abnormal end (not a detach): the consumer stayed attached but the
+    // runtime never settled, so settle FAILED and abort the session for
+    // reuse (GA-RUNTIME-001 cancel-safety). Early consumer return
+    // (generator.return() on reload disconnect) jumps straight to the
+    // finally below and never reaches here, so DETACHED stays DETACHED
+    // (disconnect ≠ cancel, no abort).
+    if (termination === 'detached') termination = 'failed';
+
     // ── Turn-end enrichment (authoritative endpoints, bounded) ──
     try {
       const diffFiles = await client.getSessionDiff(resolvedSessionId, context);
@@ -766,6 +779,13 @@ export async function* runAssistantOpenCodeTurn(
         executionResult: { termination, toolCallCount, elapsedMs },
       },
     });
+  } catch (error) {
+    // Genuine runtime failure (sendMessageAsync threw, event stream errored,
+    // etc.): truthfully FAILED so the session is settled for reuse. Early
+    // consumer return (generator.return() on detach) does NOT land here —
+    // it runs the finally with termination still DETACHED (no abort).
+    if (termination === 'detached') termination = 'failed';
+    throw error;
   } finally {
     controller.abort();
     request.signal?.removeEventListener('abort', onAbort);

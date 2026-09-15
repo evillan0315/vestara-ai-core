@@ -1,11 +1,11 @@
 /**
  * VES-OVERVIEW-001: Agent Status Component
  *
- * Marketplace rows (mpg-category-row) with agent tiles, roles, and
- * glowing status pills (Online / Busy / Idle / Offline).
+ * Compact single-row summary: "5 agents · 3 online · 2 idle"
+ * with a link to the full agents page.
  */
 
-import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
+import { Link } from 'react-router-dom';
 import type { OverviewAgentSummary } from '../overview.types';
 import { SectionCard } from './SectionCard';
 
@@ -13,79 +13,54 @@ interface AgentStatusProps {
   agents: readonly OverviewAgentSummary[];
 }
 
-const STATUS_META = {
-  online: { color: 'var(--ov-presence-online)', label: 'Online' },
-  working: { color: 'var(--ov-presence-busy)', label: 'Busy' },
-  busy: { color: 'var(--ov-presence-busy)', label: 'Busy' },
-  idle: { color: 'var(--ov-presence-idle)', label: 'Idle' },
-  offline: { color: 'var(--ov-presence-offline)', label: 'Offline' },
-} as const;
-
-const TILE_ACCENT = [
-  'var(--vestara-status-info)',
-  'var(--vestara-accent-primary)',
-  'var(--vestara-status-success)',
-  'var(--vestara-status-warning)',
-  'var(--vestara-status-error)',
-];
+const STATUS_LABEL: Record<string, string> = {
+  online: 'online',
+  working: 'busy',
+  busy: 'busy',
+  idle: 'idle',
+  offline: 'offline',
+};
 
 export function AgentStatus({ agents }: AgentStatusProps) {
   if (agents.length === 0) {
     return (
-      <SectionCard title="Agents Status" actionLabel="View All" actionHref="/agents" accent="var(--vestara-accent-primary)" index={2}>
-        <MarketplaceEmptyState message="No agents registered." />
+      <SectionCard title="Agents" actionLabel="View All" actionHref="/agents" accent="var(--vestara-accent-primary)" index={2}>
+        <p className="py-2 text-center text-[12px] text-[var(--vestara-text-muted)]">No agents registered.</p>
       </SectionCard>
     );
   }
 
+  const counts: Record<string, number> = {};
+  for (const agent of agents) {
+    const label = STATUS_LABEL[agent.status] ?? 'idle';
+    counts[label] = (counts[label] ?? 0) + 1;
+  }
+
+  const summaryParts: string[] = [];
+  summaryParts.push(`${agents.length} agent${agents.length === 1 ? '' : 's'}`);
+  for (const [status, count] of Object.entries(counts)) {
+    if (count > 0) summaryParts.push(`${count} ${status}`);
+  }
+
   return (
-    <SectionCard title="Agents Status" actionLabel="View All" actionHref="/agents" accent="var(--vestara-accent-primary)" index={2}>
-      <ul className="space-y-1">
-        {agents.map((agent, i) => {
-          const meta = STATUS_META[agent.status] ?? STATUS_META.idle;
-          const accent = TILE_ACCENT[i % TILE_ACCENT.length];
-          return (
-            <li key={agent.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
-              <div className="mpg-category-row">
-                <span className="flex min-w-0 flex-1 items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="mpg-icon-box"
-                    style={{
-                      color: accent,
-                      background: `color-mix(in srgb, ${accent} 14%, transparent)`,
-                      borderColor: `color-mix(in srgb, ${accent} 35%, transparent)`,
-                      width: '2rem',
-                      height: '2rem',
-                      fontSize: '0.85rem',
-                      borderRadius: '0.5rem',
-                    }}
-                  >
-                    {agent.id === 'developer' ? '</>' : agent.id === 'reviewer' ? '◈' : agent.id === 'ops' ? '⚙' : agent.id === 'verifier' ? '✓' : '⬢'}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] font-semibold text-[var(--vestara-text-primary)]">
-                      {agent.name}
-                    </span>
-                    <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{agent.role}</span>
-                  </span>
-                </span>
-                <span
-                  className="mpg-tag-pill shrink-0 font-medium"
-                  style={{ color: meta.color, borderColor: `color-mix(in srgb, ${meta.color} 35%, transparent)` }}
-                >
-                  <span
-                    aria-hidden="true"
-                    className="inline-block h-1.5 w-1.5 rounded-full"
-                    style={{ background: meta.color, boxShadow: `0 0 6px ${meta.color}` }}
-                  />
-                  {meta.label}
-                </span>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+    <SectionCard title="Agents" actionLabel="View All" actionHref="/agents" accent="var(--vestara-accent-primary)" index={2}>
+      <Link
+        to="/agents"
+        className="mpg-category-row text-[12.5px] text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+      >
+        <span className="flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="inline-block h-2 w-2 rounded-full"
+            style={{
+              background: counts.online ? 'var(--vestara-status-success)' : 'var(--vestara-text-muted)',
+              boxShadow: counts.online ? '0 0 6px var(--vestara-status-success)' : 'none',
+            }}
+          />
+          {summaryParts.join(' · ')}
+        </span>
+        <span className="text-[var(--vestara-text-muted)]">›</span>
+      </Link>
     </SectionCard>
   );
 }

@@ -1,5 +1,19 @@
+/**
+ * ActivityDetailDrawer — activity inspection inside the reusable Drawer shell.
+ *
+ * Replaces the former ActivityDetailModal so the Activity Room stays visible
+ * while inspecting an activity. Shell behavior (position, sizing, resize,
+ * Escape, overlay close, responsive) is owned entirely by `Drawer` — the
+ * same shell used by AgentDetailDrawer — and this file adds only the
+ * Activity-specific presentation.
+ *
+ * Content is strictly record-stamped data/provenance: summary, actor,
+ * kind context, correction/related links, and technical details. Fields
+ * that are absent stay absent (UNKNOWN is preserved, never inferred).
+ */
+
 import { useEffect, useState } from 'react';
-import { VestaraModal } from '../../components/ui/VestaraModal';
+import { Drawer } from '../../components/ui/Drawer';
 import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer';
 import {
   actorInitials,
@@ -13,7 +27,7 @@ import {
 } from './activity-formatters';
 import type { ActivityProjectionRecord, ActivityRecord } from './activity-types';
 
-interface ActivityDetailModalProps {
+interface ActivityDetailDrawerProps {
   record: ActivityProjectionRecord | null;
   onClose: () => void;
   /** Records available to resolve related/corrected ids to readable titles. */
@@ -50,7 +64,7 @@ function contentLine(record: ActivityRecord): string {
   }
 }
 
-/** Technical rows revealed under "Technical details". */
+/** Technical rows revealed under "Technical details". Absent fields stay absent. */
 function technicalRows(record: ActivityRecord): Array<{ label: string; value: string }> {
   const rows: Array<{ label: string; value: string }> = [];
   const push = (label: string, value: string | number | boolean | undefined | null): void => {
@@ -115,7 +129,7 @@ function technicalRows(record: ActivityRecord): Array<{ label: string; value: st
   return rows;
 }
 
-export default function ActivityDetailModal({ record: recordProp, onClose, records }: ActivityDetailModalProps) {
+export default function ActivityDetailDrawer({ record: recordProp, onClose, records }: ActivityDetailDrawerProps) {
   const [fullRecord, setFullRecord] = useState<ActivityRecord | null>(null);
 
   // Lazy detail hydration (STREAM-PERF): the list serves truncated projections;
@@ -145,45 +159,38 @@ export default function ActivityDetailModal({ record: recordProp, onClose, recor
     };
   }, [recordProp]);
 
-  useEffect(() => {
-    if (recordProp === null) return;
-    const onKey = (event: KeyboardEvent): void => {
-      if (event.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [recordProp, onClose]);
-
-  if (recordProp === null) return null;
   const record = fullRecord ?? recordProp;
-  const loadingDetails = recordProp.hasDetails === true && fullRecord === null;
-
-  const severity = severityOfRecord(record);
-  const rows = technicalRows(record);
-  const checks = record.kind === 'verification' ? record.checks : undefined;
-  const contextParts = [
-    record.workflowId && `Workflow ${record.workflowId}`,
-    record.sessionId && `Session ${record.sessionId}`,
-    record.taskId && `Task ${record.taskId}`,
-  ].filter(Boolean);
+  const loadingDetails = recordProp?.hasDetails === true && fullRecord === null;
+  const severity = record ? severityOfRecord(record) : undefined;
+  const rows = record ? technicalRows(record) : [];
+  const checks = record?.kind === 'verification' ? record.checks : undefined;
+  const contextParts = record
+    ? [
+        record.workflowId && `Workflow ${record.workflowId}`,
+        record.sessionId && `Session ${record.sessionId}`,
+        record.taskId && `Task ${record.taskId}`,
+      ].filter(Boolean)
+    : [];
 
   return (
-    <VestaraModal onClose={onClose} ariaLabel={`${kindLabel(record.kind)} activity details`} className="max-w-2xl">
-      <div className="flex max-h-[80vh] flex-col">
-        <div className="flex items-center gap-2 px-6 py-4">
-          <span className="text-sm text-(--vestara-text-2)">{kindIcon(record.kind)}</span>
-          <h2 className="text-sm font-semibold text-(--vestara-text)">{kindLabel(record.kind)} activity</h2>
-          <button
-            type="button"
-            onClick={onClose}
-             className="ml-auto flex h-11 w-11 items-center justify-center rounded-md border border-(--vestara-accent-border) text-xs text-(--vestara-text-2) transition-colors hover:text-(--vestara-text) cursor-pointer"
-            aria-label="Close details"
-          >
-            ✕
-          </button>
-        </div>
-
-        <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-6 pb-6">
+    <Drawer
+      open={recordProp !== null}
+      onClose={onClose}
+      title={record ? `${kindLabel(record.kind)} activity` : 'Activity'}
+      position="right"
+      defaultSize="medium"
+      storageKey="activity-room-detail"
+      header={
+        record?.effect !== undefined ? (
+          <span className="text-[10px] font-medium" style={{ color: effectAccent(record.effect) }}>
+            {effectLabel(record.effect)}
+          </span>
+        ) : undefined
+      }
+      bodyClassName="px-4 py-3"
+    >
+      {record && (
+        <div className="space-y-3">
           {/* Human-readable summary first */}
           <div className="flex items-center gap-2">
             <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--vestara-accent-bg) text-[9px] font-semibold text-(--vestara-text-2)">
@@ -197,14 +204,13 @@ export default function ActivityDetailModal({ record: recordProp, onClose, recor
                 {record.actor.role ?? record.actor.type} · {formatRelative(record.timestamp)}
               </div>
             </div>
-            {record.effect !== undefined && (
-              <span className="ml-auto shrink-0 text-[10px] font-medium" style={{ color: effectAccent(record.effect) }}>
-                {effectLabel(record.effect)}
-              </span>
-            )}
+            <span className="ml-auto shrink-0 text-sm text-(--vestara-text-2)">{kindIcon(record.kind)}</span>
           </div>
 
-          <div className="mt-2 rounded-lg border-l-2 bg-(--vestara-accent-bg) px-3 py-2" style={{ borderLeftColor: severityAccent(severity) }}>
+          <div
+            className="mt-2 rounded-lg border-l-2 bg-(--vestara-accent-bg) px-3 py-2"
+            style={{ borderLeftColor: severityAccent(severity ?? 'info') }}
+          >
             {loadingDetails && (
               <p className="mb-1 text-[10px] text-(--vestara-text-muted)">Loading full details…</p>
             )}
@@ -309,7 +315,7 @@ export default function ActivityDetailModal({ record: recordProp, onClose, recor
             </div>
           </details>
         </div>
-      </div>
-    </VestaraModal>
+      )}
+    </Drawer>
   );
 }

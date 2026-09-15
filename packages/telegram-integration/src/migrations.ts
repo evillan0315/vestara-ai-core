@@ -70,6 +70,23 @@ const TELEGRAM_BASELINE_DDL = `
   CREATE INDEX IF NOT EXISTS idx_tg_conv_status ON telegram_conversation_bindings(status);
 `;
 
+const TELEGRAM_DELIVERY_QUEUE_DDL = `
+  CREATE TABLE IF NOT EXISTS telegram_delivery_queue (
+    id TEXT PRIMARY KEY,
+    delivery_json TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    priority TEXT NOT NULL DEFAULT 'normal',
+    created_at TEXT NOT NULL,
+    last_attempt_at TEXT,
+    last_error TEXT,
+    scheduled_retry_at TEXT,
+    external_message_id TEXT
+  );
+  CREATE INDEX IF NOT EXISTS idx_tg_dlq_status ON telegram_delivery_queue(status);
+`;
+
 export const TELEGRAM_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'telegram.baseline',
@@ -94,6 +111,27 @@ export const TELEGRAM_MIGRATIONS: readonly MigrationStep[] = [
     ],
     up: (db: Database) => {
       db.exec(TELEGRAM_BASELINE_DDL);
+    },
+  },
+  {
+    name: 'telegram.delivery-queue',
+    produces: [
+      fingerprint('telegram_delivery_queue', [
+        'id',
+        'delivery_json',
+        'status',
+        'attempts',
+        'max_attempts',
+        'priority',
+        'created_at',
+        'last_attempt_at',
+        'last_error',
+        'scheduled_retry_at',
+        'external_message_id',
+      ]),
+    ],
+    up: (db: Database) => {
+      db.exec(TELEGRAM_DELIVERY_QUEUE_DDL);
     },
   },
 ];

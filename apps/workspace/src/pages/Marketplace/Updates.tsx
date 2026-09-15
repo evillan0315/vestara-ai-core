@@ -93,11 +93,11 @@ export default function Updates() {
                           {update.updateType}
                         </Badge>
                       </div>
-                      <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                      <div className="mt-1 font-mono text-sm text-[var(--vestara-text-muted)]">
                         {update.installedVersion} → <span className="text-[var(--vestara-text-primary)]">{update.targetVersion}</span>
                       </div>
                       {update.reason && (
-                        <div className="mt-1 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                        <div className="mt-1 text-xs text-[var(--vestara-text-muted)]">
                           {update.reason}
                         </div>
                       )}

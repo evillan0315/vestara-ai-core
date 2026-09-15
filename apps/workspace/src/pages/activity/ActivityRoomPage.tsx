@@ -3,7 +3,7 @@ import { useActivityRoomModel } from '../../hooks/useActivityRoomModel';
 import { useSetActivitySelection } from '../../contexts/SurfaceContext';
 import ActivityComposer from './ActivityComposer';
 import ActivityCorrectionDialog from './ActivityCorrectionDialog';
-import ActivityDetailModal from './ActivityDetailModal';
+import ActivityDetailDrawer from './ActivityDetailDrawer';
 import ActivityScopeSelector from './ActivityScopeSelector';
 import ActivitySidebar, { type WorkflowParticipant } from './ActivitySidebar';
 import ActivityStatePanel from './ActivityStatePanel';
@@ -360,7 +360,7 @@ export default function ActivityRoomPage() {
         </div>
       )}
 
-      <ActivityDetailModal record={detailRecord} onClose={closeDetail} records={stream.records} />
+      <ActivityDetailDrawer record={detailRecord} onClose={closeDetail} records={stream.records} />
       {correctionTarget && (
         <ActivityCorrectionDialog target={correctionTarget} onClose={closeCorrection} onSend={stream.sendMessage} />
       )}

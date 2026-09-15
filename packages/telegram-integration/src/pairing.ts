@@ -157,7 +157,17 @@ export class TelegramPairingService {
    * Called from the Vestara UI after authenticated approval.
    */
   approvePairing(token: string, principalId: string, principalName: string): TelegramIdentityBinding {
-    const requestId = this.tokenToRequest.get(token);
+    let requestId = this.tokenToRequest.get(token);
+    // Restart recovery: hydrate a pending request persisted to SQLite by a
+    // previous instance so approval is not lost across restarts.
+    if (!requestId && this.store) {
+      const stored = this.store.getPairingRequestByToken(token);
+      if (stored && stored.status === 'pending') {
+        this.pendingRequests.set(stored.id, stored);
+        this.tokenToRequest.set(token, stored.id);
+        requestId = stored.id;
+      }
+    }
     if (!requestId) {
       throw new Error('Invalid pairing token');
     }
@@ -216,8 +226,10 @@ export class TelegramPairingService {
     const binding = this.bindings.get(bindingId);
     if (binding) {
       this.bindings.delete(bindingId);
-      this.store?.deleteIdentityBinding(bindingId);
     }
+    // Delete from SQLite unconditionally (idempotent) so revocation holds
+    // even when this instance never cached the binding (e.g. after restart).
+    this.store?.deleteIdentityBinding(bindingId);
   }
 
   /**

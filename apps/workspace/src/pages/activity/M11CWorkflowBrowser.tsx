@@ -31,10 +31,13 @@ interface WorkflowBrowserProps {
   readonly selectedParticipantId?: string;
   /** Callback when a workflow context is selected. */
   readonly onSelectWorkflow?: (workflowId: string | null) => void;
+  /** Active workflow scope (highlights the selected unit). */
+  readonly selectedWorkflowId?: string | null;
 }
 
 export interface WorkflowUnit {
   readonly workflowId: string;
+  /** Scan-first status: failed | running | completed — never a raw kind. */
   readonly status: string;
   readonly taskCount: number;
   readonly completedTasks: number;
@@ -69,7 +72,9 @@ export function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly
     if (item.actor.type !== 'human') {
       entry.agents.add(item.actor.displayName);
     }
-    if (item.kind === 'error') {
+    // Authoritative failure class is 'diagnostic' (M10 classifyKind);
+    // accept legacy 'error' so older projections still surface.
+    if (item.kind === 'diagnostic' || item.kind === 'error') {
       entry.hasErrors = true;
     }
   }
@@ -78,27 +83,41 @@ export function deriveWorkflowUnits(stream: readonly M11CStreamItem[]): readonly
   for (const [workflowId, entry] of workflowMap) {
     const sorted = [...entry.events].sort((a, b) => b.sequence - a.sequence);
     const latest = sorted[0];
-    const completed = entry.events.filter(
-      (e) => e.kind === 'activity' && e.content.includes('completed'),
-    ).length;
+    // Unique tasks (events repeat taskId across lifecycle transitions).
+    const taskIds = new Set<string>();
+    const completedTaskIds = new Set<string>();
+    for (const e of entry.events) {
+      if (!e.taskId) continue;
+      taskIds.add(e.taskId);
+      if (e.kind === 'activity' && e.content.includes('completed')) {
+        completedTaskIds.add(e.taskId);
+      }
+    }
+    const hasLifecycle = entry.events.some((e) => e.kind === 'activity' || e.kind === 'progress');
+    const isActive = !entry.hasErrors && hasLifecycle;
+    // Scan-first status: failures pin, active work runs, otherwise done.
+    // Never a raw stream kind (previous code showed "activity" as status).
+    const status = entry.hasErrors ? 'failed' : isActive ? 'running' : 'completed';
 
     units.push({
       workflowId,
-      status: latest?.kind ?? 'unknown',
-      taskCount: entry.events.filter((e) => e.taskId).length,
-      completedTasks: completed,
+      status,
+      taskCount: taskIds.size,
+      completedTasks: completedTaskIds.size,
       eventCount: entry.events.length,
       lastActivity: latest?.timestamp ?? '',
       agentNames: [...entry.agents],
       hasErrors: entry.hasErrors,
-      isActive: !entry.hasErrors && entry.events.some((e) => e.kind === 'activity' || e.kind === 'progress'),
+      isActive,
     });
   }
 
-  // Sort by most recent activity
-  return units.sort(
-    (a, b) => new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime(),
-  );
+  // Failed first, then active, then most recent activity
+  return units.sort((a, b) => {
+    if (a.hasErrors !== b.hasErrors) return a.hasErrors ? -1 : 1;
+    if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+    return new Date(b.lastActivity).getTime() - new Date(a.lastActivity).getTime();
+  });
 }
 
 /**
@@ -133,6 +152,7 @@ export default function M11CWorkflowBrowser({
   stream,
   workflowSummary,
   onSelectWorkflow,
+  selectedWorkflowId,
 }: WorkflowBrowserProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -173,6 +193,7 @@ export default function M11CWorkflowBrowser({
         ) : (
           units.map((unit) => {
             const isExpanded = expandedId === unit.workflowId;
+            const isSelected = selectedWorkflowId === unit.workflowId;
             return (
               <div
                 key={unit.workflowId}
@@ -183,15 +204,24 @@ export default function M11CWorkflowBrowser({
                   type="button"
                   className="ar-workflow-unit__header"
                   onClick={() => {
-                    setExpandedId(isExpanded ? null : unit.workflowId);
-                    onSelectWorkflow?.(isExpanded ? null : unit.workflowId);
+                    if (isExpanded) {
+                      setExpandedId(null);
+                      // Collapse clears scope only when this row owns it;
+                      // scope set from a stream badge survives.
+                      if (isSelected) onSelectWorkflow?.(null);
+                    } else {
+                      setExpandedId(unit.workflowId);
+                      onSelectWorkflow?.(unit.workflowId);
+                    }
                   }}
                   aria-expanded={isExpanded}
+                  aria-pressed={isSelected}
+                  style={isSelected ? { background: 'var(--vestara-accent-bg)' } : undefined}
                 >
                   <StatusIndicator
-                    variant={unit.hasErrors ? 'error' : 'live'}
+                    variant={unit.hasErrors ? 'error' : unit.isActive ? 'live' : 'idle'}
                     size="xs"
-                    pulse={!unit.hasErrors}
+                    pulse={unit.isActive}
                     ariaLabel={`Workflow ${unit.workflowId}: ${unit.status}`}
                   />
                   <div className="ar-workflow-unit__info">
@@ -201,6 +231,17 @@ export default function M11CWorkflowBrowser({
                         : unit.workflowId}
                     </span>
                     <span className="ar-workflow-unit__meta">
+                      <span
+                        className={`mr-1 inline-block rounded-[var(--vestara-radius-full)] border px-1.5 text-[10px] font-semibold capitalize ${
+                          unit.hasErrors
+                            ? 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]'
+                            : unit.isActive
+                              ? 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]'
+                              : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)]'
+                        }`}
+                      >
+                        {unit.status}
+                      </span>
                       {unit.eventCount} events · {formatTimeAgo(unit.lastActivity)} ago
                     </span>
                   </div>

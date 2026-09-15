@@ -9,6 +9,7 @@
  */
 
 import type { ConversationBinding, ConversationBindingStatus } from './conversation-binding';
+import type { DeliveryRecord, DeliveryStatus } from './delivery-queue';
 import type { PairingRequest, PairingStatus, TelegramIdentityBinding } from './pairing';
 import type { WorkspaceBinding } from './workspace-binding';
 
@@ -244,6 +245,49 @@ export class TelegramPersistentStore {
     return row?.cnt ?? 0;
   }
 
+  // ─── Delivery Queue ──────────────────────────────────────
+
+  saveDeliveryRecord(record: DeliveryRecord): void {
+    dbRun(
+      this.db,
+      `INSERT OR REPLACE INTO telegram_delivery_queue
+       (id, delivery_json, status, attempts, max_attempts, priority, created_at,
+        last_attempt_at, last_error, scheduled_retry_at, external_message_id)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.id,
+        JSON.stringify(record.delivery),
+        record.status,
+        record.attempts,
+        record.maxAttempts,
+        record.priority,
+        record.createdAt,
+        record.lastAttemptAt ?? null,
+        record.lastError ?? null,
+        record.scheduledRetryAt ?? null,
+        record.externalMessageId ?? null,
+      ],
+    );
+  }
+
+  loadDeliveryRecords(): DeliveryRecord[] {
+    const rows = dbAll(this.db, 'SELECT * FROM telegram_delivery_queue');
+    const records: DeliveryRecord[] = [];
+    for (const row of rows) {
+      try {
+        records.push(this.rowToDeliveryRecord(row));
+      } catch {
+        // Corrupt rows must never break recovery — drop them.
+        dbRun(this.db, 'DELETE FROM telegram_delivery_queue WHERE id = ?', [row.id]);
+      }
+    }
+    return records;
+  }
+
+  deleteDeliveryRecord(id: string): void {
+    dbRun(this.db, 'DELETE FROM telegram_delivery_queue WHERE id = ?', [id]);
+  }
+
   // ─── Row Mappers ───────────────────────────────────────────
 
   private rowToPairingRequest(row: any): PairingRequest {
@@ -281,6 +325,22 @@ export class TelegramPersistentStore {
       preferred: row.preferred === 1,
       createdAt: row.created_at,
       lastAccessedAt: row.last_accessed_at,
+    };
+  }
+
+  private rowToDeliveryRecord(row: any): DeliveryRecord {
+    return {
+      id: row.id,
+      delivery: JSON.parse(row.delivery_json),
+      status: row.status as DeliveryStatus,
+      attempts: row.attempts,
+      maxAttempts: row.max_attempts,
+      priority: row.priority,
+      createdAt: row.created_at,
+      lastAttemptAt: row.last_attempt_at ?? undefined,
+      lastError: row.last_error ?? undefined,
+      scheduledRetryAt: row.scheduled_retry_at ?? undefined,
+      externalMessageId: row.external_message_id ?? undefined,
     };
   }
 

@@ -69,6 +69,8 @@
   },
   "workspaces": [
     "packages/*",
+    "packages/providers/*",
+    "packages/tools/*",
     "apps/*"
   ],
   "devDependencies": {

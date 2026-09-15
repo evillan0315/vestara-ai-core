@@ -19,6 +19,12 @@ const PRIORITY_COLOR: Record<string, string> = {
   low: 'var(--vestara-status-success)',
 };
 
+const PRIORITY_LABEL: Record<string, string> = {
+  high: 'High',
+  medium: 'Med',
+  low: 'Low',
+};
+
 export function TodayFocus({ items }: TodayFocusProps) {
   if (items.length === 0) {
     return (
@@ -34,11 +40,11 @@ export function TodayFocus({ items }: TodayFocusProps) {
   const pct = items.length ? Math.round((done / items.length) * 100) : 0;
 
   return (
-    <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={5}>
+    <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={1}>
       <div className="mb-3">
-        <div className="mb-1.5 flex items-center justify-between text-[11px] text-[var(--vestara-text-muted)]">
+        <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
           <span>{done} of {items.length} done</span>
-          <span className="font-semibold text-[var(--vestara-text-primary)]">{pct}%</span>
+          <span className="text-[var(--vestara-text-primary)]">{pct}%</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--vestara-text-muted)_18%,transparent)]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's focus progress">
           <span
@@ -50,7 +56,7 @@ export function TodayFocus({ items }: TodayFocusProps) {
       <ul className="space-y-1.5">
         {items.map((item, i) => (
           <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
-            <div className="mpg-category-row px-1">
+            <div className="mpg-category-row px-1" title={`${item.title} · ${item.reason} · ${item.priority} priority`}>
               <span className="flex min-w-0 flex-1 items-center gap-2.5">
                 <span
                   aria-hidden="true"
@@ -63,22 +69,33 @@ export function TodayFocus({ items }: TodayFocusProps) {
                 >
                   ✓
                 </span>
-                <span
-                  className={`flex-1 text-[12.5px] ${
-                    item.completed
-                      ? 'text-[var(--vestara-text-muted)] line-through'
-                      : 'text-[var(--vestara-text-primary)]'
-                  }`}
-                >
-                  {item.title}
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={`block truncate text-[12.5px] ${
+                      item.completed
+                        ? 'text-[var(--vestara-text-muted)] line-through'
+                        : 'text-[var(--vestara-text-primary)]'
+                    }`}
+                  >
+                    {item.title}
+                  </span>
+                  <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">
+                    {item.reason}
+                  </span>
                 </span>
               </span>
               <span
-                aria-hidden="true"
-                title={`${item.priority} priority`}
-                className="h-1.5 w-1.5 shrink-0 rounded-full"
-                style={{ background: PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low, boxShadow: `0 0 6px ${PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low}` }}
-              />
+                className="mpg-tag-pill shrink-0 tabular-nums"
+                style={{ color: PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low }}
+              >
+                <span
+                  aria-hidden="true"
+                  title={`${item.priority} priority`}
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low, boxShadow: `0 0 6px ${PRIORITY_COLOR[item.priority] ?? PRIORITY_COLOR.low}` }}
+                />
+                {PRIORITY_LABEL[item.priority] ?? item.priority}
+              </span>
             </div>
           </li>
         ))}

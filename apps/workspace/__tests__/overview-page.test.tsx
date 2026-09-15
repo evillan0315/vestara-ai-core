@@ -9,6 +9,10 @@ vi.mock('../src/features/overview/hooks/useOverview', () => ({
   useOverview: vi.fn(),
 }));
 
+vi.mock('../src/hooks/useMorningBriefing', () => ({
+  useMorningBriefing: vi.fn(() => ({ briefing: null, loading: false })),
+}));
+
 import { useOverview } from '../src/features/overview/hooks/useOverview';
 
 const mocked = vi.mocked(useOverview);
@@ -34,16 +38,15 @@ describe('Overview Page (v2 dark premium)', () => {
     expect(screen.getByLabelText(/Loading overview/)).toBeTruthy();
   });
 
-  it('renders v2 hero + sections with fixture data', () => {
+  it('renders hero + sections with fixture data', () => {
     mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
     renderOverview();
-    expect(screen.getByText('Build Without Limits')).toBeTruthy();
+    // Hero shows a time-aware greeting, not a rotating title
+    expect(screen.getByText(/Director/)).toBeTruthy();
     expect(screen.getByText('Continue Working')).toBeTruthy();
     expect(screen.getByText('Recent Activity')).toBeTruthy();
-    expect(screen.getByText('Agents Status')).toBeTruthy();
-    expect(screen.getByText('Projects')).toBeTruthy();
-    expect(screen.getByText('System Resources')).toBeTruthy();
-    expect(screen.getByText('Marketplace Spotlight')).toBeTruthy();
+    expect(screen.getByText('Agents')).toBeTruthy();
+    expect(screen.getByText('System')).toBeTruthy();
     expect(screen.getByText("Today's Focus")).toBeTruthy();
   });
 
@@ -54,22 +57,25 @@ describe('Overview Page (v2 dark premium)', () => {
     expect(screen.getByText('Create Workflow')).toBeTruthy();
     expect(screen.getByText('Open Files')).toBeTruthy();
     expect(screen.getByText('Launch Terminal')).toBeTruthy();
-    expect(screen.getByText('Explore Marketplace')).toBeTruthy();
+    // Marketplace removed from quick actions — it's in the global nav
+    expect(screen.queryByText('Explore Marketplace')).toBeNull();
   });
 
-  it('renders agent presence rows', () => {
+  it('renders agent summary row', () => {
     mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
     renderOverview();
-    expect(screen.getByText('vestara-planner')).toBeTruthy();
-    expect(screen.getByText('vestara-developer')).toBeTruthy();
-    expect(screen.getAllByText('Online').length).toBeGreaterThan(0);
+    // AgentStatus is now a compact summary: "5 agents · 2 online · 1 busy · 1 idle · 1 offline"
+    expect(screen.getByText(/5 agents ·/)).toBeTruthy();
   });
 
-  it('renders system gauges', () => {
+  it('renders system status bar', () => {
     mocked.mockReturnValue({ data: overviewFixture, isLoading: false, error: null, refetch: vi.fn() });
     renderOverview();
-    expect(screen.getByLabelText(/CPU 18 percent/)).toBeTruthy();
-    expect(screen.getByLabelText(/Memory 62 percent/)).toBeTruthy();
+    // SystemResources is now a compact status bar with percentage readouts
+    expect(screen.getByText('CPU')).toBeTruthy();
+    expect(screen.getByText('18%')).toBeTruthy();
+    expect(screen.getByText('Mem')).toBeTruthy();
+    expect(screen.getByText('62%')).toBeTruthy();
   });
 
   it('shows cached snapshot note with retry when live fetch failed', () => {
@@ -92,7 +98,7 @@ describe('Overview Page (v2 dark premium)', () => {
     expect(viewAllHrefs).toContain('/projects');
     expect(viewAllHrefs).toContain('/agents');
     for (const href of viewAllHrefs) {
-      expect(href).toMatch(/^\/(projects|agents|activity|marketplace|diagnostics)$/);
+      expect(href).toMatch(/^\/(projects|agents|activity|diagnostics)$/);
     }
   });
 });

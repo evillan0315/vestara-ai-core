@@ -97,7 +97,7 @@ function CapabilityCard({
               <span className="text-lg">{icon}</span>
               <span className="truncate font-medium text-[var(--vestara-text-primary)]">{cap.name}</span>
             </div>
-            <div className="mt-0.5 font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">{cap.id}</div>
+            <div className="mt-0.5 font-mono text-xs text-[var(--vestara-text-muted)]">{cap.id}</div>
           </div>
           <span
             className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${state.bg} ${state.text}`}
@@ -107,7 +107,7 @@ function CapabilityCard({
           </span>
         </div>
         {cap.description && (
-          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+          <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-[var(--vestara-text-muted)]">
             {cap.description}
           </p>
         )}
@@ -152,7 +152,7 @@ function CapabilityDetail({
                 {cap.name}
               </h2>
             </div>
-            <div className="mt-1 font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">{cap.id}</div>
+            <div className="mt-1 font-mono text-xs text-[var(--vestara-text-muted)]">{cap.id}</div>
           </div>
           <Button variant="secondary" size="sm" onClick={onClose} aria-label="Close details">
             ✕
@@ -165,7 +165,7 @@ function CapabilityDetail({
           <span className={`inline-block h-2 w-2 rounded-full ${state.dot}`} />
           {state.label}
           {cap.parkingState === 'parked' && (
-            <span className="ml-1 text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+            <span className="ml-1 text-[var(--vestara-text-muted)]">
               (preserved, not active in current profile)
             </span>
           )}
@@ -173,26 +173,26 @@ function CapabilityDetail({
 
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Category</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Category</span>
             <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.category}</div>
           </div>
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Requirement</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Requirement</span>
             <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.requirement}</div>
           </div>
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Activation</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Activation</span>
             <div className="mt-1 text-[var(--vestara-text-primary)]">{cap.activation}</div>
           </div>
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Health</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Health</span>
             <div className={`mt-1 ${health.text}`}>{health.icon} {cap.health}</div>
           </div>
         </div>
 
         {cap.packages.length > 0 && (
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Packages</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Packages</span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {cap.packages.map((pkg) => (
                 <Badge key={pkg} variant="default" size="md">{pkg}</Badge>
@@ -203,7 +203,7 @@ function CapabilityDetail({
 
         {cap.dependencies.length > 0 && (
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Dependencies</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Dependencies</span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {cap.dependencies.map((dep) => (
                 <Badge key={dep} variant="default" size="md">{dep}</Badge>
@@ -214,7 +214,7 @@ function CapabilityDetail({
 
         {cap.documentation && cap.documentation.length > 0 && (
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Documentation</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Documentation</span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {cap.documentation.map((doc) => (
                 <Badge key={doc} variant="default" size="md">{doc}</Badge>
@@ -225,7 +225,7 @@ function CapabilityDetail({
 
         {cap.evidence && cap.evidence.length > 0 && (
           <div>
-            <span className="text-xs font-medium text-[var(--vestara-text-muted,var(--color-zinc-400))]">Evidence</span>
+            <span className="text-xs font-medium text-[var(--vestara-text-muted)]">Evidence</span>
             <div className="mt-1.5 flex flex-wrap gap-1.5">
               {cap.evidence.map((ev) => (
                 <Badge key={ev} variant="default" size="md">{ev}</Badge>

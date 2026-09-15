@@ -51,14 +51,14 @@ export function RecentActivity({ items }: RecentActivityProps) {
   }
 
   return (
-    <SectionCard title="Recent Activity" actionLabel="View All" actionHref="/activity" accent="var(--vestara-status-success)" index={1}>
+    <SectionCard title="Recent Activity" actionLabel="View All" actionHref="/activity" accent="var(--vestara-status-success)" index={2}>
       <ul className="space-y-1">
-        {items.map((item, i) => {
+        {items.slice(0, 3).map((item, i) => {
           const accent = KIND_ACCENT[item.kind] ?? KIND_ACCENT['agent-action'];
           const glyph = KIND_GLYPH[item.kind] ?? KIND_GLYPH['agent-action'];
           return (
             <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
-              <div className="mpg-category-row">
+              <div className="mpg-category-row" title={`${item.title ?? item.action} · ${item.detail ?? item.target ?? ''}`}>
                 <span className="flex min-w-0 flex-1 items-center gap-3">
                   <span
                     aria-hidden="true"
@@ -84,12 +84,19 @@ export function RecentActivity({ items }: RecentActivityProps) {
                     </span>
                   </span>
                 </span>
-                <span className="mpg-tag-pill shrink-0">{timeAgo(item.timestamp)}</span>
+                <span className="mpg-tag-pill shrink-0 tabular-nums">
+                  <time dateTime={item.timestamp}>{timeAgo(item.timestamp)}</time>
+                </span>
               </div>
             </li>
           );
         })}
       </ul>
+      {items.length > 3 && (
+        <p className="mt-2 text-center text-[11px] text-[var(--vestara-text-muted)]">
+          +{items.length - 3} more in Activity Room
+        </p>
+      )}
     </SectionCard>
   );
 }

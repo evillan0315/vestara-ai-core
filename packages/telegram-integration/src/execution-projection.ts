@@ -20,8 +20,11 @@ export type ExecutionStatus = 'queued' | 'planning' | 'executing' | 'verifying' 
 export type ProgressLevel = 'none' | 'brief' | 'detailed';
 
 export interface ExecutionUpdate {
-  /** Execution ID */
+  /** Execution ID (Vestara Execution Authority remains canonical — TG-S2) */
   readonly executionId: string;
+
+  /** Vestara conversation this execution belongs to (provenance only, never owned here) */
+  readonly vestaraConversationId?: string;
 
   /** Current status */
   readonly status: ExecutionStatus;
@@ -98,9 +101,23 @@ export class TelegramExecutionProjection {
 
   /**
    * Project an execution update to a Telegram chat.
+   *
+   * Returns null when the update is stale (its timestamp is not newer
+   * than the last projected update for the same execution) so callers
+   * emit no duplicate message. The in-memory map is a last-known
+   * projection cache for rendering — Telegram never owns execution
+   * state (TG-S2); the Vestara Execution Authority remains canonical.
+   * Once an execution reaches a terminal status its cache entry is
+   * released, so post-terminal late duplicates rely on upstream
+   * webhook idempotency (TG-006).
    */
-  projectUpdate(update: ExecutionUpdate, chatId: string, progressLevel?: ProgressLevel): ChannelDelivery {
-    // Track active execution
+  projectUpdate(update: ExecutionUpdate, chatId: string, progressLevel?: ProgressLevel): ChannelDelivery | null {
+    const previous = this.activeExecutions.get(update.executionId);
+    if (previous && !isNewerThan(update.timestamp, previous.timestamp)) {
+      return null;
+    }
+
+    // Track last-known update for rendering (projection cache, not authority)
     this.activeExecutions.set(update.executionId, update);
 
     // Build message based on progress level
@@ -210,6 +227,13 @@ export class TelegramExecutionProjection {
       parts.push(`Progress: ${update.progressPercent}%`);
     }
 
+    // 'none' returned early above, so provenance always applies from here on.
+    parts.push(
+      update.vestaraConversationId
+        ? `_Execution ${update.executionId} · Conversation ${update.vestaraConversationId}_`
+        : `_Execution ${update.executionId}_`,
+    );
+
     if (this.config.includeTimestamps) {
       const time = new Date(update.timestamp).toLocaleTimeString();
       parts.push(`_${time}_`);
@@ -234,4 +258,16 @@ export class TelegramExecutionProjection {
   private isTerminal(status: ExecutionStatus): boolean {
     return status === 'completed' || status === 'failed' || status === 'cancelled';
   }
+}
+
+/**
+ * True when `candidate` is strictly newer than `previous`.
+ * Unparseable timestamps are never treated as stale — dropping an
+ * update the projection cannot order would silently lose information.
+ */
+function isNewerThan(candidate: string, previous: string): boolean {
+  const a = Date.parse(candidate);
+  const b = Date.parse(previous);
+  if (Number.isNaN(a) || Number.isNaN(b)) return true;
+  return a > b;
 }

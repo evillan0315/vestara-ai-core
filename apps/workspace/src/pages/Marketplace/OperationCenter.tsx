@@ -58,9 +58,9 @@ export default function OperationCenter() {
                 color: 'var(--vestara-text-primary)',
               }
             : {
-                background: 'color-mix(in srgb, var(--color-zinc-900) 90%, transparent)',
+                background: 'color-mix(in srgb, var(--vestara-surface-panel) 90%, transparent)',
                 border: '1px solid var(--vestara-accent-border)',
-                color: 'var(--color-zinc-200)',
+                color: 'var(--vestara-text-secondary)',
               }
         }
       >
@@ -73,7 +73,7 @@ export default function OperationCenter() {
               Marketplace Operations
             </div>
             {operations.length === 0 && (
-              <div className="px-4 py-6 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <div className="px-4 py-6 text-sm text-[var(--vestara-text-muted)]">
                 No recent operations.
               </div>
             )}
@@ -86,7 +86,7 @@ export default function OperationCenter() {
                   <div className="truncate font-mono text-sm text-[var(--vestara-text-primary)]">
                     {operation.packageName ?? operation.eventType}
                   </div>
-                  <div className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <div className="truncate font-mono text-xs text-[var(--vestara-text-muted)]">
                     {operation.eventType}
                   </div>
                 </div>

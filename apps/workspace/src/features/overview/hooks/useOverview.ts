@@ -162,7 +162,24 @@ async function fetchResources(): Promise<OverviewResourceSummary> {
 }
 
 async function fetchMarketplace(): Promise<readonly OverviewMarketplaceItem[]> {
-  return overviewFixture.marketplace;
+  try {
+    const { marketplaceClient } = await import('../../../lib/marketplace.js');
+    const [searchResult, installedList] = await Promise.all([
+      marketplaceClient.search({ limit: 5, sort: 'relevant' }),
+      marketplaceClient.installed().catch(() => []),
+    ]);
+    if (!searchResult.items.length) return overviewFixture.marketplace;
+    const installedNames = new Set(installedList.map((i) => i.packageName));
+    return searchResult.items.map((hit) => ({
+      id: hit.asset.id,
+      name: hit.asset.displayName,
+      category: hit.asset.type,
+      installed: installedNames.has(hit.asset.packageName),
+      description: hit.asset.summary,
+    }));
+  } catch {
+    return overviewFixture.marketplace;
+  }
 }
 
 export function useOverview(): UseOverviewReturn {

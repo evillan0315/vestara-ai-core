@@ -129,12 +129,21 @@ export default function M11CParticipantRail({
   // ─── Normal grouped presentation ──────────────────────────
   const grouped = useMemo(() => {
     if (filtered !== null) return filtered; // filtered mode
-    // Default: sort by presence (online first), then by name
+    // Scan-first: work state severity dominates (presence is UNKNOWN
+    // upstream), then recency, then name. Blocked/needs-attention pin top.
+    const workRank = (ws: string): number => {
+      if (ws === 'blocked' || ws === 'attention-required') return 0;
+      if (ws === 'working') return 1;
+      if (ws === 'waiting') return 2;
+      if (ws === 'failed') return 3;
+      return 4;
+    };
     return [...participants].sort((a, b) => {
-      const presenceOrder: Record<string, number> = { online: 0, active: 0, busy: 1, away: 2, offline: 3 };
-      const aOrder = presenceOrder[a.presence] ?? 4;
-      const bOrder = presenceOrder[b.presence] ?? 4;
-      if (aOrder !== bOrder) return aOrder - bOrder;
+      const rank = workRank(a.workState) - workRank(b.workState);
+      if (rank !== 0) return rank;
+      const at = new Date(a.lastActivityAt).getTime() || 0;
+      const bt = new Date(b.lastActivityAt).getTime() || 0;
+      if (at !== bt) return bt - at;
       return a.displayName.localeCompare(b.displayName);
     });
   }, [participants, filtered]);
@@ -149,9 +158,12 @@ export default function M11CParticipantRail({
   }
 
   // Counts from authoritative workState, not from presence (UNKNOWN).
-  // "total" counts projections; "at work" counts working/blocked/
-  // attention-required. Presence is never claimed.
-  const activeCount = participants.filter((p) => p.workState === 'working' || p.workState === 'blocked' || p.workState === 'attention-required').length;
+  // "total" counts projections; "at work" counts working; blocked and
+  // attention-required split out so they scan instead of hiding in a sum.
+  const activeCount = participants.filter((p) => p.workState === 'working').length;
+  const blockedCount = participants.filter(
+    (p) => p.workState === 'blocked' || p.workState === 'attention-required',
+  ).length;
   const totalCount = participants.length;
   const isFiltered = filtered !== null;
 
@@ -171,7 +183,7 @@ export default function M11CParticipantRail({
         >
           <span className="ar-rail__all-label">Everyone</span>
           <span className="ar-rail__census">
-            <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}
+            <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
           </span>
         </button>
       </div>
@@ -277,6 +289,9 @@ const ParticipantRow = memo(function ParticipantRow({
       ? 'var(--vestara-text-muted)'
       : 'var(--vestara-accent-text)';
   const tileGlow = `0 0 12px color-mix(in srgb, ${tileTone} 25%, transparent)`;
+  // Blocked/needs-attention must scan from the tertiary line: semibold in
+  // the error/warning token instead of the default muted 11px.
+  const urgentWork = participant.workState === 'blocked' || participant.workState === 'attention-required';
 
   const handleNameClick = (e: React.MouseEvent) => {
     if (!canOpenDrawer) return;
@@ -354,7 +369,9 @@ const ParticipantRow = memo(function ParticipantRow({
             </span>
           )}
           {work && (
-            <span className="inline-flex items-center gap-1">
+            <span
+              className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
+            >
               <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
               {participant.currentAssignment?.taskTitle ?? work.label}
             </span>

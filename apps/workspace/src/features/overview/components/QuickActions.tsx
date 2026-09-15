@@ -22,12 +22,11 @@ const QUICK_ACTIONS: QuickAction[] = [
   { id: 'workflow', label: 'Create Workflow', sub: 'Automate work', href: '/workflows', tile: 'var(--vestara-accent-primary)', glyph: '⁂' },
   { id: 'files', label: 'Open Files', sub: 'Browse workspace', href: '/files', tile: 'var(--vestara-status-success)', glyph: '▤' },
   { id: 'terminal', label: 'Launch Terminal', sub: 'Start a session', href: '/terminal', tile: 'var(--vestara-text-muted)', glyph: '›_' },
-  { id: 'marketplace', label: 'Explore Marketplace', sub: 'Add modules, agents, tools', href: '/marketplace', tile: 'var(--vestara-marketplace-primary)', glyph: '▦' },
 ];
 
 export function QuickActions() {
   return (
-    <ul className="grid list-none grid-cols-1 gap-3 p-0 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5" aria-label="Quick actions">
+    <ul className="grid list-none grid-cols-2 gap-3 p-0" aria-label="Quick actions">
       {QUICK_ACTIONS.map((action, i) => (
         <li key={action.id} className="mpg-enter" style={{ animationDelay: `${i * 40}ms` }}>
           <Link
@@ -36,9 +35,9 @@ export function QuickActions() {
           >
             <span
               aria-hidden="true"
-              className="mpg-icon-box text-white"
+              className="mpg-icon-box text-[var(--ov-solid-on-tile)]"
               style={{
-                color: '#fff',
+                color: 'var(--ov-solid-on-tile)',
                 background: `color-mix(in srgb, ${action.tile} 88%, transparent)`,
                 borderColor: `color-mix(in srgb, ${action.tile} 55%, transparent)`,
                 boxShadow: `0 0 14px color-mix(in srgb, ${action.tile} 40%, transparent)`,

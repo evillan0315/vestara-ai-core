@@ -128,18 +128,25 @@ export class TelegramWorkspaceBindingService {
 
   /**
    * Get all bindings for a principal.
+   *
+   * The in-memory map is a write-through cache that point lookups
+   * (getBinding/hasAccess) can partially populate, so it must never be
+   * treated as complete. When a store is present, SQLite is the source of
+   * truth and memory entries are merged over it (memory wins per-id).
    */
   getBindingsByPrincipal(principalId: string): readonly WorkspaceBinding[] {
-    // Check in-memory first
-    const inMemory = Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
-    if (inMemory.length > 0) return inMemory;
-    // Fall back to SQLite
-    if (this.store) {
-      const stored = this.store.getWorkspaceBindingsByPrincipal(principalId);
-      for (const b of stored) this.bindings.set(b.id, b);
-      return stored;
+    if (!this.store) {
+      return Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
     }
-    return [];
+    const merged = new Map<string, WorkspaceBinding>();
+    for (const b of this.store.getWorkspaceBindingsByPrincipal(principalId)) {
+      merged.set(b.id, b);
+    }
+    for (const b of this.bindings.values()) {
+      if (b.principalId === principalId) merged.set(b.id, b);
+    }
+    for (const b of merged.values()) this.bindings.set(b.id, b);
+    return Array.from(merged.values());
   }
 
   /**
@@ -153,23 +160,27 @@ export class TelegramWorkspaceBindingService {
    * Set preferred workspace for a principal.
    */
   setPreferredWorkspace(principalId: string, workspaceId: string): void {
+    // Validate FIRST: switching to a workspace the principal is not bound
+    // to must be rejected — never silently clear the existing preferred.
+    const binding = this.getBinding(principalId, workspaceId);
+    if (!binding) {
+      throw new Error('Principal is not bound to this workspace');
+    }
+
     // Clear all preferred flags for this principal
     this.store?.clearPreferredWorkspace(principalId);
-    for (const binding of this.bindings.values()) {
-      if (binding.principalId === principalId && binding.preferred) {
-        const updated = { ...binding, preferred: false };
-        this.bindings.set(binding.id, updated);
+    for (const b of this.bindings.values()) {
+      if (b.principalId === principalId && b.preferred && b.id !== binding.id) {
+        const updated = { ...b, preferred: false };
+        this.bindings.set(b.id, updated);
         this.store?.saveWorkspaceBinding(updated);
       }
     }
 
     // Set new preferred
-    const binding = this.getBinding(principalId, workspaceId);
-    if (binding) {
-      const updated = { ...binding, preferred: true };
-      this.bindings.set(binding.id, updated);
-      this.store?.saveWorkspaceBinding(updated);
-    }
+    const updated = { ...binding, preferred: true };
+    this.bindings.set(binding.id, updated);
+    this.store?.saveWorkspaceBinding(updated);
   }
 
   /**

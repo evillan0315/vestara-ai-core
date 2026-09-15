@@ -173,4 +173,86 @@ describe('TelegramWebhookHandler', () => {
       handler.destroy(); // double destroy should be safe
     });
   });
+
+  describe('Telegram retry idempotency', () => {
+    it('treats a retried update as a duplicate with no second processing', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const body = makeTelegramUpdate({ update_id: 500 });
+
+      const first = await handler.handleWebhook(body);
+      const retry = await handler.handleWebhook(body);
+      const retryAgain = await handler.handleWebhook(body);
+
+      expect(first.processed).toBe(true);
+      expect(retry.processed).toBe(false);
+      expect(retry.duplicate).toBe(true);
+      expect(retryAgain.processed).toBe(false);
+      expect(retryAgain.duplicate).toBe(true);
+      // Retries carry no message/action payloads — downstream cannot
+      // mistake them for new work and trigger duplicate delivery.
+      expect(retry.message).toBeUndefined();
+      expect(retry.action).toBeUndefined();
+    });
+
+    it('treats a retried unknown update type as a duplicate', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const body = JSON.stringify({ update_id: 501 });
+
+      const first = await handler.handleWebhook(body);
+      const retry = await handler.handleWebhook(body);
+
+      expect(first.processed).toBe(true);
+      expect(retry.duplicate).toBe(true);
+    });
+  });
+
+  describe('malformed payload rejection', () => {
+    it('rejects an update with a missing update_id', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const result = await handler.handleWebhook(JSON.stringify({ message: {} }));
+
+      expect(result.processed).toBe(false);
+      expect(result.duplicate).toBe(false);
+      expect(result.error).toBe('Invalid update_id');
+    });
+
+    it('rejects an update with a non-numeric update_id', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const result = await handler.handleWebhook(JSON.stringify({ update_id: 'abc' }));
+
+      expect(result.processed).toBe(false);
+      expect(result.error).toBe('Invalid update_id');
+    });
+
+    it('rejects a non-object payload', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const result = await handler.handleWebhook(JSON.stringify([1, 2, 3]));
+
+      expect(result.processed).toBe(false);
+      expect(result.error).toBe('Invalid update_id');
+    });
+
+    it('does not poison the dedup cache with malformed payloads', async () => {
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      await handler.handleWebhook('not-json');
+      await handler.handleWebhook(JSON.stringify({ nope: true }));
+
+      // A subsequent valid update with a fresh id still processes.
+      const result = await handler.handleWebhook(makeTelegramUpdate({ update_id: 502 }));
+      expect(result.processed).toBe(true);
+      expect(result.duplicate).toBe(false);
+    });
+  });
+
+  describe('unavailable persistence', () => {
+    it('processes webhooks with no persistent store configured', async () => {
+      // The handler is intentionally persistence-free (in-memory dedup
+      // only), so webhook intake keeps working when SQLite is unavailable.
+      handler = new TelegramWebhookHandler({ botToken: 'test-token' });
+      const result = await handler.handleWebhook(makeTelegramUpdate({ update_id: 503 }));
+
+      expect(result.processed).toBe(true);
+      expect(result.message).toBeDefined();
+    });
+  });
 });

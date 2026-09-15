@@ -78,8 +78,8 @@ export interface ConversationBindingConfig {
 const DEFAULT_CONFIG: Required<ConversationBindingConfig> = {
   maxConversationsPerChat: 5,
   autoCreateConversation: true,
-  defaultModel: 'mimo-v2.5-free',
-  defaultProvider: 'opencode',
+  defaultModel: 'muse-spark-1.3-contributor',
+  defaultProvider: 'opencode-go',
 };
 
 // ─── Conversation Binding Service ──────────────────────────────
@@ -111,6 +111,18 @@ export class TelegramConversationBindingService {
     vestaraConversationId: string;
     vestaraConversationTitle?: string;
   }): ConversationBinding {
+    // A Vestara conversation is a distinct canonical entity — it must never
+    // be double-bound to a second Telegram chat. Chats reference
+    // conversations; they are not conversations. The principal-scoped merge
+    // covers rows persisted before a restart.
+    const alreadyBound =
+      this.getBindingByConversationId(params.vestaraConversationId) ??
+      this.getBindingsByPrincipal(params.principalId).find(
+        (b) => b.vestaraConversationId === params.vestaraConversationId,
+      );
+    if (alreadyBound) {
+      throw new Error('Vestara conversation is already bound to a Telegram chat');
+    }
     const now = new Date().toISOString();
 
     const binding: ConversationBinding = {
@@ -135,40 +147,79 @@ export class TelegramConversationBindingService {
   }
 
   /**
+   * Hydrate a binding from SQLite when this instance never cached it
+   * (e.g. after a restart). Returns undefined when unknown.
+   */
+  private requireBinding(bindingId: string): ConversationBinding | undefined {
+    const cached = this.bindings.get(bindingId);
+    if (cached) return cached;
+    if (this.store) {
+      const stored = this.store.getConversationBinding(bindingId);
+      if (stored) this.bindings.set(stored.id, stored);
+      return stored;
+    }
+    return undefined;
+  }
+
+  /**
+   * Merge in-memory bindings over SQLite rows (memory wins per-id).
+   * The memory map is a write-through cache that point lookups can
+   * partially populate, so SQLite is the source of truth for listings.
+   */
+  private mergedList(stored: readonly ConversationBinding[]): ConversationBinding[] {
+    const merged = new Map<string, ConversationBinding>();
+    for (const b of stored) merged.set(b.id, b);
+    for (const b of this.bindings.values()) merged.set(b.id, b);
+    for (const b of merged.values()) this.bindings.set(b.id, b);
+    return Array.from(merged.values());
+  }
+
+  /**
    * Get binding by ID.
    */
   getBinding(bindingId: string): ConversationBinding | undefined {
-    return this.bindings.get(bindingId);
+    return this.requireBinding(bindingId);
   }
 
   /**
    * Get active binding for a Telegram chat and principal.
+   * When several active bindings exist, the most recently active wins
+   * deterministically. Pass workspaceId to scope resolution to one
+   * workspace — a chat bound under another workspace must not resolve.
    */
-  getActiveBinding(telegramChatId: string, principalId: string): ConversationBinding | undefined {
-    for (const binding of this.bindings.values()) {
-      if (
-        binding.telegramChatId === telegramChatId &&
-        binding.principalId === principalId &&
-        binding.status === 'active'
-      ) {
-        return binding;
-      }
-    }
-    return undefined;
+  getActiveBinding(telegramChatId: string, principalId: string, workspaceId?: string): ConversationBinding | undefined {
+    const candidates = this.getBindingsByChat(telegramChatId).filter(
+      (b) =>
+        b.principalId === principalId &&
+        b.status === 'active' &&
+        (workspaceId === undefined || b.workspaceId === workspaceId),
+    );
+    candidates.sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
+    return candidates[0];
   }
 
   /**
    * Get all bindings for a Telegram chat.
    */
   getBindingsByChat(telegramChatId: string): readonly ConversationBinding[] {
-    return Array.from(this.bindings.values()).filter((b) => b.telegramChatId === telegramChatId);
+    if (!this.store) {
+      return Array.from(this.bindings.values()).filter((b) => b.telegramChatId === telegramChatId);
+    }
+    return this.mergedList(this.store.getConversationBindingsByChat(telegramChatId)).filter(
+      (b) => b.telegramChatId === telegramChatId,
+    );
   }
 
   /**
    * Get all bindings for a principal.
    */
   getBindingsByPrincipal(principalId: string): readonly ConversationBinding[] {
-    return Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
+    if (!this.store) {
+      return Array.from(this.bindings.values()).filter((b) => b.principalId === principalId);
+    }
+    return this.mergedList(this.store.getConversationBindingsByPrincipal(principalId)).filter(
+      (b) => b.principalId === principalId,
+    );
   }
 
   /**
@@ -187,7 +238,7 @@ export class TelegramConversationBindingService {
    * Pause a conversation binding.
    */
   pauseBinding(bindingId: string): void {
-    const binding = this.bindings.get(bindingId);
+    const binding = this.requireBinding(bindingId);
     if (binding) {
       const updated = { ...binding, status: 'paused' as const };
       this.bindings.set(bindingId, updated);
@@ -199,7 +250,7 @@ export class TelegramConversationBindingService {
    * Resume a conversation binding.
    */
   resumeBinding(bindingId: string): void {
-    const binding = this.bindings.get(bindingId);
+    const binding = this.requireBinding(bindingId);
     if (binding) {
       const updated = {
         ...binding,
@@ -215,7 +266,7 @@ export class TelegramConversationBindingService {
    * Close a conversation binding.
    */
   closeBinding(bindingId: string): void {
-    const binding = this.bindings.get(bindingId);
+    const binding = this.requireBinding(bindingId);
     if (binding) {
       const updated = { ...binding, status: 'closed' as const };
       this.bindings.set(bindingId, updated);
@@ -227,7 +278,7 @@ export class TelegramConversationBindingService {
    * Update last activity timestamp.
    */
   touchBinding(bindingId: string): void {
-    const binding = this.bindings.get(bindingId);
+    const binding = this.requireBinding(bindingId);
     if (binding) {
       const updated = { ...binding, lastActivityAt: new Date().toISOString() };
       this.bindings.set(bindingId, updated);
@@ -239,7 +290,7 @@ export class TelegramConversationBindingService {
    * Update conversation title.
    */
   updateConversationTitle(bindingId: string, title: string): void {
-    const binding = this.bindings.get(bindingId);
+    const binding = this.requireBinding(bindingId);
     if (binding) {
       const updated = { ...binding, vestaraConversationTitle: title };
       this.bindings.set(bindingId, updated);
@@ -269,9 +320,10 @@ export class TelegramConversationBindingService {
 
   /**
    * Resolve Telegram chat to Vestara conversation ID.
-   * Returns the most recent active binding.
+   * Returns the most recent active binding. Pass workspaceId to scope
+   * resolution — cross-workspace chat reuse must not resolve.
    */
-  resolveConversationId(telegramChatId: string, principalId: string): string | undefined {
-    return this.getActiveBinding(telegramChatId, principalId)?.vestaraConversationId;
+  resolveConversationId(telegramChatId: string, principalId: string, workspaceId?: string): string | undefined {
+    return this.getActiveBinding(telegramChatId, principalId, workspaceId)?.vestaraConversationId;
   }
 }

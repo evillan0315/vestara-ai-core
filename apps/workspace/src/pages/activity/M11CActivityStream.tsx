@@ -25,6 +25,7 @@ import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../ho
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { EmptyState, StatusIndicator } from '@vestara/ui';
+import { CONNECTION_STATUS_CONFIG } from './status-config';
 import { M11CStreamItemComponent } from './M11CStreamItem';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -82,27 +83,48 @@ interface M11CActivityStreamProps {
   readonly submission?: SubmissionState;
   /** AR-REC-R6: Submit a response to an interaction. */
   readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
+  /**
+   * External attention signal (from the attention banner). When true the
+   * stream focuses the Needs-attention preset until the user picks another
+   * tab. Hero owns connection status; this is scope, not status.
+   */
+  readonly attentionFocus?: boolean;
+  /** Select a workflow context (from stream workflow badges → browser scope). */
+  readonly onSelectWorkflow?: (workflowId: string) => void;
+  /** Active workflow scope (from the workflow browser). Narrows the stream. */
+  readonly workflowFilter?: string | null;
 }
 
 // ─── Filter Types ────────────────────────────────────────────
 
-type StreamFilter = 'all' | 'conversations' | 'agents' | 'humans' | 'tools' | 'executions' | 'errors';
+/**
+ * Scan-first presets. Deliberately non-overlapping:
+ * - Needs attention: diagnostic failures + presented interactions (actionable)
+ * - Conversations: human/agent messages
+ * - Work: task/workflow lifecycle (activity/progress)
+ * - Tools: tool calls/results
+ */
+type StreamFilter = 'all' | 'attention' | 'conversations' | 'work' | 'tools';
 
 const FILTER_TABS: { id: StreamFilter; label: string }[] = [
   { id: 'all', label: 'All' },
+  { id: 'attention', label: 'Needs attention' },
   { id: 'conversations', label: 'Conversations' },
-  { id: 'agents', label: 'Agents' },
-  { id: 'humans', label: 'Humans' },
+  { id: 'work', label: 'Work' },
   { id: 'tools', label: 'Tools' },
-  { id: 'executions', label: 'Executions' },
-  { id: 'errors', label: 'Errors' },
 ];
+
+/** Shared attention predicate (banner ↔ stream preset stay in sync). */
+export function isAttentionItem(item: StreamItemType): boolean {
+  if (item.kind === 'diagnostic' || item.kind === 'error') return true;
+  if (item.kind === 'interaction' && item.interaction?.lifecycle === 'presented') return true;
+  return false;
+}
 
 // ─── Component ───────────────────────────────────────────────
 
 export default function M11CActivityStream({
   items,
-  stateLabel,
   connectionState,
   unread,
   loadingHistory,
@@ -123,6 +145,9 @@ export default function M11CActivityStream({
   participantNames,
   submission,
   onSubmitResponse,
+  attentionFocus,
+  onSelectWorkflow,
+  workflowFilter,
 }: M11CActivityStreamProps) {
   useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -132,26 +157,30 @@ export default function M11CActivityStream({
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Attention banner is scope, not status: focusing it selects the
+  // Needs-attention preset; any manual tab pick reclaims control.
+  useEffect(() => {
+    if (attentionFocus) setActiveFilter('attention');
+  }, [attentionFocus]);
+
   // ─── Filter Counts ───────────────────────────────────────
 
   const filterCounts = useMemo(() => {
-    const base = selectedParticipantId !== undefined
+    let base = selectedParticipantId !== undefined
       ? items.filter((item) => item.actor.id === selectedParticipantId)
       : items;
+    if (workflowFilter) {
+      base = base.filter((item) => item.workflowRunId === workflowFilter);
+    }
 
     return {
       all: base.length,
+      attention: base.filter(isAttentionItem).length,
       conversations: base.filter((i) => i.kind === 'conversation').length,
-      agents: base.filter((i) => i.actor.type !== 'human').length,
-      humans: base.filter((i) => i.actor.type === 'human').length,
+      work: base.filter((i) => i.kind === 'activity' || i.kind === 'progress').length,
       tools: base.filter((i) => i.kind === 'tool-call' || i.kind === 'tool-result').length,
-      executions: base.filter((i) => i.kind === 'activity' || i.kind === 'progress').length,
-      // 008D: no producer emits kind 'error' — the authoritative failure
-      // class is kind 'diagnostic' (M10 classifyKind). Deterministic kind
-      // mapping, not string matching.
-      errors: base.filter((i) => i.kind === 'diagnostic').length,
     };
-  }, [items, selectedParticipantId]);
+  }, [items, selectedParticipantId, workflowFilter]);
 
   // ─── Filtering ──────────────────────────────────────────
   // Uses canonical M11C stream `kind` values, not string matching.
@@ -165,23 +194,23 @@ export default function M11CActivityStream({
       result = result.filter((item) => item.actor.id === selectedParticipantId);
     }
 
-    // Category filter (new)
+    // Workflow scope (from browser selection or stream badge)
+    if (workflowFilter) {
+      result = result.filter((item) => item.workflowRunId === workflowFilter);
+    }
+
+    // Category filter (scan-first presets, non-overlapping)
     if (activeFilter !== 'all') {
       result = result.filter((item) => {
         switch (activeFilter) {
+          case 'attention':
+            return isAttentionItem(item);
           case 'conversations':
             return item.kind === 'conversation';
-          case 'agents':
-            return item.actor.type !== 'human';
-          case 'humans':
-            return item.actor.type === 'human';
+          case 'work':
+            return item.kind === 'activity' || item.kind === 'progress';
           case 'tools':
             return item.kind === 'tool-call' || item.kind === 'tool-result';
-          case 'executions':
-            return item.kind === 'activity' || item.kind === 'progress';
-          case 'errors':
-            // Authoritative failure class (see filterCounts).
-            return item.kind === 'diagnostic';
           default:
             return true;
         }
@@ -199,7 +228,7 @@ export default function M11CActivityStream({
     }
 
     return result;
-  }, [items, selectedParticipantId, activeFilter, searchQuery]);
+  }, [items, selectedParticipantId, workflowFilter, activeFilter, searchQuery]);
 
   // ─── Bounded Window ─────────────────────────────────────
 
@@ -290,13 +319,14 @@ export default function M11CActivityStream({
             className="ar-stream-filter__search"
             aria-label="Search activity stream"
           />
-          <StatusIndicator
-            variant={connectionState === 'live' ? 'live' : connectionState === 'paused' ? 'idle' : 'warn'}
-            size="xs"
-            pulse={connectionState === 'live'}
-            ariaLabel={`Connection: ${stateLabel}`}
-          />
-          <span className="ar-stream-filter__live">{stateLabel}</span>
+          {/* Connection status lives in the hero (single truth). Only
+              paused/buffered context surfaces inline, where it changes
+              stream behavior. */}
+          {(connectionState === 'paused' || unread > 0) && !atBottom && (
+            <span className="ar-stream-filter__live" aria-live="polite">
+              {unread > 0 ? `${unread} buffered` : 'Paused'}
+            </span>
+          )}
         </div>
       </div>
 
@@ -355,6 +385,7 @@ export default function M11CActivityStream({
                 submission={submission}
                 onSubmitResponse={onSubmitResponse}
                 participantNames={participantNames}
+                onSelectWorkflow={onSelectWorkflow}
               />
             ))}
           </>
@@ -373,15 +404,30 @@ export default function M11CActivityStream({
         </button>
       )}
 
-      {/* Status bar */}
+      {/* Status bar — canonical connection config (hero is primary,
+          this is subordinate context next to the record count). */}
       <div className="ar-foot">
         <span>
           {filtered.length} records
           {selectedParticipantId !== undefined ? ' · filtered' : ''}
+          {workflowFilter ? ` · workflow ${workflowFilter.slice(0, 8)}` : ''}
+          {activeFilter !== 'all' ? ` · ${FILTER_TABS.find((t) => t.id === activeFilter)?.label}` : ''}
         </span>
         <span className="ar-foot__state">
-          <StatusIndicator variant="live" size="xs" pulse={stateLabel === 'Live'} ariaLabel={`Connection: ${stateLabel}`} />
-          {stateLabel}
+          {(() => {
+            const config = CONNECTION_STATUS_CONFIG[connectionState] ?? CONNECTION_STATUS_CONFIG.offline;
+            return (
+              <>
+                <StatusIndicator
+                  variant={config.variant}
+                  size="xs"
+                  pulse={connectionState === 'live' || connectionState === 'reconnecting'}
+                  ariaLabel={`Connection: ${config.label}`}
+                />
+                {config.label}
+              </>
+            );
+          })()}
         </span>
       </div>
     </div>

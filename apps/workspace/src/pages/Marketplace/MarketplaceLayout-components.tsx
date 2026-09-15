@@ -171,7 +171,7 @@ export function AssetCard({
             </span>
           ))}
         </div>
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--vestara-border-subtle,var(--color-zinc-800))] pt-3">
+        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--vestara-border-subtle)] pt-3">
           <div className="flex min-w-0 items-center gap-2 text-xs">
             <span
               className={verified ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-text-disabled)]'}
@@ -502,7 +502,7 @@ export function MarketplaceSection({ title, action, children }: MarketplaceSecti
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-[var(--vestara-text-primary,var(--color-zinc-200))]">{title}</h3>
+        <h3 className="text-sm font-semibold text-[var(--vestara-text-primary)]">{title}</h3>
         {action && <div className="text-xs">{action}</div>}
       </div>
       {children}

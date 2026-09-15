@@ -107,7 +107,20 @@ export class TelegramWebhookHandler {
       return { processed: false, duplicate: false, error: 'Invalid JSON' };
     }
 
-    // 3. Deduplication check
+    // 2b. Validate update shape — Telegram always sends a numeric update_id.
+    // Malformed payloads are rejected BEFORE deduplication so a garbage
+    // payload can never poison the dedup cache or be mistaken for a retry.
+    if (
+      typeof update !== 'object' ||
+      update === null ||
+      typeof update.update_id !== 'number' ||
+      !Number.isFinite(update.update_id)
+    ) {
+      return { processed: false, duplicate: false, error: 'Invalid update_id' };
+    }
+
+    // 3. Deduplication check — Telegram retries delivery until it sees
+    // success, so a repeated update_id is a retry, not new work.
     if (this.isDuplicate(update.update_id)) {
       return { processed: false, duplicate: true };
     }

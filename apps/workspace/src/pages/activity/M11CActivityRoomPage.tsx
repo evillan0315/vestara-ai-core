@@ -64,6 +64,23 @@ export default function M11CActivityRoomPage() {
   const { briefing: morningBriefing } = useMorningBriefing();
   const [morningOpen, setMorningOpen] = useState(false);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
+  // Scan-first scope: attention banner focuses the stream preset; workflow
+  // badges/browser rows scope the stream to one workflow. Both clearable.
+  const [attentionFocus, setAttentionFocus] = useState(false);
+  const [workflowFilter, setWorkflowFilter] = useState<string | null>(null);
+  // Small-screen sheets: rail is display:none <640px, so launchers open it
+  // (and the browser) as bottom sheets instead.
+  const [mobilePanel, setMobilePanel] = useState<'participants' | 'workflows' | null>(null);
+
+  // Escape closes the mobile sheet.
+  useEffect(() => {
+    if (!mobilePanel) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setMobilePanel(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [mobilePanel]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
@@ -112,6 +129,24 @@ export default function M11CActivityRoomPage() {
   const handleSelectParticipant = useCallback((id: string | undefined) => {
     setSelectedParticipantId(id);
   }, []);
+
+  const handleSelectWorkflow = useCallback((id: string | null) => {
+    setWorkflowFilter(id);
+  }, []);
+
+  // "New" counts for rail badges: fresh (live-arrived this session) items
+  // grouped by actor. Keys cover both participantId (agent-x) and raw
+  // actor id (x) variance between rail and stream.
+  const unreadCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of room.stream) {
+      if (!s.fresh) continue;
+      for (const key of [s.actor.id, `agent-${s.actor.id}`]) {
+        map.set(key, (map.get(key) ?? 0) + 1);
+      }
+    }
+    return map;
+  }, [room.stream]);
 
   const [drillDownRecords, setDrillDownRecords] = useState<readonly M11AActivityRecord[]>([]);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
@@ -266,22 +301,51 @@ export default function M11CActivityRoomPage() {
         </div>
       ); })()}
 
-      {/* ─── Attention Banner ───────────────────────────── */}
-      {room.attention.length > 0 && (
-        <div className="ar-banner ar-banner--info mt-3">
-          <StatusIndicator variant="warn" size="sm" ariaLabel="Attention required" />
-          <span className="font-medium text-(--vestara-amber)">
-            {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
-          </span>
-          <span className="ar-banner__note">
-            {room.attention.filter((a) => a.severity === 'critical').length > 0 && (
-              <span className="ar-banner__critical">
-                {room.attention.filter((a) => a.severity === 'critical').length} critical
+      {/* ─── Attention Banner (actionable scope, not a dead count) ───
+          Click focuses the stream Needs-attention preset; critical uses the
+          error variant so severity scans before reading. */}
+      {room.attention.length > 0 && (() => {
+        const critical = room.attention.filter((a) => a.severity === 'critical').length;
+        const top = room.attention.slice(0, 2);
+        return (
+          <button
+            type="button"
+            onClick={() => setAttentionFocus((v) => !v)}
+            aria-pressed={attentionFocus}
+            title={attentionFocus ? 'Clear attention focus' : 'Focus needs-attention activity'}
+            className={`ar-banner mt-3 w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
+            style={critical > 0
+              ? {
+                color: 'var(--vestara-status-error)',
+                borderColor: 'color-mix(in srgb, var(--vestara-status-error) 35%, transparent)',
+                background: 'color-mix(in srgb, var(--vestara-status-error) 8%, transparent)',
+              }
+              : undefined}
+          >
+            <span className="flex min-w-0 flex-1 items-center gap-2">
+              <StatusIndicator
+                variant={critical > 0 ? 'error' : 'warn'}
+                size="sm"
+                ariaLabel={critical > 0 ? 'Critical attention required' : 'Attention required'}
+              />
+              <span className="shrink-0 font-medium text-(--vestara-amber)">
+                {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
               </span>
-            )}
-          </span>
-        </div>
-      )}
+              {critical > 0 && (
+                <span className="ar-banner__critical shrink-0">
+                  {critical} critical
+                </span>
+              )}
+              <span className="ar-banner__note min-w-0 flex-1 truncate">
+                {top.map((a) => a.message).join(' · ')}
+              </span>
+              <span className="shrink-0 text-xs underline decoration-dotted underline-offset-2">
+                {attentionFocus ? 'Clear focus' : 'Focus ›'}
+              </span>
+            </span>
+          </button>
+        );
+      })()}
 
       {/* ─── Working area: adaptive composition (VES-DESIGN-008F) ──
           INFORMATION VALUE drives SPACE ALLOCATION. Participants keep a
@@ -289,6 +353,28 @@ export default function M11CActivityRoomPage() {
           workflow column exists only while authoritative active work
           exists — otherwise a compact disclosure preserves browsing
           without spending a permanent column on "0 workflows". */}
+      {/* ─── Small-screen launchers (rail hides <640px) ──────────
+          Participants and workflows open as bottom sheets; the stream keeps
+          the single column. Hidden once the rail docks. */}
+      <div className="mt-3 flex gap-2 sm:hidden" role="group" aria-label="Open panels">
+        <button
+          type="button"
+          onClick={() => setMobilePanel('participants')}
+          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+          aria-haspopup="dialog"
+        >
+          Participants · {room.participants.length}
+        </button>
+        <button
+          type="button"
+          onClick={() => setMobilePanel('workflows')}
+          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+          aria-haspopup="dialog"
+        >
+          Workflows · {workflowUnits.length}
+        </button>
+      </div>
+
       {!hasActiveWorkflows && (
         <details className="ar-workflows-disclosure mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5">
           <summary className="cursor-pointer text-sm font-medium text-[var(--vestara-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset">
@@ -301,6 +387,8 @@ export default function M11CActivityRoomPage() {
             <M11CWorkflowBrowser
               stream={room.stream}
               workflowSummary={room.workflowSummary}
+              onSelectWorkflow={handleSelectWorkflow}
+              selectedWorkflowId={workflowFilter}
             />
           </div>
         </details>
@@ -313,6 +401,7 @@ export default function M11CActivityRoomPage() {
             selectedParticipantId={selectedParticipantId}
             onSelectParticipant={handleSelectParticipant}
             onOpenAgentControl={ui.openAgentControl}
+            unreadCounts={unreadCounts}
           />
         </aside>
 
@@ -320,9 +409,30 @@ export default function M11CActivityRoomPage() {
         <main className="ar-panel ar-panel--main min-w-0 max-w-full">
           <div className="ar-panel__head">
             <div className="ar-panel__label" aria-live="polite">
-              {selectedParticipantId === undefined ? 'Activity Stream' : `Activity — ${selectedParticipantId}`}
+              {workflowFilter
+                ? `Workflow ${workflowFilter.slice(0, 8)}`
+                : selectedParticipantId === undefined
+                  ? 'Activity Stream'
+                  : `Activity — ${selectedParticipantId}`}
+              {attentionFocus ? ' · Needs attention' : ''}
             </div>
-            <span className="ar-panel__hint">{room.paused ? `${room.unread} buffered` : stateLabel}</span>
+            <span className="ar-panel__hint flex items-center gap-2">
+              {(workflowFilter || selectedParticipantId !== undefined || attentionFocus) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWorkflowFilter(null);
+                    setSelectedParticipantId(undefined);
+                    setAttentionFocus(false);
+                  }}
+                  className="cursor-pointer underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                  aria-label="Clear stream scope"
+                >
+                  Clear scope
+                </button>
+              )}
+              {room.paused ? `${room.unread} buffered` : stateLabel}
+            </span>
           </div>
 
           {/* Composer first: always at the top of the panel, always in
@@ -344,6 +454,8 @@ export default function M11CActivityRoomPage() {
               <M11CWorkflowBrowser
                 stream={room.stream}
                 workflowSummary={room.workflowSummary}
+                onSelectWorkflow={handleSelectWorkflow}
+                selectedWorkflowId={workflowFilter}
               />
             </div>
           )}
@@ -372,6 +484,9 @@ export default function M11CActivityRoomPage() {
             submission={room.submission}
             onSubmitResponse={room.submitResponse}
             participantNames={participantNames}
+            attentionFocus={attentionFocus}
+            workflowFilter={workflowFilter}
+            onSelectWorkflow={handleSelectWorkflow}
           />
         </main>
 
@@ -383,6 +498,8 @@ export default function M11CActivityRoomPage() {
             <M11CWorkflowBrowser
               stream={room.stream}
               workflowSummary={room.workflowSummary}
+              onSelectWorkflow={handleSelectWorkflow}
+              selectedWorkflowId={workflowFilter}
             />
           </aside>
         )}
@@ -395,6 +512,59 @@ export default function M11CActivityRoomPage() {
           onClose={ui.closeDetail}
         />
       </div>
+
+      {/* ─── Mobile sheets (small screens only) ─────────────── */}
+      {mobilePanel && (
+        <div
+          className="fixed inset-0 z-50 sm:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label={mobilePanel === 'participants' ? 'Participants' : 'Workflows'}
+          onClick={() => setMobilePanel(null)}
+        >
+          <div className="absolute inset-0 bg-black/50" aria-hidden="true" />
+          <div
+            className="absolute inset-x-0 bottom-0 max-h-[78vh] overflow-y-auto rounded-t-2xl border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-3"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-semibold uppercase tracking-[0.14em] text-[var(--vestara-text-muted)]">
+                {mobilePanel === 'participants' ? 'Participants' : 'Workflows'}
+              </span>
+              <button
+                type="button"
+                onClick={() => setMobilePanel(null)}
+                aria-label="Close panel"
+                className="grid size-11 place-items-center rounded-lg border border-[var(--vestara-border-subtle)] text-lg text-[var(--vestara-text-secondary)]"
+              >
+                ×
+              </button>
+            </div>
+            {mobilePanel === 'participants' ? (
+              <M11CParticipantRail
+                participants={room.participants}
+                selectedParticipantId={selectedParticipantId}
+                onSelectParticipant={(id) => {
+                  handleSelectParticipant(id);
+                  setMobilePanel(null);
+                }}
+                onOpenAgentControl={ui.openAgentControl}
+                unreadCounts={unreadCounts}
+              />
+            ) : (
+              <M11CWorkflowBrowser
+                stream={room.stream}
+                workflowSummary={room.workflowSummary}
+                onSelectWorkflow={(id) => {
+                  handleSelectWorkflow(id);
+                  if (id) setMobilePanel(null);
+                }}
+                selectedWorkflowId={workflowFilter}
+              />
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ─── Edit Modal ───────────────────────────────── */}
       {ui.editingItem && (
@@ -506,6 +676,9 @@ function M11CComposer({
   onClearReply?: () => void;
   participants?: readonly ParticipantOption[];
 }) {
+  // AAR-001E: human messages cap at 4000 chars (server enforces; the
+  // counter keeps the Director from composing past it).
+  const COMPOSER_MAX = 4000;
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -525,6 +698,10 @@ function M11CComposer({
   const handleSend = useCallback(async () => {
     const text = value.trim();
     if (!text || sending) return;
+    if (text.length > COMPOSER_MAX) {
+      setError(`Message is ${text.length - COMPOSER_MAX} characters over the 4000 limit`);
+      return;
+    }
 
     setSending(true);
     setError(null);
@@ -600,11 +777,14 @@ function M11CComposer({
   );
 
   // Live target preview: structured picker wins, else the @alias the send
-  // path will use. Addressable targets trigger that agent's turn.
+  // path will use. Reply context narrows the audience line but never the
+  // transport target (referencedActivityIds, not a DM). Addressable targets
+  // trigger that agent's turn.
   const previewTarget = structuredTarget
     ? { agentId: structuredTarget }
     : AGENT_MENTION_TARGETS.find((entry) => entry.pattern.test(value));
-  const previewLabel = previewTarget ? (MENTION_TARGET_LABELS[previewTarget.agentId] ?? previewTarget.agentId) : 'All agents';
+  const previewBase = previewTarget ? (MENTION_TARGET_LABELS[previewTarget.agentId] ?? previewTarget.agentId) : 'All agents';
+  const previewLabel = replyTo && !previewTarget ? `Reply · ${previewBase}` : previewBase;
   const previewTitle = previewTarget
     ? `This message will target ${previewLabel} and trigger its turn`
     : 'Messages from this composer are addressed to all agents in this room (no turn)';
@@ -745,11 +925,22 @@ function M11CComposer({
           ↵
         </kbd>
 
+        {/* Character count (4000 cap) */}
+        <span
+          aria-hidden="true"
+          className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > COMPOSER_MAX ? 'text-[var(--vestara-status-error)]' : value.length > COMPOSER_MAX - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
+        >
+          {value.length}/{COMPOSER_MAX}
+        </span>
+        <span className="sr-only" aria-live="polite">
+          {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
+        </span>
+
         {/* Send */}
         <button
           type="button"
           onClick={handleSend}
-          disabled={!value.trim() || sending}
+          disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
           aria-label={sending ? 'Sending message' : 'Send message'}
           className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_55%,var(--vestara-accent-dark))] text-lg leading-none text-[var(--color-zinc-950)] shadow-[0_4px_16px_-4px_var(--vestara-accent-bg),0_0_12px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_6px_20px_-4px_var(--vestara-accent-bg),0_0_18px_var(--vestara-accent-bg)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
         >

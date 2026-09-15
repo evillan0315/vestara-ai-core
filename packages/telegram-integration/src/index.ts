@@ -100,18 +100,29 @@ export { TelegramWorkspaceBindingService } from './workspace-binding.js';
 import type { ChannelAdapter } from '@vestara/channel-runtime';
 import type {
   ChannelAction,
-  ChannelButton,
   ChannelDelivery,
   ChannelDeliveryResult,
   ChannelEvent,
   ChannelKind,
   ChannelMessage,
 } from '@vestara/channel-types';
+import { buildTelegramEditPayload, buildTelegramSendPayload } from './telegram-types.js';
 
 // Re-export channel types used by the API route
 export type { ChannelMessage } from '@vestara/channel-types';
-// Re-export normalizeTelegramUpdate for external consumers
-export { normalizeTelegramUpdate } from './telegram-types.js';
+// Re-export canonical Telegram translators for external consumers.
+// Raw Telegram Bot API types stay inside telegram-types.ts and are
+// intentionally NOT re-exported here.
+export {
+  buildReplyMarkup,
+  buildTelegramEditPayload,
+  buildTelegramSendPayload,
+  normalizeTelegramCallbackQuery,
+  normalizeTelegramCommand,
+  normalizeTelegramMessage,
+  normalizeTelegramUpdate,
+  parseTelegramCommand,
+} from './telegram-types.js';
 
 // ─── Telegram Adapter ──────────────────────────────────────────
 
@@ -159,16 +170,9 @@ export class TelegramAdapter implements ChannelAdapter {
    */
   async sendDelivery(delivery: ChannelDelivery): Promise<ChannelDeliveryResult> {
     try {
-      const chatId = delivery.conversation.externalId;
-
       if (delivery.editMessageId) {
         // Edit existing message
-        const result = await this.apiCall('editMessageText', {
-          chat_id: chatId,
-          message_id: delivery.editMessageId,
-          text: delivery.content.text ?? '',
-          reply_markup: this.buildReplyMarkup(delivery.content.inlineKeyboard),
-        });
+        const result = await this.apiCall('editMessageText', buildTelegramEditPayload(delivery));
         return {
           deliveryId: delivery.id,
           success: true,
@@ -178,11 +182,7 @@ export class TelegramAdapter implements ChannelAdapter {
       }
 
       // Send new message
-      const result = await this.apiCall('sendMessage', {
-        chat_id: chatId,
-        text: delivery.content.text ?? '',
-        reply_markup: this.buildReplyMarkup(delivery.content.inlineKeyboard),
-      });
+      const result = await this.apiCall('sendMessage', buildTelegramSendPayload(delivery));
 
       return {
         deliveryId: delivery.id,
@@ -214,18 +214,5 @@ export class TelegramAdapter implements ChannelAdapter {
       throw new Error(data.description ?? 'Telegram API error');
     }
     return data.result;
-  }
-
-  private buildReplyMarkup(keyboard?: readonly ChannelButton[][]): Record<string, unknown> | undefined {
-    if (!keyboard || keyboard.length === 0) return undefined;
-
-    return {
-      inline_keyboard: keyboard.map((row) =>
-        row.map((btn) => ({
-          text: btn.text,
-          callback_data: btn.callbackData,
-        })),
-      ),
-    };
   }
 }

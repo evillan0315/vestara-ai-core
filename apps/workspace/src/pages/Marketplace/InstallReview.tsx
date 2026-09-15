@@ -65,7 +65,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
         </div>
         <div className="flex flex-wrap items-end gap-3">
           <label className="block text-xs">
-            <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">Version</span>
+            <span className="text-[var(--vestara-text-muted)]">Version</span>
             <select
               value={version}
               onChange={(event) => setVersion(event.target.value)}
@@ -87,7 +87,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
         {plan && (
           <div className="mt-4 space-y-3">
             <div>
-              <div className="mb-1 text-xs font-semibold uppercase text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <div className="mb-1 text-xs font-semibold uppercase text-[var(--vestara-text-muted)]">
                 Packages to install ({plan.installOrder.length})
               </div>
               {plan.installOrder.length === 0 && (
@@ -97,12 +97,12 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
                 {plan.installOrder.map((pkg) => (
                   <li key={`${pkg.packageName}@${pkg.version}`}>
                     <span className="text-[var(--vestara-text-primary)]">{pkg.packageName}</span>{' '}
-                    <span className="text-[var(--vestara-text-muted,var(--color-zinc-400))]">@{pkg.version}</span>
+                    <span className="text-[var(--vestara-text-muted)]">@{pkg.version}</span>
                   </li>
                 ))}
               </ol>
               {plan.satisfiedByInstalled.length > 0 && (
-                <div className="mt-1 font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <div className="mt-1 font-mono text-xs text-[var(--vestara-text-muted)]">
                   Satisfied by installed:{' '}
                   {plan.satisfiedByInstalled.map((pkg) => `${pkg.packageName}@${pkg.version}`).join(', ')}
                 </div>
@@ -110,7 +110,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
             </div>
             {plan.permissions.length > 0 ? (
               <div>
-                <div className="mb-1 text-xs font-semibold uppercase text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <div className="mb-1 text-xs font-semibold uppercase text-[var(--vestara-text-muted)]">
                   Requested permissions
                 </div>
                 <div className="flex flex-wrap gap-1">
@@ -123,7 +123,7 @@ export default function InstallReview({ details, onDone }: { details: Marketplac
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <div className="text-xs text-[var(--vestara-text-muted)]">
                 No permissions requested.
               </div>
             )}

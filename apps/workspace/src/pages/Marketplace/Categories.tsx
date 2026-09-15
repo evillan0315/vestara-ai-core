@@ -44,7 +44,7 @@ export default function Categories() {
           <div className="relative z-[2]">
             <div className="px-2 pb-2 text-sm font-semibold text-[var(--vestara-text-primary)]">Categories</div>
             {categories.length === 0 && !loading && (
-              <div className="px-2 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+              <div className="px-2 text-sm text-[var(--vestara-text-muted)]">
                 No categories yet.
               </div>
             )}
@@ -56,7 +56,7 @@ export default function Categories() {
                 className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-sm transition-all ${
                   category.name === selected
                     ? 'text-white shadow-[0_0_16px_var(--vestara-surface-glow-hover)]'
-                    : 'hover:bg-zinc-800 text-[var(--vestara-text-muted,var(--color-zinc-400))]'
+                    : 'hover:bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-muted)]'
                 }`}
                 style={
                   category.name === selected
@@ -78,7 +78,7 @@ export default function Categories() {
 
         <section>
           {selected && (
-            <div className="mb-3 text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+            <div className="mb-3 text-sm text-[var(--vestara-text-muted)]">
               {selected} — {visible.length} asset(s)
             </div>
           )}

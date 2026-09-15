@@ -27,14 +27,14 @@ const TILE_ACCENT = 'var(--vestara-status-info)';
 export function ContinueWorking({ items }: ContinueWorkingProps) {
   if (items.length === 0) {
     return (
-      <SectionCard title="Continue Working" actionLabel="View All" accent={TILE_ACCENT} index={0}>
+      <SectionCard title="Continue Working" actionLabel="View All" actionHref="/projects" accent={TILE_ACCENT} index={0}>
         <MarketplaceEmptyState message="No recent work. Start a conversation or execute a workflow to begin." />
       </SectionCard>
     );
   }
 
   return (
-    <SectionCard title="Continue Working" actionLabel="View All" accent={TILE_ACCENT} index={0}>
+    <SectionCard title="Continue Working" actionLabel="View All" actionHref="/projects" accent={TILE_ACCENT} index={0}>
       <ul className="space-y-1">
         {items.map((item, i) => (
           <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
@@ -65,11 +65,13 @@ export function ContinueWorking({ items }: ContinueWorkingProps) {
                   <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">{item.path ?? item.type}</span>
                 </span>
               </span>
-              <span className="hidden shrink-0 flex-col items-end gap-1 sm:flex">
-                <span className="mpg-tag-pill">
+              <span className="flex shrink-0 items-center gap-2">
+                <span className="mpg-tag-pill hidden sm:inline-flex">
                   <span aria-hidden="true">⑂</span> {item.branch ?? 'main'}
                 </span>
-                <span className="text-[10px] text-[var(--vestara-text-muted)]">{timeAgo(item.updatedAt)}</span>
+                <span className="text-[10px] tabular-nums text-[var(--vestara-text-muted)]">
+                  <time dateTime={item.updatedAt}>{timeAgo(item.updatedAt)}</time>
+                </span>
               </span>
             </Link>
           </li>

@@ -275,4 +275,51 @@ describe('TelegramPersistentStore', () => {
       expect(store.countActiveByChat('chat-1')).toBe(1);
     });
   });
+
+  describe('delivery records', () => {
+    function makeRecord(id: string, status: 'pending' | 'delivering' | 'retrying' = 'pending') {
+      return {
+        id,
+        delivery: {
+          id: `delivery-${id}`,
+          channel: 'telegram' as const,
+          conversation: { channel: 'telegram' as const, externalId: 'chat-1', type: 'direct' as const },
+          content: { text: 'hi' },
+          priority: 'normal' as const,
+        },
+        status,
+        priority: 'normal' as const,
+        attempts: 1,
+        maxAttempts: 3,
+        createdAt: '2026-01-01T00:00:00.000Z',
+      };
+    }
+
+    it('saves and loads delivery records', () => {
+      store.saveDeliveryRecord(makeRecord('dlv-1', 'retrying'));
+      const records = store.loadDeliveryRecords();
+
+      expect(records).toHaveLength(1);
+      expect(records[0]!.status).toBe('retrying');
+      expect(records[0]!.delivery.id).toBe('delivery-dlv-1');
+      expect(records[0]!.attempts).toBe(1);
+    });
+
+    it('deletes delivery records', () => {
+      store.saveDeliveryRecord(makeRecord('dlv-1'));
+      store.deleteDeliveryRecord('dlv-1');
+
+      expect(store.loadDeliveryRecords()).toHaveLength(0);
+    });
+
+    it('drops corrupt rows instead of breaking recovery', () => {
+      store.saveDeliveryRecord(makeRecord('dlv-1'));
+      store.saveDeliveryRecord(makeRecord('dlv-2'));
+      // Corrupt the second row's payload directly.
+      (store as any).db.exec(`UPDATE telegram_delivery_queue SET delivery_json = 'not-json' WHERE id = 'dlv-2'`);
+
+      const records = store.loadDeliveryRecords();
+      expect(records.map((r) => r.id)).toEqual(['dlv-1']);
+    });
+  });
 });

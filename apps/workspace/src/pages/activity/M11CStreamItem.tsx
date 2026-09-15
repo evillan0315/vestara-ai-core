@@ -61,6 +61,8 @@ interface M11CStreamItemProps {
   readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
   /** Participant ID → display name lookup for enriching actor names. */
   readonly participantNames?: Readonly<Record<string, string>>;
+  /** Select a workflow context (workflow badge → browser scope). */
+  readonly onSelectWorkflow?: (workflowId: string) => void;
 }
 
 // ─── Visual Config ───────────────────────────────────────────
@@ -235,6 +237,20 @@ function formatTimestamp(timestamp: string): string {
   }
 }
 
+/** Absolute timestamp for tooltips (relative label stays in the row). */
+function formatAbsolute(timestamp: string): string {
+  try {
+    return new Date(timestamp).toLocaleString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
+  } catch {
+    return timestamp;
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
@@ -250,6 +266,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   submission,
   onSubmitResponse,
   participantNames,
+  onSelectWorkflow,
 }: M11CStreamItemProps) {
   const visual = classifyVisual(item);
   const config = CLASS_CONFIG[visual];
@@ -384,7 +401,9 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   // Anatomy: [semantic tile] Actor/source + timestamp / heading + badge /
   // description / safe metadata. Density follows class: meaningful events
   // read as timeline nodes, routine operations as compact rows.
-  const showBadge = visual === 'human' || visual === 'work' || visual === 'attention' || visual === 'verification';
+  // StatusBadge owns attention/verification rows; the kind pill covers
+  // human/work rows — never both (previous code doubled the kind signal).
+  const showPill = visual === 'human' || visual === 'work';
   return (
     <div
       className={`flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.container} ${
@@ -441,7 +460,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           <span className="flex shrink-0 items-center gap-1">
             <span
               className="text-[11px] text-[var(--vestara-text-muted)]"
-              title={item.timestamp}
+              title={formatAbsolute(item.timestamp)}
             >
               {formatTimestamp(item.timestamp)}
             </span>
@@ -450,7 +469,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               onClick={toggleCollapsed}
               aria-expanded={!collapsed}
               aria-label={collapsed ? `Expand ${actor.name} activity` : `Collapse ${actor.name} activity`}
-              className="grid size-5 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
             >
               <span aria-hidden="true" className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}>▾</span>
             </button>
@@ -503,13 +522,35 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {expanded ? '▴ Show less' : '▾ Show more'}
             </button>
           )}
-          {showBadge && <span className="mpg-tag-pill">{item.kind}</span>}
+          {showPill && <span className="mpg-tag-pill">{item.kind}</span>}
           {visual === 'attention' && <StatusBadge label={item.kind} tone="error" />}
           {visual === 'verification' && <StatusBadge label={item.kind} tone="success" />}
           {item.workflowRunId && (
-            <span className="truncate font-mono" title={item.workflowRunId}>
-              workflow: {item.workflowRunId.slice(0, 8)}
-            </span>
+            onSelectWorkflow ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); onSelectWorkflow(item.workflowRunId!); }}
+                className="cursor-pointer truncate font-mono underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                title={`Filter to workflow ${item.workflowRunId}`}
+                aria-label={`Filter to workflow ${item.workflowRunId}`}
+              >
+                workflow: {item.workflowRunId.slice(0, 8)}
+              </button>
+            ) : (
+              <span className="truncate font-mono" title={item.workflowRunId}>
+                workflow: {item.workflowRunId.slice(0, 8)}
+              </span>
+            )
+          )}
+          {onOpenDetail && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
+              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              aria-label={`Open detail for ${actor.name} activity`}
+            >
+              Detail
+            </button>
           )}
           {onReply && (
             <button

@@ -79,7 +79,7 @@ export default function Installed() {
           <Button variant="secondary" size="md" disabled={busy !== null} onClick={() => void run('rescan', marketplaceClient.rescan())}>
             Rescan registries
           </Button>
-          {busy && <span className="text-sm text-[var(--vestara-text-muted,var(--color-zinc-400))]">{busy}…</span>}
+          {busy && <span className="text-sm text-[var(--vestara-text-muted)]">{busy}…</span>}
         </div>
       }
     >
@@ -144,7 +144,7 @@ export default function Installed() {
                   label: 'Installed',
                   key: 'installedAt',
                   render: (_value, row) => (
-                    <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    <span className="font-mono text-xs text-[var(--vestara-text-muted)]">
                       {new Date(row.installedAt).toLocaleString()}
                     </span>
                   ),

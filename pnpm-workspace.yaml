@@ -9,4 +9,4 @@ allowBuilds:
   better-sqlite3: true
   esbuild: true
   node-pty: true
-  ws: set this to true or false
+  ws: false

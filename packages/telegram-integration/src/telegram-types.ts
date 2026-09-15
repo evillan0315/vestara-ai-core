@@ -55,7 +55,9 @@ export interface TelegramUpdate {
 import type {
   ChannelAction,
   ChannelAttachment,
+  ChannelButton,
   ChannelConversationRef,
+  ChannelDelivery,
   ChannelIdentity,
   ChannelMessage,
 } from '@vestara/channel-types';
@@ -106,6 +108,36 @@ export function normalizeTelegramMessage(msg: TelegramMessage): ChannelMessage {
       type: 'voice',
       fileName: 'voice.ogg',
       mimeType: msg.voice.mime_type ?? 'audio/ogg',
+      size: 0,
+      url: '',
+    });
+  }
+  if (msg.audio) {
+    attachments.push({
+      id: msg.audio.file_id,
+      type: 'audio',
+      fileName: msg.audio.file_name ?? 'audio',
+      mimeType: msg.audio.mime_type ?? 'audio/mpeg',
+      size: 0,
+      url: '',
+    });
+  }
+  if (msg.video) {
+    attachments.push({
+      id: msg.video.file_id,
+      type: 'video',
+      fileName: msg.video.file_name ?? 'video.mp4',
+      mimeType: msg.video.mime_type ?? 'video/mp4',
+      size: 0,
+      url: '',
+    });
+  }
+  if (msg.sticker) {
+    attachments.push({
+      id: msg.sticker.file_id,
+      type: 'sticker',
+      fileName: 'sticker.webp',
+      mimeType: 'image/webp',
       size: 0,
       url: '',
     });
@@ -166,4 +198,88 @@ export function normalizeTelegramUpdate(update: TelegramUpdate): ChannelMessage 
     return normalizeTelegramCallbackQuery(update.callback_query);
   }
   return null;
+}
+
+// ─── Command Parsing ──────────────────────────────────────────
+// Telegram commands arrive as message text (e.g. "/status", "/model foo").
+// These pure helpers translate them to canonical ChannelAction commands
+// without changing the webhook message/update flow.
+
+export interface ParsedTelegramCommand {
+  readonly command: string;
+  readonly args: readonly string[];
+}
+
+export function parseTelegramCommand(text: string | undefined): ParsedTelegramCommand | null {
+  if (!text) return null;
+  const trimmed = text.trim();
+  if (!trimmed.startsWith('/')) return null;
+  const withoutSlash = trimmed.slice(1).trim();
+  if (withoutSlash.length === 0) return null;
+  // Strip optional "@botname" suffix: "/status@mybot arg" → command "status".
+  const [rawCommand, ...args] = withoutSlash.split(/\s+/);
+  const command = rawCommand.split('@')[0] ?? '';
+  if (command.length === 0) return null;
+  return { command, args };
+}
+
+export function normalizeTelegramCommand(msg: TelegramMessage): ChannelAction | null {
+  const parsed = parseTelegramCommand(msg.text ?? msg.caption);
+  if (!parsed) return null;
+  const sender: ChannelIdentity = {
+    channel: 'telegram',
+    externalId: String(msg.from?.id ?? 0),
+    displayName: msg.from ? [msg.from.first_name, msg.from.last_name].filter(Boolean).join(' ') : undefined,
+    username: msg.from?.username,
+  };
+  const conversation: ChannelConversationRef = {
+    channel: 'telegram',
+    externalId: String(msg.chat.id),
+    type: msg.chat.type === 'private' ? 'direct' : 'group',
+    title: msg.chat.title,
+  };
+  return {
+    id: `tg-cmd-${msg.message_id}`,
+    channel: 'telegram',
+    type: 'command',
+    payload: { type: 'command', command: `/${parsed.command}`, args: [...parsed.args] },
+    sender,
+    conversation,
+    externalMessageId: String(msg.message_id),
+    timestamp: new Date(msg.date * 1000).toISOString(),
+  };
+}
+
+// ─── Delivery Payload Builders ────────────────────────────────
+// Pure builders translating canonical ChannelDelivery to Telegram Bot API
+// request payloads. Kept side-effect free so adapter behavior is testable
+// without network access.
+
+export function buildReplyMarkup(keyboard?: readonly ChannelButton[][]): Record<string, unknown> | undefined {
+  if (!keyboard || keyboard.length === 0) return undefined;
+  return {
+    inline_keyboard: keyboard.map((row) =>
+      row.map((btn) => ({
+        text: btn.text,
+        callback_data: btn.callbackData,
+      })),
+    ),
+  };
+}
+
+export function buildTelegramSendPayload(delivery: ChannelDelivery): Record<string, unknown> {
+  return {
+    chat_id: delivery.conversation.externalId,
+    text: delivery.content.text ?? '',
+    reply_markup: buildReplyMarkup(delivery.content.inlineKeyboard),
+  };
+}
+
+export function buildTelegramEditPayload(delivery: ChannelDelivery): Record<string, unknown> {
+  return {
+    chat_id: delivery.conversation.externalId,
+    message_id: delivery.editMessageId,
+    text: delivery.content.text ?? '',
+    reply_markup: buildReplyMarkup(delivery.content.inlineKeyboard),
+  };
 }

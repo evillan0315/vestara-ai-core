@@ -20,10 +20,11 @@ import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
-import type { ChannelMessage } from '@vestara/telegram-integration';
+import type { ChannelMessage, ConversationBinding } from '@vestara/telegram-integration';
 import {
   GlobalAssistantTextRouter,
   TELEGRAM_MANIFEST,
+  TelegramAdapter,
   TelegramConversationBindingService,
   TelegramPairingService,
   TelegramPersistentStore,
@@ -77,14 +78,17 @@ function getConversationBindingService(): TelegramConversationBindingService {
 /**
  * Get or create the text router with an ExecutionBackend wired to the
  * conversation service. The backend is created lazily so the workspace
- * context is available.
+ * context is available, and re-created if the context rotates so turns
+ * never execute against a stale workspace.
  */
-function getTextRouter(): GlobalAssistantTextRouter | null {
-  if (!textRouter && workspaceContext) {
+let textRouterCtx: WorkspaceContext | null = null;
+function getTextRouter(ctx: WorkspaceContext): GlobalAssistantTextRouter | null {
+  if (!textRouter || textRouterCtx !== ctx) {
+    textRouterCtx = ctx;
     textRouter = new GlobalAssistantTextRouter({
       backend: {
         sendMessage: async (conversationId, content, options) => {
-          const result = await workspaceContext!.conversationService.sendMessage(conversationId, content, {
+          const result = await ctx.conversationService.sendMessage(conversationId, content, {
             model: options?.model,
             provider: options?.provider,
           });
@@ -142,6 +146,127 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
 
 // ─── Message Processing ────────────────────────────────────────
 
+/** Telegram Bot API text limit per message. */
+const TELEGRAM_MAX_TEXT_LENGTH = 4096;
+/** Chunk target below the limit, leaving room for formatting. */
+const TELEGRAM_CHUNK_TARGET = 4000;
+
+/**
+ * Split long text into Telegram-sized chunks, preferring newline
+ * boundaries. Pure — safe to unit test.
+ */
+export function splitTelegramText(text: string, target: number = TELEGRAM_CHUNK_TARGET): string[] {
+  if (text.length <= TELEGRAM_MAX_TEXT_LENGTH) return [text];
+  const chunks: string[] = [];
+  let rest = text;
+  while (rest.length > 0) {
+    if (rest.length <= TELEGRAM_MAX_TEXT_LENGTH) {
+      chunks.push(rest);
+      break;
+    }
+    let cut = rest.lastIndexOf('\n', target);
+    if (cut <= 0) cut = target;
+    chunks.push(rest.slice(0, cut));
+    rest = rest.slice(cut).replace(/^\n+/, '');
+    if (chunks.length > 10) {
+      // Absolute bound: never spam the Bot API on pathological input.
+      chunks.push('… (truncated)');
+      break;
+    }
+  }
+  return chunks;
+}
+
+/**
+ * Deliver the assistant reply to the Telegram chat via the Bot API.
+ * Best-effort: returns 'sent', 'skipped' (no bot token / nothing to send),
+ * or 'failed'. Never throws — delivery problems must not fail the pipeline.
+ */
+async function deliverTelegramReply(
+  conversation: ConversationBinding,
+  text: string | undefined,
+): Promise<'sent' | 'skipped' | 'failed'> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken || !text) return 'skipped';
+  try {
+    const adapter = new TelegramAdapter({ botToken });
+    for (const chunk of splitTelegramText(text)) {
+      const result = await adapter.sendDelivery({
+        id: `tg-reply-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        channel: 'telegram',
+        conversation: {
+          channel: 'telegram',
+          externalId: conversation.telegramChatId,
+          type: conversation.telegramChatType === 'group' ? 'group' : 'direct',
+          title: conversation.telegramChatTitle,
+        },
+        content: { text: chunk },
+        priority: 'normal',
+      });
+      if (!result.success) return 'failed';
+    }
+    return 'sent';
+  } catch (error) {
+    console.warn('[telegram] reply delivery failed', error instanceof Error ? error.message : error);
+    return 'failed';
+  }
+}
+
+/**
+ * Mirror a Telegram message into the Activity Room (M9 durable store) so it
+ * appears on the M11C surface — the same bridge the composer uses
+ * (`mirrorHumanMessageToM9` in activity-room.ts). Best-effort and
+ * fire-and-forget: throws nothing (M11A is uninitialized in unit tests),
+ * and a mirror failure must never fail the Telegram pipeline.
+ */
+async function mirrorTelegramIncomingToActivityRoom(message: ChannelMessage): Promise<void> {
+  try {
+    const text = message.text?.trim();
+    if (!text) return;
+    const [{ getM11ARoom }, { fromHumanMessage }] = await Promise.all([
+      import('./activity-room-m11a.js'),
+      import('@vestara/activity-room'),
+    ]);
+    const displayName = message.sender.displayName ?? message.sender.externalId;
+    await getM11ARoom().store.append(
+      fromHumanMessage({
+        message: `[Telegram] ${displayName}: ${text}`,
+        userId: message.sender.externalId,
+        displayName: `${displayName} (Telegram)`,
+        messageId: `tg-in-${message.id}`,
+      }),
+    );
+  } catch (error) {
+    console.warn('[telegram] activity mirror (incoming) failed', error instanceof Error ? error.message : error);
+  }
+}
+
+/**
+ * Mirror the assistant reply to a Telegram message into the Activity Room
+ * (M9 durable store) via the canonical `fromAgentLifecycle` adapter — the
+ * same bridge as `mirrorAgentReplyToM9` in activity-room.ts. Best-effort:
+ * throws nothing; failures are counted in logs only.
+ */
+async function mirrorTelegramReplyToActivityRoom(response: string): Promise<void> {
+  try {
+    const [{ getM11ARoom }, { fromAgentLifecycle }] = await Promise.all([
+      import('./activity-room-m11a.js'),
+      import('@vestara/activity-room'),
+    ]);
+    await getM11ARoom().store.append(
+      fromAgentLifecycle({
+        agentId: 'agent-assistant',
+        displayName: 'Assistant',
+        lifecycleType: 'completed',
+        message: response,
+        role: 'assistant',
+      }),
+    );
+  } catch (error) {
+    console.warn('[telegram] activity mirror (reply) failed', error instanceof Error ? error.message : error);
+  }
+}
+
 /**
  * Process a normalized Telegram message through the full pipeline:
  * 1. Resolve identity binding (Telegram user -> Vestara principal)
@@ -158,12 +283,18 @@ async function processTelegramMessage(
   response?: string;
   executionId?: string;
   conversationId?: string;
+  reply?: 'sent' | 'skipped' | 'failed';
   error?: string;
 }> {
   const pairing = getPairingService();
   const wsBindings = getWorkspaceBindingService();
   const convBindings = getConversationBindingService();
-  const router = getTextRouter();
+  const router = getTextRouter(ctx);
+
+  // Project the incoming message into the Activity Room (M9) so it is
+  // visible on the /activity surface. Fire-and-forget: mirroring must
+  // never slow the webhook response or fail the pipeline.
+  void mirrorTelegramIncomingToActivityRoom(message);
 
   // 1. Resolve identity
   const telegramUserId = message.sender.externalId;
@@ -184,9 +315,10 @@ async function processTelegramMessage(
     };
   }
 
-  // 3. Resolve or create conversation binding
+  // 3. Resolve or create conversation binding, scoped to the resolved
+  // workspace so a chat bound elsewhere can never leak across workspaces.
   const chatId = message.conversation.externalId;
-  let conversation = convBindings.getActiveBinding(chatId, identity.principalId);
+  let conversation = convBindings.getActiveBinding(chatId, identity.principalId, workspace.workspaceId);
 
   if (!conversation) {
     // Auto-create a new Vestara conversation
@@ -230,11 +362,21 @@ async function processTelegramMessage(
     return { status: 'failed', error: routeResult.error, conversationId: routeResult.conversationId };
   }
 
+  // 5. Deliver the assistant reply to the Telegram chat. The webhook HTTP
+  // response body is ignored by Telegram — without this Bot API call the
+  // user would never see the reply.
+  const reply = await deliverTelegramReply(conversation, routeResult.response);
+
+  // Project the reply into the Activity Room (M9) so the /activity surface
+  // shows the full turn. Fire-and-forget: mirroring never fails delivery.
+  if (routeResult.response) void mirrorTelegramReplyToActivityRoom(routeResult.response);
+
   return {
     status: 'routed',
     executionId: routeResult.executionId,
     conversationId: routeResult.conversationId,
     response: routeResult.response,
+    reply,
   };
 }
 

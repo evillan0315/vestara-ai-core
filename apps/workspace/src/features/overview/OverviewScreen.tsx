@@ -1,13 +1,12 @@
 /**
  * VES-OVERVIEW-001: Overview Screen Component
  *
- * v2 dark-premium composition mirroring assets/vestara-overview-02-screen.png:
- * hero banner, 5 quick actions, 3-column premium grid.
+ * Compact composition: hero banner, 4 quick actions, 2-column grid.
+ * Column 1: ContinueWorking + TodayFocus (action-oriented).
+ * Column 2: RecentActivity + SystemResources + AgentStatus (status-oriented).
  *
  * Renders unwrapped (no PageShell): ShellLayout's PageContainer owns
  * max-width and gutters, AppHeader/PageHeader owns the visible title.
- * Gallery chamber, skeletons, and banners reuse the Marketplace's own
- * mpg-* styles/components directly.
  *
  * Architecture Traceability:
  *   VES-OVERVIEW-001: Vestara Overview (phases 0-2)
@@ -16,15 +15,12 @@
 
 import { AgentStatus } from './components/AgentStatus';
 import { ContinueWorking } from './components/ContinueWorking';
-import { InspirationCard } from './components/InspirationCard';
-import { MarketplaceSpotlight } from './components/MarketplaceSpotlight';
 import { OverviewHero } from './components/OverviewHero';
-import { ProjectsSummary } from './components/ProjectsSummary';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
 import { SystemResources } from './components/SystemResources';
 import { TodayFocus } from './components/TodayFocus';
-import { AssetGridSkeleton, InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
 import { useMorningBriefing } from '../../hooks/useMorningBriefing';
 import '../../styles/marketplace.css';
@@ -35,12 +31,22 @@ function LoadingSkeleton() {
   return (
     <div className="w-full min-w-0 space-y-4" role="status" aria-live="polite" aria-label="Loading overview">
         <div className="mpg-skeleton h-44" />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-          {[1, 2, 3, 4, 5].map((i) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {[1, 2, 3, 4].map((i) => (
             <div key={i} className="mpg-skeleton h-16" />
           ))}
         </div>
-        <AssetGridSkeleton count={3} />
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div className="space-y-4">
+            <div className="mpg-skeleton h-32" />
+            <div className="mpg-skeleton h-32" />
+          </div>
+          <div className="space-y-4">
+            <div className="mpg-skeleton h-32" />
+            <div className="mpg-skeleton h-16" />
+            <div className="mpg-skeleton h-16" />
+          </div>
+        </div>
         <p className="sr-only">Loading workspace overview…</p>
     </div>
   );
@@ -115,25 +121,18 @@ export function OverviewScreen() {
         />
         <QuickActions />
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {/* Column 1 — resume + act: highest scan priority */}
           <div className="min-w-0 space-y-4">
             <ContinueWorking items={data.continueWorking} />
             <TodayFocus items={data.focus} />
           </div>
 
-          {/* Column 2 — activity-led */}
+          {/* Column 2 — activity + system status */}
           <div className="min-w-0 space-y-4">
             <RecentActivity items={data.recentActivity} />
             <SystemResources resources={data.resources} />
-            <MarketplaceSpotlight items={data.marketplace} />
-          </div>
-
-          {/* Column 3 — status + reference; inspiration demoted to bottom */}
-          <div className="min-w-0 space-y-4">
             <AgentStatus agents={data.agents} />
-            <ProjectsSummary projects={data.projects} />
-            <InspirationCard />
           </div>
         </div>
       </div>

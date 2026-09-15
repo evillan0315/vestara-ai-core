@@ -113,7 +113,7 @@ export default function Registries() {
                       {kindLabel(registry.kind)}
                     </Badge>
                   </div>
-                  <div className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <div className="truncate font-mono text-xs text-[var(--vestara-text-muted)]">
                     {registry.id}
                   </div>
                 </div>
@@ -121,7 +121,7 @@ export default function Registries() {
                   <Badge variant={healthVariant(registry.health.status)} size="md" dot>
                     {registry.health.status}
                   </Badge>
-                  <span className="font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                  <span className="font-mono text-xs text-[var(--vestara-text-muted)]">
                     {registry.health.assetCount} assets
                   </span>
                 </div>
@@ -130,14 +130,14 @@ export default function Registries() {
               {registry.health.roots && registry.health.roots.length > 0 && (
                 <ul className="relative z-[2] mt-2 space-y-0.5">
                   {registry.health.roots.map((root) => (
-                    <li key={root} className="truncate font-mono text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                    <li key={root} className="truncate font-mono text-xs text-[var(--vestara-text-muted)]">
                       {root}
                     </li>
                   ))}
                 </ul>
               )}
               {registry.health.lastScanAt && (
-                <div className="relative z-[2] mt-2 text-xs text-[var(--vestara-text-muted,var(--color-zinc-400))]">
+                <div className="relative z-[2] mt-2 text-xs text-[var(--vestara-text-muted)]">
                   Last scan: {new Date(registry.health.lastScanAt).toLocaleString()}
                 </div>
               )}

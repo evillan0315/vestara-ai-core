@@ -534,6 +534,10 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   const lastConvIdRef = useRef<string | null>(null);
   const preserveOptimisticRef = useRef(false); // set while ensure-conversation runs inside a send
   const restoredSelectionRef = useRef(false); // sticky-session restore runs once per mount
+  // Reattach polling: after reload, when GET /active proves a server-side
+  // turn is still running, poll for settlement instead of opening a second
+  // stream (reattach ≠ create). Interval id, cleared on settle/select/send.
+  const reattachTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // ── List conversations on mount ──
   const refreshList = useCallback(async () => {
@@ -584,6 +588,100 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     refreshList();
   }, [refreshList]);
 
+  // ── Reattach discovery (reload survival) ──
+  // After reload/remount, GET /active is the authoritative truth for whether
+  // a Vestara turn is still running server-side. When active, the UI enters
+  // a polling reattach (streaming state so Stop stays available via
+  // POST /cancel) and reloads canonical messages on settlement. It never
+  // opens a second POST /stream (server returns 409 conversation-busy).
+  // Partial deltas from before the reload are NOT replayed — only the
+  // persisted completion is presented (no fabricated provenance).
+  const clearReattachPoll = useCallback(() => {
+    if (reattachTimerRef.current) {
+      clearInterval(reattachTimerRef.current);
+      reattachTimerRef.current = null;
+    }
+  }, []);
+
+  const pollReattachedTurn = useCallback(
+    (convId: string) => {
+      clearReattachPoll();
+      const pollId = ++streamIdRef.current;
+      lastConvIdRef.current = convId;
+      setStreamState('streaming');
+      setStreamingText('');
+      setStreamStatus('Execution continues… Reconnected — updates appear on completion.');
+      setStreamError(null);
+      const poll = async () => {
+        if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) {
+          clearReattachPoll();
+          return;
+        }
+        try {
+          const status = await apiFetch<{ active: boolean }>(
+            `/api/conversations/${encodeURIComponent(convId)}/active`,
+          );
+          if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+          if (!status.active) {
+            clearReattachPoll();
+            try {
+              const data = await apiFetch<{ conversation: Conversation }>(
+                `/api/conversations/${encodeURIComponent(convId)}`,
+              );
+              if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+              setSelectedConversation(data.conversation);
+              setMessages(data.conversation.messages ?? []);
+              setMessagesPagination(data.conversation._pagination ?? null);
+            } catch {
+              // Keep last-known messages on reload failure.
+            }
+            setStreamState('completed');
+            setStreamStatus(null);
+            setStreamingText('');
+            void refreshList();
+            return;
+          }
+          // Still active: refresh canonical messages so the persisted human
+          // turn (and any settled assistant message) stays visible while
+          // the server-side execution continues. No deltas are fabricated.
+          try {
+            const data = await apiFetch<{ conversation: Conversation }>(
+              `/api/conversations/${encodeURIComponent(convId)}`,
+            );
+            if (pollId !== streamIdRef.current || selectedIdRef.current !== convId) return;
+            setSelectedConversation(data.conversation);
+            setMessages(data.conversation.messages ?? []);
+          } catch {
+            // Transient poll failure — keep polling.
+          }
+        } catch {
+          // Active-probe failed (e.g. conversation deleted) — keep polling
+          // until selection changes; do not fabricate a terminal state.
+        }
+      };
+      reattachTimerRef.current = setInterval(() => {
+        void poll();
+      }, 2000);
+      // Immediate first probe (async, non-blocking).
+      void poll();
+    },
+    [clearReattachPoll, refreshList],
+  );
+
+  const probeActiveTurn = useCallback(
+    (convId: string) => {
+      apiFetch<{ active: boolean }>(`/api/conversations/${encodeURIComponent(convId)}/active`)
+        .then((status) => {
+          if (selectedIdRef.current !== convId) return;
+          if (status.active) pollReattachedTurn(convId);
+        })
+        .catch(() => {
+          // No active-turn truth available — stay idle with loaded messages.
+        });
+    },
+    [pollReattachedTurn],
+  );
+
   // ── Select conversation ──
   // GA-DETACH-001: Selecting a different conversation DETACHES the client
   // from the current stream but does NOT abort the server-side execution.
@@ -600,6 +698,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         // connection and stops sending events, but the execution continues.
         abortRef.current = null;
       }
+      clearReattachPoll();
       streamIdRef.current += 1; // invalidate any in-flight stream loop
       busyRef.current = false;
       setStreamState('idle');
@@ -619,13 +718,15 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       setMessagesPagination(null);
       setLoadingOlderMessages(false);
       if (id) {
-        // Load conversation details + newest message window
+        // Load conversation details + newest message window, then probe for
+        // a still-running server-side turn (reload/reattach discovery).
         setMessagesLoading(true);
         apiFetch<{ conversation: Conversation }>(`/api/conversations/${encodeURIComponent(id)}`)
           .then((data) => {
             setSelectedConversation(data.conversation);
             setMessages(data.conversation.messages ?? []);
             setMessagesPagination(data.conversation._pagination ?? null);
+            probeActiveTurn(id);
           })
           .catch(() => {
             // Conversation may have been deleted server-side
@@ -641,7 +742,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         setMessagesLoading(false);
       }
     },
-    [],
+    [clearReattachPoll, probeActiveTurn],
   );
 
   // ── Sticky restore: once per mount, reselect the stored conversation ──
@@ -794,6 +895,12 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
 
       const controller = new AbortController();
       abortRef.current = controller;
+      // A fresh user turn owns the stream; any reattach poll for a prior
+      // turn must stop (its streamId is invalidated below anyway).
+      if (reattachTimerRef.current) {
+        clearInterval(reattachTimerRef.current);
+        reattachTimerRef.current = null;
+      }
 
       const dropOptimistic = () => {
         setOptimisticTurns((prev) => prev.filter((t) => t.clientTurnId !== clientTurnId));
@@ -826,6 +933,21 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         });
 
         if (!res.ok) {
+          // Reattach ≠ create: 409 means another turn is already running
+          // server-side for this conversation (e.g. reloaded UI racing the
+          // original execution). Surface it truthfully and reattach via
+          // GET /active instead of manufacturing a second execution.
+          if (res.status === 409) {
+            if (currentStreamId === streamIdRef.current) {
+              failOptimistic();
+              setStreamState('failed');
+              setStreamStatus(null);
+              setStreamError('Another execution is already running for this conversation. Reattached to it.');
+              probeActiveTurn(finalConvId);
+            }
+            busyRef.current = false;
+            return;
+          }
           throw new Error(`HTTP ${res.status}`);
         }
 
@@ -1033,7 +1155,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
         busyRef.current = false;
       }
     },
-    [loadMessages, refreshList, upsertStructuredEdit, upsertTaskSnapshot],
+    [loadMessages, refreshList, upsertStructuredEdit, upsertTaskSnapshot, probeActiveTurn],
   );
 
   // ── Send message + stream response ──
@@ -1156,7 +1278,8 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     }
     abortRef.current?.abort();
     abortRef.current = null;
-    streamIdRef.current += 1; // invalidate the in-flight stream loop
+    clearReattachPoll();
+    streamIdRef.current += 1; // invalidate the in-flight stream loop + reattach poll
     busyRef.current = false;
     setStreamState('idle');
     setStreamingText('');
@@ -1178,7 +1301,17 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
     } else {
       setOptimisticTurns((prev) => prev.filter((t) => t.delivery === 'failed'));
     }
-  }, [loadMessages]);
+  }, [loadMessages, clearReattachPoll]);
+
+  // Reattach poll must not outlive the hook (route unmount ≠ cancel: the
+  // server-side execution continues; we only stop polling here).
+  useEffect(
+    () => () => {
+      if (reattachTimerRef.current) clearInterval(reattachTimerRef.current);
+      reattachTimerRef.current = null;
+    },
+    [],
+  );
 
   // ── GA-RUNTIME-001 B: interactive permission/question decisions ──
   const respondToPermission = useCallback(
