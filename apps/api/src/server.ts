@@ -55,7 +55,6 @@ import { handleQualificationRoute } from './routes/qualification';
 import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
-import { handleThemeBuilderRoute } from './routes/settings-theme-builder';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelegramRoute } from './routes/telegram';
 import { handleTelemetryRoute } from './routes/telemetry';
@@ -173,7 +172,6 @@ export const ROUTE_DEFS: RouteDef[] = [
     handler: handleWorkspaceRoute,
   },
   { prefixes: ['/api/providers'], handler: handleProvidersRoute },
-  { prefixes: ['/api/settings/theme-builder'], handler: handleThemeBuilderRoute },
   { prefixes: ['/api/worktrees'], handler: handleWorktreeRoute },
   { prefixes: ['/api/workflows'], handler: handleWorkflowRoute },
   { prefixes: ['/api/qualification'], handler: handleQualificationRoute },

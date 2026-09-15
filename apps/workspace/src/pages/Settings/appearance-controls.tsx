@@ -1,18 +1,15 @@
 import { useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ACCENT_PALETTES, PROFILES, type ThemeSettings, useTheme } from '../../lib/theme.js';
-import { ThemeBuilderProvider } from '../../lib/theme-builder-context.js';
-import { ThemeBuilder } from './components/ThemeBuilder/index.js';
 import { Button, focus, input, Segmented, SettingsRow, SettingsSection, Toggle } from './settings-ui.js';
 
-type AppearanceTab = 'profiles' | 'appearance' | 'typography' | 'layout' | 'theme-builder';
+type AppearanceTab = 'profiles' | 'appearance' | 'typography' | 'layout';
 
 const APPEARANCE_TABS: Array<{ id: AppearanceTab; label: string; description: string }> = [
   { id: 'profiles', label: 'Profiles', description: 'Curated workspace profiles' },
   { id: 'appearance', label: 'Appearance', description: 'Theme mode and accent palette' },
   { id: 'typography', label: 'Typography', description: 'Font family, size, and weight' },
   { id: 'layout', label: 'Layout', description: 'Sidebar, spacing, radius, and density' },
-  { id: 'theme-builder', label: 'Theme Builder', description: 'Create and customize themes' },
 ];
 
 export function AppearanceControls() {
@@ -228,14 +225,6 @@ export function AppearanceControls() {
               }
             />
           </SettingsSection>
-        );
-      case 'theme-builder':
-        return (
-          <ThemeBuilderProvider>
-            <div className="h-[calc(100vh-200px)] min-h-[600px]">
-              <ThemeBuilder />
-            </div>
-          </ThemeBuilderProvider>
         );
       default:
         return null;

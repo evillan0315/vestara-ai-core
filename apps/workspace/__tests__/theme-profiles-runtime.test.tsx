@@ -1,7 +1,6 @@
 // @vitest-environment jsdom
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ThemeBuilderProvider, useThemeBuilder } from '../src/lib/theme-builder-context.js';
 import { ThemeProvider, useTheme } from '../src/lib/theme.js';
 
 function mockLocalStorage() {
@@ -30,21 +29,10 @@ afterEach(() => {
 });
 
 // Runtime proof for the Settings → General → Profiles gallery: the premium
-// profiles participate in the built-in theme matrix and applyProfile honors
-// their theme modes while legacy profiles leave the mode untouched.
+// profiles apply their theme modes while legacy profiles leave the mode
+// untouched.
 
 describe('Theme profiles runtime (Settings General)', () => {
-  it('generates the built-in matrix for every accent × profile, including Premium', () => {
-    const wrapper = ({ children }: { children: React.ReactNode }) => (
-      <ThemeBuilderProvider>{children}</ThemeBuilderProvider>
-    );
-    const { result } = renderHook(() => useThemeBuilder(), { wrapper });
-    expect(result.current.builtInThemes).toHaveLength(9 * 6);
-    const labels = new Set(result.current.builtInThemes.map((theme) => theme.name.split(' · ')[1]));
-    expect(labels).toContain('Premium');
-    expect(labels).toContain('Premium Dark');
-  });
-
   it("applyProfile('premium-dark') switches to dark mode with amber accent", async () => {
     const wrapper = ({ children }: { children: React.ReactNode }) => (
       <ThemeProvider>{children}</ThemeProvider>

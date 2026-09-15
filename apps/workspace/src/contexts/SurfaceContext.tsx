@@ -54,7 +54,6 @@ function resolveSurfaceLocation(pathname: string, search?: string): SurfaceLocat
     layout: 'Layout',
     appearance: 'Appearance',
     profiles: 'Profiles',
-    'theme-builder': 'Theme Builder',
   };
   if (tabParam && tabLabels[tabParam]) {
     // For Settings General inner tabs and Intelligence leaves, surface should reflect inner tab

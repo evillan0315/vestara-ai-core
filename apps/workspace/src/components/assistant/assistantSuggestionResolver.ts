@@ -111,7 +111,6 @@ const TAB_META: Record<string, { label: string; description: string }> = {
   typography: { label: 'Typography', description: 'Configure fonts, sizes, and text presentation.' },
   layout: { label: 'Layout', description: 'Adjust workspace layout, density, and structure.' },
   profiles: { label: 'Profiles', description: 'Manage workspace profiles and theme presets.' },
-  'theme-builder': { label: 'Theme Builder', description: 'Design and preview custom themes.' },
 };
 
 function resolveSettingsContextCard(path: string, navEntry: ReturnType<typeof lookupNavigation>): AssistantContextCard {
@@ -198,7 +197,7 @@ export function resolveContextCard(surface: SurfaceLocation): AssistantContextCa
 
 function settingsSuggestions(path: string): AssistantSuggestion[] {
   const tab = getTab(path);
-  if (tab === 'appearance' || tab === 'typography' || tab === 'layout' || tab === 'theme-builder') {
+  if (tab === 'appearance' || tab === 'typography' || tab === 'layout') {
     return [
       { id: 'ctx-explain-appearance', label: 'Explain these settings', prompt: 'Explain the appearance settings on this page and what each control does.', category: 'context' },
       { id: 'ctx-theme-rec', label: 'Recommend a workspace theme', prompt: 'Recommend a theme configuration that would suit this workspace.', category: 'context' },

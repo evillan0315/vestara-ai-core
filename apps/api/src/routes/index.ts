@@ -19,7 +19,6 @@ export { handleProjectsRoute } from './projects';
 export { handleRoutingRoute } from './routing';
 export { handleSchedulesRoute } from './schedules';
 export { handleSessionsRoute } from './sessions';
-export { handleThemeBuilderRoute } from './settings-theme-builder';
 export { handleTeamsRoute } from './teams';
 export type { RouteHandler } from './types';
 export { actorOf, CORS, getActor, json, readBody } from './types';

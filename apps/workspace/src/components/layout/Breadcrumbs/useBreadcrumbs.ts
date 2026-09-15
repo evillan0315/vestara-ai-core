@@ -109,7 +109,6 @@ export function buildBreadcrumbs(pathname: string, search?: string): BreadcrumbI
           appearance: 'Appearance',
           typography: 'Typography',
           layout: 'Layout',
-          'theme-builder': 'Theme Builder',
           profiles: 'Profiles',
         };
         const tabLabel = tabLabels[tabId] ?? tabId;
@@ -148,7 +147,6 @@ export function buildBreadcrumbs(pathname: string, search?: string): BreadcrumbI
           layout: 'Layout',
           appearance: 'Appearance',
           profiles: 'Profiles',
-          'theme-builder': 'Theme Builder',
           overview: 'Overview',
         };
         const tabLabel = tabLabels[tabParam!] ?? tabParam!;

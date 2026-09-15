@@ -140,7 +140,7 @@ Each file wastes ~3-5s in import/transform time producing zero signal (all tests
 - `opencode-session-forms.test.tsx`, `opencode-sessions-ui.test.tsx`, `opencode-ui.test.tsx`
 - `overview-page.test.tsx`, `qualification-ui.test.tsx`, `routing-ui.test.tsx`
 - `runtime-status-bar.test.tsx`, `session-trial-initiation.test.tsx`, `settings-ui.test.tsx`
-- `teams-panel.test.tsx`, `theme-builder-import-export.test.tsx`
+- `teams-panel.test.tsx`
 - `workflow-panel.test.tsx`, `zzz-probe-hardening.test.tsx`, `zzz-probe-hardening2.test.tsx`
 
 ### FINDING-4: Integration Tests in Default Suite (MEDIUM)
