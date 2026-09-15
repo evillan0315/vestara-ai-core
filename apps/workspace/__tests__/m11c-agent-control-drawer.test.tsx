@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 /**
  * M11C Agent Control Drawer Tests (AR-AGENT-CTRL-001B + AR-AGENT-CTRL-002)
  *
@@ -535,19 +536,25 @@ describe('AgentProjectionDrawer Tab Semantics', () => {
     expect(tablist).toBeTruthy();
 
     const tabs = screen.getAllByRole('tab');
-    expect(tabs).toHaveLength(4);
+    // Five tabs since AR-UI-C10 added the Work tab (ef620ec); the drawer
+    // renders TABS verbatim (overview, work, configuration, capabilities,
+    // activity) with a matching tabContent case per tab.
+    expect(tabs).toHaveLength(5);
 
     expect(tabs[0].getAttribute('aria-selected')).toBe('true');
     expect(tabs[0].getAttribute('aria-controls')).toBe('tabpanel-overview');
 
     expect(tabs[1].getAttribute('aria-selected')).toBe('false');
-    expect(tabs[1].getAttribute('aria-controls')).toBe('tabpanel-configuration');
+    expect(tabs[1].getAttribute('aria-controls')).toBe('tabpanel-work');
 
     expect(tabs[2].getAttribute('aria-selected')).toBe('false');
-    expect(tabs[2].getAttribute('aria-controls')).toBe('tabpanel-capabilities');
+    expect(tabs[2].getAttribute('aria-controls')).toBe('tabpanel-configuration');
 
     expect(tabs[3].getAttribute('aria-selected')).toBe('false');
-    expect(tabs[3].getAttribute('aria-controls')).toBe('tabpanel-activity');
+    expect(tabs[3].getAttribute('aria-controls')).toBe('tabpanel-capabilities');
+
+    expect(tabs[4].getAttribute('aria-selected')).toBe('false');
+    expect(tabs[4].getAttribute('aria-controls')).toBe('tabpanel-activity');
   });
 
   it('switches tab content on click', async () => {

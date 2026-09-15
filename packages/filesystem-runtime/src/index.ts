@@ -362,8 +362,28 @@ export class FilesystemRuntime {
     }
 
     if (op.riskLevel === 'high') {
-      // GA-TOOL-004: Store the immutable envelope with the pending approval
-      const storedEnvelope = envelope ?? createEnvelope(op, this.rootDir, op.preStateHash ?? '', op.contentHash ?? '');
+      // GA-TOOL-004: Store the immutable envelope with the pending approval.
+      // Capture the on-disk pre-state when the op did not carry one: only
+      // write/update set op.preStateHash, so delete/rename/copy stored ''
+      // while revalidation hashes actual content — every approved mutation
+      // of an existing file then failed as a false "conflict". Missing or
+      // unreadable targets (new files, directories) hash as ''.
+      let preStateHash = op.preStateHash ?? '';
+      if (!preStateHash) {
+        // Hash raw content (not the empty string): revalidation compares
+        // against sha256(currentContent), where unreadable targets
+        // (missing files, directories) read as ''. Storing '' itself would
+        // mismatch sha256('') on every revalidation.
+        let raw = '';
+        try {
+          raw = fs.readFileSync(path.resolve(this.rootDir, op.path), 'utf-8');
+        } catch {
+          raw = '';
+        }
+        preStateHash = sha256(raw);
+        op.preStateHash = preStateHash;
+      }
+      const storedEnvelope = envelope ?? createEnvelope(op, this.rootDir, preStateHash, op.contentHash ?? '');
       this.pendingApprovals.set(op.id, { operation: op, envelope: storedEnvelope });
       op.approvalStatus = 'pending';
       this.onPendingApproval?.(op);

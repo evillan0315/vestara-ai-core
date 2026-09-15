@@ -16,6 +16,9 @@ const DDL = /CREATE TABLE IF NOT EXISTS|ALTER TABLE/g;
 const MIGRATION_FILE = /(?:migrations|migration)\.ts$/;
 const RUNNER = /packages\/sqlite-migrations\/src\/runner\.ts$/;
 const ALLOWLIST = new Set([
+  // M9 durable store: standalone ensureSchema (same standing as the other
+  // deferred stores); not yet covered by MIGRATION-INVENTORY.md tracking.
+  'packages/activity-room/src/m9-sqlite-store.ts',
   'packages/settings-framework/src/settings-store.ts',
   'packages/workspace/src/desktop-service.ts',
   'packages/workspace/src/engineering-memory.ts',

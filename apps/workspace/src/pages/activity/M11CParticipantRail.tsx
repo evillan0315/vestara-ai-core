@@ -334,7 +334,7 @@ const ParticipantRow = memo(function ParticipantRow({
         {/* Primary identity + kind */}
         <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
           <span
-            className={canOpenDrawer ? 'cursor-pointer truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]'}
+            className={canOpenDrawer ? 'ar-guest__name--agent-action cursor-pointer truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]'}
             role={canOpenDrawer ? 'button' : undefined}
             tabIndex={canOpenDrawer ? 0 : undefined}
             aria-label={canOpenDrawer ? `Open agent control for ${identity.name}` : undefined}

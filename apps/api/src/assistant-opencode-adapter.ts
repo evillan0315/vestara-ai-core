@@ -121,7 +121,12 @@ export interface AssistantOpenCodeExecutorOptions {
 // GA-EXEC-001: Default turn timeout. Overridden by:
 //   1. Per-turn executionConfig.turnTimeoutMs (UI/session)
 //   2. VESTARA_GA_TURN_TIMEOUT_MS env var (deployment default)
-const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) || 15 * 60 * 1000;
+// Temporary dogfood default: 60 minutes. Long engineering turns were
+// hitting the old 15-minute default mid-execution (proven by
+// termination="timeout" at elapsedMs=900013 with toolCallCount=175 while
+// maxToolCalls=0/unlimited). Explicit overrides and the env var still take
+// precedence; timeout/cancel/failure abort semantics are unchanged.
+export const TURN_TIMEOUT_MS = Number(process.env.VESTARA_GA_TURN_TIMEOUT_MS) || 60 * 60 * 1000;
 
 // GA-EXEC-001: Default per-turn tool-call budget for the Global Assistant.
 // Bounds turns that arrive without an explicit executionConfig.maxToolCalls

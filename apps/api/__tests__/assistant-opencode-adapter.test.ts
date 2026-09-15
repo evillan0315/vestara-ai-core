@@ -7,7 +7,7 @@
 import type { OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import type { CompletionRequest, StreamChunk } from '@vestara/shared';
 import { describe, expect, it } from 'vitest';
-import { runAssistantOpenCodeTurn } from '../src/assistant-opencode-adapter';
+import { runAssistantOpenCodeTurn, TURN_TIMEOUT_MS } from '../src/assistant-opencode-adapter';
 
 function sseEvent(id: string, type: string, payload: Record<string, unknown>) {
   return { id, type, timestamp: new Date().toISOString(), payload: { sessionID: 'sess-1', ...payload } };
@@ -650,6 +650,59 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       }
       // Runtime session: explicitly aborted exactly once.
       expect(abortedSessions).toEqual(['sess-1']);
+    });
+  });
+
+  // ─── Runtime default timeout (temporary dogfood hardening) ───
+  // The runtime authority is the adapter default (the UI omits untouched
+  // defaults from the POST body, and Settings display is non-authoritative).
+  // Proven incident: termination="timeout" at elapsedMs=900013 with the old
+  // 15-minute default while maxToolCalls=0/unlimited kept working.
+
+  describe('runtime default turn timeout', () => {
+    it('defaults to 60 minutes', () => {
+      expect(TURN_TIMEOUT_MS).toBe(60 * 60 * 1000);
+    });
+
+    it('explicit per-turn executionConfig.turnTimeoutMs overrides the default', async () => {
+      // Deterministic without wall-clock racing: the attribution record
+      // carries the RESOLVED turnTimeoutMs, so an instantly-completing turn
+      // proves which value won. (A wall-clock deadline race flakes under
+      // box contention; the deadline-fires path is already covered by the
+      // TIMEOUT test above.)
+      const seen: Array<Record<string, unknown> | undefined> = [];
+      const logger = {
+        info: (message: string, context?: Record<string, unknown>) => {
+          if (message === 'assistant.turn.started') seen.push(context);
+        },
+        warn: () => {},
+      };
+      const quickClient = eventClient([
+        sseEvent('e1', 'session.next.text.delta', { delta: 'Hi' }),
+        sseEvent('e2', 'session.status', { status: { type: 'idle' } }),
+      ]);
+      const runTurn = async (request: ReturnType<typeof makeRequest>) => {
+        for await (const _ of runAssistantOpenCodeTurn(
+          {
+            client: quickClient as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            logger,
+          },
+          request,
+        )) {
+          // drain
+        }
+      };
+      // No override anywhere: the 60-minute runtime default resolves.
+      await runTurn(makeRequest());
+      // Explicit per-turn override wins over the default (and would equally
+      // win over options.turnTimeoutMs / env, which sit below it).
+      await runTurn({ ...makeRequest(), executionConfig: { turnTimeoutMs: 123456 } });
+      expect(seen).toHaveLength(2);
+      expect(seen[0]?.turnTimeoutMs).toBe(60 * 60 * 1000);
+      expect(seen[1]?.turnTimeoutMs).toBe(123456);
     });
   });
 

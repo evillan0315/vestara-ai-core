@@ -3902,7 +3902,7 @@ This model must allow one human to interact through multiple surfaces without Ve
 - Server/API restart recovery was not proven and must not be claimed (in-flight controllers are process memory; only `runtime_session_id` adoption on the next turn exists).
 - Durable live-delta replay across reload is not currently supported (no server-side observation replay buffer; reattach polls canonical state, deltas before reload are not reconstructed).
 
-**Remaining UNKNOWNs**: second-prompt-on-busy-session behavior via direct `/api/opencode/*` callers (unreachable via Assistant route due to 409, not probed); permission/question turns blocked on `interactionBroker.await*` during reload re-projection scope; drain cost of very long turns on closed transports under load (bounded by the 15min turn timeout, not load-tested).
+**Remaining UNKNOWNs**: second-prompt-on-busy-session behavior via direct `/api/opencode/*` callers (unreachable via Assistant route due to 409, not probed); permission/question turns blocked on `interactionBroker.await*` during reload re-projection scope; drain cost of very long turns on closed transports under load (bounded by the turn timeout, not load-tested).
 
 **Tests** (`vitest --maxWorkers=2`, 2026-09-15): `assistant-reload-survival` 6/6, `assistant-opencode-adapter` 19/19, `conversations` 12/12, `conversations-cancel` + `ga-execution-config` + survival combined 56/56, `packages/conversation` 81/81, `telegram-route` + `telegram-integration` 204/204, `ga-ui-007-global-assistant-window` 9/9. `ga-runtime-001` 24/26 — the 2 ASK-permission failures also fail on the unmodified tree (pre-existing, unrelated to this change; verified by reverting the adapter and re-running). Full-repo `test:fast` and full `apps/api` directory runs do not complete on this box (hang past 280–850s with the director's live dev API on `:3001` running; per repo guidance the live runtime must be stopped first, which was deliberately not done — process-ownership boundary).
 
@@ -3977,6 +3977,35 @@ keep hitting it — raise per-turn via the composer execution controls.
 
 **Status**: ✅ Cause proven + attribution shipped (live-log visibility pending
 owner API restart); deadline policy unchanged by design.
+
+---
+
+## Turn Timeout 15min → 60min (temporary dogfood hardening) ✅ Implemented 2026-09-15
+
+**Authority**: the runtime default lives in
+`apps/api/src/assistant-opencode-adapter.ts` (`TURN_TIMEOUT_MS`, now
+exported for testability). Precedence, unchanged:
+per-turn `executionConfig.turnTimeoutMs` > `options.turnTimeoutMs` >
+`VESTARA_GA_TURN_TIMEOUT_MS` env > default. The UI omits untouched defaults
+from the POST body (`toRequestConfig`), and Settings display is
+non-authoritative, so the adapter default governs default dogfood turns.
+`maxToolCalls=0` (unlimited) untouched.
+
+**Why**: proven incident — `termination="timeout"` at `elapsedMs=900013`
+with `toolCallCount=175` killed a productive long turn; the prior turn took
+14m03s, inside the old bound by luck. Timeout still aborts (`TIMEOUT`
+requires abort), Stop still cancels (`CANCELLED`), completion/detach never
+abort — semantics preserved, only the bound moved.
+
+**Tests**: `TURN_TIMEOUT_MS === 3600000` plus deterministic
+override-precedence proof via the `assistant.turn.started` attribution
+record (default resolves 60min; explicit `123456` wins) — no wall-clock
+racing. File 24/24 green in isolation; the pre-existing wall-clock
+`TIMEOUT` test flakes only under box contention (also flakes without this
+change; passes in quiet CI).
+
+**Status**: ✅ Temporary hardening; final timeout architecture explicitly
+out of scope. UI display default (15min) left as-is — non-authoritative.
 
 ---
 
