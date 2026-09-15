@@ -8,7 +8,7 @@ import {
   TokenCategorySchema,
   TuiSemanticPaletteSchema,
   validateCustomTheme,
-} from '../../../lib/theme-builder-schemas.js';
+} from '../../lib/theme-builder-schemas';
 
 describe('TokenCategorySchema', () => {
   it('accepts valid categories', () => {

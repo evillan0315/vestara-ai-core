@@ -3,7 +3,7 @@ import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ThemeBuilderProvider, useThemeBuilder } from '../../../../../lib/theme-builder-context.js';
-import { ThemeBuilder } from '../ThemeBuilder.tsx';
+import { ThemeBuilder } from '../ThemeBuilder';
 import type { CustomTheme } from '../../../../../lib/theme.js';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (

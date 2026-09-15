@@ -248,6 +248,13 @@ function summary(id: string, title: string, updatedAt: string, messageCount = 2)
 describe('GA-UI-006 — conversation navigation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Hermetic selection: the hook persists the selected conversation in
+    // localStorage and restores it on mount. Without clearing, a previous
+    // test's selection leaks into the next mount, where the sticky restore
+    // races the test's explicit selection and corrupts title-cache-derived
+    // picker labels (proven flake: A→B→A→B querying the counter-default
+    // title while the label resolved to a first-message fallback).
+    localStorage.removeItem('vestara:assistant:selected-conversation');
   });
 
   afterEach(() => {
