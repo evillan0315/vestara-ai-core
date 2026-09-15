@@ -254,7 +254,7 @@ export function HumanParticipantDrawer({
       open={open}
       onClose={onClose}
       title={participant.displayName ?? 'Human Participant'}
-      size="md"
+      defaultSize="medium"
     >
       <div className="flex flex-col h-full">
         {/* Tabs */}
@@ -262,17 +262,18 @@ export function HumanParticipantDrawer({
           tabs={TABS}
           activeTab={activeTab}
           onTabChange={(id) => setActiveTab(id as TabId)}
-        />
-
-        {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {activeTab === 'overview' && (
-            <HumanOverviewTab profile={profile} participant={participant} />
-          )}
-          {activeTab === 'activity' && (
-            <HumanActivityTab participant={participant} />
-          )}
-        </div>
+          className="flex flex-col flex-1 min-h-0"
+        >
+          {/* Tab content */}
+          <div className="flex-1 overflow-y-auto p-4">
+            {activeTab === 'overview' && (
+              <HumanOverviewTab profile={profile} participant={participant} />
+            )}
+            {activeTab === 'activity' && (
+              <HumanActivityTab participant={participant} />
+            )}
+          </div>
+        </Tabs>
       </div>
     </Drawer>
   );

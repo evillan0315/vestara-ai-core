@@ -71,12 +71,8 @@ export function AssistantVerification({ detail }: AssistantVerificationProps) {
     >
       {/* Header: lifecycle + verdict + actions */}
       <div className="flex min-w-0 items-center gap-2 px-3 py-2">
-        {/* Lifecycle indicator */}
-        {detail.state === 'running' ? (
-          <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-amber-500/15">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
-          </span>
-        ) : isPassed ? (
+        {/* Lifecycle indicator — verification state is terminal ('completed' | 'failed'). */}
+        {isPassed ? (
           <span data-testid="verification-lifecycle" className="flex h-4 w-4 shrink-0 items-center justify-center rounded-md bg-emerald-500/15 text-[10px] leading-none text-emerald-400" aria-hidden="true">
             ✓
           </span>

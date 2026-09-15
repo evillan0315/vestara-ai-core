@@ -40,6 +40,7 @@ import type {
   UseAssistantConversationReturn,
 } from '../../hooks/useAssistantConversation';
 import type { AssistantExecutionDetail, ToolObservation } from '@vestara/shared';
+import type { SurfaceLocation, SurfaceReference } from '@vestara/types';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { ProviderModelSelector } from '../ui/ProviderModelSelector';
 import { AssistantResponseActions } from './AssistantResponseActions';
@@ -874,8 +875,8 @@ function SuggestionEmptyState({
   selected,
 }: {
   onSuggest: (prompt: string) => void;
-  surface: { routeId: string | null; path: string; title: string | null; section: string | null };
-  selected?: { kind: string; id: string; label?: string | null };
+  surface: SurfaceLocation;
+  selected?: SurfaceReference;
 }) {
   const resolved = useMemo(() => resolveAssistantSuggestions(surface, selected), [surface, selected]);
   const contextCard = resolved.contextCard;

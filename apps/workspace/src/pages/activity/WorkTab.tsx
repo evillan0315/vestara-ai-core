@@ -111,9 +111,9 @@ function CurrentWork({ participant }: { participant: ParticipantProjection }) {
             </div>
           )}
 
-          {assignment.workflowId && (
+          {assignment.workflowRunId && (
             <div className="text-[10px] text-(--vestara-text-muted)">
-              Workflow: {assignment.workflowId}
+              Workflow: {assignment.workflowRunId}
             </div>
           )}
 

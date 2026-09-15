@@ -10,10 +10,10 @@ import type {
   ActivityRecord as M9ActivityRecord,
   ActivityRoomProjection,
   AttentionEntry,
-  InteractionResponse,
   ParticipantProjection,
   WorkflowSummary,
-} from '@vestara/types';
+} from '@vestara/activity-room';
+import type { InteractionResponse } from '@vestara/types';
 import { resolveHttpUrl } from './clientConfig';
 
 // ─── Types ───────────────────────────────────────────────────

@@ -101,7 +101,9 @@ export function useGAExecutionConfig(): UseGAExecutionConfigReturn {
   }, []);
 
   const toRequestConfig = useCallback((): GAExecutionConfig | undefined => {
-    const cfg: GAExecutionConfig = {};
+    // Canonical GAExecutionConfig is readonly; build a mutable local that is
+    // assignable to it rather than mutating the readonly contract.
+    const cfg: { -readonly [K in keyof GAExecutionConfig]: GAExecutionConfig[K] } = {};
     if (config.turnTimeoutMs !== DEFAULTS.turnTimeoutMs) cfg.turnTimeoutMs = config.turnTimeoutMs;
     if (maxToolCallsTouched) cfg.maxToolCalls = config.maxToolCalls;
     else if (config.maxToolCalls !== DEFAULTS.maxToolCalls) cfg.maxToolCalls = config.maxToolCalls;

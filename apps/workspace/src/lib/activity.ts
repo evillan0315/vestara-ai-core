@@ -102,7 +102,7 @@ export async function retractActivityMessage(
 ): Promise<ActivityRecord> {
   return postActivityMessage({
     content: reason,
-    targets: [{ type: 'broadcast' }],
+    targets: [{ type: 'all-agents' }],
     correctionOf: targetId,
     actor: { displayName: 'You', role: 'human' },
   });
@@ -119,7 +119,7 @@ export async function editActivityMessage(
 ): Promise<ActivityRecord> {
   return postActivityMessage({
     content: newContent,
-    targets: [{ type: 'broadcast' }],
+    targets: [{ type: 'all-agents' }],
     correctionOf: targetId,
     effect: 'intervention',
     actor: { displayName: 'You', role: 'human' },

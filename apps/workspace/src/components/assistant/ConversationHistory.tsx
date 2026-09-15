@@ -208,7 +208,7 @@ export const ConversationHistory = memo(function ConversationHistory({
             </div>
             <ul className="space-y-0.5">
               {runtimeSessions.map((session) => {
-                const canResume = session.status !== 'busy';
+                const canResume = session.status !== 'active';
                 return (
                   <li key={session.id}>
                     <button
@@ -233,13 +233,13 @@ export const ConversationHistory = memo(function ConversationHistory({
                         </span>
                         <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
                           <span>{session.createdAt ? formatTime(session.createdAt) : ''}</span>
-                          {session.status === 'busy' && (
+                          {session.status === 'active' && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
                               <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
                               busy
                             </span>
                           )}
-                          {session.status === 'error' && (
+                          {session.status === 'failed' && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
                               ! error
                             </span>
@@ -399,7 +399,7 @@ export const ConversationHistory = memo(function ConversationHistory({
               <ul className="space-y-0.5">
                 {rootSessions.map((session) => {
                   const children = childrenByParent.get(session.id) ?? [];
-                  const canResume = session.status !== 'busy';
+                  const canResume = session.status !== 'active';
                   return (
                     <li key={session.id}>
                       <button
@@ -424,13 +424,13 @@ export const ConversationHistory = memo(function ConversationHistory({
                           </span>
                           <span className="mt-0.5 flex items-center gap-1.5 text-[10px] text-zinc-600">
                             <span>{session.updatedAt ? formatTime(session.updatedAt) : ''}</span>
-                            {session.status === 'busy' && (
+                            {session.status === 'active' && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-amber-300/90 font-medium">
                                 <span className="h-1.5 w-1.5 rounded-full bg-amber-400 motion-reduce:animate-none animate-pulse" aria-hidden="true" />
                                 busy
                               </span>
                             )}
-                            {session.status === 'error' && (
+                            {session.status === 'failed' && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-red-500/10 px-1.5 py-0.5 text-red-300/90 font-medium">
                                 ! error
                               </span>
@@ -450,7 +450,7 @@ export const ConversationHistory = memo(function ConversationHistory({
                             <li key={child.id} className="flex items-center gap-1.5 px-2 py-1 text-[10px] text-zinc-600">
                               <span className="text-zinc-700" aria-hidden="true">└</span>
                               <span className="truncate">{child.title}</span>
-                              {child.status === 'busy' && (
+                              {child.status === 'active' && (
                                 <span className="h-1 w-1 rounded-full bg-amber-400 animate-pulse" aria-hidden="true" />
                               )}
                             </li>

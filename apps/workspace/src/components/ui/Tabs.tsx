@@ -16,7 +16,7 @@ export interface Tab {
 }
 
 export interface TabsProps {
-  tabs: Tab[];
+  tabs: readonly Tab[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
   children: ReactNode;

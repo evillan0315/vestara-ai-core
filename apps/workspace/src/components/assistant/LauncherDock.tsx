@@ -147,7 +147,7 @@ export function LauncherDock({
               primary targets; child sessions show lineage indented beneath
               their parent. Never flattened into independent roots. */}
           {runtimeItems.map((session) => {
-            const canResume = session.status !== 'busy';
+            const canResume = session.status !== 'active';
             const children = childrenByParent.get(session.id) ?? [];
             return (
               <li key={`rt-${session.id}`}>

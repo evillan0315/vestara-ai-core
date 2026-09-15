@@ -49,7 +49,7 @@ export function EntryPointsChart({ data }: { data: UnderstandingData }) {
               borderRadius: 8,
               fontSize: 11,
             }}
-            formatter={(value: number) => [`${Math.round(value)}%`, 'Confidence']}
+            formatter={(value) => [`${Math.round(Number(value))}%`, 'Confidence']}
             itemStyle={{ color: 'var(--chart-tooltip-text)' }}
             labelStyle={{ color: 'var(--chart-text)' }}
           />

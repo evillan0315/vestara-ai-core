@@ -222,7 +222,7 @@ export function TelegramSimulator() {
           {loading ? 'Sending...' : 'Send'}
         </Button>
         {messages.length > 0 && (
-          <Button onClick={clearMessages} variant="secondary">
+          <Button onClick={clearMessages}>
             Clear
           </Button>
         )}

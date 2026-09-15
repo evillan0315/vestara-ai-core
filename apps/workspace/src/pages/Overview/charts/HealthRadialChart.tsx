@@ -19,6 +19,13 @@ export function HealthRadialChart({ data }: { data: UnderstandingData }) {
 
   const ariaLabel = `Health metrics: ${items.map((item) => `${item.name} ${Math.round(item.value)}%`).join(', ')}`;
 
+  // String-keyed view of the maturity record (no unsafe conversion).
+  const maturityDetail: Record<string, unknown> = { ...h };
+  const detailFor = (name: string): string => {
+    const value = maturityDetail[name.toLowerCase().replace(' ', '')];
+    return value ? String(value) : '\u2014';
+  };
+
   return (
     <div className="bg-[var(--vestara-accent-bg)] border border-[var(--vestara-accent-border)] border-l-[3px] border-l-[var(--vestara-accent)] rounded-lg p-4 hover:border-[var(--vestara-accent-border-hover)] transition-colors" role="figure" aria-label={ariaLabel}>
       <h3 className="text-[9px] font-semibold text-[var(--vestara-text-muted)] uppercase tracking-wider mb-3">
@@ -58,7 +65,7 @@ export function HealthRadialChart({ data }: { data: UnderstandingData }) {
                 {item.name}
               </div>
               <div className="text-[8px] text-[var(--vestara-text-muted)] capitalize">
-                {(h as Record<string, string>)[item.name.toLowerCase().replace(' ', '')] || '\u2014'}
+                {detailFor(item.name)}
               </div>
             </div>
           </div>

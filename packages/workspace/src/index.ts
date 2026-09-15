@@ -279,6 +279,7 @@ export type {
   AgentDefinition,
   AgentExecution,
   AgentExecutionStatus,
+  AgentOrigin,
   AgentPermission,
   AgentRole,
   AgentTeam,

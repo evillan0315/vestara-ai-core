@@ -35,8 +35,13 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Conversation, ConversationSummary, Message } from '@vestara/types';
-import type { AssistantExecutionDetail, TurnSurfaceContext } from '@vestara/shared';
+import type {
+  AssistantExecutionDetail,
+  Conversation,
+  ConversationSummary,
+  Message,
+  TurnSurfaceContext,
+} from '@vestara/shared';
 import { openCodeApi } from '../lib/opencode';
 
 /**
@@ -46,13 +51,16 @@ import { openCodeApi } from '../lib/opencode';
  * allowlisted detail, so the hook only verifies the correlation-critical
  * fields (contract, version, operationId, state) before reading them.
  */
-function parseExecutionDetail(value: unknown): AssistantExecutionDetail | undefined {
-  if (!value || typeof value !== 'object') return undefined;
+function isAssistantExecutionDetail(value: unknown): value is AssistantExecutionDetail {
+  if (!value || typeof value !== 'object') return false;
   const record = value as Record<string, unknown>;
-  if (record.contract !== 'assistant.execution.v1' || record.version !== 1) return undefined;
-  if (typeof record.operationId !== 'string' || record.operationId.length === 0) return undefined;
-  if (record.state !== 'running' && record.state !== 'completed' && record.state !== 'failed') return undefined;
-  return record as AssistantExecutionDetail;
+  if (record.contract !== 'assistant.execution.v1' || record.version !== 1) return false;
+  if (typeof record.operationId !== 'string' || record.operationId.length === 0) return false;
+  return record.state === 'running' || record.state === 'completed' || record.state === 'failed';
+}
+
+function parseExecutionDetail(value: unknown): AssistantExecutionDetail | undefined {
+  return isAssistantExecutionDetail(value) ? value : undefined;
 }
 
 // ─── API Client ───────────────────────────────────────────────

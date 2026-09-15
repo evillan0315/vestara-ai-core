@@ -46,7 +46,12 @@ export interface PageHeroProps {
   eyebrow?: string;
   /** Status dot color for the eyebrow. Defaults to success green. */
   statusColor?: string;
-  title: string;
+  /**
+   * Headline text. Optional: route-rendered heroes source the static title
+   * from `ROUTE_HERO_CONFIG[routeId]` (see RouteHero), so consumers only
+   * supply dynamic props.
+   */
+  title?: string;
   /** Heading level for the title. Defaults to h1. */
   titleAs?: 'h1' | 'h2';
   subtitle?: string;

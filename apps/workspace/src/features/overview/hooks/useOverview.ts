@@ -165,7 +165,7 @@ async function fetchMarketplace(): Promise<readonly OverviewMarketplaceItem[]> {
   try {
     const { marketplaceClient } = await import('../../../lib/marketplace.js');
     const [searchResult, installedList] = await Promise.all([
-      marketplaceClient.search({ limit: 5, sort: 'relevant' }),
+      marketplaceClient.search({ limit: 5 }),
       marketplaceClient.installed().catch(() => []),
     ]);
     if (!searchResult.items.length) return overviewFixture.marketplace;
