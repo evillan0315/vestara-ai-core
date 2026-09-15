@@ -33,5 +33,9 @@ export default defineConfig({
     // Playwright owns tests/visual/*.spec.*; exclude both the sources and the
     // stale compiled artifacts so vitest never executes them.
     exclude: [...configDefaults.exclude, 'tests/visual/**/*.spec.ts', 'tests/visual/**/*.spec.js'],
+    // Deterministic resource bounds matching the root Vitest config
+    // (TEST-PERF-001A): 4-core / 8 GB-class machine, forks pool preserved.
+    pool: 'forks',
+    maxWorkers: 2,
   },
 });

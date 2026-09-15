@@ -32,6 +32,7 @@
     "@tauri-apps/plugin-clipboard-manager": "^2.3.3",
     "@tauri-apps/plugin-notification": "^2.4.0",
     "@vestara/activity-room": "workspace:*",
+    "@vestara/ci-contracts": "workspace:*",
     "@vestara/configuration": "workspace:*",
     "@vestara/design-system": "workspace:*",
     "@vestara/execution-center": "workspace:*",
@@ -61,6 +62,7 @@
   "devDependencies": {
     "@playwright/test": "^1.62.0",
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.3",
     "@types/pngjs": "^6.0.5",

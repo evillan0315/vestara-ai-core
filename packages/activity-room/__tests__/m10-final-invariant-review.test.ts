@@ -17,6 +17,11 @@ import {
   ProjectionRuntime,
 } from '../src/index.js';
 
+// TEST-PERF-001B: the INV-9 performance baseline is opt-in. Default
+// verification (pnpm test / test:fast) must not spend 30–120s rebuilding
+// 1K/10K/100K projections. Enable with VESTARA_PERF=1 (pnpm test:perf).
+const PERF_ENABLED = process.env.VESTARA_PERF === '1';
+
 // ─── Helpers ────────────────────────────────────────────────
 
 let _counter = 0;
@@ -903,9 +908,12 @@ describe('M10 Final Invariant Review', () => {
     });
   });
 
-  // ─── INV-9: Performance Baseline (non-gating) ─────────────
+  // ─── INV-9: Performance Baseline (non-gating, opt-in) ─────
+  //
+  // Skipped in the default suite; assertions are unchanged and never
+  // weakened — this block is opt-in via VESTARA_PERF=1 only.
 
-  describe('INV-9: Performance Baseline (non-gating, recorded as evidence)', () => {
+  describe.runIf(PERF_ENABLED)('INV-9: Performance Baseline (non-gating, recorded as evidence)', () => {
     async function generateRecords(count: number): Promise<readonly ActivityRecord[]> {
       const workflowRunId = makeWorkflowRunId();
       const events = [];

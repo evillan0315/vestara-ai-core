@@ -15,6 +15,9 @@
  * unresolvable from the root under pnpm strict mode; imports resolve
  * relative to this file.
  */
+// Registers jest-dom matchers (toBeInTheDocument, toHaveClass, …) on
+// Vitest's `expect`. Required by the packages/ui component suites.
+import '@testing-library/jest-dom/vitest';
 import { afterEach } from 'vitest';
 
 afterEach(async () => {
