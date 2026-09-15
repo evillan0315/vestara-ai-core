@@ -10,6 +10,8 @@ import {
   DocumentationScanner,
   DocumentationService,
   DocumentationStandardsRegistry,
+  detectImplementationDrift,
+  extractImplementation,
   PUBLIC_PACKAGE_README_FRONTMATTER,
   PUBLIC_PACKAGE_README_SECTIONS,
   parseMarkdown,
@@ -394,6 +396,55 @@ describe('documentation automation', () => {
     expect(rules.has('implementation-route-exists')).toBe(true);
     expect(rules.has('implementation-command-exists')).toBe(true);
     expect(rules.has('public-symbol-documented')).toBe(true);
+  });
+
+  it('invents regex-registered routes only from their own guard (no bleed)', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'vestara-docs-routes-'));
+    roots.push(root);
+    fs.mkdirSync(path.join(root, 'apps/api/src/routes'), { recursive: true });
+    // Mirrors the conversations-router idiom: each `p.match()` pairs with
+    // the FIRST `if (… var …)` guard after it; methods come from that guard
+    // alone so neighboring cancel/active blocks cannot contaminate results.
+    fs.writeFileSync(
+      path.join(root, 'apps/api/src/routes/conversations.ts'),
+      [
+        'const cancelMatch = p.match(/^\\/api\\/conversations\\/([^/]+)\\/cancel$/);',
+        "if (cancelMatch && method === 'POST') {",
+        '  json(res, 200, {});',
+        '}',
+        'const activeMatch = p.match(/^\\/api\\/conversations\\/([^/]+)\\/active$/);',
+        "if (activeMatch && method === 'GET') {",
+        '  json(res, 200, {});',
+        '}',
+        '// Decomposed via match[1]: methods are action-dependent, skip it.',
+        'const match = p.match(/^\\/api\\/conversations\\/([^/]+)(?:\\/(messages|stream))?$/);',
+        'const conversationId = decodeURIComponent(match[1] as string);',
+        '',
+      ].join('\n'),
+    );
+    const inventory = extractImplementation(root, []);
+    const routes = new Set(inventory.apiRoutes.map((route) => `${route.method} ${route.path}`));
+    expect(routes.has('POST /api/conversations/:id/cancel')).toBe(true);
+    expect(routes.has('GET /api/conversations/:id/active')).toBe(true);
+    // The generic decomposed match must not fabricate entries.
+    expect([...routes].some((route) => route.includes('messages') || route.includes('stream'))).toBe(false);
+  });
+
+  it('does not read frontmatter line breaks as vestara CLI invocations', () => {
+    const repository = { id: 'fixture', path: '/fixture', authority: 'implementation' as const };
+    const document = createDocumentEntity(
+      repository,
+      'docs/architecture/VES-TG-001-channel-architecture.md',
+      '---\ntitle: T\nowner: vestara\nlast-reviewed: 2026-09-14\n---\n\n# T\n',
+    );
+    const findings = detectImplementationDrift([document], {
+      packages: [],
+      packageScripts: {},
+      publicSymbols: [],
+      apiRoutes: [],
+      cliCommands: [],
+    });
+    expect(findings.some((finding) => finding.ruleId === 'implementation-command-exists')).toBe(false);
   });
 
   it('fails a baseline only for newly introduced error findings', async () => {

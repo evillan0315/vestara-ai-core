@@ -21,6 +21,7 @@ import type { OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import type { CompletionRequest, StreamChunk } from '@vestara/shared';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AssistantBindingError, createAssistantBindingResolver } from '../src/assistant-binding-resolver';
+import type { AssistantCapabilityPolicy } from '../src/assistant-capability-policy';
 import { createDefaultAssistantPolicy } from '../src/assistant-capability-policy';
 import { AssistantConversationSessionRegistry } from '../src/assistant-conversation-sessions';
 import { AssistantInteractionBroker } from '../src/assistant-interaction-broker';
@@ -90,6 +91,21 @@ async function collect(executor: ProviderExecutor, request: CompletionRequest): 
 }
 
 const POLICY = createDefaultAssistantPolicy('/repo');
+
+/**
+ * ASK-path policy for the interactive broker tests below. The default
+ * policy grants full assistant authority (GA-CAP-001: edit/bash auto-allow),
+ * so the broker ASK round-trip can only be exercised with a policy that
+ * surfaces the tested action to the user. Product behavior is unchanged —
+ * only the test's policy selects the ASK branch it intends to prove.
+ */
+function askPolicyFor(action: 'edit' | 'bash'): AssistantCapabilityPolicy {
+  return {
+    repositoryDir: '/repo',
+    defaultDecision: 'deny',
+    rules: [{ action, decision: 'ask', reason: `test: surface ${action} to the user` }],
+  };
+}
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -444,7 +460,7 @@ describe('GA-RUNTIME-001 B: interactive permission/question decisions', () => {
       workspaceId: 'ws',
       directory: '/repo',
       agent: 'vestara-assistant',
-      capabilityPolicy: POLICY,
+      capabilityPolicy: askPolicyFor('edit'),
       interactionBroker: broker,
     });
     const streamPromise = collect(executor, makeRequest());
@@ -475,7 +491,7 @@ describe('GA-RUNTIME-001 B: interactive permission/question decisions', () => {
       workspaceId: 'ws',
       directory: '/repo',
       agent: 'vestara-assistant',
-      capabilityPolicy: POLICY,
+      capabilityPolicy: askPolicyFor('bash'),
       interactionBroker: broker,
     });
     const streamPromise = collect(executor, makeRequest());

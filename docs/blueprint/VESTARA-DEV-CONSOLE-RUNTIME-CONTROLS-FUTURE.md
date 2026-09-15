@@ -5,7 +5,7 @@ status: future-development
 owner: vestara
 recorded: 2026-09-11
 last-reviewed: 2026-09-11
-next-review: TBD
+next-review: 2026-10-15
 authorization: NOT AUTHORIZED FOR IMPLEMENTATION
 ---
 

@@ -33,9 +33,9 @@ runtime and product capabilities.
 
 ## Engineering Reference
 
-- [Generated package API reference](api/index.html): browse the TypeDoc
-  reference and [package catalog](api/PACKAGE_CATALOG.md). Regenerate with
-  `pnpm generate-docs`.
+- Generated package API reference: run `pnpm generate-docs` to build the
+  TypeDoc reference and package catalog under `docs/api/` (generated output,
+  not committed), then browse them there.
 - [AI-OS architecture](AI-OS-ARCHITECTURE.md)
 - [Architecture traceability](ARCHITECTURE_TRACEABILITY.md)
 - [Implementation status](IMPLEMENTATION_STATUS.md)

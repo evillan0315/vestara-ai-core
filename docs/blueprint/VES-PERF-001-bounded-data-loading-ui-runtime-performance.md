@@ -5,6 +5,9 @@ status: implemented
 owner: vestara
 recorded: 2026-09-11
 last-reviewed: 2026-09-11
+next-review: 2026-10-15
+implementation-repository: vestara-ai-core
+implementation-commit: 04ddb866c7dfa02845b396062996bf8c24e54d2e
 scope: "Audit (v1.0) + bounded implementation PERF-001A–D. PERF-001E deferred pending profiling."
 ---
 

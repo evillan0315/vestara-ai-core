@@ -941,7 +941,31 @@ describe('runSystemStatus', () => {
         await runSystemStatus(['--format=table']);
 
         const calls = mockConsoleLog.mock.calls.map((c) => String(c[0])).join('\n');
-        expect(calls).not.toContain('health');
+        // Legitimate statuses contain 'healthy' (which embeds the substring
+        // 'health'), so assert on the section header instead: the formatters
+        // skip the `health` section, whose header would be a bare `health`
+        // line, while provider health rides indented `health.*` detail rows.
+        // (Char-loop on purpose: an ANSI regex literal trips
+        // lint/suspicious/noControlCharactersInRegex.)
+        const stripAnsi = (s: string): string => {
+          const esc = String.fromCharCode(27);
+          let out = '';
+          let i = 0;
+          while (i < s.length) {
+            if (s[i] === esc) {
+              const end = s.indexOf('m', i);
+              i = end === -1 ? s.length : end + 1;
+            } else {
+              out += s[i];
+              i += 1;
+            }
+          }
+          return out;
+        };
+        const lines = stripAnsi(calls)
+          .split('\n')
+          .map((l) => l.trim());
+        expect(lines).not.toContain('health');
       });
 
       it('works with -f shorthand', async () => {
@@ -982,7 +1006,10 @@ describe('runSystemStatus', () => {
         await runSystemStatus(['--format=csv']);
 
         const calls = mockConsoleLog.mock.calls.map((c) => String(c[0])).join('\n');
-        expect(calls).not.toContain('health');
+        // Same substring caveat as the table test above ('healthy' values,
+        // `health.*` provider detail keys). A `health` section would emit
+        // rows prefixed `"health",` — assert on that section framing.
+        expect(calls).not.toContain('"health",');
       });
 
       it('escapes quotes in CSV values', async () => {

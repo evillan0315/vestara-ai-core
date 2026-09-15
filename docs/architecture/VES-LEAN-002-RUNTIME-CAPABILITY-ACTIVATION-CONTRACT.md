@@ -3,6 +3,8 @@ title: VES-LEAN-002 — Runtime Capability & Activation Profile Contract
 version: 1.0.0
 status: complete
 owner: vestara
+last-reviewed: 2026-09-15
+next-review: 2026-10-15
 date: 2026-09-10
 milestone: VES-LEAN-002
 mode: architecture contract / minimal implementation

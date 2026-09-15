@@ -672,28 +672,32 @@ const MILESTONES: Milestone[] = [
     name: 'Architecture & Ownership Audit',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Audit current Assistant response/result/rendering, Marketplace extension contracts/runtime, permissions, Activity Room projection, UI extension points — zero mutation',
+    description:
+      'Audit current Assistant response/result/rendering, Marketplace extension contracts/runtime, permissions, Activity Room projection, UI extension points — zero mutation',
   },
   {
     version: 'SRX-002',
     name: 'Structured Result Contracts',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Provider/UI-independent StructuredAssistantResult, sections, findings, recommendations, evidence, provenance, SuggestedAction in @vestara/assistant-result-contracts (Layer-0)',
+    description:
+      'Provider/UI-independent StructuredAssistantResult, sections, findings, recommendations, evidence, provenance, SuggestedAction in @vestara/assistant-result-contracts (Layer-0)',
   },
   {
     version: 'SRX-003',
     name: 'Global Assistant Extension Port',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Generic result extension interface and lifecycle; Assistant behaves identically when no extension exists',
+    description:
+      'Generic result extension interface and lifecycle; Assistant behaves identically when no extension exists',
   },
   {
     version: 'SRX-004',
     name: 'Marketplace Package',
     era: 'Marketplace',
     status: 'pending',
-    description: '@vestara/ext-structured-results with manifest, dependencies, capabilities, install/uninstall/enable/disable lifecycle',
+    description:
+      '@vestara/ext-structured-results with manifest, dependencies, capabilities, install/uninstall/enable/disable lifecycle',
   },
   {
     version: 'SRX-005',
@@ -707,14 +711,16 @@ const MILESTONES: Milestone[] = [
     name: 'Result Interpreter',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Transform ordinary Markdown responses into structured projections with confidence scoring, provenance, and UNKNOWN fallback',
+    description:
+      'Transform ordinary Markdown responses into structured projections with confidence scoring, provenance, and UNKNOWN fallback',
   },
   {
     version: 'SRX-007',
     name: 'Interactive Renderer',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Result header, summary, findings, recommendations, evidence, collapsed tool activity, technical details, raw-response fallback — all using canonical Vestara tokens',
+    description:
+      'Result header, summary, findings, recommendations, evidence, collapsed tool activity, technical details, raw-response fallback — all using canonical Vestara tokens',
   },
   {
     version: 'SRX-008',
@@ -735,7 +741,8 @@ const MILESTONES: Milestone[] = [
     name: 'Dogfood & Freeze',
     era: 'Marketplace',
     status: 'pending',
-    description: 'Primary acceptance: "Review token usage" scenario; test all result types, extension disabled/uninstalled, malformed output, interpretation failure, permission denial',
+    description:
+      'Primary acceptance: "Review token usage" scenario; test all result types, extension disabled/uninstalled, malformed output, interpretation failure, permission denial',
   },
   // Identity Era — Vestara User & Identity Management (Proposed/Parked; no implementation authorized)
   {
@@ -743,49 +750,56 @@ const MILESTONES: Milestone[] = [
     name: 'Cross-Platform Identity & User Ownership Audit',
     era: 'Identity',
     status: 'pending',
-    description: 'Zero-mutation audit of User/Human/Principal/Identity/ExternalIdentity/Session/Surface/WorkspaceMember/Role/Permission/Participant/Actor; ownership matrix + KEEP/ADAPT/REBUILD/RETIRE',
+    description:
+      'Zero-mutation audit of User/Human/Principal/Identity/ExternalIdentity/Session/Surface/WorkspaceMember/Role/Permission/Participant/Actor; ownership matrix + KEEP/ADAPT/REBUILD/RETIRE',
   },
   {
     version: 'UIM-002',
     name: 'Canonical Human Principal & User Contracts',
     era: 'Identity',
     status: 'pending',
-    description: 'HumanPrincipal, UserProfile, UserStatus, IdentityReference + invited/active/suspended/disabled/deleted lifecycle; no duplication of Principal ownership',
+    description:
+      'HumanPrincipal, UserProfile, UserStatus, IdentityReference + invited/active/suspended/disabled/deleted lifecycle; no duplication of Principal ownership',
   },
   {
     version: 'UIM-003',
     name: 'External Identity & Account Linking',
     era: 'Identity',
     status: 'pending',
-    description: 'Provider-neutral ExternalIdentity with governed link/unlink/conflict/recovery/UNKNOWN semantics; Telegram first dogfood; never merge on heuristics',
+    description:
+      'Provider-neutral ExternalIdentity with governed link/unlink/conflict/recovery/UNKNOWN semantics; Telegram first dogfood; never merge on heuristics',
   },
   {
     version: 'UIM-004',
     name: 'Surface / Client Identity Separation',
     era: 'Identity',
     status: 'pending',
-    description: 'Canonical surface representation; HumanPrincipal via Surface, never Surface = principal; surface informs context, grants no authority',
+    description:
+      'Canonical surface representation; HumanPrincipal via Surface, never Surface = principal; surface informs context, grants no authority',
   },
   {
     version: 'UIM-005',
     name: 'Workspace Membership',
     era: 'Identity',
     status: 'pending',
-    description: 'Canonical WorkspaceMembership with invitation/acceptance/suspension/removal + historical representation; membership is not permission authority',
+    description:
+      'Canonical WorkspaceMembership with invitation/acceptance/suspension/removal + historical representation; membership is not permission authority',
   },
   {
     version: 'UIM-006',
     name: 'Roles & Permission Assignment',
     era: 'Identity',
     status: 'pending',
-    description: 'Role assignment integrated with existing authorization contracts; policy evaluation authoritative; no role-equals-admin hard-coding',
+    description:
+      'Role assignment integrated with existing authorization contracts; policy evaluation authoritative; no role-equals-admin hard-coding',
   },
   {
     version: 'UIM-007',
     name: 'Session & Device Management',
     era: 'Identity',
     status: 'pending',
-    description: 'Session visibility, metadata, revoke-one/revoke-others, expiry, suspicious-session representation; never expose credentials',
+    description:
+      'Session visibility, metadata, revoke-one/revoke-others, expiry, suspicious-session representation; never expose credentials',
   },
   {
     version: 'UIM-008',
@@ -806,21 +820,24 @@ const MILESTONES: Milestone[] = [
     name: 'Activity Room Identity Convergence',
     era: 'Identity',
     status: 'pending',
-    description: 'One principal across surfaces in projection; provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
+    description:
+      'One principal across surfaces in projection; provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
   },
   {
     version: 'UIM-011',
     name: 'Global Assistant User Context',
     era: 'Identity',
     status: 'pending',
-    description: 'Assistant consumes principal/workspace/surface context; identity/surface/conversation/execution/authority stay distinct; context never grants permissions',
+    description:
+      'Assistant consumes principal/workspace/surface context; identity/surface/conversation/execution/authority stay distinct; context never grants permissions',
   },
   {
     version: 'UIM-012',
     name: 'Audit & Security History',
     era: 'Identity',
     status: 'pending',
-    description: 'Inspectable sign-in/linking/membership/role/admin/revocation/suspension history; observed vs claimed vs verified distinguished',
+    description:
+      'Inspectable sign-in/linking/membership/role/admin/revocation/suspension history; observed vs claimed vs verified distinguished',
   },
   {
     version: 'UIM-013',
@@ -834,21 +851,24 @@ const MILESTONES: Milestone[] = [
     name: 'Multi-Surface Dogfood',
     era: 'Identity',
     status: 'pending',
-    description: 'One human via Workspace UI + Telegram, one canonical identity; full attribution/provenance/permission/history verification',
+    description:
+      'One human via Workspace UI + Telegram, one canonical identity; full attribution/provenance/permission/history verification',
   },
   {
     version: 'UIM-015',
     name: 'Multi-User Dogfood',
     era: 'Identity',
     status: 'pending',
-    description: 'Second controlled human; isolation, roles, permission differences, attribution, admin boundaries; proves beyond Customer #1',
+    description:
+      'Second controlled human; isolation, roles, permission differences, attribution, admin boundaries; proves beyond Customer #1',
   },
   {
     version: 'UIM-016',
     name: 'Verification, Evidence & Freeze',
     era: 'Identity',
     status: 'pending',
-    description: 'Full architecture/contract/security/authorization/API/persistence/UI/integration verification; freeze only on dogfood evidence',
+    description:
+      'Full architecture/contract/security/authorization/API/persistence/UI/integration verification; freeze only on dogfood evidence',
   },
 ];
 

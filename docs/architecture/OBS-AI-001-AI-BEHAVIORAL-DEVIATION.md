@@ -3,6 +3,8 @@ title: OBS-AI-001 — AI Behavioral Deviation Observation
 version: 1.0.0
 status: evidence-only
 owner: vestara
+last-reviewed: 2026-09-15
+next-review: 2026-10-15
 date: 2026-09-10
 classification: observation
 ---

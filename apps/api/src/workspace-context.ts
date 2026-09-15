@@ -862,6 +862,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       // GA-CAP-003: Vestara-owned capability boundary for the Global Assistant.
       // repositoryDir originates from canonical resolveRepoRoot() — never .vestara, cwd, or UI state.
       capabilityPolicy: createDefaultAssistantPolicy(abs),
+      // Cancellation-boundary attribution: every turn start/end/abort is
+      // recorded with conversation + OpenCode session identity and the
+      // termination reason, so a future OpenCode "Interrupted" state is
+      // attributable to its Vestara operation instead of merely observed.
+      logger: kernel.logger,
     });
     log('assistant-execution: local OpenCode adapter active (127.0.0.1:4096)');
   } catch (error) {

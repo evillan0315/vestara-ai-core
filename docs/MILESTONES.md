@@ -3883,7 +3883,7 @@ This model must allow one human to interact through multiple surfaces without Ve
 
 **What changed** (narrow, production-correct):
 
-- `POST /api/conversations/:id/stream` drains a disconnected turn to natural completion instead of breaking the generator (`break` → `continue`). Breaking called `generator.return()` → adapter `finally` → `abortSession`, which made reload == cancel.
+- The per-conversation `stream` turn route drains a disconnected turn to natural completion instead of breaking the generator (`break` → `continue`; see `handleConversationsRoute` in `apps/api/src/routes/conversations.ts`). Breaking called `generator.return()` → adapter `finally` → `abortSession`, which made reload == cancel.
 - Adapter `TurnTermination` default `failed` → `detached`; genuine exceptions promote to `failed` via `catch`, and a stream that is fully consumed without idle/timeout/cancel promotes to `failed` after the event loop (abnormal end still settles via abort — GA-RUNTIME-001 cancel-safety preserved). Early consumer return (`generator.return()` on reload disconnect) jumps straight to `finally` and never reaches either promotion, so it stays `detached`. Explicit Stop (`POST /cancel` → signal) still classifies `cancelled` and aborts exactly the matching session.
 - `GET /api/conversations/:id/active` exposes authoritative in-flight truth plus persisted `runtimeSessionId` for reloaded-UI discovery. Second `POST /stream` while in-flight returns `409 conversation-busy` (reattach ≠ create).
 - `useAssistantConversation` probes `/active` on selection restore and polls (2s) until settlement, then reloads canonical messages. Pre-reload partial deltas are not replayed — only the persisted completion is presented.
@@ -3907,3 +3907,84 @@ This model must allow one human to interact through multiple surfaces without Ve
 **Tests** (`vitest --maxWorkers=2`, 2026-09-15): `assistant-reload-survival` 6/6, `assistant-opencode-adapter` 19/19, `conversations` 12/12, `conversations-cancel` + `ga-execution-config` + survival combined 56/56, `packages/conversation` 81/81, `telegram-route` + `telegram-integration` 204/204, `ga-ui-007-global-assistant-window` 9/9. `ga-runtime-001` 24/26 — the 2 ASK-permission failures also fail on the unmodified tree (pre-existing, unrelated to this change; verified by reverting the adapter and re-running). Full-repo `test:fast` and full `apps/api` directory runs do not complete on this box (hang past 280–850s with the director's live dev API on `:3001` running; per repo guidance the live runtime must be stopped first, which was deliberately not done — process-ownership boundary).
 
 **Status**: ✅ Implemented + unit/handler-verified; pending owner API restart + live-model reload dogfood.
+
+---
+
+## Activity Room Duplicate-Message Repair (@developer dogfood) ✅ Implemented 2026-09-15
+
+**Defect**: one human submission to a turn-capable agent rendered twice in the
+M11C stream while the agent execution stayed singular.
+
+**Root cause (proven at the M9 append boundary)**: dual writers with different
+id domains. `sendActivityMessage` mirrored the legacy record directly
+(`human.message:<legacyActivityId>`) AND the turn's
+`conversation:message.sent` was ingested by the EventBus bridge as
+`human.message:<convMessageId>`. Live proof in `.vestara/m9-activity.db`:
+sequences 556/557, same `@developer …` content 160ms apart, two eventIds.
+Client merge dedupes by id, so it could never collapse them. Creation,
+ingestion mapping, delivery, and rendering were each innocent in isolation.
+
+**Repair (single M9 writer per message, identity-based)**: a turn-triggering
+message (`isTurnProjected`, exactly the turn-trigger predicate) skips the
+direct mirror — the bridge owns its projection. Messages with no turn keep
+the mirror as their only M9 path. No content/actor/timestamp dedup: two
+intentionally identical submissions still yield two records. Receipts,
+badges, turn triggering, and the agent-reply mirror are untouched.
+
+**Tests** (`vitest --maxWorkers=2`): new
+`apps/api/__tests__/activity-room-duplicate-message.test.ts` 3/3 — one
+submission → one M9 record; two identical submissions → two records;
+broadcast (no turn) → one record via mirror. Fails without the fix (2
+failed: duplicate reproduced). Neighbor suites green: activity-room route
+files 43/43, `packages/activity-room` 348/349 (1 pre-existing
+`contracts.test.ts` allowlist failure, repaired below).
+
+**Status**: ✅ Implemented + regression-pinned.
+
+---
+
+## OpenCode Abort Attribution + 15-Minute Timeout Finding (regression investigation) ✅ Instrumented 2026-09-15
+
+**Observed**: two unexpected OpenCode `MessageAbortedError` ("Interrupted")
+states on `ses_f5c2f6c…` with the Vestara conversation surviving both times.
+
+**Initiator (proven, not a detach regression)**: the Vestara 15-minute turn
+deadline. Turn 1 stream-start 07:27:06.561Z → abort completion 07:42:06.908Z
+(+15:00.3s); turn 2 ("resume") 07:44:01.859Z → abort ~07:59:02 (+15:00.3s).
+`termination='timeout'` → `requiresAbort` → `POST /session/:id/abort`.
+No `.env` override; UI default is 15 min. Excluded with evidence:
+`/cancel` (only Stop calls it; no Stop signature), reload/disconnect
+(`detached` never aborts), reattach polls (GET-only), duplicate prompts (no
+second user message in either store), OpenCode self-interrupt (server uptime
+continuous since Sep 14; OpenCode has no 15-minute abort concept).
+`agent: vestara-assistant` on the aborted steps is this project's configured
+agent for all turns, not session sharing.
+
+**Instrumentation (minimum observability)**: optional structural `logger` on
+the adapter (no new package dependency), wired to `kernel.logger`;
+`assistant.turn.started` (conversation + session identity, timeout, budget),
+`assistant.turn.ended` (termination, elapsed, aborting, signal state), and
+warn-level `assistant.turn.abortSession` (reason + both IDs) before every
+abort. Stop remains authoritative and idempotent; no aborts suppressed.
+
+**Tests**: 3 new attribution cases in `assistant-opencode-adapter.test.ts`
+(timeout→reason=timeout, completed→no abort warn, Stop→reason=cancelled):
+22/22 file green; neighbors 49/49; dist-level log proof.
+
+**Explicitly not changed**: the 15-minute deadline stands (per directive);
+timeout-abort behavior is intended (GA-EXEC-002). Long dogfood turns will
+keep hitting it — raise per-turn via the composer execution controls.
+
+**Status**: ✅ Cause proven + attribution shipped (live-log visibility pending
+owner API restart); deadline policy unchanged by design.
+
+---
+
+## Stale `ACTIVITY_KINDS` Allowlist ✅ Repaired 2026-09-15
+
+`packages/activity-room/__tests__/contracts.test.ts` expected 6 kinds while
+the contract declares 8. Proven intentional: `ToolCallActivity` /
+`ToolResultActivity` interfaces in `contracts.ts`, produced by
+`agent-message-projector`, mapped in `m9-to-projection` KIND_MAP, handled in
+`service.ts` + `m10-projection-runtime` (introduced deliberately in
+`9ca3c34`). Updated the test allowlist only; 5/5 green. No product change.

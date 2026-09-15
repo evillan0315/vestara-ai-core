@@ -114,6 +114,17 @@ Tracks `UsageEvent` values and derives `SettingUsage`, `ModuleUsage`, and
 `OptimizationSuggestion` results. `AnalyticsOptions` controls filtering and
 retention behavior.
 
+## Modules
+
+### Theme builder module (`modules/theme-builder.js`)
+
+Registers the theme-builder settings surface through `registerThemeBuilderModule`.
+`THEME_BUILDER_MODULE_ID` (`theme-builder`) and `THEME_BUILDER_MODULE_PATH`
+(`/settings/theme-builder`) identify it. `themeBuilderModule`,
+`themeBuilderRoutes`, `themeBuilderSections`, `themeBuilderEntries`, and
+`themeBuilderPermissions` describe its routes, sections, entries, and
+permission records.
+
 ## Compatibility policy
 
 - Removing or renaming a barrel export is a breaking change.

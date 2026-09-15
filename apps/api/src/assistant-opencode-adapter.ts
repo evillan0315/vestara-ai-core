@@ -103,6 +103,19 @@ export interface AssistantOpenCodeExecutorOptions {
    * When absent, the adapter behaves as before (all permissions surfaced).
    */
   capabilityPolicy?: AssistantCapabilityPolicy;
+  /**
+   * Attribution sink for the cancellation boundary. Every turn start/end
+   * and every OpenCode abort is recorded here with its reason
+   * (termination classification) and originating operation identity
+   * (conversationId + OpenCode sessionId), so a future "Interrupted"
+   * state is attributable instead of merely observed. Structural type
+   * (not @vestara/logger) to avoid a new package dependency; wired to
+   * kernel.logger in production, absent in unit tests.
+   */
+  logger?: {
+    info(message: string, context?: Record<string, unknown>): void;
+    warn(message: string, context?: Record<string, unknown>): void;
+  };
 }
 
 // GA-EXEC-001: Default turn timeout. Overridden by:
@@ -279,6 +292,17 @@ export async function* runAssistantOpenCodeTurn(
   })();
 
   const deadline = Date.now() + turnTimeoutMs;
+  const turnStartedAt = Date.now();
+  // Cancellation-boundary attribution: record the turn start with its
+  // originating identities and bounds, so any later abort names this turn.
+  options.logger?.info('assistant.turn.started', {
+    conversationId: request.conversationId,
+    sessionId: resolvedSessionId,
+    provider: turnProvider,
+    model: turnModel?.modelID,
+    turnTimeoutMs,
+    maxToolCalls,
+  });
   const shellStartedAt = new Map<string, number>();
   let sequence = 0;
   // GA-DETACH-001: Track how the turn ended. This determines whether the
@@ -800,7 +824,30 @@ export async function* runAssistantOpenCodeTurn(
     // explicit cancellation — the session must not remain alive after Vestara
     // has declared the turn failed.
     const explicitCancellation = request.signal?.aborted === true;
-    if (requiresAbort(termination)) {
+    const elapsedMs = Date.now() - turnStartedAt;
+    const aborting = requiresAbort(termination);
+    // Cancellation-boundary attribution: every turn end records its
+    // classification; every abort additionally records its reason at warn
+    // level BEFORE the abort is issued, so a later OpenCode "Interrupted"
+    // state maps to exactly one Vestara operation + reason.
+    options.logger?.info('assistant.turn.ended', {
+      conversationId: request.conversationId,
+      sessionId: resolvedSessionId,
+      termination,
+      elapsedMs,
+      toolCallCount,
+      aborting,
+      signalAborted: explicitCancellation,
+    });
+    if (aborting) {
+      options.logger?.warn('assistant.turn.abortSession', {
+        conversationId: request.conversationId,
+        sessionId: resolvedSessionId,
+        reason: termination,
+        elapsedMs,
+        toolCallCount,
+        signalAborted: explicitCancellation,
+      });
       try {
         await client.abortSession(resolvedSessionId, context);
       } catch {

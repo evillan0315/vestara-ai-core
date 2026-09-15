@@ -29,7 +29,10 @@ describe('cli-runtime', () => {
     expect(runtime.conversationEngine).toBe(mockServices.conversationEngine);
     expect(runtime.conversationService).toBe(mockServices.conversationService);
     expect(runtime.conversationId).toBe('conv-1');
-    expect(runtime.activity).toBe(mockServices.activity);
+    // No `activity` assertion: CliRuntimeServices never declared an
+    // `activity` service and CliRuntime exposes no such getter (source
+    // authority) — the old assertion tested a contract that was never
+    // implemented. Extra mock fields remain harmless.
     expect(runtime.providerRouter).toBe(mockServices.providerRouter);
   });
 

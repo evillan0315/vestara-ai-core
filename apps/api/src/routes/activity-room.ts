@@ -191,10 +191,20 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
+      // Single M9 writer per message: a turn-triggering message is projected
+      // into M9 by the EventBus bridge (same logical message, eventId
+      // `human.message:<convMsgId>`), so the direct legacy mirror below must
+      // be skipped — otherwise one submission yields two M9 records under two
+      // eventIds with identical content (duplicate-message defect). Messages
+      // with no turn keep the direct mirror as their only M9 path.
+      const triggersTurn = isTurnProjected(record.agentId);
+      if (!triggersTurn) {
+        void mirrorHumanMessageToM9(record);
+      }
       // AR-006: Trigger an agent turn for targeted messages from addressable
       // agents only. Non-addressable targets (browser/coder/unknown) produce
       // NO turn — never fall back to Assistant (AR Convergence step 3).
-      if (record.agentId && TURN_CAPABLE_AGENTS.has(record.agentId)) {
+      if (triggersTurn) {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
@@ -237,8 +247,14 @@ export async function handleActivityRoomRoute(
     const record = await sendActivityMessage(ctx, room, res, agentId, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
+      // Single M9 writer per message (see /api/messages above): a direct
+      // message to a turn-capable agent is bridge-projected via its turn.
+      const triggersTurn = isTurnProjected(agentId);
+      if (!triggersTurn) {
+        void mirrorHumanMessageToM9(record);
+      }
       // AR-006: Trigger an agent turn for direct agent messages — forward executionConfig when provided
-      if (TURN_CAPABLE_AGENTS.has(agentId)) {
+      if (triggersTurn) {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
@@ -516,11 +532,12 @@ async function sendActivityMessage(
       /* receipt seeding is best-effort */
     }
     json(res, 201, { record: appended });
-    // M11C visibility: the Activity Room page reads the M9 projection (M11A
-    // snapshot + M11B live), not the legacy store above. Mirror the human
-    // message into M9 so the sent message actually appears. Fire-and-forget:
-    // a mirror failure must not fail an appended message.
-    void mirrorHumanMessageToM9(appended);
+    // M11C visibility is handled by the caller (see the turn-predicate
+    // mirror below): messages that trigger a conversation-runtime turn are
+    // projected into M9 by the EventBus bridge (`conversation:message.sent`
+    // → `human.message:<convMsgId>`); only messages with no turn use the
+    // direct legacy→M9 mirror. Mirroring in both places manufactured a
+    // second M9 record under a different eventId for one submission.
     return appended;
   } catch (error) {
     json(res, 500, {
@@ -578,6 +595,20 @@ const TURN_CAPABLE_AGENTS = new Set([
   'agent-reviewer',
   'agent-verifier',
 ]);
+
+/**
+ * Whether a human record's M9 projection is owned by the EventBus bridge
+ * (exactly the condition that triggers a conversation-runtime turn for it).
+ * The bridge ingests the turn's `conversation:message.sent` under eventId
+ * `human.message:<convMsgId>`; a turn-projected message must therefore skip
+ * the direct legacy→M9 mirror (eventId `human.message:<legacyId>`), or one
+ * submission becomes two M9 records. Non-turn messages keep the mirror as
+ * their only M9 path. Identity-based (agent target), never content-based:
+ * two intentionally identical submissions still yield two records each.
+ */
+function isTurnProjected(agentId: string | undefined): boolean {
+  return agentId !== undefined && TURN_CAPABLE_AGENTS.has(agentId);
+}
 
 /** Display names and roles for turn-capable agents (registry fallback). */
 const TURN_AGENT_IDENTITY: Record<string, { displayName: string; role: string }> = {

@@ -3,6 +3,8 @@ title: AR-GA-005 — Activity Room Production Convergence Audit
 version: 1.0.0
 status: complete
 owner: vestara
+last-reviewed: 2026-09-15
+next-review: 2026-10-15
 date: 2026-09-11
 mode: exploration / audit / analysis only
 ---

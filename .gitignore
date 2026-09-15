@@ -7,6 +7,10 @@ node_modules/
 *.js
 *.d.ts
 !types/sql-js.d.ts
+# Hand-written AudioWorklet global-scope ambient declarations (source, not
+# generated output — required for a clean-checkout `tsc -b` of
+# @vestara/media-conference; CI has no other way to obtain it).
+!packages/media-conference/types/audioworklet.d.ts
 
 # Keep vitest config source only
 vitest.config.js
@@ -462,6 +466,12 @@ docs/build/
 *.jpeg
 *.gif
 *.webp
+# Tauri bundle icons referenced by apps/workspace/src-tauri/tauri.conf.json
+# (Linux .deb/.rpm/.AppImage targets require these PNGs at `tauri build`
+# time; icon.icns/icon.ico are already tracked, so track the PNG set too).
+!apps/workspace/src-tauri/icons/32x32.png
+!apps/workspace/src-tauri/icons/128x128.png
+!apps/workspace/src-tauri/icons/128x128@2x.png
 !public/**/*.png
 !public/**/*.jpg
 !public/**/*.jpeg

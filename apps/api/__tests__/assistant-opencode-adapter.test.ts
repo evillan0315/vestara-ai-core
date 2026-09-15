@@ -652,4 +652,151 @@ describe('createAssistantOpenCodeExecutor — runAssistantOpenCodeTurn', () => {
       expect(abortedSessions).toEqual(['sess-1']);
     });
   });
+
+  // ─── Cancellation-boundary attribution ────────────────────
+  // Regression investigation (unexpected "Interrupted" state): every turn
+  // start/end and every OpenCode abort must name its reason
+  // (termination classification) and originating operation identity
+  // (conversationId + OpenCode sessionId) instead of merely appearing as
+  // Interrupted. These tests pin that contract.
+
+  describe('cancellation-boundary attribution', () => {
+    function memoryLogger() {
+      const records: Array<{ level: string; message: string; context?: Record<string, unknown> }> = [];
+      return {
+        records,
+        logger: {
+          info: (message: string, context?: Record<string, unknown>) => {
+            records.push({ level: 'info', message, context });
+          },
+          warn: (message: string, context?: Record<string, unknown>) => {
+            records.push({ level: 'warn', message, context });
+          },
+        },
+      };
+    }
+
+    function blockingClient(): Partial<OpenCodeHttpClient> {
+      return {
+        createSession: async () => ({ id: 'sess-1', status: 'idle' as const }),
+        sendMessageAsync: async () => undefined,
+        openEventStream: async function* (_ctx, signal) {
+          yield sseEvent('e1', 'session.next.text.delta', { delta: 'Working...' });
+          await new Promise<void>((resolve) => {
+            const timer = setTimeout(resolve, 5000);
+            signal?.addEventListener(
+              'abort',
+              () => {
+                clearTimeout(timer);
+                resolve();
+              },
+              { once: true },
+            );
+          });
+        } as OpenCodeHttpClient['openEventStream'],
+        getSessionDiff: async () => [] as never,
+        getSessionTodos: async () => [] as never,
+        abortSession: async () => undefined,
+      };
+    }
+
+    it('timeout abort records reason=timeout with conversation + session identity', async () => {
+      const { records, logger } = memoryLogger();
+      const aborted: string[] = [];
+      const client = blockingClient();
+      client.abortSession = async (id: string) => {
+        aborted.push(id);
+      };
+      for await (const _ of runAssistantOpenCodeTurn(
+        {
+          client: client as unknown as OpenCodeHttpClient,
+          workspaceId: 'ws-test',
+          directory: '/repo',
+          agent: 'vestara-assistant',
+          turnTimeoutMs: 100,
+          logger,
+        },
+        { ...makeRequest(), conversationId: 'conv-attr-timeout' },
+      )) {
+        // drain
+      }
+      expect(aborted).toEqual(['sess-1']);
+      const started = records.find((r) => r.message === 'assistant.turn.started');
+      expect(started?.context).toMatchObject({ conversationId: 'conv-attr-timeout', sessionId: 'sess-1' });
+      const ended = records.find((r) => r.message === 'assistant.turn.ended');
+      expect(ended?.context).toMatchObject({ termination: 'timeout', aborting: true, sessionId: 'sess-1' });
+      const abort = records.find((r) => r.message === 'assistant.turn.abortSession');
+      expect(abort?.level).toBe('warn');
+      expect(abort?.context).toMatchObject({
+        reason: 'timeout',
+        conversationId: 'conv-attr-timeout',
+        sessionId: 'sess-1',
+      });
+    }, 10000);
+
+    it('completed turn records termination=completed with aborting=false and no abort warn', async () => {
+      const { records, logger } = memoryLogger();
+      const aborted: string[] = [];
+      const client = eventClient([
+        sseEvent('e1', 'session.next.text.delta', { delta: 'Hello' }),
+        sseEvent('e2', 'session.status', { status: { type: 'idle' } }),
+      ]);
+      client.abortSession = async (id: string) => {
+        aborted.push(id);
+      };
+      for await (const _ of runAssistantOpenCodeTurn(
+        {
+          client: client as unknown as OpenCodeHttpClient,
+          workspaceId: 'ws-test',
+          directory: '/repo',
+          agent: 'vestara-assistant',
+          turnTimeoutMs: 30000,
+          logger,
+        },
+        { ...makeRequest(), conversationId: 'conv-attr-done' },
+      )) {
+        // drain
+      }
+      expect(aborted).toHaveLength(0);
+      const ended = records.find((r) => r.message === 'assistant.turn.ended');
+      expect(ended?.context).toMatchObject({ termination: 'completed', aborting: false });
+      expect(records.some((r) => r.message === 'assistant.turn.abortSession')).toBe(false);
+    });
+
+    it('explicit Stop records reason=cancelled with conversation + session identity', async () => {
+      const { records, logger } = memoryLogger();
+      const aborted: string[] = [];
+      const controller = new AbortController();
+      const client = blockingClient();
+      client.abortSession = async (id: string) => {
+        aborted.push(id);
+      };
+      const turnPromise = (async () => {
+        for await (const _ of runAssistantOpenCodeTurn(
+          {
+            client: client as unknown as OpenCodeHttpClient,
+            workspaceId: 'ws-test',
+            directory: '/repo',
+            agent: 'vestara-assistant',
+            turnTimeoutMs: 30000,
+            logger,
+          },
+          { ...makeRequest(), conversationId: 'conv-attr-stop', signal: controller.signal },
+        )) {
+          // drain
+        }
+      })();
+      setTimeout(() => controller.abort(), 50);
+      await turnPromise;
+      expect(aborted).toEqual(['sess-1']);
+      const abort = records.find((r) => r.message === 'assistant.turn.abortSession');
+      expect(abort?.context).toMatchObject({
+        reason: 'cancelled',
+        conversationId: 'conv-attr-stop',
+        sessionId: 'sess-1',
+      });
+      const ended = records.find((r) => r.message === 'assistant.turn.ended');
+      expect(ended?.context).toMatchObject({ termination: 'cancelled', signalAborted: true });
+    });
+  });
 });

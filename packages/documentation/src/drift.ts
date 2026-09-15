@@ -65,6 +65,31 @@ export function extractImplementation(root: string, packages: readonly string[])
     }
     for (const match of content.matchAll(/registry\.register\(['"]([^'"]+)['"]/g)) cliCommands.add(match[1]);
     for (const match of content.matchAll(/args\[0\]\s*===\s*['"]([^'"]+)['"]/g)) cliCommands.add(match[1]);
+    // Regex-registered routes (the pervasive `p.match(/^\/api\/…/)` router
+    // idiom). Pair each `const v = p.match(/…/)` with the FIRST `if (… v …)`
+    // guard that references it and read the `method === '…'` checks from
+    // that guard only — never from farther code, so neighboring routes
+    // (e.g. cancel/active/permissions blocks) cannot bleed into each other.
+    // `([^/]+)` segments normalize to `:id`. A match variable that is never
+    // referenced in an `if` guard (e.g. decomposed via match[1]/match[2])
+    // is skipped: its methods are action-dependent and cannot be attributed
+    // exactly, so docs referencing those routes stay checker-invisible
+    // rather than risk a wrong inventory entry.
+    for (const reg of content.matchAll(/(\w+)\s*=\s*[\w.]+\.match\(\/\^(.*?)\$\/[a-z]*\)/g)) {
+      const varName = reg[1] as string;
+      const rawPath = reg[2] as string;
+      const guard = new RegExp(`if\\s*\\([^;{}]*?\\b${varName}\\b[^;{}]*?\\)`);
+      const guardMatch = guard.exec(content.slice((reg.index ?? 0) + reg[0].length));
+      if (!guardMatch) continue;
+      const methods = [...guardMatch[0].matchAll(/method\s*===\s*['"](GET|POST|PUT|PATCH|DELETE)['"]/g)].map(
+        (m) => m[1] as string,
+      );
+      if (methods.length === 0) continue;
+      const normalized = rawPath.replace(/\\\//g, '/').replace(/\/\(\[\^\/\]\+\)/g, '/:id');
+      if (!normalized.startsWith('/api/')) continue;
+      if (/[()$^\\]/.test(normalized)) continue;
+      for (const method of methods) apiRoutes.push({ method, path: normalized, sourcePath: relative });
+    }
   }
   return {
     packages: packageNames.sort(),
@@ -133,7 +158,10 @@ export function detectImplementationDrift(
           ),
         );
     }
-    for (const match of content.matchAll(/\bvestara\s+([a-z][a-z0-9-]*)/g)) {
+    // Same-line only: `\s` would also match newlines, so YAML frontmatter
+    // like `owner: vestara` followed by `last-reviewed: …` on the next line
+    // was misread as a `vestara last-reviewed` CLI invocation.
+    for (const match of content.matchAll(/\bvestara[ \t]+([a-z][a-z0-9-]*)/g)) {
       if (!commandSet.has(match[1]))
         findings.push(
           driftFinding(

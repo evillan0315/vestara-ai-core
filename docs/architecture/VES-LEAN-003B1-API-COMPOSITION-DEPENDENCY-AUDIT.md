@@ -3,6 +3,8 @@ title: VES-LEAN-003B.1 — API Composition & Dependency Surface Audit
 version: 1.0.0
 status: complete
 owner: vestara
+last-reviewed: 2026-09-15
+next-review: 2026-10-15
 date: 2026-09-10
 milestone: VES-LEAN-003B.1
 mode: audit + architecture recommendation only

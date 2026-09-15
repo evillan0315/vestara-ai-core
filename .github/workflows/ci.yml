@@ -9,13 +9,19 @@ on:
 jobs:
   build-and-test:
     runs-on: ubuntu-latest
+    # Evidence: unconstrained vitest runs can hang (live-runtime port
+    # contention, buffered output). Bound the job instead of risking the
+    # 6-hour default on a stuck runner.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
 
+      # No `version` input: pnpm/action-setup resolves the `packageManager`
+      # pin in package.json so CI installs dependencies with the same pnpm
+      # that generated pnpm-lock.yaml (previously `latest`, which drifted
+      # between runs — observed v12.4.1 vs local v11.21.0).
       - uses: pnpm/action-setup@v4
-        with:
-          version: latest
 
       - uses: actions/setup-node@v4
         with:
@@ -72,13 +78,15 @@ jobs:
 
   desktop-build:
     runs-on: ubuntu-22.04
+    # Tauri/Rust compilation is slow; bound it rather than risking the
+    # 6-hour default on a stuck runner.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v4
 
+      # Same packageManager pin as build-and-test (see above).
       - uses: pnpm/action-setup@v4
-        with:
-          version: latest
 
       - uses: actions/setup-node@v4
         with:

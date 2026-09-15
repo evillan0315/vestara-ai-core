@@ -4,7 +4,19 @@ import { sourceEvent } from './helpers';
 
 describe('activity contracts', () => {
   it('declares the supported activity kinds including organizational acceptance', () => {
-    expect(ACTIVITY_KINDS).toEqual(['workflow', 'task', 'agent-message', 'test', 'verification', 'acceptance']);
+    // tool-call/tool-result are intentional: ToolCallActivity/ToolResultActivity
+    // in contracts.ts, produced by agent-message-projector, mapped in
+    // m9-to-projection KIND_MAP and handled by service.ts + m10 (9ca3c34).
+    expect(ACTIVITY_KINDS).toEqual([
+      'workflow',
+      'task',
+      'agent-message',
+      'tool-call',
+      'tool-result',
+      'test',
+      'verification',
+      'acceptance',
+    ]);
   });
 
   it('maps user authority to a human actor', () => {
