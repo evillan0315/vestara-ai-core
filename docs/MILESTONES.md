@@ -4007,6 +4007,19 @@ change; passes in quiet CI).
 **Status**: ✅ Temporary hardening; final timeout architecture explicitly
 out of scope. UI display default (15min) left as-is — non-authoritative.
 
+**Follow-up fix (same session)**: the deadline re-check after the event
+wait used strict `>` while the wait loop breaks on `remaining <= 0`. In the
+same-millisecond window the turn fell through to the silent `!event` break
+and misclassified timeout as generic failure (no `deadline` error chunk,
+termination promoted to `failed` instead of `timeout`). Proven by trace:
+loop exit with the event reader still alive, enrichment + `meta` with zero
+error chunks. This was the exact cause of the two CI adapter failures
+(~106/111ms, deterministic in CI clock granularity; flaky locally) — not a
+Copilot-suggested `stopPropagation` issue (already present) nor a 10s
+outer-timeout issue. Re-check is now `>=`; 5 consecutive full-file green
+runs on the loaded box. Refutes, rather than confirms, any need to touch
+the 10s Vitest timeout.
+
 ---
 
 ## Stale `ACTIVITY_KINDS` Allowlist ✅ Repaired 2026-09-15

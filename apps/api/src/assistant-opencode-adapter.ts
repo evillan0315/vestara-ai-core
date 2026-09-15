@@ -376,8 +376,14 @@ export async function* runAssistantOpenCodeTurn(
         ]);
       }
       // Re-check deadline after waiting — the wait may have been interrupted
-      // by the timeout rather than a new event.
-      if (Date.now() > deadline) {
+      // by the timeout rather than a new event. Uses >= (not >): when the
+      // remaining budget hits zero the deadline has expired even if the
+      // clock has not visibly advanced past it. With strict >, a
+      // same-millisecond race fell through to the silent `!event` break
+      // below and misclassified a timeout as a generic failure (proven by
+      // trace: loop exit with reader alive, no error chunk, termination
+      // promoted to failed instead of timeout).
+      if (Date.now() >= deadline) {
         termination = 'timeout';
         yield chunk('error', sequence++, { content: 'Execution deadline exceeded' });
         break;
