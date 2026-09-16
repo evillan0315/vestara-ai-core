@@ -659,6 +659,172 @@ const MILESTONES: Milestone[] = [
     status: 'pending',
     description: 'GRUB to Plymouth to systemd to desktop',
   },
+  // Vestara Live OS Program — governed, reproducible Debian-based Vestara image
+  {
+    version: 'VOS-LIVE-001',
+    name: 'Vestara Live OS Production Foundation',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Reproducible Vestara system image on Debian; Debian owns OS mechanics, Vestara owns product semantics; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)',
+  },
+  {
+    version: 'VOS-LIVE-001A',
+    name: 'Current-State & Ownership Audit',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Zero-mutation audit of OS image builder, system/firmware platform, boot, persistence, identity, diagnostics, networking, recovery, hardware discovery; KEEP/ADAPT/REBUILD/REMOVE/MISSING/EXTERNAL; establish authority; STOP at decision packet',
+  },
+  {
+    version: 'VOS-LIVE-001B',
+    name: 'Live OS Product Contract',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'VestaraLiveImage contract, amd64 target, UEFI/GRUB/read-only base/persistence/recovery boot requirements',
+  },
+  {
+    version: 'VOS-LIVE-001C',
+    name: 'Image Definition',
+    era: 'OS',
+    status: 'pending',
+    description: 'Declarative image profile (vestara-desktop-amd64) as a governed contract, not a giant Bash script',
+  },
+  {
+    version: 'VOS-LIVE-001D',
+    name: 'Reproducible Image Builder',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Profile → packages → filesystem → config → runtime → branding → boot → image; emits manifest, packages.lock, checksums, build-evidence',
+  },
+  {
+    version: 'VOS-LIVE-001E',
+    name: 'Boot Architecture',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Explicit firmware→GRUB→boot profile→kernel→systemd ownership; Vestara configures GRUB, does not become a bootloader',
+  },
+  {
+    version: 'VOS-LIVE-001F',
+    name: 'Persistent Storage',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Immutable system image + writable Vestara state + user workspace separation; enables factory reset and rollback',
+  },
+  {
+    version: 'VOS-LIVE-001G',
+    name: 'Vestara System Runtime',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'vestara-system.target with discrete config/identity/runtime/api/workspace services; no single giant vestara.service',
+  },
+  {
+    version: 'VOS-LIVE-001H',
+    name: 'Identity & Session',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Linux user → OS identity adapter → Vestara Principal; Identity ≠ Authority; privileged broker boundary',
+  },
+  {
+    version: 'VOS-LIVE-001I',
+    name: 'Startup Experience',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Health-based, dependency-aware startup with structured diagnostics codes; offline/local operation possible',
+  },
+  {
+    version: 'VOS-LIVE-001J',
+    name: 'Desktop Integration',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Debian + XFCE + Vestara Workspace shell; Vestara modules surface as applications, not hardwired OS components',
+  },
+  {
+    version: 'VOS-LIVE-001K',
+    name: 'Networking',
+    era: 'OS',
+    status: 'pending',
+    description: 'NetworkManager mechanics with Vestara configuration/presentation adapter; no custom network stack',
+  },
+  {
+    version: 'VOS-LIVE-001L',
+    name: 'Security',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Non-root desktop, least-privilege services, firewall defaults, secret isolation, signed artifacts; Secure Boot/TPM later',
+  },
+  {
+    version: 'VOS-LIVE-001M',
+    name: 'Recovery',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Recovery must not depend on a healthy normal runtime; repair boot, inspect logs, reset config, restore image, factory reset',
+  },
+  {
+    version: 'VOS-LIVE-001N',
+    name: 'Update System',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Separate Debian package, Vestara platform, application, and image update authorities; no autonomous critical OS upgrades',
+  },
+  {
+    version: 'VOS-LIVE-001O',
+    name: 'Hardware Discovery',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Normalize CPU/memory/storage/GPU/network/firmware/TPM/display into system inventory feeding capability graph and resource policy',
+  },
+  {
+    version: 'VOS-LIVE-001P',
+    name: 'Diagnostics',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Boot/runtime diagnostics converge into normalized findings + evidence + recommendation; observation ≠ mutation authority',
+  },
+  {
+    version: 'VOS-LIVE-001Q',
+    name: 'Image Verification',
+    era: 'OS',
+    status: 'pending',
+    description: 'V0–V8 verification levels; VM-first (QEMU/KVM) before physical writes; build ≠ test ≠ verification',
+  },
+  {
+    version: 'VOS-LIVE-001R',
+    name: 'Hardware Compatibility',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Compatibility matrix (boot, keyboard, Wi-Fi, GPU, audio, persistence, suspend, recovery) turning hardware issues into evidence',
+  },
+  {
+    version: 'VOS-LIVE-001S',
+    name: 'Dogfood',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'VM → USB → portable SSD → daily boot → daily development; can Vestara be developed from Vestara Live OS?',
+  },
+  {
+    version: 'VOS-LIVE-001T',
+    name: 'Release Pipeline',
+    era: 'OS',
+    status: 'pending',
+    description:
+      'Commit → build → static verification → VM boot → runtime health → desktop smoke → signing → release candidate → hardware qualification',
+  },
   // Shared UI Platform
   {
     version: 'VES-UI-001',

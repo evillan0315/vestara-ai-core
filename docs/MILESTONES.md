@@ -3302,6 +3302,294 @@ Workspace available
 
 ---
 
+## Vestara Live OS Program
+
+### VOS-LIVE-001 — Vestara Live OS Production Foundation 🔶 Planned
+
+**Priority**: P0 — operating-system program.
+
+**Relationship to VOS-BOOT-001**: `VOS-BOOT-001` (Vestara Unified Boot Experience) remains the boot-presentation milestone. `VOS-LIVE-001` **absorbs** the Debian Live integration scope previously listed as `VOS-BOOT-001-P9` and consumes `VOS-BOOT-001` as an upstream dependency via `VOS-LIVE-001E` (Boot Architecture) and `VOS-LIVE-001I` (Startup Experience). VOS-BOOT-001 is not removed; Live OS owns image/persistence/recovery/product scope.
+
+**Architectural decision (start-of-program; do not relitigate without a new decision record)**:
+
+> **Vestara Live OS is not a custom Linux distribution initially. It is a governed, reproducible Vestara system image built on Debian that boots directly into the Vestara operating environment.**
+
+This keeps Debian responsible for kernel, drivers, packages, boot infrastructure, security updates, and hardware compatibility while Vestara owns the product experience, AI runtime, applications, configuration, recovery, verification, and branding.
+
+```text
+Debian owns OS mechanics.        Vestara owns product semantics.
+──────────────────────────       ────────────────────────────────
+kernel, drivers, packages        experience, AI runtime
+boot infrastructure              applications, configuration
+security updates                 recovery, verification, branding
+hardware compatibility           identity, diagnostics, updates
+```
+
+---
+
+#### Product Objective
+
+The user should experience **Vestara**, not "Debian with Vestara installed."
+
+```text
+Physical Machine
+      │
+      ▼
+UEFI / BIOS
+      │
+      ▼
+Vestara Boot
+      │
+      ▼
+Vestara Startup / Recovery
+      │
+      ▼
+Debian Linux
+      │
+      ▼
+Vestara System Runtime
+      │
+      ├── Identity
+      ├── Configuration
+      ├── Filesystem
+      ├── Networking
+      ├── Security
+      ├── Runtime supervision
+      └── Diagnostics
+      │
+      ▼
+Vestara Desktop
+      │
+      ├── Overview
+      ├── Activity Room
+      ├── Global Assistant
+      ├── Agents
+      ├── Workflows
+      ├── Projects
+      ├── Files
+      ├── Terminal
+      ├── Browser
+      ├── Marketplace
+      └── Settings
+```
+
+---
+
+#### Target Operating Modes
+
+One image architecture, four modes:
+
+| Mode | Purpose |
+| ---- | ------- |
+| **Live** | Boot Vestara from USB/portable SSD without installation |
+| **Persistent Live** | Live system with persistent workspace/configuration |
+| **Installed** | Install Vestara onto internal/portable storage |
+| **Recovery** | Repair/recover an existing Vestara installation |
+
+**First production target: Persistent Live on a portable SSD/USB.** That directly matches the original Vestara OS goal while avoiding the complexity of immediately becoming a full installer/distribution.
+
+---
+
+#### Architectural Layers
+
+```text
+L7  Vestara Experience      Desktop / Assistant / Activity Room / Apps
+L6  Vestara Platform        Agents / Workflows / Marketplace / Engineering
+L5  Vestara System Services Runtime / Configuration / Identity / Diagnostics
+L4  Vestara OS Integration  systemd / filesystem / networking / session
+L3  Vestara Image           packages / configuration / branding / manifests
+L2  Debian                  kernel / system packages / drivers / userspace
+L1  Firmware & Boot         UEFI / Secure Boot / GRUB / recovery
+```
+
+This prevents UI/application concerns from leaking into image building and boot management.
+
+---
+
+#### Program Milestones
+
+Parent program: **`VOS-LIVE-001` — Vestara Live OS Production Foundation**
+
+| Milestone | Deliverable |
+| --------- | ----------- |
+| VOS-LIVE-001A | Current-State & Ownership Audit (**zero mutation**) |
+| VOS-LIVE-001B | Live OS Product Contract |
+| VOS-LIVE-001C | Image Definition (declarative profile) |
+| VOS-LIVE-001D | Reproducible Image Builder |
+| VOS-LIVE-001E | Boot Architecture |
+| VOS-LIVE-001F | Persistent Storage |
+| VOS-LIVE-001G | Vestara System Runtime (systemd units) |
+| VOS-LIVE-001H | Identity & Session (OS actor → Principal) |
+| VOS-LIVE-001I | Startup Experience |
+| VOS-LIVE-001J | Desktop Integration |
+| VOS-LIVE-001K | Networking |
+| VOS-LIVE-001L | Security |
+| VOS-LIVE-001M | Recovery |
+| VOS-LIVE-001N | Update System |
+| VOS-LIVE-001O | Hardware Discovery |
+| VOS-LIVE-001P | Diagnostics |
+| VOS-LIVE-001Q | Image Verification |
+| VOS-LIVE-001R | Hardware Compatibility |
+| VOS-LIVE-001S | Dogfood |
+| VOS-LIVE-001T | Release Pipeline |
+
+These form the program dependency graph. **They are not implemented simultaneously.**
+
+**VOS-LIVE-001A — Current-State & Ownership Audit** must run first and is **zero mutation**. It classifies every existing capability as `KEEP | ADAPT | REBUILD | REMOVE | MISSING | EXTERNAL`, establishes the authoritative owner, and separates `Debian authority` / `Vestara OS integration authority` / `Vestara Platform authority` / `Vestara UI projection`. **HOLD before implementation if duplicate or conflicting authority is discovered.**
+
+---
+
+#### Live OS Image Contract
+
+A build must produce more than an ISO. Minimum artifact set:
+
+```text
+vestara-live-amd64.iso
+manifest.json
+packages.lock
+checksums.sha256
+build-evidence.json
+verification-report.json
+```
+
+Eventually: SBOM, provenance attestation, signatures.
+
+Canonical contract concepts:
+
+```text
+VestaraLiveImage {
+  imageId
+  version
+  architecture
+  debianRelease
+  kernel
+  buildManifest
+  packageManifest
+  vestaraVersion
+  bootProfile
+  persistenceProfile
+  securityProfile
+  hardwareProfile
+  verificationManifest
+  provenance
+}
+```
+
+Initial architecture support: `amd64` only. Do not introduce ARM until amd64 is stable. Boot requirements: UEFI (Legacy BIOS optional), GRUB, read-only base filesystem, optional persistence, recovery entry.
+
+---
+
+#### Image Verification Levels
+
+```text
+V0  Schema/profile
+V1  Image contents
+V2  Boot structure
+V3  VM boot
+V4  Runtime health
+V5  Desktop smoke
+V6  Persistence/reboot
+V7  Recovery
+V8  Physical hardware
+```
+
+Verification is VM-first (QEMU/KVM) before repeated physical writes.
+
+---
+
+#### VOS-LIVE-001 Alpha — First Production Milestone
+
+Do **not** define success as "build a Vestara ISO."
+
+> **Vestara Live OS Alpha boots from a portable drive on supported amd64 UEFI hardware, presents Vestara branding, establishes persistent user/workspace state, starts the Vestara runtime and Workspace automatically, survives reboot, provides diagnostics/recovery, and can be reproduced and verified from source.**
+
+**Acceptance criteria**:
+
+- [ ] reproducible ISO
+- [ ] UEFI boot
+- [ ] Vestara GRUB
+- [ ] Vestara splash
+- [ ] Debian starts cleanly
+- [ ] persistent storage
+- [ ] Vestara system services
+- [ ] Workspace starts
+- [ ] actor recognized
+- [ ] network works
+- [ ] terminal works
+- [ ] project persists after reboot
+- [ ] diagnostics available
+- [ ] recovery boot works
+- [ ] image manifest produced
+- [ ] VM verification passes
+- [ ] physical boot passes
+
+---
+
+#### Execution Order
+
+```text
+PHASE 1 — Authority   001A Audit → 001B Product Contract → 001C Image Contract
+PHASE 2 — Image       001D Builder → 001E Boot → 001F Persistence
+PHASE 3 — Runtime     001G System Runtime → 001H Identity → 001I Startup
+PHASE 4 — Product     001J Desktop → 001K Network → 001O Hardware
+PHASE 5 — Safety      001L Security → 001M Recovery → 001P Diagnostics
+PHASE 6 — Verification 001Q Image Verification → 001R Hardware Matrix
+PHASE 7 — Production  001N Updates → 001S Dogfood → 001T Release Pipeline
+```
+
+**One milestone at a time.**
+
+---
+
+#### Repository Ownership
+
+Before creating another repository, `VOS-LIVE-001A` must audit current ownership.
+
+Conceptually expected separation:
+
+```text
+vestara-ai-core      platform / runtime / contracts
+vestara-live-os      image definitions, Debian integration, boot configuration,
+                     systemd integration, packaging, image verification
+vestara-blueprint    architecture / contracts / standards
+```
+
+**Do not create or move repositories yet.** Establishing product ownership before moving files is mandatory (precedent: the earlier `vestara-platform` vs AI Core Theme Builder boundary problem).
+
+---
+
+#### Governance Invariants
+
+Preserve throughout the program:
+
+- `Debian mechanics ≠ Vestara product semantics`
+- `OS identity ≠ authority`
+- `Observation ≠ mutation authority`
+- `Image build ≠ image verification`
+- `Boot success ≠ runtime health`
+- `Runtime health ≠ product verification`
+- `Agent intelligence ≠ root authority`
+- `Recovery ≠ normal runtime`
+
+Privilege architecture: never run the entire Vestara platform as root. Desktop unprivileged, runtime as a service account, privileged operations (package install, boot mutation, mount, network config, image update, reboot, firmware variables) only through a narrow governed privileged broker — never `sudo bash <agent-generated>`.
+
+---
+
+#### Authorized First Action
+
+**VOS-LIVE-001A — Vestara Live OS Current-State & Ownership Audit**
+
+- **Mode**: architecture audit, **ZERO MUTATION**.
+- **Objective**: determine existing implementation and authoritative ownership of everything required to produce a reproducible Vestara-branded Debian Live OS before any new Live OS architecture is introduced.
+- **Audit surface**: OS Image Builder · System Platform · Firmware Platform · boot/GRUB support · Debian/live-build assets · filesystem/runtime support · persistence · systemd/service management · configuration · identity/authentication · desktop/workspace startup · diagnostics/logging/telemetry · networking · update/recovery concepts · A/B slot support · image verification · hardware discovery · packaging/release infrastructure.
+- **Classification**: `KEEP | ADAPT | REBUILD | REMOVE | MISSING | EXTERNAL`.
+- **Deliverable**: decision packet (current architecture map, boot/runtime call graph, capability ownership matrix, reusable assets, conflicting/duplicate authorities, missing capabilities, security/privilege boundaries, current image build path, current verification path, repository ownership recommendation, dependency graph for 001B onward, risks/HOLDs, exact recommended next milestone).
+- **Stop** after the decision packet. No source, configuration, boot files, images, partitions, GRUB, firmware, systemd, package manifests, or documentation modifications.
+
+**Status**: 🔶 Planned
+
+---
+
 ## Vestara Shared UI Platform (VES-UI)
 
 ### VES-UI-001 — Vestara Shared UI Platform 🔶 Proposed
@@ -3516,6 +3804,7 @@ interface OverviewViewModel {
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
 | **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
+| **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
 | **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches; routed through Global Assistant)** | 🔶 In Progress |
