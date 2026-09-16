@@ -52,7 +52,7 @@ jobs:
       # consistent with worker-process memory pressure. If this still dies at
       # the same point, re-run with --reporter=verbose to identify the file.
       - name: Fast tests (excludes repo-scan, e2e and doc-governance suites)
-        run: pnpm test:fast -- --maxWorkers=1 --no-file-parallelism
+        run: pnpm test:fast -- --maxWorkers=1 --no-file-parallelism --reporter=verbose
 
       - name: Full test suite
         run: pnpm test
