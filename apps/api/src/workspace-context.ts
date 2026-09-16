@@ -930,6 +930,30 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         `Workspace: ${environment.workspaceRoot}`,
         `Policies: network=${environment.networkPolicy} filesystem=${environment.filesystemPolicy} process=${environment.processPolicy}`,
       ];
+      // CI-OBS-001G: give the harness (and the Global Assistant running through
+      // it) the latest persisted CI evidence so it can answer "did my last
+      // commit pass CI?". Observed facts only; CI pass ≠ objective verification.
+      const [latestObservation, latestDecision] = await Promise.all([
+        ciRecords.observations.latest().catch(() => undefined),
+        ciRecords.decisions.latest().catch(() => undefined),
+      ]);
+      if (latestObservation) {
+        lines.push(
+          `Latest CI observation: ${latestObservation.status} · ${latestObservation.conclusion}`,
+          `Commit: ${latestObservation.commitSha}`,
+          `Checks: ${latestObservation.passedChecks} passed / ${latestObservation.failedChecks} failed / ${latestObservation.skippedChecks} skipped`,
+          `Observed at: ${latestObservation.observedAt}`,
+        );
+      }
+      if (latestDecision) {
+        lines.push(
+          `CI reviewer decision: ${latestDecision.classification} · verdict ${latestDecision.verdict} · action ${latestDecision.action}`,
+        );
+      }
+      if (!latestObservation && !latestDecision) {
+        lines.push('CI: no observation or reviewer decision has been recorded yet.');
+      }
+      lines.push('Note: a passing CI run is not objective verification.');
       // Inject recent human messages so agents observe broadcast messages and
       // are addressed by @mentions. Messages without an @mention are observed
       // (shared workflow context); a mention names the intended responder.
