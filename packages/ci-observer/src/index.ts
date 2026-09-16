@@ -30,6 +30,12 @@ export { createCICorrelationRecord, deriveCorrelationId, InMemoryCICorrelationSt
 // Durable substrate (registered migrations + sql.js-backed stores)
 export { CI_OBSERVER_MIGRATIONS } from './migrations';
 export type {
+  CINotification,
+  CINotificationKind,
+  CINotificationSeverity,
+} from './notify';
+export { projectCINotification } from './notify';
+export type {
   CIWaitReconcileAction,
   CIWaitReconcileDecision,
   CIWaitReconcileInput,
