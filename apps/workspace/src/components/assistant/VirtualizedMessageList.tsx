@@ -7,6 +7,14 @@
  * component renders only the messages intersecting the viewport (+ overscan)
  * while keeping the scroll container's geometry intact.
  *
+ * Ownership note: the component that calls `useVirtualizer` MUST own the
+ * scroll element. React attaches host refs during the layout phase, and a
+ * descendant's layout effect runs before its ancestor's ref is attached — so
+ * if the scroll div lived in the parent, `getScrollElement()` would return
+ * `null` on first run and the list would stay empty until an unrelated
+ * re-render. Hence `ScrollSurface` is rendered from inside the virtualized
+ * component.
+ *
  * Fallback contract: environments without `ResizeObserver` (jsdom under
  * vitest) cannot measure the scroll container, so the full list is rendered in
  * normal flow. That keeps component/visual contracts deterministic in tests
@@ -34,23 +42,26 @@ const CAN_VIRTUALIZE = typeof ResizeObserver !== 'undefined';
 
 interface VirtualizedMessageListProps {
   scrollRef: React.RefObject<HTMLDivElement | null>;
+  onScroll: () => void;
   items: MessageListItem[];
 }
 
-export function VirtualizedMessageList({ scrollRef, items }: VirtualizedMessageListProps) {
+export function VirtualizedMessageList({ scrollRef, onScroll, items }: VirtualizedMessageListProps) {
   if (!CAN_VIRTUALIZE) {
     return (
-      <div className="space-y-6">
-        {items.map((item) => (
-          <div key={item.key}>{item.node}</div>
-        ))}
-      </div>
+      <ScrollSurface scrollRef={scrollRef} onScroll={onScroll}>
+        <div className="space-y-6">
+          {items.map((item) => (
+            <div key={item.key}>{item.node}</div>
+          ))}
+        </div>
+      </ScrollSurface>
     );
   }
-  return <WindowedMessageList scrollRef={scrollRef} items={items} />;
+  return <WindowedMessageList scrollRef={scrollRef} onScroll={onScroll} items={items} />;
 }
 
-function WindowedMessageList({ scrollRef, items }: VirtualizedMessageListProps) {
+function WindowedMessageList({ scrollRef, onScroll, items }: VirtualizedMessageListProps) {
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
@@ -60,20 +71,48 @@ function WindowedMessageList({ scrollRef, items }: VirtualizedMessageListProps) 
   });
 
   return (
-    // `height`/`transform` here are virtualizer-computed layout geometry
-    // (pixel offsets), not design values — they cannot be tokenized.
-    <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
-      {virtualizer.getVirtualItems().map((virtualItem) => (
-        <div
-          key={virtualItem.key}
-          data-index={virtualItem.index}
-          ref={virtualizer.measureElement}
-          className="absolute left-0 top-0 w-full pb-6"
-          style={{ transform: `translateY(${virtualItem.start}px)` }}
-        >
-          {items[virtualItem.index]?.node}
-        </div>
-      ))}
+    <ScrollSurface scrollRef={scrollRef} onScroll={onScroll}>
+      {/* `height`/`transform` below are virtualizer-computed layout geometry
+          (pixel offsets), not design values — they cannot be tokenized. */}
+      <div className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+        {virtualizer.getVirtualItems().map((virtualItem) => (
+          <div
+            key={virtualItem.key}
+            data-index={virtualItem.index}
+            ref={virtualizer.measureElement}
+            className="absolute left-0 top-0 w-full pb-6"
+            style={{ transform: `translateY(${virtualItem.start}px)` }}
+          >
+            {items[virtualItem.index]?.node}
+          </div>
+        ))}
+      </div>
+    </ScrollSurface>
+  );
+}
+
+/** The scroll container. Rendered inside the virtualized subtree on purpose. */
+function ScrollSurface({
+  scrollRef,
+  onScroll,
+  children,
+}: {
+  scrollRef: React.RefObject<HTMLDivElement | null>;
+  onScroll: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      ref={scrollRef}
+      onScroll={onScroll}
+      tabIndex={-1}
+      role="log"
+      aria-live="polite"
+      aria-label="Assistant conversation"
+      data-testid="conversation-scroll"
+      className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 focus:outline-none min-w-0"
+    >
+      {children}
     </div>
   );
 }

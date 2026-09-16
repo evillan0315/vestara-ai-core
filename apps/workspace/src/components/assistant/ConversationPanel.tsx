@@ -1618,20 +1618,9 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           canvas — HUMAN TURN / identity / content / actions — never card-card-card. */}
       {showList && (
         <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.04),transparent_60%)]">
-          <div
-            ref={scrollRef}
-            onScroll={handleScroll}
-            tabIndex={-1}
-            role="log"
-            aria-live="polite"
-            aria-label="Assistant conversation"
-            data-testid="conversation-scroll"
-            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 focus:outline-none min-w-0"
-          >
-            <Profiler id="MessageList" onRender={onRender}>
-              <VirtualizedMessageList scrollRef={scrollRef} items={messageListItems} />
-            </Profiler>
-          </div>
+          <Profiler id="MessageList" onRender={onRender}>
+            <VirtualizedMessageList scrollRef={scrollRef} onScroll={handleScroll} items={messageListItems} />
+          </Profiler>
           {showJump && (
             <div className="absolute inset-x-0 bottom-3 flex justify-center pointer-events-none">
               <button
