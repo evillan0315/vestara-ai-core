@@ -19,6 +19,7 @@ import type { GitHubCompletionJob } from '@vestara/ci-observer';
 import {
   CIVerificationService,
   DeliveryDeduplicator,
+  evaluateCIResumeGate,
   GITHUB_DELIVERY_HEADER,
   validateWebhookIngress,
 } from '@vestara/ci-observer';
@@ -138,8 +139,18 @@ export async function handleGitHubCIRoute(
   // CI-OBS-001F: project the completion/review into the Activity Room
   // (best-effort observability; never blocks ingress or resume).
   await projectCICompletionToActivity(result);
+  // H3 resume gate: never resume on a retrieval failure or a non-terminal /
+  // inconclusive observation. Resume returns the task to in-progress; it never
+  // marks the objective verified.
+  const gate = evaluateCIResumeGate({
+    status: result.observation.status,
+    conclusion: result.observation.conclusion,
+    passedChecks: result.observation.passedChecks,
+    failedChecks: result.observation.failedChecks,
+    skippedChecks: result.observation.skippedChecks,
+  });
   let resumed = false;
-  if (result.correlation.originatingTaskId) {
+  if (result.correlation.originatingTaskId && gate.allow) {
     try {
       await service.resumeFromDecision(result);
       resumed = true;
@@ -159,6 +170,8 @@ export async function handleGitHubCIRoute(
     action: result.outcome.action,
     evidenceCount: result.evidence.length,
     violations: result.violations,
+    resumeAllowed: gate.allow,
+    resumeGateReason: gate.reason,
     resumed,
   });
   return true;

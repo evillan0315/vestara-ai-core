@@ -1,7 +1,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type MigrationContext, migrate } from '@vestara/sqlite-migrations';
-import { AGENT_MANIFEST, AGENT_MIGRATIONS, AgentStorage } from '@vestara/workspace';
+import { AGENT_MANIFEST, AGENT_MIGRATIONS, AgentStorage, PLANS_MANIFEST } from '@vestara/workspace';
 import type { Database } from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -107,7 +107,9 @@ describe('AgentStorage migration (incident #0001, Phase 1.1a)', () => {
 
   it('AgentStorage CRUD works on a migrated fresh DB (the original 500 is gone)', async () => {
     const db = new SQL.Database();
-    migrate(db, AGENT_MANIFEST);
+    // The production chain (not the agents-only manifest) owns the `origin`
+    // column that AgentStorage reconciliation reads.
+    migrate(db, PLANS_MANIFEST);
     const storage = new AgentStorage(db);
     await storage.saveAgent({
       id: 'agent-crud',
@@ -126,7 +128,7 @@ describe('AgentStorage migration (incident #0001, Phase 1.1a)', () => {
 
   it('AgentStorage works on the migrated real fixture', async () => {
     const db = loadFixture();
-    migrate(db, AGENT_MANIFEST);
+    migrate(db, PLANS_MANIFEST);
     const storage = new AgentStorage(db);
     expect((await storage.listAgents()).length).toBe(18);
     await storage.saveAgent({

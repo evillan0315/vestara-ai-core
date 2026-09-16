@@ -59,6 +59,25 @@ export {
   InMemoryCIObservationStore,
   InMemoryCIWebhookDeliveryStore,
 } from './records';
+export type {
+  CIRepairAuthorityDecision,
+  CIRepairRequest,
+} from './repair-boundary';
+export {
+  CI_REPAIR_AUTHORITY_CONTRACT_VERSION,
+  evaluateRepairAuthority,
+  repairRequestFromCompletion,
+} from './repair-boundary';
+export type {
+  CICheckAggregate,
+  CICheckAggregateState,
+  CICheckObservation,
+  CIRequiredCheckMode,
+  CIRequiredCheckSet,
+  CIResumeGateDecision,
+  CIResumeGateInput,
+} from './required-checks';
+export { aggregateRequiredChecks, evaluateCIResumeGate } from './required-checks';
 export { SqliteCICorrelationStore } from './sqlite-correlation-store';
 export {
   SqliteCIDecisionStore,
