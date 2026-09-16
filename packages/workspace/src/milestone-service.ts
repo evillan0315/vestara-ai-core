@@ -263,35 +263,6 @@ const MILESTONES: Milestone[] = [
     status: 'completed',
     description: 'Provider-independence verification',
   },
-  // Operational Era
-  {
-    version: 'v5.0',
-    name: 'Operational Baselines',
-    era: 'Operational',
-    status: 'completed',
-    description: 'Performance baselines, regression gates',
-  },
-  {
-    version: 'v5.1',
-    name: 'Observability',
-    era: 'Operational',
-    status: 'completed',
-    description: 'Health latency, vestara metrics',
-  },
-  {
-    version: 'v5.2',
-    name: 'Provider & Model Selection',
-    era: 'Operational',
-    status: 'completed',
-    description: 'Config-driven provider switching',
-  },
-  {
-    version: 'v5.3',
-    name: 'Agent Workflow Orchestration',
-    era: 'Operational',
-    status: 'completed',
-    description: 'Multi-agent sequential workflows',
-  },
   // Dashboard Era
   {
     version: 'v6.0',

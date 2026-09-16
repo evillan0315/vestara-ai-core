@@ -115,8 +115,8 @@ export default function MilestoneEraSection({
               </button>
               {expandedEra === e.era && (
                 <div className="ml-4 space-y-0.5 mt-0.5">
-                  {milestones.byEra[e.era]?.map((m) => (
-                    <div key={m.version} className="flex items-center gap-2 py-0.5">
+                  {milestones.byEra[e.era]?.map((m, i) => (
+                    <div key={`${m.version}:${m.name}:${i}`} className="flex items-center gap-2 py-0.5">
                       <span
                         className={`w-1.5 h-1.5 rounded-full shrink-0 ${m.status === 'completed' ? 'bg-green-500' : m.status === 'in_progress' ? 'bg-amber-500' : 'bg-zinc-700'}`}
                       />

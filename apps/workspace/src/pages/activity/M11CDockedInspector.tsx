@@ -17,7 +17,6 @@
 
 import { useCallback, useEffect, useRef } from 'react';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
-import type { M11AActivityRecord } from '../../lib/m11a-api';
 import { Pill, StatusIndicator } from '@vestara/ui';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -26,7 +25,7 @@ interface DockedInspectorProps {
   /** The item to display in the inspector. */
   readonly item: M11CStreamItem | null;
   /** Drill-down records for aggregated items. */
-  readonly drillDownRecords?: readonly M11AActivityRecord[];
+  readonly drillDownRecords?: readonly M11CStreamItem[];
   /** Whether drill-down is loading. */
   readonly drillDownLoading?: boolean;
   /** Callback to close the inspector. */

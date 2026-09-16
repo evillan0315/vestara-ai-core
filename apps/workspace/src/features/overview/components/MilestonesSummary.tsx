@@ -135,7 +135,11 @@ export function MilestonesSummary() {
       ) : (
         <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
           {rows.map((milestone, i) => (
-            <li key={milestone.version} className="mpg-enter" style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}>
+            <li
+              key={`${milestone.version}:${milestone.name}:${i}`}
+              className="mpg-enter"
+              style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
+            >
               <div
                 className="mpg-category-row px-1"
                 title={milestone.description || `${milestone.version} · ${milestone.name}`}

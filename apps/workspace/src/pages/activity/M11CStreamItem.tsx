@@ -333,7 +333,12 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
       presentingParticipantName: item.actor.displayName,
       createdAt: item.timestamp,
       content: item.content,
-      choices: item.interaction.choices ?? [],
+      // Wire choices carry opaque string ids; brand them for the frozen
+      // @vestara/types interaction contract.
+      choices: (item.interaction.choices ?? []).map((choice) => ({
+        ...choice,
+        choiceId: choice.choiceId as ChoiceId,
+      })),
     };
 
     // Reconstruct InteractionResponse if responded
@@ -351,7 +356,13 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
 
     // AR-REC-R6: Derive feedback state from ephemeral submission state
     const feedback: InteractionFeedbackState | undefined = (() => {
-      if (!submission || submission.interactionId !== item.interaction.interactionId) {
+      // `SubmissionState`'s `idle` variant carries no `interactionId`, so it
+      // must be excluded before reading it.
+      if (
+        !submission ||
+        submission.status === 'idle' ||
+        submission.interactionId !== item.interaction.interactionId
+      ) {
         return undefined;
       }
       switch (submission.status) {

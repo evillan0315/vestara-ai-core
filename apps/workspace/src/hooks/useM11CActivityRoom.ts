@@ -179,7 +179,9 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     aggregated: item.aggregated,
     fresh: false,
     interaction: item.interaction,
-    referencedActivityIds: item.referencedActivityIds,
+    // NOTE: snapshot stream items carry no threading ids on the wire (verified
+    // against GET /api/activity-room/v1/snapshot — no `referencedActivityIds`).
+    // Threading ids are only populated from wire projection records.
   };
 }
 
@@ -315,7 +317,8 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
     executionId: activity.executionId,
     taskId: activity.taskId,
     fresh,
-    referencedActivityIds: activity.referencedActivityIds,
+    // NOTE: M11A activity records expose no top-level `referencedActivityIds`
+    // (verified against GET /api/activity-room/v1/activities).
   };
 
   // Carry interaction data for live arrival

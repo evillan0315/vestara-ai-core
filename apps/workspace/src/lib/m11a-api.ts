@@ -75,7 +75,13 @@ export interface M11AActivityRecord {
   readonly actor: { readonly type: string; readonly id: string; readonly displayName: string };
   readonly actorId?: string;
   readonly source: string;
-  readonly payload?: { readonly message?: string; readonly error?: string; readonly output?: unknown };
+  readonly payload?: {
+    readonly message?: string;
+    readonly error?: string;
+    readonly output?: unknown;
+    /** Interaction/event-specific payload (e.g. interactionId, choices). */
+    readonly data?: unknown;
+  };
   readonly visibility: string;
 }
 

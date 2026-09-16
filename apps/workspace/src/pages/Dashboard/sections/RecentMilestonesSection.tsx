@@ -16,7 +16,9 @@ export default function RecentMilestonesSection({ recentCompletions, dragSection
     <DashboardSection title="Recent Milestones" icon="🎯" dragSection={dragSection}>
       <ul className="space-y-1">
         {recentCompletions.map((m, i) => (
-          <li key={m.version} className="mpg-enter" style={enterDelay(i)}>
+          // Milestone data can contain exact duplicates (same version + name),
+          // so version alone is not a unique key. The index disambiguates.
+          <li key={`${m.version}:${m.name}:${i}`} className="mpg-enter" style={enterDelay(i)}>
             <div className="mpg-category-row group">
               <span className="flex min-w-0 flex-1 items-center gap-3">
                 <DashTile accent={ERA_COLORS[m.era] || '#6b7280'}>🎯</DashTile>

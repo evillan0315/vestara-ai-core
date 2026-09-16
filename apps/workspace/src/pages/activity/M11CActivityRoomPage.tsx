@@ -28,10 +28,10 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import { useM11CActivityRoom, streamItemFromLive, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
-import { fetchM11AAggregateDrillDown, type M11AActivityRecord } from '../../lib/m11a-api';
+import { fetchM11AAggregateDrillDown } from '../../lib/m11a-api';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
 import { RouteHero } from '../../components/layout/PageHero/RouteHero';
@@ -148,14 +148,17 @@ export default function M11CActivityRoomPage() {
     return map;
   }, [room.stream]);
 
-  const [drillDownRecords, setDrillDownRecords] = useState<readonly M11AActivityRecord[]>([]);
+  const [drillDownRecords, setDrillDownRecords] = useState<readonly M11CStreamItem[]>([]);
   const [drillDownLoading, setDrillDownLoading] = useState(false);
 
   const handleDrillDown = useCallback(async (aggregateId: string, _referencedIds: readonly string[]) => {
     setDrillDownLoading(true);
     try {
       const result = await fetchM11AAggregateDrillDown(aggregateId);
-      setDrillDownRecords(result.records);
+      // Map wire records through the canonical record → stream-item projection
+      // so the drill-down renders the same fields (kind/content/actor) as the
+      // live stream instead of reading non-existent wire properties.
+      setDrillDownRecords(result.records.map((record) => streamItemFromLive(record, false)));
       const aggregateItem = room.stream.find((s) => s.id === aggregateId);
       if (aggregateItem) {
         ui.openDetail(aggregateItem);
@@ -1107,7 +1110,7 @@ function M11CDetailModal({
   onClose,
 }: {
   item: M11CStreamItem;
-  drillDownRecords?: readonly M11AActivityRecord[];
+  drillDownRecords?: readonly M11CStreamItem[];
   drillDownLoading?: boolean;
   onClose: () => void;
 }) {

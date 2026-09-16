@@ -75,7 +75,9 @@ export default function ActivityRoomPage() {
     setActivitySelection({
       kind: 'activity',
       id: record.id,
-      label: record.content?.slice(0, 50) ?? record.id,
+      // `content` exists only on the `agent-message` variant of the
+      // ActivityRecord union; every other kind falls back to its id.
+      label: record.kind === 'agent-message' ? record.content.slice(0, 50) : record.id,
     });
   }, [setActivitySelection]);
   const closeDetail = useCallback(() => setDetailRecord(null), []);

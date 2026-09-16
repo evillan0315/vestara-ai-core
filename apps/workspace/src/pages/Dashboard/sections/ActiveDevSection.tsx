@@ -29,7 +29,9 @@ export default function ActiveDevSection({
     <DashboardSection title="Active Development" icon="△" dragSection={dragSection}>
       <ul className="space-y-1">
         {activeMilestones.map((m, i) => (
-          <li key={m.version} className="mpg-enter" style={enterDelay(i)}>
+          // Milestone data can contain exact duplicates (same version + name),
+          // so version alone is not a unique key. The index disambiguates.
+          <li key={`${m.version}:${m.name}:${i}`} className="mpg-enter" style={enterDelay(i)}>
             <div className="mpg-category-row group">
               <span className="flex min-w-0 flex-1 items-center gap-3">
                 <DashTile accent="#f59e0b">△</DashTile>
@@ -63,7 +65,7 @@ export default function ActiveDevSection({
           <div className="px-1 pt-2 text-[9px] uppercase tracking-widest text-(--vestara-text-muted)">Next Up</div>
           <ul className="space-y-1">
             {upcomingMilestones.map((m, i) => (
-              <li key={m.version} className="mpg-enter" style={enterDelay(i)}>
+              <li key={`${m.version}:${m.name}:${i}`} className="mpg-enter" style={enterDelay(i)}>
                 <div className="mpg-category-row group">
                   <span className="flex min-w-0 flex-1 items-center gap-3">
                     <DashTile accent="#52525b">○</DashTile>
