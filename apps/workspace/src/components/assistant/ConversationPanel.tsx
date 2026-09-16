@@ -48,6 +48,7 @@ import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ToolObservationRenderer } from './ToolObservationRenderer';
 import { ConversationHistory, type ActiveTurnState } from './ConversationHistory';
+import { VirtualizedMessageList, type MessageListItem } from './VirtualizedMessageList';
 import { ExecutionControlsPopover } from './ExecutionControlsPopover';
 import { ExecutionTray } from './ExecutionTray';
 import { resolveDisplayTitle } from './conversationTitles';
@@ -101,6 +102,17 @@ function formatTime(isoOrTimestamp: string | number): string {
 
 function isDegraded(assistant: UseAssistantConversationReturn): boolean {
   return !!(assistant.listError || assistant.streamError);
+}
+
+/**
+ * VES-PERF-002 (P0): crude pre-measurement height hint for the windowed
+ * message list. Assistant bodies range from ~1 KB to >200 KB, so a single
+ * constant estimate forces repeated measurement correction while scrolling.
+ * The virtualizer replaces this with the real measured height on mount.
+ */
+function estimateMessageHeight(content: string | undefined | null): number {
+  const length = content?.length ?? 0;
+  return Math.min(6000, 120 + Math.round(length / 3));
 }
 
 function isFailedAssistantContent(content: string): boolean {
@@ -1370,6 +1382,93 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     [handleSend],
   );
 
+  // VES-PERF-002 (P0): static list items are memoized so a streaming token
+  // (which only changes the active turn) does not recreate the persisted
+  // message elements — `MessageBubble` stays referentially stable and skips
+  // re-render. The list itself is windowed by VirtualizedMessageList.
+  const staticMessageItems = useMemo<MessageListItem[]>(() => {
+    const items: MessageListItem[] = [];
+    // VES-PERF-001B: load older history on demand
+    if (assistant.messagesPagination?.hasMore) {
+      items.push({
+        key: 'load-older',
+        estimate: 48,
+        node: (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={handleLoadOlderMessages}
+              disabled={assistant.loadingOlderMessages}
+              data-testid="load-older-messages"
+              className="rounded-full border border-zinc-700/60 bg-zinc-900/70 px-3 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-amber-500/40 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {assistant.loadingOlderMessages
+                ? 'Loading older messages…'
+                : `Load older messages (${assistant.messagesPagination.total - assistant.messagesPagination.offset - assistant.messagesPagination.limit} older)`}
+            </button>
+          </div>
+        ),
+      });
+    }
+    for (const msg of assistant.messages) {
+      items.push({
+        key: msg.id,
+        estimate: estimateMessageHeight(msg.content),
+        node: <MessageBubble message={msg} onOpenInEditor={openInEditorFallback} />,
+      });
+    }
+    for (const turn of optimisticTurns) {
+      items.push({
+        key: turn.clientTurnId,
+        estimate: 160,
+        node: <OptimisticHumanBubble turn={turn} onRetry={handleRetry} />,
+      });
+    }
+    return items;
+  }, [
+    assistant.messages,
+    assistant.messagesPagination,
+    assistant.loadingOlderMessages,
+    optimisticTurns,
+    openInEditorFallback,
+    handleRetry,
+    handleLoadOlderMessages,
+  ]);
+
+  const messageListItems = useMemo<MessageListItem[]>(() => {
+    if (!showActiveTurn) return staticMessageItems;
+    return [
+      ...staticMessageItems,
+      {
+        key: 'active-turn',
+        estimate: Math.max(200, estimateMessageHeight(assistant.streamingText)),
+        node: (
+          <ActiveTurn
+            text={assistant.streamingText}
+            status={assistant.streamStatus}
+            operations={assistant.toolOperations ?? []}
+            structuredEdits={assistant.structuredEdits ?? []}
+            structuredTerminals={assistant.structuredTerminals ?? []}
+            structuredVerifications={assistant.structuredVerifications ?? []}
+            taskSnapshot={assistant.taskSnapshot ?? null}
+            onOpenInEditor={openInEditorFallback}
+          />
+        ),
+      },
+    ];
+  }, [
+    showActiveTurn,
+    staticMessageItems,
+    assistant.streamingText,
+    assistant.streamStatus,
+    assistant.toolOperations,
+    assistant.structuredEdits,
+    assistant.structuredTerminals,
+    assistant.structuredVerifications,
+    assistant.taskSnapshot,
+    openInEditorFallback,
+  ]);
+
   const mainColumn = (
     <div className="flex h-full w-full flex-col">
       {/* Surface context badge */}
@@ -1527,43 +1626,10 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
             aria-live="polite"
             aria-label="Assistant conversation"
             data-testid="conversation-scroll"
-            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 space-y-6 focus:outline-none min-w-0"
+            className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden px-4 py-5 focus:outline-none min-w-0"
           >
             <Profiler id="MessageList" onRender={onRender}>
-              {/* VES-PERF-001B: load older history on demand */}
-              {assistant.messagesPagination?.hasMore && (
-                <div className="flex justify-center pb-1">
-                  <button
-                    type="button"
-                    onClick={handleLoadOlderMessages}
-                    disabled={assistant.loadingOlderMessages}
-                    data-testid="load-older-messages"
-                    className="rounded-full border border-zinc-700/60 bg-zinc-900/70 px-3 py-1 text-[10px] font-medium text-zinc-400 transition-colors hover:border-amber-500/40 hover:text-zinc-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                  >
-                    {assistant.loadingOlderMessages
-                      ? 'Loading older messages…'
-                      : `Load older messages (${assistant.messagesPagination.total - assistant.messagesPagination.offset - assistant.messagesPagination.limit} older)`}
-                  </button>
-                </div>
-              )}
-              {assistant.messages.map((msg) => (
-                <MessageBubble key={msg.id} message={msg} onOpenInEditor={openInEditorFallback} />
-              ))}
-            {optimisticTurns.map((turn) => (
-              <OptimisticHumanBubble key={turn.clientTurnId} turn={turn} onRetry={handleRetry} />
-            ))}
-            {showActiveTurn && (
-              <ActiveTurn
-                text={assistant.streamingText}
-                status={assistant.streamStatus}
-                operations={assistant.toolOperations ?? []}
-                structuredEdits={assistant.structuredEdits ?? []}
-                structuredTerminals={assistant.structuredTerminals ?? []}
-                structuredVerifications={assistant.structuredVerifications ?? []}
-                taskSnapshot={assistant.taskSnapshot ?? null}
-                onOpenInEditor={openInEditorFallback}
-              />
-            )}
+              <VirtualizedMessageList scrollRef={scrollRef} items={messageListItems} />
             </Profiler>
           </div>
           {showJump && (

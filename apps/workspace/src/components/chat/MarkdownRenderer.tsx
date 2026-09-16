@@ -1,3 +1,4 @@
+import { memo, useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeHighlight from 'rehype-highlight';
 import remarkGfm from 'remark-gfm';
@@ -63,24 +64,53 @@ function SafeLink({
   );
 }
 
-export function MarkdownRenderer({ content }: MarkdownRendererProps) {
-  const components = {
-    code: CodeBlock as any,
-    table: Table as any,
-    a: SafeLink as any,
-  };
+/**
+ * VES-PERF-002 (P0): hoisted to module scope so `react-markdown` receives
+ * stable plugin + component identities. Previously the `components` object
+ * was rebuilt on every render, which re-parsed the entire (often 100 KB+)
+ * message body and defeated memoization on the assistant message list.
+ */
+const REMARK_PLUGINS: any[] = [remarkGfm];
+const PLAIN_PLUGINS: any[] = [];
+const HIGHLIGHT_PLUGINS: any[] = [[rehypeHighlight, { aliases: HIGHLIGHT_ALIASES }]];
+const MARKDOWN_COMPONENTS = {
+  code: CodeBlock as any,
+  table: Table as any,
+  a: SafeLink as any,
+};
+
+/**
+ * VES-PERF-002 (P0): defer `rehype-highlight` to the first idle frame so the
+ * initial paint of a long conversation is not blocked by syntax tokenization.
+ * Environments without `requestIdleCallback` (jsdom under vitest) highlight
+ * synchronously, keeping the GA-UI-005 `hljs-*` DOM contract deterministic.
+ */
+const CAN_DEFER_HIGHLIGHT = typeof requestIdleCallback === 'function';
+
+function useDeferredHighlight(): boolean {
+  const [ready, setReady] = useState(!CAN_DEFER_HIGHLIGHT);
+  useEffect(() => {
+    if (!CAN_DEFER_HIGHLIGHT || ready) return;
+    const id = requestIdleCallback(() => setReady(true), { timeout: 400 });
+    return () => cancelIdleCallback(id);
+  }, [ready]);
+  return ready;
+}
+
+export const MarkdownRenderer = memo(function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  const highlight = useDeferredHighlight();
 
   return (
     <div className="markdown">
       {/* No rehype-raw / allowDangerousHtml: raw model HTML is escaped as
           text and can never become a DOM injection path. */}
       <ReactMarkdown
-        remarkPlugins={[remarkGfm]}
-        rehypePlugins={[[rehypeHighlight, { aliases: HIGHLIGHT_ALIASES }]]}
-        components={components as any}
+        remarkPlugins={REMARK_PLUGINS}
+        rehypePlugins={highlight ? HIGHLIGHT_PLUGINS : PLAIN_PLUGINS}
+        components={MARKDOWN_COMPONENTS}
       >
         {content}
       </ReactMarkdown>
     </div>
   );
-}
+});
