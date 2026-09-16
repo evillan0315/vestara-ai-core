@@ -12,6 +12,7 @@ import {
 import {
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
+  SqliteCIGovernedPushStore,
   SqliteCINotificationStore,
   SqliteCIObservationStore,
   SqliteCIWebhookDeliveryStore,
@@ -157,6 +158,16 @@ describe('CI records — sqlite stores', () => {
       commitSha: COMMIT,
       at: '2026-09-16T00:00:00.000Z',
     });
+    await new SqliteCIGovernedPushStore(db).record({
+      pushId: `push:task-1:${COMMIT}`,
+      taskId: 'task-1',
+      repository: REPO,
+      commitSha: COMMIT,
+      branch: 'vestara/task-1',
+      waitRef: 'ci-corr:r:abc:task-1',
+      operationId: 'op:governed-push:task-1:abc',
+      pushedAt: '2026-09-16T00:00:00.000Z',
+    });
 
     const next = await restart(db);
     expect((await new SqliteCIObservationStore(next).latest())?.runId).toBe('run-1');
@@ -164,6 +175,14 @@ describe('CI records — sqlite stores', () => {
     expect((await new SqliteCIFindingStore(next).list())[0]?.scopeKey).toBe(`${REPO}:${COMMIT}`);
     expect((await new SqliteCIWebhookDeliveryStore(next).recent())[0]?.accepted).toBe(true);
     expect((await new SqliteCINotificationStore(next).recent())[0]?.kind).toBe('required-check-failed');
+    // Notification starts pending and is marked delivered exactly once.
+    const notifications = new SqliteCINotificationStore(next);
+    expect((await notifications.pending())[0]?.notificationId).toBe('obs-1:required-check-failed');
+    await notifications.markDelivered('obs-1:required-check-failed', '2026-09-16T02:00:00.000Z');
+    expect(await notifications.pending()).toHaveLength(0);
+    expect((await notifications.recent())[0]?.deliveredAt).toBe('2026-09-16T02:00:00.000Z');
+    // Governed-push record survives restart (idempotency/audit).
+    expect((await new SqliteCIGovernedPushStore(next).recent())[0]?.operationId).toBe('op:governed-push:task-1:abc');
   });
 });
 

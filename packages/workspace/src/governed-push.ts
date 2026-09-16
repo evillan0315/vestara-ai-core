@@ -113,6 +113,8 @@ export type GovernedPushResult =
       readonly repository: string;
       readonly commitSha: string;
       readonly waitRef: string;
+      /** Originating operation lineage (caller-supplied or minted). */
+      readonly operationId: string;
       readonly pushedAt: string;
     }
   | { readonly status: 'hold'; readonly phase: GovernedPushPhase; readonly reason: string }
@@ -287,6 +289,9 @@ export class GovernedPushService {
     }
 
     // ── Register the CI wait BEFORE the push (H1) ───────────────────
+    // Operation lineage: the caller's operation id when supplied, otherwise a
+    // deterministic id for the governed-push operation itself.
+    const operationId = input.operationId ?? `op:governed-push:${input.taskId}:${commitSha}`;
     let waitRef: string;
     if (input.existingWait) {
       waitRef = input.existingWait.waitRef;
@@ -302,7 +307,7 @@ export class GovernedPushService {
           branch: target,
           provider: this.deps.provider ?? 'github-actions',
           ...(input.workflowRunId !== undefined ? { originatingWorkflowRunId: input.workflowRunId } : {}),
-          ...(input.operationId !== undefined ? { originatingOperationId: input.operationId } : {}),
+          originatingOperationId: operationId,
           suspendedAt: now,
         });
       } catch (error) {
@@ -321,7 +326,16 @@ export class GovernedPushService {
       return { status: 'failed', phase: 'push', reason, commitSha, waitRef, rollback: 'in-progress' };
     }
 
-    return { status: 'pushed', phase: 'done', branch: target, repository, commitSha, waitRef, pushedAt: now };
+    return {
+      status: 'pushed',
+      phase: 'done',
+      branch: target,
+      repository,
+      commitSha,
+      waitRef,
+      operationId,
+      pushedAt: now,
+    };
   }
 }
 

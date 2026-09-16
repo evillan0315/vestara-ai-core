@@ -240,5 +240,45 @@ export const CI_OBSERVER_MIGRATIONS: MigrationManifest = {
         db.run('CREATE INDEX IF NOT EXISTS idx_ci_notifications_at ON ci_notifications(at)');
       },
     },
+    {
+      name: 'ci_observer.notifications.delivery',
+      produces: [{ table: 'ci_notifications', columns: ['delivered_at'] }],
+      up: (db, ctx) => {
+        ctx.addColumnIfMissing(db, 'ci_notifications', 'delivered_at', 'TEXT');
+      },
+    },
+    {
+      name: 'ci_observer.governed_pushes',
+      produces: [
+        {
+          table: 'ci_governed_pushes',
+          columns: [
+            'push_id',
+            'task_id',
+            'repository',
+            'commit_sha',
+            'branch',
+            'wait_ref',
+            'operation_id',
+            'pushed_at',
+          ],
+        },
+      ],
+      up: (db) => {
+        db.run(`
+          CREATE TABLE IF NOT EXISTS ci_governed_pushes (
+            push_id TEXT PRIMARY KEY,
+            task_id TEXT NOT NULL,
+            repository TEXT NOT NULL,
+            commit_sha TEXT NOT NULL,
+            branch TEXT NOT NULL,
+            wait_ref TEXT NOT NULL,
+            operation_id TEXT,
+            pushed_at TEXT NOT NULL
+          )
+        `);
+        db.run('CREATE INDEX IF NOT EXISTS idx_ci_governed_pushes_task ON ci_governed_pushes(task_id)');
+      },
+    },
   ],
 };

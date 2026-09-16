@@ -298,6 +298,23 @@ export async function handleOrchestrationRoute(
             }
           : {}),
       });
+      // CI-PUSH-001 hardening: durable push record (idempotency/audit).
+      if (result.status === 'pushed') {
+        try {
+          await ctx.ciRecords.pushes?.record({
+            pushId: `push:${taskId}:${result.commitSha}`,
+            taskId,
+            repository: result.repository,
+            commitSha: result.commitSha,
+            branch: result.branch,
+            waitRef: result.waitRef,
+            operationId: result.operationId,
+            pushedAt: result.pushedAt,
+          });
+        } catch {
+          // Audit record must not fail the response; the wait already holds authority.
+        }
+      }
       const status = result.status === 'pushed' ? 200 : result.status === 'hold' ? 409 : 502;
       json(res, status, { result });
     } catch (error) {

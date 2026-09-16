@@ -9,6 +9,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { M9IngestionBridge } from '@vestara/activity-room';
+import { deliverPendingCINotifications } from '@vestara/ci-observer';
 import type { WorkspaceEvent } from '@vestara/events';
 import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
@@ -172,6 +173,35 @@ async function main(): Promise<void> {
     bootMark('ci-reconcile-scheduled');
   }
 
+  // CI-OBS-001I: drain the notification outbox to configured sinks. Opt in
+  // with VESTARA_CI_NOTIFY_INTERVAL_MS. A console sink is the default channel;
+  // real channels (Telegram/UI) plug additional sinks without changing drain
+  // semantics.
+  const notifyIntervalMs = Number(process.env.VESTARA_CI_NOTIFY_INTERVAL_MS ?? 0);
+  let ciNotifyTimer: ReturnType<typeof setInterval> | undefined;
+  if (Number.isFinite(notifyIntervalMs) && notifyIntervalMs > 0 && ctx.ciRecords.notifications) {
+    const notifications = ctx.ciRecords.notifications;
+    const consoleSink = {
+      id: 'console',
+      async deliver(notification: {
+        readonly severity: string;
+        readonly title: string;
+        readonly body: string;
+      }): Promise<void> {
+        console.log(`[ci:notify] ${notification.severity} · ${notification.title} — ${notification.body}`);
+      },
+    };
+    ciNotifyTimer = setInterval(() => {
+      void deliverPendingCINotifications(notifications, [consoleSink])
+        .then((summary) => {
+          if (summary.delivered > 0) console.log(`[ci] delivered ${summary.delivered} notification(s)`);
+        })
+        .catch(() => undefined);
+    }, notifyIntervalMs);
+    ciNotifyTimer.unref?.();
+    bootMark('ci-notify-scheduled');
+  }
+
   const server = createServer(ctx, port) as ApiServer;
   broadcast = (e) => server.broadcast(e);
   for (const e of pending) server.broadcast(e);
@@ -203,6 +233,7 @@ async function main(): Promise<void> {
     console.log(`[api] ${signal} — shutting down`);
     const shutdownStart = process.hrtime.bigint();
     if (ciReconcileTimer) clearInterval(ciReconcileTimer);
+    if (ciNotifyTimer) clearInterval(ciNotifyTimer);
     server.close();
     await ctx.close();
     const shutdownMs = Math.round(Number(process.hrtime.bigint() - shutdownStart) / 1_000_000);

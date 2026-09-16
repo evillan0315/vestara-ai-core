@@ -100,12 +100,36 @@ export interface CINotificationRecord {
   readonly correlationId?: string;
   readonly taskId?: string;
   readonly at: string;
+  /** Set once a delivery sink has accepted the notification. */
+  readonly deliveredAt?: string;
 }
 
 export interface CINotificationStore {
   record(record: CINotificationRecord): Promise<void>;
   /** Most recent notifications, newest first. */
   recent(limit?: number): Promise<readonly CINotificationRecord[]>;
+  /** Undelivered notifications, oldest first (delivery order). */
+  pending(limit?: number): Promise<readonly CINotificationRecord[]>;
+  /** Mark a notification delivered exactly once. */
+  markDelivered(notificationId: string, deliveredAt: string): Promise<void>;
+}
+
+/** CI-PUSH-001 hardening — durable governed-push record (idempotency/audit). */
+export interface CIGovernedPushRecord {
+  readonly pushId: string;
+  readonly taskId: string;
+  readonly repository: string;
+  readonly commitSha: string;
+  readonly branch: string;
+  readonly waitRef: string;
+  readonly operationId?: string;
+  readonly pushedAt: string;
+}
+
+export interface CIGovernedPushStore {
+  record(record: CIGovernedPushRecord): Promise<void>;
+  findById(pushId: string): Promise<CIGovernedPushRecord | undefined>;
+  recent(limit?: number): Promise<readonly CIGovernedPushRecord[]>;
 }
 
 export interface CIRecordStores {
@@ -114,6 +138,7 @@ export interface CIRecordStores {
   readonly findings?: CIFindingStore;
   readonly deliveries?: CIWebhookDeliveryStore;
   readonly notifications?: CINotificationStore;
+  readonly pushes?: CIGovernedPushStore;
 }
 
 // ─── In-memory implementations (tests / ephemeral) ──────────────────
@@ -170,11 +195,38 @@ export class InMemoryCIWebhookDeliveryStore implements CIWebhookDeliveryStore {
 
 export class InMemoryCINotificationStore implements CINotificationStore {
   private readonly items: CINotificationRecord[] = [];
+  private readonly delivered = new Map<string, string>();
 
   async record(record: CINotificationRecord): Promise<void> {
     this.items.push(record);
   }
   async recent(limit = 20): Promise<readonly CINotificationRecord[]> {
-    return [...this.items].reverse().slice(0, limit);
+    return [...this.items]
+      .reverse()
+      .slice(0, limit)
+      .map((record) => {
+        const at = this.delivered.get(record.notificationId);
+        return at !== undefined ? { ...record, deliveredAt: at } : record;
+      });
+  }
+  async pending(limit = 20): Promise<readonly CINotificationRecord[]> {
+    return this.items.filter((record) => !this.delivered.has(record.notificationId)).slice(0, limit);
+  }
+  async markDelivered(notificationId: string, deliveredAt: string): Promise<void> {
+    this.delivered.set(notificationId, deliveredAt);
+  }
+}
+
+export class InMemoryCIGovernedPushStore implements CIGovernedPushStore {
+  private readonly byId = new Map<string, CIGovernedPushRecord>();
+
+  async record(record: CIGovernedPushRecord): Promise<void> {
+    this.byId.set(record.pushId, record);
+  }
+  async findById(pushId: string): Promise<CIGovernedPushRecord | undefined> {
+    return this.byId.get(pushId);
+  }
+  async recent(limit = 20): Promise<readonly CIGovernedPushRecord[]> {
+    return [...this.byId.values()].sort((a, b) => b.pushedAt.localeCompare(a.pushedAt)).slice(0, limit);
   }
 }

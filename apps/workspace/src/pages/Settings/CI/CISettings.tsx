@@ -261,7 +261,8 @@ function AdvancedDiagnostics({
                   label={notification.title}
                   value={
                     <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                      {notification.severity} · {relativeTime(notification.at)}
+                      {notification.severity} · {relativeTime(notification.at)} ·{' '}
+                      {notification.deliveredAt ? 'delivered' : 'pending'}
                     </span>
                   }
                   title={notification.body}

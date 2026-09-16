@@ -27,6 +27,8 @@ export { CIVerificationService } from './completion';
 export type { BeginCoordinatorWaitInput, CICoordinator, CICoordinatorWait } from './coordinator';
 export type { CICorrelationRecord, CICorrelationStore, RegisterCorrelationInput } from './correlation';
 export { createCICorrelationRecord, deriveCorrelationId, InMemoryCICorrelationStore } from './correlation';
+export type { CIDeliverySummary, CINotificationSink } from './delivery';
+export { deliverPendingCINotifications } from './delivery';
 // Durable substrate (registered migrations + sql.js-backed stores)
 export { CI_OBSERVER_MIGRATIONS } from './migrations';
 export type {
@@ -47,6 +49,8 @@ export type {
   CIDecisionStore,
   CIFindingRecord,
   CIFindingStore,
+  CIGovernedPushRecord,
+  CIGovernedPushStore,
   CINotificationRecord,
   CINotificationStore,
   CIObservationRecord,
@@ -58,6 +62,7 @@ export type {
 export {
   InMemoryCIDecisionStore,
   InMemoryCIFindingStore,
+  InMemoryCIGovernedPushStore,
   InMemoryCINotificationStore,
   InMemoryCIObservationStore,
   InMemoryCIWebhookDeliveryStore,
@@ -85,6 +90,7 @@ export { SqliteCICorrelationStore } from './sqlite-correlation-store';
 export {
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
+  SqliteCIGovernedPushStore,
   SqliteCINotificationStore,
   SqliteCIObservationStore,
   SqliteCIWebhookDeliveryStore,

@@ -119,6 +119,8 @@ describe('governed push — service', () => {
     expect(result.repository).toBe('vestara/core');
     expect(result.commitSha).toBe('sha-abc');
     expect(result.waitRef).toBe('ci-corr:vestara/core:sha-abc:task-1');
+    // Operation lineage is always supplied (caller id or a deterministic mint).
+    expect(result.operationId).toBe('op:governed-push:task-1:sha-abc');
     expect(timeline.indexOf('register-wait')).toBeGreaterThanOrEqual(0);
     expect(timeline.indexOf('register-wait')).toBeLessThan(timeline.indexOf('push'));
     expect(timeline.indexOf('commit')).toBeLessThan(timeline.indexOf('register-wait'));

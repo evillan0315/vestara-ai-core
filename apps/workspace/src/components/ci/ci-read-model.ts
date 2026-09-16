@@ -96,6 +96,8 @@ export interface CINotificationDto {
   readonly correlationId?: string;
   readonly taskId?: string;
   readonly at: string;
+  /** Set once a delivery sink accepted the notification. */
+  readonly deliveredAt?: string;
 }
 
 // ─── Mapping ────────────────────────────────────────────────────────

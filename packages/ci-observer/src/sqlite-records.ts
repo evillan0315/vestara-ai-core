@@ -12,6 +12,8 @@ import type {
   CIDecisionStore,
   CIFindingRecord,
   CIFindingStore,
+  CIGovernedPushRecord,
+  CIGovernedPushStore,
   CINotificationRecord,
   CINotificationStore,
   CIObservationRecord,
@@ -242,6 +244,7 @@ interface NotificationRow {
   correlation_id: string | null;
   task_id: string | null;
   at: string;
+  delivered_at: string | null;
 }
 
 function toNotification(row: NotificationRow): CINotificationRecord {
@@ -256,6 +259,7 @@ function toNotification(row: NotificationRow): CINotificationRecord {
     ...(row.correlation_id !== null ? { correlationId: row.correlation_id } : {}),
     ...(row.task_id !== null ? { taskId: row.task_id } : {}),
     at: row.at,
+    ...(row.delivered_at !== null ? { deliveredAt: row.delivered_at } : {}),
   };
 }
 
@@ -265,8 +269,8 @@ export class SqliteCINotificationStore implements CINotificationStore {
   async record(record: CINotificationRecord): Promise<void> {
     this.db.run(
       `INSERT OR REPLACE INTO ci_notifications
-        (notification_id, kind, severity, title, body, observation_id, commit_sha, correlation_id, task_id, at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (notification_id, kind, severity, title, body, observation_id, commit_sha, correlation_id, task_id, at, delivered_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         record.notificationId,
         record.kind,
@@ -278,6 +282,7 @@ export class SqliteCINotificationStore implements CINotificationStore {
         record.correlationId ?? null,
         record.taskId ?? null,
         record.at,
+        record.deliveredAt ?? null,
       ],
     );
   }
@@ -285,6 +290,80 @@ export class SqliteCINotificationStore implements CINotificationStore {
   async recent(limit = 20): Promise<readonly CINotificationRecord[]> {
     return rows<NotificationRow>(this.db, 'SELECT * FROM ci_notifications ORDER BY at DESC LIMIT ?', [limit]).map(
       toNotification,
+    );
+  }
+
+  async pending(limit = 20): Promise<readonly CINotificationRecord[]> {
+    return rows<NotificationRow>(
+      this.db,
+      'SELECT * FROM ci_notifications WHERE delivered_at IS NULL ORDER BY at ASC LIMIT ?',
+      [limit],
+    ).map(toNotification);
+  }
+
+  async markDelivered(notificationId: string, deliveredAt: string): Promise<void> {
+    this.db.run('UPDATE ci_notifications SET delivered_at = ? WHERE notification_id = ? AND delivered_at IS NULL', [
+      deliveredAt,
+      notificationId,
+    ]);
+  }
+}
+
+// ─── Governed pushes ────────────────────────────────────────────────
+
+interface PushRow {
+  push_id: string;
+  task_id: string;
+  repository: string;
+  commit_sha: string;
+  branch: string;
+  wait_ref: string;
+  operation_id: string | null;
+  pushed_at: string;
+}
+
+function toPush(row: PushRow): CIGovernedPushRecord {
+  return {
+    pushId: row.push_id,
+    taskId: row.task_id,
+    repository: row.repository,
+    commitSha: row.commit_sha,
+    branch: row.branch,
+    waitRef: row.wait_ref,
+    ...(row.operation_id !== null ? { operationId: row.operation_id } : {}),
+    pushedAt: row.pushed_at,
+  };
+}
+
+export class SqliteCIGovernedPushStore implements CIGovernedPushStore {
+  constructor(private readonly db: Database) {}
+
+  async record(record: CIGovernedPushRecord): Promise<void> {
+    this.db.run(
+      `INSERT OR REPLACE INTO ci_governed_pushes
+        (push_id, task_id, repository, commit_sha, branch, wait_ref, operation_id, pushed_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.pushId,
+        record.taskId,
+        record.repository,
+        record.commitSha,
+        record.branch,
+        record.waitRef,
+        record.operationId ?? null,
+        record.pushedAt,
+      ],
+    );
+  }
+
+  async findById(pushId: string): Promise<CIGovernedPushRecord | undefined> {
+    const found = rows<PushRow>(this.db, 'SELECT * FROM ci_governed_pushes WHERE push_id = ? LIMIT 1', [pushId]);
+    return found[0] ? toPush(found[0]) : undefined;
+  }
+
+  async recent(limit = 20): Promise<readonly CIGovernedPushRecord[]> {
+    return rows<PushRow>(this.db, 'SELECT * FROM ci_governed_pushes ORDER BY pushed_at DESC LIMIT ?', [limit]).map(
+      toPush,
     );
   }
 }
