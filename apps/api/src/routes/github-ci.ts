@@ -17,6 +17,7 @@
 import type * as http from 'node:http';
 import type { GitHubCompletionJob } from '@vestara/ci-observer';
 import {
+  aggregateRequiredChecks,
   CIVerificationService,
   DeliveryDeduplicator,
   evaluateCIResumeGate,
@@ -156,8 +157,36 @@ export async function handleGitHubCIRoute(
     .map((name) => name.trim())
     .filter((name) => name.length > 0);
   const designatedWorkflow = requiredWorkflows.length === 0 || requiredWorkflows.includes(run.name);
+
+  // H3 multi-workflow aggregation: accumulate this workflow's terminal state
+  // for the wait, then resume only when every required workflow has reported.
+  let aggregateState: string | undefined;
+  const checkStates = ctx.ciRecords?.checkStates;
+  const correlationId = result.correlation.correlationId;
+  if (requiredWorkflows.length > 0 && correlationId && checkStates) {
+    try {
+      await checkStates.upsert({
+        waitRef: correlationId,
+        commitSha: result.observation.commitSha,
+        workflowName: run.name,
+        status: result.observation.status,
+        conclusion: result.observation.conclusion,
+        observedAt: result.observation.observedAt,
+      });
+      const states = await checkStates.listByWait(correlationId);
+      aggregateState = aggregateRequiredChecks(
+        states.map((state) => ({ name: state.workflowName, conclusion: state.conclusion })),
+        { mode: 'any-designated', names: requiredWorkflows },
+      ).state;
+    } catch {
+      aggregateState = undefined;
+    }
+  }
+  const aggregationAllows =
+    aggregateState === undefined || (aggregateState !== 'pending' && aggregateState !== 'unknown');
+
   let resumed = false;
-  if (result.correlation.originatingTaskId && gate.allow && designatedWorkflow) {
+  if (result.correlation.originatingTaskId && gate.allow && designatedWorkflow && aggregationAllows) {
     try {
       await service.resumeFromDecision(result);
       resumed = true;
@@ -180,6 +209,8 @@ export async function handleGitHubCIRoute(
     resumeAllowed: gate.allow,
     resumeGateReason: gate.reason,
     designatedWorkflow,
+    requiredWorkflows: requiredWorkflows.length,
+    aggregateState,
     resumed,
   });
   return true;

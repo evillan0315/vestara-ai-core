@@ -280,5 +280,28 @@ export const CI_OBSERVER_MIGRATIONS: MigrationManifest = {
         db.run('CREATE INDEX IF NOT EXISTS idx_ci_governed_pushes_task ON ci_governed_pushes(task_id)');
       },
     },
+    {
+      name: 'ci_observer.check_states',
+      produces: [
+        {
+          table: 'ci_check_states',
+          columns: ['wait_ref', 'commit_sha', 'workflow_name', 'status', 'conclusion', 'observed_at'],
+        },
+      ],
+      up: (db) => {
+        db.run(`
+          CREATE TABLE IF NOT EXISTS ci_check_states (
+            wait_ref TEXT NOT NULL,
+            commit_sha TEXT NOT NULL,
+            workflow_name TEXT NOT NULL,
+            status TEXT NOT NULL,
+            conclusion TEXT NOT NULL,
+            observed_at TEXT NOT NULL,
+            PRIMARY KEY (wait_ref, workflow_name)
+          )
+        `);
+        db.run('CREATE INDEX IF NOT EXISTS idx_ci_check_states_wait ON ci_check_states(wait_ref)');
+      },
+    },
   ],
 };

@@ -10,6 +10,7 @@ import {
   InMemoryCIWebhookDeliveryStore,
 } from '../src/records';
 import {
+  SqliteCICheckStateStore,
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
   SqliteCIGovernedPushStore,
@@ -183,6 +184,39 @@ describe('CI records — sqlite stores', () => {
     expect((await notifications.recent())[0]?.deliveredAt).toBe('2026-09-16T02:00:00.000Z');
     // Governed-push record survives restart (idempotency/audit).
     expect((await new SqliteCIGovernedPushStore(next).recent())[0]?.operationId).toBe('op:governed-push:task-1:abc');
+  });
+
+  it('accumulates per-workflow check states idempotently for a wait', async () => {
+    const db = await createDb();
+    const store = new SqliteCICheckStateStore(db);
+    await store.upsert({
+      waitRef: 'ci-corr:r:abc:task-1',
+      commitSha: COMMIT,
+      workflowName: 'CI',
+      status: 'completed',
+      conclusion: 'failed',
+      observedAt: '2026-09-16T00:00:00.000Z',
+    });
+    // Re-reporting the same workflow replaces its state (no duplicate row).
+    await store.upsert({
+      waitRef: 'ci-corr:r:abc:task-1',
+      commitSha: COMMIT,
+      workflowName: 'CI',
+      status: 'completed',
+      conclusion: 'passed',
+      observedAt: '2026-09-16T00:05:00.000Z',
+    });
+    await store.upsert({
+      waitRef: 'ci-corr:r:abc:task-1',
+      commitSha: COMMIT,
+      workflowName: 'desktop-build',
+      status: 'completed',
+      conclusion: 'failed',
+      observedAt: '2026-09-16T00:05:00.000Z',
+    });
+    const states = await store.listByWait('ci-corr:r:abc:task-1');
+    expect(states).toHaveLength(2);
+    expect(states.find((state) => state.workflowName === 'CI')?.conclusion).toBe('passed');
   });
 });
 

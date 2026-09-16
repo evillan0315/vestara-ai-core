@@ -8,6 +8,8 @@
 import type { CIClassification, CIConclusion, CIStatus } from '@vestara/ci-contracts';
 import type { Database } from 'sql.js';
 import type {
+  CICheckStateRecord,
+  CICheckStateStore,
   CIDecisionRecord,
   CIDecisionStore,
   CIFindingRecord,
@@ -365,5 +367,40 @@ export class SqliteCIGovernedPushStore implements CIGovernedPushStore {
     return rows<PushRow>(this.db, 'SELECT * FROM ci_governed_pushes ORDER BY pushed_at DESC LIMIT ?', [limit]).map(
       toPush,
     );
+  }
+}
+
+// ─── Check states (multi-workflow aggregation, H3) ──────────────────
+
+interface CheckStateRow {
+  wait_ref: string;
+  commit_sha: string;
+  workflow_name: string;
+  status: string;
+  conclusion: string;
+  observed_at: string;
+}
+
+export class SqliteCICheckStateStore implements CICheckStateStore {
+  constructor(private readonly db: Database) {}
+
+  async upsert(record: CICheckStateRecord): Promise<void> {
+    this.db.run(
+      `INSERT OR REPLACE INTO ci_check_states
+        (wait_ref, commit_sha, workflow_name, status, conclusion, observed_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [record.waitRef, record.commitSha, record.workflowName, record.status, record.conclusion, record.observedAt],
+    );
+  }
+
+  async listByWait(waitRef: string): Promise<readonly CICheckStateRecord[]> {
+    return rows<CheckStateRow>(this.db, 'SELECT * FROM ci_check_states WHERE wait_ref = ?', [waitRef]).map((row) => ({
+      waitRef: row.wait_ref,
+      commitSha: row.commit_sha,
+      workflowName: row.workflow_name,
+      status: row.status,
+      conclusion: row.conclusion as CICheckStateRecord['conclusion'],
+      observedAt: row.observed_at,
+    }));
   }
 }

@@ -12,6 +12,7 @@ import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { BrowserRuntimeService } from '@vestara/browser-runtime';
 import {
+  SqliteCICheckStateStore,
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
   SqliteCIGovernedPushStore,
@@ -675,6 +676,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     deliveries: new SqliteCIWebhookDeliveryStore(db as import('sql.js').Database),
     notifications: new SqliteCINotificationStore(db as import('sql.js').Database),
     pushes: new SqliteCIGovernedPushStore(db as import('sql.js').Database),
+    checkStates: new SqliteCICheckStateStore(db as import('sql.js').Database),
   };
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);

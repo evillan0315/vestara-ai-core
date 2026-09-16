@@ -45,6 +45,8 @@ export type {
 } from './reconcile';
 export { reconcileWait } from './reconcile';
 export type {
+  CICheckStateRecord,
+  CICheckStateStore,
   CIDecisionRecord,
   CIDecisionStore,
   CIFindingRecord,
@@ -60,6 +62,7 @@ export type {
   CIWebhookDeliveryStore,
 } from './records';
 export {
+  InMemoryCICheckStateStore,
   InMemoryCIDecisionStore,
   InMemoryCIFindingStore,
   InMemoryCIGovernedPushStore,
@@ -88,6 +91,7 @@ export type {
 export { aggregateRequiredChecks, evaluateCIResumeGate } from './required-checks';
 export { SqliteCICorrelationStore } from './sqlite-correlation-store';
 export {
+  SqliteCICheckStateStore,
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
   SqliteCIGovernedPushStore,

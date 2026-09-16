@@ -81,11 +81,13 @@ export function aggregateRequiredChecks(
     else satisfied.push(name);
   }
 
-  if (failed.length > 0) {
-    return { state: 'failed', satisfied, failed, pending, inconclusive, reason: `Failed: ${failed.join(', ')}` };
-  }
+  // Incomplete first: a failure only becomes the aggregate verdict once every
+  // required check has reported, so callers never resume on a partial set.
   if (pending.length > 0) {
     return { state: 'pending', satisfied, failed, pending, inconclusive, reason: `Awaiting: ${pending.join(', ')}` };
+  }
+  if (failed.length > 0) {
+    return { state: 'failed', satisfied, failed, pending, inconclusive, reason: `Failed: ${failed.join(', ')}` };
   }
   if (inconclusive.length > 0) {
     return {

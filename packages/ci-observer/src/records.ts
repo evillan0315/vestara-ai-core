@@ -132,6 +132,25 @@ export interface CIGovernedPushStore {
   recent(limit?: number): Promise<readonly CIGovernedPushRecord[]>;
 }
 
+/**
+ * CI-OBS-002C (H3) — per-workflow terminal state accumulated for a wait so a
+ * task resumes only when the full required set has reported.
+ */
+export interface CICheckStateRecord {
+  readonly waitRef: string;
+  readonly commitSha: string;
+  readonly workflowName: string;
+  readonly status: string;
+  readonly conclusion: CIConclusion;
+  readonly observedAt: string;
+}
+
+export interface CICheckStateStore {
+  /** Upsert the terminal state for one workflow on a wait. */
+  upsert(record: CICheckStateRecord): Promise<void>;
+  listByWait(waitRef: string): Promise<readonly CICheckStateRecord[]>;
+}
+
 export interface CIRecordStores {
   readonly observations: CIObservationStore;
   readonly decisions: CIDecisionStore;
@@ -139,6 +158,7 @@ export interface CIRecordStores {
   readonly deliveries?: CIWebhookDeliveryStore;
   readonly notifications?: CINotificationStore;
   readonly pushes?: CIGovernedPushStore;
+  readonly checkStates?: CICheckStateStore;
 }
 
 // ─── In-memory implementations (tests / ephemeral) ──────────────────
@@ -214,6 +234,17 @@ export class InMemoryCINotificationStore implements CINotificationStore {
   }
   async markDelivered(notificationId: string, deliveredAt: string): Promise<void> {
     this.delivered.set(notificationId, deliveredAt);
+  }
+}
+
+export class InMemoryCICheckStateStore implements CICheckStateStore {
+  private readonly byKey = new Map<string, CICheckStateRecord>();
+
+  async upsert(record: CICheckStateRecord): Promise<void> {
+    this.byKey.set(`${record.waitRef}::${record.workflowName}`, record);
+  }
+  async listByWait(waitRef: string): Promise<readonly CICheckStateRecord[]> {
+    return [...this.byKey.values()].filter((record) => record.waitRef === waitRef);
   }
 }
 
