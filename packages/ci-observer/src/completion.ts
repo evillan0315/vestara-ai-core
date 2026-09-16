@@ -10,7 +10,7 @@
  * authority; the service consumes only canonical contracts.
  */
 
-import type { CIFailureEvidence, CIObservation } from '@vestara/ci-contracts';
+import type { CIFailureEvidence, CIObservation, CIStatus } from '@vestara/ci-contracts';
 import type { PriorRecord, ReviewerDecision } from '@vestara/ci-reviewer';
 import { review, validateReviewerDecision } from '@vestara/ci-reviewer';
 import type { EventBus } from '@vestara/event-bus';
@@ -27,6 +27,7 @@ import { deriveVerificationAction } from './action';
 import type { CICoordinator, CICoordinatorWait } from './coordinator';
 import type { CICorrelationRecord, CICorrelationStore, RegisterCorrelationInput } from './correlation';
 import { createCICorrelationRecord } from './correlation';
+import type { CIRecordStores } from './records';
 import type { CITaskGate, CITaskResumeRecord, CITaskWaitRecord } from './task-gate';
 
 /** A GitHub job together with its steps (jobs are fetched after completion). */
@@ -35,17 +36,31 @@ export interface GitHubCompletionJob {
   readonly steps: readonly GitHubJobStep[];
 }
 
-export interface CIVerificationServiceDeps {
-  readonly correlations: CICorrelationStore;
-  readonly gate: CITaskGate;
-  /**
-   * Authoritative coordinator (workflow-orchestrator TaskStore adapter).
-   * When present, task/correlation authority is delegated to it; the local
-   * store/gate remain for focused unit tests only.
-   */
-  readonly coordinator?: CICoordinator;
-  readonly eventBus?: EventBus;
-}
+/**
+ * Service dependencies.
+ *
+ * CI-OBS-002C0: when an authoritative `coordinator` is supplied, the local
+ * `correlations` store and `gate` are NOT used (the coordinator owns
+ * task/correlation authority) and may be omitted. They are required only for
+ * the non-coordinator (focused unit test) path.
+ */
+export type CIVerificationServiceDeps =
+  | {
+      /** Authoritative coordinator (workflow-orchestrator TaskStore adapter). */
+      readonly coordinator: CICoordinator;
+      /** Unreachable when the coordinator is present; omit in production. */
+      readonly correlations?: CICorrelationStore;
+      readonly gate?: CITaskGate;
+      readonly eventBus?: EventBus;
+      readonly records?: CIRecordStores;
+    }
+  | {
+      readonly coordinator?: undefined;
+      readonly correlations: CICorrelationStore;
+      readonly gate: CITaskGate;
+      readonly eventBus?: EventBus;
+      readonly records?: CIRecordStores;
+    };
 
 export interface RegisterPushResult {
   readonly correlation: CICorrelationRecord;
@@ -189,7 +204,7 @@ export class CIVerificationService {
       if (extracted) evidence.push(extracted);
     }
 
-    const priors = input.priors ?? [];
+    const priors = input.priors ?? (await this.priorsFor(run.repository));
     const decision = review({ observation: observationWithTime, evidence, priors });
     const violations = validateReviewerDecision(decision, {
       evidenceIds: evidence.map((item) => item.evidenceId),
@@ -209,6 +224,8 @@ export class CIVerificationService {
       action: outcome.action,
       reason: outcome.reason,
     });
+
+    await this.persistRecords(run.repository, observationWithTime, decision, outcome, correlation?.correlationId);
 
     return {
       correlation: correlation ?? {
@@ -264,8 +281,92 @@ export class CIVerificationService {
     return resumed;
   }
 
+  /**
+   * Read-only prior findings for the same repository, offered to the reviewer
+   * as context. Never mutates; scope is bounded by the recorded scope key.
+   */
+  private async priorsFor(repository: string): Promise<readonly PriorRecord[]> {
+    const findings = this.deps.records?.findings;
+    if (!findings) return [];
+    try {
+      return (await findings.list())
+        .filter((finding) => finding.scopeKey.startsWith(`${repository}:`))
+        .map((finding) => ({
+          priorId: finding.findingId,
+          kind: 'finding' as const,
+          recordedStatus: finding.verdict,
+          scopeKeys: {
+            repository,
+            commitSha: finding.scopeKey.slice(repository.length + 1),
+          },
+          summaryOrRef: finding.summary,
+        }));
+    } catch {
+      return [];
+    }
+  }
+
+  /**
+   * Persist the observation + decision (+ promoted findings). Best-effort by
+   * design: record persistence is read-authority enrichment and must never
+   * block the resume that follows. A retrieval failure is never recorded as a
+   * CI outcome (the observation carries that distinction already).
+   */
+  private async persistRecords(
+    repository: string,
+    observation: CIObservation,
+    decision: ReviewerDecision,
+    outcome: CIVerificationOutcome,
+    correlationId: string | undefined,
+  ): Promise<void> {
+    const records = this.deps.records;
+    if (!records) return;
+    try {
+      await records.observations.save({
+        observationId: observation.observationId,
+        runId: observation.runId,
+        commitSha: observation.commitSha,
+        status: observation.status as CIStatus,
+        conclusion: observation.conclusion,
+        passedChecks: observation.passedChecks,
+        failedChecks: observation.failedChecks,
+        skippedChecks: observation.skippedChecks,
+        trigger: observation.trigger,
+        observedAt: observation.observedAt,
+      });
+      await records.decisions.save({
+        decisionId: `${observation.observationId}:review`,
+        observationId: observation.observationId,
+        ...(correlationId !== undefined ? { correlationId } : {}),
+        classification: decision.classification,
+        verdict: decision.promotion.verdict,
+        action: outcome.action,
+        confidence: decision.promotion.confidence,
+        decisionRef: `${observation.observationId}:${outcome.action}`,
+        decidedAt: observation.observedAt,
+      });
+      if (records.findings) {
+        for (const hypothesis of decision.hypotheses) {
+          if (hypothesis.verdict !== 'promote') continue;
+          await records.findings.save({
+            findingId: `${observation.observationId}:${hypothesis.proposalId}`,
+            classification: hypothesis.classification,
+            verdict: hypothesis.verdict,
+            scopeKey: `${repository}:${observation.commitSha}`,
+            summary: hypothesis.statement,
+            recordedAt: observation.observedAt,
+          });
+        }
+      }
+    } catch {
+      // Intentionally swallowed — see doc comment.
+    }
+  }
+
   private async resolveCorrelation(repository: string, commitSha: string): Promise<CICorrelationRecord | undefined> {
-    const matches = await this.deps.correlations.findByCommit(repository, commitSha);
+    const correlations = this.deps.correlations;
+    if (!correlations) return undefined;
+    const matches = await correlations.findByCommit(repository, commitSha);
     return matches[0];
   }
 

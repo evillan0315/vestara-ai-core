@@ -11,6 +11,12 @@ import type { AgentMessageActivity } from '@vestara/activity-room';
 import { AgentHarnessRuntime, type HarnessContextAssembler, type HarnessVerifier } from '@vestara/agent-harness';
 import { BootRuntime, FileBootStateStore } from '@vestara/boot-runtime';
 import { BrowserRuntimeService } from '@vestara/browser-runtime';
+import {
+  SqliteCIDecisionStore,
+  SqliteCIFindingStore,
+  SqliteCIObservationStore,
+  SqliteCIWebhookDeliveryStore,
+} from '@vestara/ci-observer';
 import { WorkspaceConfigurationService } from '@vestara/configuration';
 import { DefaultContextAssembler } from '@vestara/context';
 import { type ConversationService, DefaultConversationService, type ProviderExecutor } from '@vestara/conversation';
@@ -177,6 +183,8 @@ export interface WorkspaceContext {
   workflowOrchestrator: WorkflowOrchestrator;
   /** Authoritative orchestrated-task store (external-verification waits). */
   orchestrationTasks: import('@vestara/workflow-orchestrator').TaskStore;
+  /** CI-OBS-001E durable observation/decision/finding/delivery records. */
+  ciRecords: import('@vestara/ci-observer').CIRecordStores;
   changeProjector: ChangeEventProjector;
   /** Live session-stream accumulator (coalesced per-participant narrative). */
   activityRoomStreams: SessionStreamAccumulator;
@@ -656,6 +664,14 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     });
   });
   log('plans-db-opened');
+  // CI-OBS-001E — durable observation/decision/finding/delivery records share
+  // the orchestration database (one canonical migration chain, no parallel store).
+  const ciRecords: import('@vestara/ci-observer').CIRecordStores = {
+    observations: new SqliteCIObservationStore(db as import('sql.js').Database),
+    decisions: new SqliteCIDecisionStore(db as import('sql.js').Database),
+    findings: new SqliteCIFindingStore(db as import('sql.js').Database),
+    deliveries: new SqliteCIWebhookDeliveryStore(db as import('sql.js').Database),
+  };
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);
   const plans = new PlanStorage(db);
@@ -1636,6 +1652,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     orchestrator,
     workflowOrchestrator,
     orchestrationTasks,
+    ciRecords,
     executionPlanner,
     workspaceAnalyst,
     suggestionService,

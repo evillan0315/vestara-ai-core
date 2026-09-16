@@ -1,3 +1,4 @@
+import { CI_OBSERVER_MIGRATIONS } from '@vestara/ci-observer';
 import {
   buildManifest,
   fingerprint,
@@ -254,6 +255,7 @@ export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   WORKSPACE_DOMAIN_MIGRATIONS,
   POST_PLANS_MIGRATIONS,
   ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
+  [...CI_OBSERVER_MIGRATIONS.steps],
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';

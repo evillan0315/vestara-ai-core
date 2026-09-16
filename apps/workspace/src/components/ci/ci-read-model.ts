@@ -40,8 +40,30 @@ export interface CIStatusResponse {
     readonly adapterVersion: string;
     readonly repositories: readonly string[];
   };
-  readonly observation: { readonly availability: CIAvailabilityDto; readonly reason?: string };
-  readonly verification: { readonly availability: CIAvailabilityDto; readonly reason?: string };
+  readonly observation: {
+    readonly availability: CIAvailabilityDto;
+    readonly reason?: string;
+    readonly status?: string;
+    readonly conclusion?: string;
+    readonly runId?: string;
+    readonly commitSha?: string;
+    readonly observedAt?: string;
+    readonly passedChecks?: number;
+    readonly failedChecks?: number;
+    readonly skippedChecks?: number;
+    readonly trigger?: string;
+  };
+  readonly verification: {
+    readonly availability: CIAvailabilityDto;
+    readonly reason?: string;
+    readonly verdict?: string;
+    readonly classification?: string;
+    readonly action?: CIVerificationActionDto;
+    readonly confidence?: string;
+    readonly decisionRef?: string;
+    readonly decidedAt?: string;
+    readonly observationId?: string;
+  };
   readonly webhookHealth: { readonly state: CIWebhookStateDto; readonly detail?: string; readonly lastDeliveryAt?: string };
   readonly correlation: {
     readonly availability: CIAvailabilityDto;
@@ -115,6 +137,56 @@ export function decisionActionOf(decisionRef: string | undefined): CIVerificatio
 }
 
 /** Map the provider-neutral response into reusable CI view state. */
+/** Map a persisted observation into the GitHub CI view (live when present). */
+function githubFromObservation(observation: CIStatusResponse['observation']): CIGitHubCIView {
+  if (observation.availability !== 'available') {
+    return {
+      availability: observation.availability,
+      ...(observation.reason !== undefined ? { reason: observation.reason } : {}),
+    };
+  }
+  return {
+    availability: 'available',
+    ...(observation.status !== undefined ? { status: observation.status as CIGitHubCIView['status'] } : {}),
+    ...(observation.conclusion !== undefined
+      ? { conclusion: observation.conclusion as CIGitHubCIView['conclusion'] }
+      : {}),
+    ...(observation.runId !== undefined ? { runId: observation.runId } : {}),
+    ...(observation.commitSha !== undefined ? { commitSha: observation.commitSha } : {}),
+    ...(observation.observedAt !== undefined ? { observedAt: observation.observedAt } : {}),
+  };
+}
+
+/** Map a persisted reviewer decision into the Vestara verification view. */
+function verificationFromDecision(
+  verification: CIStatusResponse['verification'],
+): CIVestaraVerificationView | undefined {
+  if (verification.availability !== 'available') return undefined;
+  const action = verification.action;
+  const disposition = action
+    ? dispositionFromPersistedAction(action)
+    : verification.verdict === 'hold'
+      ? 'hold'
+      : verification.verdict === 'promote'
+        ? 'pending-verification'
+        : verification.verdict === 'unknown'
+          ? 'inconclusive'
+          : 'unavailable';
+  return {
+    availability: 'available',
+    disposition,
+    ...(verification.verdict !== undefined
+      ? { verdict: verification.verdict as CIVestaraVerificationView['verdict'] }
+      : {}),
+    ...(verification.classification !== undefined
+      ? { classification: verification.classification as CIVestaraVerificationView['classification'] }
+      : {}),
+    ...(action !== undefined ? { action } : {}),
+    ...(verification.decisionRef !== undefined ? { decisionRef: verification.decisionRef } : {}),
+    ...(verification.decidedAt !== undefined ? { decidedAt: verification.decidedAt } : {}),
+  };
+}
+
 export function viewFromCIStatus(response: CIStatusResponse): CIStatusView {
   return {
     connection: {
@@ -123,11 +195,8 @@ export function viewFromCIStatus(response: CIStatusResponse): CIStatusView {
       adapterVersion: response.connection.adapterVersion,
       repositories: response.connection.repositories,
     },
-    github: {
-      availability: response.observation.availability,
-      ...(response.observation.reason !== undefined ? { reason: response.observation.reason } : {}),
-    },
-    verification: verificationFromWaits(response.correlation.waits),
+    github: githubFromObservation(response.observation),
+    verification: verificationFromDecision(response.verification) ?? verificationFromWaits(response.correlation.waits),
     webhook: {
       state: response.webhookHealth.state,
       signatureConfigured: response.connection.webhookConfigured,

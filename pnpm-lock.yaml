@@ -2252,6 +2252,9 @@ importers:
       '@vestara/capabilities':
         specifier: workspace:*
         version: link:../capabilities
+      '@vestara/ci-observer':
+        specifier: workspace:*
+        version: link:../ci-observer
       '@vestara/configuration':
         specifier: workspace:*
         version: link:../configuration

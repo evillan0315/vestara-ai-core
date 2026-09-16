@@ -36,7 +36,30 @@ export type {
   CIWaitRunObservation,
 } from './reconcile';
 export { reconcileWait } from './reconcile';
+export type {
+  CIDecisionRecord,
+  CIDecisionStore,
+  CIFindingRecord,
+  CIFindingStore,
+  CIObservationRecord,
+  CIObservationStore,
+  CIRecordStores,
+  CIWebhookDeliveryRecord,
+  CIWebhookDeliveryStore,
+} from './records';
+export {
+  InMemoryCIDecisionStore,
+  InMemoryCIFindingStore,
+  InMemoryCIObservationStore,
+  InMemoryCIWebhookDeliveryStore,
+} from './records';
 export { SqliteCICorrelationStore } from './sqlite-correlation-store';
+export {
+  SqliteCIDecisionStore,
+  SqliteCIFindingStore,
+  SqliteCIObservationStore,
+  SqliteCIWebhookDeliveryStore,
+} from './sqlite-records';
 export { SqliteCITaskGate } from './sqlite-task-gate';
 export type {
   CITaskGate,

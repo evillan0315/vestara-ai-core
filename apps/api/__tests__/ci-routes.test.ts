@@ -1,11 +1,18 @@
 import { EventEmitter } from 'node:events';
 import type * as http from 'node:http';
+import {
+  InMemoryCIDecisionStore,
+  InMemoryCIObservationStore,
+  InMemoryCIWebhookDeliveryStore,
+} from '@vestara/ci-observer';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   buildCIStatusReadModel,
   type CICorrelationWaitReadDto,
+  collectCIRecords,
   decisionActionOf,
   handleCIRoute,
+  webhookHealthFromDeliveries,
 } from '../src/routes/ci.js';
 import type { WorkspaceContext } from '../src/workspace-context.js';
 
@@ -228,5 +235,91 @@ describe('handleCIRoute', () => {
 
     const other = fakeResponse();
     expect(await handleCIRoute('GET', '/api/other', fakeRequest(), other.res, fakeContext())).toBe(false);
+  });
+});
+
+describe('CI persisted records (CI-OBS-001E)', () => {
+  it('derives webhook health from observed deliveries, never from absence', () => {
+    expect(webhookHealthFromDeliveries([])).toBeUndefined();
+    expect(
+      webhookHealthFromDeliveries([
+        { deliveryId: 'd1', kind: 'completion', accepted: true, receivedAt: '2026-09-16T00:00:00.000Z' },
+      ])?.state,
+    ).toBe('receiving');
+    expect(
+      webhookHealthFromDeliveries([
+        {
+          deliveryId: 'd2',
+          kind: 'unknown',
+          accepted: false,
+          reason: 'invalid-signature',
+          receivedAt: '2026-09-16T01:00:00.000Z',
+        },
+      ])?.state,
+    ).toBe('error');
+    expect(
+      webhookHealthFromDeliveries([
+        {
+          deliveryId: 'd3',
+          kind: 'push',
+          accepted: false,
+          reason: 'unsupported-event',
+          receivedAt: '2026-09-16T02:00:00.000Z',
+        },
+      ])?.state,
+    ).toBe('configured');
+  });
+
+  it('maps persisted observation and decision into the read model', async () => {
+    const observations = new InMemoryCIObservationStore();
+    const decisions = new InMemoryCIDecisionStore();
+    const deliveries = new InMemoryCIWebhookDeliveryStore();
+    await observations.save({
+      observationId: 'obs-9',
+      runId: 'run-9',
+      commitSha: 'abc',
+      status: 'completed',
+      conclusion: 'passed',
+      passedChecks: 3,
+      failedChecks: 0,
+      skippedChecks: 0,
+      trigger: 'webhook',
+      observedAt: '2026-09-16T03:00:00.000Z',
+    });
+    await decisions.save({
+      decisionId: 'obs-9:review',
+      observationId: 'obs-9',
+      classification: 'UNKNOWN',
+      verdict: 'hold',
+      action: 'PROCEED_TO_VERIFICATION',
+      confidence: 'low',
+      decisionRef: 'obs-9:PROCEED_TO_VERIFICATION',
+      decidedAt: '2026-09-16T03:00:00.000Z',
+    });
+    await deliveries.record({
+      deliveryId: 'd-9',
+      kind: 'completion',
+      accepted: true,
+      receivedAt: '2026-09-16T03:00:00.000Z',
+    });
+    const ctx = { ciRecords: { observations, decisions, deliveries } } as unknown as WorkspaceContext;
+    const records = await collectCIRecords(ctx);
+    expect(records.observation?.availability).toBe('available');
+    expect(records.observation?.runId).toBe('run-9');
+    expect(records.verification?.action).toBe('PROCEED_TO_VERIFICATION');
+    expect(records.webhookHealth?.state).toBe('receiving');
+
+    const model = buildCIStatusReadModel({
+      credentialConfigured: true,
+      webhookSecretConfigured: true,
+      adapterVersion: '0.1.0',
+      waits: [],
+      correlationAvailability: 'available',
+      ...records,
+    });
+    expect(model.observation.availability).toBe('available');
+    expect(model.observation.conclusion).toBe('passed');
+    expect(model.verification.availability).toBe('available');
+    expect(model.webhookHealth.state).toBe('receiving');
   });
 });

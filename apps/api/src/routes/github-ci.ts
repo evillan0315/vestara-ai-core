@@ -19,8 +19,7 @@ import type { GitHubCompletionJob } from '@vestara/ci-observer';
 import {
   CIVerificationService,
   DeliveryDeduplicator,
-  InMemoryCICorrelationStore,
-  InMemoryCITaskGate,
+  GITHUB_DELIVERY_HEADER,
   validateWebhookIngress,
 } from '@vestara/ci-observer';
 import type { GitHubWorkflowRun } from '@vestara/github-ci-adapter';
@@ -37,6 +36,22 @@ function headersOf(req: http.IncomingMessage): Record<string, string | undefined
     if (typeof value === 'string') headers[key] = value;
   }
   return headers;
+}
+
+/**
+ * Record a delivery for health/diagnostics. Best-effort: recording must never
+ * break ingress. No secret or credential material is stored — kind, accept
+ * decision, and reason only.
+ */
+async function recordDelivery(
+  ctx: WorkspaceContext,
+  input: { deliveryId: string; kind: string; accepted: boolean; reason?: string },
+): Promise<void> {
+  try {
+    await ctx.ciRecords.deliveries?.record({ ...input, receivedAt: new Date().toISOString() });
+  } catch {
+    // Delivery telemetry is diagnostic only.
+  }
 }
 
 /** Raw jobs are retrieved through the adapter; provider shapes stay inside it. */
@@ -75,7 +90,18 @@ export async function handleGitHubCIRoute(
   }
 
   const rawBody = await readBody(req);
-  const decision = validateWebhookIngress({ secret, rawBody, headers: headersOf(req), dedupe });
+  const headers = headersOf(req);
+  const decision = validateWebhookIngress({ secret, rawBody, headers, dedupe });
+  const deliveryId =
+    typeof headers[GITHUB_DELIVERY_HEADER] === 'string' && headers[GITHUB_DELIVERY_HEADER].trim()
+      ? headers[GITHUB_DELIVERY_HEADER]
+      : `local-${Date.now()}`;
+  await recordDelivery(ctx, {
+    deliveryId,
+    kind: decision.kind ?? 'unknown',
+    accepted: decision.accepted,
+    ...(decision.accepted ? {} : { reason: decision.reason }),
+  });
   if (!decision.accepted) {
     const status = decision.reason === 'invalid-signature' ? 401 : decision.reason === 'duplicate-delivery' ? 202 : 400;
     json(res, status, { accepted: false, reason: decision.reason });
@@ -101,19 +127,11 @@ export async function handleGitHubCIRoute(
 
   const jobs = await fetchCompletionJobs(run);
   // Production path: the authoritative orchestrated-task store owns the wait
-  // and the correlation. `ctx.orchestrationTasks` is always supplied as the
-  // coordinator, so `correlations` and `gate` below are UNREACHABLE
-  // compatibility/fallback dependencies — `CIVerificationService` only touches
-  // them in its non-coordinator branches (registerGovernedPush,
-  // handleCompletion, resumeFromDecision). They are constructed per request,
-  // hold no production correlation/wait/resume semantics, and their process
-  // lifetime is irrelevant. They remain required by `CIVerificationServiceDeps`
-  // and cannot be removed from composition without widening that contract
-  // (CI-OBS-002C0 HOLD; see the closure report).
+  // and the correlation via the coordinator adapter (CI-OBS-002C0 resolved —
+  // the local correlations/gate compatibility deps are no longer composed).
   const service = new CIVerificationService({
-    correlations: new InMemoryCICorrelationStore(),
-    gate: new InMemoryCITaskGate(),
     coordinator: createCICoordinator(ctx.orchestrationTasks),
+    records: ctx.ciRecords,
   });
   const result = await service.handleCompletion({ payload: run, jobs });
   let resumed = false;

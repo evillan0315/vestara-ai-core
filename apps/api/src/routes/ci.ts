@@ -22,7 +22,7 @@
  */
 
 import type * as http from 'node:http';
-import type { CIWaitDeadlineAssessment } from '@vestara/ci-observer';
+import type { CIWaitDeadlineAssessment, CIWebhookDeliveryRecord } from '@vestara/ci-observer';
 import { evaluateWaitDeadline } from '@vestara/ci-observer';
 import { GITHUB_CI_ADAPTER_VERSION } from '@vestara/github-ci-adapter';
 import type { WorkspaceContext } from '../workspace-context';
@@ -64,11 +64,27 @@ export interface CIConnectionReadDto {
 export interface CIObservationReadDto {
   readonly availability: CIAvailability;
   readonly reason?: string;
+  readonly status?: string;
+  readonly conclusion?: string;
+  readonly runId?: string;
+  readonly commitSha?: string;
+  readonly observedAt?: string;
+  readonly passedChecks?: number;
+  readonly failedChecks?: number;
+  readonly skippedChecks?: number;
+  readonly trigger?: string;
 }
 
 export interface CIVerificationReadDto {
   readonly availability: CIAvailability;
   readonly reason?: string;
+  readonly verdict?: string;
+  readonly classification?: string;
+  readonly action?: CIVerificationAction;
+  readonly confidence?: string;
+  readonly decisionRef?: string;
+  readonly decidedAt?: string;
+  readonly observationId?: string;
 }
 
 export interface CIWebhookHealthReadDto {
@@ -131,6 +147,12 @@ export interface BuildCIStatusInput {
   readonly correlationAvailability: CIAvailability;
   readonly correlationReason?: string;
   readonly generatedAt?: string;
+  /** Persisted observation, when a record exists (CI-OBS-001E). */
+  readonly observation?: CIObservationReadDto;
+  /** Persisted reviewer decision, when a record exists (CI-OBS-001E). */
+  readonly verification?: CIVerificationReadDto;
+  /** Delivery-derived webhook health, when deliveries exist. */
+  readonly webhookHealth?: CIWebhookHealthReadDto;
 }
 
 /**
@@ -179,13 +201,13 @@ export function buildCIStatusReadModel(input: BuildCIStatusInput): CIStatusReadD
     repositories: repositoriesOf(input.waits),
   };
 
-  const observation: CIObservationReadDto = {
+  const observation: CIObservationReadDto = input.observation ?? {
     availability: 'unavailable',
-    reason: 'CI observation bodies are not persisted by an accepted read authority',
+    reason: 'No CI observation has been recorded yet',
   };
-  const verification: CIVerificationReadDto = {
+  const verification: CIVerificationReadDto = input.verification ?? {
     availability: 'unavailable',
-    reason: 'Reviewer decisions are transient and have no persisted read authority',
+    reason: 'No reviewer decision has been recorded yet',
   };
 
   const correlation: CICorrelationReadDto = {
@@ -208,9 +230,94 @@ export function buildCIStatusReadModel(input: BuildCIStatusInput): CIStatusReadD
     connection,
     observation,
     verification,
-    webhookHealth: webhookHealthOf(input.webhookSecretConfigured),
+    webhookHealth: input.webhookHealth ?? webhookHealthOf(input.webhookSecretConfigured),
     correlation,
   };
+}
+
+// ─── Persisted record collection (CI-OBS-001E) ──────────────────────
+
+export interface CICollectedRecords {
+  readonly observation?: CIObservationReadDto;
+  readonly verification?: CIVerificationReadDto;
+  readonly webhookHealth?: CIWebhookHealthReadDto;
+}
+
+/** Derive webhook health from observed deliveries (never from absence). */
+export function webhookHealthFromDeliveries(
+  deliveries: readonly CIWebhookDeliveryRecord[],
+): CIWebhookHealthReadDto | undefined {
+  if (deliveries.length === 0) return undefined;
+  const newest = deliveries[0];
+  const received = deliveries.filter((delivery) => delivery.accepted || delivery.reason === 'duplicate-delivery');
+  if (received.length > 0) {
+    const latestAccepted = deliveries.find((delivery) => delivery.accepted) ?? received[0];
+    return {
+      state: 'receiving',
+      lastDeliveryAt: latestAccepted.receivedAt,
+      detail: 'Recent webhook deliveries received',
+    };
+  }
+  if (newest.reason === 'invalid-signature') {
+    return { state: 'error', lastDeliveryAt: newest.receivedAt, detail: 'Rejected delivery: invalid signature' };
+  }
+  return {
+    state: 'configured',
+    lastDeliveryAt: newest.receivedAt,
+    ...(newest.reason !== undefined ? { detail: `Last delivery: ${newest.reason}` } : {}),
+  };
+}
+
+/**
+ * Read the persisted CI records. Read-only; a failure leaves the sub-model
+ * unavailable rather than fabricating state.
+ */
+export async function collectCIRecords(ctx: WorkspaceContext): Promise<CICollectedRecords> {
+  const records = ctx.ciRecords;
+  if (!records) return {};
+  try {
+    const [latestObservation, latestDecision, deliveries] = await Promise.all([
+      records.observations?.latest(),
+      records.decisions?.latest(),
+      records.deliveries?.recent(20),
+    ]);
+    const webhookHealth = deliveries ? webhookHealthFromDeliveries(deliveries) : undefined;
+    return {
+      ...(latestObservation
+        ? {
+            observation: {
+              availability: 'available' as const,
+              status: latestObservation.status,
+              conclusion: latestObservation.conclusion,
+              runId: latestObservation.runId,
+              commitSha: latestObservation.commitSha,
+              observedAt: latestObservation.observedAt,
+              passedChecks: latestObservation.passedChecks,
+              failedChecks: latestObservation.failedChecks,
+              skippedChecks: latestObservation.skippedChecks,
+              trigger: latestObservation.trigger,
+            },
+          }
+        : {}),
+      ...(latestDecision
+        ? {
+            verification: {
+              availability: 'available' as const,
+              verdict: latestDecision.verdict,
+              classification: latestDecision.classification,
+              action: latestDecision.action,
+              confidence: latestDecision.confidence,
+              ...(latestDecision.decisionRef !== undefined ? { decisionRef: latestDecision.decisionRef } : {}),
+              decidedAt: latestDecision.decidedAt,
+              observationId: latestDecision.observationId,
+            },
+          }
+        : {}),
+      ...(webhookHealth ? { webhookHealth } : {}),
+    };
+  } catch {
+    return {};
+  }
 }
 
 // ─── Authoritative wait collection ──────────────────────────────────
@@ -292,7 +399,7 @@ export async function handleCIRoute(
   if (!p.startsWith('/api/ci')) return false;
 
   if (method === 'GET' && p === '/api/ci/status') {
-    const correlation = await collectCIWaits(ctx);
+    const [correlation, recordsState] = await Promise.all([collectCIWaits(ctx), collectCIRecords(ctx)]);
     const model = buildCIStatusReadModel({
       credentialConfigured: configured(process.env.GITHUB_TOKEN),
       webhookSecretConfigured: configured(process.env.GITHUB_WEBHOOK_SECRET),
@@ -300,6 +407,7 @@ export async function handleCIRoute(
       waits: correlation.waits,
       correlationAvailability: correlation.availability,
       ...(correlation.reason !== undefined ? { correlationReason: correlation.reason } : {}),
+      ...recordsState,
     });
     json(res, 200, model);
     return true;

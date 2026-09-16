@@ -38,10 +38,17 @@ function columns(db: Database, table: string): string[] {
 describe('PLANS_MANIFEST version stability (append-only)', () => {
   it('preserves the versions already recorded in existing plans.db databases', () => {
     const names = PLANS_MANIFEST.steps.map((step) => step.name);
+    // v1..v9 must be byte-for-byte what existing databases already recorded.
     expect(names.slice(0, HISTORICAL_V9.length)).toEqual(HISTORICAL_V9);
-    // The external-verification step is appended after every existing step.
+    // v10 is the appended external-verification step.
     expect(names[9]).toBe('orchestration.tasks.external_verification_wait');
-    expect(names).toHaveLength(HISTORICAL_V9.length + 1);
+    // CI observation/decision records are appended after it (never inserted).
+    expect(names).toContain('ci_observer.observations');
+    expect(names.indexOf('ci_observer.observations')).toBeGreaterThan(
+      names.indexOf('orchestration.tasks.external_verification_wait'),
+    );
+    // Append-only: the historical names never move position.
+    for (const [index, name] of HISTORICAL_V9.entries()) expect(names[index]).toBe(name);
   });
 
   it('upgrades an existing v9 database without a metadata inconsistency', () => {
@@ -51,16 +58,20 @@ describe('PLANS_MANIFEST version stability (append-only)', () => {
     const installed = migrate(db, legacy);
     expect(installed.to).toBe(HISTORICAL_V9.length);
 
-    // The current manifest must accept that database and apply only the
-    // appended step — never rewrite or reject the recorded versions.
+    // The current manifest must accept that database and apply only appended
+    // steps — never rewrite or reject the recorded versions.
     const result = migrate(db, PLANS_MANIFEST);
     expect(result.from).toBe(HISTORICAL_V9.length);
-    expect(result.to).toBe(HISTORICAL_V9.length + 1);
-    expect(result.applied).toEqual(['orchestration.tasks.external_verification_wait']);
+    expect(result.to).toBe(PLANS_MANIFEST.steps.length);
+    expect(result.applied[0]).toBe('orchestration.tasks.external_verification_wait');
+    expect(result.applied).toContain('ci_observer.observations');
     expect(
       ['wait_ref', 'wait_repository', 'wait_commit_sha', 'wait_resumed_at', 'wait_decision_ref'].every((column) =>
         columns(db, 'orchestrated_tasks').includes(column),
       ),
     ).toBe(true);
+    expect(columns(db, 'ci_observations').length).toBeGreaterThan(0);
+    expect(columns(db, 'ci_decisions').length).toBeGreaterThan(0);
+    expect(columns(db, 'ci_webhook_deliveries').length).toBeGreaterThan(0);
   });
 });
