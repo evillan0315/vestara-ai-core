@@ -29,11 +29,13 @@ import {
   CIWebhookHealth,
   type CIGitHubCIView,
   type CIGitHubConnectionView,
+  type CINotificationDto,
   type CIStatusResult,
   type CIVestaraVerificationView,
   type CIWaitView,
   type CIWebhookHealthView,
   type GitHubConnectionStatus,
+  relativeTime,
   useCIStatus,
   waitToView,
 } from '../../../components/ci/index.js';
@@ -205,9 +207,11 @@ function PolicyHeader({ title }: { title: string }) {
 function AdvancedDiagnostics({
   webhook,
   wait,
+  notifications,
 }: {
   webhook: CIWebhookHealthView;
   wait: CIWaitView | undefined;
+  notifications: readonly CINotificationDto[];
 }) {
   return (
     <details className="st-panel overflow-hidden">
@@ -244,6 +248,28 @@ function AdvancedDiagnostics({
             ))}
           </div>
         </div>
+        {notifications.length > 0 && (
+          <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-4 sm:px-5">
+            <PolicyHeader title="CI Notifications" />
+            <p className="mt-1 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+              Meaningful CI transitions recorded for delivery (CI-OBS-001I outbox).
+            </p>
+            <div className="mt-2">
+              {notifications.map((notification) => (
+                <FactRow
+                  key={notification.notificationId}
+                  label={notification.title}
+                  value={
+                    <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                      {notification.severity} · {relativeTime(notification.at)}
+                    </span>
+                  }
+                  title={notification.body}
+                />
+              ))}
+            </div>
+          </div>
+        )}
         <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-4 sm:px-5">
           <PolicyHeader title="Raw Provider Diagnostics" />
           <p className="mt-1 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
@@ -291,9 +317,20 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
           connection={connection}
           actions={
             <>
-              <Button disabled>Test connection</Button>
+              <Button
+                disabled={
+                  !status.testConnection || !(connection.repositories && connection.repositories.length > 0)
+                }
+                onClick={() => {
+                  void status.testConnection?.(connection.repositories?.[0]);
+                }}
+              >
+                Test connection
+              </Button>
               <span className="ml-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                Connectivity verification is not available yet
+                {connection.repositories && connection.repositories.length > 0
+                  ? 'Verifies GitHub reachability for the observed repository'
+                  : 'No observed repository to verify yet'}
               </span>
             </>
           }
@@ -336,7 +373,7 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
 
       <VerificationPolicy state={state} />
 
-      <AdvancedDiagnostics webhook={webhook} wait={waits[0]} />
+      <AdvancedDiagnostics webhook={webhook} wait={waits[0]} notifications={view?.notifications ?? []} />
     </div>
   );
 }

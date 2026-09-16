@@ -12,8 +12,10 @@ import { M9IngestionBridge } from '@vestara/activity-room';
 import type { WorkspaceEvent } from '@vestara/events';
 import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
+import { reconcileStaleCIWaits } from './ci-reconcile';
 import { startOpencodeSupervisor } from './opencode-supervisor';
 import { getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
+import { collectCIWaits } from './routes/ci';
 import { initTelegramRoute } from './routes/telegram';
 import { type ApiServer, createServer } from './server';
 import { createWorkspaceContext } from './workspace-context';
@@ -146,6 +148,30 @@ async function main(): Promise<void> {
   }
   bootMark('opencode-supervisor');
 
+  // H7: periodic reconciliation of stale CI waits (attach a lost provider run).
+  // Disabled by default; opt in with VESTARA_CI_RECONCILE_INTERVAL_MS.
+  const reconcileIntervalMs = Number(process.env.VESTARA_CI_RECONCILE_INTERVAL_MS ?? 0);
+  let ciReconcileTimer: ReturnType<typeof setInterval> | undefined;
+  if (Number.isFinite(reconcileIntervalMs) && reconcileIntervalMs > 0 && process.env.GITHUB_TOKEN) {
+    ciReconcileTimer = setInterval(() => {
+      void (async () => {
+        try {
+          const correlation = await collectCIWaits(ctx);
+          const summary = await reconcileStaleCIWaits(ctx, correlation.waits);
+          if (summary.stale > 0) {
+            console.log(
+              `[ci] reconciliation: stale=${summary.stale} attached=${summary.attached} held=${summary.held}`,
+            );
+          }
+        } catch (error) {
+          console.warn('[ci] reconciliation failed', error);
+        }
+      })();
+    }, reconcileIntervalMs);
+    ciReconcileTimer.unref?.();
+    bootMark('ci-reconcile-scheduled');
+  }
+
   const server = createServer(ctx, port) as ApiServer;
   broadcast = (e) => server.broadcast(e);
   for (const e of pending) server.broadcast(e);
@@ -176,6 +202,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     console.log(`[api] ${signal} — shutting down`);
     const shutdownStart = process.hrtime.bigint();
+    if (ciReconcileTimer) clearInterval(ciReconcileTimer);
     server.close();
     await ctx.close();
     const shutdownMs = Math.round(Number(process.hrtime.bigint() - shutdownStart) / 1_000_000);

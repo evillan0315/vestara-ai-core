@@ -16,6 +16,8 @@ export interface CIStatusResult {
   readonly detail?: string;
   readonly loading: boolean;
   readonly refresh: () => void;
+  /** Run an explicit connectivity probe, then refresh the read model. */
+  readonly testConnection?: (repository?: string) => Promise<void>;
 }
 
 export function useCIStatus(): CIStatusResult {
@@ -26,6 +28,22 @@ export function useCIStatus(): CIStatusResult {
   const [reloadToken, setReloadToken] = useState(0);
 
   const refresh = useCallback(() => setReloadToken((token) => token + 1), []);
+
+  const testConnection = useCallback(
+    async (repository?: string): Promise<void> => {
+      try {
+        await fetch('/api/ci/connection/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(repository ? { repository } : {}),
+        });
+      } catch {
+        // The probe result (if any) is reflected by the subsequent refresh.
+      }
+      setReloadToken((token) => token + 1);
+    },
+    [],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -62,5 +80,6 @@ export function useCIStatus(): CIStatusResult {
     ...(detail !== undefined ? { detail } : {}),
     loading,
     refresh,
+    testConnection,
   };
 }

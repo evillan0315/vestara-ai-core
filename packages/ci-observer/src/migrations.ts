@@ -203,5 +203,42 @@ export const CI_OBSERVER_MIGRATIONS: MigrationManifest = {
         db.run('CREATE INDEX IF NOT EXISTS idx_ci_webhook_deliveries_received ON ci_webhook_deliveries(received_at)');
       },
     },
+    {
+      name: 'ci_observer.notifications',
+      produces: [
+        {
+          table: 'ci_notifications',
+          columns: [
+            'notification_id',
+            'kind',
+            'severity',
+            'title',
+            'body',
+            'observation_id',
+            'commit_sha',
+            'correlation_id',
+            'task_id',
+            'at',
+          ],
+        },
+      ],
+      up: (db) => {
+        db.run(`
+          CREATE TABLE IF NOT EXISTS ci_notifications (
+            notification_id TEXT PRIMARY KEY,
+            kind TEXT NOT NULL,
+            severity TEXT NOT NULL,
+            title TEXT NOT NULL,
+            body TEXT NOT NULL,
+            observation_id TEXT NOT NULL,
+            commit_sha TEXT NOT NULL,
+            correlation_id TEXT,
+            task_id TEXT,
+            at TEXT NOT NULL
+          )
+        `);
+        db.run('CREATE INDEX IF NOT EXISTS idx_ci_notifications_at ON ci_notifications(at)');
+      },
+    },
   ],
 };

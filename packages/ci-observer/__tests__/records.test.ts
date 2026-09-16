@@ -5,12 +5,14 @@ import { InMemoryCICorrelationStore } from '../src/correlation';
 import {
   InMemoryCIDecisionStore,
   InMemoryCIFindingStore,
+  InMemoryCINotificationStore,
   InMemoryCIObservationStore,
   InMemoryCIWebhookDeliveryStore,
 } from '../src/records';
 import {
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
+  SqliteCINotificationStore,
   SqliteCIObservationStore,
   SqliteCIWebhookDeliveryStore,
 } from '../src/sqlite-records';
@@ -52,6 +54,7 @@ describe('CI records — service persistence (CI-OBS-001E)', () => {
       observations: new InMemoryCIObservationStore(),
       decisions: new InMemoryCIDecisionStore(),
       findings: new InMemoryCIFindingStore(),
+      notifications: new InMemoryCINotificationStore(),
     };
     const service = new CIVerificationService({
       correlations: new InMemoryCICorrelationStore(),
@@ -77,6 +80,11 @@ describe('CI records — service persistence (CI-OBS-001E)', () => {
     expect(decision?.action).toBe(result.outcome.action);
     expect(decision?.verdict).toBe(result.decision.promotion.verdict);
     expect(decision?.decisionRef).toContain(result.observation.observationId);
+
+    // CI-OBS-001I: a meaningful transition is written to the notification outbox.
+    const notifications = await records.notifications.recent();
+    expect(notifications.length).toBeGreaterThan(0);
+    expect(notifications[0]?.observationId).toBe(result.observation.observationId);
   });
 
   it('does not fail completion when no record stores are configured', async () => {
@@ -139,12 +147,23 @@ describe('CI records — sqlite stores', () => {
       accepted: true,
       receivedAt: '2026-09-16T00:00:00.000Z',
     });
+    await new SqliteCINotificationStore(db).record({
+      notificationId: 'obs-1:required-check-failed',
+      kind: 'required-check-failed',
+      severity: 'error',
+      title: 'CI failed',
+      body: 'repair is a candidate',
+      observationId: 'obs-1',
+      commitSha: COMMIT,
+      at: '2026-09-16T00:00:00.000Z',
+    });
 
     const next = await restart(db);
     expect((await new SqliteCIObservationStore(next).latest())?.runId).toBe('run-1');
     expect((await new SqliteCIDecisionStore(next).latest())?.action).toBe('REPAIR_CANDIDATE');
     expect((await new SqliteCIFindingStore(next).list())[0]?.scopeKey).toBe(`${REPO}:${COMMIT}`);
     expect((await new SqliteCIWebhookDeliveryStore(next).recent())[0]?.accepted).toBe(true);
+    expect((await new SqliteCINotificationStore(next).recent())[0]?.kind).toBe('required-check-failed');
   });
 });
 

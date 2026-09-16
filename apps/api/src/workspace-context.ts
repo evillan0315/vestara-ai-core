@@ -14,6 +14,7 @@ import { BrowserRuntimeService } from '@vestara/browser-runtime';
 import {
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
+  SqliteCINotificationStore,
   SqliteCIObservationStore,
   SqliteCIWebhookDeliveryStore,
 } from '@vestara/ci-observer';
@@ -671,6 +672,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     decisions: new SqliteCIDecisionStore(db as import('sql.js').Database),
     findings: new SqliteCIFindingStore(db as import('sql.js').Database),
     deliveries: new SqliteCIWebhookDeliveryStore(db as import('sql.js').Database),
+    notifications: new SqliteCINotificationStore(db as import('sql.js').Database),
   };
   const sessionStorage = new SessionStorage(db);
   const agents = new AgentStorage(db);

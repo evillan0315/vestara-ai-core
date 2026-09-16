@@ -27,6 +27,7 @@ export {
 } from './ci-read-model.js';
 export type {
   CIAvailabilityDto,
+  CINotificationDto,
   CIStatusResponse,
   CIStatusView,
   CIVerificationActionDto,

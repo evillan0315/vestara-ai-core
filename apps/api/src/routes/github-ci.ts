@@ -149,8 +149,15 @@ export async function handleGitHubCIRoute(
     failedChecks: result.observation.failedChecks,
     skippedChecks: result.observation.skippedChecks,
   });
+  // H3 designated workflow: when a required workflow set is configured, only a
+  // completion from a designated workflow may resume the task. Empty = any.
+  const requiredWorkflows = (process.env.VESTARA_CI_REQUIRED_WORKFLOWS ?? '')
+    .split(',')
+    .map((name) => name.trim())
+    .filter((name) => name.length > 0);
+  const designatedWorkflow = requiredWorkflows.length === 0 || requiredWorkflows.includes(run.name);
   let resumed = false;
-  if (result.correlation.originatingTaskId && gate.allow) {
+  if (result.correlation.originatingTaskId && gate.allow && designatedWorkflow) {
     try {
       await service.resumeFromDecision(result);
       resumed = true;
@@ -172,6 +179,7 @@ export async function handleGitHubCIRoute(
     violations: result.violations,
     resumeAllowed: gate.allow,
     resumeGateReason: gate.reason,
+    designatedWorkflow,
     resumed,
   });
   return true;

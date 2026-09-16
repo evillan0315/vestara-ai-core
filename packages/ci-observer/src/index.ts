@@ -47,6 +47,8 @@ export type {
   CIDecisionStore,
   CIFindingRecord,
   CIFindingStore,
+  CINotificationRecord,
+  CINotificationStore,
   CIObservationRecord,
   CIObservationStore,
   CIRecordStores,
@@ -56,6 +58,7 @@ export type {
 export {
   InMemoryCIDecisionStore,
   InMemoryCIFindingStore,
+  InMemoryCINotificationStore,
   InMemoryCIObservationStore,
   InMemoryCIWebhookDeliveryStore,
 } from './records';
@@ -82,6 +85,7 @@ export { SqliteCICorrelationStore } from './sqlite-correlation-store';
 export {
   SqliteCIDecisionStore,
   SqliteCIFindingStore,
+  SqliteCINotificationStore,
   SqliteCIObservationStore,
   SqliteCIWebhookDeliveryStore,
 } from './sqlite-records';

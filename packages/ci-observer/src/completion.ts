@@ -27,6 +27,7 @@ import { deriveVerificationAction } from './action';
 import type { CICoordinator, CICoordinatorWait } from './coordinator';
 import type { CICorrelationRecord, CICorrelationStore, RegisterCorrelationInput } from './correlation';
 import { createCICorrelationRecord } from './correlation';
+import { projectCINotification } from './notify';
 import type { CIRecordStores } from './records';
 import type { CITaskGate, CITaskResumeRecord, CITaskWaitRecord } from './task-gate';
 
@@ -227,23 +228,26 @@ export class CIVerificationService {
 
     await this.persistRecords(run.repository, observationWithTime, decision, outcome, correlation?.correlationId);
 
-    return {
-      correlation: correlation ?? {
-        correlationId: `ci-corr:unregistered:${run.commitSha}`,
-        repository: run.repository,
-        commitSha: run.commitSha,
-        branch: run.branch ?? '',
-        originatingWorkflowRunId: '',
-        originatingTaskId: '',
-        originatingOperationId: '',
-        createdAt: observedAt,
-      },
+    const resolvedCorrelation: CICorrelationRecord = correlation ?? {
+      correlationId: `ci-corr:unregistered:${run.commitSha}`,
+      repository: run.repository,
+      commitSha: run.commitSha,
+      branch: run.branch ?? '',
+      originatingWorkflowRunId: '',
+      originatingTaskId: '',
+      originatingOperationId: '',
+      createdAt: observedAt,
+    };
+    const result: CICompletionResult = {
+      correlation: resolvedCorrelation,
       observation: observationWithTime,
       evidence,
       decision,
       outcome,
       violations,
     };
+    await this.persistNotification(result);
+    return result;
   }
 
   /** Resume the correlated task (waiting → running) citing the decision. */
@@ -279,6 +283,33 @@ export class CIVerificationService {
       action: result.outcome.action,
     });
     return resumed;
+  }
+
+  /**
+   * Persist a canonical notification to the outbox when the transition is
+   * meaningful. Delivery is a separate concern; best-effort like the records.
+   */
+  private async persistNotification(result: CICompletionResult): Promise<void> {
+    const notifications = this.deps.records?.notifications;
+    if (!notifications) return;
+    try {
+      const notification = projectCINotification(result);
+      if (!notification) return;
+      await notifications.record({
+        notificationId: `${notification.observationId}:${notification.kind}`,
+        kind: notification.kind,
+        severity: notification.severity,
+        title: notification.title,
+        body: notification.body,
+        observationId: notification.observationId,
+        commitSha: notification.commitSha,
+        ...(notification.correlationId !== undefined ? { correlationId: notification.correlationId } : {}),
+        ...(notification.taskId !== undefined ? { taskId: notification.taskId } : {}),
+        at: notification.at,
+      });
+    } catch {
+      // Outbox persistence must never block completion/resume.
+    }
   }
 
   /**

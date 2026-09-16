@@ -67,6 +67,7 @@ const STATUS_VIEW: CIStatusView = {
   waits: [WAIT],
   correlationAvailability: 'available',
   staleWaitCount: 0,
+  notifications: [],
 };
 
 const STATUS_AVAILABLE: CIStatusResult = {

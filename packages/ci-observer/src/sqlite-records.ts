@@ -12,6 +12,8 @@ import type {
   CIDecisionStore,
   CIFindingRecord,
   CIFindingStore,
+  CINotificationRecord,
+  CINotificationStore,
   CIObservationRecord,
   CIObservationStore,
   CIWebhookDeliveryRecord,
@@ -224,5 +226,65 @@ export class SqliteCIWebhookDeliveryStore implements CIWebhookDeliveryStore {
       ...(row.reason !== null ? { reason: row.reason } : {}),
       receivedAt: row.received_at,
     }));
+  }
+}
+
+// ─── Notifications (outbox) ─────────────────────────────────────────
+
+interface NotificationRow {
+  notification_id: string;
+  kind: string;
+  severity: string;
+  title: string;
+  body: string;
+  observation_id: string;
+  commit_sha: string;
+  correlation_id: string | null;
+  task_id: string | null;
+  at: string;
+}
+
+function toNotification(row: NotificationRow): CINotificationRecord {
+  return {
+    notificationId: row.notification_id,
+    kind: row.kind,
+    severity: row.severity,
+    title: row.title,
+    body: row.body,
+    observationId: row.observation_id,
+    commitSha: row.commit_sha,
+    ...(row.correlation_id !== null ? { correlationId: row.correlation_id } : {}),
+    ...(row.task_id !== null ? { taskId: row.task_id } : {}),
+    at: row.at,
+  };
+}
+
+export class SqliteCINotificationStore implements CINotificationStore {
+  constructor(private readonly db: Database) {}
+
+  async record(record: CINotificationRecord): Promise<void> {
+    this.db.run(
+      `INSERT OR REPLACE INTO ci_notifications
+        (notification_id, kind, severity, title, body, observation_id, commit_sha, correlation_id, task_id, at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.notificationId,
+        record.kind,
+        record.severity,
+        record.title,
+        record.body,
+        record.observationId,
+        record.commitSha,
+        record.correlationId ?? null,
+        record.taskId ?? null,
+        record.at,
+      ],
+    );
+  }
+
+  async recent(limit = 20): Promise<readonly CINotificationRecord[]> {
+    return rows<NotificationRow>(this.db, 'SELECT * FROM ci_notifications ORDER BY at DESC LIMIT ?', [limit]).map(
+      toNotification,
+    );
   }
 }

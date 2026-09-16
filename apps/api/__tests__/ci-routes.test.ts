@@ -59,7 +59,8 @@ function fakeResponse(): { res: http.ServerResponse; body: () => unknown; status
 }
 
 function fakeRequest(): http.IncomingMessage {
-  const req = new EventEmitter() as unknown as http.IncomingMessage;
+  const req = new EventEmitter() as unknown as http.IncomingMessage & { headers: Record<string, string> };
+  req.headers = {};
   queueMicrotask(() => req.emit('end'));
   return req;
 }
@@ -321,5 +322,37 @@ describe('CI persisted records (CI-OBS-001E)', () => {
     expect(model.observation.conclusion).toBe('passed');
     expect(model.verification.availability).toBe('available');
     expect(model.webhookHealth.state).toBe('receiving');
+  });
+});
+
+describe('CI connectivity verification', () => {
+  it('reports connected only after a verified probe', () => {
+    const powered = buildCIStatusReadModel({
+      credentialConfigured: true,
+      webhookSecretConfigured: false,
+      adapterVersion: '0.1.0',
+      waits: [],
+      correlationAvailability: 'available',
+    });
+    expect(powered.connection.status).toBe('configured');
+
+    const verified = buildCIStatusReadModel({
+      credentialConfigured: true,
+      webhookSecretConfigured: false,
+      adapterVersion: '0.1.0',
+      waits: [],
+      correlationAvailability: 'available',
+      connectivity: { state: 'connected', checkedAt: '2026-09-16T00:00:00.000Z', repository: 'a/b' },
+    });
+    expect(verified.connection.status).toBe('connected');
+    expect(verified.connection.connectivity?.repository).toBe('a/b');
+  });
+
+  it('rejects a connectivity probe when no repository can be resolved', async () => {
+    const { res, status } = fakeResponse();
+    const ctx = fakeContext();
+    const handled = await handleCIRoute('POST', '/api/ci/connection/test', fakeRequest(), res, ctx);
+    expect(handled).toBe(true);
+    expect(status()).toBe(400);
   });
 });

@@ -39,6 +39,12 @@ export interface CIStatusResponse {
     readonly webhookConfigured: boolean;
     readonly adapterVersion: string;
     readonly repositories: readonly string[];
+    readonly connectivity?: {
+      readonly state: 'connected' | 'error' | 'unknown';
+      readonly checkedAt: string;
+      readonly repository?: string;
+      readonly detail?: string;
+    };
   };
   readonly observation: {
     readonly availability: CIAvailabilityDto;
@@ -72,6 +78,24 @@ export interface CIStatusResponse {
     readonly staleCount?: number;
     readonly waits: readonly CIWaitProjection[];
   };
+  readonly notifications?: {
+    readonly availability: CIAvailabilityDto;
+    readonly items: readonly CINotificationDto[];
+  };
+}
+
+/** CI-OBS-001I notification outbox item. */
+export interface CINotificationDto {
+  readonly notificationId: string;
+  readonly kind: string;
+  readonly severity: string;
+  readonly title: string;
+  readonly body: string;
+  readonly observationId: string;
+  readonly commitSha: string;
+  readonly correlationId?: string;
+  readonly taskId?: string;
+  readonly at: string;
 }
 
 // ─── Mapping ────────────────────────────────────────────────────────
@@ -86,6 +110,8 @@ export interface CIStatusView {
   readonly correlationReason?: string;
   /** Unresolved waits past their deadline. */
   readonly staleWaitCount: number;
+  /** Recent CI notification outbox items. */
+  readonly notifications: readonly CINotificationDto[];
 }
 
 /** Disposition of a persisted decision action (frozen action vocabulary). */
@@ -192,8 +218,12 @@ export function viewFromCIStatus(response: CIStatusResponse): CIStatusView {
     connection: {
       status: response.connection.status,
       tokenConfigured: response.connection.credentialConfigured,
+      webhookConfigured: response.connection.webhookConfigured,
       adapterVersion: response.connection.adapterVersion,
       repositories: response.connection.repositories,
+      ...(response.connection.connectivity !== undefined
+        ? { connectivity: response.connection.connectivity }
+        : {}),
     },
     github: githubFromObservation(response.observation),
     verification: verificationFromDecision(response.verification) ?? verificationFromWaits(response.correlation.waits),
@@ -211,5 +241,6 @@ export function viewFromCIStatus(response: CIStatusResponse): CIStatusView {
     staleWaitCount:
       response.correlation.staleCount ??
       response.correlation.waits.filter((wait) => wait.deadline?.state === 'stale').length,
+    notifications: response.notifications?.items ?? [],
   };
 }

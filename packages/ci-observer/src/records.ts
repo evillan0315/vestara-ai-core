@@ -88,11 +88,32 @@ export interface CIWebhookDeliveryStore {
   recent(limit?: number): Promise<readonly CIWebhookDeliveryRecord[]>;
 }
 
+/** CI-OBS-001I — a canonical notification awaiting delivery (outbox). */
+export interface CINotificationRecord {
+  readonly notificationId: string;
+  readonly kind: string;
+  readonly severity: string;
+  readonly title: string;
+  readonly body: string;
+  readonly observationId: string;
+  readonly commitSha: string;
+  readonly correlationId?: string;
+  readonly taskId?: string;
+  readonly at: string;
+}
+
+export interface CINotificationStore {
+  record(record: CINotificationRecord): Promise<void>;
+  /** Most recent notifications, newest first. */
+  recent(limit?: number): Promise<readonly CINotificationRecord[]>;
+}
+
 export interface CIRecordStores {
   readonly observations: CIObservationStore;
   readonly decisions: CIDecisionStore;
   readonly findings?: CIFindingStore;
   readonly deliveries?: CIWebhookDeliveryStore;
+  readonly notifications?: CINotificationStore;
 }
 
 // ─── In-memory implementations (tests / ephemeral) ──────────────────
@@ -143,6 +164,17 @@ export class InMemoryCIWebhookDeliveryStore implements CIWebhookDeliveryStore {
     this.items.push(record);
   }
   async recent(limit = 20): Promise<readonly CIWebhookDeliveryRecord[]> {
+    return [...this.items].reverse().slice(0, limit);
+  }
+}
+
+export class InMemoryCINotificationStore implements CINotificationStore {
+  private readonly items: CINotificationRecord[] = [];
+
+  async record(record: CINotificationRecord): Promise<void> {
+    this.items.push(record);
+  }
+  async recent(limit = 20): Promise<readonly CINotificationRecord[]> {
     return [...this.items].reverse().slice(0, limit);
   }
 }

@@ -22,13 +22,13 @@
  */
 
 import type * as http from 'node:http';
-import type { CIWaitDeadlineAssessment, CIWebhookDeliveryRecord } from '@vestara/ci-observer';
+import type { CINotificationRecord, CIWaitDeadlineAssessment, CIWebhookDeliveryRecord } from '@vestara/ci-observer';
 import { evaluateWaitDeadline } from '@vestara/ci-observer';
-import { GITHUB_CI_ADAPTER_VERSION } from '@vestara/github-ci-adapter';
+import { createGitHubCIClient, GITHUB_CI_ADAPTER_VERSION } from '@vestara/github-ci-adapter';
 import { requireRole } from '../auth';
 import { reconcileStaleCIWaits } from '../ci-reconcile';
 import type { WorkspaceContext } from '../workspace-context';
-import { json } from './types';
+import { json, readBody } from './types';
 
 // ─── Vocabularies ───────────────────────────────────────────────────
 
@@ -53,6 +53,14 @@ const VERIFICATION_ACTIONS: readonly CIVerificationAction[] = ['HOLD', 'REPAIR_C
 
 // ─── Read model ─────────────────────────────────────────────────────
 
+/** Result of an explicit (verified) connectivity probe. */
+export interface CIConnectivityReadDto {
+  readonly state: 'connected' | 'error' | 'unknown';
+  readonly checkedAt: string;
+  readonly repository?: string;
+  readonly detail?: string;
+}
+
 export interface CIConnectionReadDto {
   readonly provider: string;
   readonly status: CIConnectionStatus;
@@ -61,6 +69,8 @@ export interface CIConnectionReadDto {
   readonly adapterVersion: string;
   /** Repository identities observed on authoritative waits. */
   readonly repositories: readonly string[];
+  /** Present only after an explicit connectivity probe (never inferred). */
+  readonly connectivity?: CIConnectivityReadDto;
 }
 
 export interface CIObservationReadDto {
@@ -139,6 +149,11 @@ export interface CIStatusReadDto {
   readonly verification: CIVerificationReadDto;
   readonly webhookHealth: CIWebhookHealthReadDto;
   readonly correlation: CICorrelationReadDto;
+  /** CI-OBS-001I outbox: meaningful transitions awaiting/for delivery. */
+  readonly notifications: {
+    readonly availability: CIAvailability;
+    readonly items: readonly CINotificationRecord[];
+  };
 }
 
 export interface BuildCIStatusInput {
@@ -155,6 +170,10 @@ export interface BuildCIStatusInput {
   readonly verification?: CIVerificationReadDto;
   /** Delivery-derived webhook health, when deliveries exist. */
   readonly webhookHealth?: CIWebhookHealthReadDto;
+  /** Verified connectivity probe, when one has run. */
+  readonly connectivity?: CIConnectivityReadDto;
+  /** Recent notification outbox items (CI-OBS-001I). */
+  readonly notifications?: readonly CINotificationRecord[];
 }
 
 /**
@@ -193,14 +212,23 @@ function webhookHealthOf(webhookSecretConfigured: boolean): CIWebhookHealthReadD
  * (never fabricated as green).
  */
 export function buildCIStatusReadModel(input: BuildCIStatusInput): CIStatusReadDto {
+  // Credential presence is configuration; `connected` requires a verified probe.
+  const connectionStatus: CIConnectionStatus =
+    input.connectivity?.state === 'connected'
+      ? 'connected'
+      : input.connectivity?.state === 'error'
+        ? 'error'
+        : input.credentialConfigured
+          ? 'configured'
+          : 'unconfigured';
   const connection: CIConnectionReadDto = {
     provider: 'github-actions',
-    // Credential presence is configuration, not verified connectivity.
-    status: input.credentialConfigured ? 'configured' : 'unconfigured',
+    status: connectionStatus,
     credentialConfigured: input.credentialConfigured,
     webhookConfigured: input.webhookSecretConfigured,
     adapterVersion: input.adapterVersion,
     repositories: repositoriesOf(input.waits),
+    ...(input.connectivity !== undefined ? { connectivity: input.connectivity } : {}),
   };
 
   const observation: CIObservationReadDto = input.observation ?? {
@@ -234,6 +262,10 @@ export function buildCIStatusReadModel(input: BuildCIStatusInput): CIStatusReadD
     verification,
     webhookHealth: input.webhookHealth ?? webhookHealthOf(input.webhookSecretConfigured),
     correlation,
+    notifications: {
+      availability: input.notifications !== undefined ? 'available' : 'unavailable',
+      items: input.notifications ?? [],
+    },
   };
 }
 
@@ -243,6 +275,7 @@ export interface CICollectedRecords {
   readonly observation?: CIObservationReadDto;
   readonly verification?: CIVerificationReadDto;
   readonly webhookHealth?: CIWebhookHealthReadDto;
+  readonly notifications?: readonly CINotificationRecord[];
 }
 
 /** Derive webhook health from observed deliveries (never from absence). */
@@ -278,10 +311,11 @@ export async function collectCIRecords(ctx: WorkspaceContext): Promise<CICollect
   const records = ctx.ciRecords;
   if (!records) return {};
   try {
-    const [latestObservation, latestDecision, deliveries] = await Promise.all([
+    const [latestObservation, latestDecision, deliveries, notifications] = await Promise.all([
       records.observations?.latest(),
       records.decisions?.latest(),
       records.deliveries?.recent(20),
+      records.notifications?.recent(10),
     ]);
     const webhookHealth = deliveries ? webhookHealthFromDeliveries(deliveries) : undefined;
     return {
@@ -316,6 +350,7 @@ export async function collectCIRecords(ctx: WorkspaceContext): Promise<CICollect
           }
         : {}),
       ...(webhookHealth ? { webhookHealth } : {}),
+      ...(notifications !== undefined ? { notifications } : {}),
     };
   } catch {
     return {};
@@ -391,6 +426,30 @@ function configured(value: string | undefined): boolean {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/** Last explicit connectivity probe (process lifetime; never inferred). */
+let connectivityProbe: CIConnectivityReadDto | undefined;
+
+/**
+ * Verify reachability by listing the most recent workflow run for a repository.
+ * Never returns or logs the credential. A failure is an observation, not a CI
+ * outcome.
+ */
+async function probeConnectivity(repository: string): Promise<CIConnectivityReadDto> {
+  const checkedAt = new Date().toISOString();
+  const [owner, repo] = repository.split('/');
+  if (!owner || !repo) {
+    return { state: 'unknown', checkedAt, repository, detail: 'repository must be owner/name' };
+  }
+  const token = process.env.GITHUB_TOKEN;
+  const client = createGitHubCIClient(token ? { token } : {});
+  const result = await client.listWorkflowRuns(owner, repo, { perPage: 1 });
+  if (!result.ok) {
+    const detail = (result.error as { message?: string } | undefined)?.message ?? 'GitHub API unreachable';
+    return { state: 'error', checkedAt, repository, detail };
+  }
+  return { state: 'connected', checkedAt, repository };
+}
+
 export async function handleCIRoute(
   method: string,
   p: string,
@@ -414,6 +473,30 @@ export async function handleCIRoute(
     return true;
   }
 
+  // CI-UI-003 §4: explicit connectivity verification (configured → connected).
+  if (method === 'POST' && p === '/api/ci/connection/test') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const raw = await readBody(req);
+    let repository = '';
+    try {
+      repository = String((raw ? (JSON.parse(raw) as { repository?: unknown }).repository : '') ?? '');
+    } catch {
+      repository = '';
+    }
+    if (!repository) {
+      const correlation = await collectCIWaits(ctx);
+      repository = correlation.waits[0]?.repository ?? '';
+    }
+    if (!repository) {
+      json(res, 400, { error: 'repository is required (none observed on any wait)' });
+      return true;
+    }
+    const connectivity = await probeConnectivity(repository);
+    connectivityProbe = connectivity;
+    json(res, 200, { connectivity });
+    return true;
+  }
+
   if (method === 'GET' && p === '/api/ci/status') {
     const [correlation, recordsState] = await Promise.all([collectCIWaits(ctx), collectCIRecords(ctx)]);
     const model = buildCIStatusReadModel({
@@ -423,6 +506,7 @@ export async function handleCIRoute(
       waits: correlation.waits,
       correlationAvailability: correlation.availability,
       ...(correlation.reason !== undefined ? { correlationReason: correlation.reason } : {}),
+      ...(connectivityProbe !== undefined ? { connectivity: connectivityProbe } : {}),
       ...recordsState,
     });
     json(res, 200, model);

@@ -11,7 +11,7 @@
 
 import type { ReactNode } from 'react';
 import { CIAuthorityNote, CIAvailabilityNotice, CIFact, CIToneChip } from './ci-chrome.js';
-import type { CITone } from './ci-view-model.js';
+import { type CITone, relativeTime } from './ci-view-model.js';
 
 /**
  * GitHub connection status.
@@ -37,6 +37,13 @@ export interface CIGitHubConnectionView {
   readonly adapterVersion?: string;
   /** Repository identities observed from authoritative CI waits. */
   readonly repositories?: readonly string[];
+  /** Result of an explicit connectivity probe (absent until one runs). */
+  readonly connectivity?: {
+    readonly state: 'connected' | 'error' | 'unknown';
+    readonly checkedAt: string;
+    readonly repository?: string;
+    readonly detail?: string;
+  };
 }
 
 export function CIGitHubConnection({
@@ -83,6 +90,20 @@ export function CIGitHubConnection({
           }
         />
         <CIFact label="Adapter version" value={connection.adapterVersion ?? 'Unknown'} mono />
+        {connection.connectivity && (
+          <CIFact
+            label="Last verified"
+            value={relativeTime(connection.connectivity.checkedAt)}
+            tone={
+              connection.connectivity.state === 'connected'
+                ? 'positive'
+                : connection.connectivity.state === 'error'
+                  ? 'negative'
+                  : 'unknown'
+            }
+            title={connection.connectivity.detail}
+          />
+        )}
       </div>
       {connection.status === 'configured' && (
         <CIAvailabilityNotice
