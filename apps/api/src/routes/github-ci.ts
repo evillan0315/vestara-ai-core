@@ -24,6 +24,7 @@ import {
 } from '@vestara/ci-observer';
 import type { GitHubWorkflowRun } from '@vestara/github-ci-adapter';
 import { createGitHubCIClient } from '@vestara/github-ci-adapter';
+import { projectCICompletionToActivity } from '../ci-activity';
 import { createCICoordinator } from '../ci-coordinator';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
@@ -134,6 +135,9 @@ export async function handleGitHubCIRoute(
     records: ctx.ciRecords,
   });
   const result = await service.handleCompletion({ payload: run, jobs });
+  // CI-OBS-001F: project the completion/review into the Activity Room
+  // (best-effort observability; never blocks ingress or resume).
+  await projectCICompletionToActivity(result);
   let resumed = false;
   if (result.correlation.originatingTaskId) {
     try {
