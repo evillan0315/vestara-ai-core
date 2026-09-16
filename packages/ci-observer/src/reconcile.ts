@@ -55,21 +55,21 @@ export function reconcileWait(input: CIWaitReconcileInput): CIWaitReconcileDecis
   }
 
   // deadline.state === 'stale'
+  if (input.runRef) {
+    return {
+      action: 'await-completion',
+      reason: `Run ${input.runRef} is attached but no resolution was recorded; completion may have been lost`,
+    };
+  }
   if (!input.observation) {
     return {
       action: 'hold',
       reason: 'Unresolved past the deadline and no provider run was observed for the commit',
     };
   }
-  if (!input.runRef) {
-    return {
-      action: 'attach-run',
-      reason: `Provider run ${input.observation.runId} observed for the commit; attach it (first observation wins)`,
-      runRef: input.observation.runId,
-    };
-  }
   return {
-    action: 'await-completion',
-    reason: `Run ${input.runRef} is attached but no resolution was recorded; completion may have been lost`,
+    action: 'attach-run',
+    reason: `Provider run ${input.observation.runId} observed for the commit; attach it (first observation wins)`,
+    runRef: input.observation.runId,
   };
 }

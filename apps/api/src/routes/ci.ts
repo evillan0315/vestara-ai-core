@@ -25,6 +25,8 @@ import type * as http from 'node:http';
 import type { CIWaitDeadlineAssessment, CIWebhookDeliveryRecord } from '@vestara/ci-observer';
 import { evaluateWaitDeadline } from '@vestara/ci-observer';
 import { GITHUB_CI_ADAPTER_VERSION } from '@vestara/github-ci-adapter';
+import { requireRole } from '../auth';
+import { reconcileStaleCIWaits } from '../ci-reconcile';
 import type { WorkspaceContext } from '../workspace-context';
 import { json } from './types';
 
@@ -392,11 +394,25 @@ function configured(value: string | undefined): boolean {
 export async function handleCIRoute(
   method: string,
   p: string,
-  _req: http.IncomingMessage,
+  req: http.IncomingMessage,
   res: http.ServerResponse,
   ctx: WorkspaceContext,
 ): Promise<boolean> {
   if (!p.startsWith('/api/ci')) return false;
+
+  // H7: reconcile stale waits (attach a lost run). Explicit, editor-gated,
+  // never resumes/completes. Read + narrow attach only.
+  if (method === 'POST' && p === '/api/ci/reconcile') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    try {
+      const correlation = await collectCIWaits(ctx);
+      const summary = await reconcileStaleCIWaits(ctx, correlation.waits);
+      json(res, 200, { summary });
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
 
   if (method === 'GET' && p === '/api/ci/status') {
     const [correlation, recordsState] = await Promise.all([collectCIWaits(ctx), collectCIRecords(ctx)]);
