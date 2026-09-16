@@ -17,6 +17,7 @@ import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { getActivityRoom } from './activity-room';
 import { ApiError, httpMetrics, logger, requestContext, sendJson, sendNoContent } from './http';
 import { normalizeError } from './http/api-error';
+import { COMPRESSION_MIN_BYTES, type ContentEncoding, compressBuffer, negotiateEncoding } from './http/compression';
 import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
 import { handleActivityRoomRoute } from './routes/activity-room';
@@ -240,17 +241,104 @@ const UI_CONTENT_TYPES: Record<string, string> = {
   '.woff2': 'font/woff2',
 };
 
-function serveWorkspaceUi(res: http.ServerResponse, pathname: string): boolean {
+/** Text/script assets worth compressing; woff2/png are already compressed. */
+const COMPRESSIBLE_EXTENSIONS = new Set(['.css', '.html', '.js', '.mjs', '.json', '.map', '.svg', '.txt']);
+
+interface CachedUiAsset {
+  readonly mtimeMs: number;
+  readonly encoding: ContentEncoding;
+  readonly body: Buffer;
+}
+
+/**
+ * Compressed static assets keyed by `path:encoding`. Rebuilt assets either get
+ * a new Vite content hash (new filename) or a new mtime, so entries
+ * self-invalidate; the cap bounds memory on a long-running server.
+ */
+const UI_ASSET_CACHE = new Map<string, CachedUiAsset>();
+const UI_ASSET_CACHE_MAX = 64;
+
+/** Vite emits content-hashed filenames — those are safe to cache immutably. */
+const HASHED_ASSET_PATTERN = /-[A-Za-z0-9_-]{8,}\.[a-z0-9]+$/;
+
+function uiCacheControl(filename: string): string {
+  // index.html must never be cached: it references the current asset hashes.
+  return HASHED_ASSET_PATTERN.test(filename) ? 'public, max-age=31536000, immutable' : 'no-cache';
+}
+
+/**
+ * Serve a built Workspace UI asset with content negotiation + caching.
+ * `distDir` is injectable so the policy can be tested without a real build.
+ */
+export function serveWorkspaceUi(res: http.ServerResponse, pathname: string, distDir: string = UI_DIST): boolean {
   const decoded = decodeURIComponent(pathname);
   const rel = decoded === '/' || decoded === '' ? '/index.html' : decoded;
-  const filePath = path.normalize(path.join(UI_DIST, rel));
-  const isSafe = filePath === UI_DIST || filePath.startsWith(`${UI_DIST}${path.sep}`);
+  const filePath = path.normalize(path.join(distDir, rel));
+  const isSafe = filePath === distDir || filePath.startsWith(`${distDir}${path.sep}`);
   const isFile = isSafe && fs.existsSync(filePath) && fs.statSync(filePath).isFile();
-  const target = isFile ? filePath : path.join(UI_DIST, 'index.html');
+  const target = isFile ? filePath : path.join(distDir, 'index.html');
   if (!fs.existsSync(target)) return false;
+
+  const stat = fs.statSync(target);
   const ext = path.extname(target).toLowerCase();
-  res.writeHead(200, { 'content-type': UI_CONTENT_TYPES[ext] ?? 'application/octet-stream' });
-  fs.createReadStream(target).pipe(res);
+  const baseHeaders: Record<string, string> = {
+    'content-type': UI_CONTENT_TYPES[ext] ?? 'application/octet-stream',
+    'cache-control': uiCacheControl(path.basename(target)),
+    Vary: 'Accept-Encoding',
+  };
+
+  const encoding =
+    COMPRESSIBLE_EXTENSIONS.has(ext) && stat.size >= COMPRESSION_MIN_BYTES
+      ? negotiateEncoding(res.req?.headers?.['accept-encoding'])
+      : null;
+
+  if (!encoding) {
+    res.writeHead(200, { ...baseHeaders, 'content-length': String(stat.size) });
+    fs.createReadStream(target).pipe(res);
+    return true;
+  }
+
+  const cacheKey = `${target}:${encoding}`;
+  const cached = UI_ASSET_CACHE.get(cacheKey);
+  if (cached && cached.mtimeMs === stat.mtimeMs) {
+    res.writeHead(200, {
+      ...baseHeaders,
+      'content-encoding': encoding,
+      'content-length': String(cached.body.byteLength),
+    });
+    res.end(cached.body);
+    return true;
+  }
+
+  fs.readFile(target, (readError, buf) => {
+    if (readError) {
+      if (res.writableEnded || res.headersSent) return;
+      res.writeHead(200, { ...baseHeaders, 'content-length': String(stat.size) });
+      fs.createReadStream(target).pipe(res);
+      return;
+    }
+    compressBuffer(buf, encoding)
+      .then((body) => {
+        if (UI_ASSET_CACHE.size >= UI_ASSET_CACHE_MAX) {
+          const oldest = UI_ASSET_CACHE.keys().next().value;
+          if (oldest !== undefined) UI_ASSET_CACHE.delete(oldest);
+        }
+        UI_ASSET_CACHE.set(cacheKey, { mtimeMs: stat.mtimeMs, encoding, body });
+        if (res.writableEnded || res.headersSent) return;
+        res.writeHead(200, {
+          ...baseHeaders,
+          'content-encoding': encoding,
+          'content-length': String(body.byteLength),
+        });
+        res.end(body);
+      })
+      .catch(() => {
+        // Never fail an asset request on compression error — send identity.
+        if (res.writableEnded || res.headersSent) return;
+        res.writeHead(200, { ...baseHeaders, 'content-length': String(stat.size) });
+        res.end(buf);
+      });
+  });
   return true;
 }
 
