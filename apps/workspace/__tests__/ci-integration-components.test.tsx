@@ -128,6 +128,17 @@ describe('CI integration components', () => {
     expect(screen.getByText('Awaiting verification')).toBeTruthy();
   });
 
+  it('marks a stale wait without hiding it', () => {
+    const stale: CIWaitProjection = {
+      ...WAIT,
+      deadline: { state: 'stale', deadlineMs: 2_700_000, ageMs: 3_600_000, reason: 'Unresolved for 60m' },
+    };
+    renderCI(<CIVerificationWaitList waits={[waitToView(stale)]} />);
+    expect(screen.getByText('Stale')).toBeTruthy();
+    expect(screen.getByText('Unresolved for 60m')).toBeTruthy();
+    expect(screen.getAllByText('awaiting-verification').length).toBeGreaterThan(0);
+  });
+
   it('renders a resumed wait with its cited decision reference', () => {
     const resumed: CIWaitProjection = {
       ...WAIT,

@@ -22,6 +22,8 @@
  */
 
 import type * as http from 'node:http';
+import type { CIWaitDeadlineAssessment } from '@vestara/ci-observer';
+import { evaluateWaitDeadline } from '@vestara/ci-observer';
 import { GITHUB_CI_ADAPTER_VERSION } from '@vestara/github-ci-adapter';
 import type { WorkspaceContext } from '../workspace-context';
 import { json } from './types';
@@ -92,11 +94,15 @@ export interface CICorrelationWaitReadDto {
   readonly resumedAt?: string;
   readonly originatingWorkflowRunId?: string;
   readonly originatingOperationId?: string;
+  /** Governed deadline assessment (H7) — stale waits are visible, never hidden. */
+  readonly deadline: CIWaitDeadlineAssessment;
 }
 
 export interface CICorrelationReadDto {
   readonly availability: CIAvailability;
   readonly reason?: string;
+  /** Count of unresolved waits past their deadline. */
+  readonly staleCount: number;
   readonly waits: readonly CICorrelationWaitReadDto[];
 }
 
@@ -185,6 +191,7 @@ export function buildCIStatusReadModel(input: BuildCIStatusInput): CIStatusReadD
   const correlation: CICorrelationReadDto = {
     availability: input.correlationAvailability,
     ...(input.correlationReason !== undefined ? { reason: input.correlationReason } : {}),
+    staleCount: input.waits.filter((wait) => wait.deadline.state === 'stale').length,
     waits: input.waits,
   };
 
@@ -251,6 +258,10 @@ export async function collectCIWaits(ctx: WorkspaceContext): Promise<CICollected
             ? { originatingWorkflowRunId: wait.originatingWorkflowRunId }
             : {}),
           ...(wait.originatingOperationId !== undefined ? { originatingOperationId: wait.originatingOperationId } : {}),
+          deadline: evaluateWaitDeadline({
+            suspendedAt: wait.suspendedAt,
+            ...(wait.resumedAt !== undefined ? { resumedAt: wait.resumedAt } : {}),
+          }),
         });
       }
     }

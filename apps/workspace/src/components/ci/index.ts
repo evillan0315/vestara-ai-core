@@ -44,6 +44,7 @@ export type {
   CIVerificationAction,
   CIVerificationDisposition,
   CIVestaraVerificationView,
+  CIWaitDeadlineView,
   CIWaitProjection,
   CIWaitView,
   CIWebhookHealthView,

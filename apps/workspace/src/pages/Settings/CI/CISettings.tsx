@@ -316,7 +316,15 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
         description="Authoritative task state and correlation for governed pushes awaiting GitHub CI (CI-OBS-002B2)."
       >
         {view ? (
-          <CIVerificationWaitList waits={waits} />
+          <>
+            <CIVerificationWaitList waits={waits} />
+            {view.staleWaitCount > 0 && (
+              <p className="border-t border-[var(--vestara-border-subtle)] px-4 py-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] sm:px-5">
+                {view.staleWaitCount} unresolved wait{view.staleWaitCount === 1 ? '' : 's'} past the deadline —
+                completion may have been lost; reconciliation review is required.
+              </p>
+            )}
+          </>
         ) : (
           <CIAvailabilityNotice
             availability="unavailable"

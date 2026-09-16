@@ -66,6 +66,7 @@ const STATUS_VIEW: CIStatusView = {
   webhook: { state: 'configured', signatureConfigured: true, detail: 'Webhook secret configured' },
   waits: [WAIT],
   correlationAvailability: 'available',
+  staleWaitCount: 0,
 };
 
 const STATUS_AVAILABLE: CIStatusResult = {
@@ -189,6 +190,11 @@ describe('CI settings surface', () => {
     expect(screen.getAllByText('awaiting-verification').length).toBeGreaterThan(0);
     expect(screen.getAllByText(WAIT.waitRef).length).toBeGreaterThan(0);
     expect(screen.getByText('WorkflowTask ID')).toBeTruthy();
+  });
+
+  it('surfaces stale waits past the deadline', () => {
+    renderCI({ statusOverride: { ...STATUS_AVAILABLE, view: { ...STATUS_VIEW, staleWaitCount: 1 } } });
+    expect(screen.getByText(/unresolved wait past the deadline/)).toBeTruthy();
   });
 
   it('places diagnostics under Advanced without deleting them', () => {

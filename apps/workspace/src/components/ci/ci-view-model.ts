@@ -78,6 +78,16 @@ export interface CIWaitProjection {
   readonly suspendedAt: string;
   readonly resumedAt?: string;
   readonly decisionRef?: string;
+  /** Governed deadline assessment (H7) from the read boundary. */
+  readonly deadline?: CIWaitDeadlineView;
+}
+
+/** Governed wait deadline assessment. */
+export interface CIWaitDeadlineView {
+  readonly state: 'active' | 'resolved' | 'stale' | 'unknown';
+  readonly deadlineMs: number;
+  readonly ageMs?: number;
+  readonly reason: string;
 }
 
 /** Correlation diagnostics for one governed push ↔ CI wait. */
@@ -134,6 +144,7 @@ export interface CIWaitView {
   readonly taskStatus: string;
   /** `true` while `awaiting-verification` and not yet resumed. */
   readonly suspended: boolean;
+  readonly deadline?: CIWaitDeadlineView;
   readonly correlation: CICorrelationView;
 }
 
@@ -143,6 +154,7 @@ export function waitToView(wait: CIWaitProjection): CIWaitView {
     taskSummary: wait.taskSummary ?? wait.taskId,
     taskStatus: wait.taskStatus ?? 'awaiting-verification',
     suspended: wait.resumedAt === undefined,
+    ...(wait.deadline !== undefined ? { deadline: wait.deadline } : {}),
     correlation: correlationFromWait(wait),
   };
 }

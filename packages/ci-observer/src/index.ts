@@ -29,6 +29,13 @@ export type { CICorrelationRecord, CICorrelationStore, RegisterCorrelationInput 
 export { createCICorrelationRecord, deriveCorrelationId, InMemoryCICorrelationStore } from './correlation';
 // Durable substrate (registered migrations + sql.js-backed stores)
 export { CI_OBSERVER_MIGRATIONS } from './migrations';
+export type {
+  CIWaitReconcileAction,
+  CIWaitReconcileDecision,
+  CIWaitReconcileInput,
+  CIWaitRunObservation,
+} from './reconcile';
+export { reconcileWait } from './reconcile';
 export { SqliteCICorrelationStore } from './sqlite-correlation-store';
 export { SqliteCITaskGate } from './sqlite-task-gate';
 export type {
@@ -40,6 +47,13 @@ export type {
   SuspendCITaskInput,
 } from './task-gate';
 export { InMemoryCITaskGate } from './task-gate';
+export type {
+  CIWaitDeadlineAssessment,
+  CIWaitDeadlineInput,
+  CIWaitDeadlinePolicy,
+  CIWaitDeadlineState,
+} from './wait-deadline';
+export { DEFAULT_CI_WAIT_DEADLINE_MS, evaluateWaitDeadline } from './wait-deadline';
 export type {
   ValidateIngressInput,
   WebhookHeaders,

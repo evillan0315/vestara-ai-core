@@ -34,6 +34,7 @@ function WaitCard({
 }) {
   const resumed = wait.correlation.resumedAt.availability === 'available';
   const runRef = wait.correlation.workflowRunId;
+  const stale = wait.deadline?.state === 'stale';
   return (
     <article className="overflow-hidden rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)]">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--vestara-border-subtle)] px-4 py-3 sm:px-5">
@@ -46,9 +47,19 @@ function WaitCard({
             {shortSha(wait.correlation.commitSha)}
           </p>
         </div>
-        <CIToneChip tone={statusTone(wait.taskStatus)}>{wait.taskStatus}</CIToneChip>
+        <div className="flex shrink-0 items-center gap-2">
+          {stale && <CIToneChip tone="warning">Stale</CIToneChip>}
+          <CIToneChip tone={statusTone(wait.taskStatus)}>{wait.taskStatus}</CIToneChip>
+        </div>
       </header>
       <CIFact label="Correlation ID" value={wait.correlation.correlationId} mono />
+      {wait.deadline && (
+        <CIFact
+          label="Wait deadline"
+          value={wait.deadline.reason}
+          tone={stale ? 'warning' : wait.deadline.state === 'resolved' ? 'positive' : 'unknown'}
+        />
+      )}
       <CIFact
         label="Provider run"
         value={runRef.availability === 'available' ? runRef.value : (runRef.reason ?? 'Not observed')}

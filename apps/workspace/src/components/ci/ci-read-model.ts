@@ -46,6 +46,8 @@ export interface CIStatusResponse {
   readonly correlation: {
     readonly availability: CIAvailabilityDto;
     readonly reason?: string;
+    /** Count of unresolved waits past their deadline (H7). */
+    readonly staleCount?: number;
     readonly waits: readonly CIWaitProjection[];
   };
 }
@@ -60,6 +62,8 @@ export interface CIStatusView {
   readonly waits: readonly CIWaitProjection[];
   readonly correlationAvailability: CIAvailabilityDto;
   readonly correlationReason?: string;
+  /** Unresolved waits past their deadline. */
+  readonly staleWaitCount: number;
 }
 
 /** Disposition of a persisted decision action (frozen action vocabulary). */
@@ -135,5 +139,8 @@ export function viewFromCIStatus(response: CIStatusResponse): CIStatusView {
     waits: response.correlation.waits,
     correlationAvailability: response.correlation.availability,
     ...(response.correlation.reason !== undefined ? { correlationReason: response.correlation.reason } : {}),
+    staleWaitCount:
+      response.correlation.staleCount ??
+      response.correlation.waits.filter((wait) => wait.deadline?.state === 'stale').length,
   };
 }

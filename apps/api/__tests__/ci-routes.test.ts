@@ -20,6 +20,7 @@ const WAIT: CICorrelationWaitReadDto = {
   waitRef: 'ci-corr:vestara-ai-core:abc123:task-1',
   runRef: 'run-9',
   suspendedAt: '2026-09-16T00:00:00.000Z',
+  deadline: { state: 'active', deadlineMs: 2_700_000, ageMs: 1_000, reason: 'Unresolved but within the deadline' },
 };
 
 function fakeContext(
@@ -120,6 +121,19 @@ describe('buildCIStatusReadModel', () => {
     expect(decisionActionOf('obs-1:HOLD')).toBe('HOLD');
     expect(decisionActionOf('obs-1:NOT_A_REAL_ACTION')).toBeUndefined();
     expect(decisionActionOf(undefined)).toBeUndefined();
+  });
+
+  it('counts stale waits without hiding them', () => {
+    const stale = { ...WAIT, deadline: { ...WAIT.deadline, state: 'stale' as const, reason: 'Unresolved for 60m' } };
+    const model = buildCIStatusReadModel({
+      credentialConfigured: true,
+      webhookSecretConfigured: false,
+      adapterVersion: '0.1.0',
+      waits: [WAIT, stale],
+      correlationAvailability: 'available',
+    });
+    expect(model.correlation.staleCount).toBe(1);
+    expect(model.correlation.waits).toHaveLength(2);
   });
 
   it('carries correlation availability and reason through', () => {
