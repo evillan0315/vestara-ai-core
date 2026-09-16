@@ -8,6 +8,7 @@
 
 import type * as http from 'node:http';
 import { ApiError, normalizeError } from './api-error';
+import { COMPRESSION_MIN_BYTES, compressBuffer, negotiateEncoding } from './compression';
 import { requestContext } from './request-context';
 
 interface CorsHeaders {
@@ -34,6 +35,13 @@ function isWritable(res: http.ServerResponse): boolean {
   return !res.writableEnded && res.headersSent !== true;
 }
 
+/**
+ * VES-PERF-002 (P1): conversation payloads were previously streamed identity
+ * — a 50-message conversation measured 1.52 MB on the wire with no
+ * `Content-Encoding`, despite the client advertising gzip/br. Compression is a
+ * transport-layer trim that requires no contract or client change. Encoding
+ * policy lives in `./compression` and is shared with the static asset server.
+ */
 function writeJson(res: http.ServerResponse, statusCode: number, body: unknown): void {
   if (!isWritable(res)) return;
   let data: string;
@@ -44,18 +52,61 @@ function writeJson(res: http.ServerResponse, statusCode: number, body: unknown):
     data = JSON.stringify({ error: { code: 'INTERNAL_ERROR', message: 'Response serialization failed.' } });
   }
   const byteLength = Buffer.byteLength(data);
-  const headers: Record<string, string> = {
+  const baseHeaders: Record<string, string> = {
     'Content-Type': 'application/json; charset=utf-8',
-    'Content-Length': String(byteLength),
     'X-Request-Id': requestId(),
     ...CORS,
   };
-  res.writeHead(statusCode, headers);
-  try {
-    res.end(data);
-  } catch {
-    /* client already gone */
+
+  const encoding =
+    byteLength >= COMPRESSION_MIN_BYTES ? negotiateEncoding(res.req?.headers?.['accept-encoding']) : null;
+
+  if (!encoding) {
+    res.writeHead(statusCode, {
+      ...baseHeaders,
+      // Always vary so intermediaries never serve a compressed body to a
+      // client that cannot decode it (and vice versa).
+      Vary: 'Accept-Encoding',
+      'Content-Length': String(byteLength),
+    });
+    try {
+      res.end(data);
+    } catch {
+      /* client already gone */
+    }
+    return;
   }
+
+  const compressedHeaders: Record<string, string> = {
+    ...baseHeaders,
+    'Content-Encoding': encoding,
+    Vary: 'Accept-Encoding',
+  };
+
+  compressBuffer(Buffer.from(data, 'utf8'), encoding)
+    .then((payload) => {
+      if (!isWritable(res)) return;
+      res.writeHead(statusCode, { ...compressedHeaders, 'Content-Length': String(payload.byteLength) });
+      try {
+        res.end(payload);
+      } catch {
+        /* client already gone */
+      }
+    })
+    .catch(() => {
+      // Compression failure must never fail the request — fall back to identity.
+      if (!isWritable(res)) return;
+      res.writeHead(statusCode, {
+        ...baseHeaders,
+        Vary: 'Accept-Encoding',
+        'Content-Length': String(byteLength),
+      });
+      try {
+        res.end(data);
+      } catch {
+        /* client already gone */
+      }
+    });
 }
 
 function writeNoContent(res: http.ServerResponse): void {
