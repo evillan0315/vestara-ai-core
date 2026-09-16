@@ -9,7 +9,9 @@
 
 import type * as http from 'node:http';
 import type { CreateTaskInput } from '@vestara/workflow-orchestrator';
+import { ExecGitPort, GovernedPushService } from '@vestara/workspace';
 import { requireRole } from '../auth';
+import { createCICoordinator } from '../ci-coordinator';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -230,6 +232,76 @@ export async function handleOrchestrationRoute(
       json(res, 200, { snapshot });
     } catch (error) {
       json(res, 409, { error: error instanceof Error ? error.message : String(error) });
+    }
+    return true;
+  }
+
+  // CI-PUSH-001: governed commit + task-branch push + CI wait registration.
+  // Settings/CI observation never mutate task state; this explicit producer does.
+  const taskPushMatch = p.match(/^\/api\/orchestration\/projects\/([^/]+)\/tasks\/([^/]+)\/push$/);
+  if (taskPushMatch && method === 'POST') {
+    if (!requireRole(req, ctx, 'editor', res)) return true;
+    const taskId = decodeURIComponent(taskPushMatch[2]);
+    const body = bodyOf(await readBody(req));
+    const commitMessage = str(body.commitMessage);
+    const paths = Array.isArray(body.paths)
+      ? body.paths.filter((value): value is string => typeof value === 'string')
+      : [];
+    if (!commitMessage || paths.length === 0) {
+      json(res, 400, { error: 'commitMessage and a non-empty paths array are required' });
+      return true;
+    }
+    const evidence = body.evidence as { status?: unknown; summary?: unknown } | undefined;
+    const evidenceStatus =
+      evidence && ['passed', 'failed', 'inconclusive', 'blocked'].includes(String(evidence.status))
+        ? (String(evidence.status) as 'passed' | 'failed' | 'inconclusive' | 'blocked')
+        : undefined;
+    try {
+      const task = await ctx.orchestrationTasks.get(taskId);
+      if (!task) {
+        json(res, 404, { error: `Task ${taskId} not found` });
+        return true;
+      }
+      const wait = task.externalWait;
+      const service = new GovernedPushService({
+        git: new ExecGitPort(ctx.repoPath),
+        coordinator: createCICoordinator(ctx.orchestrationTasks),
+      });
+      const result = await service.execute({
+        taskId,
+        taskStatus: task.status,
+        paths,
+        commitMessage,
+        ...(str(body.branch) !== undefined ? { branch: str(body.branch) as string } : {}),
+        ...(str(body.repository) !== undefined ? { repository: str(body.repository) as string } : {}),
+        ...(str(body.operationId) !== undefined ? { operationId: str(body.operationId) as string } : {}),
+        ...(str(body.workflowRunId) !== undefined ? { workflowRunId: str(body.workflowRunId) as string } : {}),
+        ...(evidenceStatus !== undefined
+          ? {
+              evidence: {
+                status: evidenceStatus,
+                ...(typeof evidence?.summary === 'string' ? { summary: evidence.summary } : {}),
+              },
+            }
+          : {}),
+        ...(bool(body.approved) ? { approved: true } : {}),
+        ...(bool(body.integrationAuthority) ? { integrationAuthority: true } : {}),
+        ...(wait
+          ? {
+              existingWait: {
+                waitRef: wait.waitRef,
+                commitSha: wait.commitSha,
+                ...(wait.runRef !== undefined ? { runRef: wait.runRef } : {}),
+                ...(wait.resumedAt !== undefined ? { resumedAt: wait.resumedAt } : {}),
+                ...(wait.decisionRef !== undefined ? { decisionRef: wait.decisionRef } : {}),
+              },
+            }
+          : {}),
+      });
+      const status = result.status === 'pushed' ? 200 : result.status === 'hold' ? 409 : 502;
+      json(res, status, { result });
+    } catch (error) {
+      json(res, 500, { error: error instanceof Error ? error.message : String(error) });
     }
     return true;
   }

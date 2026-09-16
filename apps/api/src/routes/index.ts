@@ -1,10 +1,12 @@
 export { handleM11AActivityRoomRoute } from './activity-room-m11a';
 export { handleAgentsRoute } from './agents';
 export { handleAuthRoute } from './auth';
+export { handleCIRoute } from './ci';
 export { handleContextRoute } from './context';
 export { handleConversationsRoute } from './conversations';
 export { handleEvidenceRoute } from './evidence';
 export { featureRequests, handleFeatureRequestsRoute } from './feature-requests';
+export { handleGitHubCIRoute } from './github-ci';
 export { handleHostRoute } from './host';
 export { handleInteractionsRoute } from './interactions';
 export { handleMediaRoute } from './media';

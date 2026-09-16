@@ -54,6 +54,7 @@ type TaskEventType =
   | 'task.revision'
   | 'task.approved'
   | 'task.cancelled'
+  | 'task.awaiting-verification'
   | 'task.approval-requested'
   | 'task.approval-resolved';
 
@@ -63,6 +64,7 @@ const TASK_EVENT: Record<TaskStatus, TaskEventType> = {
   'awaiting-approval': 'task.approval-requested',
   assigned: 'task.assigned',
   'in-progress': 'task.started',
+  'awaiting-verification': 'task.awaiting-verification',
   'needs-review': 'task.started',
   reviewing: 'task.started',
   'changes-requested': 'task.revision',
@@ -80,6 +82,7 @@ const TASK_STATUS_FROM_EVENT: Partial<Record<OrchestrationEvent['type'], TaskSta
   'task.ready': 'ready',
   'task.assigned': 'assigned',
   'task.started': 'in-progress',
+  'task.awaiting-verification': 'awaiting-verification',
   'task.retrying': 'retrying',
   'task.failed': 'failed',
   'task.blocked': 'blocked',
@@ -347,7 +350,11 @@ export class WorkflowOrchestrator {
     }
     const after = await this.tasks.listForProject(projectId);
     const pending = after.filter(
-      (task) => task.status === 'blocked' || task.status === 'failed' || task.status === 'awaiting-approval',
+      (task) =>
+        task.status === 'blocked' ||
+        task.status === 'failed' ||
+        task.status === 'awaiting-approval' ||
+        task.status === 'awaiting-verification',
     );
     if (pending.length > 0) {
       return this.snapshot(projectId);

@@ -75,7 +75,7 @@ export default function ShellLayout() {
           <div className="flex min-w-0 flex-1 flex-col min-h-0">
             <AppHeader onMenuClick={toggleSidebar} />
             <PageContainer>
-              <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-8 w-full h-full">
+              <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-6 w-full">
                 <Breadcrumbs />
                 <Outlet />
               </div>

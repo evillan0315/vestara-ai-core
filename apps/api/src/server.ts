@@ -27,6 +27,7 @@ import { handleAgentsRoute } from './routes/agents';
 import { handleAuthRoute } from './routes/auth';
 import { handleBrowserRoute } from './routes/browser';
 import { handleCatalogRoute } from './routes/catalog';
+import { handleCIRoute } from './routes/ci';
 import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
@@ -35,6 +36,7 @@ import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
+import { handleGitHubCIRoute } from './routes/github-ci';
 import { handleGraphRoute } from './routes/graph';
 import { handleHostRoute } from './routes/host';
 import { handleInteractionsRoute } from './routes/interactions';
@@ -151,6 +153,8 @@ export const ROUTE_DEFS: RouteDef[] = [
     handler: handleMiscRoute,
   },
   { prefixes: ['/api/diagnostics'], handler: handleDiagnosticsRoute },
+  { prefixes: ['/api/ci'], handler: handleCIRoute },
+  { prefixes: ['/api/github'], handler: handleGitHubCIRoute },
   { prefixes: ['/api/execution'], handler: handleExecutionRoute },
   { prefixes: ['/api/agents/workforce', '/api/external-runtime'], handler: handleExternalRuntimeRoute },
   { prefixes: ['/api/graph'], handler: handleGraphRoute },

@@ -10,10 +10,27 @@
  *   NEVER: @vestara/ci-contracts → GitHub-specific interpretation
  */
 
-export type { GitHubCIClientConfig, GitHubCIError, GitHubCIOperationResult, GitHubCIResult } from './client';
+/**
+ * Adapter package version — display metadata only.
+ *
+ * Not an observation contract: consumers may surface it as configuration
+ * provenance but must never branch CI logic on it.
+ */
+export const GITHUB_CI_ADAPTER_VERSION = '0.1.0';
 
+export type { GitHubCIClientConfig, GitHubCIError, GitHubCIOperationResult, GitHubCIResult } from './client';
 // ─── Client ─────────────────────────────────────────────────────────
 export { createGitHubCIClient } from './client';
+// Provider payload types (GitHub terminology stays inside this adapter).
+export type {
+  GitHubCheckRun,
+  GitHubCheckRunsResponse,
+  GitHubJobStep,
+  GitHubJobsResponse,
+  GitHubWorkflowJob,
+  GitHubWorkflowRun,
+  GitHubWorkflowRunsResponse,
+} from './github-types';
 // ─── Normalization (pure functions) ─────────────────────────────────
 export {
   buildObservation,

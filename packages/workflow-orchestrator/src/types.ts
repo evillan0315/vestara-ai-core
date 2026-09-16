@@ -74,6 +74,7 @@ export const TASK_STATUSES = [
   'awaiting-approval',
   'assigned',
   'in-progress',
+  'awaiting-verification',
   'needs-review',
   'reviewing',
   'changes-requested',
@@ -89,6 +90,34 @@ export const TASK_STATUSES = [
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export type TaskEffort = 'small' | 'medium' | 'large';
+
+/**
+ * Typed external-verification wait condition.
+ *
+ * Suspension while awaiting an external verifier (e.g. GitHub Actions). This is
+ * NOT `blocked` (internal contention) and NOT `awaiting-approval` (authority
+ * gate): the workflow cannot produce the observation itself and resumes only on
+ * a verified external completion. Provider executes; Vestara adjudicates.
+ */
+export interface ExternalVerificationWait {
+  /** Verifier kind. */
+  readonly verifier: 'ci';
+  /** Correlation/wait reference (deterministic push↔task identity). */
+  readonly waitRef: string;
+  /** Provider label (e.g. 'github-actions'). Provenance only. */
+  readonly provider?: string;
+  /** Provider run identity, attached when observed. */
+  readonly runRef?: string;
+  readonly repository: string;
+  readonly commitSha: string;
+  readonly branch: string;
+  readonly originatingWorkflowRunId?: string;
+  readonly originatingOperationId?: string;
+  readonly suspendedAt: string;
+  /** Set exactly once when the wait is resolved. */
+  readonly resumedAt?: string;
+  readonly decisionRef?: string;
+}
 
 /** Orchestrated task — extends the workspace Task model with workflow fields. */
 export interface WorkflowTask {
@@ -107,6 +136,8 @@ export interface WorkflowTask {
   readonly lastError?: string;
   /** Set while the task awaits a high-risk-change approval. */
   readonly approvalReason?: string;
+  /** Set while the task awaits an external verifier (e.g. CI). */
+  readonly externalWait?: ExternalVerificationWait;
   readonly startedAt?: string;
   readonly completedAt?: string;
   readonly createdAt: string;
@@ -224,6 +255,7 @@ export type OrchestrationEvent =
         | 'task.revision'
         | 'task.approved'
         | 'task.cancelled'
+        | 'task.awaiting-verification'
         | 'task.approval-requested'
         | 'task.approval-resolved';
       readonly projectId: string;

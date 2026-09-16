@@ -175,6 +175,8 @@ export interface WorkspaceContext {
   runtimeSessionRegistry: InstanceType<typeof InMemoryRuntimeSessionRegistry>;
   multiAgentWorkflow: MultiAgentWorkflowOrchestrator;
   workflowOrchestrator: WorkflowOrchestrator;
+  /** Authoritative orchestrated-task store (external-verification waits). */
+  orchestrationTasks: import('@vestara/workflow-orchestrator').TaskStore;
   changeProjector: ChangeEventProjector;
   /** Live session-stream accumulator (coalesced per-participant narrative). */
   activityRoomStreams: SessionStreamAccumulator;
@@ -1203,10 +1205,11 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     environmentId: agentEnvironment.id,
     eventBus: kernel.eventBus,
   });
+  const orchestrationTasks = new OrchestrationTaskStore(db as import('sql.js').Database);
   const workflowOrchestrator = new WorkflowOrchestrator({
     projects: new OrchestrationProjectStore(db as import('sql.js').Database),
     plans: new OrchestrationPlanStore(db as import('sql.js').Database),
-    tasks: new OrchestrationTaskStore(db as import('sql.js').Database),
+    tasks: orchestrationTasks,
     artifacts: new ArtifactStore(db as import('sql.js').Database),
     locks: new FileLockRegistry(db as import('sql.js').Database),
     events: orchestrationEvents,
@@ -1632,6 +1635,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     capabilityManager,
     orchestrator,
     workflowOrchestrator,
+    orchestrationTasks,
     executionPlanner,
     workspaceAnalyst,
     suggestionService,

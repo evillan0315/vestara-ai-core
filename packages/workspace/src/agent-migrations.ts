@@ -5,7 +5,7 @@ import {
   type MigrationManifest,
   type MigrationStep,
 } from '@vestara/sqlite-migrations';
-import { ORCHESTRATION_MIGRATIONS } from '@vestara/workflow-orchestrator';
+import { ORCHESTRATION_BASE_MIGRATIONS, ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS } from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
 import { WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 
@@ -236,15 +236,24 @@ export const AGENT_MANIFEST: MigrationManifest = buildManifest('plans-agents', [
 
 /**
  * The composition-owned manifest for the shared `plans.db` file: agents domain,
- * orchestration domain, the workspace domain, then post-plans agent extensions.
+ * the orchestration domain baseline, the workspace domain, post-plans agent
+ * extensions, then append-only orchestration extensions.
+ *
+ * Append-only rule (incident class: `SCHEMA_METADATA_INCONSISTENT`): new steps
+ * MUST be appended as a trailing group. Inserting a step before existing groups
+ * shifts the versions already recorded in `_vestara_migrations` on existing
+ * databases (here v7 = workspace.baseline, v8 = impact_assessments.baseline,
+ * v9 = agents.origin) and `verifyAppliedLog` fails closed.
+ *
  * Storage constructors never mutate schema; each entrypoint composition root
  * runs this chain with explicit persistence.
  */
 export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   AGENT_MIGRATIONS,
-  ORCHESTRATION_MIGRATIONS,
+  ORCHESTRATION_BASE_MIGRATIONS,
   WORKSPACE_DOMAIN_MIGRATIONS,
   POST_PLANS_MIGRATIONS,
+  ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';

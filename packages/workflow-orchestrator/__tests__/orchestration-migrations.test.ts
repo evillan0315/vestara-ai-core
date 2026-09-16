@@ -19,17 +19,19 @@ function columns(db: Database, table: string): string[] {
 }
 
 describe('orchestration migrations (Track 3, plans.db)', () => {
-  it('migrates a pristine DB to v3 with the full orchestration schema', () => {
+  it('migrates a pristine DB to v4 with the full orchestration schema', () => {
     const db = freshDb();
     const result = migrate(db, ORCHESTRATION_MANIFEST);
-    expect(result.to).toBe(3);
+    expect(result.to).toBe(4);
     expect(result.applied).toEqual([
       'orchestration.baseline',
       'orchestration.projects.verification_reopens',
       'orchestration.tasks.approval_reason',
+      'orchestration.tasks.external_verification_wait',
     ]);
     expect(columns(db, 'orchestrated_projects')).toContain('verification_reopens');
     expect(columns(db, 'orchestrated_tasks')).toContain('approval_reason');
+    expect(columns(db, 'orchestrated_tasks')).toContain('wait_ref');
     // All baseline tables exist.
     for (const table of [
       'orchestrated_projects',
@@ -46,7 +48,7 @@ describe('orchestration migrations (Track 3, plans.db)', () => {
     }
   });
 
-  it('upgrades a synthetic historical baseline, adding both drift columns', () => {
+  it('upgrades a synthetic historical baseline, adding approval + external-wait columns', () => {
     const db = freshDb();
     ORCHESTRATION_MIGRATIONS[0].up(db, { addColumnIfMissing: () => undefined });
     db.run(
@@ -58,9 +60,11 @@ describe('orchestration migrations (Track 3, plans.db)', () => {
     expect(result.applied).toEqual([
       'orchestration.projects.verification_reopens',
       'orchestration.tasks.approval_reason',
+      'orchestration.tasks.external_verification_wait',
     ]);
     expect(columns(db, 'orchestrated_projects')).toContain('verification_reopens');
     expect(columns(db, 'orchestrated_tasks')).toContain('approval_reason');
+    expect(columns(db, 'orchestrated_tasks')).toContain('wait_ref');
     // Rows preserved.
     expect(db.exec('SELECT id FROM orchestrated_projects WHERE id = ?', ['p1'])[0]?.values?.[0]?.[0]).toBe('p1');
   });
@@ -72,7 +76,10 @@ describe('orchestration migrations (Track 3, plans.db)', () => {
 
     const result = migrate(db, ORCHESTRATION_MANIFEST);
     expect(result.adopted).toBe(2); // baseline + verification_reopens already satisfied
-    expect(result.applied).toEqual(['orchestration.tasks.approval_reason']);
+    expect(result.applied).toEqual([
+      'orchestration.tasks.approval_reason',
+      'orchestration.tasks.external_verification_wait',
+    ]);
     expect(columns(db, 'orchestrated_tasks')).toContain('approval_reason');
   });
 

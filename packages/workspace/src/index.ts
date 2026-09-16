@@ -114,6 +114,26 @@ export type {
 } from './git-service';
 export { GitService } from './git-service';
 export {
+  type BranchGuardInput,
+  type BranchGuardPolicy,
+  type BranchGuardResult,
+  deriveCorrelationId,
+  ExecGitPort,
+  evaluateBranchGuard,
+  type GitPort,
+  type GovernedPushCoordinator,
+  type GovernedPushDeps,
+  type GovernedPushEvidence,
+  type GovernedPushInput,
+  type GovernedPushPhase,
+  type GovernedPushResult,
+  GovernedPushService,
+  type GovernedPushWait,
+  parseRepositoryFromRemote,
+  sensitivePath,
+  validatePushPaths,
+} from './governed-push';
+export {
   type AgentExecutionRequest,
   type AgentExecutionResult,
   HarnessExecutionAdapter,

@@ -148,7 +148,15 @@ const TASK_COLUMNS = [
   'updated_at',
 ];
 
-export const ORCHESTRATION_MIGRATIONS: readonly MigrationStep[] = [
+/**
+ * Core orchestration-domain steps (versions 1..3 of the standalone manifest).
+ *
+ * Append-only: new steps MUST be added as a separate group appended after the
+ * existing composition groups (see `ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS`),
+ * never inserted here — inserting shifts every downstream `plans.db` version
+ * and makes `verifyAppliedLog` fail closed on existing databases.
+ */
+export const ORCHESTRATION_BASE_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'orchestration.baseline',
     produces: [
@@ -218,6 +226,66 @@ export const ORCHESTRATION_MIGRATIONS: readonly MigrationStep[] = [
       ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'approval_reason', 'TEXT');
     },
   },
+];
+
+/**
+ * External-verification wait columns (CI-OBS-002B2) — append-only group.
+ *
+ * Composed into `plans.db` AFTER the existing groups so the versions already
+ * recorded in existing databases are preserved (v7 = workspace.baseline,
+ * v8 = impact_assessments.baseline, v9 = agents.origin). Inserting this step
+ * before the workspace domain would shift those versions and fail closed.
+ */
+export const ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS: readonly MigrationStep[] = [
+  {
+    name: 'orchestration.tasks.external_verification_wait',
+    produces: [
+      fingerprint('orchestrated_tasks', [
+        'wait_verifier',
+        'wait_ref',
+        'wait_provider',
+        'wait_run_ref',
+        'wait_repository',
+        'wait_commit_sha',
+        'wait_branch',
+        'wait_orig_workflow_run_id',
+        'wait_orig_operation_id',
+        'wait_suspended_at',
+        'wait_resumed_at',
+        'wait_decision_ref',
+      ]),
+    ],
+    up: (db: Database, ctx: MigrationContext) => {
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_verifier', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_ref', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_provider', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_run_ref', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_repository', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_commit_sha', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_branch', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_orig_workflow_run_id', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_orig_operation_id', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_suspended_at', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_resumed_at', 'TEXT');
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'wait_decision_ref', 'TEXT');
+      db.run('CREATE INDEX IF NOT EXISTS idx_otask_wait_ref ON orchestrated_tasks(wait_ref)');
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_otask_wait_commit ON orchestrated_tasks(wait_repository, wait_commit_sha)',
+      );
+    },
+  },
+];
+
+/**
+ * Full orchestration-domain step list (base + append-only extensions).
+ *
+ * NOTE: composition roots that share a database with other domains must NOT
+ * splice this list into the middle of their chain; they compose the base group
+ * in place and append the extension group(s) last (see `PLANS_MANIFEST`).
+ */
+export const ORCHESTRATION_MIGRATIONS: readonly MigrationStep[] = [
+  ...ORCHESTRATION_BASE_MIGRATIONS,
+  ...ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
 ];
 
 /** Standalone orchestration-domain manifest (for direct-construction tests). */

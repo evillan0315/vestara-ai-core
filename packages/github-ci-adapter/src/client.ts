@@ -211,6 +211,25 @@ export function createGitHubCIClient(config: GitHubCIClientConfig = {}) {
     },
 
     /**
+     * Retrieve raw provider jobs (including steps) for a run.
+     *
+     * Provider-native payloads stay inside the adapter; callers that need
+     * step-level failure evidence pass these through `normalizeJob` /
+     * `extractFailureEvidence` rather than interpreting GitHub shapes.
+     */
+    async listRawJobs(
+      owner: string,
+      repo: string,
+      runId: number,
+    ): Promise<GitHubCIOperationResult<readonly GitHubWorkflowJob[]>> {
+      const result = await request<GitHubJobsResponse>(
+        `/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/actions/runs/${runId}/jobs`,
+      );
+      if (!result.ok) return result;
+      return { ok: true, data: result.data.jobs };
+    },
+
+    /**
      * List check runs for a workflow run.
      *
      * Job identity is established through the provider-supplied

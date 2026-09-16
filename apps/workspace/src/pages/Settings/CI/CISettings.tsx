@@ -1,181 +1,145 @@
 /**
- * CI-UI-001 — Continuous Integration Settings Surface.
+ * CI-UI-003 — Continuous Integration Settings surface.
  *
- * First Vestara Settings UI for the CI integration established by
- * frozen CI-OBS-001B (contracts) and CI-OBS-001C (GitHub adapter).
+ * Clean production Settings presentation over the provider-neutral CI read
+ * boundary (`GET /api/ci/status`). Live data is surfaced where an authoritative
+ * read authority exists; everything else stays an explicit HOLD under Advanced
+ * diagnostics — never fabricated.
  *
- * Architectural boundary:
- *   Settings UI → configuration/integration boundary → CI runtime
- *   Settings must NOT become the source of truth for CI runs, jobs,
- *   checks, observations, findings, or evidence.
+ * Layout: canonical Settings primitives (`SettingsSection`, `SettingsRow`) own
+ * card chrome, gutters, and section spacing. CI components are content blocks
+ * (no CI-specific panel/spacing primitives). No inline CSS, no raw palette
+ * utilities — every visual value maps to a `--vestara-*` token.
  *
- * State of this surface:
- *   - No CI API endpoints exist; every interactive control renders an
- *     honest disabled state. The UI neither persists nor invents authority.
- *   - Canonical CIStatus is consumed from @vestara/ci-contracts — the UI
- *     defines no CI vocabulary of its own.
- *   - All visual values use canonical Vestara tokens
- *     (packages/ui-tokens → generated-tokens.css). No hardcode.
+ * Authority: read/configuration presentation only. Settings UI ≠ CI authority;
+ * GitHub CI status ≠ Vestara verification; CI PASS ≠ objective verification.
  *
  * @see docs/governance/UI-UX-GOVERNANCE.md
  */
 
-import type { CIStatus } from '@vestara/ci-contracts';
 import { useCallback, useState } from 'react';
+import {
+  CIAvailabilityNotice,
+  CICorrelationDetails,
+  CIGitHubConnection,
+  CIGitHubStatus,
+  CIStatusSeparationNote,
+  CIVerificationWaitList,
+  CIVestaraVerification,
+  CIWebhookHealth,
+  type CIGitHubCIView,
+  type CIGitHubConnectionView,
+  type CIStatusResult,
+  type CIVestaraVerificationView,
+  type CIWaitView,
+  type CIWebhookHealthView,
+  type GitHubConnectionStatus,
+  useCIStatus,
+  waitToView,
+} from '../../../components/ci/index.js';
 import { Button, FactRow, SettingsRow, SettingsSection, Status, Toggle } from '../settings-ui.js';
 
-// ─── Types ──────────────────────────────────────────────────────────
+export type { GitHubConnectionStatus } from '../../../components/ci/index.js';
 
-/** GitHub connection status. */
-export type GitHubConnectionStatus = 'connected' | 'disconnected' | 'rate-limited' | 'error';
+// ─── Local configuration state (no persistence authority) ───────────
 
 /** CI observation health. */
 export type CIObservationHealth = 'healthy' | 'degraded' | 'unavailable';
 
-/** Snapshot of CI integration state. */
+/** Snapshot of CI integration configuration state. */
 export interface CISettingsState {
-  /** GitHub connection status. */
-  readonly githubConnection: GitHubConnectionStatus;
-  /** Whether CI observation is enabled. */
   readonly observationEnabled: boolean;
-  /** Repositories being observed. */
   readonly repositories: readonly string[];
-  /** Active workflow filters (empty = all). */
   readonly workflowFilters: readonly string[];
-  /** Active branch filters (empty = all). */
   readonly branchFilters: readonly string[];
-  /** Adapter health. */
   readonly adapterHealth: CIObservationHealth;
-  /** ISO timestamp of last successful observation, if any. */
-  readonly lastSuccessfulObservation?: string;
-  /** ISO timestamp of last retrieval/error, if any. */
-  readonly lastRetrievalError?: string;
-  /** Last retrieval error message, if any. */
-  readonly lastRetrievalErrorMessage?: string;
-  /** Last observed canonical status, if any. */
-  readonly lastCanonicalStatus?: CIStatus;
-  /** Last observed provider-native status (for diagnostics). */
-  readonly lastProviderStatus?: string;
-  /** GitHub token configured. */
-  readonly tokenConfigured: boolean;
-  /** Adapter version string. */
-  readonly adapterVersion?: string;
 }
 
-/** Static defaults shown while no CI API boundary exists. */
 const STATIC_DEFAULTS: CISettingsState = {
-  githubConnection: 'disconnected',
   observationEnabled: false,
   repositories: [],
   workflowFilters: [],
   branchFilters: [],
   adapterHealth: 'unavailable',
-  tokenConfigured: false,
-  adapterVersion: '@vestara/github-ci-adapter@0.1.0',
 };
 
-// ─── Hook ───────────────────────────────────────────────────────────
-
-/**
- * Hook for CI settings state.
- *
- * Returns static defaults: no CI API endpoints exist, so there is
- * nothing to fetch and nothing to persist. Refresh re-asserts the
- * static defaults. Observation toggling is not offered — without an
- * authoritative persistence boundary the UI must not imply a change
- * was saved.
- */
-export function useCISettings(): {
-  state: CISettingsState;
-  loading: boolean;
-  refresh: () => void;
-} {
+export function useCISettings(): { state: CISettingsState; loading: boolean; refresh: () => void } {
   const [state, setState] = useState<CISettingsState>(STATIC_DEFAULTS);
-  // Reserved for future API wiring — always false until /api/ci/status exists.
   const [loading] = useState(false);
-
-  const refresh = useCallback(() => {
-    setState({ ...STATIC_DEFAULTS });
-  }, []);
-
+  const refresh = useCallback(() => setState({ ...STATIC_DEFAULTS }), []);
   return { state, loading, refresh };
 }
 
-// ─── Helper ─────────────────────────────────────────────────────────
+// ─── Fallback view (explicit HOLD when the read boundary is down) ───
 
-function relativeTime(iso: string | undefined): string {
-  if (!iso) return 'Never';
-  const ms = Date.now() - new Date(iso).getTime();
-  if (Number.isNaN(ms)) return 'Unknown';
-  const minutes = Math.max(0, Math.round(ms / 60000));
-  if (minutes < 1) return 'just now';
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.round(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.round(hours / 24);
-  return `${days}d ago`;
+function fallbackStatus(detail: string | undefined): {
+  connection: CIGitHubConnectionView;
+  github: CIGitHubCIView;
+  verification: CIVestaraVerificationView;
+  webhook: CIWebhookHealthView;
+} {
+  const reason = detail ?? 'The CI read boundary is unavailable';
+  return {
+    connection: { status: 'unknown', tokenConfigured: false },
+    github: { availability: 'unavailable', reason },
+    verification: { availability: 'unavailable', disposition: 'unavailable', reason },
+    webhook: { state: 'unknown', detail: reason },
+  };
 }
 
-// ─── Sub-components ─────────────────────────────────────────────────
+// ─── Verification policy content ────────────────────────────────────
 
-function GitHubConnectionSection({ state }: { state: CISettingsState }) {
-  const statusValue =
-    state.githubConnection === 'connected'
-      ? 'Connected'
-      : state.githubConnection === 'rate-limited'
-        ? 'Rate limited'
-        : state.githubConnection === 'error'
-          ? 'Error'
-          : 'Disconnected';
+function RepositoryPolicyRows({ state }: { state: CISettingsState }) {
+  return (
+    <>
+      {state.repositories.length > 0 ? (
+        state.repositories.map((repo) => <SettingsRow key={repo} label={repo} value={<Status value="Mapped" />} />)
+      ) : (
+        <div className="px-4 py-6 text-center">
+          <p className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)]">
+            No repositories configured. Repository mapping is not yet persisted.
+          </p>
+        </div>
+      )}
+    </>
+  );
+}
 
+function VerificationPolicy({
+  state,
+  onAddRepository,
+}: {
+  state: CISettingsState;
+  onAddRepository?: () => void;
+}) {
   return (
     <SettingsSection
-      title="GitHub Connection"
-      description="Authentication status for the GitHub Actions API adapter."
+      title="Verification Policy"
+      description="Which repositories, workflows and branches are observed. Configuration management is not yet persisted."
     >
+      <RepositoryPolicyRows state={state} />
       <SettingsRow
-        label="Connection status"
-        description="Whether the adapter can reach GitHub Actions"
-        value={<Status value={statusValue} />}
-      />
-      <SettingsRow
-        label="Authentication token"
-        description="GitHub personal access token for API access"
+        label="Workflows"
+        description="Filter CI observation by workflow name (empty = all workflows)"
         value={
-          state.tokenConfigured ? (
-            <Status value="Configured" />
+          state.workflowFilters.length > 0 ? (
+            <span className="font-mono text-[var(--vestara-font-size-sm)]">{state.workflowFilters.join(', ')}</span>
           ) : (
-            <span className="text-[var(--vestara-text-muted)]">
-              Not configured
-            </span>
+            <span className="text-[var(--vestara-text-muted)]">All workflows</span>
           )
         }
       />
       <SettingsRow
-        label="Adapter version"
-        description="Installed CI adapter package version"
+        label="Branches"
+        description="Filter CI observation by branch name (empty = all branches)"
         value={
-          <span className="font-mono text-[var(--vestara-font-size-sm)]">
-            {state.adapterVersion ?? 'Unknown'}
-          </span>
+          state.branchFilters.length > 0 ? (
+            <span className="font-mono text-[var(--vestara-font-size-sm)]">{state.branchFilters.join(', ')}</span>
+          ) : (
+            <span className="text-[var(--vestara-text-muted)]">All branches</span>
+          )
         }
       />
-      <div className="border-t border-[var(--vestara-border-subtle)] p-4">
-        <Button disabled>Test connection</Button>
-        <span className="ml-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          No API endpoint available yet
-        </span>
-      </div>
-    </SettingsSection>
-  );
-}
-
-function ObservationControlSection({ state }: { state: CISettingsState }) {
-  return (
-    <SettingsSection
-      title="CI Observation"
-      description="CI observation control. The toggle is disabled until an authoritative persistence boundary (/api/ci/config) exists — Settings does not persist configuration in local state."
-    >
       <SettingsRow
         label="Observation enabled"
         description="Poll GitHub Actions for CI state on pushes"
@@ -185,7 +149,7 @@ function ObservationControlSection({ state }: { state: CISettingsState }) {
               label="CI observation"
               checked={state.observationEnabled}
               onChange={() => {
-                /* Inert: the disabled fieldset blocks interaction. Toggle requires onChange. */
+                /* Inert: the disabled fieldset blocks interaction. */
               }}
             />
           </fieldset>
@@ -193,184 +157,111 @@ function ObservationControlSection({ state }: { state: CISettingsState }) {
       />
       <SettingsRow
         label="Control state"
-        description="Why the toggle cannot be changed"
+        description="Why the observation toggle cannot be changed"
         value={
           <span className="text-[var(--vestara-text-muted)]">
             Disabled — persistence unavailable (/api/ci/config does not exist)
           </span>
         }
       />
-      <SettingsRow
-        label="Adapter health"
-        description="Current health of the observation adapter"
-        value={
-          <Status
-            value={
-              state.adapterHealth === 'healthy'
-                ? 'Healthy'
-                : state.adapterHealth === 'degraded'
-                  ? 'Degraded'
-                  : 'Unavailable'
-            }
-          />
-        }
-      />
-    </SettingsSection>
-  );
-}
-
-function RepositoryMappingSection({ state }: { state: CISettingsState }) {
-  return (
-    <SettingsSection
-      title="Repository Mapping"
-      description="Which repositories are observed for CI status. An empty list means no repositories are configured."
-    >
-      {state.repositories.length > 0 ? (
-        state.repositories.map((repo) => (
-          <SettingsRow
-            key={repo}
-            label={repo}
-            value={<Status value="Mapped" />}
-          />
-        ))
-      ) : (
-        <div className="px-4 py-8 text-center">
-          <p className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)]">
-            No repositories configured. Add repository mappings to enable CI observation.
-          </p>
-        </div>
-      )}
-      <div className="border-t border-[var(--vestara-border-subtle)] p-4">
-        <Button disabled>Add repository</Button>
-        <span className="ml-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          Repository management not available yet
-        </span>
-      </div>
-    </SettingsSection>
-  );
-}
-
-function FilterSection({
-  title,
-  description,
-  filters,
-  emptyMessage,
-}: {
-  title: string;
-  description: string;
-  filters: readonly string[];
-  emptyMessage: string;
-}) {
-  return (
-    <SettingsSection title={title} description={description}>
-      {filters.length > 0 ? (
-        filters.map((f) => (
-          <SettingsRow key={f} label={f} value={<Status value="Active" />} />
-        ))
-      ) : (
-        <div className="px-4 py-6 text-center">
-          <p className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)]">
-            {emptyMessage}
-          </p>
-        </div>
-      )}
-      <div className="border-t border-[var(--vestara-border-subtle)] p-4">
+      <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-3 sm:px-5">
+        <Button disabled onClick={onAddRepository}>
+          Add repository
+        </Button>
         <Button disabled>Edit filters</Button>
         <span className="ml-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          Filter management not available yet
+          Policy management not available yet
         </span>
       </div>
     </SettingsSection>
   );
 }
 
-function HealthSection({ state }: { state: CISettingsState }) {
+// ─── Advanced / diagnostics ─────────────────────────────────────────
+
+const AUTHORITY_BOUNDARIES: readonly (readonly [string, string])[] = [
+  ['Settings UI ≠ CI authority', 'Configuration and diagnostics only'],
+  ['GitHub status ≠ Vestara verification', 'Two independent decisions'],
+  ['CI PASS ≠ objective verification', 'CI pass proceeds to the verification gate'],
+  ['Observation ≠ authorization', 'Seeing state grants no mutation'],
+  ['CI failure ≠ repair authority', 'Failure yields a candidate at most'],
+  ['Push authority ≠ merge authority', 'Distinct grants; no automated merge'],
+];
+
+const DATA_GAPS: readonly string[] = [
+  'CI observation body (status/conclusion/provider payload) — not persisted by an accepted store.',
+  'Reviewer verdict/classification — decisions are transient and not persisted.',
+  'Webhook delivery history — no delivery read boundary exists.',
+  'Configured workflows/checks and repository mapping — no /api/ci/config boundary exists.',
+  'Observation enable/disable persistence — no /api/ci/config boundary exists.',
+];
+
+function PolicyHeader({ title }: { title: string }) {
   return (
-    <SettingsSection
-      title="Observation Health"
-      description="Adapter health and recent observation state. Read-only diagnostics."
-    >
-      <SettingsRow
-        label="Last successful observation"
-        description="When the adapter last captured CI state without error"
-        value={
-          <span className="font-mono text-[var(--vestara-font-size-sm)]">
-            {relativeTime(state.lastSuccessfulObservation)}
-          </span>
-        }
-      />
-      <SettingsRow
-        label="Last retrieval error"
-        description="When the adapter last encountered a transport/API error (not a CI failure)"
-        value={
-          state.lastRetrievalError ? (
-            <span
-              className="font-mono text-[var(--vestara-font-size-sm)] text-[var(--vestara-status-error)]"
-              title={state.lastRetrievalErrorMessage}
-            >
-              {relativeTime(state.lastRetrievalError)}
-            </span>
-          ) : (
-            <span className="text-[var(--vestara-text-muted)]">
-              None
-            </span>
-          )
-        }
-      />
-    </SettingsSection>
+    <h4 className="text-[var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">{title}</h4>
   );
 }
 
-function CanonicalStatusSection({ state }: { state: CISettingsState }) {
+function AdvancedDiagnostics({
+  webhook,
+  wait,
+}: {
+  webhook: CIWebhookHealthView;
+  wait: CIWaitView | undefined;
+}) {
   return (
-    <SettingsSection
-      title="CI Status"
-      description="Read-only view of the last observed CI state. Canonical status is provider-neutral; provider status is preserved for diagnostics."
-    >
-      <SettingsRow
-        label="Canonical status"
-        description="Provider-neutral lifecycle position (discovered / queued / running / completed)"
-        value={
-          state.lastCanonicalStatus ? (
-            <Status value={state.lastCanonicalStatus} />
-          ) : (
-            <span className="text-[var(--vestara-text-muted)]">
-              No observations yet
-            </span>
-          )
-        }
-      />
-      <SettingsRow
-        label="Provider status (diagnostics)"
-        description="Raw GitHub Actions status string — not used for canonical logic"
-        value={
-          state.lastProviderStatus ? (
-            <span className="font-mono text-[var(--vestara-font-size-sm)]">
-              {state.lastProviderStatus}
-            </span>
-          ) : (
-            <span className="text-[var(--vestara-text-muted)]">
-              N/A
-            </span>
-          )
-        }
-      />
-      <FactRow
-        label="Authority boundary"
-        value={
-          <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-            Settings configure. CI runtime observes. This surface is read-only.
-          </span>
-        }
-      />
-    </SettingsSection>
+    <details className="st-panel overflow-hidden">
+      <summary className="cursor-pointer px-4 py-4 text-[var(--vestara-font-size-base)] font-semibold text-[var(--vestara-text-primary)] sm:px-5">
+        Advanced — diagnostics
+      </summary>
+      <div className="border-t border-[var(--vestara-border-subtle)]">
+        <CIWebhookHealth health={webhook} />
+        {wait && <CICorrelationDetails correlation={wait.correlation} />}
+        <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-4 sm:px-5">
+          <PolicyHeader title="Authority Boundaries" />
+          <div className="mt-2">
+            {AUTHORITY_BOUNDARIES.map(([label, value]) => (
+              <FactRow
+                key={label}
+                label={label}
+                value={<span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{value}</span>}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-4 sm:px-5">
+          <PolicyHeader title="Backend Data Gaps" />
+          <p className="mt-1 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+            Elements held (not fabricated) until an authoritative read source exists.
+          </p>
+          <div className="mt-2">
+            {DATA_GAPS.map((gap) => (
+              <FactRow
+                key={gap}
+                label={gap}
+                value={<span className="font-medium text-[var(--vestara-status-warning)]">HOLD</span>}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="border-t border-[var(--vestara-border-subtle)] px-4 py-4 sm:px-5">
+          <PolicyHeader title="Raw Provider Diagnostics" />
+          <p className="mt-1 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+            Canonical CI state is provider-neutral; raw provider payloads stay behind the adapter boundary and are not
+            exposed to this surface.
+          </p>
+        </div>
+      </div>
+    </details>
   );
 }
 
-// ─── Main component ─────────────────────────────────────────────────
+// ─── Main ───────────────────────────────────────────────────────────
 
-export function CISettings() {
+export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult } = {}) {
   const { state, loading } = useCISettings();
+  const live = useCIStatus();
+  const status = statusOverride ?? live;
 
   if (loading) {
     return (
@@ -382,29 +273,62 @@ export function CISettings() {
     );
   }
 
+  const fallback = fallbackStatus(status.detail);
+  const view = status.view;
+  const connection = view?.connection ?? fallback.connection;
+  const github = view?.github ?? fallback.github;
+  const verification = view?.verification ?? fallback.verification;
+  const webhook = view?.webhook ?? fallback.webhook;
+  const waits: readonly CIWaitView[] = view ? view.waits.map(waitToView) : [];
+
   return (
-    <div
-      className="space-y-[var(--vestara-spacing-section)]"
-      role="region"
-      aria-label="Continuous Integration settings"
-    >
-      <GitHubConnectionSection state={state} />
-      <ObservationControlSection state={state} />
-      <RepositoryMappingSection state={state} />
-      <FilterSection
-        title="Workflow Filtering"
-        description="Filter CI observation by workflow name. An empty list observes all workflows."
-        filters={state.workflowFilters}
-        emptyMessage="No workflow filters — all workflows are observed."
-      />
-      <FilterSection
-        title="Branch Filtering"
-        description="Filter CI observation by branch name. An empty list observes all branches."
-        filters={state.branchFilters}
-        emptyMessage="No branch filters — all branches are observed."
-      />
-      <HealthSection state={state} />
-      <CanonicalStatusSection state={state} />
+    <div className="space-y-[var(--vestara-spacing-section)]">
+      <SettingsSection
+        title="GitHub Connection"
+        description="GitHub Actions integration status. Credential values are never displayed."
+      >
+        <CIGitHubConnection
+          connection={connection}
+          actions={
+            <>
+              <Button disabled>Test connection</Button>
+              <span className="ml-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                Connectivity verification is not available yet
+              </span>
+            </>
+          }
+        />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Continuous Integration"
+        description="GitHub CI status and the Vestara verification decision — independent authorities."
+      >
+        <div className="grid grid-cols-1 divide-y divide-[var(--vestara-border-subtle)] md:grid-cols-2 md:divide-x md:divide-y-0">
+          <CIGitHubStatus state={github} />
+          <CIVestaraVerification state={verification} />
+        </div>
+        <CIStatusSeparationNote githubPassed={github.conclusion === 'passed'} />
+      </SettingsSection>
+
+      <SettingsSection
+        title="Verification Waits"
+        description="Authoritative task state and correlation for governed pushes awaiting GitHub CI (CI-OBS-002B2)."
+      >
+        {view ? (
+          <CIVerificationWaitList waits={waits} />
+        ) : (
+          <CIAvailabilityNotice
+            availability="unavailable"
+            label="The CI read boundary is unavailable"
+            reason={status.detail ?? 'CI waits cannot be displayed'}
+          />
+        )}
+      </SettingsSection>
+
+      <VerificationPolicy state={state} />
+
+      <AdvancedDiagnostics webhook={webhook} wait={waits[0]} />
     </div>
   );
 }

@@ -1,0 +1,24 @@
+{
+  "name": "@vestara/ci-observer",
+  "description": "Provider-neutral CI completion loop — correlates a governed push to its GitHub CI run, suspends the originating task, and resumes it from normalized CI review evidence",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/ci-observer/__tests__"
+  },
+  "dependencies": {
+    "@vestara/ci-contracts": "workspace:*",
+    "@vestara/ci-reviewer": "workspace:*",
+    "@vestara/event-bus": "workspace:*",
+    "@vestara/github-ci-adapter": "workspace:*",
+    "@vestara/sqlite-migrations": "workspace:*",
+    "@vestara/types": "workspace:*",
+    "sql.js": "^1.14.1"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.10"
+  }
+}
