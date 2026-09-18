@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingWindowManager } from '@vestara/ui';
+import { Z_INDEX } from '@vestara/ui-tokens';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import {
@@ -69,7 +70,8 @@ function AssistantLauncher({
       aria-label={panelOpen ? 'Close assistant' : 'Open assistant'}
       aria-expanded={panelOpen}
       title={panelOpen ? 'Close Vestara Assistant' : 'Ask Vestara (Ctrl+J)'}
-      className="group fixed bottom-6 right-6 z-[90] flex h-12 w-12 items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_rgba(0,0,0,0.6)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 cursor-pointer"
+      className="group fixed bottom-6 right-6 flex h-12 w-12 items-center justify-center rounded-full bg-(--vestara-surface) text-(--vestara-accent) shadow-[0_10px_36px_-8px_var(--vestara-accent-bg),0_2px_8px_rgba(0,0,0,0.6)] ring-1 ring-(--vestara-accent-border) transition-all duration-200 hover:shadow-[0_12px_44px_-8px_var(--vestara-accent-border-hover),0_0_16px_var(--vestara-accent-bg)] hover:scale-105 hover:brightness-110 active:scale-95 cursor-pointer"
+      style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
       {/* Soft halo glow */}
       <span
@@ -97,19 +99,19 @@ function AssistantLauncher({
       {!panelOpen && (
         <span
           aria-hidden="true"
-          className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-zinc-950"
+          className="absolute -top-0.5 -right-0.5 flex h-3.5 w-3.5 items-center justify-center rounded-full bg-(--vestara-surface)"
         >
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-950 shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
+          <span className="h-2.5 w-2.5 rounded-full bg-(--vestara-status-success) ring-2 ring-(--vestara-surface) shadow-[0_0_8px_rgba(52,211,153,0.9)]" />
         </span>
       )}
       {/* Hover tooltip */}
       {!panelOpen && (
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute bottom-14 right-0 hidden whitespace-nowrap rounded-xl border border-zinc-700/60 bg-zinc-900/95 px-3 py-1.5 text-[11px] font-medium text-zinc-200 shadow-xl backdrop-blur group-hover:block"
+          className="pointer-events-none absolute bottom-14 right-0 hidden whitespace-nowrap rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) px-3 py-1.5 text-[11px] font-medium text-(--vestara-text) shadow-xl backdrop-blur group-hover:block"
         >
           Ask Vestara
-          <span className="ml-1.5 rounded-md bg-zinc-800 px-1.5 py-0.5 font-mono text-[10px] text-zinc-400">Ctrl J</span>
+          <span className="ml-1.5 rounded-md bg-(--vestara-surface-interactive) px-1.5 py-0.5 font-mono text-[10px] text-(--vestara-text-muted)">Ctrl J</span>
         </span>
       )}
     </button>
@@ -311,7 +313,7 @@ export function GlobalAssistant() {
   }));
 
   return (
-    <FloatingWindowManager baseZIndex={1300}>
+    <FloatingWindowManager baseZIndex={Number(Z_INDEX.overlay)}>
       {/* GA-UI-007: Full-window surface (when expanded) */}
       {panelExpanded && (
         <FullWindowSurface

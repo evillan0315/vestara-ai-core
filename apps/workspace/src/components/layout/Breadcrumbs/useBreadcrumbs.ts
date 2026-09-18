@@ -15,7 +15,7 @@
  */
 
 import { useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { matchPath, useLocation } from 'react-router-dom';
 import { APP_ROUTES } from '../../../routes';
 import { SETTINGS_SECTIONS, settingsGroupLabel } from '../../../pages/Settings/settings-navigation';
 import { WORKSPACE_NAVIGATION } from '../../../layouts/workspace-navigation';
@@ -52,17 +52,30 @@ function findNavByPath(path: string) {
   return best;
 }
 
+function routeSpecificity(path: string): [number, number, number, number] {
+  const segments = path.split('/').filter(Boolean);
+  const staticSegments = segments.filter((segment) => !segment.startsWith(':') && segment !== '*').length;
+  const dynamicSegments = segments.filter((segment) => segment.startsWith(':')).length;
+  const wildcardSegments = segments.filter((segment) => segment === '*').length;
+
+  return [staticSegments, -wildcardSegments, -dynamicSegments, segments.length];
+}
+
 function findRouteByPath(path: string) {
-  // exact or prefix with params
   const clean = path.split('?')[0].split('#')[0];
-  for (const route of APP_ROUTES) {
-    const pattern = route.path.replace(/\/\*$/, '').replace(/\/:.*$/, '');
-    if (clean === route.path || clean === pattern || clean.startsWith(`${pattern}/`)) {
-      // prefer longest
-      return route;
-    }
-  }
-  return undefined;
+
+  return APP_ROUTES
+    .filter((route) => !route.catchAll && matchPath({ path: route.path, end: true }, clean))
+    .sort((a, b) => {
+      const aScore = routeSpecificity(a.path);
+      const bScore = routeSpecificity(b.path);
+
+      for (let i = 0; i < aScore.length; i++) {
+        if (aScore[i] !== bScore[i]) return bScore[i] - aScore[i];
+      }
+
+      return 0;
+    })[0];
 }
 
 export function buildBreadcrumbs(pathname: string, search?: string): BreadcrumbItem[] {

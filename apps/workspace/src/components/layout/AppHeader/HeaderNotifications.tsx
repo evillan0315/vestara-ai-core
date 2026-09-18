@@ -29,14 +29,14 @@ export default function HeaderNotifications() {
       >
         <NotificationsRoundedIcon fontSize="small" />
         {unreadCount > 0 && (
-          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-red-500 text-[10px] font-semibold text-white">
+          <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center min-w-4 h-4 px-1 rounded-full bg-(--vestara-status-error) text-[10px] font-semibold text-white">
             {unreadCount > 99 ? '99+' : unreadCount}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--color-zinc-950) shadow-xl z-50">
+        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) shadow-xl z-50">
           <div className="flex items-center justify-between px-4 py-3 border-b border-(--vestara-accent-border)">
             <span className="text-sm font-semibold text-(--vestara-text)">
               Notifications {unreadCount > 0 && <span className="text-(--vestara-text-muted) font-normal">({unreadCount} unread)</span>}
@@ -66,15 +66,15 @@ export default function HeaderNotifications() {
                 <button
                   key={n.id}
                   onClick={() => markRead(n.id)}
-                  className="w-full text-left px-4 py-3 hover:bg-(--color-zinc-900) transition-colors cursor-pointer"
+                  className="w-full text-left px-4 py-3 hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer"
                 >
                   <div className="flex items-start gap-3">
                     <span
                       className={`mt-0.5 shrink-0 text-xs ${
                         n.type === 'error'
-                          ? 'text-red-400'
+                          ? 'text-(--vestara-status-error)'
                           : n.type === 'agent'
-                            ? 'text-blue-400'
+                            ? 'text-(--vestara-status-info)'
                             : 'text-(--vestara-text-muted)'
                       }`}
                     >

@@ -46,10 +46,7 @@ export class BodyReadTimedOutError extends Error {
  * maximum before route dispatch. The body reader still enforces the actual
  * streamed byte count for chunked or incorrectly declared requests.
  */
-export function assertDeclaredBodySize(
-  req: IncomingMessage,
-  maxBytes = DEFAULT_MAX_BODY_BYTES,
-): void {
+export function assertDeclaredBodySize(req: IncomingMessage, maxBytes = DEFAULT_MAX_BODY_BYTES): void {
   const declaredLength = parseContentLength(req);
   if (declaredLength !== null && declaredLength > maxBytes) {
     pauseSafe(req);

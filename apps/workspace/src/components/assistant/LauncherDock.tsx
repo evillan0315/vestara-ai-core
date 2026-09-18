@@ -13,6 +13,7 @@
  * never flattened into independent roots.
  */
 
+import { Z_INDEX } from '@vestara/ui-tokens';
 import type { OpenCodeSessionView } from '../../lib/opencode';
 
 export interface LauncherDockItem {
@@ -86,10 +87,11 @@ export function LauncherDock({
       aria-label="Recent conversations"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="assistant-dock-enter fixed bottom-[5.25rem] right-6 z-[90] w-72 overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_var(--vestara-accent-bg),0_0_16px_-4px_var(--vestara-accent-bg)] backdrop-blur-xl"
+      className="assistant-dock-enter fixed bottom-[5.25rem] right-6 w-72 overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_var(--vestara-accent-bg),0_0_16px_-4px_var(--vestara-accent-bg)] backdrop-blur-xl"
+      style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">
-        <span className="text-[11px] font-semibold tracking-tight text-zinc-300">Recent</span>
+        <span className="text-[11px] font-semibold tracking-tight text-(--vestara-text-secondary)">Recent</span>
         <span className="inline-flex items-center gap-1 rounded-full bg-(--vestara-accent-bg) px-2 py-0.5 text-[9px] font-medium text-(--vestara-accent)">
           <svg className="h-2 w-2" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
             <path d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -99,7 +101,7 @@ export function LauncherDock({
       </div>
 
       {visible.length === 0 ? (
-        <div className="px-3 pb-3 pt-1 text-[11px] text-zinc-600" data-testid="launcher-dock-empty">
+        <div className="px-3 pb-3 pt-1 text-[11px] text-(--vestara-text-muted)" data-testid="launcher-dock-empty">
           No conversations yet.
         </div>
       ) : (
@@ -116,7 +118,7 @@ export function LauncherDock({
                   className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all cursor-pointer ${
                     isActive
                       ? 'bg-(--vestara-accent-bg) border border-(--vestara-accent-border) shadow-[0_0_12px_-4px_var(--vestara-accent-bg)]'
-                      : 'border border-transparent hover:bg-zinc-800/60 hover:border-zinc-700/30'
+                      : 'border border-transparent hover:bg-(--vestara-surface-interactive) hover:border-(--vestara-accent-border)'
                   }`}
                 >
                   {isActive && (
@@ -131,12 +133,12 @@ export function LauncherDock({
                   )}
                   <span
                     className={`min-w-0 flex-1 truncate text-[12px] ${
-                      isActive ? 'font-medium text-zinc-50' : 'text-zinc-300'
+                      isActive ? 'font-medium text-(--vestara-text)' : 'text-(--vestara-text-secondary)'
                     }`}
                   >
                     {item.title}
                   </span>
-                  <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">
+                  <span className="shrink-0 text-[10px] tabular-nums text-(--vestara-text-muted)">
                     {relativeTime(item.updatedAt)}
                   </span>
                 </button>
@@ -158,26 +160,26 @@ export function LauncherDock({
                   aria-label={`${canResume ? 'Resume' : 'Busy'}: ${session.title}`}
                   className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-left transition-all ${
                     canResume
-                      ? 'cursor-pointer hover:bg-zinc-800/60 hover:border-zinc-700/30 border border-transparent'
+                      ? 'cursor-pointer hover:bg-(--vestara-surface-interactive) hover:border-(--vestara-accent-border) border border-transparent'
                       : 'cursor-not-allowed opacity-50 border border-transparent'
                   }`}
                 >
-                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-zinc-800/60 text-zinc-500" aria-hidden="true">
+                  <span className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded bg-(--vestara-surface-interactive) text-(--vestara-text)0" aria-hidden="true">
                     <svg className="h-2 w-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
                     </svg>
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-[12px] text-zinc-300">
+                  <span className="min-w-0 flex-1 truncate text-[12px] text-(--vestara-text-secondary)">
                     {session.title}
                   </span>
-                  <span className="shrink-0 text-[10px] tabular-nums text-zinc-600">
+                  <span className="shrink-0 text-[10px] tabular-nums text-(--vestara-text-muted)">
                     {session.updatedAt ? relativeTime(session.updatedAt) : ''}
                   </span>
                 </button>
                 {children.length > 0 && (
                   <ul className="ml-5 space-y-0">
                     {children.map((child) => (
-                      <li key={child.id} className="flex items-center gap-1 px-2 py-0.5 text-[9px] text-zinc-600">
+                      <li key={child.id} className="flex items-center gap-1 px-2 py-0.5 text-[9px] text-(--vestara-text-muted)">
                         <span aria-hidden="true">└</span>
                         <span className="truncate">{child.title}</span>
                       </li>

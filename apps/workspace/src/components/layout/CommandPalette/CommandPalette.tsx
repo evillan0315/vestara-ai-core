@@ -3,6 +3,7 @@ import KeyboardCommandKeyRoundedIcon from '@mui/icons-material/KeyboardCommandKe
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { VestaraModal } from '../../ui/VestaraModal.js';
 import {
   buildNavSearchIndex,
   type NavSearchEntry,
@@ -81,7 +82,6 @@ export default function CommandPalette() {
         setOpen((v) => !v);
         if (!open) fetchData();
       }
-      if (e.key === 'Escape') setOpen(false);
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
@@ -136,11 +136,15 @@ export default function CommandPalette() {
   const typeLabels: Record<string, string> = { page: 'Page', agent: 'Agent', project: 'Project', session: 'Session', request: 'Request' };
 
   return (
-    <div className="fixed inset-0 z-200 bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
-      <div className="mx-auto mt-24 w-full max-w-2xl overflow-hidden rounded-2xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) shadow-2xl" onClick={(e) => e.stopPropagation()}>
+    <VestaraModal
+      onClose={() => setOpen(false)}
+      ariaLabel="Workspace command palette"
+      className="max-w-2xl"
+      accentBar={false}
+    >
         <div className="flex items-center gap-3 border-b border-(--vestara-accent-border) px-5 py-4">
           <SearchRoundedIcon fontSize="small" className="text-(--vestara-text-2)" />
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)}
+          <input value={query} onChange={(e) => setQuery(e.target.value)}
             placeholder="Search pages, agents, projects, sessions..."
             className="flex-1 bg-transparent text-sm text-(--vestara-text) outline-none placeholder-(--vestara-text-dim)" />
           <kbd className="rounded border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-1 text-[10px] text-(--vestara-text-2)">ESC</kbd>
@@ -177,7 +181,6 @@ export default function CommandPalette() {
           <div className="flex items-center gap-2"><KeyboardCommandKeyRoundedIcon fontSize="inherit" /> Ctrl + K</div>
           <div>Search across your entire workspace</div>
         </div>
-      </div>
-    </div>
+    </VestaraModal>
   );
 }

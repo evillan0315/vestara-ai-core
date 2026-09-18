@@ -39,7 +39,7 @@ export default function HeaderUserMenu({ name, role = 'Administrator' }: HeaderU
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full mt-1 w-56 bg-zinc-900 border border-(--vestara-accent-border) rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
+          <div className="absolute right-0 top-full mt-1 w-56 bg-(--vestara-surface) border border-(--vestara-accent-border) rounded-xl shadow-2xl z-50 py-1 overflow-hidden">
             {/* User info header */}
             <div className="px-4 py-3 border-b border-(--vestara-accent-border)">
               <div className="text-sm font-medium text-(--vestara-text) truncate">{name}</div>
@@ -67,7 +67,7 @@ export default function HeaderUserMenu({ name, role = 'Administrator' }: HeaderU
 
             <div className="border-t border-(--vestara-accent-border) mt-1 pt-1">
               <button onClick={() => { setOpen(false); }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] text-red-400 hover:text-red-300 hover:bg-red-400/5 transition-colors cursor-pointer">
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-[11px] text-(--vestara-status-error) hover:bg-(--vestara-status-error-bg) transition-colors cursor-pointer">
                 <LogoutRoundedIcon fontSize="small" />
                 Sign Out
               </button>

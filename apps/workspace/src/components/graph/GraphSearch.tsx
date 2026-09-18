@@ -6,7 +6,8 @@
  */
 
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
+import { VestaraModal } from '../ui/VestaraModal.js';
 import type { GraphSearchResult } from '../../lib/graph';
 import { graphApi, parseEntityId } from '../../lib/graph';
 import { useGraph } from './GraphContext';
@@ -17,11 +18,6 @@ export function GraphSearch() {
   const [results, setResults] = useState<GraphSearchResult[]>([]);
   const [cursor, setCursor] = useState(0);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (graph.searchOpen) inputRef.current?.focus();
-  }, [graph.searchOpen]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -52,8 +48,7 @@ export function GraphSearch() {
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') graph.closeSearch();
-    else if (e.key === 'ArrowDown') {
+    if (e.key === 'ArrowDown') {
       e.preventDefault();
       setCursor((c) => Math.min(c + 1, results.length - 1));
     } else if (e.key === 'ArrowUp') {
@@ -66,21 +61,25 @@ export function GraphSearch() {
   };
 
   return (
-    <div className="graph-search" role="dialog" aria-label="Graph search">
-      <div className="graph-search-row">
-        <SearchRoundedIcon fontSize="inherit" className="text-zinc-500" />
+    <VestaraModal
+      onClose={graph.closeSearch}
+      ariaLabel="Graph search"
+      className="max-w-3xl"
+      accentBar={false}
+    >
+      <div className="flex items-center gap-2 border-b border-(--vestara-accent-border) px-4 py-3">
+        <SearchRoundedIcon fontSize="inherit" className="text-(--vestara-text-muted)" />
         <input
-          ref={inputRef}
-          className="graph-search-input"
+          className="min-w-0 flex-1 border-none bg-transparent p-0 text-base text-(--vestara-text) outline-none"
           placeholder="Search every entity — plans, agents, files, docs, artifacts…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={onKeyDown}
           aria-label="Search the engineering graph"
         />
-        <kbd className="graph-kbd">esc</kbd>
+        <kbd className="rounded border border-(--vestara-accent-border) px-1.5 py-0.5 font-mono text-[10px] text-(--vestara-text-muted)">esc</kbd>
       </div>
-      <div className="graph-search-results">
+      <div className="flex max-h-[50vh] flex-col gap-1 overflow-y-auto p-3">
         {loading && query && <p className="graph-empty animate-pulse">Searching…</p>}
         {!loading && query && results.length === 0 && <p className="graph-empty">No matches for “{query}”.</p>}
         {!query && <p className="graph-empty">Type to search all entities in the engineering graph.</p>}
@@ -90,18 +89,23 @@ export function GraphSearch() {
             <button
               key={r.entity.id}
               type="button"
-              className={`graph-search-result ${cursor === i ? 'graph-search-result-active' : ''}`}
+              className={[
+                'flex w-full items-center gap-2 rounded-[var(--vestara-radius)] border px-2.5 py-2 text-left',
+                cursor === i
+                  ? 'border-(--vestara-accent-border) bg-(--vestara-accent-bg)'
+                  : 'border-transparent bg-transparent',
+              ].join(' ')}
               onMouseEnter={() => setCursor(i)}
               onClick={() => onSelect(r.entity.id)}
             >
               <span className="graph-kind-badge">{kind ?? '?'}</span>
-              <span className="graph-search-result-label truncate">{r.entity.label}</span>
-              <code className="graph-search-result-id truncate">{r.entity.id}</code>
+              <span className="truncate text-sm font-medium text-(--vestara-text)">{r.entity.label}</span>
+              <code className="ml-auto max-w-50 truncate font-mono text-[10px] text-(--vestara-text-muted)">{r.entity.id}</code>
               {r.entity.status && <span className="graph-status-chip">{r.entity.status}</span>}
             </button>
           );
         })}
       </div>
-    </div>
+    </VestaraModal>
   );
 }

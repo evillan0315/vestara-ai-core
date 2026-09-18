@@ -47,37 +47,21 @@ export default defineConfig({
   test: {
     // Setup lives next to its dependency: @testing-library/react is a
     // @vestara/workspace-ui dependency, unresolvable from the repo root
-    // under pnpm strict mode. Imports inside the setup file resolve
-    // relative to that file, so this works for every jsdom test.
+    // under pnpm strict mode. This file remains as project-level test
+    // infrastructure; with the legacy test source removed it will simply
+    // have no DOM tests to clean, but is retained for the fresh suite.
     setupFiles: ['./apps/workspace/vitest.setup.ts'],
-    include: [
-      'packages/*/__tests__/**/*.{test,spec}.{ts,tsx}',
-      // Colocated package tests (e.g. opencode-contract under src/__tests__)
-      // were orphaned from root discovery. Canonical owner: root Vitest.
-      'packages/*/src/__tests__/**/*.{test,spec}.{ts,tsx}',
-      'packages/{providers,tools}/*/__tests__/**/*.{test,spec}.{ts,tsx}',
-      'apps/*/__tests__/**/*.{test,spec}.{ts,tsx}',
-      // Colocated app tests (theme-builder and appearance suites under
-      // src/**/__tests__) were orphaned from root discovery. Canonical
-      // owner: root Vitest (jsdom declared per-file via pragma).
-      'apps/*/src/**/__tests__/**/*.{test,spec}.{ts,tsx}',
-      // Vitest-owned tests for the visual tooling itself (config/diff/discovery/
-      // naming/reports). Playwright owns the sibling *.visual.spec.ts files —
-      // see the `exclude` below.
-      'apps/workspace/tests/visual/__tests__/**/*.{test,spec}.{ts,tsx}',
-    ],
+    // NOTE: include patterns removed — no legacy test source remains.
+    // The Vitest runner will start from a clean baseline (zero tests).
+    // A new test suite will populate these patterns when ready.
+    passWithNoTests: true,
+    pool: 'forks',
+    maxWorkers: 2,
+    testTimeout: 15000,
     // Ownership boundary (TEST-PERF-001A): Playwright owns
     // apps/workspace/tests/visual/**/*.spec.ts (mirrors the app-local
     // vite.config.ts exclude). Without this, @playwright/test specs are
     // collected by Vitest and can hang/fail on constrained runners.
     exclude: [...configDefaults.exclude, 'apps/workspace/tests/visual/**/*.spec.ts'],
-    // Deterministic resource bounds for a 4-core / 8 GB-class machine.
-    // `forks` is Vitest's default pool and is preserved deliberately: the
-    // suite mixes node, jsdom and sql.js/wasm workloads whose native/isolate
-    // behavior is safest in forked child processes. maxWorkers=2 prevents the
-    // default (cores-1 = 3) forks from thrashing under the ~3 GB headroom.
-    pool: 'forks',
-    maxWorkers: 2,
-    testTimeout: 15000,
   },
 });

@@ -45,8 +45,7 @@ const SidebarNavigationItem: FC<SidebarNavigationItemProps> = ({
         ].join(' ')}
       >
         <div
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl transition-all"
-          style={{ color: 'var(--vestara-text-secondary)' }}
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-(--vestara-text-secondary) transition-all"
         >
           {icon}
         </div>
@@ -95,7 +94,7 @@ const SidebarNavigationItem: FC<SidebarNavigationItemProps> = ({
 
               <ChevronRightRounded
                 fontSize="small"
-                className="text-zinc-700 opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
+                className="text-(--vestara-text-secondary) opacity-0 transition-all group-hover:translate-x-0.5 group-hover:opacity-100"
                 style={{
                   color: isActive ? 'var(--vestara-primary)' : undefined,
                 }}

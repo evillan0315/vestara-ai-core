@@ -18,6 +18,7 @@ import { TerminalEmptyState } from './TerminalEmptyState';
 import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from './TerminalPane';
 import { TerminalStatusBar } from './TerminalStatusBar';
 import { TerminalTabs } from './TerminalTabs';
+import { TerminalToolbar } from './TerminalToolbar';
 import { useTerminalSessions } from './useTerminalSessions';
 import { resolveWsUrl } from '../../lib/clientConfig';
 
@@ -222,8 +223,27 @@ export default function TerminalWorkspace() {
     [activeId, removeSession],
   );
 
+  const handleClearSession = useCallback(() => {
+    if (activeSession) {
+      clearTerminal(activeSession.id);
+    }
+  }, [activeSession]);
+
+  const handleKillSession = useCallback(
+    (id: string) => {
+      if (window.confirm(`Kill terminal session ${id}?`)) {
+        if (wsRef.current && activeId === id) {
+          wsRef.current.close();
+          wsRef.current = null;
+        }
+        removeSession(id);
+      }
+    },
+    [activeId, removeSession],
+  );
+
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] bg-zinc-950 border border-(--vestara-accent-border) rounded-xl overflow-hidden">
+    <div className="flex flex-col h-[calc(100vh-7rem)] bg-[var(--vestara-surface-canvas)] border border-[var(--vestara-accent-border)] rounded-xl overflow-hidden">
       {sessions.length > 0 && (
         <TerminalTabs
           sessions={sessions}
@@ -234,6 +254,14 @@ export default function TerminalWorkspace() {
           onRename={renameSession}
         />
       )}
+
+      <TerminalToolbar
+        activeSession={activeSession}
+        onClear={handleClearSession}
+        onKill={handleKillSession}
+        onCopy={() => {/* copy selection logic */}}
+        onSearch={() => {/* search logic */}}
+      />
 
       <div className="flex-1 min-h-0 overflow-hidden" key={activeId || 'empty'}>
         {activeSession ? (
@@ -251,7 +279,7 @@ export default function TerminalWorkspace() {
       </div>
 
       {sessionError && (
-        <div className="shrink-0 border-t border-red-500/30 bg-red-500/[0.06] px-3 py-1.5 text-[11px] text-red-300" role="alert">
+        <div className="shrink-0 border-t border-[var(--vestara-status-error-bg)] bg-[var(--vestara-status-error)] px-3 py-1.5 text-[11px] text-[var(--vestara-status-error-text)]" role="alert">
           {sessionError}
         </div>
       )}

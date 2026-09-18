@@ -2,22 +2,7 @@ import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
 import { useEffect, useRef } from 'react';
 import '@xterm/xterm/css/xterm.css';
-
-const THEME = {
-  background: '#09090b',
-  foreground: '#e4e4e7',
-  cursor: '#e4e4e7',
-  cursorAccent: '#09090b',
-  selectionBackground: '#3f3f46',
-  black: '#09090b',
-  red: '#f87171',
-  green: '#4ade80',
-  yellow: '#fbbf24',
-  blue: '#60a5fa',
-  magenta: '#a78bfa',
-  cyan: '#22d3ee',
-  white: '#e4e4e7',
-};
+import { useVestaraTheme } from '@vestara/ui-theme';
 
 const _termMap = (window as any).__terminalMap || new Map<string, Terminal>();
 if (!(window as any).__terminalMap) (window as any).__terminalMap = _termMap;
@@ -51,10 +36,15 @@ export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: 
   onResizeRef.current = onResize;
   const localEchoRef = useRef(localEcho);
   localEchoRef.current = localEcho;
+  const { resolvedMode } = useVestaraTheme();
 
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
+
+    const theme = resolvedMode === 'dark'
+      ? { background: '--vestara-surface-canvas', foreground: '--vestara-text-primary', cursor: '--vestara-text-primary', selectionBackground: '--vestara-accent-bg' }
+      : { background: '--vestara-surface-canvas', foreground: '--vestara-text-primary', cursor: '--vestara-text-primary', selectionBackground: '--vestara-accent-bg' };
 
     const term = new Terminal({
       cols: 80,
@@ -64,7 +54,7 @@ export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: 
       fontSize: 14,
       fontFamily: "'JetBrains Mono', 'Fira Code', monospace",
       lineHeight: 1.35,
-      theme: THEME,
+      theme,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -143,9 +133,9 @@ export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: 
       _termMap.delete(sessionId);
       term.dispose();
     };
-  }, [sessionId]);
+  }, [sessionId, resolvedMode]);
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-0" style={{ background: '#09090b', outline: 'none' }} />
+    <div ref={containerRef} className="w-full h-full min-h-0 bg-[var(--vestara-surface-canvas)] outline-none" />
   );
 }

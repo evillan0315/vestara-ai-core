@@ -18,10 +18,10 @@ function statusIcon(status: SessionStatus, process: ProcessStatus): string {
 }
 
 function statusColor(status: SessionStatus, process: ProcessStatus): string {
-  if (status === 'connecting') return 'text-amber-400';
-  if (status === 'disconnected' || status === 'error') return 'text-red-400';
-  if (process === 'running') return 'text-amber-400';
-  return 'text-green-500';
+  if (status === 'connecting') return 'var(--vestara-status-pending)';
+  if (status === 'disconnected' || status === 'error') return 'var(--vestara-status-error)';
+  if (process === 'running') return 'var(--vestara-status-running)';
+  return 'var(--vestara-status-active)';
 }
 
 export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onRename }: TerminalTabsProps) {
@@ -63,7 +63,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                   ))}
                 </span>
               )}
-              <span className={`text-[9px] ${statusColor(session.status, session.processStatus)} shrink-0`}>
+              <span className={`text-sm ${statusColor(session.status, session.processStatus)} shrink-0`}>
                 {statusIcon(session.status, session.processStatus)}
               </span>
 
@@ -83,11 +83,11 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                     }
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) rounded text-[11px] px-1 py-0 text-(--vestara-text) outline-none w-24"
+                  className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) rounded text-sm px-1 py-0 text-[var(--vestara-text)] outline-none w-24"
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
-                <span className="text-[11px] font-mono truncate">{session.name}</span>
+                <span className="text-sm font-mono truncate">{session.name}</span>
               )}
 
               <button

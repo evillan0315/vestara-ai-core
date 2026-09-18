@@ -1,4 +1,3 @@
-import AccountCircleRounded from '@mui/icons-material/AccountCircleRounded';
 import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import MenuRounded from '@mui/icons-material/MenuRounded';
@@ -11,18 +10,23 @@ import HeaderSearch from './HeaderSearch';
 import HeaderUserMenu from './HeaderUserMenu';
 
 interface AppHeaderProps {
+  mobileSidebarOpen?: boolean;
   onMenuClick?: () => void;
 }
 
-const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
+const AppHeader: FC<AppHeaderProps> = ({ mobileSidebarOpen = false, onMenuClick }) => {
   const { actor } = useAuth();
   const { resolved, toggle } = useTheme();
 
   return (
-    <header className="shell-topbar sticky top-0 z-40 flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
+    <header className="shell-topbar z-40 flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
       {/* Left */}
       <div className="flex items-center gap-4">
         <button
+          type="button"
+          aria-label="Toggle navigation"
+          aria-controls="workspace-navigation"
+          aria-expanded={mobileSidebarOpen}
           onClick={onMenuClick}
           className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-(--vestara-text-2) transition lg:hidden"
         >
@@ -47,14 +51,11 @@ const AppHeader: FC<AppHeaderProps> = ({ onMenuClick }) => {
       <div className="ml-auto flex items-center gap-3">
         <HeaderConnection />
 
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition-colors">
-          <HeaderNotifications />
-        </div>
+        <HeaderNotifications />
 
         <button
           onClick={toggle}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn  transition 
-          "
+          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition"
         >
           {resolved === 'dark' ? <LightModeRounded fontSize="small" /> : <DarkModeRounded fontSize="small" />}
         </button>

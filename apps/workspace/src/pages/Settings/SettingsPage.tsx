@@ -34,6 +34,15 @@ import SystemOverview from './SystemOverview.js';
 import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecutionSettings.js';
 import { CISettings } from './CI/CISettings.js';
 
+// ─── New canonical components ──────────────────────────────────────────
+import { SettingsHero } from './SettingsHero';
+import { SettingsNavigation } from './SettingsNavigation';
+import { WorkspaceInformationCard } from './WorkspaceInformationCard';
+import { RegionalSettingsCard } from './RegionalSettingsCard';
+import { PreferencesCard } from './PreferencesCard';
+import { WorkspaceStatusCard } from './WorkspaceStatusCard';
+import { SettingsQuickActions } from './SettingsQuickActions';
+
 interface SettingsData {
   configuration: ResolvedConfiguration;
   runtime: RuntimeStatusDto;
@@ -788,6 +797,36 @@ export default function SettingsPage() {
       ) : (
         <>
           <DetailDomainHeader />
+
+          {/* ── Top-level layout: Navigation + Content ───────────────────── */}
+          <div className="flex min-w-0 w-full flex-col lg:flex-row gap-6 lg:gap-8">
+            {/* Settings Navigation — data-driven from the canonical registry. */}
+            <SettingsNavigation />
+
+            {/* Settings Main + Aside layout. */}
+<main className="flex-1">
+                {/* Main configuration column (primary) */}
+                <div className="lg:col-span-2 space-y-6">
+                  <WorkspaceInformationCard configuration={data!.configuration} onFieldChange={onFieldChange} />
+                  <RegionalSettingsCard configuration={data!.configuration} onFieldChange={onFieldChange} />
+                  <PreferencesCard configuration={data!.configuration} onFieldChange={onFieldChange} />
+                </div>
+
+                {/* Context/aside column (secondary) */}
+                <aside className="space-y-6">
+                  <WorkspaceStatusCard runtime={data!.runtime} configuration={data!.configuration} />
+                  <SettingsQuickActions
+                    onExport={() => {/* TODO: export implementation */}}
+                    onImport={() => {/* TODO: import implementation */}}
+                    onReset={() => {/* TODO: reset */}}
+                    onClearAll={() => {/* TODO: clear all */}}
+                    canClearAll={false}
+                  />
+                </aside>
+              </main>
+          </div>
+
+          {/* ── Existing React Router routes for deep linking ────────────── */}
           <Routes>
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />

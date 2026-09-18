@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { GraphProvider } from '../components/graph/GraphContext';
 import { GraphSearch } from '../components/graph/GraphSearch';
 import { Inspector } from '../components/graph/Inspector';
@@ -12,6 +12,7 @@ import KeyboardShortcutsModal from '../components/layout/KeyboardShortcutsModal'
 import PageContainer from '../components/layout/Page/PageContainer';
 import { Breadcrumbs } from '../components/layout/Breadcrumbs';
 import { useWorkspaceNavigation } from '../lib/navigation-store.js';
+import ShellRoot from './ShellRoot';
 
 /**
  * Workspace navigation comes from the canonical registry
@@ -24,18 +25,20 @@ function useNavigation() {
 
 export default function ShellLayout() {
   const [showShortcuts, setShowShortcuts] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+  const [desktopSidebarCollapsed, setDesktopSidebarCollapsed] = useState(() => {
     try {
       return localStorage.getItem('vestara-sidebar-collapsed') === 'true';
     } catch {
       return false;
     }
   });
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   const navigation = useNavigation();
+  const location = useLocation();
 
-  const toggleSidebar = () => {
-    setSidebarCollapsed((prev) => {
+  const toggleDesktopSidebar = () => {
+    setDesktopSidebarCollapsed((prev) => {
       const next = !prev;
       try {
         localStorage.setItem('vestara-sidebar-collapsed', String(next));
@@ -44,45 +47,57 @@ export default function ShellLayout() {
     });
   };
 
+  const toggleMobileSidebar = () => {
+    setMobileSidebarOpen((prev) => !prev);
+  };
+
+  const closeMobileSidebar = () => {
+    setMobileSidebarOpen(false);
+  };
+
   useEffect(() => {
-    const check = () => {
-      if (window.innerWidth < 1024) {
-        setSidebarCollapsed(true);
-      }
-    };
-    check();
-    window.addEventListener('resize', check);
-    return () => window.removeEventListener('resize', check);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    setMobileSidebarOpen(false);
+  }, [location.pathname]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && mobileSidebarOpen) {
+        setMobileSidebarOpen(false);
+        return;
+      }
+
       if (e.key === '?' && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement)) {
         setShowShortcuts((v) => !v);
       }
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, []);
+  }, [mobileSidebarOpen]);
 
   return (
     <GraphProvider>
       <SurfaceContextProvider>
-        <div className="shell-root flex h-screen overflow-hidden bg-(--vestara-shell-bg)">
-          <AppSidebar navigation={navigation} collapsed={sidebarCollapsed} onToggleCollapse={toggleSidebar} />
+        <ShellRoot
+          sidebar={
+            <AppSidebar
+              navigation={navigation}
+              collapsed={desktopSidebarCollapsed}
+              mobileOpen={mobileSidebarOpen}
+              onToggleCollapse={toggleDesktopSidebar}
+            />
+          }
+          header={<AppHeader mobileSidebarOpen={mobileSidebarOpen} onMenuClick={toggleMobileSidebar} />}
+          mobileSidebarOpen={mobileSidebarOpen}
+          onCloseMobileSidebar={closeMobileSidebar}
+        >
+          <PageContainer fluid>
+            <Breadcrumbs />
+            <Outlet />
+          </PageContainer>
+        </ShellRoot>
 
-          <div className="flex min-w-0 flex-1 flex-col min-h-0">
-            <AppHeader onMenuClick={toggleSidebar} />
-            <PageContainer fluid>
-              <Breadcrumbs />
-              <Outlet />
-            </PageContainer>
-          </div>
-
-          <CommandPalette />
-          <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
-        </div>
+        <CommandPalette />
+        <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
         <Inspector />
         <GraphSearch />
         <GlobalAssistant />

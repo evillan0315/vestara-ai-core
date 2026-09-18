@@ -16,6 +16,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import { Z_INDEX } from '@vestara/ui-tokens';
 import { useCallback, useMemo } from 'react';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
 import type { UseAssistantConversationReturn } from '../../hooks/useAssistantConversation';
@@ -113,8 +114,9 @@ export function FullWindowSurface({
 
   return (
     <div
-      className="fixed inset-0 z-[95] flex"
+      className="fixed inset-0 flex"
       style={{
+        zIndex: Number(Z_INDEX.overlay),
         background: 'radial-gradient(ellipse at top, rgba(245,158,11,0.03), transparent 60%), #09090b',
       }}
     >

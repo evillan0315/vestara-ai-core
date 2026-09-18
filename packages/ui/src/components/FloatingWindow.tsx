@@ -22,6 +22,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { Z_INDEX } from '@vestara/ui-tokens';
 
 // ─── Constants ─────────────────────────────────────────────────
 
@@ -296,7 +297,7 @@ export interface FloatingWindowManagerProps {
  * VES-UI-011: Manages z-index stacking for multiple floating windows.
  * Each window gets a sequential z-index. Clicking a window brings it to front.
  */
-export function FloatingWindowManager({ children, baseZIndex = 1300 }: FloatingWindowManagerProps) {
+export function FloatingWindowManager({ children, baseZIndex = Number(Z_INDEX.overlay) }: FloatingWindowManagerProps) {
   const [stack, setStack] = useState<string[]>([]);
   const stackRef = useRef(stack);
   stackRef.current = stack;
@@ -649,9 +650,10 @@ export function FloatingWindow({
           role="dialog"
           aria-label="Floating window"
           data-state="maximized"
-          className={`fixed inset-0 z-[1400] flex flex-col bg-[var(--vestara-surface-canvas)] ${
+          className={`fixed inset-0 flex flex-col bg-[var(--vestara-surface-canvas)] ${
             reducedMotion ? '' : 'animate-[fade-in_200ms_ease-out]'
           } ${className}`}
+          style={{ zIndex: getZIndex ? getZIndex(id) : Number(Z_INDEX.overlay) }}
         >
           {children}
         </div>
@@ -659,7 +661,7 @@ export function FloatingWindow({
     );
   }
 
-  const zIndex = getZIndex ? getZIndex(id) : 1400;
+  const zIndex = getZIndex ? getZIndex(id) : Number(Z_INDEX.overlay);
 
   // Maximized: full viewport
   if (state === 'maximized') {

@@ -12,7 +12,7 @@ const SidebarSection: FC<SidebarSectionProps> = ({ title, collapsed, children })
           mock sidebar: one list with a divider, no group chrome. */}
       {!collapsed && title !== '' && (
         <div className="px-4">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-zinc-600">
+          <h2 className="text-[10px] font-semibold uppercase tracking-[0.18em] text-(--vestara-text-secondary)">
             {title}
           </h2>
         </div>

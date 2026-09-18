@@ -645,7 +645,6 @@ body {
   background: linear-gradient(to right, transparent, var(--vestara-accent-border-hover), transparent);
 }
 .shell-topbar {
-  position: sticky;
   background-color: color-mix(in srgb, var(--vestara-shell-bg) 84%, transparent);
   backdrop-filter: blur(12px);
   box-shadow: 0 1px 16px rgba(0, 0, 0, 0.25);

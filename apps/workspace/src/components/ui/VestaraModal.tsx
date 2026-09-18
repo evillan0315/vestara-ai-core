@@ -63,7 +63,7 @@ export function VestaraModal({ onClose, children, className = 'max-w-md', accent
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-(--vestara-surface-overlay) p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div
         ref={panelRef}
         role="dialog"

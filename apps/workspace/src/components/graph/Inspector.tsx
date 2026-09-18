@@ -55,9 +55,9 @@ function KindBadge({ kind }: { kind: EntityKind }) {
 
 function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="flex items-baseline justify-between gap-3 py-1 border-b border-zinc-800/60 last:border-0">
-      <span className="text-[11px] text-zinc-500">{label}</span>
-      <span className="text-[11.5px] text-zinc-200 text-right break-all">{value}</span>
+    <div className="flex items-baseline justify-between gap-3 py-1 border-b border-(--vestara-accent-border) last:border-0">
+      <span className="text-[11px] text-(--vestara-text-muted)">{label}</span>
+      <span className="text-[11.5px] text-(--vestara-text) text-right break-all">{value}</span>
     </div>
   );
 }
@@ -298,7 +298,7 @@ export function Inspector() {
                     <div key={t.id} className="graph-timeline-row">
                       <span className="graph-timeline-time">{new Date(t.timestamp).toLocaleTimeString()}</span>
                       <span className="graph-rel-type">{t.type}</span>
-                      <span className="text-[11px] text-zinc-300 truncate">{t.message}</span>
+                      <span className="text-[11px] text-(--vestara-text-secondary) truncate">{t.message}</span>
                     </div>
                   ))}
                 </div>
@@ -311,7 +311,7 @@ export function Inspector() {
                     <div key={e.seq} className="graph-timeline-row">
                       <span className="graph-timeline-time">{new Date(e.at).toLocaleString()}</span>
                       <span className="graph-rel-type">{e.type}</span>
-                      <span className="text-[11px] text-zinc-300 truncate">
+                      <span className="text-[11px] text-(--vestara-text-secondary) truncate">
                         #{e.seq}
                         {e.entityId ? ` ${e.entityId}` : ''}
                         {e.relationshipType ? ` ${e.from} ${e.relationshipType} ${e.to}` : ''}

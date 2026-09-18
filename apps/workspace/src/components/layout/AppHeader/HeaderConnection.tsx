@@ -11,20 +11,20 @@ export default function HeaderConnection({ status = 'connected' }: HeaderConnect
     connected: {
       icon: <CloudDoneRoundedIcon fontSize="small" />,
       label: 'Connected',
-      color: 'text-emerald-400',
-      bg: 'bg-emerald-500/10',
+      color: 'text-(--vestara-status-success)',
+      bg: 'bg-(--vestara-status-success-bg)',
     },
     connecting: {
       icon: <AutorenewRoundedIcon fontSize="small" className="animate-spin" />,
       label: 'Connecting',
-      color: 'text-amber-400',
-      bg: 'bg-amber-500/10',
+      color: 'text-(--vestara-status-warning)',
+      bg: 'bg-(--vestara-status-warning-bg)',
     },
     disconnected: {
       icon: <CloudOffRoundedIcon fontSize="small" />,
       label: 'Offline',
-      color: 'text-red-400',
-      bg: 'bg-red-500/10',
+      color: 'text-(--vestara-status-error)',
+      bg: 'bg-(--vestara-status-error-bg)',
     },
   }[status];
 
