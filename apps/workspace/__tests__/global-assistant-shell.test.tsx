@@ -49,10 +49,26 @@ vi.mock('@vestara/ui', () => ({
 describe('GlobalAssistant — Slice 1: Shell Mount', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Mock conversation list for GA-2 hook mount
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve({ conversations: [] }),
+    // Each mounted assistant consumer owns an independent API request.
+    // Keep the mock URL-aware so request ordering cannot change the fixture.
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes('/api/opencode/config/providers')) {
+        return {
+          ok: true,
+          json: async () => ({ providers: [], default: {} }),
+        };
+      }
+
+      if (url.includes('/api/conversations')) {
+        return {
+          ok: true,
+          json: async () => ({ conversations: [] }),
+        };
+      }
+
+      throw new Error(`Unexpected fetch in GlobalAssistant shell test: ${url}`);
     });
   });
 

@@ -256,11 +256,17 @@ describe('Activity Record Detail Modal (AR-UI-DETAIL-001)', () => {
       </ThemeProvider>,
     );
     // Snapshot → subscribe → catch-up can take a moment under load.
-    const detailButton = await screen.findByRole(
-      'button',
-      { name: 'Open detail for Eddie activity' },
-      { timeout: 10_000 },
-    );
+    // Scope the canonical Detail action to Eddie's activity record.
+    const eddieActors = await screen.findAllByText('Eddie');
+    const eddieRecord = eddieActors
+      .map((actor) => actor.closest('.ar-stream-record'))
+      .find((record): record is HTMLElement => record instanceof HTMLElement);
+
+    expect(eddieRecord).toBeTruthy();
+
+    const detailButton = within(eddieRecord!).getByRole('button', {
+      name: 'Detail',
+    });
     fireEvent.click(detailButton);
 
     const dialog = await screen.findByRole('dialog', { name: /Activity detail/ });

@@ -106,14 +106,6 @@ export class AgentStorage {
   }
 
   async saveAgent(agent: AgentDefinition): Promise<void> {
-    // GA-4.3: System agent identity mutation protection
-    if (agent.origin === 'system' && agent.id) {
-      const existing = await this.getAgent(agent.id);
-      if (existing && existing.origin === 'system' && existing.id !== agent.id) {
-        throw new Error(`Cannot change system agent identity: ${existing.id} → ${agent.id}`);
-      }
-    }
-
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO agents

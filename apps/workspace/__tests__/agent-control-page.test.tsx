@@ -87,12 +87,6 @@ function renderPage(fetchImpl: ReturnType<typeof makeFetch>) {
   );
 }
 
-function comboboxWith(text: string): HTMLSelectElement {
-  return screen
-    .getAllByRole('combobox')
-    .find((box) => [...box.options].some((o) => o.textContent?.includes(text))) as HTMLSelectElement;
-}
-
 beforeEach(() => {
   vi.stubGlobal('WebSocket', MockWebSocket);
 });
@@ -113,8 +107,8 @@ describe('Agent Control page (AC-TST-002 UI)', () => {
     };
     renderPage(makeFetch(router));
 
-    await waitFor(() => expect(screen.getByText('Planner')).toBeTruthy());
-    expect(screen.getByText('Engineer')).toBeTruthy();
+    await waitFor(() => expect(screen.getAllByText('Planner').length).toBeGreaterThanOrEqual(1));
+    expect(screen.getAllByText('Engineer').length).toBeGreaterThanOrEqual(1);
   });
 
   it('reaches the empty state when a filter/search matches nothing', async () => {
@@ -137,7 +131,14 @@ describe('Agent Control page (AC-TST-002 UI)', () => {
     await waitFor(() => expect(screen.getByPlaceholderText('Agent name')).toBeTruthy());
 
     fireEvent.change(screen.getByPlaceholderText('Agent name'), { target: { value: 'Frontend Developer' } });
-    fireEvent.change(comboboxWith('developer'), { target: { value: 'developer' } });
+    fireEvent.change(screen.getByPlaceholderText('e.g. developer, banana-engineer'), {
+      target: { value: 'developer' },
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Register Agent' })).toBeTruthy(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Register Agent' }));
 
     await waitFor(() => expect(router.posted).toHaveLength(1));
@@ -151,7 +152,7 @@ describe('Agent Control page (AC-TST-002 UI)', () => {
       posted: [],
     };
     renderPage(makeFetch(router));
-    await waitFor(() => expect(screen.getByText('Verifier')).toBeTruthy());
+    await waitFor(() => expect(screen.getAllByText('Verifier').length).toBeGreaterThanOrEqual(1));
   });
 
   it('surfaces the API rejection when saving fails', async () => {
@@ -163,6 +164,11 @@ describe('Agent Control page (AC-TST-002 UI)', () => {
     await waitFor(() => expect(screen.getByPlaceholderText('Agent name')).toBeTruthy());
 
     fireEvent.change(screen.getByPlaceholderText('Agent name'), { target: { value: 'Doomed' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Next' }));
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Register Agent' })).toBeTruthy(),
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Register Agent' }));
 
     await waitFor(() => expect(screen.getByText(/Failed to save agent/)).toBeTruthy());

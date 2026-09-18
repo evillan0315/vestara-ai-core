@@ -396,7 +396,7 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
     id: 'agent-assistant',
     name: 'Assistant',
     role: 'assistant',
-    agentType: 'workspace',
+    agentType: 'registry',
     origin: 'system',
     description: 'Global conversational assistant for Workspace users.',
     capabilities: [

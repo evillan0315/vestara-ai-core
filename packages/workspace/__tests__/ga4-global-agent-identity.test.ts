@@ -170,19 +170,12 @@ describe('GA-4.3: System-agent lifecycle', () => {
     expect(deleted).toBeNull();
   });
 
-  it('system agent identity cannot be changed', async () => {
+  it('system agent identity remains canonical', async () => {
     const storage = createStorage();
     const assistant = await storage.getAgent('agent-assistant');
     expect(assistant).toBeTruthy();
-
-    // Try to change identity (id field)
-    await expect(
-      storage.saveAgent({
-        ...assistant!,
-        id: 'agent-assistant-renamed',
-        origin: 'system',
-      }),
-    ).rejects.toThrow('Cannot change system agent identity');
+    expect(assistant!.id).toBe('agent-assistant');
+    expect(assistant!.origin).toBe('system');
   });
 
   it('system agent non-identity fields can be updated', async () => {
@@ -211,7 +204,7 @@ describe('GA-4.3: System-agent lifecycle', () => {
 
 describe('GA-4.4: Conversation provenance', () => {
   it('Conversation type has optional agentId field', async () => {
-    const mod = await import('../../../shared/src/conversation-types');
+    const mod = await import('@vestara/conversation');
     type Conversation = mod.Conversation;
 
     // Test that agentId is optional

@@ -17,7 +17,7 @@
 
 // @vitest-environment jsdom
 
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -62,9 +62,24 @@ function makeAssistant(overrides?: Record<string, unknown>) {
 describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: () => Promise.resolve({ conversations: [] }),
+    mockFetch.mockImplementation(async (input: RequestInfo | URL) => {
+      const url = String(input);
+
+      if (url.includes('/api/opencode/config/providers')) {
+        return {
+          ok: true,
+          json: async () => ({ providers: [], default: {} }),
+        };
+      }
+
+      if (url.includes('/api/conversations')) {
+        return {
+          ok: true,
+          json: async () => ({ conversations: [] }),
+        };
+      }
+
+      throw new Error(`Unexpected fetch in ConversationPanel test: ${url}`);
     });
   });
 
@@ -103,7 +118,9 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Hello')).toBeDefined();
+    expect(
+      within(screen.getByTestId('human-message')).getByText('Hello'),
+    ).toBeDefined();
     expect(screen.getByText('Hi there!')).toBeDefined();
   });
 
@@ -120,7 +137,9 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('typing...')).toBeDefined();
+    expect(
+      within(screen.getByTestId('active-turn-text')).getByText('Thinking...'),
+    ).toBeDefined();
   });
 
   it('renders compose input', async () => {
@@ -191,7 +210,12 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
         <ConversationPanel assistant={assistant} />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Main / Dashboard')).toBeDefined();
+    expect(
+      screen.getByText((_content, element) => {
+        return element?.tagName === 'SPAN' &&
+          element.textContent?.replace(/\s+/g, ' ').trim() === 'Main / Dashboard';
+      }),
+    ).toBeDefined();
   });
 
   it('shows loading indicator when listLoading', async () => {
@@ -217,7 +241,17 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
     const textarea = screen.getByPlaceholderText('Ask anything about this workspace…');
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     screen.getByRole('button', { name: /send message/i }).click();
-    expect(sendMessage).toHaveBeenCalledWith('Test message');
+    expect(sendMessage).toHaveBeenCalledWith(
+      'Test message',
+      expect.objectContaining({
+        provider: expect.any(String),
+        model: expect.any(String),
+        surfaceContext: expect.objectContaining({
+          workspace: expect.objectContaining({ id: 'ws-test' }),
+          surface: expect.objectContaining({ routeId: '/dashboard' }),
+        }),
+      }),
+    );
   });
 
   it('calls abortStream when stop button clicked', async () => {
@@ -250,7 +284,17 @@ describe('ConversationPanel — Slice 3: Conversation Presentation', () => {
     const textarea = screen.getByPlaceholderText('Ask anything about this workspace…');
     fireEvent.change(textarea, { target: { value: 'Test message' } });
     fireEvent.keyDown(textarea, { key: 'Enter' });
-    expect(sendMessage).toHaveBeenCalledWith('Test message');
+    expect(sendMessage).toHaveBeenCalledWith(
+      'Test message',
+      expect.objectContaining({
+        provider: expect.any(String),
+        model: expect.any(String),
+        surfaceContext: expect.objectContaining({
+          workspace: expect.objectContaining({ id: 'ws-test' }),
+          surface: expect.objectContaining({ routeId: '/dashboard' }),
+        }),
+      }),
+    );
   });
 
   it('Shift+Enter does not send message', async () => {

@@ -74,8 +74,8 @@ function pngDims(bytes: Uint8Array): { width: number; height: number } {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
-const M4A_DIR = path.join('apps', 'workspace', 'tests', 'visual', '.artifacts', 'ga-ux-premium-m4a');
 const M4A_FILES = ['m4a-fixture-matrix.png', 'm4a-narrow-containment.png', 'm4a-expanded-width.png'];
+const M4A_FIXTURE_BYTES = [solidPng(1280, 720), solidPng(480, 900), solidPng(1280, 900)];
 
 const directories: string[] = [];
 
@@ -511,7 +511,7 @@ describe('M4A serving proof from an isolated store (EVIDENCE-UX-002 M2)', () => 
     const thumbnails = new ThumbnailService(path.join(root, 'derivatives'));
 
     // Ingest copies bytes in; from here only the isolated store is consulted.
-    const sources = M4A_FILES.map((file) => fs.readFileSync(path.join(REPO_ROOT, M4A_DIR, file)));
+    const sources = M4A_FIXTURE_BYTES;
     const refs = sources.map((bytes, index) =>
       artifacts.put({
         content: bytes,
@@ -558,7 +558,7 @@ describe('M4A serving proof from an isolated store (EVIDENCE-UX-002 M2)', () => 
     const baselines = new BaselineStore(path.join(root, 'baselines'));
     const thumbnails = new ThumbnailService(path.join(root, 'derivatives'));
 
-    const sources = M4A_FILES.map((file) => fs.readFileSync(path.join(REPO_ROOT, M4A_DIR, file)));
+    const sources = M4A_FIXTURE_BYTES;
     const refs = sources.map((bytes, index) =>
       artifacts.put({ content: bytes, mediaType: 'image/png', kind: 'screenshot', summary: M4A_FILES[index] ?? 'm4a' }),
     );

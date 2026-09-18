@@ -52,7 +52,7 @@
     },
     {
       "path": "05-ai-core/provider-architecture.md",
-      "beforeChecksum": "da897cab30778f9b8733b965b9a95534f23ad664967f91d20e38a8a42ca163fa",
+      "beforeChecksum": "151bde598f04882300571c5f36d3fe32aa9f05d136bab3aab7210089ebeb4209",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"
@@ -107,7 +107,7 @@
     },
     {
       "path": "10-developer-platform/extension-platform.md",
-      "beforeChecksum": "d4084a5b55d6472ea307891e588515e10a662103f8b31ee7dba7d9d5a0b3d80a",
+      "beforeChecksum": "f032b19dbf0ce8f40c5f359d644dd068f2ec204bbb880c87696eba0bc9dd085b",
       "operation": "remove",
       "field": "implementation-ref",
       "reason": "implementation-status is not-started; absence of evidence is represented by status, not a fake path.",
@@ -152,7 +152,7 @@
     },
     {
       "path": "20-roadmaps/provider-platform-roadmap.md",
-      "beforeChecksum": "54e458b59861d079db9cc5b1a2c0c2fdb276ef15d81015acdaf3e8c1d0cf1800",
+      "beforeChecksum": "be04c7da066e021996fdc043dc70e712779aeb98c92180b69374ccbe7e69ab60",
       "operation": "replace",
       "implementationRefs": ["packages/provider-runtime/src/index.ts", "packages/providers/opencode/src/index.ts"],
       "confidence": "direct"

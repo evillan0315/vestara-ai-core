@@ -1,7 +1,6 @@
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { ContentAddressedEvidenceStore, ImmutableEvidenceManifestStore } from '@vestara/engineering-event-store';
 import { PNG } from 'pngjs';
 import { describe, expect, it } from 'vitest';
@@ -21,23 +20,46 @@ import { resolveArtifactAssociation } from '../src/visual-serve';
  * files are never moved or rewritten.
  */
 
-const HERE = path.dirname(fileURLToPath(import.meta.url));
-const REPO_ROOT = path.resolve(HERE, '..', '..', '..');
-// Canonical M4A Playwright output (EVIDENCE-UX-001 §4). Caller-supplied context
-// only — the domain never sees this path.
-const M4A_DIR = path.join('apps', 'workspace', 'tests', 'visual', '.artifacts', 'ga-ux-premium-m4a');
 const M4A_FILES = ['m4a-fixture-matrix.png', 'm4a-narrow-containment.png', 'm4a-expanded-width.png'];
+
+function createVisualFixtures(workspaceRoot: string): string {
+  const fixtureDir = path.join(workspaceRoot, 'm4a-fixtures');
+  fs.mkdirSync(fixtureDir, { recursive: true });
+
+  const dimensions = [
+    [1280, 720],
+    [480, 900],
+    [1280, 900],
+  ] as const;
+
+  for (const [index, file] of M4A_FILES.entries()) {
+    const [width, height] = dimensions[index] as readonly [number, number];
+    const png = new PNG({ width, height });
+
+    for (let offset = 0; offset < png.data.length; offset += 4) {
+      png.data[offset] = 40 + index * 40;
+      png.data[offset + 1] = 80 + index * 30;
+      png.data[offset + 2] = 120 + index * 20;
+      png.data[offset + 3] = 255;
+    }
+
+    fs.writeFileSync(path.join(fixtureDir, file), PNG.sync.write(png));
+  }
+
+  return fixtureDir;
+}
 
 describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () => {
   it('ingests all three M4A screenshots as ordinary screenshot references', () => {
     const storeDir = fs.mkdtempSync(path.join(os.tmpdir(), 'visual-ingest-m4a-'));
     try {
-      const artifacts = new ContentAddressedEvidenceStore(storeDir);
+      const fixtureDir = createVisualFixtures(storeDir);
+      const artifacts = new ContentAddressedEvidenceStore(path.join(storeDir, 'artifacts'));
       const results = M4A_FILES.map((file) =>
         ingestVisualFile({
           artifacts,
-          sourceFile: path.join(M4A_DIR, file),
-          workspaceRoot: REPO_ROOT,
+          sourceFile: path.relative(storeDir, path.join(fixtureDir, file)),
+          workspaceRoot: storeDir,
           producer: 'playwright',
           executionId: 'm4a-proof-ingest-1',
           operation: 'contract-fixture visual acceptance',
@@ -48,7 +70,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
       const digests = new Set<string>();
       for (const [index, result] of results.entries()) {
         const file = M4A_FILES[index] as string;
-        const originalBytes = fs.readFileSync(path.join(REPO_ROOT, M4A_DIR, file));
+        const originalBytes = fs.readFileSync(path.join(fixtureDir, file));
         const decoded = PNG.sync.read(Buffer.from(originalBytes));
 
         // Content identity + MIME + dimensions from inspected content.
@@ -70,12 +92,12 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
         expect(result.reference.provenance.producer).toBe('playwright');
         expect(result.reference.provenance.operation).toBe('contract-fixture visual acceptance');
         expect(result.reference.provenance.contentHash).toBe(result.ref.digest);
-        expect(result.repositoryRelativePath).toBe(path.join(M4A_DIR, file));
+        expect(result.repositoryRelativePath).toBe(path.relative(storeDir, path.join(fixtureDir, file)));
 
         // Immutable bytes stored exactly; originals untouched in place.
         expect(artifacts.verify(result.ref)).toBe(true);
         expect(Buffer.from(artifacts.read(result.ref.digest) ?? [])).toEqual(originalBytes);
-        expect(fs.existsSync(path.join(REPO_ROOT, M4A_DIR, file))).toBe(true);
+        expect(fs.existsSync(path.join(fixtureDir, file))).toBe(true);
         digests.add(result.ref.digest);
       }
       // Three distinct captures → three distinct content identities.
@@ -88,6 +110,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
   it('binds the M4A set into a bundle through the generic collector', async () => {
     const storeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'visual-ingest-m4a-bundle-'));
     try {
+      const fixtureDir = createVisualFixtures(storeRoot);
       const artifacts = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
       const manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
       const bundles = new BundleStore(path.join(storeRoot, 'bundles'));
@@ -97,7 +120,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
         bundles,
         collectors: [
           new VisualFileCollector({
-            files: M4A_FILES.map((file) => path.join(M4A_DIR, file)),
+            files: M4A_FILES.map((file) => path.relative(storeRoot, path.join(fixtureDir, file))),
             operation: 'contract-fixture visual acceptance',
           }),
         ],
@@ -112,7 +135,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
         implementationCommit: 'c'.repeat(40),
         outcome: 'inconclusive',
         checks: [{ id: 'viewing', name: 'Viewing only', status: 'skipped', summary: 'no assertion' }],
-        workspaceRoot: REPO_ROOT,
+        workspaceRoot: storeRoot,
       });
 
       expect(bundle.evidence).toHaveLength(3);
@@ -138,6 +161,7 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
   it('full integration: ingest → persist bundle → association → evidence kind recognized', async () => {
     const storeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'visual-ingest-m4a-integration-'));
     try {
+      const fixtureDir = createVisualFixtures(storeRoot);
       const artifacts = new ContentAddressedEvidenceStore(path.join(storeRoot, 'artifacts'));
       const _manifests = new ImmutableEvidenceManifestStore(path.join(storeRoot, 'manifests'));
       const bundles = new BundleStore(path.join(storeRoot, 'bundles'));
@@ -146,8 +170,8 @@ describe('M4A screenshot ingestion proof (EVIDENCE-UX-002 M1 caller layer)', () 
       const results = M4A_FILES.map((file) =>
         ingestVisualFile({
           artifacts,
-          sourceFile: path.join(M4A_DIR, file),
-          workspaceRoot: REPO_ROOT,
+          sourceFile: path.relative(storeRoot, path.join(fixtureDir, file)),
+          workspaceRoot: storeRoot,
           producer: 'playwright',
           executionId: 'integration-test',
           operation: 'contract-fixture visual acceptance',

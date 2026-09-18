@@ -209,10 +209,9 @@ describe('GA-UX-PREMIUM M1 — premium visual foundation', () => {
     fireEvent.keyDown(textarea, { key: 'Enter' });
     expect(sendMessage).toHaveBeenCalledTimes(1);
 
-    // M9: attach button is present but disabled (placeholder, coming soon).
-    const attachBtn = within(composer).queryByRole('button', { name: /attach/i });
-    expect(attachBtn).toBeTruthy();
-    expect(attachBtn!.getAttribute('disabled')).not.toBeNull();
+    // M1 exposes only controls backed by the current interaction contract.
+    // Future attachment/model controls must not be fabricated as placeholders.
+    expect(within(composer).queryByRole('button', { name: /attach/i })).toBeNull();
     expect(within(composer).queryByRole('button', { name: /model/i })).toBeNull();
     first.unmount();
 

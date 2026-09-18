@@ -1055,7 +1055,7 @@ describe('parseDf edge cases', () => {
 
 describe('parseDockerStat edge cases', () => {
   it('handles different memory units', () => {
-    const stat = parseDockerStat('test|1.0%|100KiB / 1MiB|10.0%|1KB / 2KB');
+    const stat = parseDockerStat('test|1.0%|100KiB / 1MiB|10.0%|1KiB / 2KiB');
     expect(stat).not.toBeNull();
     expect(stat?.memUsed).toBeCloseTo(100 * 1024);
     expect(stat?.memLimit).toBeCloseTo(1 * 1024 * 1024);
@@ -1106,7 +1106,7 @@ describe('collectHealth edge cases', () => {
   it('flags memory as fail when available < 10%', () => {
     const checks = collectHealth({
       ...baseInput,
-      memAvailableBytes: 512 * 1024 ** 3, // 0.5GB out of 8GB = 6.25% -> fail
+      memAvailableBytes: 512 * 1024 ** 2, // 0.5GB out of 8GB = 6.25% -> fail
       memTotalBytes: 8 * 1024 ** 3,
     });
     const mem = checks.find((c) => c.id === 'memory');

@@ -705,6 +705,12 @@ export function collectProcesses(limit = 1500): { processes: ProcessInfo[]; tota
 }
 
 export function killProcess(pid: number): { ok: boolean; error?: string } {
+  // Only individual positive process IDs are valid here.
+  // POSIX PID 0 and negative PIDs target process groups or multiple processes.
+  if (!Number.isSafeInteger(pid) || pid <= 1) {
+    return { ok: false, error: `Invalid process ID: ${pid}` };
+  }
+
   try {
     process.kill(pid, 'SIGTERM');
     return { ok: true };
