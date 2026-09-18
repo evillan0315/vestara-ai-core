@@ -11,6 +11,7 @@
 
 import { useVestaraTheme } from '@vestara/ui-theme';
 import { useTerminalSessions } from './useTerminalSessions';
+import { clearTerminal } from './TerminalPane';
 import type { TerminalSession } from './types';
 
 export function TerminalInspector() {

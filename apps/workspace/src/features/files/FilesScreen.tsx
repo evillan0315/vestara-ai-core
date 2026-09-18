@@ -101,6 +101,7 @@ export function FilesScreen() {
           truncated={data.treeTruncated}
           recent={data.recent}
           onChanged={() => void refetch()}
+          onRefresh={() => void refetch()}
         />
       </div>
     </div>

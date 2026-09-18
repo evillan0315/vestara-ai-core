@@ -17,7 +17,7 @@ declare class AudioWorkletProcessor {
     inputs: Float32Array[][],
     outputs: Float32Array[][],
     parameters: Record<string, Float32Array>,
-  ): boolean | void;
+  ): boolean | undefined;
 }
 
 declare function registerProcessor(

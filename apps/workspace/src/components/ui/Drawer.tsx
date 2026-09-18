@@ -11,6 +11,7 @@
  * paints above page-level sticky headers and other layout chrome.
  */
 
+import { Z_INDEX } from '@vestara/ui-tokens';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { ReactNode } from 'react';
@@ -186,8 +187,8 @@ export function Drawer({
       : 'absolute -right-1 top-0 z-10 h-full w-2 cursor-col-resize';
 
   const drawerContent = (
-    <div className="fixed inset-0 z-[80]">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden="true" />
+    <div className="fixed inset-0" style={{ zIndex: Number(Z_INDEX.modal) }}>
+      <div className="absolute inset-0 bg-(--vestara-surface-overlay)" onClick={onClose} aria-hidden="true" />
       <div
         role="dialog"
         aria-modal="true"

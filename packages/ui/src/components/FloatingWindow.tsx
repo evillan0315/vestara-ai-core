@@ -11,6 +11,7 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
+import { Z_INDEX } from '@vestara/ui-tokens';
 import {
   createContext,
   type ReactNode,
@@ -22,7 +23,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Z_INDEX } from '@vestara/ui-tokens';
 
 // ─── Constants ─────────────────────────────────────────────────
 

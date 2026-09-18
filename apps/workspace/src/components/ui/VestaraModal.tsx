@@ -8,6 +8,7 @@
  * through `className` (e.g. `max-w-md`, `max-h-[80vh] flex flex-col`).
  */
 
+import { Z_INDEX } from '@vestara/ui-tokens';
 import { useEffect, useRef, type ReactNode } from 'react';
 
 interface VestaraModalProps {
@@ -63,7 +64,7 @@ export function VestaraModal({ onClose, children, className = 'max-w-md', accent
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-(--vestara-surface-overlay) p-4 backdrop-blur-sm" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
+    <div className="fixed inset-0 flex items-center justify-center bg-(--vestara-surface-overlay) p-4 backdrop-blur-sm" style={{ zIndex: Number(Z_INDEX.modal) }} onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
       <div
         ref={panelRef}
         role="dialog"

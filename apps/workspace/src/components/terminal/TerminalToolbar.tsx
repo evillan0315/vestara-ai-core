@@ -16,6 +16,7 @@
 import { useVestaraTheme } from '@vestara/ui-theme';
 import { useTerminalSessions } from './useTerminalSessions';
 import { clearTerminal, writelnToTerminal } from './TerminalPane';
+import type { TerminalSession } from './types';
 
 interface TerminalToolbarProps {
   activeSession?: TerminalSession | null;
@@ -23,6 +24,7 @@ interface TerminalToolbarProps {
   onKill?: (id: string) => void;
   onCopy?: (text: string) => void;
   onSearch?: (term: string) => void;
+  onAddSession?: () => void;
 }
 
 const BUTTON_CLASSES = 'shrink-0 px-2.5 h-full flex items-center gap-1 rounded-md transition-colors cursor-pointer';
@@ -33,6 +35,7 @@ export function TerminalToolbar({
   onKill,
   onCopy,
   onSearch,
+  onAddSession,
 }: TerminalToolbarProps) {
   const { resolvedMode } = useVestaraTheme();
 
@@ -41,6 +44,10 @@ export function TerminalToolbar({
       clearTerminal(activeSession.id);
       if (onClear) onClear();
     }
+  };
+
+  const handleAddSession = () => {
+    if (onAddSession) onAddSession();
   };
 
   const handleKill = (id: string) => {
@@ -65,7 +72,7 @@ export function TerminalToolbar({
       <button
         onClick={() => {
           if (activeSession) {
-            void addSession();
+            handleAddSession();
           }
         }}
         className={[

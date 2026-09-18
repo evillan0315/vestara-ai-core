@@ -240,7 +240,7 @@ export class TaskStore {
     commit(this.db);
     const task = await this.getByWaitRef(input.waitRef);
     if (changed === 1 && task) return task;
-    if (task && task.externalWait?.resumedAt) return task; // exactly-once replay
+    if (task?.externalWait?.resumedAt) return task; // exactly-once replay
     throw new Error(`no pending external wait for ${input.waitRef}`);
   }
 

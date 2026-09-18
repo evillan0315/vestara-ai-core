@@ -261,6 +261,7 @@ export default function TerminalWorkspace() {
         onKill={handleKillSession}
         onCopy={() => {/* copy selection logic */}}
         onSearch={() => {/* search logic */}}
+        onAddSession={handleNewSession}
       />
 
       <div className="flex-1 min-h-0 overflow-hidden" key={activeId || 'empty'}>

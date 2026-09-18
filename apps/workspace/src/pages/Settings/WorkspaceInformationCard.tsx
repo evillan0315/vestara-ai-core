@@ -76,9 +76,9 @@ export function WorkspaceInformationCard({
               </label>
               <Input
                 id={`workspace-name-${field.key}`}
-                value={String(draftValues[field.key] ?? setting.value)}
+                value={String(draftValues[field.key] ?? setting.value ?? '') as string}
                 onChange={(event) => handleFieldChange(field.key, event.target.value)}
-                placeholder={setting.value}
+                placeholder={String(setting.value)}
                 aria-label={field.label}
                 className="w-full"
               />

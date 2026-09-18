@@ -92,17 +92,12 @@ export function PreferencesCard({
                 {toggle.label}
               </label>
               <Toggle
+                label={toggle.label}
                 checked={Boolean(draftValues[toggle.key])}
                 onChange={(checked) =>
                   handleFieldChange(toggle.key, checked)
                 }
-              >
-                <span
-                  className={`absolute left-0.5 top-1 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${Boolean(
-                    draftValues[toggle.key],
-                  ) ? 'translate-x-5' : 'translate-x-0'}`}
-                />
-              </Toggle>
+              />
             </div>
           );
         }

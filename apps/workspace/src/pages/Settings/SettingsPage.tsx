@@ -1,4 +1,4 @@
-import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
+import type { ResolvedConfiguration, ResolvedSetting, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
@@ -753,6 +753,20 @@ export default function SettingsPage() {
       setError(cause instanceof Error ? cause.message : 'Settings are unavailable');
     }
   }, []);
+  const onFieldChange = (key: string, value: unknown) =>
+    setData(current =>
+      current ? {
+        ...current,
+        configuration: {
+          ...current.configuration,
+          settings: current.configuration.settings.map(s =>
+            s.key === key
+              ? ({ ...s, value } as ResolvedSetting)
+              : s
+          ) as readonly ResolvedSetting[],
+        },
+      } : current
+    );
   useEffect(() => {
     void load();
   }, [load]);

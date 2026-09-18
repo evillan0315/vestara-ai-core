@@ -14,8 +14,8 @@
    purely observational.
  */
 
-import type { RuntimeStatusDto } from '../settings-client';
-import { Status } from '@vestara/ui';
+import type { RuntimeStatusDto } from './settings-client.js';
+import { Status } from './settings-ui.js';
 import type { ResolvedConfiguration } from '@vestara/configuration';
 import { useCallback, useState } from 'react';
 

@@ -107,9 +107,6 @@ export function renderSemanticStatus(value: string | boolean, label?: string, de
       return `  ${GOLD}⊘${RESET} ${text} ${detailStr}`;
     case 'info':
       return `  ${GRAY}·${RESET} ${text} ${detailStr}`;
-    case 'unavailable':
-    case 'conflict':
-    case 'failed':
     default:
       return `  ${RED}✗${RESET} ${text} ${detailStr}`;
   }

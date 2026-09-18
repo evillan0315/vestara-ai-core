@@ -7,6 +7,7 @@ import { TelemetryProvider } from './contexts/TelemetryContext';
 import { FileOperationsProvider } from './contexts/FileOperationsContext';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
+import { VestaraThemeProvider } from '@vestara/ui-theme';
 import { APP_ROUTES } from './routes';
 
 const Login = lazy(() => import('./pages/Login'));
@@ -124,30 +125,28 @@ export default function App() {
   const shellRoutes = APP_ROUTES.filter((r) => r.layout === 'shell');
 
   return (
-    <ErrorBoundary>
-      {/* Single theme authority: lib/theme ThemeProvider (driven by the
-          Settings picker). The canonical VestaraThemeProvider wrapper was
-          removed — as the parent it overwrote --vestara-accent* with its
-          own hardcoded amber on every mount. */}
-      <ThemeProvider>
-        <DynamicFavicon />
-        <TelemetryProvider>
-          <FileOperationsProvider>
-          <ToastProvider>
-            <Routes>
-              {publicRoutes.map((r) => (
-                <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-              ))}
-              <Route element={<ShellLayout />}>
-                {shellRoutes
-                  .filter((r) => !r.catchAll)
-                  .map((r) =>
-                    r.redirect ? (
-                      <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
-                    ) : (
-                      <Route key={r.id} path={r.path} element={pageFor(r.id)} />
-                    ),
-                  )}
+    <VestaraThemeProvider>
+      <ErrorBoundary>
+        <ThemeProvider>
+          <DynamicFavicon />
+          <TelemetryProvider>
+            <FileOperationsProvider>
+            <ToastProvider>
+              <Routes>
+                {publicRoutes.map((r) => (
+                  <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                ))}
+                <Route element={<ShellLayout />}>
+                  {shellRoutes
+                    .filter((r) => !r.catchAll)
+                    .map((r) =>
+                      r.redirect ? (
+                        <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
+                      ) : (
+                        <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                      ),
+                    )}
+                </Route>
                 <Route
                   path="*"
                   element={
@@ -156,12 +155,12 @@ export default function App() {
                     </LazyPage>
                   }
                 />
-              </Route>
-            </Routes>
-          </ToastProvider>
-          </FileOperationsProvider>
-        </TelemetryProvider>
-      </ThemeProvider>
-    </ErrorBoundary>
+              </Routes>
+            </ToastProvider>
+            </FileOperationsProvider>
+          </TelemetryProvider>
+        </ThemeProvider>
+      </ErrorBoundary>
+    </VestaraThemeProvider>
   );
 }

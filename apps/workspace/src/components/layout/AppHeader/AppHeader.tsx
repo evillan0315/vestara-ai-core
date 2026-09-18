@@ -19,7 +19,7 @@ const AppHeader: FC<AppHeaderProps> = ({ mobileSidebarOpen = false, onMenuClick 
   const { resolved, toggle } = useTheme();
 
   return (
-    <header className="shell-topbar z-40 flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
+    <header className="shell-topbar flex h-16 items-center border-b border-(--vestara-accent-border) bg-(--vestara-shell-bg) px-4 sm:px-6">
       {/* Left */}
       <div className="flex items-center gap-4">
         <button

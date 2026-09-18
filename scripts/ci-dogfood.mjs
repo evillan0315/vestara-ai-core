@@ -53,7 +53,7 @@ async function main() {
     `  x-hub-signature-256: ${secret ? '<signed>' : '<MISSING GITHUB_WEBHOOK_SECRET>'}`,
   ];
   console.log('[ci-dogfood] planned delivery:');
-  for (const line of plan) console.log('  ' + line);
+  for (const line of plan) console.log(`  ${line}`);
 
   if (!send) {
     console.log('\n[ci-dogfood] dry run. Re-run with --send to POST the signed delivery.');
