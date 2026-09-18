@@ -17,6 +17,7 @@ import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { getActivityRoom } from './activity-room';
 import { ApiError, httpMetrics, logger, requestContext, sendJson, sendNoContent } from './http';
 import { normalizeError } from './http/api-error';
+import { assertDeclaredBodySize } from './http/body';
 import { COMPRESSION_MIN_BYTES, type ContentEncoding, compressBuffer, negotiateEncoding } from './http/compression';
 import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
@@ -529,6 +530,11 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
           if (!finished && !res.writableEnded) controller.abort();
         });
         res.on('error', () => {});
+
+        // Reject an oversized declared payload before route availability,
+        // authorization, or other handler state can mask it with another error.
+        // Hardened body readers separately enforce streamed/chunked byte counts.
+        assertDeclaredBodySize(req);
 
         // Built-in fast-path endpoints handled before route dispatch. These
         // still flow through the shared lifecycle (logging + metrics above).

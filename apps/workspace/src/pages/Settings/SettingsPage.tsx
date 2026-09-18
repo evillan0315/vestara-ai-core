@@ -1,7 +1,7 @@
 import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import ShellLayoutSettings from '../../layouts/ShellLayoutSettings.js';
+import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, useTheme } from '../../lib/theme.js';
 import { AppearancePanel, LayoutPanel, ProfilesPanel, TypographyPanel } from './appearance-controls.js';
@@ -766,13 +766,12 @@ export default function SettingsPage() {
   // Hero summary is a projection of authoritative API/runtime state —
   // omitted entirely until loaded, never fabricated.
   return (
-    <ShellLayoutSettings
-      navigation={visible}
-      totalNavigationItems={SECTIONS.length}
-      query={query}
-      onQueryChange={setQuery}
-      heroSummary={data ? <HeroSummaryChips data={data} /> : undefined}
-    >
+    <WorkspacePanelLayout
+      hero={data ? (
+        <HeroSummaryChips data={data} />
+      ) : undefined}
+      fluid={false}
+>
       {error ? (
         <div role="alert" className="st-panel p-5">
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
@@ -830,6 +829,6 @@ export default function SettingsPage() {
         </Routes>
         </>
       )}
-    </ShellLayoutSettings>
+    </WorkspacePanelLayout>
   );
 }

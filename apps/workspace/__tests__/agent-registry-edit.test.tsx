@@ -61,8 +61,18 @@ afterEach(() => {
 });
 
 describe('AgentRegistryModal edit-save flow', () => {
-  const comboboxWith = (text: string) =>
-    screen.getAllByRole('combobox').find((box) => [...box.options].some((o) => o.textContent?.includes(text)));
+  const comboboxWith = (text: string): HTMLSelectElement | undefined =>
+    screen
+      .getAllByRole('combobox')
+      .filter(
+        (element): element is HTMLSelectElement =>
+          element instanceof HTMLSelectElement,
+      )
+      .find((select) =>
+        Array.from(select.options).some((option) =>
+          option.textContent?.includes(text),
+        ),
+      );
 
   it('initializes an edited agent with its saved provider and model', async () => {
     render(<AgentRegistryModal agent={savedAgent} teams={[]} onSave={() => {}} onClose={() => {}} />);

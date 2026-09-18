@@ -232,7 +232,7 @@ export function FilePreview({
           <div className="px-4 py-2 border-t border-[var(--vestara-border-subtle)] flex items-center justify-between text-xs text-[var(--vestara-text-muted)]">
             <span className="font-mono truncate max-w-[200px]" title={filePath}>{filePath}</span>
             <div className="flex items-center gap-3">
-              <Pill variant="outline" className="text-[var(--vestara-text-secondary)]">
+              <Pill  className="text-[var(--vestara-text-secondary)]">
                 {mimeType}
               </Pill>
               <span>{formatBytes(size)}</span>
@@ -268,7 +268,7 @@ export function FilePreview({
           <div className="px-4 py-2 border-t border-[var(--vestara-border-subtle)] flex items-center justify-between text-xs text-[var(--vestara-text-muted)]">
             <span className="font-mono truncate max-w-[200px]" title={filePath}>{filePath}</span>
             <div className="flex items-center gap-3">
-              <Pill variant="outline" className="text-[var(--vestara-text-secondary)]">
+              <Pill  className="text-[var(--vestara-text-secondary)]">
                 {mimeType}
               </Pill>
               <span>{formatBytes(size)}</span>
@@ -290,7 +290,7 @@ export function FilePreview({
             <div className="flex items-center justify-between text-xs text-[var(--vestara-text-muted)]">
               <span className="font-mono truncate max-w-[200px]" title={filePath}>{filePath}</span>
               <div className="flex items-center gap-3">
-                <Pill variant="outline" className="text-[var(--vestara-text-secondary)]">
+                <Pill  className="text-[var(--vestara-text-secondary)]">
                   {mimeType}
                 </Pill>
                 <span>{formatBytes(size)}</span>
@@ -353,11 +353,11 @@ export function FilePreviewCard({
         <div className="min-w-0 flex-1">
           <p className="font-mono text-sm truncate" title={filePath}>{filePath}</p>
           <div className="flex items-center gap-2 mt-1 text-xs text-[var(--vestara-text-muted)]">
-            <Pill variant="outline" size="sm" className="text-[var(--vestara-text-secondary)]">
+            <Pill  size="sm" className="text-[var(--vestara-text-secondary)]">
               {typeLabels[previewType]}
             </Pill>
             {classification.languageHint && (
-            <Pill variant="outline" size="sm" className="text-[var(--vestara-text-secondary)]">
+            <Pill  size="sm" className="text-[var(--vestara-text-secondary)]">
                 {classification.languageHint}
               </Pill>
             )}

@@ -7,11 +7,12 @@
  */
 
 import { FilesScreen } from '../features/files/FilesScreen';
+import WorkspacePanelLayout from '../layouts/WorkspacePanelLayout';
 
 export default function Files() {
   return (
-    <div className="space-y-4">
+    <WorkspacePanelLayout fluid>
       <FilesScreen />
-    </div>
+    </WorkspacePanelLayout>
   );
 }

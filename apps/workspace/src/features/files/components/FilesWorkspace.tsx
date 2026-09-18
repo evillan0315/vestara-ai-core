@@ -71,6 +71,7 @@ interface FilesWorkspaceProps {
   readonly truncated: boolean;
   readonly recent: readonly { file: string; mtime: string }[];
   readonly onChanged: () => void;
+  readonly onRefresh: () => void;
 }
 
 const MODES: ReadonlyArray<{
@@ -117,6 +118,7 @@ export function FilesWorkspace({
   truncated,
   recent,
   onChanged,
+  onRefresh,
 }: FilesWorkspaceProps) {
   const [query, setQuery] = useState('');
   const [facet, setFacet] = useState<FilesFacet>('all');
@@ -423,6 +425,7 @@ export function FilesWorkspace({
         storageBytes={storageBytes}
         onNewFile={() => createInCurrentDir(false)}
         onNewFolder={() => createInCurrentDir(true)}
+        onRefresh={onRefresh}
       />
 
       <FilesToolbar

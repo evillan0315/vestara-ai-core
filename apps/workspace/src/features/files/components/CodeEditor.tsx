@@ -255,7 +255,7 @@ export function CodeEditor({
             </>
           )}
           {readOnly && (
-            <Pill className="text-xs" variant="outline">
+            <Pill className="text-xs">
               Read-only
             </Pill>
           )}

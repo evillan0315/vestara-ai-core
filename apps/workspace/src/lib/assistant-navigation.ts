@@ -102,6 +102,17 @@ export interface OpenAssistantDetail {
 }
 
 /**
+ * Parse a conversation ID defensively from a potentially undefined value.
+ * Returns the trimmed string if valid, otherwise `null`.
+ */
+function asConversationId(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > CONVERSATION_ID_MAX_LENGTH) return null;
+  return trimmed;
+}
+
+/**
  * Parse an `open-assistant` event detail defensively. Non-string or blank
  * conversation ids are dropped (fail safe); `expanded` is true only when
  * explicitly `true`.

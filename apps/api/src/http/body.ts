@@ -41,6 +41,22 @@ export class BodyReadTimedOutError extends Error {
   }
 }
 
+/**
+ * Reject a request whose declared Content-Length exceeds the configured
+ * maximum before route dispatch. The body reader still enforces the actual
+ * streamed byte count for chunked or incorrectly declared requests.
+ */
+export function assertDeclaredBodySize(
+  req: IncomingMessage,
+  maxBytes = DEFAULT_MAX_BODY_BYTES,
+): void {
+  const declaredLength = parseContentLength(req);
+  if (declaredLength !== null && declaredLength > maxBytes) {
+    pauseSafe(req);
+    throw new BodyTooLargeError();
+  }
+}
+
 function readBodyOnce(req: IncomingMessage, options: ReadBodyOptions): Promise<{ text: string; bytes: number }> {
   const maxBytes = options.maxBytes ?? DEFAULT_MAX_BODY_BYTES;
   const timeoutMs = options.timeoutMs ?? DEFAULT_BODY_TIMEOUT_MS;
