@@ -72,11 +72,11 @@ const ASSISTANT_GRANT: OpenCodePermissions = {
  * Tailwind v4 is renderer, tokens are authority. No #hex, no bg-[#], no inline CSS without token — create vestara-* token first.
  * MUI v9 optional for complicated UI only (grids/pickers/dialogs) — must verify latest via ExternalScout/webfetch mui.com/migration-v9.
  * Data: API → check mock server :3002 → else local *.fixtures.ts (overview.fixtures.ts) — never hardcode arrays in JSX.
- * Load .opencode/skills/vestara-ui-ux/SKILL.md on any UI task. Full spec: docs/governance/UI-UX-GOVERNANCE.md + AGENTS.md UI/UX Governance.
+ * UI/UX Governance contract: docs/governance/UI-UX-GOVERNANCE.md + AGENTS.md UI/UX Governance section. No skill checklist exists — follow the governance document directly on any UI task.
  */
 const UI_UX_GOVERNANCE = [
   '---',
-  'UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md + .opencode/skills/vestara-ui-ux/SKILL.md):',
+  'UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md):',
   '- Vestara design token mandatory: every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) (COLOR/SPACING/RADIUS/TYPOGRAPHY) — validate via pnpm vds:validate',
   '- Clean & modern: Biome, no dead code/console.log/TODO, functional React 19, SectionCard/GalleryCard/PageHero',
   '- NO HARDCODE: no #hex, no bg-[#...], no style={{color:}} literals, no arbitrary text-[12px] without TYPOGRAPHY token — create token first if missing',
@@ -510,81 +510,15 @@ export const CANONICAL_AGENTS: CanonicalAgent[] = [
       UI_UX_GOVERNANCE,
     ].join('\n'),
   },
-  {
-    id: 'agent-coder',
-    name: 'Coder',
-    role: 'custom',
-    agentType: 'workspace',
-    origin: 'system',
-    description: 'Executes coding subtasks in sequence, ensuring completion as specified.',
-    capabilities: [
-      'architecture-analysis',
-      'dependency-analysis',
-      'testing',
-      'code-generation',
-      'refactoring',
-      'security-analysis',
-      'knowledge-management',
-      'summarization',
-      'web-research',
-    ],
-    permissions: [
-      { resource: 'repository', action: 'read', approvalRequired: false },
-      { resource: 'repository', action: 'modify', approvalRequired: false },
-      { resource: 'repository', action: 'execute', approvalRequired: false },
-      { resource: 'changeset', action: 'read', approvalRequired: false },
-      { resource: 'changeset', action: 'create', approvalRequired: false },
-      { resource: 'verification', action: 'read', approvalRequired: false },
-      { resource: 'verification', action: 'execute', approvalRequired: false },
-      { resource: 'collaboration', action: 'read', approvalRequired: false },
-      { resource: 'collaboration', action: 'create', approvalRequired: false },
-      { resource: 'plan', action: 'read', approvalRequired: false },
-      { resource: 'knowledge', action: 'read', approvalRequired: false },
-      { resource: 'knowledge', action: 'create', approvalRequired: false },
-    ],
-    provider: 'opencode-go',
-    model: 'muse-spark-1.3-contributor',
-    color: '#10b981',
-    status: 'active',
-    runtimeAgent: 'CoderAgent',
-    mode: 'subagent',
-    opencodePermissions: { ...ASSISTANT_GRANT },
-    createdAt: BUILT_IN_CREATED_AT,
-    opencodePrompt: [
-      'You are the CoderAgent. You execute coding subtasks precisely, one at a time, with full context awareness and self-review before handoff.',
-      '',
-      'You have full system access and all permissions:',
-      '- Read and write any file on the system',
-      '- Run any bash commands including sudo, npm, pnpm, git',
-      '- Access external directories',
-      '- Use web fetch and search',
-      '- Execute build, test, and lint commands',
-      '',
-      'Core rules:',
-      '1. ALWAYS call ContextScout BEFORE writing any code',
-      '2. When encountering external packages, call ExternalScout for current docs',
-      '3. NEVER signal completion without running the Self-Review Loop',
-      '4. Execute subtasks in the defined sequence',
-      '',
-      'Self-Review Checklist (mandatory before completion):',
-      '- Types clean (no `any`, proper annotations)',
-      '- Imports verified (all paths resolve)',
-      '- No debug artifacts (console.log, TODO, FIXME)',
-      '- All acceptance criteria met',
-      '- External libs verified against live docs',
-      '',
-      'Be concise. Produce clean, modular, functional code.',
-      UI_UX_GOVERNANCE,
-    ].join('\n'),
-  },
 ];
 
 /**
  * Agent ids removed from the built-in catalog when the roster was converged to
- * the six core agents. `seedBuiltIn()` deletes any surviving rows for these on
+ * the seven core agents. `seedBuiltIn()` deletes any surviving rows for these on
  * startup so stale agents never linger in `plans.db`.
  */
 export const DROPPED_BUILT_IN_AGENT_IDS: string[] = [
+  'agent-coder',
   'agent-architect',
   'agent-documenter',
   'agent-dashboard-curator',

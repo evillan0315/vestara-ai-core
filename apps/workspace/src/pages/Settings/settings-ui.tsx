@@ -39,19 +39,55 @@ export function SearchIcon() {
   );
 }
 
-export function Status({ value, bare = false }: { value: string | boolean; bare?: boolean }) {
+/**
+ * VDS-REPAIR-001: canonical provider operational states.
+ *
+ * Authority: `ProviderOperationalState` in
+ * packages/routing-types/src/provider-state.ts
+ * (healthy | degraded | unavailable | cooling-down | disabled |
+ *  authentication-required | rate-limited) plus the VDS cross-surface
+ * `conflict` state (packages/tui/src/theme.ts `VdsStatus`).
+ *
+ * This table is a presentation projection, not a status authority:
+ * state meaning lives in the canonical vocabularies; here each state
+ * only selects a shared StatusIndicator lamp. Status meaning is carried
+ * by the visible text label + aria-label below, never by color alone.
+ */
+const PROVIDER_STATE_VARIANT: Record<string, StatusVariant> = {
+  healthy: 'live',
+  degraded: 'warn',
+  'cooling-down': 'warn',
+  'rate-limited': 'warn',
+  'authentication-required': 'warn',
+  unavailable: 'error',
+  conflict: 'error',
+  disabled: 'idle',
+};
+
+export function Status({ value, bare = false, title }: { value: string | boolean; bare?: boolean; title?: string }) {
   const normalized = String(value).toLowerCase();
   const positive =
-    value === true || ['healthy', 'running', 'available', 'connected', 'passed', 'ok', 'ready'].includes(normalized);
+    value === true ||
+    ['healthy', 'running', 'available', 'connected', 'configured', 'protected', 'synchronized', 'passed', 'ok', 'ready'].includes(
+      normalized,
+    );
   const negative = value === false || ['failed', 'error', 'unavailable', 'degraded'].includes(normalized);
   // Canonical lamp owns the dot; the pill carries the label. Unknown stays
   // neutral — statuses are never inferred for appearance. `bare` renders the
   // borderless hero/card form (colored text + lamp, no pill container).
-  const variant: StatusVariant = positive ? 'live' : negative ? 'error' : 'idle';
+  // Canonical provider states resolve first so Workspace Status UI and the
+  // CLI/TUI adapters project the same semantic state; text tone derives
+  // from the resolved variant so lamp and label never disagree.
+  const canonicalVariant = PROVIDER_STATE_VARIANT[normalized];
+  const variant: StatusVariant =
+    canonicalVariant ?? (positive ? 'live' : negative ? 'error' : 'idle');
+  const tone = variant === 'live' ? 'positive' : variant === 'error' ? 'negative' : variant === 'warn' ? 'warn' : 'neutral';
   if (bare) {
     return (
       <span
-        className={`inline-flex items-center gap-1.5 text-[var(--vestara-font-size-sm)] font-medium ${positive ? 'text-[var(--vestara-green)]' : negative ? 'text-[var(--vestara-red)]' : 'text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
+        title={title ?? `Current status: ${String(value)}`}
+        aria-label={title ?? `Current status: ${String(value)}`}
+        className={`inline-flex items-center gap-1.5 text-[var(--vestara-font-size-sm)] font-medium ${tone === 'positive' ? 'text-[var(--vestara-green)]' : tone === 'negative' ? 'text-[var(--vestara-red)]' : tone === 'warn' ? 'text-[var(--vestara-amber)]' : 'text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
       >
         <StatusIndicator variant={variant} size="xs" pulse={false} aria-hidden />
         {String(value)}
@@ -60,7 +96,9 @@ export function Status({ value, bare = false }: { value: string | boolean; bare?
   }
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-[var(--vestara-radius-full)] border px-2 py-0.5 text-[var(--vestara-font-size-xs)] font-medium ${positive ? 'border-[color-mix(in_srgb,var(--vestara-green)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-green)_9%,transparent)] text-[var(--vestara-green)]' : negative ? 'border-[color-mix(in_srgb,var(--vestara-red)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-red)_8%,transparent)] text-[var(--vestara-red)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
+      title={title ?? `Current status: ${String(value)}`}
+      aria-label={title ?? `Current status: ${String(value)}`}
+      className={`inline-flex items-center gap-1.5 rounded-[var(--vestara-radius-full)] border px-2 py-0.5 text-[var(--vestara-font-size-xs)] font-medium ${tone === 'positive' ? 'border-[color-mix(in_srgb,var(--vestara-green)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-green)_9%,transparent)] text-[var(--vestara-green)]' : tone === 'negative' ? 'border-[color-mix(in_srgb,var(--vestara-red)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-red)_8%,transparent)] text-[var(--vestara-red)]' : tone === 'warn' ? 'border-[color-mix(in_srgb,var(--vestara-amber)_35%,transparent)] bg-[color-mix(in_srgb,var(--vestara-amber)_9%,transparent)] text-[var(--vestara-amber)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]'}`}
     >
       <StatusIndicator variant={variant} size="xs" pulse={false} aria-hidden />
       {String(value)}
@@ -346,7 +384,7 @@ export function Toggle({
       className={`relative h-6 w-10 rounded-[var(--vestara-radius-full)] border transition-colors ${focus} ${checked ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent)]' : 'border-[var(--vestara-color-border-strong,var(--color-zinc-600))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))]'}`}
     >
       <span
-        className={`absolute top-0.5 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-5' : 'translate-x-0.5'}`}
+        className={`absolute left-0.5 top-1 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-5' : 'translate-x-0'}`}
       />
     </button>
   );

@@ -112,6 +112,14 @@ function mockErrorResponse(status = 500) {
   });
 }
 
+function mockCancelResponse() {
+  mockFetch.mockResolvedValueOnce({
+    ok: true,
+    status: 200,
+    json: () => Promise.resolve({ cancelled: true }),
+  });
+}
+
 function mockNetworkError() {
   mockFetch.mockRejectedValueOnce(new Error('Network error'));
 }
@@ -498,6 +506,8 @@ describe('useAssistantConversation', () => {
     expect(result.current.streamState).toBe('failed');
 
     // Verify: abortStream resets transient state
+    mockCancelResponse();
+
     act(() => {
       result.current.abortStream();
     });
@@ -526,11 +536,12 @@ describe('useAssistantConversation', () => {
       expect(result.current.selectedId).toBe('conv-001');
     });
 
-    // Start a stream
+    // Start a stream; abortStream also POSTs to the cancel endpoint.
     mockStreamResponse([{ type: 'delta', content: 'partial' }]);
+    mockCancelResponse();
 
     act(() => {
-      result.current.sendMessage('Test');
+      void result.current.sendMessage('Test');
     });
 
     // Abort immediately

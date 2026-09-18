@@ -75,6 +75,13 @@ export interface M11CStreamItem {
   readonly workflowRunId?: string;
   readonly executionId?: string;
   readonly taskId?: string;
+  /**
+   * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002,
+   * projected from durable M9 `payload.[data.]conversationId`/`data.surface`).
+   * Absent = unknown origin → Reply stays on the local composer.
+   */
+  readonly originConversationId?: string;
+  readonly originSurface?: string;
   readonly aggregated?: M11AStreamItem['aggregated'];
   /** Whether this item arrived live (for animation). */
   readonly fresh: boolean;
@@ -94,6 +101,8 @@ export interface M11CStreamItem {
 export interface M11CActivityRoom {
   /** Current connection state. */
   readonly state: M11CConnectionState;
+  /** Timestamp of the latest snapshot or live event applied to the view. */
+  readonly lastUpdatedAt: number | null;
 
   /** Room metadata. */
   readonly room: { readonly roomId: string; readonly name: string } | null;
@@ -179,6 +188,9 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     aggregated: item.aggregated,
     fresh: false,
     interaction: item.interaction,
+    // AR-UI-REPLY-002: authoritative origin provenance passthrough.
+    ...(typeof item.originConversationId === 'string' ? { originConversationId: item.originConversationId } : {}),
+    ...(typeof item.originSurface === 'string' ? { originSurface: item.originSurface } : {}),
     // NOTE: snapshot stream items carry no threading ids on the wire (verified
     // against GET /api/activity-room/v1/snapshot — no `referencedActivityIds`).
     // Threading ids are only populated from wire projection records.
@@ -211,6 +223,28 @@ function projectionKindToStreamKind(projectionKind: string, actorType: string): 
   }
 }
 
+/**
+ * AR-UI-REPLY-002: UI-side mirror of the canonical origin-provenance
+ * extraction (authoritative durable M9 payload only — top-level
+ * `conversationId` for human.message, `data.conversationId`/`data.surface`
+ * for agent.completed). Presentation fields are never consulted.
+ */
+function extractM9OriginProvenance(payload: M11AActivityRecord['payload']): Partial<M11CStreamItem> {
+  const readString = (value: unknown): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 && trimmed.length <= 256 ? trimmed : undefined;
+  };
+  const top = (payload ?? {}) as Record<string, unknown>;
+  const data = (top.data ?? {}) as Record<string, unknown>;
+  const originConversationId = readString(top.conversationId) ?? readString(data.conversationId);
+  const originSurface = readString(data.surface);
+  return {
+    ...(originConversationId ? { originConversationId } : {}),
+    ...(originSurface ? { originSurface } : {}),
+  };
+}
+
 /** Projection wire shape delivered by M11B (toProjectionRecord output). */
 interface ProjectionWireRecord {
   readonly id: string;
@@ -224,6 +258,9 @@ interface ProjectionWireRecord {
   readonly workflowId?: string;
   readonly sessionId?: string;
   readonly referencedActivityIds?: readonly string[];
+  /** AR-UI-REPLY-002: authoritative origin provenance (projection contract). */
+  readonly originConversationId?: string;
+  readonly originSurface?: string;
 }
 
 /**
@@ -261,6 +298,9 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
       taskId: record.taskId,
       fresh,
       referencedActivityIds: Array.isArray(record.referencedActivityIds) ? record.referencedActivityIds : undefined,
+      // AR-UI-REPLY-002: authoritative origin provenance passthrough.
+      ...(typeof record.originConversationId === 'string' ? { originConversationId: record.originConversationId } : {}),
+      ...(typeof record.originSurface === 'string' ? { originSurface: record.originSurface } : {}),
     };
   }
 
@@ -317,6 +357,10 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
     executionId: activity.executionId,
     taskId: activity.taskId,
     fresh,
+    // AR-UI-REPLY-002: authoritative origin provenance from the durable M9
+    // payload (top-level `conversationId` for human.message, `data.*` for
+    // agent.completed). Never actor/agent/display/content-derived.
+    ...extractM9OriginProvenance(activity.payload),
     // NOTE: M11A activity records expose no top-level `referencedActivityIds`
     // (verified against GET /api/activity-room/v1/activities).
   };
@@ -360,6 +404,7 @@ function compareBySequence(a: M11CStreamItem, b: M11CStreamItem): number {
 export function useM11CActivityRoom(): M11CActivityRoom {
   // ─── State ──────────────────────────────────────────────
   const [state, setState] = useState<M11CConnectionState>('connecting');
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
   const [room, setRoom] = useState<{ readonly roomId: string; readonly name: string } | null>(null);
   const [cursor, setCursor] = useState<M11CActivityRoom['cursor']>(null);
   const [participants, setParticipants] = useState<readonly ParticipantProjection[]>([]);
@@ -407,7 +452,16 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       const known = new Set(previous.map((item) => item.id));
       const additions = items.filter((item) => !known.has(item.id));
       if (additions.length === 0) return previous;
-      const merged = [...previous, ...additions].sort(compareBySequence);
+      // M11B normally delivers monotonically increasing sequences. Keep that
+      // hot path append-only; sorting the full 500-item working set for every
+      // live batch creates avoidable work during tool/event bursts. Preserve
+      // the defensive sort for catch-up or reconnect batches that arrive out
+      // of order.
+      const previousLast = previous[previous.length - 1]?.sequence ?? -Infinity;
+      const appendOnly = additions.every((item, index) =>
+        item.sequence > previousLast && (index === 0 || item.sequence > additions[index - 1].sequence),
+      );
+      const merged = appendOnly ? [...previous, ...additions] : [...previous, ...additions].sort(compareBySequence);
       // Bound the working set — drop oldest if over limit
       if (merged.length > MAX_WORKING_SET) {
         return merged.slice(merged.length - MAX_WORKING_SET);
@@ -588,6 +642,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const handleLiveActivity = useCallback(
     (activity: M11AActivityRecord, sequence: number) => {
       const item = streamItemFromLive(activity, true);
+      setLastUpdatedAt(Date.now());
 
       // AR-REC-R6: Convergence — when durable responded arrives, clear transient submission
       // Read from ref to avoid adding submission to dependency array (prevents WS teardown)
@@ -673,6 +728,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
           setParticipants(snapshot.participants);
           setWorkflowSummary(snapshot.workflowSummary);
           setAttention(snapshot.attention);
+          setLastUpdatedAt(Date.now());
           const items = snapshot.stream.map(streamItemFromSnapshot);
           setStream(items);
           updateSequence(snapshot.cursor.sequenceNumber);
@@ -705,6 +761,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         setParticipants(snapshot.participants);
         setWorkflowSummary(snapshot.workflowSummary);
         setAttention(snapshot.attention);
+        setLastUpdatedAt(Date.now());
 
         const items = snapshot.stream.map(streamItemFromSnapshot);
         setStream(items);
@@ -780,6 +837,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
   return {
     state: mappedState,
+    lastUpdatedAt,
     room,
     cursor,
     participants,

@@ -37,7 +37,6 @@
         "subagent:documentation",
         "subagent:task-manager",
         "subagent:batch-executor",
-        "subagent:coder-agent",
         "subagent:tester",
         "subagent:reviewer",
         "subagent:build-agent",
@@ -61,7 +60,6 @@
         "subagent:task-manager",
         "subagent:contextscout",
         "subagent:documentation",
-        "subagent:coder-agent",
         "subagent:tester",
         "subagent:reviewer",
         "subagent:build-agent"
@@ -141,7 +139,7 @@
       "version": "1.0.0",
       "author": "opencode",
       "tags": ["parallel-execution", "batch-management", "coordination"],
-      "dependencies": ["subagent:coder-agent", "subagent:task-manager"]
+      "dependencies": ["subagent:task-manager"]
     },
     "documentation": {
       "id": "documentation",
@@ -192,16 +190,6 @@
       "author": "opencode",
       "tags": ["context", "retrieval", "search"],
       "dependencies": []
-    },
-    "coder-agent": {
-      "id": "coder-agent",
-      "name": "CoderAgent",
-      "category": "subagents/code",
-      "type": "subagent",
-      "version": "1.0.0",
-      "author": "opencode",
-      "tags": ["coding", "implementation"],
-      "dependencies": ["context:standards-code"]
     },
     "tester": {
       "id": "tester",

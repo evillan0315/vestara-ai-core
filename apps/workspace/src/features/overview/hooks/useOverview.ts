@@ -14,6 +14,7 @@ import { overviewFixture } from '../overview.fixtures';
 import type {
   OverviewActivityItem,
   OverviewAgentSummary,
+  OverviewHealthSummary,
   OverviewMarketplaceItem,
   OverviewProjectSummary,
   OverviewRecentWorkItem,
@@ -123,9 +124,12 @@ function githubOwnerFromRemote(remote: unknown): string | null {
 async function fetchProjects(): Promise<readonly OverviewProjectSummary[]> {
   try {
     // Derive the GitHub owner from the workspace fingerprint so we list
-    // the user's own repos instead of a hardcoded account.
+    // the user's own repos instead of a hardcoded account. When the owner
+    // cannot be determined, fall back to fixtures rather than fetching
+    // another account's repositories.
     const ws = await apiFetch<{ fingerprint?: { gitRemote?: string } }>('/api/workspace');
-    const owner = githubOwnerFromRemote(ws?.fingerprint?.gitRemote) ?? 'evillan0315';
+    const owner = githubOwnerFromRemote(ws?.fingerprint?.gitRemote);
+    if (!owner) return overviewFixture.projects;
     const res = await fetch(`https://api.github.com/users/${encodeURIComponent(owner)}/repos?sort=updated&per_page=5&type=owner`, {
       headers: { Accept: 'application/vnd.github.v3+json' },
     });
@@ -182,6 +186,51 @@ async function fetchMarketplace(): Promise<readonly OverviewMarketplaceItem[]> {
   }
 }
 
+async function fetchHealth(): Promise<OverviewHealthSummary> {
+  const fallback = overviewFixture.health;
+  try {
+    const [health, ci, git] = await Promise.all([
+      apiFetch<{ status?: string; healthy?: boolean }>('/api/health'),
+      apiFetch<{
+        connection?: { status?: string };
+        observation?: { availability?: string };
+        webhookHealth?: { state?: string };
+        correlation?: { staleCount?: number };
+      }>('/api/ci/status'),
+      apiFetch<{ dirty?: boolean; branch?: string }>('/api/diagnostics/git'),
+    ]);
+    if (!health && !ci && !git) return fallback;
+    const apiState = health
+      ? health.status === 'ok' || health.healthy === true
+        ? ('healthy' as const)
+        : ('degraded' as const)
+      : fallback.api;
+    const conn = ci?.connection?.status;
+    const ciConnection =
+      conn === 'connected' || conn === 'configured' || conn === 'unconfigured' || conn === 'error'
+        ? conn
+        : fallback.ciConnection;
+    const staleWaits = ci?.correlation?.staleCount ?? fallback.staleWaits;
+    const detail =
+      ciConnection === 'configured'
+        ? 'CI probe never run — verify via connection test'
+        : staleWaits > 0
+          ? `${staleWaits} stale CI wait${staleWaits === 1 ? '' : 's'}`
+          : undefined;
+    return {
+      api: apiState,
+      ciConnection,
+      ciObservation: fallback.ciObservation,
+      webhook: fallback.webhook,
+      gitDirty: git?.dirty ?? fallback.gitDirty,
+      staleWaits,
+      ...(detail ? { detail } : {}),
+    };
+  } catch {
+    return fallback;
+  }
+}
+
 export function useOverview(): UseOverviewReturn {
   const [data, setData] = useState<OverviewViewModel | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -191,7 +240,7 @@ export function useOverview(): UseOverviewReturn {
     setIsLoading(true);
     setError(null);
     try {
-      const [workspace, continueWorking, recentActivity, agents, projects, resources, marketplace] = await Promise.all([
+      const [workspace, continueWorking, recentActivity, agents, projects, resources, marketplace, health] = await Promise.all([
         fetchWorkspace(),
         fetchRecentWork(),
         fetchRecentActivity(),
@@ -199,6 +248,7 @@ export function useOverview(): UseOverviewReturn {
         fetchProjects(),
         fetchResources(),
         fetchMarketplace(),
+        fetchHealth(),
       ]);
       setData({
         workspace,
@@ -209,6 +259,7 @@ export function useOverview(): UseOverviewReturn {
         resources,
         marketplace: withFallback(marketplace, overviewFixture.marketplace),
         focus: overviewFixture.focus,
+        health,
       });
     } catch (err) {
       // Fall back to fixtures rather than a dead screen; record the error path.

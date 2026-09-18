@@ -82,7 +82,7 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 
 Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) in CJS packages (the majority — verified in source; zero `.js`-suffixed relative imports) — do not add `.js` extensions unless the package has `"type": "module"` in its `package.json` (e.g. `@vestara/workspace-ui`). Parameterized SQL only (`prepare` + `bind`, no string interpolation).
 
-## UI/UX Governance (ENFORCED — all agents + humans) — see `docs/governance/UI-UX-GOVERNANCE.md` + skill `.opencode/skills/vestara-ui-ux/SKILL.md`
+## UI/UX Governance (ENFORCED — all agents + humans) — see `docs/governance/UI-UX-GOVERNANCE.md`
 
 **Strict when adding/changing UI/UX — violation = BLOCKER:**
 
@@ -93,7 +93,7 @@ Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Re
 5. **MUI v9 optional** — only for complicated UI (grids, pickers, dialogs). Agents **must** know latest MUI v9 (2026): `slots`/`slotProps` (not `components`), Emotion 11+, `createTheme` mapped to Vestara tokens. Verify via `ExternalScout`/`webfetch https://mui.com/material-ui/migration/migration-v9/` before use — do not hallucinate v5.
 6. **Data/mock** — API first → check mock server running (`:3002` / `apps/workspace/src/mocks/server.ts`) → else local fixtures (`*.fixtures.ts` like `overview.fixtures.ts`). Never hardcode arrays in JSX.
 
-Load `.opencode/skills/vestara-ui-ux/SKILL.md` on any UI task.
+On any UI task, follow the UI/UX Governance section above; `docs/governance/UI-UX-GOVERNANCE.md` is the contract.
 
 ## Execution Governance
 

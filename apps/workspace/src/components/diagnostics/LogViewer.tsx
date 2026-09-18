@@ -25,7 +25,7 @@ export function LogViewer() {
   const [category, setCategory] = useState('all');
   const [level, setLevel] = useState('all');
 
-  const categories = useMemo(() => [...new Set(events.map((e) => e.category))].sort(), [events]);
+  const categories = useMemo(() => [...new Set(events.map((e) => e.category ?? 'system'))].sort(), [events]);
 
   const filtered = useMemo(() => {
     let list = events;
@@ -43,7 +43,9 @@ export function LogViewer() {
       const q = search.toLowerCase();
       list = list.filter(
         (e) =>
-          e.message.toLowerCase().includes(q) || e.type.toLowerCase().includes(q) || e.actor.toLowerCase().includes(q),
+          (e.message ?? '').toLowerCase().includes(q) ||
+          (e.type ?? '').toLowerCase().includes(q) ||
+          (e.actor ?? '').toLowerCase().includes(q),
       );
     }
     return list;
@@ -53,7 +55,7 @@ export function LogViewer() {
     const csv = [
       'timestamp,category,type,actor,status,message',
       ...filtered.map((e) =>
-        [e.timestamp, e.category, e.type, e.actor, e.status ?? '', `"${e.message.replace(/"/g, '""')}"`].join(','),
+        [e.timestamp ?? '', e.category ?? '', e.type ?? '', e.actor ?? '', e.status ?? '', `"${(e.message ?? '').replace(/"/g, '""')}"`].join(','),
       ),
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
@@ -109,22 +111,22 @@ export function LogViewer() {
       {filtered.length === 0 && !eventsLoading && <p className="diag-empty">No matching events</p>}
 
       <div className="diag-event-list">
-        {filtered.map((e) => (
+        {filtered.map((e, i) => (
           <div
-            key={e.id}
+            key={e.id ?? `event-${i}`}
             className="diag-event-row"
-            style={{ borderLeftColor: CATEGORY_TONES[e.category] ?? 'var(--color-zinc-600)' }}
+            style={{ borderLeftColor: CATEGORY_TONES[e.category ?? 'system'] ?? 'var(--color-zinc-600)' }}
           >
             <div className="flex items-center gap-2 text-[9.5px] text-zinc-500">
-              <span className="tabular-nums">{formatTime(e.timestamp)}</span>
-              <span className="uppercase" style={{ color: CATEGORY_TONES[e.category] }}>
-                {e.category}
+              <span className="tabular-nums">{formatTime(e.timestamp ?? '')}</span>
+              <span className="uppercase" style={{ color: CATEGORY_TONES[e.category ?? 'system'] }}>
+                {e.category ?? 'system'}
               </span>
-              <span className="text-zinc-600">{e.type}</span>
+              <span className="text-zinc-600">{e.type ?? '—'}</span>
               {e.status && <span className="diag-status-chip">{e.status}</span>}
-              <span className="ml-auto text-zinc-600">{e.actor}</span>
+              <span className="ml-auto text-zinc-600">{e.actor ?? '—'}</span>
             </div>
-            <div className="text-[11px] text-zinc-300 mt-0.5">{e.message}</div>
+            <div className="text-[11px] text-zinc-300 mt-0.5">{e.message ?? '—'}</div>
           </div>
         ))}
       </div>

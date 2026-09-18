@@ -268,6 +268,13 @@ export class SqliteActivityStore implements IActivityStore {
     return this.rowToRecord(rows[0]);
   }
 
+  async getByActivityId(activityId: string): Promise<ActivityRecord | undefined> {
+    const rows = this.db.exec('SELECT * FROM m9_activity_events WHERE activity_id = ?', [activityId])[0]?.values ?? [];
+
+    if (rows.length === 0) return undefined;
+    return this.rowToRecord(rows[0]);
+  }
+
   private rowToRecord(row: unknown[]): ActivityRecord {
     return {
       activityId: String(row[0]) as ActivityRecordId,

@@ -23,7 +23,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
@@ -38,6 +38,7 @@ vi.mock('../src/contexts/SurfaceContext', () => ({
 }));
 
 import { MarkdownRenderer } from '../src/components/chat/MarkdownRenderer';
+import { warmMarkdownRenderer } from './helpers/markdown-warmup';
 import { ConversationPanel } from '../src/components/assistant/ConversationPanel';
 import { useAssistantConversation } from '../src/hooks/useAssistantConversation';
 
@@ -47,6 +48,11 @@ const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 function renderMarkdown(content: string) {
   return render(<MarkdownRenderer content={content} />);
 }
+
+/** VES-PERF-002 (P1): resolve the lazy markdown chunk once for this suite. */
+beforeAll(async () => {
+  await warmMarkdownRenderer();
+});
 
 // ─── Deferred SSE stream harness (mirrors GA-UI-004, self-contained) ──
 

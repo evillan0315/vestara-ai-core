@@ -181,7 +181,7 @@ Tasks are stored in `.tmp/tasks/` at the project root:
   "status": "pending",
   "depends_on": ["03", "04"],
   "parallel": false,
-  "suggested_agent": "coder-agent",
+  "suggested_agent": "vestara-developer",
   "context_files": ["docs/auth.md"],
   "reference_files": ["src/auth-old.ts"],
   "acceptance_criteria": ["Login works", "JWT tokens valid"],
@@ -278,7 +278,7 @@ bash .opencode/skills/task-management/router.sh validate my-feature
 
 ### With Other Subagents
 
-Working agents (CoderAgent, TestEngineer, etc.) execute subtasks and report completion. Use this skill to:
+Working agents (Vestara Developer, TestEngineer, etc.) execute subtasks and report completion. Use this skill to:
 - Find next available tasks with `next`
 - Check what's blocking progress with `blocked`
 - Validate task definitions with `validate`
@@ -297,7 +297,7 @@ task(subagent_type="TaskManager", description="Implement feature X", ...)
 bash .opencode/skills/task-management/router.sh next
 
 # 3. Delegate first task to working agent
-task(subagent_type="CoderAgent", description="Implement subtask 01", ...)
+task(subagent_type="vestara-developer", description="Implement subtask 01", ...)
 ```
 
 ### Tracking Progress

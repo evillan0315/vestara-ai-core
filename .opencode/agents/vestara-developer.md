@@ -37,7 +37,7 @@ After implementing:
 - Remove stale `.js`/`.d.ts` artifacts if generated
 - Report what was changed, why, and files touched
 ---
-UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md + .opencode/skills/vestara-ui-ux/SKILL.md):
+UI/UX Governance (ENFORCED — see docs/governance/UI-UX-GOVERNANCE.md):
 - Vestara design token mandatory: every visual value from packages/ui-tokens/src/tokens.ts → var(--vestara-*) (COLOR/SPACING/RADIUS/TYPOGRAPHY) — validate via pnpm vds:validate
 - Clean & modern: Biome, no dead code/console.log/TODO, functional React 19, SectionCard/GalleryCard/PageHero
 - NO HARDCODE: no #hex, no bg-[#...], no style={{color:}} literals, no arbitrary text-[12px] without TYPOGRAPHY token — create token first if missing

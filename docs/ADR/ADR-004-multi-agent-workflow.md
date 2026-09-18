@@ -7,10 +7,18 @@ version: 1.1
 date: 2026-07-31
 status: accepted
 author: @chief-architect
-deciders: "["@chief-architect", "@engineering-manager", "@product-manager"]"
-tags: "["workflow", "orchestration", "agents", "events", "state-machine"]"
-referenced_by: 
-influences: 
+deciders: ["@chief-architect", "@engineering-manager", "@product-manager"]
+tags: ["workflow", "orchestration", "agents", "events", "state-machine"]
+referenced_by:
+  - type: "architecture"
+    target: "docs/Architecture/Agent-Orchestration.md"
+  - type: "blueprint"
+    target: "PCS-025 Multi-Agent Project Management"
+  - type: "implementation"
+    target: "docs/PCS-025-phase-1-implementation-plan.md"
+influences:
+  - "AI Engineer"
+  - "Backend Engineer"
 owner: vestara
 last-reviewed: 2026-09-04
 next-review: 2026-10-04
@@ -66,14 +74,16 @@ See PCS-025 for the full design; this ADR records the decision and rationale.
 - New agent roles register via `AgentDefinition` + capability declarations without
   orchestrator changes.
 - Remote workers can implement the existing `remote` `WorkerType` contract.
-- Status: accepted (2026-08-03). PCS-025 Phase 1 orchestration core is delivered:
+- Status: accepted (2026-08-03). PCS-025 Phases 1–3 are delivered:
   `WorkflowOrchestrator` + project/plan/task state machines, task/artifact/
-  file-lock stores, bounded retry/revision policy, task-graph waves, and
-  idempotent resume in `packages/workflow-orchestrator/`, executing tasks through
-  the harness (`packages/workspace/src/harness-task-dispatcher.ts`) with
-  `orchestration.*` events in the engineering event store and `/api/orchestration/*`
-  routes. Phase 2 (review/test/approval, parallel waves) and Phase 3 (distributed)
-  remain.
+  file-lock stores, bounded retry/revision policy, task-graph waves,
+  capability-based assignment, review/test stages, Approval Gateway, token
+  budgets, event-sourced reconcile, and idempotent resume in
+  `packages/workflow-orchestrator/`, executing tasks through the harness
+  (`packages/workspace/src/harness-task-dispatcher.ts`) with `orchestration.*`
+  events in the engineering event store and `/api/orchestration/*` routes.
+  Phase 3 provides the distributed/hardening foundations; network transport
+  remains future work.
 
 ---
 

@@ -5,23 +5,21 @@
  * Morning briefing rendered as a single-line strip below the hero.
  */
 
+import { useState } from 'react';
 import { RouteHero } from '../../../components/layout/PageHero/RouteHero';
 import type { MorningBriefing } from '../../../hooks/useMorningBriefing';
 import type { OverviewWorkspaceSummary } from '../overview.types';
+import { formatClockTime } from '../utils/timeAgo';
 
 interface OverviewHeroProps {
   workspace: OverviewWorkspaceSummary;
-  stats?: { projects: number; agentsOnline: number; activeWork: number };
+  stats?: { projects: number; agentsOnline: number; focusPct: number };
   briefing?: MorningBriefing | null;
   briefingLoading?: boolean;
 }
 
 function formatTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleString(undefined, { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' });
-  } catch {
-    return iso;
-  }
+  return formatClockTime(iso);
 }
 
 function getTimeBasedGreeting(now = new Date()): { greeting: string; period: string } {
@@ -48,6 +46,7 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
   const healthy = workspace.health === 'healthy';
   const { greeting } = getTimeBasedGreeting();
   const stableTitle = `${greeting} Director`;
+  const [briefingExpanded, setBriefingExpanded] = useState(false);
 
   const briefingSummary = briefing ? summarizeBriefing(briefing) : null;
 
@@ -78,23 +77,34 @@ export function OverviewHero({ workspace, stats, briefing, briefingLoading }: Ov
             ? [
                 { label: 'projects', value: stats.projects },
                 { label: 'agents online', value: stats.agentsOnline },
-                { label: 'active', value: stats.activeWork },
+                { label: 'focus done', value: `${stats.focusPct}%` },
               ]
             : undefined
         }
       />
 
-      {/* Compact briefing strip — single line, no SectionCard */}
-      {briefing && (
-        <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--vestara-amber)]/20 bg-[var(--vestara-amber)]/8 px-4 py-2.5 text-[12px] leading-snug text-[var(--vestara-text-secondary)]">
-          <span aria-hidden="true" className="shrink-0 text-[var(--vestara-amber)]">☀️</span>
-          <span className="min-w-0 flex-1 truncate">
+      {/* Briefing strip — collapsed single line, expands for full detail */}
+      {briefing && briefingSummary && (
+        <button
+          type="button"
+          onClick={() => setBriefingExpanded((v) => !v)}
+          aria-expanded={briefingExpanded}
+          title={briefingExpanded ? 'Collapse briefing' : 'Expand briefing'}
+          className="mt-3 flex w-full items-center gap-2 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-amber-border)] bg-[var(--vestara-amber-bg)] px-4 py-2.5 text-left text-[12px] leading-snug text-[var(--vestara-text-secondary)]"
+        >
+          <span aria-hidden="true" className="shrink-0 text-[var(--vestara-amber)]">
+            ☀️
+          </span>
+          <span className={`min-w-0 flex-1 ${briefingExpanded ? '' : 'truncate'}`}>
             <span className="font-medium text-[var(--vestara-text-primary)]">{greeting} briefing</span>
             {' — '}
             {briefingSummary}
             <span className="ml-1.5 text-[var(--vestara-text-muted)]">{formatTime(briefing.executedAt)}</span>
           </span>
-        </div>
+          <span aria-hidden="true" className="shrink-0 text-[var(--vestara-text-muted)]">
+            {briefingExpanded ? '▴' : '▾'}
+          </span>
+        </button>
       )}
       {briefingLoading && !briefing && (
         <div className="mt-3 rounded-xl border border-dashed border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5 text-[12px] text-[var(--vestara-text-muted)] animate-pulse">

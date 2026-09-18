@@ -29,9 +29,22 @@ export function EnvPanel() {
   const { summary } = useDiagnostics();
   const versions = summary?.versions ?? {};
 
-  const envVars = useMemo(() => {
-    return Object.entries(process.env)
-      .filter(([key]) => SAFE_ENV_KEYS.includes(key))
+  const envVars = useMemo<Array<[string, string]>>(() => {
+    // `process.env` does not exist in the browser bundle (Vite) — reading it
+    // unguarded throws and crashes the tab. Merge the safe subset of the
+    // Node env (when present, e.g. SSR/tests) with Vite client env instead.
+    const fromNode: Record<string, unknown> =
+      typeof process !== 'undefined' && (process as unknown as { env?: Record<string, unknown> }).env
+        ? ((process as unknown as { env: Record<string, unknown> }).env ?? {})
+        : {};
+    const fromVite: Record<string, unknown> =
+      typeof import.meta !== 'undefined' && (import.meta as unknown as { env?: Record<string, unknown> }).env
+        ? ((import.meta as unknown as { env: Record<string, unknown> }).env ?? {})
+        : {};
+    const merged: Record<string, unknown> = { ...fromVite, ...fromNode };
+    return Object.entries(merged)
+      .filter(([key]) => SAFE_ENV_KEYS.includes(key) || key.startsWith('VITE_') || key.startsWith('VESTARA_'))
+      .map(([key, value]) => [key, String(value ?? '')] as [string, string])
       .sort((a, b) => a[0].localeCompare(b[0]));
   }, []);
 
@@ -53,6 +66,9 @@ export function EnvPanel() {
 
       <div className="diag-card diag-card-body">
         <div className="diag-section-title">Environment Variables</div>
+        {envVars.length === 0 && (
+          <p className="text-[11px] text-zinc-500">No safe environment variables are exposed to the browser.</p>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6">
           {envVars.map(([key, value]) => (
             <div key={key} className="flex items-baseline justify-between gap-3 py-1 border-b border-zinc-800/60">

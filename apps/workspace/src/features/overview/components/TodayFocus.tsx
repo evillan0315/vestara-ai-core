@@ -5,6 +5,7 @@
  * Add Task row on the Marketplace row grammar.
  */
 
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { OverviewFocusItem } from '../overview.types';
 import { SectionCard } from './SectionCard';
@@ -26,6 +27,20 @@ const PRIORITY_LABEL: Record<string, string> = {
 };
 
 export function TodayFocus({ items }: TodayFocusProps) {
+  const [overrides, setOverrides] = useState<Record<string, boolean>>({});
+
+  const resolved = items.map((item) => ({
+    ...item,
+    completed: overrides[item.id] ?? item.completed ?? false,
+  }));
+
+  function toggle(id: string) {
+    setOverrides((prev) => {
+      const current = prev[id] ?? items.find((i) => i.id === id)?.completed ?? false;
+      return { ...prev, [id]: !current };
+    });
+  }
+
   if (items.length === 0) {
     return (
       <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={5}>
@@ -36,14 +51,14 @@ export function TodayFocus({ items }: TodayFocusProps) {
     );
   }
 
-  const done = items.filter((i) => i.completed).length;
-  const pct = items.length ? Math.round((done / items.length) * 100) : 0;
+  const done = resolved.filter((i) => i.completed).length;
+  const pct = resolved.length ? Math.round((done / resolved.length) * 100) : 0;
 
   return (
     <SectionCard title="Today's Focus" actionLabel="✎ Edit" accent="var(--vestara-accent-primary)" index={1}>
       <div className="mb-3">
         <div className="mb-1.5 flex items-center justify-between text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
-          <span>{done} of {items.length} done</span>
+          <span>{done} of {resolved.length} done</span>
           <span className="text-[var(--vestara-text-primary)]">{pct}%</span>
         </div>
         <div className="h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--vestara-text-muted)_18%,transparent)]" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Today's focus progress">
@@ -54,21 +69,24 @@ export function TodayFocus({ items }: TodayFocusProps) {
         </div>
       </div>
       <ul className="space-y-1.5">
-        {items.map((item, i) => (
+        {resolved.map((item, i) => (
           <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
             <div className="mpg-category-row px-1" title={`${item.title} · ${item.reason} · ${item.priority} priority`}>
               <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                <span
-                  aria-hidden="true"
+                <button
+                  type="button"
+                  onClick={() => toggle(item.id)}
+                  aria-pressed={item.completed}
+                  aria-label={`${item.completed ? 'Mark not done' : 'Mark done'}: ${item.title}`}
                   className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[5px] border text-[11px] font-bold transition-all ${
                     item.completed
                       ? 'border-[var(--ov-check-checked-border)] bg-[var(--ov-check-checked-bg)] text-[var(--ov-check-checked-fg)]'
-                      : 'border-[var(--vestara-border-strong)] bg-transparent text-transparent'
+                      : 'border-[var(--vestara-border-strong)] bg-transparent text-transparent hover:border-[var(--vestara-accent)]'
                   }`}
                   style={item.completed ? { boxShadow: '0 0 8px color-mix(in srgb, var(--ov-check-checked-bg) 60%, transparent)' } : undefined}
                 >
-                  ✓
-                </span>
+                  <span aria-hidden="true">✓</span>
+                </button>
                 <span className="min-w-0 flex-1">
                   <span
                     className={`block truncate text-[12.5px] ${

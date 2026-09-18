@@ -106,12 +106,8 @@ export function OpenCodeSessionsPage() {
       <RouteHero
         routeId="opencode-sessions"
         eyebrow={view === 'offline' ? 'Runtime offline' : view === 'loading' ? 'Connecting' : 'OpenCode runtime'}
-        statusColor={
-          view === 'offline'
-            ? 'var(--vestara-status-error)'
-            : view === 'loading'
-              ? 'var(--vestara-status-warning)'
-              : 'var(--vestara-status-success)'
+        statusTone={
+          view === 'offline' ? 'error' : view === 'loading' ? 'warning' : 'success'
         }
         search={
           view === 'ready' && sessionStats.total > 0

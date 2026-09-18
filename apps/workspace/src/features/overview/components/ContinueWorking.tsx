@@ -8,6 +8,7 @@
 import { Link } from 'react-router-dom';
 import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
 import type { OverviewRecentWorkItem } from '../overview.types';
+import { timeAgo as formatRelativeTime } from '../utils/timeAgo';
 import { SectionCard } from './SectionCard';
 
 interface ContinueWorkingProps {
@@ -15,14 +16,27 @@ interface ContinueWorkingProps {
 }
 
 function timeAgo(iso: string): string {
-  const mins = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
-  return `${Math.round(hours / 24)} day${Math.round(hours / 24) === 1 ? '' : 's'} ago`;
+  return formatRelativeTime(iso);
 }
 
 const TILE_ACCENT = 'var(--vestara-status-info)';
+
+function workHref(item: OverviewRecentWorkItem): string {
+  switch (item.type) {
+    case 'project':
+    case 'repository':
+      return `/projects?focus=${encodeURIComponent(item.id)}`;
+    case 'conversation':
+      return `/sessions/${encodeURIComponent(item.id)}`;
+    case 'workflow':
+    case 'execution':
+      return `/execution?focus=${encodeURIComponent(item.id)}`;
+    case 'file':
+      return `/files?focus=${encodeURIComponent(item.id)}`;
+    default:
+      return '/projects';
+  }
+}
 
 export function ContinueWorking({ items }: ContinueWorkingProps) {
   if (items.length === 0) {
@@ -39,7 +53,7 @@ export function ContinueWorking({ items }: ContinueWorkingProps) {
         {items.map((item, i) => (
           <li key={item.id} className="mpg-enter" style={{ animationDelay: `${i * 30}ms` }}>
             <Link
-              to={item.type === 'project' || item.type === 'repository' ? '/projects' : '/executions'}
+              to={workHref(item)}
               className="mpg-category-row"
             >
               <span className="flex min-w-0 flex-1 items-center gap-3">

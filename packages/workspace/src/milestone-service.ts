@@ -72,6 +72,14 @@ const MILESTONES: Milestone[] = [
     description: 'Plan lifecycle, SQLite storage, REPL',
   },
   {
+    version: 'v0.4.0',
+    name: 'OpenVidu Media Integration',
+    era: 'Product',
+    status: 'in_progress',
+    description:
+      'OpenVidu WebRTC media in Activity Room (OVR-000–OVR-019): live conferencing, transcription projection, voice-to-agent',
+  },
+  {
     version: 'v0.5',
     name: 'Implementation',
     era: 'Product',
@@ -436,6 +444,22 @@ const MILESTONES: Milestone[] = [
     status: 'pending',
     description:
       'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
+  },
+  {
+    version: 'v7.16',
+    name: 'Intelligence Route Real-Time',
+    era: 'Dashboard',
+    status: 'pending',
+    description:
+      'Route-aware Breadcrumbs + assistant context from live TurnSurfaceContext (tabs inside tabs), never cached conversation memory',
+  },
+  {
+    version: 'v7.17',
+    name: 'Audio-Enabled Global Assistant',
+    era: 'Dashboard',
+    status: 'pending',
+    description:
+      'Optional microphone/STT input and streaming TTS output for the Global Assistant, clean degradation to text-only',
   },
   {
     version: 'GA-TERM-001',

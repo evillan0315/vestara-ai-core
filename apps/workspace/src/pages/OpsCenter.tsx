@@ -18,6 +18,8 @@ import { SuccessGauge } from './OpsCenter/charts/SuccessGauge';
 import { BackgroundServiceCard } from './OpsCenter/charts/BackgroundServiceCard';
 import { EventsCategoryChart } from './OpsCenter/charts/EventsCategoryChart';
 import PipelinePanel from './OpsCenter/PipelinePanel';
+import { useSharedFileOps } from '../contexts/FileOperationsContext';
+import { FileOperationsBar } from '../features/files/components/FileOperationsBar';
 
 export interface Agent {
   id: string; name: string; role: string; status: string;
@@ -41,6 +43,7 @@ function formatDuration(seconds: number): string {
 }
 
 export default function OpsCenter() {
+  const sharedFileOps = useSharedFileOps();
   const [agents, setAgents] = useState<Agent[]>([]);
   const [executions, setExecutions] = useState<Execution[]>([]);
   const [loading, setLoading] = useState(true);
@@ -246,6 +249,13 @@ export default function OpsCenter() {
           <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
             <h3 className="text-xs font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-3">Pipeline</h3>
             <PipelinePanel stages={pipelineStages} />
+          </div>
+          <div className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg p-4">
+            <h3 className="text-xs font-semibold text-(--vestara-text-muted) uppercase tracking-wider mb-3">File Operations</h3>
+            <p className="mb-2 text-[10px] text-(--vestara-text-muted)">
+              Governed file mutations from the Files workspace share one command layer — approvals included.
+            </p>
+            <FileOperationsBar ops={sharedFileOps} />
           </div>
           <div>
             <div className="flex items-center justify-between mb-2">

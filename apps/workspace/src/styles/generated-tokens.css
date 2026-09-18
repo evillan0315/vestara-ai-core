@@ -19,6 +19,13 @@
   --vestara-accent-text: #fbbf24;
   --vestara-accent-text-hover: #fbbf24;
   --vestara-accent-text-muted: #f59e0b99;
+  --vestara-activity-room-border: #164a86;
+  --vestara-activity-room-border-strong: #1d6bd1;
+  --vestara-activity-room-panel: #071426;
+  --vestara-activity-room-panel-raised: #0b1d36;
+  --vestara-activity-room-primary: #2f7bff;
+  --vestara-activity-room-primary-dark: #1d4ed8;
+  --vestara-activity-room-primary-light: #60a5fa;
   --vestara-border-default: #3f3f46;
   --vestara-border-focus: #f59e0b;
   --vestara-border-strong: #52525b;
@@ -83,6 +90,13 @@
   --vestara-accent-text: #d97706;
   --vestara-accent-text-hover: #f59e0b;
   --vestara-accent-text-muted: rgba(245, 158, 11, 0.5);
+  --vestara-activity-room-border: #93c5fd;
+  --vestara-activity-room-border-strong: #2563eb;
+  --vestara-activity-room-panel: #eff6ff;
+  --vestara-activity-room-panel-raised: #dbeafe;
+  --vestara-activity-room-primary: #2563eb;
+  --vestara-activity-room-primary-dark: #1d4ed8;
+  --vestara-activity-room-primary-light: #60a5fa;
   --vestara-border-default: #d4d4d8;
   --vestara-border-focus: #f59e0b;
   --vestara-border-strong: #a1a1aa;

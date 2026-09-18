@@ -311,6 +311,13 @@ export interface M9ActivityStore {
   getByEventId(eventId: string): Promise<ActivityRecord | undefined>;
 
   /**
+   * Get a single record by canonical activity ID (`act-<seq>-<event-prefix>`).
+   * For reference validation: projection surfaces carry this identity, so
+   * validators must resolve it against the same namespace that minted it.
+   */
+  getByActivityId(activityId: string): Promise<ActivityRecord | undefined>;
+
+  /**
    * Replay a range of records. For rebuild/verification.
    */
   replay(from?: ActivityCursor, to?: ActivityCursor): Promise<readonly ActivityRecord[]>;

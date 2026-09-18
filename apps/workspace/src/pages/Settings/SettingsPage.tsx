@@ -1,10 +1,10 @@
 import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import ShellLayoutSettings from '../../layouts/ShellLayoutSettings.js';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, useTheme } from '../../lib/theme.js';
-import { AppearanceControls } from './appearance-controls.js';
+import { AppearancePanel, LayoutPanel, ProfilesPanel, TypographyPanel } from './appearance-controls.js';
 import {
   type CliStatusDto,
   type EventStoreStatusDto,
@@ -27,8 +27,10 @@ import {
 } from './settings-ui.js';
 import { ApiEndpointField } from './ApiEndpointField.js';
 import NavigationSettings from './NavigationSettings.js';
-import { TelegramSimulator } from './TelegramSimulator.js';
+import { TelegramSettings } from './TelegramSettings.js';
 import HeroSettings from './HeroSettings.js';
+import EnvironmentVariables from './EnvironmentVariables.js';
+import SystemOverview from './SystemOverview.js';
 import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecutionSettings.js';
 import { CISettings } from './CI/CISettings.js';
 
@@ -109,7 +111,7 @@ function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => vo
       className="mpg-link"
       aria-label={`Open ${label} settings`}
     >
-      Open<span aria-hidden="true"> ›</span>
+      View details<span aria-hidden="true"> ›</span>
     </button>
   );
 
@@ -124,13 +126,15 @@ function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => vo
             Workspace Overview
           </h2>
           <p className="mt-0.5 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-            A quick view of your current configuration and system status.
+            A quick view of your current configuration and system status. Values are read from the workspace runtime snapshot.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {updated && (
             <span className="text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-              Last updated {updated}
+              <span title={data.configuration.generatedAt ? new Date(data.configuration.generatedAt).toLocaleString() : undefined}>
+                Configuration snapshot updated {updated}
+              </span>
             </span>
           )}
           <span title="Reload configuration and runtime state">
@@ -240,7 +244,7 @@ function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => vo
             <span className="mpg-tag-pill">{resolved === 'dark' ? 'Dark mode' : 'Light mode'}</span>
           }
           description="Theme, layout and display preferences."
-          action={openLink('general', 'Appearance')}
+          action={openLink('profiles', 'Appearance')}
         >
           <FactRow label="Theme" value={resolved === 'dark' ? 'Vestara Dark' : 'Vestara Light'} />
           <FactRow label="Density" value={humanize(settings.spacing)} />
@@ -352,7 +356,6 @@ function General({
   };
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
-      <AppearanceControls />
       <SettingsSection
         title="Workspace Defaults"
         description="Repository-specific values. Only explicit changes are persisted to workspace configuration."
@@ -408,6 +411,34 @@ function General({
       </SettingsSection>
     </div>
   );
+}
+
+/**
+ * SETTINGS-UI-001: General route with backward-compatible ?tab= redirects.
+ * Legacy appearance tabs (/settings/general?tab=profiles|appearance|
+ * typography|layout) navigate to their canonical routes. Plain
+ * /settings/general (or unknown tab values) renders General unchanged.
+ */
+const APPEARANCE_TAB_ROUTES: Record<string, string> = {
+  profiles: 'profiles',
+  appearance: 'appearance',
+  typography: 'typography',
+  layout: 'layout',
+};
+
+function GeneralRoute({
+  configuration,
+  onChanged,
+}: {
+  configuration: ResolvedConfiguration;
+  onChanged: (next: ResolvedConfiguration) => void;
+}) {
+  const [searchParams] = useSearchParams();
+  const tab = searchParams.get('tab');
+  if (tab && APPEARANCE_TAB_ROUTES[tab]) {
+    return <Navigate to={`/settings/${APPEARANCE_TAB_ROUTES[tab]}`} replace />;
+  }
+  return <General configuration={configuration} onChanged={onChanged} />;
 }
 
 function Runtime({ runtime, refresh }: { runtime: RuntimeStatusDto; refresh: () => Promise<void> }) {
@@ -762,7 +793,13 @@ export default function SettingsPage() {
           <Route index element={<Navigate to="overview" replace />} />
           <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />
           <Route path="hero" element={<HeroSettings />} />
-          <Route path="general" element={<General configuration={data.configuration} onChanged={changed} />} />
+          <Route path="general" element={<GeneralRoute configuration={data.configuration} onChanged={changed} />} />
+          <Route path="profiles" element={<ProfilesPanel />} />
+          <Route path="appearance" element={<AppearancePanel />} />
+          <Route path="typography" element={<TypographyPanel />} />
+          <Route path="layout" element={<LayoutPanel />} />
+          <Route path="system" element={<SystemOverview runtime={data.runtime} />} />
+          <Route path="environment" element={<EnvironmentVariables />} />
           <Route path="runtime" element={<Runtime runtime={data.runtime} refresh={load} />} />
           <Route path="cli" element={<CliIntegration initial={data.cli} />} />
           <Route path="connection" element={<ApiEndpointField onApplied={load} />} />
@@ -771,7 +808,6 @@ export default function SettingsPage() {
             [
               'providers',
               'agents',
-              'assistant-execution',
               'browser',
               'filesystem',
               'verification',
@@ -786,7 +822,7 @@ export default function SettingsPage() {
               element={<PolicySection section={section} configuration={data.configuration} />}
             />
           ))}
-          <Route path="telegram" element={<TelegramSimulator />} />
+          <Route path="telegram" element={<TelegramSettings />} />
           <Route path="navigation" element={<NavigationSettings />} />
           <Route path="assistant-execution" element={<AssistantExecutionSettings />} />
           <Route path="ci" element={<CISettings />} />

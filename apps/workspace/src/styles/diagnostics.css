@@ -213,6 +213,37 @@
   transition: width 0.3s ease;
 }
 
+/* Status dots — tone-driven, canonical status tokens only */
+.diag-dot {
+  display: inline-block;
+  width: 0.5rem;
+  height: 0.5rem;
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background-color: var(--vestara-status-success);
+  box-shadow: 0 0 6px var(--vestara-status-success);
+}
+
+.diag-dot-info {
+  background-color: var(--vestara-status-info);
+  box-shadow: 0 0 6px var(--vestara-status-info);
+}
+
+.diag-dot-warn {
+  background-color: var(--vestara-status-warning);
+  box-shadow: 0 0 6px var(--vestara-status-warning);
+}
+
+.diag-dot-bad {
+  background-color: var(--vestara-status-error);
+  box-shadow: 0 0 6px var(--vestara-status-error);
+}
+
+.diag-dot-muted {
+  background-color: var(--vestara-text-muted);
+  box-shadow: 0 0 6px var(--vestara-text-muted);
+}
+
 /* Tabs (legacy class kept tokenized; premium tab bar lives in DiagnosticsPage) */
 .diag-tabs {
   display: flex;

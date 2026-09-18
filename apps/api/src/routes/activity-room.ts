@@ -392,6 +392,25 @@ function stringField(value: unknown): string | undefined {
 }
 
 /**
+ * AR-REPLY-003: resolve a referenced activity across both canonical
+ * namespaces. The legacy ActivityStore owns `activity:msg:*` records;
+ * the M11A M9 store owns `act-<seq>-*` records mirrored from external
+ * surfaces (Telegram/Instagram) and composer traffic. The M11C surface
+ * displays M11A projection ids verbatim, so validation must resolve them
+ * where they were minted. Unknown in both namespaces stays a 400 —
+ * validation is extended, never weakened.
+ */
+export async function referenceExists(room: ActivityRoom, activityId: string): Promise<boolean> {
+  if ((await room.store.get(activityId)) !== null) return true;
+  try {
+    const { getM11ARoom } = await import('./activity-room-m11a.js');
+    return (await getM11ARoom().store.getByActivityId(activityId)) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Client/surface attribution from the message body (e.g. 'workspace-ui').
  * Attested by the sending surface; informational only — never principal
  * identity, never authorship. Absent → UNKNOWN (never manufactured).
@@ -469,7 +488,7 @@ async function sendActivityMessage(
     ? record.referencedActivityIds.filter((entry): entry is string => typeof entry === 'string')
     : [];
   for (const activityId of referenced) {
-    if ((await room.store.get(activityId)) === null) {
+    if (!(await referenceExists(room, activityId))) {
       json(res, 400, { error: { code: 'UNKNOWN_REFERENCE', message: `Referenced activity not found: ${activityId}` } });
       return null;
     }
@@ -490,7 +509,7 @@ async function sendActivityMessage(
 
   // A correction is an append-only organizational act: it references an
   // existing record and never mutates it. Default its effect to intervention.
-  if (correctionOf !== undefined && (await room.store.get(correctionOf)) === null) {
+  if (correctionOf !== undefined && !(await referenceExists(room, correctionOf))) {
     json(res, 400, {
       error: { code: 'UNKNOWN_CORRECTION_TARGET', message: `Corrected activity not found: ${correctionOf}` },
     });

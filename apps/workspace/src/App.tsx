@@ -4,6 +4,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { ToastProvider } from './components/Toast';
 import { DynamicFavicon } from './components/branding/index.js';
 import { TelemetryProvider } from './contexts/TelemetryContext';
+import { FileOperationsProvider } from './contexts/FileOperationsContext';
 import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
 import { APP_ROUTES } from './routes';
@@ -131,6 +132,7 @@ export default function App() {
       <ThemeProvider>
         <DynamicFavicon />
         <TelemetryProvider>
+          <FileOperationsProvider>
           <ToastProvider>
             <Routes>
               {publicRoutes.map((r) => (
@@ -157,6 +159,7 @@ export default function App() {
               </Route>
             </Routes>
           </ToastProvider>
+          </FileOperationsProvider>
         </TelemetryProvider>
       </ThemeProvider>
     </ErrorBoundary>

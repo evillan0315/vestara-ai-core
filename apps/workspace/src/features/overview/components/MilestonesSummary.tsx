@@ -170,10 +170,18 @@ export function MilestonesSummary() {
         </ul>
       )}
 
-      <p className="mt-3 border-t border-[var(--vestara-border-subtle)] pt-2 text-[11px] leading-relaxed text-[var(--vestara-text-muted)]">
-        Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is
-        shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only.
-      </p>
+      <details className="mt-3 border-t border-[var(--vestara-border-subtle)] pt-2 text-[11px] leading-relaxed text-[var(--vestara-text-muted)]">
+        <summary
+          className="cursor-pointer hover:text-[var(--vestara-text-secondary)]"
+          title="Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only."
+        >
+          About status
+        </summary>
+        <p className="mt-1">
+          Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is
+          shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only.
+        </p>
+      </details>
     </SectionCard>
   );
 }

@@ -26,7 +26,7 @@ const QUICK_ACTIONS: QuickAction[] = [
 
 export function QuickActions() {
   return (
-    <ul className="grid list-none grid-cols-2 gap-3 p-0" aria-label="Quick actions">
+    <ul className="grid list-none grid-cols-2 gap-3 p-0 md:grid-cols-4" aria-label="Quick actions">
       {QUICK_ACTIONS.map((action, i) => (
         <li key={action.id} className="mpg-enter" style={{ animationDelay: `${i * 40}ms` }}>
           <Link

@@ -14,6 +14,8 @@
 
 // ─── Actions ───────────────────────────────────────────────────
 
+export type { ActionIconProps, ActionIconSize, ActionIconTone } from './components/ActionIcon.js';
+export { ACTION_ICON_SIZES, ACTION_ICON_TONES, ActionIcon } from './components/ActionIcon.js';
 export type { ButtonProps, ButtonSize, ButtonVariant } from './components/Button.js';
 export { Button } from './components/Button.js';
 export type { PillProps, PillSize, PillVariant } from './components/Pill.js';
@@ -116,6 +118,20 @@ export {
   SplitPane,
   ThreePaneLayout,
 } from './components/Panes.js';
+
+// ─── Page Hero ──────────────────────────────────────────────────
+
+export type {
+  PageHeroAction,
+  PageHeroDensity,
+  PageHeroProps,
+  PageHeroRegistry,
+  PageHeroSearch,
+  PageHeroStat,
+  PageHeroStatusTone,
+  RouteHeroProps,
+} from './components/PageHero.js';
+export { mergeHeroDefaults, PageHero, pageHeroStatusDotClass, RouteHero } from './components/PageHero.js';
 
 // ─── Floating Window ──────────────────────────────────────────
 

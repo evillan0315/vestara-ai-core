@@ -94,6 +94,10 @@ export class IdempotentActivityStore implements IActivityStore {
     return this.byEventId.get(eventId);
   }
 
+  async getByActivityId(activityId: string): Promise<ActivityRecord | undefined> {
+    return this.byActivityId.get(activityId);
+  }
+
   async replay(from?: ActivityCursor, to?: ActivityCursor): Promise<readonly ActivityRecord[]> {
     let results = this.records;
 

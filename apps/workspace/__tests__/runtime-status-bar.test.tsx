@@ -30,7 +30,7 @@ describe('RuntimeStatusBar', () => {
   it('renders the runtime health and discovered providers', async () => {
     render(<RuntimeStatusBar />);
     await waitFor(() => expect(screen.getByText('Runtime healthy')).toBeTruthy());
-    expect(screen.getByText(/opencode \(2\)/)).toBeTruthy();
+    expect(screen.getByText('OpenCode runtime · 1 provider')).toBeTruthy();
   });
 
   it('reports an unknown runtime when health is unreachable', async () => {
@@ -44,11 +44,11 @@ describe('RuntimeStatusBar', () => {
     await waitFor(() => expect(screen.getByText('Runtime unknown')).toBeTruthy());
   });
 
-  it('falls back to the configured default when no providers are discovered', async () => {
+  it('reports when no providers are discovered', async () => {
     vi.stubGlobal('fetch', makeFetch({ providers: [] }));
     render(<RuntimeStatusBar />);
     await waitFor(() =>
-      expect(screen.getByText(/no providers discovered — the server’s configured default will be used/)).toBeTruthy(),
+      expect(screen.getByText('OpenCode runtime · no providers discovered')).toBeTruthy(),
     );
   });
 });

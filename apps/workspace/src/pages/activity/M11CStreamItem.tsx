@@ -11,6 +11,11 @@
  */
 
 import { memo, useCallback, useState } from 'react';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
+import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
+import { ActionIcon } from '@vestara/ui';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
@@ -21,15 +26,9 @@ import '../../styles/marketplace.css';
 // ─── Status badge (canonical semantic tokens) ────────────────
 
 function StatusBadge({ label, tone }: { label: string; tone: 'error' | 'success' }) {
-  const color = tone === 'error' ? 'var(--vestara-status-error)' : 'var(--vestara-status-success)';
   return (
     <span
-      className="inline-flex items-center gap-1 rounded-[var(--vestara-radius-full)] border px-1.5 py-px text-[10px] font-medium"
-      style={{
-        color,
-        background: `color-mix(in srgb, ${color} 9%, transparent)`,
-        borderColor: `color-mix(in srgb, ${color} 35%, transparent)`,
-      }}
+      className={`ar-stream-status ar-stream-status--${tone}`}
     >
       <StatusIndicator variant={tone === 'error' ? 'error' : 'live'} size="xs" pulse={false} aria-hidden />
       {label}
@@ -127,7 +126,6 @@ function classifyVisual(item: StreamItemType): VisualClass {
 
 interface ClassConfig {
   readonly glyph: string;
-  readonly tone: string;
   readonly container: string;
   readonly heading: string;
 }
@@ -135,51 +133,43 @@ interface ClassConfig {
 const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
   human: {
     glyph: '✎',
-    tone: 'var(--vestara-status-info)',
     container:
       'border border-[var(--vestara-border-default)] bg-[linear-gradient(180deg,var(--vestara-accent-bg),transparent_45%),var(--vestara-surface-panel-raised)] px-3.5 py-3 shadow-[inset_2px_0_0_var(--vestara-status-info),0_8px_20px_-12px_rgba(0,0,0,0.7)]',
     heading: 'text-sm font-medium leading-relaxed text-[var(--vestara-text)]',
   },
   'agent-note': {
     glyph: '❝',
-    tone: 'var(--vestara-accent-text)',
     container:
       'border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3.5 py-2.5 shadow-[inset_2px_0_0_var(--vestara-accent)]',
     heading: 'text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]',
   },
   work: {
     glyph: '◆',
-    tone: 'var(--vestara-accent-text)',
     container: 'border border-[var(--vestara-border-subtle)] px-3 py-2',
     heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
   },
   tool: {
     glyph: '⚙',
-    tone: 'var(--vestara-status-tool)',
     container: 'border border-transparent px-3 py-1.5',
     heading: 'font-mono text-xs text-[var(--vestara-text-secondary)]',
   },
   quiet: {
     glyph: '·',
-    tone: 'var(--vestara-text-muted)',
     container: 'border border-transparent px-3 py-1',
     heading: 'text-xs text-[var(--vestara-text-muted)]',
   },
   attention: {
     glyph: '⚠',
-    tone: 'var(--vestara-status-error)',
     container: 'border px-3 py-2',
     heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
   },
   verification: {
     glyph: '✓',
-    tone: 'var(--vestara-status-success)',
     container: 'border px-3 py-2',
     heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
   },
   unknown: {
     glyph: '◆',
-    tone: 'var(--vestara-text-muted)',
     container: 'border border-transparent px-3 py-1.5',
     heading: 'text-xs text-[var(--vestara-text-secondary)]',
   },
@@ -249,6 +239,10 @@ function formatAbsolute(timestamp: string): string {
   } catch {
     return timestamp;
   }
+}
+
+function formatKind(kind: string): string {
+  return kind.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -417,32 +411,15 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   const showPill = visual === 'human' || visual === 'work';
   return (
     <div
-      className={`flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.container} ${
+      className={`ar-stream-record flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.container} ${
         item.fresh ? 'animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
       }`}
-      style={
-        visual === 'attention'
-          ? {
-              borderColor: 'color-mix(in srgb, var(--vestara-status-error) 35%, transparent)',
-              background: 'color-mix(in srgb, var(--vestara-status-error) 7%, transparent)',
-            }
-          : visual === 'verification'
-            ? {
-                borderColor: 'color-mix(in srgb, var(--vestara-status-success) 30%, transparent)',
-                background: 'color-mix(in srgb, var(--vestara-status-success) 6%, transparent)',
-              }
-            : undefined
-      }
+      data-record-kind={item.kind}
     >
       {/* Semantic tile (class only — never status) */}
       <span
         aria-hidden="true"
-        className="grid size-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-xs font-semibold"
-        style={{
-          color: config.tone,
-          background: `color-mix(in srgb, ${config.tone} 12%, transparent)`,
-          borderColor: `color-mix(in srgb, ${config.tone} 30%, transparent)`,
-        }}
+        className={`ar-stream-tile ar-stream-tile--${visual}`}
       >
         {visual === 'human' || visual === 'agent-note' ? initial : config.glyph}
       </span>
@@ -455,7 +432,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {actor.name}
             </span>
             {item.actor.role && (
-              <span className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-1.5 text-[10px] capitalize text-[var(--vestara-text-muted)]">
+              <span className="ar-stream-role shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-1.5 text-[10px] capitalize text-[var(--vestara-text-muted)]">
                 {item.actor.role}
               </span>
             )}
@@ -521,7 +498,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
         </div>
 
         {/* Metadata line */}
-        <div className="mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--vestara-text-muted)]">
+        <div className="ar-stream-record__metadata mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--vestara-text-muted)]" aria-label="Record metadata">
           {collapsible && (
             <button
               type="button"
@@ -533,9 +510,9 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {expanded ? '▴ Show less' : '▾ Show more'}
             </button>
           )}
-          {showPill && <span className="mpg-tag-pill">{item.kind}</span>}
-          {visual === 'attention' && <StatusBadge label={item.kind} tone="error" />}
-          {visual === 'verification' && <StatusBadge label={item.kind} tone="success" />}
+          {showPill && <span className={`ar-stream-kind ar-stream-kind--${visual} mpg-tag-pill`}>{formatKind(item.kind)}</span>}
+          {visual === 'attention' && <StatusBadge label={formatKind(item.kind)} tone="error" />}
+          {visual === 'verification' && <StatusBadge label={formatKind(item.kind)} tone="success" />}
           {item.workflowRunId && (
             onSelectWorkflow ? (
               <button
@@ -553,48 +530,45 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               </span>
             )
           )}
+        </div>
+
+        {(onOpenDetail || onReply || (onEdit && item.actor.type === 'human') || (onRetract && item.actor.type === 'human')) && (
+          <div className="ar-stream-record__actions mt-2 flex min-w-0 flex-wrap items-center justify-end gap-1" aria-label="Record actions">
           {onOpenDetail && (
-            <button
-              type="button"
+            <ActionIcon
+              label="Detail"
+              tone="muted"
+              icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
               onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
-              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              aria-label={`Open detail for ${actor.name} activity`}
-            >
-              Detail
-            </button>
+            />
           )}
           {onReply && (
-            <button
-              type="button"
+            <ActionIcon
+              label="Reply"
+              tone="muted"
+              icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
               onClick={(e) => { e.stopPropagation(); onReply(item); }}
-              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              aria-label={`Reply to ${actor.name}`}
-            >
-              Reply
-            </button>
+            />
           )}
           {onEdit && item.actor.type === 'human' && (
-            <button
-              type="button"
+            <ActionIcon
+              label="Edit"
+              tone="muted"
+              icon={<EditOutlinedIcon sx={{ fontSize: 18 }} />}
               onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-              className="cursor-pointer transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              aria-label={`Edit message from ${actor.name}`}
-            >
-              Edit
-            </button>
+            />
           )}
           {onRetract && item.actor.type === 'human' && (
-            <button
-              type="button"
+            <ActionIcon
+              label="Retract"
+              tone="destructive"
+              icon={<UndoOutlinedIcon sx={{ fontSize: 18 }} />}
               onClick={(e) => { e.stopPropagation(); onRetract(item); }}
-              className="cursor-pointer transition-colors hover:text-[var(--vestara-red)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              aria-label={`Retract message from ${actor.name}`}
-            >
-              Retract
-            </button>
+            />
           )}
-        </div>
-        </>
+          </div>
+        )}
+      </>
         )}
       </div>
     </div>

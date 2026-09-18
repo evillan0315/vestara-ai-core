@@ -10,7 +10,7 @@
  * Authority: None — pure presentation, no domain behavior.
  */
 
-import type { PageHeroProps } from './PageHero';
+import type { PageHeroProps } from '@vestara/ui';
 
 export interface RouteHeroConfig extends PageHeroProps {}
 
@@ -108,7 +108,7 @@ export const ROUTE_HERO_CONFIG: Record<string, RouteHeroConfig> = {
     title: 'Projects',
     subtitle: 'Track projects, sprints, and tasks across your workspace.',
     metaPosition: 'side',
-    className: 'mpg-hero--compact',
+    density: 'compact',
     label: 'Projects highlights',
   },
 
@@ -117,7 +117,7 @@ export const ROUTE_HERO_CONFIG: Record<string, RouteHeroConfig> = {
     title: 'Execution Center',
     subtitle: 'Plans, agents, and runs — live operational command.',
     metaPosition: 'side',
-    className: 'mpg-hero--compact',
+    density: 'compact',
     label: 'Execution highlights',
   },
 
@@ -126,7 +126,7 @@ export const ROUTE_HERO_CONFIG: Record<string, RouteHeroConfig> = {
     title: 'Activity Room',
     subtitle: 'Observe agents, workflows and execution across your workspace.',
     metaPosition: 'side',
-    className: 'mpg-hero--compact',
+    density: 'compact',
     label: 'Activity Room highlights',
   },
 
@@ -135,7 +135,7 @@ export const ROUTE_HERO_CONFIG: Record<string, RouteHeroConfig> = {
     title: 'OpenCode Sessions',
     subtitle: 'Governed engineering sessions managed through Vestara.',
     metaPosition: 'side',
-    className: 'mpg-hero--compact',
+    density: 'compact',
     label: 'OpenCode session highlights',
   },
 

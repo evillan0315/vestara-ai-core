@@ -102,6 +102,17 @@ export const COLOR = {
     orange: '#fb923c', // command tiles
   },
 
+  // Activity Room operations palette — cool blue workspace chrome.
+  activityRoom: {
+    primary: '#2f7bff',
+    primaryLight: '#60a5fa',
+    primaryDark: '#1d4ed8',
+    panel: '#071426',
+    panelRaised: '#0b1d36',
+    border: '#164a86',
+    borderStrong: '#1d6bd1',
+  },
+
   // Zinc palette (raw values)
   zinc: {
     50: '#fafafa',

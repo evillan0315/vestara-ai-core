@@ -38,6 +38,30 @@ export interface OverviewViewModel {
 
   /** Today's focus items */
   readonly focus: readonly OverviewFocusItem[];
+
+  /** Workspace health / issue signals (API-first, fixture fallback) */
+  readonly health: OverviewHealthSummary;
+}
+
+// ─── Health Summary ────────────────────────────────────────────
+
+export type HealthState = 'healthy' | 'degraded' | 'error' | 'unknown';
+
+export interface OverviewHealthSummary {
+  /** API liveness (`GET /api/health`) */
+  readonly api: HealthState;
+  /** CI connection (`GET /api/ci/status` → connection.status) */
+  readonly ciConnection: 'connected' | 'configured' | 'unconfigured' | 'error' | 'unknown';
+  /** CI observation availability */
+  readonly ciObservation: HealthState;
+  /** Webhook health */
+  readonly webhook: HealthState;
+  /** Git working tree */
+  readonly gitDirty: boolean;
+  /** Count of unresolved stale CI waits */
+  readonly staleWaits: number;
+  /** Human-readable note (e.g. "probe never run", "1 stale wait") */
+  readonly detail?: string;
 }
 
 // ─── Workspace Summary ─────────────────────────────────────────

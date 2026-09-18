@@ -8,6 +8,8 @@ import {
 } from '@vestara/sqlite-migrations';
 import { ORCHESTRATION_BASE_MIGRATIONS, ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS } from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
+import { HUMAN_KNOWLEDGE_MIGRATIONS } from './human-knowledge-migrations';
+import { HUMAN_PRINCIPAL_MIGRATIONS } from './human-principal-migrations';
 import { WORKSPACE_DOMAIN_MIGRATIONS } from './workspace-migrations';
 
 /**
@@ -246,6 +248,10 @@ export const AGENT_MANIFEST: MigrationManifest = buildManifest('plans-agents', [
  * databases (here v7 = workspace.baseline, v8 = impact_assessments.baseline,
  * v9 = agents.origin) and `verifyAppliedLog` fails closed.
  *
+ * HUMAN-CONTEXT-002/003 follow the rule: `human_principal.baseline` and
+ * `human_knowledge.baseline` trail all pre-existing groups, so v1..vN
+ * recorded versions never move.
+ *
  * Storage constructors never mutate schema; each entrypoint composition root
  * runs this chain with explicit persistence.
  */
@@ -256,6 +262,8 @@ export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   POST_PLANS_MIGRATIONS,
   ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
   [...CI_OBSERVER_MIGRATIONS.steps],
+  HUMAN_PRINCIPAL_MIGRATIONS,
+  HUMAN_KNOWLEDGE_MIGRATIONS,
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';

@@ -50,7 +50,7 @@ export default function DashboardHeader({
     <>
       <RouteHero
         routeId="dashboard"
-        statusColor={connected ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'}
+        statusTone={connected ? 'success' : 'error'}
         title={workspace?.name ?? 'Dashboard'}
         subtitle={`${workspace?.fileCount ?? 0} files · ${workspace?.packageCount ?? 0} packages · ${events.length} events · ${agents.length} agents`}
         actions={[

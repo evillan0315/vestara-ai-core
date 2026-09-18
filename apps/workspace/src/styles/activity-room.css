@@ -238,6 +238,254 @@
   }
 }
 
+/* ── Activity Room operations treatment ────────────────────────
+   The room follows the selected workspace accent. The legacy salon
+   selectors remain available to embedded consumers, while the page-level
+   shell below is the canonical Activity Room presentation. */
+.ar-page {
+  --ar-gold: var(--vestara-accent);
+  --ar-gold-light: var(--vestara-accent-light);
+  --ar-gold-deep: var(--vestara-accent-dark);
+  --ar-hairline: var(--vestara-accent-border);
+  --ar-hairline-strong: var(--vestara-accent-border-hover);
+  --ar-ink: var(--vestara-text-primary);
+  --ar-ink-2: var(--vestara-text-secondary);
+  --ar-ink-muted: var(--vestara-text-muted);
+  --ar-ink-dim: var(--vestara-text-disabled);
+  --ar-page-bg: color-mix(in srgb, var(--ar-gold) 12%, var(--vestara-shell-bg));
+  --ar-panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 8%, transparent), transparent 30%), color-mix(in srgb, var(--ar-gold) 7%, var(--vestara-shell-bg));
+  background: transparent;
+  color: var(--vestara-text-primary);
+}
+
+.ar-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-section);
+  min-width: 0;
+  padding: var(--vestara-spacing-4, var(--vestara-spacing-section));
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius-lg);
+  background:
+    radial-gradient(90% 130% at 85% 10%, color-mix(in srgb, var(--ar-gold) 15%, transparent), transparent 60%),
+    radial-gradient(70% 100% at 15% 0%, color-mix(in srgb, var(--ar-gold) 8%, transparent), transparent 55%),
+    var(--vestara-hero-bg, var(--ar-page-bg));
+}
+
+.ar-header__identity,
+.ar-header__controls {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  min-width: 0;
+}
+.ar-header__controls { gap: var(--vestara-spacing-section); }
+
+.ar-header__identity { gap: var(--vestara-spacing-section); }
+.ar-header__mark {
+  display: grid;
+  flex-shrink: 0;
+  place-items: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: var(--vestara-radius-full);
+  color: var(--ar-gold-light);
+  background: var(--vestara-surface-panel-raised);
+  font-family: var(--vestara-font-family);
+  font-size: var(--vestara-font-size-lg);
+}
+.ar-header__title { margin: 0; color: var(--vestara-text-primary); font-size: 1.75rem; font-weight: var(--vestara-font-weight-semibold); letter-spacing: -0.02em; }
+.ar-header__subtitle { margin: 0; color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-base); }
+.ar-header__meta { color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-base); white-space: nowrap; }
+.ar-control-button {
+  min-height: 2.5rem;
+  padding: 0 var(--vestara-spacing-section);
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--vestara-radius-lg);
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-panel-raised);
+  cursor: pointer;
+}
+.ar-control-button:hover { border-color: var(--ar-gold-light); background: var(--vestara-accent-bg); }
+.ar-control-button--icon { width: 2.5rem; padding: 0; }
+
+.ar-workarea { align-items: stretch; }
+.ar-panel {
+  border-color: var(--ar-hairline);
+  border-radius: var(--vestara-radius-lg);
+  background: var(--ar-panel-bg);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--ar-gold) 10%, transparent);
+}
+.ar-panel--context { display: flex; width: auto; max-width: none; overflow-y: auto; }
+.ar-panel--main { border-color: var(--ar-hairline-strong); }
+.ar-panel__label, .ar-context__title, .ar-kicker { color: var(--ar-gold-light); }
+.ar-context__section { border-color: var(--ar-hairline); }
+.ar-operation-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--vestara-spacing-section); }
+.ar-operation-controls button {
+  display: grid;
+  gap: var(--vestara-spacing-element);
+  min-height: 4.25rem;
+  place-items: center;
+  border: 1px solid var(--ar-hairline);
+  border-radius: var(--vestara-radius-lg);
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-panel-raised);
+  cursor: pointer;
+}
+.ar-operation-controls button span { color: var(--ar-gold-light); font-size: var(--vestara-font-size-lg); }
+.ar-operation-controls button:hover { border-color: var(--ar-gold-light); }
+.ar-system-status { display: grid; gap: var(--vestara-spacing-element); margin: var(--vestara-spacing-section) 0 0; padding: 0; list-style: none; }
+.ar-system-status li { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: var(--vestara-spacing-element); padding: var(--vestara-spacing-element); border: 1px solid color-mix(in srgb, var(--ar-hairline) 65%, transparent); border-radius: var(--vestara-radius); }
+.ar-system-status li span { color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-sm); }
+.ar-system-status li strong { color: var(--vestara-status-success); font-size: var(--vestara-font-size-xs); font-weight: var(--vestara-font-weight-medium); }
+.ar-operation__empty { padding: var(--vestara-spacing-element) 0; }
+
+@media (max-width: 1023px) {
+  .ar-header { align-items: flex-start; flex-direction: column; }
+  .ar-header__controls { flex-wrap: wrap; }
+  .ar-panel--context { display: none; }
+}
+
+/* Final page-level overrides keep the operations treatment above legacy
+   embedded Activity Room materials. */
+.ar-page .ar-panel { border-color: var(--ar-hairline); background: var(--ar-panel-bg); }
+.ar-page .ar-panel--main { border-color: var(--ar-hairline-strong); }
+.ar-page .ar-panel--context { display: flex; width: auto; max-width: none; }
+.ar-page .ar-panel__label,
+.ar-page .ar-context__title { color: var(--ar-gold-light); }
+.ar-page .ar-panel__label,
+.ar-page .ar-context__title,
+.ar-page .ar-kicker { font-size: var(--vestara-font-size-sm); letter-spacing: 0.12em; }
+@media (max-width: 1023px) {
+  .ar-page .ar-panel--context { display: none; }
+}
+
+/* Participant controls stay available while the roster scrolls. */
+.ar-page .ar-rail__sticky-head {
+  position: sticky;
+  top: 0;
+  z-index: var(--vestara-z-index-sticky, 1100);
+  padding-bottom: var(--vestara-spacing-element);
+  background: var(--ar-panel-bg);
+}
+.ar-page .ar-rail__head { background: transparent; }
+.ar-page .ar-rail__filters { align-items: center; }
+.ar-page .ar-rail__type-select { display: block; min-width: 7.5rem; }
+.ar-page .ar-rail__type-select select {
+  width: 100%;
+  min-height: 2rem;
+  padding: 0 var(--vestara-spacing-element);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  font-size: var(--vestara-font-size-xs);
+}
+.ar-page .ar-rail__type-select select:focus-visible { outline: 2px solid var(--vestara-accent); outline-offset: 2px; }
+
+/* Stream records and semantic labels use the selected accent as their
+   shared visual boundary instead of unrelated neutral borders. */
+.ar-page .ar-stream-record { border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-record:hover { border-color: var(--vestara-accent-border-hover); }
+.ar-page .ar-stream-record[data-record-kind='diagnostic'],
+.ar-page .ar-stream-record[data-record-kind='error'] { border-color: color-mix(in srgb, var(--vestara-status-error) 35%, transparent); background: color-mix(in srgb, var(--vestara-status-error) 7%, transparent); }
+.ar-page .ar-stream-record[data-record-kind='evidence'] { border-color: color-mix(in srgb, var(--vestara-status-success) 30%, transparent); background: color-mix(in srgb, var(--vestara-status-success) 6%, transparent); }
+.ar-page .ar-stream-role,
+.ar-page .ar-stream-kind { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
+.ar-page .ar-stream-kind--human { color: var(--vestara-status-info); border-color: var(--vestara-status-info-border); background: var(--vestara-status-info-bg); }
+.ar-page .ar-stream-kind--work { color: var(--vestara-status-warning); border-color: var(--vestara-status-warning-border); background: var(--vestara-status-warning-bg); }
+.ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-panel-raised); }
+.ar-page .ar-stream-tile { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border: 1px solid; border-radius: var(--vestara-radius); font-size: var(--vestara-font-size-xs); font-weight: 600; }
+.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: color-mix(in srgb, var(--vestara-status-info) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-info) 30%, transparent); }
+.ar-page .ar-stream-tile--agent-note,
+.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: color-mix(in srgb, var(--vestara-accent) 12%, transparent); border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: color-mix(in srgb, var(--vestara-status-tool) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-tool) 30%, transparent); }
+.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: color-mix(in srgb, var(--vestara-status-error) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-error) 30%, transparent); }
+.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: color-mix(in srgb, var(--vestara-status-success) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-success) 30%, transparent); }
+.ar-page .ar-stream-tile--quiet,
+.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-status { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid; border-radius: var(--vestara-radius-full); padding: 0 0.375rem; font-size: var(--vestara-font-size-xs); font-weight: 500; }
+.ar-page .ar-stream-status--error { color: var(--vestara-status-error); background: color-mix(in srgb, var(--vestara-status-error) 9%, transparent); border-color: color-mix(in srgb, var(--vestara-status-error) 35%, transparent); }
+.ar-page .ar-stream-status--success { color: var(--vestara-status-success); background: color-mix(in srgb, var(--vestara-status-success) 9%, transparent); border-color: color-mix(in srgb, var(--vestara-status-success) 35%, transparent); }
+.ar-page .ar-stream-record__actions { border-top: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 65%, transparent); padding-top: var(--vestara-spacing-element); }
+.ar-page .ar-stream-record__actions button { color: var(--vestara-text-secondary); }
+.ar-page .ar-stream-record__actions button:hover { color: var(--vestara-text-primary); }
+.ar-page .ar-participant-type--human { color: var(--vestara-status-info); background: color-mix(in srgb, var(--vestara-status-info) 10%, transparent); border-color: color-mix(in srgb, var(--vestara-status-info) 35%, transparent); }
+.ar-page .ar-participant-type--agent { color: var(--vestara-accent-text); background: color-mix(in srgb, var(--vestara-accent) 10%, transparent); border-color: var(--vestara-accent-border); }
+.ar-page .ar-participant-type--service,
+.ar-page .ar-participant-type--system { color: var(--vestara-text-secondary); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-participant-type--external,
+.ar-page .ar-participant-type--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-jump { bottom: 1.25rem; background: var(--vestara-accent-bg); }
+.ar-page .ar-scroll { overflow-anchor: none; scroll-behavior: auto; overscroll-behavior-y: contain; }
+
+/* Stream header: title first, category tabs immediately to its right. */
+.ar-page .ar-stream-filter {
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+.ar-page .ar-stream-filter__heading {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+.ar-page .ar-stream-filter > [role='tablist'] {
+  justify-content: flex-end;
+}
+.ar-page .ar-stream-filter__select-label { display: inline-flex; min-width: 0; }
+.ar-page .ar-stream-filter__select {
+  min-height: 2rem;
+  max-width: 12rem;
+  padding: 0 var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  font-size: var(--vestara-font-size-xs);
+  cursor: pointer;
+}
+.ar-page .ar-stream-filter__select:focus-visible { outline: 2px solid var(--vestara-accent); outline-offset: 2px; }
+.ar-page .ar-rail__all { border-color: var(--vestara-accent-border); background: var(--vestara-accent-bg); }
+.ar-page .ar-rail__all-label { color: var(--vestara-text-primary); }
+.ar-page .ar-control-button,
+.ar-page .ar-operation-controls button,
+.ar-page .ar-panel--context button { background: var(--vestara-accent-bg); }
+.ar-page .ar-guest { border-color: transparent; background: transparent; }
+.ar-page .ar-guest:hover,
+.ar-page .ar-guest--selected { border-color: var(--vestara-accent-border); background: var(--vestara-accent-bg); }
+.ar-page .ar-rail__search-input { border-color: var(--vestara-accent-border); background: var(--vestara-surface-panel); }
+.ar-page .ar-panel--main,
+.ar-page .ar-panel--rail,
+.ar-page .ar-panel--context { font-size: var(--vestara-font-size-base); }
+.ar-page .ar-panel--main > .ar-composer-pin {
+  order: 3;
+  flex-shrink: 0;
+  margin-top: var(--vestara-spacing-element);
+}
+.ar-page .ar-panel--main > .ar-composer-pin::before { display: none; }
+.ar-page .ar-scroll {
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: none;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+@media (max-width: 767px) {
+  .ar-page .ar-stream-filter { align-items: flex-start; flex-wrap: wrap; }
+  .ar-page .ar-stream-filter > [role='tablist'] { order: 3; width: 100%; justify-content: flex-start; }
+}
+
+@media (max-width: 639px) {
+  .ar-header__meta { width: 100%; }
+  .ar-header__controls { width: 100%; }
+  .ar-control-button { flex: 1; }
+}
+
 /* Ambient atmosphere — a dark holographic space. A cool spectral band
    refracts across the foil; sapphire, violet, and jade fold into the
    corners; the chandelier glow stays quiet so gold reads only where it
@@ -642,6 +890,16 @@
 }
 
 /* ── Context panel responsive ──────────────────────────────── */
+
+.ar-panel-launchers { display: flex; }
+
+@media (min-width: 1280px) {
+  .ar-panel-launchers { display: none; }
+}
+
+@media (min-width: 640px) and (max-width: 1279px) {
+  .ar-panel--rail { display: none; }
+}
 
 @media (min-width: 768px) and (max-width: 1023px) {
   .ar-panel--context {
@@ -1561,6 +1819,12 @@
 @media (max-width: 639px) {
   .ar-live-now__narrative {
     max-width: 40vw;
+  }
+
+  /* Keep the mobile timeline focused on actor + message. Secondary
+     provenance remains available through the item detail affordance. */
+  .ar-item__meta {
+    display: none;
   }
 }
 
@@ -2601,4 +2865,13 @@
   box-shadow: 0 24px 64px var(--ar-drop-shadow), inset 0 1px 0 var(--ar-sheen);
 }
 
-
+/* Canonical page treatment — intentionally last so legacy embedded styles
+   cannot override the Activity Room operations shell. */
+.ar-page .ar-panel { border-color: var(--ar-hairline); background: var(--ar-panel-bg); }
+.ar-page .ar-panel--main { border-color: var(--ar-hairline-strong); }
+.ar-page .ar-panel--context { display: flex; width: auto; max-width: none; }
+.ar-page .ar-panel__label,
+.ar-page .ar-context__title { color: var(--ar-gold-light); }
+@media (max-width: 1023px) {
+  .ar-page .ar-panel--context { display: none; }
+}

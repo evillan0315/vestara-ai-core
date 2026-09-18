@@ -15,8 +15,13 @@ export function usePolling<T>(fn: () => Promise<T | null>, intervalMs: number, p
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
   const fnRef = useRef(fn);
   fnRef.current = fn;
+  // Overlap guard: slow ticks (e.g. a ~1s summary on a loaded box) must not
+  // stack concurrent fetches against a shorter interval.
+  const inflight = useRef(false);
 
   const refresh = useCallback(async () => {
+    if (inflight.current) return;
+    inflight.current = true;
     try {
       const result = await fnRef.current();
       if (result !== null) {
@@ -26,6 +31,7 @@ export function usePolling<T>(fn: () => Promise<T | null>, intervalMs: number, p
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
+      inflight.current = false;
       setLoading(false);
       setUpdatedAt(Date.now());
     }

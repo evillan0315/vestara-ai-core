@@ -1,7 +1,10 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { MemoryRouter } from 'react-router-dom';
 import { TelemetryProvider } from '../src/contexts/TelemetryContext.js';
+import { SurfaceContextProvider } from '../src/contexts/SurfaceContext.js';
+import { GraphProvider } from '../src/components/graph/GraphContext.js';
 import { ThemeProvider } from '../src/lib/theme.js';
 import ActivityRoomPage from '../src/pages/activity/ActivityRoomPage.js';
 import type { ActivityRecord } from '../src/pages/activity/activity-types.js';
@@ -27,7 +30,7 @@ class MockWebSocket {
 }
 let fetchImpl: ReturnType<typeof vi.fn> | undefined;
 function renderRoom() {
-  return render(<ThemeProvider><TelemetryProvider><ActivityRoomPage /></TelemetryProvider></ThemeProvider>);
+  return render(<MemoryRouter initialEntries={['/activity']}><GraphProvider><ThemeProvider><TelemetryProvider><SurfaceContextProvider><ActivityRoomPage /></SurfaceContextProvider></TelemetryProvider></ThemeProvider></GraphProvider></MemoryRouter>);
 }
 
 beforeEach(() => {

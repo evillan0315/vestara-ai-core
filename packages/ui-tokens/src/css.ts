@@ -100,6 +100,15 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-marketplace-module': theme.marketplace.module,
     '--vestara-marketplace-plugin': theme.marketplace.plugin,
     '--vestara-marketplace-standards': theme.marketplace.standards,
+
+    // Activity Room operations palette
+    '--vestara-activity-room-primary': theme.activityRoom.primary,
+    '--vestara-activity-room-primary-light': theme.activityRoom.primaryLight,
+    '--vestara-activity-room-primary-dark': theme.activityRoom.primaryDark,
+    '--vestara-activity-room-panel': theme.activityRoom.panel,
+    '--vestara-activity-room-panel-raised': theme.activityRoom.panelRaised,
+    '--vestara-activity-room-border': theme.activityRoom.border,
+    '--vestara-activity-room-border-strong': theme.activityRoom.borderStrong,
   };
 }
 

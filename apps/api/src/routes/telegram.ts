@@ -22,14 +22,29 @@ import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
 import type { ChannelMessage, ConversationBinding } from '@vestara/telegram-integration';
 import {
+  cloudflaredArgs,
+  DEFAULT_TUNNEL_CONFIG,
   GlobalAssistantTextRouter,
+  isCommandAvailable,
+  NOTIFICATION_EVENT_CATALOG,
+  ngrokArgs,
+  normalizeNotificationPreferences,
+  ProcessTunnelProvider,
+  StaticTunnelProvider,
   TELEGRAM_MANIFEST,
   TelegramAdapter,
   TelegramConversationBindingService,
+  TelegramNotificationPolicy,
   TelegramPairingService,
   TelegramPersistentStore,
+  TelegramTunnelService,
   TelegramWebhookHandler,
+  type TelegramWebhookRegistrar,
   TelegramWorkspaceBindingService,
+  type TunnelConfig,
+  type TunnelProvider,
+  type TunnelProviderKind,
+  waitForHostResolution,
 } from '@vestara/telegram-integration';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
@@ -43,6 +58,155 @@ let conversationBindingService: TelegramConversationBindingService | null = null
 let textRouter: GlobalAssistantTextRouter | null = null;
 let store: TelegramPersistentStore | null = null;
 let workspaceContext: WorkspaceContext | null = null;
+
+/** Settings key for the operator-scoped notification preferences (TG-018/023). */
+const NOTIFICATION_SETTINGS_KEY = 'notifications:default';
+
+/** Settings key for the persisted webhook tunnel configuration. */
+const TUNNEL_SETTINGS_KEY = 'tunnel:default';
+
+const notificationPolicy = new TelegramNotificationPolicy();
+
+// ─── Tunnel (TG-030) ───────────────────────────────────────────
+
+const TUNNEL_PROVIDER_KINDS: readonly TunnelProviderKind[] = ['manual', 'cloudflared', 'ngrok'];
+
+function initialTunnelConfig(): TunnelConfig {
+  return {
+    ...DEFAULT_TUNNEL_CONFIG,
+    localPort: Number(process.env.VESTARA_API_PORT ?? process.env.PORT ?? 3001),
+  };
+}
+
+let tunnelConfig: TunnelConfig = initialTunnelConfig();
+let tunnelService: TelegramTunnelService | null = null;
+
+/** Effective command for a process-backed provider (env override wins). */
+function resolveTunnelCommand(kind: TunnelProviderKind): string {
+  const envCommand = process.env.VESTARA_TELEGRAM_TUNNEL_COMMAND;
+  return envCommand && envCommand.trim().length > 0 ? envCommand.trim() : kind;
+}
+
+/**
+ * Build a tunnel provider for a kind. The command and argument list come from
+ * environment configuration, never from request input, so a request can only
+ * choose a known provider kind — it can never influence process execution.
+ */
+function createTunnelProvider(kind: TunnelProviderKind): TunnelProvider | null {
+  if (kind === 'manual') {
+    return new StaticTunnelProvider('manual', tunnelConfig.publicUrl ?? '');
+  }
+
+  const command = resolveTunnelCommand(kind);
+  const envArgs = process.env.VESTARA_TELEGRAM_TUNNEL_ARGS;
+  const args =
+    envArgs && envArgs.trim().length > 0
+      ? envArgs.trim().split(/\s+/)
+      : kind === 'cloudflared'
+        ? [...cloudflaredArgs()]
+        : [...ngrokArgs()];
+
+  return new ProcessTunnelProvider(kind, { kind, command, args });
+}
+
+export type TunnelAvailability = Record<TunnelProviderKind, boolean>;
+
+const AVAILABILITY_TTL_MS = 30_000;
+let availabilityCache: { at: number; value: TunnelAvailability } | null = null;
+
+/**
+ * Probe which process-backed tunnel providers are actually installed. Results
+ * are cached briefly so a polling Settings page cannot spawn a probe per
+ * request. `manual` is always available — it needs no local binary.
+ */
+export async function resolveTunnelAvailability(now: number = Date.now()): Promise<TunnelAvailability> {
+  if (availabilityCache && now - availabilityCache.at < AVAILABILITY_TTL_MS) {
+    return availabilityCache.value;
+  }
+  const [cloudflared, ngrok] = await Promise.all([
+    isCommandAvailable(resolveTunnelCommand('cloudflared')),
+    isCommandAvailable(resolveTunnelCommand('ngrok')),
+  ]);
+  const value: TunnelAvailability = { manual: true, cloudflared, ngrok };
+  availabilityCache = { at: now, value };
+  return value;
+}
+
+/** Telegram Bot API webhook registrar. Absent when no bot token is configured. */
+function createWebhookRegistrar(): TelegramWebhookRegistrar | null {
+  const token = process.env.TELEGRAM_BOT_TOKEN;
+  if (!token) return null;
+  const secret = process.env.TELEGRAM_WEBHOOK_SECRET;
+
+  const call = async (method: string, body: Record<string, unknown>): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const data = (await response.json()) as { ok?: boolean; description?: string };
+      return data.ok ? { ok: true } : { ok: false, error: data.description ?? `${method} failed` };
+    } catch (error) {
+      return { ok: false, error: error instanceof Error ? error.message : `${method} failed` };
+    }
+  };
+
+  /**
+   * Register with bounded retries. Telegram may transiently fail URL
+   * validation while a tunnel hostname propagates, and a failed registration
+   * is cheap to repeat — unlike a poisoned hostname.
+   */
+  const registerWithRetry = async (url: string): Promise<{ ok: boolean; error?: string }> => {
+    const attempts = 3;
+    let last: { ok: boolean; error?: string } = { ok: false, error: 'setWebhook failed' };
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      last = await call('setWebhook', secret ? { url, secret_token: secret } : { url });
+      if (last.ok) return last;
+      if (attempt < attempts) await new Promise((resolve) => setTimeout(resolve, 1000 * 2 ** (attempt - 1)));
+    }
+    return last;
+  };
+
+  return {
+    register: (url) => registerWithRetry(url),
+    unregister: () => call('deleteWebhook', { drop_pending_updates: false }),
+  };
+}
+
+function getTunnelService(): TelegramTunnelService {
+  if (!tunnelService) {
+    tunnelService = new TelegramTunnelService({
+      config: tunnelConfig,
+      providerFactory: createTunnelProvider,
+      registrar: createWebhookRegistrar(),
+      // Never register a webhook before Telegram can resolve the host: an
+      // NXDOMAIN seen early is cached and poisons the hostname permanently.
+      readinessProbe: async (publicUrl) => {
+        try {
+          return await waitForHostResolution(new URL(publicUrl).hostname, { timeoutMs: 20_000, intervalMs: 1_000 });
+        } catch {
+          return false;
+        }
+      },
+    });
+  }
+  return tunnelService;
+}
+
+/**
+ * TG-027: single source of truth for whether Telegram is active in a runtime
+ * profile. The dogfood profile parks Telegram; every other profile (including
+ * the `full` default) activates it. Both the boot gate and the settings read
+ * model consume this so they can never disagree.
+ */
+export function resolveTelegramActivation(runtimeProfile: string | undefined): {
+  enabled: boolean;
+  profile: string;
+} {
+  const profile = runtimeProfile ?? 'full';
+  return { enabled: profile !== 'dogfood', profile };
+}
 
 function getWebhookHandler(): TelegramWebhookHandler {
   if (!webhookHandler) {
@@ -133,6 +297,20 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
   });
 
   store = new TelegramPersistentStore(db);
+
+  // Rehydrate operator notification preferences (TG-018/023).
+  const storedNotifications = store.getSettings(NOTIFICATION_SETTINGS_KEY);
+  if (storedNotifications !== undefined) {
+    notificationPolicy.setPreferences('default', storedNotifications);
+  }
+
+  // Rehydrate tunnel configuration (TG-030). Tunnel *state* is runtime-only:
+  // persisted configuration never spawns a process on boot.
+  const storedTunnel = store.getSettings(TUNNEL_SETTINGS_KEY) as Partial<TunnelConfig> | undefined;
+  if (storedTunnel !== undefined) {
+    tunnelConfig = { ...initialTunnelConfig(), ...storedTunnel };
+  }
+  tunnelService = null;
 
   // Re-initialize services with the persistent store
   webhookHandler = null;
@@ -578,6 +756,113 @@ export async function handleTelegramRoute(
           conversationBindings: !!conversationBindingService,
           textRouter: !!textRouter,
         },
+      });
+      return true;
+    }
+
+    // ─── GET /api/telegram/settings ─────────────────────────
+    // TG-023: read model for the Settings → Telegram integration panel.
+    // The event catalog is served from the package so the UI never hardcodes
+    // notification types.
+    if (method === 'GET' && p === '/api/telegram/settings') {
+      const activation = resolveTelegramActivation(process.env.VESTARA_RUNTIME_PROFILE);
+      const tunnel = getTunnelService();
+      json(res, 200, {
+        notifications: notificationPolicy.getPreferences('default'),
+        eventCatalog: NOTIFICATION_EVENT_CATALOG,
+        integration: {
+          enabled: activation.enabled,
+          configured: !!process.env.TELEGRAM_BOT_TOKEN,
+          persistentStore: !!store,
+          runtimeProfile: activation.profile,
+        },
+        tunnel: {
+          config: tunnel.getConfig(),
+          state: tunnel.getState(),
+          availability: await resolveTunnelAvailability(),
+        },
+      });
+      return true;
+    }
+
+    // ─── PUT /api/telegram/settings ─────────────────────────
+    // Accepts { notifications } and validates through the package
+    // normalizer. Unknown fields are dropped; the response echoes the
+    // normalized, persisted result so the UI is never out of sync.
+    if (method === 'PUT' && p === '/api/telegram/settings') {
+      const body = JSON.parse(await readBody(req)) as { notifications?: unknown };
+      const normalized = normalizeNotificationPreferences(body.notifications);
+      notificationPolicy.setPreferences('default', normalized);
+      store?.saveSettings(NOTIFICATION_SETTINGS_KEY, normalized);
+      json(res, 200, { notifications: normalized });
+      return true;
+    }
+
+    // ─── GET /api/telegram/tunnel ───────────────────────────
+    // TG-030: webhook tunnel read model (configuration + runtime state).
+    if (method === 'GET' && p === '/api/telegram/tunnel') {
+      const tunnel = getTunnelService();
+      json(res, 200, {
+        config: tunnel.getConfig(),
+        state: tunnel.getState(),
+        availability: await resolveTunnelAvailability(),
+      });
+      return true;
+    }
+
+    // ─── PUT /api/telegram/tunnel ───────────────────────────
+    // Configure and/or start/stop the tunnel. Configuration is persisted;
+    // runtime state is not. Enabling is always an explicit request.
+    if (method === 'PUT' && p === '/api/telegram/tunnel') {
+      const body = JSON.parse(await readBody(req)) as {
+        enabled?: unknown;
+        provider?: unknown;
+        publicUrl?: unknown;
+        localPort?: unknown;
+      };
+
+      const provider = TUNNEL_PROVIDER_KINDS.includes(body.provider as TunnelProviderKind)
+        ? (body.provider as TunnelProviderKind)
+        : undefined;
+      const publicUrl = typeof body.publicUrl === 'string' ? body.publicUrl.trim() : undefined;
+      const localPort =
+        typeof body.localPort === 'number' &&
+        Number.isInteger(body.localPort) &&
+        body.localPort > 0 &&
+        body.localPort <= 65535
+          ? body.localPort
+          : undefined;
+
+      if (provider !== undefined || publicUrl !== undefined || localPort !== undefined) {
+        await getTunnelService().configure({
+          ...(provider !== undefined ? { provider } : {}),
+          ...(publicUrl !== undefined ? { publicUrl } : {}),
+          ...(localPort !== undefined ? { localPort } : {}),
+        });
+        tunnelConfig = {
+          ...tunnelConfig,
+          ...(provider !== undefined ? { provider } : {}),
+          ...(publicUrl !== undefined ? { publicUrl } : {}),
+          ...(localPort !== undefined ? { localPort } : {}),
+        };
+        store?.saveSettings(TUNNEL_SETTINGS_KEY, {
+          provider: tunnelConfig.provider,
+          publicUrl: tunnelConfig.publicUrl,
+          localPort: tunnelConfig.localPort,
+        });
+      }
+
+      if (body.enabled === true) {
+        await getTunnelService().enable();
+      } else if (body.enabled === false) {
+        await getTunnelService().disable();
+      }
+
+      const tunnel = getTunnelService();
+      json(res, 200, {
+        config: tunnel.getConfig(),
+        state: tunnel.getState(),
+        availability: await resolveTunnelAvailability(),
       });
       return true;
     }

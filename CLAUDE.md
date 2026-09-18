@@ -4,7 +4,6 @@ Load in order:
 
 1. `AGENTS.md` — single source for setup, boundaries, guardrails, execution governance.
 2. `docs/governance/UI-UX-GOVERNANCE.md` — **ENFORCED UI/UX governance for all agents (including Claude)** — strict, violation = BLOCKER.
-3. `.opencode/skills/vestara-ui-ux/SKILL.md` — UI checklist (load on any UI task).
 
 Repo is `vestara-ai-core`, pnpm workspaces (`pnpm-workspace.yaml` is authority), Node 22+, `bash build-order.sh` before test, `pnpm lint:check && pnpm build && pnpm test`.
 

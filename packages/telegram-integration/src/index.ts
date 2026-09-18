@@ -14,6 +14,19 @@
 // ─── Re-exports ────────────────────────────────────────────────
 
 export type {
+  AttachmentPolicy,
+  AttachmentReason,
+  AttachmentValidation,
+  TelegramAttachmentServiceConfig,
+} from './attachments.js';
+export {
+  buildAttachmentStorageKey,
+  DEFAULT_ATTACHMENT_POLICY,
+  sanitizeFileName,
+  TelegramAttachmentService,
+  validateAttachment,
+} from './attachments.js';
+export type {
   CommandCategory,
   CommandContext,
   CommandHandler,
@@ -27,6 +40,22 @@ export type {
   ConversationBindingStatus,
 } from './conversation-binding.js';
 export { TelegramConversationBindingService } from './conversation-binding.js';
+export type {
+  DeepLinkAction,
+  DeepLinkInput,
+  DeepLinkStatus,
+  DeepLinkVerification,
+  ParsedDeepLink,
+} from './deep-links.js';
+export {
+  buildDeepLink,
+  buildDeepLinkPayload,
+  DEEP_LINK_ACTIONS,
+  isDeepLinkValid,
+  parseDeepLink,
+  signDeepLinkPayload,
+  verifyDeepLink,
+} from './deep-links.js';
 export type {
   DeliveryPriority,
   DeliveryQueueConfig,
@@ -75,6 +104,25 @@ export type {
 export { TelegramInlineKeyboard } from './inline-keyboard.js';
 export { TELEGRAM_MANIFEST, TELEGRAM_MIGRATIONS } from './migrations.js';
 export type {
+  NotificationDecision,
+  NotificationDecisionReason,
+  NotificationEvent,
+  NotificationEventDescriptor,
+  NotificationEventType,
+  NotificationFilters,
+  NotificationPreferences,
+  NotificationSeverity,
+  QuietHours,
+} from './notifications.js';
+export {
+  buildNotificationDelivery,
+  defaultNotificationPreferences,
+  isWithinQuietHours,
+  NOTIFICATION_EVENT_CATALOG,
+  normalizeNotificationPreferences,
+  TelegramNotificationPolicy,
+} from './notifications.js';
+export type {
   PairingConfig,
   PairingRequest,
   PairingStatus,
@@ -82,6 +130,85 @@ export type {
 } from './pairing.js';
 export { TelegramPairingService } from './pairing.js';
 export { TelegramPersistentStore } from './persistent-store.js';
+export type {
+  DeliveryFailure,
+  DeliveryFailureKind,
+  RateLimitDecision,
+} from './reliability.js';
+export {
+  classifyDeliveryError,
+  computeRetryDelayMs,
+  TelegramDeliveryCoalescer,
+  TokenBucketRateLimiter,
+} from './reliability.js';
+export type {
+  ExecutionCardInput,
+  ExecutionCardOptions,
+  ExecutionStep,
+  StepState,
+} from './rich-cards.js';
+export {
+  buildExecutionCardDelivery,
+  buildExecutionCardKeyboard,
+  executionUpdateToCardInput,
+  formatDuration,
+  isTerminalStatus,
+  renderExecutionCard,
+  renderProgressBar,
+} from './rich-cards.js';
+export type {
+  CallbackRecord,
+  PairingTokenState,
+  SecurityDecision,
+  SecurityReason,
+  TelegramSecurityConfig,
+} from './security.js';
+export { TelegramAccessDeniedError, TelegramSecurityGuard } from './security.js';
+export type {
+  CorrelationContext,
+  TelegramTelemetryConfig,
+  TelegramTelemetryEvent,
+  TelemetryChannel,
+  TelemetryRecord,
+  TelemetrySink,
+} from './telemetry.js';
+export {
+  createCorrelationContext,
+  redactTelemetryData,
+  TELEGRAM_TELEMETRY_EVENTS,
+  TelegramTelemetry,
+  withCorrelation,
+} from './telemetry.js';
+export type {
+  HostResolutionOptions,
+  ProcessTunnelProviderConfig,
+  PublicUrlValidation,
+  TelegramTunnelConfig,
+  TelegramWebhookRegistrar,
+  TunnelConfig,
+  TunnelConfigPatch,
+  TunnelProvider,
+  TunnelProviderKind,
+  TunnelStartResult,
+  TunnelState,
+  TunnelStatus,
+  WebhookRegistrationResult,
+} from './tunnel.js';
+export {
+  buildTelegramWebhookUrl,
+  cloudflaredArgs,
+  DEFAULT_TUNNEL_CONFIG,
+  extractTunnelUrl,
+  isCommandAvailable,
+  isTunnelHost,
+  ngrokArgs,
+  ProcessTunnelProvider,
+  StaticTunnelProvider,
+  TelegramTunnelService,
+  TunnelProviderUnavailableError,
+  validatePublicUrl,
+  waitForHostResolution,
+} from './tunnel.js';
 export type {
   TranscriptionResult,
   TranscriptionStatus,

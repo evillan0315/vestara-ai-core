@@ -64,12 +64,12 @@ export type DiagTab =
   | 'overview'
   | 'processes'
   | 'storage'
-  | 'docker'
   | 'git'
   | 'environment'
   | 'agents'
-  | 'logs'
   | 'health';
+
+const VALID_TABS: DiagTab[] = ['overview', 'processes', 'storage', 'git', 'environment', 'agents', 'health'];
 
 interface DiagnosticsContextValue {
   interval: number;
@@ -119,9 +119,11 @@ const DiagnosticsContext = createContext<DiagnosticsContextValue | null>(null);
 export function DiagnosticsProvider({ children }: { children: ReactNode }) {
   const [interval, setIntervalState] = useState(() => loadNumber(LS.interval, 2000));
   const [paused, setPaused] = useState(false);
-  const [activeTab, setActiveTabState] = useState<DiagTab>(
-    () => (loadString(LS.tab, 'overview') as DiagTab) || 'overview',
-  );
+  const [activeTab, setActiveTabState] = useState<DiagTab>(() => {
+    // A previously persisted tab (e.g. removed Docker/Logs) falls back to overview.
+    const stored = loadString(LS.tab, 'overview') as DiagTab;
+    return VALID_TABS.includes(stored) ? stored : 'overview';
+  });
   const [search, setSearchState] = useState(() => loadString(LS.search, ''));
 
   const [cpuHistory, setCpuHistory] = useState<HistoryPoint[]>([]);
@@ -140,8 +142,11 @@ export function DiagnosticsProvider({ children }: { children: ReactNode }) {
   const setActiveTab = useCallback((tab: DiagTab) => setActiveTabState(tab), []);
   const setSearch = useCallback((q: string) => setSearchState(q), []);
 
-  // Main summary feed.
-  const summaryPoll = usePolling(diagnosticsApi.summary, interval, paused);
+  // Main summary feed — deliberately slower than the chart feeds. Summary fans
+  // out across every synchronous collector (processes, docker, git, versions,
+  // GPU, health) and is the heaviest single request; the live charts keep the
+  // base interval so telemetry still feels real-time.
+  const summaryPoll = usePolling(diagnosticsApi.summary, Math.max(interval * 3, 5000), paused);
 
   // Live CPU / memory feeds that extend the history buffers.
   const cpuPoll = usePolling(() => diagnosticsApi.cpu(), interval, paused);

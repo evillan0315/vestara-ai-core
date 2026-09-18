@@ -52,6 +52,24 @@ export interface ActivityBase {
   readonly evidenceRefs: readonly string[];
   /** Organizational effect (provenance): what kind of organizational change this record represents. */
   readonly effect?: ActivityOrganizationalEffect;
+  /**
+   * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002).
+   * The Conversation Runtime conversation (`Conversation.id` in
+   * `@vestara/shared`) this record's durable M9 event belongs to, carried
+   * from `payload.conversationId` / `payload.data.conversationId`.
+   * Conversation identity — never surface, agent, or message identity.
+   * Absent means unknown origin (fail-safe local handling downstream).
+   */
+  readonly originConversationId?: string;
+  /**
+   * Sending-surface attribution passthrough (AR-UI-REPLY-002).
+   * Reuses the canonical `surface?: string` attribution vocabulary
+   * (Conversation `SendOptions.surface`, `HumanMessageInput.surface` —
+   * e.g. 'workspace-ui'): where the principal acted from. Informational
+   * only; never principal identity, never authorship. Absent means the
+   * durable event carried no sending-surface attestation.
+   */
+  readonly originSurface?: string;
   /** Related record ids (provenance): supersedes, scoped_to, supported_by, disposition, resumed_from, produced, … */
   readonly relatesTo?: readonly string[];
   /** When set, this record is a correction of the referenced activity. The original is never mutated (append-only). */

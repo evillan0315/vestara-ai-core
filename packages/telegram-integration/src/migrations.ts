@@ -87,6 +87,14 @@ const TELEGRAM_DELIVERY_QUEUE_DDL = `
   CREATE INDEX IF NOT EXISTS idx_tg_dlq_status ON telegram_delivery_queue(status);
 `;
 
+const TELEGRAM_SETTINGS_DDL = `
+  CREATE TABLE IF NOT EXISTS telegram_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+`;
+
 export const TELEGRAM_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'telegram.baseline',
@@ -132,6 +140,13 @@ export const TELEGRAM_MIGRATIONS: readonly MigrationStep[] = [
     ],
     up: (db: Database) => {
       db.exec(TELEGRAM_DELIVERY_QUEUE_DDL);
+    },
+  },
+  {
+    name: 'telegram.settings',
+    produces: [fingerprint('telegram_settings', ['key', 'value', 'updated_at'])],
+    up: (db: Database) => {
+      db.exec(TELEGRAM_SETTINGS_DDL);
     },
   },
 ];

@@ -12,7 +12,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { M9ActivityRecord } from '@vestara/activity-room';
 import { ProjectionRuntime } from '@vestara/activity-room';
-import M11CStreamItemComponent from '../src/pages/activity/M11CStreamItem.js';
+import { M11CStreamItemComponent } from '../src/pages/activity/M11CStreamItem.js';
 import type { M11CStreamItem } from '../src/hooks/useM11CActivityRoom.js';
 
 afterEach(() => {

@@ -7,6 +7,11 @@ import { ThemeProvider } from '../src/lib/theme.js';
 import ActivityRoomPage from '../src/pages/activity/ActivityRoomPage.js';
 import type { ActivityRecord } from '../src/pages/activity/activity-types.js';
 
+vi.mock('../src/contexts/SurfaceContext', () => ({
+  useSetActivitySelection: () => vi.fn(),
+  SurfaceContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 let nextSequence = 1;
 
 function record(id: string, content: string): ActivityRecord {

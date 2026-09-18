@@ -42,6 +42,7 @@ export type EvidenceKind =
   | 'source-diff'
   | 'browser-navigation'
   | 'screenshot'
+  | 'screen-recording'
   | 'visual-comparison';
 
 // ─── Visual artifact metadata (EVIDENCE-UX-002 M1) ────────────────
@@ -61,6 +62,31 @@ export interface VisualArtifactMetadata {
   readonly height: number;
   /** MIME determined from magic bytes (never extension). Mirrors the artifact mediaType. */
   readonly mediaType: SupportedVisualMediaType;
+}
+
+// ─── Recording artifact metadata (CAPTURE-001-M2) ───────────────
+//
+// Descriptive presentation metadata for screen-recording evidence,
+// recorded from inspected recording bytes at ingest time. Never artifact
+// identity (the content digest is), never verification authority (the
+// verifier verdict is), never filesystem authority (digests resolve
+// server-side). Dimensions/duration stay optional: M2 validates the
+// container without pretending to parse tracks it does not decode.
+
+/** Canonical recording media type (M2). No generic video: webm only. */
+export type SupportedRecordingMediaType = 'video/webm';
+
+export interface RecordingArtifactMetadata {
+  /** Container MIME determined from magic bytes (never client claim). */
+  readonly mediaType: SupportedRecordingMediaType;
+  /** Intrinsic pixel width when the container exposes it without track decoding. */
+  readonly width?: number;
+  /** Intrinsic pixel height when the container exposes it without track decoding. */
+  readonly height?: number;
+  /** Playback duration in milliseconds when known without track decoding. */
+  readonly durationMs?: number;
+  /** Codec identifier only when confidently known (never guessed). */
+  readonly codec?: string;
 }
 
 export interface EvidenceReference {

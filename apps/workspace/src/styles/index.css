@@ -94,6 +94,20 @@
   --vestara-bg: var(--vestara-surface-canvas);
   --vestara-primary: var(--vestara-accent-primary);
 
+  /* ── VDS runtime semantic aliases (COMPATIBILITY — NOT a second authority) ──
+     VDS 1.1 validator expects these semantic names. Each is a pure alias
+     over the canonical token of the same meaning (authored in
+     packages/ui-tokens/src/themes.ts, emitted in generated-tokens.css).
+     No raw values here: resolution follows dark/light automatically
+     because every target is theme-aware. */
+  --vestara-color-bg-app: var(--vestara-surface-canvas);
+  --vestara-color-surface-panel: var(--vestara-surface-panel);
+  --vestara-color-border-default: var(--vestara-border-default);
+  --vestara-color-focus-ring: var(--vestara-border-focus);
+  --vestara-status-healthy: var(--vestara-status-success);
+  --vestara-status-authentication: var(--vestara-status-warning);
+  --vestara-status-conflict: var(--vestara-status-error);
+
   /* ── Shared shell background (cross-page/component) ──
      Matches the ShellLayout dark background (zinc-950 / canvas).
      Alias over theme-aware --color-zinc-950 so dark AND light follow
@@ -133,6 +147,12 @@
   --vestara-radius: 6px;
   --vestara-radius-lg: 8px;
   --vestara-radius-full: 9999px;
+
+  /* ── Overlay + elevation defaults (F-E-4 context menu) ──
+     Values mirror the canonical TS tokens (Z_INDEX.popover, ELEVATION.md
+     in @vestara/ui-tokens) so Tailwind arbitrary utilities resolve. */
+  --vestara-z-index-popover: 1500;
+  --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
 
   /* ── Page container (overridden by JS theme.tsx) ── */
   --vestara-page-max-width: 1280px;

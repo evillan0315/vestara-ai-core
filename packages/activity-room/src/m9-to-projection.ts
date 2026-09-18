@@ -13,6 +13,7 @@
 
 import type { ActivityRecord } from './contracts';
 import type { ActivityRecord as M9ActivityRecord } from './m9-types';
+import { extractOriginProvenance } from './origin-provenance';
 
 /**
  * Map M9 activity types to projection ActivityRecord kinds.
@@ -63,6 +64,9 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
   const data = record.payload?.data as Record<string, unknown> | undefined;
   const callID = (data?.callID as string) ?? '';
   const toolName = (data?.toolName as string) ?? '';
+  // AR-UI-REPLY-002: preserve ONLY authoritative origin provenance from the
+  // durable payload. Everything else about this conversion stays lossy.
+  const origin = extractOriginProvenance(record.payload);
 
   // Tool activities have a distinct shape from agent-message
   if (kind === 'tool-call') {
@@ -76,6 +80,7 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
       toolName,
       callID,
       evidenceRefs: [],
+      ...origin,
     };
   }
   if (kind === 'tool-result') {
@@ -90,6 +95,7 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
       callID,
       status: record.type === 'tool.failed' ? 'failed' : 'completed',
       evidenceRefs: [],
+      ...origin,
     };
   }
 
@@ -107,5 +113,6 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
     evidenceRefs: [],
     ...(record.payload?.error ? { effect: 'intervention' as const } : {}),
     ...(record.payload?.output ? { output: record.payload.output } : {}),
+    ...origin,
   } as ActivityRecord;
 }

@@ -149,4 +149,13 @@ export const overviewFixture: OverviewViewModel = {
     { id: 'f3', title: 'Review PR #482', reason: 'Blocked teammate', priority: 'high', completed: false },
     { id: 'f4', title: 'Plan next milestone (ARX-015)', reason: 'Planning', priority: 'low', completed: false },
   ],
+  health: {
+    api: 'healthy',
+    ciConnection: 'configured',
+    ciObservation: 'unknown',
+    webhook: 'unknown',
+    gitDirty: true,
+    staleWaits: 0,
+    detail: 'CI probe never run — verify via connection test',
+  },
 };

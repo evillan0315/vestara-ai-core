@@ -6,9 +6,8 @@ This file is the entry point for **every AI runtime** (OpenCode, Claude, Cursor,
 
 1. **`AGENTS.md`** — Monorepo boundaries, build, test, guardrails, execution governance, established principles. **MUST READ FIRST.**
 2. **`docs/governance/UI-UX-GOVERNANCE.md`** — **ENFORCED for all UI/UX work** (all agents + humans). Violation = BLOCKER.
-3. **`.opencode/skills/vestara-ui-ux/SKILL.md`** — Checklist to run on any UI task (trigger: `apps/workspace/**`, `packages/ui/**`, `packages/ui-tokens/**`).
-4. **`opencode.json` → `instructions`** — Auto-loads the above into every OpenCode turn.
-5. **`.opencode/agents/*.md`** — Generated from `packages/workspace/src/agents.registry.ts` (run `pnpm agents:sync` after editing registry). Each agent prompt already embeds the UI/UX governance footer.
+3. **`opencode.json` → `instructions`** — Auto-loads the above into every OpenCode turn.
+4. **`.opencode/agents/*.md`** — Generated from `packages/workspace/src/agents.registry.ts` (run `pnpm agents:sync` after editing registry). Each agent prompt already embeds the UI/UX governance footer.
 
 ## UI/UX Governance (Strict)
 
@@ -28,6 +27,6 @@ Full spec: `docs/governance/UI-UX-GOVERNANCE.md`
 - **Copilot:** See `.github/muse-instructions.md`
 - **Claude:** See `CLAUDE.md`
 - **Cursor:** See `.cursor/rules/vestara.mdc` (if present, mirrors this file)
-- **OpenCode:** See `opencode.json` `instructions` + `.opencode/skills/vestara-ui-ux/SKILL.md`
+- **OpenCode:** See `opencode.json` `instructions`
 
 *Last sync: 2026-09-13 — Manila — Director directive.*

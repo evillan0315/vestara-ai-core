@@ -51,6 +51,12 @@ export async function handleMiscRoute(
         { path: '/api/admin/users', method: 'POST', description: 'Create user (admin)', requiresAuth: true },
         { path: '/api/admin/audit-log', method: 'GET', description: 'Audit log (admin)', requiresAuth: true },
         { path: '/api/workspace', method: 'GET', description: 'Workspace state', requiresAuth: false },
+        {
+          path: '/api/system/environment',
+          method: 'GET',
+          description: 'Curated environment registry (secret-safe)',
+          requiresAuth: false,
+        },
         { path: '/api/understanding', method: 'GET', description: 'Workspace understanding', requiresAuth: false },
         { path: '/api/settings', method: 'GET', description: 'Settings', requiresAuth: true },
         { path: '/api/settings', method: 'PUT', description: 'Update settings', requiresAuth: true },

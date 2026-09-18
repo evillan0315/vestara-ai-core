@@ -6,7 +6,6 @@ Apply to all files in this repository.
 
 1. `AGENTS.md` — monorepo boundaries, build, test, guardrails, execution governance.
 2. `docs/governance/UI-UX-GOVERNANCE.md` — **ENFORCED UI/UX governance (all agents + humans)** — strict, violation = BLOCKER.
-3. `.opencode/skills/vestara-ui-ux/SKILL.md` — UI checklist for any UI task.
 
 ## UI/UX Governance (Strict)
 

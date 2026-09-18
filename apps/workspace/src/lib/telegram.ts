@@ -54,6 +54,72 @@ export interface PairingApproval {
   principalId: string;
 }
 
+// ─── Settings (TG-023) ─────────────────────────────────────────
+
+export type NotificationSeverity = 'info' | 'warning' | 'error' | 'critical';
+
+export interface NotificationPreferences {
+  enabled: Record<string, boolean>;
+  minSeverity: NotificationSeverity;
+  filters: {
+    workspaceIds?: string[];
+    projectIds?: string[];
+    agentIds?: string[];
+  };
+  quietHours: {
+    enabled: boolean;
+    startHour: number;
+    endHour: number;
+  };
+}
+
+export interface NotificationEventDescriptor {
+  type: string;
+  label: string;
+  description: string;
+  defaultEnabled: boolean;
+}
+
+export interface TelegramSettings {
+  notifications: NotificationPreferences;
+  eventCatalog: NotificationEventDescriptor[];
+  integration: {
+    enabled: boolean;
+    configured: boolean;
+    persistentStore: boolean;
+    runtimeProfile: string;
+  };
+  tunnel: TelegramTunnel;
+}
+
+// ─── Tunnel (TG-030) ───────────────────────────────────────────
+
+export type TunnelProviderKind = 'manual' | 'cloudflared' | 'ngrok';
+
+export type TunnelStatus = 'disabled' | 'starting' | 'active' | 'error';
+
+export interface TunnelConfig {
+  provider: TunnelProviderKind;
+  publicUrl?: string;
+  localPort: number;
+}
+
+export interface TunnelState {
+  status: TunnelStatus;
+  provider: TunnelProviderKind;
+  publicUrl?: string;
+  webhookUrl?: string;
+  webhookRegistered: boolean;
+  lastError?: string;
+  changedAt: string;
+}
+
+export interface TelegramTunnel {
+  config: TunnelConfig;
+  state: TunnelState;
+  availability: Record<TunnelProviderKind, boolean>;
+}
+
 // ─── API ───────────────────────────────────────────────────────
 
 export const telegramApi = {
@@ -88,6 +154,37 @@ export const telegramApi = {
     return fetchJson<PairingApproval>('/api/telegram/pairing/approve', {
       method: 'POST',
       body: JSON.stringify({ token, principalId, principalName }),
+    });
+  },
+
+  /** Get the Telegram integration settings read model (notifications + catalog) */
+  async settings(): Promise<TelegramSettings> {
+    return fetchJson<TelegramSettings>('/api/telegram/settings');
+  },
+
+  /** Persist notification preferences; returns the normalized result */
+  async updateSettings(notifications: NotificationPreferences): Promise<{ notifications: NotificationPreferences }> {
+    return fetchJson<{ notifications: NotificationPreferences }>('/api/telegram/settings', {
+      method: 'PUT',
+      body: JSON.stringify({ notifications }),
+    });
+  },
+
+  /** Read the webhook tunnel configuration and runtime state */
+  async tunnel(): Promise<TelegramTunnel> {
+    return fetchJson<TelegramTunnel>('/api/telegram/tunnel');
+  },
+
+  /** Configure and/or enable/disable the webhook tunnel */
+  async updateTunnel(patch: {
+    enabled?: boolean;
+    provider?: TunnelProviderKind;
+    publicUrl?: string;
+    localPort?: number;
+  }): Promise<TelegramTunnel> {
+    return fetchJson<TelegramTunnel>('/api/telegram/tunnel', {
+      method: 'PUT',
+      body: JSON.stringify(patch),
     });
   },
 };

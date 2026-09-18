@@ -7,9 +7,15 @@ version: 1.0
 date: 2026-07-31
 status: accepted
 author: @chief-architect
-deciders: "["@chief-architect", "@engineering-manager"]"
-tags: "["runtime", "lifecycle", "state-machine", "kernel"]"
-referenced_by: 
+deciders: ["@chief-architect", "@engineering-manager"]
+tags: ["runtime", "lifecycle", "state-machine", "kernel"]
+referenced_by:
+  - type: "runtime"
+    target: "@vestara/runtime"
+  - type: "runtime"
+    target: "@vestara/state-machine"
+  - type: "architecture"
+    target: "docs/Architecture/Agent-Orchestration.md"
 owner: vestara
 last-reviewed: 2026-09-04
 next-review: 2026-10-04

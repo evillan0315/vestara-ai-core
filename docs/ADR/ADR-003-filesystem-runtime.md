@@ -7,11 +7,17 @@ version: 1.0
 date: 2026-07-31
 status: accepted
 author: @chief-architect
-deciders: "["@chief-architect", "@backend-engineer", "@security-engineer"]"
-consulted: "["@security-engineer"]"
-tags: "["filesystem", "security", "sandbox", "approvals"]"
-referenced_by: 
-influences: 
+deciders: ["@chief-architect", "@backend-engineer", "@security-engineer"]
+consulted: ["@security-engineer"]
+tags: ["filesystem", "security", "sandbox", "approvals"]
+referenced_by:
+  - type: "runtime"
+    target: "packages/filesystem-runtime/src/index.ts"
+  - type: "architecture"
+    target: "docs/Architecture/Agent-Orchestration.md"
+influences:
+  - "Security Engineer"
+  - "Backend Engineer"
 owner: vestara
 last-reviewed: 2026-09-04
 next-review: 2026-10-04

@@ -64,6 +64,33 @@ test('three semantic presentation modes are visually distinct', async ({ page })
     }
     window.WebSocket = FixtureWebSocket as unknown as typeof WebSocket;
   });
+  const snapshot = {
+    room: { roomId: 'fixture-room', name: 'Activity Room', cursor: { sequenceNumber: 3, eventId: 'fixture-system-event', timestamp: '2026-08-09T08:02:00.000Z' }, rebuiltAt: '2026-08-09T08:02:00.000Z' },
+    participants: [
+      { participantId: 'agent-developer', type: 'agent', displayName: 'Developer', role: 'developer', modelId: 'developer', providerId: 'fixture', membership: 'member', presence: 'online', workState: 'working', lastActivityAt: '2026-08-09T08:00:00.000Z' },
+      { participantId: 'human-director', type: 'human', displayName: 'You', role: 'director', membership: 'member', presence: 'online', workState: 'available', lastActivityAt: '2026-08-09T08:01:00.000Z' },
+    ],
+    stream: fixtureRecords.map((record) => ({
+      streamItemId: record.id,
+      activityId: record.id,
+      sequenceNumber: record.sequence,
+      kind: record.kind,
+      importance: 'primary',
+      actor: record.actor,
+      content: ('content' in record ? record.content : record.reason) ?? '',
+      timestamp: record.timestamp,
+    })),
+    workflowSummary: null,
+    attention: [],
+    contextualCapabilities: {},
+    cursor: { sequenceNumber: 3, eventId: 'fixture-system-event', timestamp: '2026-08-09T08:02:00.000Z' },
+  };
+  await page.route('**/api/activity-room/v1/snapshot', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
+  });
+  await page.route('**/api/activity-room/v1/activities**', async (route) => {
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ records: [], hasMore: false }) });
+  });
   await page.route('**/api/activity-room/state', async (route) => {
     await route.fulfill({
       status: 200,
@@ -76,11 +103,7 @@ test('three semantic presentation modes are visually distinct', async ({ page })
       await route.fallback();
       return;
     }
-    await route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify({ records: fixtureRecords, firstSequence: 1, lastSequence: 3, nextSequence: 4 }),
-    });
+    await route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(snapshot) });
   });
 
   await page.goto('/activity');

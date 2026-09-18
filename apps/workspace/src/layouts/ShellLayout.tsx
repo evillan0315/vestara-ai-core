@@ -10,6 +10,7 @@ import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
 import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
 import KeyboardShortcutsModal from '../components/layout/KeyboardShortcutsModal';
 import PageContainer from '../components/layout/Page/PageContainer';
+import WorkspacePanelLayout from './WorkspacePanelLayout';
 import { Breadcrumbs } from '../components/layout/Breadcrumbs';
 import { useWorkspaceNavigation } from '../lib/navigation-store.js';
 
@@ -74,11 +75,11 @@ export default function ShellLayout() {
 
           <div className="flex min-w-0 flex-1 flex-col min-h-0">
             <AppHeader onMenuClick={toggleSidebar} />
-            <PageContainer>
-              <div className="px-4 sm:px-6 pt-4 sm:pt-6 pb-6 w-full">
+            <PageContainer fluid>
+              <WorkspacePanelLayout>
                 <Breadcrumbs />
                 <Outlet />
-              </div>
+              </WorkspacePanelLayout>
             </PageContainer>
           </div>
 

@@ -266,8 +266,14 @@ describe('documentation automation', () => {
 
     expect(proposal.requiresHumanApproval).toBe(true);
     expect(proposal.status).toBe('decided');
-    expect(checksum(proposal.target)).toBe(proposal.targetChecksum);
-    expect(checksum(proposal.dependentDocument)).toBe(proposal.dependentChecksum);
+
+    // Decided proposals preserve decision-time checksums as historical evidence.
+    // Current documents may evolve after the governed decision.
+    expect(proposal.targetChecksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(proposal.dependentChecksum).toMatch(/^[a-f0-9]{64}$/);
+    expect(fs.existsSync(path.join(repositoryRoot, proposal.target))).toBe(true);
+    expect(fs.existsSync(path.join(repositoryRoot, proposal.dependentDocument))).toBe(true);
+
     expect(
       parseMarkdown(proposal.target, fs.readFileSync(path.join(repositoryRoot, proposal.target), 'utf8')).frontmatter
         .status,

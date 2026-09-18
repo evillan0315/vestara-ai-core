@@ -76,6 +76,21 @@ export interface StreamItem {
   readonly executionId?: ExecutionId;
   readonly taskId?: WorkflowTaskId;
 
+  /**
+   * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002).
+   * The Conversation Runtime conversation (`Conversation.id`) this item's
+   * durable M9 event belongs to. Conversation identity — never surface,
+   * agent, or message identity. Absent means unknown origin.
+   */
+  readonly originConversationId?: string;
+
+  /**
+   * Sending-surface attribution passthrough (AR-UI-REPLY-002, canonical
+   * `surface?: string` vocabulary): where the principal acted from.
+   * Informational only; never principal identity.
+   */
+  readonly originSurface?: string;
+
   /** Aggregation context (for muted items). */
   readonly aggregated?: {
     readonly count: number;

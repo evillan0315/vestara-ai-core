@@ -7,6 +7,8 @@ interface AgentCardProps {
   onEdit: () => void;
   onToggleStatus: () => void;
   onDelete: () => void;
+  selected?: boolean;
+  onSelect?: () => void;
 }
 
 /**
@@ -14,13 +16,24 @@ interface AgentCardProps {
  * Uses the shared mpg-card system (glow, hover lift, staggered entrance)
  * with aspect-square for equal height/width on every card.
  */
-export function AgentCard({ agent, stats, onEdit, onToggleStatus, onDelete }: AgentCardProps) {
+export function AgentCard({ agent, stats, onEdit, onToggleStatus, onDelete, selected = false, onSelect }: AgentCardProps) {
   const isRegistered = agent.status !== 'unregistered';
   const color = getAgentColor(agent);
 
   return (
     <div
-      className="mpg-card mpg-enter aspect-square w-full"
+      className={`mpg-card mpg-enter aspect-square w-full ${selected ? 'ring-2 ring-[var(--vestara-accent)] ring-offset-2 ring-offset-[var(--vestara-shell-bg)]' : ''}`}
+      role={onSelect ? 'button' : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      aria-pressed={onSelect ? selected : undefined}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (onSelect && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault();
+          onSelect();
+        }
+      }}
+      data-selected={selected || undefined}
       style={{ animationDelay: `${Math.min(stats.total, 12) * 30}ms` }}
     >
       <div className="relative z-[2] flex h-full flex-col p-3">

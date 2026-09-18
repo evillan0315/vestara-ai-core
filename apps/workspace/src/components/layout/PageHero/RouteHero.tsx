@@ -1,21 +1,19 @@
 /**
- * RouteHero — resolve PageHero defaults from the centralized route config.
+ * RouteHero — workspace route binding for the canonical PageHero.
  *
- * Reads the current route via `useLocation()` and merges the static
- * defaults from `ROUTE_HERO_CONFIG` with per-page overrides. Pages
- * only need to supply dynamic data (stats, actions, meta, etc.).
+ * Thin app-owned adapter: resolves the route ID from the current URL
+ * (useLocation + APP_ROUTES) and the static defaults from
+ * ROUTE_HERO_CONFIG, then renders @vestara/ui RouteHero. All presentation
+ * lives in the canonical primitive; this file owns only application
+ * navigation knowledge (route resolution + SPA navigation).
  *
- * When rendered outside a `<Router>` (e.g. in tests), RouteHero
- * gracefully falls back to no defaults — callers that supply all
- * props explicitly are unaffected.
- *
- * Ownership: apps/workspace (shared layout presentation)
- * Authority: None — pure presentation, no domain behavior.
+ * When rendered outside a `<Router>` (e.g. in tests), route resolution
+ * and SPA interception gracefully degrade to prop-only behavior.
  */
 
-import { useLocation } from 'react-router-dom';
+import { RouteHero as CanonicalRouteHero, type PageHeroProps } from '@vestara/ui';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { APP_ROUTES } from '../../../routes';
-import { PageHero, type PageHeroProps } from './PageHero';
 import { ROUTE_HERO_CONFIG } from './route-hero-config';
 
 interface RouteHeroProps extends PageHeroProps {
@@ -29,52 +27,46 @@ interface RouteHeroProps extends PageHeroProps {
  */
 function resolveRouteId(pathname: string): string | undefined {
   // Exact match
-  const exact = APP_ROUTES.find(
-    (r) => r.path === pathname && !r.redirect && !r.catchAll,
-  );
+  const exact = APP_ROUTES.find((r) => r.path === pathname && !r.redirect && !r.catchAll);
   if (exact) return exact.id;
 
   // Prefix match (longest wins) — for nested routes like /settings/appearance
-  const prefix = APP_ROUTES
-    .filter((r) => r.path !== '*' && !r.redirect && !r.catchAll)
+  const prefix = APP_ROUTES.filter((r) => r.path !== '*' && !r.redirect && !r.catchAll)
     .filter((r) => pathname.startsWith(r.path.replace(/\/\*$/, '')))
     .sort((a, b) => b.path.length - a.path.length)[0];
   return prefix?.id;
 }
 
 /**
- * Safe useLocation wrapper — returns the current pathname or null
- * when rendered outside a Router (tests, storybook, etc.).
+ * Safe router hooks — return null outside a Router (tests, storybook, etc.).
  */
 function useSafePathname(): string | null {
   try {
-    const location = useLocation();
-    return location.pathname;
+    return useLocation().pathname;
   } catch {
-    // Outside <Router> — no route context available
     return null;
   }
 }
 
+function useSafeNavigate(): ((to: string) => void) | undefined {
+  try {
+    const navigate = useNavigate();
+    return (to: string) => navigate(to);
+  } catch {
+    return undefined;
+  }
+}
+
 /**
- * RouteHero renders a PageHero with defaults resolved from the route
- * config registry. Dynamic overrides (stats, actions, meta, search,
- * etc.) are spread on top.
- *
- * @example
- * // Minimal — all defaults from config:
- * <RouteHero />
- *
- * // With dynamic stats:
- * <RouteHero stats={[{ label: 'count', value: total }]} />
- *
- * // Explicit route ID:
- * <RouteHero routeId="dashboard" statusColor={color} />
+ * RouteHero renders the canonical PageHero with defaults resolved from the
+ * route config registry. Dynamic overrides (stats, actions, meta, etc.)
+ * spread on top.
  */
 export function RouteHero({ routeId: explicitId, ...overrides }: RouteHeroProps) {
   const pathname = useSafePathname();
+  const onNavigate = useSafeNavigate();
   const routeId = explicitId ?? (pathname ? resolveRouteId(pathname) : undefined);
   const defaults = routeId ? ROUTE_HERO_CONFIG[routeId] : undefined;
 
-  return <PageHero {...defaults} {...overrides} />;
+  return <CanonicalRouteHero defaults={defaults} onNavigate={onNavigate} {...overrides} />;
 }

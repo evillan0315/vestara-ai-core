@@ -356,6 +356,10 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
     workflowRunId: item.workflowRunId,
     executionId: item.executionId,
     taskId: item.taskId,
+    // AR-UI-REPLY-002: authoritative origin provenance only; the
+    // sanitizer otherwise stays an allowlist (projection stays lossy).
+    ...(typeof item.originConversationId === 'string' ? { originConversationId: item.originConversationId } : {}),
+    ...(typeof item.originSurface === 'string' ? { originSurface: item.originSurface } : {}),
     aggregated: item.aggregated
       ? {
           count: item.aggregated.count,

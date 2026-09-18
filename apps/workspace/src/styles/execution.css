@@ -17,7 +17,7 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  background: var(--vestara-shell-bg, var(--color-zinc-950));
+  background: var(--vestara-surface-canvas);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
 }
@@ -36,12 +36,12 @@
 .exec-title {
   font-size: var(--vestara-font-size-sm);
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
 }
 
 .exec-subtitle {
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 .exec-scroll {
@@ -61,14 +61,14 @@
   width: 26px;
   height: 26px;
   border-radius: var(--vestara-radius);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   transition: all 0.15s ease;
   font-size: 16px;
 }
 
 .exec-icon-btn:hover {
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
   background: var(--vestara-accent-bg);
 }
 
@@ -77,7 +77,7 @@
   align-items: center;
   gap: 0.375rem;
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-300);
+  color: var(--vestara-text-secondary);
   background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent);
   border: 1px solid var(--vestara-border-default);
   border-radius: var(--vestara-radius);
@@ -89,7 +89,7 @@
 
 .exec-btn:hover {
   border-color: var(--vestara-accent-border-hover);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
 }
 
 .exec-btn-primary {
@@ -104,7 +104,7 @@
 
 .exec-input {
   background: color-mix(in srgb, var(--vestara-surface-canvas) 70%, transparent) !important;
-  color: var(--color-zinc-300);
+  color: var(--vestara-text-secondary);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   font-size: var(--vestara-font-size-xs);
@@ -135,19 +135,19 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 .exec-card-value {
   font-size: 1.05rem;
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
   margin-top: 0.125rem;
 }
 
 .exec-card-sub {
   font-size: 10px;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   margin-top: 0.125rem;
   white-space: nowrap;
   overflow: hidden;
@@ -158,7 +158,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--color-zinc-400);
+  color: var(--vestara-text-secondary);
   font-weight: var(--vestara-font-weight-medium);
 }
 
@@ -166,7 +166,7 @@
   font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   margin-bottom: 0.375rem;
 }
 
@@ -176,7 +176,7 @@
   flex-direction: column;
   gap: 0.125rem;
   background: var(--vestara-accent-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-top: 2px solid var(--vestara-accent);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
@@ -185,14 +185,14 @@
 .exec-stat-value {
   font-size: 1rem;
   font-weight: var(--vestara-font-weight-semibold);
-  color: var(--color-zinc-100);
+  color: var(--vestara-text-primary);
 }
 
 .exec-stat-label {
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
 }
 
 /* Tabs */
@@ -206,7 +206,7 @@
 .exec-tab {
   padding: 0.375rem 0.75rem;
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   border-bottom: 2px solid transparent;
   transition: all 0.15s ease;
@@ -214,7 +214,7 @@
 }
 
 .exec-tab:hover {
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
 }
 
 .exec-tab-active {
@@ -234,9 +234,9 @@
   font-size: 9.5px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   padding: 0.3rem 0.5rem;
-  border-bottom: 1px solid var(--color-zinc-800);
+  border-bottom: 1px solid var(--vestara-border-subtle);
   position: sticky;
   top: 0;
   background: var(--vestara-accent-bg);
@@ -245,8 +245,8 @@
 
 .exec-table td {
   padding: 0.3rem 0.5rem;
-  color: var(--color-zinc-300);
-  border-bottom: 1px solid var(--color-zinc-800/50);
+  color: var(--vestara-text-secondary);
+  border-bottom: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 50%, transparent);
 }
 
 .exec-table tbody tr:hover {
@@ -267,28 +267,28 @@
   letter-spacing: 0.04em;
   padding: 0.1rem 0.375rem;
   border-radius: 9999px;
-  border: 1px solid var(--color-zinc-700);
-  color: var(--color-zinc-400);
+  border: 1px solid var(--vestara-border-default);
+  color: var(--vestara-text-secondary);
   white-space: nowrap;
 }
 
 .exec-status-pass {
-  color: var(--vestara-green, #4ade80) !important;
-  border-color: color-mix(in srgb, var(--vestara-green, #4ade80) 40%, transparent) !important;
+  color: var(--vestara-status-success) !important;
+  border-color: var(--vestara-status-success-border) !important;
 }
 
 .exec-status-warn {
-  color: var(--vestara-amber, #f59e0b) !important;
-  border-color: color-mix(in srgb, var(--vestara-amber, #f59e0b) 40%, transparent) !important;
+  color: var(--vestara-status-warning) !important;
+  border-color: var(--vestara-status-warning-border) !important;
 }
 
 .exec-status-fail {
-  color: var(--vestara-red, #f87171) !important;
-  border-color: color-mix(in srgb, var(--vestara-red, #f87171) 40%, transparent) !important;
+  color: var(--vestara-status-error) !important;
+  border-color: var(--vestara-status-error-border) !important;
 }
 
 .exec-status-unknown {
-  color: var(--color-zinc-500) !important;
+  color: var(--vestara-text-muted) !important;
 }
 
 .exec-status-dot {
@@ -299,24 +299,24 @@
 }
 
 .exec-status-dot.exec-status-pass {
-  background: var(--vestara-green, #4ade80);
+  background: var(--vestara-status-success);
   border-color: transparent;
 }
 
 .exec-status-dot.exec-status-warn {
-  background: var(--vestara-amber, #f59e0b);
+  background: var(--vestara-status-warning);
   border-color: transparent;
 }
 
 .exec-status-dot.exec-status-fail {
-  background: var(--vestara-red, #f87171);
+  background: var(--vestara-status-error);
   border-color: transparent;
 }
 
 /* Meters */
 .exec-meter-track {
   height: 4px;
-  background: var(--color-zinc-800);
+  background: var(--vestara-border-subtle);
   border-radius: 9999px;
   overflow: hidden;
 }
@@ -367,7 +367,7 @@
   left: 50%;
   width: 2px;
   height: calc(100% + 0.4rem);
-  background: var(--color-zinc-700);
+  background: var(--vestara-border-default);
 }
 
 .exec-pipeline-stage:last-child .exec-pipeline-node::after {
@@ -378,12 +378,12 @@
   width: 10px;
   height: 10px;
   border-radius: 9999px;
-  background: var(--color-zinc-700);
+  background: var(--vestara-border-default);
   flex-shrink: 0;
 }
 
 .exec-pipeline-done {
-  background: var(--vestara-green, #4ade80);
+  background: var(--vestara-status-success);
 }
 
 .exec-pipeline-live {
@@ -409,7 +409,7 @@
 
 .exec-pipeline-label {
   font-size: var(--vestara-font-size-sm);
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -417,7 +417,7 @@
 
 .exec-pipeline-agents {
   font-size: 10px;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   font-family: ui-monospace, monospace;
 }
 
@@ -425,7 +425,7 @@
 .exec-replay-step {
   margin-top: 0.5rem;
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
 }
@@ -434,7 +434,7 @@
   max-height: 160px;
   overflow-y: auto;
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.375rem 0.5rem;
 }
@@ -442,7 +442,7 @@
 /* Rows / sessions */
 .exec-row {
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.4rem 0.625rem;
 }
@@ -452,7 +452,7 @@
   width: 100%;
   text-align: left;
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
   cursor: pointer;
@@ -471,7 +471,7 @@
 /* Agent cards */
 .exec-agent-card {
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.5rem 0.625rem;
   min-width: 0;
@@ -495,9 +495,9 @@
   width: 100%;
   text-align: left;
   font-size: var(--vestara-font-size-xs);
-  color: var(--color-zinc-300);
+  color: var(--vestara-text-secondary);
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.25rem 0.5rem;
   cursor: pointer;
@@ -524,7 +524,7 @@
 }
 
 .exec-event-row {
-  border-left: 3px solid var(--color-zinc-600);
+  border-left: 3px solid var(--vestara-border-strong);
   padding: 0.35rem 0.625rem;
   background: var(--exec-inset-bg);
   border-radius: var(--vestara-radius);
@@ -545,7 +545,7 @@
 .exec-analyze-panel {
   width: min(640px, 94%);
   height: 82%;
-  background: var(--vestara-shell-bg, var(--color-zinc-950));
+  background: var(--vestara-surface-canvas);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   display: flex;
@@ -565,19 +565,19 @@
 .exec-close-btn {
   background: none;
   border: none;
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   cursor: pointer;
   font-size: 13px;
   padding: 0.25rem;
 }
 
 .exec-close-btn:hover {
-  color: var(--color-zinc-200);
+  color: var(--vestara-text-primary);
 }
 
 .exec-answer {
   background: var(--exec-inset-bg);
-  border: 1px solid var(--color-zinc-800);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   padding: 0.75rem;
 }
@@ -604,7 +604,7 @@
 
 .exec-empty {
   font-size: var(--vestara-font-size-sm);
-  color: var(--color-zinc-500);
+  color: var(--vestara-text-muted);
   padding: 0.5rem 0;
 }
 

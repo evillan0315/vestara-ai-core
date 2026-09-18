@@ -22,7 +22,7 @@
 // @vitest-environment jsdom
 
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../src/contexts/SurfaceContext', () => ({
   useSurfaceContext: () => ({
@@ -34,8 +34,14 @@ vi.mock('../src/contexts/SurfaceContext', () => ({
 }));
 
 import { ConversationPanel } from '../src/components/assistant/ConversationPanel';
+import { warmMarkdownRenderer } from './helpers/markdown-warmup';
 
 const ISO = '2026-01-01T00:00:00Z';
+
+/** VES-PERF-002 (P1): resolve the lazy markdown chunk once for this suite. */
+beforeAll(async () => {
+  await warmMarkdownRenderer();
+});
 
 function stubAssistant(overrides?: Record<string, unknown>) {
   return {

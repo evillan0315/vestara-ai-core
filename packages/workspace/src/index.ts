@@ -148,6 +148,58 @@ export {
   type HarnessThreadRunner,
 } from './harness-task-dispatcher';
 export { HelpService } from './help-service';
+export type {
+  HumanKnowledgeInput,
+  HumanKnowledgeItem,
+  HumanKnowledgeMeta,
+  HumanKnowledgeMetaInput,
+  HumanKnowledgeSubdomain,
+  HumanKnowledgeUpdate,
+  HumanSensitivity,
+  HumanTimeRange,
+  HumanVerificationStatus,
+} from './human-knowledge';
+export {
+  HUMAN_KNOWLEDGE_DEFAULT_AGENT_READABLE,
+  HUMAN_KNOWLEDGE_DEFAULT_SENSITIVITY,
+  HUMAN_KNOWLEDGE_SUBDOMAINS,
+  HUMAN_SENSITIVITIES,
+  HUMAN_VERIFICATION_STATUSES,
+  isHumanKnowledgeSubdomain,
+  isHumanSensitivity,
+  isHumanVerificationStatus,
+  isValidHumanConfidence,
+} from './human-knowledge';
+export {
+  HUMAN_KNOWLEDGE_MANIFEST,
+  HUMAN_KNOWLEDGE_MIGRATIONS,
+} from './human-knowledge-migrations';
+export type { HumanKnowledgeFilter } from './human-knowledge-storage';
+export { HumanKnowledgeStorage } from './human-knowledge-storage';
+export type {
+  HumanCredentialBinding,
+  HumanExternalIdentity,
+  HumanPrincipal,
+  HumanPrincipalInput,
+  HumanPrincipalPresentation,
+  HumanPrincipalProjection,
+  HumanPrincipalStatus,
+  HumanPrincipalUpdate,
+} from './human-principal';
+export {
+  HUMAN_PRINCIPAL_STATUSES,
+  isHumanPrincipalStatus,
+  projectHumanPrincipal,
+} from './human-principal';
+export {
+  HUMAN_PRINCIPAL_MANIFEST,
+  HUMAN_PRINCIPAL_MIGRATIONS,
+} from './human-principal-migrations';
+export {
+  HumanPrincipalConflictError,
+  HumanPrincipalNotFoundError,
+  HumanPrincipalStorage,
+} from './human-principal-storage';
 export { ImpactStorage } from './impact-storage';
 export { ImplementationService } from './implementation-service';
 export { KnowledgeGraphStorage } from './knowledge-graph-storage';

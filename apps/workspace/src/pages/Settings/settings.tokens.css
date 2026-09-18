@@ -20,6 +20,7 @@
      Replaces the saturated accent wash for large domain surfaces; the
      accent survives in icon tiles, active states, and primary actions. */
   --st-panel-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --st-modal-z-index: 1400;
   --st-panel-backdrop:
     radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 6%, transparent) 0%, transparent 60%),
     var(--vestara-surface-panel);
@@ -40,6 +41,7 @@
 /* ── Light appearance ── */
 [data-theme='light'] {
   --st-panel-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --st-modal-z-index: 1400;
   --st-panel-backdrop:
     radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 8%, transparent) 0%, transparent 60%),
     var(--vestara-surface-panel);

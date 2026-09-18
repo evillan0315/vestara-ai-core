@@ -25,6 +25,23 @@ import * as collect from '../diagnostics/collect';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
+/**
+ * Short-TTL cache for slow-changing subprocess collectors inside composed
+ * snapshots (summary/health/snapshots), which otherwise re-spawn docker, git
+ * and GPU CLIs on every poll. The dedicated endpoints (/docker, /git, /gpu,
+ * /versions) stay uncached so on-demand reads are always fresh, and
+ * `collect.ts` stays pure for isolated unit tests.
+ */
+const composedCache = new Map<string, { at: number; value: unknown }>();
+
+function cachedComposed<T>(key: string, ttlMs: number, collectFn: () => T): T {
+  const hit = composedCache.get(key);
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value as T;
+  const value = collectFn();
+  composedCache.set(key, { at: Date.now(), value });
+  return value;
+}
+
 export async function handleDiagnosticsRoute(
   method: string,
   p: string,
@@ -40,9 +57,9 @@ export async function handleDiagnosticsRoute(
     const fp = session.fingerprint;
     const memory = collect.collectMemory();
     const disks = collect.collectDisks();
-    const gpu = collect.collectGpu();
-    const docker = collect.collectDocker();
-    const git = collect.collectGit(ctx.repoPath);
+    const gpu = cachedComposed('gpu', 30_000, () => collect.collectGpu());
+    const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
+    const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
     const cpu = collect.collectCpu();
     const versions = collect.collectVersions();
     const health = collect.collectHealth({
@@ -164,9 +181,9 @@ export async function handleDiagnosticsRoute(
   if (method === 'GET' && p === '/api/diagnostics/health') {
     const memory = collect.collectMemory();
     const disks = collect.collectDisks();
-    const gpu = collect.collectGpu();
-    const docker = collect.collectDocker();
-    const git = collect.collectGit(ctx.repoPath);
+    const gpu = cachedComposed('gpu', 30_000, () => collect.collectGpu());
+    const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
+    const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
     const versions = collect.collectVersions();
     const checks = collect.collectHealth({
       repoPath: ctx.repoPath,
@@ -189,9 +206,9 @@ export async function handleDiagnosticsRoute(
   if (method === 'GET' && p === '/api/diagnostics/snapshots') {
     const memory = collect.collectMemory();
     const disks = collect.collectDisks();
-    const gpu = collect.collectGpu();
-    const docker = collect.collectDocker();
-    const git = collect.collectGit(ctx.repoPath);
+    const gpu = cachedComposed('gpu', 30_000, () => collect.collectGpu());
+    const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
+    const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
     const versions = collect.collectVersions();
 
     const { collectDiagnosticSnapshots } = await import('../diagnostics/snapshots.js');
@@ -447,7 +464,87 @@ async function collectEvents(ctx: WorkspaceContext, limit: number): Promise<Diag
     });
   }
 
+  // Engineering event store holds workspace activity (threads, turns, tool
+  // calls, verification, sessions). Without it the timeline is empty until an
+  // agent reports via telemetry, so the Logs tab looks broken on a fresh
+  // server. Merge both sources, newest first.
+  try {
+    const eng = ctx.engineeringEvents.query({ limit });
+    for (const e of eng) {
+      out.push({
+        id: `eng-${e.seq}-${e.id}`,
+        timestamp: e.at,
+        category: engineeringEventCategory(e.type),
+        type: e.type,
+        actor: e.actorId || e.source || e.authority,
+        message: engineeringEventMessage(e.type, e.payload),
+        status: engineeringEventStatus(e.type),
+      });
+    }
+  } catch {
+    /* engineering store unavailable — telemetry events still render */
+  }
+
   return out.sort((a, b) => (a.timestamp < b.timestamp ? 1 : -1)).slice(0, limit);
+}
+
+function engineeringEventCategory(type: string): string {
+  const head = type.split('.')[0]?.toLowerCase() ?? '';
+  if (
+    [
+      'agent',
+      'workspace',
+      'planning',
+      'implementation',
+      'verification',
+      'collaboration',
+      'memory',
+      'conversation',
+      'profile',
+    ].includes(head)
+  ) {
+    return head;
+  }
+  if (head === 'workflow' || head === 'task' || head === 'turn' || head === 'thread') return 'planning';
+  if (
+    head === 'tool' ||
+    head === 'file' ||
+    head === 'search' ||
+    head === 'build' ||
+    head === 'test' ||
+    head === 'lint'
+  ) {
+    return 'implementation';
+  }
+  if (head === 'review' || head === 'verify') return 'verification';
+  if (head === 'session' || head === 'human' || head === 'chat') return 'conversation';
+  return 'system';
+}
+
+function engineeringEventMessage(type: string, payload: Readonly<Record<string, unknown>>): string {
+  const pick = (key: string): string | null => {
+    const value = payload[key];
+    return typeof value === 'string' && value.trim() ? value.trim() : null;
+  };
+  const text =
+    pick('message') ??
+    pick('summary') ??
+    pick('task') ??
+    pick('title') ??
+    pick('text') ??
+    pick('detail') ??
+    pick('instruction') ??
+    pick('path');
+  if (!text) return type;
+  return text.length > 280 ? `${text.slice(0, 280)}…` : text;
+}
+
+function engineeringEventStatus(type: string): string | undefined {
+  const t = type.toLowerCase();
+  if (t.includes('fail') || t.includes('error')) return 'failed';
+  if (t.includes('complete') || t.includes('pass') || t.includes('success')) return 'completed';
+  if (t.includes('start') || t.includes('progress') || t.includes('running')) return 'running';
+  return undefined;
 }
 
 function deriveAlerts(input: {

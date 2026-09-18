@@ -20,7 +20,7 @@
 
 import type { WorkspaceNavIcon } from '../../layouts/workspace-navigation.js';
 
-export type SettingsGroupId = 'workspace' | 'runtime-ai' | 'engineering' | 'operations' | 'advanced';
+export type SettingsGroupId = 'workspace' | 'appearance' | 'system' | 'runtime-ai' | 'engineering' | 'operations' | 'advanced';
 
 export interface SettingsNavGroup {
   id: SettingsGroupId;
@@ -29,6 +29,8 @@ export interface SettingsNavGroup {
 
 export const SETTINGS_GROUPS: SettingsNavGroup[] = [
   { id: 'workspace', label: 'Workspace' },
+  { id: 'appearance', label: 'Appearance' },
+  { id: 'system', label: 'System' },
   { id: 'runtime-ai', label: 'Runtime & AI' },
   { id: 'engineering', label: 'Engineering' },
   { id: 'operations', label: 'Operations' },
@@ -52,8 +54,14 @@ export interface SettingsSectionMeta {
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'overview', label: 'Overview', description: 'Configuration and system health', group: 'workspace', icon: 'dashboard', code: 'OV' },
   { id: 'hero', label: 'Hero & Briefing', description: 'Overview hero topic, rotation and morning briefing', group: 'workspace', icon: 'dashboard', code: 'HR' },
-  { id: 'general', label: 'General', description: 'Workspace identity and interface', group: 'workspace', icon: 'settings', code: 'GN' },
+  { id: 'general', label: 'General', description: 'Workspace identity and defaults', group: 'workspace', icon: 'settings', code: 'GN' },
   { id: 'navigation', label: 'Navigation', description: 'Sidebar menus and custom entries', group: 'workspace', icon: 'routing', code: 'NV' },
+  { id: 'profiles', label: 'Profiles', description: 'Curated workspace profiles', group: 'appearance', icon: 'dashboard', code: 'PF' },
+  { id: 'appearance', label: 'Appearance', description: 'Theme mode and accent palette', group: 'appearance', icon: 'settings', code: 'AP' },
+  { id: 'typography', label: 'Typography', description: 'Font family, size, and weight', group: 'appearance', icon: 'generic', code: 'TY' },
+  { id: 'layout', label: 'Layout', description: 'Sidebar, spacing, radius, and density', group: 'appearance', icon: 'routing', code: 'LY' },
+  { id: 'system', label: 'System Overview', description: 'Host, runtime and environment information', group: 'system', icon: 'diagnostics', code: 'SY' },
+  { id: 'environment', label: 'Environment Variables', description: 'Curated runtime environment registry', group: 'system', icon: 'tools', code: 'EV' },
   { id: 'runtime', label: 'Runtime', description: 'Runtime services and operations', group: 'runtime-ai', icon: 'activity', code: 'RT' },
   { id: 'providers', label: 'AI Providers', description: 'Providers and models', group: 'runtime-ai', icon: 'assistant', code: 'AI' },
   { id: 'agents', label: 'Agents', description: 'Agent execution policy', group: 'runtime-ai', icon: 'agents', code: 'AG' },

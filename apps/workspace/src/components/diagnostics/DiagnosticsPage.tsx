@@ -13,7 +13,7 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded';
 import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   AssetGridSkeleton,
   GalleryCard,
@@ -26,11 +26,9 @@ import { AiAnalyze } from './AiAnalyze';
 import { HistoryChart, Meter } from './charts';
 import type { DiagTab } from './DiagnosticsContext';
 import { DiagnosticsProvider, INTERVAL_OPTIONS, useDiagnostics } from './DiagnosticsContext';
-import { DockerPanel } from './DockerPanel';
 import { EnvPanel } from './EnvPanel';
 import { GitPanel } from './GitPanel';
 import { HealthPanel } from './HealthPanel';
-import { LogViewer } from './LogViewer';
 import { OverviewCards } from './OverviewCards';
 import { ProcessExplorer } from './ProcessExplorer';
 import { StoragePanel } from './StoragePanel';
@@ -43,26 +41,27 @@ const TABS: Array<{ id: DiagTab; label: string; glyph: string }> = [
   { id: 'overview', label: 'Overview', glyph: '◍' },
   { id: 'processes', label: 'Processes', glyph: '≡' },
   { id: 'storage', label: 'Storage', glyph: '▤' },
-  { id: 'docker', label: 'Docker', glyph: '⬢' },
   { id: 'git', label: 'Git', glyph: '⎇' },
   { id: 'environment', label: 'Environment', glyph: '⚙' },
   { id: 'agents', label: 'Agents', glyph: '◉' },
-  { id: 'logs', label: 'Logs', glyph: '☰' },
   { id: 'health', label: 'Health', glyph: '✓' },
 ];
 
-function StatusDot({ color, label }: { color: string; label?: string }) {
-  return (
-    <span
-      aria-hidden="true"
-      title={label}
-      className="inline-block h-2 w-2 shrink-0 rounded-full"
-      style={{ background: color, boxShadow: `0 0 6px ${color}` }}
-    />
-  );
+type DotTone = 'ok' | 'info' | 'warn' | 'bad';
+
+function StatusDot({ tone = 'ok', label }: { tone?: DotTone; label?: string }) {
+  return <span aria-hidden="true" title={label} className={`diag-dot diag-dot-${tone}`} />;
 }
 
-function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExport: () => void }) {
+function DiagnosticsHero({
+  onAnalyze,
+  onExport,
+  exporting,
+}: {
+  onAnalyze: () => void;
+  onExport: () => void;
+  exporting: boolean;
+}) {
   const { summary, paused } = useDiagnostics();
   const critical = summary?.alerts.filter((a) => a.severity === 'critical').length ?? 0;
   const warnings = summary?.alerts.filter((a) => a.severity === 'warning').length ?? 0;
@@ -73,7 +72,7 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
     <RouteHero
       routeId="diagnostics"
       eyebrow={paused ? 'Telemetry paused' : 'Live telemetry'}
-      statusColor={paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
+      statusTone={paused ? 'warning' : 'success'}
       quote={
         summary
           ? `${summary.os.hostname} · ${summary.workspace.name} · ${summary.os.platform} ${summary.os.arch}`
@@ -88,15 +87,16 @@ function DiagnosticsHero({ onAnalyze, onExport }: { onAnalyze: () => void; onExp
           glyph: <AutoAwesomeRoundedIcon fontSize="inherit" />,
         },
         {
-          label: 'Export report',
+          label: exporting ? 'Exporting…' : 'Export report',
           onClick: onExport,
+          disabled: exporting,
           title: 'Export diagnostics report',
           glyph: <DownloadRoundedIcon fontSize="inherit" />,
         },
       ]}
       meta={
-        <span className="mpg-tag-pill" style={{ color: 'var(--vestara-text-secondary)' }}>
-          <StatusDot color={healthy ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'} />
+        <span className="mpg-tag-pill text-[var(--vestara-text-secondary)]">
+          <StatusDot tone={healthy ? 'ok' : 'bad'} />
           {healthy ? 'Systems nominal' : `${critical} critical`}
         </span>
       }
@@ -166,11 +166,11 @@ function ControlStrip() {
       <span className="ml-1 inline-flex items-center gap-1.5 text-[11px] text-[var(--vestara-text-muted)]">
         {diag.paused ? (
           <>
-            <StatusDot color="var(--vestara-status-warning)" label="Paused" /> Paused
+            <StatusDot tone="warn" label="Paused" /> Paused
           </>
         ) : (
           <>
-            <StatusDot color="var(--vestara-status-success)" label="Streaming" /> Streaming
+            <StatusDot tone="ok" label="Streaming" /> Streaming
           </>
         )}
         {diag.summaryError ? <span className="text-[var(--vestara-status-warning)]">· feed degraded</span> : null}
@@ -224,7 +224,11 @@ function LiveCharts() {
         badge={summary ? `${Math.round(cpu)}%` : 'Live'}
         delay={80}
       >
-        <HistoryChart points={cpuHistory} color={cpuColor} label="Live · last 60 samples" />
+        <HistoryChart
+          points={cpuHistory}
+          color={cpuColor}
+          label={`Live · ${cpuHistory.length}/60 samples`}
+        />
         {summary && (
           <div className="mt-3 grid grid-cols-3 gap-2">
             <Meter
@@ -251,7 +255,11 @@ function LiveCharts() {
         badge={summary ? `${Math.round(memPct)}%` : 'Live'}
         delay={120}
       >
-        <HistoryChart points={memHistory} color={memColor} label="Live · last 60 samples" />
+        <HistoryChart
+          points={memHistory}
+          color={memColor}
+          label={`Live · ${memHistory.length}/60 samples`}
+        />
         {summary && (
           <div className="mt-3 grid grid-cols-2 gap-2">
             <Meter
@@ -312,36 +320,57 @@ function SectionTabs() {
 function DiagnosticsPageInner() {
   const diag = useDiagnostics();
   const [aiOpen, setAiOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const lastCriticalRef = useRef<number | null>(null);
   const { summary, summaryError } = diag;
 
   useEffect(() => {
-    if (summary?.alerts?.length) {
-      document.title = `Diagnostics · ${summary.alerts.filter((a) => a.severity === 'critical').length} critical`;
-      return () => {
+    const critical = summary?.alerts.filter((a) => a.severity === 'critical').length ?? 0;
+    if (!summary?.alerts?.length) {
+      if (lastCriticalRef.current !== null) {
+        lastCriticalRef.current = null;
         document.title = 'Vestara Workspace';
-      };
+      }
+      return;
     }
+    if (lastCriticalRef.current === critical) return;
+    lastCriticalRef.current = critical;
+    document.title = `Diagnostics · ${critical} critical`;
+    return () => {
+      document.title = 'Vestara Workspace';
+    };
   }, [summary?.alerts]);
 
   const exportReport = async () => {
-    const [processes, events] = await Promise.all([
-      diagnosticsApi.processes({ limit: 1500 }),
-      diagnosticsApi.events({ limit: 200 }),
-    ]);
-    const report = {
-      generatedAt: new Date().toISOString(),
-      summary,
-      processes: processes?.processes,
-      events: events?.events,
-      agents: diag.agents,
-    };
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vestara-diagnostics-report-${new Date().toISOString().split('T')[0]}.json`;
-    a.click();
-    URL.revokeObjectURL(url);
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const [processes, events] = await Promise.all([
+        diagnosticsApi.processes({ limit: 1500 }),
+        diagnosticsApi.events({ limit: 200 }),
+      ]);
+      if (!processes || !events) throw new Error('telemetry unavailable');
+      const report = {
+        generatedAt: new Date().toISOString(),
+        summary,
+        processes: processes.processes,
+        events: events.events,
+        agents: diag.agents,
+      };
+      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vestara-diagnostics-report-${new Date().toISOString().split('T')[0]}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      setExportError(err instanceof Error ? err.message : 'Export failed');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const loading = diag.summaryLoading && !summary;
@@ -363,8 +392,26 @@ function DiagnosticsPageInner() {
         </div>
       )}
 
+      {exportError && (
+        <div className="mb-3">
+          <InsightBanner
+            severity="warning"
+            description={`Export failed — ${exportError}`}
+            action={
+              <button type="button" className="mpg-pill" onClick={() => setExportError(null)}>
+                Dismiss
+              </button>
+            }
+          />
+        </div>
+      )}
+
       <div className="mb-4 w-full min-w-0 space-y-4 sm:mb-6">
-        <DiagnosticsHero onAnalyze={() => setAiOpen(true)} onExport={() => void exportReport()} />
+        <DiagnosticsHero
+          onAnalyze={() => setAiOpen(true)}
+          onExport={() => void exportReport()}
+          exporting={exporting}
+        />
         <ControlStrip />
 
         {loading ? (
@@ -387,19 +434,13 @@ function DiagnosticsPageInner() {
         <SectionTabs />
 
         <div className="mpg-enter" style={{ animationDelay: '40ms' }} key={diag.activeTab}>
-          <GalleryCard>
-            <div className="diag-panel p-3 sm:p-4">
-              {diag.activeTab === 'overview' && <SystemInfo />}
-              {diag.activeTab === 'processes' && <ProcessExplorer />}
-              {diag.activeTab === 'storage' && <StoragePanel />}
-              {diag.activeTab === 'docker' && <DockerPanel />}
-              {diag.activeTab === 'git' && <GitPanel />}
-              {diag.activeTab === 'environment' && <EnvPanel />}
-              {diag.activeTab === 'agents' && <AgentMonitor />}
-              {diag.activeTab === 'logs' && <LogViewer />}
-              {diag.activeTab === 'health' && <HealthPanel />}
-            </div>
-          </GalleryCard>
+          {diag.activeTab === 'overview' && <SystemInfo />}
+          {diag.activeTab === 'processes' && <ProcessExplorer />}
+          {diag.activeTab === 'storage' && <StoragePanel />}
+          {diag.activeTab === 'git' && <GitPanel />}
+          {diag.activeTab === 'environment' && <EnvPanel />}
+          {diag.activeTab === 'agents' && <AgentMonitor />}
+          {diag.activeTab === 'health' && <HealthPanel />}
         </div>
       </div>
 

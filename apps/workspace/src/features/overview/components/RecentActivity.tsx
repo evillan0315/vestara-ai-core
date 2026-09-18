@@ -5,8 +5,10 @@
  * detail, and relative time.
  */
 
+import { useState } from 'react';
 import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
 import type { OverviewActivityItem } from '../overview.types';
+import { timeAgo as formatRelativeTime } from '../utils/timeAgo';
 import { SectionCard } from './SectionCard';
 
 interface RecentActivityProps {
@@ -34,14 +36,12 @@ const KIND_GLYPH: Record<string, string> = {
 };
 
 function timeAgo(iso: string): string {
-  const mins = Math.max(1, Math.round((Date.now() - new Date(iso).getTime()) / 60_000));
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.round(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.round(hours / 24)}d ago`;
+  return formatRelativeTime(iso);
 }
 
 export function RecentActivity({ items }: RecentActivityProps) {
+  const [expanded, setExpanded] = useState(false);
+  const visible = expanded ? items : items.slice(0, 3);
   if (items.length === 0) {
     return (
       <SectionCard title="Recent Activity" actionLabel="View All" actionHref="/activity" accent="var(--vestara-status-success)" index={1}>
@@ -53,7 +53,7 @@ export function RecentActivity({ items }: RecentActivityProps) {
   return (
     <SectionCard title="Recent Activity" actionLabel="View All" actionHref="/activity" accent="var(--vestara-status-success)" index={2}>
       <ul className="space-y-1">
-        {items.slice(0, 3).map((item, i) => {
+        {visible.map((item, i) => {
           const accent = KIND_ACCENT[item.kind] ?? KIND_ACCENT['agent-action'];
           const glyph = KIND_GLYPH[item.kind] ?? KIND_GLYPH['agent-action'];
           return (
@@ -93,9 +93,14 @@ export function RecentActivity({ items }: RecentActivityProps) {
         })}
       </ul>
       {items.length > 3 && (
-        <p className="mt-2 text-center text-[11px] text-[var(--vestara-text-muted)]">
-          +{items.length - 3} more in Activity Room
-        </p>
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          aria-expanded={expanded}
+          className="mt-2 w-full text-center text-[11px] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+        >
+          {expanded ? 'Show less' : `+${items.length - 3} more in Activity Room — expand`}
+        </button>
       )}
     </SectionCard>
   );

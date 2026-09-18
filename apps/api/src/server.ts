@@ -37,6 +37,7 @@ import { handleEvidenceRoute } from './routes/evidence';
 import { handleExecutionRoute } from './routes/execution';
 import { handleExternalRuntimeRoute, registerExternalRuntimeService } from './routes/external-runtime';
 import { featureRequests, handleFeatureRequestsRoute } from './routes/feature-requests';
+import { handleFilesRoute } from './routes/files';
 import { handleGitHubCIRoute } from './routes/github-ci';
 import { handleGraphRoute } from './routes/graph';
 import { handleHostRoute } from './routes/host';
@@ -58,6 +59,7 @@ import { handleQualificationRoute } from './routes/qualification';
 import { handleRoutingRoute } from './routes/routing';
 import { handleSchedulesRoute } from './routes/schedules';
 import { handleSessionsRoute } from './routes/sessions';
+import { handleSystemEnvironmentRoute } from './routes/system-environment';
 import { handleTeamsRoute } from './routes/teams';
 import { handleTelegramRoute } from './routes/telegram';
 import { handleTelemetryRoute } from './routes/telemetry';
@@ -160,6 +162,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/agents/workforce', '/api/external-runtime'], handler: handleExternalRuntimeRoute },
   { prefixes: ['/api/graph'], handler: handleGraphRoute },
   { prefixes: ['/api/boot', '/api/host'], handler: handleHostRoute },
+  { prefixes: ['/api/system'], handler: handleSystemEnvironmentRoute },
   { prefixes: ['/api/browser'], handler: handleBrowserRoute },
   { prefixes: ['/api/media'], handler: handleMediaRoute },
   { prefixes: ['/api/docs'], handler: handleDocsRoute },
@@ -178,6 +181,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   },
   { prefixes: ['/api/providers'], handler: handleProvidersRoute },
   { prefixes: ['/api/worktrees'], handler: handleWorktreeRoute },
+  { prefixes: ['/api/files'], handler: handleFilesRoute },
   { prefixes: ['/api/workflows'], handler: handleWorkflowRoute },
   { prefixes: ['/api/qualification'], handler: handleQualificationRoute },
   { prefixes: ['/api/orchestration'], handler: handleOrchestrationRoute },

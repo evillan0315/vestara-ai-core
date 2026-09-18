@@ -20,7 +20,7 @@
 // @vitest-environment jsdom
 
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockFetch = vi.fn();
 global.fetch = mockFetch as any;
@@ -54,6 +54,7 @@ vi.mock('@vestara/ui', () => ({
   ),
 }));
 
+import { warmMarkdownRenderer } from './helpers/markdown-warmup';
 import { ConversationPanel } from '../src/components/assistant/ConversationPanel';
 import { FloatingPanel } from '../src/components/assistant/FloatingPanel';
 import { useAssistantConversation } from '../src/hooks/useAssistantConversation';
@@ -68,6 +69,11 @@ import {
 
 const flush = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
 const isoNow = () => new Date().toISOString();
+
+/** VES-PERF-002 (P1): resolve the lazy markdown chunk once for this suite. */
+beforeAll(async () => {
+  await warmMarkdownRenderer();
+});
 const isoDaysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
 
 // ─── Deferred SSE stream harness ────────────────────────────────

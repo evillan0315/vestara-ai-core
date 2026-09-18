@@ -38,6 +38,35 @@ export interface CliStatusDto {
   validation?: Array<{ stage: string; status: 'passed' | 'failed' }>;
 }
 
+export type EnvironmentVariableScope = 'workspace' | 'api-process' | 'opencode' | 'build' | 'systemd-unit';
+
+export type EnvironmentEffectiveSource =
+  | 'default'
+  | 'user'
+  | 'workspace'
+  | 'session'
+  | 'command'
+  | 'environment'
+  | 'configuration'
+  | 'credential-store'
+  | 'unknown';
+
+export interface EnvironmentVariableView {
+  name: string;
+  scope: EnvironmentVariableScope;
+  description: string;
+  effectiveSource: EnvironmentEffectiveSource;
+  sourcePath?: string;
+  hasValue: boolean;
+  sensitive: boolean;
+  masked: boolean;
+  /** Non-sensitive effective value only — absent for sensitive entries. */
+  effectiveValue?: string;
+  editable: boolean;
+  overridden: boolean;
+  restartRequired: boolean;
+}
+
 export interface EventStoreStatusDto {
   persistence: 'memory' | 'sqlite';
   warning?: string;
@@ -66,6 +95,7 @@ export const settingsClient = {
   runtime: () => request<RuntimeStatusDto>('/api/runtime/status'),
   cli: () => request<CliStatusDto>('/api/cli/status'),
   history: () => request<EventStoreStatusDto>('/api/graph/store'),
+  environment: () => request<{ variables: EnvironmentVariableView[] }>('/api/system/environment'),
   save: (configuration: ResolvedConfiguration, section: SettingsSectionId, overrides: Record<string, unknown>) =>
     request<{ configuration: ResolvedConfiguration }>('/api/settings', {
       method: 'PATCH',

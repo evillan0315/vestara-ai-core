@@ -32,28 +32,61 @@ import { useM11CActivityRoom, streamItemFromLive, type M11CStreamItem } from '..
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AAggregateDrillDown } from '../../lib/m11a-api';
+import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
-import { RouteHero } from '../../components/layout/PageHero/RouteHero';
-import { useMorningBriefing } from '../../hooks/useMorningBriefing';
 import '../../styles/activity-room.css';
 
-function getTimeBasedGreeting(now = new Date()) {
-  const h = now.getHours();
-  if (h < 12) return { greeting: 'Good Morning', period: 'morning', emoji: '☀️' };
-  if (h < 18) return { greeting: 'Good Afternoon', period: 'afternoon', emoji: '🌤️' };
-  return { greeting: 'Good Evening', period: 'evening', emoji: '🌙' };
-}
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import M11CActivityStream from './M11CActivityStream';
-import M11CConnectionStatus from './M11CConnectionStatus';
 import M11CParticipantRail from './M11CParticipantRail';
 import M11CLiveNowStrip from './M11CLiveNowStrip';
 import M11CWorkflowBrowser, { deriveWorkflowUnits, hasActiveWork } from './M11CWorkflowBrowser';
-import M11CDockedInspector from './M11CDockedInspector';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
+import ActivityRoomHeader from './ActivityRoomHeader';
+
+import M11CActivityDetailModal from './M11CActivityDetailModal';
+
+const WORKING_AREA_GRID_CLASS =
+  'grid w-full max-w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 mt-3 ar-workarea lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(16rem,20rem)] lg:grid-rows-[minmax(0,1fr)]';
+
+function formatFreshness(timestamp: number | null, now: number): string {
+  if (timestamp === null) return 'Waiting for first update';
+  const seconds = Math.max(0, Math.floor((now - timestamp) / 1000));
+  if (seconds < 5) return 'Updated just now';
+  if (seconds < 60) return `Updated ${seconds}s ago`;
+  return `Updated ${Math.floor(seconds / 60)}m ago`;
+}
+
+function ActivityFreshness({ timestamp }: { timestamp: number | null }) {
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  return (
+    <span
+      className="mpg-tag-pill"
+      title={timestamp === null ? 'No Activity Room data has been received yet' : new Date(timestamp).toLocaleTimeString()}
+      aria-live="polite"
+    >
+      {formatFreshness(timestamp, now)}
+    </span>
+  );
+}
+
+function ActivityPanelSkeleton({ label }: { label: string }) {
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2" aria-label={`Loading ${label}`}>
+      <span className="ar-kicker">{label}</span>
+      {[0, 1, 2, 3].map((item) => <div className="ar-skeleton" key={item} />)}
+    </div>
+  );
+}
 
 // ─── Component ───────────────────────────────────────────────
 
@@ -61,8 +94,6 @@ export default function M11CActivityRoomPage() {
   useRenderProfiler('M11CActivityRoomPage');
   const room = useM11CActivityRoom();
   const ui = useActivityRoomUI();
-  const { briefing: morningBriefing } = useMorningBriefing();
-  const [morningOpen, setMorningOpen] = useState(false);
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
   // Scan-first scope: attention banner focuses the stream preset; workflow
   // badges/browser rows scope the stream to one workflow. Both clearable.
@@ -178,6 +209,18 @@ export default function M11CActivityRoomPage() {
     }
   }, []);
 
+  // AR-UI-REPLY-001: source-aware Reply. Assistant-originated items carry an
+  // authoritative conversation reference → open the Global Assistant on that
+  // EXISTING conversation (composer focused, nothing created). All other
+  // items — Activity Room-originated, missing, or unknown provenance — stay
+  // on the existing local composer path (fail safe). Origin is never
+  // inferred from display text, agent name, icon, or message content.
+  // The Reply control is a native <button>, so click and keyboard
+  // (Enter/Space) activation both arrive here.
+  const handleReply = useCallback((item: M11CStreamItem) => {
+    handleActivityReply(item, (local) => ui.setReplyTo(local));
+  }, [ui.setReplyTo]);
+
   // Look up author name by activity ID from the stream
   const lookupAuthor = useCallback((activityId: string): string | undefined => {
     const item = room.stream.find((s) => s.id === activityId);
@@ -211,50 +254,21 @@ export default function M11CActivityRoomPage() {
   // exactly as the browser defines it, or the latest summary is running.
   const workflowUnits = useMemo(() => deriveWorkflowUnits(room.stream), [room.stream]);
   const hasActiveWorkflows = hasActiveWork(workflowUnits, room.workflowSummary);
-  const detailOpen = ui.detailItem != null;
-  // Stream owns the flexible share; rails keep bounded widths. Active
-  // workflows render as a strip above the stream (never a middle column),
-  // so the grid is at most rail + stream + inspector. The inspector track
-  // exists only at >=1440px where it docks; below that it is a fixed
-  // overlay drawer with no grid track. Exactly one lg template applies —
-  // never two competing column definitions.
-  const workingAreaGrid = [
-    // Fit-to-screen: full-width grid that never forces horizontal overflow.
-    // Rail + stream at lg; the inspector track exists only at >=1440px where
-    // .ar-inspector actually docks (below that it renders as an overlay
-    // drawer, so no grid track is reserved for it). At lg the single row
-    // stretches to fill the viewport-fit column (see .ar-workarea).
-    'grid w-full max-w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 mt-3 ar-workarea',
-    detailOpen
-      ? 'ar-workarea--detail lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] min-[1440px]:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,20rem)]'
-      : 'lg:grid-cols-[minmax(0,18rem)_minmax(0,1fr)] xl:grid-cols-[minmax(0,18rem)_minmax(0,1fr)_minmax(0,16rem)]',
-    'lg:grid-rows-[minmax(0,1fr)]',
-  ].join(' ');
-
+  const activityLoading = room.lastUpdatedAt === null && room.state === 'connecting';
   return (
     <div className="ar-page min-w-0 w-full max-w-full">
       {/* ─── Canonical workspace Hero (VES-DESIGN-008B) ─────────
           Replaces the hand-rolled ar-plinth. Hierarchy:
           STATUS (connection) vs METADATA (records/cursor) vs ACTION
           (Pause/Clear). No reference-only controls, no fake metrics. */}
-      <RouteHero
-        routeId="activity"
-        title={roomName}
-        actions={[
-          { label: room.paused ? 'Resume' : 'Pause', onClick: room.paused ? room.resume : room.pause },
-          { label: 'Clear', onClick: room.clear, title: 'Clear local view' },
-        ]}
-        meta={
-          <>
-            <M11CConnectionStatus state={room.state} />
-            <span className="mpg-tag-pill">
-              {room.stream.length} record{room.stream.length === 1 ? '' : 's'}
-            </span>
-            {room.cursor && (
-              <span className="mpg-tag-pill">cursor {room.cursor.sequenceNumber}</span>
-            )}
-          </>
-        }
+      <ActivityRoomHeader
+        roomName={roomName}
+        state={room.state}
+        paused={room.paused}
+        recordCount={room.stream.length}
+        cursor={room.cursor?.sequenceNumber}
+        onPause={room.paused ? room.resume : room.pause}
+        onClear={room.clear}
       />
 
       {/* ─── Error Banner ───────────────────────────────── */}
@@ -267,42 +281,15 @@ export default function M11CActivityRoomPage() {
           </Pill>
         </div>
       )}
-
-      {/* ─── Briefing Banner — dynamic greeting based on local time, exact executedAt ─── */}
-      {morningBriefing && (() => { const { greeting, period, emoji } = getTimeBasedGreeting(); return (
-        <button
-          type="button"
-          onClick={() => setMorningOpen(true)}
-          className="mt-3 flex w-full max-w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-amber)]/30 bg-[var(--vestara-amber)]/10 px-4 py-3 text-left hover:bg-[var(--vestara-amber)]/15 transition-colors cursor-pointer"
-        >
-          <span className="text-[var(--vestara-amber)]">{emoji}</span>
+      {(room.state === 'reconnecting' || room.state === 'offline') && room.lastUpdatedAt !== null && (
+        <div className="ar-banner ar-banner--info mt-3" role="status" aria-live="polite">
+          <StatusIndicator variant="warn" size="sm" ariaLabel="Activity Room reconnecting" />
           <span className="min-w-0 flex-1">
-            <span className="block text-xs font-semibold text-[var(--vestara-text)]">{greeting} Director — your {period} briefing</span>
-            <span className="block text-[11px] text-[var(--vestara-text-muted)] truncate">{morningBriefing.summary} · Executed: {new Date(morningBriefing.executedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'medium' })} — click for detail</span>
+            {room.state === 'reconnecting' ? 'Reconnecting — showing the latest received activity.' : 'Connection lost — activity may be stale.'}
           </span>
-          <span className="shrink-0 text-xs text-[var(--vestara-amber)]">View ›</span>
-        </button>
-      ); })()}
-      {morningOpen && morningBriefing && (() => { const { greeting, period, emoji } = getTimeBasedGreeting(); return (
-        <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" role="dialog" aria-modal="true" onClick={() => setMorningOpen(false)}>
-          <div className="w-full max-w-2xl max-h-[80vh] overflow-auto rounded-xl border bg-[var(--vestara-surface-panel)] p-4" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <h3 className="text-sm font-semibold">{emoji} {greeting} Director — {period} briefing detail</h3>
-                <p className="text-xs text-[var(--vestara-amber)]">{greeting} Director, here is your {period} briefing for today — {new Date(morningBriefing.executedAt).toLocaleString(undefined, { dateStyle: 'full', timeStyle: 'long' })}</p>
-                <p className="text-[10px] text-[var(--vestara-text-dim)]">Created: {new Date(morningBriefing.createdAt).toLocaleString()} · ID: {morningBriefing.id}</p>
-              </div>
-              <button type="button" onClick={() => setMorningOpen(false)} className="size-8 grid place-items-center rounded-lg border">×</button>
-            </div>
-            <div className="mt-3 min-w-0 space-y-3 text-xs">
-              <div className="min-w-0"><div className="font-semibold uppercase">Repo Health</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.repoHealth || '(empty)'}</pre></div>
-              <div className="min-w-0"><div className="font-semibold uppercase">Workspace Status</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.workspaceStatus || '(empty)'}</pre></div>
-              <div className="min-w-0"><div className="font-semibold uppercase">Activity</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.activity || '(empty)'}</pre></div>
-              {morningBriefing.details.fullContent && <div className="min-w-0"><div className="font-semibold uppercase">Full</div><pre className="mt-1 max-w-full whitespace-pre-wrap break-words rounded border p-2 bg-[var(--vestara-surface-panel-raised)]">{morningBriefing.details.fullContent}</pre></div>}
-            </div>
-          </div>
+          <ActivityFreshness timestamp={room.lastUpdatedAt} />
         </div>
-      ); })()}
+      )}
 
       {/* ─── Attention Banner (actionable scope, not a dead count) ───
           Click focuses the stream Needs-attention preset; critical uses the
@@ -359,7 +346,7 @@ export default function M11CActivityRoomPage() {
       {/* ─── Small-screen launchers (rail hides <640px) ──────────
           Participants and workflows open as bottom sheets; the stream keeps
           the single column. Hidden once the rail docks. */}
-      <div className="mt-3 flex gap-2 sm:hidden" role="group" aria-label="Open panels">
+      <div className="ar-panel-launchers mt-3 flex gap-2" role="group" aria-label="Open panels">
         <button
           type="button"
           onClick={() => setMobilePanel('participants')}
@@ -396,53 +383,22 @@ export default function M11CActivityRoomPage() {
           </div>
         </details>
       )}
-      <div className={workingAreaGrid}>
+      <div className={WORKING_AREA_GRID_CLASS}>
         {/* Participant Rail (projection-driven; page owns scrolling) */}
         <aside className="ar-panel ar-panel--rail min-w-0 max-w-full">
-          <M11CParticipantRail
-            participants={room.participants}
-            selectedParticipantId={selectedParticipantId}
-            onSelectParticipant={handleSelectParticipant}
-            onOpenAgentControl={ui.openAgentControl}
-            unreadCounts={unreadCounts}
-          />
+          {activityLoading ? <ActivityPanelSkeleton label="Participants" /> : (
+            <M11CParticipantRail
+              participants={room.participants}
+              selectedParticipantId={selectedParticipantId}
+              onSelectParticipant={handleSelectParticipant}
+              onOpenAgentControl={ui.openAgentControl}
+              unreadCounts={unreadCounts}
+            />
+          )}
         </aside>
 
         {/* Center Stream (the salon) */}
         <main className="ar-panel ar-panel--main min-w-0 max-w-full">
-          <div className="ar-panel__head">
-            <div className="ar-panel__label" aria-live="polite">
-              {workflowFilter
-                ? `Workflow ${workflowFilter.slice(0, 8)}`
-                : selectedParticipantId === undefined
-                  ? 'Activity Stream'
-                  : `Activity — ${selectedParticipantId}`}
-              {attentionFocus ? ' · Needs attention' : ''}
-            </div>
-            <span className="ar-panel__hint flex items-center gap-2">
-              {(workflowFilter || selectedParticipantId !== undefined || attentionFocus) && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setWorkflowFilter(null);
-                    setSelectedParticipantId(undefined);
-                    setAttentionFocus(false);
-                  }}
-                  className="cursor-pointer underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-                  aria-label="Clear stream scope"
-                >
-                  Clear scope
-                </button>
-              )}
-              {room.paused ? `${room.unread} buffered` : stateLabel}
-            </span>
-          </div>
-
-          {/* Composer first: always at the top of the panel, always in
-              view — never pushed below the fold or covered by floating
-              chrome at the viewport bottom. */}
-          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} participants={room.participants} />
-
           {/* Live Now Strip (collapses to nothing when nobody is live) */}
           <M11CLiveNowStrip
             participants={room.participants}
@@ -454,12 +410,14 @@ export default function M11CActivityRoomPage() {
               the right side. Hidden by CSS wherever the aside shows. */}
           {hasActiveWorkflows && (
             <div className="ar-workflow-strip ar-workflow-strip--inline">
-              <M11CWorkflowBrowser
-                stream={room.stream}
-                workflowSummary={room.workflowSummary}
-                onSelectWorkflow={handleSelectWorkflow}
-                selectedWorkflowId={workflowFilter}
-              />
+              {activityLoading ? <ActivityPanelSkeleton label="Workflows" /> : (
+                <M11CWorkflowBrowser
+                  stream={room.stream}
+                  workflowSummary={room.workflowSummary}
+                  onSelectWorkflow={handleSelectWorkflow}
+                  selectedWorkflowId={workflowFilter}
+                />
+              )}
             </div>
           )}
 
@@ -477,7 +435,7 @@ export default function M11CActivityRoomPage() {
             onClearUnread={room.clearUnread}
             onOpenDetail={ui.openDetail}
             onDrillDown={handleDrillDown}
-            onReply={ui.setReplyTo}
+            onReply={handleReply}
             onRetract={handleRetract}
             onEdit={ui.openEdit}
             onOpenThread={ui.openThread}
@@ -490,30 +448,52 @@ export default function M11CActivityRoomPage() {
             attentionFocus={attentionFocus}
             workflowFilter={workflowFilter}
             onSelectWorkflow={handleSelectWorkflow}
+            streamHeading={workflowFilter ? 'Workflow activity' : selectedParticipantId === undefined ? 'Activity Stream' : `Activity for ${participantNames[selectedParticipantId] ?? 'selected participant'}`}
+            streamHeaderAction={
+              <span className="ar-panel__hint flex items-center gap-2">
+                {(workflowFilter || selectedParticipantId !== undefined || attentionFocus) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setWorkflowFilter(null);
+                      setSelectedParticipantId(undefined);
+                      setAttentionFocus(false);
+                    }}
+                    className="cursor-pointer underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                    aria-label="Clear stream scope"
+                  >
+                    Clear scope
+                  </button>
+                )}
+                {room.paused ? `${room.unread} buffered` : stateLabel}
+              </span>
+            }
           />
+          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} participants={room.participants} />
         </main>
 
         {/* Workflows right panel (xl+): the browser lives here instead of
             above the stream. Hidden while the inspector docks so the
             stream keeps room; the inline strip covers that case. */}
-        {!detailOpen && (
-          <aside className="ar-panel ar-panel--workflows min-w-0 max-w-full" aria-label="Workflows">
-            <M11CWorkflowBrowser
-              stream={room.stream}
-              workflowSummary={room.workflowSummary}
-              onSelectWorkflow={handleSelectWorkflow}
-              selectedWorkflowId={workflowFilter}
-            />
-          </aside>
-        )}
+        <aside className="ar-panel ar-panel--context min-w-0 max-w-full" aria-label="Operational context">
+          <ActivityRoomContextPanel
+            stream={room.stream}
+            participantCount={room.participants.length}
+            activeAgentCount={activeAgentCount}
+            connectionState={room.state}
+          />
+        </aside>
 
-        {/* Docked Inspector (right column) — replaces context panel at >=1440px */}
-        <M11CDockedInspector
-          item={ui.detailItem}
-          drillDownRecords={drillDownRecords}
-          drillDownLoading={drillDownLoading}
-          onClose={ui.closeDetail}
-        />
+        {/* Detail dialog — the stream stays a concise projection; the
+            complete record detail for the selected item opens here. */}
+        {ui.detailItem && (
+          <M11CActivityDetailModal
+            item={ui.detailItem}
+            drillDownRecords={drillDownRecords}
+            drillDownLoading={drillDownLoading}
+            onClose={ui.closeDetail}
+          />
+        )}
       </div>
 
       {/* ─── Mobile sheets (small screens only) ─────────────── */}
@@ -851,10 +831,10 @@ function M11CComposer({
         </div>
       )}
 
-      <div className="flex min-w-0 flex-wrap items-center gap-2">
+       <div className="ar-composer__row flex min-w-0 flex-wrap items-center gap-2">
         {/* Target: live @mention preview, presented truthfully */}
         <span
-          className="inline-flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
+          className="ar-composer__target inline-flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
           title={previewTitle}
         >
           <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
@@ -921,12 +901,13 @@ function M11CComposer({
         </div>
 
         {/* Keyboard hint */}
-        <kbd
-          aria-hidden="true"
-          className="hidden shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-dim)] sm:inline-block"
-        >
-          ↵
-        </kbd>
+         <span className="ar-composer__secondary inline-flex shrink-0 items-center gap-2">
+           <kbd
+             aria-hidden="true"
+             className="hidden rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-dim)] sm:inline-block"
+           >
+             ↵
+           </kbd>
 
         {/* Character count (4000 cap) */}
         <span
@@ -934,12 +915,13 @@ function M11CComposer({
           className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > COMPOSER_MAX ? 'text-[var(--vestara-status-error)]' : value.length > COMPOSER_MAX - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
         >
           {value.length}/{COMPOSER_MAX}
-        </span>
-        <span className="sr-only" aria-live="polite">
-          {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
-        </span>
+         </span>
+         <span className="sr-only" aria-live="polite">
+           {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
+         </span>
+         </span>
 
-        {/* Send */}
+         {/* Send */}
         <button
           type="button"
           onClick={handleSend}
@@ -1095,114 +1077,6 @@ function M11CThreadModal({
               </div>
             );
           })}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ─── Detail Modal ─────────────────────────────────────────
-
-function M11CDetailModal({
-  item,
-  drillDownRecords,
-  drillDownLoading,
-  onClose,
-}: {
-  item: M11CStreamItem;
-  drillDownRecords?: readonly M11CStreamItem[];
-  drillDownLoading?: boolean;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      className="ar-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-label="Activity detail"
-      onClick={onClose}
-    >
-      <div className="ar-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="ar-modal__head">
-          <h2 className="ar-modal__title">Activity Detail</h2>
-          <button type="button" onClick={onClose} className="ar-modal__close" aria-label="Close">
-            ×
-          </button>
-        </div>
-
-        <div className="ar-kv">
-          <div>
-            <div className="ar-kv__label">Actor</div>
-            <div className="ar-kv__value">
-              {item.actor.displayName}
-              {item.actor.role && <span className="text-(--vestara-text-muted)"> ({item.actor.role})</span>}
-            </div>
-          </div>
-
-          <div>
-            <div className="ar-kv__label">Content</div>
-            <div className="ar-kv__value">{item.content || '(no content)'}</div>
-          </div>
-
-          <div>
-            <div className="ar-kv__label">Metadata</div>
-            <div className="ar-kv__meta">
-              <div>Kind: {item.kind} · Importance: {item.importance}</div>
-              <div>Sequence: {item.sequence}</div>
-              <div>Timestamp: {item.timestamp}</div>
-              {item.workflowRunId && <div>Workflow: {item.workflowRunId}</div>}
-              {item.executionId && <div>Execution: {item.executionId}</div>}
-              {item.taskId && <div>Task: {item.taskId}</div>}
-            </div>
-          </div>
-
-          {item.aggregated && (
-            <div>
-              <div className="ar-kv__label">Aggregated</div>
-              <div className="ar-kv__meta">
-                <div>{item.aggregated.count} items · {item.aggregated.kind}</div>
-                <div>Summary: {item.aggregated.summary}</div>
-                <div>Sequence range: {item.aggregated.sequenceRange.first} – {item.aggregated.sequenceRange.last}</div>
-                <div>{item.aggregated.referencedActivityIds.length} referenced activity IDs</div>
-              </div>
-            </div>
-          )}
-
-          {/* Drill-down records */}
-          {drillDownLoading && (
-            <div className="ar-kv">
-              <div className="ar-kv__label">Loading referenced activities…</div>
-            </div>
-          )}
-          {!drillDownLoading && drillDownRecords && drillDownRecords.length > 0 && (
-            <div className="ar-kv">
-              <div className="ar-kv__label">Referenced Activities ({drillDownRecords.length})</div>
-              <div className="space-y-2 mt-2">
-                {drillDownRecords.map((record) => (
-                  <div key={record.id} className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2 text-[11px]">
-                    <div className="flex items-center gap-2 text-[var(--vestara-text-muted)]">
-                      <span className="font-medium text-[var(--vestara-text-secondary)]">{record.kind}</span>
-                      <span className="text-[var(--vestara-text-dim)]">·</span>
-                      <span>{record.actor?.displayName ?? 'Unknown'}</span>
-                      <span className="text-[var(--vestara-text-dim)]">·</span>
-                      <span className="text-[var(--vestara-text-dim)]">{record.timestamp}</span>
-                    </div>
-                    {record.content && (
-                      <div className="mt-1 text-[var(--vestara-text-muted)] line-clamp-2">{record.content}</div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       </div>
     </div>

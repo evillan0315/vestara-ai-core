@@ -10,6 +10,7 @@ export * from './bundle-store';
 export * from './collectors';
 export * from './confidence';
 export * from './pipeline';
+export * from './recording-ingest';
 export * from './types';
 export * from './verifier';
 export * from './visual';

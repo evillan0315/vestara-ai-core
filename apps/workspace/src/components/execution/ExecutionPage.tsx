@@ -67,7 +67,7 @@ function ExecutionPageInner() {
       <RouteHero
         routeId="execution"
         eyebrow={exec.paused ? 'Execution paused' : 'Live operations'}
-        statusColor={exec.paused ? 'var(--vestara-status-warning)' : 'var(--vestara-status-success)'}
+        statusTone={exec.paused ? 'warning' : 'success'}
         stats={
           exec.dashboard
             ? [

@@ -49,6 +49,7 @@ export type {
 } from './m9-types';
 export { ProjectionRuntime } from './m10-projection-runtime';
 export { ACTIVITY_MANIFEST, ACTIVITY_MIGRATIONS } from './migrations';
+export { extractOriginProvenance, type OriginProvenance } from './origin-provenance';
 export type {
   ActivityRoomProjection,
   AttentionEntry,

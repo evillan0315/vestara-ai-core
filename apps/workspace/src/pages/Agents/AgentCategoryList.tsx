@@ -7,6 +7,8 @@ interface AgentCategoryListProps {
   onEditAgent: (agent: Agent) => void;
   onToggleStatus: (agent: Agent) => void;
   onDeleteAgent: (id: string) => void;
+  selectedAgentId?: string;
+  onSelectAgent?: (agent: Agent) => void;
 }
 
 /**
@@ -20,6 +22,8 @@ export function AgentCategoryList({
   onEditAgent,
   onToggleStatus,
   onDeleteAgent,
+  selectedAgentId,
+  onSelectAgent,
 }: AgentCategoryListProps) {
   if (agents.length === 0) {
     return (
@@ -32,7 +36,7 @@ export function AgentCategoryList({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
       {agents.map((agent) => {
         const stats = agentStats[agent.id] || {
           total: 0,
@@ -49,6 +53,8 @@ export function AgentCategoryList({
             onEdit={() => onEditAgent(agent)}
             onToggleStatus={() => onToggleStatus(agent)}
             onDelete={() => onDeleteAgent(agent.id)}
+            selected={selectedAgentId === agent.id}
+            onSelect={onSelectAgent ? () => onSelectAgent(agent) : undefined}
           />
         );
       })}

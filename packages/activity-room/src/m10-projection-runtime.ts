@@ -10,6 +10,7 @@
 
 import type { MembershipState, WorkState } from '@vestara/types';
 import type { ActivityCursor, ActivityRecord } from './m9-types';
+import { extractOriginProvenance } from './origin-provenance';
 import type {
   ActivityRoomProjection,
   AttentionEntry,
@@ -245,6 +246,8 @@ export class ProjectionRuntime {
       workflowRunId: record.workflowRunId,
       executionId: record.executionId,
       taskId: record.taskId,
+      // AR-UI-REPLY-002: preserve ONLY authoritative origin provenance.
+      ...extractOriginProvenance(record.payload),
     };
 
     // Carry interaction presentation data for kind === 'interaction'

@@ -1,6 +1,6 @@
 # UI/UX Governance — Vestara AI Core (MANDATORY)
 
-**Status:** ENFORCED for all agents (vestara-context, planner, developer, reviewer, verifier, assistant, browser, CoderAgent) + human contributors.
+**Status:** ENFORCED for all agents (vestara-context, planner, developer, reviewer, verifier, assistant, browser) + human contributors.
 **Authority:** Director directive — overrides any local preference.
 **Applies to:** `apps/workspace/**`, `packages/ui/**`, `packages/ui-tokens/**`, `apps/workspace/src/styles/**`, any file that renders pixels.
 
@@ -87,6 +87,6 @@ Need data? → Check API exists? → Yes → use it
 * **Reviewer:** Flags any `style=` with hex, any `bg-[#`, any `color: #`, any `text-[12px]` not mapping to `TYPOGRAPHY.*`, any Tailwind without `var(--vestara-`.
 * **Authoring:** When in doubt, open `packages/ui-tokens/src/tokens.ts` and `apps/workspace/src/styles/index.css` first — that is the palette.
 
-**For agents:** Load `.opencode/skills/vestara-ui-ux/SKILL.md` on any UI task. For humans: this file is the contract.
+**For agents and humans:** this file is the contract — follow §§1–6 on any UI task. No separate skill checklist exists.
 
 *Last updated: 2026-09-13 — Manila (Asia/Manila) — Director directive.*

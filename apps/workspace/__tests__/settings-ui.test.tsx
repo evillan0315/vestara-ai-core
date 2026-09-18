@@ -134,7 +134,7 @@ describe('premium settings control surface', () => {
   });
 
   it('uses the existing theme provider for profile selection', async () => {
-    renderSettings('/settings/general');
+    renderSettings('/settings/profiles');
     const minimalLabel = await screen.findByText('Minimal');
     const minimal = minimalLabel.closest('button');
     expect(minimal).toBeTruthy();
@@ -142,5 +142,27 @@ describe('premium settings control surface', () => {
     fireEvent.click(minimal);
     await waitFor(() => expect(minimal.getAttribute('aria-pressed')).toBe('true'));
     expect(document.documentElement.style.getPropertyValue('--vestara-font-family')).toContain('ui-monospace');
+  });
+
+  it('keeps appearance controls out of general (SETTINGS-UI-001)', async () => {
+    renderSettings('/settings/general');
+    await screen.findByText('Workspace Defaults');
+    expect(screen.queryByText('Minimal')).toBeNull();
+    expect(screen.queryByText('Workspace Profile')).toBeNull();
+  });
+
+  it('redirects legacy general appearance tabs to canonical routes', async () => {
+    renderSettings('/settings/general?tab=profiles');
+    // Legacy redirect traverses an async Navigate — allow headroom under parallel load.
+    expect(await screen.findByText('Workspace Profile', {}, { timeout: 5000 })).toBeTruthy();
+    expect(await screen.findByText('Minimal')).toBeTruthy();
+  });
+
+  it('serves each appearance route directly with its canonical panel', async () => {
+    const { unmount } = renderSettings('/settings/appearance');
+    expect((await screen.findAllByText('Theme mode')).length).toBeGreaterThan(0);
+    unmount();
+    renderSettings('/settings/typography');
+    expect((await screen.findAllByText('Font family')).length).toBeGreaterThan(0);
   });
 });

@@ -20,7 +20,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { FloatingWindowManager } from '@vestara/ui';
 import { useAssistantConversation } from '../../hooks/useAssistantConversation';
 import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import {
+  OPEN_ASSISTANT_EVENT,
+  parseOpenAssistantDetail,
+} from '../../lib/assistant-navigation';
 import { openCodeApi, type OpenCodeSessionView } from '../../lib/opencode';
+import { preloadMarkdownRenderer } from '../chat/MarkdownRenderer';
 import { resolveDisplayTitle } from './conversationTitles';
 import { FloatingPanel } from './FloatingPanel';
 import { FullWindowSurface } from './FullWindowSurface';
@@ -142,6 +147,9 @@ export function GlobalAssistant() {
   // GA-SESSION-003: fetch compatible runtime sessions when the panel opens.
   useEffect(() => {
     if (!panelOpen) return;
+    // VES-PERF-002 (P1): warm the lazy markdown chunk on assistant intent so
+    // the first message renders formatted rather than flashing the fallback.
+    preloadMarkdownRenderer();
     let cancelled = false;
     openCodeApi.compatibleSessions().then((sessions) => {
       if (!cancelled) setRuntimeSessions(sessions);
@@ -220,16 +228,31 @@ export function GlobalAssistant() {
     openDockSoon();
   }, [openDockSoon]);
 
+  // Latest selection appliers (ref-indirect so the window listener below
+  // never captures a stale closure; effect subscribes exactly once).
+  const selectConversationRef = useRef(assistant.selectConversation);
+  selectConversationRef.current = assistant.selectConversation;
+  const selectedIdRef = useRef(assistant.selectedId);
+  selectedIdRef.current = assistant.selectedId;
+
   // Sidebar "Global Assistant" entry dispatches this (mirrors the
-  // command palette's `open-command-palette` precedent).
+  // command palette's `open-command-palette` precedent). Activity Room
+  // source-aware Reply reuses the same event with
+  // `detail.conversationId` (AR-UI-REPLY-001): the EXISTING conversation
+  // is selected/restored — never created. Panel open engages the
+  // FloatingPanel focus contract (composer focused); selection change
+  // additionally focuses the composer via ConversationPanel.
   useEffect(() => {
     const handler = (event: Event) => {
-      const expanded = event instanceof CustomEvent && event.detail?.expanded === true;
+      const parsed = event instanceof CustomEvent ? parseOpenAssistantDetail(event.detail) : parseOpenAssistantDetail(null);
       setPanelOpen(true);
-      setPanelExpanded(expanded);
+      setPanelExpanded(parsed.expanded);
+      if (parsed.conversationId && parsed.conversationId !== selectedIdRef.current) {
+        selectConversationRef.current(parsed.conversationId);
+      }
     };
-    window.addEventListener('open-assistant', handler);
-    return () => window.removeEventListener('open-assistant', handler);
+    window.addEventListener(OPEN_ASSISTANT_EVENT, handler);
+    return () => window.removeEventListener(OPEN_ASSISTANT_EVENT, handler);
   }, []);
 
   // Ctrl/⌘+J toggles the assistant. Escape closes the dock when visible.

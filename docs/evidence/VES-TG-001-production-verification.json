@@ -1,0 +1,93 @@
+{
+  "runId": "VES-TG-001-production-verification-2026-09-16",
+  "repository": "vestara-ai-core",
+  "commit": "2e12c9e0211d6c116ad5c1326b4f64952a0a48d0",
+  "timestamp": "2026-09-16T15:35:00.000Z",
+  "milestone": "VES-TG-001",
+  "title": "Telegram Interaction Platform — production verification",
+  "scope": "TG-018 through TG-029 (notification policy, rich cards, deep links, attachments, reliability, settings UI, telemetry, security hardening, production verification, dogfood posture, evidence, freeze) plus the TG-030 webhook tunnel extension",
+  "commands": [
+    {
+      "command": "npx tsc -b packages/telegram-integration/tsconfig.reference.json apps/api/tsconfig.reference.json",
+      "result": "exit 0"
+    },
+    {
+      "command": "npx vitest run packages/telegram-integration apps/api/__tests__/telegram-tunnel-route.test.ts apps/api/__tests__/telegram-activation.test.ts apps/api/__tests__/telegram-route.test.ts --maxWorkers=2",
+      "result": "21 files, 347 tests passed"
+    },
+    {
+      "command": "npx vitest run apps/api/__tests__/telegram-route.test.ts --maxWorkers=2",
+      "result": "1 file, 10 tests passed"
+    },
+    {
+      "command": "npx vitest run apps/api/__tests__/telegram-activation.test.ts --maxWorkers=2",
+      "result": "1 file, 3 tests passed"
+    },
+    {
+      "command": "pnpm --filter @vestara/workspace-ui build",
+      "result": "exit 0 (tsc -b + vite build)"
+    }
+  ],
+  "verificationSuites": [
+    {
+      "file": "packages/telegram-integration/__tests__/production-verification.test.ts",
+      "covers": [
+        "vertical slice: Telegram -> principal -> workspace -> execution -> reply",
+        "unpaired identity refusal",
+        "card + coalescer + deep link + telemetry projection",
+        "notification preference evaluation",
+        "settings persistence across store instances",
+        "security matrix: spoofed secret, replayed callback, expired pairing token, tampered deep link, cross-workspace, stale/post-terminal approval, revoked principal, disabled integration, command injection"
+      ]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/notifications.test.ts",
+      "covers": ["TG-018 notification policy, filters, quiet hours, normalization, delivery projection"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/rich-cards.test.ts",
+      "covers": ["TG-019 execution cards and TG-021 attachment policy/validation"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/deep-links.test.ts",
+      "covers": ["TG-020 signed deep-link build/parse/verify, tamper and expiry"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/reliability.test.ts",
+      "covers": ["TG-022 failure classification, backoff, rate limiting, coalescing"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/telemetry.test.ts",
+      "covers": ["TG-024 canonical events, correlation, redaction"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/security.test.ts",
+      "covers": ["TG-025 security guard decisions"]
+    },
+    {
+      "file": "apps/api/__tests__/telegram-activation.test.ts",
+      "covers": ["TG-027 dogfood posture: dogfood parks Telegram, full/default activate it"]
+    },
+    {
+      "file": "packages/telegram-integration/__tests__/tunnel.test.ts",
+      "covers": [
+        "webhook tunnel lifecycle, public-URL validation, provider output parsing, webhook registration consent",
+        "ENOENT translated to TunnelProviderUnavailableError; isCommandAvailable probes",
+        "banner-link regression: non-tunnel HTTPS URLs (terms of service) are ignored; only known tunnel hosts accepted",
+        "DNS-readiness gate before setWebhook; registration retry; re-registration on an active tunnel"
+      ]
+    },
+    {
+      "file": "apps/api/__tests__/telegram-tunnel-route.test.ts",
+      "covers": [
+        "tunnel settings endpoints: status, enable/disable, provider validation, availability, configuration persistence"
+      ]
+    }
+  ],
+  "limitations": [
+    "Executed against a dirty working tree; the recorded commit is the parent HEAD, not a commit containing this work.",
+    "Full-repository `pnpm build` / `pnpm test` / `pnpm lint:check` were not executed as part of this run; only the telegram-integration project and the two apps/api Telegram suites were built and run.",
+    "The Settings UI (TG-023) was type-verified, not visually regression-tested; no Playwright baseline was regenerated.",
+    "No live Telegram Bot API call was made; verification uses in-process services and a fake execution backend."
+  ]
+}

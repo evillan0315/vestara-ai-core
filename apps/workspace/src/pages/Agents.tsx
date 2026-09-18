@@ -5,6 +5,7 @@ import { type MultiAgentWorkflowTemplateId, workflowApi } from '../lib/workflow'
 import { workspaceSocket } from '../lib/ws';
 import { AgentCategoryList } from './Agents/AgentCategoryList';
 import AgentControlHeader from './Agents/AgentControlHeader';
+import AgentDetailPanel from './Agents/AgentDetailPanel';
 import { AgentFilters, type AgentFiltersState } from './Agents/AgentFilters';
 import AgentRegistryModal from './Agents/AgentRegistryModal';
 import { apiFetch } from './Agents/api';
@@ -19,6 +20,16 @@ import type { Agent, AgentStats, Execution, ExecutionSummary, Team } from './Age
 import WorkflowPanel from './Agents/WorkflowPanel';
 import '../styles/marketplace.css';
 
+type AgentCatalogTab = 'all' | 'mine' | 'system' | 'custom' | 'skills';
+
+const AGENT_CATALOG_TABS: Array<{ id: AgentCatalogTab; label: string }> = [
+  { id: 'all', label: 'All Agents' },
+  { id: 'mine', label: 'My Agents' },
+  { id: 'system', label: 'System Agents' },
+  { id: 'custom', label: 'Custom Agents' },
+  { id: 'skills', label: 'Skill Library' },
+];
+
 export default function AgentsPage() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -28,6 +39,8 @@ export default function AgentsPage() {
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
   const [showWorkflowPanel, setShowWorkflowPanel] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [catalogTab, setCatalogTab] = useState<AgentCatalogTab>('all');
   const [filters, setFilters] = useState<AgentFiltersState>({ search: '', status: 'all', team: 'all', sort: 'name-asc', capabilities: [] });
   const { events } = useEventStream();
   const { addToast } = useToasts();
@@ -37,6 +50,7 @@ export default function AgentsPage() {
       const data = await apiFetch<{ agents: Agent[]; executions: Execution[] }>('/api/agents');
       setAgents(data.agents);
       setExecutions(data.executions);
+      setSelectedAgentId((current) => current && data.agents.some((agent) => agent.id === current) ? current : data.agents[0]?.id ?? null);
       const teamData = await apiFetch<{ teams: Team[] }>('/api/teams').catch(() => ({ teams: [] }));
       setTeams(teamData.teams);
     } catch {}
@@ -86,8 +100,16 @@ export default function AgentsPage() {
     return stats;
   }, [agents, executions]);
 
+  const catalogAgents = useMemo(() => {
+    if (catalogTab === 'mine') return agents.filter((agent) => agent.origin === 'user');
+    if (catalogTab === 'system') return agents.filter((agent) => agent.origin === 'system');
+    if (catalogTab === 'custom') return agents.filter((agent) => agent.agentType === 'registry' || agent.origin === 'user');
+    if (catalogTab === 'skills') return agents.filter((agent) => agent.capabilities.length > 0);
+    return agents;
+  }, [agents, catalogTab]);
+
   const filteredAgents = useMemo(() => {
-    const filtered = agents.filter((a) => {
+    const filtered = catalogAgents.filter((a) => {
       if (filters.status === 'active' && a.status !== 'active') return false;
       if (filters.status === 'disabled' && a.status !== 'disabled') return false;
       if (filters.team !== 'all' && a.teamId !== filters.team) return false;
@@ -140,7 +162,17 @@ export default function AgentsPage() {
         break;
     }
     return sorted;
-  }, [agents, filters, executions, agentStats]);
+  }, [catalogAgents, filters, executions, agentStats]);
+
+  const selectedAgent = useMemo(
+    () => agents.find((agent) => agent.id === selectedAgentId) ?? filteredAgents[0] ?? null,
+    [agents, filteredAgents, selectedAgentId],
+  );
+
+  const selectedExecutions = useMemo(
+    () => (selectedAgent ? executions.filter((execution) => execution.agentId === selectedAgent.id).sort((a, b) => b.startedAt.localeCompare(a.startedAt)) : []),
+    [executions, selectedAgent],
+  );
 
   const toggleAgentStatus = async (agent: Agent) => {
     try {
@@ -236,6 +268,11 @@ export default function AgentsPage() {
     setShowRegistry(true);
   };
 
+  const runTaskForSelectedAgent = () => {
+    if (!selectedAgent) return;
+    window.dispatchEvent(new CustomEvent('open-assistant', { detail: { agentId: selectedAgent.id } }));
+  };
+
   const execSummary = useMemo<ExecutionSummary>(() => {
     const total = executions.filter((e) => e.status !== 'running' && e.status !== 'queued').length || 1;
     const completed = executions.filter((e) => e.status === 'completed').length;
@@ -264,6 +301,21 @@ export default function AgentsPage() {
         syncing={syncing}
       />
 
+      <div className="mb-4 flex min-w-0 gap-1 overflow-x-auto border-b border-[var(--vestara-border-subtle)]" role="tablist" aria-label="Agent catalog views">
+        {AGENT_CATALOG_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            role="tab"
+            aria-selected={catalogTab === tab.id}
+            onClick={() => setCatalogTab(tab.id)}
+            className={`whitespace-nowrap border-b-2 px-3 py-2 text-[var(--vestara-font-size-sm)] transition-colors ${catalogTab === tab.id ? 'border-[var(--vestara-accent)] text-[var(--vestara-text-primary)]' : 'border-transparent text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text-primary)]'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       <WorkflowPanel open={showWorkflowPanel} onStart={startWorkflow} />
 
       <RuntimeStatusBar />
@@ -281,18 +333,29 @@ export default function AgentsPage() {
       <AgentFilters
         teams={teams}
         resultCount={filteredAgents.length}
-        totalSlots={agents.length}
+        totalSlots={catalogAgents.length}
         allCapabilities={allCapabilities}
         onChange={setFilters}
       />
 
-      <AgentCategoryList
-        agents={filteredAgents}
-        agentStats={agentStats}
-        onEditAgent={openEditAgent}
-        onToggleStatus={(agent) => void toggleAgentStatus(agent)}
-        onDeleteAgent={(id) => void deleteAgent(id)}
-      />
+      <div className="grid min-w-0 grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
+        <AgentCategoryList
+          agents={filteredAgents}
+          agentStats={agentStats}
+          selectedAgentId={selectedAgent?.id}
+          onSelectAgent={(agent) => setSelectedAgentId(agent.id)}
+          onEditAgent={openEditAgent}
+          onToggleStatus={(agent) => void toggleAgentStatus(agent)}
+          onDeleteAgent={(id) => void deleteAgent(id)}
+        />
+        <AgentDetailPanel
+          agent={selectedAgent}
+          stats={selectedAgent ? agentStats[selectedAgent.id] : undefined}
+          executions={selectedExecutions}
+          onEdit={() => selectedAgent && openEditAgent(selectedAgent)}
+          onRunTask={runTaskForSelectedAgent}
+        />
+      </div>
 
       {/* Sidebar panels */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mt-6">

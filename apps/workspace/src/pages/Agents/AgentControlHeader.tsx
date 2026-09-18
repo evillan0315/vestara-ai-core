@@ -34,9 +34,7 @@ export default function AgentControlHeader({
     <>
       <RouteHero
         routeId="agents"
-        statusColor={
-          activeCount > 0 ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)'
-        }
+        statusTone={activeCount > 0 ? 'success' : 'warning'}
         subtitle={`${activeCount} active · ${agentsCount}/${totalSlots} registered · ${teamsCount} teams · ${executionsCount} executions`}
         actions={[
           { label: '+ Add Agent', primary: true, onClick: onAddAgent },

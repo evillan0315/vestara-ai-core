@@ -288,6 +288,35 @@ export class TelegramPersistentStore {
     dbRun(this.db, 'DELETE FROM telegram_delivery_queue WHERE id = ?', [id]);
   }
 
+  // ─── Settings ──────────────────────────────────────────────
+
+  /**
+   * Persist a JSON settings blob under a key. Keys are opaque; callers own
+   * the shape (e.g. `notifications:<principalId>`).
+   */
+  saveSettings(key: string, value: unknown): void {
+    dbRun(this.db, `INSERT OR REPLACE INTO telegram_settings (key, value, updated_at) VALUES (?, ?, ?)`, [
+      key,
+      JSON.stringify(value),
+      new Date().toISOString(),
+    ]);
+  }
+
+  /** Read a JSON settings blob. Returns undefined when absent or corrupt. */
+  getSettings(key: string): unknown {
+    const row = dbGet(this.db, 'SELECT value FROM telegram_settings WHERE key = ?', [key]);
+    if (!row) return undefined;
+    try {
+      return JSON.parse(row.value);
+    } catch {
+      return undefined;
+    }
+  }
+
+  deleteSettings(key: string): void {
+    dbRun(this.db, 'DELETE FROM telegram_settings WHERE key = ?', [key]);
+  }
+
   // ─── Row Mappers ───────────────────────────────────────────
 
   private rowToPairingRequest(row: any): PairingRequest {

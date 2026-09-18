@@ -99,11 +99,25 @@ function mockStreamResponse(events: Array<{ type: string; content?: string }>) {
   });
 }
 
-/** Extract the parsed JSON body from the most recent fetch call. */
+/** Extract the parsed JSON body from the most recent conversation stream POST. */
 function lastFetchBody(): Record<string, unknown> {
-  const lastCall = mockFetch.mock.calls[mockFetch.mock.calls.length - 1];
-  if (!lastCall) throw new Error('No fetch calls recorded');
-  return JSON.parse(lastCall[1].body as string);
+  const streamCall = [...mockFetch.mock.calls]
+    .reverse()
+    .find(([url, init]) => {
+      return (
+        typeof url === 'string' &&
+        url.includes('/api/conversations/') &&
+        url.endsWith('/stream') &&
+        init?.method === 'POST' &&
+        typeof init.body === 'string'
+      );
+    });
+
+  if (!streamCall) {
+    throw new Error('No conversation stream POST with a JSON body recorded');
+  }
+
+  return JSON.parse(streamCall[1].body as string);
 }
 
 /** Extract the surfaceContext from the most recent fetch call body. */
@@ -168,7 +182,11 @@ describe('AR-008 — Surface Context Transport', () => {
       expect(result.current.selectedId).toBe('conv-001');
     });
 
-    return result;
+    return new Proxy({} as typeof result.current, {
+      get(_target, property) {
+        return result.current[property as keyof typeof result.current];
+      },
+    });
   }
 
   // ── 1. Empty context ────────────────────────────────────────

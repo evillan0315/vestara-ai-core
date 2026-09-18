@@ -33,6 +33,9 @@ test.describe('Activity Room E2E (AAR-001H)', () => {
     await expect(page.getByLabel('Message composer')).toBeVisible();
     await expect(page.getByRole('button', { name: 'Pause' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'All activity' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Operational context' })).toBeVisible();
+    await expect(page.getByText('Operation Controls')).toBeVisible();
+    await expect(page.getByText('System Status')).toBeVisible();
 
     // ─── Effective state (Direction 2): "what is true now" at a glance ────
     await expect(page.getByText('Effective state')).toBeVisible();
@@ -102,5 +105,45 @@ test.describe('Activity Room E2E (AAR-001H)', () => {
     await expect(page.getByText(liveProbe).first()).toBeVisible({ timeout: 10_000 });
     await expect(page.getByText(messageText).first()).toBeVisible({ timeout: 10_000 });
     await page.screenshot({ path: evidence('04-after-reload.png') });
+  });
+
+  test('captures Activity Room loading performance evidence', async ({ page }, testInfo) => {
+    await page.addInitScript(() => {
+      const longTasks: number[] = [];
+      new PerformanceObserver((list) => {
+        for (const entry of list.getEntries()) longTasks.push(entry.duration);
+        (window as Window & { __activityRoomLongTasks?: number[] }).__activityRoomLongTasks = longTasks;
+      }).observe({ type: 'longtask', buffered: true });
+    });
+
+    await page.goto('/activity', { waitUntil: 'domcontentloaded' });
+    await expect(page.getByRole('heading', { name: 'Activity Room' })).toBeVisible();
+    await expect(page.getByRole('log', { name: 'Activity stream' })).toBeVisible();
+
+    const evidence = await page.evaluate(() => {
+      const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
+      const resources = performance.getEntriesByType('resource') as PerformanceResourceTiming[];
+      const activityResources = resources
+        .filter((entry) => entry.name.includes('/api/activity-room') || entry.name.includes('/ws/activity-room'))
+        .map((entry) => ({
+          name: new URL(entry.name).pathname,
+          duration: Math.round(entry.duration),
+          transferSize: entry.transferSize,
+        }));
+      return {
+        domContentLoaded: navigation ? Math.round(navigation.domContentLoadedEventEnd - navigation.startTime) : null,
+        loadEvent: navigation ? Math.round(navigation.loadEventEnd - navigation.startTime) : null,
+        activityResources,
+        longTasks: (window as Window & { __activityRoomLongTasks?: number[] }).__activityRoomLongTasks ?? [],
+      };
+    });
+
+    await testInfo.attach('activity-room-performance.json', {
+      body: JSON.stringify(evidence, null, 2),
+      contentType: 'application/json',
+    });
+
+    expect(evidence.domContentLoaded).not.toBeNull();
+    expect(evidence.domContentLoaded ?? 0).toBeLessThan(5000);
   });
 });

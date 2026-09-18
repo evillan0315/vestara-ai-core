@@ -16,7 +16,7 @@
  * Authority: none — pure presentation over authoritative configuration.
  */
 
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import { PROFILES, useTheme } from '../lib/theme.js';
 import { navIcon } from './workspace-navigation.js';
@@ -43,6 +43,8 @@ interface ShellLayoutSettingsProps {
 /** Group-tinted icon wash (canonical hues). Active selection stays purple brand. */
 const GROUP_TILE_FG: Record<SettingsGroupId, string> = {
   workspace: 'var(--st-tile-workspace-fg)',
+  appearance: 'var(--st-tile-workspace-fg)',
+  system: 'var(--st-tile-operations-fg)',
   'runtime-ai': 'var(--st-tile-runtime-fg)',
   engineering: 'var(--st-tile-engineering-fg)',
   operations: 'var(--st-tile-operations-fg)',
@@ -231,6 +233,7 @@ export default function ShellLayoutSettings({
   heroSummary,
 }: ShellLayoutSettingsProps) {
   const { activeProfile, resetSettings } = useTheme();
+  const [showResetConfirmation, setShowResetConfirmation] = useState(false);
   const profileLabel = activeProfile
     ? (PROFILES.find((profile) => profile.id === activeProfile)?.label ?? activeProfile)
     : 'Custom display';
@@ -242,8 +245,13 @@ export default function ShellLayoutSettings({
       <h1 className="sr-only">Settings</h1>
       <RouteHero
         actions={[
-          { label: 'Appearance', to: '/settings/general', primary: true, glyph: '✦' },
-          { label: 'Reset display', onClick: resetSettings, title: 'Reset display preferences', glyph: '↺' },
+          { label: 'Appearance', to: '/settings/profiles', primary: true, glyph: '✦' },
+          {
+            label: 'Reset display',
+            onClick: () => setShowResetConfirmation(true),
+            title: 'Reset display preferences',
+            glyph: '↺',
+          },
         ]}
         meta={
           <>
@@ -264,6 +272,47 @@ export default function ShellLayoutSettings({
             template) — no Settings-specific narrow constraint (007B). */}
         <main className="min-w-0 flex-1">{children}</main>
       </div>
+      {showResetConfirmation && (
+        <div
+          className="fixed inset-0 z-[var(--st-modal-z-index)] grid place-items-center bg-[var(--vestara-surface-overlay)] p-[var(--vestara-spacing-4)]"
+          role="presentation"
+          onClick={() => setShowResetConfirmation(false)}
+        >
+          <div
+            className="w-full max-w-md rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-5)] shadow-[var(--st-panel-shadow)]"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="reset-display-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="reset-display-title" className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">
+              Reset display preferences?
+            </h2>
+            <p className="mt-[var(--vestara-spacing-2)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)]">
+              This restores theme, density, accent, and other display preferences to their defaults. Workspace and runtime settings are not changed.
+            </p>
+            <div className="mt-[var(--vestara-spacing-5)] flex justify-end gap-[var(--vestara-spacing-2)]">
+              <button
+                type="button"
+                className="min-h-9 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text-primary)]"
+                onClick={() => setShowResetConfirmation(false)}
+              >
+                Keep preferences
+              </button>
+              <button
+                type="button"
+                className="min-h-9 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-status-warning)] hover:border-[var(--vestara-status-warning)]"
+                onClick={() => {
+                  resetSettings();
+                  setShowResetConfirmation(false);
+                }}
+              >
+                Reset display
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

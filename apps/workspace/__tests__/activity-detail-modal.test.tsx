@@ -6,6 +6,11 @@ import { ThemeProvider } from '../src/lib/theme.js';
 import ActivityRoomPage from '../src/pages/activity/ActivityRoomPage.js';
 import type { ActivityRecord } from '../src/pages/activity/activity-types.js';
 
+vi.mock('../src/contexts/SurfaceContext', () => ({
+  useSetActivitySelection: () => vi.fn(),
+  SurfaceContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 const workflowRecord: ActivityRecord = {
   id: 'activity:evt-1:workflow',
   sequence: 1,
@@ -103,7 +108,7 @@ describe('Activity detail modal (AAR-001D)', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Inspect Workflow activity' }));
 
-    const dialog = screen.getByRole('dialog', { name: 'Workflow activity details' });
+    const dialog = screen.getByRole('dialog', { name: 'Workflow activity' });
     expect(dialog).toBeTruthy();
     expect(screen.getByText('Previous state')).toBeTruthy();
     expect(screen.getByText('Current state')).toBeTruthy();
@@ -143,7 +148,7 @@ describe('Activity detail modal (AAR-001D)', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Inspect Workflow activity' }));
     expect(screen.getByRole('dialog')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Close details' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Close drawer' }));
     await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
 
     fireEvent.click(screen.getByRole('button', { name: 'Inspect Workflow activity' }));

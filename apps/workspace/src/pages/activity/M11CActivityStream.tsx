@@ -20,12 +20,12 @@
  * - Errors: kind === 'diagnostic' (authoritative failure class, not string matching)
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
-import { EmptyState, StatusIndicator } from '@vestara/ui';
-import { CONNECTION_STATUS_CONFIG } from './status-config';
+import { EmptyState } from '@vestara/ui';
 import { M11CStreamItemComponent } from './M11CStreamItem';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -93,6 +93,8 @@ interface M11CActivityStreamProps {
   readonly onSelectWorkflow?: (workflowId: string) => void;
   /** Active workflow scope (from the workflow browser). Narrows the stream. */
   readonly workflowFilter?: string | null;
+  readonly streamHeading?: string;
+  readonly streamHeaderAction?: ReactNode;
 }
 
 // ─── Filter Types ────────────────────────────────────────────
@@ -123,9 +125,8 @@ export function isAttentionItem(item: StreamItemType): boolean {
 
 // ─── Component ───────────────────────────────────────────────
 
-export default function M11CActivityStream({
+function M11CActivityStream({
   items,
-  connectionState,
   unread,
   loadingHistory,
   olderLoaded,
@@ -148,12 +149,15 @@ export default function M11CActivityStream({
   attentionFocus,
   onSelectWorkflow,
   workflowFilter,
+  streamHeading = 'Activity Stream',
+  streamHeaderAction,
 }: M11CActivityStreamProps) {
   useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const previousScrollHeight = useRef(0);
   const previousItemCount = useRef(0);
+  const snapFrame = useRef(0);
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -237,19 +241,47 @@ export default function M11CActivityStream({
     return filtered.slice(start);
   }, [filtered, olderLoaded]);
 
+  const virtualizer = useVirtualizer({
+    count: rendered.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 76,
+    overscan: 8,
+    gap: 8,
+    getItemKey: (index) => rendered[index]?.id ?? index,
+  });
+
   const hasMore = filtered.length > rendered.length;
 
   // ─── Scroll Behavior ────────────────────────────────────
 
-  // Auto-follow: when at bottom and new items arrive, scroll to bottom
+  // Snap to the true bottom in two phases: virtualized rows measure
+  // asynchronously (ResizeObserver), so total size can grow after this
+  // commit. The rAF re-assertion lands jumps/follows on the settled bottom
+  // instead of the estimated one.
+  const snapToBottom = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+    cancelAnimationFrame(snapFrame.current);
+    snapFrame.current = requestAnimationFrame(() => {
+      const target = scrollRef.current;
+      if (target) target.scrollTop = target.scrollHeight;
+    });
+  }, []);
+
+  useEffect(() => () => cancelAnimationFrame(snapFrame.current), []);
+
+  // Auto-follow: when at bottom and items change, stay pinned to bottom.
+  // Identity (not just length) drives this so in-place streaming growth —
+  // same record count, taller content — also follows. Idempotent when the
+  // viewport is already settled: assigning the same scrollTop is a no-op.
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    if (atBottom && items.length > previousItemCount.current) {
-      // New items arrived while at bottom — follow automatically
-      el.scrollTop = el.scrollHeight;
-    } else if (!atBottom && items.length > previousItemCount.current && olderLoaded === 0) {
+    if (atBottom) {
+      if (items.length >= previousItemCount.current) snapToBottom();
+    } else if (items.length > previousItemCount.current && olderLoaded === 0) {
       // New items arrived while reading history — preserve scroll position
       // by maintaining the scroll offset relative to the bottom
       const newScrollHeight = el.scrollHeight;
@@ -261,7 +293,7 @@ export default function M11CActivityStream({
 
     previousItemCount.current = items.length;
     previousScrollHeight.current = el.scrollHeight;
-  }, [items.length, atBottom, olderLoaded]);
+  }, [items, atBottom, olderLoaded, snapToBottom]);
 
   // Report viewport position to parent
   useEffect(() => {
@@ -276,12 +308,10 @@ export default function M11CActivityStream({
   }, []);
 
   const jumpToLatest = useCallback(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    snapToBottom();
     setAtBottom(true);
     onClearUnread();
-  }, [onClearUnread]);
+  }, [onClearUnread, snapToBottom]);
 
   // ─── Render ─────────────────────────────────────────────
 
@@ -289,26 +319,9 @@ export default function M11CActivityStream({
     <div className="relative flex min-h-0 flex-1 flex-col">
       {/* ── Filter Bar (canonical pill tabs; kind-driven, not text) ── */}
       <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1" role="tablist" aria-label="Stream categories">
-          {FILTER_TABS.map((tab) => {
-            const count = filterCounts[tab.id];
-            const active = activeFilter === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => setActiveFilter(tab.id)}
-                className={`inline-flex min-h-7 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border px-2.5 text-[var(--vestara-font-size-xs)] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${active ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-[var(--vestara-border-default)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text)]'}`}
-              >
-                {tab.label}
-                {count > 0 && (
-                  <span className="font-mono tabular-nums opacity-80">{count > 999 ? '999+' : count}</span>
-                )}
-              </button>
-            );
-          })}
+        <div className="ar-stream-filter__heading">
+          <span className="ar-panel__label" aria-live="polite">{streamHeading}</span>
+          {streamHeaderAction}
         </div>
         <div className="ar-stream-filter__right">
           <input
@@ -322,11 +335,21 @@ export default function M11CActivityStream({
           {/* Connection status lives in the hero (single truth). Only
               paused/buffered context surfaces inline, where it changes
               stream behavior. */}
-          {(connectionState === 'paused' || unread > 0) && !atBottom && (
-            <span className="ar-stream-filter__live" aria-live="polite">
-              {unread > 0 ? `${unread} buffered` : 'Paused'}
-            </span>
-          )}
+          <label className="ar-stream-filter__select-label">
+            <span className="sr-only">Activity category</span>
+            <select
+              value={activeFilter}
+              onChange={(event) => setActiveFilter(event.target.value as StreamFilter)}
+              className="ar-stream-filter__select"
+              aria-label="Activity category"
+            >
+              {FILTER_TABS.map((tab) => (
+                <option key={tab.id} value={tab.id}>
+                  {tab.label} ({filterCounts[tab.id]})
+                </option>
+              ))}
+            </select>
+          </label>
         </div>
       </div>
 
@@ -336,7 +359,9 @@ export default function M11CActivityStream({
         className="ar-scroll flex min-h-0 flex-1 flex-col gap-1 pr-1"
         role="log"
         aria-live="polite"
+        aria-relevant="additions text"
         aria-label="Activity stream"
+        tabIndex={0}
       >
         {loading ? (
           <div className="flex flex-col gap-2 py-1">
@@ -369,25 +394,45 @@ export default function M11CActivityStream({
               </div>
             )}
 
-            {/* Stream items */}
-            {rendered.map((item) => (
-              <M11CStreamItemComponent
-                key={item.id}
-                item={item}
-                onOpenDetail={onOpenDetail}
-                onDrillDown={onDrillDown}
-                onReply={onReply}
-                onRetract={onRetract}
-                onEdit={onEdit}
-                onOpenThread={onOpenThread}
-                lookupAuthor={lookupAuthor}
-                lookupContent={lookupContent}
-                submission={submission}
-                onSubmitResponse={onSubmitResponse}
-                participantNames={participantNames}
-                onSelectWorkflow={onSelectWorkflow}
-              />
-            ))}
+            {/* Virtualized stream items: retained history stays available while
+                only the viewport plus a small overscan window mounts DOM. */}
+            <div
+              style={{
+                height: `${virtualizer.getTotalSize()}px`,
+                position: 'relative',
+                width: '100%',
+              }}
+            >
+              {virtualizer.getVirtualItems().map((virtualItem) => {
+                const item = rendered[virtualItem.index];
+                if (!item) return null;
+                return (
+                  <div
+                    key={virtualItem.key}
+                    data-index={virtualItem.index}
+                    ref={virtualizer.measureElement}
+                    className="absolute left-0 top-0 w-full"
+                    style={{ transform: `translateY(${virtualItem.start}px)` }}
+                  >
+                    <M11CStreamItemComponent
+                      item={item}
+                      onOpenDetail={onOpenDetail}
+                      onDrillDown={onDrillDown}
+                      onReply={onReply}
+                      onRetract={onRetract}
+                      onEdit={onEdit}
+                      onOpenThread={onOpenThread}
+                      lookupAuthor={lookupAuthor}
+                      lookupContent={lookupContent}
+                      submission={submission}
+                      onSubmitResponse={onSubmitResponse}
+                      participantNames={participantNames}
+                      onSelectWorkflow={onSelectWorkflow}
+                    />
+                  </div>
+                );
+              })}
+            </div>
           </>
         )}
       </div>
@@ -404,32 +449,8 @@ export default function M11CActivityStream({
         </button>
       )}
 
-      {/* Status bar — canonical connection config (hero is primary,
-          this is subordinate context next to the record count). */}
-      <div className="ar-foot">
-        <span>
-          {filtered.length} records
-          {selectedParticipantId !== undefined ? ' · filtered' : ''}
-          {workflowFilter ? ` · workflow ${workflowFilter.slice(0, 8)}` : ''}
-          {activeFilter !== 'all' ? ` · ${FILTER_TABS.find((t) => t.id === activeFilter)?.label}` : ''}
-        </span>
-        <span className="ar-foot__state">
-          {(() => {
-            const config = CONNECTION_STATUS_CONFIG[connectionState] ?? CONNECTION_STATUS_CONFIG.offline;
-            return (
-              <>
-                <StatusIndicator
-                  variant={config.variant}
-                  size="xs"
-                  pulse={connectionState === 'live' || connectionState === 'reconnecting'}
-                  ariaLabel={`Connection: ${config.label}`}
-                />
-                {config.label}
-              </>
-            );
-          })()}
-        </span>
-      </div>
     </div>
   );
 }
+
+export default memo(M11CActivityStream);

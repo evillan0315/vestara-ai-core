@@ -117,6 +117,16 @@ export interface MarketplaceTheme {
   standards: string;
 }
 
+export interface ActivityRoomTheme {
+  primary: string;
+  primaryLight: string;
+  primaryDark: string;
+  panel: string;
+  panelRaised: string;
+  border: string;
+  borderStrong: string;
+}
+
 // ─── Complete Theme ────────────────────────────────────────────
 
 export interface Theme {
@@ -127,6 +137,7 @@ export interface Theme {
   accent: AccentTheme;
   status: StatusTheme;
   marketplace: MarketplaceTheme;
+  activityRoom: ActivityRoomTheme;
 }
 
 // ─── Dark Theme ────────────────────────────────────────────────
@@ -188,6 +199,7 @@ export const DARK_THEME: Theme = {
     plugin: COLOR.marketplace.violet,
     standards: COLOR.marketplace.green,
   },
+  activityRoom: COLOR.activityRoom,
 };
 
 // ─── Light Theme ───────────────────────────────────────────────
@@ -265,6 +277,15 @@ export const LIGHT_THEME: Theme = {
     module: '#2563eb',
     plugin: COLOR.marketplace.violet,
     standards: '#059669',
+  },
+  activityRoom: {
+    primary: '#2563eb',
+    primaryLight: '#60a5fa',
+    primaryDark: '#1d4ed8',
+    panel: '#eff6ff',
+    panelRaised: '#dbeafe',
+    border: '#93c5fd',
+    borderStrong: '#2563eb',
   },
 };
 

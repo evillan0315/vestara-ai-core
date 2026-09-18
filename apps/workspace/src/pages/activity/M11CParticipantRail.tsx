@@ -28,7 +28,7 @@
  */
 
 import type { ParticipantProjection } from '@vestara/activity-room';
-import { StatusIndicator } from '@vestara/ui';
+import { EmptyState, StatusIndicator } from '@vestara/ui';
 import { memo, useMemo, useState } from 'react';
 import { WORK_STATE_CONFIG, PRESENCE_VARIANT_CONFIG } from './status-config';
 
@@ -64,10 +64,10 @@ function resolveIdentity(p: ParticipantProjection): ResolvedIdentity {
   }
   const idLike = !p.displayName || p.displayName === p.modelId;
   if (!idLike) {
-    const meta = [p.modelId, p.providerId].filter(Boolean).join(' · ');
+    const meta = [p.modelId, p.providerId].filter((value): value is string => Boolean(value)).map(humanizeIdentifier).join(' · ');
     return { name: p.displayName, unknown: false, meta: meta || undefined };
   }
-  const meta = [p.modelId, p.providerId].filter(Boolean).join(' · ');
+  const meta = [p.modelId, p.providerId].filter((value): value is string => Boolean(value)).map(humanizeIdentifier).join(' · ');
   return { name: p.modelDisplayName ?? 'Unknown agent', unknown: !p.modelDisplayName, meta: meta || undefined };
 }
 
@@ -87,14 +87,32 @@ const MEMBERSHIP_LABEL: Record<string, string> = {
   guest: 'Guest',
 };
 
+function humanizeIdentifier(value: string): string {
+  return value
+    .replace(/^agent[-_]/i, '')
+    .replace(/[-_]+/g, ' ')
+    .replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
 // ─── Shared presentation classes (canonical tokens only) ─────
 
 const TILE_BASE =
-  'grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border font-serif text-base font-semibold shadow-[0_2px_10px_rgba(0,0,0,0.45),inset_0_1px_0_rgba(255,255,255,0.08)] [&_svg]:size-[18px]';
+  'grid size-7 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border font-serif text-sm font-semibold shadow-[var(--vestara-elevation-sm)] [&_svg]:size-[16px]';
+
+function participantTypeLabel(type: string): string {
+  switch (type) {
+    case 'human': return 'Human';
+    case 'agent': return 'Agent';
+    case 'service':
+    case 'system': return 'Service/System';
+    case 'external': return 'External';
+    default: return 'Participant';
+  }
+}
 
 // ─── Component ───────────────────────────────────────────────
 
-export default function M11CParticipantRail({
+function M11CParticipantRail({
   participants,
   selectedParticipantId,
   onSelectParticipant,
@@ -152,7 +170,7 @@ export default function M11CParticipantRail({
     return (
       <div className="ar-rail" role="region" aria-label="Participants">
         <p className="ar-kicker">Participants</p>
-        <p className="ar-rail__empty">No participants yet.</p>
+        <EmptyState title="No participants yet" description="Participants appear here when they join the room." />
       </div>
     );
   }
@@ -169,7 +187,8 @@ export default function M11CParticipantRail({
 
   return (
     <div className="ar-rail" role="region" aria-label="Participants">
-      <div className="ar-rail__head">
+      <div className="ar-rail__sticky-head">
+        <div className="ar-rail__head">
         <p className="ar-kicker">Participants</p>
         <button
           type="button"
@@ -186,36 +205,32 @@ export default function M11CParticipantRail({
             <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
           </span>
         </button>
-      </div>
-
-      {/* ── Search + Type Filter ──────────────────────────── */}
-      <div className="ar-rail__filters">
-        <div className="ar-rail__search">
-          <input
-            type="text"
-            placeholder="Search participants…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="ar-rail__search-input"
-            aria-label="Search participants"
-          />
         </div>
-        <div
-          role="group"
-          aria-label="Filter by type"
-          className="inline-flex max-w-full min-w-0 flex-wrap gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] p-1"
-        >
-          {(['all', 'human', 'agent'] as const).map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={typeFilter === option}
-              onClick={() => setTypeFilter(option)}
-              className={`min-h-7 rounded-[var(--vestara-radius)] border px-2.5 text-[var(--vestara-font-size-xs)] capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${typeFilter === option ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-transparent text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text)]'}`}
+
+        {/* ── Search + Type Filter ──────────────────────────── */}
+        <div className="ar-rail__filters">
+          <div className="ar-rail__search">
+            <input
+              type="text"
+              placeholder="Search participants…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="ar-rail__search-input"
+              aria-label="Search participants"
+            />
+          </div>
+          <label className="ar-rail__type-select">
+            <span className="sr-only">Filter participants by type</span>
+            <select
+              value={typeFilter}
+              onChange={(event) => setTypeFilter(event.target.value as typeof typeFilter)}
+              aria-label="Filter participants by type"
             >
-              {option === 'all' ? 'All' : option === 'human' ? 'Humans' : 'Agents'}
-            </button>
-          ))}
+              <option value="all">All participants</option>
+              <option value="human">Humans</option>
+              <option value="agent">Agents</option>
+            </select>
+          </label>
         </div>
       </div>
 
@@ -223,7 +238,7 @@ export default function M11CParticipantRail({
           Page owns scrolling (008A finding): no nested rail scrollbar. */}
       <div className="ar-rail__list" role="list">
         {grouped.length === 0 ? (
-          <div className="ar-rail__empty">No matching participants.</div>
+          <EmptyState title="No matching participants" description="Adjust the search or type filter." />
         ) : (
           grouped.map((participant) => (
             <ParticipantRow
@@ -283,12 +298,6 @@ const ParticipantRow = memo(function ParticipantRow({
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
 
   // Tile tone decorates actor TYPE only — never status, presence, or health.
-  const tileTone = isHuman
-    ? 'var(--vestara-status-info)'
-    : identity.unknown
-      ? 'var(--vestara-text-muted)'
-      : 'var(--vestara-accent-text)';
-  const tileGlow = `0 0 12px color-mix(in srgb, ${tileTone} 25%, transparent)`;
   // Blocked/needs-attention must scan from the tertiary line: semibold in
   // the error/warning token instead of the default muted 11px.
   const urgentWork = participant.workState === 'blocked' || participant.workState === 'attention-required';
@@ -313,19 +322,14 @@ const ParticipantRow = memo(function ParticipantRow({
       type="button"
       onClick={() => onSelect(selected ? undefined : participant.participantId)}
       aria-pressed={selected}
-      aria-label={`${identity.name}, ${isHuman ? 'human' : 'agent'}${work ? `, ${work.label}` : ''}`}
-      className={`group flex w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
+       aria-label={`${identity.name}, ${participantTypeLabel(participant.type)}${work ? `, ${work.label}` : ''}`}
+      className={`ar-guest group flex w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'ar-guest--selected border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
     >
       {/* Actor-type tile (type only — never status) */}
       <span
         aria-hidden="true"
-        className={TILE_BASE}
-        style={{
-          color: tileTone,
-          background: `radial-gradient(circle at 32% 26%, color-mix(in srgb, ${tileTone} 22%, transparent), transparent 60%), color-mix(in srgb, ${tileTone} 10%, transparent)`,
-          borderColor: `color-mix(in srgb, ${tileTone} 45%, transparent)`,
-          boxShadow: tileGlow,
-        }}
+        className={`${TILE_BASE} ar-participant-type--${identity.unknown ? 'unknown' : participant.type}`}
+        title={participantTypeLabel(participant.type)}
       >
         {initial}
       </span>
@@ -343,11 +347,6 @@ const ParticipantRow = memo(function ParticipantRow({
           >
             {identity.name}
           </span>
-          {!isHuman && participant.role && (
-            <span className="truncate text-[11px] capitalize text-[var(--vestara-text-muted)]">
-              {participant.role}
-            </span>
-          )}
           {unreadCount > 0 && (
             <span className="rounded-[var(--vestara-radius-full)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_60%,var(--vestara-accent-dark))] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-zinc-950)] shadow-[0_2px_10px_var(--vestara-accent-bg)]">
               {unreadCount > 99 ? '99+' : unreadCount}
@@ -365,7 +364,7 @@ const ParticipantRow = memo(function ParticipantRow({
           {presence && (
             <span className="inline-flex items-center gap-1 capitalize">
               <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
-              {presence}
+              {humanizeIdentifier(presence)}
             </span>
           )}
           {work && (
@@ -385,3 +384,5 @@ const ParticipantRow = memo(function ParticipantRow({
     </button>
   );
 });
+
+export default memo(M11CParticipantRail);

@@ -1,0 +1,281 @@
+/**
+ * VES-FILES-001: Files Scoped Tokens
+ *
+ * Scoped `--files-*` layer for the Files surface. Every value derives
+ * from the canonical Vestara tokens (`--vestara-*`) so dark/light mode
+ * and the user-selected accent propagate automatically.
+ *
+ * Never hard-code palette hex here — reference canonical vars or
+ * color-mix() expressions over them.
+ */
+
+:root {
+  --files-row-hover-bg: color-mix(in srgb, var(--vestara-text-primary) 4%, transparent);
+  --files-inset-bg: color-mix(in srgb, var(--vestara-text-primary) 2%, transparent);
+  --files-track-bg: color-mix(in srgb, var(--vestara-text-primary) 8%, transparent);
+  --files-dir-fg: var(--vestara-status-info);
+  --files-dir-bg: var(--vestara-status-info-bg);
+  --files-file-fg: var(--vestara-text-secondary);
+  --files-crumb-fg: var(--vestara-text-muted);
+  --files-selected-bg: var(--vestara-accent-bg);
+  --files-selected-border: var(--vestara-accent-border);
+
+  /* Icon tiles — translucent status washes (text pairs adapt per mode) */
+  --files-tile-info-bg: var(--vestara-status-info-bg);
+  --files-tile-info-fg: var(--vestara-status-info);
+  --files-tile-success-bg: var(--vestara-status-success-bg);
+  --files-tile-success-fg: var(--vestara-status-success);
+  --files-tile-warning-bg: var(--vestara-status-warning-bg);
+  --files-tile-warning-fg: var(--vestara-status-warning);
+}
+
+/* Enterprise presentation: quieter surfaces, explicit hierarchy, and
+   predictable hover states keep the Files surface suitable for operational use. */
+.files-enterprise {
+  color: var(--vestara-text-primary);
+}
+
+.files-enterprise .mpg-card {
+  border-color: var(--vestara-border-subtle);
+  background: var(--vestara-surface-panel);
+  box-shadow: none;
+}
+
+.files-enterprise .mpg-card:hover {
+  border-color: var(--vestara-border-default);
+  box-shadow: none;
+  transform: none;
+}
+
+.files-enterprise .mpg-tag-pill,
+.files-enterprise .mpg-pill {
+  border-color: var(--vestara-border-subtle);
+  background: var(--vestara-surface-interactive);
+}
+
+.files-enterprise .mpg-pill:hover,
+.files-enterprise .mpg-tag-pill:hover {
+  border-color: var(--vestara-border-default);
+  background: var(--vestara-accent-bg);
+}
+
+[data-theme='light'] {
+  --files-row-hover-bg: color-mix(in srgb, var(--vestara-text-primary) 4%, transparent);
+  --files-inset-bg: color-mix(in srgb, var(--vestara-text-primary) 2%, transparent);
+  --files-track-bg: color-mix(in srgb, var(--vestara-text-primary) 10%, transparent);
+}
+
+.files-tile-info {
+  color: var(--files-tile-info-fg);
+  background: color-mix(in srgb, var(--files-tile-info-fg) 14%, transparent);
+  border-color: color-mix(in srgb, var(--files-tile-info-fg) 35%, transparent);
+}
+
+.files-tile-accent {
+  color: var(--vestara-accent);
+  background: color-mix(in srgb, var(--vestara-accent) 14%, transparent);
+  border-color: color-mix(in srgb, var(--vestara-accent) 35%, transparent);
+}
+
+.files-tile-warning {
+  color: var(--files-tile-warning-fg);
+  background: color-mix(in srgb, var(--files-tile-warning-fg) 14%, transparent);
+  border-color: color-mix(in srgb, var(--files-tile-warning-fg) 35%, transparent);
+}
+
+.files-tile-success {
+  color: var(--files-tile-success-fg);
+  background: color-mix(in srgb, var(--files-tile-success-fg) 14%, transparent);
+  border-color: color-mix(in srgb, var(--files-tile-success-fg) 35%, transparent);
+}
+
+[data-selected='true'] {
+  box-shadow: inset var(--vestara-spacing-1) 0 0 var(--vestara-accent);
+}
+
+[data-active='true']:not([data-selected='true']) {
+  box-shadow: inset var(--vestara-spacing-1) 0 0 var(--vestara-border-strong);
+}
+
+/* ─── Code Editor / Preview Tokens ──────────────────────────────── */
+
+:root {
+  --files-editor-toolbar-bg: var(--vestara-surface-interactive);
+  --files-editor-textarea-bg: var(--vestara-surface-panel);
+  --files-editor-textarea-border: var(--vestara-border-subtle);
+  --files-editor-font-size: var(--vestara-font-size-sm);
+  --files-editor-line-height: 1.6;
+  --files-preview-bg: var(--vestara-surface-canvas);
+  --files-preview-border: var(--vestara-border-subtle);
+  --files-preview-card-bg: var(--vestara-surface-panel);
+}
+
+/* Code editor toolbar */
+.code-editor-toolbar {
+  background: var(--files-editor-toolbar-bg);
+  border-bottom: 1px solid var(--files-preview-border);
+}
+
+.code-editor-toolbar button:focus-visible,
+.code-editor-toolbar [role="button"]:focus-visible {
+  outline: 2px solid var(--vestara-border-focus);
+  outline-offset: 2px;
+  border-radius: var(--vestara-radius-sm);
+}
+
+/* View mode */
+.code-editor-view,
+.code-editor-edit {
+  background: var(--files-editor-textarea-bg);
+}
+
+.code-editor-view pre,
+.code-editor-edit textarea {
+  margin: 0;
+  font-family: var(--vestara-code-font-family, 'JetBrains Mono', monospace);
+  font-size: var(--files-editor-font-size);
+  line-height: var(--files-editor-line-height);
+  color: var(--vestara-text-primary);
+  background: transparent;
+}
+
+.code-editor-view code {
+  display: block;
+  overflow-x: auto;
+  padding: var(--vestara-spacing-section);
+}
+
+.code-editor-view .hljs {
+  background: transparent;
+}
+
+/* Edit mode textarea */
+.code-editor-textarea {
+  width: 100%;
+  min-height: 40vh;
+  max-height: 60vh;
+  padding: var(--vestara-spacing-section);
+  border: none;
+  outline: none;
+  resize: none;
+  font-family: var(--vestara-code-font-family, 'JetBrains Mono', monospace);
+  font-size: var(--files-editor-font-size);
+  line-height: var(--files-editor-line-height);
+  color: var(--vestara-text-primary);
+  background: var(--files-editor-textarea-bg);
+}
+
+.code-editor-textarea::placeholder {
+  color: var(--vestara-text-disabled);
+}
+
+.code-editor-textarea:focus {
+  outline: none;
+}
+
+/* File preview */
+.file-preview {
+  background: var(--files-preview-card-bg);
+  border: 1px solid var(--files-preview-border);
+  border-radius: var(--vestara-radius-lg);
+}
+
+.file-preview-card {
+  background: var(--files-preview-card-bg);
+  border: 1px solid var(--files-preview-border);
+  border-radius: var(--vestara-radius-lg);
+  transition: border-color var(--vestara-motion-fast), box-shadow var(--vestara-motion-fast);
+}
+
+.file-preview-card:hover {
+  border-color: var(--vestara-border-default);
+  box-shadow: var(--vestara-elevation-sm);
+}
+
+/* Syntax highlighting overrides for highlight.js */
+.hljs {
+  background: transparent !important;
+  color: var(--vestara-text-primary);
+}
+
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-built_in,
+.hljs-name,
+.hljs-tag {
+  color: #c678dd; /* purple */
+}
+
+.hljs-string,
+.hljs-title,
+.hljs-section,
+.hljs-attribute,
+.hljs-literal,
+.hljs-template-variable,
+.hljs-type,
+.hljs-selector-id,
+.hljs-selector-class,
+.hljs-quote,
+.hljs-template-tag,
+.hljs-deletion {
+  color: #98c379; /* green */
+}
+
+.hljs-number,
+.hljs-symbol,
+.hljs-bullet,
+.hljs-link {
+  color: #d19a66; /* orange */
+}
+
+.hljs-variable,
+.hljs-template-variable {
+  color: #e06c75; /* red */
+}
+
+.hljs-comment,
+.hljs-meta {
+  color: #5c6370; /* gray */
+}
+
+.hljs-function,
+.hljs-function .hljs-title {
+  color: #61afef; /* blue */
+}
+
+.hljs-params,
+.hljs-class .hljs-title {
+  color: #e5c07b; /* yellow */
+}
+
+.hljs-regexp,
+.hljs-attr {
+  color: #56b6c2; /* cyan */
+}
+
+/* Scrollbar styling for editor/preview */
+.code-editor-view::-webkit-scrollbar,
+.code-editor-textarea::-webkit-scrollbar,
+.file-preview ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.code-editor-view::-webkit-scrollbar-track,
+.code-editor-textarea::-webkit-scrollbar-track,
+.file-preview ::-webkit-scrollbar-track {
+  background: var(--vestara-surface-interactive);
+}
+
+.code-editor-view::-webkit-scrollbar-thumb,
+.code-editor-textarea::-webkit-scrollbar-thumb,
+.file-preview ::-webkit-scrollbar-thumb {
+  background: var(--vestara-border-strong);
+  border-radius: var(--vestara-radius-full);
+}
+
+.code-editor-view::-webkit-scrollbar-thumb:hover,
+.code-editor-textarea::-webkit-scrollbar-thumb:hover,
+.file-preview ::-webkit-scrollbar-thumb:hover {
+  background: var(--vestara-text-muted);
+}

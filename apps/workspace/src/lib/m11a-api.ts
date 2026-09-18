@@ -40,6 +40,14 @@ export interface M11AStreamItem {
   readonly workflowRunId?: string;
   readonly executionId?: string;
   readonly taskId?: string;
+  /**
+   * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002).
+   * `originConversationId` = Conversation Runtime `Conversation.id`;
+   * `originSurface` = sending-surface attribution (canonical `surface`
+   * vocabulary). Absent = unknown origin (Reply stays local).
+   */
+  readonly originConversationId?: string;
+  readonly originSurface?: string;
   readonly aggregated?: {
     readonly count: number;
     readonly kind: string;

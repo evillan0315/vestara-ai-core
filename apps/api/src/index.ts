@@ -17,7 +17,7 @@ import { reconcileStaleCIWaits } from './ci-reconcile';
 import { startOpencodeSupervisor } from './opencode-supervisor';
 import { getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
 import { collectCIWaits } from './routes/ci';
-import { initTelegramRoute } from './routes/telegram';
+import { initTelegramRoute, resolveTelegramActivation } from './routes/telegram';
 import { type ApiServer, createServer } from './server';
 import { createWorkspaceContext } from './workspace-context';
 
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
   bootMark('m11a-init');
 
   // VES-LEAN-003A: Gate Telegram by dogfood profile
-  if (process.env.VESTARA_RUNTIME_PROFILE !== 'dogfood') {
+  if (resolveTelegramActivation(process.env.VESTARA_RUNTIME_PROFILE).enabled) {
     await initTelegramRoute(path.join(repoPath, '.vestara', 'telegram.db'), ctx);
   }
   bootMark('telegram-init');

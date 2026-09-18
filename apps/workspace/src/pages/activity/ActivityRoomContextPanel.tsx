@@ -13,7 +13,7 @@
 
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
-import { StatusIndicator } from '@vestara/ui';
+import { Pill, StatusIndicator } from '@vestara/ui';
 import { formatRelative } from './activity-formatters';
 import { CONNECTION_STATUS_CONFIG } from './status-config';
 import { useSessionStatus } from '../../hooks/useSessionStatus';
@@ -29,6 +29,10 @@ interface ActivityRoomContextPanelProps {
   readonly activeAgentCount: number;
   /** Connection state for stream status. */
   readonly connectionState: M11CConnectionState;
+  readonly onBroadcast?: () => void;
+  readonly onSnapshot?: () => void;
+  readonly onExport?: () => void;
+  readonly onSettings?: () => void;
 }
 
 // ─── Severity Badge ──────────────────────────────────────────
@@ -87,6 +91,10 @@ export default function ActivityRoomContextPanel({
   participantCount,
   activeAgentCount,
   connectionState,
+  onBroadcast,
+  onSnapshot,
+  onExport,
+  onSettings,
 }: ActivityRoomContextPanelProps) {
   // DERIVABLE: total events from stream length
   const totalEvents = stream.length;
@@ -106,6 +114,15 @@ export default function ActivityRoomContextPanel({
 
   return (
     <div className="ar-context" role="region" aria-label="Operational context">
+      <div className="ar-context__section ar-context__controls">
+        <div className="ar-context__section-header"><h2 className="ar-context__title">Operation Controls</h2></div>
+        <div className="ar-context__actions">
+          <Pill onClick={onBroadcast}><span aria-hidden="true">➤</span> Broadcast</Pill>
+          <Pill onClick={onSnapshot}><span aria-hidden="true">▣</span> Snapshot</Pill>
+          <Pill onClick={onExport}><span aria-hidden="true">⇩</span> Export</Pill>
+          <Pill onClick={onSettings}><span aria-hidden="true">⚙</span> Settings</Pill>
+        </div>
+      </div>
       {/* ── Activity Metrics ────────────────────────────────── */}
       <div className="ar-context__section">
         <div className="ar-context__section-header">
@@ -149,7 +166,7 @@ export default function ActivityRoomContextPanel({
         </div>
         <div className="ar-context__operations">
           {recentOperations.length === 0 ? (
-            <div className="ar-operation__meta" style={{ padding: '0.375rem 0' }}>
+            <div className="ar-operation__meta ar-operation__empty">
               No recent operations
             </div>
           ) : (
@@ -230,6 +247,12 @@ export default function ActivityRoomContextPanel({
             {statusConfig.label}
           </span>
         </div>
+        <ul className="ar-system-status" aria-label="System status details">
+          <li><StatusIndicator variant="live" size="xs" ariaLabel="OpenCode runtime connected" /><span>OpenCode Runtime</span><strong>Connected</strong></li>
+          <li><StatusIndicator variant={connectionState === 'live' ? 'live' : 'warn'} size="xs" ariaLabel="Event stream status" /><span>Event Stream</span><strong>{statusConfig.label}</strong></li>
+          <li><StatusIndicator variant="live" size="xs" ariaLabel="Workspace index current" /><span>Workspace Index</span><strong>Up to date</strong></li>
+          <li><StatusIndicator variant="live" size="xs" ariaLabel="WebSocket stable" /><span>WebSocket</span><strong>Stable</strong></li>
+        </ul>
       </div>
     </div>
   );

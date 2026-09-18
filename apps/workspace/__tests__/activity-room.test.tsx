@@ -6,6 +6,11 @@ import { ThemeProvider } from '../src/lib/theme.js';
 import ActivityRoomPage from '../src/pages/activity/ActivityRoomPage.js';
 import type { ActivityRecord } from '../src/pages/activity/activity-types.js';
 
+vi.mock('../src/contexts/SurfaceContext', () => ({
+  useSetActivitySelection: () => vi.fn(),
+  SurfaceContextProvider: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+}));
+
 const workflowRecord: ActivityRecord = {
   id: 'activity:evt-1:workflow',
   sequence: 1,
@@ -61,15 +66,20 @@ beforeEach(() => {
   vi.stubGlobal('WebSocket', MockWebSocket);
   vi.stubGlobal(
     'fetch',
-    vi.fn(async () => ({
-      ok: true,
-      json: async () => ({
-        records: [workflowRecord, developerMessage],
-        firstSequence: 1,
-        lastSequence: 2,
-        nextSequence: 3,
-      }),
-    })),
+    vi.fn(async (input: RequestInfo | URL) => {
+      if (String(input).includes('/api/opencode/config/providers')) {
+        return { ok: true, json: async () => ({ providers: [] }) };
+      }
+      return {
+        ok: true,
+        json: async () => ({
+          records: [workflowRecord, developerMessage],
+          firstSequence: 1,
+          lastSequence: 2,
+          nextSequence: 3,
+        }),
+      };
+    }),
   );
 });
 
