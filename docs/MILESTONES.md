@@ -2143,66 +2143,93 @@ vestara provider status ollama
 - `apps/workspace/src/components/diagnostics/AgentMonitor.tsx` — premium agent cards with progress bars
 - `apps/workspace/src/components/diagnostics/LogViewer.tsx` — Table-based event viewer with Badge/Tag
 - `apps/workspace/src/components/diagnostics/StoragePanel.tsx` — premium filesystem + workspace cards
-- `apps/workspace/src/components/diagnostics/DockerPanel.tsx` — premium container cards + stats
-- `apps/workspace/src/components/diagnostics/GitPanel.tsx` — premium key-value card
-- `apps/workspace/src/components/diagnostics/EnvPanel.tsx` — premium toolchain + env cards
-- `apps/workspace/src/components/diagnostics/AiAnalyze.tsx` — premium floating modal with accent glow
-- `apps/workspace/src/styles/diagnostics.css` — reduced to ~80 lines (animations + print only)
 
-**New reusable components for `@vestara/ui`**:
+---
 
-| Component | Purpose |
-|-----------|---------|
-| `HealthRing` | Radial gauge for scores/percentages |
-| `PremiumCard` | Card with left accent, hover glow, holographic overlay |
-| `InsightBanner` | Contextual alert with severity, title, description, action |
-| `SmartSummary` | One-line contextual status summary |
-| `SystemInfoCard` | Structured key-value card with icon and accent |
-| `AgentStatusCard` | Agent card with progress bar, status, live pulse |
-| `PremiumDrawer` | Slide-in detail panel with backdrop blur, accent glow |
+### v8.0 — WF-PLAYGROUND Program 🔷 Planned
 
-**Premium visual treatments applied**:
+**Objective**: Build a production-quality visual environment for designing, understanding, validating, simulating, inspecting, and operating Vestara workflows. The WF-PLAYGROUND becomes both the learning instrument for discovering how Vestara workflows should work and the reference implementation from which the production workflow runtime contracts are proven. The governing invariant is that WorkflowDefinition extends the existing execution architecture rather than creating a parallel engine.
 
-| Treatment | Source | Usage |
-|-----------|--------|-------|
-| Dark metallic chamber | Activity Room `.ar-room` | Page container with radial ceiling glow + holographic atmosphere |
-| Glass-morphism panels | Activity Room `.ar-panel` | `backdrop-blur-xl` + `bg-surface-panel/95` + sheen shadow |
-| Gold accent glow | Activity Room `.ar-plinth` | `box-shadow: 0 0 24px var(--vestara-surface-glow)` |
-| Left accent borders | Overview page pattern | 3px colored strip per card category |
-| Holographic overlay | `index.css` card treatment | Subtle iridescent gradient on hover |
-| Status lamp glow | `StatusIndicator` | `shadow-[0_0_6px_rgba(...,0.9)]` + `animate-pulse` |
-| Metallic gradient text | Activity Room `.ar-display` | `background-clip: text` for premium labels |
-| Accent hairline | `FloatingPanel.tsx` | `bg-gradient-to-r from-transparent via-accent-border to-transparent` |
-| Staggered entrance | Custom keyframes | Cards animate in with 30ms stagger |
-| Value flash | Custom keyframe | Amber glow flash on data updates |
+**Problem**: Vestara lacks a visual, self-describing workflow environment where users can create, understand, validate, simulate, and inspect workflows without reading implementation code or relying on AI reverse-engineering. Existing workflow abstractions exist in `@vestara/workflow-orchestrator` and `@vestara/workflow-projections` but have no visual representation or interactive simulation capability.
 
-**Architecture**:
+**Solution**: A 21-phase program (WF-PLAYGROUND-000 through WF-PLAYGROUND-020) that builds from architecture audit through production runtime convergence, establishing canonical workflow definitions, visual designers, validation engines, simulators, and live execution projection that integrate with rather than duplicate existing Vestara workflow systems.
 
-- **Chamber layout**: 4-layer atmosphere (base canvas + radial ceiling glow + holographic spectral whispers + content)
-- **Contextual intelligence layer**: `computeInsights()` generates severity-ranked insights from summary/health/agents data
-- **Tab badges**: Computed from data state (failed agents, stopped containers, disk pressure, etc.)
-- **Smart summary**: One-line natural language status derived from all data sources
-- **Premium cards**: Left accent border + hover glow + holographic overlay + sparkline
-- **Instrument panels**: CPU/Memory rendered as gauges with gradient fills, animated meters, and load averages
-- **Health Ring**: SVG radial gauge with animated arc, replacing flat percentage
-- **Micro-interactions**: Staggered entrance, tab slide, drawer slide-in, value flash, meter bar animation
+**Artifacts**:
 
-**Implementation phases**:
+| Artifact | Description |
+|----------|-------------|
+| `WF-PLAYGROUND-000` | Workflow Architecture & Ownership Audit — maps existing WorkflowRun, definitions, steps, DAG contracts, execution contracts, routing contracts, task contracts, Activity Room integration, event infrastructure, persistence and APIs |
+| `WF-PLAYGROUND-001` | Workflow Graph Contract — canonical graph independent of React Flow with IDs, versioning, metadata, inputs/outputs, nodes, edges, policies |
+| `WF-PLAYGROUND-002` | Node/Port/Edge Semantics — executable graph vocabulary (Input, Output, Agent, Task, Tool, Router, Transform, Approval, Wait, Subworkflow) with typed compatibility and cycle rules |
+| `WF-PLAYGROUND-003` | Explainability Contract — deterministic explanation generation from graph (What/Why/Receive/Produce/Governance/Failure for every node/edge) |
+| `WF-PLAYGROUND-004` | React Flow Designer — visual workflow creation using canonical Vestara UI system, round-tripping to graph contracts |
+| `WF-PLAYGROUND-005` | Configuration Inspector — contextual node/edge configuration preserving routing invariants (Agent → RoutingIntent → RoutingAssignment → Provider/Model) |
+| `WF-PLAYGROUND-006` | Validation Engine — static analyzer detecting unreachable nodes, orphan nodes, incompatible ports, missing required input, invalid cycles, dead ends, unbounded retries, etc. |
+| `WF-PLAYGROUND-007` | Simulator — safe simulation runtime stepping through nodes, emitting execution observations matching future production runtime family |
+| `WF-PLAYGROUND-008` | Data-Inspection Observatory — every node/edge exposes identity, routing, input, context, model, tools, output with redaction for secrets |
+| `WF-PLAYGROUND-009` | Live Execution Projection — graph state as authoritative projection of execution events (NODE.STARTED, MODEL.STARTED, TOOL.COMPLETED, ROUTE.SELECTED, etc.) |
+| `WF-PLAYGROUND-010` | Templates & One-Click Workflows — canonical templates (Simple Sequential, Conditional Routing, Human Approval, Agent+Tool, Feature Development, etc.) |
+| `WF-PLAYGROUND-011` | AI-Assisted Workflow Generation — natural-language intent → AI proposal → schema validation → graph validation → governance analysis → preview → human acceptance → WFDefinition |
+| `WF-PLAYGROUND-012` | Workflow Advisor — deterministic recommendations (Correctness, Reliability, Governance, Observability, Efficiency, Maintainability, Cost/usage) with evidence/reason/affected/risk/proposed |
+| `WF-PLAYGROUND-013` | Governed Live Intervention — human reroute during execution (Retry, Reviewer, Another Agent, Subworkflow, Human) recorded without mutating definition |
+| `WF-PLAYGROUND-014` | Subworkflow Composition — typed subworkflow nodes with drill-in interfaces, lineage across workflow boundaries |
+| `WF-PLAYGROUND-015` | Replay & Time Travel — persist execution evidence, scrub through historical state (T+0 Input, T+2 Planner running, etc.) |
+| `WF-PLAYGROUND-016` | Trace & Lineage — trace any artifact/payload/message/output through its lifecycle (created by, transformed by, consumed by, derived from, sent to) |
+| `WF-PLAYGROUND-017` | Runtime Analytics — aggregate execution telemetry (duration, nodes, model calls, tool calls, tokens broken down by workflow/node/provider/model/tool/execution) |
+| `WF-PLAYGROUND-018` | Activity Room Convergence — same operation IDs, execution IDs, agents and evidence shared between Playground and Activity Room, no duplicated authority |
+| `WF-PLAYGROUND-019` | Production Runtime Convergence — promote proven simulation/runtime contracts as the production Workflow engine consuming same canonical definitions |
+| `WF-PLAYGROUND-020` | Vestara Dogfood — take a real Vestara engineering operation and run it through the visual workflow, capture evidence, verify all inspection capabilities |
 
-| Phase | Scope |
-|-------|-------|
-| 1. Visual Foundation | Chamber, toolbar, tab bar, entry animations |
-| 2. Premium Cards | Overview cards with left accent, glow, sparklines |
-| 3. Live Charts | CPU/Memory instrument panels, HealthRing, PremiumSparkline |
-| 4. Contextual Intelligence | Insight banner, smart summary, tab badges |
-| 5. Tab Panels | SystemInfo, ProcessExplorer, HealthPanel, AgentMonitor, LogViewer, Storage, Docker, Git, Env |
-| 6. AI Modal | Premium floating modal with accent glow |
-| 7. Micro-interactions | Hover glow, value flash, card entrance, reduced motion |
-| 8. CSS Cleanup | Delete 560+ lines from diagnostics.css |
-| 9. @vestara/ui components | HealthRing, PremiumCard, InsightBanner, SmartSummary, etc. |
+**Category**: Platform — extends existing workflow architecture; Product — user-facing visual capability
+
+**Dependencies**: Builds on v7.13 Premium Diagnostic Center, v5.4 Multi-Agent Workflow Orchestration Core (PCS-025 Phase 1), `@vestara/workflow-orchestrator`, `@vestara/workflow-projections`, `@vestara/ui-tokens`, `apps/workspace`
+
+**Exit Criteria**: A person unfamiliar with Vestara can create a workflow in one click, understand why every node and connection exists, run it, visually follow its execution in real time, inspect every authorized input/output/model/token/tool/routing boundary, intervene safely, replay the execution afterward, and understand what happened without reading Vestara source code.
+
+**Verification (per release)**:
+
+**RELEASE A — FOUNDATION** (phases 000-003):
+- `pnpm vestara doctor` passes
+- Architecture audit produces dependency and authority diagrams
+- Graph contract can serialize/validate versioned workflow without React Flow
+- Deterministic explanation generation from graph structure
+
+**RELEASE B — PLAYGROUND** (phases 004-007):
+- React Flow Designer renders and rounds-trip graphs
+- Validation engine detects structural issues
+- Simulator executes deterministically under control
+- Every graph can be understood without reading implementation code
+
+**RELEASE C — OBSERVABILITY** (phases 008-009, 015, 016):
+- Every node/edge boundary inspectable with authoritative data
+- Graph state projects execution events rather than UI inference
+- Historical execution replay possible
+- Any important piece of workflow data can be traced through its lifecycle
+
+**RELEASE D — INTELLIGENCE** (phases 010-012):
+- Templates create valid workflows in one click
+- AI proposal passes schema + graph validation + governance
+- Deterministic recommendations carry evidence/reason/affected/risk/proposed
+
+**RELEASE E — ORCHESTRATION** (phases 013-014, 018):
+- Human intervention during execution recorded without mutating definition
+- Complex systems compose from smaller workflows
+- Both surfaces describe same execution consistently
+
+**RELEASE F — PRODUCTION** (phases 019-020):
+- Production runtime consumes same canonical definitions the Playground designed
+- Real Vestara operation runs through visual workflow
+- All inspection capabilities (replay, trace, intervention, analytics) verified
 
 **Status**: 🔷 Planned
 
+**Verification (initial)**: `pnpm build && pnpm lint:check && pnpm vds:validate` passes with zero violations. Architecture audit (000) produces authoritative diagrams proving Playground extends existing execution architecture.
+
+**Key items updated**:
+- `docs/PCS-026-wf-playground.md` — full Product Capability Specification for the program
+- `packages/ui-tokens/` tokens validated per each new visual value
+- `apps/workspace/src/styles/` tokens updated per new `--vestara-*` requirements
+- `@vestara/workflow-orchestrator` types enriched for canonical graph contract
 ---
 
 ### v7.14 — Premium Marketplace Gallery 🔷 Planned

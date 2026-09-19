@@ -23,18 +23,21 @@ export interface WorkspacePanelLayoutProps extends PropsWithChildren {
   hero?: ReactNode;
   /** Full-bleed mode: skip the max-width constraint. Default: false */
   fluid?: boolean;
+  /** Preserve the shell's bounded-height flex chain for operational workspaces. */
+  fill?: boolean;
 }
 
-export function WorkspacePanelLayout({ hero, fluid = false, children }: WorkspacePanelLayoutProps) {
+export function WorkspacePanelLayout({ hero, fluid = false, fill = false, children }: WorkspacePanelLayoutProps) {
   return (
     <div
       className={[
         'mx-auto w-full',
         fluid ? 'max-w-none' : 'max-w-[var(--vestara-page-max-width)]',
+        fill ? 'flex h-full min-h-0 flex-col overflow-hidden' : '',
         'px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]',
       ].join(' ')}
     >
-      <div className="flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]">
+      <div className={['flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]', fill ? 'min-h-0 flex-1 overflow-hidden' : ''].join(' ')}>
         {hero}
         {children}
       </div>

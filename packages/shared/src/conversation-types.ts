@@ -113,6 +113,15 @@ export interface Message {
   latency?: number;
   createdAt: string;
   /**
+   * REASONING-BOUNDARY-001: provider-emitted reasoning/debug output for this
+   * assistant turn, accumulated from `reasoning` stream chunks only.
+   * Structurally separate from `content` (the final user-facing response) —
+   * never parsed from content, never concatenated into it. Displayed only in
+   * diagnostic details surfaces, never as conversational authorship. Absent
+   * when the runtime emitted no observable reasoning.
+   */
+  reasoning?: string;
+  /**
    * GA-CTX-001: Structured tool observations produced during this assistant turn.
    * Preserves tool invocations and results independently from the assistant's
    * natural-language interpretation. Subsequent turns can reference these.
@@ -128,6 +137,15 @@ export interface Message {
     termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
     toolCallCount: number;
     elapsedMs: number;
+    /**
+     * Per-turn execution attribution. This is runtime/execution metadata,
+     * not AgentDefinition configuration and not a routing request.
+     */
+    execution?: {
+      runtimeId: string;
+      providerId?: string;
+      modelId?: string;
+    };
   };
 }
 

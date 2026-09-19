@@ -145,6 +145,21 @@ export interface AgentMessageActivity extends ActivityBase {
   readonly turnId?: string;
   readonly messageKind: AgentMessageKind;
   readonly content: string;
+  /**
+   * REASONING-BOUNDARY-001: diagnostic details for the details surface.
+   * Reasoning is provider-emitted and structurally separate from `content`;
+   * execution metadata is authoritative only when the runtime reported it.
+   * Absent fields stay absent (never fabricated). Presentation-only —
+   * never a second authorship.
+   */
+  readonly details?: {
+    readonly reasoning?: string;
+    readonly providerId?: string;
+    readonly modelId?: string;
+    readonly latencyMs?: number;
+    readonly tokens?: number;
+    readonly conversationId?: string;
+  };
   readonly toolName?: string;
   readonly risk?: 'low' | 'medium' | 'high' | 'critical';
   readonly status?: string;

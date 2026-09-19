@@ -6,7 +6,7 @@
 import type * as http from 'node:http';
 import type { ExternalRuntimeService } from '../external-runtime/service';
 import type { WorkspaceContext } from '../workspace-context';
-import { json } from './types';
+import { json, readBody } from './types';
 
 const services = new WeakMap<WorkspaceContext, ExternalRuntimeService>();
 
@@ -81,6 +81,35 @@ export async function handleExternalRuntimeRoute(
   }
 
   const instanceMatch = p.match(/^\/api\/external-runtime\/runtimes\/([^/]+)(\/[^/]+)?$/);
+  if (method === 'POST' && instanceMatch && instanceMatch[2]?.replace(/^\//, '') === 'launch') {
+    const instanceId = decodeURIComponent(instanceMatch[1]);
+    const body = await readJson(req);
+    const task = typeof body.task === 'string' ? body.task.trim() : '';
+    if (!task) {
+      json(res, 400, { error: 'task is required' });
+      return true;
+    }
+    if (task.length > 20_000) {
+      json(res, 400, { error: 'task is too large' });
+      return true;
+    }
+    const timeoutMs =
+      typeof body.timeoutMs === 'number' ? Math.max(1000, Math.min(body.timeoutMs, 600_000)) : undefined;
+    const launched = await service.launchSession(instanceId, {
+      task,
+      cwd: typeof body.cwd === 'string' ? body.cwd : undefined,
+      agentId: typeof body.agentId === 'string' ? body.agentId : undefined,
+      modelId: typeof body.modelId === 'string' ? body.modelId : undefined,
+      timeoutMs,
+    });
+    if (!launched) {
+      json(res, 404, { error: 'runtime not found or does not support session launch' });
+      return true;
+    }
+    json(res, 202, { launched });
+    return true;
+  }
+
   if (method === 'GET' && instanceMatch) {
     const instanceId = decodeURIComponent(instanceMatch[1]);
     const sub = instanceMatch[2]?.replace(/^\//, '');
@@ -128,4 +157,11 @@ export async function handleExternalRuntimeRoute(
   }
 
   return false;
+}
+
+async function readJson(req: http.IncomingMessage): Promise<Record<string, unknown>> {
+  const text = await readBody(req);
+  if (!text.trim()) return {};
+  const parsed = JSON.parse(text) as unknown;
+  return parsed && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as Record<string, unknown>) : {};
 }

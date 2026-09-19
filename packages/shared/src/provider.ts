@@ -109,6 +109,15 @@ export interface CompletionRequest {
   onExecutionEvent?: (event: ProviderExecutionEvent) => void;
   /** The runtime agent (e.g. vestara-planner) to run the completion as. */
   agent?: string;
+  /**
+   * ROUTING-CONVERGENCE-001C: target Vestara logical agent (e.g.
+   * 'agent-developer') — who the turn is addressed to. The executor resolves
+   * this to the OpenCode runtime agent per turn via the canonical
+   * AgentDefinition (`runtimeAgent`). Target selection only; NEVER message
+   * authorship (the author stays the conversation's human principal) and
+   * NEVER provider/model authority.
+   */
+  agentId?: string;
   /** Semantic title for the execution session (e.g. task title, workflow title). */
   title?: string;
   /**
@@ -123,6 +132,11 @@ export interface CompletionRequest {
    * it against the canonical provider discovery before execution.
    */
   provider?: string;
+  /**
+   * GA-RUNTIME-002: selected assistant execution runtime. OpenCode remains the
+   * default and full-fidelity runtime; Codex is an explicit SDK-backed runtime.
+   */
+  assistantRuntime?: 'opencode' | 'codex';
   /**
    * Trusted turn-time surface context (GA-CONTEXT-002). Additive and optional:
    * the current Workspace UI surface. Bounded server-side; treated as trusted
@@ -189,9 +203,16 @@ export interface ProviderExecutionEvent {
 
 export interface CompletionResponse {
   id: string;
-  model: string;
+  model?: string;
   provider: string;
   content: string;
+  /**
+   * REASONING-BOUNDARY-001: provider-emitted reasoning/debug output for this
+   * turn, accumulated from `reasoning` chunks only. Structurally separate
+   * from `content` — never parsed from it, never mixed into it. Absent when
+   * the runtime emitted no observable reasoning.
+   */
+  reasoning?: string;
   toolCalls?: Array<{ id: string; name: string; arguments: string }>;
   /** Parsed structured output when `CompletionRequest.jsonSchema` was set. */
   structuredOutput?: unknown;
@@ -211,6 +232,17 @@ export interface CompletionResponse {
     defaultResolution: boolean;
     /** GA-RUNTIME-001: the OpenCode session that carried this completion (set when one was acquired). */
     runtimeSessionId?: string;
+    /**
+     * ROUTING-CONVERGENCE-001C: requested Vestara logical agent for this
+     * turn (target selection, e.g. 'agent-developer').
+     */
+    requestedAgentId?: string;
+    /**
+     * ROUTING-CONVERGENCE-001C: OpenCode runtime agent that actually
+     * executed this turn (e.g. 'vestara-developer'). Attribution invariant:
+     * requested agentId → resolved runtimeAgent → prompt_async.agent.
+     */
+    runtimeAgent?: string;
   };
   /**
    * GA-EXEC-002: structured execution result. Carries how the turn ended
@@ -222,5 +254,10 @@ export interface CompletionResponse {
     termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
     toolCallCount: number;
     elapsedMs: number;
+    execution?: {
+      runtimeId: string;
+      providerId?: string;
+      modelId?: string;
+    };
   };
 }

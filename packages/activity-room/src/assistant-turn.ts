@@ -64,7 +64,14 @@ interface AssistantConversationService {
     options?: Record<string, unknown>,
   ): Promise<{
     message: { content: string };
-    response: { content: string; provider?: string; model?: string };
+    response: {
+      content: string;
+      provider?: string;
+      model?: string;
+      tokens?: number;
+      latency?: number;
+      reasoning?: string;
+    };
     latency: number;
   }>;
 }
@@ -181,6 +188,22 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     const agentConfig = await resolveAssistantConfig(agentId, agentStorage);
     const displayName = agentConfig.displayName ?? 'Assistant';
 
+    // ROUTING-CONVERGENCE-001A: provider and model must come from the SAME
+    // AgentDefinition read. A partial { model }-only request would fall
+    // through to the generic Assistant fallback binding for non-assistant
+    // agents — fail deterministically instead of executing as the wrong agent.
+    if (agentId !== 'agent-assistant' && (!agentConfig.provider || !agentConfig.model)) {
+      return {
+        conversationId: humanRecord.sessionId ?? 'unknown',
+        humanMessageId: humanRecord.id,
+        agentId,
+        correlationId,
+        status: 'failed',
+        failure: `Agent ${agentId} has no complete provider/model binding — refusing to fall through to the Assistant binding`,
+        completedAt,
+      };
+    }
+
     // 2. Create conversation owned by the HUMAN PRINCIPAL. The target agent
     //    travels separately (options.agentId) — writing it into userId is the
     //    identity-overload defect (Phase A): it made agents the authors of
@@ -192,13 +215,17 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     });
 
     // 3. Send message through conversation service (provider execution)
-    //    Pass the agent's model via SendOptions to override default.
-    //    agentId here is TARGET selection only; surface is attribution only.
+    //    Pass the agent's COMPLETE binding (provider + model from the same
+    //    AgentDefinition read above) via SendOptions. agentId here is TARGET
+    //    selection only; surface is attribution only.
     const sendOptions: Record<string, unknown> = {
       agentId,
     };
     if (surface) {
       sendOptions.surface = surface;
+    }
+    if (agentConfig.provider) {
+      sendOptions.provider = agentConfig.provider;
     }
     if (agentConfig.model) {
       sendOptions.model = agentConfig.model;
@@ -238,6 +265,13 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
         correlationId,
         status: 'completed',
         content: response.response.content,
+        // REASONING-BOUNDARY-001: diagnostic reasoning + authoritative
+        // execution metadata travel alongside (never inside) the content.
+        ...(response.response.reasoning ? { reasoning: response.response.reasoning } : {}),
+        ...(response.response.provider ? { provider: response.response.provider } : {}),
+        ...(response.response.model ? { model: response.response.model } : {}),
+        ...(typeof response.latency === 'number' ? { latencyMs: response.latency } : {}),
+        ...(typeof response.response.tokens === 'number' ? { tokens: response.response.tokens } : {}),
         completedAt,
       };
     }

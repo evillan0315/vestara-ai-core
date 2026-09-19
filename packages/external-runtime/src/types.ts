@@ -627,6 +627,10 @@ export interface ExternalLaunchedSession {
   readonly externalSessionId?: string;
   readonly launchedAt: string;
   readonly status: 'launching' | 'running' | 'completed' | 'failed';
+  readonly exitCode?: number | null;
+  readonly outputPreview?: string;
+  readonly errorPreview?: string;
+  readonly finalResponse?: string;
 }
 
 export interface ExternalSessionLaunchRequest {

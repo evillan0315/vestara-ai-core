@@ -184,7 +184,13 @@ export interface UseAssistantConversationReturn {
   // Send + stream
   sendMessage: (
     content: string,
-    options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig },
+    options?: {
+      surfaceContext?: TurnSurfaceContext;
+      provider?: string;
+      model?: string;
+      assistantRuntime?: 'opencode' | 'codex';
+      executionConfig?: import('@vestara/shared').GAExecutionConfig;
+    },
   ) => Promise<void>;
   streamState: StreamState;
   streamingText: string;
@@ -894,7 +900,12 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       text: string,
       clientTurnId: string,
       surfaceContext?: TurnSurfaceContext,
-      executionBinding?: { provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig },
+      executionBinding?: {
+        provider?: string;
+        model?: string;
+        assistantRuntime?: 'opencode' | 'codex';
+        executionConfig?: import('@vestara/shared').GAExecutionConfig;
+      },
     ) => {
       const finalConvId = convId;
       const currentStreamId = ++streamIdRef.current;
@@ -932,6 +943,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
             // The server validates/resolves it before execution.
             ...(executionBinding?.provider ? { provider: executionBinding.provider } : {}),
             ...(executionBinding?.model ? { model: executionBinding.model } : {}),
+            ...(executionBinding?.assistantRuntime ? { assistantRuntime: executionBinding.assistantRuntime } : {}),
             // GA-CONTEXT-002: trusted turn-time surface context (additive).
             ...(surfaceContext ? { surfaceContext } : {}),
             // GA-EXEC-001: per-turn execution config (adapter enforcement).
@@ -1170,7 +1182,16 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
   // Projects the optimistic human turn + Thinking… synchronously on local
   // validation, before any network await.
   const sendMessage = useCallback(
-    async (content: string, options?: { surfaceContext?: TurnSurfaceContext; provider?: string; model?: string; executionConfig?: import('@vestara/shared').GAExecutionConfig }) => {
+    async (
+      content: string,
+      options?: {
+        surfaceContext?: TurnSurfaceContext;
+        provider?: string;
+        model?: string;
+        assistantRuntime?: 'opencode' | 'codex';
+        executionConfig?: import('@vestara/shared').GAExecutionConfig;
+      },
+    ) => {
       const text = content.trim();
       if (!text || busyRef.current || streamState === 'sending' || streamState === 'streaming') return;
 
@@ -1221,6 +1242,7 @@ export function useAssistantConversation(): UseAssistantConversationReturn {
       await runTurn(convId, text, clientTurnId, options?.surfaceContext, {
         provider: options?.provider,
         model: options?.model,
+        assistantRuntime: options?.assistantRuntime,
         executionConfig: options?.executionConfig,
       });
     },

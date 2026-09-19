@@ -1,0 +1,19 @@
+{
+  "name": "@vestara/codex-runtime",
+  "description": "Codex App Server integration boundary for Vestara",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run --root ../.. packages/codex-runtime/__tests__"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/ws": "^8.5.0",
+    "vitest": "^4.1.10"
+  }
+}

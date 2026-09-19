@@ -37,6 +37,18 @@ export interface AssistantTurnResult {
   /** Assistant response content (undefined on failure). */
   readonly content?: string;
 
+  /**
+   * REASONING-BOUNDARY-001: provider-emitted reasoning for this turn,
+   * structurally separate from `content`. Diagnostic data only.
+   */
+  readonly reasoning?: string;
+
+  /** Authoritative execution metadata (present when the runtime reported it). */
+  readonly provider?: string;
+  readonly model?: string;
+  readonly latencyMs?: number;
+  readonly tokens?: number;
+
   /** Failure description (undefined on success). */
   readonly failure?: string;
 

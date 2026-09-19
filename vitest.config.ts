@@ -50,7 +50,7 @@ export default defineConfig({
     // under pnpm strict mode. This file remains as project-level test
     // infrastructure; with the legacy test source removed it will simply
     // have no DOM tests to clean, but is retained for the fresh suite.
-    setupFiles: ['./apps/workspace/vitest.setup.ts'],
+    setupFiles: [path.resolve(__dirname, 'apps/workspace/vitest.setup.ts')],
     // NOTE: include patterns removed — no legacy test source remains.
     // The Vitest runner will start from a clean baseline (zero tests).
     // A new test suite will populate these patterns when ready.

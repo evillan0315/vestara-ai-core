@@ -185,6 +185,10 @@ export class TelegramPersistentStore {
   // ─── Conversation Bindings ─────────────────────────────────
 
   saveConversationBinding(binding: ConversationBinding): void {
+    // ROUTING-CONVERGENCE-001A: the legacy default_model/default_provider
+    // columns are retained (no migration risk) but permanently NULL — the
+    // binding carries identity only. Provider/model binding is resolved per
+    // turn from the canonical AgentDefinition, never from this row.
     dbRun(
       this.db,
       `INSERT OR REPLACE INTO telegram_conversation_bindings
@@ -204,8 +208,8 @@ export class TelegramPersistentStore {
         binding.status,
         binding.createdAt,
         binding.lastActivityAt,
-        binding.defaultModel ?? null,
-        binding.defaultProvider ?? null,
+        null,
+        null,
       ],
     );
   }
@@ -374,6 +378,9 @@ export class TelegramPersistentStore {
   }
 
   private rowToConversationBinding(row: any): ConversationBinding {
+    // ROUTING-CONVERGENCE-001A: legacy default_model/default_provider cell
+    // values (including Muse rows written before this change) are
+    // deliberately NOT projected — they cannot reach execution.
     return {
       id: row.id,
       principalId: row.principal_id,
@@ -386,8 +393,6 @@ export class TelegramPersistentStore {
       status: row.status as ConversationBindingStatus,
       createdAt: row.created_at,
       lastActivityAt: row.last_activity_at,
-      defaultModel: row.default_model ?? undefined,
-      defaultProvider: row.default_provider ?? undefined,
     };
   }
 }

@@ -8,6 +8,7 @@
  * the next graph refresh. Runtime failures never block workspace startup.
  */
 
+import * as path from 'node:path';
 import type { SqliteEngineeringEventStore } from '@vestara/engineering-event-store';
 import type { ExternalRuntimeIntelligenceAdapter } from '@vestara/external-runtime';
 import {
@@ -24,6 +25,7 @@ import {
   type ExternalRuntimeIntegrationLevel,
   ExternalRuntimeRegistry,
   type ExternalSessionDetails,
+  type ExternalSessionLaunchRequest,
   type ExternalSessionQuery,
   type ExternalSessionRuntimeSnapshot,
 } from '@vestara/external-runtime';
@@ -180,6 +182,56 @@ export class ExternalRuntimeService {
   async capabilities(instanceId: string): Promise<readonly ExternalRuntimeCapability[] | null> {
     const instance = this.registry.getInstance(instanceId);
     return instance ? instance.capabilities : null;
+  }
+
+  async launchSession(instanceId: string, request: Omit<ExternalSessionLaunchRequest, 'cwd'> & { cwd?: string }) {
+    const target = await this.adapterFor(instanceId);
+    if (!target?.adapter.launchSession) return null;
+    const cwd = resolveWorkspaceCwd(this.ctx.repoPath, request.cwd);
+    const launched = await target.adapter.launchSession(target.connectionId, {
+      ...request,
+      cwd,
+      correlationIds: {
+        VESTARA_WORKSPACE_ID: this.workspaceId,
+        VESTARA_EXTERNAL_RUNTIME_INSTANCE_ID: instanceId,
+        ...(request.correlationIds ?? {}),
+      },
+    });
+    const instance = this.registry.getInstance(instanceId);
+    if (instance) {
+      const available = new Set<ExternalRuntimeCapability>([
+        ...instance.availableCapabilities,
+        'session-launch',
+        'structured-execution',
+      ]);
+      this.registry.verify(instanceId, {
+        availableCapabilities: [...available],
+        integrationLevel: 'vestara-launched',
+        verificationStatus: 'live-session-verified',
+        connectionStatus: 'connected',
+      });
+    }
+    this.ingest({
+      id: `ext-launch-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      schemaVersion: 1,
+      category: 'session',
+      type: 'external-runtime.session-launched',
+      runtimeType: launched.runtimeType,
+      runtimeInstanceId: instanceId,
+      externalSessionId: launched.externalSessionId,
+      workspaceId: this.workspaceId,
+      ingestedAt: launched.launchedAt,
+      payload: {
+        launchId: launched.id,
+        status: launched.status,
+        exitCode: launched.exitCode,
+        hasFinalResponse: Boolean(launched.finalResponse),
+      },
+      provenance: 'resolved',
+      observationLevel: 'observed',
+      idempotencyKey: `launch-${launched.id}`,
+    });
+    return launched;
   }
 
   /** Immutable configuration snapshot recorded for a session, when the runtime supports it. */
@@ -400,6 +452,15 @@ export class ExternalRuntimeService {
 
 export function createExternalRuntimeService(options: ExternalRuntimeServiceOptions): ExternalRuntimeService {
   return new ExternalRuntimeService(options);
+}
+
+function resolveWorkspaceCwd(repoPath: string, requested?: string): string {
+  const root = path.resolve(repoPath);
+  const cwd = requested ? path.resolve(root, requested) : root;
+  if (cwd !== root && !cwd.startsWith(root + path.sep)) {
+    throw new Error('launch cwd must stay inside the workspace');
+  }
+  return cwd;
 }
 
 // ─── Timeline normalization ────────────────────────────────────

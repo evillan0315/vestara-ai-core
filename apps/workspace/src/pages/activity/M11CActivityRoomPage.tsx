@@ -138,7 +138,7 @@ export default function M11CActivityRoomPage() {
   );
 
   // Participant ID → display name lookup for enriching stream item actor names.
-  // Includes both participantId (agent-agent-developer) and raw actor.id (vestara) keys.
+  // Includes both participantId (agent-agent-developer) and raw actor.id keys.
   const participantNames = useMemo(() => {
     const map: Record<string, string> = {};
     for (const p of room.participants) {
@@ -148,8 +148,10 @@ export default function M11CActivityRoomPage() {
       const rawId = p.participantId.replace(/^agent-/, '');
       if (rawId !== p.participantId) map[rawId] = p.displayName;
     }
-    // Known hardcoded agent IDs from M9 adapters that don't match AgentStorage
-    if (!map['vestara']) map['vestara'] = 'Assistant';
+    // ROUTING-CONVERGENCE-001C S3: no synthetic-actor alias. Lifecycle rows
+    // are system-authored ("Conversation Runtime"); no producer mints an
+    // agent-authored `vestara` row anymore, so nothing needs aliasing to
+    // 'Assistant'. (Pre-fix rows keep their stored displayName verbatim.)
     return map;
   }, [room.participants]);
 

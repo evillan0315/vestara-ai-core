@@ -103,6 +103,10 @@ async function resolveExecutionBinding(
   return { provider: binding.providerID, model: binding.modelID };
 }
 
+function parseAssistantRuntime(raw: unknown): 'opencode' | 'codex' {
+  return raw === 'codex' ? 'codex' : 'opencode';
+}
+
 /**
  * GA-CONTEXT-002: bound/validate the browser-supplied surface context.
  * Trusted client navigation state — bounded strings only, never instructions,
@@ -381,14 +385,19 @@ export async function handleConversationsRoute(
       json(res, 400, { error: 'message is required' });
       return true;
     }
+    const assistantRuntime = parseAssistantRuntime(body.assistantRuntime);
     // GA-RUNTIME-001 G: validate the requested provider/model BEFORE the SSE
     // stream starts — deterministic 400, never a silent default execution.
+    // Codex runtime has its own model/default resolution, so OpenCode provider
+    // discovery is only authoritative for OpenCode turns.
     let binding: { provider: string; model: string } | undefined;
-    try {
-      binding = await resolveExecutionBinding(ctx, body);
-    } catch (error) {
-      json(res, 400, { error: error instanceof Error ? error.message : 'Invalid provider/model' });
-      return true;
+    if (assistantRuntime === 'opencode') {
+      try {
+        binding = await resolveExecutionBinding(ctx, body);
+      } catch (error) {
+        json(res, 400, { error: error instanceof Error ? error.message : 'Invalid provider/model' });
+        return true;
+      }
     }
     // Reattach ≠ create: while a turn is in-flight for this conversation,
     // a second POST /stream must NOT start a duplicate execution (a reloaded
@@ -450,8 +459,12 @@ export async function handleConversationsRoute(
       const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
       const executionConfig = parseExecutionConfig(body.executionConfig);
       for await (const chunk of ctx.conversationService.sendMessageStream(conversationId, message, {
-        model: binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined),
+        model:
+          assistantRuntime === 'opencode'
+            ? (binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined))
+            : undefined,
         provider: binding?.provider,
+        assistantRuntime,
         surfaceContext,
         signal: abort.signal,
         executionConfig,

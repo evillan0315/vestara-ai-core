@@ -40,6 +40,21 @@ export interface ChunkMetadata {
     termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
     toolCallCount: number;
     elapsedMs: number;
+    execution?: {
+      runtimeId: string;
+      providerId?: string;
+      modelId?: string;
+    };
+  };
+  /**
+   * Per-turn execution attribution emitted by the runtime adapter. This is
+   * separate from requested provider/model binding and can be present even
+   * when the runtime cannot expose an authoritative model.
+   */
+  execution?: {
+    runtimeId: string;
+    providerId?: string;
+    modelId?: string;
   };
 }
 
@@ -63,4 +78,17 @@ export interface StreamEvent {
   chunk?: StreamChunk;
   error?: string;
   metadata: ChunkMetadata;
+}
+
+/**
+ * REASONING-BOUNDARY-001: bound for persisted provider-emitted reasoning.
+ * Reasoning is diagnostic data, not conversation — it is truncated, never
+ * elided silently (truncation marker) and never reconstructed.
+ */
+export const MAX_REASONING_CHARS = 8000;
+
+/** Truncate reasoning to the bound with an explicit marker. Pure. */
+export function truncateReasoning(text: string, max: number = MAX_REASONING_CHARS): string {
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}… [reasoning truncated, ${text.length} chars total]`;
 }

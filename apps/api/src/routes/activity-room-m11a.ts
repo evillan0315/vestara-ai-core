@@ -342,6 +342,37 @@ function sanitizeRecord(record: M9ActivityRecord): Record<string, unknown> {
   };
 }
 
+/**
+ * REASONING-BOUNDARY-001: re-validate the diagnostic details bag at the API
+ * boundary. Known keys, bounded strings, finite numbers — anything else
+ * stays out. Never parses message content.
+ */
+function sanitizeDetails(details: unknown): Record<string, unknown> | undefined {
+  if (!details || typeof details !== 'object') return undefined;
+  const source = details as Record<string, unknown>;
+  const out: Record<string, unknown> = {};
+  const bounded = (value: unknown, max: number): string | undefined => {
+    if (typeof value !== 'string') return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 && trimmed.length <= max ? trimmed : undefined;
+  };
+  const finite = (value: unknown): number | undefined =>
+    typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
+  const reasoning = bounded(source.reasoning, 8000);
+  if (reasoning) out.reasoning = reasoning;
+  const providerId = bounded(source.providerId, 128);
+  if (providerId) out.providerId = providerId;
+  const modelId = bounded(source.modelId, 256);
+  if (modelId) out.modelId = modelId;
+  const latencyMs = finite(source.latencyMs);
+  if (latencyMs !== undefined) out.latencyMs = latencyMs;
+  const tokens = finite(source.tokens);
+  if (tokens !== undefined) out.tokens = tokens;
+  const conversationId = bounded(source.conversationId, 256);
+  if (conversationId) out.conversationId = conversationId;
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 /** Sanitize StreamItem for API response. */
 function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<string, unknown> {
   return {
@@ -360,6 +391,9 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
     // sanitizer otherwise stays an allowlist (projection stays lossy).
     ...(typeof item.originConversationId === 'string' ? { originConversationId: item.originConversationId } : {}),
     ...(typeof item.originSurface === 'string' ? { originSurface: item.originSurface } : {}),
+    // REASONING-BOUNDARY-001: validated diagnostic details passthrough
+    // (already validated at projection time; re-validated by UI converters).
+    ...(item.details ? { details: sanitizeDetails(item.details) } : {}),
     aggregated: item.aggregated
       ? {
           count: item.aggregated.count,

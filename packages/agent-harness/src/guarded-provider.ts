@@ -262,13 +262,14 @@ export class GuardedAIProvider implements AIProvider {
           `Response provider '${response.provider}' does not match binding '${binding.providerModel.providerId}'`,
         );
       }
+      const responseModel = response.model ?? binding.providerModel.modelId;
 
       this._emit({
         type: 'invocation.completed',
         bindingId: binding.bindingId,
         executionId: binding.executionId,
         providerId: response.provider,
-        modelId: response.model,
+        modelId: responseModel,
         success: true,
       });
 

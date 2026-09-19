@@ -23,6 +23,7 @@
 
 import type { OpenCodePermissionAction } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
+import type { AgentDefinition } from '@vestara/workspace';
 
 // ── Policy Decision ────────────────────────────────────────────────────────
 
@@ -113,7 +114,56 @@ export function createDefaultAssistantPolicy(repositoryDir: string): AssistantCa
   };
 }
 
-// ── Policy Evaluation ──────────────────────────────────────────────────────
+// ── Per-Agent Policy (ROUTING-CONVERGENCE-001C S2) ───────────────────
+
+/** Declared OpenCode grants from the canonical AgentDefinition. */
+export type AgentGrantSet = NonNullable<AgentDefinition['opencodePermissions']>;
+
+/**
+ * Derive a turn capability policy from an agent's DECLARED grants
+ * (`AgentDefinition.opencodePermissions` — the same grants rendered into the
+ * agent's `.opencode/agents/*.md` twin).
+ *
+ * One exact-match rule per recognized tool, in a fixed order; unknown tools
+ * and unmapped grants fall through to DENY. No new permission vocabulary:
+ * decisions stay allow/ask/deny and flow through the SAME Vestara
+ * enforcement machinery (`evaluatePermission` → tools map → interaction
+ * broker). Identity selects the declared policy — it never bypasses
+ * enforcement, so a permissive grant cannot auto-approve outside the
+ * pipeline (governance boundary: agent identity ≠ authority).
+ *
+ * Canonical grant quirk (see `OpenCodePermissions` docs): there is
+ * deliberately no `write` key — writes/edits/patches gate on `edit`.
+ */
+export function createPolicyForAgent(
+  repositoryDir: string,
+  agentId: string,
+  grants: AgentGrantSet,
+): AssistantCapabilityPolicy {
+  const record = grants as unknown as Record<string, string | undefined>;
+  const rules: PolicyRule[] = ALL_TOOL_NAMES.map((tool) => {
+    const decision = resolveAgentGrant(record, tool);
+    return {
+      action: normalizePermissionAction(tool),
+      decision,
+      resourcePattern: new RegExp(`^${tool}$`, 'i'),
+      reason: `agent ${agentId}: ${tool}=${decision} (AgentDefinition grant)`,
+    };
+  });
+  return { repositoryDir, defaultDecision: 'deny', rules };
+}
+
+function resolveAgentGrant(record: Record<string, string | undefined>, tool: string): PolicyDecision {
+  const direct = record[tool];
+  if (direct === 'allow' || direct === 'ask' || direct === 'deny') return direct;
+  if (tool === 'write') {
+    const edit = record.edit;
+    if (edit === 'allow' || edit === 'ask' || edit === 'deny') return edit;
+  }
+  return 'deny';
+}
+
+// ── Policy Evaluation ─────────────────────────────────────────────────────
 
 export interface PermissionEvaluation {
   readonly decision: PolicyDecision;

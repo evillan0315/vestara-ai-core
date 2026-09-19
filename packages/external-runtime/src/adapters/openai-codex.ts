@@ -181,6 +181,7 @@ export class OpenAICodexAdapter implements ExternalAgentRuntimeAdapter {
     });
 
     const executionId = extractExecutionId(result.stdout);
+    const finalResponse = extractFinalResponse(result.stdout);
     return {
       id: `cx-launch-${Date.now()}`,
       runtimeInstanceId: connectionId,
@@ -188,6 +189,10 @@ export class OpenAICodexAdapter implements ExternalAgentRuntimeAdapter {
       externalSessionId: executionId,
       launchedAt: new Date().toISOString(),
       status: result.ok ? 'completed' : 'failed',
+      exitCode: result.exitCode,
+      outputPreview: preview(result.stdout),
+      errorPreview: result.stderr ? preview(result.stderr) : undefined,
+      finalResponse,
     };
   }
 
@@ -244,10 +249,36 @@ function extractExecutionId(stdout: string): string | undefined {
     if (!line.trim()) continue;
     try {
       const parsed = JSON.parse(line);
-      if (parsed.execution_id || parsed.id) return String(parsed.execution_id ?? parsed.id);
+      if (parsed.execution_id || parsed.thread_id || parsed.threadId || parsed.id) {
+        return String(parsed.execution_id ?? parsed.thread_id ?? parsed.threadId ?? parsed.id);
+      }
     } catch {
       /* skip */
     }
   }
   return undefined;
+}
+
+function extractFinalResponse(stdout: string): string | undefined {
+  for (const line of stdout.split('\n').reverse()) {
+    if (!line.trim()) continue;
+    try {
+      const parsed = JSON.parse(line) as Record<string, unknown>;
+      const direct = parsed.finalResponse ?? parsed.final_response ?? parsed.response ?? parsed.output;
+      if (typeof direct === 'string' && direct.trim()) return direct;
+      const item = parsed.item as Record<string, unknown> | undefined;
+      const text = item?.text ?? item?.content;
+      if (typeof text === 'string' && text.trim()) return text;
+    } catch {
+      /* skip */
+    }
+  }
+  const trimmed = stdout.trim();
+  return trimmed ? preview(trimmed) : undefined;
+}
+
+function preview(text: string, max = 4000): string {
+  const single = text.trim();
+  if (single.length <= max) return single;
+  return `${single.slice(0, max).trimEnd()}\n[truncated]`;
 }

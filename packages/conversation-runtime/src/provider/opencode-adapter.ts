@@ -50,7 +50,7 @@ export class OpenCodeCloudProvider implements ConversationProvider {
     });
     return {
       id: result.id,
-      model: result.model,
+      model: result.model ?? request.model,
       provider: 'opencode-cloud',
       content: result.content,
       usage: result.usage,

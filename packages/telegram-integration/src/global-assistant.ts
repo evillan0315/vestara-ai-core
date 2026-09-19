@@ -24,6 +24,10 @@ import type { WorkspaceBinding } from './workspace-binding.js';
  * Execution backend interface. The router delegates actual LLM execution
  * to this interface, which is provided by the API composition root.
  *
+ * The router asserts TARGET AGENT identity only (`agentId`). Provider/model
+ * binding is resolved server-side from the canonical AgentDefinition —
+ * the channel never supplies, requests, or overrides it.
+ *
  * This keeps the telegram-integration package independent of the
  * conversation service implementation.
  */
@@ -32,14 +36,10 @@ export interface ExecutionBackend {
    * Send a message to the Global Assistant and return the response.
    * @param conversationId - The Vestara conversation ID
    * @param content - The user message text
-   * @param options - Optional model/provider overrides
+   * @param options - Target agent identity (routing authority, never provider/model)
    * @returns The execution result with response text
    */
-  sendMessage(
-    conversationId: string,
-    content: string,
-    options?: { model?: string; provider?: string },
-  ): Promise<ExecutionResult>;
+  sendMessage(conversationId: string, content: string, options?: { agentId?: string }): Promise<ExecutionResult>;
 }
 
 export type MessageRouteStatus = 'routed' | 'queued' | 'rejected' | 'failed' | 'executing';
@@ -71,12 +71,6 @@ export interface GlobalAssistantConfig {
   /** Maximum messages per minute per principal */
   readonly rateLimitPerMinute?: number;
 
-  /** Default model for execution */
-  readonly defaultModel?: string;
-
-  /** Default provider for execution */
-  readonly defaultProvider?: string;
-
   /** Whether to auto-resume paused conversations */
   readonly autoResumeConversation?: boolean;
 }
@@ -94,11 +88,12 @@ export interface ExecutionRequest {
   /** Conversation ID */
   readonly conversationId: string;
 
-  /** Model to use */
-  readonly model: string;
-
-  /** Provider to use */
-  readonly provider: string;
+  /**
+   * Target agent identity — routing authority only.
+   * Provider/model binding is resolved server-side from the canonical
+   * AgentDefinition; it is never carried on the channel request.
+   */
+  readonly agentId: string;
 
   /** ISO-8601 timestamp */
   readonly timestamp: string;
@@ -124,13 +119,22 @@ export interface ExecutionResult {
   readonly completedAt: string;
 }
 
+// ─── Target agent ──────────────────────────────────────────────
+
+/**
+ * ROUTING-CONVERGENCE-001A: the Telegram generic Assistant path executes as
+ * the canonical `agent-assistant`. The channel asserts this TARGET AGENT
+ * identity only — provider/model binding is resolved server-side from the
+ * live AgentDefinition (same authority as the Activity Room). Telegram holds
+ * no model defaults and injects no provider/model.
+ */
+export const TELEGRAM_ASSISTANT_AGENT_ID = 'agent-assistant';
+
 // ─── Default Config ────────────────────────────────────────────
 
 const DEFAULT_CONFIG: Required<GlobalAssistantConfig> = {
   maxConcurrentExecutions: 3,
   rateLimitPerMinute: 20,
-  defaultModel: 'muse-spark-1.3-contributor',
-  defaultProvider: 'opencode-go',
   autoResumeConversation: true,
 };
 
@@ -153,8 +157,6 @@ export class GlobalAssistantTextRouter {
     this.config = {
       maxConcurrentExecutions: DEFAULT_CONFIG.maxConcurrentExecutions,
       rateLimitPerMinute: DEFAULT_CONFIG.rateLimitPerMinute,
-      defaultModel: DEFAULT_CONFIG.defaultModel,
-      defaultProvider: DEFAULT_CONFIG.defaultProvider,
       autoResumeConversation: DEFAULT_CONFIG.autoResumeConversation,
       ...config,
     };
@@ -205,10 +207,11 @@ export class GlobalAssistantTextRouter {
       };
     }
 
-    // 4. Build execution request
+    // 4. Build execution identity: target agent only. Provider/model
+    //    binding is resolved server-side from the canonical AgentDefinition
+    //    (ROUTING-CONVERGENCE-001A) — the channel never supplies it.
     const executionId = `exec-${Date.now()}-${randomBytes(4).toString('hex')}`;
-    const model = conversation.defaultModel ?? this.config.defaultModel;
-    const provider = conversation.defaultProvider ?? this.config.defaultProvider;
+    const agentId = TELEGRAM_ASSISTANT_AGENT_ID;
 
     // 5. Record execution
     this.activeExecutions.set(principalId, activeCount + 1);
@@ -218,8 +221,7 @@ export class GlobalAssistantTextRouter {
     if (this.backend && message.text) {
       try {
         const result = await this.backend.sendMessage(conversation.vestaraConversationId, message.text, {
-          model,
-          provider,
+          agentId,
         });
         return {
           status: 'routed',

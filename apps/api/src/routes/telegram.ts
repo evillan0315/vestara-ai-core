@@ -31,6 +31,7 @@ import {
   normalizeNotificationPreferences,
   ProcessTunnelProvider,
   StaticTunnelProvider,
+  TELEGRAM_ASSISTANT_AGENT_ID,
   TELEGRAM_MANIFEST,
   TelegramAdapter,
   TelegramConversationBindingService,
@@ -240,6 +241,42 @@ function getConversationBindingService(): TelegramConversationBindingService {
 }
 
 /**
+ * ROUTING-CONVERGENCE-001A: resolve the Telegram target agent's canonical
+ * execution binding per turn from the live AgentDefinition — the same
+ * authority the Activity Room reads in `triggerAssistantTurn`. Telegram
+ * asserts target-agent identity only and never supplies provider/model
+ * itself: when the definition carries a complete binding it is propagated;
+ * otherwise the request carries identity only and the canonical
+ * `AssistantBindingResolver` fallback governs (fail-closed on error).
+ */
+export interface TelegramAgentBinding {
+  readonly agentId: string;
+  readonly provider?: string;
+  readonly model?: string;
+}
+
+export async function resolveTelegramAgentBinding(
+  agents: Pick<WorkspaceContext, 'agents'>['agents'],
+  agentId: string = TELEGRAM_ASSISTANT_AGENT_ID,
+): Promise<TelegramAgentBinding> {
+  try {
+    const agent = await agents.getAgent(agentId);
+    if (
+      agent &&
+      typeof agent.provider === 'string' &&
+      agent.provider.length > 0 &&
+      typeof agent.model === 'string' &&
+      agent.model.length > 0
+    ) {
+      return { agentId, provider: agent.provider, model: agent.model };
+    }
+  } catch {
+    /* fall through to identity-only — the canonical fallback governs */
+  }
+  return { agentId };
+}
+
+/**
  * Get or create the text router with an ExecutionBackend wired to the
  * conversation service. The backend is created lazily so the workspace
  * context is available, and re-created if the context rotates so turns
@@ -252,9 +289,13 @@ function getTextRouter(ctx: WorkspaceContext): GlobalAssistantTextRouter | null 
     textRouter = new GlobalAssistantTextRouter({
       backend: {
         sendMessage: async (conversationId, content, options) => {
+          // Per-turn canonical binding: the SAME live AgentDefinition read
+          // the Activity Room performs. No Telegram-local model authority.
+          const binding = await resolveTelegramAgentBinding(ctx.agents, options?.agentId);
           const result = await ctx.conversationService.sendMessage(conversationId, content, {
-            model: options?.model,
-            provider: options?.provider,
+            agentId: binding.agentId,
+            ...(binding.provider ? { provider: binding.provider } : {}),
+            ...(binding.model ? { model: binding.model } : {}),
           });
           return {
             executionId: `tg-exec-${Date.now()}`,

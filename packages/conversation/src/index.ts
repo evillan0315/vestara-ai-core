@@ -24,7 +24,18 @@ import type {
   StreamChunk,
   ToolObservation,
 } from '@vestara/shared';
+import { truncateReasoning } from '@vestara/shared';
 import { DefaultStreamProcessor } from '@vestara/stream';
+
+/**
+ * REASONING-BOUNDARY-001: bound helper for accumulating provider-emitted
+ * reasoning. Content and reasoning accumulate on disjoint chunk types —
+ * reasoning never enters the conversational content, content never enters
+ * reasoning. No parsing, no heuristics.
+ */
+function appendReasoning(current: string, delta: string): string {
+  return truncateReasoning(current + delta);
+}
 
 export interface ProviderExecutor {
   complete(request: CompletionRequest): Promise<CompletionResponse>;
@@ -83,6 +94,8 @@ export interface ConversationService {
 
 export interface SendOptions {
   model?: string;
+  /** Selected assistant execution runtime. Defaults to OpenCode. */
+  assistantRuntime?: 'opencode' | 'codex';
   /**
    * Target agent identity (e.g. 'agent-planner') — who the turn is addressed
    * to. Selects execution configuration only; NEVER the message author.
@@ -269,7 +282,12 @@ export class DefaultConversationService implements ConversationService {
     let responseContent = '';
     let responseTokens = 0;
     let responseProvider = 'opencode';
-    let responseModel = request.model;
+    let responseModel: string | undefined;
+    let responseExecutionResult: Message['executionResult'];
+    // REASONING-BOUNDARY-001: provider-emitted reasoning, structurally
+    // separate from content (complete-path executor returns it on the
+    // response envelope, never inside content).
+    let responseReasoning: string | undefined;
     // GA-RUNTIME-001: the session actually used for this turn (may be created
     // by the executor on the first turn). Persisted so later turns reuse it.
     let turnRuntimeSessionId = runtimeSessionId;
@@ -279,7 +297,9 @@ export class DefaultConversationService implements ConversationService {
       responseContent = response.content;
       responseTokens = response.usage.totalTokens;
       responseProvider = response.provider ?? responseProvider;
-      responseModel = response.model ?? responseModel;
+      responseModel = response.model;
+      responseReasoning = response.reasoning ? truncateReasoning(response.reasoning) : undefined;
+      responseExecutionResult = response.executionResult;
       turnRuntimeSessionId = response.resolution?.runtimeSessionId ?? turnRuntimeSessionId;
 
       await this.eventBus?.emit({
@@ -315,10 +335,14 @@ export class DefaultConversationService implements ConversationService {
       role: 'assistant',
       content: responseContent,
       provider: responseProvider,
-      model: responseModel,
+      ...(responseModel ? { model: responseModel } : {}),
       tokens: responseTokens,
       latency,
       createdAt: new Date().toISOString(),
+      // REASONING-BOUNDARY-001: diagnostic reasoning rides alongside the
+      // message, never inside the conversational content.
+      ...(responseReasoning ? { reasoning: responseReasoning } : {}),
+      ...(responseExecutionResult ? { executionResult: responseExecutionResult } : {}),
     };
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;
@@ -416,7 +440,11 @@ export class DefaultConversationService implements ConversationService {
     let fullContent = '';
     let totalTokens = 0;
     let responseProvider = 'opencode';
-    let responseModel = request.model;
+    let responseModel: string | undefined;
+    let responseExecutionResult: Message['executionResult'];
+    // REASONING-BOUNDARY-001: provider-emitted reasoning accumulates on a
+    // disjoint channel — fullContent (final text) never receives it.
+    let reasoningContent = '';
     // GA-RUNTIME-001: the session actually used for this turn (may be created
     // by the executor on the first turn). Persisted so later turns reuse it.
     let turnRuntimeSessionId = runtimeSessionId;
@@ -436,13 +464,21 @@ export class DefaultConversationService implements ConversationService {
           yield chunk;
         } else if (chunk.type === 'meta' && chunk.metadata.usage) {
           totalTokens = chunk.metadata.usage.totalTokens;
+          responseProvider = chunk.metadata.provider ?? responseProvider;
+          responseModel = chunk.metadata.model ?? responseModel;
+          responseExecutionResult = chunk.metadata.executionResult ?? responseExecutionResult;
           yield chunk;
         } else if (chunk.type === 'error') {
           yield chunk;
         } else if (chunk.type === 'complete') {
-          // Stream completed
+          responseProvider = chunk.metadata.provider ?? responseProvider;
+          responseModel = chunk.metadata.model ?? responseModel;
+          responseExecutionResult = chunk.metadata.executionResult ?? responseExecutionResult;
         } else if (chunk.type === 'reasoning') {
-          yield chunk; // pass through
+          // REASONING-BOUNDARY-001: accumulate separately (bounded) and pass
+          // through for live diagnostic display — never into fullContent.
+          if (chunk.content) reasoningContent = appendReasoning(reasoningContent, chunk.content);
+          yield chunk;
         } else if (chunk.type === 'tool_call' || chunk.type === 'tool_result') {
           // GA-CTX-001: collect tool observations for persistence.
           // GA-TOOL-UX-001B: explicit lifecycle upsert — a terminal
@@ -471,12 +507,16 @@ export class DefaultConversationService implements ConversationService {
       role: 'assistant',
       content: fullContent,
       provider: responseProvider,
-      model: responseModel,
+      ...(responseModel ? { model: responseModel } : {}),
       tokens: totalTokens,
       latency,
       createdAt: new Date().toISOString(),
       // GA-CTX-001: persist tool observations for subsequent-turn context
       ...(toolObservations.length > 0 ? { toolObservations } : {}),
+      // REASONING-BOUNDARY-001: diagnostic reasoning alongside the message,
+      // never inside the conversational content.
+      ...(reasoningContent ? { reasoning: reasoningContent } : {}),
+      ...(responseExecutionResult ? { executionResult: responseExecutionResult } : {}),
     };
     conversation.messages.push(responseMessage);
     conversation.updatedAt = responseMessage.createdAt;

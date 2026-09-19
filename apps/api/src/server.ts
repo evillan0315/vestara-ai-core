@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { Socket } from 'node:net';
 import * as path from 'node:path';
+import { CodexAppServerClient, type CodexThreadStartResult } from '@vestara/codex-runtime';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
@@ -30,6 +31,7 @@ import { handleAuthRoute } from './routes/auth';
 import { handleBrowserRoute } from './routes/browser';
 import { handleCatalogRoute } from './routes/catalog';
 import { handleCIRoute } from './routes/ci';
+import { handleCodexRoute } from './routes/codex';
 import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
@@ -212,6 +214,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/approvals', '/api/artifacts', '/api/memory'], handler: memAdapter },
   { prefixes: ['/api/marketplace'], handler: handleMarketplaceRoute },
   { prefixes: ['/api/catalog'], handler: handleCatalogRoute },
+  { prefixes: ['/api/codex'], handler: handleCodexRoute },
   { prefixes: ['/api/opencode'], handler: handleOpenCodeRoute },
   { prefixes: ['/api/telemetry'], handler: handleTelemetryRoute },
   { prefixes: ['/api/tui'], handler: tuiAdapter },
@@ -656,6 +659,7 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
 
   // ─── WebSocket ─────────────────────────────────────────────────
   const wss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
+  const codexSessions = new Map<WebSocket, CodexWsSession>();
   let workerWss: WebSocketServer | undefined;
   if (ctx.workerSocketServer) {
     workerWss = new WebSocketServer({ noServer: true });
@@ -762,6 +766,14 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
         wsSend(ws, { op: 'subscribed', channels: msg.channels ?? ['workspace'] });
         return;
       }
+      if (msg.op === 'codex.turn.start') {
+        void handleCodexTurnStart(codexSessions, ws, msg);
+        return;
+      }
+      if (msg.op === 'codex.disconnect') {
+        void closeCodexWsSession(codexSessions, ws, msg.requestId);
+        return;
+      }
       if (msg.op === 'repl') {
         void handleReplCommand(ctx, ws, msg.command);
         return;
@@ -775,6 +787,7 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
     ws.on('close', (code: number, reason: Buffer) => {
       clients.delete(ws);
       aliveClients.delete(ws);
+      void closeCodexWsSession(codexSessions, ws);
       logger.info({
         event: 'ws.disconnected',
         connectionId,
@@ -1011,6 +1024,7 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
     // Close WebSocket clients with a shutdown code.
     for (const ws of clients) {
       try {
+        void closeCodexWsSession(codexSessions, ws);
         ws.close(1001, 'server shutting down');
       } catch {
         /* ignore */
@@ -1058,7 +1072,23 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
 type WsClientCommand =
   | { op: 'ping' }
   | { op: 'subscribe' | 'unsubscribe'; channels?: string[] }
+  | {
+      op: 'codex.turn.start';
+      requestId?: string;
+      appServerUrl?: string;
+      threadId?: string;
+      text: string;
+    }
+  | { op: 'codex.disconnect'; requestId?: string }
   | { op: 'repl'; command: string };
+
+interface CodexWsSession {
+  readonly client: CodexAppServerClient;
+  readonly appServerUrl: string;
+  thread?: CodexThreadStartResult;
+  detachNotifications: () => void;
+  ready: Promise<void>;
+}
 
 let wsIdCounter = 0;
 function connectionIdOf(ws: WebSocket): string {
@@ -1105,6 +1135,19 @@ function parseClientMessage(data: RawData): WsClientCommand {
     case 'subscribe':
     case 'unsubscribe':
       return { op, channels: Array.isArray(record.channels) ? record.channels.map(String) : undefined };
+    case 'codex.turn.start': {
+      const text = typeof record.text === 'string' ? record.text : '';
+      if (!text.trim()) throw new Error('codex.turn.start requires text');
+      return {
+        op,
+        requestId: typeof record.requestId === 'string' ? record.requestId : undefined,
+        appServerUrl: typeof record.appServerUrl === 'string' ? record.appServerUrl : undefined,
+        threadId: typeof record.threadId === 'string' ? record.threadId : undefined,
+        text,
+      };
+    }
+    case 'codex.disconnect':
+      return { op, requestId: typeof record.requestId === 'string' ? record.requestId : undefined };
     case 'repl': {
       const command = typeof record.command === 'string' ? record.command : '';
       return { op: 'repl', command };
@@ -1131,6 +1174,69 @@ function wsSend(ws: WebSocket, data: unknown): void {
 
 function replSend(ws: WebSocket, text: string): void {
   wsSend(ws, { op: 'output', text });
+}
+
+async function handleCodexTurnStart(
+  sessions: Map<WebSocket, CodexWsSession>,
+  ws: WebSocket,
+  command: Extract<WsClientCommand, { op: 'codex.turn.start' }>,
+): Promise<void> {
+  const requestId = command.requestId;
+  try {
+    const session = getOrCreateCodexWsSession(sessions, ws, command.appServerUrl);
+    wsSend(ws, { op: 'codex.status', requestId, status: 'connecting', appServerUrl: session.appServerUrl });
+    await session.ready;
+    wsSend(ws, { op: 'codex.status', requestId, status: 'initialized', appServerUrl: session.appServerUrl });
+
+    let threadId = command.threadId ?? session.thread?.thread.id;
+    if (!threadId) {
+      session.thread = await session.client.startThread();
+      threadId = session.thread.thread.id;
+      wsSend(ws, { op: 'codex.thread', requestId, thread: session.thread });
+    }
+
+    const turn = await session.client.startTextTurn(threadId, command.text);
+    wsSend(ws, { op: 'codex.turn', requestId, threadId, turn });
+  } catch (error) {
+    wsSend(ws, { op: 'codex.error', requestId, error: error instanceof Error ? error.message : String(error) });
+  }
+}
+
+function getOrCreateCodexWsSession(
+  sessions: Map<WebSocket, CodexWsSession>,
+  ws: WebSocket,
+  appServerUrl?: string,
+): CodexWsSession {
+  const targetUrl = appServerUrl ?? process.env.CODEX_APP_SERVER_URL ?? 'ws://127.0.0.1:4500';
+  const existing = sessions.get(ws);
+  if (existing && existing.appServerUrl === targetUrl) return existing;
+  if (existing) void closeCodexWsSession(sessions, ws);
+
+  const client = new CodexAppServerClient({ config: { appServerUrl: targetUrl } });
+  const detachNotifications = client.onNotification((notification) => {
+    wsSend(ws, { op: 'codex.event', event: notification });
+  });
+  const session: CodexWsSession = {
+    client,
+    appServerUrl: targetUrl,
+    detachNotifications,
+    ready: client.initialize({ name: 'vestara-api', version: 'dev' }).then(() => undefined),
+  };
+  sessions.set(ws, session);
+  return session;
+}
+
+async function closeCodexWsSession(
+  sessions: Map<WebSocket, CodexWsSession>,
+  ws: WebSocket,
+  requestId?: string,
+): Promise<void> {
+  const session = sessions.get(ws);
+  if (!session) return;
+  sessions.delete(ws);
+  session.detachNotifications();
+  await session.client.close().catch(() => undefined);
+  wsSend(ws, { op: 'codex.status', requestId, status: 'disconnected', appServerUrl: session.appServerUrl });
 }
 
 async function handleReplCommand(ctx: WorkspaceContext, ws: WebSocket, raw: string): Promise<void> {

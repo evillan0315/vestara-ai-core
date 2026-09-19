@@ -83,6 +83,8 @@ export interface M11CStreamItem {
   readonly originConversationId?: string;
   readonly originSurface?: string;
   readonly aggregated?: M11AStreamItem['aggregated'];
+  /** Diagnostic details for the message details surface (absent = none). */
+  readonly details?: { readonly reasoning?: string; readonly providerId?: string; readonly modelId?: string; readonly latencyMs?: number; readonly tokens?: number; readonly conversationId?: string };
   /** Whether this item arrived live (for animation). */
   readonly fresh: boolean;
   /** IDs of activities this item is replying to (threading). */

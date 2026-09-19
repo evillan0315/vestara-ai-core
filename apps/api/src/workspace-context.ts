@@ -137,12 +137,14 @@ import {
 } from '@vestara/workspace';
 import { WorktreeLeaseRuntime } from '@vestara/worktree-runtime';
 import { getActivityRoom } from './activity-room';
+import { resolveConversationPersona } from './agent-persona-resolver';
 import {
   AssistantBindingError,
   type AssistantBindingResolver,
   createAssistantBindingResolver,
 } from './assistant-binding-resolver';
 import { createDefaultAssistantPolicy } from './assistant-capability-policy';
+import { createAssistantCodexExecutor } from './assistant-codex-adapter';
 import { AssistantConversationSessionRegistry } from './assistant-conversation-sessions';
 import { AssistantInteractionBroker } from './assistant-interaction-broker';
 import { createAssistantOpenCodeExecutor } from './assistant-opencode-adapter';
@@ -837,7 +839,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // adapter is the CANONICAL conversation executor (not opt-in). Construction
   // failure fail-closes with a clear error — there is deliberately NO silent
   // fallback to a direct cloud provider.
-  let conversationProviderExecutor: ProviderExecutor;
+  let openCodeConversationExecutor: ProviderExecutor;
   // GA-RUNTIME-001: server-authoritative provider/model resolution + bounded
   // conversation → session mapping + interactive permission/question broker.
   // Declared here so the returned WorkspaceContext exposes them to routes.
@@ -872,18 +874,26 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     assistantBindingResolver = createAssistantBindingResolver(ocClient, assistantModel);
     // GA-RUNTIME-001 B: interactive permission/question decisions.
     assistantInteractionBroker = new AssistantInteractionBroker();
-    conversationProviderExecutor = createAssistantOpenCodeExecutor({
+    openCodeConversationExecutor = createAssistantOpenCodeExecutor({
       client: ocClient,
       workspaceId: session.fingerprint.id,
       directory: abs, // repository root — never .vestara
+      // Fallback for generic execution only. ROUTING-CONVERGENCE-001C: the
+      // per-turn persona resolver below governs whenever present — this
+      // constant is never substituted for an explicitly targeted agent.
       agent: 'vestara-assistant',
       title: 'Assistant conversation',
       model: assistantModel,
+      // ROUTING-CONVERGENCE-001C S1+S2: per-turn persona (runtime agent +
+      // capability policy) resolved from the live AgentDefinition. Same
+      // authority the Activity Room reads for provider/model.
+      resolveAgentPersona: (agentId) => resolveConversationPersona(agents, abs, agentId),
       resolveProviderModel: (requestedModel, requestedProvider) =>
         assistantBindingResolver.resolve({ providerId: requestedProvider, modelId: requestedModel }),
       sessionRegistry: assistantConversationSessions,
       interactionBroker: assistantInteractionBroker,
-      // GA-CAP-003: Vestara-owned capability boundary for the Global Assistant.
+      // GA-CAP-003: fallback boundary for executor paths without a persona
+      // resolver. Per-turn personas carry their own agent-derived policy.
       // repositoryDir originates from canonical resolveRepoRoot() — never .vestara, cwd, or UI state.
       capabilityPolicy: createDefaultAssistantPolicy(abs),
       // Cancellation-boundary attribution: every turn start/end/abort is
@@ -896,7 +906,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   } catch (error) {
     const message = `Local OpenCode transport unavailable (${error instanceof Error ? error.message : 'unknown'}) — Floating Assistant requires 127.0.0.1:4096`;
     log(`assistant-execution: ${message}`);
-    conversationProviderExecutor = {
+    openCodeConversationExecutor = {
       async complete() {
         throw new Error(message);
       },
@@ -910,6 +920,24 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       },
     };
   }
+  const codexConversationExecutor = createAssistantCodexExecutor({
+    directory: abs,
+    // Codex-specific override wins; Codex threads default to gpt-5.5 so
+    // resuming an existing 5.5 session never downgrades it to OPENAI_MODEL.
+    defaultModel: process.env.VESTARA_CODEX_MODEL ?? 'gpt-5.5',
+  });
+  const conversationProviderExecutor: ProviderExecutor = {
+    complete(request) {
+      return request.assistantRuntime === 'codex'
+        ? codexConversationExecutor.complete(request)
+        : openCodeConversationExecutor.complete(request);
+    },
+    stream(request) {
+      return request.assistantRuntime === 'codex'
+        ? codexConversationExecutor.stream(request)
+        : openCodeConversationExecutor.stream(request);
+    },
+  };
   const conversationStore = new SqliteConversationStore({
     dbPath: path.join(workspaceDir, 'conversations', 'conversations.db'),
     logger: kernel.logger,

@@ -68,6 +68,20 @@ export interface StreamItem {
   /** Human-readable content. */
   readonly content: string;
 
+  /**
+   * REASONING-BOUNDARY-001: diagnostic details for the details surface
+   * (reasoning + authoritative execution metadata). Projected from the
+   * durable M9 payload only — never parsed from content. Absent stays absent.
+   */
+  readonly details?: {
+    readonly reasoning?: string;
+    readonly providerId?: string;
+    readonly modelId?: string;
+    readonly latencyMs?: number;
+    readonly tokens?: number;
+    readonly conversationId?: string;
+  };
+
   /** Timestamp. */
   readonly timestamp: string;
 

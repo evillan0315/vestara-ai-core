@@ -11,7 +11,7 @@ import WorkspacePanelLayout from '../layouts/WorkspacePanelLayout';
 
 export default function Files() {
   return (
-    <WorkspacePanelLayout fluid>
+    <WorkspacePanelLayout fluid fill>
       <FilesScreen />
     </WorkspacePanelLayout>
   );

@@ -208,6 +208,14 @@ export interface AgentLifecycleInput {
   /** Display name (used as participant display name). */
   readonly displayName: string;
 
+  /**
+   * ROUTING-CONVERGENCE-001C S3: authorship kind. Lifecycle telemetry about
+   * runtime work (started/completed) is authored by the runtime, not by an
+   * agent — it uses `'system'` so it can never masquerade as an
+   * agent-authored conversational response. Defaults to `'agent'`.
+   */
+  readonly actorType?: 'agent' | 'system';
+
   /** Lifecycle type. */
   readonly lifecycleType: 'assigned' | 'started' | 'progress' | 'waiting' | 'completed' | 'failed' | 'cancelled';
 
@@ -225,6 +233,22 @@ export interface AgentLifecycleInput {
 
   /** Resolved provider ID. */
   readonly providerId?: string;
+
+  /**
+   * REASONING-BOUNDARY-001: provider-emitted reasoning for this turn.
+   * Projected into `payload.data` (diagnostic), never into the message —
+   * the conversational content keeps exactly one authorship.
+   */
+  readonly reasoning?: string;
+
+  /** Execution latency in milliseconds (authoritative when reported). */
+  readonly latencyMs?: number;
+
+  /** Token usage for this turn (authoritative when reported). */
+  readonly tokens?: number;
+
+  /** Owning conversation identity (enables reply targeting/provenance). */
+  readonly conversationId?: string;
 
   /** Workflow run context. */
   readonly workflowRunId?: WorkflowRunId;
@@ -266,6 +290,10 @@ export function fromAgentLifecycle(input: AgentLifecycleInput): ActivityEvent {
       ...(input.modelId ? { modelId: input.modelId } : {}),
       ...(input.modelDisplayName ? { modelDisplayName: input.modelDisplayName } : {}),
       ...(input.providerId ? { providerId: input.providerId } : {}),
+      ...(input.reasoning ? { reasoning: input.reasoning } : {}),
+      ...(typeof input.latencyMs === 'number' ? { latencyMs: input.latencyMs } : {}),
+      ...(typeof input.tokens === 'number' ? { tokens: input.tokens } : {}),
+      ...(input.conversationId ? { conversationId: input.conversationId } : {}),
     },
   };
 
@@ -282,7 +310,7 @@ export function fromAgentLifecycle(input: AgentLifecycleInput): ActivityEvent {
     runtimeSessionBindingId: input.runtimeSessionBindingId,
     aiBindingId: input.aiBindingId,
     actor: {
-      type: 'agent',
+      type: input.actorType ?? 'agent',
       id: input.agentId,
       displayName: input.displayName,
     },

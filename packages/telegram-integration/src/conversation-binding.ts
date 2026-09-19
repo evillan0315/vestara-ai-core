@@ -51,12 +51,6 @@ export interface ConversationBinding {
 
   /** ISO-8601 timestamp of last activity */
   readonly lastActivityAt: string;
-
-  /** Optional: default model for this conversation */
-  readonly defaultModel?: string;
-
-  /** Optional: default provider for this conversation */
-  readonly defaultProvider?: string;
 }
 
 export interface ConversationBindingConfig {
@@ -65,12 +59,6 @@ export interface ConversationBindingConfig {
 
   /** Whether to auto-create conversations on first message */
   readonly autoCreateConversation?: boolean;
-
-  /** Default model for new conversations */
-  readonly defaultModel?: string;
-
-  /** Default provider for new conversations */
-  readonly defaultProvider?: string;
 }
 
 // ─── Default Config ────────────────────────────────────────────
@@ -78,8 +66,6 @@ export interface ConversationBindingConfig {
 const DEFAULT_CONFIG: Required<ConversationBindingConfig> = {
   maxConversationsPerChat: 5,
   autoCreateConversation: true,
-  defaultModel: 'muse-spark-1.3-contributor',
-  defaultProvider: 'opencode-go',
 };
 
 // ─── Conversation Binding Service ──────────────────────────────
@@ -93,8 +79,6 @@ export class TelegramConversationBindingService {
     this.config = {
       maxConversationsPerChat: config?.maxConversationsPerChat ?? DEFAULT_CONFIG.maxConversationsPerChat,
       autoCreateConversation: config?.autoCreateConversation ?? DEFAULT_CONFIG.autoCreateConversation,
-      defaultModel: config?.defaultModel ?? DEFAULT_CONFIG.defaultModel,
-      defaultProvider: config?.defaultProvider ?? DEFAULT_CONFIG.defaultProvider,
     };
     this.store = config?.store ?? null;
   }
@@ -125,6 +109,10 @@ export class TelegramConversationBindingService {
     }
     const now = new Date().toISOString();
 
+    // ROUTING-CONVERGENCE-001A: bindings carry identity only (chat ↔
+    // conversation). Provider/model binding is resolved per turn from the
+    // canonical AgentDefinition — it is never stamped here, so a binding
+    // created under one model can never pin a future execution to it.
     const binding: ConversationBinding = {
       id: `conv-${Date.now()}-${randomBytes(4).toString('hex')}`,
       principalId: params.principalId,
@@ -137,8 +125,6 @@ export class TelegramConversationBindingService {
       status: 'active',
       createdAt: now,
       lastActivityAt: now,
-      defaultModel: this.config.defaultModel,
-      defaultProvider: this.config.defaultProvider,
     };
 
     this.bindings.set(binding.id, binding);
@@ -304,18 +290,6 @@ export class TelegramConversationBindingService {
   canCreateConversation(telegramChatId: string): boolean {
     const activeBindings = this.getBindingsByChat(telegramChatId).filter((b) => b.status === 'active');
     return activeBindings.length < this.config.maxConversationsPerChat;
-  }
-
-  /**
-   * Get the default model/provider for a chat.
-   */
-  getChatDefaults(telegramChatId: string): { model: string; provider: string } {
-    const activeBinding = this.getBindingsByChat(telegramChatId).find((b) => b.status === 'active');
-
-    return {
-      model: activeBinding?.defaultModel ?? this.config.defaultModel,
-      provider: activeBinding?.defaultProvider ?? this.config.defaultProvider,
-    };
   }
 
   /**

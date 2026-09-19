@@ -450,12 +450,16 @@ export class M9IngestionBridge {
     // Authoritative execution start signal from the conversation service.
     // Different runtime producers (conversation service, agent harness) map to
     // canonical Activity semantics downstream — this is NOT agent:started.
+    // ROUTING-CONVERGENCE-001C S3: lifecycle telemetry is authored by the
+    // runtime (`system` actor), never by a synthetic agent — one execution
+    // must not appear as an extra agent-authored response.
     if (type === 'conversation:provider.request.started') {
       const _conversationId = (event.payload.conversationId as string) || 'unknown';
       const model = (event.payload.model as string) || undefined;
       return fromAgentLifecycle({
-        agentId: 'vestara',
-        displayName: 'Vestara',
+        agentId: 'conversation-runtime',
+        displayName: 'Conversation Runtime',
+        actorType: 'system',
         lifecycleType: 'started',
         message: model ? `Started work (${model})` : 'Started work',
         executionId: event.metadata.executionId as any,
@@ -464,20 +468,24 @@ export class M9IngestionBridge {
     }
 
     // ─── AI response completed → fromAgentLifecycle ────────
-    // AR-DOGFOOD-009: Use bounded contentPreview from authoritative conversation service.
-    // Activity Room shows a preview, not the full response (Conversation = authority).
-    // Provenance: conversationId + responseMessageId carried in payload.data.
+    // ROUTING-CONVERGENCE-001C S3: the full reply is projected exactly once
+    // by the turn owner (mirror path) under the executing persona. This row
+    // is lifecycle telemetry only — status + usage, never response content —
+    // authored by the runtime (`system` actor) so it cannot masquerade as a
+    // second agent-authored reply.
+    // Provenance: conversationId + responseMessageId carried in payload.data
+    // for navigation to the authoritative conversational projection.
     if (type === 'conversation:response.completed') {
-      const contentPreview = (event.payload.contentPreview as string) || undefined;
       const tokens = event.payload.tokens as number | undefined;
       const conversationId = (event.payload.conversationId as string) || undefined;
       const responseMessageId = (event.payload.messageId as string) || undefined;
-      const preview = contentPreview ? `${contentPreview}` : tokens ? `Completed (${tokens} tokens)` : 'Completed';
+      const status = tokens ? `Completed (${tokens} tokens)` : 'Completed';
       const base = fromAgentLifecycle({
-        agentId: 'vestara',
-        displayName: 'Vestara',
+        agentId: 'conversation-runtime',
+        displayName: 'Conversation Runtime',
+        actorType: 'system',
         lifecycleType: 'completed',
-        message: preview,
+        message: status,
         executionId: event.metadata.executionId as any,
         traceId: event.metadata.traceId as any,
       });

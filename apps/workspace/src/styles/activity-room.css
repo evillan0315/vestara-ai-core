@@ -326,7 +326,7 @@
 .ar-panel {
   border-color: var(--ar-hairline);
   border-radius: var(--vestara-radius-lg);
-  background: var(--ar-panel-bg);
+  background: var(--vestara-accent-bg);
   box-shadow: 0 0 0 1px color-mix(in srgb, var(--ar-gold) 10%, transparent);
 }
 .ar-panel--context { display: flex; width: auto; max-width: none; overflow-y: auto; }
@@ -342,7 +342,7 @@
   border: 1px solid var(--ar-hairline);
   border-radius: var(--vestara-radius-lg);
   color: var(--vestara-text-primary);
-   background: var(--vestara-surface-canvas);
+   background: var(--vestara-accent-dark);
   cursor: pointer;
 }
 .ar-operation-controls button span { color: var(--ar-gold-light); font-size: var(--vestara-font-size-lg); }
@@ -1966,7 +1966,7 @@
 
 .ar-stream-record--human {
   border: 1px solid var(--vestara-border-default);
-  background: linear-gradient(180deg, var(--vestara-accent-bg), transparent 45%), var(--vestara-surface-panel-raised);
+  background: linear-gradient(180deg, var(--vestara-accent-bg), transparent 45%), var(---ar-ink-dim);
   box-shadow: inset 2px 0 0 var(--vestara-status-info), var(--vestara-elevation-lg);
   padding: 0.875rem 0.75rem;
 }

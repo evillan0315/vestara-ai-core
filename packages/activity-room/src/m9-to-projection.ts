@@ -11,7 +11,7 @@
  *   ARX-015: M11A/M11B projection composition
  */
 
-import type { ActivityRecord } from './contracts';
+import type { ActivityRecord, AgentMessageActivity } from './contracts';
 import type { ActivityRecord as M9ActivityRecord } from './m9-types';
 import { extractOriginProvenance } from './origin-provenance';
 
@@ -99,6 +99,11 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
     };
   }
 
+  // REASONING-BOUNDARY-001: preserve ONLY validated diagnostic details
+  // from the durable payload for the details surface. Content keeps exactly
+  // one authorship; details never duplicate it.
+  const details = extractMessageDetails(record.payload?.data);
+
   return {
     id: String(record.activityId),
     sequence: record.sequenceNumber,
@@ -113,6 +118,46 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
     evidenceRefs: [],
     ...(record.payload?.error ? { effect: 'intervention' as const } : {}),
     ...(record.payload?.output ? { output: record.payload.output } : {}),
+    ...(details ? { details } : {}),
     ...origin,
   } as ActivityRecord;
+}
+
+/**
+ * REASONING-BOUNDARY-001: validated details extraction. Known keys only,
+ * bounded strings, finite numbers — everything else (including absent data)
+ * stays absent. Never parses message content. Shared by the M11B live path
+ * and the M10 snapshot path so both projections agree.
+ */
+export function extractMessageDetails(data: unknown): AgentMessageActivity['details'] | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const record = data as Record<string, unknown>;
+  const details: Record<string, unknown> = {};
+  const reasoning = readBoundedString(record.reasoning, MAX_REASONING_WIRE_CHARS);
+  if (reasoning) details.reasoning = reasoning;
+  const providerId = readBoundedString(record.providerId, 128);
+  if (providerId) details.providerId = providerId;
+  const modelId = readBoundedString(record.modelId, 256);
+  if (modelId) details.modelId = modelId;
+  const latencyMs = readFiniteNumber(record.latencyMs);
+  if (latencyMs !== undefined) details.latencyMs = latencyMs;
+  const tokens = readFiniteNumber(record.tokens);
+  if (tokens !== undefined) details.tokens = tokens;
+  const conversationId = readBoundedString(record.conversationId, 256);
+  if (conversationId) details.conversationId = conversationId;
+  return Object.keys(details).length > 0 ? (details as AgentMessageActivity['details']) : undefined;
+}
+
+/** Wire bound for reasoning in flight (matches persistence bound). */
+const MAX_REASONING_WIRE_CHARS = 8000;
+
+function readBoundedString(value: unknown, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  if (trimmed.length === 0 || trimmed.length > max) return undefined;
+  return trimmed;
+}
+
+function readFiniteNumber(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0 ? value : undefined;
 }

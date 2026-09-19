@@ -28,6 +28,21 @@ export interface M11ASnapshot {
   cursor: ActivityCursor;
 }
 
+/**
+ * REASONING-BOUNDARY-001: diagnostic details for the message details
+ * surface. Reasoning is provider-emitted and structurally separate from
+ * content; execution metadata is authoritative only when reported. Every
+ * field optional; absent stays absent (never fabricated, never parsed).
+ */
+export interface MessageDetailsData {
+  readonly reasoning?: string;
+  readonly providerId?: string;
+  readonly modelId?: string;
+  readonly latencyMs?: number;
+  readonly tokens?: number;
+  readonly conversationId?: string;
+}
+
 export interface M11AStreamItem {
   readonly streamItemId: string;
   readonly activityId: string;
@@ -40,6 +55,8 @@ export interface M11AStreamItem {
   readonly workflowRunId?: string;
   readonly executionId?: string;
   readonly taskId?: string;
+  /** Diagnostic details for the in-card details disclosure (absent = none). */
+  readonly details?: MessageDetailsData;
   /**
    * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002).
    * `originConversationId` = Conversation Runtime `Conversation.id`;

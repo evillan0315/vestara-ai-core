@@ -36,7 +36,6 @@ import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecuti
 import { CISettings } from './CI/CISettings.js';
 
 // ─── New canonical components ──────────────────────────────────────────
-import { SettingsHero } from './SettingsHero';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -67,32 +66,6 @@ function relativeTime(iso: string | undefined): string | null {
  * (OpenCode, Standard) stay plain text. All values project authoritative
  * API/runtime state.
  */
-function HeroSummaryChips({ data }: { data: SettingsData }) {
-  const settingValue = (key: string, fallback = 'Not configured') =>
-    String(data.configuration.settings.find((s) => s.key === key)?.value ?? fallback);
-  const cliConnected = data.cli.runtimeConnected && data.cli.detected;
-  const dryRun = data.configuration.settings.find((s) => s.key === 'filesystem.dryRun')?.value;
-  const chips: Array<{ label: string; status?: string; value?: string }> = [
-    { label: 'Runtime', status: humanize(data.runtime.status) },
-    { label: 'CLI', status: cliConnected ? 'Connected' : 'Unavailable' },
-    { label: 'AI Provider', value: humanize(settingValue('providers.defaultProvider')) },
-    { label: 'Filesystem', status: dryRun ? 'Protected' : 'Active' },
-    { label: 'Verification', value: humanize(settingValue('verification.profile', 'standard')) },
-  ];
-  return (
-    <>
-      {chips.map((chip) => (
-        <span key={chip.label} className="st-hero-chip">
-          <span className="st-hero-chip-label">{chip.label}</span>
-          <span className="st-hero-chip-value">
-            {chip.status !== undefined ? <Status bare value={chip.status} /> : chip.value}
-          </span>
-        </span>
-      ))}
-    </>
-  );
-}
-
 function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => void }) {
   const navigate = useNavigate();
   const { resolved, settings, activeProfile } = useTheme();
@@ -787,12 +760,7 @@ export default function SettingsPage() {
   // Hero summary is a projection of authoritative API/runtime state —
   // omitted entirely until loaded, never fabricated.
   return (
-    <WorkspacePanelLayout
-      hero={data ? (
-        <HeroSummaryChips data={data} />
-      ) : undefined}
-      fluid={false}
->
+    <WorkspacePanelLayout fluid={false}>
       {error ? (
         <div role="alert" className="st-panel p-5">
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
@@ -810,23 +778,7 @@ export default function SettingsPage() {
         <>
           <DetailDomainHeader />
 
-          {/* ── SettingsLayout — canonical composition ───────────────────── */}
-          <WorkspacePanelLayout
-            hero={data ? (
-              <SettingsHero
-                dirty={false}
-                saving={false}
-                onSave={() => {}}
-                data={{
-                  workspace: String(data.configuration.settings.find((s) => s.key === 'general.workspaceName')?.value ?? 'Not configured'),
-                  environment: data.runtime.status,
-                  lastUpdated: data.configuration.generatedAt ? relativeTime(data.configuration.generatedAt) : undefined,
-                }}
-              />
-            ) : undefined}
-            fluid={false}
-          >
-            <SettingsLayout
+          <SettingsLayout
               configuration={data.configuration}
               runtime={data.runtime}
               onFieldChange={onFieldChange}
@@ -872,7 +824,6 @@ export default function SettingsPage() {
               <Route path="ci" element={<CISettings />} />
               <Route path="*" element={<Navigate to="overview" replace />} />
             </Routes>
-          </WorkspacePanelLayout>
         </>
       )}
     </WorkspacePanelLayout>

@@ -793,16 +793,17 @@ interface BrowseNode {
 }
 
 /**
- * Recursively project a directory via the list + stat runtime contracts.
+ * Project a directory breadth-first via the list + stat runtime contracts.
  * Returns null when the directory itself is unreadable. Unreadable children
- * are skipped (projection of readable state); caps set truncated.
+ * are skipped. Breadth-first traversal preserves sibling visibility under the
+ * global projection budget; per-directory and total caps set truncated.
  */
 async function browseDirectory(
   ctx: WorkspaceContext,
   dirRel: string,
   depth: number,
-  budget: { remaining: number } = { remaining: BROWSE_MAX_TOTAL },
 ): Promise<{ entries: BrowseNode[]; truncated: boolean } | null> {
+  const budget = { remaining: BROWSE_MAX_TOTAL };
   const listed = await ctx.filesystemRuntime.list(dirRel === '' ? '.' : dirRel);
   if (!listed.ok || !listed.data) return null;
   const parentRel = dirRel === '.' || dirRel === '' ? '' : dirRel;
@@ -821,15 +822,7 @@ async function browseDirectory(
     if (!meta.ok || !meta.data) continue;
     budget.remaining -= 1;
     if (meta.data.isDirectory) {
-      const node: BrowseNode = { name, path: rel, kind: 'dir' };
-      if (depth > 0) {
-        const sub = await browseDirectory(ctx, rel, depth - 1, budget);
-        node.children = sub ? sub.entries : [];
-        if (sub?.truncated) truncated = true;
-      } else {
-        node.children = [];
-      }
-      entries.push(node);
+      entries.push({ name, path: rel, kind: 'dir', children: [] });
     } else if (meta.data.isFile) {
       entries.push({
         name,
@@ -842,6 +835,59 @@ async function browseDirectory(
       });
     }
   }
+  // Breadth-first descendant projection is populated from a shared queue.
+  const queue: Array<{ path: string; remainingDepth: number; children: BrowseNode[] }> = [];
+  if (depth > 0) {
+    for (const node of entries) {
+      if (node.kind === 'dir' && node.children) {
+        queue.push({ path: node.path, remainingDepth: depth, children: node.children });
+      }
+    }
+  }
+  let queueIndex = 0;
+  while (queueIndex < queue.length && budget.remaining > 0) {
+    const current = queue[queueIndex++];
+    const childList = await ctx.filesystemRuntime.list(current.path);
+    if (childList.ok === false || childList.data === undefined) continue;
+    const childNames = childList.data.slice(0, BROWSE_MAX_ENTRIES_PER_DIR);
+    if (childList.data.length > childNames.length) truncated = true;
+    for (const name of childNames) {
+      if (budget.remaining <= 0) {
+        truncated = true;
+        break;
+      }
+      if (BROWSE_EXCLUDE_DIRS.has(name)) continue;
+      const rel = `${current.path}/${name}`;
+      const meta = await ctx.filesystemRuntime.stat(rel);
+      if (meta.ok === false || meta.data === undefined) continue;
+      budget.remaining -= 1;
+      if (meta.data.isDirectory) {
+        const children: BrowseNode[] = [];
+        const child: BrowseNode = { name, path: rel, kind: 'dir', children };
+        current.children.push(child);
+        if (current.remainingDepth > 1) {
+          queue.push({ path: rel, remainingDepth: current.remainingDepth - 1, children });
+        }
+      } else if (meta.data.isFile) {
+        current.children.push({
+          name,
+          path: rel,
+          kind: 'file',
+          size: meta.data.size,
+          mtime: meta.data.modifiedAt,
+          createdAt: meta.data.createdAt,
+          mimeType: getMimeType(rel),
+        });
+      }
+    }
+    current.children.sort((a, b) => {
+      if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  if (queueIndex < queue.length && budget.remaining <= 0) truncated = true;
+
   entries.sort((a, b) => {
     if (a.kind !== b.kind) return a.kind === 'dir' ? -1 : 1;
     return a.name.localeCompare(b.name);

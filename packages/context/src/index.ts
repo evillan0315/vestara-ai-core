@@ -16,6 +16,14 @@ import type { CompletionRequest, Conversation } from '@vestara/shared';
 export interface ContextOptions {
   systemPrompt?: string;
   model?: string;
+  /** Selected assistant execution runtime. Defaults to OpenCode. */
+  assistantRuntime?: 'opencode' | 'codex';
+  /**
+   * ROUTING-CONVERGENCE-001C: target Vestara logical agent (e.g.
+   * 'agent-developer'). Carried into the CompletionRequest so the executor
+   * can resolve the per-turn runtime persona. Target selection only.
+   */
+  agentId?: string;
   temperature?: number;
   maxTokens?: number;
   /** Trusted turn-time surface context (GA-CONTEXT-002). Optional. */
@@ -113,6 +121,9 @@ export class DefaultContextAssembler implements ContextAssembler {
       messages,
       temperature: options.temperature ?? 0.7,
       maxTokens: options.maxTokens ?? 2048,
+      // ROUTING-CONVERGENCE-001C: target logical agent for per-turn persona
+      // resolution (never authorship — the author stays the human principal).
+      ...(options.agentId ? { agentId: options.agentId } : {}),
       // GA-RUNTIME-001: conversation identity for OpenCode session binding —
       // owned by the conversation runtime, never browser-supplied.
       conversationId: conversation.id,
@@ -120,6 +131,8 @@ export class DefaultContextAssembler implements ContextAssembler {
       ...(options.surfaceContext ? { surfaceContext: options.surfaceContext } : {}),
       // GA-RUNTIME-001: requested upstream provider (browser selection, bounded).
       ...(options.provider ? { provider: options.provider } : {}),
+      // GA-RUNTIME-002: selected assistant execution runtime.
+      ...(options.assistantRuntime ? { assistantRuntime: options.assistantRuntime } : {}),
       // GA-RUNTIME-001: caller-controlled cancellation (client disconnect / stop).
       ...(options.signal ? { signal: options.signal } : {}),
       // Session reuse: pass the stored runtime session ID when available.

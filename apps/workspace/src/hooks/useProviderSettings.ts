@@ -5,11 +5,13 @@ const STORAGE_KEY = 'vestara-provider-settings';
 export interface ProviderSettings {
   provider: string;
   model: string;
+  assistantRuntime: 'opencode' | 'codex';
 }
 
 const DEFAULTS: ProviderSettings = {
   provider: 'opencode',
   model: 'nemotron-3-ultra-free',
+  assistantRuntime: 'opencode',
 };
 
 function load(): ProviderSettings {
@@ -17,7 +19,11 @@ function load(): ProviderSettings {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { provider: parsed.provider || DEFAULTS.provider, model: parsed.model || DEFAULTS.model };
+      return {
+        provider: parsed.provider || DEFAULTS.provider,
+        model: parsed.model || DEFAULTS.model,
+        assistantRuntime: parsed.assistantRuntime === 'codex' ? 'codex' : DEFAULTS.assistantRuntime,
+      };
     }
   } catch {}
   return { ...DEFAULTS };

@@ -89,10 +89,25 @@ function parseExecutionResult(value: unknown): Message['executionResult'] {
   ) {
     return undefined;
   }
+  const execution = obj.execution;
+  const parsedExecution =
+    execution && typeof execution === 'object' && typeof (execution as Record<string, unknown>).runtimeId === 'string'
+      ? {
+          runtimeId: (execution as Record<string, unknown>).runtimeId as string,
+          ...((execution as Record<string, unknown>).providerId
+            ? { providerId: (execution as Record<string, unknown>).providerId as string }
+            : {}),
+          ...((execution as Record<string, unknown>).modelId
+            ? { modelId: (execution as Record<string, unknown>).modelId as string }
+            : {}),
+        }
+      : undefined;
+
   return {
     termination: obj.termination as Message['executionResult'] extends { termination: infer T } ? T : never,
     toolCallCount: obj.toolCallCount,
     elapsedMs: obj.elapsedMs,
+    ...(parsedExecution ? { execution: parsedExecution } : {}),
   };
 }
 

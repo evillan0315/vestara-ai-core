@@ -21,6 +21,7 @@ import {
 } from 'react';
 import { EmptyState } from '@vestara/ui';
 import { useFileOperationsChannel } from '../../../contexts/FileOperationsContext';
+import OperationalWorkspaceLayout from '../../../layouts/OperationalWorkspaceLayout';
 import {
   classifyFile,
   type FileClassification,
@@ -472,29 +473,62 @@ export function FilesWorkspace({
         </button>
       </div>
 
-      <div className="ar-workarea grid min-h-0 w-full min-w-0 max-w-full flex-1 grid-cols-1 gap-3 overflow-hidden sm:gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] lg:grid-rows-[minmax(0,1fr)] xl:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(16rem,20rem)]">
+      <OperationalWorkspaceLayout
+        rail={
+          <aside
+            className="ar-panel ar-panel--rail min-h-0 min-w-0 max-w-full"
+            aria-label="File explorer panel"
+          >
+            <FileTree
+              entries={entries}
+              selectedPath={selectedPath}
+              activePath={activeTabPath}
+              recent={recent}
+              isLoading={isLoading}
+              fromSnapshot={fromSnapshot}
+              truncated={truncated}
+              query={query}
+              facet={facet}
+              showHidden={showHidden}
+              onSelect={selectEntry}
+              onOpenFile={openFile}
+              onMenu={showMenu}
+              onMove={moveInto}
+            />
+          </aside>
+        }
+        context={
         <aside
-          className="ar-panel ar-panel--rail min-h-0 min-w-0 max-w-full overflow-auto"
-          aria-label="File explorer panel"
+          className="ar-panel ar-panel--context min-h-0 min-w-0 max-w-full overflow-auto"
+          aria-label="File inspector panel"
         >
-          <FileTree
-            entries={entries}
-            selectedPath={selectedPath}
-            activePath={activeTabPath}
-            recent={recent}
-            isLoading={isLoading}
-            fromSnapshot={false}
-            truncated={false}
-            query={query}
-            facet={facet}
-            showHidden={showHidden}
-            onSelect={selectEntry}
-            onOpenFile={openFile}
-            onMenu={showMenu}
-            onMove={moveInto}
+          <FileInspector
+            entry={selectedEntry}
+            ops={ops}
+            onOpenInEditor={(entry) =>
+              openFile(entry)
+            }
+            onOpenDir={(entry) => {
+              setSegments(
+                entry.path
+                  .split('/')
+                  .filter(
+                    (segment) =>
+                      segment.length > 0,
+                  ),
+              );
+              setSelectedPath(
+                entry.path || null,
+              );
+              setMode('files');
+            }}
+            onDeselect={() =>
+              setSelectedPath(null)
+            }
           />
         </aside>
-
+        }
+      >
         <main
           className="ar-panel ar-panel--main flex min-h-0 min-w-0 max-w-full flex-col overflow-auto"
           aria-label="File work area"
@@ -692,36 +726,8 @@ export function FilesWorkspace({
           )}
         </main>
 
-        <aside
-          className="ar-panel ar-panel--context min-h-0 min-w-0 max-w-full overflow-auto"
-          aria-label="File inspector panel"
-        >
-          <FileInspector
-            entry={selectedEntry}
-            ops={ops}
-            onOpenInEditor={(entry) =>
-              openFile(entry)
-            }
-            onOpenDir={(entry) => {
-              setSegments(
-                entry.path
-                  .split('/')
-                  .filter(
-                    (segment) =>
-                      segment.length > 0,
-                  ),
-              );
-              setSelectedPath(
-                entry.path || null,
-              );
-              setMode('files');
-            }}
-            onDeselect={() =>
-              setSelectedPath(null)
-            }
-          />
-        </aside>
-      </div>
+
+      </OperationalWorkspaceLayout>
 
       {mobilePanel && (
         <div

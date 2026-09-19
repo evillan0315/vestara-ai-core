@@ -145,7 +145,7 @@ export class ProviderRouter implements ProviderExecutor {
     });
     return {
       id: result.id,
-      model: result.model,
+      model: result.model ?? model,
       provider: result.provider,
       content: result.content,
       usage: result.usage,

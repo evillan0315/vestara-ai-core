@@ -9,6 +9,7 @@
  */
 
 import type { MembershipState, WorkState } from '@vestara/types';
+import { extractMessageDetails } from './m9-to-projection';
 import type { ActivityCursor, ActivityRecord } from './m9-types';
 import { extractOriginProvenance } from './origin-provenance';
 import type {
@@ -234,6 +235,10 @@ export class ProjectionRuntime {
     const importance = this.classifyImportance(record, kind);
     const activityIdStr = String(record.activityId);
 
+    // REASONING-BOUNDARY-001: validated diagnostic details (shared
+    // extractor — snapshot and live projections agree by construction).
+    const details = extractMessageDetails(record.payload?.data);
+
     const base: StreamItem = {
       streamItemId: `si-${activityIdStr}`,
       activityId: activityIdStr,
@@ -248,6 +253,9 @@ export class ProjectionRuntime {
       taskId: record.taskId,
       // AR-UI-REPLY-002: preserve ONLY authoritative origin provenance.
       ...extractOriginProvenance(record.payload),
+      // REASONING-BOUNDARY-001: validated diagnostic details for the
+      // details surface (same extractor as the M11B live path).
+      ...(details ? { details } : {}),
     };
 
     // Carry interaction presentation data for kind === 'interaction'

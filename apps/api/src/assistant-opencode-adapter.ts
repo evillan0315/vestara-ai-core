@@ -31,6 +31,7 @@ import type { ProviderExecutor } from '@vestara/conversation';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
 import type { CompletionRequest, CompletionResponse, GAExecutionConfig, StreamChunk } from '@vestara/shared';
+import { truncateReasoning } from '@vestara/shared';
 import {
   type AssistantCapabilityPolicy,
   buildToolsMap,
@@ -56,15 +57,78 @@ import {
 } from './assistant-execution-projection';
 import type { AssistantInteractionBroker, AssistantQuestionDecision } from './assistant-interaction-broker';
 
+/**
+ * ROUTING-CONVERGENCE-001C — per-turn resolved execution persona.
+ *
+ * Maps the requested logical `agentId` to the OpenCode runtime agent +
+ * capability policy that actually execute the turn, both sourced from the
+ * canonical AgentDefinition. The prompt_async request carries `runtimeAgent`;
+ * the Vestara side retains the requested id for attribution, so a mismatch
+ * can never silently pass as the requested agent.
+ */
+export interface ResolvedAgentPersona {
+  /** OpenCode runtime agent for prompt_async.agent (e.g. 'vestara-developer'). */
+  readonly runtimeAgent: string;
+  /** Capability policy for this turn's tools map + permission evaluation. */
+  readonly capabilityPolicy?: AssistantCapabilityPolicy;
+}
+
+/**
+ * Thrown when the per-turn persona cannot be resolved authoritatively.
+ * The turn fails BEFORE any OpenCode session/message is created — an
+ * explicitly targeted agent never executes as another persona.
+ */
+export class AgentPersonaError extends Error {
+  readonly agentId?: string;
+
+  constructor(message: string, agentId?: string) {
+    super(message);
+    this.name = 'AgentPersonaError';
+    this.agentId = agentId;
+  }
+}
+
+/**
+ * Resolve the turn persona: per-turn resolver wins; otherwise the
+ * construction-time fallback agent governs generic execution only.
+ */
+async function resolveTurnPersona(
+  options: AssistantOpenCodeExecutorOptions,
+  request: CompletionRequest,
+): Promise<ResolvedAgentPersona> {
+  if (options.resolveAgentPersona) {
+    return options.resolveAgentPersona(request.agentId);
+  }
+  return {
+    runtimeAgent: options.agent,
+    ...(options.capabilityPolicy ? { capabilityPolicy: options.capabilityPolicy } : {}),
+  };
+}
+
 export interface AssistantOpenCodeExecutorOptions {
   client: OpenCodeHttpClient;
   /** Workspace identity for the OpenCode request context. */
   workspaceId: string;
   /** Repository root (absolute) — OpenCode session directory authority. */
   directory: string;
+  /**
+   * Fallback OpenCode runtime agent for generic execution when no per-turn
+   * persona resolver is configured. ROUTING-CONVERGENCE-001C: this is NOT
+   * consulted when `resolveAgentPersona` is present — the per-turn
+   * resolution governs and never silently substitutes this default for an
+   * explicitly targeted agent.
+   */
   agent: string;
   /** Resolved provider/model override (when known at construction time). */
   model?: { providerID: string; modelID: string };
+  /**
+   * ROUTING-CONVERGENCE-001C: per-turn persona resolver. Maps the requested
+   * logical `CompletionRequest.agentId` → the OpenCode runtime agent +
+   * capability policy that actually execute this turn. Rejects for unknown
+   * explicitly-targeted agents (fail closed — never substitute the fallback
+   * agent). Absent only for bespoke executors; production always provides it.
+   */
+  resolveAgentPersona?: (agentId?: string) => Promise<ResolvedAgentPersona>;
   /**
    * Per-turn resolver: map the requested `CompletionRequest.model` /
    * `CompletionRequest.provider` → the provider/model that actually executes.
@@ -146,6 +210,7 @@ const DEFAULT_MAX_TOOL_CALLS = (() => {
  * provenance — callers that wire a resolver always get the true provider.
  */
 const TRANSPORT_PROVIDER = 'opencode';
+const OPENCODE_RUNTIME_ID = 'opencode';
 
 /**
  * GA-DETACH-001: How a turn ended. This determines whether the OpenCode
@@ -222,6 +287,21 @@ function chunk(type: StreamChunk['type'], sequence: number, extra: Partial<Strea
 }
 
 /**
+ * REASONING-BOUNDARY-001: join provider-emitted `reasoning` chunks into one
+ * bounded diagnostic string. Text/tool/error chunks never contribute —
+ * final content and reasoning accumulate on disjoint chunk types.
+ * Returns undefined when no reasoning was emitted (absent stays absent).
+ */
+function accumulateReasoning(chunks: readonly StreamChunk[]): string | undefined {
+  const joined = chunks
+    .filter((item) => item.type === 'reasoning' && typeof item.content === 'string' && item.content.length > 0)
+    .map((item) => item.content as string)
+    .join('');
+  if (!joined) return undefined;
+  return truncateReasoning(joined);
+}
+
+/**
  * Run one OpenCode turn as an async generator of normalized `StreamChunk`s.
  * Events are consumed from the session-scoped `/event` stream; correlation is
  * keyed on OpenCode `callID`; every projected detail passes the sanitizer.
@@ -234,8 +314,9 @@ export async function* runAssistantOpenCodeTurn(
   options: AssistantOpenCodeExecutorOptions,
   request: CompletionRequest,
   sessionId?: string,
+  persona?: ResolvedAgentPersona,
 ): AsyncIterable<StreamChunk> {
-  const { client, workspaceId, directory, agent, turnTimeoutMs: defaultTimeout = TURN_TIMEOUT_MS } = options;
+  const { client, workspaceId, directory, turnTimeoutMs: defaultTimeout = TURN_TIMEOUT_MS } = options;
   // GA-EXEC-001: per-turn execution config from UI. Overrides defaults.
   const execCfg: GAExecutionConfig | undefined = request.executionConfig;
   const turnTimeoutMs = execCfg?.turnTimeoutMs ?? defaultTimeout;
@@ -248,8 +329,18 @@ export async function* runAssistantOpenCodeTurn(
   const userText = lastUserText(request.messages);
   if (!userText) throw new Error('Assistant OpenCode turn requires a user message');
 
+  // ROUTING-CONVERGENCE-001C: resolve the execution persona FIRST — before
+  // any session is created or message sent. Rejection fails the turn with no
+  // OpenCode side effects (never a silent fallback persona).
+  const turnPersona = persona ?? (await resolveTurnPersona(options, request));
+
   // GA-EXEC-001: tool call counter for budget enforcement
   let toolCallCount = 0;
+
+  // REASONING-BOUNDARY-001: reasoning blocks that already streamed deltas.
+  // `reasoning.ended` carries the full text as a fallback for providers that
+  // emit no deltas — tracked per reasoningID so output is never double-counted.
+  const reasoningSeen = new Set<string>();
 
   // Resolve the real upstream provider/model for THIS turn; never fabricated.
   // The requested provider/model is the browser's REQUESTED binding; the
@@ -303,6 +394,8 @@ export async function* runAssistantOpenCodeTurn(
   options.logger?.info('assistant.turn.started', {
     conversationId: request.conversationId,
     sessionId: resolvedSessionId,
+    requestedAgent: request.agentId,
+    runtimeAgent: turnPersona.runtimeAgent,
     provider: turnProvider,
     model: turnModel?.modelID,
     turnTimeoutMs,
@@ -338,7 +431,9 @@ export async function* runAssistantOpenCodeTurn(
       resolvedSessionId,
       {
         parts: [{ type: 'text', text: userText }],
-        agent,
+        // ROUTING-CONVERGENCE-001C: per-turn resolved runtime persona —
+        // the logical agent's OpenCode twin, never a construction default.
+        agent: turnPersona.runtimeAgent,
         // Async input model shape: { providerId, modelId } (lowercase).
         // GA-RUNTIME-001 E: provider/model is Execution Binding — it rides the
         // prompt, never a new session.
@@ -349,10 +444,11 @@ export async function* runAssistantOpenCodeTurn(
         // message; never repository/execution authority.
         ...(buildSurfaceSystem(request.surfaceContext) ? { system: buildSurfaceSystem(request.surfaceContext) } : {}),
         // GA-RUNTIME-004 / GA-TOOL-001: per-turn tool availability from
-        // GA-CAP-003 policy. ALLOW → true, ASK/DENY → false. This is the
-        // pre-execution enforcement point that prevents the * allow wildcard
-        // from auto-approving mutation tools.
-        ...(options.capabilityPolicy ? { tools: buildToolsMap(options.capabilityPolicy) } : {}),
+        // the resolved agent's capability policy (ROUTING-CONVERGENCE-001C:
+        // each logical agent executes under its own declared grants, run
+        // through the same Vestara enforcement machinery — identity selects
+        // the policy, never bypasses enforcement).
+        ...(turnPersona.capabilityPolicy ? { tools: buildToolsMap(turnPersona.capabilityPolicy) } : {}),
       },
       context,
     );
@@ -420,6 +516,11 @@ export async function* runAssistantOpenCodeTurn(
                 timestamp: new Date().toISOString(),
                 provider: turnProvider,
                 model: turnModel?.modelID,
+                execution: {
+                  runtimeId: OPENCODE_RUNTIME_ID,
+                  providerId: turnProvider,
+                  ...(turnModel?.modelID ? { modelId: turnModel.modelID } : {}),
+                },
                 runtimeSessionId: resolvedSessionId,
               },
             };
@@ -457,6 +558,65 @@ export async function* runAssistantOpenCodeTurn(
                 detail,
               });
             }
+          }
+          break;
+        }
+        // REASONING-BOUNDARY-001: provider-emitted reasoning/debug output.
+        // Structurally distinct from final text (own event types) — projected
+        // as `reasoning` chunks that downstream persists SEPARATELY from
+        // content. Never text, never tool events, never parsed from prose.
+        case 'session.next.reasoning.started': {
+          // Lifecycle marker only — content arrives as deltas (or the
+          // ended.text fallback). Emits no chunk: markers are not output.
+          break;
+        }
+        case 'session.next.reasoning.delta': {
+          const delta = typeof payload?.delta === 'string' ? payload.delta : '';
+          const reasoningId = typeof payload?.reasoningID === 'string' ? payload.reasoningID : undefined;
+          if (delta) {
+            if (reasoningId) reasoningSeen.add(reasoningId);
+            yield {
+              ...chunk('reasoning', sequence++, { content: delta }),
+              // GA-RUNTIME-001 H: same execution-binding metadata as text —
+              // the displayed binding is the REAL upstream one.
+              metadata: {
+                sequence: 0,
+                timestamp: new Date().toISOString(),
+                provider: turnProvider,
+                model: turnModel?.modelID,
+                execution: {
+                  runtimeId: OPENCODE_RUNTIME_ID,
+                  providerId: turnProvider,
+                  ...(turnModel?.modelID ? { modelId: turnModel.modelID } : {}),
+                },
+                runtimeSessionId: resolvedSessionId,
+              },
+            };
+          }
+          break;
+        }
+        case 'session.next.reasoning.ended': {
+          // Fallback for providers that emit only the completed text.
+          // Skipped when deltas already streamed this block — never
+          // double-count, never reconstruct hidden thought from text.
+          const reasoningId = typeof payload?.reasoningID === 'string' ? payload.reasoningID : undefined;
+          const text = typeof payload?.text === 'string' ? payload.text : '';
+          if (text && !(reasoningId && reasoningSeen.has(reasoningId))) {
+            yield {
+              ...chunk('reasoning', sequence++, { content: text }),
+              metadata: {
+                sequence: 0,
+                timestamp: new Date().toISOString(),
+                provider: turnProvider,
+                model: turnModel?.modelID,
+                execution: {
+                  runtimeId: OPENCODE_RUNTIME_ID,
+                  providerId: turnProvider,
+                  ...(turnModel?.modelID ? { modelId: turnModel.modelID } : {}),
+                },
+                runtimeSessionId: resolvedSessionId,
+              },
+            };
           }
           break;
         }
@@ -520,12 +680,13 @@ export async function* runAssistantOpenCodeTurn(
         case 'permission.asked': {
           const detail = projectPermissionRequested(event);
           if (detail && detail.kind === 'permission') {
-            // GA-CAP-003 / GA-RUNTIME-001 B: evaluate against the Vestara
-            // capability policy when provided. ALLOW auto-approves, DENY
-            // auto-rejects, ASK projects an interactive decision to the user.
+            // GA-CAP-003 / GA-RUNTIME-001 B: evaluate against the resolved
+            // turn persona's capability policy when provided. ALLOW
+            // auto-approves, DENY auto-rejects, ASK projects an interactive
+            // decision to the user.
             // The permission identity is the OpenCode request id (`per_*`),
             // exposed as `permissionRequestId` by the projection.
-            const policy = options.capabilityPolicy;
+            const policy = turnPersona.capabilityPolicy;
             const permissionId = detail.permissionRequestId;
             if (policy && permissionId) {
               const action = normalizePermissionAction(detail.action);
@@ -810,8 +971,22 @@ export async function* runAssistantOpenCodeTurn(
         timestamp: new Date().toISOString(),
         provider: turnProvider,
         model: turnModel?.modelID,
+        execution: {
+          runtimeId: OPENCODE_RUNTIME_ID,
+          providerId: turnProvider,
+          ...(turnModel?.modelID ? { modelId: turnModel.modelID } : {}),
+        },
         runtimeSessionId: resolvedSessionId,
-        executionResult: { termination, toolCallCount, elapsedMs },
+        executionResult: {
+          termination,
+          toolCallCount,
+          elapsedMs,
+          execution: {
+            runtimeId: OPENCODE_RUNTIME_ID,
+            providerId: turnProvider,
+            ...(turnModel?.modelID ? { modelId: turnModel.modelID } : {}),
+          },
+        },
       },
     });
   } catch (error) {
@@ -915,15 +1090,22 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
 
   return {
     async complete(request: CompletionRequest): Promise<CompletionResponse> {
+      // ROUTING-CONVERGENCE-001C: persona resolves BEFORE any session is
+      // created — rejection fails the turn with no OpenCode side effects.
+      const persona = await resolveTurnPersona(options, request);
       const sessionId = await resolveSession(request);
       const chunks: StreamChunk[] = [];
-      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId)) {
+      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId, persona)) {
         chunks.push(item);
       }
       const content = chunks
         .filter((item) => item.type === 'text' && typeof item.content === 'string')
         .map((item) => item.content as string)
         .join('');
+      // REASONING-BOUNDARY-001: provider-emitted reasoning accumulated
+      // SEPARATELY from final text (bounded). Never parsed from content,
+      // never mixed into it — the data boundary is structural (chunk type).
+      const reasoning = accumulateReasoning(chunks);
       const failed = chunks.find((item) => item.type === 'error');
       const turnModel = await resolveProvider(request);
       // GA-EXEC-002: extract structured execution result from the final meta chunk.
@@ -936,6 +1118,8 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         model: turnModel?.modelID ?? request.model,
         provider: turnModel?.providerID ?? TRANSPORT_PROVIDER,
         content: failed ? (failed.content ?? 'Assistant turn failed') : content,
+        // REASONING-BOUNDARY-001: structurally separated reasoning output.
+        ...(reasoning ? { reasoning } : {}),
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: 0,
         ...(executionResult ? { executionResult } : {}),
@@ -946,6 +1130,10 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
                 reason: turnModel ? ('explicit-model' as const) : ('default' as const),
                 defaultResolution: !turnModel,
                 runtimeSessionId: sessionId,
+                // ROUTING-CONVERGENCE-001C attribution invariant:
+                // requested logical agent → resolved runtime persona.
+                ...(request.agentId ? { requestedAgentId: request.agentId } : {}),
+                runtimeAgent: persona.runtimeAgent,
               },
             }
           : {}),
@@ -956,8 +1144,10 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
       // service (emitted AFTER the authoritative message is persisted). The
       // adapter yields only the turn's incremental chunks — no duplicate
       // `done` frames on the browser SSE stream.
+      // Persona first: same fail-fast ordering as complete().
+      const persona = await resolveTurnPersona(options, request);
       const sessionId = await resolveSession(request);
-      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId)) {
+      for await (const item of runAssistantOpenCodeTurn(options, request, sessionId, persona)) {
         if (sessionId && item.metadata) {
           item.metadata.runtimeSessionId = sessionId;
         }

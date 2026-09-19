@@ -87,7 +87,7 @@ export type {
   MessageRouteResult,
   MessageRouteStatus,
 } from './global-assistant.js';
-export { GlobalAssistantTextRouter } from './global-assistant.js';
+export { GlobalAssistantTextRouter, TELEGRAM_ASSISTANT_AGENT_ID } from './global-assistant.js';
 export type {
   GroupChat,
   GroupChatConfig,

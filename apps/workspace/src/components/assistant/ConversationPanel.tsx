@@ -127,7 +127,29 @@ function isFailedAssistantContent(content: string): boolean {
  * CSS wraps to two lines (name / model) — never an OpenCode session title.
  * Model metadata stays secondary (dimmer, smaller).
  */
-function AssistantLabel({ model }: { model?: string }) {
+function formatExecutionLabel(message: {
+  model?: string;
+  executionResult?: { execution?: { runtimeId: string; modelId?: string } };
+}) {
+  const runtimeId = message.executionResult?.execution?.runtimeId;
+  const runtimeLabel = runtimeId
+    ? runtimeId
+        .split(/[-_\s]+/)
+        .filter(Boolean)
+        .map((part) => part[0].toUpperCase() + part.slice(1))
+        .join(' ')
+    : undefined;
+  const model = message.executionResult?.execution?.modelId ?? message.model;
+  if (runtimeLabel && model) return `${runtimeLabel} · ${model}`;
+  return runtimeLabel ?? model;
+}
+
+function AssistantLabel({
+  message,
+}: {
+  message: { model?: string; executionResult?: { execution?: { runtimeId: string; modelId?: string } } };
+}) {
+  const label = formatExecutionLabel(message);
   return (
     <div className="flex items-center gap-1.5 mb-1.5 px-0.5 min-w-0" data-testid="assistant-identity">
       <div className="w-5 h-5 shrink-0 rounded-lg bg-gradient-to-br from-amber-300 via-amber-500 to-orange-600 flex items-center justify-center shadow-[0_0_12px_-2px_rgba(245,158,11,0.65)] ring-1 ring-white/20">
@@ -137,9 +159,9 @@ function AssistantLabel({ model }: { model?: string }) {
       </div>
       <span className="text-[11px] text-zinc-300 font-semibold tracking-tight truncate min-w-0">
         Vestara Assistant
-        {model ? (
+        {label ? (
           <span className="ml-1.5 rounded-full border border-zinc-700/60 bg-zinc-800/70 px-1.5 py-px text-[10px] text-zinc-400 font-medium font-mono align-middle">
-            {model}
+            {label}
           </span>
         ) : null}
       </span>
@@ -163,6 +185,7 @@ const MessageBubble = memo(function MessageBubble({
     content: string;
     createdAt: string;
     model?: string;
+    executionResult?: { execution?: { runtimeId: string; modelId?: string } };
     toolObservations?: readonly ToolObservation[];
   };
   onOpenInEditor?: (file: string) => void;
@@ -194,7 +217,7 @@ const MessageBubble = memo(function MessageBubble({
   return (
     <div className="flex justify-start assistant-message-enter" data-testid="assistant-message">
       <div className="max-w-full min-w-0 flex-1 overflow-hidden">
-        <AssistantLabel model={message.model} />
+        <AssistantLabel message={message} />
         <div
           className="min-w-0 max-w-full overflow-hidden break-words text-[13px] leading-relaxed text-zinc-300"
           data-testid="assistant-response-canvas"
@@ -333,7 +356,7 @@ function ActiveTurn({
   return (
     <div className="flex justify-start" data-testid="assistant-active-turn">
       <div className="max-w-full min-w-0 flex-1 overflow-hidden">
-        <AssistantLabel />
+        <AssistantLabel message={{}} />
         {/* Bounded status announcement: replaces, never accumulates. */}
         <div
           role="status"
@@ -537,6 +560,8 @@ const ComposeInput = memo(function ComposeInput({
   conversationKey,
   providerModel,
   onProviderModelChange,
+  assistantRuntime,
+  onAssistantRuntimeChange,
   execConfig,
   onExecControlsToggle,
   execControlsRef,
@@ -549,6 +574,8 @@ const ComposeInput = memo(function ComposeInput({
   conversationKey?: string | null;
   providerModel?: { providerId: string; modelId: string };
   onProviderModelChange?: (value: { providerId: string; modelId: string }) => void;
+  assistantRuntime?: 'opencode' | 'codex';
+  onAssistantRuntimeChange?: (value: 'opencode' | 'codex') => void;
   execConfig?: { isCustom: boolean };
   onExecControlsToggle?: () => void;
   execControlsRef?: React.RefObject<HTMLButtonElement | null>;
@@ -728,7 +755,7 @@ const ComposeInput = memo(function ComposeInput({
         )}
       </div>
 
-      {/* Bottom control row: menu | provider | model | execution settings */}
+      {/* Bottom control row: menu | runtime | provider | model | execution settings */}
       <div className="mt-2 flex items-center gap-2">
         {/* Vertical ellipsis menu */}
         <div className="relative" ref={menuRef}>
@@ -775,8 +802,26 @@ const ComposeInput = memo(function ComposeInput({
           )}
         </div>
 
+        {assistantRuntime && onAssistantRuntimeChange && (
+          <label className="flex items-center gap-1.5 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-[var(--vestara-spacing-2)] py-[var(--vestara-spacing-1)] text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+            <span>Runtime</span>
+            <select
+              value={assistantRuntime}
+              disabled={loading}
+              onChange={(event) =>
+                onAssistantRuntimeChange(event.target.value === 'codex' ? 'codex' : 'opencode')
+              }
+              className="bg-[var(--vestara-surface-panel)] text-[var(--vestara-text-primary)] outline-none"
+              aria-label="Assistant runtime"
+            >
+              <option value="opencode">OpenCode</option>
+              <option value="codex">Codex</option>
+            </select>
+          </label>
+        )}
+
         {/* Provider + Model selectors */}
-        {providerModel && onProviderModelChange && (
+        {assistantRuntime !== 'codex' && providerModel && onProviderModelChange && (
           <ProviderModelSelector
             value={providerModel}
             onChange={onProviderModelChange}
@@ -1311,10 +1356,18 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         surfaceContext: surface,
         provider: providerSettings.provider,
         model: providerSettings.model,
+        assistantRuntime: providerSettings.assistantRuntime,
         executionConfig: execConfig.toRequestConfig(),
       });
     },
-    [assistant.sendMessage, surface.selected, providerSettings.provider, providerSettings.model, execConfig],
+    [
+      assistant.sendMessage,
+      surface.selected,
+      providerSettings.provider,
+      providerSettings.model,
+      providerSettings.assistantRuntime,
+      execConfig,
+    ],
   );
 
   const handleRetry = useCallback(
@@ -1348,6 +1401,11 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
   const handleProviderModelChange = useCallback(
     (value: { providerId: string; modelId: string }) =>
       updateProviderSettings({ provider: value.providerId, model: value.modelId }),
+    [updateProviderSettings],
+  );
+
+  const handleAssistantRuntimeChange = useCallback(
+    (value: 'opencode' | 'codex') => updateProviderSettings({ assistantRuntime: value }),
     [updateProviderSettings],
   );
 
@@ -1669,6 +1727,8 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           // settings persist as {provider, model}. Mapped at the boundary.
           providerModel={providerModelValue}
           onProviderModelChange={handleProviderModelChange}
+          assistantRuntime={providerSettings.assistantRuntime}
+          onAssistantRuntimeChange={handleAssistantRuntimeChange}
           execConfig={execConfig}
           onExecControlsToggle={handleExecControlsToggle}
           execControlsRef={execGearRef}

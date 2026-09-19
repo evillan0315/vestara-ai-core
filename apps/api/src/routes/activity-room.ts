@@ -224,7 +224,14 @@ export async function handleActivityRoomRoute(
             // Mirror completed turn replies into M9 so they appear on the
             // M11C surface (the legacy append above is M11C-invisible).
             if (result.status === 'completed' && result.content) {
-              void mirrorAgentReplyToM9(turnAgentId, result.content);
+              void mirrorAgentReplyToM9(turnAgentId, result.content, {
+                ...(result.reasoning ? { reasoning: result.reasoning } : {}),
+                ...(result.model ? { modelId: result.model } : {}),
+                ...(result.provider ? { providerId: result.provider } : {}),
+                ...(typeof result.latencyMs === 'number' ? { latencyMs: result.latencyMs } : {}),
+                ...(typeof result.tokens === 'number' ? { tokens: result.tokens } : {}),
+                conversationId: result.conversationId,
+              });
             }
           })
           .catch(() => {
@@ -271,7 +278,14 @@ export async function handleActivityRoomRoute(
         })
           .then((result) => {
             if (result.status === 'completed' && result.content) {
-              void mirrorAgentReplyToM9(agentId, result.content);
+              void mirrorAgentReplyToM9(agentId, result.content, {
+                ...(result.reasoning ? { reasoning: result.reasoning } : {}),
+                ...(result.model ? { modelId: result.model } : {}),
+                ...(result.provider ? { providerId: result.provider } : {}),
+                ...(typeof result.latencyMs === 'number' ? { latencyMs: result.latencyMs } : {}),
+                ...(typeof result.tokens === 'number' ? { tokens: result.tokens } : {}),
+                conversationId: result.conversationId,
+              });
             }
           })
           .catch(() => {
@@ -669,8 +683,23 @@ function recordMirrorFailure(messageId: string | null, error: unknown): void {
  * canonical `fromAgentLifecycle` adapter, so the reply appears on the M11C
  * surface (the turn's legacy append is M11C-invisible). Best-effort: throws
  * nothing; failures are counted + logged.
+ *
+ * REASONING-BOUNDARY-001: diagnostic reasoning + authoritative execution
+ * metadata ride in `payload.data` (details surface), never in the
+ * conversational content — one reply keeps exactly one authorship.
  */
-async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<void> {
+async function mirrorAgentReplyToM9(
+  agentId: string,
+  content: string,
+  details?: {
+    reasoning?: string;
+    modelId?: string;
+    providerId?: string;
+    latencyMs?: number;
+    tokens?: number;
+    conversationId?: string;
+  },
+): Promise<void> {
   const attempt = async (): Promise<void> => {
     const { getM11ARoom } = await import('./activity-room-m11a.js');
     const identity = TURN_AGENT_IDENTITY[agentId] ?? { displayName: agentId, role: agentId };
@@ -681,6 +710,12 @@ async function mirrorAgentReplyToM9(agentId: string, content: string): Promise<v
         lifecycleType: 'completed',
         message: content,
         role: identity.role,
+        ...(details?.reasoning ? { reasoning: details.reasoning } : {}),
+        ...(details?.modelId ? { modelId: details.modelId } : {}),
+        ...(details?.providerId ? { providerId: details.providerId } : {}),
+        ...(typeof details?.latencyMs === 'number' ? { latencyMs: details.latencyMs } : {}),
+        ...(typeof details?.tokens === 'number' ? { tokens: details.tokens } : {}),
+        ...(details?.conversationId ? { conversationId: details.conversationId } : {}),
       }),
     );
   };

@@ -248,7 +248,7 @@ export default function TerminalWorkspace() {
   );
 
   return (
-    <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col overflow-hidden">
+    <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <OperationalWorkspaceLayout context={<TerminalInspector session={activeSession} sessions={sessions} onReconnect={connectSession} onClear={clearTerminal} />} footer={<TerminalStatusBar session={activeSession} connected={connected} reconnectCount={0} uptime={uptime} />}>
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[var(--vestara-accent-border)] rounded-xl">
       {sessions.length > 0 && (
