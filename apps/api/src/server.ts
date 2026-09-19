@@ -882,13 +882,12 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
       return;
     }
     logger.info({ event: 'ws.terminal.attached', connectionId, sessionId: id });
-    // Reconnect replay: redacted transcript tail, then live from here.
+    // Establish terminal semantics before replay so the client can apply
+    // spawn line discipline while preserving raw PTY output.
+    wsSend(ws, { op: 'driver', driver: info.driver });
+    wsSend(ws, { op: 'cwd', cwd: info.cwd });
     const replay = registry.transcript(id) ?? '';
     if (replay) wsSend(ws, { op: 'stdout', text: replay });
-    wsSend(ws, { op: 'cwd', cwd: info.cwd });
-    // Driver tells the client its echo discipline: pty echoes in-kernel
-    // (client must NOT echo), spawn needs client-side keystroke echo.
-    wsSend(ws, { op: 'driver', driver: info.driver });
     if (info.state !== 'running') {
       wsSend(ws, { op: 'exit', code: info.exitCode, signal: null });
     }

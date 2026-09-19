@@ -24,10 +24,10 @@ export function TerminalStatusBar({ session, connected, reconnectCount, uptime }
   };
 
   return (
-    <div className="shrink-0 flex items-center gap-3 px-4 py-1 bg-[var(--vestara-accent-bg)] border-t border-[var(--vestara-accent-border)] text-[10px]">
+    <div className="shrink-0 flex items-center gap-3 px-4 py-1 bg-[var(--vestara-accent-bg)] border-t border-[var(--vestara-accent-border)] text-[var(--vestara-font-size-xs)]">
       <div className="flex items-center gap-1.5">
-        <span className={`w-2 h-2 rounded-full ${connected ? 'var(--vestara-status-active)' : 'var(--vestara-status-error)'}`} />
-        <span className={connected ? 'var(--vestara-status-active)' : 'var(--vestara-status-error)'}>
+        <span className="w-2 h-2 rounded-full" style={{ background: connected ? 'var(--vestara-status-active)' : 'var(--vestara-status-error)' }} />
+        <span style={{ color: connected ? 'var(--vestara-status-active)' : 'var(--vestara-status-error)' }}>
           {connected ? 'Connected' : 'Disconnected'}
         </span>
         {connected && (
@@ -47,17 +47,17 @@ export function TerminalStatusBar({ session, connected, reconnectCount, uptime }
             {session?.cwd}
           </span>
           <span className="text-[var(--vestara-text-dim)]">|</span>
-          <span className="text-[var(--vestara-text-2)]">{session?.shell}</span>
+          <span className="text-[var(--vestara-text-2)]" style={{ color: 'var(--vestara-text-2)' }}>{session?.shell}</span>
           {session?.processStatus === 'running' && (
             <>
               <span className="text-[var(--vestara-text-dim)]">|</span>
-              <span className="var(--vestara-status-running)">⟳ running</span>
+              <span style={{ color: 'var(--vestara-status-running)' }}>⟳ running</span>
             </>
           )}
           {session?.exitCode !== undefined && (
             <>
               <span className="text-[var(--vestara-text-dim)]">|</span>
-              <span className={session.exitCode === 0 ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)'}>
+              <span style={{ color: session.exitCode === 0 ? 'var(--vestara-status-success)' : 'var(--vestara-status-error)' }}>
                 {session.exitCode === 0 ? '✓' : '×'} exit {session.exitCode}
               </span>
             </>

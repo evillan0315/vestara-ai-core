@@ -1,0 +1,16 @@
+format: vestara-human-profile
+version: 1
+subject_ref: eddie
+display_name: Eddie Villanueva
+role: Founder
+organization: Vestara
+sensitivity: public
+verification_status: self-described
+biography: >-
+  Eddie Villanueva is the Founder of Vestara, an AI-native engineering and
+  orchestration platform for governed human-agent collaboration, execution,
+  permissions, evidence, observability, and production-ready agent workflows.
+  A self-taught senior software and platform engineer, Eddie brings experience
+  across technical support, multimedia and interactive development, web and
+  enterprise software, cloud infrastructure, DevOps, real-time systems, and
+  AI-native platform architecture.

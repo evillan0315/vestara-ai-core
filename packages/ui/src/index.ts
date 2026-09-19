@@ -37,6 +37,28 @@ export { EmptyState } from './components/EmptyState.js';
 export type { StatusIndicatorProps, StatusSize, StatusVariant } from './components/StatusIndicator.js';
 export { StatusIndicator } from './components/StatusIndicator.js';
 
+// ─── Navigation ────────────────────────────────────────────────
+
+export type { Tab, TabsProps } from './components/Tabs.js';
+export { Tabs } from './components/Tabs.js';
+
+// ─── Disclosure ────────────────────────────────────────────────
+
+export type { AccordionItemProps, AccordionProps } from './components/Accordion.js';
+export { Accordion, AccordionItem } from './components/Accordion.js';
+export type { CollapsibleProps } from './components/Collapsible.js';
+export { Collapsible } from './components/Collapsible.js';
+export type { KeyValueItem, KeyValueListProps } from './components/KeyValueList.js';
+export { KeyValueList } from './components/KeyValueList.js';
+export type { MetricCardProps, MetricTone } from './components/MetricCard.js';
+export { MetricCard } from './components/MetricCard.js';
+export type { ProgressIndicatorProps, ProgressTone } from './components/ProgressIndicator.js';
+export { ProgressIndicator } from './components/ProgressIndicator.js';
+export type { StepDefinition, StepperProps, StepState } from './components/Stepper.js';
+export { Stepper } from './components/Stepper.js';
+export type { TimelineItemDefinition, TimelineItemProps, TimelineProps, TimelineTone } from './components/Timeline.js';
+export { Timeline, TimelineItem } from './components/Timeline.js';
+
 // ─── Data Display ──────────────────────────────────────────────
 
 export type { ChipProps, ChipSize, ChipVariant } from './components/Chip.js';

@@ -114,10 +114,9 @@ export function FullWindowSurface({
 
   return (
     <div
-      className="fixed inset-0 flex"
+      className="fixed inset-0 flex vestara-assistant-surface"
       style={{
         zIndex: Number(Z_INDEX.overlay),
-        background: 'radial-gradient(ellipse at top, rgba(245,158,11,0.03), transparent 60%), #09090b',
       }}
     >
       {/* Main content area — ConversationPanel handles its own sidebar in expanded mode */}

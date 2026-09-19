@@ -14,6 +14,7 @@
   --vestara-accent-border: rgba(245, 158, 11, 0.3);
   --vestara-accent-border-active: #f59e0b;
   --vestara-accent-border-hover: #f59e0b60;
+  --vestara-accent-glow: rgba(245, 158, 11, 0.04);
   --vestara-accent-primary: #f59e0b;
   --vestara-accent-secondary: #fbbf24;
   --vestara-accent-text: #fbbf24;
@@ -67,7 +68,9 @@
   --vestara-status-warning: #f59e0b;
   --vestara-status-warning-bg: rgba(245, 158, 11, 0.1);
   --vestara-status-warning-border: rgba(245, 158, 11, 0.3);
+  --vestara-surface-assistant: radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas);
   --vestara-surface-canvas: #09090b;
+  --vestara-surface-composer: linear-gradient(to top, #09090b, #09090b 55%, #1e1e22);
   --vestara-surface-interactive: #27272a;
   --vestara-surface-overlay: rgba(0, 0, 0, 0.8);
   --vestara-surface-panel: #1e1e22;
@@ -85,6 +88,7 @@
   --vestara-accent-border: rgba(245, 158, 11, 0.2);
   --vestara-accent-border-active: #f59e0b;
   --vestara-accent-border-hover: rgba(245, 158, 11, 0.3);
+  --vestara-accent-glow: rgba(245, 158, 11, 0.04);
   --vestara-accent-primary: #b45309;
   --vestara-accent-secondary: #d97706;
   --vestara-accent-text: #d97706;
@@ -138,7 +142,9 @@
   --vestara-status-warning: #b45309;
   --vestara-status-warning-bg: rgba(180, 83, 9, 0.08);
   --vestara-status-warning-border: rgba(180, 83, 9, 0.2);
+  --vestara-surface-assistant: radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas);
   --vestara-surface-canvas: #fafafa;
+  --vestara-surface-composer: linear-gradient(to top, #fafafa, #fafafa 55%, #ffffff);
   --vestara-surface-interactive: #f4f4f5;
   --vestara-surface-overlay: rgba(0, 0, 0, 0.5);
   --vestara-surface-panel: #ffffff;

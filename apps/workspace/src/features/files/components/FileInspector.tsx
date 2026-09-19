@@ -11,7 +11,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { EmptyState } from '@vestara/ui';
+import { EmptyState, KeyValueList } from '@vestara/ui';
 import { formatBytes } from '../../../lib/diagnostics';
 import { executionApi, formatTime, type FsOperation } from '../../../lib/execution';
 import type { FileEntry } from '../files.types';
@@ -25,17 +25,6 @@ interface FileInspectorProps {
   onOpenInEditor: (entry: FileEntry) => void;
   onOpenDir: (entry: FileEntry) => void;
   onDeselect: () => void;
-}
-
-function DetailRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="flex justify-between gap-3 text-sm">
-      <dt className="shrink-0 text-[var(--vestara-text-muted)]">{label}</dt>
-      <dd className={`min-w-0 truncate text-[var(--vestara-text-secondary)] ${mono ? 'font-mono text-xs' : ''}`} title={value}>
-        {value}
-      </dd>
-    </div>
-  );
 }
 
 export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselect }: FileInspectorProps) {
@@ -165,12 +154,33 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
               <span aria-hidden="true" className="font-mono text-[var(--vestara-text-muted)]">&lt;/&gt;</span>
               {typeTitle}
             </div>
-            <dl className="space-y-1.5">
-              {!isDir && <DetailRow label="Size" value={`${formatBytes(entry.size ?? 0)} (${(entry.size ?? 0).toLocaleString()} bytes)`} />}
-              <DetailRow label="Modified" value={entry.mtime ? formatTime(entry.mtime) : '—'} />
-              {entry.createdAt && <DetailRow label="Created" value={formatTime(entry.createdAt)} />}
-              <DetailRow label="Path" value={entry.path} mono />
-            </dl>
+            <KeyValueList
+              className="space-y-1.5 text-sm"
+              items={[
+                ...(!isDir
+                  ? [{
+                    id: 'size',
+                    label: 'Size',
+                    value: `${formatBytes(entry.size ?? 0)} (${(entry.size ?? 0).toLocaleString()} bytes)`,
+                    truncate: true,
+                  } as const]
+                  : []),
+                { id: 'modified', label: 'Modified', value: entry.mtime ? formatTime(entry.mtime) : '—', truncate: true },
+                ...(entry.createdAt
+                  ? [{ id: 'created', label: 'Created', value: formatTime(entry.createdAt), truncate: true } as const]
+                  : []),
+                {
+                  id: 'path',
+                  label: 'Path',
+                  value: (
+                    <span title={entry.path} className="font-mono text-xs">
+                      {entry.path}
+                    </span>
+                  ),
+                  truncate: true,
+                },
+              ]}
+            />
             <div className="grid grid-cols-2 gap-1.5 border-t border-[var(--vestara-border-subtle)] pt-3">
               <button
                 type="button"

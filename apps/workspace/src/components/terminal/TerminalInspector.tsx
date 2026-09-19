@@ -9,24 +9,21 @@
  * private environment values.
  */
 
-import { useVestaraTheme } from '@vestara/ui-theme';
-import { useTerminalSessions } from './useTerminalSessions';
-import { clearTerminal } from './TerminalPane';
 import type { TerminalSession } from './types';
 
-export function TerminalInspector() {
-  const { resolvedMode } = useVestaraTheme();
-  const {
-    sessions,
-    activeId,
-    activeSession,
-    error: sessionError,
-    setSessionStatus,
-    setProcessStatus,
-    setCwd,
-  } = useTerminalSessions();
+interface TerminalInspectorProps {
+  session: TerminalSession | null;
+  sessions: readonly TerminalSession[];
+  onReconnect: (id: string) => void;
+  onClear: (id: string) => void;
+}
 
-  const session = activeSession || null;
+export function TerminalInspector({
+  session,
+  sessions,
+  onReconnect,
+  onClear,
+}: TerminalInspectorProps) {
 
   // Helper: safely format a value for display (redact secrets)
   const safeValue = (value: unknown): string => {
@@ -62,7 +59,7 @@ export function TerminalInspector() {
               <div>
                 <span className="font-medium text-[var(--vestara-text-dim)]">Status</span>
                 <span className={[
-                  'var(--vestara-status-active)',
+                  'text-[var(--vestara-text)]',
                   session.status === 'connecting' && 'var(--vestara-status-pending)',
                   session.status === 'disconnected' && 'var(--vestara-status-error)',
                   session.status === 'error' && 'var(--vestara-status-error)',
@@ -129,12 +126,12 @@ export function TerminalInspector() {
             </h3>
             <div className="grid grid-cols-2 gap-1 text-[var(--vestara-text-2)] text-xs">
               <div>
-                <span className="font-semibold cursor-pointer" onClick={() => setSessionStatus(session!.id, 'connecting')}>
+                <span className="font-semibold cursor-pointer" onClick={() => onReconnect(session.id)}>
                   Reconnect
                 </span>
               </div>
               <div>
-                <span className="font-semibold cursor-pointer" onClick={() => clearTerminal(session!.id)}>
+                <span className="font-semibold cursor-pointer" onClick={() => onClear(session.id)}>
                   Clear
                 </span>
               </div>

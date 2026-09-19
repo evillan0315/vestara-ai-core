@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { DrawerMenu } from '../../components/ui/DrawerMenu';
-import { Tabs } from '../../components/ui/Tabs';
+import { Tabs } from '@vestara/ui';
 import { AgentStatusBadge } from '../../components/ui/agents/AgentStatusBadge';
 import { deriveCategory, CATEGORY_ICONS, CATEGORY_COLORS } from '../../components/ui/agents/deriveCategory';
 import { getAgentColor } from '../../components/ui/agents/agentColors';

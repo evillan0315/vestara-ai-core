@@ -318,6 +318,7 @@ function applySettings(settings: ThemeSettings, resolved: 'dark' | 'light') {
   root.style.setProperty('--vestara-accent', theme.hex);
   root.style.setProperty('--vestara-accent-light', theme.light);
   root.style.setProperty('--vestara-accent-dark', theme.dark);
+  root.style.setProperty('--vestara-accent-glow', theme.glow);
   // --vestara-accent-bg is intentionally NOT overridden here: index.css
   // derives it (accent over shell) so panels stay deep dashboard-style
   // in both modes. It still follows accent selection via --vestara-accent.

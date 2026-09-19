@@ -1,3 +1,12 @@
+---
+title: AR-GA-CORE-005 — Companion Coordination & Role-Scoped Session Workflow Refinement
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-09
+next-review: 2026-10-09
+---
+
 # AR-GA-CORE-005 — Companion Coordination & Role-Scoped Session Workflow Refinement
 
 **Program:** AR-GA-CORE — Activity Room + Global Assistant Convergence

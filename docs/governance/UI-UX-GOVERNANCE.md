@@ -1,3 +1,12 @@
+---
+title: UI/UX Governance — Vestara AI Core
+version: 1.0.0
+status: enforced
+owner: vestara
+last-reviewed: 2026-09-13
+next-review: 2026-10-13
+---
+
 # UI/UX Governance — Vestara AI Core (MANDATORY)
 
 **Status:** ENFORCED for all agents (vestara-context, planner, developer, reviewer, verifier, assistant, browser) + human contributors.

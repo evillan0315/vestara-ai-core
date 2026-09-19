@@ -13,17 +13,13 @@
  *  - Search: find text in terminal output
  */
 
-import { useVestaraTheme } from '@vestara/ui-theme';
-import { useTerminalSessions } from './useTerminalSessions';
-import { clearTerminal, writelnToTerminal } from './TerminalPane';
+import { clearTerminal } from './TerminalPane';
 import type { TerminalSession } from './types';
 
 interface TerminalToolbarProps {
   activeSession?: TerminalSession | null;
   onClear?: () => void;
   onKill?: (id: string) => void;
-  onCopy?: (text: string) => void;
-  onSearch?: (term: string) => void;
   onAddSession?: () => void;
 }
 
@@ -33,11 +29,8 @@ export function TerminalToolbar({
   activeSession,
   onClear,
   onKill,
-  onCopy,
-  onSearch,
   onAddSession,
 }: TerminalToolbarProps) {
-  const { resolvedMode } = useVestaraTheme();
 
   const handleClear = () => {
     if (activeSession) {
@@ -55,15 +48,6 @@ export function TerminalToolbar({
     if (window.confirm(`Kill terminal session ${id}?`)) {
       if (onKill) onKill(id);
     }
-  };
-
-  const handleCopy = (text: string) => {
-    if (navigator.clipboard && text) {
-      navigator.clipboard.writeText(text).then(() => {
-        // Flash feedback could be added here
-      });
-    }
-    if (onCopy) onCopy(text);
   };
 
   return (
@@ -102,29 +86,6 @@ export function TerminalToolbar({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
         Clear
-      </button>
-
-      {/* Reconnect button */}
-      <button
-        onClick={() => {
-          if (activeSession) {
-            // Trigger reconnect by closing and reopening the socket
-            // The WebSocket is managed by TerminalWorkspace, so we just
-            // set the activeId to trigger reconnection
-            // For now, this is informational
-          }
-        }}
-        className={[
-          BUTTON_CLASSES,
-          'text-[var(--vestara-text-2)] hover:text-[var(--vestara-text)] hover:bg-[var(--vestara-accent-bg)]',
-        ].join(' ')}
-        title="Reconnect"
-        disabled={!activeSession || /* already connected */ true}
-      >
-        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4a16 16 0 0116 16A16.033 16.033 0 014 4zM4 4a12 12 0 0112-12A12.034 12.034 0 014 4z" />
-        </svg>
-        Reconnect
       </button>
 
       {/* Kill Session button (destructive) */}

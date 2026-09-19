@@ -202,7 +202,7 @@ export default function M11CWorkflowBrowser({
               >
                 <button
                   type="button"
-                  className="ar-workflow-unit__header"
+                  className={`ar-workflow-unit__header ${isSelected ? 'ar-workflow-unit__header--selected' : ''}`}
                   onClick={() => {
                     if (isExpanded) {
                       setExpandedId(null);
@@ -216,7 +216,6 @@ export default function M11CWorkflowBrowser({
                   }}
                   aria-expanded={isExpanded}
                   aria-pressed={isSelected}
-                  style={isSelected ? { background: 'var(--vestara-accent-bg)' } : undefined}
                 >
                   <StatusIndicator
                     variant={unit.hasErrors ? 'error' : unit.isActive ? 'live' : 'idle'}

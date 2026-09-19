@@ -13,6 +13,7 @@ import {
 } from './settings-client.js';
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
 import { SETTINGS_SECTIONS, settingsGroupLabel } from './settings-navigation.js';
+import { SettingsLayout } from '../../layouts/SettingsLayout';
 import {
   Button,
   FactRow,
@@ -36,12 +37,6 @@ import { CISettings } from './CI/CISettings.js';
 
 // ─── New canonical components ──────────────────────────────────────────
 import { SettingsHero } from './SettingsHero';
-import { SettingsNavigation } from './SettingsNavigation';
-import { WorkspaceInformationCard } from './WorkspaceInformationCard';
-import { RegionalSettingsCard } from './RegionalSettingsCard';
-import { PreferencesCard } from './PreferencesCard';
-import { WorkspaceStatusCard } from './WorkspaceStatusCard';
-import { SettingsQuickActions } from './SettingsQuickActions';
 
 interface SettingsData {
   configuration: ResolvedConfiguration;
@@ -736,6 +731,9 @@ function DetailDomainHeader() {
 }
 
 export default function SettingsPage() {
+  const location = useLocation();
+  const segment = location.pathname.replace(/^\/settings\/?/, '').split('/')[0] ?? '';
+  const selectedSection = SECTIONS.find((section) => section.id === segment);
   const [data, setData] = useState<SettingsData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -812,74 +810,69 @@ export default function SettingsPage() {
         <>
           <DetailDomainHeader />
 
-          {/* ── Top-level layout: Navigation + Content ───────────────────── */}
-          <div className="flex min-w-0 w-full flex-col lg:flex-row gap-6 lg:gap-8">
-            {/* Settings Navigation — data-driven from the canonical registry. */}
-            <SettingsNavigation />
-
-            {/* Settings Main + Aside layout. */}
-<main className="flex-1">
-                {/* Main configuration column (primary) */}
-                <div className="lg:col-span-2 space-y-6">
-                  <WorkspaceInformationCard configuration={data!.configuration} onFieldChange={onFieldChange} />
-                  <RegionalSettingsCard configuration={data!.configuration} onFieldChange={onFieldChange} />
-                  <PreferencesCard configuration={data!.configuration} onFieldChange={onFieldChange} />
-                </div>
-
-                {/* Context/aside column (secondary) */}
-                <aside className="space-y-6">
-                  <WorkspaceStatusCard runtime={data!.runtime} configuration={data!.configuration} />
-                  <SettingsQuickActions
-                    onExport={() => {/* TODO: export implementation */}}
-                    onImport={() => {/* TODO: import implementation */}}
-                    onReset={() => {/* TODO: reset */}}
-                    onClearAll={() => {/* TODO: clear all */}}
-                    canClearAll={false}
-                  />
-                </aside>
-              </main>
-          </div>
-
-          {/* ── Existing React Router routes for deep linking ────────────── */}
-          <Routes>
-          <Route index element={<Navigate to="overview" replace />} />
-          <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />
-          <Route path="hero" element={<HeroSettings />} />
-          <Route path="general" element={<GeneralRoute configuration={data.configuration} onChanged={changed} />} />
-          <Route path="profiles" element={<ProfilesPanel />} />
-          <Route path="appearance" element={<AppearancePanel />} />
-          <Route path="typography" element={<TypographyPanel />} />
-          <Route path="layout" element={<LayoutPanel />} />
-          <Route path="system" element={<SystemOverview runtime={data.runtime} />} />
-          <Route path="environment" element={<EnvironmentVariables />} />
-          <Route path="runtime" element={<Runtime runtime={data.runtime} refresh={load} />} />
-          <Route path="cli" element={<CliIntegration initial={data.cli} />} />
-          <Route path="connection" element={<ApiEndpointField onApplied={load} />} />
-          <Route path="history" element={<History initial={data.history} />} />
-          {(
-            [
-              'providers',
-              'agents',
-              'browser',
-              'filesystem',
-              'verification',
-              'notifications',
-              'telemetry',
-              'advanced',
-            ] as SettingsSectionId[]
-          ).map((section) => (
-            <Route
-              key={section}
-              path={section}
-              element={<PolicySection section={section} configuration={data.configuration} />}
+          {/* ── SettingsLayout — canonical composition ───────────────────── */}
+          <WorkspacePanelLayout
+            hero={data ? (
+              <SettingsHero
+                dirty={false}
+                saving={false}
+                onSave={() => {}}
+                data={{
+                  workspace: String(data.configuration.settings.find((s) => s.key === 'general.workspaceName')?.value ?? 'Not configured'),
+                  environment: data.runtime.status,
+                  lastUpdated: data.configuration.generatedAt ? relativeTime(data.configuration.generatedAt) : undefined,
+                }}
+              />
+            ) : undefined}
+            fluid={false}
+          >
+            <SettingsLayout
+              configuration={data.configuration}
+              runtime={data.runtime}
+              onFieldChange={onFieldChange}
+              selectedSection={selectedSection ? { id: selectedSection.id } : undefined}
+              onSaveClick={() => {}}
             />
-          ))}
-          <Route path="telegram" element={<TelegramSettings />} />
-          <Route path="navigation" element={<NavigationSettings />} />
-          <Route path="assistant-execution" element={<AssistantExecutionSettings />} />
-          <Route path="ci" element={<CISettings />} />
-          <Route path="*" element={<Navigate to="overview" replace />} />
-        </Routes>
+            <Routes>
+              <Route index element={<Navigate to="overview" replace />} />
+              <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />
+              <Route path="hero" element={<HeroSettings />} />
+              <Route path="general" element={<GeneralRoute configuration={data.configuration} onChanged={changed} />} />
+              <Route path="profiles" element={<ProfilesPanel />} />
+              <Route path="appearance" element={<AppearancePanel />} />
+              <Route path="typography" element={<TypographyPanel />} />
+              <Route path="layout" element={<LayoutPanel />} />
+              <Route path="system" element={<SystemOverview runtime={data.runtime} />} />
+              <Route path="environment" element={<EnvironmentVariables />} />
+              <Route path="runtime" element={<Runtime runtime={data.runtime} refresh={load} />} />
+              <Route path="cli" element={<CliIntegration initial={data.cli} />} />
+              <Route path="connection" element={<ApiEndpointField onApplied={load} />} />
+              <Route path="history" element={<History initial={data.history} />} />
+              {(
+                [
+                  'providers',
+                  'agents',
+                  'browser',
+                  'filesystem',
+                  'verification',
+                  'notifications',
+                  'telemetry',
+                  'advanced',
+                ] as SettingsSectionId[]
+              ).map((section) => (
+                <Route
+                  key={section}
+                  path={section}
+                  element={<PolicySection section={section} configuration={data.configuration} />}
+                />
+              ))}
+              <Route path="telegram" element={<TelegramSettings />} />
+              <Route path="navigation" element={<NavigationSettings />} />
+              <Route path="assistant-execution" element={<AssistantExecutionSettings />} />
+              <Route path="ci" element={<CISettings />} />
+              <Route path="*" element={<Navigate to="overview" replace />} />
+            </Routes>
+          </WorkspacePanelLayout>
         </>
       )}
     </WorkspacePanelLayout>

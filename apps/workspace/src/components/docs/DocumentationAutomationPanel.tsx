@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { ProgressIndicator } from '@vestara/ui';
 import {
   type DocumentationFinding,
   type DocumentationPlan,
@@ -53,7 +54,10 @@ export function DocumentationAutomationPanel() {
 
       {tab === 'overview' && <div className="doc-review-overview">
         {Object.entries({ Health: status?.health?.overall, Documents: inventory?.documents, Missing: inventory?.missing, Invalid: inventory?.invalid, Errors: counts.error, Warnings: counts.warning, Proposals: status?.pendingProposals }).map(([label, value]) => <article key={label}><span>{label}</span><strong>{value ?? '—'}{label === 'Health' && value !== undefined ? '%' : ''}</strong></article>)}
-        {status?.health && <div className="doc-health-breakdown">{Object.entries(status.health).filter(([key]) => key !== 'overall').map(([key, value]) => <label key={key}><span>{key.replace(/([A-Z])/g, ' $1')}</span><progress max="100" value={value} /><b>{value}%</b></label>)}</div>}
+        {status?.health && <div className="doc-health-breakdown">{Object.entries(status.health).filter(([key]) => key !== 'overall').map(([key, value]) => {
+          const name = key.replace(/([A-Z])/g, ' $1');
+          return <label key={key}><span>{name}</span><ProgressIndicator value={value} max={100} label={`${name} health`} /><b>{value}%</b></label>;
+        })}</div>}
       </div>}
 
       {tab === 'findings' && <div className="doc-review-list">

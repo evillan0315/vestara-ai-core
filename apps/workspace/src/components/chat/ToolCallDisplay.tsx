@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Accordion, AccordionItem } from '@vestara/ui';
 import type { ToolCall } from './types';
 
 const TOOL_ICONS: Record<string, string> = {
@@ -30,9 +31,47 @@ export function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
         <div className="absolute left-[9px] top-4 bottom-1 w-px bg-zinc-800" />
 
         <div className="space-y-1">
+          <Accordion value={expanded} onValueChange={setExpanded}>
           {toolCalls.map((tc) => {
             const icon = TOOL_ICONS[tc.tool.split('_')[0]] || 'tool';
             const isExpanded = expanded === tc.id;
+            const expandable = Boolean(tc.args || tc.output);
+
+            const rowBody = (
+              <>
+                {/* Tool icon */}
+                <ToolIcon name={icon} />
+
+                {/* Tool name and status */}
+                <span className="text-[12px] text-zinc-400 font-mono flex-1">
+                  {tc.tool}
+                  {tc.status === 'running' && (
+                    <span className="ml-2 text-[10px] text-zinc-600 animate-pulse">running...</span>
+                  )}
+                  {tc.status === 'completed' && tc.output && (
+                    <span className="ml-2 text-[10px] text-zinc-600 truncate max-w-[160px] inline-block align-bottom">
+                      {tc.output.slice(0, 60)}
+                      {tc.output.length > 60 ? '...' : ''}
+                    </span>
+                  )}
+                  {tc.status === 'error' && (
+                    <span className="ml-2 text-[10px] text-red-400">{tc.error || 'failed'}</span>
+                  )}
+                </span>
+
+                {/* Expand indicator */}
+                {expandable && (
+                  <svg
+                    className={`w-3 h-3 text-zinc-700 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                )}
+              </>
+            );
 
             return (
               <div key={tc.id} className="group relative pl-7">
@@ -48,48 +87,15 @@ export function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
                 </div>
 
                 {/* Main row */}
-                <div
-                  onClick={() => (tc.args || tc.output) && setExpanded(isExpanded ? null : tc.id)}
-                  className={`flex items-center gap-2 px-2.5 py-1.5 rounded-md cursor-pointer transition-colors ${
-                    isExpanded ? 'bg-zinc-800/40' : 'hover:bg-zinc-800/20'
-                  }`}
-                >
-                  {/* Tool icon */}
-                  <ToolIcon name={icon} />
-
-                  {/* Tool name and status */}
-                  <span className="text-[12px] text-zinc-400 font-mono flex-1">
-                    {tc.tool}
-                    {tc.status === 'running' && (
-                      <span className="ml-2 text-[10px] text-zinc-600 animate-pulse">running...</span>
-                    )}
-                    {tc.status === 'completed' && tc.output && (
-                      <span className="ml-2 text-[10px] text-zinc-600 truncate max-w-[160px] inline-block align-bottom">
-                        {tc.output.slice(0, 60)}
-                        {tc.output.length > 60 ? '...' : ''}
-                      </span>
-                    )}
-                    {tc.status === 'error' && (
-                      <span className="ml-2 text-[10px] text-red-400">{tc.error || 'failed'}</span>
-                    )}
-                  </span>
-
-                  {/* Expand indicator */}
-                  {(tc.args || tc.output) && (
-                    <svg
-                      className={`w-3 h-3 text-zinc-700 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                    </svg>
-                  )}
-                </div>
-
-                {/* Expanded details */}
-                {isExpanded && (
-                  <div className="ml-2 mt-1 mb-2 space-y-1.5">
+                {expandable ? (
+                  <AccordionItem
+                    value={tc.id}
+                    trigger={rowBody}
+                    triggerClassName={`flex w-full items-center gap-2 px-2.5 py-1.5 rounded-md text-left transition-colors ${
+                      isExpanded ? 'bg-zinc-800/40' : 'hover:bg-zinc-800/20'
+                    }`}
+                    contentClassName="ml-2 mt-1 mb-2 space-y-1.5"
+                  >
                     {tc.args && (
                       <div className="px-2.5 py-1.5 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded text-[11px] font-mono text-zinc-500 overflow-x-auto">
                         <div className="text-[9px] text-zinc-700 uppercase tracking-wider mb-1">Arguments</div>
@@ -107,11 +113,16 @@ export function ToolCallDisplay({ toolCalls }: ToolCallDisplayProps) {
                         {tc.error}
                       </div>
                     )}
+                  </AccordionItem>
+                ) : (
+                  <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-md">
+                    {rowBody}
                   </div>
                 )}
               </div>
             );
           })}
+          </Accordion>
         </div>
       </div>
 

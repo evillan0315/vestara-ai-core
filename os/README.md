@@ -52,6 +52,14 @@ The supplied units use `NoNewPrivileges`, read-only host protection, private
 temporary storage, and narrow writable paths. Host power operations remain
 disabled in application code even when these services run as a system unit.
 
+## Host human profile
+
+The image builder installs the non-secret owner profile from
+`os/customization/identity/eddie.yaml` to `/etc/vestara/human-profile.yaml`.
+This is an OS-level identity/profile manifest, not an authentication credential
+and not an authority grant. Vestara’s governed human-knowledge seed stores the
+same biography under the `eddie` subject reference.
+
 ## OpenCode server service
 
 `os/systemd/opencode-server.service` runs the OpenCode headless server on
@@ -171,4 +179,3 @@ vestara provider list          # model providers (not the same surface)
 
 Discovered runtimes appear in the Workspace UI under Workforce / External
 Runtimes with an integration level that reflects what was actually exercised.
-

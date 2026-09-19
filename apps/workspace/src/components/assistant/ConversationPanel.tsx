@@ -649,7 +649,7 @@ const ComposeInput = memo(function ComposeInput({
   }, []);
 
   return (
-    <div className="w-full border-t border-zinc-800/70 bg-gradient-to-t from-zinc-950 via-zinc-950 to-zinc-950/60 px-3 pt-2.5 pb-3" data-testid="assistant-composer">
+    <div className="w-full border-t border-(--vestara-border-subtle) vestara-composer-surface px-3 pt-2.5 pb-3" data-testid="assistant-composer">
       {/* GA-TERM-001: shell-mode pill — explicit per-turn opt-in indicator.
           Removing the prefix (or ×) returns to chat. */}
       {isShellMode && shellIntent && (
@@ -674,7 +674,7 @@ const ComposeInput = memo(function ComposeInput({
         </div>
       )}
       {/* Primary input surface */}
-      <div className={`relative rounded-2xl border backdrop-blur transition-all ${isShellMode ? 'border-amber-500/40 bg-zinc-950/90 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-amber-500/60 focus-within:ring-2 focus-within:ring-amber-500/15' : 'border-zinc-700/60 bg-zinc-900/80 shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-amber-500/50 focus-within:ring-2 focus-within:ring-amber-500/15 focus-within:bg-zinc-900'}`}>
+      <div className={`relative rounded-2xl border backdrop-blur vestara-composer-surface transition-all ${isShellMode ? 'border-(--vestara-accent-border-hover) shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-(--vestara-accent-border-active) focus-within:ring-2 focus-within:ring-(--vestara-accent-bg)' : 'border-(--vestara-border-default) shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-(--vestara-accent-border-hover) focus-within:ring-2 focus-within:ring-(--vestara-accent-bg)'}`}>
         <textarea
           ref={textareaRef}
           value={input}
@@ -1617,7 +1617,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           GA-UX-PREMIUM M1 rhythm: deliberate vertical spacing on the open
           canvas — HUMAN TURN / identity / content / actions — never card-card-card. */}
       {showList && (
-        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 bg-[radial-gradient(ellipse_at_top,rgba(245,158,11,0.04),transparent_60%)]">
+        <div className="relative flex flex-col flex-1 min-h-0 min-w-0 vestara-assistant-surface">
           <Profiler id="MessageList" onRender={onRender}>
             <VirtualizedMessageList scrollRef={scrollRef} onScroll={handleScroll} items={messageListItems} />
           </Profiler>

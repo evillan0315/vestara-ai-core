@@ -36,6 +36,7 @@ import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
 import '../../styles/activity-room.css';
+import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
 
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
@@ -48,9 +49,6 @@ import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 import ActivityRoomHeader from './ActivityRoomHeader';
 
 import M11CActivityDetailModal from './M11CActivityDetailModal';
-
-const WORKING_AREA_GRID_CLASS =
-  'grid w-full max-w-full min-w-0 grid-cols-1 gap-3 sm:gap-4 mt-3 ar-workarea lg:grid-cols-[minmax(0,1fr)_minmax(16rem,20rem)] xl:grid-cols-[minmax(15rem,18rem)_minmax(0,1fr)_minmax(16rem,20rem)] lg:grid-rows-[minmax(0,1fr)]';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -271,72 +269,6 @@ export default function M11CActivityRoomPage() {
         onClear={room.clear}
       />
 
-      {/* ─── Error Banner ───────────────────────────────── */}
-      {room.error && (
-        <div className="ar-banner ar-banner--warn mt-3" role="alert">
-          <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
-          <span className="min-w-0 flex-1">{room.error}</span>
-          <Pill variant="danger" size="sm" onClick={room.retry}>
-            Reconnect
-          </Pill>
-        </div>
-      )}
-      {(room.state === 'reconnecting' || room.state === 'offline') && room.lastUpdatedAt !== null && (
-        <div className="ar-banner ar-banner--info mt-3" role="status" aria-live="polite">
-          <StatusIndicator variant="warn" size="sm" ariaLabel="Activity Room reconnecting" />
-          <span className="min-w-0 flex-1">
-            {room.state === 'reconnecting' ? 'Reconnecting — showing the latest received activity.' : 'Connection lost — activity may be stale.'}
-          </span>
-          <ActivityFreshness timestamp={room.lastUpdatedAt} />
-        </div>
-      )}
-
-      {/* ─── Attention Banner (actionable scope, not a dead count) ───
-          Click focuses the stream Needs-attention preset; critical uses the
-          error variant so severity scans before reading. */}
-      {room.attention.length > 0 && (() => {
-        const critical = room.attention.filter((a) => a.severity === 'critical').length;
-        const top = room.attention.slice(0, 2);
-        return (
-          <button
-            type="button"
-            onClick={() => setAttentionFocus((v) => !v)}
-            aria-pressed={attentionFocus}
-            title={attentionFocus ? 'Clear attention focus' : 'Focus needs-attention activity'}
-            className={`ar-banner mt-3 w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
-            style={critical > 0
-              ? {
-                color: 'var(--vestara-status-error)',
-                borderColor: 'color-mix(in srgb, var(--vestara-status-error) 35%, transparent)',
-                background: 'color-mix(in srgb, var(--vestara-status-error) 8%, transparent)',
-              }
-              : undefined}
-          >
-            <span className="flex min-w-0 flex-1 items-center gap-2">
-              <StatusIndicator
-                variant={critical > 0 ? 'error' : 'warn'}
-                size="sm"
-                ariaLabel={critical > 0 ? 'Critical attention required' : 'Attention required'}
-              />
-              <span className="shrink-0 font-medium text-(--vestara-amber)">
-                {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
-              </span>
-              {critical > 0 && (
-                <span className="ar-banner__critical shrink-0">
-                  {critical} critical
-                </span>
-              )}
-              <span className="ar-banner__note min-w-0 flex-1 truncate">
-                {top.map((a) => a.message).join(' · ')}
-              </span>
-              <span className="shrink-0 text-xs underline decoration-dotted underline-offset-2">
-                {attentionFocus ? 'Clear focus' : 'Focus ›'}
-              </span>
-            </span>
-          </button>
-        );
-      })()}
-
       {/* ─── Working area: adaptive composition (VES-DESIGN-008F) ──
           INFORMATION VALUE drives SPACE ALLOCATION. Participants keep a
           stable contextual width; the stream owns the flexible share. The
@@ -383,9 +315,62 @@ export default function M11CActivityRoomPage() {
           </div>
         </details>
       )}
-      <div className={WORKING_AREA_GRID_CLASS}>
-        {/* Participant Rail (projection-driven; page owns scrolling) */}
-        <aside className="ar-panel ar-panel--rail min-w-0 max-w-full">
+      <OperationalWorkspaceLayout
+        banner={(
+          <>
+            {/* Operational/Verification Lane hidden until VER-GOV-001 provides
+                authoritative runtime state. Component and contract retained. */}
+            {room.error && (
+              <div className="ar-banner ar-banner--warn mt-3" role="alert">
+                <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
+                <span className="min-w-0 flex-1">{room.error}</span>
+                <Pill variant="danger" size="sm" onClick={room.retry}>
+                  Reconnect
+                </Pill>
+              </div>
+            )}
+            {(room.state === 'reconnecting' || room.state === 'offline') && room.lastUpdatedAt !== null && (
+              <div className="ar-banner ar-banner--info mt-3" role="status" aria-live="polite">
+                <StatusIndicator variant="warn" size="sm" ariaLabel="Activity Room reconnecting" />
+                <span className="min-w-0 flex-1">
+                  {room.state === 'reconnecting' ? 'Reconnecting — showing the latest received activity.' : 'Connection lost — activity may be stale.'}
+                </span>
+                <ActivityFreshness timestamp={room.lastUpdatedAt} />
+              </div>
+            )}
+            {room.attention.length > 0 && (() => {
+              const critical = room.attention.filter((a) => a.severity === 'critical').length;
+              const top = room.attention.slice(0, 2);
+              return (
+                <button
+                  type="button"
+                  onClick={() => setAttentionFocus((v) => !v)}
+                  aria-pressed={attentionFocus}
+                  title={attentionFocus ? 'Clear attention focus' : 'Focus needs-attention activity'}
+                  className={`ar-banner mt-3 w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2">
+                    <StatusIndicator
+                      variant={critical > 0 ? 'error' : 'warn'}
+                      size="sm"
+                      ariaLabel={critical > 0 ? 'Critical attention required' : 'Attention required'}
+                    />
+                    <span className="shrink-0 font-medium text-[var(--vestara-status-warning)]">
+                      {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
+                    </span>
+                    {critical > 0 && <span className="ar-banner__critical shrink-0">{critical} critical</span>}
+                    <span className="ar-banner__note min-w-0 flex-1 truncate">{top.map((a) => a.message).join(' · ')}</span>
+                    <span className="shrink-0 text-xs underline decoration-dotted underline-offset-2">
+                      {attentionFocus ? 'Clear focus' : 'Focus ›'}
+                    </span>
+                  </span>
+                </button>
+              );
+            })()}
+          </>
+        )}
+        rail={(
+          <aside className="ar-panel ar-panel--rail min-w-0 max-w-full">
           {activityLoading ? <ActivityPanelSkeleton label="Participants" /> : (
             <M11CParticipantRail
               participants={room.participants}
@@ -395,8 +380,19 @@ export default function M11CActivityRoomPage() {
               unreadCounts={unreadCounts}
             />
           )}
-        </aside>
-
+          </aside>
+        )}
+        context={(
+          <aside className="ar-panel ar-panel--context min-w-0 max-w-full" aria-label="Operational context">
+            <ActivityRoomContextPanel
+              stream={room.stream}
+              participantCount={room.participants.length}
+              activeAgentCount={activeAgentCount}
+              connectionState={room.state}
+            />
+          </aside>
+        )}
+      >
         {/* Center Stream (the salon) */}
         <main className="ar-panel ar-panel--main min-w-0 max-w-full">
           {/* Live Now Strip (collapses to nothing when nobody is live) */}
@@ -469,20 +465,11 @@ export default function M11CActivityRoomPage() {
               </span>
             }
           />
+          {/* Composer belongs to the center Activity surface: pinned below
+              the scrollable stream via flex containment, never a global
+              operational footer. */}
           <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} participants={room.participants} />
         </main>
-
-        {/* Workflows right panel (xl+): the browser lives here instead of
-            above the stream. Hidden while the inspector docks so the
-            stream keeps room; the inline strip covers that case. */}
-        <aside className="ar-panel ar-panel--context min-w-0 max-w-full" aria-label="Operational context">
-          <ActivityRoomContextPanel
-            stream={room.stream}
-            participantCount={room.participants.length}
-            activeAgentCount={activeAgentCount}
-            connectionState={room.state}
-          />
-        </aside>
 
         {/* Detail dialog — the stream stays a concise projection; the
             complete record detail for the selected item opens here. */}
@@ -494,7 +481,7 @@ export default function M11CActivityRoomPage() {
             onClose={ui.closeDetail}
           />
         )}
-      </div>
+      </OperationalWorkspaceLayout>
 
       {/* ─── Mobile sheets (small screens only) ─────────────── */}
       {mobilePanel && (
@@ -807,7 +794,7 @@ function M11CComposer({
     // keyboard (Enter sends), validation, and states are unchanged. No
     // delivery/permission claims: HTTP 201 establishes none (recorded gap).
     <div
-      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[linear-gradient(180deg,var(--vestara-accent-bg),transparent_55%),var(--vestara-surface-panel-raised)] p-2.5 shadow-[0_10px_36px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_var(--vestara-surface-sheen)] transition-shadow duration-200 focus-within:border-[var(--vestara-accent-border-hover)] focus-within:shadow-[0_0_0_1px_var(--vestara-accent-border-hover),0_0_32px_var(--vestara-accent-bg)]"
+      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] p-3 shadow-[0_10px_36px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_var(--vestara-surface-sheen)] transition-shadow duration-200 focus-within:border-[var(--vestara-accent-border-hover)] focus-within:shadow-[0_0_0_1px_var(--vestara-accent-border-hover),0_0_32px_var(--vestara-accent-bg)]"
       role="form"
       aria-label="Message composer"
     >
@@ -921,26 +908,21 @@ function M11CComposer({
          </span>
          </span>
 
-         {/* Send */}
-        <button
-          type="button"
-          onClick={handleSend}
-          disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
-          aria-label={sending ? 'Sending message' : 'Send message'}
-          className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_55%,var(--vestara-accent-dark))] text-lg leading-none text-[var(--color-zinc-950)] shadow-[0_4px_16px_-4px_var(--vestara-accent-bg),0_0_12px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_6px_20px_-4px_var(--vestara-accent-bg),0_0_18px_var(--vestara-accent-bg)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
-        >
-          <span aria-hidden="true">{sending ? '…' : '→'}</span>
-        </button>
+{/* Send */}
+         <button
+           type="button"
+           onClick={handleSend}
+           disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
+           aria-label={sending ? 'Sending message' : 'Send message'}
+           className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-lg leading-none text-[var(--vestara-surface-canvas)] shadow-[0_4px_16px_-4px_var(--vestara-accent-bg),0_0_12px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_6px_20px_-4px_var(--vestara-accent-bg),0_0_18px_var(--vestara-accent-bg)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
+         >
+           <span aria-hidden="true">{sending ? '…' : '→'}</span>
+         </button>
       </div>
 
       {/* Error */}
       {error && (
-        <p className="mt-2 rounded-[var(--vestara-radius)] border px-2 py-1 text-xs text-[var(--vestara-red)]" role="alert"
-          style={{
-            borderColor: 'color-mix(in srgb, var(--vestara-red) 35%, transparent)',
-            background: 'color-mix(in srgb, var(--vestara-red) 8%, transparent)',
-          }}
-        >
+        <p className="mt-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-2 py-1 text-xs text-[var(--vestara-status-error)]" role="alert">
           {error}
         </p>
       )}

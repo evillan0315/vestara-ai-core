@@ -22,6 +22,7 @@
  */
 
 import { useMemo, useState } from 'react';
+import { Collapsible } from '@vestara/ui';
 import { useMilestones, type AuthorityMilestone } from '../hooks/useMilestones';
 import { SectionCard } from './SectionCard';
 
@@ -44,6 +45,7 @@ const FILTERS: readonly StatusFilter[] = ['all', 'Active', 'Pending', 'Planned',
 export function MilestonesSummary() {
   const { data, isLoading } = useMilestones();
   const [filter, setFilter] = useState<StatusFilter>('all');
+  const [aboutOpen, setAboutOpen] = useState(false);
 
   const counts = useMemo(() => {
     if (!data) return null;
@@ -170,18 +172,22 @@ export function MilestonesSummary() {
         </ul>
       )}
 
-      <details className="mt-3 border-t border-[var(--vestara-border-subtle)] pt-2 text-[11px] leading-relaxed text-[var(--vestara-text-muted)]">
-        <summary
-          className="cursor-pointer hover:text-[var(--vestara-text-secondary)]"
-          title="Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only."
-        >
-          About status
-        </summary>
+      <Collapsible
+        open={aboutOpen}
+        onOpenChange={setAboutOpen}
+        trigger={
+          <span title="Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only.">
+            About status
+          </span>
+        }
+        className="mt-3 border-t border-[var(--vestara-border-subtle)] pt-2 text-[11px] leading-relaxed text-[var(--vestara-text-muted)]"
+        triggerClassName="cursor-pointer hover:text-[var(--vestara-text-secondary)]"
+      >
         <p className="mt-1">
           Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is
           shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only.
         </p>
-      </details>
+      </Collapsible>
     </SectionCard>
   );
 }

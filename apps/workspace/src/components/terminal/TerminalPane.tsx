@@ -30,6 +30,7 @@ interface TerminalPaneProps {
 
 export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const terminalRef = useRef<Terminal | null>(null);
   const onDataRef = useRef(onData);
   onDataRef.current = onData;
   const onResizeRef = useRef(onResize);

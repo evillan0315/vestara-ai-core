@@ -67,6 +67,9 @@ export const COLOR = {
     shell: '#18181b',
     panel: '#1e1e22',
     panelRaised: '#27272a',
+    composer: 'linear-gradient(to top, #09090b, #09090b 55%, #1e1e22)',
+    assistant:
+      'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
     overlay: 'rgba(0, 0, 0, 0.8)',
     interactive: '#27272a',
   },
@@ -395,6 +398,7 @@ export interface AccentPalette {
   readonly hex: string;
   readonly light: string;
   readonly dark: string;
+  readonly glow: string;
   readonly bg: string;
   readonly border: string;
   readonly borderHover: string;
@@ -412,6 +416,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#D4A843',
     light: '#DFBA5A',
     dark: '#B8933A',
+    glow: 'rgba(212, 168, 67, 0.04)',
     bg: '#D4A84314',
     border: '#D4A84340',
     borderHover: '#D4A84380',
@@ -422,6 +427,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#f59e0b',
     light: '#fbbf24',
     dark: '#d97706',
+    glow: 'rgba(245, 158, 11, 0.04)',
     bg: '#f59e0b14',
     border: '#f59e0b40',
     borderHover: '#f59e0b80',
@@ -432,6 +438,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#10b981',
     light: '#34d399',
     dark: '#059669',
+    glow: 'rgba(16, 185, 129, 0.04)',
     bg: '#10b98114',
     border: '#10b98140',
     borderHover: '#10b98180',
@@ -442,6 +449,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#3b82f6',
     light: '#60a5fa',
     dark: '#2563eb',
+    glow: 'rgba(59, 130, 246, 0.04)',
     bg: '#3b82f614',
     border: '#3b82f640',
     borderHover: '#3b82f680',
@@ -452,6 +460,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#8b5cf6',
     light: '#a78bfa',
     dark: '#7c3aed',
+    glow: 'rgba(139, 92, 246, 0.04)',
     bg: '#8b5cf614',
     border: '#8b5cf640',
     borderHover: '#8b5cf680',
@@ -462,6 +471,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#f43f5e',
     light: '#fb7185',
     dark: '#e11d48',
+    glow: 'rgba(244, 63, 94, 0.04)',
     bg: '#f43f5e14',
     border: '#f43f5e40',
     borderHover: '#f43f5e60',
@@ -472,6 +482,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#14b8a6',
     light: '#2dd4bf',
     dark: '#0d9488',
+    glow: 'rgba(20, 184, 166, 0.04)',
     bg: '#14b8a614',
     border: '#14b8a640',
     borderHover: '#14b8a680',
@@ -482,6 +493,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#a1a1aa',
     light: '#d4d4d8',
     dark: '#71717a',
+    glow: 'rgba(161, 161, 170, 0.04)',
     bg: '#a1a1aa14',
     border: '#a1a1aa40',
     borderHover: '#a1a1aa60',
@@ -492,6 +504,7 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     hex: '#f97316',
     light: '#fb923c',
     dark: '#ea580c',
+    glow: 'rgba(249, 115, 22, 0.04)',
     bg: '#f9731614',
     border: '#f9731640',
     borderHover: '#f9731680',

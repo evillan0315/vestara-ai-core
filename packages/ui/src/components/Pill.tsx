@@ -37,22 +37,22 @@ export interface PillProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_STYLES: Record<PillVariant, string> = {
   default: `
-    border border-zinc-700 bg-zinc-800/70 text-zinc-200
-    hover:bg-zinc-700 hover:border-zinc-600
+    border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-text-primary)]
+    hover:bg-[var(--vestara-surface-interactive)] hover:border-[var(--vestara-border-strong)]
   `,
   gold: `
-    bg-gradient-to-b from-amber-400 to-amber-500 text-zinc-950
-    shadow-[0_4px_14px_-6px_rgba(245,158,11,0.7)]
+    bg-[var(--vestara-accent)] text-[var(--vestara-surface-canvas)]
+    shadow-[0_4px_14px_-6px_var(--vestara-accent-bg)]
     ring-1 ring-white/20
     hover:brightness-110
   `,
   danger: `
-    border border-red-500/30 bg-red-500/10 text-red-300
-    hover:bg-red-500/20
+    border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]
+    hover:bg-[var(--vestara-status-error-bg)]
   `,
   success: `
-    border border-emerald-500/30 bg-emerald-500/10 text-emerald-300
-    hover:bg-emerald-500/20
+    border border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]
+    hover:bg-[var(--vestara-status-success-bg)]
   `,
 };
 
@@ -87,7 +87,7 @@ export const Pill = forwardRef<HTMLButtonElement, PillProps>(function Pill(
       className={`
           inline-flex items-center justify-center gap-1.5
           font-medium transition-all active:scale-95
-          focus-visible:outline-2 focus-visible:outline-amber-500/60
+          focus-visible:outline-2 focus-visible:outline-[var(--vestara-border-focus)]
           disabled:opacity-30 disabled:shadow-none disabled:cursor-not-allowed
           cursor-pointer
           ${VARIANT_STYLES[variant]}

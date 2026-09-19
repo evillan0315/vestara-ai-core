@@ -7,7 +7,7 @@
    panels, and serif display type. Aligns with the workspace
    theme toggle via [data-theme] token overrides.
 
-   Uses the Workspace design tokens (--vestara-*, --color-zinc-*).
+   Uses the canonical Vestara design tokens (--vestara-*).
    Class prefix: ar-
    ───────────────────────────────────────────────────────────── */
 
@@ -39,42 +39,39 @@
   /* Iridescent foil — cool spectral whispers over the dark base.
      Barely-there by design: the holography is ambient and cool-leaning
      so the warm gold reads as the only deliberate accent. */
-  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-blue) 6%, transparent);
-  --ar-holo-violet: color-mix(in srgb, var(--vestara-purple) 6%, transparent);
-  --ar-holo-band-1: color-mix(in srgb, var(--vestara-blue) 4%, transparent);
-  --ar-holo-band-2: color-mix(in srgb, var(--vestara-purple) 3.5%, transparent);
+  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-status-info) 6%, transparent);
+  --ar-holo-violet: color-mix(in srgb, var(--vestara-status-tool) 6%, transparent);
+  --ar-holo-band-1: color-mix(in srgb, var(--vestara-status-info) 4%, transparent);
+  --ar-holo-band-2: color-mix(in srgb, var(--vestara-status-tool) 3.5%, transparent);
 
-  /* Neutral dark chamber (no warm-brown offsets — keeps surfaces clean gray). */
-  --ar-chrome: color-mix(in srgb, var(--color-zinc-900) 38%, var(--color-zinc-950));
-  --ar-surface: color-mix(in srgb, var(--color-zinc-900) 78%, var(--color-zinc-950));
-  --ar-surface-raised: color-mix(in srgb, var(--color-zinc-800) 68%, var(--color-zinc-900));
+  /* Neutral dark chamber — uses canonical surface tokens. */
+  --ar-chrome: var(--vestara-surface-canvas);
+   --ar-surface: var(--vestara-surface-canvas);
+   --ar-surface-raised: var(--vestara-surface-canvas);
   /* Panels are their own space: darker than the wall, with a faint
      ceiling glow and elevation shadow — a recessed floor the salon
      sits on. */
   --ar-panel-bg:
     radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, var(--vestara-accent) 3%, transparent), transparent 62%),
-    color-mix(in srgb, var(--color-zinc-950) 96%, black);
-  --ar-panel-shadow:
-    0 14px 36px rgba(0, 0, 0, 0.42),
-    0 2px 8px rgba(0, 0, 0, 0.3);
-  --ar-surface-sunken: color-mix(in srgb, black 14%, transparent);
-  /* Header: almost black with a whisper of gold undertone —
-     not pure black, but close. The shiny gold edges do the talking. */
-  --ar-header-bg: var(--vestara-surface);
+    var(--vestara-surface-canvas);
+  --ar-panel-shadow: var(--vestara-elevation-xl);
+   --ar-surface-sunken: var(--vestara-surface-canvas);
+  /* Header: uses canonical surface tokens. */
+   --ar-header-bg: var(--vestara-surface-canvas);
   --ar-rail-bg:
     radial-gradient(120% 60% at 50% -30%, color-mix(in srgb, var(--vestara-accent) 3%, transparent), transparent 60%),
-    color-mix(in srgb, black 22%, transparent);
-  --ar-ink: var(--vestara-text);
-  --ar-ink-2: var(--vestara-text-2);
+    var(--vestara-surface-canvas);
+  --ar-ink: var(--vestara-text-primary);
+  --ar-ink-2: var(--vestara-text-secondary);
   --ar-ink-muted: var(--vestara-text-muted);
-  --ar-ink-dim: var(--vestara-text-dim);
-  --ar-sapphire: var(--vestara-blue);
-  --ar-amethyst: var(--vestara-purple);
-  --ar-jade: var(--vestara-green);
-  --ar-ruby: var(--vestara-red);
-  --ar-amber: var(--vestara-amber);
+  --ar-ink-dim: var(--vestara-text-disabled);
+  --ar-sapphire: var(--vestara-status-info);
+  --ar-amethyst: var(--vestara-status-tool);
+  --ar-jade: var(--vestara-status-success);
+  --ar-ruby: var(--vestara-status-error);
+  --ar-amber: var(--vestara-status-warning);
   --ar-serif: Georgia, 'Times New Roman', 'Palatino Linotype', serif;
-  --ar-drop-shadow: rgba(0, 0, 0, 0.5);
+  --ar-drop-shadow: var(--vestara-elevation-lg);
 }
 
 /* Chamber box frame — applies only when the .ar-room page wrapper is
@@ -94,7 +91,7 @@
   padding: 0.875rem;
   isolation: isolate;
   border: 1px solid var(--ar-hairline);
-  border-radius: 14px;
+  border-radius: var(--vestara-radius-xl);
   overflow: visible;
 }
 
@@ -111,6 +108,7 @@
    min-width:0 and long content wraps instead of pushing the viewport. */
 .ar-page {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   width: 100%;
   max-width: 100%;
@@ -134,18 +132,16 @@
    floor keeps short viewports usable via the shell's page scroll. */
 @media (min-width: 1024px) {
   .ar-page {
-    /* +20px chrome correction so the room ends flush with the viewport. */
-    height: calc(100vh - 10rem + 20px);
-    height: calc(100dvh - 10rem + 20px);
-    min-height: 30rem;
+    height: auto;
+    min-height: 0;
     overflow: hidden;
   }
 
-  .ar-page > * {
+  .ar-page > *:not(.operational-workspace-layout) {
     flex-shrink: 0;
   }
 
-  .ar-page > .ar-workarea {
+  .ar-page > .operational-workspace-layout {
     flex: 1 1 auto;
     min-height: 0;
   }
@@ -171,6 +167,20 @@
 /* Below desktop the page scrolls naturally; the composer sticks to the
    top of the viewport so it stays visible while reading history. */
 @media (max-width: 1023px) {
+  .ar-page {
+    flex: 0 0 auto;
+    min-height: 100%;
+  }
+
+  .operational-workspace-layout {
+    flex: 0 0 auto;
+  }
+
+  .operational-workspace-layout__work,
+  .operational-workspace-layout__main {
+    overflow: visible;
+  }
+
   .ar-composer-pin {
     position: sticky;
     top: 0.5rem;
@@ -211,8 +221,8 @@
     width: 16rem;
   }
 
-  .ar-workarea:not(.ar-workarea--detail) .ar-workflow-strip--inline,
-  .ar-workarea:not(.ar-workarea--detail) .ar-workflows-disclosure {
+  .ar-workflow-strip--inline,
+  .ar-workflows-disclosure {
     display: none;
   }
 }
@@ -252,8 +262,9 @@
   --ar-ink-2: var(--vestara-text-secondary);
   --ar-ink-muted: var(--vestara-text-muted);
   --ar-ink-dim: var(--vestara-text-disabled);
-  --ar-page-bg: color-mix(in srgb, var(--ar-gold) 12%, var(--vestara-shell-bg));
-  --ar-panel-bg: linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 8%, transparent), transparent 30%), color-mix(in srgb, var(--ar-gold) 7%, var(--vestara-shell-bg));
+   /* Core surfaces match the Global Assistant's neutral, theme-aware planes. */
+   --ar-page-bg: var(--vestara-surface-canvas);
+   --ar-panel-bg: var(--vestara-surface-canvas);
   background: transparent;
   color: var(--vestara-text-primary);
 }
@@ -264,7 +275,7 @@
   justify-content: space-between;
   gap: var(--vestara-spacing-section);
   min-width: 0;
-  padding: var(--vestara-spacing-4, var(--vestara-spacing-section));
+  padding: var(--vestara-spacing-4);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   background:
@@ -292,7 +303,7 @@
   border: 1px solid var(--ar-hairline-strong);
   border-radius: var(--vestara-radius-full);
   color: var(--ar-gold-light);
-  background: var(--vestara-surface-panel-raised);
+   background: var(--vestara-surface-canvas);
   font-family: var(--vestara-font-family);
   font-size: var(--vestara-font-size-lg);
 }
@@ -305,7 +316,7 @@
   border: 1px solid var(--ar-hairline);
   border-radius: var(--vestara-radius-lg);
   color: var(--vestara-text-primary);
-  background: var(--vestara-surface-panel-raised);
+   background: var(--vestara-surface-canvas);
   cursor: pointer;
 }
 .ar-control-button:hover { border-color: var(--ar-gold-light); background: var(--vestara-accent-bg); }
@@ -331,7 +342,7 @@
   border: 1px solid var(--ar-hairline);
   border-radius: var(--vestara-radius-lg);
   color: var(--vestara-text-primary);
-  background: var(--vestara-surface-panel-raised);
+   background: var(--vestara-surface-canvas);
   cursor: pointer;
 }
 .ar-operation-controls button span { color: var(--ar-gold-light); font-size: var(--vestara-font-size-lg); }
@@ -362,6 +373,123 @@
   .ar-page .ar-panel--context { display: none; }
 }
 
+/* ── Reference composition: operational lane + view navigation ─────── */
+.ar-operational-lane {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(12rem, 1fr) auto;
+  align-items: center;
+  gap: var(--vestara-spacing-section);
+  min-width: 0;
+  margin-top: var(--vestara-spacing-element);
+  padding: var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-accent-border-hover);
+  border-radius: var(--vestara-radius-lg);
+  background: color-mix(in srgb, var(--vestara-surface-panel) 88%, var(--vestara-accent) 12%);
+  box-shadow: var(--vestara-elevation-sm);
+}
+
+.ar-operational-lane__identity,
+.ar-operational-lane__status,
+.ar-operational-lane__progress-head {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.ar-operational-lane__identity { gap: var(--vestara-spacing-element); }
+.ar-operational-lane__glyph {
+  display: grid;
+  flex-shrink: 0;
+  width: var(--vestara-spacing-page);
+  height: var(--vestara-spacing-page);
+  place-items: center;
+  color: var(--vestara-accent-light);
+  font-size: var(--vestara-font-size-lg);
+}
+.ar-operational-lane__status { gap: var(--vestara-spacing-element); }
+.ar-operational-lane__status strong {
+  color: var(--vestara-accent-light);
+  font-size: var(--vestara-font-size-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.ar-operational-lane__run,
+.ar-operational-lane__meta,
+.ar-operational-lane__progress-head,
+.ar-operational-lane__queue { color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-xs); }
+.ar-operational-lane__run { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ar-operational-lane__meta { margin: var(--vestara-spacing-element) 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ar-operational-lane__progress-head { justify-content: space-between; gap: var(--vestara-spacing-element); }
+.ar-operational-lane__progress-head strong { color: var(--vestara-text-primary); }
+.ar-operational-lane__track {
+  display: block;
+  width: 100%;
+  height: var(--vestara-spacing-element);
+  margin-top: var(--vestara-spacing-element);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--vestara-radius-full);
+  background: var(--vestara-surface-interactive);
+}
+.ar-operational-lane__track::-webkit-progress-bar { border-radius: var(--vestara-radius-full); background: var(--vestara-surface-interactive); }
+.ar-operational-lane__track::-webkit-progress-value { border-radius: var(--vestara-radius-full); background: var(--vestara-accent); }
+.ar-operational-lane__track::-moz-progress-bar { border-radius: var(--vestara-radius-full); background: var(--vestara-accent); }
+.ar-operational-lane__queue {
+  display: grid;
+  grid-template-columns: auto auto;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  min-width: 7rem;
+  padding-left: var(--vestara-spacing-section);
+  border-left: 1px solid var(--vestara-accent-border);
+}
+.ar-operational-lane__queue .ar-kicker { grid-column: 1 / -1; }
+.ar-operational-lane__queue strong { color: var(--vestara-text-primary); font-size: var(--vestara-font-size-lg); }
+.ar-operational-lane__failed { color: var(--vestara-status-error); }
+
+.ar-activity-tabs {
+  display: flex;
+  gap: var(--vestara-spacing-element);
+  min-width: 0;
+  padding: var(--vestara-spacing-element);
+  overflow-x: auto;
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius-lg);
+  background: color-mix(in srgb, var(--vestara-surface-canvas) 88%, var(--vestara-accent) 12%);
+  scrollbar-width: none;
+}
+.ar-activity-tabs::-webkit-scrollbar { display: none; }
+.ar-activity-tab {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  min-height: var(--vestara-spacing-page);
+  padding: 0 var(--vestara-spacing-element);
+  border: 1px solid transparent;
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-text-secondary);
+  background: transparent;
+  font-size: var(--vestara-font-size-xs);
+  cursor: pointer;
+}
+.ar-activity-tab:hover { color: var(--vestara-text-primary); background: var(--vestara-accent-bg); }
+.ar-activity-tab--active { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
+.ar-activity-tab:disabled { color: var(--vestara-text-disabled); cursor: not-allowed; opacity: 0.65; }
+
+@media (max-width: 767px) {
+  .ar-operational-lane { grid-template-columns: 1fr; gap: var(--vestara-spacing-element); }
+  .ar-operational-lane__queue { grid-template-columns: auto auto auto; min-width: 0; padding-top: var(--vestara-spacing-element); padding-left: 0; border-top: 1px solid var(--vestara-accent-border); border-left: 0; }
+  .ar-operational-lane__queue .ar-kicker { grid-column: auto; }
+}
+
+@media (max-width: 639px) {
+  .ar-header { padding: var(--vestara-spacing-section); }
+  .ar-header__title { font-size: var(--vestara-font-size-xl); }
+  .ar-header__subtitle { font-size: var(--vestara-font-size-xs); }
+  .operational-workspace-layout__footer { padding: var(--vestara-spacing-element); }
+}
+
 /* Participant controls stay available while the roster scrolls. */
 .ar-page .ar-rail__sticky-head {
   position: sticky;
@@ -390,34 +518,34 @@
 .ar-page .ar-stream-record { border-color: var(--vestara-accent-border); }
 .ar-page .ar-stream-record:hover { border-color: var(--vestara-accent-border-hover); }
 .ar-page .ar-stream-record[data-record-kind='diagnostic'],
-.ar-page .ar-stream-record[data-record-kind='error'] { border-color: color-mix(in srgb, var(--vestara-status-error) 35%, transparent); background: color-mix(in srgb, var(--vestara-status-error) 7%, transparent); }
-.ar-page .ar-stream-record[data-record-kind='evidence'] { border-color: color-mix(in srgb, var(--vestara-status-success) 30%, transparent); background: color-mix(in srgb, var(--vestara-status-success) 6%, transparent); }
+.ar-page .ar-stream-record[data-record-kind='error'] { border-color: var(--vestara-status-error-border); background: var(--vestara-status-error-bg); }
+.ar-page .ar-stream-record[data-record-kind='evidence'] { border-color: var(--vestara-status-success-border); background: var(--vestara-status-success-bg); }
 .ar-page .ar-stream-role,
 .ar-page .ar-stream-kind { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
 .ar-page .ar-stream-kind--human { color: var(--vestara-status-info); border-color: var(--vestara-status-info-border); background: var(--vestara-status-info-bg); }
 .ar-page .ar-stream-kind--work { color: var(--vestara-status-warning); border-color: var(--vestara-status-warning-border); background: var(--vestara-status-warning-bg); }
-.ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-panel-raised); }
+.ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-canvas); }
 .ar-page .ar-stream-tile { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border: 1px solid; border-radius: var(--vestara-radius); font-size: var(--vestara-font-size-xs); font-weight: 600; }
-.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: color-mix(in srgb, var(--vestara-status-info) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-info) 30%, transparent); }
+.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: var(--vestara-status-info-bg); border-color: var(--vestara-status-info-border); }
 .ar-page .ar-stream-tile--agent-note,
-.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: color-mix(in srgb, var(--vestara-accent) 12%, transparent); border-color: var(--vestara-accent-border); }
-.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: color-mix(in srgb, var(--vestara-status-tool) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-tool) 30%, transparent); }
-.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: color-mix(in srgb, var(--vestara-status-error) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-error) 30%, transparent); }
-.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: color-mix(in srgb, var(--vestara-status-success) 12%, transparent); border-color: color-mix(in srgb, var(--vestara-status-success) 30%, transparent); }
+.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: var(--vestara-accent-bg); border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: var(--vestara-status-tool-bg); border-color: var(--vestara-status-tool-border); }
+.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: var(--vestara-status-error-bg); border-color: var(--vestara-status-error-border); }
+.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: var(--vestara-status-success-bg); border-color: var(--vestara-status-success-border); }
 .ar-page .ar-stream-tile--quiet,
-.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-canvas); border-color: var(--vestara-border-subtle); }
 .ar-page .ar-stream-status { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid; border-radius: var(--vestara-radius-full); padding: 0 0.375rem; font-size: var(--vestara-font-size-xs); font-weight: 500; }
-.ar-page .ar-stream-status--error { color: var(--vestara-status-error); background: color-mix(in srgb, var(--vestara-status-error) 9%, transparent); border-color: color-mix(in srgb, var(--vestara-status-error) 35%, transparent); }
-.ar-page .ar-stream-status--success { color: var(--vestara-status-success); background: color-mix(in srgb, var(--vestara-status-success) 9%, transparent); border-color: color-mix(in srgb, var(--vestara-status-success) 35%, transparent); }
+.ar-page .ar-stream-status--error { color: var(--vestara-status-error); background: var(--vestara-status-error-bg); border-color: var(--vestara-status-error-border); }
+.ar-page .ar-stream-status--success { color: var(--vestara-status-success); background: var(--vestara-status-success-bg); border-color: var(--vestara-status-success-border); }
 .ar-page .ar-stream-record__actions { border-top: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 65%, transparent); padding-top: var(--vestara-spacing-element); }
 .ar-page .ar-stream-record__actions button { color: var(--vestara-text-secondary); }
 .ar-page .ar-stream-record__actions button:hover { color: var(--vestara-text-primary); }
-.ar-page .ar-participant-type--human { color: var(--vestara-status-info); background: color-mix(in srgb, var(--vestara-status-info) 10%, transparent); border-color: color-mix(in srgb, var(--vestara-status-info) 35%, transparent); }
-.ar-page .ar-participant-type--agent { color: var(--vestara-accent-text); background: color-mix(in srgb, var(--vestara-accent) 10%, transparent); border-color: var(--vestara-accent-border); }
+.ar-page .ar-participant-type--human { color: var(--vestara-status-info); background: var(--vestara-status-info-bg); border-color: var(--vestara-status-info-border); }
+.ar-page .ar-participant-type--agent { color: var(--vestara-accent-text); background: var(--vestara-accent-bg); border-color: var(--vestara-accent-border); }
 .ar-page .ar-participant-type--service,
-.ar-page .ar-participant-type--system { color: var(--vestara-text-secondary); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-participant-type--system { color: var(--vestara-text-secondary); background: var(--vestara-surface-canvas); border-color: var(--vestara-border-subtle); }
 .ar-page .ar-participant-type--external,
-.ar-page .ar-participant-type--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-panel); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-participant-type--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-canvas); border-color: var(--vestara-border-subtle); }
 .ar-page .ar-jump { bottom: 1.25rem; background: var(--vestara-accent-bg); }
 .ar-page .ar-scroll { overflow-anchor: none; scroll-behavior: auto; overscroll-behavior-y: contain; }
 
@@ -456,7 +584,7 @@
 .ar-page .ar-guest { border-color: transparent; background: transparent; }
 .ar-page .ar-guest:hover,
 .ar-page .ar-guest--selected { border-color: var(--vestara-accent-border); background: var(--vestara-accent-bg); }
-.ar-page .ar-rail__search-input { border-color: var(--vestara-accent-border); background: var(--vestara-surface-panel); }
+.ar-page .ar-rail__search-input { border-color: var(--vestara-accent-border); background: var(--vestara-surface-canvas); }
 .ar-page .ar-panel--main,
 .ar-page .ar-panel--rail,
 .ar-page .ar-panel--context { font-size: var(--vestara-font-size-base); }
@@ -560,7 +688,7 @@
   gap: 0.75rem;
   padding: 0.875rem 1rem;
   border: 1px solid var(--ar-gold);
-  border-radius: 10px;
+  border-radius: var(--vestara-radius-lg);
   background: linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 6%, transparent), transparent 55%), var(--ar-header-bg);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--ar-gold-light) 18%, transparent),
@@ -627,7 +755,7 @@
   font-size: 18px;
   color: var(--ar-gold-light);
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 50%;
+  border-radius: var(--vestara-radius-full);
   background:
     radial-gradient(circle at 32% 26%, var(--ar-sheen), transparent 55%),
     var(--ar-surface-raised);
@@ -650,7 +778,7 @@
   color: var(--ar-ink);
   cursor: pointer;
   border: 1px solid var(--ar-hairline);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   background: color-mix(in srgb, var(--ar-surface-raised) 85%, transparent);
   transition:
     color 0.18s ease,
@@ -694,23 +822,23 @@
   letter-spacing: 0.12em;
   text-transform: uppercase;
   border: 1px solid var(--ar-hairline);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   background: color-mix(in srgb, var(--ar-surface-raised) 85%, transparent);
 }
 
 .ar-status--live {
-  color: var(--ar-jade);
-  border-color: color-mix(in srgb, var(--ar-jade) 28%, transparent);
+  color: var(--vestara-status-success);
+  border-color: var(--vestara-status-success-border);
 }
 
 .ar-status--warn {
-  color: var(--ar-amber);
-  border-color: color-mix(in srgb, var(--ar-amber) 26%, transparent);
+  color: var(--vestara-status-warning);
+  border-color: var(--vestara-status-warning-border);
 }
 
 .ar-status--off {
-  color: var(--ar-ruby);
-  border-color: color-mix(in srgb, var(--ar-ruby) 26%, transparent);
+  color: var(--vestara-status-error);
+  border-color: var(--vestara-status-error-border);
 }
 
 .ar-lamp {
@@ -722,18 +850,18 @@
 }
 
 .ar-lamp--live {
-  --ar-lamp-color: var(--ar-jade);
-  --ar-lamp-glow: color-mix(in srgb, var(--ar-jade) 60%, transparent);
+  --ar-lamp-color: var(--vestara-status-success);
+  --ar-lamp-glow: color-mix(in srgb, var(--vestara-status-success) 60%, transparent);
 }
 
 .ar-lamp--warn {
-  --ar-lamp-color: var(--ar-amber);
-  --ar-lamp-glow: color-mix(in srgb, var(--ar-amber) 55%, transparent);
+  --ar-lamp-color: var(--vestara-status-warning);
+  --ar-lamp-glow: color-mix(in srgb, var(--vestara-status-warning) 55%, transparent);
 }
 
 .ar-lamp--off {
-  --ar-lamp-color: var(--ar-ruby);
-  --ar-lamp-glow: color-mix(in srgb, var(--ar-ruby) 50%, transparent);
+  --ar-lamp-color: var(--vestara-status-error);
+  --ar-lamp-glow: color-mix(in srgb, var(--vestara-status-error) 50%, transparent);
 }
 
 .ar-lamp--dim {
@@ -750,28 +878,28 @@
   padding: 0.5rem 0.875rem;
   font-size: 12px;
   font-weight: 500;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   border: 1px solid;
 }
 
 .ar-banner--warn {
-  color: var(--ar-amber);
-  border-color: color-mix(in srgb, var(--ar-amber) 28%, transparent);
-  background: linear-gradient(90deg, color-mix(in srgb, var(--ar-amber) 8%, transparent), transparent 75%);
+  color: var(--vestara-status-warning);
+  border-color: var(--vestara-status-warning-border);
+  background: linear-gradient(90deg, var(--vestara-status-warning-bg), transparent 75%);
 }
 
 .ar-banner--info {
-  color: var(--ar-ink-2);
+  color: var(--vestara-text-secondary);
   border-color: var(--ar-hairline);
   background: linear-gradient(90deg, var(--ar-gold-veil), transparent 75%);
 }
 
 .ar-banner__critical {
-  color: var(--ar-ruby);
+  color: var(--vestara-status-error);
 }
 
 .ar-banner__note {
-  color: var(--ar-ink-muted);
+  color: var(--vestara-text-muted);
 }
 
 /* ── Stage (rail + salon + context) ─────────────────────────── */
@@ -802,7 +930,7 @@
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 10px;
+  border-radius: var(--vestara-radius-lg);
   background: var(--ar-panel-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -819,14 +947,14 @@
   max-width: 100%;
   max-height: 14rem;
   overflow-y: auto;
-  padding: 0.625rem;
+  padding: 0;
   background: var(--ar-rail-bg);
 }
 
 @media (min-width: 640px) {
   .ar-panel--rail {
     display: flex;
-    padding: 0.75rem;
+ 
     /* VES-DESIGN-008C: page owns rail scrolling — no nested scrollbar. */
     max-height: none;
     overflow: visible;
@@ -836,7 +964,7 @@
 @media (min-width: 1024px) {
   .ar-panel--rail {
     flex-shrink: 0;
-    width: 18rem;
+     width: var(--vestara-sidebar-width);
     /* Bounded rail with its own scroll: long rosters must not push the
        stream down the page. (Overrides the 008C page-owned-scroll rule
        for desktop; mobile/tablet keep page scroll.) */
@@ -861,7 +989,7 @@
   min-width: 0;
   max-width: 100%;
   border: 1px solid var(--ar-hairline);
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   background: var(--ar-rail-bg);
   overflow: hidden;
 }
@@ -922,7 +1050,8 @@
   /* clip (not hidden): contains the jump button without breaking the
      sticky composer on mobile. */
   overflow: clip;
-  padding: 0.625rem 0.75rem 0.75rem;
+  padding: 0;
+  /* padding: 0.625rem 0.75rem 0.75rem;*/
 }
 
 /* Composer wrapper (M11CComposer root): never surrender space in the
@@ -934,7 +1063,8 @@
 @media (min-width: 640px) {
   .ar-panel--main {
     min-height: 28rem;
-    padding: 0.75rem 0.875rem 0.875rem;
+    /* padding: 0.75rem 0.875rem 0.875rem;*/
+
   }
 }
 
@@ -972,7 +1102,7 @@
   min-height: 0;
   overflow-y: auto;
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 10px;
+  border-radius: var(--vestara-radius-lg);
   background: var(--ar-panel-bg);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -1053,7 +1183,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   border: 1px solid var(--ar-hairline);
   background: var(--ar-surface-sunken);
 }
@@ -1064,24 +1194,24 @@
   justify-content: center;
   width: 1.75rem;
   height: 1.75rem;
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   flex-shrink: 0;
   font-size: 12px;
 }
 
 .ar-metric__icon--events {
-  background: color-mix(in srgb, var(--ar-sapphire) 12%, transparent);
-  color: var(--ar-sapphire);
+  background: color-mix(in srgb, var(--vestara-status-info) 12%, transparent);
+  color: var(--vestara-status-info);
 }
 
 .ar-metric__icon--participants {
-  background: color-mix(in srgb, var(--ar-jade) 12%, transparent);
-  color: var(--ar-jade);
+  background: color-mix(in srgb, var(--vestara-status-success) 12%, transparent);
+  color: var(--vestara-status-success);
 }
 
 .ar-metric__icon--agents {
-  background: color-mix(in srgb, var(--ar-amethyst) 12%, transparent);
-  color: var(--ar-amethyst);
+  background: color-mix(in srgb, var(--vestara-status-tool) 12%, transparent);
+  color: var(--vestara-status-tool);
 }
 
 .ar-metric__value {
@@ -1125,7 +1255,7 @@
   justify-content: center;
   width: 1.5rem;
   height: 1.5rem;
-  border-radius: 4px;
+  border-radius: var(--vestara-radius-sm);
   background: var(--ar-surface-sunken);
   color: var(--ar-ink-muted);
   flex-shrink: 0;
@@ -1160,32 +1290,32 @@
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   border: 1px solid;
 }
 
 .ar-operation__badge--success {
-  color: var(--ar-jade);
-  border-color: color-mix(in srgb, var(--ar-jade) 28%, transparent);
-  background: color-mix(in srgb, var(--ar-jade) 10%, transparent);
+  color: var(--vestara-status-success);
+  border-color: var(--vestara-status-success-border);
+  background: var(--vestara-status-success-bg);
 }
 
 .ar-operation__badge--info {
-  color: var(--ar-sapphire);
-  border-color: color-mix(in srgb, var(--ar-sapphire) 28%, transparent);
-  background: color-mix(in srgb, var(--ar-sapphire) 10%, transparent);
+  color: var(--vestara-status-info);
+  border-color: var(--vestara-status-info-border);
+  background: var(--vestara-status-info-bg);
 }
 
 .ar-operation__badge--warning {
-  color: var(--ar-amber);
-  border-color: color-mix(in srgb, var(--ar-amber) 28%, transparent);
-  background: color-mix(in srgb, var(--ar-amber) 10%, transparent);
+  color: var(--vestara-status-warning);
+  border-color: var(--vestara-status-warning-border);
+  background: var(--vestara-status-warning-bg);
 }
 
 .ar-operation__badge--error {
-  color: var(--ar-ruby);
-  border-color: color-mix(in srgb, var(--ar-ruby) 28%, transparent);
-  background: color-mix(in srgb, var(--ar-ruby) 10%, transparent);
+  color: var(--vestara-status-error);
+  border-color: var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
 }
 
 /* ── Activity stream status (single truthful indicator) ────── */
@@ -1195,7 +1325,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.625rem;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   border: 1px solid var(--ar-hairline);
   background: var(--ar-surface-sunken);
 }
@@ -1216,15 +1346,19 @@
 }
 
 .ar-context__stream-status-state--live {
-  color: var(--ar-jade);
+  color: var(--vestara-status-success);
 }
 
 .ar-context__stream-status-state--warn {
-  color: var(--ar-amber);
+  color: var(--vestara-status-warning);
 }
 
 .ar-context__stream-status-state--off {
-  color: var(--ar-ruby);
+  color: var(--vestara-status-error);
+}
+
+.ar-workflow-unit__header--selected {
+  background: var(--vestara-accent-bg);
 }
 
 /* ── Workflow strip ─────────────────────────────────────────── */
@@ -1236,7 +1370,7 @@
   margin-bottom: 0.5rem;
   padding: 0.375rem 0.75rem;
   border: 1px solid var(--ar-hairline);
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   background: var(--ar-surface-sunken);
 }
 
@@ -1314,7 +1448,7 @@
   color: var(--ar-ink-muted);
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   background: transparent;
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
   white-space: nowrap;
@@ -1339,7 +1473,7 @@
   height: 1rem;
   padding: 0 0.25rem;
   margin-left: 0.25rem;
-  border-radius: 0.5rem;
+  border-radius: var(--vestara-radius-full);
   background: var(--ar-surface-sunken);
   color: var(--ar-ink-muted);
   font-size: 9px;
@@ -1380,7 +1514,7 @@
   color: var(--ar-ink);
   background: var(--ar-surface-sunken);
   border: 1px solid var(--ar-hairline);
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   outline: none;
   transition: border-color 0.15s ease;
 }
@@ -1466,7 +1600,7 @@
     max-height: min(70dvh, 32rem);
     border-left: none;
     border-top: 1px solid var(--ar-hairline-strong);
-    border-radius: 12px 12px 0 0;
+    border-radius: var(--vestara-radius-xl) var(--vestara-radius-xl) 0 0;
   }
 }
 
@@ -1495,7 +1629,7 @@
   background: none;
   color: var(--ar-ink-muted);
   cursor: pointer;
-  border-radius: 4px;
+  border-radius: var(--vestara-radius);
   font-size: 14px;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -1568,7 +1702,7 @@
 
 .ar-inspector__drill-down-item {
   padding: 0.375rem 0.5rem;
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   background: var(--ar-surface-sunken);
   border: 1px solid var(--ar-hairline);
 }
@@ -1701,14 +1835,14 @@
 .ar-workflow-unit__progress-bar {
   flex: 1;
   height: 4px;
-  border-radius: 2px;
+  border-radius: var(--vestara-radius-sm);
   background: var(--ar-surface-sunken);
   overflow: hidden;
 }
 
 .ar-workflow-unit__progress-fill {
   height: 100%;
-  border-radius: 2px;
+  border-radius: var(--vestara-radius-sm);
   background: var(--vestara-status-success);
   transition: width 0.3s ease;
 }
@@ -1734,7 +1868,7 @@
 .ar-workflow-unit__agent-badge {
   font-size: 9px;
   padding: 0 0.375rem;
-  border-radius: 3px;
+  border-radius: var(--vestara-radius-sm);
   background: var(--ar-surface-sunken);
   color: var(--ar-ink-2);
   border: 1px solid var(--ar-hairline);
@@ -1803,7 +1937,7 @@
   color: var(--ar-ink-muted);
   background: var(--ar-surface-sunken);
   padding: 0 0.25rem;
-  border-radius: 3px;
+  border-radius: var(--vestara-radius-sm);
 }
 
 .ar-live-now__narrative {
@@ -1828,7 +1962,84 @@
   }
 }
 
-/* ── Stream items ───────────────────────────────────────────── */
+/* ── M11C Stream Records (canonical semantic tokens) ───────────────── */
+
+.ar-stream-record--human {
+  border: 1px solid var(--vestara-border-default);
+  background: linear-gradient(180deg, var(--vestara-accent-bg), transparent 45%), var(--vestara-surface-panel-raised);
+  box-shadow: inset 2px 0 0 var(--vestara-status-info), var(--vestara-elevation-lg);
+  padding: 0.875rem 0.75rem;
+}
+
+.ar-stream-record--agent-note {
+  border: 1px solid var(--vestara-border-subtle);
+  background: var(--vestara-surface-panel);
+  box-shadow: inset 2px 0 0 var(--vestara-accent);
+  padding: 0.875rem 0.625rem;
+}
+
+.ar-stream-record--work {
+  border: 1px solid var(--vestara-border-subtle);
+  padding: 0.75rem;
+}
+
+.ar-stream-record--tool {
+  border: 1px solid transparent;
+  padding: 0.75rem 0.375rem;
+}
+
+.ar-stream-record--quiet {
+  border: 1px solid transparent;
+  padding: 0.75rem 0.25rem;
+}
+
+.ar-stream-record--attention {
+  border: 1px solid var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
+  padding: 0.75rem;
+}
+
+.ar-stream-record--verification {
+  border: 1px solid var(--vestara-status-success-border);
+  background: var(--vestara-status-success-bg);
+  padding: 0.75rem;
+}
+
+.ar-stream-record--unknown {
+  border: 1px solid transparent;
+  padding: 0.75rem 0.375rem;
+}
+
+/* Heading text colors per visual class */
+.ar-stream-record--human .ar-stream-record__content,
+.ar-stream-record--work .ar-stream-record__content,
+.ar-stream-record--attention .ar-stream-record__content,
+.ar-stream-record--verification .ar-stream-record__content {
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.6;
+  color: var(--vestara-text-primary);
+}
+
+.ar-stream-record--agent-note .ar-stream-record__content {
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  color: var(--vestara-text-secondary);
+}
+
+.ar-stream-record--tool .ar-stream-record__content {
+  font-family: var(--vestara-font-family-mono);
+  font-size: 0.75rem;
+  color: var(--vestara-text-secondary);
+}
+
+.ar-stream-record--quiet .ar-stream-record__content,
+.ar-stream-record--unknown .ar-stream-record__content {
+  font-size: 0.75rem;
+  color: var(--vestara-text-muted);
+}
+
+/* ── Stream items (legacy) ───────────────────────────────────────────── */
 
 .ar-item {
   position: relative;
@@ -1837,7 +2048,7 @@
   gap: 0.625rem;
   padding: 0.5rem 0.75rem;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   transition:
     border-color 0.2s ease,
     background 0.2s ease;
@@ -1910,7 +2121,7 @@
   text-transform: uppercase;
   color: var(--ar-gold-light);
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   background: color-mix(in srgb, var(--vestara-accent-dark) 16%, transparent);
 }
 
@@ -1940,7 +2151,7 @@
   font-family: var(--ar-serif);
   font-size: 12px;
   font-weight: 600;
-  border-radius: 50%;
+  border-radius: var(--vestara-radius-full);
   border: 1px solid;
   text-transform: uppercase;
 }
@@ -2046,7 +2257,7 @@
   width: 100%;
   height: 2rem;
   padding: 0 0.625rem;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   border: 1px solid var(--ar-hairline);
   background:
     linear-gradient(180deg, color-mix(in srgb, white 2%, transparent), transparent 50%),
@@ -2072,7 +2283,7 @@
 .ar-rail__type-filter {
   height: 1.625rem;
   padding: 0 0.375rem;
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   border: 1px solid var(--ar-hairline);
   background: var(--ar-surface-sunken);
   color: var(--ar-ink-2);
@@ -2128,7 +2339,7 @@
   text-align: left;
   cursor: pointer;
   border: 1px solid var(--ar-hairline);
-  border-radius: 10px;
+  border-radius: var(--vestara-radius-lg);
   background:
     linear-gradient(180deg, color-mix(in srgb, var(--ar-gold) 7%, transparent), transparent 60%),
     var(--ar-surface-raised);
@@ -2172,7 +2383,7 @@
   text-align: left;
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   background: transparent;
   transition:
     background 0.18s ease,
@@ -2242,7 +2453,7 @@
 }
 
 .ar-guest__name--agent-action:focus-visible {
-  border-radius: 2px;
+  border-radius: var(--vestara-radius-sm);
   box-shadow: 0 0 0 1px var(--ar-gold);
 }
 
@@ -2253,7 +2464,7 @@
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   border: 1px solid var(--ar-hairline-strong);
   color: var(--ar-gold-light);
   background: var(--vestara-surface);
@@ -2277,7 +2488,7 @@
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--ar-ink-muted);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   border: 1px solid var(--ar-hairline);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2307,7 +2518,7 @@
   min-width: 1rem;
   height: 1rem;
   padding: 0 0.25rem;
-  border-radius: 0.5rem;
+  border-radius: var(--vestara-radius-full);
   background: var(--vestara-status-error);
   color: white;
   font-size: 9px;
@@ -2340,7 +2551,7 @@
   text-align: left;
   cursor: pointer;
   border: 1px dashed var(--ar-hairline);
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   background: transparent;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
@@ -2424,7 +2635,7 @@
   overflow: hidden;
   height: 3.5rem;
   border: 1px solid var(--ar-hairline);
-  border-radius: 8px;
+  border-radius: var(--vestara-radius);
   background: var(--ar-surface-sunken);
 }
 
@@ -2461,7 +2672,7 @@
   color: var(--ar-ink-2);
   cursor: pointer;
   border: 1px solid var(--ar-hairline);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   background: transparent;
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
@@ -2494,7 +2705,7 @@
   color: var(--ar-gold-light);
   cursor: pointer;
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 999px;
+  border-radius: var(--vestara-radius-full);
   background: var(--vestara-surface);
   box-shadow: 0 6px 24px var(--ar-drop-shadow), inset 0 1px 0 var(--ar-sheen), 0 0 10px color-mix(in srgb, var(--ar-gold) 14%, transparent);
   transition: box-shadow 0.18s ease, border-color 0.18s ease;
@@ -2535,8 +2746,8 @@
   margin-top: 0.625rem;
   padding: 0.4375rem 0.75rem;
   border: 1px solid var(--ar-hairline);
-  border-radius: 10px;
-  background: var(--ar-surface-sunken);
+  border-radius: var(--vestara-radius-lg);
+   background: var(--vestara-surface-composer);
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
@@ -2563,7 +2774,7 @@
   color: var(--ar-ink-muted);
   cursor: pointer;
   border: 1px solid var(--ar-hairline);
-  border-radius: 5px;
+  border-radius: var(--vestara-radius);
   background: color-mix(in srgb, var(--ar-surface-raised) 60%, transparent);
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
@@ -2609,7 +2820,7 @@
   color: var(--ar-gold-light);
   cursor: pointer;
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 6px;
+  border-radius: var(--vestara-radius);
   background: linear-gradient(135deg, color-mix(in srgb, var(--vestara-accent-dark) 26%, transparent), color-mix(in srgb, var(--ar-gold-deep) 20%, transparent));
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease, box-shadow 0.18s ease;
 }
@@ -2670,7 +2881,7 @@
   overflow-y: auto;
   padding: 1.125rem 1.25rem;
   border: 1px solid var(--ar-hairline-strong);
-  border-radius: 14px;
+  border-radius: var(--vestara-radius-xl);
   background:
     radial-gradient(110% 46% at 50% 0%, var(--ar-gold-veil), transparent 55%),
     var(--ar-surface);
@@ -2707,7 +2918,7 @@
   color: var(--ar-ink-muted);
   cursor: pointer;
   border: 1px solid transparent;
-  border-radius: 50%;
+  border-radius: var(--vestara-radius-full);
   background: transparent;
   transition: color 0.18s ease, border-color 0.18s ease;
 }
@@ -2802,26 +3013,21 @@
   --ar-hairline-strong: var(--vestara-accent-border-hover);
   --ar-sheen: color-mix(in srgb, var(--vestara-accent-light) 20%, transparent);
   /* Pale iridescent foil on ivory. */
-  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-blue) 6%, transparent);
-  --ar-holo-violet: color-mix(in srgb, var(--vestara-purple) 6%, transparent);
-  --ar-holo-jade: color-mix(in srgb, var(--vestara-green) 4%, transparent);
-  --ar-chrome: color-mix(in srgb, var(--color-zinc-50) 96%, var(--vestara-accent));
-  --ar-surface: color-mix(in srgb, var(--color-zinc-50) 90%, var(--vestara-accent));
-  --ar-surface-raised: color-mix(in srgb, var(--color-zinc-100) 88%, var(--vestara-accent));
-  /* Panels as their own lifted plane: frosted ivory over the foil wall.
-     Opaque-ish base: the translucent layers above compose over it instead
-     of the dark shell (phase 2: panel interiors followed tokens but the
-     container washed dark in light mode). */
-  --ar-panel-bg:
-    radial-gradient(120% 64% at 50% -24%, color-mix(in srgb, white 46%, transparent), transparent 62%),
-    color-mix(in srgb, white 55%, transparent);
+  --ar-holo-sapphire: color-mix(in srgb, var(--vestara-status-info) 6%, transparent);
+  --ar-holo-violet: color-mix(in srgb, var(--vestara-status-tool) 6%, transparent);
+  --ar-holo-jade: color-mix(in srgb, var(--vestara-status-success) 4%, transparent);
+   --ar-chrome: var(--vestara-surface-canvas);
+   --ar-surface: var(--vestara-surface-canvas);
+   --ar-surface-raised: var(--vestara-surface-canvas);
+   /* Core surfaces match the Global Assistant's light theme planes. */
+   --ar-panel-bg: var(--vestara-surface-canvas);
   --ar-panel-shadow:
     0 14px 36px rgba(58, 45, 12, 0.12),
     0 2px 8px rgba(58, 45, 12, 0.08);
-  --ar-surface-sunken: color-mix(in srgb, var(--color-zinc-900) 4%, transparent);
+   --ar-surface-sunken: var(--vestara-surface-canvas);
   --ar-drop-shadow: rgba(58, 45, 12, 0.16);
   /* Light header: dark badge-style on ivory. */
-  --ar-header-bg: color-mix(in srgb, var(--color-zinc-900) 88%, var(--color-zinc-950));
+   --ar-header-bg: var(--vestara-surface-canvas);
   --ar-rail-bg:
     radial-gradient(120% 60% at 50% -30%, color-mix(in srgb, white 40%, transparent), transparent 60%),
     color-mix(in srgb, var(--color-zinc-100) 62%, transparent);
@@ -2830,7 +3036,7 @@
 /* Light panels need an opaque-ish base: the translucent --ar-panel-bg and
    --ar-rail-bg layers above compose over it instead of the dark shell. */
 [data-theme='light'] .ar-panel {
-  background-color: color-mix(in srgb, white 88%, transparent);
+  background-color: var(--vestara-surface-canvas);
 }
 
 [data-theme='light'] .ar-room::before {
@@ -2874,4 +3080,49 @@
 .ar-page .ar-context__title { color: var(--ar-gold-light); }
 @media (max-width: 1023px) {
   .ar-page .ar-panel--context { display: none; }
+}
+
+/* AR-LIVE-002: desktop column containment + single scroll ownership.
+   Page-scoped (never touches shared OperationalWorkspaceLayout) so the
+   Terminal consumer is unaffected. Mobile/tablet sheets keep their own
+   behavior via the max-width rules above. */
+.ar-rail__freshness {
+  margin-top: var(--vestara-spacing-element);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--vestara-text-muted);
+}
+
+@media (min-width: 1024px) {
+  /* Slot wrappers contain; they never scroll themselves. */
+  .ar-page .operational-workspace-layout__rail,
+  .ar-page .operational-workspace-layout__context,
+  .ar-page .operational-workspace-layout__main {
+    overflow: hidden;
+  }
+
+  /* Rail aside stretches to the row and contains without scrolling;
+     the participant list is the ONE vertical scroll owner. */
+  .ar-page .ar-panel--rail {
+    height: 100%;
+    max-height: none;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .ar-page .ar-rail__list {
+    overflow-y: auto;
+  }
+
+  /* Context aside stretches and remains its column's single scroller. */
+  .ar-page .ar-panel--context {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Center column: stream flexes and scrolls internally; the composer
+     (order 3, shrink-0) pins below it inside the same panel. */
+  .ar-page .ar-panel--main {
+    height: 100%;
+  }
 }

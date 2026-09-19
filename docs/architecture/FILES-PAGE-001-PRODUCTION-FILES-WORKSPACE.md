@@ -1,3 +1,14 @@
+---
+title: FILES-PAGE-001 — Production Files Workspace
+version: 1.0.0
+status: implemented
+owner: vestara
+last-reviewed: 2026-09-18
+next-review: 2026-10-18
+implementation-repository: vestara-ai-core
+implementation-commit: 6350c75a0a314a92a7a757eb3265134701f960d1
+---
+
 # FILES-PAGE-001 — Production Files Workspace
 
 **Status:** IMPLEMENTED 2026-09-18 — verification: `pnpm build` ✓, `pnpm lint:check` ✓, 63 vitest (6 files) ✓, `vite build` bundle ✓, live CDP dogfood 18/18 ✓ zero console errors. Remaining: full `tsc -b` for workspace-ui blocked by unrelated pre-existing `assistant-navigation.ts` error (not touched); Search/Git/References per scope decision below.

@@ -1,18 +1,29 @@
 /**
- * Tabs — accessible tab navigation with keyboard support.
+ * VES-UI: Tabs Component (UI-COMP-001 Phase 7A canonical primitive)
  *
- * Follows WAI-ARIA Tabs pattern: role="tablist", role="tab", role="tabpanel",
- * arrow-key navigation between tabs, Home/End to jump to first/last tab.
+ * Promoted from apps/workspace/src/components/ui/Tabs.tsx with two
+ * canonicalization gaps closed: disabled-tab support and instance-scoped
+ * tab/tabpanel IDs (the application copy used global `tab-{id}` IDs).
+ *
+ * Presentation-only, domain-independent: keyboard behavior, ARIA wiring,
+ * and token-only styling. No routing, no domain models, no runtime clients.
+ *
+ * Architecture Traceability:
+ *   UI-COMP-001 Phase 2 §C → Phase 7A Slice 1
  */
 
-import { useCallback, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { useCallback, useId, useRef } from 'react';
+
+// ─── Types ─────────────────────────────────────────────────────
 
 export interface Tab {
   id: string;
   label: string;
   /** Optional short label for narrow viewports. */
   shortLabel?: string;
+  /** Disabled tabs are skipped by keyboard navigation and not selectable. */
+  disabled?: boolean;
 }
 
 export interface TabsProps {
@@ -28,6 +39,8 @@ export interface TabsProps {
   activeTabClassName?: string;
 }
 
+// ─── Component ─────────────────────────────────────────────────
+
 export function Tabs({
   tabs,
   activeTab,
@@ -38,18 +51,17 @@ export function Tabs({
   activeTabClassName = '',
 }: TabsProps) {
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const uid = useId().replace(/:/g, '');
 
-  const focusTab = useCallback(
-    (tabId: string) => {
-      tabRefs.current.get(tabId)?.focus();
-    },
-    [],
-  );
+  const focusTab = useCallback((tabId: string) => {
+    tabRefs.current.get(tabId)?.focus();
+  }, []);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      const currentIndex = tabs.findIndex((t) => t.id === activeTab);
-      if (currentIndex === -1) return;
+      const enabledTabs = tabs.filter((t) => !t.disabled);
+      if (enabledTabs.length === 0) return;
+      const currentIndex = enabledTabs.findIndex((t) => t.id === activeTab);
 
       let nextIndex: number | null = null;
 
@@ -57,12 +69,13 @@ export function Tabs({
         case 'ArrowRight':
         case 'ArrowDown':
           e.preventDefault();
-          nextIndex = (currentIndex + 1) % tabs.length;
+          nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % enabledTabs.length;
           break;
         case 'ArrowLeft':
         case 'ArrowUp':
           e.preventDefault();
-          nextIndex = (currentIndex - 1 + tabs.length) % tabs.length;
+          nextIndex =
+            currentIndex === -1 ? enabledTabs.length - 1 : (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
           break;
         case 'Home':
           e.preventDefault();
@@ -70,14 +83,14 @@ export function Tabs({
           break;
         case 'End':
           e.preventDefault();
-          nextIndex = tabs.length - 1;
+          nextIndex = enabledTabs.length - 1;
           break;
         default:
           return;
       }
 
       if (nextIndex !== null) {
-        const nextTab = tabs[nextIndex];
+        const nextTab = enabledTabs[nextIndex];
         onTabChange(nextTab.id);
         focusTab(nextTab.id);
       }
@@ -95,6 +108,7 @@ export function Tabs({
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;
+          const isDisabled = tab.disabled === true;
           return (
             <button
               key={tab.id}
@@ -103,11 +117,13 @@ export function Tabs({
                 else tabRefs.current.delete(tab.id);
               }}
               role="tab"
-              id={`tab-${tab.id}`}
+              id={`tab-${uid}-${tab.id}`}
               aria-selected={isActive}
-              aria-controls={`tabpanel-${tab.id}`}
-              tabIndex={isActive ? 0 : -1}
+              aria-disabled={isDisabled || undefined}
+              aria-controls={`tabpanel-${uid}-${tab.id}`}
+              tabIndex={isActive && !isDisabled ? 0 : -1}
               type="button"
+              disabled={isDisabled}
               onClick={() => onTabChange(tab.id)}
               className={`flex-shrink-0 px-3 py-2 text-xs font-medium transition-colors cursor-pointer
                 border-b-2 -mb-px
@@ -115,7 +131,7 @@ export function Tabs({
                   isActive
                     ? `border-(--vestara-accent-text) text-(--vestara-accent-text) ${activeTabClassName}`
                     : `border-transparent text-(--vestara-text-muted) hover:text-(--vestara-text-2) ${tabClassName}`
-                }`}
+                } disabled:cursor-not-allowed disabled:opacity-45`}
             >
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
@@ -125,8 +141,9 @@ export function Tabs({
       </div>
       <div
         role="tabpanel"
-        id={`tabpanel-${activeTab}`}
-        aria-labelledby={`tab-${activeTab}`}
+        id={`tabpanel-${uid}-${activeTab}`}
+        aria-labelledby={`tab-${uid}-${activeTab}`}
+        // biome-ignore lint/a11y/noNoninteractiveTabindex: tabpanel keeps tabIndex=0 for keyboard scroll parity with the promoted application copy (WAI-ARIA tabpanel focus when content overflows).
         tabIndex={0}
         className="focus:outline-none"
       >

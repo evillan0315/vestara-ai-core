@@ -14,7 +14,9 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
 import { TerminalEmptyState } from './TerminalEmptyState';
+import { TerminalInspector } from './TerminalInspector';
 import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from './TerminalPane';
 import { TerminalStatusBar } from './TerminalStatusBar';
 import { TerminalTabs } from './TerminalTabs';
@@ -42,6 +44,7 @@ export default function TerminalWorkspace() {
   // Sessions backed by the pty driver echo in-kernel: raw passthrough, no
   // line buffering, no local echo. Spawn sessions keep line discipline.
   const [ptySessions, setPtySessions] = useState<Readonly<Record<string, boolean>>>({});
+  const ptySessionsRef = useRef<Record<string, boolean>>({});
   const isPty = activeId !== null && ptySessions[activeId] === true;
   const wsRef = useRef<WebSocket | null>(null);
   const lineBufRef = useRef<Record<string, string>>({});
@@ -100,13 +103,15 @@ export default function TerminalWorkspace() {
         try {
           const msg = JSON.parse(ev.data) as Record<string, unknown>;
           if (msg.op === 'stdout' && typeof msg.text === 'string') {
-            writeToTerminal(sessionId, msg.text);
+            writeToTerminal(sessionId, ptySessionsRef.current[sessionId] === true ? msg.text : msg.text.replace(/\r?\n/g, "\r\n"));
           } else if (msg.op === 'stderr' && typeof msg.text === 'string') {
-            writeToTerminal(sessionId, `\x1b[31m${msg.text}\x1b[0m`);
+            writeToTerminal(sessionId, `\x1b[31m${ptySessionsRef.current[sessionId] === true ? msg.text : msg.text.replace(/\r?\n/g, "\r\n")}\x1b[0m`);
           } else if (msg.op === 'cwd' && typeof msg.cwd === 'string') {
             setCwd(sessionId, msg.cwd);
-          } else if (msg.op === 'driver' && msg.driver === 'pty') {
-            setPtySessions((prev) => ({ ...prev, [sessionId]: true }));
+          } else if (msg.op === 'driver' && (msg.driver === 'pty' || msg.driver === 'spawn')) {
+            const pty = msg.driver === 'pty';
+            ptySessionsRef.current[sessionId] = pty;
+            setPtySessions((prev) => ({ ...prev, [sessionId]: pty }));
           } else if (msg.op === 'exit') {
             const code = typeof msg.code === 'number' ? msg.code : 0;
             setProcessStatus(sessionId, code === 0 ? 'completed' : 'failed', code);
@@ -243,7 +248,9 @@ export default function TerminalWorkspace() {
   );
 
   return (
-    <div className="flex flex-col h-[calc(100vh-7rem)] bg-[var(--vestara-surface-canvas)] border border-[var(--vestara-accent-border)] rounded-xl overflow-hidden">
+    <div className="flex h-[calc(100vh-7rem)] min-h-0 flex-col overflow-hidden">
+      <OperationalWorkspaceLayout context={<TerminalInspector session={activeSession} sessions={sessions} onReconnect={connectSession} onClear={clearTerminal} />} footer={<TerminalStatusBar session={activeSession} connected={connected} reconnectCount={0} uptime={uptime} />}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden border border-[var(--vestara-accent-border)] rounded-xl">
       {sessions.length > 0 && (
         <TerminalTabs
           sessions={sessions}
@@ -259,8 +266,6 @@ export default function TerminalWorkspace() {
         activeSession={activeSession}
         onClear={handleClearSession}
         onKill={handleKillSession}
-        onCopy={() => {/* copy selection logic */}}
-        onSearch={() => {/* search logic */}}
         onAddSession={handleNewSession}
       />
 
@@ -280,17 +285,13 @@ export default function TerminalWorkspace() {
       </div>
 
       {sessionError && (
-        <div className="shrink-0 border-t border-[var(--vestara-status-error-bg)] bg-[var(--vestara-status-error)] px-3 py-1.5 text-[11px] text-[var(--vestara-status-error-text)]" role="alert">
+        <div className="shrink-0 border-t border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-3 py-1.5 text-[11px] text-[var(--vestara-status-error)]" role="alert">
           {sessionError}
         </div>
       )}
 
-      <TerminalStatusBar
-        session={activeSession}
-        connected={connected}
-        reconnectCount={0}
-        uptime={uptime}
-      />
+        </div>
+      </OperationalWorkspaceLayout>
     </div>
   );
 }

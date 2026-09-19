@@ -1,3 +1,12 @@
+---
+title: IDE-RECOVERY-001 — AI Planner Capability Audit
+version: 1.0.0
+status: audit-only
+owner: vestara
+last-reviewed: 2026-09-18
+next-review: 2026-10-18
+---
+
 # IDE-RECOVERY-001 — AI Planner Capability Audit (Cross-Repository)
 
 **Status:** AUDIT ONLY — ZERO MUTATION

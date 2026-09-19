@@ -27,6 +27,7 @@ import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { EmptyState } from '@vestara/ui';
 import { M11CStreamItemComponent } from './M11CStreamItem';
+import ActivityRoomTabs, { type ActivityRoomView } from './ActivityRoomTabs';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -95,6 +96,13 @@ interface M11CActivityStreamProps {
   readonly workflowFilter?: string | null;
   readonly streamHeading?: string;
   readonly streamHeaderAction?: ReactNode;
+  /**
+   * Capability condition for the Activity/Operations/Timeline/Evidence/
+   * Files/Notes view tabs. Hidden until the corresponding panels carry
+   * authoritative content; the stream renders the Activity view directly.
+   * Contract (ActivityRoomTabs) retained for that milestone.
+   */
+  readonly showViewTabs?: boolean;
 }
 
 // ─── Filter Types ────────────────────────────────────────────
@@ -106,7 +114,7 @@ interface M11CActivityStreamProps {
  * - Work: task/workflow lifecycle (activity/progress)
  * - Tools: tool calls/results
  */
-type StreamFilter = 'all' | 'attention' | 'conversations' | 'work' | 'tools';
+type StreamFilter = 'all' | 'attention' | 'conversations' | 'work' | 'tools' | 'evidence';
 
 const FILTER_TABS: { id: StreamFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -114,6 +122,7 @@ const FILTER_TABS: { id: StreamFilter; label: string }[] = [
   { id: 'conversations', label: 'Conversations' },
   { id: 'work', label: 'Work' },
   { id: 'tools', label: 'Tools' },
+  { id: 'evidence', label: 'Evidence' },
 ];
 
 /** Shared attention predicate (banner ↔ stream preset stay in sync). */
@@ -151,6 +160,7 @@ function M11CActivityStream({
   workflowFilter,
   streamHeading = 'Activity Stream',
   streamHeaderAction,
+  showViewTabs = false,
 }: M11CActivityStreamProps) {
   useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -159,7 +169,15 @@ function M11CActivityStream({
   const previousItemCount = useRef(0);
   const snapFrame = useRef(0);
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
+  const [activeView, setActiveView] = useState<ActivityRoomView>('activity');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleViewChange = useCallback((view: ActivityRoomView) => {
+    setActiveView(view);
+    if (view === 'activity' || view === 'timeline') setActiveFilter('all');
+    if (view === 'operations') setActiveFilter('work');
+    if (view === 'evidence') setActiveFilter('evidence');
+  }, []);
 
   // Attention banner is scope, not status: focusing it selects the
   // Needs-attention preset; any manual tab pick reclaims control.
@@ -183,6 +201,7 @@ function M11CActivityStream({
       conversations: base.filter((i) => i.kind === 'conversation').length,
       work: base.filter((i) => i.kind === 'activity' || i.kind === 'progress').length,
       tools: base.filter((i) => i.kind === 'tool-call' || i.kind === 'tool-result').length,
+      evidence: base.filter((i) => i.kind === 'evidence').length,
     };
   }, [items, selectedParticipantId, workflowFilter]);
 
@@ -215,6 +234,8 @@ function M11CActivityStream({
             return item.kind === 'activity' || item.kind === 'progress';
           case 'tools':
             return item.kind === 'tool-call' || item.kind === 'tool-result';
+          case 'evidence':
+            return item.kind === 'evidence';
           default:
             return true;
         }
@@ -317,6 +338,7 @@ function M11CActivityStream({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
+      {showViewTabs && <ActivityRoomTabs activeView={activeView} onViewChange={handleViewChange} />}
       {/* ── Filter Bar (canonical pill tabs; kind-driven, not text) ── */}
       <div className="ar-stream-filter" role="search" aria-label="Filter activity stream">
         <div className="ar-stream-filter__heading">

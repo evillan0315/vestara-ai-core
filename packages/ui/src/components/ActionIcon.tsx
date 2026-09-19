@@ -65,8 +65,8 @@ export const ACTION_ICON_SIZES: Record<ActionIconSize, string> = {
   lg: 'h-11 w-11',
 };
 
-const DESTRUCTIVE_WASH = 'border-[var(--vestara-status-error)]/40 bg-[var(--vestara-status-error)]/10';
-const NEUTRAL_WASH = 'border-[var(--vestara-border-subtle)]';
+const DESTRUCTIVE_WASH = 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)]';
+const NEUTRAL_WASH = 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)]';
 
 // ─── Component ─────────────────────────────────────────────────
 
@@ -96,8 +96,8 @@ export function ActionIcon({
         ${tone === 'destructive' ? DESTRUCTIVE_WASH : NEUTRAL_WASH}
         ${toneStyle.text}
         ${toneStyle.hover}
-        ${tone === 'destructive' ? '' : 'hover:bg-[var(--vestara-surface-hover)]'}
-        focus-visible:bg-[var(--vestara-surface-hover)]
+        ${tone === 'destructive' ? '' : 'hover:bg-[var(--vestara-surface-interactive)]'}
+        focus-visible:bg-[var(--vestara-surface-interactive)]
         focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset
         disabled:cursor-not-allowed disabled:opacity-45
         ${className}

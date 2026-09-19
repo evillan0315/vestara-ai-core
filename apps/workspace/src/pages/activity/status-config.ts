@@ -75,13 +75,21 @@ export interface WorkStateConfig {
 
 /**
  * Canonical mapping from WorkState to StatusIndicator config.
- * Used by WorkTab and M11CParticipantRail.
+ * Covers exactly the authoritative WorkState vocabulary
+ * (available | working | waiting | blocked | attention-required).
+ *
+ * - 'available' is INTENTIONALLY ABSENT: the M10 resting value carries
+ *   no activity information and must render no claim (never a presence
+ *   word, never a working lamp).
+ * - 'attention-required' renders the error/attention presentation.
+ *
+ * Previously present legacy keys (idle/completed/failed) are removed:
+ * they are not members of WorkState and the sole consumer
+ * (M11CParticipantRail) never referenced them.
  */
 export const WORK_STATE_CONFIG: Record<string, WorkStateConfig> = {
-  idle: { variant: 'idle', label: 'Idle' },
   working: { variant: 'live', label: 'Working' },
-  blocked: { variant: 'error', label: 'Blocked' },
   waiting: { variant: 'warn', label: 'Waiting' },
-  completed: { variant: 'live', label: 'Completed' },
-  failed: { variant: 'error', label: 'Failed' },
+  blocked: { variant: 'error', label: 'Blocked' },
+  'attention-required': { variant: 'error', label: 'Needs attention' },
 };

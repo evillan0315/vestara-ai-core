@@ -32,6 +32,8 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-surface-shell': theme.surface.shell,
     '--vestara-surface-panel': theme.surface.panel,
     '--vestara-surface-panel-raised': theme.surface.panelRaised,
+    '--vestara-surface-composer': theme.surface.composer,
+    '--vestara-surface-assistant': theme.surface.assistant,
     '--vestara-surface-overlay': theme.surface.overlay,
     '--vestara-surface-interactive': theme.surface.interactive,
 
@@ -50,6 +52,7 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     // Accent (VES-DESIGN-002 §I)
     '--vestara-accent-primary': theme.accent.primary,
     '--vestara-accent-secondary': theme.accent.secondary,
+    '--vestara-accent-glow': theme.accent.glow,
     '--vestara-accent-bg': theme.accent.bg,
     '--vestara-accent-border': theme.accent.border,
     '--vestara-accent-border-hover': theme.accent.borderHover,

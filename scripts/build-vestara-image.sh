@@ -88,6 +88,7 @@ install -m 0644 "$ROOT"/os/systemd/*.service "$ROOT"/os/systemd/*.path "$ROOT"/o
 for service in vestara-host.service vestara-api.service vestara-workspace.service; do ln -sfn "../$service" "$WORK/root/etc/systemd/system/vestara.target.wants/$service"; done
 ln -sfn ../vestara.target "$WORK/root/etc/systemd/system/multi-user.target.wants/vestara.target"
 install -d -m 0755 "$WORK/root/var/lib/vestara/workspaces" "$WORK/root/etc/vestara"
+install -m 0644 "$ROOT/os/customization/identity/eddie.yaml" "$WORK/root/etc/vestara/human-profile.yaml"
 chroot "$WORK/root" update-grub
 printf '%s\n' 'VESTARA_REPO=/var/lib/vestara/workspaces/default' > "$WORK/root/etc/vestara/vestara.env"
 chroot "$WORK/root" systemctl enable vestara.target vestara-host.service vestara-api.service vestara-workspace.service vestara-api-reload.path; chroot "$WORK/root" rm -f /usr/sbin/policy-rc.d

@@ -94,6 +94,12 @@ next-review: 2026-10-04
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **✅ Complete** | **2026-08-03** |
 | **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **✅ Complete** | **2026-08-03** |
 
+## Proposed governance milestones
+
+| Milestone | Capability | Status | Implementation boundary |
+|-----------|------------|--------|-------------------------|
+| **VER-GOV-001** | **Governed Verification Execution & Participant Activity** | **🔷 Proposed** | **Planning only; no implementation authorized. First phase is the zero-mutation execution ownership audit.** |
+
 > **Note**: **v5.3 "Agent Workflow Orchestration"** reflects the legacy
 > `AgentWorkflowService` sequential prototype (released 2026-07-24). ADR-118 /
 > PCS-025 multi-agent orchestration is tracked under **v5.4** (complete): `WorkflowOrchestrator`,

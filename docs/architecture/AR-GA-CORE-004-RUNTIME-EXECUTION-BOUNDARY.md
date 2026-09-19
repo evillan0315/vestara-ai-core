@@ -1,3 +1,12 @@
+---
+title: AR-GA-CORE-004 — Runtime Execution Boundary
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-09
+next-review: 2026-10-09
+---
+
 # AR-GA-CORE-004 — Runtime Execution Boundary
 
 **Program:** AR-GA-CORE — Activity Room + Global Assistant Convergence

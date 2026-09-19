@@ -1,3 +1,12 @@
+---
+title: AR-GA-CORE-003 — Execution Contract Baseline
+version: 1.0.0
+status: complete
+owner: vestara
+last-reviewed: 2026-09-09
+next-review: 2026-10-09
+---
+
 # AR-GA-CORE-003 — Execution Contract Baseline
 
 **Program:** AR-GA-CORE — Activity Room + Global Assistant Convergence

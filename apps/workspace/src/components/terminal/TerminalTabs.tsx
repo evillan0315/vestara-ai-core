@@ -18,10 +18,10 @@ function statusIcon(status: SessionStatus, process: ProcessStatus): string {
 }
 
 function statusColor(status: SessionStatus, process: ProcessStatus): string {
-  if (status === 'connecting') return 'var(--vestara-status-pending)';
-  if (status === 'disconnected' || status === 'error') return 'var(--vestara-status-error)';
-  if (process === 'running') return 'var(--vestara-status-running)';
-  return 'var(--vestara-status-active)';
+  if (status === 'connecting') return 'text-(--vestara-status-pending)';
+  if (status === 'disconnected' || status === 'error') return 'text-(--vestara-status-error)';
+  if (process === 'running') return 'text-(--vestara-status-running)';
+  return 'text-(--vestara-status-active)';
 }
 
 export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onRename }: TerminalTabsProps) {
@@ -37,7 +37,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
   }, [editingId]);
 
   return (
-    <div className="flex items-center h-9 bg-(--vestara-accent-bg) border-b border-(--vestara-accent-border) overflow-x-auto shrink-0">
+    <div className="flex items-center h-9 bg-(--vestara-surface-panel) border-b border-(--vestara-border-default) overflow-x-auto shrink-0">
       <div className="flex items-center flex-1 min-w-0">
         {sessions.map((session) => {
           const isActive = session.id === activeId;
@@ -45,10 +45,10 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
             <div
               key={session.id}
               onClick={() => onSelect(session.id)}
-              className={`group flex items-center gap-1.5 px-3 h-full cursor-pointer border-r border-(--vestara-accent-border) transition-colors shrink-0 max-w-[180px] ${
+              className={`group flex items-center gap-1.5 px-3 h-full cursor-pointer border-r border-(--vestara-border-subtle) transition-colors shrink-0 max-w-[180px] ${
                 isActive
-                  ? 'bg-(--vestara-accent-bg) border-t-2 border-t-(--vestara-accent) text-(--vestara-text)'
-                  : 'bg-(--vestara-accent-bg) text-(--vestara-text-2) hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text)'
+                  ? 'bg-(--vestara-surface-panel-raised) border-t-2 border-t-(--vestara-accent-primary) text-(--vestara-text-primary)'
+                  : 'bg-(--vestara-surface-panel) text-(--vestara-text-secondary) hover:bg-(--vestara-surface-interactive) hover:text-(--vestara-text-primary)'
               }`}
               onDoubleClick={() => {
                 setEditingId(session.id);
@@ -83,7 +83,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                     }
                     if (e.key === 'Escape') setEditingId(null);
                   }}
-                  className="bg-(--vestara-accent-bg) border border-(--vestara-accent-border-active) rounded text-sm px-1 py-0 text-[var(--vestara-text)] outline-none w-24"
+                  className="bg-(--vestara-surface-panel-raised) border border-(--vestara-accent-border-active) rounded text-sm px-1 py-0 text-(--vestara-text-primary) outline-none w-24"
                   onClick={(e) => e.stopPropagation()}
                 />
               ) : (
@@ -95,7 +95,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
                   e.stopPropagation();
                   onClose(session.id);
                 }}
-                className="opacity-0 group-hover:opacity-100 text-(--vestara-text-muted) hover:text-(--vestara-text) transition-all cursor-pointer shrink-0 ml-auto"
+                className="opacity-0 group-hover:opacity-100 text-(--vestara-text-muted) hover:text-(--vestara-text-primary) transition-all cursor-pointer shrink-0 ml-auto"
               >
                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -108,7 +108,7 @@ export function TerminalTabs({ sessions, activeId, onSelect, onClose, onAdd, onR
 
       <button
         onClick={onAdd}
-        className="shrink-0 px-2.5 h-full flex items-center text-(--vestara-text-2) hover:text-(--vestara-text) hover:bg-(--vestara-accent-bg) transition-colors cursor-pointer border-l border-(--vestara-accent-border)"
+        className="shrink-0 px-2.5 h-full flex items-center text-(--vestara-text-secondary) hover:text-(--vestara-text-primary) hover:bg-(--vestara-surface-interactive) transition-colors cursor-pointer border-l border-(--vestara-border-subtle)"
         title="New terminal"
       >
         <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">

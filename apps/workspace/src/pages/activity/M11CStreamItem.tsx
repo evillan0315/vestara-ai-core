@@ -126,52 +126,50 @@ function classifyVisual(item: StreamItemType): VisualClass {
 
 interface ClassConfig {
   readonly glyph: string;
-  readonly container: string;
-  readonly heading: string;
+  readonly containerClass: string;
+  readonly headingClass: string;
 }
 
 const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
   human: {
     glyph: '✎',
-    container:
-      'border border-[var(--vestara-border-default)] bg-[linear-gradient(180deg,var(--vestara-accent-bg),transparent_45%),var(--vestara-surface-panel-raised)] px-3.5 py-3 shadow-[inset_2px_0_0_var(--vestara-status-info),0_8px_20px_-12px_rgba(0,0,0,0.7)]',
-    heading: 'text-sm font-medium leading-relaxed text-[var(--vestara-text)]',
+    containerClass: 'ar-stream-record--human',
+    headingClass: '',
   },
   'agent-note': {
     glyph: '❝',
-    container:
-      'border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3.5 py-2.5 shadow-[inset_2px_0_0_var(--vestara-accent)]',
-    heading: 'text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]',
+    containerClass: 'ar-stream-record--agent-note',
+    headingClass: '',
   },
   work: {
     glyph: '◆',
-    container: 'border border-[var(--vestara-border-subtle)] px-3 py-2',
-    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+    containerClass: 'ar-stream-record--work',
+    headingClass: '',
   },
   tool: {
     glyph: '⚙',
-    container: 'border border-transparent px-3 py-1.5',
-    heading: 'font-mono text-xs text-[var(--vestara-text-secondary)]',
+    containerClass: 'ar-stream-record--tool',
+    headingClass: '',
   },
   quiet: {
     glyph: '·',
-    container: 'border border-transparent px-3 py-1',
-    heading: 'text-xs text-[var(--vestara-text-muted)]',
+    containerClass: 'ar-stream-record--quiet',
+    headingClass: '',
   },
   attention: {
     glyph: '⚠',
-    container: 'border px-3 py-2',
-    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+    containerClass: 'ar-stream-record--attention',
+    headingClass: '',
   },
   verification: {
     glyph: '✓',
-    container: 'border px-3 py-2',
-    heading: 'text-[13px] font-medium text-[var(--vestara-text)]',
+    containerClass: 'ar-stream-record--verification',
+    headingClass: '',
   },
   unknown: {
     glyph: '◆',
-    container: 'border border-transparent px-3 py-1.5',
-    heading: 'text-xs text-[var(--vestara-text-secondary)]',
+    containerClass: 'ar-stream-record--unknown',
+    headingClass: '',
   },
 };
 
@@ -411,7 +409,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   const showPill = visual === 'human' || visual === 'work';
   return (
     <div
-      className={`ar-stream-record flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.container} ${
+      className={`ar-stream-record flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.containerClass} ${
         item.fresh ? 'animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
       }`}
       data-record-kind={item.kind}
@@ -493,7 +491,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           </button>
         )}
 
-        <div className={`mt-0.5 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere] ${!expanded && collapsible ? 'line-clamp-3' : ''} ${config.heading}`}>
+        <div className={`ar-stream-record__content mt-0.5 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere] ${!expanded && collapsible ? 'line-clamp-3' : ''}`}>
           {item.content || <span className="italic">{item.kind}</span>}
         </div>
 

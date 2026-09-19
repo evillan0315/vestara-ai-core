@@ -14,7 +14,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { DrawerMenu } from '../../components/ui/DrawerMenu';
-import { Tabs } from '../../components/ui/Tabs';
+import { Tabs } from '@vestara/ui';
 import type { ParticipantProjection } from '@vestara/activity-room';
 
 // ─── Types ─────────────────────────────────────────────────────

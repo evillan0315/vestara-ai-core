@@ -205,6 +205,11 @@ function M11CParticipantRail({
             <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
           </span>
         </button>
+        {/* Panel-level staleness honesty (AR-LIVE-001): roster and work
+            state arrive with the snapshot and refresh on reconnect.
+            No per-row repetition. No presence is shown: no presence
+            authority exists. */}
+        <p className="ar-rail__freshness">Snapshot roster · refreshes on reconnect · no presence tracking</p>
         </div>
 
         {/* ── Search + Type Filter ──────────────────────────── */}
@@ -291,11 +296,14 @@ const ParticipantRow = memo(function ParticipantRow({
   const initial = identity.unknown ? '?' : (identity.name.trim()[0] ?? '?').toUpperCase();
 
   // Work state from the contract config only. The M10 resting value
-  // 'available' is absent from the config: it carries no information and
-  // renders no claim (never a presence word).
+  // 'available' is intentionally absent from the config: it carries no
+  // information and renders no claim (never a presence word).
   const work = WORK_STATE_CONFIG[participant.workState];
   const presence = resolvedPresence(participant);
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
+  // Task title is content/context from the current assignment — never an
+  // activity-state authority. It renders as plain truncated text without
+  // the work-state lamp, even when a work lamp is also shown.
 
   // Tile tone decorates actor TYPE only — never status, presence, or health.
   // Blocked/needs-attention must scan from the tertiary line: semibold in
@@ -372,11 +380,13 @@ const ParticipantRow = memo(function ParticipantRow({
               className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
             >
               <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
-              {participant.currentAssignment?.taskTitle ?? work.label}
+              {work.label}
             </span>
           )}
-          {!work && participant.currentAssignment?.taskTitle && (
-            <span className="truncate">{participant.currentAssignment.taskTitle}</span>
+          {participant.currentAssignment?.taskTitle && (
+            <span className="truncate" title={participant.currentAssignment.taskTitle}>
+              {participant.currentAssignment.taskTitle}
+            </span>
           )}
           {membershipLabel && <span>{membershipLabel}</span>}
         </span>

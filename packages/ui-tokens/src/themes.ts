@@ -14,7 +14,7 @@
  *   @see docs/architecture/VES-DESIGN-002-CANONICAL-TOKEN-CONTRACT.md
  */
 
-import { COLOR } from './tokens.js';
+import { ACCENT_PALETTES, COLOR } from './tokens.js';
 
 // ─── Theme Type ────────────────────────────────────────────────
 
@@ -27,6 +27,8 @@ export interface SurfaceTheme {
   shell: string;
   panel: string;
   panelRaised: string;
+  composer: string;
+  assistant: string;
   overlay: string;
   interactive: string;
 }
@@ -54,6 +56,7 @@ export interface BorderTheme {
 export interface AccentTheme {
   primary: string;
   secondary: string;
+  glow: string;
   bg: string;
   border: string;
   borderHover: string;
@@ -150,6 +153,7 @@ export const DARK_THEME: Theme = {
   accent: {
     primary: COLOR.brand.amber,
     secondary: COLOR.brand.amberLight,
+    glow: ACCENT_PALETTES.amber.glow,
     bg: COLOR.status.warningBg,
     border: COLOR.status.warningBorder,
     borderHover: `${COLOR.brand.amber}60`,
@@ -211,6 +215,9 @@ export const LIGHT_THEME: Theme = {
     shell: '#ffffff',
     panel: '#ffffff',
     panelRaised: COLOR.zinc[50],
+    composer: 'linear-gradient(to top, #fafafa, #fafafa 55%, #ffffff)',
+    assistant:
+      'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
     overlay: 'rgba(0, 0, 0, 0.5)',
     interactive: COLOR.zinc[100],
   },
@@ -229,6 +236,7 @@ export const LIGHT_THEME: Theme = {
   accent: {
     primary: '#b45309', // Light mode: darker amber for contrast on light backgrounds
     secondary: COLOR.brand.amberDark,
+    glow: ACCENT_PALETTES.amber.glow,
     bg: 'rgba(245, 158, 11, 0.08)',
     border: 'rgba(245, 158, 11, 0.2)',
     borderHover: 'rgba(245, 158, 11, 0.3)',

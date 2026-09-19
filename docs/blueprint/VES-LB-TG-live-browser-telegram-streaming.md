@@ -1,3 +1,12 @@
+---
+title: VES-LB-TG — Live Browser + Telegram Streaming
+version: 1.0.0
+status: proposed
+owner: vestara
+last-reviewed: 2026-09-19
+next-review: 2026-10-19
+---
+
 # VES-LB-TG — Live Browser + Telegram Streaming
 
 > **The Live Browser belongs to Vestara's browser/execution platform. Telegram is a remote viewing and control channel for it.**

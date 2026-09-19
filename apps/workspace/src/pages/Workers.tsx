@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
+import { MetricCard } from '@vestara/ui';
 import { workersApi } from '../lib/workers.js';
 
 /**
@@ -33,15 +34,6 @@ const NODE_STATUS_BADGE: Record<string, string> = {
   draining: 'bg-amber-500/15 text-amber-300',
   unknown: 'bg-zinc-600/20 text-zinc-300',
 };
-
-function StatCard({ label, value, accent }: { label: string; value: string | number; accent: string }) {
-  return (
-    <div className="p-3 bg-(--vestara-accent-bg) border border-(--vestara-accent-border) rounded-lg border-l-[3px]" style={{ borderLeftColor: accent }}>
-      <div className="text-[9px] text-(--vestara-text-muted) uppercase tracking-widest">{label}</div>
-      <div className="text-lg font-bold text-(--vestara-text) mt-1">{value}</div>
-    </div>
-  );
-}
 
 export default function WorkersPage() {
   const [nodes, setNodes] = useState<WorkerNode[]>([]);
@@ -104,9 +96,9 @@ export default function WorkersPage() {
       )}
 
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
-        <StatCard label="Nodes" value={nodes.length} accent="#8b5cf6" />
-        <StatCard label="Online" value={online} accent="#10b981" />
-        <StatCard label="Active leases" value={leases.length} accent="#6366f1" />
+        <MetricCard label="Nodes" value={nodes.length} tone="accent" />
+        <MetricCard label="Online" value={online} tone="success" />
+        <MetricCard label="Active leases" value={leases.length} tone="accent" />
       </div>
 
       {loading ? (

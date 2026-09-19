@@ -118,6 +118,10 @@
      tint of the theme color pulled toward black over the shell. */
   --vestara-card-bg: color-mix(in srgb, var(--vestara-accent) 12%, black 12%, var(--vestara-shell-bg));
   --vestara-hero-bg: var(--vestara-shell-bg);
+  /* Gradient surface tokens require background shorthand rather than
+     background-color so their layered gradients remain visible. */
+  --vestara-surface-assistant-background: var(--vestara-surface-assistant);
+  --vestara-surface-composer-background: var(--vestara-surface-composer);
   /* Text on solid accent (primary buttons, active pills): near-black with
      a cast of the selected accent — readable on amber/gold in both modes
      with no hardcoded hex. */
@@ -165,6 +169,14 @@
   --chart-tooltip-border: #27272a;
   --chart-tooltip-text: #d4d4d8;
   --chart-axis: #3f3f46;
+}
+
+.vestara-assistant-surface {
+  background: var(--vestara-surface-assistant-background);
+}
+
+.vestara-composer-surface {
+  background: var(--vestara-surface-composer-background);
 }
 
 /* ── Light zinc palette ── */

@@ -2663,6 +2663,31 @@ Then verify:
 
 ---
 
+## Governed Verification Execution Milestone
+
+### VER-GOV-001 — Governed Verification Execution & Participant Activity 🔷 Proposed
+
+**Objective**: Establish a Vestara-owned, globally governed execution lane for build, test, and verification operations with controlled concurrency, queue awareness, single-flight execution, evidence reuse, recovery, duration estimation, agent-visible state, and authoritative participant activity projected into Activity Room.
+
+**Sequencing rule**: This is the next formal milestone after the current Activity Room work. Governance substrate first; Activity Room status is a projection of that substrate and never its source of truth.
+
+**Core invariants**:
+
+- Development may proceed concurrently; governed verification defaults to one active operation through policy `verification.maxConcurrent = 1`.
+- Agents report intent; runtimes report execution; Activity Room reports the projection.
+- `VerificationCoordinator` is the only owner of governed build/test/verify process execution.
+- Presence is independent from activity.
+- `working`, `waiting`, `building`, `testing`, and `verifying` are canonical activity states; the last three derive only from an authoritative running operation.
+- Activity Room does not own verification state, schedule operations, spawn processes, or infer execution from agent prose.
+
+**Phase sequence**: 001A ownership audit (zero mutation) → 001B contracts → 001C coordinator → 001D lease/queue → 001E single-flight → 001F evidence reuse → 001G telemetry → 001H estimator → 001I participant authority → 001J agent awareness → 001K participant projection → 001L lane projection → 001M recovery → 001N cancellation/failure → 001O enforcement → 001P dogfood/freeze.
+
+**Key artifact**: `docs/architecture/VER-GOV-001-governed-verification-execution.md`
+
+**Status**: 🔷 Proposed. Planning only; no implementation is authorized. The first authorized activity, after approval, is the zero-mutation ownership audit.
+
+---
+
 ### v7.15 — Activity Room Premium UX 🔷 Planned
 
 **Objective**: Transform the Activity Room from a functional two-column layout into a premium three-column operations room matching the reference design. The Activity Room should feel like a live engineering operations center — premium technical appearance, calm but visibly live, high information density without clutter, strong operational hierarchy, excellent readability, restrained animation, deterministic status presentation.
@@ -3802,6 +3827,7 @@ interface OverviewViewModel {
 | **Audio Assistant** | **v7.17** | **Optional microphone/STT and streaming TTS/speaker integration for the Global Assistant** | 🔷 Planned |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
+| **Governed Verification** | **VER-GOV-001** | **Governed Verification Execution & Participant Activity (001A–001P; coordinator, queue, evidence, recovery, projection)** | 🔷 Proposed |
 | **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
 | **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
