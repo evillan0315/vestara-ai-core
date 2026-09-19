@@ -44,6 +44,10 @@ jobs:
         run: pnpm --filter @vestara/workspace-ui build
 
       - name: Run screenshot tests
+        env:
+          # Keep CI scoped to routes with committed baselines. OpenVidu/Meet is
+          # live media transport, not a deterministic visual-regression target.
+          SCREENSHOT_ROUTES: activity,qualification-activity
         run: pnpm screenshots:ci
         continue-on-error: true
         id: screenshots
@@ -54,10 +58,10 @@ jobs:
         with:
           name: visual-regression-report
           path: |
-            apps/workspace/tests/visual/reports/**
-            apps/workspace/tests/visual/diff/**
-            apps/workspace/tests/visual/current/**
-            apps/workspace/tests/visual/baselines/**
+            apps/workspace/tests/visual/.artifacts/reports/**
+            apps/workspace/tests/visual/.artifacts/diff/**
+            apps/workspace/tests/visual/.artifacts/current/**
+            apps/workspace/tests/visual/.artifacts/baselines/**
           if-no-files-found: ignore
 
       - name: Comment report summary on PR
@@ -66,7 +70,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const path = 'apps/workspace/tests/visual/reports/visual-regression.md';
+            const path = 'apps/workspace/tests/visual/.artifacts/reports/visual-regression.md';
             const summary = fs.existsSync(path)
               ? fs.readFileSync(path, 'utf8').slice(0, 6000)
               : 'Visual regression run produced no report.';
