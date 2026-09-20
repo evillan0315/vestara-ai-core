@@ -1,6 +1,9 @@
 import { defineConfig } from '@playwright/test';
 
 const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173';
+const serverUrl = new URL(BASE_URL);
+const serverHost = serverUrl.hostname === 'localhost' ? '127.0.0.1' : serverUrl.hostname;
+const serverPort = serverUrl.port || (serverUrl.protocol === 'https:' ? '443' : '80');
 
 export default defineConfig({
   testDir: './tests/visual',
@@ -17,7 +20,7 @@ export default defineConfig({
     screenshot: 'off',
   },
   webServer: {
-    command: 'npx vite dev --host 127.0.0.1 --port 5173 --strictPort',
+    command: `VESTARA_DISABLE_DEV_WS_PROXY=1 npx vite dev --host ${serverHost} --port ${serverPort} --strictPort`,
     url: BASE_URL,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

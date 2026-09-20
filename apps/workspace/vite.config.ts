@@ -4,6 +4,8 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { configDefaults, defineConfig } from 'vitest/config';
 
+const disableDevWsProxy = process.env.VESTARA_DISABLE_DEV_WS_PROXY === '1';
+
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
@@ -13,10 +15,14 @@ export default defineConfig({
         target: 'http://127.0.0.1:3001',
         changeOrigin: true,
       },
-      '/ws': {
-        target: 'ws://127.0.0.1:3001',
-        ws: true,
-      },
+      ...(disableDevWsProxy
+        ? {}
+        : {
+            '/ws': {
+              target: 'ws://127.0.0.1:3001',
+              ws: true,
+            },
+          }),
     },
   },
   build: {
