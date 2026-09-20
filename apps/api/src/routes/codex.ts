@@ -9,17 +9,25 @@ import {
   type CodexAppServerNotification,
   CodexConfigError,
   type CodexRuntimeConfig,
+  type CodexThread,
   type CodexTurnInputPart,
   resolveCodexRuntimeConfig,
 } from '@vestara/codex-runtime';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
-interface CachedCodexClient {
+export interface CachedCodexClient {
   readonly client: CodexAppServerClient;
   readonly config: CodexRuntimeConfig;
   readonly detachNotifications: () => void;
+  readonly sessionId: string;
+  readonly connectedClients: Set<string>;
+  readonly threads: Map<string, CodexThread>;
+  readonly createdAt: string;
   ready: Promise<void>;
+  lastSeenAt: string;
+  lastEventAt?: string;
+  turnsStarted: number;
 }
 
 interface BufferedCodexEvent {
@@ -31,7 +39,9 @@ interface BufferedCodexEvent {
 let cachedClient: CachedCodexClient | undefined;
 let codexEventSequence = 0;
 const codexEventsByThread = new Map<string, BufferedCodexEvent[]>();
+const codexSessions = new Map<string, CachedCodexClient>();
 const CODEX_EVENT_BUFFER_LIMIT = 500;
+const DEFAULT_CODEX_SESSION_ID = 'local';
 
 export async function handleCodexRoute(
   method: string,
@@ -60,12 +70,42 @@ export async function handleCodexRoute(
     return true;
   }
 
+  if (method === 'GET' && p === '/api/codex/status') {
+    const started = Date.now();
+    const config = resolveRouteConfig(req);
+    const session = cachedClient?.config.appServerUrl === config.appServerUrl ? cachedClient : undefined;
+    let reachable = false;
+    try {
+      const client = session?.client ?? new CodexAppServerClient({ config });
+      reachable = await client.healthCheck();
+      if (!session) await client.close().catch(() => undefined);
+    } catch {
+      reachable = false;
+    }
+    json(res, 200, {
+      integration: 'codex',
+      status: reachable ? 'healthy' : 'unreachable',
+      reachable,
+      upstream: { transport: 'websocket', url: config.appServerUrl },
+      checkedAt: new Date().toISOString(),
+      latencyMs: Date.now() - started,
+      sessions: Array.from(codexSessions.values()).map(codexSessionSummary),
+      activeSessionId: session?.sessionId ?? null,
+      connectedClients: Array.from(codexSessions.values()).reduce(
+        (sum, candidate) => sum + candidate.connectedClients.size,
+        0,
+      ),
+    });
+    return true;
+  }
+
   if (method === 'POST' && p === '/api/codex/threads') {
     try {
       const body = parseJson(await readBody(req));
-      const session = await getCodexClient(req, body?.appServerUrl);
+      const session = await getCodexClient(req, body?.appServerUrl, body?.sessionId);
       const params = objectOrEmpty(body?.params);
       const codex = await session.client.startThread(params);
+      rememberThread(session, codex.thread);
       json(res, 201, { thread: codex.thread, codex, upstream: { url: session.config.appServerUrl } });
     } catch (error) {
       sendCodexError(res, error);
@@ -80,6 +120,7 @@ export async function handleCodexRoute(
       const session = await getCodexClient(req);
       const includeTurns = queryBoolean(req, 'includeTurns') ?? true;
       const codex = await session.client.readThread({ threadId, includeTurns });
+      rememberThread(session, codex.thread);
       json(res, 200, { thread: codex.thread, codex, upstream: { url: session.config.appServerUrl } });
     } catch (error) {
       sendCodexError(res, error);
@@ -92,9 +133,10 @@ export async function handleCodexRoute(
     const threadId = decodeURIComponent(turnMatch[1]);
     try {
       const body = parseJson(await readBody(req));
-      const session = await getCodexClient(req, body?.appServerUrl);
+      const session = await getCodexClient(req, body?.appServerUrl, body?.sessionId);
       const input = parseTurnInput(body);
       const codex = await session.client.startTurn({ threadId, input });
+      session.turnsStarted += 1;
       json(res, 202, { threadId, turn: codex.turn, codex, upstream: { url: session.config.appServerUrl } });
     } catch (error) {
       sendCodexError(res, error);
@@ -177,46 +219,104 @@ export async function handleCodexRoute(
   }
 
   if (method === 'POST' && p === '/api/codex/disconnect') {
-    await closeCachedCodexClient();
-    json(res, 200, { disconnected: true });
+    const body = parseJson(await readBody(req).catch(() => ''));
+    const sessionId = typeof body?.sessionId === 'string' ? body.sessionId : undefined;
+    await closeCachedCodexClient(sessionId);
+    json(res, 200, { disconnected: true, sessionId: sessionId ?? null });
     return true;
   }
 
   return false;
 }
 
-async function getCodexClient(req: http.IncomingMessage, appServerUrl?: unknown): Promise<CachedCodexClient> {
+export async function getCodexClient(
+  req: http.IncomingMessage,
+  appServerUrl?: unknown,
+  requestedSessionId?: unknown,
+): Promise<CachedCodexClient> {
   const config = resolveRouteConfig(req, typeof appServerUrl === 'string' ? appServerUrl : undefined);
-  if (cachedClient?.config.appServerUrl === config.appServerUrl) {
+  const sessionId = normalizeSessionId(requestedSessionId) ?? DEFAULT_CODEX_SESSION_ID;
+  const existingById = codexSessions.get(sessionId);
+  if (existingById?.config.appServerUrl === config.appServerUrl) {
+    existingById.lastSeenAt = new Date().toISOString();
+    cachedClient = existingById;
+    await existingById.ready;
+    return existingById;
+  }
+  if (cachedClient?.config.appServerUrl === config.appServerUrl && cachedClient.sessionId === sessionId) {
+    cachedClient.lastSeenAt = new Date().toISOString();
     await cachedClient.ready;
     return cachedClient;
   }
-  await closeCachedCodexClient();
   const client = new CodexAppServerClient({ config });
-  const detachNotifications = client.onNotification(recordCodexNotification);
+  const createdAt = new Date().toISOString();
+  const detachNotifications = client.onNotification((notification) => recordCodexNotification(notification, sessionId));
   const next: CachedCodexClient = {
     client,
     config,
+    sessionId,
+    connectedClients: new Set(),
+    threads: new Map(),
+    createdAt,
+    lastSeenAt: createdAt,
     detachNotifications,
     ready: client.initialize({ name: 'vestara-api', version: 'dev' }).then(() => undefined),
+    turnsStarted: 0,
   };
   cachedClient = next;
+  codexSessions.set(sessionId, next);
   try {
     await next.ready;
     return next;
   } catch (error) {
     if (cachedClient === next) cachedClient = undefined;
+    codexSessions.delete(sessionId);
     detachNotifications();
     await client.close().catch(() => undefined);
     throw error;
   }
 }
 
-async function closeCachedCodexClient(): Promise<void> {
-  const current = cachedClient;
-  cachedClient = undefined;
-  current?.detachNotifications();
-  await current?.client.close().catch(() => undefined);
+export function attachCodexClient(session: CachedCodexClient, clientId: string): () => void {
+  session.connectedClients.add(clientId);
+  session.lastSeenAt = new Date().toISOString();
+  return () => {
+    session.connectedClients.delete(clientId);
+    session.lastSeenAt = new Date().toISOString();
+  };
+}
+
+export function rememberThread(session: CachedCodexClient, thread: CodexThread | undefined): void {
+  if (!thread?.id) return;
+  session.threads.set(thread.id, thread);
+  session.lastSeenAt = new Date().toISOString();
+}
+
+export function codexRuntimeSnapshot(appServerUrl?: string): Record<string, unknown> {
+  const config = resolveCodexRuntimeConfig({
+    appServerUrl: appServerUrl ?? process.env.CODEX_APP_SERVER_URL ?? undefined,
+  });
+  const matching = Array.from(codexSessions.values()).filter(
+    (session) => session.config.appServerUrl === config.appServerUrl,
+  );
+  return {
+    integration: 'codex',
+    upstream: { transport: 'websocket', url: config.appServerUrl },
+    sessions: matching.map(codexSessionSummary),
+    connectedClients: matching.reduce((sum, session) => sum + session.connectedClients.size, 0),
+  };
+}
+
+export async function closeCachedCodexClient(sessionId?: string): Promise<void> {
+  const targets = sessionId
+    ? [codexSessions.get(sessionId)].filter((session): session is CachedCodexClient => Boolean(session))
+    : Array.from(codexSessions.values());
+  for (const current of targets) {
+    if (cachedClient === current) cachedClient = undefined;
+    codexSessions.delete(current.sessionId);
+    current.detachNotifications();
+    await current.client.close().catch(() => undefined);
+  }
 }
 
 function resolveRouteConfig(req: http.IncomingMessage, appServerUrl?: string): CodexRuntimeConfig {
@@ -242,8 +342,13 @@ function parseItemsView(value: string | null): 'notLoaded' | 'summary' | 'full' 
   return value === 'notLoaded' || value === 'summary' || value === 'full' ? value : undefined;
 }
 
-function recordCodexNotification(event: CodexAppServerNotification): void {
+function recordCodexNotification(event: CodexAppServerNotification, sessionId?: string): void {
   const threadId = threadIdOf(event);
+  const session = sessionId ? codexSessions.get(sessionId) : undefined;
+  if (session) {
+    session.lastEventAt = new Date().toISOString();
+    session.lastSeenAt = session.lastEventAt;
+  }
   if (!threadId) return;
   const buffered: BufferedCodexEvent = {
     sequence: ++codexEventSequence,
@@ -254,6 +359,36 @@ function recordCodexNotification(event: CodexAppServerNotification): void {
   events.push(buffered);
   while (events.length > CODEX_EVENT_BUFFER_LIMIT) events.shift();
   codexEventsByThread.set(threadId, events);
+}
+
+function normalizeSessionId(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed ? trimmed.slice(0, 120) : undefined;
+}
+
+function codexSessionSummary(session: CachedCodexClient): Record<string, unknown> {
+  const threads = Array.from(session.threads.values()).map((thread) => ({
+    id: thread.id,
+    sessionId: thread.sessionId,
+    cwd: thread.cwd,
+    modelProvider: thread.modelProvider,
+    status: thread.status,
+    createdAt: thread.createdAt,
+    updatedAt: thread.updatedAt,
+    bufferedEvents: codexEventsByThread.get(thread.id)?.length ?? 0,
+  }));
+  return {
+    id: session.sessionId,
+    appServerUrl: session.config.appServerUrl,
+    createdAt: session.createdAt,
+    lastSeenAt: session.lastSeenAt,
+    lastEventAt: session.lastEventAt,
+    connectedClients: session.connectedClients.size,
+    threadCount: threads.length,
+    turnsStarted: session.turnsStarted,
+    threads,
+  };
 }
 
 function threadIdOf(event: CodexAppServerNotification): string | undefined {

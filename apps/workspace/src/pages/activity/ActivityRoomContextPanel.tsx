@@ -16,6 +16,7 @@ import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { Pill, StatusIndicator } from '@vestara/ui';
 import { formatRelative } from './activity-formatters';
 import { CONNECTION_STATUS_CONFIG } from './status-config';
+import { CodexRuntimeActivityCard } from '../../components/codex/CodexRuntimeActivityCard';
 import { useSessionStatus } from '../../hooks/useSessionStatus';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -227,6 +228,8 @@ export default function ActivityRoomContextPanel({
           </div>
         </div>
       )}
+
+      <CodexRuntimeActivityCard variant="activity-panel" />
 
       {/* ── Activity Stream Status ──────────────────────────── */}
       <div className="ar-context__section">

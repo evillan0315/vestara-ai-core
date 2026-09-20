@@ -11,7 +11,6 @@ import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { Socket } from 'node:net';
 import * as path from 'node:path';
-import { CodexAppServerClient, type CodexThreadStartResult } from '@vestara/codex-runtime';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
@@ -31,7 +30,7 @@ import { handleAuthRoute } from './routes/auth';
 import { handleBrowserRoute } from './routes/browser';
 import { handleCatalogRoute } from './routes/catalog';
 import { handleCIRoute } from './routes/ci';
-import { handleCodexRoute } from './routes/codex';
+import { attachCodexClient, getCodexClient, handleCodexRoute, rememberThread } from './routes/codex';
 import { handleConversationsRoute } from './routes/conversations';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
@@ -1083,9 +1082,9 @@ type WsClientCommand =
   | { op: 'repl'; command: string };
 
 interface CodexWsSession {
-  readonly client: CodexAppServerClient;
+  readonly sessionId: string;
   readonly appServerUrl: string;
-  thread?: CodexThreadStartResult;
+  threadId?: string;
   detachNotifications: () => void;
   ready: Promise<void>;
 }
@@ -1188,14 +1187,22 @@ async function handleCodexTurnStart(
     await session.ready;
     wsSend(ws, { op: 'codex.status', requestId, status: 'initialized', appServerUrl: session.appServerUrl });
 
-    let threadId = command.threadId ?? session.thread?.thread.id;
+    const runtime = await getCodexClient(
+      { url: '/', headers: {} } as http.IncomingMessage,
+      session.appServerUrl,
+      session.sessionId,
+    );
+    let threadId = command.threadId ?? session.threadId ?? Array.from(runtime.threads.keys()).at(-1);
     if (!threadId) {
-      session.thread = await session.client.startThread();
-      threadId = session.thread.thread.id;
-      wsSend(ws, { op: 'codex.thread', requestId, thread: session.thread });
+      const thread = await runtime.client.startThread();
+      rememberThread(runtime, thread.thread);
+      threadId = thread.thread.id;
+      wsSend(ws, { op: 'codex.thread', requestId, thread });
     }
+    session.threadId = threadId;
 
-    const turn = await session.client.startTextTurn(threadId, command.text);
+    const turn = await runtime.client.startTextTurn(threadId, command.text);
+    runtime.turnsStarted += 1;
     wsSend(ws, { op: 'codex.turn', requestId, threadId, turn });
   } catch (error) {
     wsSend(ws, { op: 'codex.error', requestId, error: error instanceof Error ? error.message : String(error) });
@@ -1212,15 +1219,24 @@ function getOrCreateCodexWsSession(
   if (existing && existing.appServerUrl === targetUrl) return existing;
   if (existing) void closeCodexWsSession(sessions, ws);
 
-  const client = new CodexAppServerClient({ config: { appServerUrl: targetUrl } });
-  const detachNotifications = client.onNotification((notification) => {
-    wsSend(ws, { op: 'codex.event', event: notification });
+  const sessionId = 'local';
+  const runtimeReady = getCodexClient({ url: '/', headers: {} } as http.IncomingMessage, targetUrl, sessionId);
+  let detachClient = () => {};
+  let detachNotifications = () => {};
+  const ready = runtimeReady.then((runtime) => {
+    detachClient = attachCodexClient(runtime, connectionIdOf(ws));
+    detachNotifications = runtime.client.onNotification((notification) => {
+      wsSend(ws, { op: 'codex.event', event: notification });
+    });
   });
   const session: CodexWsSession = {
-    client,
+    sessionId,
     appServerUrl: targetUrl,
-    detachNotifications,
-    ready: client.initialize({ name: 'vestara-api', version: 'dev' }).then(() => undefined),
+    detachNotifications: () => {
+      detachNotifications();
+      detachClient();
+    },
+    ready,
   };
   sessions.set(ws, session);
   return session;
@@ -1235,7 +1251,6 @@ async function closeCodexWsSession(
   if (!session) return;
   sessions.delete(ws);
   session.detachNotifications();
-  await session.client.close().catch(() => undefined);
   wsSend(ws, { op: 'codex.status', requestId, status: 'disconnected', appServerUrl: session.appServerUrl });
 }
 

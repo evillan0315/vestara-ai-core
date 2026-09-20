@@ -24,6 +24,7 @@ import { SortablePanel } from './components/SortablePanel';
 import { SystemStatus } from './components/SystemStatus';
 import { TodayFocus } from './components/TodayFocus';
 import { WorkspaceHealth } from './components/WorkspaceHealth';
+import { CodexRuntimeActivityCard } from '../../components/codex/CodexRuntimeActivityCard';
 import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
 import { useOverviewLayout, type OverviewPanelId } from './hooks/useOverviewLayout';
@@ -187,6 +188,7 @@ export function OverviewScreen() {
           briefingLoading={morningLoading}
         />
         <QuickActions />
+        <CodexRuntimeActivityCard />
 
         <div className="flex items-center justify-end">
           <button
