@@ -11,14 +11,23 @@ function optionValue(args: readonly string[], flag: string): string | undefined 
   return index >= 0 ? args[index + 1] : undefined;
 }
 
-async function serviceFor(root: string): Promise<DocumentationService> {
-  const ecosystem = path.dirname(root);
+async function serviceFor(root: string, includeEcosystem = false): Promise<DocumentationService> {
   const repositories: DocumentationRepositoryConfig[] = [
     { id: 'vestara-ai-core', path: root, authority: 'implementation', writable: true },
-    { id: 'vestara-blueprint', path: path.join(ecosystem, 'vestara-blueprint'), authority: 'architecture' },
-    { id: 'vestara-standards', path: path.join(ecosystem, 'vestara-standards'), authority: 'standard' },
-    { id: 'vestara-specifications', path: path.join(ecosystem, 'vestara-specifications'), authority: 'specification' },
   ];
+
+  if (includeEcosystem) {
+    const ecosystem = path.dirname(root);
+    repositories.push(
+      { id: 'vestara-blueprint', path: path.join(ecosystem, 'vestara-blueprint'), authority: 'architecture' },
+      { id: 'vestara-standards', path: path.join(ecosystem, 'vestara-standards'), authority: 'standard' },
+      {
+        id: 'vestara-specifications',
+        path: path.join(ecosystem, 'vestara-specifications'),
+        authority: 'specification',
+      },
+    );
+  }
   const service = new DocumentationService({
     repositories,
     workspaceId: root,
@@ -32,7 +41,10 @@ async function serviceFor(root: string): Promise<DocumentationService> {
 export async function runDocs(args: readonly string[]): Promise<void> {
   const command = args[0] ?? 'status';
   const json = args.includes('--json');
-  const service = await serviceFor(path.resolve(optionValue(args, '--workspace') ?? process.cwd()));
+  const service = await serviceFor(
+    path.resolve(optionValue(args, '--workspace') ?? process.cwd()),
+    args.includes('--ecosystem'),
+  );
   try {
     let result: unknown;
     if (command === 'scan') result = await service.scan();
