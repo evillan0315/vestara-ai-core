@@ -18,6 +18,8 @@ runtime and product capabilities.
   run the CLI, API, and Workspace UI.
 - [Configuration guide](CONFIGURATION.md): configure API ports, repository
   selection, browser deployment, and remote desktop connections.
+- [Codex app server runbook](CODEX-APP-SERVER-RUNBOOK.md): operate the local
+  Codex App Server systemd service and Codex sandbox configuration.
 - [Workspace desktop guide](../apps/workspace/docs/DESKTOP.md): run and package
   the Tauri desktop client, configure a remote API, and troubleshoot connection
   issues.
