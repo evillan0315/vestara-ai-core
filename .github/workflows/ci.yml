@@ -52,10 +52,12 @@ jobs:
       # consistent with worker-process memory pressure. If this still dies at
       # the same point, re-run with --reporter=verbose to identify the file.
       - name: Fast tests (excludes repo-scan, e2e and doc-governance suites)
-        run: pnpm test:fast || echo 'TEST CORPUS: zero tests — new suite pending'
+        run: |
+          pnpm test:fast
 
       - name: Full test suite
-        run: pnpm test || echo 'TEST CORPUS: zero tests — new suite pending'
+        run: |
+          pnpm test
 
       - name: Documentation drift gate
         run: pnpm documentation:check
