@@ -28,6 +28,16 @@ function statusTone(status: CodexRuntimeStatus | null): string {
   return status.reachable ? 'var(--vestara-status-success)' : 'var(--vestara-status-warning)';
 }
 
+function statusClassName(status: CodexRuntimeStatus | null): string {
+  if (!status) return 'text-[var(--vestara-text-muted)]';
+  return status.reachable ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-status-warning)]';
+}
+
+function statusDotClassName(status: CodexRuntimeStatus | null): string {
+  if (!status) return 'bg-[var(--vestara-text-muted)]';
+  return status.reachable ? 'bg-[var(--vestara-status-success)]' : 'bg-[var(--vestara-status-warning)]';
+}
+
 function useCodexRuntimeStatus(): CodexRuntimeStatus | null {
   const [status, setStatus] = useState<CodexRuntimeStatus | null>(null);
 
@@ -124,16 +134,17 @@ export function CodexRuntimeActivityCard({ variant = 'overview' }: CodexRuntimeA
   const status = useCodexRuntimeStatus();
   const label = statusLabel(status);
   const tone = statusTone(status);
+  const statusClass = statusClassName(status);
+  const dotClass = statusDotClassName(status);
   const badge = useMemo(() => (
-    <span className="inline-flex items-center gap-1 text-[11px] font-medium" style={{ color: tone }}>
+    <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${statusClass}`}>
       <span
         aria-hidden="true"
-        className="inline-block h-1.5 w-1.5 rounded-full"
-        style={{ background: tone, boxShadow: `0 0 6px ${tone}` }}
+        className={`inline-block h-1.5 w-1.5 rounded-full ${dotClass}`}
       />
       {label}
     </span>
-  ), [label, tone]);
+  ), [dotClass, label, statusClass]);
 
   if (variant === 'activity-panel') {
     return (
