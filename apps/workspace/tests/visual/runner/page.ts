@@ -5,6 +5,7 @@
 
 import type { Page } from '@playwright/test';
 import type { Config, Theme } from '../config.js';
+import { installVisualApiFixtures } from '../fixtures/api.js';
 import { applyMasks } from '../helpers/masks.js';
 import { disableAnimations, emulateReducedMotion, waitForStability } from '../helpers/stability.js';
 import { themeInitScript } from '../helpers/theme.js';
@@ -19,6 +20,7 @@ export class PageScreenshotRunner {
    */
   async capture(page: Page, route: RouteDefinition, theme: Theme): Promise<Buffer> {
     await page.addInitScript(themeInitScript(theme));
+    await installVisualApiFixtures(page, route);
     await page
       .goto(`${this.config.baseURL}${route.url}`, { waitUntil: 'domcontentloaded', timeout: 30_000 })
       .catch(() => {
