@@ -61,6 +61,18 @@ export interface CodexThreadStartResult {
   readonly multiAgentMode?: string;
 }
 
+export interface CodexThreadListParams {
+  readonly cursor?: string;
+  readonly limit?: number;
+  readonly sortDirection?: 'asc' | 'desc';
+}
+
+export interface CodexThreadListResult {
+  readonly data: readonly CodexThread[];
+  readonly nextCursor?: string | null;
+  readonly backwardsCursor?: string | null;
+}
+
 export interface CodexThreadReadParams {
   readonly threadId: string;
   readonly includeTurns?: boolean;

@@ -190,7 +190,7 @@ export function FilePreview({
   // Text/Code preview with editor
   if (isText && content !== undefined) {
     return (
-      <div className="file-preview min-w-0 flex flex-col min-h-0">
+      <div className="file-preview h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
         {readOnly ? (
           <CodeViewer filePath={filePath} content={content} classification={classification} />
         ) : (
@@ -202,7 +202,6 @@ export function FilePreview({
             onDirtyChange={onDirtyChange}
             onDraftChange={onDraftChange}
             onCursorChange={onCursorChange}
-            readOnly={readOnly}
           />
         )}
       </div>
@@ -283,7 +282,7 @@ export function FilePreview({
   if (isAudio && dataUrl) {
     return (
       <div className="file-preview min-w-0 flex flex-col min-h-0">
-        <div className="p-4">
+        <div className="p-4 h-full">
           <div className="space-y-3">
             <audio ref={audioRef} src={dataUrl} controls onError={handleMediaError} preload="metadata" />
             {videoError && <p className="text-sm text-[var(--vestara-status-error)]">{videoError}</p>}

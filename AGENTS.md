@@ -8,6 +8,7 @@ bash build-order.sh            # alias: pnpm build → pnpm build:references →
 pnpm vestara doctor            # compiled CLI (requires build first)
 ```
 
+
 - Node 22+ and pnpm required (CI pins Node 22).
 - Build **before** `pnpm test` or any `pnpm vestara` / `pnpm dev:api` command — tests resolve `@vestara/*` from `dist/` via aliases in `vitest.config.ts` and CLI/API run from `dist/`. Stale `dist/` causes misleading failures.
 - `pnpm build` regenerates `tsconfig.reference.json` per project + root `tsconfig.references.json` (both gitignored — never hand-edit); run `pnpm dependencies:check` to validate.

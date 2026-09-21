@@ -43,6 +43,7 @@ export function toFileEntries(nodes: readonly BrowseNode[]): FileEntry[] {
       ...(n.size !== undefined ? { size: n.size } : {}),
       ...(n.mtime !== undefined ? { mtime: n.mtime } : {}),
       ...(n.createdAt !== undefined ? { createdAt: n.createdAt } : {}),
+      ...(n.mimeType !== undefined ? { mimeType: n.mimeType } : {}),
       ...(language !== undefined ? { language } : {}),
       ...(n.kind === 'dir' ? { children: toFileEntries(n.children ?? []) } : {}),
     };

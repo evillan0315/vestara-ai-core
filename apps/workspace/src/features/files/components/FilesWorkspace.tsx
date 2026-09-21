@@ -107,6 +107,13 @@ const MODES: ReadonlyArray<{
   },
 ];
 
+function classifyEntry(entry: FileEntry): FileClassification {
+  return classifyFile(
+    entry.mimeType ?? 'application/octet-stream',
+    entry.path,
+  );
+}
+
 export function FilesWorkspace({
   workspaceName,
   live,
@@ -221,8 +228,15 @@ export function FilesWorkspace({
   const openFile = useCallback(
     (entry: FileEntry) => {
       setSelectedPath(entry.path);
-      tabs.openTab(entry.path, entry.name);
-      setMode('editor');
+      const classification = classifyEntry(entry);
+
+      if (classification.isEditable) {
+        tabs.openTab(entry.path, entry.name);
+        setMode('editor');
+        return;
+      }
+
+      setMode('preview');
     },
     [tabs],
   );
@@ -266,12 +280,9 @@ export function FilesWorkspace({
     let cancelled = false;
 
     setPreviewContent({
-      classification: classifyFile(
-        activeTabEntry?.language
-          ? `text/${activeTabEntry.language}`
-          : 'application/octet-stream',
-        activeTabPath,
-      ),
+      classification: activeTabEntry
+        ? classifyEntry(activeTabEntry)
+        : classifyFile('application/octet-stream', activeTabPath),
       size: activeTabEntry?.size ?? 0,
       error: null,
       isLoading: true,
@@ -530,7 +541,7 @@ export function FilesWorkspace({
         }
       >
         <main
-          className="ar-panel ar-panel--main flex min-h-0 min-w-0 max-w-full flex-col overflow-auto"
+          className="ar-panel ar-panel--main flex min-h-0 min-w-0 max-w-full flex-col overflow-hidden"
           aria-label="File work area"
         >
           <div className="flex items-center gap-2 border-b border-[var(--vestara-border-subtle)] px-3 py-2">
@@ -599,10 +610,12 @@ export function FilesWorkspace({
                     filePath={activeTabPath}
                     classification={
                       previewContent?.classification ??
-                      classifyFile(
-                        'application/octet-stream',
-                        activeTabPath,
-                      )
+                      (activeTabEntry
+                        ? classifyEntry(activeTabEntry)
+                        : classifyFile(
+                            'application/octet-stream',
+                            activeTabPath,
+                          ))
                     }
                     content={editorContent}
                     contentBase64={
@@ -617,49 +630,57 @@ export function FilesWorkspace({
                     isLoading={
                       previewContent?.isLoading ?? false
                     }
-                    readOnly={false}
                     onSave={(newContent) => {
-                      tabs.markSaved(activeTabPath);
-
-                      const cached =
+                      const nextSize = new Blob([
+                        newContent,
+                      ]).size;
+                      const current =
                         contentCache.current.get(
                           activeTabPath,
-                        );
+                        ) ??
+                        previewContent ?? {
+                          classification:
+                            activeTabEntry
+                              ? classifyEntry(
+                                  activeTabEntry,
+                                )
+                              : classifyFile(
+                                  'application/octet-stream',
+                                  activeTabPath,
+                                ),
+                          size: nextSize,
+                        };
+                      const loaded: LoadedContent = {
+                        classification:
+                          current.classification,
+                        content: newContent,
+                        contentBase64:
+                          current.contentBase64,
+                        size: nextSize,
+                      };
 
-                      if (cached) {
-                        contentCache.current.set(
-                          activeTabPath,
-                          {
-                            ...cached,
-                            content: newContent,
-                            size: new Blob([
-                              newContent,
-                            ]).size,
-                          },
-                        );
-                      }
-                    }}
-                    onDirtyChange={(dirty) => {
-                      const current =
-                        tabsRef.current;
-
-                      tabs.setDraft(
+                      contentCache.current.set(
                         activeTabPath,
-                        current.drafts[
-                          activeTabPath
-                        ] ??
-                          previewContent?.content ??
-                          '',
-                        dirty,
+                        loaded,
                       );
+                      setPreviewContent({
+                        ...loaded,
+                        error: null,
+                        isLoading: false,
+                      });
+                      tabs.markSaved(activeTabPath);
+                      onChanged();
                     }}
                     onDraftChange={(draft) =>
                       tabs.setDraft(
                         activeTabPath,
                         draft,
-                        tabsRef.current.isDirty(
-                          activeTabPath,
-                        ),
+                        draft !==
+                          (contentCache.current.get(
+                            activeTabPath,
+                          )?.content ??
+                            previewContent?.content ??
+                            ''),
                       )
                     }
                     onCursorChange={(line, column) =>
@@ -1184,4 +1205,3 @@ function WorkspaceMenu({
     </>
   );
 }
-

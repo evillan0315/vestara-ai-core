@@ -32,11 +32,38 @@ export class PageScreenshotRunner {
       settleTimeoutMs: this.config.stabilityTimeoutMs,
     });
 
+    if (route.id === 'activity') {
+      await page.getByText('Activity Stream').waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+      await page.getByText('Live', { exact: true }).first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+      await this.pinActivityStreamToLatest(page);
+    }
+
     await disableAnimations(page);
     await emulateReducedMotion(page);
     await applyMasks(page, route);
     await page.waitForTimeout(200);
 
     return page.screenshot({ fullPage: false, animations: 'disabled' });
+  }
+
+  private async pinActivityStreamToLatest(page: Page): Promise<void> {
+    const stream = page.getByRole('log', { name: 'Activity stream' });
+    await stream.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+    await stream.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    }).catch(() => {});
+
+    await page.evaluate(
+      () =>
+        new Promise<void>((resolve) => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(resolve);
+          });
+        }),
+    );
+
+    await stream.evaluate((element) => {
+      element.scrollTop = element.scrollHeight;
+    }).catch(() => {});
   }
 }

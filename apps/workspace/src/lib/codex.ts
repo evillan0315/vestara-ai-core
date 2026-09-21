@@ -5,6 +5,8 @@ export interface CodexRuntimeThreadSummary {
   sessionId?: string;
   cwd?: string;
   modelProvider?: string;
+  preview?: string;
+  source?: string;
   status?: unknown;
   createdAt?: number;
   updatedAt?: number;
@@ -18,6 +20,8 @@ export interface CodexRuntimeSessionSummary {
   lastSeenAt: string;
   lastEventAt?: string;
   connectedClients: number;
+  apiClients?: number;
+  appServerClientConnected?: boolean;
   threadCount: number;
   turnsStarted: number;
   threads: CodexRuntimeThreadSummary[];

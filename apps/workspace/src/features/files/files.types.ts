@@ -27,6 +27,8 @@ export interface FileEntry {
   readonly createdAt?: string;
   /** Language hint for files (e.g. "typescript") */
   readonly language?: string;
+  /** MIME type from the browse projection when available */
+  readonly mimeType?: string;
   /** Children for directories */
   readonly children?: readonly FileEntry[];
 }

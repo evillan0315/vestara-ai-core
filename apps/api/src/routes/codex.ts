@@ -73,14 +73,16 @@ export async function handleCodexRoute(
   if (method === 'GET' && p === '/api/codex/status') {
     const started = Date.now();
     const config = resolveRouteConfig(req);
-    const session = cachedClient?.config.appServerUrl === config.appServerUrl ? cachedClient : undefined;
+    let session = cachedClient?.config.appServerUrl === config.appServerUrl ? cachedClient : undefined;
     let reachable = false;
+    let statusError: string | undefined;
     try {
-      const client = session?.client ?? new CodexAppServerClient({ config });
-      reachable = await client.healthCheck();
-      if (!session) await client.close().catch(() => undefined);
-    } catch {
+      session = await getCodexClient(req);
+      reachable = true;
+      await refreshDiscoveredThreads(session);
+    } catch (error) {
       reachable = false;
+      statusError = error instanceof Error ? error.message : String(error);
     }
     json(res, 200, {
       integration: 'codex',
@@ -92,9 +94,10 @@ export async function handleCodexRoute(
       sessions: Array.from(codexSessions.values()).map(codexSessionSummary),
       activeSessionId: session?.sessionId ?? null,
       connectedClients: Array.from(codexSessions.values()).reduce(
-        (sum, candidate) => sum + candidate.connectedClients.size,
+        (sum, candidate) => sum + codexConnectedClientCount(candidate),
         0,
       ),
+      ...(statusError ? { error: statusError } : {}),
     });
     return true;
   }
@@ -292,6 +295,11 @@ export function rememberThread(session: CachedCodexClient, thread: CodexThread |
   session.lastSeenAt = new Date().toISOString();
 }
 
+async function refreshDiscoveredThreads(session: CachedCodexClient): Promise<void> {
+  const threads = await session.client.listThreads({ limit: 50, sortDirection: 'desc' });
+  for (const thread of threads.data) rememberThread(session, thread);
+}
+
 export function codexRuntimeSnapshot(appServerUrl?: string): Record<string, unknown> {
   const config = resolveCodexRuntimeConfig({
     appServerUrl: appServerUrl ?? process.env.CODEX_APP_SERVER_URL ?? undefined,
@@ -373,6 +381,8 @@ function codexSessionSummary(session: CachedCodexClient): Record<string, unknown
     sessionId: thread.sessionId,
     cwd: thread.cwd,
     modelProvider: thread.modelProvider,
+    preview: typeof thread.preview === 'string' ? thread.preview : undefined,
+    source: typeof thread.source === 'string' ? thread.source : undefined,
     status: thread.status,
     createdAt: thread.createdAt,
     updatedAt: thread.updatedAt,
@@ -384,11 +394,17 @@ function codexSessionSummary(session: CachedCodexClient): Record<string, unknown
     createdAt: session.createdAt,
     lastSeenAt: session.lastSeenAt,
     lastEventAt: session.lastEventAt,
-    connectedClients: session.connectedClients.size,
+    connectedClients: codexConnectedClientCount(session),
+    apiClients: session.connectedClients.size,
+    appServerClientConnected: session.client.isConnected,
     threadCount: threads.length,
     turnsStarted: session.turnsStarted,
     threads,
   };
+}
+
+function codexConnectedClientCount(session: CachedCodexClient): number {
+  return session.connectedClients.size + (session.client.isConnected ? 1 : 0);
 }
 
 function threadIdOf(event: CodexAppServerNotification): string | undefined {

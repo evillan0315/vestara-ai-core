@@ -77,6 +77,22 @@ const AUDIO_MIME_TYPES = new Set([
   'audio/mp4',
 ]);
 
+/** Extension fallback for browse projections that do not expose MIME types. */
+const IMAGE_EXTENSIONS = new Set([
+  '.png',
+  '.jpg',
+  '.jpeg',
+  '.gif',
+  '.webp',
+  '.svg',
+  '.bmp',
+  '.ico',
+  '.tiff',
+  '.avif',
+]);
+const VIDEO_EXTENSIONS = new Set(['.mp4', '.webm', '.ogv', '.mov', '.avi', '.mkv']);
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.ogg', '.flac', '.m4a']);
+
 /** Extension to language hint mapping for syntax highlighting */
 const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   '.js': 'javascript',
@@ -122,13 +138,21 @@ const EXTENSION_LANGUAGE_MAP: Record<string, string> = {
   '.astro': 'astro',
 };
 
+function extensionForPath(filePath: string): string {
+  const basename = filePath.toLowerCase().split('/').pop() ?? filePath.toLowerCase();
+  if (basename === 'dockerfile') return '.dockerfile';
+
+  const dotIndex = basename.lastIndexOf('.');
+  return dotIndex >= 0 ? basename.slice(dotIndex) : '';
+}
+
 /**
  * Classify a file by its MIME type and path for preview/editor routing.
  * Does NOT rely solely on filename extension — MIME type from API is primary.
  */
 export function classifyFile(mimeType: string, filePath: string): FileClassification {
   const normalizedMime = mimeType.toLowerCase();
-  const ext = filePath.toLowerCase().slice(filePath.lastIndexOf('.'));
+  const ext = extensionForPath(filePath);
 
   let previewType: FilePreviewType;
   let isEditable = false;
@@ -149,6 +173,20 @@ export function classifyFile(mimeType: string, filePath: string): FileClassifica
     isPreviewable = true;
     isEditable = true;
     languageHint = EXTENSION_LANGUAGE_MAP[ext] || normalizedMime.replace('text/', '').replace('application/', '');
+  } else if (IMAGE_EXTENSIONS.has(ext)) {
+    previewType = 'image';
+    isPreviewable = true;
+  } else if (VIDEO_EXTENSIONS.has(ext)) {
+    previewType = 'video';
+    isPreviewable = true;
+  } else if (AUDIO_EXTENSIONS.has(ext)) {
+    previewType = 'audio';
+    isPreviewable = true;
+  } else if (EXTENSION_LANGUAGE_MAP[ext]) {
+    previewType = 'text';
+    isPreviewable = true;
+    isEditable = true;
+    languageHint = EXTENSION_LANGUAGE_MAP[ext];
   } else {
     previewType = 'unsupported';
   }

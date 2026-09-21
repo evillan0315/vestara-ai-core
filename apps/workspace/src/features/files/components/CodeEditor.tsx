@@ -1,9 +1,12 @@
 /**
  * Reusable Code Editor Component
  *
- * View/read-only mode + edit mode with syntax highlighting via highlight.js.
- * Dirty-state awareness, explicit save, keyboard accessibility, large-file safety.
+ * Editable code/text surface with dirty-state awareness, explicit save,
+ * keyboard accessibility, and large-file safety.
  * Saves via the authoritative /api/files/write endpoint (filesystem-runtime).
+ *
+ * Uses @monaco-editor/react for rich editing (syntax highlighting, IntelliSense, etc.)
+ * while preserving the original toolbar, dirty tracking, and save semantics.
  *
  * Architecture Traceability:
  *   FILES-ASSETS-001: Assets, Media Preview & Reusable Code Viewer/Editor
@@ -11,8 +14,12 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import hljs from 'highlight.js/lib/common';
-import { Button, Card, CardContent, Pill, EmptyState } from '@vestara/ui';
+import { Button, Card, CardContent } from '@vestara/ui';
+import Editor, { type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 import { getHighlightLanguage, type FileClassification } from '../file-classification';
+
+type Monaco = Parameters<OnMount>[1];
 
 interface CodeEditorProps {
   /** File path (workspace-relative) */
@@ -21,8 +28,6 @@ interface CodeEditorProps {
   content: string;
   /** File classification for language detection */
   classification: FileClassification;
-  /** Read-only mode (no edit/save) */
-  readOnly?: boolean;
   /** Called when content is saved successfully */
   onSave?: (newContent: string) => void;
   /** Called when dirty state changes */
@@ -33,33 +38,41 @@ interface CodeEditorProps {
   onCursorChange?: (line: number, column: number) => void;
   /** Maximum file size for editing (bytes) */
   maxEditSize?: number;
+  /** Explicit editor theme; defaults to 'light'. */
+  theme?: 'light' | 'dark';
 }
 
 const MAX_EDIT_SIZE_DEFAULT = 2 * 1024 * 1024; // 2 MB
 /** Warning tier: files above this size edit slowly (F-E-3, below the hard cap). */
 const LARGE_FILE_WARN_SIZE = 512 * 1024; // 512 KB
 
+// Mapping application themes to Monaco Editor themes
+const MONACO_THEME_MAP: Record<'light' | 'dark', string> = {
+  light: 'vs-light',
+  dark: 'vs-dark',
+};
+
 export function CodeEditor({
   filePath,
   content: initialContent,
   classification,
-  readOnly = false,
   onSave,
   onDirtyChange,
   onDraftChange,
   onCursorChange,
   maxEditSize = MAX_EDIT_SIZE_DEFAULT,
+  theme = 'dark',
 }: CodeEditorProps) {
   const [content, setContent] = useState(initialContent);
-  const [isEditing, setIsEditing] = useState(false);
   const [isDirty, setIsDirty] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSaved, setLastSaved] = useState<string | null>(null);
 
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const highlightedRef = useRef<HTMLPreElement>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const originalContentRef = useRef(initialContent);
+
+  const monacoTheme = MONACO_THEME_MAP[theme] || 'vs-light';
 
   // Update content when initialContent changes (e.g., file switched)
   useEffect(() => {
@@ -81,27 +94,8 @@ export function CodeEditor({
     onDraftChangeRef.current?.(content);
   }, [content, onDirtyChange]);
 
-  // Apply syntax highlighting in view mode
-  useEffect(() => {
-    if (!isEditing && highlightedRef.current) {
-      const lang = getHighlightLanguage(classification.languageHint);
-      const codeEl = highlightedRef.current.querySelector('code');
-      if (codeEl && lang && hljs.getLanguage(lang)) {
-        hljs.highlightElement(codeEl);
-      }
-    }
-  }, [isEditing, content, classification.languageHint]);
-
-  const handleEdit = useCallback(() => {
-    if (!readOnly) {
-      setIsEditing(true);
-      // Focus textarea on next tick
-      setTimeout(() => textareaRef.current?.focus(), 0);
-    }
-  }, [readOnly]);
-
   const handleSave = useCallback(async () => {
-    if (isSaving || readOnly) return;
+    if (isSaving) return;
 
     const contentSize = new Blob([content]).size;
     if (contentSize > maxEditSize) {
@@ -127,7 +121,6 @@ export function CodeEditor({
 
       originalContentRef.current = content;
       setIsDirty(false);
-      setIsEditing(false);
       setLastSaved(new Date().toISOString());
       onSave?.(content);
     } catch (err) {
@@ -135,71 +128,63 @@ export function CodeEditor({
     } finally {
       setIsSaving(false);
     }
-  }, [content, filePath, isSaving, maxEditSize, onSave, readOnly]);
+  }, [content, filePath, isSaving, maxEditSize, onSave]);
+
+  const handleSaveRef = useRef(handleSave);
+  handleSaveRef.current = handleSave;
 
   const handleCancel = useCallback(() => {
-    setContent(originalContentRef.current);
-    setIsEditing(false);
+    const restored = originalContentRef.current;
+    setContent(restored);
     setIsDirty(false);
     setError(null);
+    // Also reflect the revert inside Monaco
+    if (editorRef.current) {
+      editorRef.current.setValue(restored);
+    }
   }, []);
 
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-      // Ctrl/Cmd+S to save
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        if (isEditing && !readOnly) handleSave();
-      }
-      // Escape to cancel
-      if (e.key === 'Escape' && isEditing) {
-        e.preventDefault();
-        handleCancel();
-      }
-      // Tab handling for indentation
-      if (e.key === 'Tab' && isEditing) {
-        e.preventDefault();
-        const textarea = e.currentTarget;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const newContent = content.substring(0, start) + '  ' + content.substring(end);
-        setContent(newContent);
-        // Restore cursor position after state update
-        setTimeout(() => {
-          textarea.selectionStart = textarea.selectionEnd = start + 2;
-        }, 0);
+  const handleChange = useCallback((value: string | undefined) => {
+    setContent(value ?? '');
+  }, []);
+
+  // Monaco mount: register Ctrl/Cmd+S and cursor listener
+  const handleEditorDidMount: OnMount = useCallback(
+    (editorInstance, monaco: Monaco) => {
+      editorRef.current = editorInstance;
+
+      // Ctrl/Cmd+S -> save (prevents browser save dialog)
+      editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+        void handleSaveRef.current();
+      });
+
+      // Cursor position changes
+      if (onCursorChange) {
+        editorInstance.onDidChangeCursorPosition((e) => {
+          onCursorChange(e.position.lineNumber, e.position.column);
+        });
+        const position = editorInstance.getPosition();
+        if (position) {
+          onCursorChange(position.lineNumber, position.column);
+        }
       }
     },
-    [content, handleSave, handleCancel, isEditing, readOnly],
+    [onCursorChange],
   );
-
-  const handleChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setContent(e.target.value);
-  }, []);
-
-  const reportCursor = useCallback(() => {
-    const ta = textareaRef.current;
-    if (!ta) return;
-    const pos = ta.selectionStart ?? 0;
-    const upToCursor = ta.value.slice(0, pos);
-    const line = upToCursor.split('\n').length;
-    const column = pos - (upToCursor.lastIndexOf('\n') + 1) + 1;
-    onCursorChange?.(line, column);
-  }, [onCursorChange]);
 
   const size = new Blob([content]).size;
   const sizeKB = (size / 1024).toFixed(1);
   const isLarge = size > maxEditSize;
   const isHefty = !isLarge && size > LARGE_FILE_WARN_SIZE;
 
-  const language = classification.languageHint || 'plaintext';
+  const language = getHighlightLanguage(classification.languageHint) || 'plaintext';
 
   return (
-    <Card className="code-editor min-w-0">
-      <CardContent className="p-0">
+    <div className="code-editor h-full flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="flex h-full  min-h-0 flex-1 flex-col p-0">
         {/* Toolbar */}
         <div
-          className="code-editor-toolbar flex items-center gap-2 px-3 py-2 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)]"
+          className="code-editor-toolbar flex items-center gap-2 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-accent)]"
           role="toolbar"
           aria-label="Code editor actions"
         >
@@ -222,7 +207,7 @@ export function CodeEditor({
               Saved {new Date(lastSaved).toLocaleTimeString()}
             </span>
           )}
-          {isDirty && !readOnly && (
+          {isDirty && (
             <span className="text-xs text-[var(--vestara-status-warning)]" aria-live="polite">
               ● Unsaved
             </span>
@@ -232,91 +217,64 @@ export function CodeEditor({
               {error}
             </span>
           )}
-          {!readOnly && !isEditing && !isLarge && (
-            <Button variant="ghost" size="sm" onClick={handleEdit} aria-label="Edit file">
-              Edit
-            </Button>
-          )}
-          {isEditing && !readOnly && (
-            <>
-              <Button variant="ghost" size="sm" onClick={handleCancel} aria-label="Cancel editing">
-                Cancel
-              </Button>
-              <Button
-                variant="primary"
-                size="sm"
-                onClick={handleSave}
-                disabled={isSaving || !isDirty}
-                aria-label="Save file"
-                aria-busy={isSaving}
-              >
-                {isSaving ? 'Saving…' : 'Save'}
-              </Button>
-            </>
-          )}
-          {readOnly && (
-            <Pill className="text-xs">
-              Read-only
-            </Pill>
-          )}
+          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={!isDirty} aria-label="Revert changes">
+            Revert
+          </Button>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleSave}
+            disabled={isSaving || !isDirty || isLarge}
+            aria-label="Save file"
+            aria-busy={isSaving}
+          >
+            {isSaving ? 'Saving…' : 'Save'}
+          </Button>
         </div>
 
-        {/* View Mode - Syntax Highlighted */}
-        {!isEditing && (
-          <div className="code-editor-view p-4 overflow-auto max-h-[60vh]">
-            <pre ref={highlightedRef} className="m-0">
-              <code
-                className={`language-${getHighlightLanguage(classification.languageHint) || 'plaintext'}`}
-                data-language={language}
-              >
-                {content}
-              </code>
-            </pre>
-          </div>
-        )}
-
-        {/* Edit Mode - Textarea */}
-        {isEditing && (
-          <div className="code-editor-edit p-0">
-            {isHefty && (
-              <div
-                className="border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-status-warning-bg)] px-4 py-1.5 text-xs text-[var(--vestara-status-warning)]"
-                role="note"
-              >
-                Large file ({sizeKB} KB) — editing may be slow. Save early, save often.
-              </div>
-            )}
-            <textarea
-              ref={textareaRef}
+        <div className="code-editor-edit h-full flex min-h-0 flex-1 flex-col overflow-hidden p-0">
+          {isHefty && (
+            <div
+              className="border-b h-full border-[var(--vestara-border-subtle)] bg-[var(--vestara-status-warning-bg)] px-4 py-1.5 text-xs text-[var(--vestara-status-warning)]"
+              role="note"
+            >
+              Large file ({sizeKB} KB) — editing may be slow. Save early, save often.
+            </div>
+          )}
+          <div className="min-h-0 w-full flex-1 h-full overflow-hidden">
+            <Editor
+              height="100%"
+              width="100%"
+              language={language}
+              theme={monacoTheme}
               value={content}
               onChange={handleChange}
-              onKeyDown={handleKeyDown}
-              onKeyUp={reportCursor}
-              onClick={reportCursor}
-              onSelect={reportCursor}
-              className="code-editor-textarea w-full min-h-[40vh] max-h-[60vh] p-4 font-mono text-[var(--vestara-code-font-size)] bg-[var(--vestara-surface-panel)] border-none outline-none resize-none text-[var(--vestara-text-primary)]"
-              placeholder="File is empty"
-              spellCheck={false}
-              aria-label={`Editing ${filePath}`}
-              readOnly={readOnly || isLarge}
+              onMount={handleEditorDidMount}
+              options={{
+                readOnly: isLarge,
+                wordWrap: 'on',
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                tabSize: 2,
+                insertSpaces: true,
+                renderWhitespace: 'selection',
+                scrollbar: {
+                  verticalScrollbarSize: 10,
+                  horizontalScrollbarSize: 10,
+                },
+              }}
             />
-            {isLarge && (
-              <div className="p-4 text-center text-[var(--vestara-status-warning)] bg-[var(--vestara-status-warning-bg)] border-t border-[var(--vestara-border-subtle)]">
-                File exceeds maximum edit size ({maxEditSize / 1024 / 1024} MB). Editing disabled.
-              </div>
-            )}
           </div>
-        )}
-
-        {content === '' && !isEditing && (
-          <EmptyState
-            title="Empty file"
-            description="Switch to edit mode to add content."
-            className="h-[300px]"
-          />
-        )}
-      </CardContent>
-    </Card>
+          {isLarge && (
+            <div className="p-4 text-center text-[var(--vestara-status-warning)] bg-[var(--vestara-status-warning-bg)] border-t border-[var(--vestara-border-subtle)]">
+              File exceeds maximum edit size ({maxEditSize / 1024 / 1024} MB). Editing disabled.
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -339,7 +297,7 @@ export function CodeViewer({
   }, [content, classification.languageHint]);
 
   return (
-    <Card className="code-viewer min-w-0">
+    <Card className="code-viewer flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
       <CardContent className="p-3 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-interactive)]">
         <div className="flex items-center gap-2">
           <span className="font-mono text-xs text-[var(--vestara-text-muted)] truncate max-w-[200px]" title={filePath}>
@@ -352,7 +310,7 @@ export function CodeViewer({
           </span>
         </div>
       </CardContent>
-      <CardContent className="p-4 overflow-auto max-h-[60vh]">
+      <CardContent className="code-viewer-body min-h-0 flex-1 overflow-auto p-4">
         <pre ref={highlightedRef} className="m-0">
           <code className={`language-${getHighlightLanguage(classification.languageHint) || 'plaintext'}`}>{content}</code>
         </pre>

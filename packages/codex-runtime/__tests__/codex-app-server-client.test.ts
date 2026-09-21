@@ -62,6 +62,19 @@ describe('CodexAppServerClient', () => {
           );
           return;
         }
+        if (message.method === 'thread/list') {
+          socket.send(
+            JSON.stringify({
+              id: message.id,
+              result: {
+                data: [{ id: 'thread-1', status: { type: 'notLoaded' }, preview: 'Hello from history' }],
+                nextCursor: null,
+                backwardsCursor: null,
+              },
+            }),
+          );
+          return;
+        }
         if (message.method === 'thread/turns/list') {
           socket.send(
             JSON.stringify({
@@ -108,6 +121,7 @@ describe('CodexAppServerClient', () => {
 
     const initialized = await client.initialize({ name: 'vestara-test-client', version: 'test' });
     const thread = await client.startThread();
+    const threads = await client.listThreads({ limit: 10 });
     const turn = await client.startTextTurn(thread.thread.id, 'Say hello in one sentence.');
     const turns = await client.listThreadTurns({ threadId: thread.thread.id });
     const items = await client.listThreadItems({
@@ -118,6 +132,7 @@ describe('CodexAppServerClient', () => {
 
     expect(initialized.userAgent).toBe('vestara-test');
     expect(thread.thread.id).toBe('thread-1');
+    expect(threads.data[0]?.preview).toBe('Hello from history');
     expect(turn.turn?.id).toBe('turn-1');
     expect(turns.data[0]?.id).toBe('turn-1');
     expect(items.data[0]).toEqual({ type: 'agentMessage', id: 'msg-1', text: 'Hello.' });
@@ -125,6 +140,7 @@ describe('CodexAppServerClient', () => {
       'initialize',
       'initialized',
       'thread/start',
+      'thread/list',
       'turn/start',
       'thread/turns/list',
       'thread/items/list',

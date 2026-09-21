@@ -118,9 +118,11 @@ function RuntimeRows({ status }: { readonly status: CodexRuntimeStatus | null })
               key={`${thread.runtimeSessionId}:${thread.id}`}
               className="flex items-center justify-between gap-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2 py-1.5 text-[11px]"
             >
-              <span className="min-w-0 truncate font-mono text-[var(--vestara-text-secondary)]">{thread.id}</span>
+              <span className="min-w-0 truncate text-[var(--vestara-text-secondary)]" title={thread.preview ?? thread.id}>
+                {thread.preview ?? thread.id}
+              </span>
               <span className="shrink-0 tabular-nums text-[var(--vestara-text-muted)]">
-                {thread.bufferedEvents} events
+                {thread.source ?? `${thread.bufferedEvents} events`}
               </span>
             </div>
           ))}

@@ -101,7 +101,7 @@
 
 :root {
   --files-editor-toolbar-bg: var(--vestara-surface-interactive);
-  --files-editor-textarea-bg: var(--vestara-surface-panel);
+  --files-editor-textarea-bg: var(--vestara-surface-assistant);
   --files-editor-textarea-border: var(--vestara-border-subtle);
   --files-editor-font-size: var(--vestara-font-size-sm);
   --files-editor-line-height: 1.6;
@@ -123,14 +123,13 @@
   border-radius: var(--vestara-radius-sm);
 }
 
-/* View mode */
-.code-editor-view,
+/* Editable surface */
 .code-editor-edit {
   background: var(--files-editor-textarea-bg);
 }
 
-.code-editor-view pre,
-.code-editor-edit textarea {
+.code-editor-edit textarea,
+.code-viewer-body pre {
   margin: 0;
   font-family: var(--vestara-code-font-family, 'JetBrains Mono', monospace);
   font-size: var(--files-editor-font-size);
@@ -139,21 +138,19 @@
   background: transparent;
 }
 
-.code-editor-view code {
+.code-viewer-body code {
   display: block;
   overflow-x: auto;
   padding: var(--vestara-spacing-section);
 }
 
-.code-editor-view .hljs {
+.code-viewer-body .hljs {
   background: transparent;
 }
 
-/* Edit mode textarea */
 .code-editor-textarea {
   width: 100%;
-  min-height: 40vh;
-  max-height: 60vh;
+  min-height: 0;
   padding: var(--vestara-spacing-section);
   border: none;
   outline: none;
@@ -203,7 +200,7 @@
 .hljs-built_in,
 .hljs-name,
 .hljs-tag {
-  color: #c678dd; /* purple */
+  color: var(--vestara-accent);
 }
 
 .hljs-string,
@@ -218,64 +215,64 @@
 .hljs-quote,
 .hljs-template-tag,
 .hljs-deletion {
-  color: #98c379; /* green */
+  color: var(--vestara-status-success);
 }
 
 .hljs-number,
 .hljs-symbol,
 .hljs-bullet,
 .hljs-link {
-  color: #d19a66; /* orange */
+  color: var(--vestara-status-warning);
 }
 
 .hljs-variable,
 .hljs-template-variable {
-  color: #e06c75; /* red */
+  color: var(--vestara-status-error);
 }
 
 .hljs-comment,
 .hljs-meta {
-  color: #5c6370; /* gray */
+  color: var(--vestara-text-muted);
 }
 
 .hljs-function,
 .hljs-function .hljs-title {
-  color: #61afef; /* blue */
+  color: var(--vestara-status-info);
 }
 
 .hljs-params,
 .hljs-class .hljs-title {
-  color: #e5c07b; /* yellow */
+  color: var(--vestara-status-warning);
 }
 
 .hljs-regexp,
 .hljs-attr {
-  color: #56b6c2; /* cyan */
+  color: var(--vestara-status-info);
 }
 
 /* Scrollbar styling for editor/preview */
-.code-editor-view::-webkit-scrollbar,
 .code-editor-textarea::-webkit-scrollbar,
+.code-viewer-body::-webkit-scrollbar,
 .file-preview ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
-.code-editor-view::-webkit-scrollbar-track,
 .code-editor-textarea::-webkit-scrollbar-track,
+.code-viewer-body::-webkit-scrollbar-track,
 .file-preview ::-webkit-scrollbar-track {
   background: var(--vestara-surface-interactive);
 }
 
-.code-editor-view::-webkit-scrollbar-thumb,
 .code-editor-textarea::-webkit-scrollbar-thumb,
+.code-viewer-body::-webkit-scrollbar-thumb,
 .file-preview ::-webkit-scrollbar-thumb {
   background: var(--vestara-border-strong);
   border-radius: var(--vestara-radius-full);
 }
 
-.code-editor-view::-webkit-scrollbar-thumb:hover,
 .code-editor-textarea::-webkit-scrollbar-thumb:hover,
+.code-viewer-body::-webkit-scrollbar-thumb:hover,
 .file-preview ::-webkit-scrollbar-thumb:hover {
   background: var(--vestara-text-muted);
 }

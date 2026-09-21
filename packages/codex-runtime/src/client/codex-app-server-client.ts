@@ -11,6 +11,8 @@ import type {
   CodexPageParams,
   CodexThreadReadParams,
   CodexThreadReadResult,
+  CodexThreadListParams,
+  CodexThreadListResult,
   CodexThreadStartResult,
   CodexTurnInputPart,
   CodexTurnListResult,
@@ -124,6 +126,11 @@ export class CodexAppServerClient {
   async startThread(params: Record<string, unknown> = {}): Promise<CodexThreadStartResult> {
     await this.ensureInitialized();
     return this.request<CodexThreadStartResult>('thread/start', params);
+  }
+
+  async listThreads(params: CodexThreadListParams = {}): Promise<CodexThreadListResult> {
+    await this.ensureInitialized();
+    return this.request<CodexThreadListResult>('thread/list', params);
   }
 
   async readThread(params: CodexThreadReadParams): Promise<CodexThreadReadResult> {
