@@ -1,7 +1,7 @@
 /**
  * Deterministic screenshot naming.
  *
- * Name format: `Title.viewport.theme.png` (e.g. `Dashboard.desktop-1920.dark.png`).
+ * Name format: `route-id.viewport.theme.png` (e.g. `overview.desktop-1920.dark.png`).
  */
 
 import type { Theme, Viewport } from '../config.js';
@@ -24,10 +24,10 @@ function slug(value: string): string {
 
 /** Sanitized base name for a route (used in filenames). */
 export function routeBaseName(route: RouteDefinition): string {
-  return slug(route.title || route.id);
+  return slug(route.id || route.title);
 }
 
-/** Build a screenshot filename: `Title.viewport.theme.png`. */
+/** Build a screenshot filename: `route-id.viewport.theme.png`. */
 export function screenshotName(
   route: RouteDefinition,
   viewport: Viewport,

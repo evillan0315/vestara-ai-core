@@ -39,7 +39,7 @@ flowchart TD
 | `config.ts` | viewports, themes, tolerance, mode, output layout (env-driven) |
 | `routes/manifest.ts` | derives typed `RouteDefinition[]` from `src/routes.ts` |
 | `routes/discovery.ts` | applies policy filters (hidden/admin/dev/disabled) + env route filter |
-| `helpers/naming.ts` | deterministic `Title.viewport.theme.png` filenames + shot keys |
+| `helpers/naming.ts` | deterministic `route-id.viewport.theme.png` filenames + shot keys |
 | `helpers/stability.ts` | waits for fonts/settle, disables animations/transitions/cursors |
 | `helpers/masks.ts` | paints over dynamic regions (charts, toasts, live counters) |
 | `helpers/theme.ts` | seeds the `vestara-theme` localStorage key before navigation |

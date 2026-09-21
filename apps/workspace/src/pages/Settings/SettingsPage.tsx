@@ -1,6 +1,6 @@
-import type { ResolvedConfiguration, ResolvedSetting, SettingsSectionId } from '@vestara/configuration';
+import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, Navigate, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, Route, Routes, useNavigate, useSearchParams } from 'react-router-dom';
 import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, useTheme } from '../../lib/theme.js';
@@ -12,8 +12,7 @@ import {
   settingsClient,
 } from './settings-client.js';
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
-import { SETTINGS_SECTIONS, settingsGroupLabel } from './settings-navigation.js';
-import { SettingsLayout } from '../../layouts/SettingsLayout';
+import { SETTINGS_SECTIONS } from './settings-navigation.js';
 import {
   Button,
   FactRow,
@@ -34,6 +33,7 @@ import EnvironmentVariables from './EnvironmentVariables.js';
 import SystemOverview from './SystemOverview.js';
 import AssistantExecutionSettings from './AI/AssistantExecution/AssistantExecutionSettings.js';
 import { CISettings } from './CI/CISettings.js';
+import { SettingsGeneralReference, SettingsReferenceFrame } from './SettingsReferenceSurface.js';
 
 // ─── New canonical components ──────────────────────────────────────────
 
@@ -258,12 +258,7 @@ function Overview({ data, onRefresh }: { data: SettingsData; onRefresh: () => vo
       <div className="st-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
         <span
           aria-hidden="true"
-          className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border text-[var(--vestara-accent-text)] [&_svg]:size-[18px]"
-          style={{
-            color: 'var(--vestara-accent-text)',
-            background: 'color-mix(in srgb, var(--vestara-accent-text) 12%, transparent)',
-            borderColor: 'color-mix(in srgb, var(--vestara-accent-text) 30%, transparent)',
-          }}
+          className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[color-mix(in_srgb,var(--vestara-accent-text)_30%,transparent)] bg-[color-mix(in_srgb,var(--vestara-accent-text)_12%,transparent)] text-[var(--vestara-accent-text)] [&_svg]:size-[18px]"
         >
           {navIcon('generic')}
         </span>
@@ -676,40 +671,9 @@ function LoadingState() {
   );
 }
 
-/**
- * Lightweight selected-domain heading (no second hero): gives the active
- * domain visual ownership of the content column — Navigation → selected →
- * domain title — while domain panels stay lighter section surfaces below.
- */
-function DetailDomainHeader() {
-  const location = useLocation();
-  const segment = location.pathname.replace(/^\/settings\/?/, '').split('/')[0] ?? '';
-  const meta = SECTIONS.find((section) => section.id === segment);
-  if (!meta || meta.id === 'overview') return null;
-  return (
-    <div className="mb-4 flex min-w-0 flex-wrap items-end justify-between gap-2">
-      <div className="min-w-0">
-        <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-          {settingsGroupLabel(meta.group)} · Settings
-        </p>
-        <h2 className="mt-0.5 text-lg font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-          {meta.label}
-        </h2>
-        <p className="mt-0.5 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-          {meta.description}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 export default function SettingsPage() {
-  const location = useLocation();
-  const segment = location.pathname.replace(/^\/settings\/?/, '').split('/')[0] ?? '';
-  const selectedSection = SECTIONS.find((section) => section.id === segment);
   const [data, setData] = useState<SettingsData | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [query, setQuery] = useState('');
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -724,37 +688,9 @@ export default function SettingsPage() {
       setError(cause instanceof Error ? cause.message : 'Settings are unavailable');
     }
   }, []);
-  const onFieldChange = (key: string, value: unknown) =>
-    setData(current =>
-      current ? {
-        ...current,
-        configuration: {
-          ...current.configuration,
-          settings: current.configuration.settings.map(s =>
-            s.key === key
-              ? ({ ...s, value } as ResolvedSetting)
-              : s
-          ) as readonly ResolvedSetting[],
-        },
-      } : current
-    );
   useEffect(() => {
     void load();
   }, [load]);
-  const visible = useMemo(
-    () =>
-      SECTIONS.filter((section) => {
-        const settingKeys =
-          data?.configuration.settings
-            .filter((setting) => setting.section === section.id)
-            .map((setting) => setting.key)
-            .join(' ') ?? '';
-        return `${section.label} ${section.description} ${settingsGroupLabel(section.group)} ${settingKeys}`
-          .toLowerCase()
-          .includes(query.toLowerCase());
-      }),
-    [data, query],
-  );
   const changed = (configuration: ResolvedConfiguration) =>
     setData((current) => (current ? { ...current, configuration } : current));
   // Hero summary is a projection of authoritative API/runtime state —
@@ -776,20 +712,21 @@ export default function SettingsPage() {
         <LoadingState />
       ) : (
         <>
-          <DetailDomainHeader />
-
-          <SettingsLayout
-              configuration={data.configuration}
-              runtime={data.runtime}
-              onFieldChange={onFieldChange}
-              selectedSection={selectedSection ? { id: selectedSection.id } : undefined}
-              onSaveClick={() => {}}
-            />
+          <SettingsReferenceFrame configuration={data.configuration} runtime={data.runtime}>
             <Routes>
-              <Route index element={<Navigate to="overview" replace />} />
+              <Route index element={<Navigate to="general" replace />} />
               <Route path="overview" element={<Overview data={data} onRefresh={() => void load()} />} />
               <Route path="hero" element={<HeroSettings />} />
-              <Route path="general" element={<GeneralRoute configuration={data.configuration} onChanged={changed} />} />
+              <Route
+                path="general"
+                element={
+                  <SettingsGeneralReference
+                    configuration={data.configuration}
+                    runtime={data.runtime}
+                    onChanged={changed}
+                  />
+                }
+              />
               <Route path="profiles" element={<ProfilesPanel />} />
               <Route path="appearance" element={<AppearancePanel />} />
               <Route path="typography" element={<TypographyPanel />} />
@@ -824,6 +761,7 @@ export default function SettingsPage() {
               <Route path="ci" element={<CISettings />} />
               <Route path="*" element={<Navigate to="overview" replace />} />
             </Routes>
+          </SettingsReferenceFrame>
         </>
       )}
     </WorkspacePanelLayout>

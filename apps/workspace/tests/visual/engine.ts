@@ -51,7 +51,7 @@ export class VisualTestEngine {
       for (const viewport of this.config.viewports) {
         for (const theme of themes) {
           out.push({
-            title: `${route.title}.${viewport.id}.${theme.id}`,
+            title: `${route.id}.${viewport.id}.${theme.id}`,
             route,
             viewport,
             theme,
