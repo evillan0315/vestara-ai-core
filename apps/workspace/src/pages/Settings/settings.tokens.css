@@ -84,3 +84,14 @@
   font-weight: 600;
   color: var(--vestara-text-primary);
 }
+
+/* ── Horizontally scrollable panel variant ── */
+.st-panel-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+}
+
+.st-panel-scroll-x::-webkit-scrollbar {
+  display: none;
+}

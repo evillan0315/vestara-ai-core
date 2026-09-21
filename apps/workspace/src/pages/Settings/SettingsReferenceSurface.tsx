@@ -102,7 +102,7 @@ function SettingsHero({ configuration, runtime }: { configuration: ResolvedConfi
         </div>
         <div className="grid min-w-0 gap-[var(--vestara-spacing-3)] sm:grid-cols-3 lg:w-[min(48rem,55%)]">
           <HeroFact icon={navIcon('files')} label="Workspace" value={settingValue(configuration, 'general.workspaceName')} />
-          <HeroFact icon={navIcon('terminal')} label="Environment" value={runtime.status} status />
+          <HeroFact icon={navIcon('terminal')} label="Runtime" value={runtime.runtimeVersion} />
           <HeroFact icon={navIcon('sessions')} label="Updated" value={relativeTime(configuration.generatedAt)} />
         </div>
       </div>
@@ -114,12 +114,10 @@ function HeroFact({
   icon,
   label,
   value,
-  status = false,
 }: {
   icon: ReactNode;
   label: string;
   value: string;
-  status?: boolean;
 }) {
   return (
     <div className="min-w-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_76%,transparent)] px-[var(--vestara-spacing-4)] py-[var(--vestara-spacing-3)]">
@@ -130,7 +128,7 @@ function HeroFact({
         <span className="min-w-0">
           <span className="block text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{label}</span>
           <span className="mt-[var(--vestara-spacing-1)] block truncate text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)]">
-            {status ? <Status bare value={value} /> : value}
+            {value}
           </span>
         </span>
       </div>
@@ -142,7 +140,7 @@ function SettingsTabs() {
   return (
     <nav
       aria-label="Settings sections"
-      className="st-panel flex min-w-0 flex-wrap overflow-hidden border border-[var(--vestara-border-subtle)]"
+      className="st-panel st-panel-scroll-x flex min-w-0 border border-[var(--vestara-border-subtle)]"
     >
       {GENERAL_TABS.map((id) => {
         const section = SETTINGS_SECTIONS.find((entry) => entry.id === id);
@@ -152,7 +150,7 @@ function SettingsTabs() {
             key={id}
             to={`/settings/${id}`}
             className={({ isActive }) =>
-              `flex min-h-12 min-w-32 flex-1 items-center justify-center gap-[var(--vestara-spacing-2)] border-r border-[var(--vestara-border-subtle)] px-[var(--vestara-spacing-4)] text-[var(--vestara-font-size-sm)] transition-colors last:border-r-0 ${focus} ${
+              `flex min-h-12 min-w-32 flex-1 shrink-0 items-center justify-center gap-[var(--vestara-spacing-2)] whitespace-nowrap border-r border-[var(--vestara-border-subtle)] px-[var(--vestara-spacing-4)] text-[var(--vestara-font-size-sm)] transition-colors last:border-r-0 ${focus} ${
                 isActive
                   ? 'border-b-2 border-b-[var(--vestara-accent)] bg-[color-mix(in_srgb,var(--vestara-accent)_16%,transparent)] text-[var(--vestara-accent-text)]'
                   : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-surface-interactive-hover)] hover:text-[var(--vestara-text-primary)]'
@@ -194,17 +192,19 @@ function ReferenceCard({
   description,
   children,
   className = '',
+  tone = 'accent',
 }: {
   icon: ReactNode;
   title: string;
   description?: string;
   children: ReactNode;
   className?: string;
+  tone?: 'accent' | 'info';
 }) {
   return (
     <section className={`st-panel min-w-0 p-[var(--vestara-spacing-5)] ${className}`}>
       <header className="mb-[var(--vestara-spacing-5)] flex min-w-0 items-start gap-[var(--vestara-spacing-3)]">
-        <SectionIcon icon={icon} tone="info" />
+        <SectionIcon icon={icon} tone={tone} />
         <div className="min-w-0">
           <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">{title}</h2>
           {description && (
@@ -338,7 +338,7 @@ function PreferencesCard({
     <ReferenceCard
       icon={navIcon('settings')}
       title="Preferences"
-      description="Personalize the backed workspace preferences."
+      description="Personalize how the workspace behaves for you."
     >
       <div className="space-y-[var(--vestara-spacing-3)]">
         {generalToggles.map((key) => (
@@ -376,14 +376,19 @@ function WorkspaceStatusCard({
 }) {
   const rows = [
     ['Status', <Status key="status" bare value={runtime.status} />],
-    ['Environment', runtime.apiEndpoint ? 'Connected API' : 'Unknown'],
+    ['API', runtime.apiEndpoint ? 'Connected API' : 'Unknown'],
     ['Version', <span key="version" className="font-mono">{runtime.runtimeVersion}</span>],
     ['Active executions', runtime.activeExecutionCount],
     ['Event store', runtime.engineeringEventStoreStatus],
     ['Revision', <span key="revision" className="font-mono">{configuration.revision.slice(0, 8)}</span>],
   ] as const;
   return (
-    <ReferenceCard icon={navIcon('activity')} title="Workspace Status" description="Current workspace health and status.">
+    <ReferenceCard
+      icon={navIcon('activity')}
+      title="Workspace Status"
+      description="Current workspace health and status."
+      tone="info"
+    >
       <div className="space-y-[var(--vestara-spacing-3)]">
         {rows.map(([label, value]) => (
           <div key={label} className="flex items-center justify-between gap-[var(--vestara-spacing-4)]">
@@ -456,6 +461,12 @@ export function SettingsGeneralReference({
   const onNotificationChange = (key: string, value: unknown) =>
     setNotificationDraft((state) => updateDraft(state, key, value));
 
+  const discard = () => {
+    setGeneralDraft(createDraft(configuration, 'general'));
+    setNotificationDraft(createDraft(configuration, 'notifications'));
+    setMessage(null);
+  };
+
   const save = async () => {
     setSaving(true);
     setMessage(null);
@@ -498,8 +509,8 @@ export function SettingsGeneralReference({
   );
 
   return (
-    <div className="grid min-w-0 gap-[var(--vestara-spacing-4)] xl:grid-cols-[minmax(0,1fr)_24rem]">
-      <div className="grid min-w-0 gap-[var(--vestara-spacing-4)] lg:grid-cols-2">
+    <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-2">
         <WorkspaceIdentityCard generalDraft={generalDraft} onDraftChange={onGeneralChange} />
         <RegionalCard generalDraft={generalDraft} onDraftChange={onGeneralChange} />
         <PreferencesCard
@@ -509,7 +520,7 @@ export function SettingsGeneralReference({
           onNotificationChange={onNotificationChange}
         />
       </div>
-      <aside className="min-w-0 space-y-[var(--vestara-spacing-4)]">
+      <aside className="min-w-0 space-y-[var(--vestara-spacing-section)]">
         <WorkspaceStatusCard runtime={runtime} configuration={configuration} />
         <QuickActionsCard onReset={() => void reset()} />
       </aside>
@@ -525,11 +536,11 @@ export function SettingsGeneralReference({
         <div className="flex flex-wrap gap-[var(--vestara-spacing-2)]">
           <button
             type="button"
-            onClick={() => void reset()}
-            disabled={saving}
+            onClick={discard}
+            disabled={saving || dirty === 0}
             className={`min-h-10 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-[var(--vestara-spacing-4)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] disabled:cursor-not-allowed disabled:opacity-60 ${focus}`}
           >
-            Reset values
+            Discard
           </button>
           <button
             type="button"
