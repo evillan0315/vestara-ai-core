@@ -31,6 +31,7 @@ export interface SurfaceTheme {
   assistant: string;
   overlay: string;
   interactive: string;
+  interactiveHover: string;
 }
 
 // ─── Text Theme ────────────────────────────────────────────────
@@ -220,6 +221,7 @@ export const LIGHT_THEME: Theme = {
       'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
     overlay: 'rgba(0, 0, 0, 0.5)',
     interactive: COLOR.zinc[100],
+    interactiveHover: COLOR.zinc[200],
   },
   text: {
     primary: COLOR.zinc[900],

@@ -96,6 +96,9 @@ interface M11CActivityStreamProps {
   readonly workflowFilter?: string | null;
   readonly streamHeading?: string;
   readonly streamHeaderAction?: ReactNode;
+  /** Controlled density; defaults to internal operational state when omitted. */
+  readonly density?: StreamDensity;
+  readonly onDensityChange?: (density: StreamDensity) => void;
   /**
    * Capability condition for the Activity/Operations/Timeline/Evidence/
    * Files/Notes view tabs. Hidden until the corresponding panels carry
@@ -115,6 +118,22 @@ interface M11CActivityStreamProps {
  * - Tools: tool calls/results
  */
 type StreamFilter = 'all' | 'attention' | 'conversations' | 'work' | 'tools' | 'evidence';
+
+/** Timeline density (DENSITY-MODES): summary hides routine ops, operational hides raw chatter, raw shows all. */
+export type StreamDensity = 'summary' | 'operational' | 'raw';
+
+const DENSITY_OPTIONS: { id: StreamDensity; label: string; title: string }[] = [
+  { id: 'summary', label: 'Summary', title: 'Milestones, conversations, failures, evidence — hides tool and progress chatter' },
+  { id: 'operational', label: 'Operational', title: 'Default — hides raw logs and telemetry' },
+  { id: 'raw', label: 'Raw', title: 'Everything, including logs and telemetry' },
+];
+
+function matchesDensityKind(kind: string, density: StreamDensity): boolean {
+  if (density === 'raw') return true;
+  if (density === 'operational') return kind !== 'log' && kind !== 'telemetry';
+  // summary: milestones + conversations + failures + evidence + decisions
+  return kind === 'conversation' || kind === 'activity' || kind === 'diagnostic' || kind === 'evidence' || kind === 'interaction' || kind === 'error';
+}
 
 const FILTER_TABS: { id: StreamFilter; label: string }[] = [
   { id: 'all', label: 'All' },
@@ -161,6 +180,8 @@ function M11CActivityStream({
   streamHeading = 'Activity Stream',
   streamHeaderAction,
   showViewTabs = false,
+  density: controlledDensity,
+  onDensityChange,
 }: M11CActivityStreamProps) {
   useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -171,6 +192,12 @@ function M11CActivityStream({
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
   const [activeView, setActiveView] = useState<ActivityRoomView>('activity');
   const [searchQuery, setSearchQuery] = useState('');
+  const [internalDensity, setInternalDensity] = useState<StreamDensity>('operational');
+  const density = controlledDensity ?? internalDensity;
+  const setDensity = useCallback((next: StreamDensity) => {
+    if (controlledDensity === undefined) setInternalDensity(next);
+    onDensityChange?.(next);
+  }, [controlledDensity, onDensityChange]);
 
   const handleViewChange = useCallback((view: ActivityRoomView) => {
     setActiveView(view);
@@ -210,11 +237,11 @@ function M11CActivityStream({
   // Error filter uses the authoritative failure class (kind 'diagnostic').
 
   const filtered = useMemo(() => {
-    let result = items;
+    let result = items.filter((item) => matchesDensityKind(item.kind, density));
 
     // Participant filter (existing)
     if (selectedParticipantId !== undefined) {
-      result = result.filter((item) => item.actor.id === selectedParticipantId);
+      result = result.filter((item) => item.actor.id === selectedParticipantId || `agent-${item.actor.id}` === selectedParticipantId);
     }
 
     // Workflow scope (from browser selection or stream badge)
@@ -253,7 +280,7 @@ function M11CActivityStream({
     }
 
     return result;
-  }, [items, selectedParticipantId, workflowFilter, activeFilter, searchQuery]);
+  }, [items, selectedParticipantId, workflowFilter, activeFilter, searchQuery, density]);
 
   // ─── Bounded Window ─────────────────────────────────────
 
@@ -346,6 +373,22 @@ function M11CActivityStream({
           {streamHeaderAction}
         </div>
         <div className="ar-stream-filter__right">
+          <div className="flex items-center gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] p-0.5" role="group" aria-label="Timeline density">
+            {DENSITY_OPTIONS.map((option) => (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setDensity(option.id)}
+                aria-pressed={density === option.id}
+                title={option.title}
+                className={`rounded-[var(--vestara-radius)] px-2 py-1 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  density === option.id ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]'
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
           <input
             type="text"
             value={searchQuery}

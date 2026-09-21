@@ -86,6 +86,7 @@ export type {
   GlobalAssistantConfig,
   MessageRouteResult,
   MessageRouteStatus,
+  StreamSink,
 } from './global-assistant.js';
 export { GlobalAssistantTextRouter, TELEGRAM_ASSISTANT_AGENT_ID } from './global-assistant.js';
 export type {
@@ -324,6 +325,49 @@ export class TelegramAdapter implements ChannelAdapter {
         error: error instanceof Error ? error.message : 'Telegram API error',
         timestamp: new Date().toISOString(),
       };
+    }
+  }
+
+  /**
+   * Send a chat action (e.g. `typing`) so the user sees activity while
+   * the assistant thinks. Best-effort: Telegram expires the indicator
+   * after ~5s, so long executions must refresh it. Never throws.
+   */
+  async sendChatAction(chatId: string, action = 'typing'): Promise<boolean> {
+    try {
+      await this.apiCall('sendChatAction', { chat_id: chatId, action });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Send a plain-text message, returning the Telegram message_id.
+   * Returns undefined on failure. Never throws.
+   */
+  async sendTextMessage(chatId: string, text: string): Promise<string | undefined> {
+    try {
+      const result = await this.apiCall('sendMessage', { chat_id: chatId, text });
+      return String(result.message_id);
+    } catch {
+      return undefined;
+    }
+  }
+
+  /**
+   * Edit a previously sent message (VES-TG-STREAM live updates).
+   * The Bot API rejects edits with identical text — callers must skip
+   * no-op edits; a `message is not modified` rejection is still treated
+   * as success (idempotent) and returns true. Never throws.
+   */
+  async editTextMessage(chatId: string, messageId: string, text: string): Promise<boolean> {
+    try {
+      await this.apiCall('editMessageText', { chat_id: chatId, message_id: messageId, text });
+      return true;
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('message is not modified')) return true;
+      return false;
     }
   }
 

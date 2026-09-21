@@ -5,9 +5,12 @@
  * status, user-configurable notification preferences (TG-018), quiet hours,
  * and the message simulator. The event catalog is served by the API so no
  * notification type is hardcoded here.
+ *
+ * Panels are exported individually so the Advanced tab can compose them into
+ * its grid (tunnel + simulator wide, integration + notifications rail).
  */
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
   type NotificationPreferences,
   type NotificationSeverity,
@@ -17,15 +20,20 @@ import {
   telegramApi,
 } from '../../lib/telegram.js';
 import { TelegramSimulator } from './TelegramSimulator.js';
-import { Button, FactRow, SettingsSection, Status, Segmented, Toggle, input } from './settings-ui.js';
+import { PolicySection } from './PolicySection.js';
+import type { ResolvedConfiguration } from '@vestara/configuration';
+import { navIcon } from '../../layouts/workspace-navigation.js';
+import { Button, FactRow, ReferenceCard, Status, Segmented, Toggle, input } from './settings-ui.js';
 
 const SEVERITIES: readonly NotificationSeverity[] = ['info', 'warning', 'error', 'critical'];
 const TUNNEL_PROVIDERS: readonly TunnelProviderKind[] = ['manual', 'cloudflared', 'ngrok'];
 
-export function TelegramSettings() {
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+
+function useTelegramPanelState() {
   const [settings, setSettings] = useState<TelegramSettingsDto | null>(null);
   const [draft, setDraft] = useState<NotificationPreferences | null>(null);
-  const [status, setStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [status, setStatus] = useState<SaveStatus>('idle');
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -64,148 +72,213 @@ export function TelegramSettings() {
     }
   }, [draft]);
 
+  return { settings, draft, status, error, updateDraft, toggleEvent, handleSave };
+}
+
+export function TelegramIntegrationPanel({
+  settings,
+  className = '',
+  footer,
+}: {
+  settings: TelegramSettingsDto;
+  className?: string;
+  footer?: ReactNode;
+}) {
   return (
-    <div className="space-y-4">
-      <SettingsSection
-        title="Telegram Integration"
-        description="Notification policy and runtime status for the Telegram channel. Telegram is a projection surface — it never owns conversations, executions, or permissions."
-      >
-        {settings ? (
-          <div className="px-4 pb-4 sm:px-5">
-            <FactRow label="Runtime profile" value={settings.integration.runtimeProfile} />
-            <FactRow label="Integration" value={settings.integration.enabled ? 'Active' : 'Parked'} isStatus />
-            <FactRow label="Bot" value={settings.integration.configured ? 'Configured' : 'Not configured'} isStatus />
-            <FactRow
-              label="Persistent store"
-              value={settings.integration.persistentStore ? 'Connected' : 'In-memory'}
-              isStatus
+    <ReferenceCard
+      icon={navIcon('marketplace')}
+      title="Telegram Integration"
+      description="Notification policy and runtime status for the Telegram channel. Telegram is a projection surface — it never owns conversations, executions, or permissions."
+      className={className}
+    >
+      <FactRow label="Runtime profile" value={settings.integration.runtimeProfile} />
+      <FactRow label="Integration" value={settings.integration.enabled ? 'Active' : 'Parked'} isStatus />
+      <FactRow label="Bot" value={settings.integration.configured ? 'Configured' : 'Not configured'} isStatus />
+      <FactRow
+        label="Persistent store"
+        value={settings.integration.persistentStore ? 'Connected' : 'In-memory'}
+        isStatus
+      />
+      <div className="mt-4 flex min-w-0 items-center justify-between gap-3 border-t border-[var(--vestara-border-subtle)] pt-4">
+        <span className="min-w-0">
+          <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
+            Channel
+          </span>
+          <span className="st-mt-element block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+            Delivery is origin-only by default.
+          </span>
+        </span>
+        <Status value={settings.integration.enabled ? 'Available' : 'Unavailable'} />
+      </div>
+      {footer && (
+        <div className="mt-4 border-t border-[var(--vestara-border-subtle)] pt-4">
+          {footer}
+        </div>
+      )}
+    </ReferenceCard>
+  );
+}
+
+export function TelegramNotificationsPanel({
+  draft,
+  settings,
+  status,
+  error,
+  onToggleEvent,
+  onUpdateDraft,
+  onSave,
+  className = '',
+}: {
+  draft: NotificationPreferences;
+  settings: TelegramSettingsDto;
+  status: SaveStatus;
+  error: string | null;
+  onToggleEvent: (type: string, value: boolean) => void;
+  onUpdateDraft: (patch: Partial<NotificationPreferences>) => void;
+  onSave: () => void;
+  className?: string;
+}) {
+  return (
+    <ReferenceCard
+      icon={navIcon('executions')}
+      title="Notifications"
+      description="Choose which events reach Telegram, the minimum severity, and quiet hours."
+      className={className}
+      actions={
+        <div className="flex items-center gap-3">
+          {status === 'saved' && <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-green)]">Saved</span>}
+          <Button primary onClick={onSave} disabled={status === 'saving'}>
+            {status === 'saving' ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
+      }
+    >
+      <div className="divide-y divide-[var(--vestara-color-border-subtle,var(--color-zinc-800))]">
+        {settings.eventCatalog.map((descriptor) => (
+          <div key={descriptor.type} className="flex items-center justify-between gap-4 py-3">
+            <span className="min-w-0">
+              <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+                {descriptor.label}
+              </span>
+              <span className="mt-0.5 block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                {descriptor.description}
+              </span>
+            </span>
+            <Toggle
+              label={descriptor.label}
+              checked={draft.enabled[descriptor.type] ?? descriptor.defaultEnabled}
+              onChange={(value) => onToggleEvent(descriptor.type, value)}
             />
           </div>
-        ) : (
-          <p className="px-4 pb-4 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:px-5">
-            {error ?? 'Loading integration status…'}
-          </p>
-        )}
-      </SettingsSection>
+        ))}
+      </div>
 
-      <SettingsSection
-        title="Notifications"
-        description="Choose which events reach Telegram, the minimum severity, and quiet hours."
-        actions={
-          <div className="flex items-center gap-3">
-            {status === 'saved' && <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-green)]">Saved</span>}
-            <Button primary onClick={() => void handleSave()} disabled={!draft || status === 'saving'}>
-              {status === 'saving' ? 'Saving…' : 'Save'}
-            </Button>
-          </div>
-        }
-      >
-        {draft && settings ? (
-          <div className="px-4 pb-4 sm:px-5">
-            <div className="divide-y divide-[var(--vestara-color-border-subtle,var(--color-zinc-800))]">
-              {settings.eventCatalog.map((descriptor) => (
-                <div key={descriptor.type} className="flex items-center justify-between gap-4 py-3">
-                  <span className="min-w-0">
-                    <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                      {descriptor.label}
-                    </span>
-                    <span className="mt-0.5 block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                      {descriptor.description}
-                    </span>
-                  </span>
-                  <Toggle
-                    label={descriptor.label}
-                    checked={draft.enabled[descriptor.type] ?? descriptor.defaultEnabled}
-                    onChange={(value) => toggleEvent(descriptor.type, value)}
-                  />
-                </div>
-              ))}
-            </div>
+      <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
+        <span className="mb-2 block text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
+          Minimum severity
+        </span>
+        <Segmented
+          label="Minimum severity"
+          value={draft.minSeverity}
+          options={SEVERITIES}
+          onChange={(value) => onUpdateDraft({ minSeverity: value })}
+        />
+      </div>
 
-            <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
-              <span className="mb-2 block text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
-                Minimum severity
-              </span>
-              <Segmented
-                label="Minimum severity"
-                value={draft.minSeverity}
-                options={SEVERITIES}
-                onChange={(value) => updateDraft({ minSeverity: value })}
-              />
-            </div>
-
-            <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
-              <div className="flex items-center justify-between gap-4">
-                <span className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
-                  Quiet hours
-                </span>
-                <Toggle
-                  label="Quiet hours"
-                  checked={draft.quietHours.enabled}
-                  onChange={(value) => updateDraft({ quietHours: { ...draft.quietHours, enabled: value } })}
-                />
-              </div>
-              {draft.quietHours.enabled && (
-                <div className="mt-3 flex items-center gap-2">
-                  <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-start">
-                    From
-                  </label>
-                  <input
-                    id="tg-quiet-start"
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={draft.quietHours.startHour}
-                    onChange={(e) => updateDraft({ quietHours: { ...draft.quietHours, startHour: Number(e.target.value) } })}
-                    className={`${input} w-20`}
-                  />
-                  <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-end">
-                    to
-                  </label>
-                  <input
-                    id="tg-quiet-end"
-                    type="number"
-                    min={0}
-                    max={23}
-                    value={draft.quietHours.endHour}
-                    onChange={(e) => updateDraft({ quietHours: { ...draft.quietHours, endHour: Number(e.target.value) } })}
-                    className={`${input} w-20`}
-                  />
-                  <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                    (24h, local time)
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {status === 'error' && error && (
-              <p className="mt-4 text-[var(--vestara-font-size-sm)] text-[var(--vestara-red)]">{error}</p>
-            )}
-          </div>
-        ) : (
-          <p className="px-4 pb-4 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:px-5">
-            Notification preferences are unavailable. {error}
-          </p>
-        )}
-      </SettingsSection>
-
-      {settings && <TunnelSection initial={settings.tunnel} />}
-
-      <TelegramSimulator />
-
-      {settings && (
-        <SettingsSection
-          title="Channel"
-          description="Delivery is origin-only by default; Telegram never mirrors activity it was not asked to receive."
-        >
-          <div className="px-4 pb-4 sm:px-5">
-            <span className="flex items-center gap-2 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
-              <Status value={settings.integration.enabled ? 'Available' : 'Unavailable'} />
+      <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
+            Quiet hours
+          </span>
+          <Toggle
+            label="Quiet hours"
+            checked={draft.quietHours.enabled}
+            onChange={(value) => onUpdateDraft({ quietHours: { ...draft.quietHours, enabled: value } })}
+          />
+        </div>
+        {draft.quietHours.enabled && (
+          <div className="mt-3 flex items-center gap-2">
+            <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-start">
+              From
+            </label>
+            <input
+              id="tg-quiet-start"
+              type="number"
+              min={0}
+              max={23}
+              value={draft.quietHours.startHour}
+              onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, startHour: Number(e.target.value) } })}
+              className={`${input} w-20`}
+            />
+            <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-end">
+              to
+            </label>
+            <input
+              id="tg-quiet-end"
+              type="number"
+              min={0}
+              max={23}
+              value={draft.quietHours.endHour}
+              onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, endHour: Number(e.target.value) } })}
+              className={`${input} w-20`}
+            />
+            <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+              (24h, local time)
             </span>
           </div>
-        </SettingsSection>
+        )}
+      </div>
+
+      {status === 'error' && error && (
+        <p className="mt-4 text-[var(--vestara-font-size-sm)] text-[var(--vestara-red)]">{error}</p>
       )}
-    </div>
+    </ReferenceCard>
+  );
+}
+
+export function TelegramPanels({
+  configuration,
+  onChanged,
+}: {
+  configuration: ResolvedConfiguration;
+  onChanged: (next: ResolvedConfiguration) => void;
+}) {
+  const { settings, draft, status, error, updateDraft, toggleEvent, handleSave } = useTelegramPanelState();
+  return (
+    <>
+      {settings ? (
+        <TunnelSection initial={settings.tunnel} className="st-card-fill lg:col-span-2" />
+      ) : (
+        <div role="status" aria-label="Loading Telegram panels" className="min-w-0 lg:col-span-2 xl:col-span-3">
+          <div className="mpg-skeleton h-44" />
+          <p className="sr-only">{error ?? 'Loading Telegram panels…'}</p>
+        </div>
+      )}
+      {settings && (
+        <TelegramIntegrationPanel
+          settings={settings}
+          className="st-card-fill lg:col-span-2 xl:col-span-1"
+          footer={
+            <PolicySection section="advanced" configuration={configuration} onChanged={onChanged} bare />
+          }
+        />
+      )}
+      <div className="h-full min-w-0 lg:col-span-2">
+        <TelegramSimulator />
+      </div>
+      {settings && draft && (
+        <TelegramNotificationsPanel
+          draft={draft}
+          settings={settings}
+          status={status}
+          error={error}
+          onToggleEvent={toggleEvent}
+          onUpdateDraft={updateDraft}
+          onSave={() => void handleSave()}
+          className="st-card-fill lg:col-span-2 xl:col-span-1"
+        />
+      )}
+    </>
   );
 }
 
@@ -227,7 +300,7 @@ function tunnelStatusLabel(status: TelegramTunnel['state']['status']): string {
  * HTTPS URL, so the loopback API must be exposed through a tunnel. Enabling
  * is an explicit action: nothing is spawned by configuration alone.
  */
-function TunnelSection({ initial }: { initial: TelegramTunnel }) {
+function TunnelSection({ initial, className = '' }: { initial: TelegramTunnel; className?: string }) {
   const [tunnel, setTunnel] = useState<TelegramTunnel>(initial);
   const [provider, setProvider] = useState<TunnelProviderKind>(initial.config.provider);
   const [publicUrl, setPublicUrl] = useState(initial.config.publicUrl ?? '');
@@ -256,11 +329,12 @@ function TunnelSection({ initial }: { initial: TelegramTunnel }) {
   const selectedUnavailable = provider !== 'manual' && !availability[provider];
 
   return (
-    <SettingsSection
-      title="Webhook Tunnel"
-      description="Expose the local webhook endpoint to Telegram through a public HTTPS tunnel. Telegram cannot reach loopback addresses."
-    >
-      <div className="px-4 pb-4 sm:px-5">
+      <ReferenceCard
+        icon={navIcon('workflows')}
+        title="Webhook Tunnel"
+        description="Expose the local webhook endpoint to Telegram through a public HTTPS tunnel. Telegram cannot reach loopback addresses."
+        className={className}
+      >
         <FactRow label="Status" value={tunnelStatusLabel(state.status)} isStatus />
         <FactRow label="Local target" value={`http://127.0.0.1:${config.localPort}`} />
         {state.publicUrl && <FactRow label="Public URL" value={state.publicUrl} />}
@@ -363,7 +437,6 @@ function TunnelSection({ initial }: { initial: TelegramTunnel }) {
           Enabling starts the selected provider and registers the resulting URL with Telegram for this session; configuration
           persists, runtime state does not.
         </p>
-      </div>
-    </SettingsSection>
+      </ReferenceCard>
   );
 }

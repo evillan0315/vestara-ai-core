@@ -24,6 +24,7 @@ import { SortablePanel } from './components/SortablePanel';
 import { SystemStatus } from './components/SystemStatus';
 import { TodayFocus } from './components/TodayFocus';
 import { WorkspaceHealth } from './components/WorkspaceHealth';
+import { WorkspaceSnapshot } from './components/WorkspaceSnapshot';
 import { CodexRuntimeActivityCard } from '../../components/codex/CodexRuntimeActivityCard';
 import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
@@ -189,6 +190,7 @@ export function OverviewScreen() {
         />
         <QuickActions />
         <CodexRuntimeActivityCard />
+        <WorkspaceSnapshot />
 
         <div className="flex items-center justify-end">
           <button

@@ -12,10 +12,12 @@
 
 import { memo, useCallback, useState } from 'react';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import ForwardOutlinedIcon from '@mui/icons-material/ForwardOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
 import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
 import { ActionIcon } from '@vestara/ui';
+import M11CForwardDialog from './M11CForwardDialog';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
 import { InteractionCard } from '../../components/interaction/InteractionCard';
@@ -152,7 +154,7 @@ const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
     headingClass: '',
   },
   quiet: {
-    glyph: '·',
+    glyph: '◦',
     containerClass: 'ar-stream-record--quiet',
     headingClass: '',
   },
@@ -276,6 +278,10 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
 
   // Collapsible body: logs, activities, and items with long content render
   // clamped with a Show more/less toggle instead of pushing the stream.
+  // Single collapse mechanism: long bodies clamp (Show more). The header
+  // accordion is reserved for routine rows (tool/quiet) so meaningful
+  // events (human/work/attention/verification) always read as timeline
+  // nodes without paying a chevron per row.
   const collapsible = (item.content?.length ?? 0) > COLLAPSE_THRESHOLD;
   const [expanded, setExpanded] = useState(false);
 
@@ -284,13 +290,22 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
     setExpanded((v) => !v);
   }, []);
 
-  // Accordion: every log, activity, and item collapses to its header row,
-  // leaving the actor + timestamp visible while the body hides.
+  const accordionEligible = visual === 'tool' || visual === 'quiet';
   const [collapsed, setCollapsed] = useState(false);
+  const [forwardOpen, setForwardOpen] = useState(false);
 
   const toggleCollapsed = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setCollapsed((v) => !v);
+  }, []);
+
+  const openForward = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setForwardOpen(true);
+  }, []);
+
+  const closeForward = useCallback(() => {
+    setForwardOpen(false);
   }, []);
 
   // ─── Aggregated Item ────────────────────────────────────
@@ -405,8 +420,12 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   // description / safe metadata. Density follows class: meaningful events
   // read as timeline nodes, routine operations as compact rows.
   // StatusBadge owns attention/verification rows; the kind pill covers
-  // human/work rows — never both (previous code doubled the kind signal).
+  // human/work rows — plus a muted pill for tool/quiet so filter-by-eye
+  // works on routine rows too. Never pill + StatusBadge together.
   const showPill = visual === 'human' || visual === 'work';
+  const showMutedPill = visual === 'tool' || visual === 'quiet' || visual === 'agent-note';
+  // Routine rows hide actions until expanded — keeps the scan quiet.
+  const actionsVisible = !accordionEligible || !collapsed;
   return (
     <div
       className={`ar-stream-record flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.containerClass} ${
@@ -450,15 +469,17 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             >
               {formatTimestamp(item.timestamp)}
             </span>
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              aria-expanded={!collapsed}
-              aria-label={collapsed ? `Expand ${actor.name} activity` : `Collapse ${actor.name} activity`}
-              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-            >
-              <span aria-hidden="true" className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}>▾</span>
-            </button>
+            {accordionEligible && (
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                aria-expanded={!collapsed}
+                aria-label={collapsed ? `Expand ${actor.name} activity` : `Collapse ${actor.name} activity`}
+                className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              >
+                <span aria-hidden="true" className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}>▾</span>
+              </button>
+            )}
           </span>
         </div>
 
@@ -509,6 +530,11 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             </button>
           )}
           {showPill && <span className={`ar-stream-kind ar-stream-kind--${visual} mpg-tag-pill`}>{formatKind(item.kind)}</span>}
+          {showMutedPill && (
+            <span className="ar-stream-kind ar-stream-kind--muted mpg-tag-pill" title={`${formatKind(item.kind)} — routine activity`}>
+              {formatKind(item.kind)}
+            </span>
+          )}
           {visual === 'attention' && <StatusBadge label={formatKind(item.kind)} tone="error" />}
           {visual === 'verification' && <StatusBadge label={formatKind(item.kind)} tone="success" />}
           {item.workflowRunId && (
@@ -518,19 +544,19 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                 onClick={(e) => { e.stopPropagation(); onSelectWorkflow(item.workflowRunId!); }}
                 className="cursor-pointer truncate font-mono underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
                 title={`Filter to workflow ${item.workflowRunId}`}
-                aria-label={`Filter to workflow ${item.workflowRunId}`}
+                aria-label={`Filter stream to workflow ${item.workflowRunId}`}
               >
-                workflow: {item.workflowRunId.slice(0, 8)}
+                wf:{item.workflowRunId.slice(0, 8)}
               </button>
             ) : (
-              <span className="truncate font-mono" title={item.workflowRunId}>
-                workflow: {item.workflowRunId.slice(0, 8)}
+              <span className="truncate font-mono" title={`Workflow ${item.workflowRunId}`}>
+                wf:{item.workflowRunId.slice(0, 8)}
               </span>
             )
           )}
         </div>
 
-        {(onOpenDetail || onReply || (onEdit && item.actor.type === 'human') || (onRetract && item.actor.type === 'human')) && (
+        {actionsVisible && (onOpenDetail || onReply || (onEdit && item.actor.type === 'human') || (onRetract && item.actor.type === 'human')) && (
           <div className="ar-stream-record__actions mt-2 flex min-w-0 flex-wrap items-center justify-end gap-1" aria-label="Record actions">
           {onOpenDetail && (
             <ActionIcon
@@ -546,6 +572,20 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               tone="muted"
               icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
               onClick={(e) => { e.stopPropagation(); onReply(item); }}
+            />
+          )}
+          <ActionIcon
+            label="Forward to Telegram"
+            tone="muted"
+            icon={<ForwardOutlinedIcon sx={{ fontSize: 18 }} />}
+            onClick={openForward}
+          />
+          {forwardOpen && (
+            <M11CForwardDialog
+              activityId={item.id}
+              actorName={actor.name}
+              content={item.content || item.kind}
+              onClose={closeForward}
             />
           )}
           {onEdit && item.actor.type === 'human' && (

@@ -10,6 +10,8 @@
  *   POST /api/telegram/pairing        — Create pairing request
  *   POST /api/telegram/pairing/approve — Approve pairing with token
  *   GET  /api/telegram/bindings       — List all bindings (diagnostic)
+ *   GET  /api/telegram/chats          — Linked chats for the forward picker
+ *   POST /api/telegram/forward        — Forward an Activity Room message to Telegram
  *   GET  /api/telegram/status         — Get Telegram integration status
  *
  * Architecture Traceability:
@@ -20,7 +22,7 @@ import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
-import type { ChannelMessage, ConversationBinding } from '@vestara/telegram-integration';
+import type { ChannelMessage, ConversationBinding, StreamSink } from '@vestara/telegram-integration';
 import {
   cloudflaredArgs,
   DEFAULT_TUNNEL_CONFIG,
@@ -305,6 +307,20 @@ function getTextRouter(ctx: WorkspaceContext): GlobalAssistantTextRouter | null 
             completedAt: new Date().toISOString(),
           };
         },
+        // VES-TG-STREAM: token deltas for live Telegram edits. Same
+        // per-turn canonical binding as sendMessage — identity only on the
+        // channel, provider/model resolved server-side per turn.
+        streamMessage: async function* (conversationId, content, options) {
+          const binding = await resolveTelegramAgentBinding(ctx.agents, options?.agentId);
+          const stream = ctx.conversationService.sendMessageStream(conversationId, content, {
+            agentId: binding.agentId,
+            ...(binding.provider ? { provider: binding.provider } : {}),
+            ...(binding.model ? { model: binding.model } : {}),
+          });
+          for await (const chunk of stream) {
+            if (chunk.type === 'text' && chunk.content) yield chunk.content;
+          }
+        },
       },
     });
   }
@@ -396,6 +412,99 @@ export function splitTelegramText(text: string, target: number = TELEGRAM_CHUNK_
   return chunks;
 }
 
+/** Forward text cap — splitTelegramText bounds delivery to ~10 chunks regardless. */
+export const FORWARD_MAX_TEXT_LENGTH = 40_000;
+
+// ─── Streaming (VES-TG-STREAM) ───────────────────────────────────
+
+/** Minimum time between live `editMessageText` calls (Bot API flood guard). */
+export const STREAM_EDIT_THROTTLE_MS = 1200;
+
+/** `typing` expires after ~5s — refresh faster than that while thinking. */
+export const STREAM_TYPING_REFRESH_MS = 4000;
+
+/** Placeholder shown between `typing` and the first text delta. */
+export const STREAM_PLACEHOLDER = '…';
+
+/** Live cursor appended while text is still arriving. */
+export const STREAM_CURSOR = ' ▍';
+
+/**
+ * Truncate accumulated text for a live edit ( Telegram 4096 cap ).
+ * Pure — safe to unit test.
+ */
+export function truncateLiveText(text: string): string {
+  return text.length <= TELEGRAM_CHUNK_TARGET ? text : text.slice(0, TELEGRAM_CHUNK_TARGET);
+}
+
+/**
+ * Decide whether a live edit should fire now. Skips empty and identical
+ * text (the Bot API rejects no-op edits) and throttles the rest.
+ * Pure — safe to unit test.
+ */
+export function shouldSendStreamEdit(
+  now: number,
+  lastEditAt: number,
+  lastSent: string,
+  next: string,
+  throttleMs: number = STREAM_EDIT_THROTTLE_MS,
+): boolean {
+  if (!next || next === lastSent) return false;
+  return now - lastEditAt >= throttleMs;
+}
+
+export interface ForwardChat {
+  readonly chatId: string;
+  readonly type: 'direct' | 'group';
+  readonly title?: string;
+  readonly lastActivityAt: string;
+}
+
+export type ForwardTargetErrorCode = 'NO_LINKED_CHATS' | 'UNKNOWN_CHAT' | 'AMBIGUOUS_CHAT';
+
+/**
+ * Resolve the forward destination from workspace-scoped active bindings.
+ * Pure — safe to unit test.
+ *
+ * Fail-closed: an explicit chatId must match an active binding in this
+ * workspace (the bot is never an open relay); without one, a single linked
+ * chat wins, several require an explicit choice, none is an error.
+ */
+export function resolveForwardTarget(
+  bindings: readonly ConversationBinding[],
+  chatId?: string,
+):
+  | { readonly ok: true; readonly binding: ConversationBinding }
+  | { readonly ok: false; readonly code: ForwardTargetErrorCode; readonly message: string } {
+  const trimmed = chatId?.trim();
+  if (trimmed) {
+    const match = bindings.find((b) => b.telegramChatId === trimmed);
+    if (!match) {
+      return {
+        ok: false,
+        code: 'UNKNOWN_CHAT',
+        message: 'That Telegram chat is not linked to this workspace.',
+      };
+    }
+    return { ok: true, binding: match };
+  }
+  if (bindings.length === 0) {
+    return {
+      ok: false,
+      code: 'NO_LINKED_CHATS',
+      message: 'No linked Telegram chats. Send a message to your bot first, then forward.',
+    };
+  }
+  if (bindings.length > 1) {
+    return {
+      ok: false,
+      code: 'AMBIGUOUS_CHAT',
+      message: 'Several Telegram chats are linked — pick one.',
+    };
+  }
+  return { ok: true, binding: bindings[0] as ConversationBinding };
+}
+
 /**
  * Deliver the assistant reply to the Telegram chat via the Bot API.
  * Best-effort: returns 'sent', 'skipped' (no bot token / nothing to send),
@@ -428,6 +537,94 @@ async function deliverTelegramReply(
   } catch (error) {
     console.warn('[telegram] reply delivery failed', error instanceof Error ? error.message : error);
     return 'failed';
+  }
+}
+
+/**
+ * Parse a Telegram bot command from message text. Returns the command
+ * name for known commands, null otherwise. Handles `@BotName` suffixes
+ * (group chats) and trailing args; case-insensitive.
+ * Pure — safe to unit test.
+ */
+export function parseTelegramCommandText(text: string | undefined): 'pair' | 'start' | null {
+  if (!text) return null;
+  const first = text.trim().split(/\s+/)[0] ?? '';
+  const cmd = first.split('@')[0]?.toLowerCase();
+  if (cmd === '/pair') return 'pair';
+  if (cmd === '/start') return 'start';
+  return null;
+}
+
+/**
+ * Answer `/start` and `/pair` directly over the Bot API.
+ *
+ * Previously these fell into the pairing guard, whose `unpaired` error
+ * only reached the webhook HTTP response — the user saw silence and
+ * retried forever. Commands are handled before identity resolution so
+ * unpaired users always get a visible answer.
+ */
+async function handleTelegramCommand(
+  message: ChannelMessage,
+  command: 'pair' | 'start',
+): Promise<
+  | { status: 'started'; paired: boolean }
+  | { status: 'already-paired'; principalId: string }
+  | { status: 'pairing-requested'; pairingId: string; expiresAt: string }
+  | { status: 'pairing-failed'; error: string }
+> {
+  const pairing = getPairingService();
+  const telegramUserId = message.sender.externalId;
+  const displayName = message.sender.displayName ?? telegramUserId;
+  const chatId = message.conversation.externalId;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const adapter = botToken ? new TelegramAdapter({ botToken }) : null;
+
+  const existing = pairing.getBindingByTelegramId(telegramUserId);
+
+  if (command === 'start') {
+    const paired = !!existing?.active;
+    if (adapter) {
+      await adapter.sendTextMessage(
+        chatId,
+        paired
+          ? `Hello ${displayName}! Your Telegram is paired with Vestara — just send a message.`
+          : "Hello! I'm the Vestara assistant bot.\n\nSend /pair to link your Telegram account. You'll get a code to share with your Vestara operator for approval.",
+      );
+    }
+    return { status: 'started', paired };
+  }
+
+  if (existing?.active) {
+    if (adapter) {
+      await adapter.sendTextMessage(
+        chatId,
+        `You're already paired as ${existing.principalName} — just send a message.`,
+      );
+    }
+    return { status: 'already-paired', principalId: existing.principalId };
+  }
+
+  try {
+    const request = pairing.createPairingRequest(telegramUserId, displayName);
+    const mins = Math.max(1, Math.round((Date.parse(request.expiresAt) - Date.now()) / 60000));
+    if (adapter) {
+      await adapter.sendTextMessage(
+        chatId,
+        `Your Vestara pairing code:\n\n${request.token}\n\nShare it with your Vestara operator to approve (expires in ~${mins} min). Then just send me a message.`,
+      );
+    }
+    return { status: 'pairing-requested', pairingId: request.id, expiresAt: request.expiresAt };
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : 'Pairing failed';
+    if (adapter) {
+      await adapter.sendTextMessage(
+        chatId,
+        reason === 'Maximum pending pairing requests reached'
+          ? 'You already have a pending pairing request — ask your Vestara operator to approve it.'
+          : `Pairing failed: ${reason}`,
+      );
+    }
+    return { status: 'pairing-failed', error: reason };
   }
 }
 
@@ -515,6 +712,14 @@ async function processTelegramMessage(
   // never slow the webhook response or fail the pipeline.
   void mirrorTelegramIncomingToActivityRoom(message);
 
+  // 0. Bot commands are answered directly — before the identity guard,
+  // which would otherwise swallow them into silence (its error only
+  // reaches the webhook HTTP response, never the user's chat).
+  const command = parseTelegramCommandText(message.text);
+  if (command === 'pair' || command === 'start') {
+    return handleTelegramCommand(message, command);
+  }
+
   // 1. Resolve identity
   const telegramUserId = message.sender.externalId;
   const identity = pairing.getBindingByTelegramId(telegramUserId);
@@ -525,8 +730,21 @@ async function processTelegramMessage(
     };
   }
 
-  // 2. Resolve workspace
-  const workspace = wsBindings.getPreferredWorkspace(identity.principalId);
+  // 2. Resolve workspace — auto-bind on first message. Pairing already
+  // required operator approval, so an approved principal messaging the
+  // bot is bound to the current workspace (first binding is preferred,
+  // mirroring the simulate path). Without this, paired users hit a
+  // dead-end `no-workspace` silence.
+  let workspace = wsBindings.getPreferredWorkspace(identity.principalId);
+  if (!workspace) {
+    const currentWorkspaceId = path.basename(ctx.repoPath) || 'workspace';
+    try {
+      wsBindings.bindWorkspace(identity.principalId, currentWorkspaceId, currentWorkspaceId);
+    } catch {
+      // Already bound (race) — fall through to re-read.
+    }
+    workspace = wsBindings.getPreferredWorkspace(identity.principalId);
+  }
   if (!workspace) {
     return {
       status: 'no-workspace',
@@ -561,7 +779,11 @@ async function processTelegramMessage(
     });
   }
 
-  // 4. Route through text router
+  // 4. Stream through the text router with live Telegram edits
+  // (VES-TG-STREAM): typing indicator at once, placeholder message while
+  // thinking, throttled editMessageText as tokens arrive, cursor dropped
+  // on the final text. Gating (rate limit, concurrency, closed) is
+  // enforced inside routeStream — identical to the single-shot path.
   if (!router) {
     return {
       status: 'not-configured',
@@ -569,7 +791,77 @@ async function processTelegramMessage(
     };
   }
 
-  const routeResult = await router.routeMessage(message, identity, workspace, conversation);
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const adapter = botToken ? new TelegramAdapter({ botToken }) : null;
+  const streamChatId = conversation.telegramChatId;
+
+  // Immediate typing indicator — the user sees activity at once, long
+  // before the first token. Best-effort: never fails the pipeline.
+  if (adapter) void adapter.sendChatAction(streamChatId, 'typing');
+  const typingTimer = adapter
+    ? setInterval(() => {
+        void adapter.sendChatAction(streamChatId, 'typing');
+      }, STREAM_TYPING_REFRESH_MS)
+    : null;
+
+  let placeholderId: string | undefined;
+  let lastSent = '';
+  let lastEditAt = 0;
+  let telegramOk = true;
+
+  const sink: StreamSink = {
+    onStart: async () => {
+      if (adapter) placeholderId = await adapter.sendTextMessage(streamChatId, STREAM_PLACEHOLDER);
+    },
+    onText: async (fullText) => {
+      if (!adapter || !placeholderId) return;
+      const now = Date.now();
+      if (!shouldSendStreamEdit(now, lastEditAt, lastSent, fullText)) return;
+      const live = truncateLiveText(fullText) + STREAM_CURSOR;
+      if (await adapter.editTextMessage(streamChatId, placeholderId, live)) {
+        lastSent = live;
+        lastEditAt = now;
+      } else {
+        telegramOk = false;
+      }
+    },
+    onComplete: async (fullText) => {
+      if (typingTimer) clearInterval(typingTimer);
+      if (!adapter) return;
+      if (!placeholderId) {
+        // Placeholder send failed — fall back to chunked single-shot.
+        if (fullText) {
+          const reply = await deliverTelegramReply(conversation, fullText);
+          if (reply === 'failed') telegramOk = false;
+        }
+        return;
+      }
+      if (!fullText) {
+        await adapter.editTextMessage(streamChatId, placeholderId, '(no response)');
+        return;
+      }
+      if (fullText.length <= TELEGRAM_MAX_TEXT_LENGTH) {
+        if (fullText !== lastSent) {
+          if (!(await adapter.editTextMessage(streamChatId, placeholderId, fullText))) telegramOk = false;
+        }
+        return;
+      }
+      // Over the limit: first chunk edits the placeholder, the rest
+      // follow as new messages (same chunking as single-shot).
+      const chunks = splitTelegramText(fullText);
+      if (!(await adapter.editTextMessage(streamChatId, placeholderId, chunks[0]))) telegramOk = false;
+      for (const chunk of chunks.slice(1)) {
+        const id = await adapter.sendTextMessage(streamChatId, chunk);
+        if (!id) {
+          telegramOk = false;
+          break;
+        }
+      }
+    },
+  };
+
+  const routeResult = await router.routeStream(message, identity, workspace, conversation, sink);
+  if (typingTimer) clearInterval(typingTimer);
 
   if (routeResult.status === 'queued') {
     return { status: 'queued', conversationId: routeResult.conversationId };
@@ -578,13 +870,12 @@ async function processTelegramMessage(
     return { status: 'rejected', error: routeResult.error, conversationId: routeResult.conversationId };
   }
   if (routeResult.status === 'failed') {
+    // Don't leave a stale placeholder behind on execution failure.
+    if (adapter && placeholderId) {
+      await adapter.editTextMessage(streamChatId, placeholderId, '(assistant error — try again)');
+    }
     return { status: 'failed', error: routeResult.error, conversationId: routeResult.conversationId };
   }
-
-  // 5. Deliver the assistant reply to the Telegram chat. The webhook HTTP
-  // response body is ignored by Telegram — without this Bot API call the
-  // user would never see the reply.
-  const reply = await deliverTelegramReply(conversation, routeResult.response);
 
   // Project the reply into the Activity Room (M9) so the /activity surface
   // shows the full turn. Fire-and-forget: mirroring never fails delivery.
@@ -595,7 +886,7 @@ async function processTelegramMessage(
     executionId: routeResult.executionId,
     conversationId: routeResult.conversationId,
     response: routeResult.response,
-    reply,
+    reply: telegramOk ? 'sent' : 'failed',
   };
 }
 
@@ -783,6 +1074,134 @@ export async function handleTelegramRoute(
         conversationBindings: { available: !!conversationBindingService },
         persistentStore: !!store,
       });
+      return true;
+    }
+
+    // ─── GET /api/telegram/chats ────────────────────────────
+    // Workspace-scoped linked chats for the Activity Room forward picker.
+    // Active bindings only — paused/closed chats are never targets.
+    if (method === 'GET' && p === '/api/telegram/chats') {
+      const service = getConversationBindingService();
+      if (!service) {
+        json(res, 503, { error: 'Telegram conversation bindings unavailable' });
+        return true;
+      }
+      const workspaceId = path.basename(ctx.repoPath) || 'workspace';
+      const chats: ForwardChat[] = service.listActiveBindings(workspaceId).map((b) => ({
+        chatId: b.telegramChatId,
+        type: b.telegramChatType,
+        ...(b.telegramChatTitle ? { title: b.telegramChatTitle } : {}),
+        lastActivityAt: b.lastActivityAt,
+      }));
+      json(res, 200, { chats, configured: !!process.env.TELEGRAM_BOT_TOKEN });
+      return true;
+    }
+
+    // ─── POST /api/telegram/forward ─────────────────────────
+    // Explicit per-message forward from the Activity Room to a linked
+    // Telegram chat. No auto-mirroring: nothing leaves the room unless the
+    // operator picks a message and a chat. Fail-closed throughout.
+    if (method === 'POST' && p === '/api/telegram/forward') {
+      const body = JSON.parse(await readBody(req)) as {
+        chatId?: unknown;
+        text?: unknown;
+        activityId?: unknown;
+      };
+
+      if (!process.env.TELEGRAM_BOT_TOKEN) {
+        json(res, 503, { error: 'Telegram bot is not configured (TELEGRAM_BOT_TOKEN missing)' });
+        return true;
+      }
+      const service = getConversationBindingService();
+      if (!service) {
+        json(res, 503, { error: 'Telegram conversation bindings unavailable' });
+        return true;
+      }
+      const workspaceId = path.basename(ctx.repoPath) || 'workspace';
+      const bindings = service.listActiveBindings(workspaceId);
+      const chatId = typeof body.chatId === 'string' ? body.chatId : undefined;
+      const target = resolveForwardTarget(bindings, chatId);
+      if (!target.ok) {
+        const status = target.code === 'UNKNOWN_CHAT' ? 404 : target.code === 'AMBIGUOUS_CHAT' ? 409 : 404;
+        json(res, status, {
+          error: target.message,
+          code: target.code,
+          chats: bindings.map((b) => ({
+            chatId: b.telegramChatId,
+            type: b.telegramChatType,
+            ...(b.telegramChatTitle ? { title: b.telegramChatTitle } : {}),
+            lastActivityAt: b.lastActivityAt,
+          })),
+        });
+        return true;
+      }
+
+      // Resolve content: explicit text wins, otherwise server-truth lookup.
+      let text = typeof body.text === 'string' ? body.text.trim() : '';
+      const activityId = typeof body.activityId === 'string' ? body.activityId.trim() : '';
+      if (!text && activityId) {
+        try {
+          const { getM11ARoom } = await import('./activity-room-m11a.js');
+          const record = await getM11ARoom().store.getByActivityId(activityId);
+          if (!record) {
+            json(res, 404, { error: `Activity not found: ${activityId}` });
+            return true;
+          }
+          const content = record.payload?.message ?? record.payload?.output ?? record.type;
+          const actor = record.actor?.displayName?.trim() ? record.actor.displayName : 'Room';
+          text = `[${actor}] ${content}`.trim();
+        } catch {
+          json(res, 503, { error: 'Activity store unavailable' });
+          return true;
+        }
+      }
+      if (!text) {
+        json(res, 400, { error: 'text or activityId is required' });
+        return true;
+      }
+      if (text.length > FORWARD_MAX_TEXT_LENGTH) {
+        json(res, 400, { error: `text exceeds ${FORWARD_MAX_TEXT_LENGTH} characters` });
+        return true;
+      }
+
+      const binding = target.binding;
+      const adapter = new TelegramAdapter({ botToken: process.env.TELEGRAM_BOT_TOKEN as string });
+      let sent = 0;
+      const chunks = splitTelegramText(text);
+      let lastError: string | undefined;
+      for (const chunk of chunks) {
+        const result = await adapter.sendDelivery({
+          id: `tg-forward-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+          channel: 'telegram',
+          conversation: {
+            channel: 'telegram',
+            externalId: binding.telegramChatId,
+            type: binding.telegramChatType === 'group' ? 'group' : 'direct',
+            title: binding.telegramChatTitle,
+          },
+          content: { text: chunk },
+          priority: 'normal',
+        });
+        if (result.success) sent += 1;
+        else lastError = result.error ?? 'Telegram API error';
+      }
+      if (sent > 0) {
+        try {
+          service.touchBinding(binding.id);
+        } catch {
+          /* recency bookkeeping is best-effort */
+        }
+      }
+      if (sent === chunks.length) {
+        json(res, 200, { status: 'sent', chatId: binding.telegramChatId, chunks: { sent, total: chunks.length } });
+      } else {
+        json(res, 502, {
+          status: 'failed',
+          chatId: binding.telegramChatId,
+          chunks: { sent, total: chunks.length },
+          error: lastError ?? 'Telegram delivery failed',
+        });
+      }
       return true;
     }
 

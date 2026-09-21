@@ -158,6 +158,20 @@ export default function M11CWorkflowBrowser({
 
   const units = useMemo(() => deriveWorkflowUnits(stream), [stream]);
 
+  // Prefer the authoritative summary status when this browser row is the
+  // summarized workflow — stream-derived heuristics stay as fallback for
+  // every other unit (multi-workflow rooms).
+  const unitsWithSummary = useMemo(() => units.map((unit) => {
+    if (workflowSummary && unit.workflowId === workflowSummary.workflowRunId) {
+      const status = workflowSummary.status === 'failed' ? 'failed'
+        : workflowSummary.status === 'running' ? 'running'
+        : workflowSummary.status === 'completed' ? 'completed'
+        : unit.status;
+      return { ...unit, status, isActive: workflowSummary.status === 'running' || unit.isActive, hasErrors: workflowSummary.status === 'failed' || unit.hasErrors };
+    }
+    return unit;
+  }), [units, workflowSummary]);
+
   // Derive status variant from workflow summary
   const summaryStatus = workflowSummary?.status ?? 'idle';
   const summaryConfig = WORKFLOW_STATUS_CONFIG[summaryStatus];
@@ -184,14 +198,15 @@ export default function M11CWorkflowBrowser({
         </div>
       </div>
 
-      {/* Unit list */}
+      {/* Unit list — single presentation home for workflow scope (the page
+          chooses inline vs disclosure, never both). */}
       <div className="ar-workflow-browser__list ar-scroll" role="list">
-        {units.length === 0 ? (
+        {unitsWithSummary.length === 0 ? (
           <div className="ar-workflow-browser__empty">
             No active workflows
           </div>
         ) : (
-          units.map((unit) => {
+          unitsWithSummary.map((unit) => {
             const isExpanded = expandedId === unit.workflowId;
             const isSelected = selectedWorkflowId === unit.workflowId;
             return (
@@ -224,10 +239,8 @@ export default function M11CWorkflowBrowser({
                     ariaLabel={`Workflow ${unit.workflowId}: ${unit.status}`}
                   />
                   <div className="ar-workflow-unit__info">
-                    <span className="ar-workflow-unit__id">
-                      {unit.workflowId.length > 12
-                        ? `${unit.workflowId.slice(0, 12)}…`
-                        : unit.workflowId}
+                    <span className="ar-workflow-unit__id" title={`Workflow ${unit.workflowId}`}>
+                      wf:{unit.workflowId.length > 12 ? `${unit.workflowId.slice(0, 12)}…` : unit.workflowId}
                     </span>
                     <span className="ar-workflow-unit__meta">
                       <span
@@ -248,13 +261,25 @@ export default function M11CWorkflowBrowser({
 
                 {isExpanded && (
                   <div className="ar-workflow-unit__detail">
+                    {workflowSummary && unit.workflowId === workflowSummary.workflowRunId && workflowSummary.currentTask && (
+                      <div className="ar-workflow-unit__current truncate text-[11px] text-[var(--vestara-text-secondary)]" title={workflowSummary.currentTask}>
+                        Current: {workflowSummary.currentTask}
+                      </div>
+                    )}
                     {/* Progress bar */}
                     {unit.taskCount > 0 && (
                       <div className="ar-workflow-unit__progress">
-                        <div className="ar-workflow-unit__progress-bar">
+                        <div
+                          className="ar-workflow-unit__progress-bar"
+                          role="progressbar"
+                          aria-valuemin={0}
+                          aria-valuemax={unit.taskCount}
+                          aria-valuenow={unit.completedTasks}
+                          aria-label={`${unit.completedTasks} of ${unit.taskCount} tasks complete`}
+                        >
                           <div
                             className={`ar-workflow-unit__progress-fill ${unit.hasErrors ? 'ar-workflow-unit__progress-fill--error' : ''}`}
-                            style={{ width: `${Math.round((unit.completedTasks / unit.taskCount) * 100)}%` }}
+                            style={{ width: `${unit.taskCount > 0 ? Math.round((unit.completedTasks / unit.taskCount) * 100) : 0}%` }}
                           />
                         </div>
                         <span className="ar-workflow-unit__progress-text">

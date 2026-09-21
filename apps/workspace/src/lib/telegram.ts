@@ -120,6 +120,27 @@ export interface TelegramTunnel {
   availability: Record<TunnelProviderKind, boolean>;
 }
 
+// ─── Forward (Activity Room → Telegram) ────────────────────────
+
+export interface TelegramChat {
+  chatId: string;
+  type: 'direct' | 'group';
+  title?: string;
+  lastActivityAt: string;
+}
+
+export interface TelegramChats {
+  chats: TelegramChat[];
+  configured: boolean;
+}
+
+export interface ForwardResult {
+  status: 'sent' | 'failed';
+  chatId: string;
+  chunks: { sent: number; total: number };
+  error?: string;
+}
+
 // ─── API ───────────────────────────────────────────────────────
 
 export const telegramApi = {
@@ -167,6 +188,19 @@ export const telegramApi = {
     return fetchJson<{ notifications: NotificationPreferences }>('/api/telegram/settings', {
       method: 'PUT',
       body: JSON.stringify({ notifications }),
+    });
+  },
+
+  /** Linked Telegram chats for the Activity Room forward picker */
+  async chats(): Promise<TelegramChats> {
+    return fetchJson<TelegramChats>('/api/telegram/chats');
+  },
+
+  /** Forward an Activity Room message to a linked Telegram chat */
+  async forward(params: { chatId?: string; text?: string; activityId?: string }): Promise<ForwardResult> {
+    return fetchJson<ForwardResult>('/api/telegram/forward', {
+      method: 'POST',
+      body: JSON.stringify(params),
     });
   },
 

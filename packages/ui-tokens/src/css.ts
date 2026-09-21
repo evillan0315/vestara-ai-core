@@ -36,6 +36,7 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-surface-assistant': theme.surface.assistant,
     '--vestara-surface-overlay': theme.surface.overlay,
     '--vestara-surface-interactive': theme.surface.interactive,
+    '--vestara-surface-interactive-hover': theme.surface.interactiveHover,
 
     // Text (VES-DESIGN-002 §I)
     '--vestara-text-primary': theme.text.primary,

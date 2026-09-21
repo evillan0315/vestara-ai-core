@@ -209,6 +209,19 @@ export class TelegramConversationBindingService {
   }
 
   /**
+   * List active bindings, most recently active first. Pass workspaceId to
+   * scope to one workspace — a chat bound elsewhere must never resolve.
+   * Backs the Activity Room forward picker (no principal available there).
+   */
+  listActiveBindings(workspaceId?: string): readonly ConversationBinding[] {
+    const stored = this.store ? this.store.listConversationBindings() : [];
+    const merged = this.mergedList(stored);
+    return merged
+      .filter((b) => b.status === 'active' && (workspaceId === undefined || b.workspaceId === workspaceId))
+      .sort((a, b) => (a.lastActivityAt < b.lastActivityAt ? 1 : -1));
+  }
+
+  /**
    * Get binding by Vestara conversation ID.
    */
   getBindingByConversationId(vestaraConversationId: string): ConversationBinding | undefined {

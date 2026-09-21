@@ -310,88 +310,85 @@ const ParticipantRow = memo(function ParticipantRow({
   // the error/warning token instead of the default muted 11px.
   const urgentWork = participant.workState === 'blocked' || participant.workState === 'attention-required';
 
-  const handleNameClick = (e: React.MouseEvent) => {
-    if (!canOpenDrawer) return;
-    e.stopPropagation();
-    onOpenAgentControl!(participant.participantId);
-  };
-
-  const handleNameKeyDown = (e: React.KeyboardEvent) => {
-    if (!canOpenDrawer) return;
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault();
-      e.stopPropagation();
-      onOpenAgentControl!(participant.participantId);
-    }
-  };
-
   return (
-    <button
-      type="button"
-      onClick={() => onSelect(selected ? undefined : participant.participantId)}
-      aria-pressed={selected}
-       aria-label={`${identity.name}, ${participantTypeLabel(participant.type)}${work ? `, ${work.label}` : ''}`}
-      className={`ar-guest group flex w-full min-w-0 items-center gap-3 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${selected ? 'ar-guest--selected border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
+    <div
+      role="listitem"
+      className={`ar-guest group flex w-full min-w-0 items-center gap-2 rounded-[var(--vestara-radius-lg)] border px-2.5 py-2.5 text-left transition-all duration-200 ${selected ? 'ar-guest--selected border-[var(--vestara-accent-border)] bg-[linear-gradient(90deg,var(--vestara-accent-bg),transparent_75%),var(--vestara-surface-panel-raised)] shadow-[inset_3px_0_0_var(--vestara-accent),0_6px_20px_-8px_var(--vestara-accent-bg)]' : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-panel-raised)] hover:shadow-[0_6px_16px_-8px_rgba(0,0,0,0.6)]'}`}
     >
-      {/* Actor-type tile (type only — never status) */}
-      <span
-        aria-hidden="true"
-        className={`${TILE_BASE} ar-participant-type--${identity.unknown ? 'unknown' : participant.type}`}
-        title={participantTypeLabel(participant.type)}
+      <button
+        type="button"
+        onClick={() => onSelect(selected ? undefined : participant.participantId)}
+        aria-pressed={selected}
+        aria-label={`${identity.name}, ${participantTypeLabel(participant.type)}${work ? `, ${work.label}` : ''}${selected ? ', selected' : ''}`}
+        className="flex min-w-0 flex-1 items-center gap-3 rounded-[var(--vestara-radius)] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
       >
-        {initial}
-      </span>
+        {/* Actor-type tile (type only — never status) */}
+        <span
+          aria-hidden="true"
+          className={`${TILE_BASE} ar-participant-type--${identity.unknown ? 'unknown' : participant.type}`}
+          title={participantTypeLabel(participant.type)}
+        >
+          {initial}
+        </span>
 
-      <span className="min-w-0 flex-1">
-        {/* Primary identity + kind */}
-        <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-          <span
-            className={canOpenDrawer ? 'ar-guest__name--agent-action cursor-pointer truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-accent-text)] hover:underline' : 'truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]'}
-            role={canOpenDrawer ? 'button' : undefined}
-            tabIndex={canOpenDrawer ? 0 : undefined}
-            aria-label={canOpenDrawer ? `Open agent control for ${identity.name}` : undefined}
-            onClick={canOpenDrawer ? handleNameClick : undefined}
-            onKeyDown={canOpenDrawer ? handleNameKeyDown : undefined}
-          >
-            {identity.name}
+        <span className="min-w-0 flex-1">
+          {/* Primary identity + unread */}
+          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
+            <span className="truncate text-sm font-semibold tracking-[-0.01em] text-[var(--vestara-text)]">
+              {identity.name}
+            </span>
+            {unreadCount > 0 && (
+              <span
+                className="rounded-[var(--vestara-radius-full)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_60%,var(--vestara-accent-dark))] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-zinc-950)] shadow-[0_2px_10px_var(--vestara-accent-bg)]"
+                aria-label={`${unreadCount} unread`}
+              >
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
           </span>
-          {unreadCount > 0 && (
-            <span className="rounded-[var(--vestara-radius-full)] bg-[linear-gradient(135deg,var(--vestara-accent-light),var(--vestara-accent)_60%,var(--vestara-accent-dark))] px-1.5 py-px text-[10px] font-bold tabular-nums text-[var(--color-zinc-950)] shadow-[0_2px_10px_var(--vestara-accent-bg)]">
-              {unreadCount > 99 ? '99+' : unreadCount}
+          {/* Secondary: model · provider (metadata, never identity) */}
+          {identity.meta && (
+            <span className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">
+              {identity.meta}
             </span>
           )}
-        </span>
-        {/* Secondary: model · provider (metadata, never identity) */}
-        {identity.meta && (
-          <span className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">
-            {identity.meta}
+          {/* Tertiary: work state (authoritative) + assignment + membership */}
+          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--vestara-text-muted)]">
+            {presence && (
+              <span className="inline-flex items-center gap-1 capitalize">
+                <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
+                {humanizeIdentifier(presence)}
+              </span>
+            )}
+            {work && (
+              <span
+                className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
+              >
+                <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
+                {work.label}
+              </span>
+            )}
+            {participant.currentAssignment?.taskTitle && (
+              <span className="max-w-32 truncate" title={participant.currentAssignment.taskTitle}>
+                {participant.currentAssignment.taskTitle}
+              </span>
+            )}
+            {membershipLabel && <span>{membershipLabel}</span>}
           </span>
-        )}
-        {/* Tertiary: work state (authoritative) + assignment + membership */}
-        <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--vestara-text-muted)]">
-          {presence && (
-            <span className="inline-flex items-center gap-1 capitalize">
-              <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
-              {humanizeIdentifier(presence)}
-            </span>
-          )}
-          {work && (
-            <span
-              className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
-            >
-              <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
-              {work.label}
-            </span>
-          )}
-          {participant.currentAssignment?.taskTitle && (
-            <span className="truncate" title={participant.currentAssignment.taskTitle}>
-              {participant.currentAssignment.taskTitle}
-            </span>
-          )}
-          {membershipLabel && <span>{membershipLabel}</span>}
         </span>
-      </span>
-    </button>
+      </button>
+      {canOpenDrawer && (
+        <button
+          type="button"
+          onClick={() => onOpenAgentControl!(participant.participantId)}
+          aria-label={`Open agent control for ${identity.name}`}
+          title={`Open agent control for ${identity.name}`}
+          className="grid size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-transparent text-[var(--vestara-text-dim)] transition-colors hover:border-[var(--vestara-border-subtle)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+        >
+          <span aria-hidden="true">→</span>
+        </button>
+      )}
+    </div>
   );
 });
 

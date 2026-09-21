@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMorningBriefing } from '../../hooks/useMorningBriefing';
-import { Button, SettingsRow, SettingsSection, Status } from './settings-ui';
+import { navIcon } from '../../layouts/workspace-navigation.js';
+import { Button, input, ReferenceCard, SettingsRow, Status } from './settings-ui';
 
 type TopicId = 'pulse' | 'insight' | 'command' | 'mantra' | 'spotlight';
 const TOPICS: TopicId[] = ['pulse', 'insight', 'command', 'mantra', 'spotlight'];
@@ -84,15 +85,16 @@ export default function HeroSettings() {
   };
 
   return (
-    <div className="space-y-4">
-      <SettingsSection
-        title="Hero & Briefing — Overview"
+    <div className="grid min-w-0 items-start gap-[var(--vestara-spacing-section)] lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <ReferenceCard
+        icon={navIcon('dashboard')}
+        title="Hero & Briefing"
         description="Choose the Hero topic, rotation speed and preview the live Hero as it appears on /overview. Changes apply immediately via local storage and the daily auto-shift."
         actions={
-          <div className="flex gap-2">
+          <>
             <Button onClick={() => setPreviewKey((k) => k + 1)}>↺ Refresh preview</Button>
             <Button primary onClick={refreshTopic}>Shuffle topic</Button>
-          </div>
+          </>
         }
       >
         <SettingsRow
@@ -119,7 +121,7 @@ export default function HeroSettings() {
             <select
               value={topicOverride ?? 'auto'}
               onChange={(e) => setTopic(e.target.value as TopicId | 'auto')}
-              className="rounded-lg border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] px-3 py-1.5 text-xs"
+              className={`${input} min-h-9`}
             >
               <option value="auto">Auto (daily shift)</option>
               {TOPICS.map((t) => (
@@ -137,7 +139,7 @@ export default function HeroSettings() {
             <select
               value={String(intervalMs)}
               onChange={(e) => setIntervalValue(parseInt(e.target.value, 10))}
-              className="rounded-lg border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] px-3 py-1.5 text-xs"
+              className={`${input} min-h-9`}
             >
               <option value="5000">5s — fast</option>
               <option value="8000">8s — standard</option>
@@ -155,7 +157,7 @@ export default function HeroSettings() {
               <div>Briefing: {briefing ? `${briefing.summary.slice(0, 48)}…` : 'none yet'}</div>
               <div className="mt-1 flex gap-1 justify-end">
                 {TOPICS.map((t) => (
-                  <span key={t} className={`px-1.5 py-0.5 rounded text-[9px] border ${t === currentTopic ? 'bg-[var(--vestara-amber)]/15 border-[var(--vestara-amber)]/30 text-[var(--vestara-amber)]' : 'border-[var(--vestara-border-subtle)]'}`}>
+                  <span key={t} className={`px-1.5 py-0.5 rounded text-[var(--vestara-font-size-xs)] border ${t === currentTopic ? 'bg-[var(--vestara-amber)]/15 border-[var(--vestara-amber)]/30 text-[var(--vestara-amber)]' : 'border-[var(--vestara-border-subtle)]'}`}>
                     {TOPIC_LABELS[t]}
                   </span>
                 ))}
@@ -163,22 +165,29 @@ export default function HeroSettings() {
             </div>
           }
         />
-        <div className="flex gap-2 p-4 border-t border-[var(--vestara-color-border-subtle)]">
+      </ReferenceCard>
+
+      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)]">
+        <ReferenceCard
+          icon={navIcon('sessions')}
+          tone="info"
+          title="Live Preview"
+          description="The exact Hero the Director sees, updating in real time."
+        >
+          <div className="bg-[var(--vestara-surface-panel-raised)] rounded-lg border text-xs">
+            <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
+            <div className="mt-1 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
+            <div className="mt-2 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
+          </div>
+        </ReferenceCard>
+        <div className="flex min-w-0 flex-col gap-2">
           <Button onClick={resetDaily}>Reset to daily auto</Button>
           <Button primary onClick={refreshTopic}>Refresh topic (random)</Button>
           <Button onClick={() => { localStorage.removeItem(STORAGE_TOPIC); localStorage.removeItem(STORAGE_INTERVAL); setTopicOverride(null); setIntervalMs(8000); window.dispatchEvent(new Event('hero-settings-changed')); setPreviewKey((k) => k + 1); }}>
             Restore defaults
           </Button>
         </div>
-      </SettingsSection>
-
-      <SettingsSection title="Live Preview — as on /overview" description="This is the exact Hero the Director sees. Change topic/interval above and see it update in real time.">
-        <div className="p-4 bg-[var(--vestara-surface-panel-raised)] rounded-lg border text-xs">
-          <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
-          <div className="mt-1 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
-          <div className="mt-2 text-[10px] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
-        </div>
-      </SettingsSection>
+      </div>
     </div>
   );
 }

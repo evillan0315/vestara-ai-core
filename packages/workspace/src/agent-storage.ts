@@ -57,13 +57,24 @@ export class AgentStorage {
 
     // Ensure all canonical agents exist with correct origin
     for (const canonical of CANONICAL_AGENTS) {
-      const existing = dbGet(this.db, 'SELECT id, origin FROM agents WHERE id = ?', [canonical.id]);
+      const existing = dbGet(this.db, 'SELECT id, origin, runtime_agent FROM agents WHERE id = ?', [canonical.id]);
       if (!existing) {
         // Missing canonical agent → deterministic creation
         this.saveAgentSync(canonical);
-      } else if (existing.origin !== 'system' && canonical.origin === 'system') {
-        // Existing row needs system-origin backfill (user → system only)
-        dbRun(this.db, 'UPDATE agents SET origin = ? WHERE id = ? AND origin != ?', ['system', canonical.id, 'system']);
+      } else {
+        if (existing.origin !== 'system' && canonical.origin === 'system') {
+          // Existing row needs system-origin backfill (user → system only)
+          dbRun(this.db, 'UPDATE agents SET origin = ? WHERE id = ? AND origin != ?', [
+            'system',
+            canonical.id,
+            'system',
+          ]);
+        }
+        // Backfill runtime_agent for rows seeded before the column existed
+        // (or overwritten with an empty value) — the registry is authority.
+        if (canonical.runtimeAgent && existing.runtime_agent !== canonical.runtimeAgent) {
+          dbRun(this.db, 'UPDATE agents SET runtime_agent = ? WHERE id = ?', [canonical.runtimeAgent, canonical.id]);
+        }
       }
       // Already correct → no-op
     }
@@ -378,7 +389,7 @@ export class AgentStorage {
   }
 
   private rowToAgent(row: any): AgentDefinition {
-    return {
+    const base: AgentDefinition = {
       id: row.id,
       name: row.name,
       role: row.role,
@@ -389,12 +400,28 @@ export class AgentStorage {
       permissions: JSON.parse(row.permissions ?? '[]'),
       provider: row.provider ?? undefined,
       model: row.model ?? undefined,
-      runtimeAgent: row.runtime_agent ?? undefined,
+      runtimeAgent: row.runtime_agent || undefined,
       teamId: row.team_id || undefined,
       color: row.color || undefined,
       status: row.status,
       createdAt: row.created_at,
     };
+    // Runtime projection overlay (by design): `mode` / `opencodePermissions` /
+    // `opencodePrompt` are in-memory-only (no DB columns) and `runtime_agent`
+    // rows seeded before the column existed read back empty. The canonical
+    // registry is the single source of truth for these fields, so system
+    // agents are overlaid here. DB remains authority for identity, provider/
+    // model binding, status, color, and capabilities. Custom (user) agents
+    // pass through untouched and stay fail-closed downstream when incomplete.
+    const canonical = CANONICAL_AGENTS.find((c) => c.id === base.id);
+    if (canonical) {
+      if (!base.runtimeAgent && canonical.runtimeAgent) base.runtimeAgent = canonical.runtimeAgent;
+      if (!base.mode && canonical.mode) base.mode = canonical.mode;
+      if (!base.opencodePermissions && canonical.opencodePermissions) {
+        base.opencodePermissions = canonical.opencodePermissions;
+      }
+    }
+    return base;
   }
 
   // ─── Agent Memory Operations ─────────────────────────

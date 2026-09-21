@@ -1,5 +1,6 @@
 import { useGAExecutionConfig } from '../../../../hooks/useGAExecutionConfig';
-import { SettingsSection, SettingsRow, FactRow, Status, input } from '../../settings-ui';
+import { navIcon } from '../../../../layouts/workspace-navigation.js';
+import { Button, FactRow, ReferenceCard, SettingsRow, Status, input } from '../../settings-ui';
 
 /**
  * Scaffold: Assistant Execution — turn budgets + tool visibility.
@@ -30,16 +31,17 @@ const TIMEOUT_OPTIONS = [
   { value: 1_800_000, label: '30m' },
 ] as const;
 
-export default function AssistantExecutionSettings() {
+export function AssistantExecutionPanel({ className = '' }: { className?: string }) {
   const { config, setMaxToolCalls, setTurnTimeoutMs, resetToDefaults, isCustom } = useGAExecutionConfig();
   const effectiveMax = config.maxToolCalls;
   const effectiveLabel = effectiveMax === 0 ? 'unlimited' : `${effectiveMax} calls`;
 
   return (
-    <div className="space-y-[var(--vestara-spacing-section)]">
-      <SettingsSection
+      <ReferenceCard
+        icon={navIcon('assistant')}
         title="Assistant Execution"
         description="Turn budgets and timeouts — Vestara-owned limits enforced in the adapter. Provider-owned limits (contextWindow, maxOutput) remain at the provider layer. Updates apply to the next turn."
+        className={className}
       >
         <SettingsRow
           label="Max tool calls"
@@ -78,14 +80,10 @@ export default function AssistantExecutionSettings() {
             </select>
           }
         />
-        <div className="flex flex-wrap gap-2 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] p-4">
-          <button
-            type="button"
-            onClick={resetToDefaults}
-            className="min-h-9 rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-3 text-sm font-medium"
-          >
+        <div className="flex flex-wrap items-center gap-2 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
+          <Button onClick={resetToDefaults}>
             Reset to defaults
-          </button>
+          </Button>
           <span className="self-center text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
             {isCustom ? 'Custom budget active' : 'Using adapter defaults (unlimited calls, 15m)'}
           </span>
@@ -100,11 +98,17 @@ export default function AssistantExecutionSettings() {
           value="Shows same effective value in Activity Room"
           title="M11CComposer pill reads this config"
         />
-      </SettingsSection>
+      </ReferenceCard>
+  );
+}
 
-      <SettingsSection
+export function ToolVisibilityPanel({ className = '' }: { className?: string }) {
+  return (
+      <ReferenceCard
+        icon={navIcon('tools')}
         title="Tool visibility"
         description="Which tools the Assistant can use and their permission (allow / ask / deny) — from AGENT registry ASSISTANT_GRANT. Display-only; edits go through Agent configuration."
+        className={className}
       >
         {TOOL_ROWS.map((row) => (
           <SettingsRow
@@ -114,7 +118,6 @@ export default function AssistantExecutionSettings() {
             value={<Status value={row.policy} />}
           />
         ))}
-      </SettingsSection>
-    </div>
+      </ReferenceCard>
   );
 }

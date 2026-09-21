@@ -6,7 +6,7 @@
  * read authority exists; everything else stays an explicit HOLD under Advanced
  * diagnostics — never fabricated.
  *
- * Layout: canonical Settings primitives (`SettingsSection`, `SettingsRow`) own
+ * Layout: canonical Settings primitives (`ReferenceCard`, `SettingsRow`) own
  * card chrome, gutters, and section spacing. CI components are content blocks
  * (no CI-specific panel/spacing primitives). No inline CSS, no raw palette
  * utilities — every visual value maps to a `--vestara-*` token.
@@ -39,7 +39,8 @@ import {
   useCIStatus,
   waitToView,
 } from '../../../components/ci/index.js';
-import { Button, FactRow, SettingsRow, SettingsSection, Status, Toggle } from '../settings-ui.js';
+import { Button, FactRow, ReferenceCard, SettingsRow, Status, Toggle } from '../settings-ui.js';
+import { navIcon } from '../../../layouts/workspace-navigation.js';
 
 export type { GitHubConnectionStatus } from '../../../components/ci/index.js';
 
@@ -115,9 +116,11 @@ function VerificationPolicy({
   onAddRepository?: () => void;
 }) {
   return (
-    <SettingsSection
+    <ReferenceCard
+      icon={navIcon('workflows')}
       title="Verification Policy"
       description="Which repositories, workflows and branches are observed. Configuration management is not yet persisted."
+      tone="info"
     >
       <RepositoryPolicyRows state={state} />
       <SettingsRow
@@ -175,7 +178,7 @@ function VerificationPolicy({
           Policy management not available yet
         </span>
       </div>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }
 
@@ -310,9 +313,11 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
 
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
-      <SettingsSection
+      <ReferenceCard
+        icon={navIcon('terminal')}
         title="GitHub Connection"
         description="GitHub Actions integration status. Credential values are never displayed."
+        tone="info"
       >
         <CIGitHubConnection
           connection={connection}
@@ -336,28 +341,32 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
             </>
           }
         />
-      </SettingsSection>
+      </ReferenceCard>
 
-      <SettingsSection
+      <ReferenceCard
+        icon={navIcon('workflows')}
         title="Continuous Integration"
         description="GitHub CI status and the Vestara verification decision — independent authorities."
+        tone="info"
       >
         <div className="grid grid-cols-1 divide-y divide-[var(--vestara-border-subtle)] md:grid-cols-2 md:divide-x md:divide-y-0">
           <CIGitHubStatus state={github} />
           <CIVestaraVerification state={verification} />
         </div>
         <CIStatusSeparationNote githubPassed={github.conclusion === 'passed'} />
-      </SettingsSection>
+      </ReferenceCard>
 
-      <SettingsSection
+      <ReferenceCard
+        icon={navIcon('diagnostics')}
         title="Verification Waits"
         description="Authoritative task state and correlation for governed pushes awaiting GitHub CI (CI-OBS-002B2)."
+        tone="info"
       >
         {view ? (
           <>
             <CIVerificationWaitList waits={waits} />
             {view.staleWaitCount > 0 && (
-              <p className="border-t border-[var(--vestara-border-subtle)] px-4 py-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)] sm:px-5">
+              <p className="border-t border-[var(--vestara-border-subtle)] py-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-status-warning)]">
                 {view.staleWaitCount} unresolved wait{view.staleWaitCount === 1 ? '' : 's'} past the deadline —
                 completion may have been lost; reconciliation review is required.
               </p>
@@ -370,7 +379,7 @@ export function CISettings({ statusOverride }: { statusOverride?: CIStatusResult
             reason={status.detail ?? 'CI waits cannot be displayed'}
           />
         )}
-      </SettingsSection>
+      </ReferenceCard>
 
       <VerificationPolicy state={state} />
 

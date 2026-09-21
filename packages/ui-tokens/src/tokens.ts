@@ -72,6 +72,7 @@ export const COLOR = {
       'radial-gradient(ellipse at top, var(--vestara-accent-glow), transparent 60%), var(--vestara-surface-canvas)',
     overlay: 'rgba(0, 0, 0, 0.8)',
     interactive: '#27272a',
+    interactiveHover: '#3f3f46',
   },
 
   // Text colors (VES-DESIGN-002 §I)
@@ -142,6 +143,7 @@ export const SURFACE = {
   panelRaised: 'surface.panelRaised',
   overlay: 'surface.overlay',
   interactive: 'surface.interactive',
+  interactiveHover: 'surface.interactiveHover',
 } as const;
 
 // ─── Text Tokens ───────────────────────────────────────────────

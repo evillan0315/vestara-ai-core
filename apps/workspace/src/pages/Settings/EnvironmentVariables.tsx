@@ -8,8 +8,9 @@
 
 import { EmptyState } from '@vestara/ui';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { navIcon } from '../../layouts/workspace-navigation.js';
 import { type EnvironmentVariableView, settingsClient } from './settings-client.js';
-import { Button, humanize, input, SettingsRow, SettingsSection, Status } from './settings-ui.js';
+import { Button, ReferenceCard, humanize, input, SettingsRow, Status } from './settings-ui.js';
 
 type ScopeFilter = 'all' | EnvironmentVariableView['scope'];
 type SourceFilter = 'all' | EnvironmentVariableView['effectiveSource'];
@@ -51,7 +52,7 @@ function VariableValue({ variable }: { variable: EnvironmentVariableView }) {
   );
 }
 
-export default function EnvironmentVariables() {
+export default function EnvironmentVariables({ className = '' }: { className?: string }) {
   const [variables, setVariables] = useState<EnvironmentVariableView[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
@@ -119,16 +120,19 @@ export default function EnvironmentVariables() {
 
   return (
     <div className="space-y-[var(--vestara-spacing-section)]">
-      <SettingsSection
+      <ReferenceCard
+        icon={navIcon('tools')}
         title="Environment Variables"
         description="Curated registry only — unknown host and session variables are never enumerated, and secret values never leave the API."
+        tone="info"
+        className={className}
         actions={
           <span className="font-mono text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
             {filtered.length} of {variables.length}
           </span>
         }
       >
-        <div className="flex flex-col gap-3 border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] p-4 sm:px-5">
+        <div className="flex flex-col gap-3 border-b border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pb-4">
           <input
             aria-label="Search environment variables"
             value={query}
@@ -138,7 +142,7 @@ export default function EnvironmentVariables() {
           />
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
             <label className="block">
-              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+              <span className="mb-1 block text-[var(--vestara-font-size-xs)] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
                 Scope
               </span>
               <select
@@ -156,7 +160,7 @@ export default function EnvironmentVariables() {
               </select>
             </label>
             <label className="block">
-              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+              <span className="mb-1 block text-[var(--vestara-font-size-xs)] font-semibold uppercase tracking-[0.18em] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
                 Effective source
               </span>
               <select
@@ -192,7 +196,7 @@ export default function EnvironmentVariables() {
             />
           </div>
         )}
-      </SettingsSection>
+      </ReferenceCard>
     </div>
   );
 }

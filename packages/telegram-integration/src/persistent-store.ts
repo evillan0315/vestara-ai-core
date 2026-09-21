@@ -240,6 +240,15 @@ export class TelegramPersistentStore {
     return rows.map((r) => this.rowToConversationBinding(r));
   }
 
+  /**
+   * List every conversation binding (forward picker / diagnostics).
+   * Callers scope to workspace/principal — the store itself is unscoped.
+   */
+  listConversationBindings(): ConversationBinding[] {
+    const rows = dbAll(this.db, 'SELECT * FROM telegram_conversation_bindings');
+    return rows.map((r) => this.rowToConversationBinding(r));
+  }
+
   countActiveByChat(telegramChatId: string): number {
     const row = dbGet(
       this.db,

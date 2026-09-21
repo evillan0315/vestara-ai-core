@@ -17,7 +17,10 @@ function BreadcrumbsInner() {
   if (last?.href === '/overview') return null;
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-[11px] leading-none mb-3 px-1">
+    <nav
+      aria-label="Breadcrumb"
+      className="mx-auto mb-3 flex w-full max-w-[var(--vestara-page-max-width)] items-center gap-1.5 px-[var(--vestara-spacing-page)] text-[var(--vestara-font-size-xs)] leading-none"
+    >
       {crumbs.map((crumb, idx) => (
         <span key={`${crumb.label}-${idx}`} className="flex items-center gap-1.5">
           {idx > 0 && <span className="text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]">/</span>}

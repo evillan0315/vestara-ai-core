@@ -40,6 +40,28 @@ export interface ExecutionBackend {
    * @returns The execution result with response text
    */
   sendMessage(conversationId: string, content: string, options?: { agentId?: string }): Promise<ExecutionResult>;
+
+  /**
+   * Stream a message to the Global Assistant, yielding response text deltas
+   * as they arrive. Optional — backends without streaming use `sendMessage`
+   * and the router delivers the full response through the sink once.
+   */
+  streamMessage?(conversationId: string, content: string, options?: { agentId?: string }): AsyncIterable<string>;
+}
+
+/**
+ * VES-TG-STREAM: sink for streaming execution text to a channel.
+ * The router enforces gating (rate limit, concurrency, conversation
+ * status) and drives execution; the channel owns presentation
+ * (typing indicators, throttled message edits, chunking).
+ */
+export interface StreamSink {
+  /** Called once execution starts (after gating passes). */
+  onStart?(executionId: string): void | Promise<void>;
+  /** Called with the full accumulated text on every text delta. */
+  onText(fullText: string): void | Promise<void>;
+  /** Called once with the final text (possibly empty). */
+  onComplete(fullText: string): void | Promise<void>;
 }
 
 export type MessageRouteStatus = 'routed' | 'queued' | 'rejected' | 'failed' | 'executing';
@@ -246,6 +268,116 @@ export class GlobalAssistantTextRouter {
       executionId,
       conversationId: conversation.vestaraConversationId,
     };
+  }
+
+  /**
+   * Route a Telegram message to the Global Assistant with streaming.
+   *
+   * Same gating as {@link routeMessage} (rate limit, concurrency,
+   * conversation status) but drives execution through
+   * `backend.streamMessage` when available, forwarding text deltas to the
+   * sink. Backends without streaming fall back to `sendMessage` with a
+   * single `onComplete` delivery so channels get exactly one code path.
+   */
+  async routeStream(
+    message: ChannelMessage,
+    identity: TelegramIdentityBinding,
+    _workspace: WorkspaceBinding,
+    conversation: ConversationBinding,
+    sink: StreamSink,
+  ): Promise<MessageRouteResult> {
+    const principalId = identity.principalId;
+
+    // 1. Check rate limit (same gate as routeMessage)
+    if (this.isRateLimited(principalId)) {
+      return {
+        status: 'queued',
+        queued: true,
+        executionId: undefined,
+        conversationId: conversation.vestaraConversationId,
+      };
+    }
+
+    // 2. Check concurrent execution limit
+    const activeCount = this.activeExecutions.get(principalId) ?? 0;
+    if (activeCount >= this.config.maxConcurrentExecutions) {
+      return {
+        status: 'rejected',
+        error: 'Maximum concurrent executions reached',
+        conversationId: conversation.vestaraConversationId,
+      };
+    }
+
+    // 3. Check conversation status
+    if (conversation.status === 'closed') {
+      return {
+        status: 'rejected',
+        error: 'Conversation is closed',
+        conversationId: conversation.vestaraConversationId,
+      };
+    }
+
+    // 4. Target agent identity only — provider/model binding resolves
+    //    server-side inside the backend (ROUTING-CONVERGENCE-001A).
+    const executionId = `exec-${Date.now()}-${randomBytes(4).toString('hex')}`;
+    const agentId = TELEGRAM_ASSISTANT_AGENT_ID;
+
+    // 5. Record execution
+    this.activeExecutions.set(principalId, activeCount + 1);
+    this.recordMessage(principalId);
+
+    try {
+      await sink.onStart?.(executionId);
+
+      if (this.backend?.streamMessage && message.text) {
+        let full = '';
+        const result = await this.backend.streamMessage(conversation.vestaraConversationId, message.text, {
+          agentId,
+        });
+        for await (const delta of result) {
+          if (!delta) continue;
+          full += delta;
+          await sink.onText(full);
+        }
+        await sink.onComplete(full);
+        return {
+          status: 'routed',
+          executionId,
+          conversationId: conversation.vestaraConversationId,
+          response: full,
+        };
+      }
+
+      if (this.backend && message.text) {
+        const result = await this.backend.sendMessage(conversation.vestaraConversationId, message.text, {
+          agentId,
+        });
+        const response = result.response ?? '';
+        if (response) await sink.onText(response);
+        await sink.onComplete(response);
+        return {
+          status: 'routed',
+          executionId: result.executionId ?? executionId,
+          conversationId: conversation.vestaraConversationId,
+          response: result.response,
+        };
+      }
+
+      // No backend — routing info only; the caller executes.
+      return {
+        status: 'routed',
+        executionId,
+        conversationId: conversation.vestaraConversationId,
+      };
+    } catch (error) {
+      return {
+        status: 'failed',
+        error: error instanceof Error ? error.message : 'Execution failed',
+        conversationId: conversation.vestaraConversationId,
+      };
+    } finally {
+      this.completeExecution(principalId);
+    }
   }
 
   /**

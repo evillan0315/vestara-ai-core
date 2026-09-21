@@ -107,11 +107,10 @@ export function Status({ value, bare = false, title }: { value: string | boolean
 }
 
 export function Source({ setting }: { setting: ResolvedSetting }) {
+  if (setting.source === 'default') return null;
   return (
     <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-2 py-0.5 text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-      {setting.source === 'default'
-        ? 'Built-in default'
-        : `${setting.source}${setting.inherited ? ' · inherited' : ' · override'}`}
+      {`${setting.source}${setting.inherited ? ' · inherited' : ' · override'}`}
     </span>
   );
 }
@@ -141,7 +140,7 @@ export function SettingsRow({ label, description, value, code, icon, onClick, ch
           </span>
         ) : (
           code && (
-            <span className="hidden size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] font-mono text-[10px] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:grid">
+            <span className="hidden size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:grid">
               {code}
             </span>
           )
@@ -209,7 +208,7 @@ export function SettingsSection({
 }
 
 /**
- * VES-DESIGN-007A: domain summary card for /settings/overview.
+ * VES-DESIGN-007A: domain summary card for the Overview page snapshot.
  *
  * Settings-specific composition over generic grammar (st-panel surface,
  * canonical icon tile, Status pill): icon + title + status badge header,
@@ -334,6 +333,8 @@ export function Button({
   );
 }
 
+export type SegmentedOption<T extends string> = T | { value: T; label: string };
+
 export function Segmented<T extends string>({
   label,
   value,
@@ -342,22 +343,25 @@ export function Segmented<T extends string>({
 }: {
   label: string;
   value: T;
-  options: readonly T[];
+  options: readonly SegmentedOption<T>[];
   onChange: (value: T) => void;
 }) {
+  const normalized = options.map((option) =>
+    typeof option === 'string' ? { value: option, label: option } : option,
+  );
   return (
     <fieldset>
       <legend className="sr-only">{label}</legend>
       <div className="inline-flex flex-wrap gap-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] p-1">
-        {options.map((option) => (
+        {normalized.map((option) => (
           <button
-            key={option}
+            key={option.value}
             type="button"
-            aria-pressed={value === option}
-            onClick={() => onChange(option)}
-            className={`min-h-7 rounded-[var(--vestara-radius)] border px-2.5 text-[var(--vestara-font-size-xs)] capitalize ${focus} ${value === option ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-transparent text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+            className={`min-h-8 rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-xs)] capitalize ${focus} ${value === option.value ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]' : 'border-transparent text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
           >
-            {option}
+            {option.label}
           </button>
         ))}
       </div>
@@ -387,5 +391,59 @@ export function Toggle({
         className={`absolute left-0.5 top-1 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-5' : 'translate-x-0'}`}
       />
     </button>
+  );
+}
+
+export function SectionIcon({ icon, tone = 'accent' }: { icon: ReactNode; tone?: 'accent' | 'info' }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`grid size-11 shrink-0 place-items-center rounded-[var(--vestara-radius)] border [&_svg]:size-5 ${
+        tone === 'info'
+          ? 'border-[color-mix(in_srgb,var(--vestara-status-info)_32%,transparent)] bg-[color-mix(in_srgb,var(--vestara-status-info)_12%,transparent)] text-[var(--vestara-status-info)]'
+          : 'border-[color-mix(in_srgb,var(--vestara-accent)_32%,transparent)] bg-[color-mix(in_srgb,var(--vestara-accent)_12%,transparent)] text-[var(--vestara-accent-text)]'
+      }`}
+    >
+      {icon}
+    </span>
+  );
+}
+
+export function ReferenceCard({
+  icon,
+  title,
+  description,
+  children,
+  className = '',
+  actions,
+  tone = 'accent',
+}: {
+  icon: ReactNode;
+  title: string;
+  description?: string;
+  children: ReactNode;
+  className?: string;
+  actions?: ReactNode;
+  tone?: 'accent' | 'info';
+}) {
+  return (
+    <section className={`st-panel min-w-0 ${className}`}>
+      <header className="st-card-header st-gap-field st-px-card st-py-card flex min-w-0 items-start border-b border-[var(--vestara-border-subtle)]">
+        <SectionIcon icon={icon} tone={tone} />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">{title}</h2>
+          {description && (
+            <p
+              title={description}
+              className="st-mt-element block max-w-2xl truncate text-[var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-muted)]"
+            >
+              {description}
+            </p>
+          )}
+        </div>
+        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+      </header>
+      <div className="st-card-body st-pad-card">{children}</div>
+    </section>
   );
 }

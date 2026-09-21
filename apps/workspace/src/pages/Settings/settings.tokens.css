@@ -30,6 +30,13 @@
   --st-chip-bg: rgba(0, 0, 0, 0.28);
   --st-chip-border: var(--vestara-border-subtle);
 
+  /* Settings preserves hierarchy even when global density is compact. */
+  --st-spacing-card: calc(var(--vestara-spacing-section) + (var(--vestara-spacing-element) * 2));
+  --st-spacing-field: calc(var(--vestara-spacing-section) + var(--vestara-spacing-element));
+
+  /* Fixed panel height: grid panels stretch to match, taller content scrolls. */
+  --st-panel-max-height: 34rem;
+
   /* Group-tinted icon tiles (canonical hues, translucent washes). */
   --st-tile-workspace-fg: var(--vestara-accent-text);
   --st-tile-runtime-fg: var(--vestara-status-info);
@@ -94,4 +101,180 @@
 
 .st-panel-scroll-x::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Settings section tabs ── */
+.st-settings-nav {
+  align-items: stretch;
+}
+
+/* ── Settings card hierarchy ── */
+.st-settings-grid {
+  display: grid;
+  min-width: 0;
+  align-items: stretch;
+  gap: var(--vestara-spacing-section);
+  grid-template-columns: minmax(0, 1fr);
+}
+
+@media (min-width: 1024px) {
+  .st-settings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .st-settings-grid {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(20rem, 24rem);
+  }
+}
+
+.st-card-header {
+  border-bottom: 1px solid var(--vestara-border-subtle);
+}
+
+.st-card-fill {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.st-card-fill > .st-card-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.st-card-secondary > .st-card-header,
+.st-card-supporting > .st-card-header {
+  padding-block: var(--st-spacing-field);
+}
+
+.st-card-secondary > .st-card-body,
+.st-card-supporting > .st-card-body {
+  padding: var(--st-spacing-field);
+}
+
+.st-card-supporting {
+  --st-panel-shadow: 0 6px 18px color-mix(in srgb, var(--vestara-surface-base) 62%, transparent);
+}
+
+/* ── Fixed-height scroll panels ── */
+.st-card-fixed {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: var(--st-panel-max-height);
+}
+
+.st-card-fixed > .st-card-header {
+  flex-shrink: 0;
+}
+
+.st-card-fixed > .st-card-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── Navigation 3-column fixed panels ── */
+.st-nav-fixed {
+  height: 100%;
+  max-height: var(--st-panel-max-height);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.st-nav-fixed > section {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-height: 100%;
+  overflow: hidden;
+}
+
+.st-nav-fixed > section > header {
+  flex-shrink: 0;
+}
+
+.st-nav-fixed > section > div {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.st-logo-editor {
+  display: grid;
+  gap: var(--st-spacing-field);
+}
+
+.st-logo-preview {
+  display: grid;
+  min-height: 11rem;
+  place-items: center;
+  border-radius: var(--vestara-radius-lg);
+  border: 1px solid var(--vestara-border-subtle);
+  background:
+    radial-gradient(
+      70% 70% at 50% 20%,
+      color-mix(in srgb, var(--vestara-accent) 10%, transparent) 0%,
+      transparent 72%
+    ),
+    color-mix(in srgb, var(--vestara-surface-panel-raised) 72%, transparent);
+  padding: var(--st-spacing-field);
+}
+
+/* ── Scoped spacing helpers for Settings compositions ── */
+.st-pad-card {
+  padding: var(--st-spacing-card);
+}
+
+.st-pad-field {
+  padding: var(--st-spacing-field);
+}
+
+.st-pad-element {
+  padding: var(--vestara-spacing-element);
+}
+
+.st-px-card {
+  padding-inline: var(--st-spacing-card);
+}
+
+.st-py-card {
+  padding-block: var(--st-spacing-card);
+}
+
+.st-py-field {
+  padding-block: var(--st-spacing-field);
+}
+
+.st-gap-section {
+  gap: var(--vestara-spacing-section);
+}
+
+.st-gap-field {
+  gap: var(--st-spacing-field);
+}
+
+.st-gap-element {
+  gap: var(--vestara-spacing-element);
+}
+
+.st-space-section > * + * {
+  margin-top: var(--vestara-spacing-section);
+}
+
+.st-space-field > * + * {
+  margin-top: var(--st-spacing-field);
+}
+
+.st-mt-element {
+  margin-top: var(--vestara-spacing-element);
+}
+
+.st-mb-element {
+  margin-bottom: var(--vestara-spacing-element);
+}
+
+.st-pt-field {
+  padding-top: var(--st-spacing-field);
 }

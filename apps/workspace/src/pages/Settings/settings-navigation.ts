@@ -52,31 +52,14 @@ export interface SettingsSectionMeta {
 }
 
 export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
-  { id: 'overview', label: 'Overview', description: 'Configuration and system health', group: 'workspace', icon: 'dashboard', code: 'OV' },
-  { id: 'hero', label: 'Hero & Briefing', description: 'Overview hero topic, rotation and morning briefing', group: 'workspace', icon: 'dashboard', code: 'HR' },
   { id: 'general', label: 'General', description: 'Workspace identity and defaults', group: 'workspace', icon: 'settings', code: 'GN' },
   { id: 'navigation', label: 'Navigation', description: 'Sidebar menus and custom entries', group: 'workspace', icon: 'routing', code: 'NV' },
-  { id: 'profiles', label: 'Profiles', description: 'Curated workspace profiles', group: 'appearance', icon: 'dashboard', code: 'PF' },
-  { id: 'appearance', label: 'Appearance', description: 'Theme mode and accent palette', group: 'appearance', icon: 'settings', code: 'AP' },
-  { id: 'typography', label: 'Typography', description: 'Font family, size, and weight', group: 'appearance', icon: 'generic', code: 'TY' },
-  { id: 'layout', label: 'Layout', description: 'Sidebar, spacing, radius, and density', group: 'appearance', icon: 'routing', code: 'LY' },
-  { id: 'system', label: 'System Overview', description: 'Host, runtime and environment information', group: 'system', icon: 'diagnostics', code: 'SY' },
-  { id: 'environment', label: 'Environment Variables', description: 'Curated runtime environment registry', group: 'system', icon: 'tools', code: 'EV' },
-  { id: 'runtime', label: 'Runtime', description: 'Runtime services and operations', group: 'runtime-ai', icon: 'activity', code: 'RT' },
-  { id: 'providers', label: 'AI Providers', description: 'Providers and models', group: 'runtime-ai', icon: 'assistant', code: 'AI' },
-  { id: 'agents', label: 'Agents', description: 'Agent execution policy', group: 'runtime-ai', icon: 'agents', code: 'AG' },
-  { id: 'assistant-execution', label: 'Assistant Execution', description: 'Turn budgets, timeouts and tool visibility', group: 'runtime-ai', icon: 'assistant', code: 'AX' },
-  { id: 'browser', label: 'Browser', description: 'Browser automation policy and driver', group: 'runtime-ai', icon: 'terminal', code: 'BR' },
-  { id: 'filesystem', label: 'Filesystem & Safety', description: 'Boundaries and risk controls', group: 'engineering', icon: 'files', code: 'FS' },
-  { id: 'verification', label: 'Verification', description: 'Checks and evidence policy', group: 'engineering', icon: 'workflows', code: 'VR' },
-  { id: 'cli', label: 'CLI Integration', description: 'CLI compatibility and transport', group: 'engineering', icon: 'terminal', code: 'CL' },
-  { id: 'history', label: 'Engineering History', description: 'Temporal event store', group: 'engineering', icon: 'sessions', code: 'EH' },
-  { id: 'notifications', label: 'Notifications', description: 'Operational notifications', group: 'operations', icon: 'executions', code: 'NT' },
-  { id: 'ci', label: 'Continuous Integration', description: 'GitHub Actions integration and verification', group: 'operations', icon: 'workflows', code: 'CI' },
-  { id: 'telemetry', label: 'Telemetry', description: 'Observability detail', group: 'operations', icon: 'diagnostics', code: 'TM' },
-  { id: 'connection', label: 'Connection', description: 'Client API endpoint for standalone clients', group: 'operations', icon: 'tools', code: 'CN' },
-  { id: 'advanced', label: 'Advanced', description: 'Experimental behavior', group: 'advanced', icon: 'generic', code: 'AD' },
-  { id: 'telegram', label: 'Telegram', description: 'Telegram integration simulator', group: 'advanced', icon: 'marketplace', code: 'TG' },
+  { id: 'system', label: 'System', description: 'Host, runtime and environment information', group: 'system', icon: 'diagnostics', code: 'SY' },
+  { id: 'runtime', label: 'Runtime', description: 'Runtime services, CLI integration and event history', group: 'runtime-ai', icon: 'activity', code: 'RT' },
+  { id: 'ai', label: 'AI & Agents', description: 'Providers, models and agent execution policy', group: 'runtime-ai', icon: 'assistant', code: 'AI' },
+  { id: 'security', label: 'Security', description: 'Filesystem boundaries, verification and risk controls', group: 'engineering', icon: 'files', code: 'SC' },
+  { id: 'operations', label: 'Operations', description: 'Telemetry, CI, connection and operational config', group: 'operations', icon: 'diagnostics', code: 'OP' },
+  { id: 'advanced', label: 'Advanced', description: 'Experimental behavior and integrations', group: 'advanced', icon: 'generic', code: 'AD' },
 ];
 
 export function settingsGroupLabel(group: SettingsGroupId): string {

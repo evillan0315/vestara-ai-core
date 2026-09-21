@@ -174,11 +174,13 @@ const oneOf =
 const booleanValue = (value: unknown): value is boolean => typeof value === 'boolean';
 const positiveInteger = (value: unknown): value is number => Number.isInteger(value) && Number(value) > 0;
 const stringValue = (value: unknown): value is string => typeof value === 'string' && value.trim().length > 0;
+const optionalStringValue = (value: unknown): value is string => typeof value === 'string';
 const stringArray = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 
 export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefinition>> = {
   'general.workspaceName': { section: 'general', defaultValue: 'Vestara Workspace', validate: stringValue },
+  'general.workspaceLogo': { section: 'general', defaultValue: '', validate: optionalStringValue },
   'general.defaultBranch': { section: 'general', defaultValue: 'main', validate: stringValue },
   'general.startupBehavior': {
     section: 'general',

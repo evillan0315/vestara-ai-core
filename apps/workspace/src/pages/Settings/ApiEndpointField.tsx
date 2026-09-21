@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Button, input, SettingsRow, SettingsSection } from './settings-ui';
+import { navIcon } from '../../layouts/workspace-navigation.js';
+import { Button, ReferenceCard, input, SettingsRow } from './settings-ui';
 import { getStoredApiBase, persistApiBase } from '../../lib/clientConfig';
 
 /**
@@ -8,7 +9,7 @@ import { getStoredApiBase, persistApiBase } from '../../lib/clientConfig';
  * Vestara API (for example `http://127.0.0.1:3001`), while the browser SPA
  * leaves it empty to use the same origin.
  */
-export function ApiEndpointField({ onApplied }: { onApplied?: () => void }) {
+export function ApiEndpointField({ onApplied, className = '' }: { onApplied?: () => void; className?: string }) {
   const [value, setValue] = useState(getStoredApiBase());
   const [saved, setSaved] = useState(false);
 
@@ -26,9 +27,11 @@ export function ApiEndpointField({ onApplied }: { onApplied?: () => void }) {
   };
 
   return (
-    <SettingsSection
+    <ReferenceCard
+      icon={navIcon('tools')}
       title="API Endpoint"
       description="Base URL of the Vestara API this client connects to. Empty uses the same origin (browser). Standalone clients set this to the API address, e.g. http://127.0.0.1:3001; the WebSocket is derived from the same host."
+      className={`st-card-secondary ${className}`}
     >
       <SettingsRow
         label="Endpoint"
@@ -48,7 +51,7 @@ export function ApiEndpointField({ onApplied }: { onApplied?: () => void }) {
           </span>
         }
       />
-      <footer className="flex flex-col gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+      <footer className="flex flex-col gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] py-3 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-xs text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
           {saved ? 'Endpoint applied. Reload to reconnect.' : 'Applies to new requests immediately.'}
         </p>
@@ -59,6 +62,6 @@ export function ApiEndpointField({ onApplied }: { onApplied?: () => void }) {
           </Button>
         </div>
       </footer>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }

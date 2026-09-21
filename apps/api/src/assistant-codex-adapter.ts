@@ -19,6 +19,7 @@ export interface AssistantCodexExecutorOptions {
 }
 
 type CodexSdk = typeof import('@openai/codex-sdk');
+type CodexClientOptions = ConstructorParameters<CodexSdk['Codex']>[0];
 type CodexThreadEvent = import('@openai/codex-sdk').ThreadEvent;
 type CodexUsage = import('@openai/codex-sdk').Usage;
 
@@ -73,12 +74,10 @@ function codexThreadId(runtimeSessionId: string | undefined): string | undefined
 
 export function createCodexSdkEnv(sourceEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
   const env = Object.fromEntries(
-    Object.entries(sourceEnv).filter(([key, value]) => key !== 'OPENAI_MODEL' && value !== undefined),
+    Object.entries(sourceEnv).filter(
+      ([key, value]) => key !== 'OPENAI_MODEL' && key !== 'OPENAI_API_KEY' && value !== undefined,
+    ),
   ) as Record<string, string>;
-
-  if (env.OPENAI_API_KEY === '${GPT4ALL_API_KEY}' && env.GPT4ALL_API_KEY?.trim()) {
-    env.OPENAI_API_KEY = env.GPT4ALL_API_KEY;
-  }
 
   return env;
 }
@@ -94,6 +93,18 @@ export function avoidWorkspaceCodexHome(
   return rest;
 }
 
+export function createCodexSdkOptions(
+  sourceEnv: NodeJS.ProcessEnv = process.env,
+  workspaceDirectory: string,
+): CodexClientOptions {
+  const env = avoidWorkspaceCodexHome(createCodexSdkEnv(sourceEnv), workspaceDirectory);
+  const apiKey = env.CODEX_API_KEY?.trim();
+  return {
+    env,
+    ...(apiKey ? { apiKey } : {}),
+  };
+}
+
 async function runCodexTurn(
   request: CompletionRequest,
   options: AssistantCodexExecutorOptions,
@@ -105,8 +116,7 @@ async function runCodexTurn(
   const { Codex } = await loadSdk();
   // OPENAI_MODEL belongs to the generic provider path. Do not let it leak
   // into Codex CLI configuration and override the thread's explicit model.
-  const codexEnv = avoidWorkspaceCodexHome(createCodexSdkEnv(), options.directory);
-  const codex = new Codex({ env: codexEnv });
+  const codex = new Codex(createCodexSdkOptions(process.env, options.directory));
   const startedAt = Date.now();
   const threadOptions = {
     ...(options.defaultModel ? { model: options.defaultModel } : {}),

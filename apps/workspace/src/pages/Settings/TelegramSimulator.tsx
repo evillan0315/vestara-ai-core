@@ -8,7 +8,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { telegramApi, type SimulateResult, type TelegramStatus } from '../../lib/telegram.js';
-import { Button, SettingsSection, surface } from './settings-ui.js';
+import { navIcon } from '../../layouts/workspace-navigation.js';
+import { Button, ReferenceCard, surface } from './settings-ui.js';
 
 // ─── Types ─────────────────────────────────────────────────────
 
@@ -107,9 +108,11 @@ export function TelegramSimulator() {
   }, []);
 
   return (
-    <SettingsSection
+    <ReferenceCard
+      icon={navIcon('assistant')}
       title="Telegram Simulator"
       description="Test the Telegram integration without a real bot. Messages are routed through the full execution pipeline."
+      className="st-card-fill"
     >
       {/* Status Bar */}
       <div className={`mb-4 flex items-center gap-4 rounded-[var(--vestara-radius)] p-3 ${surface}`}>
@@ -234,6 +237,6 @@ export function TelegramSimulator() {
         execution pipeline. The response comes from the same LLM backend used by the
         floating assistant.
       </p>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }

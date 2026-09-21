@@ -95,7 +95,7 @@ export function buildBreadcrumbs(pathname: string, search?: string): BreadcrumbI
     const parts = cleanPath.replace(/^\/settings\/?/, '').split('/').filter(Boolean);
     const sectionId = parts[0];
     const subPath = parts[1];
-    if (!sectionId || sectionId === 'overview') {
+    if (!sectionId) {
       crumbs[crumbs.length - 1].isCurrent = true;
       crumbs.forEach((c, i) => (c.isCurrent = i === crumbs.length - 1));
       return crumbs;

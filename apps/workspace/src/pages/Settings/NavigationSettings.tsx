@@ -31,7 +31,7 @@ import { Button, SettingsSection, Toggle, input } from './settings-ui.js';
 
 function RowShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 first:border-t-0 sm:px-5">
+    <div className="flex items-center gap-3 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3 first:border-t-0">
       {children}
     </div>
   );
@@ -219,13 +219,32 @@ export default function NavigationSettings() {
   });
 
   return (
-    <div className="space-y-[var(--vestara-spacing-section)]">
-      {groupedRegistry.map(({ group, entries }) => (
-        <SettingsSection
-          key={group}
-          title={NAV_GROUP_LABELS[group] ?? group}
-          description={`${entries.length} sidebar ${entries.length === 1 ? 'menu' : 'menus'}. Hiding is presentation only — pages stay reachable through search.`}
+    <section className="st-panel min-w-0">
+      <header className="st-card-header st-gap-field st-px-card st-py-card flex min-w-0 items-start border-b border-[var(--vestara-border-subtle)]">
+        <span
+          aria-hidden="true"
+          className="grid size-11 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[color-mix(in_srgb,var(--vestara-accent)_32%,transparent)] bg-[color-mix(in_srgb,var(--vestara-accent)_12%,transparent)] text-[var(--vestara-accent-text)] [&_svg]:size-5"
         >
+          {navIcon('routing')}
+        </span>
+        <div className="min-w-0">
+          <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">
+            Navigation
+          </h2>
+          <p className="st-mt-element max-w-2xl text-[var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-muted)]">
+            Sidebar menus and custom entries. Panels share one height and scroll past it. Hiding is
+            presentation only — pages stay reachable through search.
+          </p>
+        </div>
+      </header>
+      <div className="st-card-body st-pad-card">
+        <div className="grid min-w-0 items-stretch gap-[var(--vestara-spacing-section)] md:grid-cols-2 xl:grid-cols-3">
+          {groupedRegistry.map(({ group, entries }) => (
+            <div key={group} className="st-nav-fixed min-w-0">
+              <SettingsSection
+                title={NAV_GROUP_LABELS[group] ?? group}
+                description={`${entries.length} sidebar ${entries.length === 1 ? 'menu' : 'menus'}. Hiding is presentation only — pages stay reachable through search.`}
+              >
           <div>
             {entries.map((entry) => {
               const visible = visibleIds.has(entry.id);
@@ -243,7 +262,7 @@ export default function NavigationSettings() {
                       </span>
                     )}
                     <span
-                      className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                      className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
                       title={metadata}
                     >
                       {metadata}
@@ -258,22 +277,24 @@ export default function NavigationSettings() {
               );
             })}
           </div>
-        </SettingsSection>
-      ))}
+              </SettingsSection>
+            </div>
+          ))}
 
-      <SettingsSection
-        title="Custom menus"
-        description="Your own sidebar entries. Fully owned here: add, edit, reorder, hide, delete."
-      >
+          <div className="st-nav-fixed min-w-0">
+            <SettingsSection
+              title="Custom menus"
+              description="Your own sidebar entries. Fully owned here: add, edit, reorder, hide, delete."
+            >
         <div>
           {store.custom.length === 0 && (
-            <p className="px-4 py-3 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] sm:px-5">
+            <p className="py-3 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
               No custom menus yet — add one below.
             </p>
           )}
           {store.custom.map((c) =>
             editingId === c.id ? (
-              <div key={c.id} className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 first:border-t-0 sm:px-5">
+              <div key={c.id} className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3 first:border-t-0">
                 <CustomForm
                   initial={toDraft(c)}
                   submitLabel="Save"
@@ -297,7 +318,7 @@ export default function NavigationSettings() {
                     {c.label}
                   </span>
                   <span
-                    className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                    className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
                     title={`${c.path} · order ${c.order}`}
                   >
                     {c.path} · order {c.order}
@@ -315,7 +336,7 @@ export default function NavigationSettings() {
               </RowShell>
             ),
           )}
-          <div className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 sm:px-5">
+          <div className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3">
             {showAdd ? (
               <CustomForm
                 initial={EMPTY_DRAFT}
@@ -338,8 +359,11 @@ export default function NavigationSettings() {
               </Button>
             )}
           </div>
+            </div>
+            </SettingsSection>
+          </div>
         </div>
-      </SettingsSection>
-    </div>
+      </div>
+    </section>
   );
 }

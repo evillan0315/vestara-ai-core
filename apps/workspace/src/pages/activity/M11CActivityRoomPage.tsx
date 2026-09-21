@@ -267,6 +267,8 @@ export default function M11CActivityRoomPage() {
         paused={room.paused}
         recordCount={room.stream.length}
         cursor={room.cursor?.sequenceNumber}
+        unread={room.unread}
+        lastUpdatedAt={room.lastUpdatedAt}
         onPause={room.paused ? room.resume : room.pause}
         onClear={room.clear}
       />
@@ -342,13 +344,17 @@ export default function M11CActivityRoomPage() {
             )}
             {room.attention.length > 0 && (() => {
               const critical = room.attention.filter((a) => a.severity === 'critical').length;
-              const top = room.attention.slice(0, 2);
+              // Strongest-first: critical items lead, otherwise the newest entry.
+              // One headline keeps the banner scannable; the full list lives
+              // in the Needs-attention stream preset behind Focus.
+              const top = room.attention.find((a) => a.severity === 'critical') ?? room.attention[0];
+              const remainder = room.attention.length - 1;
               return (
                 <button
                   type="button"
                   onClick={() => setAttentionFocus((v) => !v)}
                   aria-pressed={attentionFocus}
-                  title={attentionFocus ? 'Clear attention focus' : 'Focus needs-attention activity'}
+                  title={attentionFocus ? 'Clear attention focus' : `Focus needs-attention activity (${room.attention.length} items)`}
                   className={`ar-banner mt-3 w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">
@@ -358,10 +364,14 @@ export default function M11CActivityRoomPage() {
                       ariaLabel={critical > 0 ? 'Critical attention required' : 'Attention required'}
                     />
                     <span className="shrink-0 font-medium text-[var(--vestara-status-warning)]">
-                      {room.attention.length} attention item{room.attention.length > 1 ? 's' : ''}
+                      {room.attention.length} need{room.attention.length === 1 ? 's' : ''} attention
                     </span>
                     {critical > 0 && <span className="ar-banner__critical shrink-0">{critical} critical</span>}
-                    <span className="ar-banner__note min-w-0 flex-1 truncate">{top.map((a) => a.message).join(' · ')}</span>
+                    {top && (
+                      <span className="ar-banner__note min-w-0 flex-1 truncate" title={top.message}>
+                        {top.message}{remainder > 0 ? ` · +${remainder} more` : ''}
+                      </span>
+                    )}
                     <span className="shrink-0 text-xs underline decoration-dotted underline-offset-2">
                       {attentionFocus ? 'Clear focus' : 'Focus ›'}
                     </span>

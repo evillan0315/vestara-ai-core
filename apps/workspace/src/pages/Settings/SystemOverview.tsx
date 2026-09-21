@@ -8,7 +8,6 @@
  *   hardware ........... GET /api/diagnostics/summary (DiagSummary.cpu/memory)
  *   toolchain .......... GET /api/diagnostics/summary (DiagSummary.versions)
  *   storage/network .... GET /api/diagnostics/summary (DiagSummary.disks/network)
- *   runtime state ...... GET /api/runtime/status (RuntimeStatusDto, via Settings)
  *
  * Semantics (never blurred):
  *   host uptime != API process uptime (process uptime is not projected — gap)
@@ -17,9 +16,9 @@
  */
 
 import { useCallback, useEffect, useState } from 'react';
+import { navIcon } from '../../layouts/workspace-navigation.js';
 import { diagnosticsApi, type DiagSummary } from '../../lib/diagnostics.js';
-import type { RuntimeStatusDto } from './settings-client.js';
-import { Button, FactRow, SettingsRow, SettingsSection, Status, humanize } from './settings-ui.js';
+import { Button, FactRow, ReferenceCard, SettingsRow, Status, humanize } from './settings-ui.js';
 
 /** Bytes → GiB with one decimal. Exported for focused tests. */
 export function formatGib(bytes: number): string {
@@ -64,46 +63,16 @@ function VersionOrUnknown({ value }: { value: string | null | undefined }) {
   return <MonoValue>{value}</MonoValue>;
 }
 
-function RuntimeStatus({ runtime }: { runtime: RuntimeStatusDto }) {
-  return (
-    <SettingsSection
-      title="Runtime Status"
-      description="Vestara API runtime state. Running means the process answers — it is not a health verdict."
-    >
-      <div className="px-4 py-3 sm:px-5">
-        <FactRow label="API Runtime" value={<StatusOrUnknown value={runtime.status} />} />
-        <FactRow
-          label="Runtime endpoint"
-          value={runtime.apiEndpoint ? <MonoValue>{runtime.apiEndpoint}</MonoValue> : <UnknownValue />}
-        />
-        <FactRow
-          label="Runtime version"
-          value={runtime.runtimeVersion ? <MonoValue>{runtime.runtimeVersion}</MonoValue> : <UnknownValue />}
-        />
-        <FactRow label="Event bus" value={<StatusOrUnknown value={runtime.eventBusStatus} />} />
-        <FactRow
-          label="Engineering graph"
-          value={<StatusOrUnknown value={runtime.engineeringGraphStatus} />}
-         
-        />
-        <SettingsRow
-          label="API process uptime"
-          description="Process uptime is not projected by the runtime API — host uptime below is machine uptime, not this process."
-          value={<UnknownValue />}
-        />
-      </div>
-    </SettingsSection>
-  );
-}
-
-function SystemSection({ summary }: { summary: DiagSummary }) {
+function SystemSection({ summary, className = '' }: { summary: DiagSummary; className?: string }) {
   const osName = summary.os.type && summary.os.release ? `${summary.os.type} ${summary.os.release}` : null;
   return (
-    <SettingsSection
+    <ReferenceCard
+      icon={navIcon('diagnostics')}
       title="System"
       description="Host machine facts from the diagnostics snapshot."
+      tone="info"
+      className={className}
     >
-      <div className="px-4 py-3 sm:px-5">
         <FactRow
           label="Operating System"
           value={osName ? <span>{osName}</span> : <UnknownValue />}
@@ -132,12 +101,11 @@ function SystemSection({ summary }: { summary: DiagSummary }) {
             )
           }
         />
-      </div>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }
 
-function HardwareSection({ summary }: { summary: DiagSummary }) {
+function HardwareSection({ summary, className = '' }: { summary: DiagSummary; className?: string }) {
   const cores =
     summary.cpu.logicalCores > 0
       ? `${summary.cpu.logicalCores} logical${summary.cpu.physicalCores > 0 ? ` · ${summary.cpu.physicalCores} physical` : ''}`
@@ -145,8 +113,7 @@ function HardwareSection({ summary }: { summary: DiagSummary }) {
   const memory =
     summary.memory.total > 0 ? `${formatGib(summary.memory.used)} used of ${formatGib(summary.memory.total)}` : null;
   return (
-    <SettingsSection title="Hardware" description="Processor and memory from the diagnostics snapshot.">
-      <div className="px-4 py-3 sm:px-5">
+    <ReferenceCard icon={navIcon('tools')} title="Hardware" description="Processor and memory from the diagnostics snapshot." className={`st-card-secondary ${className}`}>
         <FactRow label="Processor" value={summary.cpu.model ? <span>{summary.cpu.model}</span> : <UnknownValue />} />
         <FactRow
           label="Logical cores"
@@ -161,31 +128,29 @@ function HardwareSection({ summary }: { summary: DiagSummary }) {
             memory ? <span className="font-mono tabular-nums">{memory}</span> : <UnknownValue />
           }
         />
-      </div>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }
 
-function EnvironmentSection({ summary }: { summary: DiagSummary }) {
+function EnvironmentSection({ summary, className = '' }: { summary: DiagSummary; className?: string }) {
   return (
-    <SettingsSection title="Environment" description="Toolchain versions probed on the host.">
-      <div className="px-4 py-3 sm:px-5">
+    <ReferenceCard icon={navIcon('terminal')} title="Environment" description="Toolchain versions probed on the host." className={`st-card-secondary ${className}`}>
         <FactRow label="Node.js" value={<VersionOrUnknown value={summary.versions.node} />} />
         <FactRow label="pnpm" value={<VersionOrUnknown value={summary.versions.pnpm} />} />
-      </div>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }
 
-function StorageNetworkSection({ summary }: { summary: DiagSummary }) {
+function StorageNetworkSection({ summary, className = '' }: { summary: DiagSummary; className?: string }) {
   const primary = summary.disks.find((disk) => disk.mount === '/') ?? summary.disks[0];
   const external = summary.network.interfaces.filter((iface) => !iface.internal);
   return (
-    <SettingsSection
+    <ReferenceCard
+      icon={navIcon('files')}
       title="Storage & Network"
       description="Mounted filesystems and host network facts from the diagnostics snapshot."
+      className={className}
     >
-      <div className="px-4 py-3 sm:px-5">
         <SettingsRow
           label="Primary filesystem"
           description={primary ? `${primary.mount} · ${primary.capacity}% used` : undefined}
@@ -216,12 +181,11 @@ function StorageNetworkSection({ summary }: { summary: DiagSummary }) {
           label="Gateway"
           value={summary.network.gateway ? <MonoValue>{summary.network.gateway}</MonoValue> : <UnknownValue />}
         />
-      </div>
-    </SettingsSection>
+    </ReferenceCard>
   );
 }
 
-export default function SystemOverview({ runtime }: { runtime: RuntimeStatusDto }) {
+export default function SystemOverview() {
   const [summary, setSummary] = useState<DiagSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const load = useCallback(async () => {
@@ -251,38 +215,39 @@ export default function SystemOverview({ runtime }: { runtime: RuntimeStatusDto 
     };
   }, []);
 
+  if (loading) {
+    return (
+      <div role="status" aria-label="Loading system information" className="min-w-0 space-y-4 lg:col-span-2 xl:col-span-3">
+        <div className="mpg-skeleton h-44" />
+        <div className="mpg-skeleton h-44" />
+        <p className="sr-only">Loading host and runtime information…</p>
+      </div>
+    );
+  }
+  if (!summary) {
+    return (
+      <div role="alert" className="st-panel min-w-0 p-5 lg:col-span-2 xl:col-span-3">
+        <h2 className="font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+          Host information unavailable
+        </h2>
+        <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+          The diagnostics snapshot could not be loaded. Host, hardware,
+          environment, storage and network sections need a reachable diagnostics API.
+        </p>
+        <div className="mt-4">
+          <Button primary onClick={() => void load()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return (
-    <div className="space-y-[var(--vestara-spacing-section)]">
-      <RuntimeStatus runtime={runtime} />
-      {loading ? (
-        <div role="status" aria-label="Loading system information" className="space-y-4">
-          <div className="mpg-skeleton h-44" />
-          <div className="mpg-skeleton h-44" />
-          <p className="sr-only">Loading host and runtime information…</p>
-        </div>
-      ) : !summary ? (
-        <div role="alert" className="st-panel p-5">
-          <h2 className="font-semibold text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-            Host information unavailable
-          </h2>
-          <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-            The diagnostics snapshot could not be loaded. Runtime state above is unaffected — host, hardware,
-            environment, storage and network sections need a reachable diagnostics API.
-          </p>
-          <div className="mt-4">
-            <Button primary onClick={() => void load()}>
-              Retry
-            </Button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <SystemSection summary={summary} />
-          <HardwareSection summary={summary} />
-          <EnvironmentSection summary={summary} />
-          <StorageNetworkSection summary={summary} />
-        </>
-      )}
-    </div>
+    <>
+      <SystemSection summary={summary} className="lg:col-span-2" />
+      <HardwareSection summary={summary} className="lg:col-span-2 xl:col-span-1" />
+      <StorageNetworkSection summary={summary} className="lg:col-span-2" />
+      <EnvironmentSection summary={summary} className="lg:col-span-2 xl:col-span-1" />
+    </>
   );
 }

@@ -183,7 +183,7 @@
 
   .ar-composer-pin {
     position: sticky;
-    top: 0.5rem;
+    bottom: 0.5rem;
     z-index: 20;
     box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
   }
@@ -524,6 +524,8 @@
 .ar-page .ar-stream-kind { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
 .ar-page .ar-stream-kind--human { color: var(--vestara-status-info); border-color: var(--vestara-status-info-border); background: var(--vestara-status-info-bg); }
 .ar-page .ar-stream-kind--work { color: var(--vestara-status-warning); border-color: var(--vestara-status-warning-border); background: var(--vestara-status-warning-bg); }
+.ar-page .ar-stream-kind--muted { color: var(--vestara-text-muted); border-color: var(--vestara-border-subtle); background: var(--vestara-surface-canvas); font-weight: 400; }
+.ar-page .ar-live-now__overflow { justify-content: flex-start; }
 .ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-canvas); }
 .ar-page .ar-stream-tile { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border: 1px solid; border-radius: var(--vestara-radius); font-size: var(--vestara-font-size-xs); font-weight: 600; }
 .ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: var(--vestara-status-info-bg); border-color: var(--vestara-status-info-border); }
@@ -1021,11 +1023,13 @@
 
 .ar-panel-launchers { display: flex; }
 
-@media (min-width: 1280px) {
+/* Rail docks at ≥1024px (spec breakpoints); below that the launchers open
+   it as a bottom sheet so the stream keeps the single column. */
+@media (min-width: 1024px) {
   .ar-panel-launchers { display: none; }
 }
 
-@media (min-width: 640px) and (max-width: 1279px) {
+@media (min-width: 640px) and (max-width: 1023px) {
   .ar-panel--rail { display: none; }
 }
 
@@ -1441,7 +1445,7 @@
 .ar-stream-filter__tab {
   flex-shrink: 0;
   padding: 0.25rem 0.5rem;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -1476,7 +1480,7 @@
   border-radius: var(--vestara-radius-full);
   background: var(--ar-surface-sunken);
   color: var(--ar-ink-muted);
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   line-height: 1;
 }
@@ -1497,7 +1501,7 @@
 }
 
 .ar-stream-filter__live {
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;

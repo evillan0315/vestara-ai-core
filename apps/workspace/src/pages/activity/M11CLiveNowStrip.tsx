@@ -45,6 +45,9 @@ interface LiveParticipant {
 /** Window in which stream activity counts as "live" without workState. */
 const LIVE_WINDOW_MS = 90_000;
 
+/** Max rows rendered inline — overflow collapses to a +N count so the strip never pushes the stream. */
+const MAX_VISIBLE_LIVE = 3;
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 function formatAgo(timestamp: string): string {
@@ -130,12 +133,20 @@ export default function M11CLiveNowStrip({
     return null;
   }
 
+  const visible = liveParticipants.slice(0, MAX_VISIBLE_LIVE);
+  const overflow = liveParticipants.length - visible.length;
+
   return (
-    // Decorative live mirror of the stream (which already owns role=log).
-    // aria-hidden avoids double screen-reader announcements.
-    <div className="ar-live-now" aria-hidden="true">
+    <section
+      className="ar-live-now"
+      role="region"
+      aria-label={`Live now — ${liveParticipants.length} participant${liveParticipants.length === 1 ? '' : 's'} active`}
+      aria-live="polite"
+      aria-atomic="false"
+      aria-relevant="additions text"
+    >
       <div className="ar-live-now__items">
-        {liveParticipants.map((p) => (
+        {visible.map((p) => (
           <div
             key={p.participantId}
             className="ar-live-now__item"
@@ -145,7 +156,7 @@ export default function M11CLiveNowStrip({
               variant={p.urgent ? 'warn' : 'live'}
               size="xs"
               pulse
-              aria-hidden
+              ariaLabel={p.urgent ? `${p.displayName} needs attention` : `${p.displayName} live`}
             />
             <span className="ar-live-now__name">
               {p.displayName}
@@ -153,12 +164,15 @@ export default function M11CLiveNowStrip({
                 <span className="ar-live-now__role">{p.role}</span>
               )}
             </span>
-            <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[9px] font-bold uppercase tracking-[0.12em] text-[var(--vestara-text-muted)]">
+            <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--vestara-text-muted)]">
               {p.urgent ? p.workState : 'Live'}
             </span>
             {p.workflowRunId && (
-              <span className="max-w-20 truncate font-mono text-[10px] text-[var(--vestara-text-dim)]">
-                {p.workflowRunId.slice(0, 8)}
+              <span
+                className="max-w-24 truncate font-mono text-[10px] text-[var(--vestara-text-dim)]"
+                title={`Workflow ${p.workflowRunId}`}
+              >
+                wf:{p.workflowRunId.slice(0, 8)}
               </span>
             )}
             <span className="ar-live-now__narrative">
@@ -169,7 +183,14 @@ export default function M11CLiveNowStrip({
             </span>
           </div>
         ))}
+        {overflow > 0 && (
+          <div className="ar-live-now__item ar-live-now__overflow" aria-label={`${overflow} more live participants`}>
+            <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] font-semibold text-[var(--vestara-text-secondary)]">
+              +{overflow} live
+            </span>
+          </div>
+        )}
       </div>
-    </div>
+    </section>
   );
 }
