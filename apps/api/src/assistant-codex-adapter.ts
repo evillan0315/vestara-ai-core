@@ -8,6 +8,7 @@
  * as OpenCode.
  */
 
+import * as path from 'node:path';
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
 import { truncateReasoning } from '@vestara/shared';
@@ -70,6 +71,29 @@ function codexThreadId(runtimeSessionId: string | undefined): string | undefined
   return id || undefined;
 }
 
+export function createCodexSdkEnv(sourceEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
+  const env = Object.fromEntries(
+    Object.entries(sourceEnv).filter(([key, value]) => key !== 'OPENAI_MODEL' && value !== undefined),
+  ) as Record<string, string>;
+
+  if (env.OPENAI_API_KEY === '${GPT4ALL_API_KEY}' && env.GPT4ALL_API_KEY?.trim()) {
+    env.OPENAI_API_KEY = env.GPT4ALL_API_KEY;
+  }
+
+  return env;
+}
+
+export function avoidWorkspaceCodexHome(
+  env: Record<string, string>,
+  workspaceDirectory: string,
+): Record<string, string> {
+  const codexHome = env.CODEX_HOME?.trim();
+  if (!codexHome) return env;
+  if (path.resolve(codexHome) !== path.resolve(workspaceDirectory)) return env;
+  const { CODEX_HOME: _discarded, ...rest } = env;
+  return rest;
+}
+
 async function runCodexTurn(
   request: CompletionRequest,
   options: AssistantCodexExecutorOptions,
@@ -81,9 +105,7 @@ async function runCodexTurn(
   const { Codex } = await loadSdk();
   // OPENAI_MODEL belongs to the generic provider path. Do not let it leak
   // into Codex CLI configuration and override the thread's explicit model.
-  const codexEnv = Object.fromEntries(
-    Object.entries(process.env).filter(([key, value]) => key !== 'OPENAI_MODEL' && value !== undefined),
-  ) as Record<string, string>;
+  const codexEnv = avoidWorkspaceCodexHome(createCodexSdkEnv(), options.directory);
   const codex = new Codex({ env: codexEnv });
   const startedAt = Date.now();
   const threadOptions = {
