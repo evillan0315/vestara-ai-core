@@ -4,7 +4,8 @@
  * CORE-001 found three incompatible role vocabularies:
  *   - workspace AgentRole (28 values)
  *   - provider-runtime EngineeringAgentRole (6 values)
- *   - agent-performance AgentRole (6 values, with 'engineer' instead of 'developer')
+ *   - agent-performance AgentRole (6 values, with 'engineer' instead of 'developer';
+ *     package removed in VESTARA-CLEANUP-001, vocabulary retained here for normalization)
  *
  * This is the single source of truth. All other packages MUST import from here
  * or re-export this type. Legacy vocabularies are normalized via adapters in

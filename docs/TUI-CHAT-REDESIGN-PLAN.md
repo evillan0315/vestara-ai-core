@@ -144,6 +144,14 @@ component decomposition).
 
 ### Chat endpoints
 
+> **2026-09-22 (VESTARA-CLEANUP-001):** `apps/api/src/routes/chat.ts` was
+> removed — the route was never registered in `server.ts` (`POST
+> /api/chat/send` already returned 404 in production) and the TUI carries
+> its own `scrubToolMarkup` copy (`packages/tui/src/normalize.ts`). The
+> plan's one-conversation-API goal stands; the surviving conversation path
+> is the conversations API + `@vestara/conversation`
+> (`DefaultConversationService`), not the deleted chat route.
+
 - `apps/api/src/routes/chat.ts` (~280 lines) exposes `POST /api/chat/send` and
   `POST /api/chat/stream`.
 - Both routes are **stateless**: they build a fresh system prompt, run a tool

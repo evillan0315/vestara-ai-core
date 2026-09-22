@@ -129,7 +129,7 @@ observes.**
 | Item | State | Evidence class |
 | ---- | ----- | -------------- |
 | CODEX-OBS-001 (Codex tool lifecycle → EventBus → M9 bridge) | Implemented + focused-test verified | TEST VERIFIED; live Codex → Activity Room dogfood NOT YET RUNTIME VERIFIED (requires API restart/rebuild) |
-| ATTENTION-INTELLIGENCE-001 (system/repository attention convergence) | Implemented + focused-test verified | TEST VERIFIED; deferred authorities recorded below |
+| ATTENTION-INTELLIGENCE-001 (system/repository attention convergence) | Implemented + focused-test verified + live dogfood (diagnostic path) | Diagnostic attention: RUNTIME/DOGFOOD VERIFIED (live detection → Needs Attention appearance → automatic resolution on recovery; §6a). Repository verification attention: TEST VERIFIED only. Deferred authorities recorded below |
 | AR-BROWSER-001 (direct agent-browser dashboard embedding) | Implemented + focused-test/build verified | TEST + BUILD VERIFIED; session invariance / WebSocket behavior per existing agent-browser guarantees; runtime/config caveats preserved (dashboard URL defaults to `http://localhost:4848`, availability boundary with retry) |
 | Reference namespaces (`diagnostic:`/`finding:`/`verification:`) | Implemented + focused-test verified | TEST VERIFIED |
 | Terminal `onData` hardening | Implemented | TEST VERIFIED (neighbor suites) |
@@ -154,6 +154,56 @@ observes.**
 - Classes distinguished: TEST VERIFIED vs BUILD VERIFIED vs
   RUNTIME VERIFIED vs NOT YET RUNTIME VERIFIED. No evidence class upgraded
   into another.
+
+## 6a. Runtime Dogfood — Diagnostic Attention Resolution Lifecycle (2026-09-22)
+
+**Scope**: diagnostic portion of ATTENTION-INTELLIGENCE-001 only
+(repository verification attention remains TEST VERIFIED).
+
+Observed live against a running API / Activity Room session (screenshot +
+session observation):
+
+1. **Detection** — live system diagnostic reported
+   `SYSTEM — API Server Process`, process memory
+   **94% heap used (68MB / 72MB)**, severity **Attention Required · High**.
+2. **Projection + real-time appearance** — that condition appeared in
+   Needs Attention without manual registration. Attention count moved
+   **10 → 12** as additional live diagnostic conditions were detected.
+3. **Authoritative recovery → automatic resolution** — when a later
+   healthy diagnostic snapshot superseded the degraded one, the memory
+   entry **disappeared from Needs Attention** with no manual acknowledge
+   or delete action.
+
+Observed lifecycle (matches §2 resolve-by-omission):
+
+```text
+Diagnostic snapshot
+      ├── memory normal ──────────────┐
+      └── memory 94% ──→ attention OPEN
+                later healthy snapshot
+                         ▼
+                  attention RESOLVED
+                         ▼
+            removed from Needs Attention
+```
+
+**Evidence class upgrade (diagnostic path only):**
+
+| Stage | Class |
+| ----- | ----- |
+| Detection (high-heap condition raised) | RUNTIME VERIFIED |
+| Attention projection into Needs Attention | RUNTIME VERIFIED |
+| Real-time appearance / count change (10 → 12) | RUNTIME VERIFIED |
+| Authoritative recovery → automatic resolution/removal | RUNTIME VERIFIED |
+
+**Doctrine confirmed at runtime**: Activity preserves history; Needs
+Attention reflects what requires intervention *now*. Recovery of the
+owning diagnostic authority clears the derived entry — Needs Attention
+did not become a second tracker that required manual cleanup.
+
+**Not claimed by this dogfood**: repository-verification attention
+resolution, Observer finding lifecycle authority, governed worktree
+attention, CODEX-OBS-001 live path, or any other deferred authority (§8).
 
 ## 7. Known Gaps / Next Work (repository-supported only)
 

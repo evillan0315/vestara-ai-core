@@ -18,7 +18,7 @@ pnpm vestara doctor            # compiled CLI (requires build first)
 ## Monorepo Boundaries
 
 - `apps/api` (`@vestara/api`) — HTTP+WS gateway, `src/index.ts` + `src/routes/`. `apps/cli` — CLI/REPL entrypoint. `apps/workspace` (`@vestara/workspace-ui`, React 19 + Vite) **≠** `packages/workspace` (`@vestara/workspace`, integration hub) — different packages sharing the name.
-- `apps/console` is an empty stub (no `package.json`); the Console is `pnpm console` → `node apps/cli/dist/index.js console`.
+- `apps/console` does not exist; the Console is `pnpm console` → `node apps/cli/dist/index.js console` (CLI `console`/`tui` command, see `apps/cli/src/index.ts`).
 - `apps/onboarding-lab` is a dev test rig, not a runtime entrypoint.
 - `packages/*` + `packages/providers/*` + `packages/tools/*` are runtime libraries. `packages/kernel` coordinates lifecycle/providers.
 - `os/` is OS-0 host integration (systemd units, Plymouth, image builder) — not a runtime package, not in pnpm workspaces.

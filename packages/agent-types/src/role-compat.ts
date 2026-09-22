@@ -51,8 +51,9 @@ export function isRoutingRole(value: string): value is RoutingRole {
  * Performance evaluation role vocabulary.
  *
  * A SEPARATE concept from both AgentRole and RoutingRole.
- * Used by @vestara/agent-performance for evaluation buckets.
- * Kept here for documentation and normalization purposes.
+ * Formerly consumed by @vestara/agent-performance for evaluation buckets
+ * (package removed in VESTARA-CLEANUP-001); retained for normalization of
+ * historical records and documentation purposes.
  */
 export type PerformanceRole = 'architect' | 'planner' | 'engineer' | 'reviewer' | 'verifier' | 'documentation';
 
@@ -118,7 +119,7 @@ export function routingRoleToAgentRole(role: RoutingRole): AgentRole {
  * Normalize a legacy role string to a canonical AgentRole.
  *
  * Handles known divergences:
- *   - 'engineer' → 'developer' (agent-performance legacy)
+ *   - 'engineer' → 'developer' (removed agent-performance vocabulary legacy)
  *   - 'planner' → 'planning' (provider-runtime routing bucket)
  *   - 'documentation' → 'documenter' (provider-runtime routing bucket)
  *

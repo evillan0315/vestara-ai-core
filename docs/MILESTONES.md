@@ -4820,8 +4820,15 @@ Room rendering.
   restart/rebuild) — not claimed.
 - **ATTENTION-INTELLIGENCE-001**: implemented + focused-test verified
   (diagnostic latest-wins + resolve-by-omission; verification
-  same-change-set + same-check resolution). Governed worktree state and
-  Observer lifecycle explicitly deferred as authorities.
+  same-change-set + same-check resolution). **Diagnostic path additionally
+  RUNTIME/DOGFOOD VERIFIED (2026-09-22)**: live high-heap condition
+  (`SYSTEM — API Server Process`, 94% heap used 68MB/72MB, Attention
+  Required · High) detected → appeared in Needs Attention in real time
+  (count 10 → 12) → automatic resolution/removal on later healthy
+  snapshot with no manual acknowledge/delete. Repository verification
+  attention remains TEST VERIFIED only. Governed worktree state and
+  Observer lifecycle explicitly deferred as authorities. Full runtime
+  evidence: `docs/activity-room/VESTARA-CHECKPOINT-001-evidence.md` §6a.
 - **AR-BROWSER-001**: implemented + focused-test/build verified (direct
   agent-browser dashboard embedding; availability boundary with retry;
   dashboard URL defaults to `http://localhost:4848`). Session
@@ -4839,3 +4846,107 @@ MODEL (not a second issue tracker, not a diagnostics authority); historical
 failure != currently unresolved attention; reference handoff keeps user
 message text unchanged; Activity Room is a control/projection surface, not
 the authority for subsystems it observes.
+
+---
+
+## VESTARA-CHECKPOINT-002 — Documentation & Milestone Reconciliation (post-CLEANUP-001) ✅ Recorded 2026-09-22
+
+**Theme**: reconcile documentation, milestones, and architecture records with
+the surviving implementation after VESTARA-CLEANUP-001 and the Activity
+Room/runtime convergence (CHECKPOINT-001). No product features implemented
+in this checkpoint. Full evidence:
+`docs/activity-room/VESTARA-CHECKPOINT-002-evidence.md`.
+
+**VESTARA-CLEANUP-001 (accepted, CLOSED)** — obsolete implementations
+removed, capabilities preserved: dead API chat route (`routes/chat.ts`, never
+registered — its send endpoint already 404 in production; TUI keeps its
+own `scrubToolMarkup` copy); legacy Activity Room page/stream/hooks
+(`ActivityRoomPage`, `ActivityStream`, `useActivityRoomModel`,
+`useActivityStream` — unrouted since M11C promotion); obsolete
+`/activity-v2` route (rendered null; superseded by canonical `/activity`)
+with its 8 governed visual baselines (route-keyed, no manifest residue);
+orphan dashboard `ActivityStream` widget (never imported/exported);
+`repository-evidence`, `agent-performance`, `openvidu-adapter`, `subsystem`
+packages (zero consumers each; live ownership proven for
+`verification-evidence`/`repository-contracts` and
+`media-conference/OpenViduBrowserAdapter`); one personal non-product file.
+Workspace graph 123 → 119 projects. Net −3998 lines across 49 paths.
+
+**Intentionally retained (unwired, not obsolete)**: `history`, `reasoning`,
+`tools/filesystem`, `tools/memory`, `tools/knowledge`, `tools/project`.
+CAPABILITY: retained — they overlap future agent/RAG/platform architecture.
+CURRENT IMPLEMENTATION: unwired (explicit-import registry only; no
+filesystem/manifest discovery proven). CANONICAL FUTURE OWNER: unresolved.
+Not claimed as production-active.
+
+**Activity Room current state (implemented)**: canonical `/activity` route →
+`M11CActivityRoomPage`/`M11CActivityStream`/`M11CStreamItem`; participants +
+presence rail, composer with file attachments, structured
+activity/attention references, detail drawer/modal, Tool Result
+presentation, Needs Attention projection, Terminal, Files/editor, Settings,
+screenshot integration, embedded agent-browser dashboard, dockable utility
+surfaces, design-token integration. Activity Room remains an
+operational/control/projection surface — not the persistence/authority owner
+of the subsystems it observes.
+
+**Canonical event path (surviving)**: provider/runtime → normalized
+lifecycle/event → EventBus → M9 Activity projection → Activity Room. Tool
+lifecycle converges: OpenCode and Codex → canonical `tool.called` /
+`tool.succeeded` / `tool.failed` (no Codex-specific Activity rendering).
+
+**Milestone classifications (evidence-held)**:
+- Activity Room convergence, Tool Result, structured reference handoff,
+  Needs Attention, AR-BROWSER-001:
+  IMPLEMENTED + focused-test verified + build verified.
+- ATTENTION-INTELLIGENCE-001 (diagnostic path): **IMPLEMENTED: YES ·
+  FOCUSED TEST VERIFIED: YES · BUILD VERIFIED: YES · RUNTIME/DOGFOOD
+  DETECTION: YES · RUNTIME/DOGFOOD AUTOMATIC RESOLUTION: YES** — live
+  Activity Room dogfood observation (2026-09-22): Needs Attention was
+  live; `SYSTEM / API Server Process` appeared automatically with
+  diagnostic state "Process memory: 94% heap used (68MB / 72MB)", status
+  Attention Required / High; the attention item subsequently disappeared
+  automatically when the authoritative diagnostic condition recovered —
+  no manual acknowledgement/deletion required. A separate live system
+  finding was also visible: `SYSTEM / Toolchain Versions` — "8/13 tools
+  available", Dependency Unavailable (detection observed; automatic
+  resolution not claimed for that item). Evidence is scoped to the
+  **diagnostic-attention source ONLY** — repository verification,
+  governed worktree attention, Observer findings, and security findings
+  are NOT runtime-lifecycle verified. Architectural significance: Needs
+  Attention has demonstrated **current-state semantics** in the live
+  runtime — authoritative unhealthy diagnostic state → attention opens;
+  authoritative healthy/recovered diagnostic state → attention
+  resolves/disappears — therefore it is not merely accumulating
+  historical diagnostic failures. Full runtime evidence: CHECKPOINT-001
+  evidence §6a + CHECKPOINT-002 evidence §5.
+- CODEX-OBS-001: IMPLEMENTED + focused-test verified. NOT runtime/dogfood
+  verified (requires API restart). Known limitation (still current):
+  per-turn Codex actor propagates via `codexAgentId` fallback
+  (`request.agent || request.agentId || 'vestara-assistant'`).
+- CLEANUP-001: workspace build PASS, lint PASS, full `tsc -b` PASS,
+  focused tests PASS, frozen-lockfile install PASS.
+  `screenshots:check` has 4 PRE-EXISTING failures (reproduce on pre-cleanup
+  HEAD; cleanup introduced none) — NOT recorded as pass.
+- FILES-SEARCH-001: PLANNED/pending. RAG: upcoming, NOT implemented.
+
+**Needs Attention doctrine**: DERIVED CURRENT UNRESOLVED STATE
+(Activity lifecycle + diagnostic health + repository verification → attention
+projection → Needs Attention). Not a failure feed, tracker, or authority.
+Authoritative recovery/superseding lifecycle resolves attention where
+supported. Deferred: governed worktree attention, durable Observer finding
+lifecycle, security/policy findings without authority.
+
+**Reference handoff doctrine**: selected Activity/Attention reference →
+composer → durable message reference identity → turn surface context →
+agent/provider context; user text unchanged. Contract debt (still true):
+`referencedActivityIds` carries identities beyond literal Activity records;
+future direction is typed generic references (not refactored here).
+
+**Roadmap (verified against current plans, no dates)**: 1. FILES-SEARCH-001
+deep workspace file discovery; 2. RAG vertical slice; 3. later
+agent/workflow capabilities.
+
+**docs/Architecture/ verdict**: (A) historical evidence — superseded
+Aug-2026 slice/architecture plans (owner vestara-context), preserved, not
+canonical. Canonical authority is lowercase `docs/architecture/` (AR-GA
+contracts). No deletion in this checkpoint.

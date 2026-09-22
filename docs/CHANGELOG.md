@@ -12,6 +12,66 @@ next-review: 2026-10-04
 
 ---
 
+## [VESTARA-CHECKPOINT-002] — 2026-09-22 — Documentation & Milestone Reconciliation (post-CLEANUP-001)
+
+### Removed
+
+- **VESTARA-CLEANUP-001 (accepted, CLOSED; net −3998 lines, 49 paths,
+  123 → 119 projects)**: dead API chat route (never registered; TUI keeps
+  its own markup scrubber); legacy Activity Room page/stream/hooks
+  (unrouted since M11C promotion); obsolete `/activity-v2` route + 8
+  route-keyed visual baselines; orphan dashboard ActivityStream widget;
+  `repository-evidence`, `agent-performance`, `openvidu-adapter`,
+  `subsystem` packages (zero consumers; live ownership held by
+  `verification-evidence`/`repository-contracts` and
+  `media-conference/OpenViduBrowserAdapter`); one personal file.
+
+### Changed
+
+- **Canonical Activity Room restated**: `/activity` →
+  `M11CActivityRoomPage`/`M11CActivityStream`; projection/control surface,
+  not subsystem authority. Visual design spec inventory repointed to M11C
+  files; `edit-manifest` stream entry repointed to `M11CActivityStream`.
+- **Docs drift corrected**: `AGENTS.md` console entry (no `apps/console`
+  package — Console is the CLI `console` command);
+  `@vestara/agent-types` comments (removed package now historical);
+  TUI chat plan carries a CLEANUP-001 supersession note. Historical
+  milestone/audit/evidence references to removed paths preserved as
+  history, not rewritten.
+- **docs/Architecture/ verdict**: historical evidence (superseded plans),
+  preserved; canonical authority remains `docs/architecture/`.
+
+### Recorded (no product change)
+
+- **ATTENTION-INTELLIGENCE-001 (diagnostic path)** upgraded:
+  IMPLEMENTED + focused-test verified + build verified +
+  RUNTIME/DOGFOOD detection + RUNTIME/DOGFOOD automatic resolution —
+  live observation: `SYSTEM / API Server Process` "Process memory: 94%
+  heap used (68MB / 72MB)" Attention Required/High appeared automatically
+  and disappeared automatically on authoritative recovery (no manual
+  acknowledge); separate live `SYSTEM / Toolchain Versions` "8/13 tools
+  available" finding also visible (detection only). Scoped to the
+  diagnostic source — repository/worktree/Observer/security attention
+  NOT runtime-lifecycle verified. Needs Attention now demonstrates
+  current-state semantics, not historical-failure accumulation.
+- CODEX-OBS-001 stays IMPLEMENTED + focused-test verified, NOT
+  runtime/dogfood verified; per-turn actor fallback
+  (`request.agent || request.agentId || 'vestara-assistant'`) still current.
+- Needs Attention doctrine (derived current unresolved state), reference
+  handoff doctrine + `referencedActivityIds` debt, retained-unwired
+  capabilities (`history`, `reasoning`, `tools/filesystem|memory|knowledge|
+  project` — capability retained, owner unresolved), roadmap
+  (FILES-SEARCH-001 → RAG slice → agent/workflow), and verification truth:
+  build/lint/tsc/focused-tests/frozen-lockfile PASS; `screenshots:check`
+  has 4 pre-existing failures (also on pre-cleanup HEAD), not a pass.
+  `documentation:check`: HEAD 97 / current 113 / delta 13 (8 ignored
+  test-results + 5 preserved historical refs; baseline deliberately NOT
+  regenerated; new prose 0 findings). `docs:validate` advisory finding:
+  RAG roadmap missing frontmatter — PRE-EXISTING DEBT, untouched.
+- Full evidence: `docs/activity-room/VESTARA-CHECKPOINT-002-evidence.md`.
+
+---
+
 ## [VESTARA-CHECKPOINT-001] — 2026-09-22 — Activity Room Operational Control Surface and Attention Convergence
 
 ### Added
@@ -27,7 +87,8 @@ next-review: 2026-10-04
   the shared `fromToolEvent` adapter. Live Codex → Activity Room dogfood
   still requires API restart/rebuild.
 - **Attention intelligence convergence (ATTENTION-INTELLIGENCE-001,
-  implemented + focused-test verified)**: diagnostic attention projection
+  implemented + focused-test verified; diagnostic path RUNTIME/DOGFOOD
+  VERIFIED 2026-09-22)**: diagnostic attention projection
   (latest snapshot per source wins; healthy supersedes — resolution by
   omission), repository verification attention (a failed check resolves
   only when the same change set + check later passes), and Observer finding
@@ -37,7 +98,11 @@ next-review: 2026-10-04
   categories); M11A attention endpoint merges projection + legacy + system
   (15s cache) + repository attention with canonical dedupe. Needs Attention
   remains a derived current-state read model — historical failure !=
-  currently unresolved attention.
+  currently unresolved attention. Live dogfood: high-heap API server
+  condition opened in Needs Attention, then auto-resolved and disappeared
+  when a healthy diagnostic snapshot superseded it (no manual
+  acknowledge); repository verification attention still TEST VERIFIED only
+  (`VESTARA-CHECKPOINT-001-evidence.md` §6a).
 - **Reference handoff namespaces (implemented + focused-test verified)**:
   `diagnostic:*`, `finding:*`, `verification:*` resolve to labeled turn
   surface references without an Activity lookup and pass `referenceExists`

@@ -85,7 +85,6 @@ export const SHUTDOWN_GRACE_MS = 10_000;
 // explicitly streaming routes lengthen the deadline.
 const STREAMING_PREFIXES = [
   '/api/conversations/',
-  '/api/chat/',
   '/api/agent-threads/',
   '/api/orchestration/stream',
   '/api/diagnostics/analyze',

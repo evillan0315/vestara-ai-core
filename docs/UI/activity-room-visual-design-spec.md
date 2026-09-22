@@ -33,7 +33,7 @@ migration steps, no code changes). It describes the *target visual state* only.
 
 - `apps/workspace/src/pages/activity/*` (page, stream, composer, sidebar, items,
   state panel, scope selector, execution pulse, detail, correction, visual edit).
-- `apps/workspace/src/hooks/useActivityStream.ts`, `apps/workspace/src/lib/activity.ts`.
+- `apps/workspace/src/hooks/useM11CActivityRoom.ts`, `apps/workspace/src/lib/activity.ts`.
 - `apps/api/src/routes/activity-room.ts`, and the participants/live-stream routes in
   `apps/api/src/routes/workflow.ts`.
 - `packages/activity-room/src/*` (contracts, severity, effective-state, stream).
@@ -274,22 +274,22 @@ surfaces:
 
 components:
   inventory:
-    - { id: ActivityRoomPage,             file: "pages/activity/ActivityRoomPage.tsx",          region: command-bar,        role: "page scaffold and control deck wiring" }
+    - { id: M11CActivityRoomPage,         file: "pages/activity/M11CActivityRoomPage.tsx",      region: command-bar,        role: "page scaffold and control deck wiring (canonical; legacy ActivityRoomPage removed CLEANUP-001)" }
     - { id: ActivityScopeSelector,        file: "pages/activity/ActivityScopeSelector.tsx",     region: [command-bar, workflow-browser], role: "scope to workflow/session/all" }
     - { id: ActivitySidebar,              file: "pages/activity/ActivitySidebar.tsx",           region: participant-rail,   role: "participant list, presence groups, unread badges, stream filter" }
     - { id: AgentListItem,                file: "pages/activity/AgentListItem.tsx",             region: participant-rail,   role: "agent row in presence groups" }
     - { id: ExecutionPulse,               file: "pages/activity/ExecutionPulse.tsx",            region: workflow-browser,   role: "compact stage lifecycle indicator" }
     - { id: ActivityStatePanel,           file: "pages/activity/ActivityStatePanel.tsx",        region: stream-main,        role: "attention bar + effective state" }
-    - { id: ActivityStream,               file: "pages/activity/ActivityStream.tsx",            region: stream-main,        role: "bounded activity timeline" }
-    - { id: AggregatedToolRow,            file: "pages/activity/ActivityStream.tsx",            region: stream-main,        role: "collapsed consecutive tool rows" }
+    - { id: M11CActivityStream,           file: "pages/activity/M11CActivityStream.tsx",        region: stream-main,        role: "bounded activity timeline (canonical; legacy ActivityStream removed CLEANUP-001)" }
+    - { id: M11CStreamItem,              file: "pages/activity/M11CStreamItem.tsx",           region: stream-main,        role: "collapsed consecutive tool rows" }
     - { id: ActivityItem,                 file: "pages/activity/ActivityItem.tsx",              region: stream-main,        role: "activity row (chat/organizational event variants)" }
     - { id: MessageReceipts,              file: "pages/activity/ActivityItem.tsx",              region: stream-main,        role: "delivery/observation receipts on human messages" }
     - { id: ActivityComposer,             file: "pages/activity/ActivityComposer.tsx",          region: composer,           role: "conversational steering composer" }
-    - { id: ActivityDetailModal,          file: "pages/activity/ActivityDetailModal.tsx",       region: inspector,          role: "record detail (lazy-hydrated); migrates to inspector" }
+    - { id: M11CActivityDetailModal,     file: "pages/activity/M11CActivityDetailModal.tsx",   region: inspector,          role: "record detail (lazy-hydrated); migrates to inspector" }
     - { id: ActivityCorrectionDialog,     file: "pages/activity/ActivityCorrectionDialog.tsx",  region: inspector,          role: "append-only correction; remains a modal dialog" }
     - { id: VisualEditMode,               file: "pages/activity/VisualEditMode.tsx",            region: command-bar,        role: "VE-1/2/5/6 visual manipulation surface" }
-    - { id: LiveStreamItems,              file: "pages/activity/ActivityRoomPage.tsx",          region: live-now,           role: "per-participant live narrative strip" }
-    - { id: ParticipantsSheet,            file: "pages/activity/ActivityRoomPage.tsx",          region: participant-rail,   role: "bottom sheet at <768px" }
+    - { id: LiveStreamItems,              file: "pages/activity/M11CLiveNowStrip.tsx",          region: live-now,           role: "per-participant live narrative strip" }
+    - { id: ParticipantsSheet,            file: "pages/activity/M11CParticipantRail.tsx",       region: participant-rail,   role: "bottom sheet at <768px" }
 
 protected-behaviors:
   - { id: STREAM-PERF-001, summary: "bounded windows; never full-history eager hydration", details: "initial limit 100; history window 250; render window 50; preview budget 400; full record lazy via GET /api/activity-room/:id (hasDetails)" }
@@ -376,22 +376,22 @@ counter, @mention listbox, reference chip, send, failed-send retry.
 
 | Component | File | Region | Role in the operations room |
 |-----------|------|--------|------------------------------|
-| `ActivityRoomPage` | `pages/activity/ActivityRoomPage.tsx` | command-bar | Scaffold; control deck wiring; region orchestration |
+| `M11CActivityRoomPage` | `pages/activity/M11CActivityRoomPage.tsx` | command-bar | Scaffold; control deck wiring; region orchestration |
 | `ActivityScopeSelector` | `pages/activity/ActivityScopeSelector.tsx` | command-bar / workflow-browser | Scope to workflow / session / all |
 | `ActivitySidebar` | `pages/activity/ActivitySidebar.tsx` | participant-rail | Participants, presence, unread, filter |
 | `AgentListItem` | `pages/activity/AgentListItem.tsx` | participant-rail | Presence-group agent rows |
 | `ExecutionPulse` | `pages/activity/ExecutionPulse.tsx` | workflow-browser | Compact stage lifecycle indicator |
 | `ActivityStatePanel` | `pages/activity/ActivityStatePanel.tsx` | stream-main | Attention bar + effective state |
-| `ActivityStream` | `pages/activity/ActivityStream.tsx` | stream-main | Bounded timeline |
-| `AggregatedToolRow` | `pages/activity/ActivityStream.tsx` | stream-main | Collapsed consecutive tool rows |
+| `M11CActivityStream` | `pages/activity/M11CActivityStream.tsx` | stream-main | Bounded timeline |
+| `M11CStreamItem` | `pages/activity/M11CStreamItem.tsx` | stream-main | Collapsed consecutive tool rows |
 | `ActivityItem` | `pages/activity/ActivityItem.tsx` | stream-main | Activity row (chat / event variants) |
 | `MessageReceipts` | `pages/activity/ActivityItem.tsx` | stream-main | Delivery/observation receipts |
 | `ActivityComposer` | `pages/activity/ActivityComposer.tsx` | composer | Conversational steering |
-| `ActivityDetailModal` | `pages/activity/ActivityDetailModal.tsx` | inspector | Record detail (migrates into the inspector region) |
+| `M11CActivityDetailModal` | `pages/activity/M11CActivityDetailModal.tsx` | inspector | Record detail (migrates into the inspector region) |
 | `ActivityCorrectionDialog` | `pages/activity/ActivityCorrectionDialog.tsx` | inspector | Append-only correction (stays a modal) |
 | `VisualEditMode` | `pages/activity/VisualEditMode.tsx` | command-bar | VE-1/2/5/6 visual manipulation |
-| Live stream items | `pages/activity/ActivityRoomPage.tsx` | live-now | Per-participant live narrative |
-| Participants sheet | `pages/activity/ActivityRoomPage.tsx` | participant-rail | Bottom sheet at <768px |
+| Live stream items | `pages/activity/M11CLiveNowStrip.tsx` | live-now | Per-participant live narrative |
+| Participants sheet | `pages/activity/M11CParticipantRail.tsx` | participant-rail | Bottom sheet at <768px |
 
 ## 4. Typography, spacing, surface rules
 

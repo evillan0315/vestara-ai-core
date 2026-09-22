@@ -38,8 +38,8 @@ const EDIT_MANIFEST: Record<string, EditTargetInfo> = {
     file: 'apps/workspace/src/pages/activity/ActivityComposer.tsx',
   },
   'Activity Stream': {
-    component: 'ActivityStream',
-    file: 'apps/workspace/src/pages/activity/ActivityStream.tsx',
+    component: 'M11CActivityStream',
+    file: 'apps/workspace/src/pages/activity/M11CActivityStream.tsx',
   },
   'Activity Message': {
     component: 'ActivityItem (human/agent message variant)',
