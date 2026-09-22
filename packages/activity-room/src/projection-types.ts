@@ -131,6 +131,19 @@ export interface StreamItem {
     /** Responding participant display name (only when lifecycle === 'responded'). */
     readonly respondingParticipantName?: string;
   };
+
+  /**
+   * Tool correlation data (only when kind === 'tool-call' | 'tool-result').
+   * Preserved from the durable M9 payload — never parsed from content.
+   * Absent for non-tool kinds. Phase 1: enables agent-attributed stream rows
+   * and callID pairing without merging append-only records.
+   */
+  readonly tool?: {
+    readonly toolName: string;
+    readonly callID: string;
+    readonly status: 'started' | 'completed' | 'failed';
+    readonly agentId?: string;
+  };
 }
 
 // ─── Participant Projection ─────────────────────────────────
@@ -212,9 +225,20 @@ export interface ParticipantProjection {
  * Typed attention reasons. Not a generic boolean.
  */
 export type AttentionReason =
+  | 'issue'
+  | 'violation'
   | 'task-failed'
   | 'task-blocked'
+  | 'task-awaiting-approval'
   | 'workflow-failed'
+  | 'verification-failed'
+  | 'verification-blocked'
+  | 'test-failed'
+  | 'tool-failed'
+  | 'approval-required'
+  | 'hold'
+  | 'finding'
+  | 'recommendation'
   | 'attention-required'
   | 'waiting-for-human'
   | 'dependency-unavailable'
@@ -229,6 +253,27 @@ export type AttentionReason =
 export type AttentionSeverity = 'critical' | 'high' | 'medium' | 'low';
 
 /**
+ * Closed attention categories used by the Activity Room projection.
+ * These are presentation categories over authoritative subsystem state, not
+ * a second issue tracker.
+ */
+export type AttentionCategory =
+  | 'issue'
+  | 'violation'
+  | 'blocker'
+  | 'test-failure'
+  | 'verification-failure'
+  | 'permission'
+  | 'approval'
+  | 'execution-failure'
+  | 'workflow'
+  | 'runtime'
+  | 'safety'
+  | 'agent-attention';
+
+export type AttentionStatus = 'open' | 'resolved';
+
+/**
  * An attention entry — something that needs human awareness.
  */
 export interface AttentionEntry {
@@ -238,16 +283,38 @@ export interface AttentionEntry {
   /** Why attention is needed. */
   readonly reason: AttentionReason;
 
+  /** Closed category for filtering/grouping. */
+  readonly category: AttentionCategory;
+
   /** Severity level. */
-  readonly severity: AttentionSeverity;
+  readonly severity?: AttentionSeverity;
 
   /** Human-readable description. */
   readonly message: string;
+
+  /** ActivityRecord that justifies this attention item. */
+  readonly sourceRecordId: string;
+
+  /** Authoritative subsystem/source that owns the underlying condition. */
+  readonly owner?: string;
+
+  /** Current derived resolution state. */
+  readonly status: AttentionStatus;
+
+  /** When this condition was resolved, if a later authoritative record resolved it. */
+  readonly resolvedAt?: string;
+
+  /** Supporting evidence references copied from the source record. */
+  readonly evidenceRefs?: readonly string[];
+
+  /** Bounded structured explanation copied from authoritative fields only. */
+  readonly details?: Readonly<Record<string, unknown>>;
 
   /** Which actor/task/workflow is involved. */
   readonly actor?: ActivityActor;
   readonly workflowRunId?: WorkflowRunId;
   readonly taskId?: WorkflowTaskId;
+  readonly sessionId?: string;
 
   /** Reference to originating StructuredInteraction (for interaction-presented/resolved). */
   readonly interactionId?: string;
@@ -256,6 +323,7 @@ export interface AttentionEntry {
   readonly timestamp: string;
 
   /** Whether this has been acknowledged. */
+  /** @deprecated Acknowledgement is not resolution. Use status instead. */
   readonly acknowledged: boolean;
 }
 

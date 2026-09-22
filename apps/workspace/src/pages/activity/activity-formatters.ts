@@ -124,6 +124,8 @@ const KIND_LABELS: Record<string, string> = {
   workflow: 'Workflow',
   task: 'Task',
   'agent-message': 'Agent',
+  'tool-call': 'Tool',
+  'tool-result': 'Tool',
   test: 'Test',
   verification: 'Verification',
 };
@@ -167,6 +169,8 @@ const KIND_ICONS: Record<string, string> = {
   workflow: '◈',
   task: '▣',
   'agent-message': '●',
+  'tool-call': '⌘',
+  'tool-result': '⌘',
   test: '✓',
   verification: '⚖',
 };
@@ -187,6 +191,7 @@ export function kindIcon(kind: ActivityRecord['kind']): string {
 export function severityOfRecord(record: ActivityRecord): ActivitySeverity {
   switch (record.kind) {
     case 'workflow':
+      if (record.currentState === 'failed') return 'error';
       if (record.currentState === 'completed' || record.currentState === 'approved') return 'success';
       if (record.currentState === 'cancelled') return 'warning';
       return 'info';
@@ -207,6 +212,10 @@ export function severityOfRecord(record: ActivityRecord): ActivitySeverity {
       if (record.messageKind === 'approval-request') return 'warning';
       if (record.risk === 'high' || record.risk === 'critical') return 'warning';
       return 'info';
+    case 'tool-call':
+      return 'warning';
+    case 'tool-result':
+      return record.status === 'failed' ? 'error' : 'warning';
     case 'test':
       if (record.failed > 0) return 'error';
       if (record.passed > 0) return 'success';

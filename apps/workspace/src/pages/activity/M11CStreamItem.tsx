@@ -11,11 +11,30 @@
  */
 
 import { memo, useCallback, useState } from 'react';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
+import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
+import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
+import ChatBubbleOutlineOutlinedIcon from '@mui/icons-material/ChatBubbleOutlineOutlined';
+import DescriptionOutlinedIcon from '@mui/icons-material/DescriptionOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import EditNoteOutlinedIcon from '@mui/icons-material/EditNoteOutlined';
+import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import FolderOpenOutlinedIcon from '@mui/icons-material/FolderOpenOutlined';
+import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import ForwardOutlinedIcon from '@mui/icons-material/ForwardOutlined';
+import HttpOutlinedIcon from '@mui/icons-material/HttpOutlined';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
+import LanguageOutlinedIcon from '@mui/icons-material/LanguageOutlined';
+import ListOutlinedIcon from '@mui/icons-material/ListOutlined';
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined';
 import ReplyOutlinedIcon from '@mui/icons-material/ReplyOutlined';
+import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
+import SearchOutlinedIcon from '@mui/icons-material/SearchOutlined';
+import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
+import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
+import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
+import { SIZING } from '@vestara/ui-tokens';
 import { ActionIcon } from '@vestara/ui';
 import M11CForwardDialog from './M11CForwardDialog';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
@@ -62,6 +81,8 @@ interface M11CStreamItemProps {
   readonly onSubmitResponse?: (interactionId: string, choiceId: string) => Promise<void>;
   /** Participant ID → display name lookup for enriching actor names. */
   readonly participantNames?: Readonly<Record<string, string>>;
+  /** Participant ID → model label lookup (modelDisplayName ?? modelId) for tool rows. */
+  readonly participantModels?: Readonly<Record<string, string>>;
   /** Select a workflow context (workflow badge → browser scope). */
   readonly onSelectWorkflow?: (workflowId: string) => void;
 }
@@ -98,9 +119,12 @@ type VisualClass =
   | 'human'
   | 'agent-note'
   | 'work'
+  | 'task'
+  | 'workflow'
   | 'tool'
   | 'quiet'
   | 'attention'
+  | 'queued'
   | 'verification'
   | 'unknown';
 
@@ -109,6 +133,11 @@ function classifyVisual(item: StreamItemType): VisualClass {
     case 'conversation':
       return item.actor.type === 'human' ? 'human' : 'agent-note';
     case 'activity':
+      // Structured identity only: a task correlation is a TASK row, a bare
+      // workflow correlation is a WORKFLOW row, otherwise generic WORK.
+      // Never inferred from content text.
+      if (item.taskId) return 'task';
+      if (item.workflowRunId) return 'workflow';
       return 'work';
     case 'tool-call':
     case 'tool-result':
@@ -148,6 +177,16 @@ const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
     containerClass: 'ar-stream-record--work',
     headingClass: '',
   },
+  task: {
+    glyph: '◆',
+    containerClass: 'ar-stream-record--task',
+    headingClass: '',
+  },
+  workflow: {
+    glyph: '◆',
+    containerClass: 'ar-stream-record--workflow',
+    headingClass: '',
+  },
   tool: {
     glyph: '⚙',
     containerClass: 'ar-stream-record--tool',
@@ -161,6 +200,11 @@ const CLASS_CONFIG: Record<VisualClass, ClassConfig> = {
   attention: {
     glyph: '⚠',
     containerClass: 'ar-stream-record--attention',
+    headingClass: '',
+  },
+  queued: {
+    glyph: '⏳',
+    containerClass: 'ar-stream-record--queued',
     headingClass: '',
   },
   verification: {
@@ -206,6 +250,66 @@ function resolveStreamActor(
   return { name: raw, unknown: false };
 }
 
+// ─── Tool execution resolution (Phase 1) ─────────────
+// Shows the agent executing the tool from durable correlation
+// (`item.tool`), never parsed from content. Falls back to the row actor
+// when no tool correlation is present (pre-Phase-1 records).
+
+interface ResolvedToolExecution {
+  readonly agentName: string;
+  readonly agentUnknown: boolean;
+  readonly agentIdMeta?: string;
+  readonly toolName: string;
+  readonly status: 'started' | 'completed' | 'failed';
+  readonly callID: string;
+}
+
+function resolveToolExecution(
+  item: StreamItemType,
+  fallbackActor: ResolvedStreamActor,
+  participantNames?: Readonly<Record<string, string>>,
+): ResolvedToolExecution | undefined {
+  const tool = item.tool;
+  if (!tool || !tool.toolName || !tool.callID) return undefined;
+  const effectiveId = (tool.agentId ?? item.actor.id)?.trim() ?? '';
+  if (!effectiveId) {
+    return {
+      agentName: fallbackActor.name,
+      agentUnknown: fallbackActor.unknown,
+      agentIdMeta: fallbackActor.idMeta,
+      toolName: tool.toolName,
+      status: tool.status,
+      callID: tool.callID,
+    };
+  }
+  // Prefer a friendly participant name, but never fall back to "Unknown agent"
+  // for tool rows: the durable agent id itself is honest identifier
+  // presentation (e.g. "agent-developer"), not a fabricated name.
+  const friendly = participantNames?.[effectiveId]?.trim() ?? '';
+  if (friendly && friendly !== effectiveId) {
+    return {
+      agentName: friendly,
+      agentUnknown: false,
+      agentIdMeta: fallbackActor.idMeta,
+      toolName: tool.toolName,
+      status: tool.status,
+      callID: tool.callID,
+    };
+  }
+  return {
+    agentName: effectiveId,
+    agentUnknown: false,
+    agentIdMeta: undefined,
+    toolName: tool.toolName,
+    status: tool.status,
+    callID: tool.callID,
+  };
+}
+
+function formatToolStatus(status: 'started' | 'completed' | 'failed'): string {
+  return status === 'started' ? 'Running' : status === 'completed' ? 'Completed' : 'Failed';
+}
+
 // ─── Helpers ─────────────────────────────────────────────────
 
 function formatTimestamp(timestamp: string): string {
@@ -245,6 +349,97 @@ function formatKind(kind: string): string {
   return kind.replace(/[-_.]+/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function typeLabelForItem(item: StreamItemType, visual: VisualClass): string {
+  if (visual === 'tool') return 'TOOL';
+  if (visual === 'task') return 'TASK';
+  if (visual === 'workflow') return 'WORKFLOW';
+  if (item.kind === 'conversation') return 'MESSAGE';
+  if (item.kind === 'evidence') return 'EVIDENCE';
+  if (item.kind === 'diagnostic' || item.kind === 'error') return 'ISSUE';
+  if (item.kind === 'interaction') return 'APPROVAL';
+  if (item.kind === 'activity') return 'WORK';
+  return formatKind(item.kind).toUpperCase();
+}
+
+function toneForItem(item: StreamItemType, visual: VisualClass): 'info' | 'warning' | 'error' | 'success' | 'muted' {
+  if (visual === 'tool') return item.tool?.status === 'failed' ? 'error' : 'warning';
+  if (visual === 'task') return 'warning';
+  if (visual === 'workflow') return 'info';
+  if (visual === 'attention') return 'error';
+  if (visual === 'verification') return 'success';
+  if (visual === 'quiet' || visual === 'unknown') return 'muted';
+  return 'info';
+}
+
+/**
+ * Non-generic tool content for line 2, or undefined when the content merely
+ * restates the lifecycle status. The status pill already carries
+ * Running/Completed/Failed exactly once — the body must not repeat it.
+ */
+function toolExtraSummary(item: StreamItemType, tool: ResolvedToolExecution): string | undefined {
+  const generic = new Set([
+    `${tool.toolName} started`,
+    `${tool.toolName} completed`,
+    `${tool.toolName} failed`,
+    'tool.called',
+    'tool.succeeded',
+    'tool.failed',
+  ]);
+  const content = item.content.trim();
+  if (content && !generic.has(content)) return content;
+  return undefined;
+}
+
+function ToolMaterialIcon({ toolName, failed }: { toolName: string; failed: boolean }) {
+  const normalized = toolName.toLowerCase();
+  const className = `ar-stream-tool-icon ${failed ? 'ar-stream-tool-icon--error' : 'ar-stream-tool-icon--warning'}`;
+  // Canonical icon size token (SIZING.icon.lg = 24px): the glyph anchors both
+  // compact lines inside a minimal transparent tile — never a colored square.
+  const props = { className, sx: { fontSize: SIZING.icon.lg } };
+  if (normalized.includes('read')) return <MenuBookOutlinedIcon {...props} />;
+  if (normalized.includes('grep')) return <SearchOutlinedIcon {...props} />;
+  if (normalized.includes('bash') || normalized.includes('shell') || normalized.includes('terminal')) {
+    return <TerminalOutlinedIcon {...props} />;
+  }
+  if (normalized.includes('edit')) return <EditOutlinedIcon {...props} />;
+  if (normalized.includes('write')) return <EditNoteOutlinedIcon {...props} />;
+  if (normalized.includes('glob')) return <FolderOpenOutlinedIcon {...props} />;
+  if (normalized.includes('list') || normalized.includes('ls')) return <ListOutlinedIcon {...props} />;
+  if (normalized.includes('find') || normalized.includes('search')) return <SearchOutlinedIcon {...props} />;
+  if (normalized.includes('web') || normalized.includes('browser')) return <LanguageOutlinedIcon {...props} />;
+  if (normalized.includes('fetch') || normalized.includes('http')) return <HttpOutlinedIcon {...props} />;
+  if (normalized.includes('git')) return <AccountTreeOutlinedIcon {...props} />;
+  if (normalized.includes('test')) return <ScienceOutlinedIcon {...props} />;
+  if (normalized.includes('check')) return <FactCheckOutlinedIcon {...props} />;
+  if (normalized.includes('article')) return <ArticleOutlinedIcon {...props} />;
+  if (normalized.includes('file') || normalized.includes('description')) return <DescriptionOutlinedIcon {...props} />;
+  if (normalized.includes('folder')) return <FolderOutlinedIcon {...props} />;
+  return <BuildOutlinedIcon {...props} />;
+}
+
+function ActivityMaterialIcon({ visual, tone }: { visual: VisualClass; tone: 'info' | 'warning' | 'error' | 'success' | 'muted' }) {
+  const className = `ar-stream-tool-icon ar-stream-tool-icon--${tone}`;
+  const props = { className, sx: { fontSize: SIZING.icon.lg } };
+  switch (visual) {
+    case 'human':
+    case 'agent-note':
+      return <ChatBubbleOutlineOutlinedIcon {...props} />;
+    case 'work':
+    case 'task':
+      return <TaskAltOutlinedIcon {...props} />;
+    case 'workflow':
+      return <AccountTreeOutlinedIcon {...props} />;
+    case 'attention':
+      return <BuildOutlinedIcon {...props} />;
+    case 'verification':
+      return <VerifiedOutlinedIcon {...props} />;
+    case 'quiet':
+      return <ArticleOutlinedIcon {...props} />;
+    default:
+      return <BuildOutlinedIcon {...props} />;
+  }
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
@@ -260,11 +455,22 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   submission,
   onSubmitResponse,
   participantNames,
+  participantModels,
   onSelectWorkflow,
 }: M11CStreamItemProps) {
   const visual = classifyVisual(item);
   const config = CLASS_CONFIG[visual];
+  const typeLabel = typeLabelForItem(item, visual);
+  const tone = toneForItem(item, visual);
   const actor = resolveStreamActor(item, participantNames);
+  // Phase 1: executing agent for tool rows (durable correlation, never parsed).
+  const toolExecution = visual === 'tool' ? resolveToolExecution(item, actor, participantNames) : undefined;
+  const displayName = toolExecution?.agentName ?? actor.name;
+  const displayIdMeta = toolExecution?.agentIdMeta ?? actor.idMeta;
+  // Model label for the executing identity (participants projection only —
+  // modelDisplayName preferred, modelId fallback; absent stays absent).
+  const modelLookupId = item.tool?.agentId ?? item.actor.id;
+  const modelLabel = participantModels?.[modelLookupId]?.trim() || undefined;
 
   const handleClick = useCallback(() => {
     if (item.aggregated && onDrillDown) {
@@ -273,8 +479,6 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
       onOpenDetail(item);
     }
   }, [item, onOpenDetail, onDrillDown]);
-
-  const initial = actor.unknown ? '?' : (actor.name.trim()[0] ?? '?').toUpperCase();
 
   // Collapsible body: logs, activities, and items with long content render
   // clamped with a Show more/less toggle instead of pushing the stream.
@@ -290,7 +494,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
     setExpanded((v) => !v);
   }, []);
 
-  const accordionEligible = visual === 'tool' || visual === 'quiet';
+  const accordionEligible = visual === 'quiet';
   const [collapsed, setCollapsed] = useState(false);
   const [forwardOpen, setForwardOpen] = useState(false);
 
@@ -416,49 +620,60 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   }
 
   // ─── Standard Item ──────────────────────────────────────
-  // Anatomy: [semantic tile] Actor/source + timestamp / heading + badge /
-  // description / safe metadata. Density follows class: meaningful events
-  // read as timeline nodes, routine operations as compact rows.
-  // StatusBadge owns attention/verification rows; the kind pill covers
-  // human/work rows — plus a muted pill for tool/quiet so filter-by-eye
-  // works on routine rows too. Never pill + StatusBadge together.
-  const showPill = visual === 'human' || visual === 'work';
-  const showMutedPill = visual === 'tool' || visual === 'quiet' || visual === 'agent-note';
+  // Strict compact TWO-LINE anatomy (reference PNG):
+  //   Line 1: actor/source (+ model/role chips) ............ timestamp
+  //   Line 2: TYPE + subject + status + correlation ......... actions
+  // The icon tile spans both lines. Each semantic fact appears exactly once:
+  // the status pill owns Running/Completed/Failed, the TYPE pill owns the
+  // kind (no duplicate kind pills), the subject owns the name/content.
+  // Thread context and user-expanded long content render below the two lines
+  // only when present/expanded — never as default row height.
   // Routine rows hide actions until expanded — keeps the scan quiet.
   const actionsVisible = !accordionEligible || !collapsed;
+  const toolExtra = toolExecution ? toolExtraSummary(item, toolExecution) : undefined;
+  const bodyText = item.content.trim();
   return (
     <div
       className={`ar-stream-record flex min-w-0 items-start gap-2.5 rounded-[var(--vestara-radius)] ${config.containerClass} ${
         item.fresh ? 'animate-in fade-in slide-in-from-bottom-1 duration-200' : ''
       }`}
       data-record-kind={item.kind}
+      data-tool-status={toolExecution?.status}
     >
       {/* Semantic tile (class only — never status) */}
       <span
         aria-hidden="true"
-        className={`ar-stream-tile ar-stream-tile--${visual}`}
+        className={`ar-stream-tile ar-stream-tile--${visual} ar-stream-tile--${tone}`}
       >
-        {visual === 'human' || visual === 'agent-note' ? initial : config.glyph}
+        {toolExecution ? (
+          <ToolMaterialIcon toolName={toolExecution.toolName} failed={toolExecution.status === 'failed'} />
+        ) : visual === 'queued' ? (
+          config.glyph
+        ) : (
+          <ActivityMaterialIcon visual={visual} tone={tone} />
+        )}
       </span>
 
-      {/* Body */}
+      {/* Body — two compact lines; the tile spans both */}
       <div className="min-w-0 flex-1">
+        {/* LINE 1: actor/source (+ model/role chips) …… timestamp */}
         <div className="flex min-w-0 items-baseline justify-between gap-2">
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5">
-            <span className="truncate text-[13px] font-medium text-[var(--vestara-text)]">
-              {actor.name}
+          <span className="flex min-w-0 items-baseline gap-x-2">
+            <span className="min-w-0 truncate text-xs font-semibold text-[var(--vestara-text-primary)]" title={displayName}>
+              {displayName}
             </span>
+            {/* Secondary actor/provider identity — modelDisplayName preferred, modelId fallback */}
+            {modelLabel && (
+              <span
+                className="shrink-0 truncate rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] text-[var(--vestara-text-muted)]"
+                title={`Model ${modelLabel}`}
+              >
+                {modelLabel}
+              </span>
+            )}
             {item.actor.role && (
               <span className="ar-stream-role shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-1.5 text-[10px] capitalize text-[var(--vestara-text-muted)]">
                 {item.actor.role}
-              </span>
-            )}
-            {actor.idMeta && (
-              <span
-                className="max-w-40 truncate font-mono text-[10px] text-[var(--vestara-text-muted)]"
-                title={actor.idMeta}
-              >
-                {actor.idMeta}
               </span>
             )}
           </span>
@@ -474,7 +689,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                 type="button"
                 onClick={toggleCollapsed}
                 aria-expanded={!collapsed}
-                aria-label={collapsed ? `Expand ${actor.name} activity` : `Collapse ${actor.name} activity`}
+                aria-label={collapsed ? `Expand ${displayName} activity` : `Collapse ${displayName} activity`}
                 className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[10px] text-[var(--vestara-text-dim)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
               >
                 <span aria-hidden="true" className={`inline-block transition-transform duration-150 ${collapsed ? '-rotate-90' : ''}`}>▾</span>
@@ -483,18 +698,157 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           </span>
         </div>
 
-        {/* Accordion body: reply context, content, and actions */}
+        {/* LINE 2: TYPE + subject + status + correlation …… actions */}
         {!collapsed && (
-        <>
-        {/* Reply indicator — clickable to open thread view */}
-        {item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
+        <div className="mt-0.5 flex min-w-0 items-center justify-between gap-2">
+          <span className="flex min-w-0 items-center gap-1.5">
+            <span className={`ar-stream-type ar-stream-type--${tone} shrink-0`}>{typeLabel}</span>
+            {toolExecution ? (
+              <>
+                <span className="ar-stream-tool-name shrink-0 truncate" title={`Tool ${toolExecution.toolName}`}>
+                  {toolExecution.toolName}
+                </span>
+                {/* Non-generic tool output only — the status pill below owns
+                    Running/Completed/Failed exactly once. */}
+                {toolExtra && (
+                  <span
+                    className={`min-w-0 text-xs text-[var(--vestara-text-primary)] ${expanded ? 'break-words' : 'truncate'}`}
+                    title={toolExtra}
+                  >
+                    {toolExtra}
+                  </span>
+                )}
+              </>
+            ) : (
+              <span
+                className={`min-w-0 text-xs text-[var(--vestara-text-primary)] ${expanded || !collapsible ? 'break-words' : 'truncate'}`}
+                title={bodyText || item.kind}
+              >
+                {bodyText || <span className="italic">{item.kind}</span>}
+              </span>
+            )}
+            {toolExecution && (
+              <span className={`ar-stream-status ar-stream-status--${toolExecution.status === 'failed' ? 'error' : 'warning'} shrink-0`}>
+                <StatusIndicator variant={toolExecution.status === 'failed' ? 'error' : 'warn'} size="xs" pulse={false} aria-hidden />
+                {formatToolStatus(toolExecution.status)}
+              </span>
+            )}
+            {visual === 'attention' && (
+              <span className="shrink-0"><StatusBadge label={formatKind(item.kind)} tone="error" /></span>
+            )}
+            {visual === 'verification' && (
+              <span className="shrink-0"><StatusBadge label={formatKind(item.kind)} tone="success" /></span>
+            )}
+            {/* Short correlation identity: raw id when id-only, else callID / workflow */}
+            {!toolExecution && displayIdMeta && (
+              <span
+                className="shrink-0 truncate font-mono text-[10px] text-[var(--vestara-text-muted)]"
+                title={displayIdMeta}
+              >
+                {displayIdMeta.length > 14 ? `${displayIdMeta.slice(0, 14)}…` : displayIdMeta}
+              </span>
+            )}
+            {toolExecution && (
+              <span className="shrink-0 truncate font-mono text-[10px] text-[var(--vestara-text-muted)]" title={`Tool call ${toolExecution.callID}`}>
+                {toolExecution.callID.slice(0, 14)}
+              </span>
+            )}
+            {item.workflowRunId && (
+              onSelectWorkflow ? (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onSelectWorkflow(item.workflowRunId!); }}
+                  className="shrink-0 cursor-pointer truncate font-mono text-[10px] text-[var(--vestara-text-muted)] underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                  title={`Filter to workflow ${item.workflowRunId}`}
+                  aria-label={`Filter stream to workflow ${item.workflowRunId}`}
+                >
+                  wf:{item.workflowRunId.slice(0, 8)}
+                </button>
+              ) : (
+                <span className="shrink-0 truncate font-mono text-[10px] text-[var(--vestara-text-muted)]" title={`Workflow ${item.workflowRunId}`}>
+                  wf:{item.workflowRunId.slice(0, 8)}
+                </span>
+              )
+            )}
+            {collapsible && (
+              <button
+                type="button"
+                onClick={toggleExpanded}
+                aria-expanded={expanded}
+                aria-label={expanded ? 'Collapse message' : 'Expand message'}
+                className="shrink-0 cursor-pointer text-[10px] font-semibold text-[var(--vestara-accent-text)] transition-colors hover:text-[var(--vestara-accent-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              >
+                {expanded ? '▴ less' : '▾ more'}
+              </button>
+            )}
+          </span>
+          {actionsVisible && (onOpenDetail || onReply || (onEdit && item.actor.type === 'human') || (onRetract && item.actor.type === 'human')) && (
+            <span className="flex shrink-0 items-center gap-1" aria-label="Record actions">
+              {onOpenDetail && (
+                <ActionIcon
+                  label="Detail"
+                  tone="muted"
+                  size="sm"
+                  icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
+                  onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
+                />
+              )}
+              {onReply && (
+                <ActionIcon
+                  label="Reply"
+                  tone="muted"
+                  size="sm"
+                  icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
+                  onClick={(e) => { e.stopPropagation(); onReply(item); }}
+                />
+              )}
+              <ActionIcon
+                label="Forward to Telegram"
+                tone="muted"
+                size="sm"
+                icon={<ForwardOutlinedIcon sx={{ fontSize: 18 }} />}
+                onClick={openForward}
+              />
+              {forwardOpen && (
+                <M11CForwardDialog
+                  activityId={item.id}
+                  actorName={displayName}
+                  content={item.content || item.kind}
+                  onClose={closeForward}
+                />
+              )}
+              {onEdit && item.actor.type === 'human' && (
+                <ActionIcon
+                  label="Edit"
+                  tone="muted"
+                  size="sm"
+                  icon={<EditOutlinedIcon sx={{ fontSize: 18 }} />}
+                  onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+                />
+              )}
+              {onRetract && item.actor.type === 'human' && (
+                <ActionIcon
+                  label="Retract"
+                  tone="destructive"
+                  size="sm"
+                  icon={<UndoOutlinedIcon sx={{ fontSize: 18 }} />}
+                  onClick={(e) => { e.stopPropagation(); onRetract(item); }}
+                />
+              )}
+            </span>
+          )}
+        </div>
+        )}
+
+        {/* Below-the-fold exceptions: thread context renders only when present */}
+        {!collapsed && item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenThread?.(item.referencedActivityIds!); }}
-            className="mb-1.5 w-full cursor-pointer rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-2 py-1.5 text-left transition-colors hover:bg-[var(--vestara-accent-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            className="mt-1 w-full cursor-pointer rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-2 py-1 text-left transition-colors hover:bg-[var(--vestara-accent-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
             aria-label={`View thread with ${lookupAuthor ? item.referencedActivityIds.map((id) => lookupAuthor(id) ?? 'someone').join(', ') : `${item.referencedActivityIds.length} messages`}`}
           >
-            <div className="mb-0.5 flex items-center gap-1 text-[10px] text-[var(--vestara-text-muted)]">
+            <div className="flex items-center gap-1 text-[10px] text-[var(--vestara-text-muted)]">
               <svg className="h-3 w-3 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
               </svg>
@@ -510,103 +864,6 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               </div>
             )}
           </button>
-        )}
-
-        <div className={`ar-stream-record__content mt-0.5 min-w-0 break-words leading-relaxed [overflow-wrap:anywhere] ${!expanded && collapsible ? 'line-clamp-3' : ''}`}>
-          {item.content || <span className="italic">{item.kind}</span>}
-        </div>
-
-        {/* Metadata line */}
-        <div className="ar-stream-record__metadata mt-1 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-[var(--vestara-text-muted)]" aria-label="Record metadata">
-          {collapsible && (
-            <button
-              type="button"
-              onClick={toggleExpanded}
-              aria-expanded={expanded}
-              aria-label={expanded ? 'Collapse message' : 'Expand message'}
-              className="shrink-0 cursor-pointer font-semibold text-[var(--vestara-accent-text)] transition-colors hover:text-[var(--vestara-accent-light)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-            >
-              {expanded ? '▴ Show less' : '▾ Show more'}
-            </button>
-          )}
-          {showPill && <span className={`ar-stream-kind ar-stream-kind--${visual} mpg-tag-pill`}>{formatKind(item.kind)}</span>}
-          {showMutedPill && (
-            <span className="ar-stream-kind ar-stream-kind--muted mpg-tag-pill" title={`${formatKind(item.kind)} — routine activity`}>
-              {formatKind(item.kind)}
-            </span>
-          )}
-          {visual === 'attention' && <StatusBadge label={formatKind(item.kind)} tone="error" />}
-          {visual === 'verification' && <StatusBadge label={formatKind(item.kind)} tone="success" />}
-          {item.workflowRunId && (
-            onSelectWorkflow ? (
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); onSelectWorkflow(item.workflowRunId!); }}
-                className="cursor-pointer truncate font-mono underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-                title={`Filter to workflow ${item.workflowRunId}`}
-                aria-label={`Filter stream to workflow ${item.workflowRunId}`}
-              >
-                wf:{item.workflowRunId.slice(0, 8)}
-              </button>
-            ) : (
-              <span className="truncate font-mono" title={`Workflow ${item.workflowRunId}`}>
-                wf:{item.workflowRunId.slice(0, 8)}
-              </span>
-            )
-          )}
-        </div>
-
-        {actionsVisible && (onOpenDetail || onReply || (onEdit && item.actor.type === 'human') || (onRetract && item.actor.type === 'human')) && (
-          <div className="ar-stream-record__actions mt-2 flex min-w-0 flex-wrap items-center justify-end gap-1" aria-label="Record actions">
-          {onOpenDetail && (
-            <ActionIcon
-              label="Detail"
-              tone="muted"
-              icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
-              onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
-            />
-          )}
-          {onReply && (
-            <ActionIcon
-              label="Reply"
-              tone="muted"
-              icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
-              onClick={(e) => { e.stopPropagation(); onReply(item); }}
-            />
-          )}
-          <ActionIcon
-            label="Forward to Telegram"
-            tone="muted"
-            icon={<ForwardOutlinedIcon sx={{ fontSize: 18 }} />}
-            onClick={openForward}
-          />
-          {forwardOpen && (
-            <M11CForwardDialog
-              activityId={item.id}
-              actorName={actor.name}
-              content={item.content || item.kind}
-              onClose={closeForward}
-            />
-          )}
-          {onEdit && item.actor.type === 'human' && (
-            <ActionIcon
-              label="Edit"
-              tone="muted"
-              icon={<EditOutlinedIcon sx={{ fontSize: 18 }} />}
-              onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-            />
-          )}
-          {onRetract && item.actor.type === 'human' && (
-            <ActionIcon
-              label="Retract"
-              tone="destructive"
-              icon={<UndoOutlinedIcon sx={{ fontSize: 18 }} />}
-              onClick={(e) => { e.stopPropagation(); onRetract(item); }}
-            />
-          )}
-          </div>
-        )}
-      </>
         )}
       </div>
     </div>

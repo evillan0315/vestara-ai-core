@@ -28,6 +28,7 @@
  */
 
 import type { ProviderExecutor } from '@vestara/conversation';
+import type { EventBus } from '@vestara/event-bus';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
 import type { CompletionRequest, CompletionResponse, GAExecutionConfig, StreamChunk } from '@vestara/shared';
@@ -180,6 +181,15 @@ export interface AssistantOpenCodeExecutorOptions {
     info(message: string, context?: Record<string, unknown>): void;
     warn(message: string, context?: Record<string, unknown>): void;
   };
+  /**
+   * AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool use.
+   * When set, tool start/completion/failure also emits canonical
+   * `opencode.message.part.updated` events (part.type=tool) for the
+   * M9IngestionBridge, which stores durable tool.called/succeeded/failed
+   * facts. Fire-and-forget; mirror failures never break the turn.
+   * Wired to kernel.eventBus in production, absent in unit tests.
+   */
+  eventBus?: EventBus;
 }
 
 // GA-EXEC-001: Default turn timeout. Overridden by:
@@ -263,7 +273,11 @@ function deriveSessionTitle(userText: string): string {
  * surface `path`/`route`/`title` are client navigation state; the workspace
  * name/id are descriptive identity. Selection label is display data only.
  */
-function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceContext']): string | undefined {
+/**
+ * Render bounded turn surface context for the OpenCode `system` field.
+ * Exported for focused contract tests (generic mechanism — no caller-specific logic).
+ */
+export function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceContext']): string | undefined {
   if (!surfaceContext?.surface || !surfaceContext.workspace) return undefined;
   const { workspace, surface, selected } = surfaceContext;
   const lines = ['Current Vestara application context:', `Workspace: ${workspace.name}`];
@@ -273,6 +287,18 @@ function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceContext'])
   if (selected) {
     lines.push('Selected item:', `Type: ${selected.kind}`, `ID: ${selected.id}`);
     if (selected.label) lines.push(`Label: ${selected.label}`);
+  }
+  // AR-REF-001: plural references render through the same generic mechanism —
+  // one bounded block per entry, each independently addressable. No
+  // Activity-Room-specific logic: any producer of selectedReferences gets
+  // identical treatment.
+  const refs = surfaceContext.selectedReferences;
+  if (refs && refs.length > 0) {
+    lines.push('Referenced activities:');
+    for (const ref of refs) {
+      lines.push(`- Type: ${ref.kind}`, `  ID: ${ref.id}`);
+      if (ref.label) lines.push(`  Label: ${ref.label}`);
+    }
   }
   return lines.join('\n');
 }
@@ -403,6 +429,29 @@ export async function* runAssistantOpenCodeTurn(
   });
   const shellStartedAt = new Map<string, number>();
   let sequence = 0;
+  // AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool use.
+  // Tool lifecycle also emits canonical `opencode.message.part.updated`
+  // (part.type=tool) for the M9IngestionBridge, which stores durable
+  // tool.called/succeeded/failed facts keyed on OpenCode callID. The yielded
+  // SSE chunks remain the live UI contract; this is the durable mirror.
+  // Fire-and-forget with catch — mirror failures never break the turn.
+  const mirrorToolEvent = (status: 'running' | 'completed' | 'error', callID: string, tool: string): void => {
+    const bus = options.eventBus;
+    if (!bus) return;
+    void bus
+      .emit({
+        type: 'opencode.message.part.updated',
+        source: 'assistant-opencode-adapter',
+        actor: { id: turnPersona.runtimeAgent, role: 'agent' },
+        payload: {
+          part: { type: 'tool', callID, tool, state: { status } },
+          conversationId: request.conversationId,
+          sessionId: resolvedSessionId,
+        },
+        metadata: request.conversationId ? { correlationId: request.conversationId } : undefined,
+      })
+      .catch(() => {});
+  };
   // GA-DETACH-001: Track how the turn ended. This determines whether the
   // OpenCode session should be aborted or left running for reattachment.
   // Default is DETACHED (observer went away / generator returned early):
@@ -543,6 +592,7 @@ export async function* runAssistantOpenCodeTurn(
                 break;
               }
               yield chunk('tool_call', sequence++, { name: toolName, detail });
+              mirrorToolEvent('running', detail.operationId, toolName);
             } else {
               // Read results ride the structured detail; chunk content stays
               // within the M2 200-char boundary for the transient surface.
@@ -557,6 +607,7 @@ export async function* runAssistantOpenCodeTurn(
                 content: resultContent,
                 detail,
               });
+              mirrorToolEvent(detail.state === 'failed' ? 'error' : 'completed', detail.operationId, toolName);
             }
           }
           break;
@@ -631,6 +682,7 @@ export async function* runAssistantOpenCodeTurn(
               break;
             }
             yield chunk('tool_call', sequence++, { name: detail.tool, detail });
+            mirrorToolEvent('running', detail.operationId, detail.tool);
           }
           break;
         }
@@ -638,6 +690,7 @@ export async function* runAssistantOpenCodeTurn(
           const detail = projectToolCompleted(event);
           if (detail && detail.kind === 'tool') {
             yield chunk('tool_result', sequence++, { name: detail.tool, content: detail.preview ?? '', detail });
+            mirrorToolEvent('completed', detail.operationId, detail.tool);
           }
           break;
         }
@@ -649,6 +702,7 @@ export async function* runAssistantOpenCodeTurn(
               content: detail.error ?? 'Tool failed',
               detail,
             });
+            mirrorToolEvent('error', detail.operationId, detail.tool);
           }
           break;
         }
@@ -661,6 +715,7 @@ export async function* runAssistantOpenCodeTurn(
               content: detail.command ?? 'Running command…',
               detail,
             });
+            mirrorToolEvent('running', detail.operationId, 'bash');
           }
           break;
         }
@@ -673,6 +728,7 @@ export async function* runAssistantOpenCodeTurn(
               content: detail.outputPreview ?? '',
               detail,
             });
+            mirrorToolEvent(detail.state === 'failed' ? 'error' : 'completed', detail.operationId, 'bash');
           }
           break;
         }

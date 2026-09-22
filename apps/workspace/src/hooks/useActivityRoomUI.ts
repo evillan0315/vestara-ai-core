@@ -27,6 +27,8 @@ export interface ActivityRoomUIState {
   readonly agentControlParticipantId: string | undefined;
   /** Reply-to target in composer. */
   readonly replyToItem: M11CStreamItem | null;
+  /** Terminal drawer — bottom large drawer for terminal access. */
+  readonly terminalDrawerOpen: boolean;
 }
 
 type Action =
@@ -39,7 +41,8 @@ type Action =
   | { readonly type: 'OPEN_AGENT_CONTROL'; readonly participantId: string }
   | { readonly type: 'CLOSE_AGENT_CONTROL' }
   | { readonly type: 'SET_REPLY_TO'; readonly item: M11CStreamItem | null }
-  | { readonly type: 'CLOSE_ALL' };
+  | { readonly type: 'CLOSE_ALL' }
+  | { readonly type: 'TOGGLE_TERMINAL_DRAWER' };
 
 const INITIAL_STATE: ActivityRoomUIState = {
   detailItem: null,
@@ -99,6 +102,9 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
     case 'CLOSE_ALL':
       return INITIAL_STATE;
 
+    case 'TOGGLE_TERMINAL_DRAWER':
+      return { ...state, terminalDrawerOpen: !state.terminalDrawerOpen };
+
     default:
       return state;
   }
@@ -124,6 +130,7 @@ export function useActivityRoomUI() {
   const setReplyTo = useCallback((item: M11CStreamItem | null) => dispatch({ type: 'SET_REPLY_TO', item }), []);
   const clearReply = useCallback(() => dispatch({ type: 'SET_REPLY_TO', item: null }), []);
   const closeAll = useCallback(() => dispatch({ type: 'CLOSE_ALL' }), []);
+  const toggleTerminalDrawer = useCallback(() => dispatch({ type: 'TOGGLE_TERMINAL_DRAWER' }), []);
 
   return {
     ...state,
@@ -138,5 +145,6 @@ export function useActivityRoomUI() {
     setReplyTo,
     clearReply,
     closeAll,
+    toggleTerminalDrawer,
   };
 }

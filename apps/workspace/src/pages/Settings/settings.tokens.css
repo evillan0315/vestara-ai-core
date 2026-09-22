@@ -271,6 +271,21 @@
   margin-top: var(--vestara-spacing-element);
 }
 
+/* ── Live typography preview ──
+   Always reflects the active theme settings: the theme provider rewrites
+   these vars on every change, so the preview updates with zero logic. */
+.st-font-live {
+  font-family: var(--vestara-font-family);
+}
+
+.st-font-weight-live {
+  font-weight: var(--vestara-font-weight-normal);
+}
+
+.st-font-weight-live-strong {
+  font-weight: var(--vestara-font-weight-semibold);
+}
+
 .st-mb-element {
   margin-bottom: var(--vestara-spacing-element);
 }

@@ -1,5 +1,15 @@
 export { type TriggerAssistantTurnOptions, triggerAssistantTurn } from './assistant-turn';
+export {
+  ACTIVITY_REFERENCE_EXCERPT_MAX,
+  ACTIVITY_REFERENCE_LABEL_MAX,
+  UNRESOLVED_ACTIVITY_REFERENCE_LABEL,
+  labelLegacyActivity,
+  labelM9Activity,
+  resolveActivityReferences,
+  type ActivityReferenceLookup,
+} from './activity-references';
 export type { AssistantTurnResult, AssistantTurnStatus } from './assistant-types';
+export { projectAttentionEntries } from './attention';
 export { type ActivityBatch, toActivityBatch } from './batch';
 export type {
   ActivityActor,
@@ -52,9 +62,11 @@ export { ACTIVITY_MANIFEST, ACTIVITY_MIGRATIONS } from './migrations';
 export { extractOriginProvenance, type OriginProvenance } from './origin-provenance';
 export type {
   ActivityRoomProjection,
+  AttentionCategory,
   AttentionEntry,
   AttentionReason,
   AttentionSeverity,
+  AttentionStatus,
   ContextualCapabilities,
   ParticipantProjection,
   StreamImportance,

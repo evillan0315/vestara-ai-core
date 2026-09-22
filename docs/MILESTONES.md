@@ -2786,6 +2786,10 @@ Mobile (<768px):    Single column — Stream only (attendance/context as sheets)
 
 > The Activity Room renders a three-column layout matching the reference design. All panels display authoritative runtime data. The header shows live connection status, record count, and pause/clear controls. The attendance panel supports search and type filtering. The activity stream filters by category. The right column shows operation controls, activity metrics, recent operations, and system status. The composer sends messages through existing Vestara ingress. Responsive behavior works across desktop, tablet, and mobile. Accessibility requirements are met.
 
+**AR-TOOLS-001 — Tools feed delivered (2026-09-22)**:
+
+> The stream's Tools filter previously had no data: `m9-activity.db` held zero tool events. The Global Assistant adapter now mirrors tool start/completion/failure (including bash) as canonical `opencode.message.part.updated` (part.type=tool) for the M9 ingestion bridge, and `harness.tool.started/completed/failed` are projected by both the agent-lifecycle bridge (M9) and the organizational bridge (legacy room). No execution semantics changed — observation only. Evidence: `apps/api/__tests__/ar-tools-001.test.ts` (5 tests), `apps/api` suite 66/66, `activity-room` suite 12/12, lint + build green.
+
 **Final human acceptance scenario**:
 
 ```text

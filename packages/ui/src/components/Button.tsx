@@ -42,10 +42,10 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const VARIANT_STYLES: Record<ButtonVariant, string> = {
   primary: `
-    bg-[var(--vestara-accent-primary)]
+    bg-[var(--vestara-accent-dark)]
     text-[var(--vestara-surface-canvas)]
-    hover:bg-[var(--vestara-accent-secondary)]
-    active:bg-[var(--vestara-accent-primary)]
+    hover:bg-[var(--vestara-accent-primary)]
+    active:bg-[var(--vestara-accent-dark)]
     shadow-sm
   `,
   secondary: `

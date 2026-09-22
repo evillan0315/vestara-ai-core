@@ -31,6 +31,11 @@
   --vestara-border-focus: #f59e0b;
   --vestara-border-strong: #52525b;
   --vestara-border-subtle: #27272a;
+  --vestara-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --vestara-elevation-none: none;
+  --vestara-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --vestara-elevation-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
   --vestara-marketplace-agent: #8b5cf6;
   --vestara-marketplace-command: #fb923c;
   --vestara-marketplace-featured-bg: rgba(251, 191, 36, 0.12);
@@ -106,6 +111,11 @@
   --vestara-border-focus: #f59e0b;
   --vestara-border-strong: #a1a1aa;
   --vestara-border-subtle: #e4e4e7;
+  --vestara-elevation-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.4);
+  --vestara-elevation-md: 0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.3);
+  --vestara-elevation-none: none;
+  --vestara-elevation-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+  --vestara-elevation-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
   --vestara-marketplace-agent: #8b5cf6;
   --vestara-marketplace-command: #ea580c;
   --vestara-marketplace-featured-bg: rgba(180, 83, 9, 0.1);

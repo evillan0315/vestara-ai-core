@@ -1,6 +1,7 @@
 import { StatusIndicator } from '@vestara/ui';
 import { CONNECTION_STATUS_CONFIG } from './status-config';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
+import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 
 interface ActivityRoomHeaderProps {
   readonly roomName: string;
@@ -35,6 +36,8 @@ export default function ActivityRoomHeader({
   onClear,
   onOpenSettings,
 }: ActivityRoomHeaderProps) {
+  const ui = useActivityRoomUI();
+  const toggleTerminalDrawer = ui.toggleTerminalDrawer;
   const config = CONNECTION_STATUS_CONFIG[state] ?? CONNECTION_STATUS_CONFIG.offline;
   const live = state === 'live' && !paused;
   const statusClass =
@@ -77,6 +80,14 @@ export default function ActivityRoomHeader({
             Settings
           </button>
         )}
+        <button
+          type="button"
+          className="ar-control-button ar-control-button--icon"
+          aria-label="Terminal"
+          onClick={toggleTerminalDrawer}
+        >
+          ⌘
+        </button>
       </div>
     </header>
   );

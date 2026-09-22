@@ -901,6 +901,10 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       // termination reason, so a future OpenCode "Interrupted" state is
       // attributable to its Vestara operation instead of merely observed.
       logger: kernel.logger,
+      // AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool
+      // use — tool lifecycle also emits canonical part.updated events for
+      // the M9IngestionBridge. Absent in unit tests (mirror is a no-op).
+      eventBus: kernel.eventBus,
     });
     log('assistant-execution: local OpenCode adapter active (127.0.0.1:4096)');
   } catch (error) {

@@ -89,6 +89,15 @@ export interface TurnSurfaceContext {
   readonly workspace: TurnSurfaceWorkspace;
   readonly surface: TurnSurfaceLocation;
   readonly selected?: TurnSurfaceReference;
+  /**
+   * AR-REF-001: plural selected references. Compatible evolution of the
+   * singular `selected` above (which is preserved untouched for existing
+   * Global Assistant callers): every entry remains independently addressable
+   * `{kind, id, label?}` — never a first-plus-count summary. Producers that
+   * attach multiple Activity references (e.g. the Activity Room composer)
+   * populate this; consumers render each entry.
+   */
+  readonly selectedReferences?: readonly TurnSurfaceReference[];
 }
 
 export interface CompletionRequest {

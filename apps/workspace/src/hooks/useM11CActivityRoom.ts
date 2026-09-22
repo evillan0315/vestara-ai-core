@@ -21,6 +21,7 @@ import {
   type M11AStreamItem,
   classifySubmissionError,
   fetchM11AActivities,
+  fetchM11AAttention,
   fetchM11ASnapshot,
   submitInteractionResponse,
 } from '../lib/m11a-api';
@@ -83,6 +84,8 @@ export interface M11CStreamItem {
   readonly originConversationId?: string;
   readonly originSurface?: string;
   readonly aggregated?: M11AStreamItem['aggregated'];
+  /** Tool correlation (only when kind === 'tool-call' | 'tool-result'). Absent otherwise. */
+  readonly tool?: M11AStreamItem['tool'];
   /** Diagnostic details for the message details surface (absent = none). */
   readonly details?: { readonly reasoning?: string; readonly providerId?: string; readonly modelId?: string; readonly latencyMs?: number; readonly tokens?: number; readonly conversationId?: string };
   /** Whether this item arrived live (for animation). */
@@ -190,6 +193,8 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     aggregated: item.aggregated,
     fresh: false,
     interaction: item.interaction,
+    // Phase 1: tool correlation passthrough (absent for non-tool kinds).
+    ...(item.tool ? { tool: item.tool } : {}),
     // AR-UI-REPLY-002: authoritative origin provenance passthrough.
     ...(typeof item.originConversationId === 'string' ? { originConversationId: item.originConversationId } : {}),
     ...(typeof item.originSurface === 'string' ? { originSurface: item.originSurface } : {}),
@@ -257,12 +262,33 @@ interface ProjectionWireRecord {
   readonly content?: string;
   readonly toolName?: string;
   readonly callID?: string;
+  readonly status?: string;
+  readonly agentId?: string;
   readonly workflowId?: string;
   readonly sessionId?: string;
   readonly referencedActivityIds?: readonly string[];
   /** AR-UI-REPLY-002: authoritative origin provenance (projection contract). */
   readonly originConversationId?: string;
   readonly originSurface?: string;
+}
+
+/** Build a Phase 1 tool correlation object from validated parts. Absent when identity is incomplete. */
+function buildWireTool(parts: {
+  readonly toolName?: unknown;
+  readonly callID?: unknown;
+  readonly status?: unknown;
+  readonly agentId?: unknown;
+  readonly actorId?: unknown;
+  readonly fallbackStatus: 'started' | 'completed' | 'failed';
+}): M11CStreamItem['tool'] {
+  const toolName = typeof parts.toolName === 'string' && parts.toolName ? parts.toolName : undefined;
+  const callID = typeof parts.callID === 'string' && parts.callID ? parts.callID : undefined;
+  if (!toolName || !callID) return undefined;
+  const rawStatus = typeof parts.status === 'string' ? parts.status : undefined;
+  const status: 'started' | 'completed' | 'failed' =
+    rawStatus === 'started' || rawStatus === 'completed' || rawStatus === 'failed' ? rawStatus : parts.fallbackStatus;
+  const rawAgent = typeof parts.agentId === 'string' && parts.agentId ? parts.agentId : typeof parts.actorId === 'string' && parts.actorId ? parts.actorId : undefined;
+  return { toolName, callID, status, ...(rawAgent ? { agentId: rawAgent } : {}) };
 }
 
 /**
@@ -282,6 +308,18 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
     const importance: M11CStreamItem['importance'] =
       kind === 'conversation' ? 'primary' : kind === 'tool-call' || kind === 'tool-result' ? 'muted' : 'secondary';
     const actorRole = typeof record.actor.role === 'string' ? record.actor.role : undefined;
+    // Phase 1: tool correlation for live projection records (absent for non-tool kinds).
+    const wireTool =
+      kind === 'tool-call' || kind === 'tool-result'
+        ? buildWireTool({
+            toolName: record.toolName,
+            callID: record.callID,
+            status: record.status,
+            agentId: record.agentId,
+            actorId: record.actor.id,
+            fallbackStatus: kind === 'tool-call' ? 'started' : 'completed',
+          })
+        : undefined;
     return {
       id: record.id,
       sequence: record.sequence,
@@ -303,6 +341,7 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
       // AR-UI-REPLY-002: authoritative origin provenance passthrough.
       ...(typeof record.originConversationId === 'string' ? { originConversationId: record.originConversationId } : {}),
       ...(typeof record.originSurface === 'string' ? { originSurface: record.originSurface } : {}),
+      ...(wireTool ? { tool: wireTool } : {}),
     };
   }
 
@@ -394,6 +433,20 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
     }
   }
 
+  // Phase 1: tool correlation for M9 history records (durable payload.data only).
+  if ((kind === 'tool-call' || kind === 'tool-result') && activity.payload?.data) {
+    const data = activity.payload.data as Record<string, unknown>;
+    const historyTool = buildWireTool({
+      toolName: data.toolName,
+      callID: data.callID,
+      status: undefined,
+      agentId: undefined,
+      actorId: activity.actor.id,
+      fallbackStatus: activity.type === 'tool.called' ? 'started' : activity.type === 'tool.failed' ? 'failed' : 'completed',
+    });
+    if (historyTool) return { ...base, tool: historyTool };
+  }
+
   return base;
 }
 
@@ -479,6 +532,35 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       setLatestSequence(seq);
     }
   }, []);
+
+  // ─── Canonical attention source ──────────────────────────
+  // ONE authoritative open-attention source: GET /api/activity-room/v1/attention
+  // (projection + legacy merged, deduped, open-only, severity-sorted server-side).
+  // The snapshot seeds initial attention; every refresh below replaces it from
+  // the endpoint. Never derived from stream kinds, severity filters, or prose.
+  const attentionInFlight = useRef(false);
+  const attentionRefreshTimer = useRef<number | null>(null);
+  const refreshAttention = useCallback(async () => {
+    if (attentionInFlight.current || disposedRef.current) return;
+    attentionInFlight.current = true;
+    try {
+      const entries = await fetchM11AAttention();
+      if (!disposedRef.current) setAttention(entries);
+    } catch {
+      // Snapshot-seeded attention stays; endpoint refresh is best-effort.
+    } finally {
+      attentionInFlight.current = false;
+    }
+  }, []);
+  // Trailing-edge refresh so live tool/test/verification bursts settle before
+  // re-reading open attention (one request per burst, never per event).
+  const scheduleAttentionRefresh = useCallback(() => {
+    if (attentionRefreshTimer.current !== null) return;
+    attentionRefreshTimer.current = window.setTimeout(() => {
+      attentionRefreshTimer.current = null;
+      void refreshAttention();
+    }, 1000);
+  }, [refreshAttention]);
 
   // ─── Actions ────────────────────────────────────────────
 
@@ -669,6 +751,10 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
       if (!atBottomRef.current) bumpUnread();
 
+      // Open attention is projection-derived: a live arrival may open or
+      // resolve entries, so re-read the canonical endpoint (debounced).
+      scheduleAttentionRefresh();
+
       // Mark as fresh for animation
       setFreshIds((prev) => (prev.has(item.id) ? prev : new Set(prev).add(item.id)));
 
@@ -685,7 +771,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
       updateSequence(sequence);
     },
-    [bumpUnread, mergeStream, updateSequence],
+    [bumpUnread, mergeStream, updateSequence, scheduleAttentionRefresh],
   );
 
   // ─── WebSocket Lifecycle ────────────────────────────────
@@ -734,6 +820,8 @@ export function useM11CActivityRoom(): M11CActivityRoom {
           const items = snapshot.stream.map(streamItemFromSnapshot);
           setStream(items);
           updateSequence(snapshot.cursor.sequenceNumber);
+          // Snapshot seeds attention; the canonical endpoint refreshes it.
+          void refreshAttention();
           // Re-subscribe from new cursor
           client.connect(snapshot.cursor.sequenceNumber);
         } catch {
@@ -768,6 +856,8 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         const items = snapshot.stream.map(streamItemFromSnapshot);
         setStream(items);
         updateSequence(snapshot.cursor.sequenceNumber);
+        // Snapshot seeds attention; the canonical endpoint refreshes it.
+        void refreshAttention();
 
         // Subscribe via WebSocket from cursor sequence
         client.connect(snapshot.cursor.sequenceNumber);
@@ -795,9 +885,13 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         window.clearTimeout(flushTimerRef.current);
         flushTimerRef.current = null;
       }
+      if (attentionRefreshTimer.current !== null) {
+        window.clearTimeout(attentionRefreshTimer.current);
+        attentionRefreshTimer.current = null;
+      }
       liveBufferRef.current = [];
     };
-  }, [handleLiveActivity, updateSequence, retryKey]);
+  }, [handleLiveActivity, updateSequence, refreshAttention, retryKey]);
 
   // ─── Prune freshIds after animation completes ───────────
   // Prevents unbounded growth during long sessions. Entries older than

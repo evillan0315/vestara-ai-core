@@ -114,7 +114,7 @@ export class ProjectionRuntime {
       participants,
       stream: aggregatedStream,
       workflowSummary: this.getLatestWorkflowSummary(),
-      attention: this.attention.filter((a) => !a.acknowledged),
+      attention: this.attention.filter((a) => a.status === 'open'),
       contextualCapabilities: this.buildContextualCapabilities(participants),
     };
   }
@@ -280,6 +280,34 @@ export class ProjectionRuntime {
             ...(selectedChoiceId ? { selectedChoiceId } : {}),
             ...(respondingParticipantId ? { respondingParticipantId } : {}),
             ...(respondingParticipantName ? { respondingParticipantName } : {}),
+          },
+        };
+      }
+    }
+
+    // Phase 1: carry tool correlation for kind === 'tool-call' | 'tool-result'.
+    // Durable payload.data holds {callID, toolName}; status derives from the
+    // canonical M9 type. Agent attribution comes from the record actor
+    // (forwarded at ingestion). Absent/invalid tool identity stays absent.
+    if ((kind === 'tool-call' || kind === 'tool-result') && record.payload.data) {
+      const data = record.payload.data as Record<string, unknown>;
+      const callID = typeof data.callID === 'string' && data.callID ? data.callID : undefined;
+      const toolName = typeof data.toolName === 'string' && data.toolName ? data.toolName : undefined;
+      if (callID && toolName) {
+        const status =
+          record.type === 'tool.called'
+            ? ('started' as const)
+            : record.type === 'tool.failed'
+              ? ('failed' as const)
+              : ('completed' as const);
+        const agentId = typeof record.actor.id === 'string' && record.actor.id ? record.actor.id : undefined;
+        return {
+          ...base,
+          tool: {
+            toolName,
+            callID,
+            status,
+            ...(agentId ? { agentId } : {}),
           },
         };
       }
@@ -501,7 +529,7 @@ export class ProjectionRuntime {
       const existing =
         attention.taskId !== undefined
           ? this.attention.find(
-              (a) => a.taskId === attention.taskId && a.reason === attention.reason && !a.acknowledged,
+              (a) => a.taskId === attention.taskId && a.reason === attention.reason && a.status === 'open',
             )
           : undefined;
       if (!existing) {
@@ -516,7 +544,7 @@ export class ProjectionRuntime {
     // Deduplicate interaction attention: at most one unacknowledged per interactionId
     if (attention?.interactionId) {
       const dup = this.attention.find(
-        (a) => a.interactionId === attention.interactionId && a.reason === attention.reason && !a.acknowledged,
+        (a) => a.interactionId === attention.interactionId && a.reason === attention.reason && a.status === 'open',
       );
       if (dup && dup !== attention) {
         // Already have an unacknowledged attention for this interaction — remove the older one
@@ -527,10 +555,10 @@ export class ProjectionRuntime {
 
     // Auto-resolve attention when task completes
     if (record.type === 'task.completed' && record.taskId) {
-      const toResolve = this.attention.find((a) => a.taskId === record.taskId && !a.acknowledged);
+      const toResolve = this.attention.find((a) => a.taskId === record.taskId && a.status === 'open');
       if (toResolve) {
         const idx = this.attention.indexOf(toResolve);
-        this.attention[idx] = { ...toResolve, acknowledged: true };
+        this.attention[idx] = { ...toResolve, status: 'resolved', resolvedAt: record.timestamp, acknowledged: true };
       }
     }
 
@@ -539,10 +567,24 @@ export class ProjectionRuntime {
       const data = record.payload.data as Record<string, unknown> | undefined;
       const interactionId = typeof data?.interactionId === 'string' ? data.interactionId : undefined;
       if (interactionId) {
-        const toResolve = this.attention.find((a) => a.interactionId === interactionId && !a.acknowledged);
+        const toResolve = this.attention.find((a) => a.interactionId === interactionId && a.status === 'open');
         if (toResolve) {
           const idx = this.attention.indexOf(toResolve);
-          this.attention[idx] = { ...toResolve, acknowledged: true };
+          this.attention[idx] = { ...toResolve, status: 'resolved', resolvedAt: record.timestamp, acknowledged: true };
+        }
+      }
+    }
+
+    if (record.type === 'tool.succeeded') {
+      const data = record.payload.data as Record<string, unknown> | undefined;
+      const callID = typeof data?.callID === 'string' ? data.callID : undefined;
+      if (callID) {
+        const toResolve = this.attention.find(
+          (a) => a.reason === 'tool-failed' && a.details?.callID === callID && a.status === 'open',
+        );
+        if (toResolve) {
+          const idx = this.attention.indexOf(toResolve);
+          this.attention[idx] = { ...toResolve, status: 'resolved', resolvedAt: record.timestamp, acknowledged: true };
         }
       }
     }
@@ -554,11 +596,21 @@ export class ProjectionRuntime {
         return {
           attentionId: `att-${String(record.activityId)}`,
           reason: 'task-failed',
+          category: 'blocker',
           severity: 'high',
           message: record.payload.error?.message ?? `Task failed: ${record.payload.message ?? record.taskId}`,
+          sourceRecordId: String(record.activityId),
+          owner: 'workflow-orchestrator',
+          status: 'open',
+          evidenceRefs: [],
+          details: {
+            activityType: record.type,
+            ...(record.payload.error ? { error: record.payload.error.message } : {}),
+          },
           actor: record.actor,
           workflowRunId: record.workflowRunId,
           taskId: record.taskId,
+          sessionId: record.runtimeSessionBindingId,
           timestamp: record.timestamp,
           acknowledged: false,
         };
@@ -566,10 +618,20 @@ export class ProjectionRuntime {
         return {
           attentionId: `att-${String(record.activityId)}`,
           reason: 'workflow-failed',
+          category: 'workflow',
           severity: 'critical',
           message: record.payload.error?.message ?? 'Workflow failed',
+          sourceRecordId: String(record.activityId),
+          owner: 'workflow-orchestrator',
+          status: 'open',
+          evidenceRefs: [],
+          details: {
+            activityType: record.type,
+            ...(record.payload.error ? { error: record.payload.error.message } : {}),
+          },
           actor: record.actor,
           workflowRunId: record.workflowRunId,
+          sessionId: record.runtimeSessionBindingId,
           timestamp: record.timestamp,
           acknowledged: false,
         };
@@ -577,11 +639,18 @@ export class ProjectionRuntime {
         return {
           attentionId: `att-${String(record.activityId)}`,
           reason: 'waiting-for-human',
+          category: 'agent-attention',
           severity: 'medium',
           message: record.payload.message ?? 'Agent waiting for input',
+          sourceRecordId: String(record.activityId),
+          owner: 'agent-harness',
+          status: 'open',
+          evidenceRefs: [],
+          details: { activityType: record.type },
           actor: record.actor,
           workflowRunId: record.workflowRunId,
           taskId: record.taskId,
+          sessionId: record.runtimeSessionBindingId,
           timestamp: record.timestamp,
           acknowledged: false,
         };
@@ -589,14 +658,51 @@ export class ProjectionRuntime {
         return {
           attentionId: `att-${String(record.activityId)}`,
           reason: 'attention-required',
+          category: 'agent-attention',
           severity: 'high',
           message: record.payload.error?.message ?? 'Agent failed',
+          sourceRecordId: String(record.activityId),
+          owner: 'agent-harness',
+          status: 'open',
+          evidenceRefs: [],
+          details: {
+            activityType: record.type,
+            ...(record.payload.error ? { error: record.payload.error.message } : {}),
+          },
           actor: record.actor,
           workflowRunId: record.workflowRunId,
           taskId: record.taskId,
+          sessionId: record.runtimeSessionBindingId,
           timestamp: record.timestamp,
           acknowledged: false,
         };
+      case 'tool.failed': {
+        const data = record.payload.data as Record<string, unknown> | undefined;
+        const toolName = typeof data?.toolName === 'string' && data.toolName ? data.toolName : 'tool';
+        const callID = typeof data?.callID === 'string' && data.callID ? data.callID : String(record.activityId);
+        return {
+          attentionId: `att-${String(record.activityId)}`,
+          reason: 'tool-failed',
+          category: 'execution-failure',
+          message: `${toolName} failed`,
+          sourceRecordId: String(record.activityId),
+          owner: 'runtime-session',
+          status: 'open',
+          evidenceRefs: [],
+          details: {
+            activityType: record.type,
+            toolName,
+            callID,
+            status: 'failed',
+          },
+          actor: record.actor,
+          workflowRunId: record.workflowRunId,
+          taskId: record.taskId,
+          sessionId: record.runtimeSessionBindingId,
+          timestamp: record.timestamp,
+          acknowledged: false,
+        };
+      }
       case 'interaction.presented': {
         // Extract interaction metadata from payload.data
         const data = record.payload.data as Record<string, unknown> | undefined;
@@ -605,10 +711,20 @@ export class ProjectionRuntime {
         return {
           attentionId: `att-interaction-${interactionId ?? String(record.activityId)}`,
           reason: 'interaction-presented',
+          category: 'approval',
           severity: 'medium',
           message: content ?? 'Decision needed',
+          sourceRecordId: String(record.activityId),
+          owner: 'interaction-app',
+          status: 'open',
+          evidenceRefs: [],
+          details: {
+            activityType: record.type,
+            ...(interactionId ? { interactionId } : {}),
+          },
           actor: record.actor,
           interactionId,
+          sessionId: record.runtimeSessionBindingId,
           timestamp: record.timestamp,
           acknowledged: false,
         };

@@ -220,6 +220,8 @@ export interface ToolCallActivity extends ActivityBase {
   readonly agentId: string;
   readonly toolName: string;
   readonly callID: string;
+  /** Output from the tool execution, if available. */
+  readonly output?: string;
 }
 
 export interface ToolResultActivity extends ActivityBase {
@@ -228,6 +230,8 @@ export interface ToolResultActivity extends ActivityBase {
   readonly toolName: string;
   readonly callID: string;
   readonly status: 'completed' | 'failed';
+  /** Output from the tool execution, if available. */
+  readonly output?: string;
 }
 
 export type ActivityRecord =

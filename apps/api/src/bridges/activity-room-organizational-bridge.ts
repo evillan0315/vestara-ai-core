@@ -46,6 +46,13 @@ const HARNESS_EVENT_TYPES = new Set([
   'harness.outcome.completed',
   'harness.outcome.failed',
   'harness.model.completed',
+  // AR-TOOLS-001: harness tool lifecycle — the AgentMessageProjector already
+  // maps these to tool-call/tool-result records; they were simply never
+  // forwarded. Local ToolRuntime calls; provider-side tool activity arrives
+  // separately via opencode.execution.activity.
+  'harness.tool.started',
+  'harness.tool.completed',
+  'harness.tool.failed',
 ]);
 
 /** Live runtime execution activity correlated to a participant/thread. */

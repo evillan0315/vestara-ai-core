@@ -29,6 +29,7 @@
  */
 
 import { randomUUID } from 'node:crypto';
+import type { TurnSurfaceContext, TurnSurfaceReference } from '@vestara/shared';
 import type { AssistantTurnResult } from './assistant-types';
 import type { AgentMessageActivity } from './contracts';
 import type { ActivityProjectionService } from './service';
@@ -102,6 +103,21 @@ export interface TriggerAssistantTurnOptions {
    * acted from. Informational only; never principal identity.
    */
   readonly surface?: string;
+  /**
+   * AR-REF-001: caller-built turn surface context (workspace + surface
+   * identity, optional singular `selected`). The bridge merges resolved
+   * `activityReferences` into `selectedReferences`, preserving any existing
+   * `selected`. Absent = no surface context (existing behavior unchanged).
+   */
+  readonly surfaceContext?: TurnSurfaceContext;
+  /**
+   * AR-REF-001: resolved Activity references for this turn (identity +
+   * bounded authoritative labels, via `resolveActivityReferences`). Never
+   * user content, never raw payloads. Forwarded as
+   * `surfaceContext.selectedReferences` through the existing
+   * conversation-service → context-assembler → CompletionRequest path.
+   */
+  readonly activityReferences?: readonly TurnSurfaceReference[];
 }
 
 /** Resolved execution configuration from agent definition. */
@@ -166,6 +182,8 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     logger,
     executionConfig,
     surface,
+    surfaceContext,
+    activityReferences,
   } = options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
@@ -232,6 +250,25 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     }
     if (executionConfig) {
       sendOptions.executionConfig = executionConfig;
+    }
+    // AR-REF-001: bridge the durable Activity references into the existing
+    // turn surface-context mechanism. User content is untouched — references
+    // travel structurally via surfaceContext.selectedReferences. Without
+    // references (and without a caller base) no surfaceContext is sent:
+    // existing behavior is byte-for-byte unchanged.
+    if ((activityReferences && activityReferences.length > 0) || surfaceContext) {
+      const merged: TurnSurfaceContext = {
+        ...(surfaceContext ?? {
+          workspace: { id: 'workspace', name: 'workspace' },
+          surface: { routeId: null, path: '', title: null, section: null },
+        }),
+        ...((activityReferences && activityReferences.length > 0
+          ? {
+              selectedReferences: [...(surfaceContext?.selectedReferences ?? []), ...activityReferences],
+            }
+          : {})),
+      };
+      sendOptions.surfaceContext = merged;
     }
 
     const response = await conversationService.sendMessage(conversation.id, humanRecord.content, sendOptions);

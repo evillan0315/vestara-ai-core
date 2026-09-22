@@ -79,6 +79,7 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
       agentId,
       toolName,
       callID,
+      output: record.payload?.output,
       evidenceRefs: [],
       ...origin,
     };
@@ -94,6 +95,7 @@ export function toProjectionRecord(record: M9ActivityRecord): ActivityRecord {
       toolName,
       callID,
       status: record.type === 'tool.failed' ? 'failed' : 'completed',
+      output: record.payload?.output,
       evidenceRefs: [],
       ...origin,
     };

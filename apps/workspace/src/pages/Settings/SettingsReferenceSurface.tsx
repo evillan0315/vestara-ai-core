@@ -50,6 +50,15 @@ const FIELD_HELP: Record<string, string> = {
   'notifications.enabled': 'Audible cue when operations finish or need attention.',
 };
 
+const FONT_FAMILY_OPTIONS = [
+  { value: 'system', label: 'System default' },
+  { value: 'serif', label: 'Serif' },
+  { value: 'mono', label: 'Monospace' },
+  { value: 'inter', label: 'Inter (Google)' },
+  { value: 'jakarta', label: 'Plus Jakarta Sans (Google)' },
+  { value: 'roboto', label: 'Roboto (Google)' },
+] as const;
+
 const ACTIONS = [
   { id: 'export', label: 'Export Settings', description: 'Download your configuration', icon: 'files' as const },
   {
@@ -492,6 +501,67 @@ function InstantToggleRow({
   );
 }
 
+/**
+ * Sub-section inside the Preferences card: icon tile + title + helper,
+ * replacing bare dividers with scannable grouped blocks.
+ */
+function PreferenceSection({
+  icon,
+  title,
+  description,
+  children,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] first:border-t-0 first:pt-0">
+      <p className="flex min-w-0 items-center gap-2 text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
+        <span
+          aria-hidden="true"
+          className="grid size-6 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)] [&_svg]:size-4"
+        >
+          {icon}
+        </span>
+        {title}
+      </p>
+      <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+        {description}
+      </p>
+      <div className="st-mt-element">{children}</div>
+    </div>
+  );
+}
+
+/**
+ * Live typography preview. Rendered entirely from the runtime theme
+ * variables, so it mirrors the active font family, size, and weight
+ * with no extra state — every choice applies to it instantly.
+ */
+function TypographyPreview() {
+  return (
+    <div
+      aria-hidden="true"
+      className="flex min-w-0 items-center gap-3 overflow-hidden rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2"
+    >
+      <span className="st-font-live st-font-weight-live-strong shrink-0 text-[var(--vestara-font-size-2xl)] leading-none text-[var(--vestara-text-primary)]">
+        Aa
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="st-font-live st-font-weight-live block truncate text-[var(--vestara-font-size-base)] text-[var(--vestara-text-secondary)]">
+          The quick brown fox jumps over the lazy dog
+        </span>
+        <span className="st-font-live block truncate text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+          0123456789 · Light to semibold, instantly applied
+        </span>
+      </span>
+      <span className="size-2.5 shrink-0 rounded-[var(--vestara-radius-full)] bg-[var(--vestara-accent)]" />
+    </div>
+  );
+}
+
 function PreferencesCard({
   notificationDraft,
   onGeneralChange,
@@ -525,84 +595,90 @@ function PreferencesCard({
       className={`st-card-secondary ${className}`}
     >
       <div className="st-space-field">
-        <InstantField label="Theme Preference" helper="Applies instantly and is saved durably.">
-          <Segmented
-            label="Theme Preference"
-            value={mode}
-            options={['dark', 'light', 'system']}
-            onChange={onThemeModeChange}
-          />
-        </InstantField>
-        <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-            Accent palette
-          </p>
-          <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Moved from Appearance. Used for focus, selection, and primary actions. Applies instantly.
-          </p>
-          <div className="st-mt-element flex flex-wrap gap-2">
-            {Object.entries(ACCENT_PALETTES).map(([id, palette]) => (
-              <button
-                key={id}
-                type="button"
-                aria-label={palette.label}
-                aria-pressed={settings.colorTheme === id}
-                title={palette.label}
-                onClick={() => updateSetting('colorTheme', id as ThemeSettings['colorTheme'])}
-                className={`grid size-7 place-items-center rounded-[var(--vestara-radius-full)] border ${focus} ${
-                  settings.colorTheme === id
-                    ? 'border-[var(--vestara-color-text-primary,var(--vestara-text))] ring-2 ring-[var(--vestara-accent)] ring-offset-2 ring-offset-[var(--vestara-color-surface-panel,var(--color-zinc-900))]'
-                    : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))]'
-                }`}
-                style={{ backgroundColor: palette.hex }}
-              >
-                {settings.colorTheme === id && (
-                  <span className="text-[var(--vestara-font-size-xs)] text-black" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-            Typography
-          </p>
-          <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Moved from Appearance → Typography. Runtime font variables update every Workspace surface. Applies
-            instantly.
-          </p>
-          <div className="st-mt-element grid st-gap-section">
-            <InstantField label="Font family" helper="System, serif, or monospace stack.">
-              <SelectField settingKey="fontFamily" options={['system', 'serif', 'mono'] as const} />
-            </InstantField>
-            <InstantField label="Font size" helper="Base text size across surfaces.">
+        <PreferenceSection
+          icon={navIcon('dashboard')}
+          title="Appearance"
+          description="Theme mode and accent color for focus, selection, and primary actions. Applies instantly."
+        >
+          <div className="grid st-gap-section">
+            <InstantField label="Theme Preference" helper="Follow your system, or lock dark / light. Saved durably.">
               <Segmented
-                label="Font size"
-                value={settings.fontSize}
-                options={['small', 'medium', 'large']}
-                onChange={(value) => updateSetting('fontSize', value)}
+                label="Theme Preference"
+                value={mode}
+                options={['dark', 'light', 'system']}
+                onChange={onThemeModeChange}
               />
             </InstantField>
-            <InstantField label="Font weight" helper="Default weight for text.">
-              <Segmented
-                label="Font weight"
-                value={settings.fontWeight}
-                options={['normal', 'medium', 'semibold']}
-                onChange={(value) => updateSetting('fontWeight', value)}
-              />
+            <InstantField label="Accent palette" helper="Colors focus rings, selection, and primary actions.">
+              <span className="flex flex-wrap items-center gap-2">
+                {Object.entries(ACCENT_PALETTES).map(([id, palette]) => (
+                  <button
+                    key={id}
+                    type="button"
+                    aria-label={palette.label}
+                    aria-pressed={settings.colorTheme === id}
+                    title={palette.label}
+                    onClick={() => updateSetting('colorTheme', id as ThemeSettings['colorTheme'])}
+                    className={`grid size-7 place-items-center rounded-[var(--vestara-radius-full)] border ${focus} ${
+                      settings.colorTheme === id
+                        ? 'border-[var(--vestara-color-text-primary,var(--vestara-text))] ring-2 ring-[var(--vestara-accent)] ring-offset-2 ring-offset-[var(--vestara-color-surface-panel,var(--color-zinc-900))]'
+                        : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))]'
+                    }`}
+                    style={{ backgroundColor: palette.hex }}
+                  >
+                    {settings.colorTheme === id && (
+                      <span
+                        className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-surface-canvas)]"
+                        aria-hidden="true"
+                      >
+                        ✓
+                      </span>
+                    )}
+                  </button>
+                ))}
+                <span className="text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)]">
+                  {ACCENT_PALETTES[settings.colorTheme].label}
+                </span>
+              </span>
             </InstantField>
           </div>
-        </div>
-        <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-            Notifications
-          </p>
-          <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Moved from its own panel. Saved with your changes below.
-          </p>
-          <div className="st-mt-element">
+        </PreferenceSection>
+        <PreferenceSection
+          icon={navIcon('files')}
+          title="Typography"
+          description="Fonts and text styles across every surface. Applies instantly."
+        >
+          <div className="grid st-gap-section">
+            <TypographyPreview />
+            <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
+              <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
+            </InstantField>
+            <div className="grid st-gap-section sm:grid-cols-2">
+              <InstantField label="Font size" helper="Base text size across surfaces.">
+                <Segmented
+                  label="Font size"
+                  value={settings.fontSize}
+                  options={['small', 'medium', 'large']}
+                  onChange={(value) => updateSetting('fontSize', value)}
+                />
+              </InstantField>
+              <InstantField label="Font weight" helper="Default weight for text.">
+                <Segmented
+                  label="Font weight"
+                  value={settings.fontWeight}
+                  options={['light', 'normal', 'medium', 'semibold']}
+                  onChange={(value) => updateSetting('fontWeight', value)}
+                />
+              </InstantField>
+            </div>
+          </div>
+        </PreferenceSection>
+        <PreferenceSection
+          icon={navIcon('activity')}
+          title="Notifications"
+          description="Audible cues when operations finish or need attention. Saved with your changes below."
+        >
+          <div>
             {hasNotifications ? (
               <div className="st-gap-field flex min-w-0 items-center justify-between">
                 <span className="min-w-0">
@@ -630,13 +706,13 @@ function PreferencesCard({
               </p>
             )}
           </div>
-        </div>
-        <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">Layout</p>
-          <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Moved from Appearance → Layout. These display controls apply instantly and are not part of Save / Discard.
-          </p>
-          <div className="st-mt-element grid st-gap-section">
+        </PreferenceSection>
+        <PreferenceSection
+          icon={navIcon('sessions')}
+          title="Layout"
+          description="Rail, density, and corner controls. These apply instantly and are not part of Save / Discard."
+        >
+          <div className="grid st-gap-section">
             <InstantField label="Sidebar width" helper="Rail width from compact to wide.">
               <Segmented
                 label="Sidebar width"
@@ -710,7 +786,7 @@ function PreferencesCard({
               </span>
             </InstantField>
           </div>
-        </div>
+        </PreferenceSection>
       </div>
     </ReferenceCard>
   );
@@ -941,7 +1017,7 @@ export function SettingsGeneralReference({
             disabled={saving || dirty === 0}
             className={`st-px-card min-h-12 rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-semibold disabled:cursor-not-allowed ${focus} ${
               saving || dirty > 0
-                ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent)] text-[var(--vestara-surface-base)]'
+                ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]'
                 : 'border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] text-[var(--vestara-text-muted)]'
             }`}
           >

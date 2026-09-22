@@ -15,6 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
+import { ELEVATION } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -113,6 +114,16 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-activity-room-panel-raised': theme.activityRoom.panelRaised,
     '--vestara-activity-room-border': theme.activityRoom.border,
     '--vestara-activity-room-border-strong': theme.activityRoom.borderStrong,
+
+    // Elevation (theme-invariant shadows — sourced from ELEVATION tokens,
+    // not per-theme values). Previously only --vestara-elevation-md existed
+    // as a hand-mirrored stopgap in workspace index.css, leaving sm/lg/xl
+    // silently undefined wherever consumers referenced them.
+    '--vestara-elevation-none': ELEVATION.none,
+    '--vestara-elevation-sm': ELEVATION.sm,
+    '--vestara-elevation-md': ELEVATION.md,
+    '--vestara-elevation-lg': ELEVATION.lg,
+    '--vestara-elevation-xl': ELEVATION.xl,
   };
 }
 

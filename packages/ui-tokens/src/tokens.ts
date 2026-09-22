@@ -393,7 +393,17 @@ export type AccentColorTheme =
   | 'rose'
   | 'teal'
   | 'neutral'
-  | 'orange';
+  | 'orange'
+  | 'red'
+  | 'yellow'
+  | 'lime'
+  | 'green'
+  | 'cyan'
+  | 'sky'
+  | 'indigo'
+  | 'purple'
+  | 'fuchsia'
+  | 'pink';
 
 export interface AccentPalette {
   readonly label: string;
@@ -511,6 +521,116 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     border: '#f9731640',
     borderHover: '#f9731680',
     borderActive: '#f97316',
+  },
+  red: {
+    label: 'Red',
+    hex: '#ef4444',
+    light: '#f87171',
+    dark: '#dc2626',
+    glow: 'rgba(239, 68, 68, 0.04)',
+    bg: '#ef444414',
+    border: '#ef444440',
+    borderHover: '#ef444480',
+    borderActive: '#ef4444',
+  },
+  yellow: {
+    label: 'Yellow',
+    hex: '#eab308',
+    light: '#facc15',
+    dark: '#ca8a04',
+    glow: 'rgba(234, 179, 8, 0.04)',
+    bg: '#eab30814',
+    border: '#eab30840',
+    borderHover: '#eab30880',
+    borderActive: '#eab308',
+  },
+  lime: {
+    label: 'Lime',
+    hex: '#84cc16',
+    light: '#a3e635',
+    dark: '#65a30d',
+    glow: 'rgba(132, 204, 22, 0.04)',
+    bg: '#84cc1614',
+    border: '#84cc1640',
+    borderHover: '#84cc1680',
+    borderActive: '#84cc16',
+  },
+  green: {
+    label: 'Green',
+    hex: '#22c55e',
+    light: '#4ade80',
+    dark: '#16a34a',
+    glow: 'rgba(34, 197, 94, 0.04)',
+    bg: '#22c55e14',
+    border: '#22c55e40',
+    borderHover: '#22c55e80',
+    borderActive: '#22c55e',
+  },
+  cyan: {
+    label: 'Cyan',
+    hex: '#06b6d4',
+    light: '#22d3ee',
+    dark: '#0891b2',
+    glow: 'rgba(6, 182, 212, 0.04)',
+    bg: '#06b6d414',
+    border: '#06b6d440',
+    borderHover: '#06b6d480',
+    borderActive: '#06b6d4',
+  },
+  sky: {
+    label: 'Sky',
+    hex: '#0ea5e9',
+    light: '#38bdf8',
+    dark: '#0284c7',
+    glow: 'rgba(14, 165, 233, 0.04)',
+    bg: '#0ea5e914',
+    border: '#0ea5e940',
+    borderHover: '#0ea5e980',
+    borderActive: '#0ea5e9',
+  },
+  indigo: {
+    label: 'Indigo',
+    hex: '#6366f1',
+    light: '#818cf8',
+    dark: '#4f46e5',
+    glow: 'rgba(99, 102, 241, 0.04)',
+    bg: '#6366f114',
+    border: '#6366f140',
+    borderHover: '#6366f180',
+    borderActive: '#6366f1',
+  },
+  purple: {
+    label: 'Purple',
+    hex: '#a855f7',
+    light: '#c084fc',
+    dark: '#9333ea',
+    glow: 'rgba(168, 85, 247, 0.04)',
+    bg: '#a855f714',
+    border: '#a855f740',
+    borderHover: '#a855f780',
+    borderActive: '#a855f7',
+  },
+  fuchsia: {
+    label: 'Fuchsia',
+    hex: '#d946ef',
+    light: '#e879f9',
+    dark: '#c026d3',
+    glow: 'rgba(217, 70, 239, 0.04)',
+    bg: '#d946ef14',
+    border: '#d946ef40',
+    borderHover: '#d946ef80',
+    borderActive: '#d946ef',
+  },
+  pink: {
+    label: 'Pink',
+    hex: '#ec4899',
+    light: '#f472b6',
+    dark: '#db2777',
+    glow: 'rgba(236, 72, 153, 0.04)',
+    bg: '#ec489914',
+    border: '#ec489940',
+    borderHover: '#ec489980',
+    borderActive: '#ec4899',
   },
 } as const;
 

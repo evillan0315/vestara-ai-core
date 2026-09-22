@@ -5,9 +5,9 @@ import { persistAppearanceSettings, persistThemeMode, resolveHydratedTheme } fro
 
 export type ThemeMode = 'dark' | 'light' | 'system';
 
-export type FontFamily = 'system' | 'serif' | 'mono';
+export type FontFamily = 'system' | 'serif' | 'mono' | 'inter' | 'jakarta' | 'roboto';
 export type FontSize = 'small' | 'medium' | 'large';
-export type FontWeight = 'normal' | 'medium' | 'semibold';
+export type FontWeight = 'light' | 'normal' | 'medium' | 'semibold';
 export type SidebarWidth = 'compact' | 'normal' | 'wide';
 export type Spacing = 'compact' | 'comfortable' | 'spacious';
 export type Radius = 'none' | 'small' | 'medium' | 'large';
@@ -223,6 +223,9 @@ const FONT_STACKS: Record<FontFamily, string> = {
   system: 'ui-sans-serif, system-ui, -apple-system, sans-serif',
   serif: 'ui-serif, "Times New Roman", Georgia, serif',
   mono: 'ui-monospace, "JetBrains Mono", "Fira Code", monospace',
+  inter: '"Inter", ui-sans-serif, system-ui, -apple-system, sans-serif',
+  jakarta: '"Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, sans-serif',
+  roboto: '"Roboto", ui-sans-serif, system-ui, -apple-system, sans-serif',
 };
 
 const FONT_SIZES: Record<FontSize, { base: string; sm: string; xs: string; lg: string }> = {
@@ -232,6 +235,7 @@ const FONT_SIZES: Record<FontSize, { base: string; sm: string; xs: string; lg: s
 };
 
 const FONT_WEIGHTS: Record<FontWeight, { normal: string; medium: string; semibold: string }> = {
+  light: { normal: '300', medium: '400', semibold: '600' },
   normal: { normal: '400', medium: '500', semibold: '600' },
   medium: { normal: '450', medium: '550', semibold: '650' },
   semibold: { normal: '500', medium: '600', semibold: '700' },

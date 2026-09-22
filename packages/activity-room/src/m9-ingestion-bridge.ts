@@ -572,6 +572,14 @@ export class M9IngestionBridge {
     // stable correlation across called/succeeded/failed transitions.
     // Tool events arrive as message.part.updated with part.type=tool.
     if (type === 'opencode.message.part.updated') {
+      // Phase 1 fix: the raw OpenCode event bridge ('opencode-event-bridge')
+      // emits the same part.updated events WITHOUT actor identity, using the
+      // same deterministic eventId (tool.{lifecycle}:{callID}). Ingesting both
+      // lets the actor-less raw copy win the idempotent-append race and every
+      // tool row collapses to 'vestara'. The governed mirrors
+      // ('assistant-opencode-adapter', 'agent-lifecycle-bridge') carry the
+      // executing agent — ingest only those (or sourceless test/manual emits).
+      if (event.source === 'opencode-event-bridge') return null;
       const outerPayload = (event.payload ?? {}) as Record<string, unknown>;
       const innerPayload = (outerPayload.payload ?? outerPayload) as Record<string, unknown>;
       const part = innerPayload.part as Record<string, unknown> | undefined;
@@ -587,7 +595,16 @@ export class M9IngestionBridge {
               : state === 'error' || state === 'failed'
                 ? 'failed'
                 : 'called'; // default to called for unknown states
-        return fromToolEvent({ lifecycleType: lifecycleType as 'called' | 'succeeded' | 'failed', callID, toolName });
+        // Phase 1: preserve the executing agent (upstream bridges set
+        // actor.id to the runtime agent). Absent stays absent — fromToolEvent
+        // defaults to 'vestara' only when no agent is known.
+        const toolAgentId = typeof event.actor?.id === 'string' && event.actor.id ? event.actor.id : undefined;
+        return fromToolEvent({
+          lifecycleType: lifecycleType as 'called' | 'succeeded' | 'failed',
+          callID,
+          toolName,
+          ...(toolAgentId ? { agentId: toolAgentId } : {}),
+        });
       }
       return null; // non-tool part updates are not ingested
     }

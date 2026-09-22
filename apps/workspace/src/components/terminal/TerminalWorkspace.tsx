@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
 import { TerminalEmptyState } from './TerminalEmptyState';
 import { TerminalInspector } from './TerminalInspector';
-import { clearTerminal, TerminalPane, writelnToTerminal, writeToTerminal } from './TerminalPane';
+import TerminalPane, { clearTerminal, writelnToTerminal, writeToTerminal } from './TerminalPane';
 import { TerminalStatusBar } from './TerminalStatusBar';
 import { TerminalTabs } from './TerminalTabs';
 import { TerminalToolbar } from './TerminalToolbar';

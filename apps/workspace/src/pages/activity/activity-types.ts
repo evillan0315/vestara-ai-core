@@ -2,10 +2,11 @@ import type {
   ActivityOrganizationalEffect,
   ActivityRecord,
   ActivitySeverity,
+  AttentionEntry,
   MessageTarget,
 } from '@vestara/activity-room';
 
-export type { ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity, MessageTarget };
+export type { ActivityOrganizationalEffect, ActivityRecord, ActivitySeverity, AttentionEntry, MessageTarget };
 
 /**
  * A timeline record as served by the Activity Room list. Large agent content is

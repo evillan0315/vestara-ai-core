@@ -27,7 +27,7 @@ import {
   useNavigationStore,
   type CustomNavEntry,
 } from '../../lib/navigation-store.js';
-import { Button, SettingsSection, Toggle, input } from './settings-ui.js';
+import { Button, SettingsSection, Toggle, focus, humanize, input } from './settings-ui.js';
 
 function RowShell({ children }: { children: React.ReactNode }) {
   return (
@@ -147,7 +147,7 @@ function CustomForm({
       >
         {NAV_ICON_KEYS.map((key) => (
           <option key={key} value={key}>
-            {key}
+            {humanize(key)}
           </option>
         ))}
       </select>
@@ -191,12 +191,9 @@ export default function NavigationSettings() {
     return ids;
   }, [store]);
 
-  const orderedRegistry = useMemo(
-    () => [...WORKSPACE_NAVIGATION].sort((a, b) => a.order - b.order),
-    [],
-  );
+  const orderedRegistry = useMemo(() => [...WORKSPACE_NAVIGATION].sort((a, b) => a.order - b.order), []);
 
-  // Registry grouping drives the panels (no hardcoded domain content) —
+  // Registry grouping drives the rail (no hardcoded domain content) —
   // groups follow registry order; visibility semantics are unchanged.
   const groupedRegistry = useMemo(() => {
     const order: string[] = [];
@@ -210,6 +207,25 @@ export default function NavigationSettings() {
     }
     return order.map((group) => ({ group, entries: byGroup.get(group) ?? [] }));
   }, [orderedRegistry]);
+
+  const [activeGroup, setActiveGroup] = useState<string>(() => groupedRegistry[0]?.group ?? 'workspace');
+
+  const groupStats = useMemo(() => {
+    const stats = new Map<string, { total: number; visible: number }>();
+    for (const { group, entries } of groupedRegistry) {
+      stats.set(group, { total: entries.length, visible: entries.filter((entry) => visibleIds.has(entry.id)).length });
+    }
+    return stats;
+  }, [groupedRegistry, visibleIds]);
+
+  const activeEntries = useMemo(
+    () => groupedRegistry.find((item) => item.group === activeGroup)?.entries ?? [],
+    [groupedRegistry, activeGroup],
+  );
+  const activeStats = groupStats.get(activeGroup) ?? { total: activeEntries.length, visible: 0 };
+
+  const totalVisible = visibleIds.size;
+  const totalMenus = orderedRegistry.length + store.custom.length;
 
   const toDraft = (c: CustomNavEntry): Draft => ({
     label: c.label,
@@ -227,141 +243,176 @@ export default function NavigationSettings() {
         >
           {navIcon('routing')}
         </span>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">
             Navigation
           </h2>
           <p className="st-mt-element max-w-2xl text-[var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Sidebar menus and custom entries. Panels share one height and scroll past it. Hiding is
-            presentation only — pages stay reachable through search.
+            Sidebar menus and custom entries. Hiding is presentation only — pages stay reachable through search.
           </p>
         </div>
+        <span className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-2.5 py-1 text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)]">
+          {totalVisible} of {totalMenus} visible
+        </span>
       </header>
       <div className="st-card-body st-pad-card">
-        <div className="grid min-w-0 items-stretch gap-[var(--vestara-spacing-section)] md:grid-cols-2 xl:grid-cols-3">
-          {groupedRegistry.map(({ group, entries }) => (
-            <div key={group} className="st-nav-fixed min-w-0">
-              <SettingsSection
-                title={NAV_GROUP_LABELS[group] ?? group}
-                description={`${entries.length} sidebar ${entries.length === 1 ? 'menu' : 'menus'}. Hiding is presentation only — pages stay reachable through search.`}
-              >
-          <div>
-            {entries.map((entry) => {
-              const visible = visibleIds.has(entry.id);
-              const metadata = `${entry.path ?? '(action)'} · ${entry.tier} · ${entry.group}`;
+        <div className="grid min-w-0 items-start gap-[var(--vestara-spacing-section)] lg:grid-cols-[var(--vestara-sidebar-width)_minmax(0,1fr)]">
+          <div
+            role="tablist"
+            aria-label="Navigation groups"
+            className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-1"
+          >
+            {groupedRegistry.map(({ group, entries }) => {
+              const stats = groupStats.get(group) ?? { total: entries.length, visible: 0 };
+              const selected = activeGroup === group;
               return (
-                <RowShell key={entry.id}>
-                  <NavIconTile iconKey={entry.icon} group={entry.group} />
+                <button
+                  key={group}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  onClick={() => setActiveGroup(group)}
+                  className={`flex min-w-0 items-center gap-2.5 rounded-[var(--vestara-radius)] border px-2.5 py-2 text-left transition-colors ${focus} ${
+                    selected
+                      ? 'border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)]'
+                      : 'border-transparent hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-interactive)]'
+                  }`}
+                >
+                  <NavIconTile iconKey={entries[0]?.icon ?? 'generic'} group={group} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                      {entry.label}
+                    <span className="block truncate text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)]">
+                      {NAV_GROUP_LABELS[group] ?? group}
                     </span>
-                    {entry.description && (
-                      <span className="mt-0.5 block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                        {entry.description}
-                      </span>
-                    )}
-                    <span
-                      className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
-                      title={metadata}
-                    >
-                      {metadata}
+                    <span className="block text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+                      {stats.visible}/{stats.total} visible
                     </span>
                   </span>
-                  <VisibilityToggle
-                    label={`${visible ? 'Hide' : 'Show'} ${entry.label} in sidebar`}
-                    checked={visible}
-                    onChange={(next) => setNavVisibility(entry.id, next)}
-                  />
-                </RowShell>
+                </button>
               );
             })}
           </div>
-              </SettingsSection>
-            </div>
-          ))}
-
           <div className="st-nav-fixed min-w-0">
             <SettingsSection
-              title="Custom menus"
-              description="Your own sidebar entries. Fully owned here: add, edit, reorder, hide, delete."
+              title={NAV_GROUP_LABELS[activeGroup] ?? activeGroup}
+              description={`${activeStats.visible} of ${activeStats.total} menus visible in the sidebar.`}
             >
-        <div>
-          {store.custom.length === 0 && (
-            <p className="py-3 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-              No custom menus yet — add one below.
-            </p>
-          )}
-          {store.custom.map((c) =>
-            editingId === c.id ? (
-              <div key={c.id} className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3 first:border-t-0">
-                <CustomForm
-                  initial={toDraft(c)}
-                  submitLabel="Save"
-                  onCancel={() => setEditingId(null)}
-                  onSubmit={(draft) => {
-                    updateCustomNavEntry(c.id, {
-                      label: draft.label.trim(),
-                      path: draft.path.trim(),
-                      icon: draft.icon,
-                      order: Number(draft.order) || 105,
-                    });
-                    setEditingId(null);
-                  }}
-                />
+              <div>
+                {activeEntries.map((entry) => {
+                  const visible = visibleIds.has(entry.id);
+                  return (
+                    <RowShell key={entry.id}>
+                      <NavIconTile iconKey={entry.icon} group={entry.group} />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+                          {entry.label}
+                        </span>
+                        {entry.description && (
+                          <span className="mt-0.5 block text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                            {entry.description}
+                          </span>
+                        )}
+                        <span
+                          className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                          title={entry.path ?? 'Action without a route'}
+                        >
+                          {entry.path ?? 'Action only'}
+                        </span>
+                      </span>
+                      <VisibilityToggle
+                        label={`${visible ? 'Hide' : 'Show'} ${entry.label} in sidebar`}
+                        checked={visible}
+                        onChange={(next) => setNavVisibility(entry.id, next)}
+                      />
+                    </RowShell>
+                  );
+                })}
               </div>
-            ) : (
-              <RowShell key={c.id}>
-                <NavIconTile iconKey={c.icon} group="system" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                    {c.label}
-                  </span>
-                  <span
-                    className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
-                    title={`${c.path} · order ${c.order}`}
-                  >
-                    {c.path} · order {c.order}
-                  </span>
-                </span>
-                <VisibilityToggle
-                  label={`${c.visible !== false ? 'Hide' : 'Show'} ${c.label} in sidebar`}
-                  checked={c.visible !== false}
-                  onChange={(next) => updateCustomNavEntry(c.id, { visible: next })}
-                />
-                <span className="flex shrink-0 gap-2">
-                  <Button onClick={() => setEditingId(c.id)}>Edit</Button>
-                  <Button onClick={() => deleteCustomNavEntry(c.id)}>Delete</Button>
-                </span>
-              </RowShell>
-            ),
-          )}
-          <div className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3">
-            {showAdd ? (
-              <CustomForm
-                initial={EMPTY_DRAFT}
-                submitLabel="Add menu"
-                onCancel={() => setShowAdd(false)}
-                onSubmit={(draft) => {
-                  addCustomNavEntry({
-                    label: draft.label.trim(),
-                    path: draft.path.trim(),
-                    icon: draft.icon,
-                    order: Number(draft.order) || 105,
-                    visible: true,
-                  });
-                  setShowAdd(false);
-                }}
-              />
-            ) : (
-              <Button primary onClick={() => setShowAdd(true)}>
-                + Add menu
-              </Button>
-            )}
-          </div>
-            </div>
             </SettingsSection>
           </div>
+        </div>
+        <div className="mt-[var(--vestara-spacing-section)] min-w-0">
+          <SettingsSection
+            title="Custom menus"
+            description="Your own sidebar entries. Fully owned here: add, edit, reorder, hide, delete."
+          >
+            <div>
+              {store.custom.length === 0 && (
+                <p className="py-3 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                  No custom menus yet — add one below.
+                </p>
+              )}
+              {store.custom.map((c) =>
+                editingId === c.id ? (
+                  <div
+                    key={c.id}
+                    className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3 first:border-t-0"
+                  >
+                    <CustomForm
+                      initial={toDraft(c)}
+                      submitLabel="Save"
+                      onCancel={() => setEditingId(null)}
+                      onSubmit={(draft) => {
+                        updateCustomNavEntry(c.id, {
+                          label: draft.label.trim(),
+                          path: draft.path.trim(),
+                          icon: draft.icon,
+                          order: Number(draft.order) || 105,
+                        });
+                        setEditingId(null);
+                      }}
+                    />
+                  </div>
+                ) : (
+                  <RowShell key={c.id}>
+                    <NavIconTile iconKey={c.icon} group="system" />
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[var(--vestara-font-size-base)] font-medium text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+                        {c.label}
+                      </span>
+                      <span
+                        className="mt-0.5 block truncate font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-dim,var(--vestara-text-dim))]"
+                        title={`${c.path} · order ${c.order}`}
+                      >
+                        {c.path} · order {c.order}
+                      </span>
+                    </span>
+                    <VisibilityToggle
+                      label={`${c.visible !== false ? 'Hide' : 'Show'} ${c.label} in sidebar`}
+                      checked={c.visible !== false}
+                      onChange={(next) => updateCustomNavEntry(c.id, { visible: next })}
+                    />
+                    <span className="flex shrink-0 gap-2">
+                      <Button onClick={() => setEditingId(c.id)}>Edit</Button>
+                      <Button onClick={() => deleteCustomNavEntry(c.id)}>Delete</Button>
+                    </span>
+                  </RowShell>
+                ),
+              )}
+              <div className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] py-3">
+                {showAdd ? (
+                  <CustomForm
+                    initial={EMPTY_DRAFT}
+                    submitLabel="Add menu"
+                    onCancel={() => setShowAdd(false)}
+                    onSubmit={(draft) => {
+                      addCustomNavEntry({
+                        label: draft.label.trim(),
+                        path: draft.path.trim(),
+                        icon: draft.icon,
+                        order: Number(draft.order) || 105,
+                        visible: true,
+                      });
+                      setShowAdd(false);
+                    }}
+                  />
+                ) : (
+                  <Button primary onClick={() => setShowAdd(true)}>
+                    + Add menu
+                  </Button>
+                )}
+              </div>
+            </div>
+          </SettingsSection>
         </div>
       </div>
     </section>

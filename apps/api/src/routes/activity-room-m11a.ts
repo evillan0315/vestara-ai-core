@@ -36,7 +36,14 @@ import type {
   ParticipantProjection,
   WorkflowSummary,
 } from '@vestara/activity-room';
-import { ActivityStreamHub, DurableActivityStore, ProjectionRuntime, toProjectionRecord } from '@vestara/activity-room';
+import {
+  ActivityStreamHub,
+  DurableActivityStore,
+  ProjectionRuntime,
+  projectAttentionEntries,
+  toProjectionRecord,
+} from '@vestara/activity-room';
+import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 
@@ -342,6 +349,11 @@ function sanitizeRecord(record: M9ActivityRecord): Record<string, unknown> {
   };
 }
 
+/** Sanitize converted projection ActivityRecord for drawer fallback use. */
+function sanitizeProjectionRecord(record: ReturnType<typeof toProjectionRecord>): Record<string, unknown> {
+  return { ...record };
+}
+
 /**
  * REASONING-BOUNDARY-001: re-validate the diagnostic details bag at the API
  * boundary. Known keys, bounded strings, finite numbers — anything else
@@ -394,6 +406,17 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
     // REASONING-BOUNDARY-001: validated diagnostic details passthrough
     // (already validated at projection time; re-validated by UI converters).
     ...(item.details ? { details: sanitizeDetails(item.details) } : {}),
+    // Phase 1: tool correlation passthrough (allowlisted shape only).
+    ...(item.tool
+      ? {
+          tool: {
+            toolName: item.tool.toolName,
+            callID: item.tool.callID,
+            status: item.tool.status,
+            ...(typeof item.tool.agentId === 'string' ? { agentId: item.tool.agentId } : {}),
+          },
+        }
+      : {}),
     aggregated: item.aggregated
       ? {
           count: item.aggregated.count,
@@ -446,14 +469,110 @@ function sanitizeAttention(a: AttentionEntry): Record<string, unknown> {
   return {
     attentionId: a.attentionId,
     reason: a.reason,
+    category: a.category,
     severity: a.severity,
     message: a.message,
+    sourceRecordId: a.sourceRecordId,
+    owner: a.owner,
+    status: a.status,
+    resolvedAt: a.resolvedAt,
+    evidenceRefs: a.evidenceRefs,
+    details: a.details,
     actor: a.actor,
     workflowRunId: a.workflowRunId,
     taskId: a.taskId,
+    sessionId: a.sessionId,
+    interactionId: a.interactionId,
     timestamp: a.timestamp,
     acknowledged: a.acknowledged,
   };
+}
+
+function attentionSort(left: AttentionEntry, right: AttentionEntry): number {
+  const severity = severityRank(right.severity) - severityRank(left.severity);
+  if (severity !== 0) return severity;
+  const time = left.timestamp.localeCompare(right.timestamp);
+  if (time !== 0) return time;
+  return left.attentionId.localeCompare(right.attentionId);
+}
+
+function dedupeAttention(entries: readonly AttentionEntry[]): readonly AttentionEntry[] {
+  const byKey = new Map<string, AttentionEntry>();
+  for (const entry of entries) {
+    const key = canonicalAttentionKey(entry);
+    const existing = byKey.get(key);
+    byKey.set(key, existing === undefined ? entry : chooseAttentionEntry(existing, entry));
+  }
+  return [...byKey.values()];
+}
+
+function canonicalAttentionKey(entry: AttentionEntry): string {
+  switch (entry.reason) {
+    case 'task-blocked':
+    case 'task-failed':
+    case 'task-awaiting-approval':
+      return entry.taskId ? `task:${entry.taskId}` : `source:${entry.sourceRecordId}`;
+    case 'workflow-failed':
+      return entry.workflowRunId ? `workflow:${entry.workflowRunId}:failed` : `source:${entry.sourceRecordId}`;
+    case 'verification-failed':
+    case 'verification-blocked': {
+      const verificationRunId = stringDetail(entry, 'verificationRunId');
+      if (verificationRunId) return `verification:${verificationRunId}`;
+      return entry.taskId ? `verification-task:${entry.taskId}` : `source:${entry.sourceRecordId}`;
+    }
+    case 'test-failed': {
+      const command = stringDetail(entry, 'command');
+      return `test:${entry.taskId ?? 'global'}:${command ?? entry.sourceRecordId}`;
+    }
+    case 'tool-failed': {
+      const callID = stringDetail(entry, 'callID');
+      return callID ? `tool:${callID}` : `source:${entry.sourceRecordId}`;
+    }
+    case 'approval-required':
+    case 'interaction-presented':
+      if (entry.interactionId) return `interaction:${entry.interactionId}`;
+      return entry.taskId ? `approval-task:${entry.taskId}` : `source:${entry.sourceRecordId}`;
+    default:
+      return `source:${entry.sourceRecordId}`;
+  }
+}
+
+function chooseAttentionEntry(left: AttentionEntry, right: AttentionEntry): AttentionEntry {
+  const evidence = (right.evidenceRefs?.length ?? 0) - (left.evidenceRefs?.length ?? 0);
+  if (evidence !== 0) return evidence > 0 ? right : left;
+  const details = detailCount(right) - detailCount(left);
+  if (details !== 0) return details > 0 ? right : left;
+  const namespace = sourceNamespaceRank(right.sourceRecordId) - sourceNamespaceRank(left.sourceRecordId);
+  if (namespace !== 0) return namespace > 0 ? right : left;
+  return right.sourceRecordId.localeCompare(left.sourceRecordId) < 0 ? right : left;
+}
+
+function detailCount(entry: AttentionEntry): number {
+  return entry.details ? Object.keys(entry.details).length : 0;
+}
+
+function sourceNamespaceRank(sourceRecordId: string): number {
+  return sourceRecordId.startsWith('act-') ? 1 : 2;
+}
+
+function stringDetail(entry: AttentionEntry, key: string): string | undefined {
+  const value = entry.details?.[key];
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
+}
+
+function severityRank(severity: AttentionEntry['severity']): number {
+  switch (severity) {
+    case 'critical':
+      return 4;
+    case 'high':
+      return 3;
+    case 'medium':
+      return 2;
+    case 'low':
+      return 1;
+    default:
+      return 0;
+  }
 }
 
 /** Sanitize WorkflowSummary for API response. */
@@ -749,7 +868,7 @@ export async function handleM11AActivityRoomRoute(
   // Individual ActivityRecord retrieval
   if (method === 'GET' && p.match(/^\/api\/activity-room\/v1\/activities\/[^/]+$/)) {
     const activityId = decodeURIComponent(p.split('/').pop()!);
-    const record = await room.store.getByEventId(activityId);
+    const record = (await room.store.getByActivityId(activityId)) ?? (await room.store.getByEventId(activityId));
 
     if (!record) {
       json(res, 404, {
@@ -758,7 +877,10 @@ export async function handleM11AActivityRoomRoute(
       return true;
     }
 
-    json(res, 200, { record: sanitizeRecord(record) });
+    json(res, 200, {
+      record: sanitizeRecord(record),
+      projection: sanitizeProjectionRecord(toProjectionRecord(record)),
+    });
     return true;
   }
 
@@ -840,9 +962,17 @@ export async function handleM11AActivityRoomRoute(
     }
 
     const projection = room.lastProjection!;
+    const legacyPage = await getActivityRoom().store.list({
+      workflowId: stringValue(url.searchParams.get('workflowId')),
+      sessionId: stringValue(url.searchParams.get('sessionId')),
+    });
+    const legacyAttention = projectAttentionEntries(legacyPage.records);
+    const attention = dedupeAttention([...projection.attention, ...legacyAttention])
+      .filter((entry) => entry.status === 'open')
+      .sort(attentionSort);
     json(res, 200, {
-      attention: projection.attention.map(sanitizeAttention),
-      count: projection.attention.length,
+      attention: attention.map(sanitizeAttention),
+      count: attention.length,
     });
     return true;
   }

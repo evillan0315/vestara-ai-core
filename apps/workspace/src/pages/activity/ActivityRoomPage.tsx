@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useActivityRoomModel } from '../../hooks/useActivityRoomModel';
 import { useSetActivitySelection } from '../../contexts/SurfaceContext';
+import { fetchActivityRecordById } from '../../lib/activity';
 import ActivityComposer from './ActivityComposer';
 import ActivityCorrectionDialog from './ActivityCorrectionDialog';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
@@ -15,9 +16,11 @@ import type {
   ActivityConnectionState,
   ActivityDensity,
   ActivityRecord,
+  AttentionEntry,
   AuxiliarySourceStatus,
 } from './activity-types';
 import VisualEditMode from './VisualEditMode';
+import { formatRelative } from './activity-formatters';
 import { hydrateVisualConfig } from './visual-config';
 
 const STATE_LABELS: Record<ActivityConnectionState, { label: string; color: string }> = {
@@ -45,6 +48,122 @@ function worstStatus(statuses: readonly AuxiliarySourceStatus[]): AuxiliarySourc
   return worst;
 }
 
+const ATTENTION_LABELS: Record<AttentionEntry['category'], string> = {
+  issue: 'Issue',
+  violation: 'Violation',
+  blocker: 'Blocker',
+  'test-failure': 'Test failure',
+  'verification-failure': 'Verification failure',
+  permission: 'Permission',
+  approval: 'Approval',
+  'execution-failure': 'Execution failure',
+  workflow: 'Workflow',
+  runtime: 'Runtime',
+  safety: 'Safety',
+  'agent-attention': 'Agent attention',
+};
+
+function attentionContext(item: AttentionEntry): string {
+  return [
+    item.owner,
+    item.workflowRunId ? `Workflow ${item.workflowRunId}` : undefined,
+    item.taskId ? `Task ${item.taskId}` : undefined,
+    item.sessionId ? `Session ${item.sessionId}` : undefined,
+    item.actor?.displayName,
+  ]
+    .filter((part): part is string => typeof part === 'string' && part.length > 0)
+    .join(' · ');
+}
+
+function NeedsAttentionQueue({
+  items,
+  status,
+  error,
+  onRetry,
+  onOpen,
+}: {
+  items: readonly AttentionEntry[];
+  status: AuxiliarySourceStatus;
+  error?: string;
+  onRetry: () => void;
+  onOpen: (item: AttentionEntry) => void;
+}) {
+  if (status === 'loading' && items.length === 0) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        {[0, 1, 2].map((index) => (
+          <div
+            key={index}
+            className="h-16 animate-pulse rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg)"
+          />
+        ))}
+      </div>
+    );
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-2 text-center">
+        <p className="text-sm font-medium text-(--vestara-text)">Needs Attention</p>
+        <p className="text-xs text-(--vestara-text-muted)">No unresolved items require your attention.</p>
+        {error && (
+          <button type="button" onClick={onRetry} className="mt-2 rounded-lg border border-(--vestara-accent-border) px-3 py-1 text-[10px] text-(--vestara-text-2) cursor-pointer">
+            Retry
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1" role="list" aria-label="Needs Attention">
+      {error && (
+        <div className="rounded-lg border border-(--vestara-amber-border) bg-(--vestara-amber-bg) px-3 py-2 text-[10px] text-(--vestara-amber)">
+          {error}
+          <button type="button" onClick={onRetry} className="ml-2 underline cursor-pointer">
+            Retry
+          </button>
+        </div>
+      )}
+      {items.map((item) => {
+        const context = attentionContext(item);
+        return (
+          <button
+            key={item.attentionId}
+            type="button"
+            onClick={() => onOpen(item)}
+            className="w-full rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-2 text-left transition-colors hover:border-(--vestara-accent-text) cursor-pointer"
+            role="listitem"
+          >
+            <div className="flex min-w-0 items-start gap-2">
+              <span className="shrink-0 rounded-md border border-(--vestara-accent-border) px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--vestara-text-2)">
+                {ATTENTION_LABELS[item.category]}
+              </span>
+              {item.severity && (
+                <span className="shrink-0 rounded-md bg-(--vestara-amber-bg) px-2 py-0.5 text-[9px] font-medium uppercase tracking-wide text-(--vestara-amber)">
+                  {item.severity}
+                </span>
+              )}
+              <span className="ml-auto shrink-0 text-[9px] text-(--vestara-text-dim)">
+                {formatRelative(item.timestamp)}
+              </span>
+            </div>
+            <div className="mt-2 text-[12px] font-medium leading-snug text-(--vestara-text)">
+              {item.message}
+            </div>
+            {context && <div className="mt-1 truncate text-[10px] text-(--vestara-text-muted)">{context}</div>}
+            {item.details && (
+              <div className="mt-1 truncate text-[9px] text-(--vestara-text-dim)">
+                Source {item.sourceRecordId}
+              </div>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export default function ActivityRoomPage() {
   const model = useActivityRoomModel();
   const stream = model.stream;
@@ -57,6 +176,7 @@ export default function ActivityRoomPage() {
   const [participantsOpen, setParticipantsOpen] = useState(false);
   const [density, setDensity] = useState<ActivityDensity>('operational');
   const [drawerAgentId, setDrawerAgentId] = useState<string | null>(null);
+  const [view, setView] = useState<'stream' | 'attention'>('stream');
 
   const selectAgent = useCallback((agentId: string | undefined) => {
     setSelectedAgentId(agentId);
@@ -80,6 +200,15 @@ export default function ActivityRoomPage() {
       label: record.kind === 'agent-message' ? record.content.slice(0, 50) : record.id,
     });
   }, [setActivitySelection]);
+  const openAttentionDetail = useCallback(async (entry: AttentionEntry) => {
+    const existing = stream.records.find((record) => record.id === entry.sourceRecordId);
+    if (existing) {
+      openDetail(existing);
+      return;
+    }
+    const hydrated = await fetchActivityRecordById(entry.sourceRecordId);
+    if (hydrated) openDetail(hydrated);
+  }, [openDetail, stream.records]);
   const closeDetail = useCallback(() => setDetailRecord(null), []);
   const referenceRecord = useCallback((record: ActivityRecord) => setReferencedRecord(record), []);
   const clearReference = useCallback(() => setReferencedRecord(null), []);
@@ -101,6 +230,8 @@ export default function ActivityRoomPage() {
   const participants = model.participants.data;
   const liveStream = model.liveStream.data ?? [];
   const unreadByAgent = model.receipts.data?.unreadByAgent;
+  const attentionItems = model.attention.data ?? [];
+  const attentionCount = attentionItems.length;
   const auxiliaryStatus = workflowId ? worstStatus([model.participants.status, model.liveStream.status, model.receipts.status]) : 'ready';
 
   return (
@@ -123,6 +254,20 @@ export default function ActivityRoomPage() {
             <span className={`inline-block h-1.5 w-1.5 rounded-full ${stateInfo.color}`} />
             {stateInfo.label}
           </span>
+          <button
+            type="button"
+            onClick={() => setView((current) => (current === 'attention' ? 'stream' : 'attention'))}
+            aria-pressed={view === 'attention'}
+            className={`rounded-lg border px-3 py-1.5 text-[10px] transition-colors cursor-pointer ${
+              view === 'attention'
+                ? 'border-(--vestara-accent-text) bg-(--vestara-accent-text)/10 text-(--vestara-accent-text)'
+                : attentionCount > 0
+                  ? 'border-(--vestara-amber-border) bg-(--vestara-amber-bg) text-(--vestara-amber)'
+                  : 'border-(--vestara-accent-border) bg-(--vestara-accent-bg) text-(--vestara-text-2) hover:text-(--vestara-text)'
+            }`}
+          >
+            Needs Attention{attentionCount > 0 ? ` ${attentionCount}` : ''}
+          </button>
           <button
             type="button"
             onClick={() => setVisualEdit((value) => !value)}
@@ -255,10 +400,14 @@ export default function ActivityRoomPage() {
         <main className="flex min-h-[28rem] min-w-0 flex-1 flex-col rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-2 sm:p-3">
           <div className="mb-2 flex flex-wrap items-center justify-between gap-2 px-1">
             <div className="text-[9px] uppercase tracking-widest text-(--vestara-text-dim)" aria-live="polite">
-              {selectedAgentId === undefined ? 'Activity Stream' : `Activity — ${selectedAgentId}`}
+              {view === 'attention'
+                ? 'Needs Attention'
+                : selectedAgentId === undefined
+                  ? 'Activity Stream'
+                  : `Activity — ${selectedAgentId}`}
             </div>
             <span className="text-[10px] text-(--vestara-text-muted)">
-              {stream.paused ? `${stream.unread} buffered` : stateInfo.label}
+              {view === 'attention' ? `${attentionCount} unresolved` : stream.paused ? `${stream.unread} buffered` : stateInfo.label}
             </span>
           </div>
           <ActivityStatePanel scope={stream.scope} source={model.effectiveState} onRetry={model.retryAuxiliary} />
@@ -285,26 +434,36 @@ export default function ActivityRoomPage() {
               </div>
             </div>
           )}
-          <ActivityStream
-            records={stream.records}
-            selectedAgentId={selectedAgentId}
-            stateLabel={stateInfo.label}
-            scope={stream.scope}
-            loading={stream.state === 'connecting'}
-            unread={stream.unread}
-            density={density}
-            freshIds={stream.freshIds}
-            onLoadOlder={stream.loadOlder}
-            loadingOlder={stream.loadingOlder}
-            olderLoaded={stream.olderLoaded}
-            onClearUnread={stream.clearUnread}
-            onReportViewport={stream.reportViewport}
-            onOpenDetail={openDetail}
-            onReference={referenceRecord}
-            onCorrect={startCorrection}
-            sendStates={stream.sendStates}
-            onRetry={stream.retrySend}
-          />
+          {view === 'attention' ? (
+            <NeedsAttentionQueue
+              items={attentionItems}
+              status={model.attention.status}
+              error={model.attention.error}
+              onRetry={model.retryAuxiliary}
+              onOpen={openAttentionDetail}
+            />
+          ) : (
+            <ActivityStream
+              records={stream.records}
+              selectedAgentId={selectedAgentId}
+              stateLabel={stateInfo.label}
+              scope={stream.scope}
+              loading={stream.state === 'connecting'}
+              unread={stream.unread}
+              density={density}
+              freshIds={stream.freshIds}
+              onLoadOlder={stream.loadOlder}
+              loadingOlder={stream.loadingOlder}
+              olderLoaded={stream.olderLoaded}
+              onClearUnread={stream.clearUnread}
+              onReportViewport={stream.reportViewport}
+              onOpenDetail={openDetail}
+              onReference={referenceRecord}
+              onCorrect={startCorrection}
+              sendStates={stream.sendStates}
+              onRetry={stream.retrySend}
+            />
+          )}
           <ActivityComposer
             scope={stream.scope}
             targetAgentId={selectedAgentId}

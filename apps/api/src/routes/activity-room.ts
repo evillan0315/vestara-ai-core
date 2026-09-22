@@ -13,9 +13,11 @@ import {
   fromAgentLifecycle,
   fromHumanMessage,
   projectEffectiveState,
+  resolveActivityReferences,
   toActivityBatch,
   triggerAssistantTurn,
 } from '@vestara/activity-room';
+import type { TurnSurfaceContext } from '@vestara/shared';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
 import { json } from '../http/response';
@@ -211,6 +213,9 @@ export async function handleActivityRoomRoute(
             : undefined;
         const turnAgentId = record.agentId;
         const surface = surfaceOf(body);
+        // AR-REF-001: resolve durable Activity references into turn surface
+        // context (bounded, structured — user content untouched).
+        const surfaceContext = await turnSurfaceContextForReferences(ctx, room, record.referencedActivityIds);
         void triggerAssistantTurn({
           agentId: turnAgentId,
           humanRecord: record,
@@ -219,6 +224,7 @@ export async function handleActivityRoomRoute(
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
           ...(surface ? { surface } : {}),
+          ...(surfaceContext ? { surfaceContext } : {}),
         })
           .then((result) => {
             // Mirror completed turn replies into M9 so they appear on the
@@ -267,6 +273,9 @@ export async function handleActivityRoomRoute(
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
             : undefined;
         const surface = surfaceOf(body);
+        // AR-REF-001: resolve durable Activity references into turn surface
+        // context (bounded, structured — user content untouched).
+        const surfaceContext = await turnSurfaceContextForReferences(ctx, room, record.referencedActivityIds);
         void triggerAssistantTurn({
           agentId,
           humanRecord: record,
@@ -275,6 +284,7 @@ export async function handleActivityRoomRoute(
           agentStorage: ctx.agents,
           ...(executionConfig ? { executionConfig } : {}),
           ...(surface ? { surface } : {}),
+          ...(surfaceContext ? { surfaceContext } : {}),
         })
           .then((result) => {
             if (result.status === 'completed' && result.content) {
@@ -431,6 +441,48 @@ export async function referenceExists(room: ActivityRoom, activityId: string): P
  */
 function surfaceOf(body: Record<string, unknown>): string | undefined {
   return stringField(body.surface);
+}
+
+/**
+ * AR-REF-001: build turn surface context for a composer message carrying
+ * durable Activity references (`referencedActivityIds`). Each id resolves
+ * through both identity spaces (legacy store, then M9 — the same order as
+ * ingress validation) into bounded `TurnSurfaceReference` entries.
+ *
+ * Returns undefined when the message carries no references: turn behavior is
+ * then byte-for-byte unchanged. Resolution failures are fail-safe (best
+ * effort per store, deterministic unresolved entries) — they never fail Send.
+ */
+async function turnSurfaceContextForReferences(
+  ctx: WorkspaceContext,
+  room: ActivityRoom,
+  referencedActivityIds: readonly string[] | undefined,
+): Promise<TurnSurfaceContext | undefined> {
+  if (!referencedActivityIds || referencedActivityIds.length === 0) return undefined;
+  let references: Awaited<ReturnType<typeof resolveActivityReferences>> = [];
+  try {
+    references = await resolveActivityReferences(referencedActivityIds, {
+      getLegacyActivity: (id) => room.store.get(id),
+      getM9Activity: async (id) => {
+        try {
+          const { getM11ARoom } = await import('./activity-room-m11a.js');
+          return (await getM11ARoom().store.getByActivityId(id)) ?? null;
+        } catch {
+          return null;
+        }
+      },
+    });
+  } catch {
+    return undefined;
+  }
+  if (references.length === 0) return undefined;
+  const repoName = path.basename(ctx.repoPath) || 'workspace';
+  const workspaceId = ctx.runtime.getSession?.().fingerprint?.id ?? repoName;
+  return {
+    workspace: { id: workspaceId, name: repoName },
+    surface: { routeId: '/activity', path: '/activity', title: 'Activity Room', section: 'workspace' },
+    selectedReferences: references,
+  };
 }
 
 function parseEffect(value: unknown): ActivityOrganizationalEffect | undefined {

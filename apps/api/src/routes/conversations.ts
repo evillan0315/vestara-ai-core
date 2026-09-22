@@ -113,7 +113,11 @@ function parseAssistantRuntime(raw: unknown): 'opencode' | 'codex' {
  * never repository/execution authority. Malformed values degrade to undefined
  * (backward compatible: callers without surface context keep working).
  */
-function normalizeSurfaceContext(value: unknown): TurnSurfaceContext | undefined {
+/**
+ * Validate/normalize browser-supplied turn surface context (bounded wire).
+ * Exported for focused contract tests.
+ */
+export function normalizeSurfaceContext(value: unknown): TurnSurfaceContext | undefined {
   if (!value || typeof value !== 'object') return undefined;
   const raw = value as Record<string, unknown>;
   const workspace = raw.workspace as Record<string, unknown> | undefined;
@@ -134,12 +138,27 @@ function normalizeSurfaceContext(value: unknown): TurnSurfaceContext | undefined
   const selectedKind = selectedRaw ? str(selectedRaw.kind, 200) : undefined;
   const selectedId = selectedRaw ? str(selectedRaw.id, 200) : undefined;
   const selectedLabel = selectedRaw ? str(selectedRaw.label, 500) : undefined;
+  // AR-REF-001: plural references ride the same validated shape. Bounded wire:
+  // at most 20 entries (deterministic first-20); malformed entries are dropped,
+  // never fabricated. Singular `selected` handling above is unchanged.
+  const refsRaw = Array.isArray(raw.selectedReferences) ? raw.selectedReferences.slice(0, 20) : [];
+  const refs: Array<{ kind: string; id: string; label?: string }> = [];
+  for (const item of refsRaw) {
+    if (!item || typeof item !== 'object') continue;
+    const rec = item as Record<string, unknown>;
+    const kind = str(rec.kind, 200);
+    const id = str(rec.id, 200);
+    if (!kind || !id) continue;
+    const label = str(rec.label, 500);
+    refs.push(label ? { kind, id, label } : { kind, id });
+  }
   return {
     workspace: { id: ws.id, name: ws.name },
     surface: { routeId: sf.routeId, path: sf.path, title: sf.title, section: sf.section },
     ...(selectedKind && selectedId
       ? { selected: { kind: selectedKind, id: selectedId, ...(selectedLabel ? { label: selectedLabel } : {}) } }
       : {}),
+    ...(refs.length > 0 ? { selectedReferences: refs } : {}),
   };
 }
 

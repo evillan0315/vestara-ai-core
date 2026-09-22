@@ -64,7 +64,7 @@ export async function handleSchedulesRoute(
 
   const schedMatch = p.match(/^\/api\/schedules\/([^/]+)$/);
   if (method === 'DELETE' && schedMatch) {
-    if (!requireRole(req, ctx, 'admin', res)) return true;
+    if (!requireRole(req, ctx, 'editor', res)) return true;
     try {
       const id = decodeURIComponent(schedMatch[1]);
       await ctx.agents.deleteSchedule(id);
@@ -82,7 +82,24 @@ export async function handleSchedulesRoute(
       const results: any[] = [];
       for (const s of due) {
         try {
-          await ctx.agentRuntime.run(s.agentId, s.task, ctx.runtime.getSession());
+          // GA-RETRY-001: assistant-retry tasks replay the failed GA turn
+          // through ConversationService (not agentRuntime).
+          let handled = false;
+          try {
+            const parsed = JSON.parse(s.task);
+            if (parsed && parsed.kind === 'assistant-retry' && parsed.conversationId && parsed.message) {
+              await ctx.conversationService.sendMessage(parsed.conversationId, parsed.message, {
+                model: typeof parsed.model === 'string' && parsed.model ? parsed.model : undefined,
+                provider: typeof parsed.provider === 'string' && parsed.provider ? parsed.provider : undefined,
+              });
+              handled = true;
+            }
+          } catch {
+            // Non-JSON task — fall through to agent runtime.
+          }
+          if (!handled) {
+            await ctx.agentRuntime.run(s.agentId, s.task, ctx.runtime.getSession());
+          }
           await ctx.agents.updateScheduleRun(s.id, 'completed');
           results.push({ scheduleId: s.id, status: 'completed' });
         } catch (err: any) {

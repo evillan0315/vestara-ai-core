@@ -10,7 +10,7 @@ import AppSidebar from '../components/layout/AppSidebar/AppSidebar';
 import CommandPalette from '../components/layout/CommandPalette/CommandPalette';
 import KeyboardShortcutsModal from '../components/layout/KeyboardShortcutsModal';
 import PageContainer from '../components/layout/Page/PageContainer';
-import { Breadcrumbs } from '../components/layout/Breadcrumbs';
+
 import { useWorkspaceNavigation } from '../lib/navigation-store.js';
 import ShellRoot from './ShellRoot';
 
@@ -90,8 +90,11 @@ export default function ShellLayout() {
           mobileSidebarOpen={mobileSidebarOpen}
           onCloseMobileSidebar={closeMobileSidebar}
         >
+          {/* Global breadcrumb presentation hidden: page content begins
+              directly below the top bar. Route metadata, titles, navigation,
+              and the useBreadcrumbs resolver are untouched — only the shared
+              visual surface is removed. Pages keep their own heroes/headers. */}
           <PageContainer fluid>
-            <Breadcrumbs />
             <Outlet />
           </PageContainer>
         </ShellRoot>

@@ -38,8 +38,10 @@ export default function OperationalWorkspaceLayout({
     <div className="operational-workspace-layout flex min-h-0 flex-1 flex-col overflow-x-hidden">
       {banner && <div className="operational-workspace-layout__banner shrink-0">{banner}</div>}
 
-      {/* Work region — stacks on compact viewports and composes rail/main/context on desktop. */}
-      <div className="operational-workspace-layout__work flex min-h-0 flex-1 flex-col lg:flex-row">
+      {/* Work region — stacks on compact viewports and composes rail/main/context on desktop.
+          Panel separation comes from the canonical section spacing token, so
+          Compact/Comfortable/Spacious density flows through automatically. */}
+      <div className="operational-workspace-layout__work flex min-h-0 flex-1 flex-col gap-[var(--vestara-spacing-section)] lg:flex-row">
         {rail && (
           <div className="operational-workspace-layout__rail min-h-0 min-w-0 shrink-0 overflow-auto lg:w-[var(--vestara-sidebar-width)]">
             {rail}

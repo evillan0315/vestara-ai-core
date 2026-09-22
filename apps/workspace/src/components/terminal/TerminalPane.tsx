@@ -20,15 +20,17 @@ export function clearTerminal(id: string) {
 }
 
 interface TerminalPaneProps {
-  sessionId: string;
-  onData: (data: string) => void;
+  /** Identifier for the terminal session. */
+  sessionId?: string;
+  /** Callback when terminal data is received. */
+  onData?: (data: string) => void;
   /** Fired after fit with the display dimensions (recorded server-side). */
   onResize?: (cols: number, rows: number) => void;
   /** Keystroke echo. False for pty sessions (the kernel tty echoes). */
   localEcho?: boolean;
 }
 
-export function TerminalPane({ sessionId, onData, onResize, localEcho = true }: TerminalPaneProps) {
+export default function TerminalPane({ sessionId, onData, onResize, localEcho = true }: TerminalPaneProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const terminalRef = useRef<Terminal | null>(null);
   const onDataRef = useRef(onData);

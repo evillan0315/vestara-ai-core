@@ -320,7 +320,7 @@
   cursor: pointer;
 }
 .ar-control-button:hover { border-color: var(--ar-gold-light); background: var(--vestara-accent-bg); }
-.ar-control-button--icon { width: 2.5rem; padding: 0; }
+.ar-control-button--icon { width: var(--vestara-spacing-10); padding: 0; }
 
 .ar-workarea { align-items: stretch; }
 .ar-panel {
@@ -518,8 +518,8 @@
 .ar-page .ar-stream-record { border-color: var(--vestara-accent-border); }
 .ar-page .ar-stream-record:hover { border-color: var(--vestara-accent-border-hover); }
 .ar-page .ar-stream-record[data-record-kind='diagnostic'],
-.ar-page .ar-stream-record[data-record-kind='error'] { border-color: var(--vestara-status-error-border); background: var(--vestara-status-error-bg); }
-.ar-page .ar-stream-record[data-record-kind='evidence'] { border-color: var(--vestara-status-success-border); background: var(--vestara-status-success-bg); }
+.ar-page .ar-stream-record[data-record-kind='error'] { border-color: var(--vestara-status-error-border); background: transparent; }
+.ar-page .ar-stream-record[data-record-kind='evidence'] { border-color: var(--vestara-status-success-border); background: transparent; }
 .ar-page .ar-stream-role,
 .ar-page .ar-stream-kind { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
 .ar-page .ar-stream-kind--human { color: var(--vestara-status-info); border-color: var(--vestara-status-info-border); background: var(--vestara-status-info-bg); }
@@ -528,17 +528,21 @@
 .ar-page .ar-live-now__overflow { justify-content: flex-start; }
 .ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-canvas); }
 .ar-page .ar-stream-tile { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border: 1px solid; border-radius: var(--vestara-radius); font-size: var(--vestara-font-size-xs); font-weight: 600; }
-.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: var(--vestara-status-info-bg); border-color: var(--vestara-status-info-border); }
+/* Icon tiles are minimal transparent containers (1.75rem = 28px anchors both
+   compact lines). Type identity lives in the glyph foreground only — never in
+   tile fills. */
+.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: transparent; border-color: var(--vestara-border-subtle); }
 .ar-page .ar-stream-tile--agent-note,
-.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: var(--vestara-accent-bg); border-color: var(--vestara-accent-border); }
-.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: var(--vestara-status-tool-bg); border-color: var(--vestara-status-tool-border); }
-.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: var(--vestara-status-error-bg); border-color: var(--vestara-status-error-border); }
-.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: var(--vestara-status-success-bg); border-color: var(--vestara-status-success-border); }
+.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: transparent; border-color: var(--vestara-border-subtle); }
 .ar-page .ar-stream-tile--quiet,
-.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: var(--vestara-surface-canvas); border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: transparent; border-color: var(--vestara-border-subtle); }
 .ar-page .ar-stream-status { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid; border-radius: var(--vestara-radius-full); padding: 0 0.375rem; font-size: var(--vestara-font-size-xs); font-weight: 500; }
 .ar-page .ar-stream-status--error { color: var(--vestara-status-error); background: var(--vestara-status-error-bg); border-color: var(--vestara-status-error-border); }
 .ar-page .ar-stream-status--success { color: var(--vestara-status-success); background: var(--vestara-status-success-bg); border-color: var(--vestara-status-success-border); }
+.ar-page .ar-stream-status--warning { color: var(--vestara-status-warning); background: transparent; border-color: var(--vestara-status-warning-border); }
 .ar-page .ar-stream-record__actions { border-top: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 65%, transparent); padding-top: var(--vestara-spacing-element); }
 .ar-page .ar-stream-record__actions button { color: var(--vestara-text-secondary); }
 .ar-page .ar-stream-record__actions button:hover { color: var(--vestara-text-primary); }
@@ -1064,6 +1068,16 @@
   flex-shrink: 0;
 }
 
+/* Composer textarea is borderless by design: neutralize the global
+   textarea:focus ring/border (index.css) so focusing the message input
+   draws no border or shadow. Scoped to the composer — global form-field
+   focus treatment elsewhere is unchanged. */
+.ar-composer-pin textarea:focus,
+.ar-composer-pin textarea:focus-visible {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 @media (min-width: 640px) {
   .ar-panel--main {
     min-height: 28rem;
@@ -1424,18 +1438,21 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  padding: 0.375rem 0.5rem;
+  flex-wrap: nowrap;
+  gap: 0.625rem;
+  padding: 0.5rem 0.5rem;
   border-bottom: 1px solid var(--ar-hairline);
   flex-shrink: 0;
+  min-width: 0;
 }
 
 .ar-stream-filter__tabs {
   display: flex;
-  gap: 0.125rem;
+  gap: 0.5rem;
   overflow-x: auto;
   scrollbar-width: none;
+  flex: 0 1 auto;
+  min-width: 0;
 }
 
 .ar-stream-filter__tabs::-webkit-scrollbar {
@@ -1443,15 +1460,18 @@
 }
 
 .ar-stream-filter__tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
   flex-shrink: 0;
-  padding: 0.25rem 0.5rem;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--ar-ink-muted);
+  min-height: 2rem;
+  padding: 0.375rem 0.875rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--vestara-text-secondary);
   cursor: pointer;
-  border: 1px solid transparent;
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   background: transparent;
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
@@ -1459,45 +1479,36 @@
 }
 
 .ar-stream-filter__tab:hover {
-  color: var(--ar-ink-2);
-  background: var(--ar-surface-sunken);
+  color: var(--vestara-text-primary);
+  border-color: var(--vestara-accent-border);
 }
 
 .ar-stream-filter__tab--active {
-  color: var(--ar-gold-light);
-  border-color: var(--ar-hairline-strong);
+  color: var(--vestara-accent-text);
+  border-color: var(--vestara-accent-border);
   background: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
 }
 
-.ar-stream-filter__count {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 1rem;
-  height: 1rem;
-  padding: 0 0.25rem;
-  margin-left: 0.25rem;
+.ar-stream-filter__dot {
+  width: 0.625rem;
+  height: 0.625rem;
   border-radius: var(--vestara-radius-full);
-  background: var(--ar-surface-sunken);
-  color: var(--ar-ink-muted);
-  font-size: 10px;
-  font-weight: 600;
-  line-height: 1;
+  background: var(--vestara-text-muted);
 }
 
-.ar-stream-filter__tab--active .ar-stream-filter__count {
-  background: var(--ar-gold);
-  color: var(--ar-ink);
+.ar-stream-filter__tab--active .ar-stream-filter__dot {
+  background: var(--vestara-status-warning);
 }
 
 .ar-stream-filter__right {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
-  gap: 0.375rem;
+  justify-content: flex-end;
+  flex-wrap: nowrap;
+  gap: 0.75rem;
   min-width: 0;
   max-width: 100%;
-  flex-shrink: 0;
+  flex: 1 1 auto;
 }
 
 .ar-stream-filter__live {
@@ -1510,25 +1521,226 @@
 
 .ar-stream-filter__search {
   flex: 1 1 auto;
-  width: 100%;
-  max-width: 140px;
+  width: auto;
+  max-width: 16rem;
   min-width: 0;
-  padding: 0.25rem 0.5rem;
-  font-size: 11px;
-  color: var(--ar-ink);
-  background: var(--ar-surface-sunken);
-  border: 1px solid var(--ar-hairline);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-canvas);
+  border: 1px solid var(--vestara-border-subtle);
   border-radius: var(--vestara-radius);
   outline: none;
   transition: border-color 0.15s ease;
 }
 
 .ar-stream-filter__search::placeholder {
-  color: var(--ar-ink-dim);
+  color: var(--vestara-text-muted);
 }
 
 .ar-stream-filter__search:focus {
-  border-color: var(--ar-gold);
+  border-color: var(--vestara-accent-border);
+}
+
+.ar-stream-filter__select-label,
+.ar-stream-filter__select {
+  flex-shrink: 0;
+}
+
+.ar-attention-section {
+  overflow: hidden;
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius);
+  background: transparent;
+}
+
+.ar-attention-section__header {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  border-bottom: 1px solid var(--vestara-border-subtle);
+}
+
+.ar-attention-section__chevron {
+  color: var(--vestara-status-warning);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+
+.ar-attention-section__header h3 {
+  margin: 0;
+  color: var(--vestara-status-warning);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.ar-attention-section__header p {
+  margin: 0.125rem 0 0;
+  color: var(--vestara-text-muted);
+  font-size: 0.6875rem;
+}
+
+.ar-attention-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.ar-attention-row {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr) auto minmax(5.5rem, auto) auto 1rem;
+  align-items: center;
+  gap: 0.625rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.5rem 0.625rem;
+  border: 0;
+  border-bottom: 1px solid var(--vestara-border-subtle);
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.ar-attention-row:hover {
+  background: color-mix(in srgb, var(--vestara-accent) 5%, transparent);
+}
+
+.ar-attention-row__icon {
+  display: grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  place-items: center;
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ar-attention-row__icon--warning,
+.ar-attention-row__type--warning,
+.ar-attention-row__status--warning {
+  color: var(--vestara-status-warning);
+}
+
+.ar-attention-row__icon--error,
+.ar-attention-row__type--error,
+.ar-attention-row__status--error {
+  color: var(--vestara-status-error);
+}
+
+.ar-attention-row__main {
+  display: grid;
+  grid-template-columns: auto minmax(0, auto);
+  align-items: baseline;
+  justify-content: start;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ar-attention-row__type {
+  font-size: 0.6875rem;
+  font-weight: 700;
+}
+
+.ar-attention-row__subject {
+  overflow: hidden;
+  color: var(--vestara-text-primary);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-attention-row__reason {
+  grid-column: 1 / -1;
+  overflow: hidden;
+  color: var(--vestara-text-muted);
+  font-size: 0.6875rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ar-attention-section__empty {
+  margin: 0;
+  padding: 0.625rem 0.75rem;
+  color: var(--vestara-text-muted);
+  font-size: 0.75rem;
+}
+
+.ar-attention-row__statuswrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.ar-attention-row__status {
+  border: 1px solid currentColor;
+  border-radius: var(--vestara-radius-full);
+  padding: 0.125rem 0.5rem;
+  font-size: 0.6875rem;
+  white-space: nowrap;
+}
+
+.ar-attention-row__severity {
+  color: var(--vestara-text-muted);
+  font-size: 0.625rem;
+  text-transform: capitalize;
+  white-space: nowrap;
+}
+
+.ar-attention-row__icon svg {
+  font-size: 1.125rem;
+}
+
+.ar-attention-row__meta {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  align-items: flex-end;
+  color: var(--vestara-text-muted);
+  font-size: 0.6875rem;
+}
+
+.ar-attention-row__arrow {
+  color: var(--vestara-text-muted);
+  font-size: 1.125rem;
+}
+
+.ar-attention-row__attach {
+  display: grid;
+  place-items: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid transparent;
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-text-muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.ar-attention-row__attach:hover,
+.ar-attention-row__attach:focus-visible {
+  color: var(--vestara-accent-text);
+  border-color: var(--vestara-accent-border);
+  background: var(--vestara-accent-bg);
+  outline: none;
+}
+
+.ar-attention-row__attach:focus-visible {
+  box-shadow: 0 0 0 1px var(--vestara-accent-border-hover);
+}
+
+.ar-attention-row__attach-icon {
+  font-size: 1rem;
+}
+
+.ar-attention-section__recent {
+  padding: 0.625rem 0.5rem 0.375rem;
+  color: var(--vestara-text-secondary);
+  font-size: 0.8125rem;
+  font-weight: 500;
 }
 
 /* ── Docked Inspector Panel ──────────────────────────────────── */
@@ -1968,45 +2180,69 @@
 
 /* ── M11C Stream Records (canonical semantic tokens) ───────────────── */
 
+/* Stream rows share ONE neutral surface. Type identity comes from the
+   Material icon, TYPE label, foreground color, and status — never from a
+   per-type row fill. */
 .ar-stream-record--human {
   border: 1px solid var(--vestara-border-default);
-  background: linear-gradient(180deg, var(--vestara-accent-bg), transparent 45%), var(---ar-ink-dim);
-  box-shadow: inset 2px 0 0 var(--vestara-status-info), var(--vestara-elevation-lg);
-  padding: 0.875rem 0.75rem;
+  background: transparent;
+  box-shadow: inset 2px 0 0 var(--vestara-status-info);
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--agent-note {
   border: 1px solid var(--vestara-border-subtle);
-  background: var(--vestara-surface-panel);
+  background: transparent;
   box-shadow: inset 2px 0 0 var(--vestara-accent);
-  padding: 0.875rem 0.625rem;
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--work {
   border: 1px solid var(--vestara-border-subtle);
-  padding: 0.75rem;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+}
+
+.ar-stream-record--task {
+  border: 1px solid var(--vestara-border-subtle);
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+}
+
+.ar-stream-record--workflow {
+  border: 1px solid var(--vestara-border-subtle);
+  background: transparent;
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--tool {
-  border: 1px solid transparent;
-  padding: 0.75rem 0.375rem;
+  border: 1px solid var(--vestara-border-subtle);
+  background: transparent;
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--quiet {
   border: 1px solid transparent;
-  padding: 0.75rem 0.25rem;
+  background: transparent;
+  padding: 0.5rem 0.25rem;
 }
 
 .ar-stream-record--attention {
   border: 1px solid var(--vestara-status-error-border);
-  background: var(--vestara-status-error-bg);
-  padding: 0.75rem;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
+}
+
+.ar-stream-record--queued {
+  border: 1px solid var(--vestara-border-subtle);
+  background: transparent;
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--verification {
   border: 1px solid var(--vestara-status-success-border);
-  background: var(--vestara-status-success-bg);
-  padding: 0.75rem;
+  background: transparent;
+  padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--unknown {
@@ -2017,6 +2253,8 @@
 /* Heading text colors per visual class */
 .ar-stream-record--human .ar-stream-record__content,
 .ar-stream-record--work .ar-stream-record__content,
+.ar-stream-record--task .ar-stream-record__content,
+.ar-stream-record--workflow .ar-stream-record__content,
 .ar-stream-record--attention .ar-stream-record__content,
 .ar-stream-record--verification .ar-stream-record__content {
   font-size: 0.8125rem;
@@ -2032,9 +2270,81 @@
 }
 
 .ar-stream-record--tool .ar-stream-record__content {
+  font-size: 0.8125rem;
+  color: var(--vestara-text-secondary);
+}
+
+.ar-stream-type {
+  display: inline-flex;
+  min-height: 1.25rem;
+  align-items: center;
+  border: 1px solid;
+  border-radius: var(--vestara-radius-full);
+  padding: 0 0.45rem;
+  font-size: 0.625rem;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.ar-stream-type--info {
+  color: var(--vestara-status-info);
+  border-color: var(--vestara-status-info-border);
+  background: transparent;
+}
+
+.ar-stream-type--warning {
+  color: var(--vestara-status-warning);
+  border-color: var(--vestara-status-warning-border);
+  background: transparent;
+}
+
+.ar-stream-type--error {
+  color: var(--vestara-status-error);
+  border-color: var(--vestara-status-error-border);
+  background: transparent;
+}
+
+.ar-stream-type--success {
+  color: var(--vestara-status-success);
+  border-color: var(--vestara-status-success-border);
+  background: transparent;
+}
+
+.ar-stream-type--muted {
+  color: var(--vestara-text-muted);
+  border-color: var(--vestara-border-subtle);
+  background: var(--vestara-surface-canvas);
+}
+
+.ar-stream-tool-name {
+  max-width: min(18rem, 70%);
+  color: var(--vestara-text-secondary);
   font-family: var(--vestara-font-family-mono);
   font-size: 0.75rem;
-  color: var(--vestara-text-secondary);
+}
+
+.ar-stream-tile--tool.ar-stream-tile--warning {
+  color: var(--vestara-status-warning);
+  background: transparent;
+  border-color: var(--vestara-border-subtle);
+}
+
+.ar-stream-tile--tool.ar-stream-tile--error {
+  color: var(--vestara-status-error);
+  background: transparent;
+  border-color: var(--vestara-border-subtle);
+}
+
+.ar-stream-tool-icon {
+  display: block;
+}
+
+.ar-stream-tool-icon--warning {
+  color: var(--vestara-status-warning);
+}
+
+.ar-stream-tool-icon--error {
+  color: var(--vestara-status-error);
 }
 
 .ar-stream-record--quiet .ar-stream-record__content,
@@ -3129,4 +3439,58 @@
   .ar-page .ar-panel--main {
     height: 100%;
   }
+}
+
+/* ── Stream list (not cards) ───────────────────────────────────────
+   Records read as ONE continuous operational list on the panel surface:
+   flat rows, no radius, no card outline — separation is border-bottom.
+   The outer PANEL keeps its own surface/border/radius (untouched above).
+   Spacing derives from canonical density tokens (--vestara-spacing-*),
+   so Compact/Comfortable/Spacious flow through with no component logic. */
+.ar-page .ar-scroll {
+  gap: 0;
+}
+
+.ar-page .ar-stream-record {
+  border: 0;
+  border-bottom: 1px solid var(--vestara-border-subtle);
+  border-radius: 0;
+  background: transparent;
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+}
+
+/* Semantic divider tint survives as foreground-adjacent signal (border
+   color only — never a row fill): failures and evidence stay scannable. */
+.ar-page .ar-stream-record[data-record-kind='diagnostic'],
+.ar-page .ar-stream-record[data-record-kind='error'] {
+  border-bottom-color: var(--vestara-status-error-border);
+}
+
+.ar-page .ar-stream-record[data-record-kind='evidence'] {
+  border-bottom-color: var(--vestara-status-success-border);
+}
+
+/* Needs Attention follows the same list philosophy: the section is a
+   grouping, not a card — identity stays in icon/TYPE/status foreground. */
+.ar-page .ar-attention-section {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+/* ── Stream readability (canonical text tokens) ────────────────────
+   PRIMARY: actor + activity subject. SECONDARY: summaries. TERTIARY
+   (timestamps/ids/provenance) stays muted but legible — untouched. */
+.ar-page .ar-stream-tool-name {
+  color: var(--vestara-text-primary);
+}
+
+.ar-page .ar-attention-row__reason {
+  color: var(--vestara-text-secondary);
+}
+
+/* ── Stream toolbar spacing (canonical density tokens) ───────────── */
+.ar-page .ar-stream-filter {
+  gap: var(--vestara-spacing-element);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
 }

@@ -55,6 +55,8 @@ import { resolveDisplayTitle } from './conversationTitles';
 import { parseShellIntent, stripShellPrefix } from './shell-mode';
 import { useSessionStatus } from '../../hooks/useSessionStatus';
 import { resolveSessionRuntimeStatus } from '../../hooks/useSessionStatus';
+import { useScheduledRetry, type ScheduledRetry } from '../../hooks/useScheduledRetry';
+import { getUsageLimitRetry } from '../../lib/retry-at';
 import { getSuggestions } from '../../lib/api';
 import { StatusIndicator } from '@vestara/ui';
 import {
@@ -877,6 +879,64 @@ function DegradedBanner({ error, apiDown }: { error: string; apiDown: boolean })
   );
 }
 
+/**
+ * GA-RETRY-001: scheduled retry banner for usage-limit failures.
+ * Token-governed; presentation only. Scheduling + replay live in
+ * useScheduledRetry + /api/schedules.
+ */
+function ScheduledRetryBanner({
+  label,
+  scheduledAt,
+  scheduling,
+  scheduleError,
+  onSchedule,
+  onCancel,
+}: {
+  label: string;
+  scheduledAt: string | null;
+  scheduling: boolean;
+  scheduleError: string | null;
+  onSchedule: () => void;
+  onCancel: () => void;
+}) {
+  return (
+    <div
+      className="mx-3 mb-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-3 py-2"
+      role="alert"
+      data-testid="scheduled-retry-banner"
+    >
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-primary)]">
+          {scheduledAt ? `Retry scheduled for ${scheduledAt}` : `Usage limit — retry at ${label}`}
+        </span>
+      </div>
+      <div className="mt-1.5 flex items-center gap-2">
+        {scheduledAt ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)] transition-colors hover:text-[var(--vestara-text-primary)] cursor-pointer"
+          >
+            Cancel scheduled retry
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={onSchedule}
+            disabled={scheduling}
+            className="rounded-[var(--vestara-radius-sm)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)] transition-colors hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+          >
+            {scheduling ? 'Scheduling…' : `Retry at ${label}`}
+          </button>
+        )}
+      </div>
+      {scheduleError && (
+        <p className="mt-1 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-status-error)]">{scheduleError}</p>
+      )}
+    </div>
+  );
+}
+
 function EmptyState({ onCreateConversation }: { onCreateConversation: () => void }) {
   return (
     <div className="relative flex h-full flex-col items-center justify-center overflow-hidden p-6 text-center">
@@ -1379,6 +1439,46 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
     [retryTurn],
   );
 
+  // GA-RETRY-001: scheduled retry from usage-limit alerts.
+  const usageRetry = useMemo(() => getUsageLimitRetry(assistant.streamError), [assistant.streamError]);
+  const failedTurn = useMemo(
+    () => [...optimisticTurns].reverse().find((t) => t.delivery === 'failed') ?? null,
+    [optimisticTurns],
+  );
+  const scheduled = useScheduledRetry({
+    onDue: useCallback(
+      (retry: ScheduledRetry) => {
+        if (failedTurn && retry.clientTurnId === failedTurn.clientTurnId) handleRetry(retry.clientTurnId);
+      },
+      [failedTurn, handleRetry],
+    ),
+  });
+  const scheduledForTurn = useMemo(
+    () => (failedTurn ? (scheduled.retries.find((r) => r.clientTurnId === failedTurn.clientTurnId) ?? null) : null),
+    [scheduled.retries, failedTurn],
+  );
+  const handleScheduleRetry = useCallback(() => {
+    if (!usageRetry || !failedTurn || !assistant.selectedId) return;
+    void scheduled.scheduleRetry(
+      {
+        kind: 'assistant-retry',
+        conversationId: failedTurn.conversationId ?? assistant.selectedId,
+        clientTurnId: failedTurn.clientTurnId,
+        message: failedTurn.content,
+        provider: providerSettings.provider,
+        model: providerSettings.model,
+        assistantRuntime: providerSettings.assistantRuntime,
+      },
+      usageRetry.retryAtISO,
+    );
+  }, [usageRetry, failedTurn, assistant.selectedId, scheduled.scheduleRetry, providerSettings]);
+  const scheduledLabel = useMemo(() => {
+    if (!scheduledForTurn) return null;
+    const at = new Date(scheduledForTurn.nextRunAt);
+    if (Number.isNaN(at.getTime())) return scheduledForTurn.nextRunAt;
+    return at.toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  }, [scheduledForTurn]);
+
   // GA-UI-007: "Open in editor" — bounded navigation affordance. No editor
   // route exists today, so the honest action copies the repository-relative
   // path for the user to open in their editor. Never an execution authority.
@@ -1588,6 +1688,18 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
         <DegradedBanner
           error={assistant.listError || assistant.streamError || ''}
           apiDown={!!assistant.listError}
+        />
+      )}
+
+      {/* GA-RETRY-001: usage-limit scheduled retry (provider failure with a future retry-at). */}
+      {(usageRetry || scheduledForTurn) && failedTurn && (
+        <ScheduledRetryBanner
+          label={usageRetry?.label ?? scheduledLabel ?? ''}
+          scheduledAt={scheduledLabel}
+          scheduling={scheduled.scheduling}
+          scheduleError={scheduled.error}
+          onSchedule={handleScheduleRetry}
+          onCancel={() => scheduledForTurn && void scheduled.cancelRetry(scheduledForTurn.id)}
         />
       )}
 

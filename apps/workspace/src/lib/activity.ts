@@ -3,8 +3,10 @@ import type {
   ActivityRecord,
   ActivitySeverity,
   ActivityStreamMessage,
+  AttentionEntry,
   MessageTarget,
 } from '@vestara/activity-room';
+import type { ActivityProjectionRecord } from '../pages/activity/activity-types';
 import type { LiveStreamItem, WorkflowParticipant, WorkflowReceipts } from '../pages/activity/activity-types';
 import { resolveWsUrl } from './clientConfig';
 
@@ -48,6 +50,49 @@ export async function fetchActivityHistory(params: ActivityHistoryParams = {}): 
     };
   } catch {
     return { records: [], nextSequence: undefined, firstSequence: 0, lastSequence: 0, error: 'Unable to load activity. Check the connection and retry.' };
+  }
+}
+
+export interface AttentionResult {
+  data?: readonly AttentionEntry[];
+  error?: string;
+}
+
+export async function fetchNeedsAttention(
+  scope: Pick<ActivityHistoryParams, 'workflowId' | 'sessionId'> = {},
+): Promise<AttentionResult> {
+  const qs = new URLSearchParams();
+  if (scope.workflowId !== undefined) qs.set('workflowId', scope.workflowId);
+  if (scope.sessionId !== undefined) qs.set('sessionId', scope.sessionId);
+  const query = qs.toString();
+  try {
+    const res = await fetch(`/api/activity-room/v1/attention${query ? `?${query}` : ''}`);
+    if (!res.ok) return { error: `Unable to load attention queue (HTTP ${res.status}).` };
+    const data = (await res.json()) as { attention?: AttentionEntry[] };
+    return { data: (data.attention ?? []).filter((entry) => entry.status === 'open') };
+  } catch {
+    return { error: 'Unable to load attention queue. Check the connection and retry.' };
+  }
+}
+
+export async function fetchActivityRecordById(id: string): Promise<ActivityProjectionRecord | null> {
+  try {
+    const legacy = await fetch(`/api/activity-room/${encodeURIComponent(id)}`);
+    if (legacy.ok) {
+      const data = (await legacy.json()) as { record?: ActivityProjectionRecord };
+      if (data.record) return data.record;
+    }
+  } catch {
+    /* fall through to v1 */
+  }
+
+  try {
+    const m11a = await fetch(`/api/activity-room/v1/activities/${encodeURIComponent(id)}`);
+    if (!m11a.ok) return null;
+    const data = (await m11a.json()) as { projection?: ActivityProjectionRecord };
+    return data.projection ?? null;
+  } catch {
+    return null;
   }
 }
 

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchEffectiveStateResult,
+  fetchNeedsAttention,
   fetchWorkflowLiveStream,
   fetchWorkflowParticipants,
   fetchWorkflowReceipts,
@@ -8,6 +9,7 @@ import {
 } from '../lib/activity';
 import type {
   ActivityStreamSnapshot,
+  AttentionEntry,
   AuxiliarySource,
   LiveStreamItem,
   WorkflowParticipant,
@@ -38,6 +40,7 @@ export interface ActivityRoomModel {
   liveStream: AuxiliarySource<readonly LiveStreamItem[]>;
   receipts: AuxiliarySource<WorkflowReceipts>;
   effectiveState: AuxiliarySource<EffectiveState>;
+  attention: AuxiliarySource<readonly AttentionEntry[]>;
   retryAuxiliary: () => void;
 }
 
@@ -61,6 +64,7 @@ export function useActivityRoomModel(): ActivityRoomModel {
   const [liveStream, setLiveStream] = useState<AuxiliarySource<readonly LiveStreamItem[]>>({ status: 'idle' });
   const [receipts, setReceipts] = useState<AuxiliarySource<WorkflowReceipts>>({ status: 'idle' });
   const [effectiveState, setEffectiveState] = useState<AuxiliarySource<EffectiveState>>({ status: 'idle' });
+  const [attention, setAttention] = useState<AuxiliarySource<readonly AttentionEntry[]>>({ status: 'idle' });
 
   const requestRef = useRef(0);
   const workflowIdRef = useRef<string | undefined>(undefined);
@@ -72,17 +76,19 @@ export function useActivityRoomModel(): ActivityRoomModel {
   const load = useCallback(async (requestId: number) => {
     const workflowId = workflowIdRef.current;
     const scope = scopeRef.current;
-    const [participantsResult, liveResult, receiptsResult, effectiveResult] = await Promise.all([
+    const [participantsResult, liveResult, receiptsResult, effectiveResult, attentionResult] = await Promise.all([
       workflowId !== undefined ? fetchWorkflowParticipants(workflowId) : Promise.resolve({ data: [] }),
       workflowId !== undefined ? fetchWorkflowLiveStream(workflowId) : Promise.resolve({ data: [] }),
       workflowId !== undefined ? fetchWorkflowReceipts(workflowId) : Promise.resolve({ data: { unreadByAgent: {} } }),
       fetchEffectiveStateResult(scope),
+      fetchNeedsAttention(scope),
     ]);
     if (requestId !== requestRef.current) return;
     setParticipants((previous) => mergeResult(previous, participantsResult, workflowId !== undefined));
     setLiveStream((previous) => mergeResult(previous, liveResult, workflowId !== undefined));
     setReceipts((previous) => mergeResult(previous, receiptsResult, workflowId !== undefined));
     setEffectiveState((previous) => mergeResult(previous, effectiveResult, true));
+    setAttention((previous) => mergeResult(previous, attentionResult, true));
   }, []);
 
   const scopeKey = `${stream.scope.workflowId ?? ''}|${stream.scope.sessionId ?? ''}`;
@@ -101,6 +107,7 @@ export function useActivityRoomModel(): ActivityRoomModel {
       setReceipts({ status: 'loading' });
     }
     setEffectiveState({ status: 'loading' });
+    setAttention({ status: 'loading' });
     void load(requestId);
   }, [scopeKey, load, stream.scope.workflowId]);
 
@@ -122,6 +129,7 @@ export function useActivityRoomModel(): ActivityRoomModel {
     liveStream,
     receipts,
     effectiveState,
+    attention,
     retryAuxiliary,
   };
 }

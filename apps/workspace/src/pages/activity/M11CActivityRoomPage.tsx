@@ -28,27 +28,38 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useM11CActivityRoom, streamItemFromLive, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
-import { fetchM11AAggregateDrillDown } from '../../lib/m11a-api';
+import { fetchM11AActivityById } from '../../lib/m11a-api';
+import type { AttentionEntry } from '@vestara/activity-room';
 import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
 import { Pill, StatusIndicator } from '@vestara/ui';
+import type { ActivityProjectionRecord } from './activity-types';
 import '../../styles/activity-room.css';
 import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
 
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
-import M11CActivityStream from './M11CActivityStream';
+import ActivityDetailDrawer from './ActivityDetailDrawer';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
+import M11CActivityStream, {
+  AttentionMaterialIcon,
+  attentionStatusLabel,
+  attentionSubject,
+  attentionTone,
+  attentionTypeLabel,
+} from './M11CActivityStream';
+import { SIZING } from '@vestara/ui-tokens';
 import M11CParticipantRail from './M11CParticipantRail';
 import M11CLiveNowStrip from './M11CLiveNowStrip';
 import M11CWorkflowBrowser, { deriveWorkflowUnits, hasActiveWork } from './M11CWorkflowBrowser';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 import ActivityRoomHeader from './ActivityRoomHeader';
-
-import M11CActivityDetailModal from './M11CActivityDetailModal';
+import Drawer from '../../components/ui/Drawer';
+import TerminalPane from '../../components/terminal/TerminalPane';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -86,6 +97,64 @@ function ActivityPanelSkeleton({ label }: { label: string }) {
   );
 }
 
+function detailActivityId(item: M11CStreamItem): string {
+  return item.id.startsWith('si-') ? item.id.slice(3) : item.id;
+}
+
+function normalizeM11CItemForDrawer(item: M11CStreamItem): ActivityProjectionRecord {
+  const id = detailActivityId(item);
+  const actor = {
+    type: item.actor.type === 'human' || item.actor.type === 'agent' || item.actor.type === 'system' ? item.actor.type : 'system',
+    id: item.actor.id,
+    displayName: item.actor.displayName,
+    ...(item.actor.role ? { role: item.actor.role } : {}),
+  } as ActivityProjectionRecord['actor'];
+  const base = {
+    id,
+    sequence: item.sequence,
+    timestamp: item.timestamp,
+    actor,
+    evidenceRefs: [],
+    ...(item.workflowRunId ? { workflowId: item.workflowRunId } : {}),
+    ...(item.taskId ? { taskId: item.taskId } : {}),
+    ...(item.originConversationId ? { originConversationId: item.originConversationId } : {}),
+    ...(item.originSurface ? { originSurface: item.originSurface } : {}),
+  };
+
+  if (item.kind === 'tool-call' && item.tool) {
+    return {
+      ...base,
+      kind: 'tool-call',
+      agentId: item.tool.agentId ?? item.actor.id,
+      toolName: item.tool.toolName,
+      callID: item.tool.callID,
+    };
+  }
+  if (item.kind === 'tool-result' && item.tool) {
+    return {
+      ...base,
+      kind: 'tool-result',
+      agentId: item.tool.agentId ?? item.actor.id,
+      toolName: item.tool.toolName,
+      callID: item.tool.callID,
+      status: item.tool.status === 'failed' ? 'failed' : 'completed',
+    };
+  }
+
+  return {
+    ...base,
+    kind: 'agent-message',
+    agentId: item.actor.id,
+    messageKind: item.actor.type === 'human' ? 'message' : item.kind === 'tool-call' ? 'tool-call' : 'message',
+    content: item.content,
+    ...(item.details ? { details: item.details } : {}),
+  };
+}
+
+function isProjectionRecord(value: unknown): value is ActivityProjectionRecord {
+  return Boolean(value && typeof value === 'object' && typeof (value as { kind?: unknown }).kind === 'string');
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 export default function M11CActivityRoomPage() {
@@ -96,6 +165,19 @@ export default function M11CActivityRoomPage() {
   // Scan-first scope: attention banner focuses the stream preset; workflow
   // badges/browser rows scope the stream to one workflow. Both clearable.
   const [attentionFocus, setAttentionFocus] = useState(false);
+  // Composer reference attachments: structured AttentionEntry objects the
+  // user attached from Needs Attention rows. Sent as referencedActivityIds
+  // (existing canonical contract) — never pasted text, never auto-sent.
+  const [attachedRefs, setAttachedRefs] = useState<readonly AttentionEntry[]>([]);
+  const handleAttachAttention = useCallback((entry: AttentionEntry) => {
+    setAttachedRefs((prev) =>
+      prev.some((existing) => existing.attentionId === entry.attentionId) ? prev : [...prev, entry],
+    );
+  }, []);
+  const handleRemoveReference = useCallback((attentionId: string) => {
+    setAttachedRefs((prev) => prev.filter((existing) => existing.attentionId !== attentionId));
+  }, []);
+  const clearAttachedRefs = useCallback(() => setAttachedRefs([]), []);
   const [workflowFilter, setWorkflowFilter] = useState<string | null>(null);
   // Small-screen sheets: rail is display:none <640px, so launchers open it
   // (and the browser) as bottom sheets instead.
@@ -155,6 +237,22 @@ export default function M11CActivityRoomPage() {
     return map;
   }, [room.participants]);
 
+  // Participant ID → model label lookup for tool rows (Phase 1): shows the
+  // executing model (modelDisplayName preferred, modelId fallback) next to
+  // the agent name. Same dual-key pattern as participantNames. Absent stays
+  // absent — never inferred.
+  const participantModels = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const p of room.participants) {
+      const label = (p.modelDisplayName ?? p.modelId)?.trim() ?? '';
+      if (!label) continue;
+      map[p.participantId] = label;
+      const rawId = p.participantId.replace(/^agent-/, '');
+      if (rawId !== p.participantId && !map[rawId]) map[rawId] = label;
+    }
+    return map;
+  }, [room.participants]);
+
   // ─── Callbacks ──────────────────────────────────────────
 
   const handleSelectParticipant = useCallback((id: string | undefined) => {
@@ -179,26 +277,57 @@ export default function M11CActivityRoomPage() {
     return map;
   }, [room.stream]);
 
-  const [drillDownRecords, setDrillDownRecords] = useState<readonly M11CStreamItem[]>([]);
-  const [drillDownLoading, setDrillDownLoading] = useState(false);
+  const [detailRecord, setDetailRecord] = useState<ActivityProjectionRecord | null>(null);
 
-  const handleDrillDown = useCallback(async (aggregateId: string, _referencedIds: readonly string[]) => {
-    setDrillDownLoading(true);
-    try {
-      const result = await fetchM11AAggregateDrillDown(aggregateId);
-      // Map wire records through the canonical record → stream-item projection
-      // so the drill-down renders the same fields (kind/content/actor) as the
-      // live stream instead of reading non-existent wire properties.
-      setDrillDownRecords(result.records.map((record) => streamItemFromLive(record, false)));
-      const aggregateItem = room.stream.find((s) => s.id === aggregateId);
-      if (aggregateItem) {
-        ui.openDetail(aggregateItem);
-      }
-    } catch {
-      // Drill-down failed — stay silent, user can retry
-    } finally {
-      setDrillDownLoading(false);
+  useEffect(() => {
+    const item = ui.detailItem;
+    if (!item) {
+      setDetailRecord(null);
+      return;
     }
+    let disposed = false;
+    setDetailRecord(normalizeM11CItemForDrawer(item));
+    fetchM11AActivityById(detailActivityId(item))
+      .then((detail) => {
+        if (!disposed && isProjectionRecord(detail.projection)) setDetailRecord(detail.projection);
+      })
+      .catch(() => {
+        // The normalized stream item already provides the immediate drawer shell.
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [ui.detailItem]);
+
+  const handleDrillDown = useCallback((aggregateId: string, _referencedIds: readonly string[]) => {
+    const aggregateItem = room.stream.find((s) => s.id === aggregateId);
+    if (aggregateItem) ui.openDetail(aggregateItem);
+  }, [room.stream, ui.openDetail]);
+
+  const handleOpenAttention = useCallback((entry: AttentionEntry) => {
+    const sourceId = String(entry.sourceRecordId);
+    const item = room.stream.find((candidate) => candidate.id === sourceId || candidate.id === `si-${sourceId}`);
+    if (item) {
+      ui.openDetail(item);
+      return;
+    }
+    ui.openDetail({
+      id: sourceId,
+      sequence: 0,
+      timestamp: entry.timestamp,
+      kind: 'diagnostic',
+      importance: 'secondary',
+      actor: {
+        type: entry.actor?.type ?? 'system',
+        id: entry.actor?.id ?? entry.owner ?? 'activity-room',
+        displayName: entry.actor?.displayName ?? entry.owner ?? 'Activity Room',
+        ...(entry.actor?.role ? { role: entry.actor.role } : {}),
+      },
+      content: entry.message,
+      ...(entry.workflowRunId ? { workflowRunId: String(entry.workflowRunId) } : {}),
+      ...(entry.taskId ? { taskId: String(entry.taskId) } : {}),
+      fresh: false,
+    });
   }, [room.stream, ui.openDetail]);
 
   const handleRetract = useCallback(async (item: M11CStreamItem) => {
@@ -453,46 +582,41 @@ export default function M11CActivityRoomPage() {
             submission={room.submission}
             onSubmitResponse={room.submitResponse}
             participantNames={participantNames}
+            participantModels={participantModels}
             attentionFocus={attentionFocus}
+            attentionEntries={room.attention}
+            onOpenAttention={handleOpenAttention}
+            onAttachAttention={handleAttachAttention}
             workflowFilter={workflowFilter}
             onSelectWorkflow={handleSelectWorkflow}
             streamHeading={workflowFilter ? 'Workflow activity' : selectedParticipantId === undefined ? 'Activity Stream' : `Activity for ${participantNames[selectedParticipantId] ?? 'selected participant'}`}
             streamHeaderAction={
               <span className="ar-panel__hint flex items-center gap-2">
-                {(workflowFilter || selectedParticipantId !== undefined || attentionFocus) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setWorkflowFilter(null);
-                      setSelectedParticipantId(undefined);
-                      setAttentionFocus(false);
-                    }}
-                    className="cursor-pointer underline decoration-dotted underline-offset-2 transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-                    aria-label="Clear stream scope"
-                  >
-                    Clear scope
-                  </button>
-                )}
-                {room.paused ? `${room.unread} buffered` : stateLabel}
+                {/* LIVE state lives in the page header (single truth).
+                    Only paused/buffered context surfaces here, where it
+                    changes stream behavior. Scope is cleared from the
+                    participant rail / workflow browser / attention banner. */}
+                {room.paused && `${room.unread} buffered`}
               </span>
             }
           />
           {/* Composer belongs to the center Activity surface: pinned below
               the scrollable stream via flex containment, never a global
               operational footer. */}
-          <M11CComposer replyTo={ui.replyToItem} onClearReply={ui.clearReply} participants={room.participants} />
+          <M11CComposer
+            replyTo={ui.replyToItem}
+            onClearReply={ui.clearReply}
+            references={attachedRefs}
+            onRemoveReference={handleRemoveReference}
+            onOpenReference={handleOpenAttention}
+            onClearReferences={clearAttachedRefs}
+            participants={room.participants}
+          />
         </main>
 
-        {/* Detail dialog — the stream stays a concise projection; the
-            complete record detail for the selected item opens here. */}
-        {ui.detailItem && (
-          <M11CActivityDetailModal
-            item={ui.detailItem}
-            drillDownRecords={drillDownRecords}
-            drillDownLoading={drillDownLoading}
-            onClose={ui.closeDetail}
-          />
-        )}
+        {/* Detail drawer — the stream stays a concise projection while the
+            right-side drawer hydrates authoritative activity detail. */}
+        <ActivityDetailDrawer record={detailRecord} onClose={ui.closeDetail} records={detailRecord ? [detailRecord] : []} />
       </OperationalWorkspaceLayout>
 
       {/* ─── Mobile sheets (small screens only) ─────────────── */}
@@ -579,6 +703,21 @@ export default function M11CActivityRoomPage() {
           participant={agentControlParticipant}
         />
       )}
+      {/* Terminal Drawer — bottom large */}
+      {ui.terminalDrawerOpen && (
+        <Drawer
+          open
+          onClose={() => ui.closeAgentControl()} // reuse close logic or create proper close
+          title="Terminal"
+          position="bottom"
+          defaultSize="large"
+          portal
+        >
+          <div className="h-full w-full">
+            <TerminalPane />
+          </div>
+        </Drawer>
+      )}
     </div>
   );
 }
@@ -652,10 +791,24 @@ const AGENT_ALIASES: Record<string, string> = {
 function M11CComposer({
   replyTo,
   onClearReply,
+  references = [],
+  onRemoveReference,
+  onOpenReference,
+  onClearReferences,
   participants = [],
 }: {
   replyTo?: M11CStreamItem | null;
   onClearReply?: () => void;
+  /**
+   * Structured attention references attached from Needs Attention rows.
+   * Rendered as chips; sent as referencedActivityIds (existing canonical
+   * contract). Multiple supported — the transport field is an array.
+   */
+  references?: readonly AttentionEntry[];
+  onRemoveReference?: (attentionId: string) => void;
+  /** Reopen the source activity behind a reference chip in the detail drawer. */
+  onOpenReference?: (entry: AttentionEntry) => void;
+  onClearReferences?: () => void;
   participants?: readonly ParticipantOption[];
 }) {
   // AAR-001E: human messages cap at 4000 chars (server enforces; the
@@ -667,7 +820,7 @@ function M11CComposer({
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [structuredTarget, setStructuredTarget] = useState<string | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Pre-fill with @mention when replying
   useEffect(() => {
@@ -676,6 +829,16 @@ function M11CComposer({
       inputRef.current?.focus();
     }
   }, [replyTo]);
+
+  // Autogrow: the instruction field expands with content up to the CSS
+  // max-height, then scrolls internally. No fixed empty height, no JS
+  // max-rows constant — the cap lives in presentation (max-h-40).
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [value, references.length, replyTo]);
 
   const handleSend = useCallback(async () => {
     const text = value.trim();
@@ -697,6 +860,17 @@ function M11CComposer({
       const targets = mentionTarget
         ? ([{ type: 'agent', agentId: mentionTarget.agentId }] as const)
         : ([{ type: 'all-agents' }] as const);
+      // Structured references travel through the existing canonical
+      // referencedActivityIds transport (validated server-side against the
+      // durable store, persisted on the message record). Reply context and
+      // attached attention references merge — deduped, order-preserving.
+      // Identity only (sourceRecordId); the agent resolves authoritative
+      // context lazily via existing activity endpoints. Never pasted text.
+      const referenceIds = references.map((ref) => String(ref.sourceRecordId));
+      const mergedReferences =
+        replyTo !== null && replyTo !== undefined
+          ? [...new Set([replyTo.id, ...referenceIds])]
+          : [...new Set(referenceIds)];
       await postActivityMessage({
         content: text,
         targets: [...targets],
@@ -705,18 +879,20 @@ function M11CComposer({
         // The principal stays the human actor above; the target stays in
         // targets. Principal ≠ Surface ≠ Target.
         surface: 'workspace-ui',
-        referencedActivityIds: replyTo ? [replyTo.id] : undefined,
+        referencedActivityIds: mergedReferences.length > 0 ? mergedReferences : undefined,
       });
       setValue('');
       setStructuredTarget(null);
       setMentionOpen(false);
       onClearReply?.();
+      onClearReferences?.();
     } catch (err) {
+      // Send failed — text AND references stay so the user can retry intact.
       setError(err instanceof Error ? err.message : 'Failed to send');
     } finally {
       setSending(false);
     }
-  }, [value, sending, replyTo, onClearReply, structuredTarget]);
+  }, [value, sending, replyTo, references, onClearReply, onClearReferences, structuredTarget]);
 
   const handleChange = useCallback((next: string) => {
     setValue(next);
@@ -743,6 +919,9 @@ function M11CComposer({
     inputRef.current?.focus();
   }, []);
 
+  // Enter sends; Shift+Enter inserts a newline (multiline instruction field).
+  // Escape closes the @mention picker. Previously (single-line input) every
+  // Enter sent — the textarea now supports deliberate multi-line drafting.
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
@@ -806,13 +985,13 @@ function M11CComposer({
     // keyboard (Enter sends), validation, and states are unchanged. No
     // delivery/permission claims: HTTP 201 establishes none (recorded gap).
     <div
-      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] p-3 shadow-[0_10px_36px_-12px_rgba(0,0,0,0.65),inset_0_1px_0_var(--vestara-surface-sheen)] transition-shadow duration-200 focus-within:border-[var(--vestara-accent-border-hover)] focus-within:shadow-[0_0_0_1px_var(--vestara-accent-border-hover),0_0_32px_var(--vestara-accent-bg)]"
+      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-section)] shadow-[var(--vestara-elevation-md)]"
       role="form"
       aria-label="Message composer"
     >
       {/* Reply context — existing referencedActivityIds mechanism only */}
       {replyTo && (
-        <div className="mb-2 flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] shadow-[inset_2px_0_0_var(--vestara-accent)]">
+        <div className="mb-[var(--vestara-spacing-element)] flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] shadow-[inset_2px_0_0_var(--vestara-accent)]">
           <span aria-hidden="true">↩</span>
           <span className="min-w-0 flex-1 truncate">
             Replying to <strong className="font-medium text-[var(--vestara-text-secondary)]">{replyTo.actor.displayName}</strong>
@@ -830,27 +1009,64 @@ function M11CComposer({
         </div>
       )}
 
-       <div className="ar-composer__row flex min-w-0 flex-wrap items-center gap-2">
-        {/* Target: live @mention preview, presented truthfully */}
-        <span
-          className="ar-composer__target inline-flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
-          title={previewTitle}
-        >
-          <span aria-hidden="true" className="inline-block size-1.5 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
-          {previewLabel}
-        </span>
-        {/* Input + @mention picker */}
-        <div className="relative min-w-0 flex-1">
-          <input
+      {/* Attached attention references — structured AttentionEntry chips.
+          Labels derive from authoritative entry fields (never pasted text);
+          the sourceRecordId travels at Send via referencedActivityIds. */}
+      {references.length > 0 && (
+        <div className="mb-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-element)]" aria-label="Attached references">
+          {references.map((ref) => {
+            const tone = attentionTone(ref);
+            return (
+              <span
+                key={ref.attentionId}
+                className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] py-0.5 pl-1 pr-0.5 text-[11px]"
+                title={`${attentionTypeLabel(ref)} · ${ref.message} (ref ${String(ref.sourceRecordId)})`}
+              >
+                <button
+                  type="button"
+                  onClick={() => onOpenReference?.(ref)}
+                  aria-label={`Open ${attentionTypeLabel(ref)} ${attentionSubject(ref)} detail`}
+                  className="flex min-w-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                >
+                  <AttentionMaterialIcon entry={ref} tone={tone} iconSize={SIZING.icon.sm} />
+                  <span className={`shrink-0 font-bold ar-attention-row__type--${tone}`}>
+                    {attentionTypeLabel(ref)}
+                  </span>
+                  <span className="min-w-0 truncate font-semibold text-[var(--vestara-text-primary)]">
+                    {attentionSubject(ref)}
+                  </span>
+                  <span className={`shrink-0 ar-attention-row__status--${tone}`}>
+                    {attentionStatusLabel(ref.reason)}
+                  </span>
+                </button>
+                {onRemoveReference && (
+                  <button
+                    type="button"
+                    onClick={() => onRemoveReference(ref.attentionId)}
+                    aria-label={`Remove ${attentionTypeLabel(ref)} ${attentionSubject(ref)} reference`}
+                    className="grid size-5 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] text-[var(--vestara-text-muted)] transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                  >
+                    ×
+                  </button>
+                )}
+              </span>
+            );
+          })}
+        </div>
+      )}
+
+       {/* Instruction: dominant multiline field, visually quiet until focused */}
+       <div className="ar-composer__row relative min-w-0">
+          <textarea
             ref={inputRef}
-            type="text"
+            rows={1}
             value={value}
             onChange={(e) => handleChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={sending ? 'Sending…' : 'Message the room… (@ for agents)'}
-            className="min-h-10 min-w-0 w-full bg-transparent px-1 text-sm text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:outline-none disabled:opacity-60"
+            className="max-h-40 min-h-10 w-full resize-none overflow-y-auto bg-transparent px-1 py-1 text-sm leading-relaxed text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:outline-none disabled:opacity-60"
             disabled={sending}
-            aria-label="Message input"
+            aria-label="Message instruction"
             aria-expanded={mentionOpen}
             aria-autocomplete="list"
           />
@@ -874,7 +1090,7 @@ function M11CComposer({
                   >
                     <span
                       aria-hidden="true"
-                      className="grid size-6 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[10px] font-semibold text-[var(--vestara-accent-text)]"
+                      className="grid size-6 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] text-[10px] font-semibold text-[var(--vestara-accent-text)]"
                     >
                       {entry.label.slice(0, 1).toUpperCase()}
                     </span>
@@ -899,42 +1115,47 @@ function M11CComposer({
           )}
         </div>
 
-        {/* Keyboard hint */}
-         <span className="ar-composer__secondary inline-flex shrink-0 items-center gap-2">
-           <kbd
-             aria-hidden="true"
-             className="hidden rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--vestara-text-dim)] sm:inline-block"
-           >
-             ↵
-           </kbd>
-
-        {/* Character count (4000 cap) */}
-        <span
-          aria-hidden="true"
-          className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > COMPOSER_MAX ? 'text-[var(--vestara-status-error)]' : value.length > COMPOSER_MAX - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
-        >
-          {value.length}/{COMPOSER_MAX}
-         </span>
-         <span className="sr-only" aria-live="polite">
-           {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
-         </span>
-         </span>
-
-{/* Send */}
-         <button
-           type="button"
-           onClick={handleSend}
-           disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
-           aria-label={sending ? 'Sending message' : 'Send message'}
-           className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-lg leading-none text-[var(--vestara-surface-canvas)] shadow-[0_4px_16px_-4px_var(--vestara-accent-bg),0_0_12px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 hover:shadow-[0_6px_20px_-4px_var(--vestara-accent-bg),0_0_18px_var(--vestara-accent-bg)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel-raised)]"
+       {/* Toolbar: recipient/target …… tertiary count + primary send */}
+       <div className="mt-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center justify-between gap-[var(--vestara-spacing-element)]">
+         {/* Target: live @mention preview, presented truthfully */}
+         <span
+           className="ar-composer__target inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
+           title={previewTitle}
          >
-           <span aria-hidden="true">{sending ? '…' : '→'}</span>
-         </button>
-      </div>
+           <span aria-hidden="true" className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
+           <span className="truncate">{previewLabel}</span>
+         </span>
+         <span className="ar-composer__secondary flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
+           {/* Character count (4000 cap) — tertiary metadata */}
+           <span
+             aria-hidden="true"
+             className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > COMPOSER_MAX ? 'text-[var(--vestara-status-error)]' : value.length > COMPOSER_MAX - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
+           >
+             {value.length}/{COMPOSER_MAX}
+           </span>
+           <span className="sr-only" aria-live="polite">
+             {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
+           </span>
+
+           {/* Send — primary composer action (existing submit path) */}
+           <button
+             type="button"
+             onClick={handleSend}
+             disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
+             aria-label={sending ? 'Sending message' : 'Send message'}
+             title={sending ? 'Sending message' : 'Send message (Enter)'}
+             className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--vestara-surface-canvas)] transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel)]"
+           >
+             <span aria-hidden="true" className="inline-flex">
+               {sending ? '…' : <SendOutlinedIcon sx={{ fontSize: SIZING.icon.md }} />}
+             </span>
+           </button>
+         </span>
+       </div>
 
       {/* Error */}
       {error && (
-        <p className="mt-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-2 py-1 text-xs text-[var(--vestara-status-error)]" role="alert">
+        <p className="mt-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius)] border border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] px-2 py-1 text-xs text-[var(--vestara-status-error)]" role="alert">
           {error}
         </p>
       )}

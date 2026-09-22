@@ -66,6 +66,44 @@ export function createAgentLifecycleBridge(options: AgentLifecycleBridgeOptions)
       const agentId = typeof payload.agentId === 'string' && payload.agentId ? payload.agentId : '';
       if (!agentId) return;
 
+      // AR-TOOLS-001: harness tool lifecycle → canonical OpenCode tool-part
+      // event for M9 ingestion (durable tool.called/succeeded/failed facts,
+      // keyed on the harness callId). Same "canonical → ingest normally"
+      // pattern as the lifecycle mapping below; never breaks the harness run.
+      const toolStatus = mapHarnessToolToPartStatus(event.type);
+      if (toolStatus) {
+        const callId =
+          typeof payload.callId === 'string' && payload.callId
+            ? payload.callId
+            : typeof payload.callID === 'string'
+              ? payload.callID
+              : '';
+        if (!callId) return;
+        const toolName = typeof payload.toolName === 'string' && payload.toolName ? payload.toolName : 'tool';
+        await options.eventBus
+          .emit({
+            type: 'opencode.message.part.updated',
+            source: 'agent-lifecycle-bridge',
+            actor: { id: agentId, role: 'agent' },
+            payload: {
+              part: { type: 'tool', callID: callId, tool: toolName, state: { status: toolStatus } },
+              threadId: typeof payload.threadId === 'string' ? payload.threadId : undefined,
+              turnId: typeof payload.turnId === 'string' ? payload.turnId : undefined,
+            },
+            metadata: {
+              correlationId:
+                typeof payload.correlationId === 'string' ? payload.correlationId : event.metadata?.correlationId,
+              causationId: typeof payload.causationId === 'string' ? payload.causationId : event.metadata?.causationId,
+              executionId: event.metadata?.executionId,
+              traceId: event.metadata?.traceId,
+            },
+          })
+          .catch(() => {
+            /* bridge failures must never break the harness run */
+          });
+        return;
+      }
+
       // Map harness event types to canonical agent lifecycle types
       const lifecycleType = mapHarnessToLifecycle(event.type);
       if (!lifecycleType) return;
@@ -121,5 +159,18 @@ function mapHarnessToLifecycle(type: string): 'started' | 'completed' | 'failed'
   if (type === 'harness.outcome.failed') return 'failed';
   if (type === 'harness.outcome.cancelled') return 'cancelled';
   if (type === 'harness.model.started') return 'progress';
+  return null;
+}
+
+/**
+ * AR-TOOLS-001: map harness tool lifecycle to OpenCode part status for the
+ * canonical `opencode.message.part.updated` mirror (M9 `fromToolEvent`
+ * expects running/completed/error). `harness.tool.proposed` is intentionally
+ * excluded — the durable fact starts at execution, not proposal.
+ */
+function mapHarnessToolToPartStatus(type: string): 'running' | 'completed' | 'error' | null {
+  if (type === 'harness.tool.started') return 'running';
+  if (type === 'harness.tool.completed') return 'completed';
+  if (type === 'harness.tool.failed') return 'error';
   return null;
 }

@@ -65,6 +65,13 @@ export interface M11AStreamItem {
    */
   readonly originConversationId?: string;
   readonly originSurface?: string;
+  /** Tool correlation (only when kind === 'tool-call' | 'tool-result'). Absent otherwise. */
+  readonly tool?: {
+    readonly toolName: string;
+    readonly callID: string;
+    readonly status: 'started' | 'completed' | 'failed';
+    readonly agentId?: string;
+  };
   readonly aggregated?: {
     readonly count: number;
     readonly kind: string;
@@ -115,6 +122,11 @@ export interface M11AActivitiesResponse {
   readonly count: number;
   readonly limit: number;
   readonly nextCursor: ActivityCursor | null;
+}
+
+export interface M11AActivityDetail {
+  readonly record: M11AActivityRecord;
+  readonly projection?: Record<string, unknown>;
 }
 
 export interface M11AError {
@@ -194,8 +206,8 @@ export async function fetchM11AActivitiesAfter(
 /**
  * Fetch an individual activity record by eventId.
  */
-export async function fetchM11AActivityById(eventId: string): Promise<M11AActivityRecord> {
-  return m11aFetch<M11AActivityRecord>(`/api/activity-room/v1/activities/${encodeURIComponent(eventId)}`);
+export async function fetchM11AActivityById(eventId: string): Promise<M11AActivityDetail> {
+  return m11aFetch<M11AActivityDetail>(`/api/activity-room/v1/activities/${encodeURIComponent(eventId)}`);
 }
 
 /**
@@ -216,7 +228,8 @@ export async function fetchM11AParticipants(): Promise<readonly ParticipantProje
 // ─── Attention Projection ────────────────────────────────────
 
 export async function fetchM11AAttention(): Promise<readonly AttentionEntry[]> {
-  return m11aFetch<readonly AttentionEntry[]>('/api/activity-room/v1/attention');
+  const response = await m11aFetch<{ attention: readonly AttentionEntry[] }>('/api/activity-room/v1/attention');
+  return response.attention;
 }
 
 // ─── Workflow Summary ────────────────────────────────────────
