@@ -13,11 +13,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ACTIVITY_REFERENCE_LABEL_MAX,
-  UNRESOLVED_ACTIVITY_REFERENCE_LABEL,
+  type ActivityReferenceLookup,
   labelLegacyActivity,
   labelM9Activity,
   resolveActivityReferences,
-  type ActivityReferenceLookup,
+  UNRESOLVED_ACTIVITY_REFERENCE_LABEL,
 } from '../src/activity-references';
 import type { ActivityRecord as LegacyActivityRecord } from '../src/contracts';
 import type { ActivityRecord as M9ActivityRecord } from '../src/m9-types';
@@ -58,7 +58,10 @@ function m9ToolFailed(): M9ActivityRecord {
   };
 }
 
-function lookupWith(legacy: Record<string, LegacyActivityRecord>, m9: Record<string, M9ActivityRecord>): ActivityReferenceLookup {
+function lookupWith(
+  legacy: Record<string, LegacyActivityRecord>,
+  m9: Record<string, M9ActivityRecord>,
+): ActivityReferenceLookup {
   return {
     getLegacyActivity: async (id) => legacy[id] ?? null,
     getM9Activity: async (id) => m9[id] ?? null,
@@ -104,10 +107,7 @@ describe('AR-REF-001 resolveActivityReferences', () => {
 
   it('prefers the legacy store when an id exists in both (ingress order)', async () => {
     const legacy = legacyToolFailed('legacy-output');
-    const lookup = lookupWith(
-      { same: legacy },
-      { same: m9ToolFailed() },
-    );
+    const lookup = lookupWith({ same: legacy }, { same: m9ToolFailed() });
     const refs = await resolveActivityReferences(['same'], lookup);
     expect(refs).toHaveLength(1);
     expect(refs[0].label).toContain('call-01a0');
@@ -116,6 +116,18 @@ describe('AR-REF-001 resolveActivityReferences', () => {
   it('unresolvable ids keep the durable id with a deterministic label', async () => {
     const refs = await resolveActivityReferences(['act-missing-1'], lookupWith({}, {}));
     expect(refs).toEqual([{ kind: 'activity', id: 'act-missing-1', label: UNRESOLVED_ACTIVITY_REFERENCE_LABEL }]);
+  });
+
+  it('resolves structured system attention reference namespaces without Activity lookup', async () => {
+    const refs = await resolveActivityReferences(
+      ['diagnostic:system-memory', 'verification:change-1:typecheck', 'finding:finding-1'],
+      lookupWith({}, {}),
+    );
+    expect(refs).toEqual([
+      { kind: 'diagnostic', id: 'diagnostic:system-memory', label: 'DIAGNOSTIC · system memory' },
+      { kind: 'verification', id: 'verification:change-1:typecheck', label: 'VERIFICATION · change 1:typecheck' },
+      { kind: 'finding', id: 'finding:finding-1', label: 'FINDING · finding 1' },
+    ]);
   });
 
   it('blank ids are skipped; empty input resolves to no references', async () => {

@@ -12,6 +12,7 @@
  */
 
 import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
+import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ScreenshotMonitorOutlinedIcon from '@mui/icons-material/ScreenshotMonitorOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
 import { useState } from 'react';
@@ -42,6 +43,7 @@ interface ActivityRoomContextPanelProps {
   readonly onSettings?: () => void;
   readonly onTerminal?: () => void;
   readonly onFiles?: () => void;
+  readonly onBrowser?: () => void;
   /** Attach a saved screenshot file to the composer as a file reference. */
   readonly onReferenceScreenshot?: (file: { name: string; path: string }) => void;
 }
@@ -169,6 +171,7 @@ export default function ActivityRoomContextPanel({
   onSettings,
   onTerminal,
   onFiles,
+  onBrowser,
   onReferenceScreenshot,
 }: ActivityRoomContextPanelProps) {
   // DERIVABLE: total events from stream length
@@ -288,6 +291,9 @@ export default function ActivityRoomContextPanel({
           </Pill>
           <Pill onClick={onFiles}>
             <FolderOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" /> Files
+          </Pill>
+          <Pill onClick={onBrowser}>
+            <PublicOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" /> Browser
           </Pill>
           <Pill onClick={handleScreenshot} disabled={shotBusy}>
             <ScreenshotMonitorOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />

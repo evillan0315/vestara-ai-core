@@ -81,7 +81,7 @@ export default function TerminalPane({ sessionId, onData, onResize, localEcho = 
     // has no tty line discipline to echo for us) and forwards raw input.
     // Reconnect replay arrives as server frames like any other output.
     term.onData((data) => {
-      onDataRef.current(data);
+      onDataRef.current?.(data);
       // Spawn-driver echo: piped stdio has no tty to echo for us. Pty
       // sessions echo in-kernel — local echo would double-type.
       if (localEchoRef.current) {

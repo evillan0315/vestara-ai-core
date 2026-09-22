@@ -41,6 +41,8 @@ import {
   DurableActivityStore,
   ProjectionRuntime,
   projectAttentionEntries,
+  projectDiagnosticAttentionEntries,
+  projectRepositoryVerificationAttentionEntries,
   toProjectionRecord,
 } from '@vestara/activity-room';
 import { getActivityRoom } from '../activity-room';
@@ -52,6 +54,15 @@ import type { WorkspaceContext } from '../workspace-context';
 const MAX_LIMIT = 100;
 const DEFAULT_LIMIT = 50;
 const MAX_CURSOR_AGE_MS = 5 * 60 * 1000; // 5 minutes
+const DIAGNOSTIC_ATTENTION_CACHE_MS = 15_000;
+
+let diagnosticAttentionCache:
+  | {
+      readonly key: string;
+      readonly expiresAt: number;
+      readonly entries: readonly AttentionEntry[];
+    }
+  | undefined;
 
 // ─── M11A Room State ────────────────────────────────────────────
 
@@ -473,9 +484,13 @@ function sanitizeAttention(a: AttentionEntry): Record<string, unknown> {
     severity: a.severity,
     message: a.message,
     sourceRecordId: a.sourceRecordId,
+    sourceRef: a.sourceRef,
     owner: a.owner,
+    scope: a.scope,
+    sourceFindingId: a.sourceFindingId,
     status: a.status,
     resolvedAt: a.resolvedAt,
+    resolutionReason: a.resolutionReason,
     evidenceRefs: a.evidenceRefs,
     details: a.details,
     actor: a.actor,
@@ -484,6 +499,8 @@ function sanitizeAttention(a: AttentionEntry): Record<string, unknown> {
     sessionId: a.sessionId,
     interactionId: a.interactionId,
     timestamp: a.timestamp,
+    firstObservedAt: a.firstObservedAt,
+    lastObservedAt: a.lastObservedAt,
     acknowledged: a.acknowledged,
   };
 }
@@ -507,6 +524,9 @@ function dedupeAttention(entries: readonly AttentionEntry[]): readonly Attention
 }
 
 function canonicalAttentionKey(entry: AttentionEntry): string {
+  if (entry.sourceRef && entry.sourceRef.kind !== 'activity') {
+    return `${entry.sourceRef.kind}:${entry.sourceRef.owner ?? entry.owner ?? 'unknown'}:${entry.sourceRef.id}`;
+  }
   switch (entry.reason) {
     case 'task-blocked':
     case 'task-failed':
@@ -534,6 +554,38 @@ function canonicalAttentionKey(entry: AttentionEntry): string {
       return entry.taskId ? `approval-task:${entry.taskId}` : `source:${entry.sourceRecordId}`;
     default:
       return `source:${entry.sourceRecordId}`;
+  }
+}
+
+async function projectSystemAttention(ctx: WorkspaceContext): Promise<readonly AttentionEntry[]> {
+  const key = ctx.repoPath;
+  const now = Date.now();
+  if (diagnosticAttentionCache?.key === key && diagnosticAttentionCache.expiresAt > now) {
+    return diagnosticAttentionCache.entries;
+  }
+
+  try {
+    const { collectDiagnosticSnapshots } = await import('../diagnostics/snapshots.js');
+    const collection = collectDiagnosticSnapshots(ctx.repoPath);
+    const entries = projectDiagnosticAttentionEntries(collection.snapshots);
+    diagnosticAttentionCache = {
+      key,
+      expiresAt: now + DIAGNOSTIC_ATTENTION_CACHE_MS,
+      entries,
+    };
+    return entries;
+  } catch {
+    return diagnosticAttentionCache?.key === key ? diagnosticAttentionCache.entries : [];
+  }
+}
+
+async function projectRepositoryAttention(ctx: WorkspaceContext): Promise<readonly AttentionEntry[]> {
+  try {
+    const workspaceId = ctx.runtime.getSession().fingerprint.id;
+    const reports = await ctx.verifications.listByWorkspace(workspaceId);
+    return projectRepositoryVerificationAttentionEntries(reports);
+  } catch {
+    return [];
   }
 }
 
@@ -967,7 +1019,16 @@ export async function handleM11AActivityRoomRoute(
       sessionId: stringValue(url.searchParams.get('sessionId')),
     });
     const legacyAttention = projectAttentionEntries(legacyPage.records);
-    const attention = dedupeAttention([...projection.attention, ...legacyAttention])
+    const [systemAttention, repositoryAttention] = await Promise.all([
+      projectSystemAttention(ctx),
+      projectRepositoryAttention(ctx),
+    ]);
+    const attention = dedupeAttention([
+      ...projection.attention,
+      ...legacyAttention,
+      ...systemAttention,
+      ...repositoryAttention,
+    ])
       .filter((entry) => entry.status === 'open')
       .sort(attentionSort);
     json(res, 200, {

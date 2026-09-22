@@ -4796,3 +4796,46 @@ the contract declares 8. Proven intentional: `ToolCallActivity` /
 `agent-message-projector`, mapped in `m9-to-projection` KIND_MAP, handled in
 `service.ts` + `m10-projection-runtime` (introduced deliberately in
 `9ca3c34`). Updated the test allowlist only; 5/5 green. No product change.
+
+---
+
+## VESTARA-CHECKPOINT-001 — Activity Room Operational Control Surface and Attention Convergence ✅ Implemented 2026-09-22
+
+**Theme**: Activity Room operational control surface and attention convergence.
+No new product features were implemented during this checkpoint; the work
+reconciles documentation, milestones, architecture notes, and evidence with
+the implemented state. Full evidence:
+`docs/activity-room/VESTARA-CHECKPOINT-001-evidence.md`.
+
+**Canonical path**: provider/runtime → normalized lifecycle/event →
+EventBus → Activity projection → Needs Attention / Activity UI. OpenCode
+and Codex converge into canonical Activity semantics
+(`message.part.updated`, `part.type=tool`); no provider-specific Activity
+Room rendering.
+
+**Milestone states**:
+
+- **CODEX-OBS-001**: implemented + focused-test verified. Live Codex →
+  Activity Room dogfood is NOT YET RUNTIME VERIFIED (requires API
+  restart/rebuild) — not claimed.
+- **ATTENTION-INTELLIGENCE-001**: implemented + focused-test verified
+  (diagnostic latest-wins + resolve-by-omission; verification
+  same-change-set + same-check resolution). Governed worktree state and
+  Observer lifecycle explicitly deferred as authorities.
+- **AR-BROWSER-001**: implemented + focused-test/build verified (direct
+  agent-browser dashboard embedding; availability boundary with retry;
+  dashboard URL defaults to `http://localhost:4848`). Session
+  invariance/WebSocket behavior per existing agent-browser guarantees;
+  runtime/config caveats preserved.
+- **Reference namespaces** (`diagnostic:`/`finding:`/`verification:`):
+  implemented + focused-test verified. Contract debt recorded:
+  `referencedActivityIds` overloads Activity IDs and should evolve toward a
+  typed generic reference contract (not refactored here).
+- **FILES-SEARCH-001**: planned/pending — not marked complete.
+- **RAG**: next major planned capability — no progress fabricated.
+
+**Architecture recorded**: Needs Attention is a DERIVED CURRENT-STATE READ
+MODEL (not a second issue tracker, not a diagnostics authority); historical
+failure != currently unresolved attention; reference handoff keeps user
+message text unchanged; Activity Room is a control/projection surface, not
+the authority for subsystems it observes.

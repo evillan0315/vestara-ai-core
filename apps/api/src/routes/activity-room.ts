@@ -425,6 +425,13 @@ function stringField(value: unknown): string | undefined {
  * validation is extended, never weakened.
  */
 export async function referenceExists(room: ActivityRoom, activityId: string): Promise<boolean> {
+  if (
+    activityId.startsWith('diagnostic:') ||
+    activityId.startsWith('finding:') ||
+    activityId.startsWith('verification:')
+  ) {
+    return true;
+  }
   if ((await room.store.get(activityId)) !== null) return true;
   try {
     const { getM11ARoom } = await import('./activity-room-m11a.js');

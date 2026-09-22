@@ -7,8 +7,8 @@
  * surfaceContext keeps the request free of the key (existing behavior).
  */
 
-import { describe, expect, it } from 'vitest';
 import type { Conversation, TurnSurfaceContext } from '@vestara/shared';
+import { describe, expect, it } from 'vitest';
 import { DefaultContextAssembler } from '../src/index';
 
 function conversation(): Conversation {

@@ -10,12 +10,19 @@
 
 import * as path from 'node:path';
 import type { ProviderExecutor } from '@vestara/conversation';
+import type { EventBus } from '@vestara/event-bus';
 import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
 import { truncateReasoning } from '@vestara/shared';
 
 export interface AssistantCodexExecutorOptions {
   readonly directory: string;
   readonly defaultModel?: string;
+  /**
+   * Durable Activity Room mirror for Codex tool use. Mirrors Codex command
+   * lifecycle into the existing M9 tool ingestion path. Fire-and-forget;
+   * mirror failures must never break a Codex turn.
+   */
+  readonly eventBus?: EventBus;
 }
 
 type CodexSdk = typeof import('@openai/codex-sdk');
@@ -70,6 +77,47 @@ function codexThreadId(runtimeSessionId: string | undefined): string | undefined
   if (!runtimeSessionId?.startsWith('codex:')) return undefined;
   const id = runtimeSessionId.slice('codex:'.length).trim();
   return id || undefined;
+}
+
+function codexAgentId(request: CompletionRequest): string {
+  return request.agent?.trim() || request.agentId?.trim() || 'vestara-assistant';
+}
+
+function codexCommandFailed(item: { [key: string]: unknown }): boolean {
+  const status = typeof item.status === 'string' ? item.status.toLowerCase() : undefined;
+  if (status === 'failed' || status === 'error') return true;
+  const exitCode =
+    typeof item.exit_code === 'number'
+      ? item.exit_code
+      : typeof item.exitCode === 'number'
+        ? item.exitCode
+        : typeof item.code === 'number'
+          ? item.code
+          : undefined;
+  return exitCode !== undefined && exitCode !== 0;
+}
+
+export function createCodexToolPartEvent(input: {
+  readonly status: 'running' | 'completed' | 'error';
+  readonly callID: string;
+  readonly tool: string;
+  readonly agentId: string;
+  readonly conversationId?: string;
+  readonly sessionId?: string;
+}) {
+  return {
+    type: 'codex.message.part.updated',
+    source: 'assistant-codex-adapter',
+    actor: { id: input.agentId, role: 'agent' as const },
+    payload: {
+      part: { type: 'tool', callID: input.callID, tool: input.tool, state: { status: input.status } },
+      ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+      runtime: CODEX_RUNTIME_ID,
+      provider: CODEX_PROVIDER_ID,
+    },
+    metadata: input.conversationId ? { correlationId: input.conversationId } : undefined,
+  };
 }
 
 export function createCodexSdkEnv(sourceEnv: NodeJS.ProcessEnv = process.env): Record<string, string> {
@@ -136,6 +184,8 @@ async function runCodexTurn(
   let reasoning = '';
   let usage: CodexUsage | null = null;
   let sequence = 0;
+  const mirroredCommands = new Set<string>();
+  const agentId = codexAgentId(request);
 
   const metadata = () => ({
     sequence: sequence++,
@@ -144,6 +194,22 @@ async function runCodexTurn(
     execution: { runtimeId: CODEX_RUNTIME_ID, providerId: CODEX_PROVIDER_ID },
     ...(thread.id ? { runtimeSessionId: `codex:${thread.id}` } : {}),
   });
+  const mirrorToolEvent = (status: 'running' | 'completed' | 'error', callID: string, tool: string): void => {
+    const bus = options.eventBus;
+    if (!bus) return;
+    void bus
+      .emit(
+        createCodexToolPartEvent({
+          status,
+          callID,
+          tool,
+          agentId,
+          ...(request.conversationId ? { conversationId: request.conversationId } : {}),
+          ...(thread.id ? { sessionId: `codex:${thread.id}` } : {}),
+        }),
+      )
+      .catch(() => {});
+  };
 
   for await (const event of streamed.events) {
     const status = statusFor(event);
@@ -154,6 +220,10 @@ async function runCodexTurn(
         content: status,
         metadata: metadata(),
       });
+    }
+    if (event.type === 'item.started' && event.item.type === 'command_execution') {
+      mirroredCommands.add(event.item.id);
+      mirrorToolEvent('running', event.item.id, 'bash');
     }
     if (event.type === 'item.completed' || event.type === 'item.updated') {
       if (event.item.type === 'agent_message') {
@@ -173,6 +243,11 @@ async function runCodexTurn(
           metadata: metadata(),
         });
       } else if (event.item.type === 'command_execution') {
+        if (!mirroredCommands.has(event.item.id)) {
+          mirroredCommands.add(event.item.id);
+          mirrorToolEvent('running', event.item.id, 'bash');
+        }
+        mirrorToolEvent(codexCommandFailed(event.item) ? 'error' : 'completed', event.item.id, 'bash');
         onChunk?.({
           id: `codex-command-${event.item.id}`,
           type: 'tool_result',

@@ -1,4 +1,11 @@
-import type { WorkflowRunId, WorkflowTaskId } from '@vestara/types';
+import type {
+  DiagnosticEvidenceRef,
+  DiagnosticSeverity,
+  DiagnosticSnapshot,
+  ObserverFinding,
+  WorkflowRunId,
+  WorkflowTaskId,
+} from '@vestara/types';
 import type { ActivityOrganizationalEffect, ActivityRecord } from './contracts';
 import type { AttentionCategory, AttentionEntry, AttentionReason, AttentionSeverity } from './projection-types';
 
@@ -25,6 +32,28 @@ const TASK_RESOLVED_STATUSES = new Set([
   'completed',
 ]);
 
+export interface RepositoryVerificationReportLike {
+  readonly id: string;
+  readonly workspaceId?: string;
+  readonly planId?: string;
+  readonly changeSetId: string;
+  readonly status: string;
+  readonly checks: readonly RepositoryVerificationCheckLike[];
+  readonly createdAt: string;
+  readonly completedAt?: string | null;
+}
+
+export interface RepositoryVerificationCheckLike {
+  readonly id: string;
+  readonly type?: string;
+  readonly status: string;
+  readonly command?: string;
+  readonly output?: string;
+  readonly startedAt?: string;
+  readonly completedAt?: string;
+  readonly durationMs?: number;
+}
+
 /**
  * Derive current Needs Attention entries from structured ActivityRecords.
  * This is a read-model projection only; owning subsystems keep authority.
@@ -37,6 +66,157 @@ export function projectAttentionEntries(records: readonly ActivityRecord[]): rea
     resolveByRecord(active, record);
     const entry = attentionForRecord(record);
     if (entry) active.set(attentionKey(entry, record), entry);
+  }
+
+  return [...active.values()].sort(compareAttention);
+}
+
+export function projectDiagnosticAttentionEntries(snapshots: readonly DiagnosticSnapshot[]): readonly AttentionEntry[] {
+  const bySource = new Map<string, DiagnosticSnapshot>();
+  for (const snapshot of snapshots) {
+    const existing = bySource.get(snapshot.source.id);
+    if (!existing || existing.observedAt.localeCompare(snapshot.observedAt) < 0)
+      bySource.set(snapshot.source.id, snapshot);
+  }
+
+  return [...bySource.values()]
+    .filter((snapshot) => snapshot.health === 'degraded' || snapshot.health === 'unhealthy')
+    .map((snapshot) => {
+      const owner = `diagnostics:${snapshot.source.kind}`;
+      const sourceId = snapshot.source.id;
+      const category = diagnosticCategory(snapshot);
+      const sourceRecordId = `diagnostic:${sourceId}`;
+      return {
+        attentionId: `attention:${sourceRecordId}`,
+        reason: snapshot.health === 'unhealthy' ? 'attention-required' : 'dependency-unavailable',
+        category,
+        severity: attentionSeverityFromDiagnostic(snapshot.severity),
+        message: snapshot.message,
+        sourceRecordId,
+        sourceRef: {
+          kind: 'diagnostic',
+          id: sourceId,
+          owner,
+          subsystem: snapshot.source.component ?? snapshot.source.kind,
+        },
+        owner,
+        scope: snapshot.source.component ?? snapshot.source.name,
+        status: 'open',
+        evidenceRefs: diagnosticEvidenceRefs(snapshot.evidenceRefs),
+        details: {
+          sourceKind: snapshot.source.kind,
+          sourceName: snapshot.source.name,
+          health: snapshot.health,
+          severity: snapshot.severity,
+          ...(snapshot.payload ? { payload: snapshot.payload } : {}),
+        },
+        timestamp: snapshot.observedAt,
+        firstObservedAt: snapshot.observedAt,
+        lastObservedAt: snapshot.observedAt,
+        acknowledged: false,
+      } satisfies AttentionEntry;
+    })
+    .sort(compareAttention);
+}
+
+export function projectObserverFindingAttentionEntries(
+  findings: readonly ObserverFinding[],
+): readonly AttentionEntry[] {
+  return findings
+    .filter((finding) => finding.status === 'observation' || finding.status === 'hypothesis')
+    .map((finding) => {
+      const sourceId = finding.sourceIds[0] ?? finding.id;
+      const sourceRecordId = `finding:${finding.id}`;
+      return {
+        attentionId: `attention:${sourceRecordId}`,
+        reason: 'finding',
+        category: 'system',
+        severity: attentionSeverityFromDiagnostic(finding.severity),
+        message: finding.title,
+        sourceRecordId,
+        sourceRef: {
+          kind: 'finding',
+          id: finding.id,
+          owner: 'observer',
+          subsystem: sourceId,
+        },
+        owner: 'observer',
+        scope: sourceId,
+        sourceFindingId: finding.id,
+        status: 'open',
+        evidenceRefs: finding.evidenceBundleRefs,
+        details: {
+          findingStatus: finding.status,
+          confidence: finding.confidence,
+          confidenceLevel: finding.confidenceLevel,
+          sourceIds: finding.sourceIds,
+          snapshotRefs: finding.snapshotRefs,
+          description: finding.description,
+          ...(finding.payload ? { payload: finding.payload } : {}),
+        },
+        timestamp: finding.updatedAt,
+        firstObservedAt: finding.observedAt,
+        lastObservedAt: finding.updatedAt,
+        acknowledged: false,
+      } satisfies AttentionEntry;
+    })
+    .sort(compareAttention);
+}
+
+export function projectRepositoryVerificationAttentionEntries(
+  reports: readonly RepositoryVerificationReportLike[],
+): readonly AttentionEntry[] {
+  const sorted = [...reports].sort(
+    (left, right) => left.createdAt.localeCompare(right.createdAt) || left.id.localeCompare(right.id),
+  );
+  const active = new Map<string, AttentionEntry>();
+
+  for (const report of sorted) {
+    for (const check of report.checks) {
+      const key = repositoryVerificationKey(report, check);
+      if (check.status === 'passed') {
+        active.delete(key);
+        continue;
+      }
+      if (check.status !== 'failed') continue;
+
+      const observedAt = check.completedAt ?? report.completedAt ?? report.createdAt;
+      const sourceId = `verification:${key}`;
+      active.set(key, {
+        attentionId: `attention:${sourceId}`,
+        reason: check.type === 'test' ? 'test-failed' : 'verification-failed',
+        category: 'repository',
+        severity: 'high',
+        message: repositoryVerificationMessage(check),
+        sourceRecordId: sourceId,
+        sourceRef: {
+          kind: 'verification',
+          id: key,
+          owner: 'verification',
+          subsystem: check.type ?? 'repository',
+        },
+        owner: 'verification',
+        scope: report.changeSetId,
+        status: 'open',
+        evidenceRefs: [],
+        details: {
+          reportId: report.id,
+          workspaceId: report.workspaceId,
+          planId: report.planId,
+          changeSetId: report.changeSetId,
+          checkId: check.id,
+          checkType: check.type,
+          checkStatus: check.status,
+          command: check.command,
+          outputExcerpt: check.output?.slice(0, 500),
+          durationMs: check.durationMs,
+        },
+        timestamp: observedAt,
+        firstObservedAt: observedAt,
+        lastObservedAt: observedAt,
+        acknowledged: false,
+      });
+    }
   }
 
   return [...active.values()].sort(compareAttention);
@@ -214,6 +394,12 @@ function makeEntry(
     ...(input.severity ? { severity: input.severity } : {}),
     message: input.message,
     sourceRecordId: record.id,
+    sourceRef: {
+      kind: 'activity',
+      id: record.id,
+      ...(input.owner ? { owner: input.owner } : {}),
+      subsystem: record.kind,
+    },
     ...(input.owner ? { owner: input.owner } : {}),
     status: 'open',
     evidenceRefs: record.evidenceRefs,
@@ -223,8 +409,46 @@ function makeEntry(
     taskId: record.taskId as WorkflowTaskId | undefined,
     sessionId: record.sessionId,
     timestamp: record.timestamp,
+    firstObservedAt: record.timestamp,
+    lastObservedAt: record.timestamp,
     acknowledged: false,
   };
+}
+
+function diagnosticCategory(snapshot: DiagnosticSnapshot): AttentionCategory {
+  if (snapshot.source.kind === 'provider') return 'integration';
+  if (snapshot.source.kind === 'service' || snapshot.source.kind === 'network') return 'integration';
+  if (snapshot.source.id === 'git-repository') return 'repository';
+  return 'system';
+}
+
+function attentionSeverityFromDiagnostic(severity: DiagnosticSeverity): AttentionSeverity {
+  switch (severity) {
+    case 'critical':
+      return 'critical';
+    case 'error':
+      return 'high';
+    case 'warning':
+      return 'medium';
+    default:
+      return 'low';
+  }
+}
+
+function diagnosticEvidenceRefs(evidenceRefs: readonly DiagnosticEvidenceRef[] | undefined): readonly string[] {
+  return evidenceRefs?.map((ref) => `${ref.bundleId}:${ref.evidenceRef}`) ?? [];
+}
+
+function repositoryVerificationKey(
+  report: RepositoryVerificationReportLike,
+  check: RepositoryVerificationCheckLike,
+): string {
+  return `${report.changeSetId}:${check.id}`;
+}
+
+function repositoryVerificationMessage(check: RepositoryVerificationCheckLike): string {
+  const label = check.type ?? check.id;
+  return `${label.replace(/[-_.]+/g, ' ')} failed`;
 }
 
 function attentionKey(entry: AttentionEntry, record: ActivityRecord): string {

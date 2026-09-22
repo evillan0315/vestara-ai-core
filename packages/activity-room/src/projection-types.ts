@@ -269,9 +269,21 @@ export type AttentionCategory =
   | 'workflow'
   | 'runtime'
   | 'safety'
-  | 'agent-attention';
+  | 'agent-attention'
+  | 'system'
+  | 'repository'
+  | 'configuration'
+  | 'integration'
+  | 'security';
 
 export type AttentionStatus = 'open' | 'resolved';
+
+export interface AttentionSourceRef {
+  readonly kind: string;
+  readonly id: string;
+  readonly owner?: string;
+  readonly subsystem?: string;
+}
 
 /**
  * An attention entry — something that needs human awareness.
@@ -295,14 +307,26 @@ export interface AttentionEntry {
   /** ActivityRecord that justifies this attention item. */
   readonly sourceRecordId: string;
 
+  /** Generalized source identity for non-Activity authorities. */
+  readonly sourceRef?: AttentionSourceRef;
+
   /** Authoritative subsystem/source that owns the underlying condition. */
   readonly owner?: string;
+
+  /** Bounded authoritative scope for correlation and display. */
+  readonly scope?: string;
+
+  /** Authoritative finding identity when the source is a finding authority. */
+  readonly sourceFindingId?: string;
 
   /** Current derived resolution state. */
   readonly status: AttentionStatus;
 
   /** When this condition was resolved, if a later authoritative record resolved it. */
   readonly resolvedAt?: string;
+
+  /** Why the projection considers this resolved. */
+  readonly resolutionReason?: string;
 
   /** Supporting evidence references copied from the source record. */
   readonly evidenceRefs?: readonly string[];
@@ -321,6 +345,10 @@ export interface AttentionEntry {
 
   /** When this was generated. */
   readonly timestamp: string;
+
+  /** Current-state observation window from the source authority. */
+  readonly firstObservedAt?: string;
+  readonly lastObservedAt?: string;
 
   /** Whether this has been acknowledged. */
   /** @deprecated Acknowledgement is not resolution. Use status instead. */

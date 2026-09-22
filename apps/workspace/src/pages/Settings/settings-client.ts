@@ -4,6 +4,7 @@ export interface RuntimeStatusDto {
   status: string;
   apiEndpoint: string;
   websocketEndpoint: string;
+  browserDashboardUrl?: string;
   websocketStatus: string;
   runtimeVersion: string;
   workspaceId: string;

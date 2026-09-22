@@ -12,6 +12,58 @@ next-review: 2026-10-04
 
 ---
 
+## [VESTARA-CHECKPOINT-001] — 2026-09-22 — Activity Room Operational Control Surface and Attention Convergence
+
+### Added
+
+- **Codex tool lifecycle → EventBus → M9 Activity bridge (CODEX-OBS-001,
+  implemented + focused-test verified, NOT YET RUNTIME VERIFIED)**:
+  `assistant-codex-adapter` mirrors Codex `command_execution`
+  start/completion/failure as canonical `codex.message.part.updated`
+  tool-part events onto the kernel EventBus (fire-and-forget; mirror
+  failures never break a turn), wired via `eventBus: kernel.eventBus` in
+  workspace context; the M9 ingestion bridge ingests both
+  `opencode.message.part.updated` and `codex.message.part.updated` through
+  the shared `fromToolEvent` adapter. Live Codex → Activity Room dogfood
+  still requires API restart/rebuild.
+- **Attention intelligence convergence (ATTENTION-INTELLIGENCE-001,
+  implemented + focused-test verified)**: diagnostic attention projection
+  (latest snapshot per source wins; healthy supersedes — resolution by
+  omission), repository verification attention (a failed check resolves
+  only when the same change set + check later passes), and Observer finding
+  projection; generalized `AttentionEntry` identity (`sourceRef`, `scope`,
+  `sourceFindingId`, `resolutionReason`, `firstObservedAt`/`lastObservedAt`,
+  new `system`/`repository`/`configuration`/`integration`/`security`
+  categories); M11A attention endpoint merges projection + legacy + system
+  (15s cache) + repository attention with canonical dedupe. Needs Attention
+  remains a derived current-state read model — historical failure !=
+  currently unresolved attention.
+- **Reference handoff namespaces (implemented + focused-test verified)**:
+  `diagnostic:*`, `finding:*`, `verification:*` resolve to labeled turn
+  surface references without an Activity lookup and pass `referenceExists`
+  without weakening Activity validation. Contract debt recorded:
+  `referencedActivityIds` semantically overloads Activity IDs and should
+  evolve toward a typed generic reference contract (not refactored here).
+- **Agent-browser dashboard embedding (AR-BROWSER-001, implemented +
+  focused-test/build verified)**: `ActivityBrowserPanel` iframes the
+  existing agent-browser dashboard inside a dockable Activity Room drawer
+  (left/right/bottom); Vestara owns only the dock shell + availability
+  boundary, agent-browser stays authoritative for sessions. Dashboard URL
+  via `VESTARA_AGENT_BROWSER_DASHBOARD_URL` /
+  `VITE_AGENT_BROWSER_DASHBOARD_URL`, surfaced as `browserDashboardUrl`.
+- **Activity Room operations**: rich attention-to-composer detail, Browser
+  pill + drawer controls, extended attention labels/tones/subjects,
+  `TerminalPane` optional `onData` hardening, composer file attachments.
+  Full evidence: `docs/activity-room/VESTARA-CHECKPOINT-001-evidence.md`.
+
+### Deferred (explicit)
+
+- Governed worktree state and Observer lifecycle as attention authorities;
+  FILES-SEARCH-001 stays planned; RAG stays next major planned capability
+  with no progress fabricated.
+
+---
+
 ## [AR-P1.5/1] — 2026-08-26 — Authority Contracts (Target Boundaries)
 
 ### Added

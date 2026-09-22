@@ -13,6 +13,10 @@ import type { WorkspaceContext } from '../workspace-context';
 import { serviceFor as graphServiceFor } from './graph';
 import { getActor, json, readBody } from './types';
 
+function agentBrowserDashboardUrl(): string {
+  return (process.env.VESTARA_AGENT_BROWSER_DASHBOARD_URL ?? 'http://localhost:4848').trim().replace(/\/+$/, '');
+}
+
 export async function handleWorkspaceRoute(
   method: string,
   p: string,
@@ -128,6 +132,7 @@ export async function handleWorkspaceRoute(
       status: ctx.runtime.currentStatus,
       apiEndpoint: `http://127.0.0.1:${process.env.VESTARA_API_PORT ?? 3001}`,
       websocketEndpoint: `ws://127.0.0.1:${process.env.VESTARA_API_PORT ?? 3001}/ws`,
+      browserDashboardUrl: agentBrowserDashboardUrl(),
       websocketStatus: 'available',
       runtimeVersion: '0.3.0',
       workspaceId: ctx.runtime.getSession().fingerprint.id,

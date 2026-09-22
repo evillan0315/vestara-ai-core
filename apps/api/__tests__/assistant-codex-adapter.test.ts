@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { avoidWorkspaceCodexHome, createCodexSdkEnv, createCodexSdkOptions } from '../src/assistant-codex-adapter';
+import {
+  avoidWorkspaceCodexHome,
+  createCodexSdkEnv,
+  createCodexSdkOptions,
+  createCodexToolPartEvent,
+} from '../src/assistant-codex-adapter';
 
 describe('Assistant Codex adapter environment', () => {
   it('keeps generic OPENAI_MODEL out of the Codex SDK environment', () => {
@@ -72,5 +77,30 @@ describe('Assistant Codex adapter environment', () => {
     );
 
     expect(options?.apiKey).toBe('sk-codex');
+  });
+
+  it('mirrors Codex command lifecycle using the canonical tool-part shape', () => {
+    const event = createCodexToolPartEvent({
+      status: 'running',
+      callID: 'cmd-123',
+      tool: 'bash',
+      agentId: 'vestara-developer',
+      conversationId: 'conv-codex',
+      sessionId: 'codex:thread-1',
+    });
+
+    expect(event).toMatchObject({
+      type: 'codex.message.part.updated',
+      source: 'assistant-codex-adapter',
+      actor: { id: 'vestara-developer', role: 'agent' },
+      payload: {
+        part: { type: 'tool', callID: 'cmd-123', tool: 'bash', state: { status: 'running' } },
+        conversationId: 'conv-codex',
+        sessionId: 'codex:thread-1',
+        runtime: 'codex',
+        provider: 'openai-codex',
+      },
+      metadata: { correlationId: 'conv-codex' },
+    });
   });
 });

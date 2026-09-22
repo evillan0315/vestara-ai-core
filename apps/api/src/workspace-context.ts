@@ -929,6 +929,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     // Codex-specific override wins; Codex threads default to gpt-5.5 so
     // resuming an existing 5.5 session never downgrades it to OPENAI_MODEL.
     defaultModel: process.env.VESTARA_CODEX_MODEL ?? 'gpt-5.5',
+    eventBus: kernel.eventBus,
   });
   const conversationProviderExecutor: ProviderExecutor = {
     complete(request) {

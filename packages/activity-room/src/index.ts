@@ -1,15 +1,22 @@
-export { type TriggerAssistantTurnOptions, triggerAssistantTurn } from './assistant-turn';
 export {
   ACTIVITY_REFERENCE_EXCERPT_MAX,
   ACTIVITY_REFERENCE_LABEL_MAX,
-  UNRESOLVED_ACTIVITY_REFERENCE_LABEL,
+  type ActivityReferenceLookup,
   labelLegacyActivity,
   labelM9Activity,
   resolveActivityReferences,
-  type ActivityReferenceLookup,
+  UNRESOLVED_ACTIVITY_REFERENCE_LABEL,
 } from './activity-references';
+export { type TriggerAssistantTurnOptions, triggerAssistantTurn } from './assistant-turn';
 export type { AssistantTurnResult, AssistantTurnStatus } from './assistant-types';
-export { projectAttentionEntries } from './attention';
+export {
+  projectAttentionEntries,
+  projectDiagnosticAttentionEntries,
+  projectObserverFindingAttentionEntries,
+  projectRepositoryVerificationAttentionEntries,
+  type RepositoryVerificationCheckLike,
+  type RepositoryVerificationReportLike,
+} from './attention';
 export { type ActivityBatch, toActivityBatch } from './batch';
 export type {
   ActivityActor,
@@ -66,6 +73,7 @@ export type {
   AttentionEntry,
   AttentionReason,
   AttentionSeverity,
+  AttentionSourceRef,
   AttentionStatus,
   ContextualCapabilities,
   ParticipantProjection,

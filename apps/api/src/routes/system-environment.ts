@@ -106,6 +106,12 @@ const REGISTRY: readonly RegistryEntry[] = [
     description: 'Browser automation driver (playwright | agent-browser).',
     configKey: 'browser.driver',
   },
+  {
+    name: 'VESTARA_AGENT_BROWSER_DASHBOARD_URL',
+    scope: 'api-process',
+    description: 'agent-browser dashboard endpoint for embedded observation.',
+    defaultValue: 'http://localhost:4848',
+  },
   { name: 'VESTARA_BROWSER_URL', scope: 'api-process', description: 'Browser service base URL override.' },
   { name: 'VESTARA_SCREENSHOT_URL', scope: 'api-process', description: 'Screenshot service base URL override.' },
   {

@@ -129,13 +129,19 @@ const PATTERN_DISPOSITIONS: readonly PatternDisposition[] = [
     reason: 'Interaction responded — durable Activity Room fact',
     adapter: 'fromInteractionResponded',
   },
-  // ─── Tool lifecycle (OpenCode runtime) ─────────────────────
+  // ─── Tool lifecycle (assistant runtimes) ───────────────────
   // Tool operations surface as message.part.updated with part.type=tool.
   // The older session.next.tool.* events are not emitted by current OpenCode.
   {
     pattern: 'opencode.message.part.updated',
     disposition: 'INGEST',
     reason: 'Tool lifecycle via message part — durable Activity Room fact (OpenCode callID correlation)',
+    adapter: 'fromToolEvent',
+  },
+  {
+    pattern: 'codex.message.part.updated',
+    disposition: 'INGEST',
+    reason: 'Tool lifecycle via message part — durable Activity Room fact (Codex operation id correlation)',
     adapter: 'fromToolEvent',
   },
 
@@ -406,7 +412,7 @@ export class M9IngestionBridge {
       const messageId = event.payload.messageId as string | undefined;
       return messageId ? `human.message:${messageId}` : `${event.type}:${event.id}`;
     }
-    if (event.type === 'opencode.message.part.updated') {
+    if (event.type === 'opencode.message.part.updated' || event.type === 'codex.message.part.updated') {
       // The fromToolEvent adapter generates a deterministic eventId from callID.
       // Use it for stable deduplication across replays of the same tool transition.
       return activityEvent.eventId;
@@ -567,11 +573,11 @@ export class M9IngestionBridge {
       });
     }
 
-    // ─── Tool lifecycle (OpenCode runtime) ─────────────────
-    // Authoritative tool operation facts from OpenCode. Uses callID for
+    // ─── Tool lifecycle (assistant runtimes) ────────────────
+    // Authoritative tool operation facts from assistant runtimes. Uses callID for
     // stable correlation across called/succeeded/failed transitions.
     // Tool events arrive as message.part.updated with part.type=tool.
-    if (type === 'opencode.message.part.updated') {
+    if (type === 'opencode.message.part.updated' || type === 'codex.message.part.updated') {
       // Phase 1 fix: the raw OpenCode event bridge ('opencode-event-bridge')
       // emits the same part.updated events WITHOUT actor identity, using the
       // same deterministic eventId (tool.{lifecycle}:{callID}). Ingesting both

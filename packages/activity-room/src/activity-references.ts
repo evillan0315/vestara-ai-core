@@ -46,7 +46,10 @@ function excerpt(value: string | undefined, max: number = ACTIVITY_REFERENCE_EXC
 }
 
 function boundLabel(parts: readonly (string | undefined)[]): string {
-  return parts.filter((part): part is string => !!part && part.length > 0).join(' · ').slice(0, ACTIVITY_REFERENCE_LABEL_MAX);
+  return parts
+    .filter((part): part is string => !!part && part.length > 0)
+    .join(' · ')
+    .slice(0, ACTIVITY_REFERENCE_LABEL_MAX);
 }
 
 function titleCase(value: string): string {
@@ -54,7 +57,10 @@ function titleCase(value: string): string {
 }
 
 function statusWord(status: string): string {
-  const normalized = status.trim().toLowerCase().replace(/[-_\s]+/g, '-');
+  const normalized = status
+    .trim()
+    .toLowerCase()
+    .replace(/[-_\s]+/g, '-');
   if (normalized === 'failed') return 'Failed';
   if (normalized === 'completed') return 'Completed';
   if (normalized === 'started' || normalized === 'running' || normalized === 'in-progress') return 'Running';
@@ -173,6 +179,22 @@ export async function resolveActivityReferences(
   for (const raw of ids) {
     const id = String(raw ?? '').trim();
     if (!id) continue;
+    if (id.startsWith('diagnostic:')) {
+      resolved.push({ kind: 'diagnostic', id, label: labelSystemReference(id, 'DIAGNOSTIC') } as TurnSurfaceReference);
+      continue;
+    }
+    if (id.startsWith('finding:')) {
+      resolved.push({ kind: 'finding', id, label: labelSystemReference(id, 'FINDING') } as TurnSurfaceReference);
+      continue;
+    }
+    if (id.startsWith('verification:')) {
+      resolved.push({
+        kind: 'verification',
+        id,
+        label: labelSystemReference(id, 'VERIFICATION'),
+      } as TurnSurfaceReference);
+      continue;
+    }
     const legacy = await lookup.getLegacyActivity(id);
     if (legacy) {
       resolved.push({ kind: 'activity', id, label: labelLegacyActivity(legacy) });
@@ -186,4 +208,9 @@ export async function resolveActivityReferences(
     resolved.push({ kind: 'activity', id, label: UNRESOLVED_ACTIVITY_REFERENCE_LABEL });
   }
   return resolved;
+}
+
+function labelSystemReference(id: string, kind: string): string {
+  const subject = id.slice(id.indexOf(':') + 1).replace(/[-_.]+/g, ' ');
+  return boundLabel([kind, subject || id]);
 }

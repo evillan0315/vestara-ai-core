@@ -61,6 +61,11 @@ const ATTENTION_LABELS: Record<AttentionEntry['category'], string> = {
   runtime: 'Runtime',
   safety: 'Safety',
   'agent-attention': 'Agent attention',
+  system: 'System',
+  repository: 'Repository',
+  configuration: 'Configuration',
+  integration: 'Integration',
+  security: 'Security',
 };
 
 function attentionContext(item: AttentionEntry): string {

@@ -184,6 +184,16 @@ export function attentionTypeLabel(entry: AttentionEntry): string {
       return 'APPROVAL';
     case 'workflow':
       return 'WORKFLOW';
+    case 'repository':
+      return 'REPOSITORY';
+    case 'system':
+      return 'SYSTEM';
+    case 'integration':
+      return 'INTEGRATION';
+    case 'configuration':
+      return 'CONFIG';
+    case 'security':
+      return 'SECURITY';
     case 'blocker':
       return 'TASK';
     default:
@@ -200,7 +210,9 @@ export function attentionTone(entry: AttentionEntry): 'warning' | 'error' {
 export function attentionSubject(entry: AttentionEntry): string {
   const tool = typeof entry.details?.toolName === 'string' ? entry.details.toolName : undefined;
   const command = typeof entry.details?.command === 'string' ? entry.details.command : undefined;
-  return tool ?? command ?? entry.taskId ?? entry.workflowRunId ?? entry.owner ?? entry.reason;
+  const checkType = typeof entry.details?.checkType === 'string' ? entry.details.checkType : undefined;
+  const sourceName = typeof entry.details?.sourceName === 'string' ? entry.details.sourceName : undefined;
+  return tool ?? command ?? checkType ?? sourceName ?? entry.scope ?? entry.taskId ?? entry.workflowRunId ?? entry.owner ?? entry.reason;
 }
 
 /**

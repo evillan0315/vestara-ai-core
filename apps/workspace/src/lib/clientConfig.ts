@@ -22,6 +22,11 @@ function readEnvBase(): string {
   return (meta.env?.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
 }
 
+function readAgentBrowserDashboardEnv(): string {
+  const meta = import.meta as { env?: Record<string, string | undefined> };
+  return (meta.env?.VITE_AGENT_BROWSER_DASHBOARD_URL ?? 'http://localhost:4848').trim().replace(/\/+$/, '');
+}
+
 const STORAGE_KEY = 'vestara-api-endpoint';
 
 let runtimeBase = '';
@@ -83,6 +88,10 @@ export function resolveHttpUrl(path: string): string {
     ? path
     : `/api${path.startsWith('/') ? path : `/${path}`}`;
   return `${base}${normalized}`;
+}
+
+export function getAgentBrowserDashboardUrl(): string {
+  return readAgentBrowserDashboardEnv();
 }
 
 /**

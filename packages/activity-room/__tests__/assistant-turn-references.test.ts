@@ -12,8 +12,8 @@
  *    singular selected) with references merged in.
  */
 
-import { describe, expect, it, vi } from 'vitest';
 import type { TurnSurfaceReference } from '@vestara/shared';
+import { describe, expect, it, vi } from 'vitest';
 import { triggerAssistantTurn } from '../src/assistant-turn';
 import type { AgentMessageActivity } from '../src/contracts';
 import type { ActivityProjectionService } from '../src/service';
@@ -42,7 +42,11 @@ function harness() {
   const sent: Array<{ conversationId: string; content: string; options?: Record<string, unknown> }> = [];
   const sendMessage = vi.fn(async (conversationId: string, content: string, options?: Record<string, unknown>) => {
     sent.push({ conversationId, content, options });
-    return { message: { content }, response: { content: 'done', provider: 'provider-a', model: 'model-a' }, latency: 1 };
+    return {
+      message: { content },
+      response: { content: 'done', provider: 'provider-a', model: 'model-a' },
+      latency: 1,
+    };
   });
   const createConversation = vi.fn(async () => ({ id: 'conv-1' }));
   const conversationService = { createConversation, sendMessage };

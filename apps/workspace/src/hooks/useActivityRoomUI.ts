@@ -46,6 +46,10 @@ export interface ActivityRoomUIState {
   readonly settingsDrawerOpen: boolean;
   /** Settings drawer dock edge — flips right ↔ left on toolbar toggle. */
   readonly settingsDrawerPosition: 'right' | 'left';
+  /** Browser drawer — embeds the existing agent-browser dashboard. */
+  readonly browserDrawerOpen: boolean;
+  /** Browser drawer dock edge — cycles through supported Activity Room dock edges. */
+  readonly browserDrawerPosition: 'right' | 'left' | 'bottom';
   /** File attachments staged in the composer (e.g. screenshots saved to Files). */
   readonly attachedFiles: readonly ComposerFileAttachment[];
 }
@@ -70,7 +74,10 @@ type Action =
   | { readonly type: 'TOGGLE_FILES_DRAWER' }
   | { readonly type: 'CYCLE_FILES_DRAWER' }
   | { readonly type: 'TOGGLE_SETTINGS_DRAWER' }
-  | { readonly type: 'CYCLE_SETTINGS_DRAWER' };
+  | { readonly type: 'CYCLE_SETTINGS_DRAWER' }
+  | { readonly type: 'TOGGLE_BROWSER_DRAWER' }
+  | { readonly type: 'CYCLE_BROWSER_DRAWER' }
+  | { readonly type: 'DOCK_BROWSER_DRAWER'; readonly position: 'right' | 'left' | 'bottom' };
 
 const INITIAL_STATE: ActivityRoomUIState = {
   detailItem: null,
@@ -84,6 +91,8 @@ const INITIAL_STATE: ActivityRoomUIState = {
   filesDrawerPosition: 'left',
   settingsDrawerOpen: false,
   settingsDrawerPosition: 'right',
+  browserDrawerOpen: false,
+  browserDrawerPosition: 'right',
   attachedFiles: [],
 };
 
@@ -186,6 +195,24 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
         settingsDrawerPosition: state.settingsDrawerPosition === 'right' ? 'left' : 'right',
       };
 
+    case 'TOGGLE_BROWSER_DRAWER':
+      return { ...state, browserDrawerOpen: !state.browserDrawerOpen };
+
+    case 'CYCLE_BROWSER_DRAWER':
+      if (!state.browserDrawerOpen) return { ...state, browserDrawerOpen: true, browserDrawerPosition: 'right' };
+      return {
+        ...state,
+        browserDrawerPosition:
+          state.browserDrawerPosition === 'right'
+            ? 'bottom'
+            : state.browserDrawerPosition === 'bottom'
+              ? 'left'
+              : 'right',
+      };
+
+    case 'DOCK_BROWSER_DRAWER':
+      return { ...state, browserDrawerOpen: true, browserDrawerPosition: action.position };
+
     default:
       return state;
   }
@@ -227,6 +254,12 @@ export function useActivityRoomUI() {
   const cycleFilesDrawer = useCallback(() => dispatch({ type: 'CYCLE_FILES_DRAWER' }), []);
   const toggleSettingsDrawer = useCallback(() => dispatch({ type: 'TOGGLE_SETTINGS_DRAWER' }), []);
   const cycleSettingsDrawer = useCallback(() => dispatch({ type: 'CYCLE_SETTINGS_DRAWER' }), []);
+  const toggleBrowserDrawer = useCallback(() => dispatch({ type: 'TOGGLE_BROWSER_DRAWER' }), []);
+  const cycleBrowserDrawer = useCallback(() => dispatch({ type: 'CYCLE_BROWSER_DRAWER' }), []);
+  const dockBrowserDrawer = useCallback(
+    (position: 'right' | 'left' | 'bottom') => dispatch({ type: 'DOCK_BROWSER_DRAWER', position }),
+    [],
+  );
 
   return {
     ...state,
@@ -251,5 +284,8 @@ export function useActivityRoomUI() {
     cycleFilesDrawer,
     toggleSettingsDrawer,
     cycleSettingsDrawer,
+    toggleBrowserDrawer,
+    cycleBrowserDrawer,
+    dockBrowserDrawer,
   };
 }

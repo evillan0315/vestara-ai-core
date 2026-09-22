@@ -131,6 +131,45 @@ describe('ROUTING-CONVERGENCE-001C S3: lifecycle rows are system-authored', () =
   });
 });
 
+describe('CODEX-OBS-001: Codex tool lifecycle enters canonical M9 projection', () => {
+  it('subscribes to Codex tool-part updates', () => {
+    expect(M9IngestionBridge.getIngestPatterns()).toContain('codex.message.part.updated');
+  });
+
+  it('projects Codex command running/failed as canonical tool facts', async () => {
+    const h = harness();
+    const part = (status: string) =>
+      busEvent('codex.message.part.updated', {
+        part: { type: 'tool', callID: 'cmd-1', tool: 'bash', state: { status } },
+      });
+
+    await h.fire('codex.message.part.updated', {
+      ...part('running'),
+      source: 'assistant-codex-adapter',
+      actor: { id: 'vestara-developer', role: 'agent' },
+    });
+    await h.fire('codex.message.part.updated', {
+      ...part('error'),
+      source: 'assistant-codex-adapter',
+      actor: { id: 'vestara-developer', role: 'agent' },
+    });
+
+    expect(h.appended).toHaveLength(2);
+    expect(h.appended[0]).toMatchObject({
+      eventId: 'tool.called:cmd-1',
+      type: 'tool.called',
+      actor: { type: 'agent', id: 'vestara-developer' },
+      payload: { data: { callID: 'cmd-1', toolName: 'bash' } },
+    });
+    expect(h.appended[1]).toMatchObject({
+      eventId: 'tool.failed:cmd-1',
+      type: 'tool.failed',
+      actor: { type: 'agent', id: 'vestara-developer' },
+      payload: { data: { callID: 'cmd-1', toolName: 'bash' } },
+    });
+  });
+});
+
 describe('ROUTING-CONVERGENCE-001C S3: fromAgentLifecycle compatibility', () => {
   it('defaults to agent authorship for genuine agent rows', () => {
     const event = fromAgentLifecycle({

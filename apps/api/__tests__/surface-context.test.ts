@@ -10,8 +10,8 @@
  * Normalize drops malformed entries and caps the wire at 20 (deterministic).
  */
 
-import { describe, expect, it } from 'vitest';
 import type { TurnSurfaceContext } from '@vestara/shared';
+import { describe, expect, it } from 'vitest';
 import { buildSurfaceSystem } from '../src/assistant-opencode-adapter';
 import { normalizeSurfaceContext } from '../src/routes/conversations';
 

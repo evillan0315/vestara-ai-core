@@ -262,11 +262,11 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
           workspace: { id: 'workspace', name: 'workspace' },
           surface: { routeId: null, path: '', title: null, section: null },
         }),
-        ...((activityReferences && activityReferences.length > 0
+        ...(activityReferences && activityReferences.length > 0
           ? {
               selectedReferences: [...(surfaceContext?.selectedReferences ?? []), ...activityReferences],
             }
-          : {})),
+          : {}),
       };
       sendOptions.surfaceContext = merged;
     }

@@ -45,6 +45,7 @@ import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
 import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
+import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import SouthOutlinedIcon from '@mui/icons-material/SouthOutlined';
 import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined';
@@ -68,6 +69,7 @@ import Drawer from '../../components/ui/Drawer';
 import TerminalWorkspace, { type TerminalWorkspaceApi } from '../../components/terminal/TerminalWorkspace';
 import ActivityFilesPanel from './ActivityFilesPanel';
 import ActivitySettingsPanel from './ActivitySettingsPanel';
+import ActivityBrowserPanel from './ActivityBrowserPanel';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -161,6 +163,39 @@ function normalizeM11CItemForDrawer(item: M11CStreamItem): ActivityProjectionRec
 
 function isProjectionRecord(value: unknown): value is ActivityProjectionRecord {
   return Boolean(value && typeof value === 'object' && typeof (value as { kind?: unknown }).kind === 'string');
+}
+
+function attentionDetailContent(entry: AttentionEntry): string {
+  const details = entry.details ?? {};
+  const rows: string[] = [`${attentionTypeLabel(entry)} · ${entry.message}`];
+  const push = (label: string, value: unknown): void => {
+    if (value === undefined || value === null || value === '') return;
+    rows.push(`${label}: ${String(value)}`);
+  };
+
+  push('Category', entry.category);
+  push('Source', entry.sourceRef ? `${entry.sourceRef.kind}:${entry.sourceRef.id}` : entry.sourceRecordId);
+  push('Subsystem', entry.sourceRef?.subsystem);
+  push('Owner', entry.owner ?? entry.sourceRef?.owner);
+  push('Scope', entry.scope);
+  push('Status', entry.status);
+  push('Severity', entry.severity);
+  push('Reason', entry.reason);
+  push('First observed', entry.firstObservedAt);
+  push('Last observed', entry.lastObservedAt);
+  push('Resolved at', entry.resolvedAt);
+  push('Resolution', entry.resolutionReason);
+  push('Verification run', details.verificationRunId ?? details.reportId);
+  push('Check', details.checkId);
+  push('Check type', details.checkType);
+  push('Command', details.command);
+  push('Path', details.path);
+  push('Line', details.line);
+  push('Column', details.column);
+  push('Rule/code', details.rule ?? details.code);
+  push('Evidence', entry.evidenceRefs?.join(', '));
+
+  return rows.join('\n');
 }
 
 // ─── Component ───────────────────────────────────────────────
@@ -360,9 +395,8 @@ export default function M11CActivityRoomPage() {
         type: entry.actor?.type ?? 'system',
         id: entry.actor?.id ?? entry.owner ?? 'activity-room',
         displayName: entry.actor?.displayName ?? entry.owner ?? 'Activity Room',
-        ...(entry.actor?.role ? { role: entry.actor.role } : {}),
       },
-      content: entry.message,
+      content: attentionDetailContent(entry),
       ...(entry.workflowRunId ? { workflowRunId: String(entry.workflowRunId) } : {}),
       ...(entry.taskId ? { taskId: String(entry.taskId) } : {}),
       fresh: false,
@@ -573,6 +607,7 @@ export default function M11CActivityRoomPage() {
               connectionState={room.state}
               onTerminal={ui.cycleTerminalDrawer}
               onFiles={ui.cycleFilesDrawer}
+              onBrowser={ui.cycleBrowserDrawer}
               onSettings={ui.cycleSettingsDrawer}
               onReferenceScreenshot={(file) =>
                 ui.addFileAttachment({ id: `shot-${Date.now()}`, name: file.name, path: file.path })
@@ -866,6 +901,75 @@ export default function M11CActivityRoomPage() {
           <div className="h-full min-h-0 w-full">
             <ActivitySettingsPanel />
           </div>
+        </Drawer>
+      )}
+      {/* Browser Drawer — embeds the existing agent-browser dashboard only.
+          Opening this drawer does not create or navigate browser sessions. */}
+      {ui.browserDrawerOpen && (
+        <Drawer
+          open
+          onClose={ui.toggleBrowserDrawer}
+          title="Browser"
+          position={ui.browserDrawerPosition}
+          defaultSize="large"
+          storageKey="activity-browser"
+          portal
+          hideBackdrop
+          bodyClassName="overflow-hidden"
+          header={
+            <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Browser dock actions">
+              <button
+                type="button"
+                onClick={() => ui.dockBrowserDrawer('left')}
+                title="Dock browser to left"
+                aria-label="Dock browser to left"
+                aria-pressed={ui.browserDrawerPosition === 'left'}
+                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  ui.browserDrawerPosition === 'left'
+                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
+                }`}
+              >
+                <EastOutlinedIcon sx={{ fontSize: SIZING.icon.sm, transform: 'rotate(180deg)' }} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => ui.dockBrowserDrawer('right')}
+                title="Dock browser to right"
+                aria-label="Dock browser to right"
+                aria-pressed={ui.browserDrawerPosition === 'right'}
+                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  ui.browserDrawerPosition === 'right'
+                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
+                }`}
+              >
+                <EastOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => ui.dockBrowserDrawer('bottom')}
+                title="Dock browser to bottom"
+                aria-label="Dock browser to bottom"
+                aria-pressed={ui.browserDrawerPosition === 'bottom'}
+                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  ui.browserDrawerPosition === 'bottom'
+                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
+                }`}
+              >
+                <SouthOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-[var(--vestara-border-subtle)]" />
+              <PublicOutlinedIcon
+                sx={{ fontSize: SIZING.icon.sm }}
+                className="text-[var(--vestara-text-muted)]"
+                aria-hidden="true"
+              />
+            </div>
+          }
+        >
+          <ActivityBrowserPanel />
         </Drawer>
       )}
     </div>
