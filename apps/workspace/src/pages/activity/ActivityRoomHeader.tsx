@@ -47,7 +47,7 @@ export default function ActivityRoomHeader({
   const freshness = formatFreshness(lastUpdatedAt);
 
   return (
-    <header className="ar-header" aria-label="Activity Room controls">
+    <header className="ar-header px-[var(--vestara-spacing-page)]" aria-label="Activity Room controls">
       <div className="ar-header__identity">
         <div className="ar-header__mark" aria-hidden="true">V</div>
         <div className="min-w-0">

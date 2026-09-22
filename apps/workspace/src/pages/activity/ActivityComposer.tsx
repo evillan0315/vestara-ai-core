@@ -122,13 +122,10 @@ export default function ActivityComposer({
 
   return (
     <div
-      className="shrink-0 overflow-hidden rounded-2xl border border-(--vestara-accent-border)"
+      className="shrink-0 overflow-hidden rounded-2xl border border-(--vestara-accent-border) bg-(--vestara-shell-bg)"
       data-ve-target="composer"
       data-ve-name="Activity Composer"
-      style={{
-        background:
-          'linear-gradient(165deg, color-mix(in srgb, var(--vestara-primary) 10%, transparent), transparent 60%), var(--color-zinc-950)',
-      }}
+
     >
       <div className="h-0.5 bg-[linear-gradient(90deg,var(--vestara-primary),var(--vestara-primary-muted))]" />
       <div className="px-3 py-2">

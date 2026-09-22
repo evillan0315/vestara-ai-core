@@ -63,7 +63,7 @@ export function MultiTabHeader({ tabs, activePath, isDirty, onSelect, onCloseReq
             <div
               key={tab.path}
               role="presentation"
-              className={`flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-md)] border px-2 py-1 text-xs ${
+              className={`flex shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius)] border px-2 py-1 text-xs ${
                 active
                   ? 'border-[var(--vestara-border-focus)] bg-[var(--files-selected-bg)] text-[var(--vestara-text-primary)]'
                   : 'border-transparent text-[var(--vestara-text-muted)] hover:border-[var(--vestara-border-subtle)] hover:text-[var(--vestara-text-secondary)]'
@@ -109,7 +109,7 @@ export function MultiTabHeader({ tabs, activePath, isDirty, onSelect, onCloseReq
           onClick={onCloseAllRequest}
           aria-label="Close all tabs"
           title="Close all tabs"
-          className="shrink-0 rounded-[var(--vestara-radius-md)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+          className="shrink-0 rounded-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
         >
           Close all
         </button>

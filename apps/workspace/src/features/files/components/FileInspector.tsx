@@ -96,7 +96,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
       <div className="flex min-w-0 shrink-0 items-center gap-2.5">
         <span
           aria-hidden="true"
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--vestara-radius-md)] bg-[var(--vestara-status-info-bg)] font-mono text-xs font-bold text-[var(--vestara-status-info)]"
+          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[var(--vestara-radius)] bg-[var(--vestara-status-info-bg)] font-mono text-xs font-bold text-[var(--vestara-status-info)]"
         >
           {(entry.language ?? entry.kind).slice(0, 2).toUpperCase()}
         </span>
@@ -150,7 +150,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
       <div className="min-h-0 flex-1 overflow-auto py-3" role="tabpanel">
         {tab === 'details' && (
           <div className="space-y-3">
-            <div className="flex items-center gap-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-2 text-sm text-[var(--vestara-text-secondary)]">
+            <div className="flex items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-2 text-sm text-[var(--vestara-text-secondary)]">
               <span aria-hidden="true" className="font-mono text-[var(--vestara-text-muted)]">&lt;/&gt;</span>
               {typeTitle}
             </div>
@@ -185,7 +185,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
               <button
                 type="button"
                 onClick={() => (isDir ? onOpenDir(entry) : onOpenInEditor(entry))}
-                className="rounded-[var(--vestara-radius-md)] bg-[var(--vestara-status-success)] px-2.5 py-1.5 text-xs font-semibold text-[var(--vestara-surface-canvas)] hover:brightness-110"
+                className="rounded-[var(--vestara-radius)] bg-[var(--vestara-status-success)] px-2.5 py-1.5 text-xs font-semibold text-[var(--vestara-surface-canvas)] hover:brightness-110"
               >
                 Open
               </button>
@@ -193,7 +193,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                 <button
                   type="button"
                   onClick={() => onOpenInEditor(entry)}
-                  className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Open in Editor
                 </button>
@@ -202,7 +202,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                 <button
                   type="button"
                   onClick={() => void ops.download(entry.path)}
-                  className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Download
                 </button>
@@ -213,14 +213,14 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                   const done = () => undefined;
                   if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(entry.path).then(done, done);
                 }}
-                className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
               >
                 Copy Path
               </button>
               <button
                 type="button"
                 onClick={handleRename}
-                className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
               >
                 Rename
               </button>
@@ -228,7 +228,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                 <button
                   type="button"
                   onClick={() => void ops.duplicate(entry.path)}
-                  className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1.5 text-xs text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Duplicate
                 </button>
@@ -236,7 +236,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
               <button
                 type="button"
                 onClick={handleDelete}
-                className="col-span-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-error-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--vestara-status-error)] hover:bg-[var(--vestara-status-error-bg)]"
+                className="col-span-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-error-border)] px-2.5 py-1.5 text-xs font-semibold text-[var(--vestara-status-error)] hover:bg-[var(--vestara-status-error-bg)]"
               >
                 Delete
               </button>
@@ -249,7 +249,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                   onClick={() => {
                     if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(entry.path).then(undefined, undefined);
                   }}
-                  className="rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Copy Relative Path
                 </button>
@@ -258,14 +258,14 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                   onClick={() => {
                     if (navigator.clipboard?.writeText) void navigator.clipboard.writeText(entry.name).then(undefined, undefined);
                   }}
-                  className="rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Copy File Name
                 </button>
                 <a
                   href="/terminal"
                   title={`Open terminal for ${entry.path}`}
-                  className="rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Show in Terminal
                 </a>
@@ -275,7 +275,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
                     const parent = entry.path.includes('/') ? entry.path.slice(0, entry.path.lastIndexOf('/')) : '';
                     onOpenDir({ ...entry, path: parent, name: parent.split('/').pop() ?? '', kind: 'dir' });
                   }}
-                  className="rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="rounded-[var(--vestara-radius)] px-2 py-1.5 text-left text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Open Containing Folder
                 </button>
@@ -292,7 +292,7 @@ export function FileInspector({ entry, ops, onOpenInEditor, onOpenDir, onDeselec
             {activity !== null && activity.length > 0 && (
               <ul className="space-y-2">
                 {activity.slice(0, 20).map((o) => (
-                  <li key={o.id} className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] p-2 text-xs">
+                  <li key={o.id} className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] p-2 text-xs">
                     <p className="truncate font-mono text-[var(--vestara-text-secondary)]" title={o.operation}>
                       {o.operation}
                     </p>

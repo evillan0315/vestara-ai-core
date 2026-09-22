@@ -3441,6 +3441,20 @@
   }
 }
 
+/* ── Operation Controls: wrapped buttons on canonical gaps with accent
+   borders (density-driven; Pill tones/behavior untouched). ───────────── */
+.ar-page .ar-context__actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--vestara-spacing-element);
+}
+
+.ar-page .ar-context__actions > * {
+  width: 100%;
+  justify-content: center;
+  border-color: var(--vestara-accent-border);
+}
+
 /* ── Stream list (not cards) ───────────────────────────────────────
    Records read as ONE continuous operational list on the panel surface:
    flat rows, no radius, no card outline — separation is border-bottom.
@@ -3493,4 +3507,31 @@
 .ar-page .ar-stream-filter {
   gap: var(--vestara-spacing-element);
   padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+}
+
+/* ── Terminal drawer: classic terminal window ────────────────────────
+   Tabs + toolbar stay (session controls live there). The inspector rail
+   and status footer hide inside the drawer — the screen owns the panel.
+   Scoped via Drawer panel/body hooks (portal-safe: no .ar-page ancestor). */
+.ar-terminal-drawer__body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  overflow: hidden;
+}
+
+.ar-terminal-drawer .operational-workspace-layout__context,
+.ar-terminal-drawer .operational-workspace-layout__footer {
+  display: none;
+}
+
+.ar-terminal-drawer .operational-workspace-layout__main > div {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Terminal screen breathing room: pad the pane container (not the xterm
+   canvas itself) so the FitAddon still measures the true drawable area. */
+.ar-terminal-drawer div.flex-1.min-h-0.overflow-hidden {
+  padding: var(--vestara-spacing-element);
 }

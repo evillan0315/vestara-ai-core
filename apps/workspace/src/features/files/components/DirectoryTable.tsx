@@ -192,7 +192,7 @@ export function DirectoryTable({
       ) : (
         <div className="min-h-0 flex-1 overflow-auto">
           <table className="w-full border-collapse text-left text-sm">
-            <thead className="sticky top-0 bg-[var(--vestara-surface-panel)]">
+            <thead className="sticky top-0 bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)]">
               <tr className="border-b border-[var(--vestara-border-subtle)] text-xs uppercase tracking-wider text-[var(--vestara-text-muted)]">
                 <th scope="col" className="px-3 py-2 font-semibold">Name</th>
                 <th scope="col" className="hidden px-3 py-2 font-semibold sm:table-cell">Type</th>
@@ -247,7 +247,7 @@ export function DirectoryTable({
                         }
                         title={entry.path}
                         aria-current={entry.path === selectedPath ? 'true' : undefined}
-                        className="flex w-full items-center gap-2.5 rounded-[var(--vestara-radius-md)] px-2 py-1.5 text-left hover:bg-[var(--files-row-hover-bg)]"
+                        className="flex w-full items-center gap-2.5 rounded-[var(--vestara-radius)] px-2 py-1.5 text-left hover:bg-[var(--files-row-hover-bg)]"
                       >
                         <span aria-hidden="true" className={`mpg-icon-box h-7 w-7 shrink-0 text-xs ${tileClass(accent)}`}>
                           {glyph}

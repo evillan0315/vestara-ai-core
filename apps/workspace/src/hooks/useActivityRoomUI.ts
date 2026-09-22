@@ -16,6 +16,13 @@ import type { M11CStreamItem } from './useM11CActivityRoom';
 
 // ─── Types ───────────────────────────────────────────────────
 
+/** A workspace file staged as a composer attachment (saved, path-addressable). */
+export interface ComposerFileAttachment {
+  readonly id: string;
+  readonly name: string;
+  readonly path: string;
+}
+
 export interface ActivityRoomUIState {
   /** Detail modal — shows full item metadata. */
   readonly detailItem: M11CStreamItem | null;
@@ -29,6 +36,18 @@ export interface ActivityRoomUIState {
   readonly replyToItem: M11CStreamItem | null;
   /** Terminal drawer — bottom large drawer for terminal access. */
   readonly terminalDrawerOpen: boolean;
+  /** Terminal drawer dock edge — bottom, top, or right. */
+  readonly terminalDrawerPosition: 'bottom' | 'top' | 'right';
+  /** Files drawer — file browser panel for the Activity Room. */
+  readonly filesDrawerOpen: boolean;
+  /** Files drawer dock edge — flips left ↔ right on toolbar toggle. */
+  readonly filesDrawerPosition: 'left' | 'right';
+  /** Settings drawer — display preferences for the Activity Room. */
+  readonly settingsDrawerOpen: boolean;
+  /** Settings drawer dock edge — flips right ↔ left on toolbar toggle. */
+  readonly settingsDrawerPosition: 'right' | 'left';
+  /** File attachments staged in the composer (e.g. screenshots saved to Files). */
+  readonly attachedFiles: readonly ComposerFileAttachment[];
 }
 
 type Action =
@@ -41,8 +60,17 @@ type Action =
   | { readonly type: 'OPEN_AGENT_CONTROL'; readonly participantId: string }
   | { readonly type: 'CLOSE_AGENT_CONTROL' }
   | { readonly type: 'SET_REPLY_TO'; readonly item: M11CStreamItem | null }
+  | { readonly type: 'ADD_FILE_ATTACHMENT'; readonly attachment: ComposerFileAttachment }
+  | { readonly type: 'REMOVE_FILE_ATTACHMENT'; readonly id: string }
+  | { readonly type: 'CLEAR_FILE_ATTACHMENTS' }
   | { readonly type: 'CLOSE_ALL' }
-  | { readonly type: 'TOGGLE_TERMINAL_DRAWER' };
+  | { readonly type: 'TOGGLE_TERMINAL_DRAWER' }
+  | { readonly type: 'CYCLE_TERMINAL_DRAWER' }
+  | { readonly type: 'DOCK_TERMINAL_DRAWER'; readonly position: 'bottom' | 'top' | 'right' }
+  | { readonly type: 'TOGGLE_FILES_DRAWER' }
+  | { readonly type: 'CYCLE_FILES_DRAWER' }
+  | { readonly type: 'TOGGLE_SETTINGS_DRAWER' }
+  | { readonly type: 'CYCLE_SETTINGS_DRAWER' };
 
 const INITIAL_STATE: ActivityRoomUIState = {
   detailItem: null,
@@ -50,6 +78,13 @@ const INITIAL_STATE: ActivityRoomUIState = {
   threadActivityIds: [],
   agentControlParticipantId: undefined,
   replyToItem: null,
+  terminalDrawerOpen: false,
+  terminalDrawerPosition: 'bottom',
+  filesDrawerOpen: false,
+  filesDrawerPosition: 'left',
+  settingsDrawerOpen: false,
+  settingsDrawerPosition: 'right',
+  attachedFiles: [],
 };
 
 function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIState {
@@ -99,11 +134,57 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
     case 'SET_REPLY_TO':
       return { ...state, replyToItem: action.item };
 
+    case 'ADD_FILE_ATTACHMENT':
+      if (state.attachedFiles.some((existing) => existing.id === action.attachment.id)) return state;
+      return { ...state, attachedFiles: [...state.attachedFiles, action.attachment] };
+
+    case 'REMOVE_FILE_ATTACHMENT':
+      return { ...state, attachedFiles: state.attachedFiles.filter((existing) => existing.id !== action.id) };
+
+    case 'CLEAR_FILE_ATTACHMENTS':
+      return state.attachedFiles.length === 0 ? state : { ...state, attachedFiles: [] };
+
     case 'CLOSE_ALL':
       return INITIAL_STATE;
 
     case 'TOGGLE_TERMINAL_DRAWER':
       return { ...state, terminalDrawerOpen: !state.terminalDrawerOpen };
+
+    case 'CYCLE_TERMINAL_DRAWER':
+      // Toolbar toggle: closed → open docked bottom; open → flip the dock
+      // edge (stays open, session survives — no remount).
+      if (!state.terminalDrawerOpen) return { ...state, terminalDrawerOpen: true, terminalDrawerPosition: 'bottom' };
+      return {
+        ...state,
+        terminalDrawerPosition: state.terminalDrawerPosition === 'bottom' ? 'top' : 'bottom',
+      };
+
+    case 'DOCK_TERMINAL_DRAWER':
+      return { ...state, terminalDrawerOpen: true, terminalDrawerPosition: action.position };
+
+    case 'TOGGLE_FILES_DRAWER':
+      return { ...state, filesDrawerOpen: !state.filesDrawerOpen };
+
+    case 'CYCLE_FILES_DRAWER':
+      // Toolbar toggle: closed → open docked left; open → flip the dock
+      // edge left ↔ right (stays open, browser state survives — no remount).
+      if (!state.filesDrawerOpen) return { ...state, filesDrawerOpen: true, filesDrawerPosition: 'left' };
+      return {
+        ...state,
+        filesDrawerPosition: state.filesDrawerPosition === 'left' ? 'right' : 'left',
+      };
+
+    case 'TOGGLE_SETTINGS_DRAWER':
+      return { ...state, settingsDrawerOpen: !state.settingsDrawerOpen };
+
+    case 'CYCLE_SETTINGS_DRAWER':
+      // Toolbar toggle: closed → open docked right; open → flip the dock
+      // edge right ↔ left (stays open, draft state survives — no remount).
+      if (!state.settingsDrawerOpen) return { ...state, settingsDrawerOpen: true, settingsDrawerPosition: 'right' };
+      return {
+        ...state,
+        settingsDrawerPosition: state.settingsDrawerPosition === 'right' ? 'left' : 'right',
+      };
 
     default:
       return state;
@@ -129,8 +210,23 @@ export function useActivityRoomUI() {
 
   const setReplyTo = useCallback((item: M11CStreamItem | null) => dispatch({ type: 'SET_REPLY_TO', item }), []);
   const clearReply = useCallback(() => dispatch({ type: 'SET_REPLY_TO', item: null }), []);
+  const addFileAttachment = useCallback(
+    (attachment: ComposerFileAttachment) => dispatch({ type: 'ADD_FILE_ATTACHMENT', attachment }),
+    [],
+  );
+  const removeFileAttachment = useCallback((id: string) => dispatch({ type: 'REMOVE_FILE_ATTACHMENT', id }), []);
+  const clearFileAttachments = useCallback(() => dispatch({ type: 'CLEAR_FILE_ATTACHMENTS' }), []);
   const closeAll = useCallback(() => dispatch({ type: 'CLOSE_ALL' }), []);
   const toggleTerminalDrawer = useCallback(() => dispatch({ type: 'TOGGLE_TERMINAL_DRAWER' }), []);
+  const cycleTerminalDrawer = useCallback(() => dispatch({ type: 'CYCLE_TERMINAL_DRAWER' }), []);
+  const dockTerminalDrawer = useCallback(
+    (position: 'bottom' | 'top' | 'right') => dispatch({ type: 'DOCK_TERMINAL_DRAWER', position }),
+    [],
+  );
+  const toggleFilesDrawer = useCallback(() => dispatch({ type: 'TOGGLE_FILES_DRAWER' }), []);
+  const cycleFilesDrawer = useCallback(() => dispatch({ type: 'CYCLE_FILES_DRAWER' }), []);
+  const toggleSettingsDrawer = useCallback(() => dispatch({ type: 'TOGGLE_SETTINGS_DRAWER' }), []);
+  const cycleSettingsDrawer = useCallback(() => dispatch({ type: 'CYCLE_SETTINGS_DRAWER' }), []);
 
   return {
     ...state,
@@ -144,7 +240,16 @@ export function useActivityRoomUI() {
     closeAgentControl,
     setReplyTo,
     clearReply,
+    addFileAttachment,
+    removeFileAttachment,
+    clearFileAttachments,
     closeAll,
     toggleTerminalDrawer,
+    cycleTerminalDrawer,
+    dockTerminalDrawer,
+    toggleFilesDrawer,
+    cycleFilesDrawer,
+    toggleSettingsDrawer,
+    cycleSettingsDrawer,
   };
 }

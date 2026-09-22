@@ -43,6 +43,12 @@ import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
+import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
+import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
+import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
+import SouthOutlinedIcon from '@mui/icons-material/SouthOutlined';
+import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined';
+import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import M11CActivityStream, {
   AttentionMaterialIcon,
@@ -59,7 +65,9 @@ import { WORKFLOW_STATUS_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 import ActivityRoomHeader from './ActivityRoomHeader';
 import Drawer from '../../components/ui/Drawer';
-import TerminalPane from '../../components/terminal/TerminalPane';
+import TerminalWorkspace, { type TerminalWorkspaceApi } from '../../components/terminal/TerminalWorkspace';
+import ActivityFilesPanel from './ActivityFilesPanel';
+import ActivitySettingsPanel from './ActivitySettingsPanel';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -162,6 +170,9 @@ export default function M11CActivityRoomPage() {
   const room = useM11CActivityRoom();
   const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
+  // Imperative bridge to the drawer-hosted terminal workspace (session
+  // actions live there; the drawer header only triggers them).
+  const terminalApi = useRef<TerminalWorkspaceApi | null>(null);
   // Scan-first scope: attention banner focuses the stream preset; workflow
   // badges/browser rows scope the stream to one workflow. Both clearable.
   const [attentionFocus, setAttentionFocus] = useState(false);
@@ -192,6 +203,34 @@ export default function M11CActivityRoomPage() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [mobilePanel]);
+
+  // Drawer shortcuts (Activity Room scope only): backtick toggles Terminal,
+  // Ctrl/⌘+B toggles the Files explorer. Typing surfaces (inputs, composer,
+  // xterm helper textarea) are never hijacked.
+  const { toggleTerminalDrawer, toggleFilesDrawer } = ui;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleFilesDrawer();
+        return;
+      }
+      const target = e.target as HTMLElement | null;
+      const typing =
+        !!target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable ||
+          target.getAttribute('role') === 'textbox');
+      if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.key === '`') {
+        e.preventDefault();
+        toggleTerminalDrawer();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [toggleTerminalDrawer, toggleFilesDrawer]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
@@ -384,8 +423,10 @@ export default function M11CActivityRoomPage() {
   const workflowUnits = useMemo(() => deriveWorkflowUnits(room.stream), [room.stream]);
   const hasActiveWorkflows = hasActiveWork(workflowUnits, room.workflowSummary);
   const activityLoading = room.lastUpdatedAt === null && room.state === 'connecting';
+  // Root gap-* matches Files/Settings page containers: canonical section
+  // spacing between hero, launchers, and the working area.
   return (
-    <div className="ar-page min-w-0 w-full max-w-full">
+    <div className="ar-page min-w-0 w-full max-w-full g px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]">
       {/* ─── Canonical workspace Hero (VES-DESIGN-008B) ─────────
           Replaces the hand-rolled ar-plinth. Hierarchy:
           STATUS (connection) vs METADATA (records/cursor) vs ACTION
@@ -411,7 +452,7 @@ export default function M11CActivityRoomPage() {
       {/* ─── Small-screen launchers (rail hides <640px) ──────────
           Participants and workflows open as bottom sheets; the stream keeps
           the single column. Hidden once the rail docks. */}
-      <div className="ar-panel-launchers mt-3 flex gap-2" role="group" aria-label="Open panels">
+      <div className="ar-panel-launchers flex gap-2" role="group" aria-label="Open panels">
         <button
           type="button"
           onClick={() => setMobilePanel('participants')}
@@ -431,7 +472,7 @@ export default function M11CActivityRoomPage() {
       </div>
 
       {!hasActiveWorkflows && (
-        <details className="ar-workflows-disclosure mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5">
+        <details className="ar-workflows-disclosure rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-4 py-2.5">
           <summary className="cursor-pointer text-sm font-medium text-[var(--vestara-text-secondary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset">
             Workflows · {workflowUnits.length}
             <span className="ml-2 text-xs font-normal text-[var(--vestara-text-muted)]">
@@ -454,7 +495,7 @@ export default function M11CActivityRoomPage() {
             {/* Operational/Verification Lane hidden until VER-GOV-001 provides
                 authoritative runtime state. Component and contract retained. */}
             {room.error && (
-              <div className="ar-banner ar-banner--warn mt-3" role="alert">
+              <div className="ar-banner ar-banner--warn my-[var(--vestara-spacing-section)]" role="alert">
                 <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
                 <span className="min-w-0 flex-1">{room.error}</span>
                 <Pill variant="danger" size="sm" onClick={room.retry}>
@@ -463,7 +504,7 @@ export default function M11CActivityRoomPage() {
               </div>
             )}
             {(room.state === 'reconnecting' || room.state === 'offline') && room.lastUpdatedAt !== null && (
-              <div className="ar-banner ar-banner--info mt-3" role="status" aria-live="polite">
+              <div className="ar-banner ar-banner--info my-[var(--vestara-spacing-section)]" role="status" aria-live="polite">
                 <StatusIndicator variant="warn" size="sm" ariaLabel="Activity Room reconnecting" />
                 <span className="min-w-0 flex-1">
                   {room.state === 'reconnecting' ? 'Reconnecting — showing the latest received activity.' : 'Connection lost — activity may be stale.'}
@@ -484,7 +525,7 @@ export default function M11CActivityRoomPage() {
                   onClick={() => setAttentionFocus((v) => !v)}
                   aria-pressed={attentionFocus}
                   title={attentionFocus ? 'Clear attention focus' : `Focus needs-attention activity (${room.attention.length} items)`}
-                  className={`ar-banner mt-3 w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
+                  className={`ar-banner my-[var(--vestara-spacing-section)] w-full cursor-pointer text-left transition-colors hover:brightness-125 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${critical > 0 ? 'ar-banner--warn' : 'ar-banner--info'}`}
                 >
                   <span className="flex min-w-0 flex-1 items-center gap-2">
                     <StatusIndicator
@@ -530,6 +571,12 @@ export default function M11CActivityRoomPage() {
               participantCount={room.participants.length}
               activeAgentCount={activeAgentCount}
               connectionState={room.state}
+              onTerminal={ui.cycleTerminalDrawer}
+              onFiles={ui.cycleFilesDrawer}
+              onSettings={ui.cycleSettingsDrawer}
+              onReferenceScreenshot={(file) =>
+                ui.addFileAttachment({ id: `shot-${Date.now()}`, name: file.name, path: file.path })
+              }
             />
           </aside>
         )}
@@ -610,6 +657,9 @@ export default function M11CActivityRoomPage() {
             onRemoveReference={handleRemoveReference}
             onOpenReference={handleOpenAttention}
             onClearReferences={clearAttachedRefs}
+            attachedFiles={ui.attachedFiles}
+            onRemoveFile={ui.removeFileAttachment}
+            onClearFiles={ui.clearFileAttachments}
             participants={room.participants}
           />
         </main>
@@ -703,18 +753,118 @@ export default function M11CActivityRoomPage() {
           participant={agentControlParticipant}
         />
       )}
-      {/* Terminal Drawer — bottom large */}
+      {/* Terminal Drawer — docks bottom, flips to top on toolbar toggle.
+          Stays mounted while open so the session survives the flip. The
+          workspace toolbar is hidden here; its actions live in this header. */}
       {ui.terminalDrawerOpen && (
         <Drawer
           open
-          onClose={() => ui.closeAgentControl()} // reuse close logic or create proper close
+          onClose={ui.toggleTerminalDrawer}
           title="Terminal"
-          position="bottom"
+          position={ui.terminalDrawerPosition}
           defaultSize="large"
           portal
+          panelClassName="ar-terminal-drawer"
+          bodyClassName="ar-terminal-drawer__body"
+          hideBackdrop
+          header={
+            <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Terminal actions">
+              <button
+                type="button"
+                onClick={() => ui.dockTerminalDrawer('bottom')}
+                title="Dock terminal to bottom"
+                aria-label="Dock terminal to bottom"
+                aria-pressed={ui.terminalDrawerPosition === 'bottom'}
+                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  ui.terminalDrawerPosition === 'bottom'
+                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
+                }`}
+              >
+                <SouthOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => ui.dockTerminalDrawer('right')}
+                title="Dock terminal to right"
+                aria-label="Dock terminal to right"
+                aria-pressed={ui.terminalDrawerPosition === 'right'}
+                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
+                  ui.terminalDrawerPosition === 'right'
+                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
+                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
+                }`}
+              >
+                <EastOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-[var(--vestara-border-subtle)]" />
+              <button
+                type="button"
+                onClick={() => terminalApi.current?.newSession()}
+                title="New terminal session"
+                aria-label="New terminal session"
+                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              >
+                <AddOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => terminalApi.current?.clearActive()}
+                title="Clear terminal"
+                aria-label="Clear terminal"
+                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              >
+                <CleaningServicesOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => terminalApi.current?.killActive()}
+                title="Kill terminal session"
+                aria-label="Kill terminal session"
+                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-status-error-bg)] hover:text-[var(--vestara-status-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              >
+                <DeleteOutlineOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              </button>
+            </div>
+          }
         >
-          <div className="h-full w-full">
-            <TerminalPane />
+          {/* Full terminal workspace (same component as the Terminal page):
+              server sessions, tabs, and backend-piped I/O. */}
+          <div className="h-full min-h-0 w-full">
+            <TerminalWorkspace ref={terminalApi} hideToolbar />
+          </div>
+        </Drawer>
+      )}
+      {/* Files Drawer — docks left, flips to right on toolbar toggle.
+          Same production workspace as the Files page (no parallel browser). */}
+      {ui.filesDrawerOpen && (
+        <Drawer
+          open
+          onClose={ui.toggleFilesDrawer}
+          title="Files"
+          position={ui.filesDrawerPosition}
+          defaultSize="medium"
+          portal
+          hideBackdrop
+        >
+          <div className="h-full min-h-0 w-full">
+            <ActivityFilesPanel />
+          </div>
+        </Drawer>
+      )}
+      {/* Settings Drawer — docks right, flips to left on toolbar toggle.
+          Full-size takeover; same General surface as the Settings page. */}
+      {ui.settingsDrawerOpen && (
+        <Drawer
+          open
+          onClose={ui.toggleSettingsDrawer}
+          title="Settings"
+          position={ui.settingsDrawerPosition}
+          defaultSize="full"
+          portal
+        >
+          <div className="h-full min-h-0 w-full">
+            <ActivitySettingsPanel />
           </div>
         </Drawer>
       )}
@@ -795,6 +945,9 @@ function M11CComposer({
   onRemoveReference,
   onOpenReference,
   onClearReferences,
+  attachedFiles = [],
+  onRemoveFile,
+  onClearFiles,
   participants = [],
 }: {
   replyTo?: M11CStreamItem | null;
@@ -809,6 +962,14 @@ function M11CComposer({
   /** Reopen the source activity behind a reference chip in the detail drawer. */
   onOpenReference?: (entry: AttentionEntry) => void;
   onClearReferences?: () => void;
+  /**
+   * Workspace files staged as attachments (e.g. screenshots saved to Files).
+   * Rendered as chips; sent as `![name](path)` markdown appended to the
+   * instruction — visible, editable-by-removal, never silently injected.
+   */
+  attachedFiles?: readonly { readonly id: string; readonly name: string; readonly path: string }[];
+  onRemoveFile?: (id: string) => void;
+  onClearFiles?: () => void;
   participants?: readonly ParticipantOption[];
 }) {
   // AAR-001E: human messages cap at 4000 chars (server enforces; the
@@ -871,8 +1032,14 @@ function M11CComposer({
         replyTo !== null && replyTo !== undefined
           ? [...new Set([replyTo.id, ...referenceIds])]
           : [...new Set(referenceIds)];
+      // Staged file attachments travel as visible markdown image references
+      // to workspace paths the agent can read. The chips above are their
+      // exact preview — nothing hidden, removable before Send.
+      const attachmentLines = attachedFiles.map((file) => `![${file.name}](${file.path})`);
+      const contentWithAttachments =
+        attachmentLines.length > 0 ? `${text}\n\n${attachmentLines.join('\n')}` : text;
       await postActivityMessage({
-        content: text,
+        content: contentWithAttachments,
         targets: [...targets],
         actor: { displayName: 'You', role: 'human' },
         // Surface attestation: this composer speaks FROM the Workspace UI.
@@ -886,13 +1053,15 @@ function M11CComposer({
       setMentionOpen(false);
       onClearReply?.();
       onClearReferences?.();
+      onClearFiles?.();
     } catch (err) {
-      // Send failed — text AND references stay so the user can retry intact.
+      // Send failed — text, references, AND file attachments stay so the
+      // user can retry intact.
       setError(err instanceof Error ? err.message : 'Failed to send');
     } finally {
       setSending(false);
     }
-  }, [value, sending, replyTo, references, onClearReply, onClearReferences, structuredTarget]);
+  }, [value, sending, replyTo, references, attachedFiles, onClearReply, onClearReferences, onClearFiles, structuredTarget]);
 
   const handleChange = useCallback((next: string) => {
     setValue(next);
@@ -985,7 +1154,7 @@ function M11CComposer({
     // keyboard (Enter sends), validation, and states are unchanged. No
     // delivery/permission claims: HTTP 201 establishes none (recorded gap).
     <div
-      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-section)] shadow-[var(--vestara-elevation-md)]"
+      className="ar-composer-pin rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent)] bg-[var(--vestara-surface-canvas)] p-[var(--vestara-spacing-section)] shadow-[var(--vestara-elevation-md)]"
       role="form"
       aria-label="Message composer"
     >
@@ -1055,6 +1224,35 @@ function M11CComposer({
         </div>
       )}
 
+      {/* Staged file attachments (e.g. screenshots). Same chip language as
+          attention references; the × removes before Send. */}
+      {attachedFiles.length > 0 && (
+        <div className="mb-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center gap-[var(--vestara-spacing-element)]" aria-label="Attached files">
+          {attachedFiles.map((file) => (
+            <span
+              key={file.id}
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] py-0.5 pl-1.5 pr-0.5 text-[11px]"
+              title={`Attached file ${file.path}`}
+            >
+              <ImageOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+              <span className="min-w-0 truncate font-semibold text-[var(--vestara-text-primary)]">
+                {file.name}
+              </span>
+              {onRemoveFile && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveFile(file.id)}
+                  aria-label={`Remove ${file.name} attachment`}
+                  className="grid size-5 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] text-[var(--vestara-text-muted)] transition-colors hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+
        {/* Instruction: dominant multiline field, visually quiet until focused */}
        <div className="ar-composer__row relative min-w-0">
           <textarea
@@ -1074,7 +1272,7 @@ function M11CComposer({
             <div
               role="listbox"
               aria-label="Mention agents"
-              className="absolute bottom-full left-0 z-10 mb-1 max-h-64 w-72 overflow-y-auto rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-panel-raised)] p-1 shadow-2xl"
+              className="absolute bottom-full left-0 z-10 mb-1 max-h-64 w-72 overflow-y-auto rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] p-1 shadow-2xl"
             >
               {pickerEntries.length === 0 ? (
                 <div className="px-2 py-1 text-[11px] text-[var(--vestara-text-muted)]">No matching agents.</div>
@@ -1280,7 +1478,7 @@ function M11CThreadModal({
             const author = lookupAuthor?.(id) ?? 'Unknown';
             const content = lookupContent?.(id);
             return (
-              <div key={id} className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2">
+              <div key={id} className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2">
                 <div className="flex items-center gap-2 text-[11px] text-[var(--vestara-text-muted)] mb-1">
                   <span className="font-medium text-[var(--vestara-text-secondary)]">{author}</span>
                   <span className="text-[var(--vestara-text-dim)]">·</span>

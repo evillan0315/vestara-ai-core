@@ -19,7 +19,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react';
 
 // ─── Types ─────────────────────────────────────────────────────
 
-export type ActionIconTone = 'default' | 'muted' | 'accent' | 'destructive';
+export type ActionIconTone = 'default' | 'muted' | 'accent' | 'info' | 'success' | 'warning' | 'destructive';
 export type ActionIconSize = 'sm' | 'md' | 'lg';
 
 export interface ActionIconProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
@@ -51,6 +51,18 @@ export const ACTION_ICON_TONES: Record<ActionIconTone, { text: string; hover: st
   },
   accent: {
     text: 'text-[var(--vestara-accent)]',
+    hover: 'hover:brightness-125',
+  },
+  info: {
+    text: 'text-[var(--vestara-status-info)]',
+    hover: 'hover:brightness-125',
+  },
+  success: {
+    text: 'text-[var(--vestara-status-success)]',
+    hover: 'hover:brightness-125',
+  },
+  warning: {
+    text: 'text-[var(--vestara-status-warning)]',
     hover: 'hover:brightness-125',
   },
   destructive: {

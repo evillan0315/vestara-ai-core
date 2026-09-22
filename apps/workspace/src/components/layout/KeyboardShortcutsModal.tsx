@@ -20,6 +20,8 @@ const SHORTCUTS: ShortcutEntry[] = [
   { keys: ['G then A'], description: 'Navigate to Agents' },
   { keys: ['G then C'], description: 'Navigate to Chat' },
   { keys: ['G then T'], description: 'Navigate to Terminal' },
+  { keys: ['`'], description: 'Toggle terminal drawer (Activity Room)' },
+  { keys: ['⌘B', 'Ctrl+B'], description: 'Toggle files drawer (Activity Room)' },
 ];
 
 const KeyboardShortcutsModal: FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {

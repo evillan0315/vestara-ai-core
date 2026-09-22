@@ -13,7 +13,8 @@
  * tab ×, idle timeout, lifetime deadline, or server shutdown does.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
+import type { ForwardedRef } from 'react';
 import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
 import { TerminalEmptyState } from './TerminalEmptyState';
 import { TerminalInspector } from './TerminalInspector';
@@ -24,7 +25,21 @@ import { TerminalToolbar } from './TerminalToolbar';
 import { useTerminalSessions } from './useTerminalSessions';
 import { resolveWsUrl } from '../../lib/clientConfig';
 
-export default function TerminalWorkspace() {
+/**
+ * Imperative session actions for hosts that render the workspace's toolbar
+ * elsewhere (e.g. a drawer header). All actions guard internally and are
+ * safe to call without an active session.
+ */
+export interface TerminalWorkspaceApi {
+  readonly newSession: () => void;
+  readonly clearActive: () => void;
+  readonly killActive: () => void;
+}
+
+function TerminalWorkspaceInner(
+  { hideToolbar = false }: { readonly hideToolbar?: boolean },
+  ref: ForwardedRef<TerminalWorkspaceApi>,
+) {
   const {
     sessions,
     activeId,
@@ -247,6 +262,18 @@ export default function TerminalWorkspace() {
     [activeId, removeSession],
   );
 
+  useImperativeHandle(
+    ref,
+    () => ({
+      newSession: () => handleNewSession(),
+      clearActive: () => handleClearSession(),
+      killActive: () => {
+        if (activeId) handleKillSession(activeId);
+      },
+    }),
+    [handleNewSession, handleClearSession, handleKillSession, activeId],
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       <OperationalWorkspaceLayout context={<TerminalInspector session={activeSession} sessions={sessions} onReconnect={connectSession} onClear={clearTerminal} />} footer={<TerminalStatusBar session={activeSession} connected={connected} reconnectCount={0} uptime={uptime} />}>
@@ -262,16 +289,18 @@ export default function TerminalWorkspace() {
         />
       )}
 
-      <TerminalToolbar
-        activeSession={activeSession}
-        onClear={handleClearSession}
-        onKill={handleKillSession}
-        onAddSession={handleNewSession}
-      />
+      {!hideToolbar && (
+        <TerminalToolbar
+          activeSession={activeSession}
+          onClear={handleClearSession}
+          onKill={handleKillSession}
+          onAddSession={handleNewSession}
+        />
+      )}
 
-      <div className="flex-1 min-h-0 overflow-hidden" key={activeId || 'empty'}>
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden" key={activeId || 'empty'}>
         {activeSession ? (
-          <div className="w-full h-full">
+          <div className="min-h-0 w-full flex-1">
             <TerminalPane
               sessionId={activeSession.id}
               onData={(data) => handleTerminalData(activeSession.id, data)}
@@ -295,3 +324,8 @@ export default function TerminalWorkspace() {
     </div>
   );
 }
+
+const TerminalWorkspace = forwardRef<TerminalWorkspaceApi, { readonly hideToolbar?: boolean }>(
+  TerminalWorkspaceInner,
+);
+export default TerminalWorkspace;

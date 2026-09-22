@@ -787,7 +787,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {onOpenDetail && (
                 <ActionIcon
                   label="Detail"
-                  tone="muted"
+                  tone="info"
                   size="sm"
                   icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
@@ -796,7 +796,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {onReply && (
                 <ActionIcon
                   label="Reply"
-                  tone="muted"
+                  tone="accent"
                   size="sm"
                   icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onReply(item); }}
@@ -804,7 +804,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               )}
               <ActionIcon
                 label="Forward to Telegram"
-                tone="muted"
+                tone="success"
                 size="sm"
                 icon={<ForwardOutlinedIcon sx={{ fontSize: 18 }} />}
                 onClick={openForward}
@@ -820,7 +820,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
               {onEdit && item.actor.type === 'human' && (
                 <ActionIcon
                   label="Edit"
-                  tone="muted"
+                  tone="warning"
                   size="sm"
                   icon={<EditOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onEdit(item); }}

@@ -16,15 +16,16 @@
 
 /* ── Dark appearance (default) ── */
 :root {
-  /* Configuration panel: navy-elevated neutral, hairline border, soft lift.
-     Replaces the saturated accent wash for large domain surfaces; the
-     accent survives in icon tiles, active states, and primary actions. */
+  /* Configuration panel: accent-tinted surface, hairline border, soft lift.
+     The panel base follows the user-selected accent wash; the accent
+     additionally survives in icon tiles, active states, and actions. */
   --st-panel-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
   --st-modal-z-index: 1400;
   --st-panel-backdrop:
     radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 6%, transparent) 0%, transparent 60%),
-    var(--vestara-surface-panel);
-  --st-panel-border: var(--vestara-border-subtle);
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent-dark) 12%, transparent), transparent 72%),
+    color-mix(in srgb, var(--vestara-accent-bg) 35%, transparent);
+  --st-panel-border: var(--vestara-accent-dark);
 
   /* Hero summary chip: translucent dark tile on the hero banner. */
   --st-chip-bg: rgba(0, 0, 0, 0.28);
@@ -51,7 +52,8 @@
   --st-modal-z-index: 1400;
   --st-panel-backdrop:
     radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 8%, transparent) 0%, transparent 60%),
-    var(--vestara-surface-panel);
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent-dark) 12%, transparent), transparent 72%),
+    color-mix(in srgb, var(--vestara-accent-bg) 35%, transparent);
   --st-chip-bg: rgba(255, 255, 255, 0.6);
 }
 

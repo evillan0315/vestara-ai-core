@@ -60,12 +60,12 @@ export function FileSearch({ onOpenPath }: FileSearchProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search contents… (glob:*.ts for filenames)"
-          className="min-w-0 flex-1 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--files-inset-bg)] px-3 py-1.5 text-sm text-[var(--vestara-text-primary)]"
+          className="min-w-0 flex-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--files-inset-bg)] px-3 py-1.5 text-sm text-[var(--vestara-text-primary)]"
         />
         <button
           type="submit"
           disabled={isSearching || !query.trim()}
-          className="shrink-0 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-focus)] bg-[var(--vestara-accent-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-text-primary)] disabled:opacity-50"
+          className="shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-focus)] bg-[var(--vestara-accent-bg)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-text-primary)] disabled:opacity-50"
         >
           {isSearching ? 'Searching…' : 'Search'}
         </button>

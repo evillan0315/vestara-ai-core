@@ -159,7 +159,7 @@ function SettingsTabs() {
             `st-gap-field st-px-card inline-flex min-h-10 min-w-28 flex-1 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-medium transition-colors ${focus} ${
               isActive
                 ? 'border-[color-mix(in_srgb,var(--vestara-accent)_54%,var(--vestara-border-subtle))] bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)] text-[var(--vestara-accent-text)]'
-                : 'border-transparent text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-border-subtle)] hover:bg-[var(--vestara-surface-interactive-hover)] hover:text-[var(--vestara-text-primary)]'
+                : 'border-transparent text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-accent-text)]'
             }`
           }
         >
@@ -855,7 +855,7 @@ function QuickActionsCard({
             onClick={action.id === 'reset' ? onReset : action.id === 'export' ? onExport : undefined}
             disabled={action.id !== 'reset' && action.id !== 'export'}
             title={'unavailableHint' in action ? action.unavailableHint : undefined}
-            className={`st-gap-field st-px-card st-py-field flex w-full items-start rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel-raised)_68%,transparent)] text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${focus} ${
+            className={`st-gap-field st-px-card st-py-field flex w-full items-start rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${focus} ${
               action.id === 'reset'
                 ? 'hover:border-[var(--vestara-status-warning-border)] hover:bg-[color-mix(in_srgb,var(--vestara-status-warning)_8%,transparent)] hover:text-[var(--vestara-status-warning)]'
                 : 'hover:border-[var(--vestara-accent-border)]'

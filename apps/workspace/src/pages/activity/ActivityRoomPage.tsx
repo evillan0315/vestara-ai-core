@@ -235,7 +235,7 @@ export default function ActivityRoomPage() {
   const auxiliaryStatus = workflowId ? worstStatus([model.participants.status, model.liveStream.status, model.receipts.status]) : 'ready';
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 sm:gap-4">
+    <div className="flex h-full min-h-0 flex-col p-4 ">
       <header className="flex flex-col gap-3 rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) p-3 sm:flex-row sm:items-center sm:justify-between sm:p-4">
         <div className="min-w-0">
           <div className="mb-1 text-[9px] font-medium uppercase tracking-[0.18em] text-(--vestara-accent-text)">

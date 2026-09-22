@@ -80,7 +80,7 @@ export function FileOperationsBar({ ops }: FileOperationsBarProps) {
             type="button"
             onClick={withBusy(ops.approve)}
             disabled={busy}
-            className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-focus)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--vestara-text-primary)] hover:border-[var(--vestara-border-default)] disabled:opacity-50"
+            className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-focus)] bg-[var(--vestara-accent-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--vestara-text-primary)] hover:border-[var(--vestara-border-default)] disabled:opacity-50"
           >
             {busy ? 'Working…' : 'Review & approve'}
           </button>
@@ -88,7 +88,7 @@ export function FileOperationsBar({ ops }: FileOperationsBarProps) {
             type="button"
             onClick={withBusy(ops.reject)}
             disabled={busy}
-            className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2.5 py-1 text-xs text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)] disabled:opacity-50"
+            className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2.5 py-1 text-xs text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)] disabled:opacity-50"
           >
             Reject
           </button>
@@ -99,7 +99,7 @@ export function FileOperationsBar({ ops }: FileOperationsBarProps) {
           type="button"
           onClick={ops.dismiss}
           aria-label="Dismiss operation status"
-          className="rounded-[var(--vestara-radius-md)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+          className="rounded-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
         >
           Dismiss
         </button>

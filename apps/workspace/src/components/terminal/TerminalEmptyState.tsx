@@ -1,3 +1,5 @@
+import { VestaraMark } from '../branding/VestaraMark';
+
 interface TerminalEmptyStateProps {
   onNewSession: () => void;
 }
@@ -6,15 +8,8 @@ export function TerminalEmptyState({ onNewSession }: TerminalEmptyStateProps) {
   return (
     <div className="flex-1 flex items-center justify-center text-center px-6">
       <div className="max-w-sm">
-        <div className="w-10 h-10 rounded-xl bg-(--vestara-accent-bg) border border-(--vestara-accent-border) flex items-center justify-center mx-auto mb-4">
-          <svg className="w-5 h-5 text-(--vestara-text-2)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-            />
-          </svg>
+        <div className="mx-auto mb-4 flex justify-center" aria-hidden="true">
+          <VestaraMark size={44} />
         </div>
 
         <h2 className="text-sm font-medium text-(--vestara-text) mb-2">Terminal</h2>

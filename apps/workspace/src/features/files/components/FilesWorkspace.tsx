@@ -54,7 +54,7 @@ interface LoadedContent {
   size: number;
 }
 
-interface MenuState {
+export interface MenuState {
   readonly x: number;
   readonly y: number;
   readonly entry: FileEntry;
@@ -465,7 +465,7 @@ export function FilesWorkspace({
         <button
           type="button"
           onClick={() => setMobilePanel('explorer')}
-          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
           aria-haspopup="dialog"
         >
           Explorer · {entries.length}
@@ -474,7 +474,7 @@ export function FilesWorkspace({
         <button
           type="button"
           onClick={() => setMobilePanel('inspector')}
-          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+          className="min-h-11 flex-1 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
           aria-haspopup="dialog"
         >
           Inspector
@@ -558,7 +558,7 @@ export function FilesWorkspace({
                   aria-selected={mode === item.id}
                   title={item.title}
                   onClick={() => setMode(item.id)}
-                  className={`rounded-[var(--vestara-radius-md)] px-2.5 py-1 text-xs font-semibold ${
+                  className={`rounded-[var(--vestara-radius)] px-2.5 py-1 text-xs font-semibold ${
                     mode === item.id
                       ? 'bg-[var(--files-selected-bg)] text-[var(--vestara-text-primary)]'
                       : 'text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]'
@@ -786,7 +786,7 @@ export function FilesWorkspace({
                   setMobilePanel(null)
                 }
                 aria-label="Close panel"
-                className="grid size-11 place-items-center rounded-lg border border-[var(--vestara-border-subtle)] text-lg text-[var(--vestara-text-secondary)]"
+                className="grid size-11 place-items-center rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] text-lg text-[var(--vestara-text-secondary)]"
               >
                 ×
               </button>
@@ -1011,7 +1011,7 @@ function PreviewLoader({
   );
 }
 
-function WorkspaceMenu({
+export function WorkspaceMenu({
   menu,
   ops,
   onSelect,
@@ -1196,7 +1196,7 @@ function WorkspaceMenu({
               onClose();
               item.action();
             }}
-            className="block w-full rounded-[var(--vestara-radius-md)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+            className="block w-full rounded-[var(--vestara-radius)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
           >
             {item.label}
           </button>

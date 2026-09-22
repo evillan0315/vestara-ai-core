@@ -35,7 +35,7 @@ export function formatStorage(bytes: number): string {
 }
 
 const SOLID_ACTION =
-  'rounded-[var(--vestara-radius-md)] bg-[var(--ar-gold)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-on-accent)] hover:brightness-110';
+  'rounded-[var(--vestara-radius)] bg-[var(--ar-gold)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-on-accent)] hover:brightness-110';
 
 export function FilesPageHero({
   workspaceName,
@@ -108,7 +108,7 @@ export function FilesPageHero({
                       setNewOpen(false);
                       item.action();
                     }}
-                    className="block w-full rounded-[var(--vestara-radius-md)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                    className="block w-full rounded-[var(--vestara-radius)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                   >
                     {item.label}
                   </button>
@@ -122,7 +122,7 @@ export function FilesPageHero({
           disabled
           title="Upload is not yet a governed capability"
           aria-label="Upload (unavailable)"
-          className="flex cursor-not-allowed items-center gap-1.5 rounded-[var(--vestara-radius-md)] bg-[var(--ar-gold)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-on-accent)] opacity-40"
+          className="flex cursor-not-allowed items-center gap-1.5 rounded-[var(--vestara-radius)] bg-[var(--ar-gold)] px-3 py-1.5 text-sm font-semibold text-[var(--vestara-on-accent)] opacity-40"
         >
           <UploadIcon sx={{ fontSize: 16 }} aria-hidden />
           Upload
@@ -152,7 +152,7 @@ export function FilesPageHero({
                     setOverflowOpen(false);
                     onRefresh();
                   }}
-                  className="block w-full rounded-[var(--vestara-radius-md)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="block w-full rounded-[var(--vestara-radius)] px-3 py-1.5 text-left text-sm text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   Refresh workspace
                 </button>

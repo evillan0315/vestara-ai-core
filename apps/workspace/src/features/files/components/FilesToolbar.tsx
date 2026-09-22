@@ -45,7 +45,7 @@ interface FilesToolbarProps {
 }
 
 const SELECT_CLASS =
-  'shrink-0 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2.5 py-1.5 text-sm text-[var(--vestara-text-secondary)]';
+  'shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2.5 py-1.5 text-sm text-[var(--vestara-text-secondary)]';
 
 export function FilesToolbar({
   query,
@@ -79,7 +79,7 @@ export function FilesToolbar({
           onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Search files by name, path, or content… (⌘K)"
           aria-label="Search files by name, path, or content"
-          className="w-full rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--files-inset-bg)] py-1.5 pl-9 pr-8 text-sm text-[var(--vestara-text-primary)]"
+          className="w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--files-inset-bg)] py-1.5 pl-9 pr-8 text-sm text-[var(--vestara-text-primary)]"
         />
         {query && (
           <button
@@ -92,7 +92,7 @@ export function FilesToolbar({
           </button>
         )}
       </div>
-      <div className="flex shrink-0 overflow-hidden rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)]" role="group" aria-label="Density">
+      <div className="flex shrink-0 overflow-hidden rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)]" role="group" aria-label="Density">
         <ActionIcon
           label="List view"
           tone={density === 'list' ? 'accent' : 'muted'}

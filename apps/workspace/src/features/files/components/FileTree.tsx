@@ -13,6 +13,7 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { EmptyState } from '@vestara/ui';
 import type { FileEntry, FilesRecentFile } from '../files.types';
+import { getFileTypeIcon } from '../file-icons';
 
 export type TreeFacet = 'all' | 'file' | 'dir' | 'code' | 'docs';
 
@@ -198,12 +199,12 @@ export function FileTree({
     <div className="flex min-h-0 flex-1 flex-col">
       <p className="ar-kicker mb-2">File browser</p>
       {fromSnapshot && (
-        <p className="mb-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-2 py-1 text-xs text-[var(--vestara-status-warning)]" role="note">
+        <p className="mb-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-2 py-1 text-xs text-[var(--vestara-status-warning)]" role="note">
           ⚠ Snapshot — runtime unavailable, showing fallback tree.
         </p>
       )}
       {truncated && (
-        <p className="mb-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-2 py-1 text-xs text-[var(--vestara-status-warning)]" role="note">
+        <p className="mb-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-2 py-1 text-xs text-[var(--vestara-status-warning)]" role="note">
           ⚠ Partial tree — browse limit reached, some entries hidden.
         </p>
       )}
@@ -236,7 +237,7 @@ export function FileTree({
           const isOpen = expanded.has(entry.path);
           const isSelected = entry.path === selectedPath;
           const isActiveFile = entry.path === activePath;
-          const { accent, glyph } = accentFor(entry);
+          const { accent } = accentFor(entry);
           return (
             <li key={entry.path}>
               <div
@@ -300,8 +301,8 @@ export function FileTree({
                   <span aria-hidden="true" className="w-3 shrink-0 text-[var(--vestara-text-muted)]">
                     {isDir ? (isOpen ? '▾' : '▸') : ''}
                   </span>
-                  <span aria-hidden="true" className={`mpg-icon-box h-6 w-6 shrink-0 text-xs ${tileClass(accent)}`}>
-                    {glyph}
+                  <span aria-hidden="true" className="inline-flex h-6 w-6 shrink-0 items-center justify-center">
+                    {getFileTypeIcon(entry.name, isDir ? 'folder' : 'file', isOpen)}
                   </span>
                   <span className="min-w-0 flex-1 truncate font-mono text-[var(--vestara-text-primary)]">{entry.name}</span>
                   {isActiveFile && (
@@ -326,7 +327,7 @@ export function FileTree({
                     onOpenFile(entry);
                   }}
                   title={entry.path}
-                  className="block w-full truncate rounded-[var(--vestara-radius-md)] px-2 py-1 text-left font-mono text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
+                  className="block w-full truncate rounded-[var(--vestara-radius)] px-2 py-1 text-left font-mono text-xs text-[var(--vestara-text-secondary)] hover:bg-[var(--files-row-hover-bg)] hover:text-[var(--vestara-text-primary)]"
                 >
                   {entry.name}
                 </button>

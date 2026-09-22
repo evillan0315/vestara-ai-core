@@ -61,7 +61,13 @@ function useCodexRuntimeStatus(): CodexRuntimeStatus | null {
   return status;
 }
 
-function RuntimeRows({ status }: { readonly status: CodexRuntimeStatus | null }) {
+function RuntimeRows({
+  status,
+  metricBoxClassName = 'border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)]',
+}: {
+  readonly status: CodexRuntimeStatus | null;
+  readonly metricBoxClassName?: string;
+}) {
   const sessions = status?.sessions ?? [];
   const threadCount = sessions.reduce((sum, session) => sum + session.threadCount, 0);
   const turnCount = sessions.reduce((sum, session) => sum + session.turnsStarted, 0);
@@ -82,7 +88,7 @@ function RuntimeRows({ status }: { readonly status: CodexRuntimeStatus | null })
         ].map((metric) => (
           <div
             key={metric.label}
-            className="rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-2"
+            className={`rounded-[var(--vestara-radius)] border px-2 py-2 ${metricBoxClassName}`}
           >
             <p className="text-[14px] font-semibold tabular-nums text-[var(--vestara-text-primary)]">{metric.value}</p>
             <p className="text-[10px] uppercase tracking-wide text-[var(--vestara-text-muted)]">{metric.label}</p>
@@ -116,7 +122,7 @@ function RuntimeRows({ status }: { readonly status: CodexRuntimeStatus | null })
           {recentThreads.map((thread) => (
             <div
               key={`${thread.runtimeSessionId}:${thread.id}`}
-              className="flex items-center justify-between gap-2 rounded-[var(--vestara-radius-md)] border border-[var(--vestara-border-subtle)] px-2 py-1.5 text-[11px]"
+              className="flex items-center justify-between gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] px-2 py-1.5 text-[11px]"
             >
               <span className="min-w-0 truncate text-[var(--vestara-text-secondary)]" title={thread.preview ?? thread.id}>
                 {thread.preview ?? thread.id}
@@ -155,7 +161,10 @@ export function CodexRuntimeActivityCard({ variant = 'overview' }: CodexRuntimeA
           <h3 className="ar-context__title">Codex App Server</h3>
           {badge}
         </div>
-        <RuntimeRows status={status} />
+        <RuntimeRows
+          status={status}
+          metricBoxClassName="border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)]"
+        />
       </div>
     );
   }
