@@ -149,16 +149,28 @@ export class TaskStore {
   }
 
   async requestApproval(id: string, reason: string): Promise<void> {
-    dbRun(this.db, 'UPDATE orchestrated_tasks SET status = ?, approval_reason = ?, updated_at = ? WHERE id = ?', [
-      'awaiting-approval',
-      reason,
+    dbRun(
+      this.db,
+      'UPDATE orchestrated_tasks SET status = ?, approval_reason = ?, approval_interaction_id = NULL, updated_at = ? WHERE id = ?',
+      ['awaiting-approval', reason, now(), id],
+    );
+  }
+
+  async attachApprovalInteraction(id: string, interactionId: string): Promise<WorkflowTask | null> {
+    dbRun(this.db, 'UPDATE orchestrated_tasks SET approval_interaction_id = ?, updated_at = ? WHERE id = ?', [
+      interactionId,
       now(),
       id,
     ]);
+    return this.get(id);
   }
 
   async clearApproval(id: string): Promise<void> {
-    dbRun(this.db, 'UPDATE orchestrated_tasks SET approval_reason = NULL, updated_at = ? WHERE id = ?', [now(), id]);
+    dbRun(
+      this.db,
+      'UPDATE orchestrated_tasks SET approval_reason = NULL, approval_interaction_id = NULL, updated_at = ? WHERE id = ?',
+      [now(), id],
+    );
   }
 
   /**
@@ -274,8 +286,9 @@ export class TaskStore {
       this.db,
       `INSERT OR REPLACE INTO orchestrated_tasks
        (id, plan_id, summary, description, files, dependencies, status, effort, required_capabilities,
-        assigned_agent_id, revision_count, attempt_count, last_error, approval_reason, started_at, completed_at, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        assigned_agent_id, revision_count, attempt_count, last_error, approval_reason, approval_interaction_id,
+        started_at, completed_at, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         task.id,
         task.planId,
@@ -291,6 +304,7 @@ export class TaskStore {
         task.attemptCount,
         task.lastError ?? null,
         task.approvalReason ?? null,
+        task.approvalInteractionId ?? null,
         task.startedAt ?? null,
         task.completedAt ?? null,
         task.createdAt,
@@ -332,6 +346,7 @@ export class TaskStore {
       attemptCount: Number(row.attempt_count) || 0,
       lastError: row.last_error ? str(row.last_error) : undefined,
       approvalReason: row.approval_reason ? str(row.approval_reason) : undefined,
+      ...(row.approval_interaction_id ? { approvalInteractionId: str(row.approval_interaction_id) } : {}),
       ...(externalWait ? { externalWait } : {}),
       startedAt: row.started_at ? str(row.started_at) : undefined,
       completedAt: row.completed_at ? str(row.completed_at) : undefined,

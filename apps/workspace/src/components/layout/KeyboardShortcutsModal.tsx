@@ -7,21 +7,13 @@ interface ShortcutEntry {
 }
 
 const SHORTCUTS: ShortcutEntry[] = [
-  { keys: ['⌘K', 'Ctrl+K'], description: 'Command palette' },
-  { keys: ['⌘N', 'Ctrl+N'], description: 'New chat conversation' },
-  { keys: ['⌘⇧O', 'Ctrl+Shift+O'], description: 'Toggle chat sidebar' },
-  { keys: ['⌘Enter', 'Ctrl+Enter'], description: 'Send API request (API Builder)' },
-  { keys: ['⌘T', 'Ctrl+T'], description: 'New API tab' },
-  { keys: ['⌘W', 'Ctrl+W'], description: 'Close API tab' },
-  { keys: ['Escape'], description: 'Close dialog / exit focus mode' },
-  { keys: ['?'], description: 'Toggle this help modal' },
-  { keys: ['G then O'], description: 'Navigate to Overview' },
-  { keys: ['G then S'], description: 'Navigate to Sessions' },
-  { keys: ['G then A'], description: 'Navigate to Agents' },
-  { keys: ['G then C'], description: 'Navigate to Chat' },
-  { keys: ['G then T'], description: 'Navigate to Terminal' },
-  { keys: ['`'], description: 'Toggle terminal drawer (Activity Room)' },
+  { keys: ['⌘K', 'Ctrl+K'], description: 'Global search' },
+  { keys: ['⌘J', 'Ctrl+J'], description: 'Toggle floating assistant' },
+  { keys: ['?'], description: 'Toggle keyboard shortcuts' },
   { keys: ['⌘B', 'Ctrl+B'], description: 'Toggle files drawer (Activity Room)' },
+  { keys: ['⌘⇧B', 'Ctrl+Shift+B'], description: 'Toggle browser drawer (Activity Room)' },
+  { keys: ['⌘,', 'Ctrl+,'], description: 'Toggle settings drawer (Activity Room)' },
+  { keys: ['`'], description: 'Toggle terminal drawer (Activity Room)' },
 ];
 
 const KeyboardShortcutsModal: FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {

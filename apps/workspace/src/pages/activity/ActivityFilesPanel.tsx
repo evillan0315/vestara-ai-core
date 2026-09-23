@@ -8,14 +8,21 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { AssistantCodeEdit } from '../../components/assistant/AssistantCodeEdit';
+import type { EditExecutionDetail } from '@vestara/shared';
 import { FileTree, type TreeFacet } from '../../features/files/components/FileTree';
 import { FilePreview } from '../../features/files/components/FilePreview';
+import { FileOperationsBar } from '../../features/files/components/FileOperationsBar';
 import { WorkspaceMenu, type MenuState } from '../../features/files/components/FilesWorkspace';
 import { classifyFile } from '../../features/files/file-classification';
 import type { FileClassification } from '../../features/files/file-classification';
 import type { FileEntry } from '../../features/files/files.types';
+import { findFileEntryByPath } from './activity-files-navigation';
+import { editInspectionTabs, hasAuthoritativeEditDiff, initialEditInspectionTab } from './activity-edit-inspection';
 import { useFileOperations } from '../../features/files/hooks/useFileOperations';
 import { useFiles } from '../../features/files/hooks/useFiles';
+import { useSetActivitySelection } from '../../contexts/SurfaceContext';
+import { OPEN_ASSISTANT_EVENT } from '../../lib/assistant-navigation';
 
 interface PreviewState {
   readonly entry: FileEntry;
@@ -27,13 +34,40 @@ interface PreviewState {
   readonly isLoading: boolean;
 }
 
-export default function ActivityFilesPanel() {
+function fileAttachment(entry: FileEntry) {
+  return {
+    id: `file:${entry.path}`,
+    name: entry.name,
+    path: entry.path,
+  };
+}
+
+function parentPath(path: string): string {
+  const slash = path.lastIndexOf('/');
+  return slash > 0 ? path.slice(0, slash) : '';
+}
+
+function joinPath(base: string, name: string): string {
+  return base ? `${base}/${name}` : name;
+}
+
+export default function ActivityFilesPanel({
+  onAttachToComposer,
+  openPath,
+  editDetail,
+}: {
+  onAttachToComposer?: (attachment: { readonly id: string; readonly name: string; readonly path: string }) => void;
+  openPath?: string | null;
+  editDetail?: EditExecutionDetail | null;
+}) {
   const { data, isLoading, error, refetch } = useFiles();
+  const setActivitySelection = useSetActivitySelection();
   const [query, setQuery] = useState('');
   const [showHidden, setShowHidden] = useState(false);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [preview, setPreview] = useState<PreviewState | null>(null);
   const [menu, setMenu] = useState<MenuState | null>(null);
+  const [activeEditTab, setActiveEditTab] = useState<'current' | 'diff'>('current');
 
   const ops = useFileOperations({
     onStructuralChange: useCallback(() => {
@@ -42,6 +76,7 @@ export default function ActivityFilesPanel() {
   });
 
   const facet: TreeFacet = 'all';
+  const hasAuthoritativeDiff = editDetail ? hasAuthoritativeEditDiff(editDetail) : false;
 
   const openFile = useCallback((entry: FileEntry) => {
     setSelectedPath(entry.path);
@@ -108,6 +143,50 @@ export default function ActivityFilesPanel() {
 
   const entries = useMemo(() => data?.entries ?? [], [data]);
 
+  useEffect(() => {
+    if (!openPath || !data || (selectedPath === openPath && preview?.entry.path === openPath)) return;
+    const entry = findFileEntryByPath(data.entries, openPath);
+    if (entry?.kind === 'file') openFile(entry);
+  }, [data, openFile, openPath, preview?.entry.path, selectedPath]);
+
+  useEffect(() => {
+    setActiveEditTab(editDetail ? initialEditInspectionTab(editDetail) : 'current');
+  }, [editDetail]);
+
+  const selectedEntry = useMemo(() => {
+    return selectedPath ? findFileEntryByPath(entries, selectedPath) : null;
+  }, [entries, selectedPath]);
+
+  const currentDir = selectedEntry?.kind === 'dir' ? selectedEntry.path : selectedEntry ? parentPath(selectedEntry.path) : '';
+
+  const createInCurrentDir = useCallback(
+    (isDirectory: boolean) => {
+      const kind = isDirectory ? 'folder' : 'file';
+      const name = window.prompt(`New ${kind} name (in ${currentDir || 'workspace root'}):`);
+      if (!name) return;
+      const trimmed = name.trim();
+      if (!trimmed || trimmed.includes('/')) {
+        window.alert('Use a non-empty name without slashes.');
+        return;
+      }
+      void ops.create(joinPath(currentDir, trimmed), isDirectory, isDirectory ? undefined : '');
+    },
+    [currentDir, ops],
+  );
+
+  const attachToAssistant = useCallback(
+    (entry: FileEntry) => {
+      if (entry.kind !== 'file') return;
+      setActivitySelection({
+        kind: 'file',
+        id: entry.path,
+        label: entry.name,
+      });
+      window.dispatchEvent(new CustomEvent(OPEN_ASSISTANT_EVENT, { detail: { focusComposer: true } }));
+    },
+    [setActivitySelection],
+  );
+
   if (isLoading) {
     return (
       <div className="flex h-full min-h-0 flex-col items-center justify-center gap-2 p-6 text-center" role="status" aria-label="Loading files">
@@ -136,7 +215,36 @@ export default function ActivityFilesPanel() {
 
   return (
     <div className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden">
-      {preview ? (
+      {editDetail && (
+        <div className="flex shrink-0 gap-1 border-b border-[var(--vestara-border-subtle)] px-2 pt-2" role="tablist" aria-label="Edit inspection views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeEditTab === 'current'}
+            onClick={() => setActiveEditTab('current')}
+            className="rounded-t-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-secondary)] aria-selected:bg-[var(--vestara-accent-bg)] aria-selected:text-[var(--vestara-accent-text)]"
+          >
+            Current file · {editDetail.file}
+          </button>
+          {editDetail && editInspectionTabs(editDetail).includes('diff') && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeEditTab === 'diff'}
+              onClick={() => setActiveEditTab('diff')}
+              className="rounded-t-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-secondary)] aria-selected:bg-[var(--vestara-accent-bg)] aria-selected:text-[var(--vestara-accent-text)]"
+            >
+              Edit diff · read-only
+            </button>
+          )}
+        </div>
+      )}
+      {editDetail && activeEditTab === 'diff' && hasAuthoritativeDiff ? (
+        <div className="min-h-0 flex-1 overflow-auto p-2" role="tabpanel" aria-label="Read-only edit diff">
+          <p className="mb-2 text-xs text-[var(--vestara-text-muted)]">Historical edit diff · {editDetail.file}</p>
+          <AssistantCodeEdit detail={editDetail} />
+        </div>
+      ) : preview ? (
         <div className="flex min-h-0 flex-1 flex-col">
           <div className="flex shrink-0 items-center gap-2 border-b border-[var(--vestara-border-subtle)] px-2 py-1.5">
             <button
@@ -179,6 +287,24 @@ export default function ActivityFilesPanel() {
               aria-label="Filter files"
               className="min-h-8 min-w-0 flex-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-2 text-xs text-[var(--vestara-text)] placeholder:text-[var(--vestara-text-dim)] focus:border-[var(--vestara-accent-border)] focus:outline-none"
             />
+            <button
+              type="button"
+              onClick={() => createInCurrentDir(false)}
+              title="New file"
+              aria-label="New file"
+              className="shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1 text-xs font-semibold text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            >
+              File
+            </button>
+            <button
+              type="button"
+              onClick={() => createInCurrentDir(true)}
+              title="New folder"
+              aria-label="New folder"
+              className="shrink-0 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-2 py-1 text-xs font-semibold text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-surface-interactive)] hover:text-[var(--vestara-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            >
+              Folder
+            </button>
             <button
               type="button"
               onClick={() => setShowHidden((v) => !v)}
@@ -224,8 +350,25 @@ export default function ActivityFilesPanel() {
           onSelect={(entry) => setSelectedPath(entry.path)}
           onOpenFile={openFile}
           onClose={() => setMenu(null)}
+          extraItems={
+            menu.entry.kind === 'file'
+              ? [
+                  {
+                    label: 'Attach to Composer',
+                    action: () => onAttachToComposer?.(fileAttachment(menu.entry)),
+                  },
+                  {
+                    label: 'Attach to Assistant',
+                    action: () => attachToAssistant(menu.entry),
+                  },
+                ]
+              : []
+          }
         />
       )}
+      <div className="shrink-0 border-t border-[var(--vestara-border-subtle)] p-2">
+        <FileOperationsBar ops={ops} />
+      </div>
     </div>
   );
 }

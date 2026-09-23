@@ -15,7 +15,7 @@
 
 import type { AttentionEntry, ParticipantProjection, WorkflowSummary } from '@vestara/activity-room';
 import type { InteractionResponse } from '@vestara/types';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   type M11AActivityRecord,
   type M11AStreamItem,
@@ -26,6 +26,7 @@ import {
   submitInteractionResponse,
 } from '../lib/m11a-api';
 import { type M11BClient, type M11BConnectionState, m11bClient } from '../lib/m11b-client';
+import { deriveCorrelatedSessions } from '../pages/activity/correlated-session';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ export type SubmissionState =
   | { readonly status: 'idle' }
   | { readonly status: 'submitting'; readonly interactionId: string; readonly choiceId: string }
   | { readonly status: 'accepted'; readonly interactionId: string; readonly response: InteractionResponse }
-  | { readonly status: 'failure'; readonly interactionId: string; readonly error: string; readonly retryable: boolean }
+  | { readonly status: 'failure'; readonly interactionId: string; readonly choiceId: string; readonly error: string; readonly retryable: boolean }
   | { readonly status: 'stale'; readonly interactionId: string };
 
 /** A stream item — either from M11A snapshot or live delivery. */
@@ -76,6 +77,7 @@ export interface M11CStreamItem {
   readonly workflowRunId?: string;
   readonly executionId?: string;
   readonly taskId?: string;
+  readonly runtimeSessionBindingId?: string;
   /**
    * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002,
    * projected from durable M9 `payload.[data.]conversationId`/`data.surface`).
@@ -86,6 +88,7 @@ export interface M11CStreamItem {
   readonly aggregated?: M11AStreamItem['aggregated'];
   /** Tool correlation (only when kind === 'tool-call' | 'tool-result'). Absent otherwise. */
   readonly tool?: M11AStreamItem['tool'];
+  readonly session?: import('../pages/activity/correlated-session').CorrelatedSession;
   /** Diagnostic details for the message details surface (absent = none). */
   readonly details?: { readonly reasoning?: string; readonly providerId?: string; readonly modelId?: string; readonly latencyMs?: number; readonly tokens?: number; readonly conversationId?: string };
   /** Whether this item arrived live (for animation). */
@@ -190,6 +193,7 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     workflowRunId: item.workflowRunId,
     executionId: item.executionId,
     taskId: item.taskId,
+    runtimeSessionBindingId: item.runtimeSessionBindingId,
     aggregated: item.aggregated,
     fresh: false,
     interaction: item.interaction,
@@ -264,8 +268,10 @@ interface ProjectionWireRecord {
   readonly callID?: string;
   readonly status?: string;
   readonly agentId?: string;
+  readonly output?: string;
   readonly workflowId?: string;
   readonly sessionId?: string;
+  readonly runtimeSessionBindingId?: string;
   readonly referencedActivityIds?: readonly string[];
   /** AR-UI-REPLY-002: authoritative origin provenance (projection contract). */
   readonly originConversationId?: string;
@@ -279,6 +285,7 @@ function buildWireTool(parts: {
   readonly status?: unknown;
   readonly agentId?: unknown;
   readonly actorId?: unknown;
+  readonly sessionId?: unknown;
   readonly fallbackStatus: 'started' | 'completed' | 'failed';
 }): M11CStreamItem['tool'] {
   const toolName = typeof parts.toolName === 'string' && parts.toolName ? parts.toolName : undefined;
@@ -288,7 +295,14 @@ function buildWireTool(parts: {
   const status: 'started' | 'completed' | 'failed' =
     rawStatus === 'started' || rawStatus === 'completed' || rawStatus === 'failed' ? rawStatus : parts.fallbackStatus;
   const rawAgent = typeof parts.agentId === 'string' && parts.agentId ? parts.agentId : typeof parts.actorId === 'string' && parts.actorId ? parts.actorId : undefined;
-  return { toolName, callID, status, ...(rawAgent ? { agentId: rawAgent } : {}) };
+  const sessionId = typeof parts.sessionId === 'string' && parts.sessionId ? parts.sessionId : undefined;
+  return {
+    toolName,
+    callID,
+    status,
+    ...(rawAgent ? { agentId: rawAgent } : {}),
+    ...(sessionId ? { sessionId } : {}),
+  };
 }
 
 /**
@@ -317,6 +331,7 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
             status: record.status,
             agentId: record.agentId,
             actorId: record.actor.id,
+            sessionId: record.sessionId,
             fallbackStatus: kind === 'tool-call' ? 'started' : 'completed',
           })
         : undefined;
@@ -336,12 +351,13 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
       workflowRunId: typeof record.workflowId === 'string' ? record.workflowId : undefined,
       executionId: record.executionId,
       taskId: record.taskId,
+      runtimeSessionBindingId: record.runtimeSessionBindingId ?? record.sessionId,
       fresh,
       referencedActivityIds: Array.isArray(record.referencedActivityIds) ? record.referencedActivityIds : undefined,
       // AR-UI-REPLY-002: authoritative origin provenance passthrough.
       ...(typeof record.originConversationId === 'string' ? { originConversationId: record.originConversationId } : {}),
       ...(typeof record.originSurface === 'string' ? { originSurface: record.originSurface } : {}),
-      ...(wireTool ? { tool: wireTool } : {}),
+      ...(wireTool ? { tool: { ...wireTool, ...(typeof record.output === 'string' ? { output: record.output } : {}) } } : {}),
     };
   }
 
@@ -397,6 +413,7 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
     workflowRunId: activity.workflowRunId,
     executionId: activity.executionId,
     taskId: activity.taskId,
+    runtimeSessionBindingId: activity.runtimeSessionBindingId,
     fresh,
     // AR-UI-REPLY-002: authoritative origin provenance from the durable M9
     // payload (top-level `conversationId` for human.message, `data.*` for
@@ -442,9 +459,18 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
       status: undefined,
       agentId: undefined,
       actorId: activity.actor.id,
+      sessionId: activity.runtimeSessionBindingId,
       fallbackStatus: activity.type === 'tool.called' ? 'started' : activity.type === 'tool.failed' ? 'failed' : 'completed',
     });
-    if (historyTool) return { ...base, tool: historyTool };
+    if (historyTool) {
+      return {
+        ...base,
+        tool: {
+          ...historyTool,
+          ...(typeof activity.payload?.output === 'string' ? { output: activity.payload.output } : {}),
+        },
+      };
+    }
   }
 
   return base;
@@ -452,6 +478,46 @@ export function streamItemFromLive(activity: M11AActivityRecord, fresh: boolean 
 
 function compareBySequence(a: M11CStreamItem, b: M11CStreamItem): number {
   return a.sequence - b.sequence;
+}
+
+/**
+ * AR-REC-R3: Hook-level presented/responded pairing.
+ *
+ * A `responded` projection record carries only `selectedChoiceId` (the
+ * authoritative choices live on the `presented` record / InteractionStore).
+ * When both records are present in the current window, copy the presented
+ * choices onto the responded item so DecisionState can resolve the label.
+ *
+ * Honesty rules (no synthesis, no new authority):
+ *   - Source is the authoritative presented record already in the window.
+ *   - First presented wins when several share an interactionId.
+ *   - When no presented sibling is in the window, the responded item is
+ *     returned untouched — the UI degrades to chip-only state.
+ *   - Window-bounded only (the working set passed in); never a global scan.
+ */
+export function pairRespondedChoices(items: readonly M11CStreamItem[]): M11CStreamItem[] {
+  const presentedChoices = new Map<string, NonNullable<M11CStreamItem['interaction']>['choices']>();
+  for (const item of items) {
+    const interaction = item.interaction;
+    if (interaction?.lifecycle === 'presented' && interaction.choices && interaction.choices.length > 0) {
+      if (!presentedChoices.has(interaction.interactionId)) {
+        presentedChoices.set(interaction.interactionId, interaction.choices);
+      }
+    }
+  }
+  let changed = false;
+  const paired = items.map((item) => {
+    const interaction = item.interaction;
+    if (interaction?.lifecycle === 'responded' && (!interaction.choices || interaction.choices.length === 0)) {
+      const choices = presentedChoices.get(interaction.interactionId);
+      if (choices) {
+        changed = true;
+        return { ...item, interaction: { ...interaction, choices } };
+      }
+    }
+    return item;
+  });
+  return changed ? paired : [...items];
 }
 
 // ─── Hook ────────────────────────────────────────────────────
@@ -475,6 +541,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(new Set());
   const [submission, setSubmission] = useState<SubmissionState>({ status: 'idle' });
   const [retryKey, setRetryKey] = useState(0);
+  const presentedStream = useMemo(() => deriveCorrelatedSessions(stream), [stream]);
 
   // ─── Refs ───────────────────────────────────────────────
   const latestSequenceRef = useRef(0);
@@ -517,11 +584,12 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         item.sequence > previousLast && (index === 0 || item.sequence > additions[index - 1].sequence),
       );
       const merged = appendOnly ? [...previous, ...additions] : [...previous, ...additions].sort(compareBySequence);
-      // Bound the working set — drop oldest if over limit
+      // Bound the working set — drop oldest if over limit, then pair
+      // responded items with presented siblings inside the window.
       if (merged.length > MAX_WORKING_SET) {
-        return merged.slice(merged.length - MAX_WORKING_SET);
+        return pairRespondedChoices(merged.slice(merged.length - MAX_WORKING_SET));
       }
-      return merged;
+      return pairRespondedChoices(merged);
     });
   }, []);
 
@@ -609,9 +677,9 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         setStream((previous) => {
           const merged = [...uniqueOlder, ...previous].sort(compareBySequence);
           if (merged.length > MAX_WORKING_SET) {
-            return merged.slice(merged.length - MAX_WORKING_SET);
+            return pairRespondedChoices(merged.slice(merged.length - MAX_WORKING_SET));
           }
-          return merged;
+          return pairRespondedChoices(merged);
         });
         setOlderLoaded((prev) => prev + uniqueOlder.length);
       }
@@ -710,6 +778,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       setSubmission({
         status: 'failure',
         interactionId,
+        choiceId,
         error: classified.message,
         retryable: classified.retryable,
       });
@@ -817,7 +886,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
           setWorkflowSummary(snapshot.workflowSummary);
           setAttention(snapshot.attention);
           setLastUpdatedAt(Date.now());
-          const items = snapshot.stream.map(streamItemFromSnapshot);
+          const items = pairRespondedChoices(snapshot.stream.map(streamItemFromSnapshot));
           setStream(items);
           updateSequence(snapshot.cursor.sequenceNumber);
           // Snapshot seeds attention; the canonical endpoint refreshes it.
@@ -853,7 +922,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         setAttention(snapshot.attention);
         setLastUpdatedAt(Date.now());
 
-        const items = snapshot.stream.map(streamItemFromSnapshot);
+        const items = pairRespondedChoices(snapshot.stream.map(streamItemFromSnapshot));
         setStream(items);
         updateSequence(snapshot.cursor.sequenceNumber);
         // Snapshot seeds attention; the canonical endpoint refreshes it.
@@ -937,7 +1006,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     room,
     cursor,
     participants,
-    stream,
+    stream: presentedStream,
     workflowSummary,
     attention,
     latestSequence,

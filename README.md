@@ -1,214 +1,163 @@
-# Vestara AI Core
+# Vestara AI Core — Agent Instructions
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-
-AI-native engineering platform — runtime kernel and product services.
-
-## Quick start
+## Setup & Build (run from this directory)
 
 ```bash
 pnpm install
-bash build-order.sh
-pnpm vestara doctor
+bash build-order.sh            # alias: pnpm build → pnpm build:references → generate refs + tsc -b
+pnpm vestara doctor            # compiled CLI (requires build first)
 ```
 
-For browser development with hot reload, start the API and Workspace UI
-together:
+- Node 22+ and pnpm required (CI pins Node 22).
+- Build **before** `pnpm test` or any `pnpm vestara` / `pnpm dev:api` command — tests resolve `@vestara/*` from `dist/` via aliases in `vitest.config.ts` and CLI/API run from `dist/`. Stale `dist/` causes misleading failures.
+- `pnpm build` regenerates `tsconfig.reference.json` per project + root `tsconfig.references.json` (both gitignored — never hand-edit); run `pnpm dependencies:check` to validate.
+- `pnpm build` skips `@vestara/workspace-ui` (hardcoded non-buildable in `scripts/workspace-architecture.mjs`); build the UI separately with `pnpm --filter @vestara/workspace-ui build` (`tsc -b && vite build`).
+- `pnpm clean` / `tsc -b --clean` to wipe build. `pnpm watch` for `tsc -b -w`.
 
-```bash
-pnpm dev
-pnpm console
+## Monorepo Boundaries
+
+- `apps/api` (`@vestara/api`) — HTTP+WS gateway, `src/index.ts` + `src/routes/`. `apps/cli` — CLI/REPL entrypoint. `apps/workspace` (`@vestara/workspace-ui`, React 19 + Vite) **≠** `packages/workspace` (`@vestara/workspace`, integration hub) — different packages sharing the name.
+- `apps/console` does not exist; the Console is `pnpm console` → `node apps/cli/dist/index.js console` (CLI `console`/`tui` command, see `apps/cli/src/index.ts`).
+- `apps/onboarding-lab` is a dev test rig, not a runtime entrypoint.
+- `packages/*` + `packages/providers/*` + `packages/tools/*` are runtime libraries. `packages/kernel` coordinates lifecycle/providers.
+- `os/` is OS-0 host integration (systemd units, Plymouth, image builder) — not a runtime package, not in pnpm workspaces.
+- Workspace roots are defined in `pnpm-workspace.yaml` (`packages/*`, `packages/providers/*`, `packages/tools/*`, `apps/*`) — the root `package.json` `workspaces` field is incomplete (missing `providers`/`tools`); trust `pnpm-workspace.yaml`.
+- Import only `@vestara/<pkg>` (no deep imports like `@vestara/foo/bar`) and declare every internal dep in `package.json` — enforced by `scripts/workspace-architecture.mjs`.
+
+## Key Commands
+
+| Task | Command |
+|------|---------|
+| Lint (read-only) | `pnpm lint:check` (`biome check --diagnostic-level=error`) |
+| Lint fix | `pnpm lint` (`biome check --write`, mutates files) |
+| All tests | `pnpm test` (`vitest run`) |
+| Single package | `pnpm --filter @vestara/<pkg> test` |
+| Single file | `pnpm test -- packages/foo/__tests__/thing.test.ts` |
+| Fast tests (CI pre-pass) | `pnpm test:fast` (excludes docs, e2e, repo-intelligence suites) |
+| Dependency boundaries | `pnpm dependencies:check` |
+| Source artifacts | `pnpm check:source-artifacts` |
+| Agent sync/check | `pnpm agents:sync` / `pnpm agents:check` |
+| Dev (API+UI) | `pnpm dev` (API in background on 3001 with `.env`, UI on 5173; kills API when UI exits) |
+| API only | `pnpm dev:api` (`node --env-file=.env apps/api/dist/index.js`) |
+| UI only | `pnpm --filter @vestara/workspace-ui dev` |
+| Visual regression | `pnpm screenshots:ci` (Playwright check) / `pnpm screenshots:update` (approve baselines) |
+| OpenCode contracts | `pnpm --filter @vestara/opencode-runtime opencode:spec:generate` |
+
+Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck` script).
+
+## Testing Quirks
+
+- `vitest.config.ts` discovers `packages/*/__tests__/**`, `packages/{providers,tools}/*/__tests__/**`, `apps/*/__tests__/**`, `apps/workspace/tests/visual/__tests__/**`. Playwright owns `apps/workspace/tests/visual/**/*.spec.*` — vitest excludes them.
+- Test timeout is 15s. Slow tests need investigation rather than timeout bumps.
+- Aliases resolve `@vestara/*` → `packages/*/dist` — `pnpm test` runs `pretest` (`pnpm build`, incremental) first so `dist/` is fresh; bare `vitest run` skips it, rebuild manually.
+- On constrained boxes (≤4 cores / <8GB RAM) run `pnpm test -- --maxWorkers=2` — the default forks pool thrashes and looks hung (418 files, jsdom per `.tsx`, whole-repo scans).
+- `apps/workspace/vitest.setup.ts` runs `afterEach(cleanup)` for every jsdom file (vitest globals are off, so RTL auto-cleanup never engages). It must stay in `apps/workspace/` — `@testing-library/react` is only resolvable from there under pnpm strict mode.
+- `pnpm test:e2e:workflow` is a vitest suite (`packages/workflow-orchestrator/__tests__/e2e`). `pnpm test:e2e:workflow:real-agent` (`scripts/wfo-e2e-002b-live.ts`) hits real LLMs via `.env` — not part of `pnpm test`, don't run casually.
+- Stop dev services (`pnpm services:stop`, or confirm port 3001 is down) before full runs — a live API runtime mutates the repo concurrently (docs frontmatter, activity DBs) and perturbs baseline tests (entry-point counts, checksums, drift guards).
+- DB tests use in-memory `sql.js`; shim is `types/sql-js.d.ts`.
+- `screenshots:check` is a visual-test typecheck (`tsc -p tsconfig.visual.json`), not a test run.
+- Biome ignores `apps/workspace`, `packages/evaluation/fixtures`, `packages/opencode-runtime/{openapi,src/generated}`.
+
+## Guardrails to Not Break
+
+- **Boundaries** (`scripts/workspace-architecture.mjs`): packages must not depend on `apps/*`; packages must not depend on `@vestara/workspace` (except `@vestara/evaluation`); no deep internal imports; no undeclared internal deps; no dependency cycles.
+- **Source artifacts** (`scripts/check-source-artifacts.mjs`): no `*.js`/`*.d.ts`/`*.js.map` under `src/` or `__tests__/` in `apps/` or `packages/` — a stale `src/index.js` shadows `src/index.ts` in vitest. Run `pnpm check:source-artifacts` and delete strays.
+- **Agents** (`packages/workspace/src/agents.registry.ts` is single source of truth): canonical agents are `vestara-context|planner|developer|reviewer|verifier|assistant|browser`. Rendered to `.opencode/agents/*.md` via `scripts/agents-sync.mjs`. Never hand-edit those files or add an `agent` block to `opencode.json` — use `pnpm agents:sync` / `pnpm agents:check`.
+- **OpenCode contracts**: `packages/opencode-runtime/src/generated/opencode-contracts.ts` is generated (gitignored) — never hand-edit. Refresh with `pnpm --filter @vestara/opencode-runtime opencode:spec:update` (fetch + generate + check); CI validates against the pinned schema.
+- **Docs governance**: `pnpm docs:validate` / `pnpm docs:govern` (strict), `pnpm documentation:check` (CI baseline drift gate). Don't add instruction files better stored via `opencode.json` `instructions`.
+
+## CI (`/.github/workflows/ci.yml`)
+
+`install --frozen-lockfile` → `dependencies:check` → OpenCode contract guard (generate + diff-check + `opencode:spec:check`) → `bash build-order.sh` → `lint:check` → `test:fast` → `test` → `documentation:check` → `docs:govern` (strict: frontmatter + links + evidence) → `benchmark` + `benchmark-index`. A separate `desktop-build` job compiles the Tauri shell. `visual-regression.yml` is a separate workflow (Chromium + `pnpm screenshots:ci`, fails the PR on regression).
+
+## Runtime Env
+
+- API: `http://127.0.0.1:3001`, UI: `http://127.0.0.1:5173` (Vite proxies `/api`+`/ws` → API, `apps/workspace/vite.config.ts`).
+- `VESTARA_API_PORT` (API listen, default 3001), `VESTARA_REPO` (workspace path; otherwise walks up for `.vestara/workspace.json`), `VITE_API_URL` (build-time desktop/remote UI base URL — code appends `/api`, trailing slashes trimmed).
+- Live Browser driver: `VESTARA_BROWSER_DRIVER` (`playwright` default | `agent-browser` — runs the agent-browser CLI as the driver; unknown values warn + fall back), `VESTARA_AGENT_BROWSER_EXECUTABLE_PATH` (Chromium executable for the agent-browser driver; the CLI also honors `AGENT_BROWSER_EXECUTABLE_PATH`). Driver factory wired in `apps/api/src/workspace-context.ts` (`createBrowserRuntime` → `resolveBrowserDriverFactory`).
+- `pnpm dev:api` and `pnpm dev` both load `.env` (`--env-file=.env`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
+- Never edit `.vestara/` runtime state. Pre-commit hook (`.githooks/pre-commit` → `scripts/pre-commit.sh` → `biome --staged` + full `pnpm test`) is opt-in via `git config core.hooksPath .githooks`; note it runs the whole suite, so it is slow.
+
+## Style
+
+Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) in CJS packages (the majority — verified in source; zero `.js`-suffixed relative imports) — do not add `.js` extensions unless the package has `"type": "module"` in its `package.json` (e.g. `@vestara/workspace-ui`). Parameterized SQL only (`prepare` + `bind`, no string interpolation).
+
+## UI/UX Governance (ENFORCED — all agents + humans) — see `docs/governance/UI-UX-GOVERNANCE.md`
+
+**Strict when adding/changing UI/UX — violation = BLOCKER:**
+
+1. **Vestara design token mandatory** — every visual value from `packages/ui-tokens/src/tokens.ts` → `var(--vestara-*)` (`COLOR`, `SPACING`, `RADIUS`, `TYPOGRAPHY`, etc.). Validate via `pnpm vds:validate` (`scripts/vds-validate.mjs`).
+2. **Clean & modern** — Biome, no dead code/`console.log`/`TODO`, functional React 19, `SectionCard`/`GalleryCard`/`PageHero` composition.
+3. **NO HARDCODE** — no `#hex`, `bg-[#...]`, `style={{color:}}` with literals, no arbitrary `text-[12px]` not mapping to `TYPOGRAPHY`. Create token first if missing.
+4. **Tailwind v4 required but governed** — Tailwind is the renderer, tokens are authority. Every utility must map to `var(--vestara-*)`. No inline CSS or arbitrary utilities. If token missing, **create** `--vestara-{category}-{name}` (category ∈ `surface|text|border|accent|status|spacing|radius|elevation|motion|z-index|sizing|density|color`) in `packages/ui-tokens/src/tokens.ts` (and `src/css.ts`) — pattern `vestara-*`. Never `bg-[#...]`.
+5. **MUI v9 optional** — only for complicated UI (grids, pickers, dialogs). Agents **must** know latest MUI v9 (2026): `slots`/`slotProps` (not `components`), Emotion 11+, `createTheme` mapped to Vestara tokens. Verify via `ExternalScout`/`webfetch https://mui.com/material-ui/migration/migration-v9/` before use — do not hallucinate v5.
+6. **Data/mock** — API first → check mock server running (`:3002` / `apps/workspace/src/mocks/server.ts`) → else local fixtures (`*.fixtures.ts` like `overview.fixtures.ts`). Never hardcode arrays in JSX.
+
+On any UI task, follow the UI/UX Governance section above; `docs/governance/UI-UX-GOVERNANCE.md` is the contract.
+
+## Execution Governance
+
+**Investigate broadly. Mutate narrowly. Record adjacent findings. Return to acceptance criteria. Stop at the authorization boundary.**
+
+An authorized task grants broad **investigation scope** (search, read, trace — never restricted) but narrow **mutation scope** (only explicitly authorized files/behaviors). Classify discoveries, don't act on them:
+
+| Classification | Meaning | Action |
+|----------------|---------|--------|
+| **BLOCKER** | Task cannot complete without addressing this | Stop, report, await expanded authorization |
+| **ADJACENT** | Real issue, not required by acceptance criteria | Record with evidence, continue |
+| **OBSERVATION** | Suspicious signal, insufficient evidence | Record with confidence level, continue |
+
+Discovery does not confer mutation authority. When acceptance criteria are satisfied, stop — do not expand scope without re-authorization.
+
+## Established Operating Principles
+
+These principles are operationally enforced and must not be contradicted:
+
+### Evidence vs. Claims
+
+- **Claim ≠ Evidence** — Stating something does not make it true. Assertions require supporting evidence.
+- **Completion ≠ Verification** — Finishing a task does not prove it works. Verification requires independent confirmation.
+- **Capability ≠ Authority** — Being able to do something does not mean you are authorized to do it.
+- **UNKNOWN is valid evidence** — "I don't know" is a legitimate and honest answer. Never fabricate certainty.
+
+### Execution Lifecycle
+
+- **UI lifecycle ≠ execution lifecycle** — The browser tab closing does not stop server-side execution.
+- **Conversation selection ≠ execution ownership** — Selecting a conversation does not grant ownership of its execution.
+- **SSE disconnect ≠ execution cancellation** — Losing the SSE stream does not cancel the execution. Only explicit Stop/Cancel or a governed deadline may terminate execution.
+
+### Integration Boundaries
+
+```
+OpenCode :4096
+      ↓
+Vestara OpenCode adapter
+      ↓
+/api/opencode/*
+
+/api/opencode/* = OpenCode integration boundary
+/api/providers   = Vestara provider-platform boundary
 ```
 
-The API listens on `http://127.0.0.1:3001` and the Vite UI on
-`http://127.0.0.1:5173`. The UI proxies `/api` and `/ws` to the API.
+- **OpenCode /config/providers** = authoritative configured/effective OpenCode provider-model projection.
+- **Catalog ≠ Configured** — Having a catalog entry does not mean the provider is configured.
+- **Configured ≠ Enabled** — Having credentials configured does not mean the provider is enabled.
+- **Enabled ≠ Selected** — Being enabled does not mean it is the selected provider for execution.
+- **Settings configures. Assistant selects. Runtime executes.** — Each layer has a distinct responsibility.
 
-For a standalone desktop client, start the API separately and run the Tauri
-shell:
+### Process Ownership
 
-```bash
-pnpm build
-pnpm dev:api
-pnpm --filter @vestara/workspace-ui desktop:dev
-```
+- **Agent test server ≠ Director dogfood server** — Different servers serve different purposes.
+- **An agent owns only processes it creates** — Never assume ownership of unrelated processes.
+- **Temporary owned processes must be cleaned up** — Create → Use → Destroy.
+- **Never broadly kill unrelated Node/Vestara processes** — Targeted cleanup only.
 
-See the [Workspace desktop guide](apps/workspace/docs/DESKTOP.md) for platform
-dependencies, remote API endpoints, and production bundles.
+### Provider/Model Execution Provenance
 
-To serve the built Workspace UI from the API for a browser deployment:
+Observed runtime state (2026-09-11):
 
-```bash
-pnpm build
-pnpm dev:api
-```
-
-Open `http://127.0.0.1:3001/`. The API serves the UI build for browser routes
-and keeps `/api` and `/ws` available for runtime requests. This requires the
-Workspace build to exist; use `pnpm dev` for hot reload during development.
-
-Inspect effective engineering routing without entering the Console:
-
-```bash
-pnpm vestara routing show
-pnpm vestara routing catalog
-pnpm vestara routing preview developer developer-01
-```
-
-Run governed Workspace UI visual regression checks through the compiled CLI:
-
-```bash
-pnpm --filter @vestara/workspace-ui screenshots:check
-pnpm --filter @vestara/workspace-ui screenshots:desktop
-```
-
-Screenshot comparison is the default. Updating approved baselines requires the
-explicit `screenshots update` action. See the [CLI reference](apps/cli/CLI.md) and
-[visual automation setup guide](apps/workspace/tests/visual/docs/SETUP.md).
-
-See the [getting started guide](docs/GETTING_STARTED.md) for setup and common
-workflows, then the [documentation index](docs/README.md) for capability
-specifications, UX specs, architecture docs, and milestone tracking.
-
-For API ports, repository selection, browser deployment, and remote desktop
-connections, see the [configuration guide](docs/CONFIGURATION.md).
-
-For deployment choices, endpoint configuration, and troubleshooting, see the
-[getting started guide](docs/GETTING_STARTED.md).
-
-Generate the package API reference and dependency catalog with
-`pnpm generate-docs`; the generated site is written to `docs/api/`.
-
-## Testing
-
-```bash
-pnpm test                    # run all vitest suites
-pnpm --filter @vestara/<pkg> test   # single package
-pnpm test -- packages/foo/__tests__/thing.test.ts  # single file
-pnpm lint:check              # Biome lint (read-only)
-pnpm benchmark               # pipeline timing benchmarks
-```
-
-Tests resolve `@vestara/*` from `dist/` — always run `pnpm build` before
-`pnpm test` after source changes. See [AGENTS.md](AGENTS.md) for testing
-quirks and guardrails.
-
-## Environment variables
-
-| Variable | Default | Used by |
-|----------|---------|---------|
-| `VESTARA_API_PORT` | `3001` | API listener port |
-| `VESTARA_REPO` | Current repository | API workspace selection |
-| `VITE_API_URL` | Same origin | Workspace build and desktop development |
-
-`pnpm dev:api` loads `.env` automatically; `pnpm dev` does not. The `.env`
-file is gitignored and holds credentials for live agent trials — never commit
-it.
-
-See the [configuration guide](docs/CONFIGURATION.md) for the full reference.
-
-## Workspace
-
-| Directory | Role |
-|-----------|------|
-| `apps/api/` | HTTP+WS gateway for Workspace UI |
-| `apps/cli/` | CLI and REPL entry point |
-| `apps/console/` | Ink-based engineering Console over the shared API/runtime |
-| `apps/workspace/` | React 19 + Vite UI shell |
-| `packages/*` | Runtime libraries (pnpm workspaces) |
-| `packages/providers/*` | Provider integrations (e.g. OpenCode) |
-| `packages/tools/*` | Built-in tools (browser, filesystem, git, shell, etc.) |
-| `os/` | OS-0 host integration (systemd, Plymouth, image builder) |
-| `docs/` | PCS, UX, ATS, milestones, decisions |
-
-## Current work — Global Assistant runtime (GA-RUNTIME-001 + GA-UI-008)
-
-In-progress Global Assistant hardening around server-authoritative execution
-and premium workspace UX.
-
-### Provider/model configuration convergence (GA-PROVIDER-001)
-
-OpenCode `/config` and `/config/providers` provide the authoritative
-configured/effective provider-model projection. Vestara exposes these through
-`/api/opencode/config` and `/api/opencode/config/providers` (API keys stripped
-before reaching the browser).
-
-- OpenCode config endpoints wired in `apps/api/src/routes/opencode.ts`.
-- Typed client methods in `packages/opencode-runtime/src/client/opencode-http-client.ts`.
-- Type definitions in `packages/opencode-runtime/src/client/opencode-types.ts`.
-- `/api/providers` remains backward-compatible (213 providers / 7,602 models).
-- Configured providers: 3, configured models: 145 (observed runtime counts).
-
-### Execution lifecycle semantics (GA-DETACH-001)
-
-SSE disconnect no longer cancels execution. The OpenCode session continues
-server-side for later reattachment. Only explicit Stop/Cancel terminates.
-
-- `TurnTermination` type tracks how a turn ended: completed, failed, timeout,
-  cancelled, detached.
-- `requiresAbort()` determines whether the OpenCode session should be aborted.
-- Deadline-aware event wait prevents indefinite blocking when the stream is
-  open but idle.
-- Catalog and marketplace route handlers claim only their own paths to prevent
-  swallowing unrelated requests.
-
-### Conversation persistence fix (2026-09-11)
-
-Fixed userId mismatch between conversation creation and listing. Conversations
-were created with `userId = 'local'` but listed with `userId = 'workspace-ui'`,
-causing the conversation list to appear empty after API restart.
-
-- **Root cause**: `POST /api/conversations` defaulted `userId` to `'local'`;
-  `GET /api/conversations` defaulted to `ACTOR = 'workspace-ui'`. SQL query
-  filters `WHERE user_id = ?`, so conversations created with 'local' were
-  invisible when listing with 'workspace-ui'.
-- **Fix**: Changed `apps/api/src/routes/conversations.ts` to default creation
-  userId to `ACTOR` instead of `'local'`.
-
-### Server-authoritative execution (GA-RUNTIME-001)
-
-- Server-authoritative provider/model binding (`assistant-binding-resolver`) —
-  browser selections validate against OpenCode runtime discovery, fail-closed
-  with deterministic `400`, never silently fall back.
-- Conversation → OpenCode session continuity registry with single-flight
-  mapping; `runtimeSessionId` persisted on the conversation store.
-- Interactive permission/question broker (`assistant-interaction-broker`) —
-  `POST /api/conversations/:id/permissions/:permissionId` and
-  `POST /api/conversations/:id/questions/:requestId`, preserving OpenCode
-  native response semantics. Routes matched before the messages/stream guard
-  to avoid 404 on browser Allow buttons.
-- Vestara-owned capability boundary (`assistant-capability-policy`, GA-CAP-003);
-  assistant grant tightened to `edit: ask`, `bash: ask`.
-- Execution projection for `question.v2.asked/replied`.
-
-### Workspace UI (GA-UI-008)
-
-- **LauncherDock** — recent-conversations dock anchored to the floating launcher
-  orb; revealed on hover while the panel is closed; selecting a conversation
-  opens the assistant on it.
-- **Premium launcher** — gradient orb with halo glow, online presence dot,
-  hover tooltip showing `Ctrl+J` shortcut.
-- **Keyboard shortcut** — `Ctrl+J` / `⌘+J` toggles the assistant from
-  anywhere (ignored while typing in inputs); `Escape` closes the dock first.
-- **Premium motion** — message entry, thinking dots, and dock reveal animations
-  with `prefers-reduced-motion` support.
-- **UI components**: `ProviderModelSelector`, `ConversationPanel`
-  permission/question cards, `FloatingPanel`, `ConversationHistory`,
-  `AssistantToolCard`, `AssistantTodoChecklist`, `AssistantCodeEdit`,
-  `AssistantFilesSummary`, `AssistantResponseActions`.
-- **Activity Room** — M11C activity stream, participant rail, context panel,
-  with premium dark-luxury design language.
-- **Coverage**: `assistant-capability-policy`, `ga-runtime-001`,
-  `ga-ui-008`, `surface-context-transport`.
-
-### Next known work
-
-- **GA-UX-001**: Explicit conversation message loading state —
-  empty/loading/loaded/error distinction, contextual suggestion/recommendation
-  contract, presentation must not own recommendation intelligence.
-- **PERF-001B+**: Bounded message loading/windowing — separate future work
-  from UX state management.
-
-## Contributing
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, coding conventions, and
-pull request guidelines.
+- OpenCode `/config` and `/config/providers` provide the authoritative configured provider-model projection.
+- Vestara exposes these through `/api/opencode/config` and `/api/opencode/config/providers` (API keys stripped).
+- `/api/providers` remains backward-compatible with 213 providers / 7,602 models.
+- Configured providers: 3, configured models: 145 (observed counts, not architectural constants).
+- **Do not claim selected provider/model execution provenance is established unless evidence actually proves the selected identifiers reached execution.*

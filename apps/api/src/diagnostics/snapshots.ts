@@ -78,6 +78,31 @@ function sourceRef(id: string, kind: DiagnosticSourceKind, name: string, compone
   return { id, kind, name, component } as const;
 }
 
+const REQUIRED_TOOLCHAIN_TOOLS = new Set(['node', 'npm', 'pnpm', 'tsc', 'python', 'git', 'openssl']);
+
+export function classifyToolchainVersions(versions: Record<string, string | null>): {
+  readonly available: number;
+  readonly total: number;
+  readonly missingTools: string[];
+  readonly missingRequiredTools: string[];
+  readonly missingOptionalTools: string[];
+  readonly health: DiagnosticSourceHealth;
+} {
+  const entries = Object.entries(versions);
+  const missingTools = entries.filter(([, v]) => !v).map(([k]) => k);
+  const missingRequiredTools = missingTools.filter((tool) => REQUIRED_TOOLCHAIN_TOOLS.has(tool));
+  const missingOptionalTools = missingTools.filter((tool) => !REQUIRED_TOOLCHAIN_TOOLS.has(tool));
+
+  return {
+    available: entries.length - missingTools.length,
+    total: entries.length,
+    missingTools,
+    missingRequiredTools,
+    missingOptionalTools,
+    health: missingRequiredTools.length > 0 ? 'degraded' : 'healthy',
+  };
+}
+
 // ─── Snapshot Collectors ───────────────────────────────────────
 
 /**
@@ -261,19 +286,23 @@ function collectDockerHealth(): DiagnosticSnapshot {
  */
 function collectToolVersionsHealth(): DiagnosticSnapshot {
   const versions = collect.collectVersions();
-  const missing = Object.entries(versions).filter(([, v]) => !v);
-
-  const health: DiagnosticSourceHealth = missing.length > 3 ? 'degraded' : 'healthy';
+  const classification = classifyToolchainVersions(versions);
+  const health = classification.health;
 
   return {
     source: sourceRef('toolchain', 'runtime', 'Toolchain Versions'),
     health,
     severity: deriveSeverity(health),
-    message: `${Object.keys(versions).length - missing.length}/${Object.keys(versions).length} tools available`,
+    message:
+      classification.missingRequiredTools.length > 0
+        ? `${classification.available}/${classification.total} tools available; missing required: ${classification.missingRequiredTools.join(', ')}`
+        : `${classification.available}/${classification.total} tools available; required baseline available`,
     observedAt: new Date().toISOString(),
     payload: {
       ...versions,
-      missingTools: missing.map(([k]) => k),
+      missingTools: classification.missingTools,
+      missingRequiredTools: classification.missingRequiredTools,
+      missingOptionalTools: classification.missingOptionalTools,
     },
   };
 }

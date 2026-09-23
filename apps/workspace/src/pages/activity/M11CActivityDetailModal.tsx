@@ -20,10 +20,11 @@
  * routing/execution authority changes.
  */
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import { MarkdownRenderer, preloadMarkdownRenderer } from '../../components/chat/MarkdownRenderer';
 import { VestaraModal } from '../../components/ui/VestaraModal';
+import { fetchConversationDebug, type ConversationDebugMessage } from '../../lib/m11a-api';
 
 interface M11CActivityDetailModalProps {
   /** The selected record. Null renders nothing (caller gates on this). */
@@ -97,17 +98,81 @@ function DrillDownCard({ record }: { record: M11CStreamItem }) {
   );
 }
 
+function ConversationToolDebug({ messages }: { messages: readonly ConversationDebugMessage[] }) {
+  const observations = messages.flatMap((message) =>
+    (message.toolObservations ?? []).map((observation) => ({ message, observation })),
+  );
+  if (observations.length === 0) return null;
+
+  return (
+    <section aria-label={`Tool observations (${observations.length})`} className="mt-5">
+      <h3 className="mb-2 px-1 text-xs font-semibold uppercase tracking-wider text-[var(--vestara-text-dim)]">
+        Tool observations ({observations.length})
+      </h3>
+      <div className="space-y-2">
+        {observations.map(({ message, observation }) => (
+          <div
+            key={`${message.id}:${observation.toolCallId}`}
+            className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2"
+          >
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--vestara-text-muted)]">
+              <span className="font-semibold text-[var(--vestara-text-secondary)]">{observation.toolName}</span>
+              <span aria-hidden="true">·</span>
+              <span>{observation.status}</span>
+              <span aria-hidden="true">·</span>
+              <span className="font-mono">{observation.toolCallId}</span>
+            </div>
+            {observation.content ? (
+              <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap break-words rounded-[var(--vestara-radius)] bg-[var(--vestara-surface-panel)] p-2 text-xs leading-relaxed text-[var(--vestara-text-secondary)]">
+                {observation.content}
+              </pre>
+            ) : (
+              <p className="mt-2 text-xs italic text-[var(--vestara-text-muted)]">No tool output recorded.</p>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default function M11CActivityDetailModal({
   item,
   drillDownRecords,
   drillDownLoading,
   onClose,
 }: M11CActivityDetailModalProps) {
+  const [conversationMessages, setConversationMessages] = useState<readonly ConversationDebugMessage[]>([]);
+  const [conversationDebugState, setConversationDebugState] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
+
   // Warm the lazy markdown chunk so full content renders without a flash of
   // fallback text when the dialog opens.
   useEffect(() => {
     if (item) preloadMarkdownRenderer();
   }, [item]);
+
+  useEffect(() => {
+    let disposed = false;
+    const conversationId = item?.originConversationId;
+    if (!conversationId) {
+      setConversationMessages([]);
+      setConversationDebugState('idle');
+      return;
+    }
+    setConversationDebugState('loading');
+    void fetchConversationDebug(conversationId)
+      .then((response) => {
+        if (disposed) return;
+        setConversationMessages(response.conversation.messages);
+        setConversationDebugState('loaded');
+      })
+      .catch(() => {
+        if (!disposed) setConversationDebugState('error');
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [item?.originConversationId]);
 
   if (!item) return null;
 
@@ -150,9 +215,9 @@ export default function M11CActivityDetailModal({
       >
         {/* Complete readable content */}
         <section aria-label="Content">
-          {item.content ? (
+          {item.content || item.tool?.output ? (
             <div className="text-sm leading-relaxed text-[var(--vestara-text)]">
-              <MarkdownRenderer content={item.content} />
+              <MarkdownRenderer content={item.tool?.output ?? item.content} />
             </div>
           ) : (
             <p className="text-sm italic text-[var(--vestara-text-muted)]">(no content)</p>
@@ -177,6 +242,18 @@ export default function M11CActivityDetailModal({
             </div>
           </section>
         )}
+
+        {conversationDebugState === 'loading' && (
+          <p className="mt-5 text-sm text-[var(--vestara-text-muted)]" role="status">
+            Loading conversation tool observations…
+          </p>
+        )}
+        {conversationDebugState === 'error' && (
+          <p className="mt-5 text-sm text-[var(--vestara-text-muted)]" role="status">
+            Conversation debug data is unavailable.
+          </p>
+        )}
+        {conversationDebugState === 'loaded' && <ConversationToolDebug messages={conversationMessages} />}
 
         {/* Metadata / evidence already represented on the record */}
         <section aria-label="Metadata" className="mt-5 border-t border-[var(--vestara-border-subtle)] pt-3">
@@ -213,6 +290,13 @@ export default function M11CActivityDetailModal({
               <MetadataRow label="Task">
                 <span className="font-mono">{item.taskId}</span>
               </MetadataRow>
+            )}
+            {item.tool && (
+              <>
+                <MetadataRow label="Tool">{item.tool.toolName}</MetadataRow>
+                <MetadataRow label="Call ID"><span className="font-mono">{item.tool.callID}</span></MetadataRow>
+                {item.tool.output && <MetadataRow label="Output">Available in the content above</MetadataRow>}
+              </>
             )}
             {item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
               <MetadataRow label="References">

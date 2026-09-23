@@ -420,6 +420,60 @@ export function projectReadObservation(
   });
 }
 
+/**
+ * `message.part.updated` with an OpenCode `edit` tool part → structured edit
+ * detail. The file identity comes from the same tool part's `state.input` and
+ * the operation identity is its authoritative `callID`; no cross-event
+ * matching is performed.
+ *
+ * Diff evidence is accepted only from the same part's structured
+ * `state.metadata.filediff.patch`, so View diff is unavailable when that
+ * runtime evidence is absent.
+ */
+export function projectEditObservation(
+  event: OpenCodeEventLike,
+  repoDir?: string,
+): AssistantExecutionDetail | undefined {
+  if (!isEvent(event, EVENT.messagePartUpdated)) return undefined;
+  const payload = event.payload ?? {};
+  const part = payload.part as Record<string, unknown> | undefined;
+  if (part?.type !== 'tool' || part.tool !== 'edit') return undefined;
+  const callID = str(part.callID);
+  if (!callID) return undefined;
+  const state = (part.state ?? {}) as Record<string, unknown>;
+  const status = str(state.status);
+  const input = state.input as Record<string, unknown> | undefined;
+  const filePath = str(input?.filePath);
+  if (!filePath) return undefined;
+  const metadata = state.metadata as Record<string, unknown> | undefined;
+  const filediff = metadata?.filediff as Record<string, unknown> | undefined;
+  const patch = str(filediff?.patch);
+  const additions = num(filediff?.additions);
+  const deletions = num(filediff?.deletions);
+  const time = state.time as Record<string, unknown> | undefined;
+  const startedAt = num(time?.start);
+  const endedAt = num(time?.end);
+  const durationMs = startedAt !== undefined && endedAt !== undefined ? Math.max(0, endedAt - startedAt) : undefined;
+  const envelopeState: 'running' | 'completed' | 'failed' =
+    status === 'error' ? 'failed' : status === 'completed' ? 'completed' : 'running';
+
+  return projectDetail({
+    ...baseEnvelope(callID, envelopeState, payload, 'edit'),
+    kind: 'edit',
+    tool: 'edit',
+    file: relativizeForEvidence(filePath, repoDir),
+    additions,
+    deletions,
+    patch,
+    diffRepresentation: patch !== undefined ? 'patch' : 'unavailable',
+    diffProvenance: patch !== undefined ? 'runtime-provided' : 'unavailable',
+    beforeAfterProvenance: 'unavailable',
+    durationMs,
+    timestamp: num(state.time) ?? num(payload.time) ?? Date.now(),
+    ...(envelopeState === 'failed' ? { error: str(state.error) ?? 'Edit failed' } : {}),
+  });
+}
+
 /** `permission.v2.asked` / `permission.asked` → requested permission (allowlisted fields only). */
 export function projectPermissionRequested(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
   if (!isEvent(event, EVENT.permissionAsked) && !isEvent(event, EVENT.permissionAskedV1)) return undefined;

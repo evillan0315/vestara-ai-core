@@ -18,7 +18,6 @@ import {
 import { PolicySection } from './PolicySection.js';
 import { ApiEndpointField } from './ApiEndpointField.js';
 import NavigationSettings from './NavigationSettings.js';
-import { TelegramPanels } from './TelegramSettings.js';
 import EnvironmentVariables from './EnvironmentVariables.js';
 import SystemOverview from './SystemOverview.js';
 import { AssistantExecutionPanel, ToolVisibilityPanel } from './AI/AssistantExecution/AssistantExecutionSettings.js';
@@ -369,14 +368,6 @@ export default function SettingsPage() {
                     <div className="min-w-0 lg:col-span-2 xl:col-span-3">
                       <CISettings />
                     </div>
-                  </div>
-                }
-              />
-              <Route
-                path="advanced"
-                element={
-                  <div className="st-settings-grid">
-                    <TelegramPanels configuration={data.configuration} onChanged={changed} />
                   </div>
                 }
               />

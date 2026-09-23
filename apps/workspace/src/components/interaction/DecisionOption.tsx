@@ -42,14 +42,16 @@ const VARIANT_STYLES = {
     hover: 'hover:border-(--vestara-accent-border-hover) hover:text-(--vestara-text)',
   },
   secondary: {
-    base: 'border-zinc-700 text-(--vestara-text-2)',
-    selected: 'border-zinc-500 bg-zinc-800/50 text-(--vestara-text)',
-    hover: 'hover:border-zinc-600 hover:text-(--vestara-text)',
+    base: 'border-[var(--vestara-border-default)] text-[var(--vestara-text-secondary)]',
+    selected:
+      'border-[var(--vestara-border-strong)] bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-primary)]',
+    hover: 'hover:border-[var(--vestara-border-strong)] hover:text-[var(--vestara-text-primary)]',
   },
   destructive: {
-    base: 'border-zinc-700 text-(--vestara-text-2)',
-    selected: 'border-red-500/40 bg-red-500/10 text-red-400',
-    hover: 'hover:border-red-500/30 hover:text-red-300',
+    base: 'border-[var(--vestara-border-default)] text-[var(--vestara-text-secondary)]',
+    selected:
+      'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]',
+    hover: 'hover:border-[var(--vestara-status-error-border)] hover:text-[var(--vestara-status-error)]',
   },
 } as const;
 
@@ -99,7 +101,7 @@ export const DecisionOption = forwardRef<HTMLButtonElement, DecisionOptionProps>
         {/* Selection indicator — border style + icon, not color alone */}
         <span
           className={`shrink-0 mt-0.5 w-3.5 h-3.5 rounded-full border flex items-center justify-center
-            ${selected ? 'border-(--vestara-accent-border-active) bg-(--vestara-accent-bg)' : 'border-zinc-600'}
+            ${selected ? 'border-(--vestara-accent-border-active) bg-(--vestara-accent-bg)' : 'border-[var(--vestara-border-strong)]'}
           `}
           aria-hidden="true"
         >

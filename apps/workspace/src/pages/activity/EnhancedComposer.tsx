@@ -14,7 +14,8 @@
  * @see VESTARA-INTELLIGENCE-ARCHITECTURE-REVIEW.md §8, §9
  */
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
 import type {
   ActivityMessageInput,
   ActivityOrganizationalEffect,
@@ -248,6 +249,11 @@ export function EnhancedActivityComposer({
   const [mentionQuery, setMentionQuery] = useState('');
   const [effect, setEffect] = useState<ActivityOrganizationalEffect>('message');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Configurable cap from Settings → General (`general.composerMaxChars`).
+  const [composerMax, setComposerMax] = useState(DEFAULT_COMPOSER_MAX_CHARS);
+  useEffect(() => {
+    void fetchComposerMaxChars().then(setComposerMax);
+  }, []);
 
   const localActor = useMemo(() => {
     const actor = typeof window !== 'undefined' ? window.localStorage.getItem('vestara-actor') : null;
@@ -360,7 +366,7 @@ export function EnhancedActivityComposer({
               />
             )}
           </div>
-          <span className="shrink-0">{draft.length}/4000</span>
+          <span className="shrink-0">{draft.length}/{composerMax}</span>
         </div>
 
         {/* Reference indicator */}
@@ -393,7 +399,7 @@ export function EnhancedActivityComposer({
             onChange={(event) => handleChange(event.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            maxLength={4000}
+            maxLength={composerMax}
             placeholder={
               targetAgentId === undefined ? 'Message all agents… (@ mentions an agent)' : `Message ${targetAgentId}…`
             }

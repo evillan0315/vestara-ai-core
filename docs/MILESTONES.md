@@ -4950,3 +4950,23 @@ agent/workflow capabilities.
 Aug-2026 slice/architecture plans (owner vestara-context), preserved, not
 canonical. Canonical authority is lowercase `docs/architecture/` (AR-GA
 contracts). No deletion in this checkpoint.
+
+## VESTARA-CHECKPOINT-003 - Activity Room Coordination and Edit Inspection
+
+**Status**: reviewable checkpoint, 2026-09-24. Evidence:
+`docs/activity-room/VESTARA-CHECKPOINT-003-evidence.md`.
+
+The delivered coordination work preserves subsystem authority while carrying
+correlation through Conversation Runtime, OpenCode/Codex observations, EventBus,
+M9/M10/M11, and Activity Room. Human-decision waits retain their shared
+interaction identity through replay. Correlated routine tools remain grouped
+under their parent Activity message.
+
+AR-TOOL-EDIT-001E is live-dogfood verified by Eddie after a full page refresh:
+`Inspect edit` opens the Activity Files drawer while Activity Room remains
+visible, with a historical read-only diff separate from the current README.
+The authoritative edit evidence is the same OpenCode tool part's callID,
+filePath, and filediff patch; no heuristic matching is accepted.
+
+Participant-state redesign, composer agent selection, Composer Event Inspector,
+Execution page work, and live-browser integration remain later milestones.

@@ -238,8 +238,13 @@ function startActivityWatcher(room: M11ARoomState): void {
       const newRecords = await room.store.getAfter(cursor);
 
       if (newRecords.length > 0) {
-        // Broadcast each new record in order (convert to projection format)
+        // Apply each durable record to the live projection before broadcasting.
+        // Snapshot reads and reconnects must observe the same M10 state as the
+        // realtime stream; the watcher is not only a transport relay.
         for (const record of newRecords) {
+          room.runtime.processRecord(record);
+          room.lastProjection = room.runtime.getProjection();
+          room.lastProjectionAt = Date.now();
           room.hub.broadcast(toProjectionRecord(record));
         }
         lastKnownSequence = newRecords[newRecords.length - 1].sequenceNumber;
@@ -410,6 +415,7 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
     workflowRunId: item.workflowRunId,
     executionId: item.executionId,
     taskId: item.taskId,
+    runtimeSessionBindingId: item.runtimeSessionBindingId,
     // AR-UI-REPLY-002: authoritative origin provenance only; the
     // sanitizer otherwise stays an allowlist (projection stays lossy).
     ...(typeof item.originConversationId === 'string' ? { originConversationId: item.originConversationId } : {}),
@@ -425,6 +431,8 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
             callID: item.tool.callID,
             status: item.tool.status,
             ...(typeof item.tool.agentId === 'string' ? { agentId: item.tool.agentId } : {}),
+            ...(typeof item.tool.sessionId === 'string' ? { sessionId: item.tool.sessionId } : {}),
+            ...(typeof item.tool.output === 'string' ? { output: item.tool.output.slice(0, 12000) } : {}),
           },
         }
       : {}),
@@ -470,6 +478,7 @@ function sanitizeParticipant(p: ParticipantProjection): Record<string, unknown> 
     presence: p.presence,
     workState: p.workState,
     currentAssignment: p.currentAssignment,
+    pendingInteractionId: p.pendingInteractionId,
     joinedAt: p.joinedAt,
     lastActivityAt: p.lastActivityAt,
   };

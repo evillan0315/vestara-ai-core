@@ -193,6 +193,12 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
   'general.dateTimeFormat': { section: 'general', defaultValue: 'locale', validate: oneOf(['locale', 'iso']) },
   'general.logFormat': { section: 'general', defaultValue: 'structured', validate: oneOf(['structured', 'compact']) },
   'general.defaultLandingPage': { section: 'general', defaultValue: '/overview', validate: stringValue },
+  'general.composerMaxChars': {
+    section: 'general',
+    defaultValue: 100_000,
+    validate: (value: unknown): value is number =>
+      typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 100_000,
+  },
   'runtime.autoRefresh': { section: 'runtime', defaultValue: true, validate: booleanValue },
   'providers.defaultProvider': { section: 'providers', defaultValue: 'opencode', validate: stringValue },
   'providers.defaultModel': { section: 'providers', defaultValue: 'auto', validate: stringValue },

@@ -28,9 +28,9 @@ import { Button, FactRow, ReferenceCard, Status, Segmented, Toggle, input } from
 const SEVERITIES: readonly NotificationSeverity[] = ['info', 'warning', 'error', 'critical'];
 const TUNNEL_PROVIDERS: readonly TunnelProviderKind[] = ['manual', 'cloudflared', 'ngrok'];
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
-function useTelegramPanelState() {
+export function useTelegramPanelState() {
   const [settings, setSettings] = useState<TelegramSettingsDto | null>(null);
   const [draft, setDraft] = useState<NotificationPreferences | null>(null);
   const [status, setStatus] = useState<SaveStatus>('idle');
@@ -128,6 +128,8 @@ export function TelegramNotificationsPanel({
   onUpdateDraft,
   onSave,
   className = '',
+  soundEnabled,
+  onSoundChange,
 }: {
   draft: NotificationPreferences;
   settings: TelegramSettingsDto;
@@ -137,6 +139,8 @@ export function TelegramNotificationsPanel({
   onUpdateDraft: (patch: Partial<NotificationPreferences>) => void;
   onSave: () => void;
   className?: string;
+  soundEnabled?: boolean;
+  onSoundChange?: (value: boolean) => void;
 }) {
   return (
     <ReferenceCard
@@ -153,6 +157,15 @@ export function TelegramNotificationsPanel({
         </div>
       }
     >
+      {soundEnabled !== undefined && onSoundChange && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-3">
+          <span className="min-w-0">
+            <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">Enable sound notifications</span>
+            <span className="block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">Audible cue when operations finish — saved with your changes.</span>
+          </span>
+          <Toggle label="Enable sound notifications" checked={soundEnabled} onChange={onSoundChange} />
+        </div>
+      )}
       <div className="divide-y divide-[var(--vestara-color-border-subtle,var(--color-zinc-800))]">
         {settings.eventCatalog.map((descriptor) => (
           <div key={descriptor.type} className="flex items-center justify-between gap-4 py-3">
@@ -173,60 +186,61 @@ export function TelegramNotificationsPanel({
         ))}
       </div>
 
-      <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
-        <span className="mb-2 block text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
-          Minimum severity
-        </span>
-        <Segmented
-          label="Minimum severity"
-          value={draft.minSeverity}
-          options={SEVERITIES}
-          onChange={(value) => onUpdateDraft({ minSeverity: value })}
-        />
-      </div>
-
-      <div className="mt-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4">
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
-            Quiet hours
+      <div className="mt-4 grid gap-4 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4 sm:grid-cols-2">
+        <div className="min-w-0">
+          <span className="mb-2 block text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
+            Minimum severity
           </span>
-          <Toggle
-            label="Quiet hours"
-            checked={draft.quietHours.enabled}
-            onChange={(value) => onUpdateDraft({ quietHours: { ...draft.quietHours, enabled: value } })}
+          <Segmented
+            label="Minimum severity"
+            value={draft.minSeverity}
+            options={SEVERITIES}
+            onChange={(value) => onUpdateDraft({ minSeverity: value })}
           />
         </div>
-        {draft.quietHours.enabled && (
-          <div className="mt-3 flex items-center gap-2">
-            <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-start">
-              From
-            </label>
-            <input
-              id="tg-quiet-start"
-              type="number"
-              min={0}
-              max={23}
-              value={draft.quietHours.startHour}
-              onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, startHour: Number(e.target.value) } })}
-              className={`${input} w-20`}
-            />
-            <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-end">
-              to
-            </label>
-            <input
-              id="tg-quiet-end"
-              type="number"
-              min={0}
-              max={23}
-              value={draft.quietHours.endHour}
-              onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, endHour: Number(e.target.value) } })}
-              className={`${input} w-20`}
-            />
-            <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-              (24h, local time)
+        <div className="min-w-0 border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] pt-4 sm:border-t-0 sm:pt-0">
+          <div className="flex items-center justify-between gap-4">
+            <span className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))]">
+              Quiet hours
             </span>
+            <Toggle
+              label="Quiet hours"
+              checked={draft.quietHours.enabled}
+              onChange={(value) => onUpdateDraft({ quietHours: { ...draft.quietHours, enabled: value } })}
+            />
           </div>
-        )}
+          {draft.quietHours.enabled && (
+            <div className="mt-3 flex items-center gap-2">
+              <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-start">
+                From
+              </label>
+              <input
+                id="tg-quiet-start"
+                type="number"
+                min={0}
+                max={23}
+                value={draft.quietHours.startHour}
+                onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, startHour: Number(e.target.value) } })}
+                className={`${input} w-20`}
+              />
+              <label className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]" htmlFor="tg-quiet-end">
+                to
+              </label>
+              <input
+                id="tg-quiet-end"
+                type="number"
+                min={0}
+                max={23}
+                value={draft.quietHours.endHour}
+                onChange={(e) => onUpdateDraft({ quietHours: { ...draft.quietHours, endHour: Number(e.target.value) } })}
+                className={`${input} w-20`}
+              />
+              <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                (24h, local time)
+              </span>
+            </div>
+          )}
+        </div>
       </div>
 
       {status === 'error' && error && (
@@ -300,7 +314,7 @@ function tunnelStatusLabel(status: TelegramTunnel['state']['status']): string {
  * HTTPS URL, so the loopback API must be exposed through a tunnel. Enabling
  * is an explicit action: nothing is spawned by configuration alone.
  */
-function TunnelSection({ initial, className = '' }: { initial: TelegramTunnel; className?: string }) {
+export function TunnelSection({ initial, className = '' }: { initial: TelegramTunnel; className?: string }) {
   const [tunnel, setTunnel] = useState<TelegramTunnel>(initial);
   const [provider, setProvider] = useState<TunnelProviderKind>(initial.config.provider);
   const [publicUrl, setPublicUrl] = useState(initial.config.publicUrl ?? '');

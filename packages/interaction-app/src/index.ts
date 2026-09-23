@@ -6,6 +6,6 @@
  * NOT consumed by @vestara/activity-room.
  */
 
-export type { InteractionServiceOptions } from './interaction-service';
+export type { InteractionPresentationContext, InteractionServiceOptions } from './interaction-service';
 export { InteractionService } from './interaction-service';
 export { ResponseConflictError } from './response-conflict-error';

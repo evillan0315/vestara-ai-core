@@ -43,6 +43,9 @@ export class InteractionEventBusAdapter implements InteractionPublicationPort {
         createdAt: payload.createdAt,
         content: payload.content,
         choices: payload.choices,
+        workflowRunId: payload.workflowRunId,
+        taskId: payload.taskId,
+        correlationId: payload.correlationId,
       },
     });
   }

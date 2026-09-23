@@ -276,6 +276,20 @@ export const ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS: readonly MigrationStep[] = 
   },
 ];
 
+/** Human-decision wait linkage. Appended after every existing plans.db group. */
+export const ORCHESTRATION_DECISION_WAIT_MIGRATIONS: readonly MigrationStep[] = [
+  {
+    name: 'orchestration.tasks.approval_interaction',
+    produces: [fingerprint('orchestrated_tasks', ['approval_interaction_id'])],
+    up: (db: Database, ctx: MigrationContext) => {
+      ctx.addColumnIfMissing(db, 'orchestrated_tasks', 'approval_interaction_id', 'TEXT');
+      db.run(
+        'CREATE INDEX IF NOT EXISTS idx_otask_approval_interaction ON orchestrated_tasks(approval_interaction_id)',
+      );
+    },
+  },
+];
+
 /**
  * Full orchestration-domain step list (base + append-only extensions).
  *
@@ -286,6 +300,7 @@ export const ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS: readonly MigrationStep[] = 
 export const ORCHESTRATION_MIGRATIONS: readonly MigrationStep[] = [
   ...ORCHESTRATION_BASE_MIGRATIONS,
   ...ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
+  ...ORCHESTRATION_DECISION_WAIT_MIGRATIONS,
 ];
 
 /** Standalone orchestration-domain manifest (for direct-construction tests). */

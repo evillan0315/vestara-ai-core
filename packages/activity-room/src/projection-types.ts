@@ -13,6 +13,7 @@ import type {
   ExecutionId,
   MembershipState,
   PresenceState,
+  RuntimeSessionId,
   WorkflowRunId,
   WorkflowTaskId,
   WorkState,
@@ -89,6 +90,8 @@ export interface StreamItem {
   readonly workflowRunId?: WorkflowRunId;
   readonly executionId?: ExecutionId;
   readonly taskId?: WorkflowTaskId;
+  /** Runtime session lineage retained for safe work-session grouping. */
+  readonly runtimeSessionBindingId?: RuntimeSessionId;
 
   /**
    * Authoritative Conversation Runtime provenance (AR-UI-REPLY-002).
@@ -143,6 +146,9 @@ export interface StreamItem {
     readonly callID: string;
     readonly status: 'started' | 'completed' | 'failed';
     readonly agentId?: string;
+    readonly sessionId?: string;
+    /** Bounded raw tool output, when the runtime reported it. */
+    readonly output?: string;
   };
 }
 
@@ -211,6 +217,9 @@ export interface ParticipantProjection {
     readonly taskId: WorkflowTaskId;
     readonly taskTitle?: string;
   };
+
+  /** Pending human decision currently holding this participant. */
+  readonly pendingInteractionId?: string;
 
   /** When this participant joined. */
   readonly joinedAt: string;

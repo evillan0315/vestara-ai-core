@@ -32,7 +32,7 @@ function getStoredInterval(): number {
   return 8000;
 }
 
-export default function HeroSettings() {
+export function useHeroSettingsState() {
   const { briefing, briefings } = useMorningBriefing();
   const [topicOverride, setTopicOverride] = useState<TopicId | null>(() => getStoredTopic());
   const [intervalMs, setIntervalMs] = useState<number>(() => getStoredInterval());
@@ -84,19 +84,65 @@ export default function HeroSettings() {
     window.dispatchEvent(new Event('hero-settings-changed'));
   };
 
+  return {
+    briefing,
+    briefings,
+    topicOverride,
+    intervalMs,
+    workspaceHealth,
+    stats,
+    previewKey,
+    currentTopic,
+    setTopic,
+    setIntervalValue,
+    refreshTopic,
+    resetDaily,
+    setTopicOverride,
+    setIntervalMs,
+    setPreviewKey,
+  };
+}
+
+export type HeroSettingsState = ReturnType<typeof useHeroSettingsState>;
+
+export function HeroBriefingCard({
+  hero,
+  className = '',
+}: {
+  hero: HeroSettingsState;
+  className?: string;
+}) {
+  const {
+    briefing,
+    briefings,
+    topicOverride,
+    intervalMs,
+    workspaceHealth,
+    stats,
+    previewKey,
+    currentTopic,
+    setTopic,
+    setIntervalValue,
+    refreshTopic,
+    resetDaily,
+    setTopicOverride,
+    setIntervalMs,
+    setPreviewKey,
+  } = hero;
   return (
-    <div className="grid min-w-0 items-start gap-[var(--vestara-spacing-section)] lg:grid-cols-[minmax(0,1fr)_24rem]">
-      <ReferenceCard
-        icon={navIcon('dashboard')}
-        title="Hero & Briefing"
-        description="Choose the Hero topic, rotation speed and preview the live Hero as it appears on /overview. Changes apply immediately via local storage and the daily auto-shift."
-        actions={
-          <>
-            <Button onClick={() => setPreviewKey((k) => k + 1)}>↺ Refresh preview</Button>
-            <Button primary onClick={refreshTopic}>Shuffle topic</Button>
-          </>
-        }
-      >
+    <ReferenceCard
+      icon={navIcon('dashboard')}
+      title="Hero & Briefing"
+      description="Choose the Hero topic, rotation speed and preview the live Hero as it appears on /overview. Changes apply immediately via local storage and the daily auto-shift."
+      className={`flex h-full flex-col [&>.st-card-body]:flex [&>.st-card-body]:flex-col [&>.st-card-body]:flex-1 ${className}`}
+      actions={
+        <>
+          <Button onClick={() => setPreviewKey((k) => k + 1)}>↺ Refresh preview</Button>
+          <Button primary onClick={refreshTopic}>Shuffle topic</Button>
+        </>
+      }
+    >
+      <div className="flex flex-1 flex-col">
         <SettingsRow
           label="Current system"
           value={
@@ -165,28 +211,113 @@ export default function HeroSettings() {
             </div>
           }
         />
-      </ReferenceCard>
-
-      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)]">
-        <ReferenceCard
-          icon={navIcon('sessions')}
-          tone="info"
-          title="Live Preview"
-          description="The exact Hero the Director sees, updating in real time."
-        >
-          <div className="bg-[var(--vestara-surface-panel-raised)] rounded-lg border text-xs">
-            <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
-            <div className="mt-1 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
-            <div className="mt-2 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
+        <div className="mt-auto border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
+          <div className="flex items-center gap-2 text-[var(--vestara-font-size-xs)] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
+            <span className="size-2 rounded-full bg-[var(--vestara-amber)]" aria-hidden="true" />
+            Live Preview — {TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s
           </div>
-        </ReferenceCard>
-        <div className="flex min-w-0 flex-col gap-2">
-          <Button onClick={resetDaily}>Reset to daily auto</Button>
-          <Button primary onClick={refreshTopic}>Refresh topic (random)</Button>
-          <Button onClick={() => { localStorage.removeItem(STORAGE_TOPIC); localStorage.removeItem(STORAGE_INTERVAL); setTopicOverride(null); setIntervalMs(8000); window.dispatchEvent(new Event('hero-settings-changed')); setPreviewKey((k) => k + 1); }}>
-            Restore defaults
-          </Button>
+          <div className="mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-4 text-xs">
+            <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
+            <div className="mt-2 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
+            <div className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
+          </div>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={resetDaily}
+              className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2.5 text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)] transition-colors hover:border-[var(--vestara-accent-border)] hover:text-[var(--vestara-accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+            >
+              Reset to daily auto
+            </button>
+            <button
+              type="button"
+              onClick={refreshTopic}
+              className="rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] px-3 py-2.5 text-[var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-surface-canvas)] transition-colors hover:bg-[var(--vestara-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+            >
+              Refresh topic
+            </button>
+            <button
+              type="button"
+              onClick={() => { localStorage.removeItem(STORAGE_TOPIC); localStorage.removeItem(STORAGE_INTERVAL); setTopicOverride(null); setIntervalMs(8000); window.dispatchEvent(new Event('hero-settings-changed')); setPreviewKey((k) => k + 1); }}
+              className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2.5 text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)] transition-colors hover:border-[var(--vestara-accent-border)] hover:text-[var(--vestara-accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+            >
+              Restore defaults
+            </button>
+          </div>
         </div>
+      </div>
+    </ReferenceCard>
+  );
+}
+
+export function HeroLivePreview({
+  hero,
+  className = '',
+}: {
+  hero: HeroSettingsState;
+  className?: string;
+}) {
+  const { currentTopic, intervalMs, topicOverride, previewKey } = hero;
+  return (
+    <ReferenceCard
+      icon={navIcon('sessions')}
+      tone="info"
+      title="Live Preview"
+      description="The exact Hero the Director sees, updating in real time."
+      className={`flex h-full flex-col ${className}`}
+    >
+      <div className="flex flex-1 flex-col justify-center rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-4 text-xs">
+        <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
+        <div className="mt-2 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
+        <div className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
+      </div>
+    </ReferenceCard>
+  );
+}
+
+export function HeroActionButtons({
+  hero,
+  className = '',
+}: {
+  hero: HeroSettingsState;
+  className?: string;
+}) {
+  const { refreshTopic, resetDaily, setTopicOverride, setIntervalMs, setPreviewKey } = hero;
+  return (
+    <div className={`flex min-w-0 flex-col gap-2 ${className}`}>
+      <button
+        type="button"
+        onClick={resetDaily}
+        className="flex flex-1 items-center justify-center rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-3 text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] transition-colors hover:border-[var(--vestara-accent-border)] hover:text-[var(--vestara-accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+      >
+        Reset to daily auto
+      </button>
+      <button
+        type="button"
+        onClick={refreshTopic}
+        className="flex flex-1 items-center justify-center rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] px-3 py-3 text-[var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-surface-canvas)] transition-colors hover:bg-[var(--vestara-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+      >
+        Refresh topic (random)
+      </button>
+      <button
+        type="button"
+        onClick={() => { localStorage.removeItem(STORAGE_TOPIC); localStorage.removeItem(STORAGE_INTERVAL); setTopicOverride(null); setIntervalMs(8000); window.dispatchEvent(new Event('hero-settings-changed')); setPreviewKey((k) => k + 1); }}
+        className="flex flex-1 items-center justify-center rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-3 text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] transition-colors hover:border-[var(--vestara-accent-border)] hover:text-[var(--vestara-accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))] focus-visible:ring-inset"
+      >
+        Restore defaults
+      </button>
+    </div>
+  );
+}
+
+export default function HeroSettings() {
+  const hero = useHeroSettingsState();
+  return (
+    <div className="grid min-w-0 items-start gap-[var(--vestara-spacing-section)] lg:grid-cols-[minmax(0,1fr)_24rem]">
+      <HeroBriefingCard hero={hero} />
+      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)]">
+        <HeroLivePreview hero={hero} />
+        <HeroActionButtons hero={hero} />
       </div>
     </div>
   );

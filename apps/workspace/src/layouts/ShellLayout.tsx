@@ -84,6 +84,7 @@ export default function ShellLayout() {
               collapsed={desktopSidebarCollapsed}
               mobileOpen={mobileSidebarOpen}
               onToggleCollapse={toggleDesktopSidebar}
+              onShortcuts={() => setShowShortcuts(true)}
             />
           }
           header={<AppHeader mobileSidebarOpen={mobileSidebarOpen} onMenuClick={toggleMobileSidebar} />}

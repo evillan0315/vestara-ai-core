@@ -1,8 +1,9 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { useTelemetryStore } from '../../contexts/TelemetryContext';
+import { DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
 import type {
   ActivityMessageInput,
   ActivityOrganizationalEffect,
@@ -23,7 +24,7 @@ interface ActivityComposerProps {
   onClearReference: () => void;
 }
 
-const MAX_MESSAGE_LENGTH = 4000;
+const COMPOSER_MAX_FALLBACK = DEFAULT_COMPOSER_MAX_CHARS;
 
 const EFFECT_OPTIONS: Array<{ value: ActivityOrganizationalEffect; label: string }> = [
   { value: 'message', label: 'Message' },
@@ -50,6 +51,11 @@ export default function ActivityComposer({
   const [mentionQuery, setMentionQuery] = useState('');
   const [effect, setEffect] = useState<ActivityOrganizationalEffect>('message');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Configurable cap from Settings → General (`general.composerMaxChars`).
+  const [composerMax, setComposerMax] = useState(COMPOSER_MAX_FALLBACK);
+  useEffect(() => {
+    void fetchComposerMaxChars().then(setComposerMax);
+  }, []);
 
   const localActor = useMemo(() => {
     const actor = typeof window !== 'undefined' ? window.localStorage.getItem('vestara-actor') : null;
@@ -156,7 +162,7 @@ export default function ActivityComposer({
               </select>
             </label>
           </div>
-          <span className="shrink-0">{draft.length}/{MAX_MESSAGE_LENGTH}</span>
+          <span className="shrink-0">{draft.length}/{composerMax}</span>
         </div>
 
         {referencedRecord && (
@@ -184,7 +190,7 @@ export default function ActivityComposer({
             onChange={(event) => handleChange(event.target.value)}
             onKeyDown={onKeyDown}
             rows={1}
-            maxLength={MAX_MESSAGE_LENGTH}
+            maxLength={composerMax}
             placeholder={
               targetAgentId === undefined ? 'Message all agents… (@ mentions an agent)' : `Message ${targetAgentId}…`
             }

@@ -20,7 +20,7 @@
 
 import type { WorkspaceNavIcon } from '../../layouts/workspace-navigation.js';
 
-export type SettingsGroupId = 'workspace' | 'appearance' | 'system' | 'runtime-ai' | 'engineering' | 'operations' | 'advanced';
+export type SettingsGroupId = 'workspace' | 'appearance' | 'system' | 'runtime-ai' | 'engineering' | 'operations';
 
 export interface SettingsNavGroup {
   id: SettingsGroupId;
@@ -34,7 +34,6 @@ export const SETTINGS_GROUPS: SettingsNavGroup[] = [
   { id: 'runtime-ai', label: 'Runtime & AI' },
   { id: 'engineering', label: 'Engineering' },
   { id: 'operations', label: 'Operations' },
-  { id: 'advanced', label: 'Advanced' },
 ];
 
 export interface SettingsSectionMeta {
@@ -59,7 +58,6 @@ export const SETTINGS_SECTIONS: SettingsSectionMeta[] = [
   { id: 'ai', label: 'AI & Agents', description: 'Providers, models and agent execution policy', group: 'runtime-ai', icon: 'assistant', code: 'AI' },
   { id: 'security', label: 'Security', description: 'Filesystem boundaries, verification and risk controls', group: 'engineering', icon: 'files', code: 'SC' },
   { id: 'operations', label: 'Operations', description: 'Telemetry, CI, connection and operational config', group: 'operations', icon: 'diagnostics', code: 'OP' },
-  { id: 'advanced', label: 'Advanced', description: 'Experimental behavior and integrations', group: 'advanced', icon: 'generic', code: 'AD' },
 ];
 
 export function settingsGroupLabel(group: SettingsGroupId): string {

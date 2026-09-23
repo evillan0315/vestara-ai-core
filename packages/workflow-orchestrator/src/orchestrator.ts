@@ -483,6 +483,7 @@ export class WorkflowOrchestrator {
       projectId,
       planId: task.planId,
       taskId,
+      decision: approved ? 'approved' : 'rejected',
       at: now(),
     });
     this.telemetry({
@@ -495,6 +496,45 @@ export class WorkflowOrchestrator {
       phase: approved ? 'approved' : 'denied',
     });
     return this.snapshot(projectId);
+  }
+
+  /** Resolve the current approval as a revision request, not a rejection/block. */
+  async requestTaskChanges(projectId: string, taskId: string): Promise<ProjectSnapshot> {
+    await this.mustGetProject(projectId);
+    const task = await this.tasks.get(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    if (task.status !== 'awaiting-approval') {
+      throw new Error(`Task ${taskId} is not awaiting approval (status=${task.status})`);
+    }
+    await this.tasks.clearApproval(taskId);
+    await this.tasks.bumpRevision(taskId);
+    await this.transitionTask(projectId, task, 'assigned');
+    await this.events.append({
+      type: 'task.approval-resolved',
+      projectId,
+      planId: task.planId,
+      taskId,
+      decision: 'changes-requested',
+      at: now(),
+    });
+    this.telemetry({
+      projectId,
+      taskId,
+      agent: task.assignedAgentId ?? 'planner',
+      status: 'working',
+      operation: 'approval',
+      task: task.summary,
+      phase: 'changes-requested',
+    });
+    return this.snapshot(projectId);
+  }
+
+  async attachTaskApprovalInteraction(projectId: string, taskId: string, interactionId: string): Promise<WorkflowTask> {
+    await this.mustGetProject(projectId);
+    const task = await this.tasks.get(taskId);
+    if (!task) throw new Error(`Task ${taskId} not found`);
+    if (task.status !== 'awaiting-approval') throw new Error(`Task ${taskId} is not awaiting approval`);
+    return (await this.tasks.attachApprovalInteraction(taskId, interactionId)) ?? task;
   }
 
   /** Lists tasks currently waiting on a high-risk-change approval. */

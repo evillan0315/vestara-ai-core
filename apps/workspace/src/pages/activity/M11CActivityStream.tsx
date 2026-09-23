@@ -113,6 +113,8 @@ interface M11CActivityStreamProps {
   readonly onAttachAttention?: (entry: AttentionEntry) => void;
   /** Select a workflow context (from stream workflow badges → browser scope). */
   readonly onSelectWorkflow?: (workflowId: string) => void;
+  /** Inspect a resolved edit observation in the Activity Room Files drawer. */
+  readonly onInspectEdit?: (detail: import('@vestara/shared').EditExecutionDetail) => void;
   /** Active workflow scope (from the workflow browser). Narrows the stream. */
   readonly workflowFilter?: string | null;
   readonly streamHeading?: string;
@@ -323,6 +325,7 @@ function M11CActivityStream({
   onOpenAttention,
   onAttachAttention,
   onSelectWorkflow,
+  onInspectEdit,
   workflowFilter,
   streamHeading = 'Activity Stream',
   streamHeaderAction,
@@ -769,6 +772,7 @@ function M11CActivityStream({
                       participantNames={participantNames}
                       participantModels={participantModels}
                       onSelectWorkflow={onSelectWorkflow}
+                      onInspectEdit={onInspectEdit}
                     />
                   </div>
                 );

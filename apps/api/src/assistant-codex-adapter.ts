@@ -11,8 +11,14 @@
 import * as path from 'node:path';
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { EventBus } from '@vestara/event-bus';
-import type { CompletionRequest, CompletionResponse, StreamChunk } from '@vestara/shared';
-import { truncateReasoning } from '@vestara/shared';
+import {
+  ASSISTANT_EXECUTION_CONTRACT,
+  ASSISTANT_EXECUTION_VERSION,
+  type CompletionRequest,
+  type CompletionResponse,
+  type StreamChunk,
+  truncateReasoning,
+} from '@vestara/shared';
 
 export interface AssistantCodexExecutorOptions {
   readonly directory: string;
@@ -83,7 +89,11 @@ function codexAgentId(request: CompletionRequest): string {
   return request.agent?.trim() || request.agentId?.trim() || 'vestara-assistant';
 }
 
-function codexCommandFailed(item: { [key: string]: unknown }): boolean {
+export function codexOperationId(threadId: string, itemId: string): string {
+  return `codex:${threadId}:${itemId}`;
+}
+
+export function codexCommandFailed(item: { [key: string]: unknown }): boolean {
   const status = typeof item.status === 'string' ? item.status.toLowerCase() : undefined;
   if (status === 'failed' || status === 'error') return true;
   const exitCode =
@@ -104,6 +114,7 @@ export function createCodexToolPartEvent(input: {
   readonly agentId: string;
   readonly conversationId?: string;
   readonly sessionId?: string;
+  readonly executionId?: string;
 }) {
   return {
     type: 'codex.message.part.updated',
@@ -116,7 +127,47 @@ export function createCodexToolPartEvent(input: {
       runtime: CODEX_RUNTIME_ID,
       provider: CODEX_PROVIDER_ID,
     },
-    metadata: input.conversationId ? { correlationId: input.conversationId } : undefined,
+    metadata: {
+      ...(input.conversationId ? { correlationId: input.conversationId } : {}),
+      ...(input.executionId ? { executionId: input.executionId } : {}),
+    },
+  };
+}
+
+export function createCodexCommandExecutionDetail(
+  threadId: string,
+  item: { [key: string]: unknown },
+  sequence: number,
+): StreamChunk['detail'] {
+  const operationId = codexOperationId(threadId, String(item.id));
+  const failed = codexCommandFailed(item);
+  const exitCode =
+    typeof item.exit_code === 'number'
+      ? item.exit_code
+      : typeof item.exitCode === 'number'
+        ? item.exitCode
+        : typeof item.code === 'number'
+          ? item.code
+          : undefined;
+  return {
+    contract: ASSISTANT_EXECUTION_CONTRACT,
+    version: ASSISTANT_EXECUTION_VERSION,
+    operationId,
+    state: failed ? 'failed' : 'completed',
+    source: 'codex',
+    timestamp: Date.now(),
+    sessionId: `codex:${threadId}`,
+    sequence,
+    kind: 'terminal',
+    tool: 'bash',
+    command: typeof item.command === 'string' ? item.command : undefined,
+    exitCode,
+    cwdProvenance: 'unavailable',
+    exitCodeProvenance: exitCode === undefined ? 'unavailable' : 'runtime-provided',
+    ...(failed ? { error: 'Codex command failed' } : {}),
+    ...(!failed && typeof item.aggregated_output === 'string'
+      ? { outputPreview: item.aggregated_output.slice(0, 2000) }
+      : {}),
   };
 }
 
@@ -178,11 +229,19 @@ async function runCodexTurn(
   const thread = existingThreadId
     ? codex.resumeThread(existingThreadId, threadOptions)
     : codex.startThread(threadOptions);
+  const operationIdFor = (itemId: string): string => {
+    const threadId = thread.id;
+    if (!threadId) {
+      throw new Error('Codex runtime did not provide an authoritative thread id before a tool item');
+    }
+    return codexOperationId(threadId, itemId);
+  };
   const streamed = await thread.runStreamed(prompt, { signal: request.signal });
 
   let finalResponse = '';
   let reasoning = '';
   let usage: CodexUsage | null = null;
+  let commandFailed = false;
   let sequence = 0;
   const mirroredCommands = new Set<string>();
   const agentId = codexAgentId(request);
@@ -222,8 +281,9 @@ async function runCodexTurn(
       });
     }
     if (event.type === 'item.started' && event.item.type === 'command_execution') {
-      mirroredCommands.add(event.item.id);
-      mirrorToolEvent('running', event.item.id, 'bash');
+      const operationId = operationIdFor(event.item.id);
+      mirroredCommands.add(operationId);
+      mirrorToolEvent('running', operationId, 'bash');
     }
     if (event.type === 'item.completed' || event.type === 'item.updated') {
       if (event.item.type === 'agent_message') {
@@ -243,16 +303,20 @@ async function runCodexTurn(
           metadata: metadata(),
         });
       } else if (event.item.type === 'command_execution') {
-        if (!mirroredCommands.has(event.item.id)) {
-          mirroredCommands.add(event.item.id);
-          mirrorToolEvent('running', event.item.id, 'bash');
+        const operationId = operationIdFor(event.item.id);
+        if (!mirroredCommands.has(operationId)) {
+          mirroredCommands.add(operationId);
+          mirrorToolEvent('running', operationId, 'bash');
         }
-        mirrorToolEvent(codexCommandFailed(event.item) ? 'error' : 'completed', event.item.id, 'bash');
+        const failed = codexCommandFailed(event.item);
+        commandFailed ||= failed;
+        mirrorToolEvent(failed ? 'error' : 'completed', operationId, 'bash');
         onChunk?.({
-          id: `codex-command-${event.item.id}`,
+          id: `codex-command-${operationId}`,
           type: 'tool_result',
           name: 'codex.command',
           content: event.item.aggregated_output.slice(0, 2000),
+          detail: createCodexCommandExecutionDetail(thread.id as string, event.item, sequence++),
           metadata: metadata(),
         });
       } else if (event.item.type === 'error') {
@@ -280,7 +344,7 @@ async function runCodexTurn(
       ...(thread.id ? { runtimeSessionId: `codex:${thread.id}` } : {}),
     },
     executionResult: {
-      termination: 'completed',
+      termination: commandFailed ? 'failed' : 'completed',
       toolCallCount: 0,
       elapsedMs: Date.now() - startedAt,
       execution: { runtimeId: CODEX_RUNTIME_ID, providerId: CODEX_PROVIDER_ID },

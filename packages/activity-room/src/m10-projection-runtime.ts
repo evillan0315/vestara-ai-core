@@ -183,6 +183,56 @@ export class ProjectionRuntime {
         lastActivityAt: record.timestamp,
       });
     }
+
+    this.updateInteractionWaitParticipant(record);
+  }
+
+  /** Link a durable pending interaction to its waiting agent without using message text. */
+  private updateInteractionWaitParticipant(record: ActivityRecord): void {
+    const data = record.payload.data as Record<string, unknown> | undefined;
+    const interactionId = typeof data?.interactionId === 'string' ? data.interactionId : undefined;
+    if (!interactionId) return;
+
+    if (record.type === 'interaction.presented') {
+      const waitingParticipantId =
+        typeof data?.presentingParticipantId === 'string' ? data.presentingParticipantId : undefined;
+      if (!waitingParticipantId) return;
+      const participantId = `agent-${waitingParticipantId}`;
+      const existing = this.participants.get(participantId);
+      if (existing) {
+        this.participants.set(participantId, {
+          ...existing,
+          workState: 'waiting',
+          pendingInteractionId: interactionId,
+          lastActivityAt: record.timestamp,
+        });
+        return;
+      }
+      this.participants.set(participantId, {
+        participantId,
+        type: 'agent',
+        displayName: record.actor.displayName,
+        membership: 'joined',
+        presence: 'offline',
+        workState: 'waiting',
+        pendingInteractionId: interactionId,
+        joinedAt: record.timestamp,
+        lastActivityAt: record.timestamp,
+      });
+      return;
+    }
+
+    if (record.type === 'interaction.responded') {
+      for (const [participantId, participant] of this.participants) {
+        if (participant.pendingInteractionId !== interactionId) continue;
+        this.participants.set(participantId, {
+          ...participant,
+          workState: 'available',
+          pendingInteractionId: undefined,
+          lastActivityAt: record.timestamp,
+        });
+      }
+    }
   }
 
   private deriveMembership(record: ActivityRecord): MembershipState | undefined {
@@ -251,6 +301,7 @@ export class ProjectionRuntime {
       workflowRunId: record.workflowRunId,
       executionId: record.executionId,
       taskId: record.taskId,
+      runtimeSessionBindingId: record.runtimeSessionBindingId,
       // AR-UI-REPLY-002: preserve ONLY authoritative origin provenance.
       ...extractOriginProvenance(record.payload),
       // REASONING-BOUNDARY-001: validated diagnostic details for the
@@ -308,6 +359,9 @@ export class ProjectionRuntime {
             callID,
             status,
             ...(agentId ? { agentId } : {}),
+            ...(typeof record.payload.output === 'string' && record.payload.output
+              ? { output: record.payload.output }
+              : {}),
           },
         };
       }

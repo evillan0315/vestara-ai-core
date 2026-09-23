@@ -36,17 +36,17 @@ export interface Conversation {
 // Observation ≠ interpretation — the raw tool output is preserved
 // independently from the assistant's natural-language summary.
 
-import type { ReadExecutionDetail } from './assistant-execution.js';
+import type { EditExecutionDetail, ReadExecutionDetail } from './assistant-execution.js';
 
 /** Lifecycle of a persisted tool observation. */
 export type ToolObservationStatus = 'running' | 'completed' | 'failed' | 'denied';
 
 /**
  * Which structured renderer owns this observation.
- * `read` requires the accompanying `read` detail; everything else is `generic`.
- * Unknown tools remain generic — never guessed.
+ * `read` and `edit` require their accompanying structured detail; everything
+ * else is `generic`. Unknown tools remain generic — never guessed.
  */
-export type ToolObservationKind = 'read' | 'generic';
+export type ToolObservationKind = 'read' | 'edit' | 'generic';
 
 /**
  * A bounded representation of a tool invocation and its result.
@@ -99,6 +99,8 @@ export interface ToolObservation {
 
   /** Structured Read evidence — present only when `observationKind` is `read`. */
   readonly read?: ReadExecutionDetail;
+  /** Structured Edit evidence — present only when `observationKind` is `edit`. */
+  readonly edit?: EditExecutionDetail;
 }
 
 export interface Message {

@@ -43,7 +43,14 @@ const EFFECT_VALUES = new Set<ActivityOrganizationalEffect>([
 
 const MAX_LIMIT = 1000;
 const DEFAULT_LIMIT = 100;
-const MAX_MESSAGE_LENGTH = 4000;
+/**
+ * Default human-message cap (chars). The effective limit is configurable via
+ * the `general.composerMaxChars` workspace setting (Settings → General) and
+ * resolved per request by `resolveComposerMaxChars`; this constant is the
+ * fallback when settings are unavailable and the absolute hard cap.
+ */
+const DEFAULT_MAX_MESSAGE_LENGTH = 100_000;
+const MAX_MESSAGE_HARD_CAP = 100_000;
 /** Inline preview budget for timeline records (STREAM-PERF: raw details are lazy). */
 const PREVIEW_BUDGET = 400;
 
@@ -67,6 +74,25 @@ function integer(value: string | null): number | undefined {
   if (value === null) return undefined;
   const parsed = Number(value);
   return Number.isFinite(parsed) && Number.isInteger(parsed) ? parsed : undefined;
+}
+
+/**
+ * Effective human-message cap for the composer. Reads the configurable
+ * `general.composerMaxChars` setting (Settings → General, default 100 000);
+ * falls back to the default and clamps to the hard cap so a corrupt value
+ * can never widen the ingress beyond the validated setting range.
+ */
+function resolveComposerMaxChars(ctx: WorkspaceContext): number {
+  try {
+    const setting = ctx.settings.resolve().settings.find((entry) => entry.key === 'general.composerMaxChars');
+    const value = setting?.value;
+    if (typeof value === 'number' && Number.isInteger(value) && value >= 1) {
+      return Math.min(value, MAX_MESSAGE_HARD_CAP);
+    }
+  } catch {
+    // Fall through to the default — settings must never break message ingress.
+  }
+  return DEFAULT_MAX_MESSAGE_LENGTH;
 }
 
 function string(value: string | null): string | undefined {
@@ -536,9 +562,10 @@ async function sendActivityMessage(
     json(res, 400, { error: { code: 'EMPTY_CONTENT', message: 'content is required' } });
     return null;
   }
-  if (content.length > MAX_MESSAGE_LENGTH) {
+  const composerMax = resolveComposerMaxChars(ctx);
+  if (content.length > composerMax) {
     json(res, 400, {
-      error: { code: 'CONTENT_TOO_LONG', message: `content exceeds ${MAX_MESSAGE_LENGTH} characters` },
+      error: { code: 'CONTENT_TOO_LONG', message: `content exceeds ${composerMax} characters` },
     });
     return null;
   }

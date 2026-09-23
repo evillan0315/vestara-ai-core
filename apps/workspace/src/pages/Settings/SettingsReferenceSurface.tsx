@@ -7,12 +7,20 @@ import { ACCENT_PALETTES, PROFILES, type ThemeMode, type ThemeSettings, useTheme
 import type { RuntimeStatusDto } from './settings-client.js';
 import { settingsClient } from './settings-client.js';
 import { createDraft, draftOverrides, type SettingsDraftState, updateDraft } from './settings-state.js';
-import HeroSettings from './HeroSettings.js';
+import { HeroBriefingCard, useHeroSettingsState } from './HeroSettings.js';
+import {
+  TelegramIntegrationPanel,
+  TelegramNotificationsPanel,
+  TunnelSection,
+  useTelegramPanelState,
+} from './TelegramSettings.js';
+import { TelegramSimulator } from './TelegramSimulator.js';
+import { PolicySection } from './PolicySection.js';
 import { SETTINGS_SECTIONS, settingsGroupLabel } from './settings-navigation.js';
 import { Button, focus, input, ReferenceCard, SectionIcon, Segmented, Status, Toggle } from './settings-ui.js';
 import { SelectField } from './appearance-controls.js';
 
-const SETTINGS_TABS = ['general', 'navigation', 'system', 'runtime', 'ai', 'security', 'operations', 'advanced'] as const;
+const SETTINGS_TABS = ['general', 'navigation', 'system', 'runtime', 'ai', 'security', 'operations'] as const;
 
 const GENERAL_SELECT_OPTIONS: Record<string, readonly { value: string; label: string }[]> = {
   'general.startupBehavior': [
@@ -37,6 +45,7 @@ const FIELD_LABELS: Record<string, string> = {
   'general.dateTimeFormat': 'Date Format',
   'general.logFormat': 'Log Format',
   'general.defaultLandingPage': 'Default Landing Page',
+  'general.composerMaxChars': 'Composer Max Characters',
   'notifications.enabled': 'Enable sound notifications',
 };
 
@@ -44,6 +53,7 @@ const FIELD_HELP: Record<string, string> = {
   'general.workspaceName': 'Shown in the hero, tab titles, and overview. Cannot be empty.',
   'general.defaultBranch': 'Branch used for new work and comparisons.',
   'general.defaultLandingPage': 'Route opened at startup, e.g. /overview.',
+  'general.composerMaxChars': 'Max characters per composer message (1–100000, default 100000). Applies to the Activity Room composer; enforced server-side.',
   'general.startupBehavior': 'What to restore or open on launch.',
   'general.dateTimeFormat': 'Locale follows your browser; ISO 8601 sorts cleanly.',
   'general.logFormat': 'Structured suits machine parsing; compact suits skimming.',
@@ -230,6 +240,15 @@ function DraftField({
   const value = draft.values[settingKey];
   const options = GENERAL_SELECT_OPTIONS[settingKey];
   const helper = FIELD_HELP[settingKey];
+  const isNumeric = settingKey === 'general.composerMaxChars';
+  const onNumericChange = (raw: string) => {
+    if (raw.trim() === '') {
+      onDraftChange(settingKey, '');
+      return;
+    }
+    const parsed = Number(raw);
+    if (Number.isInteger(parsed)) onDraftChange(settingKey, Math.min(Math.max(parsed, 1), 100_000));
+  };
   return (
     <div className="block min-w-0">
       <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
@@ -247,6 +266,17 @@ function DraftField({
             value={String(value ?? '')}
             options={options}
             onChange={(next) => onDraftChange(settingKey, next)}
+          />
+        ) : isNumeric ? (
+          <input
+            type="number"
+            min={1}
+            max={100000}
+            step={1}
+            aria-label={label}
+            value={String(value ?? '')}
+            onChange={(event) => onNumericChange(event.target.value)}
+            className={`${input} min-h-12 w-full`}
           />
         ) : (
           <input
@@ -341,25 +371,40 @@ function WorkspaceLogoControl({
 function WorkspaceIdentityCard({
   generalDraft,
   onDraftChange,
+  dirtyLabel,
+  message,
+  saving,
+  dirty,
+  onDiscard,
+  onSave,
 }: {
   generalDraft: SettingsDraftState;
   onDraftChange: (key: string, value: unknown) => void;
+  dirtyLabel: string;
+  message: string | null;
+  saving: boolean;
+  dirty: number;
+  onDiscard: () => void;
+  onSave: () => void;
 }) {
   const visibleKeys = [
     'general.workspaceName',
     'general.defaultBranch',
     'general.defaultLandingPage',
+    'general.composerMaxChars',
     'general.startupBehavior',
+    'general.dateTimeFormat',
+    'general.logFormat',
   ].filter((key) => key in generalDraft.values);
   return (
     <ReferenceCard
       icon={navIcon('dashboard')}
       title="Workspace Information"
       description="Basic information and defaults exposed by the workspace configuration authority."
-      className="border-[color-mix(in_srgb,var(--vestara-accent)_26%,var(--vestara-border-subtle))] lg:col-span-2"
+      className="flex h-full w-auto min-w-0 flex-col border-[color-mix(in_srgb,var(--vestara-accent)_26%,var(--vestara-border-subtle))] lg:col-span-2 [&>.st-card-body]:flex [&>.st-card-body]:flex-1 [&>.st-card-body]:flex-col"
     >
-      <div className="st-gap-section grid lg:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)] lg:items-start">
-        <div className="st-gap-section grid min-w-0">
+      <div className="st-gap-section grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)] lg:items-start">
+        <div className="st-gap-section grid min-w-0 content-start">
           {visibleKeys.map((key) => (
             <DraftField
               key={key}
@@ -375,78 +420,36 @@ function WorkspaceIdentityCard({
           onChange={(value) => onDraftChange(WORKSPACE_LOGO_KEY, value)}
         />
       </div>
-    </ReferenceCard>
-  );
-}
-
-function RegionalCard({
-  generalDraft,
-  onDraftChange,
-  className = '',
-}: {
-  generalDraft: SettingsDraftState;
-  onDraftChange: (key: string, value: unknown) => void;
-  className?: string;
-}) {
-  const visibleKeys = ['general.dateTimeFormat', 'general.logFormat'].filter((key) => key in generalDraft.values);
-  const { activeProfile, applyProfile, resetSettings } = useTheme();
-  return (
-    <ReferenceCard
-      icon={navIcon('routing')}
-      title="Regional Settings"
-      description="Format preferences available in the current runtime."
-      className={`st-card-secondary ${className}`}
-    >
-      <div className="st-gap-section grid">
-        {visibleKeys.map((key) => (
-          <DraftField
-            key={key}
-            draft={generalDraft}
-            settingKey={key}
-            label={FIELD_LABELS[key] ?? key}
-            onDraftChange={onDraftChange}
-          />
-        ))}
-        <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-            Workspace profile
-          </p>
-          <p className="st-mt-element text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-            Moved from Appearance → Profiles. Curated display presets that apply instantly.
-          </p>
-          <div className="st-mt-element grid gap-2">
-            {PROFILES.map((profile) => (
-              <button
-                key={profile.id}
-                type="button"
-                aria-pressed={activeProfile === profile.id}
-                onClick={() => applyProfile(profile.id)}
-                className={`relative min-h-20 rounded-[var(--vestara-radius-lg)] border p-3 text-left ${focus} ${
-                  activeProfile === profile.id
-                    ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]'
-                    : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] hover:border-[var(--vestara-accent-border-hover)]'
-                }`}
-              >
-                <span className="font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)]">
-                  {profile.id.toUpperCase()}
-                </span>
-                <strong className="mt-2 block text-sm text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                  {profile.label}
-                </strong>
-                <span className="mt-1 block text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                  {profile.description}
-                </span>
-                {activeProfile === profile.id && (
-                  <span className="absolute right-3 top-3 text-[var(--vestara-accent)]" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="st-mt-element">
-            <Button onClick={resetSettings}>Reset display</Button>
-          </div>
+      <div className="mt-auto flex flex-col gap-[var(--vestara-spacing-section)] border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
+          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">{dirtyLabel}</p>
+          {message && (
+            <p role="status" className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+              {message}
+            </p>
+          )}
+        </div>
+        <div className="st-gap-field flex shrink-0 flex-wrap">
+          <button
+            type="button"
+            onClick={onDiscard}
+            disabled={saving || dirty === 0}
+            className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] disabled:cursor-not-allowed disabled:border-[var(--vestara-border-subtle)] disabled:bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] disabled:text-[var(--vestara-text-muted)] disabled:opacity-65 ${focus}`}
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving || dirty === 0}
+            className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-semibold disabled:cursor-not-allowed ${focus} ${
+              saving || dirty > 0
+                ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]'
+                : 'border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] text-[var(--vestara-text-muted)]'
+            }`}
+          >
+            {saving ? 'Saving...' : 'Save Changes'}
+          </button>
         </div>
       </div>
     </ReferenceCard>
@@ -563,23 +566,17 @@ function TypographyPreview() {
 }
 
 function PreferencesCard({
-  notificationDraft,
   onGeneralChange,
-  onNotificationChange,
   onChanged,
   hasUnsaved,
   className = '',
 }: {
-  notificationDraft: SettingsDraftState;
   onGeneralChange: (key: string, value: unknown) => void;
-  onNotificationChange: (key: string, value: unknown) => void;
   onChanged: (next: ResolvedConfiguration) => void;
   hasUnsaved: boolean;
   className?: string;
 }) {
-  const { mode, setMode, settings, updateSetting } = useTheme();
-  const hasNotifications = 'notifications.enabled' in notificationDraft.values;
-  const notificationsOn = Boolean(notificationDraft.values['notifications.enabled']);
+  const { mode, setMode, settings, updateSetting, activeProfile, applyProfile, resetSettings } = useTheme();
   const onThemeModeChange = (next: ThemeMode) => {
     setMode(next);
     onGeneralChange('general.theme', next);
@@ -591,15 +588,55 @@ function PreferencesCard({
     <ReferenceCard
       icon={navIcon('settings')}
       title="Preferences"
-      description="Personalize how the workspace behaves for you."
+      description="Personalize how the workspace behaves for you — profiles, appearance, and layout."
       className={`st-card-secondary ${className}`}
     >
-      <div className="st-space-field">
+      <div className="grid gap-[var(--vestara-spacing-section)]">
         <PreferenceSection
-          icon={navIcon('dashboard')}
-          title="Appearance"
-          description="Theme mode and accent color for focus, selection, and primary actions. Applies instantly."
+          icon={navIcon('routing')}
+          title="Workspace Profile"
+          description="Curated display presets that apply instantly. Choose a profile to set theme, density, and typography together."
         >
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {PROFILES.map((profile) => (
+              <button
+                key={profile.id}
+                type="button"
+                aria-pressed={activeProfile === profile.id}
+                onClick={() => applyProfile(profile.id)}
+                className={`relative min-h-20 rounded-[var(--vestara-radius-lg)] border p-3 text-left ${focus} ${
+                  activeProfile === profile.id
+                    ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]'
+                    : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] hover:border-[var(--vestara-accent-border-hover)]'
+                }`}
+              >
+                <span className="font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)]">
+                  {profile.id.toUpperCase()}
+                </span>
+                <strong className="mt-2 block text-sm text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+                  {profile.label}
+                </strong>
+                <span className="mt-1 block text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+                  {profile.description}
+                </span>
+                {activeProfile === profile.id && (
+                  <span className="absolute right-3 top-3 text-[var(--vestara-accent)]" aria-hidden="true">
+                    ✓
+                  </span>
+                )}
+              </button>
+            ))}
+          </div>
+          <div className="mt-3">
+            <Button onClick={resetSettings}>Reset display</Button>
+          </div>
+        </PreferenceSection>
+        <div className="grid gap-[var(--vestara-spacing-section)] lg:grid-cols-2">
+          <PreferenceSection
+            icon={navIcon('dashboard')}
+            title="Appearance"
+            description="Theme mode and accent color for focus, selection, and primary actions. Applies instantly."
+          >
           <div className="grid st-gap-section">
             <InstantField label="Theme Preference" helper="Follow your system, or lock dark / light. Saved durably.">
               <Segmented
@@ -671,40 +708,6 @@ function PreferencesCard({
                 />
               </InstantField>
             </div>
-          </div>
-        </PreferenceSection>
-        <PreferenceSection
-          icon={navIcon('activity')}
-          title="Notifications"
-          description="Audible cues when operations finish or need attention. Saved with your changes below."
-        >
-          <div>
-            {hasNotifications ? (
-              <div className="st-gap-field flex min-w-0 items-center justify-between">
-                <span className="min-w-0">
-                  <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-                    {FIELD_LABELS['notifications.enabled']}
-                  </span>
-                  {FIELD_HELP['notifications.enabled'] && (
-                    <span className="st-mt-element block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-                      {FIELD_HELP['notifications.enabled']}
-                    </span>
-                  )}
-                  <span className="st-mt-element block text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-                    {notificationsOn ? 'Sound notifications are on.' : 'Sound notifications are muted.'}
-                  </span>
-                </span>
-                <Toggle
-                  label={FIELD_LABELS['notifications.enabled']}
-                  checked={notificationsOn}
-                  onChange={(value) => onNotificationChange('notifications.enabled', value)}
-                />
-              </div>
-            ) : (
-              <p className="text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-muted)]">
-                Notification settings are not exposed by the current runtime.
-              </p>
-            )}
           </div>
         </PreferenceSection>
         <PreferenceSection
@@ -787,6 +790,7 @@ function PreferencesCard({
             </InstantField>
           </div>
         </PreferenceSection>
+        </div>
       </div>
     </ReferenceCard>
   );
@@ -879,6 +883,53 @@ function QuickActionsCard({
   );
 }
 
+function GeneralSectionLabel({ label, hint }: { label: string; hint?: string }) {
+  return (
+    <div className="flex items-center gap-3 pt-1">
+      <span className="text-[var(--vestara-font-size-xs)] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
+        {label}
+      </span>
+      <span className="h-px flex-1 bg-[var(--vestara-border-subtle)]" aria-hidden="true" />
+      {hint && <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{hint}</span>}
+    </div>
+  );
+}
+
+function GeneralConnectivitySection({
+  configuration,
+  onChanged,
+  telegram,
+}: {
+  configuration: ResolvedConfiguration;
+  onChanged: (next: ResolvedConfiguration) => void;
+  telegram: ReturnType<typeof useTelegramPanelState>;
+}) {
+  const { settings, error } = telegram;
+  if (!settings) {
+    return (
+      <div role="status" aria-label="Loading connectivity panels" className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-3">
+        <div className="mpg-skeleton h-64" />
+        <div className="mpg-skeleton h-64" />
+        <div className="mpg-skeleton h-64" />
+        <p className="sr-only">{error ?? 'Loading Telegram connectivity…'}</p>
+      </div>
+    );
+  }
+  return (
+    <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-3 lg:items-stretch">
+      <TunnelSection initial={settings.tunnel} className="flex h-full flex-col" />
+      <TelegramIntegrationPanel
+        settings={settings}
+        className="flex h-full flex-col"
+        footer={<PolicySection section="advanced" configuration={configuration} onChanged={onChanged} bare />}
+      />
+      <div className="flex min-w-0 flex-col">
+        <TelegramSimulator />
+      </div>
+    </div>
+  );
+}
+
 export function SettingsGeneralReference({
   configuration,
   runtime,
@@ -945,6 +996,9 @@ export function SettingsGeneralReference({
     }
   };
 
+  const telegram = useTelegramPanelState();
+  const hero = useHeroSettingsState();
+
   const status = useMemo(
     () => ({ dirtyLabel: dirty ? `${dirty} unsaved change${dirty === 1 ? '' : 's'}` : 'Workspace configuration is synchronized' }),
     [dirty],
@@ -969,62 +1023,54 @@ export function SettingsGeneralReference({
   };
 
   return (
-    <div className="st-gap-section grid min-w-0 items-stretch lg:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_24rem]">
-      <WorkspaceIdentityCard generalDraft={generalDraft} onDraftChange={onGeneralChange} />
-      <WorkspaceStatusCard
-        runtime={runtime}
-        configuration={configuration}
-        className="h-full lg:col-span-2 xl:col-span-1 xl:col-start-3 xl:row-start-1"
-      />
-      <RegionalCard generalDraft={generalDraft} onDraftChange={onGeneralChange} className="h-full st-card-fixed" />
-      <PreferencesCard
-        notificationDraft={notificationDraft}
-        onGeneralChange={onGeneralChange}
-        onNotificationChange={onNotificationChange}
-        onChanged={onChanged}
-        hasUnsaved={dirty > 0}
-        className="h-full st-card-fixed"
-      />
-      <QuickActionsCard
-        onReset={() => void reset()}
-        onExport={exportSettings}
-        className="h-full lg:col-span-2 xl:col-span-1 xl:col-start-3"
-      />
-      <div className="min-w-0 lg:col-span-2 xl:col-span-3">
-        <HeroSettings />
+    <div className="min-w-0 space-y-[var(--vestara-spacing-section)]">
+      <GeneralSectionLabel label="Workspace" hint={dirty ? `${dirty} unsaved` : 'Synced'} />
+      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-stretch">
+        <div className="flex min-w-0 flex-col">
+          <WorkspaceIdentityCard
+            generalDraft={generalDraft}
+            onDraftChange={onGeneralChange}
+            dirtyLabel={status.dirtyLabel}
+            message={message}
+            saving={saving}
+            dirty={dirty}
+            onDiscard={discard}
+            onSave={() => void save()}
+          />
+        </div>
+        <div className="flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]">
+          <WorkspaceStatusCard runtime={runtime} configuration={configuration} className="shrink-0" />
+          <QuickActionsCard onReset={() => void reset()} onExport={exportSettings} className="flex flex-1 flex-col [&>.st-card-body]:flex-1" />
+        </div>
       </div>
-      <footer className="st-panel st-gap-field st-px-card st-py-card flex flex-col border-[color-mix(in_srgb,var(--vestara-accent)_28%,var(--vestara-border-subtle))] lg:col-span-2 xl:col-span-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">{status.dirtyLabel}</p>
-          {message && (
-            <p role="status" className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-              {message}
-            </p>
-          )}
-        </div>
-        <div className="st-gap-field flex flex-wrap">
-          <button
-            type="button"
-            onClick={discard}
-            disabled={saving || dirty === 0}
-            className={`st-px-card min-h-12 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] disabled:cursor-not-allowed disabled:border-[var(--vestara-border-subtle)] disabled:bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] disabled:text-[var(--vestara-text-muted)] disabled:opacity-65 ${focus}`}
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={() => void save()}
-            disabled={saving || dirty === 0}
-            className={`st-px-card min-h-12 rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-semibold disabled:cursor-not-allowed ${focus} ${
-              saving || dirty > 0
-                ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]'
-                : 'border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] text-[var(--vestara-text-muted)]'
-            }`}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-      </footer>
+
+      <GeneralSectionLabel label="Personalization" hint="Profiles, appearance, typography & layout" />
+      <div className="min-w-0">
+        <PreferencesCard onGeneralChange={onGeneralChange} onChanged={onChanged} hasUnsaved={dirty > 0} className="w-full" />
+      </div>
+
+      <GeneralConnectivitySection configuration={configuration} onChanged={onChanged} telegram={telegram} />
+
+      <GeneralSectionLabel label="Overview & Hero" hint="Briefing + notifications" />
+      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-2 lg:items-stretch">
+        <HeroBriefingCard hero={hero} className="flex h-full flex-col" />
+        {telegram.settings && telegram.draft ? (
+          <TelegramNotificationsPanel
+            draft={telegram.draft}
+            settings={telegram.settings}
+            status={telegram.status}
+            error={telegram.error}
+            onToggleEvent={telegram.toggleEvent}
+            onUpdateDraft={telegram.updateDraft}
+            onSave={() => void telegram.handleSave()}
+            soundEnabled={Boolean(notificationDraft.values['notifications.enabled'])}
+            onSoundChange={(value) => onNotificationChange('notifications.enabled', value)}
+            className="flex h-full flex-col"
+          />
+        ) : (
+          <div role="status" aria-label="Loading notifications" className="mpg-skeleton h-64" />
+        )}
+      </div>
     </div>
   );
 }

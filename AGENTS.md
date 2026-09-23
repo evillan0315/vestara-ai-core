@@ -79,6 +79,26 @@ Verification order: `pnpm lint:check && pnpm build && pnpm test` (no `typecheck`
 - `pnpm dev:api` and `pnpm dev` both load `.env` (`--env-file=.env`). `.env` is gitignored and holds credentials for live agent trials; never commit it.
 - Never edit `.vestara/` runtime state. Pre-commit hook (`.githooks/pre-commit` → `scripts/pre-commit.sh` → `biome --staged` + full `pnpm test`) is opt-in via `git config core.hooksPath .githooks`; note it runs the whole suite, so it is slow.
 
+## Activity Room Coordination Checkpoint
+
+- Activity Room is an operational projection/control surface, not execution,
+  workflow, routing, Conversation, interaction, agent-registry, or Evidence
+  authority.
+- Correlated edit inspection requires the authoritative `conversationId` and
+  exact runtime operation `callID`. Do not infer edit paths or diffs from
+  prose, timestamps, actor names, or proximity.
+- The Activity edit path uses the same OpenCode `message.part.updated` edit
+  part: `part.callID`, `state.input.filePath`, and
+  `state.metadata.filediff.patch` when present. Missing diff evidence must
+  remain unavailable.
+- `Inspect edit` opens the Activity Files drawer with a read-only historical
+  diff view and a separate current-file view. It must not add Save, Revert,
+  Apply, or another execution path. `Open file` remains the fallback when
+  authoritative diff data is unavailable.
+- SSE/UI disconnect is not execution cancellation. Historical records with
+  insufficient lineage remain uncorrelated rather than guessed into a
+  session.
+
 ## Style
 
 Biome: single quotes, trailing commas, semicolons, 2-space indent, 120 width. Relative imports are extensionless (`from './migrations'`) in CJS packages (the majority — verified in source; zero `.js`-suffixed relative imports) — do not add `.js` extensions unless the package has `"type": "module"` in its `package.json` (e.g. `@vestara/workspace-ui`). Parameterized SQL only (`prepare` + `bind`, no string interpolation).

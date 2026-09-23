@@ -19,6 +19,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { EmptyState } from '@vestara/ui';
 import { useFileOperationsChannel } from '../../../contexts/FileOperationsContext';
 import OperationalWorkspaceLayout from '../../../layouts/OperationalWorkspaceLayout';
@@ -128,6 +129,7 @@ export function FilesWorkspace({
   onChanged,
   onRefresh,
 }: FilesWorkspaceProps) {
+  const [searchParams] = useSearchParams();
   const [query, setQuery] = useState('');
   const [facet, setFacet] = useState<FilesFacet>('all');
   const [sort, setSort] = useState<FilesSort>('name');
@@ -258,6 +260,11 @@ export function FilesWorkspace({
     },
     [entries, openFile, tabs],
   );
+
+  useEffect(() => {
+    const focusPath = searchParams.get('path');
+    if (focusPath) openSearchPath(focusPath);
+  }, [openSearchPath, searchParams]);
 
   // Content loading for the active tab (cached across switches).
   useEffect(() => {
@@ -1017,12 +1024,17 @@ export function WorkspaceMenu({
   onSelect,
   onOpenFile,
   onClose,
+  extraItems = [],
 }: {
   menu: MenuState;
   ops: ReturnType<typeof useFileOperations>;
   onSelect: (entry: FileEntry) => void;
   onOpenFile: (entry: FileEntry) => void;
   onClose: () => void;
+  extraItems?: ReadonlyArray<{
+    readonly label: string;
+    action: () => void;
+  }>;
 }) {
   const { entry } = menu;
 
@@ -1153,6 +1165,8 @@ export function WorkspaceMenu({
         }
       },
     },
+
+    ...extraItems,
   ];
 
   return (

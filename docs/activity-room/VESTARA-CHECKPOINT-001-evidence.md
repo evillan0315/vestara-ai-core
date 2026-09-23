@@ -152,8 +152,9 @@ observes.**
 - Workspace UI production build (`pnpm --filter @vestara/workspace-ui build`):
   see checkpoint commit trailer / push verification.
 - Classes distinguished: TEST VERIFIED vs BUILD VERIFIED vs
-  RUNTIME VERIFIED vs NOT YET RUNTIME VERIFIED. No evidence class upgraded
-  into another.
+  RUNTIME VERIFIED vs NOT YET RUNTIME VERIFIED. No evidence class is
+  upgraded by restatement alone — only by new independent evidence of
+  that class (see §6a for the diagnostic-path runtime upgrade).
 
 ## 6a. Runtime Dogfood — Diagnostic Attention Resolution Lifecycle (2026-09-22)
 

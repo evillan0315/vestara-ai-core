@@ -27,6 +27,7 @@
  *   This is NOT a failure. The session remains active for later reattachment.
  */
 
+import * as fs from 'node:fs';
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { EventBus } from '@vestara/event-bus';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
@@ -42,6 +43,7 @@ import {
 import type { AssistantConversationSessionRegistry } from './assistant-conversation-sessions';
 import {
   projectDetail,
+  projectEditObservation,
   projectEditStarted,
   projectMessagePartUpdated,
   projectPermissionRequested,
@@ -221,6 +223,8 @@ const DEFAULT_MAX_TOOL_CALLS = (() => {
  */
 const TRANSPORT_PROVIDER = 'opencode';
 const OPENCODE_RUNTIME_ID = 'opencode';
+const OPENCODE_INGRESS_003_MARKER = 'OPENCODE-INGRESS-003-PING';
+const OPENCODE_INGRESS_003_TRACE = '/tmp/opencode-ingress-003-trace.ndjson';
 
 /**
  * GA-DETACH-001: How a turn ended. This determines whether the OpenCode
@@ -242,6 +246,106 @@ type TurnTermination = 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detac
  */
 function requiresAbort(termination: TurnTermination): boolean {
   return termination === 'cancelled' || termination === 'timeout' || termination === 'failed';
+}
+
+function isIngress003Probe(userText: string): boolean {
+  return userText.includes(OPENCODE_INGRESS_003_MARKER);
+}
+
+function appendIngress003Trace(record: Record<string, unknown>): void {
+  try {
+    fs.appendFileSync(
+      OPENCODE_INGRESS_003_TRACE,
+      `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`,
+      'utf8',
+    );
+  } catch {
+    // Observation-only instrumentation: tracing must never affect execution.
+  }
+}
+
+function ingressSurfaceOf(request: CompletionRequest): string {
+  const route = request.surfaceContext?.surface?.routeId ?? request.surfaceContext?.surface?.path;
+  if (route) return String(route);
+  if (request.agentId) return 'activity-room-agent-turn';
+  return 'assistant';
+}
+
+function surfaceContextMeta(surfaceContext: CompletionRequest['surfaceContext']): Record<string, unknown> {
+  if (!surfaceContext) return { present: false };
+  return {
+    present: true,
+    workspace: {
+      id: surfaceContext.workspace.id.slice(0, 120),
+      name: surfaceContext.workspace.name.slice(0, 120),
+    },
+    surface: {
+      routeId: surfaceContext.surface.routeId,
+      path: surfaceContext.surface.path.slice(0, 200),
+      title: surfaceContext.surface.title,
+      section: surfaceContext.surface.section,
+    },
+    selected: surfaceContext.selected
+      ? {
+          kind: surfaceContext.selected.kind.slice(0, 80),
+          id: surfaceContext.selected.id.slice(0, 120),
+          hasLabel: typeof surfaceContext.selected.label === 'string',
+          labelLength: surfaceContext.selected.label?.length ?? 0,
+        }
+      : undefined,
+    selectedReferences: {
+      count: surfaceContext.selectedReferences?.length ?? 0,
+      kinds: [...new Set((surfaceContext.selectedReferences ?? []).map((ref) => ref.kind.slice(0, 80)))],
+    },
+  };
+}
+
+function safeString(value: string): string {
+  return value.length > 500 ? `${value.slice(0, 500)}...[truncated:${value.length}]` : value;
+}
+
+function isSecretKey(key: string): boolean {
+  return /api[_-]?key|authorization|bearer|credential|secret|token|password|cookie/i.test(key);
+}
+
+function sanitizeErrorLike(value: unknown, depth = 0): unknown {
+  if (depth > 4) return '[depth-limit]';
+  if (value === null || value === undefined) return value;
+  if (typeof value === 'string') return safeString(value);
+  if (typeof value === 'number' || typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return value.slice(0, 20).map((item) => sanitizeErrorLike(item, depth + 1));
+  if (typeof value !== 'object') return String(value);
+
+  const out: Record<string, unknown> = {};
+  for (const [key, raw] of Object.entries(value as Record<string, unknown>)) {
+    if (isSecretKey(key)) {
+      out[key] = '[redacted]';
+      continue;
+    }
+    if (
+      /^(type|code|name|message|status|statusCode|provider|providerID|providerId|model|modelID|modelId|error|errors|cause|data|metadata|details|body|response)$/i.test(
+        key,
+      )
+    ) {
+      out[key] = sanitizeErrorLike(raw, depth + 1);
+    }
+  }
+  return out;
+}
+
+function requestOptionsMeta(
+  request: CompletionRequest,
+  executionConfig: GAExecutionConfig | undefined,
+): Record<string, unknown> {
+  return {
+    assistantRuntime: request.assistantRuntime,
+    temperature: request.temperature,
+    maxTokens: request.maxTokens,
+    messageCount: request.messages.length,
+    hasSignal: request.signal !== undefined,
+    hasJsonSchema: request.jsonSchema !== undefined,
+    executionConfig,
+  };
 }
 
 function lastUserText(messages: CompletionRequest['messages']): string {
@@ -415,6 +519,13 @@ export async function* runAssistantOpenCodeTurn(
 
   const deadline = Date.now() + turnTimeoutMs;
   const turnStartedAt = Date.now();
+  const probeTrace = isIngress003Probe(userText);
+  const systemText = buildSurfaceSystem(request.surfaceContext);
+  const toolsMap = turnPersona.capabilityPolicy ? buildToolsMap(turnPersona.capabilityPolicy) : undefined;
+  let submittedAt: string | undefined;
+  let firstEventAt: string | undefined;
+  let terminalAt: string | undefined;
+  let sessionErrorPayload: unknown;
   // Cancellation-boundary attribution: record the turn start with its
   // originating identities and bounds, so any later abort names this turn.
   options.logger?.info('assistant.turn.started', {
@@ -427,6 +538,26 @@ export async function* runAssistantOpenCodeTurn(
     turnTimeoutMs,
     maxToolCalls,
   });
+  if (probeTrace) {
+    appendIngress003Trace({
+      probe: 'OPENCODE-INGRESS-003',
+      phase: 'envelope',
+      ingressSurface: ingressSurfaceOf(request),
+      requestId: request.conversationId,
+      correlationId: request.conversationId,
+      conversationId: request.conversationId,
+      sessionId: resolvedSessionId,
+      runtimeAgent: turnPersona.runtimeAgent,
+      requestedAgent: request.agentId,
+      provider: turnProvider,
+      model: turnModel?.modelID,
+      operation: 'prompt_async',
+      system: { present: systemText !== undefined, size: systemText?.length ?? 0 },
+      surfaceContext: surfaceContextMeta(request.surfaceContext),
+      tools: { keys: Object.keys(toolsMap ?? {}) },
+      requestOptions: requestOptionsMeta(request, execCfg),
+    });
+  }
   const shellStartedAt = new Map<string, number>();
   let sequence = 0;
   // AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool use.
@@ -491,16 +622,27 @@ export async function* runAssistantOpenCodeTurn(
         // established `system` field (proven additive — the agent's own
         // governance prompt is preserved). Never concatenated into the human
         // message; never repository/execution authority.
-        ...(buildSurfaceSystem(request.surfaceContext) ? { system: buildSurfaceSystem(request.surfaceContext) } : {}),
+        ...(systemText ? { system: systemText } : {}),
         // GA-RUNTIME-004 / GA-TOOL-001: per-turn tool availability from
         // the resolved agent's capability policy (ROUTING-CONVERGENCE-001C:
         // each logical agent executes under its own declared grants, run
         // through the same Vestara enforcement machinery — identity selects
         // the policy, never bypasses enforcement).
-        ...(turnPersona.capabilityPolicy ? { tools: buildToolsMap(turnPersona.capabilityPolicy) } : {}),
+        ...(toolsMap ? { tools: toolsMap } : {}),
       },
       context,
     );
+    submittedAt = new Date().toISOString();
+    if (probeTrace) {
+      appendIngress003Trace({
+        probe: 'OPENCODE-INGRESS-003',
+        phase: 'submitted',
+        conversationId: request.conversationId,
+        sessionId: resolvedSessionId,
+        operation: 'prompt_async',
+        submittedAt,
+      });
+    }
 
     let turnDone = false;
     while (!turnDone) {
@@ -539,6 +681,19 @@ export async function* runAssistantOpenCodeTurn(
 
       const payload = (event.payload ?? {}) as Record<string, unknown>;
       const callID = typeof payload.callID === 'string' ? payload.callID : undefined;
+      if (firstEventAt === undefined) {
+        firstEventAt = new Date().toISOString();
+        if (probeTrace) {
+          appendIngress003Trace({
+            probe: 'OPENCODE-INGRESS-003',
+            phase: 'first-event',
+            conversationId: request.conversationId,
+            sessionId: resolvedSessionId,
+            eventType: event.type,
+            firstEventAt,
+          });
+        }
+      }
 
       // GA-EXEC-001: budget enforcement helper — checks tool-call limits
       // after each event. Returns an error message if exceeded, null if
@@ -578,11 +733,13 @@ export async function* runAssistantOpenCodeTurn(
         }
         case 'message.part.updated': {
           // LIVE path: tool calls surface as tool parts on this event.
-          // GA-TOOL-UX-001B: read parts project structured read evidence
-          // (server-side wrapper parse); all other tools keep the generic
-          // projection. Unknown tools remain generic.
-          const detail = projectReadObservation(event, directory) ?? projectMessagePartUpdated(event);
-          if (detail && (detail.kind === 'tool' || detail.kind === 'read')) {
+          // Project structured read/edit evidence from the authoritative tool
+          // part; unknown tools remain on the generic projection.
+          const detail =
+            projectReadObservation(event, directory) ??
+            projectEditObservation(event, directory) ??
+            projectMessagePartUpdated(event);
+          if (detail && (detail.kind === 'tool' || detail.kind === 'read' || detail.kind === 'edit')) {
             const toolName = detail.tool ?? 'read';
             if (detail.state === 'running') {
               toolCallCount++;
@@ -598,10 +755,16 @@ export async function* runAssistantOpenCodeTurn(
               // within the M2 200-char boundary for the transient surface.
               const resultContent =
                 detail.state === 'failed'
-                  ? (detail.error ?? 'Tool failed')
+                  ? detail.kind === 'tool'
+                    ? (detail.error ?? 'Tool failed')
+                    : detail.kind === 'read'
+                      ? (detail.error ?? 'Tool failed')
+                      : 'Tool failed'
                   : detail.kind === 'read'
                     ? (detail.contentPreview ?? '').slice(0, 200) || toolName
-                    : (detail.preview ?? '');
+                    : detail.kind === 'tool'
+                      ? (detail.preview ?? '')
+                      : toolName;
               yield chunk('tool_result', sequence++, {
                 name: toolName,
                 content: resultContent,
@@ -941,6 +1104,7 @@ export async function* runAssistantOpenCodeTurn(
           if (status && status.type === 'idle') {
             turnDone = true;
             termination = 'completed';
+            terminalAt = new Date().toISOString();
           }
           break;
         }
@@ -948,10 +1112,24 @@ export async function* runAssistantOpenCodeTurn(
           // Dedicated idle event (1.18.27 contract) — authoritative settlement.
           turnDone = true;
           termination = 'completed';
+          terminalAt = new Date().toISOString();
           break;
         }
         case 'session.error': {
           termination = 'failed';
+          terminalAt = new Date().toISOString();
+          sessionErrorPayload = sanitizeErrorLike(payload);
+          if (probeTrace) {
+            appendIngress003Trace({
+              probe: 'OPENCODE-INGRESS-003',
+              phase: 'session-error',
+              conversationId: request.conversationId,
+              sessionId: resolvedSessionId,
+              eventType: event.type,
+              terminalAt,
+              error: sessionErrorPayload,
+            });
+          }
           yield chunk('error', sequence++, { content: 'OpenCode session error' });
           turnDone = true;
           break;
@@ -1068,6 +1246,48 @@ export async function* runAssistantOpenCodeTurn(
     const explicitCancellation = request.signal?.aborted === true;
     const elapsedMs = Date.now() - turnStartedAt;
     const aborting = requiresAbort(termination);
+    if (probeTrace) {
+      let assistantMessageCreated = false;
+      let tokenCounts: unknown;
+      let sessionModel: unknown;
+      try {
+        const messages = await client.listMessages(resolvedSessionId, context);
+        assistantMessageCreated = messages.some((message) => message.role === 'assistant');
+      } catch {
+        assistantMessageCreated = false;
+      }
+      try {
+        const session = await client.getSession(resolvedSessionId, context);
+        const sessionRecord = session as unknown as Record<string, unknown>;
+        tokenCounts = sessionRecord.tokens;
+        sessionModel = sessionRecord.model;
+      } catch {
+        tokenCounts = undefined;
+      }
+      appendIngress003Trace({
+        probe: 'OPENCODE-INGRESS-003',
+        phase: 'outcome',
+        ingressSurface: ingressSurfaceOf(request),
+        conversationId: request.conversationId,
+        sessionId: resolvedSessionId,
+        runtimeAgent: turnPersona.runtimeAgent,
+        provider: turnProvider,
+        model: turnModel?.modelID,
+        sessionModel,
+        operation: 'prompt_async',
+        submittedAt,
+        firstEventAt,
+        terminalAt,
+        termination,
+        elapsedMs,
+        toolCallCount,
+        aborting,
+        signalAborted: explicitCancellation,
+        assistantMessageCreated,
+        tokenCounts,
+        ...(sessionErrorPayload !== undefined ? { sessionErrorPayload } : {}),
+      });
+    }
     // Cancellation-boundary attribution: every turn end records its
     // classification; every abort additionally records its reason at warn
     // level BEFORE the abort is issued, so a later OpenCode "Interrupted"

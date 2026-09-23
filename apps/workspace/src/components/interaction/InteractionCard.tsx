@@ -49,6 +49,13 @@ export interface InteractionCardProps {
   /** Current async feedback state. */
   readonly feedback?: InteractionFeedbackState;
 
+  /**
+   * Retry the failed submission with the same interactionId + choiceId.
+   * Ephemeral UI behavior only — resubmits through the existing
+   * submitResponse path. No retry authority or persistence is created.
+   */
+  readonly onRetry?: () => void;
+
   /** Whether the card is in a historical/resolved state. */
   readonly resolved?: boolean;
 
@@ -125,6 +132,7 @@ export function InteractionCard({
   response,
   onSelect,
   feedback,
+  onRetry,
   resolved = false,
   disabled = false,
   importance = 'primary',
@@ -133,7 +141,12 @@ export function InteractionCard({
 }: InteractionCardProps) {
   const styles = IMPORTANCE_STYLES[importance] ?? IMPORTANCE_STYLES.primary;
   const lifecycle = deriveLifecycle(interaction, response);
-  const isInteractive = !resolved && !disabled && lifecycle === 'presented';
+  // Options stay mounted while disabled (e.g. during submission) so pending
+  // is visible and re-enables in place on failure. Only a resolved lifecycle
+  // replaces the group with DecisionState. Double-submit protection is the
+  // disabled state + the submitter guard; the server UNIQUE constraint stays
+  // authoritative.
+  const showOptions = !resolved && lifecycle === 'presented';
 
   return (
     <article
@@ -159,8 +172,8 @@ export function InteractionCard({
         <MarkdownRenderer content={interaction.content} />
       </div>
 
-      {/* Decision group: choices (only if interactive) */}
-      {isInteractive && (
+      {/* Decision group: choices (disabled, never unmounted, while pending) */}
+      {showOptions && (
         <div className="mb-2">
           <DecisionGroup
             choices={interaction.choices}
@@ -185,7 +198,7 @@ export function InteractionCard({
       {/* Async feedback */}
       {feedback && (
         <div className="mt-1.5">
-          <InteractionAsyncFeedback state={feedback} />
+          <InteractionAsyncFeedback state={feedback} onRetry={onRetry} />
         </div>
       )}
     </article>

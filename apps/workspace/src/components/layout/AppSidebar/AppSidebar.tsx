@@ -12,9 +12,16 @@ interface AppSidebarProps {
   collapsed: boolean;
   mobileOpen: boolean;
   onToggleCollapse: () => void;
+  onShortcuts: () => void;
 }
 
-const AppSidebar: FC<AppSidebarProps> = ({ navigation, collapsed, mobileOpen, onToggleCollapse }) => {
+const AppSidebar: FC<AppSidebarProps> = ({
+  navigation,
+  collapsed,
+  mobileOpen,
+  onToggleCollapse,
+  onShortcuts,
+}) => {
   const effectiveCollapsed = collapsed && !mobileOpen;
   const collapsedStyle: CSSProperties | undefined = effectiveCollapsed
     ? { width: SIZING.sidebar.collapsedWidth }
@@ -43,7 +50,11 @@ const AppSidebar: FC<AppSidebarProps> = ({ navigation, collapsed, mobileOpen, on
         </button>
       </div>
 
-      <SidebarFooter version="v1.0.0" collapsed={effectiveCollapsed} />
+      <SidebarFooter
+        version="v1.0.0"
+        collapsed={effectiveCollapsed}
+        onShortcuts={onShortcuts}
+      />
     </aside>
   );
 };

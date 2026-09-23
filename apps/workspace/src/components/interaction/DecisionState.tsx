@@ -32,23 +32,23 @@ const STATE_CONFIG: Record<
   { bg: string; text: string; dot: string; label: string; icon: string }
 > = {
   presented: {
-    bg: 'bg-amber-400/10',
-    text: 'text-amber-300',
-    dot: 'bg-amber-400',
+    bg: 'bg-[var(--vestara-status-warning-bg)]',
+    text: 'text-[var(--vestara-status-warning)]',
+    dot: 'bg-[var(--vestara-status-warning)]',
     label: 'Awaiting response',
     icon: '⏳',
   },
   responded: {
-    bg: 'bg-green-400/10',
-    text: 'text-green-300',
-    dot: 'bg-green-400',
+    bg: 'bg-[var(--vestara-status-success-bg)]',
+    text: 'text-[var(--vestara-status-success)]',
+    dot: 'bg-[var(--vestara-status-success)]',
     label: 'Responded',
     icon: '✓',
   },
   expired: {
-    bg: 'bg-zinc-600/30',
-    text: 'text-zinc-400',
-    dot: 'bg-zinc-500',
+    bg: 'bg-[var(--vestara-surface-panel-raised)]',
+    text: 'text-[var(--vestara-text-muted)]',
+    dot: 'bg-[var(--vestara-status-disabled)]',
     label: 'Expired',
     icon: '⏱',
   },

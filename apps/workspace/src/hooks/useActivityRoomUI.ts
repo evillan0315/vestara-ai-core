@@ -12,6 +12,7 @@
  */
 
 import { useCallback, useReducer } from 'react';
+import type { EditExecutionDetail } from '@vestara/shared';
 import type { M11CStreamItem } from './useM11CActivityRoom';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -36,10 +37,14 @@ export interface ActivityRoomUIState {
   readonly replyToItem: M11CStreamItem | null;
   /** Terminal drawer — bottom large drawer for terminal access. */
   readonly terminalDrawerOpen: boolean;
-  /** Terminal drawer dock edge — bottom, top, or right. */
-  readonly terminalDrawerPosition: 'bottom' | 'top' | 'right';
+  /** Terminal drawer dock edge — bottom, top, left, or right. */
+  readonly terminalDrawerPosition: 'bottom' | 'top' | 'left' | 'right';
   /** Files drawer — file browser panel for the Activity Room. */
   readonly filesDrawerOpen: boolean;
+  /** Exact workspace-relative file path requested by an Activity operation. */
+  readonly filesDrawerPath: string | null;
+  /** Resolved edit observation currently inspected in the Files drawer. */
+  readonly filesDrawerEdit: EditExecutionDetail | null;
   /** Files drawer dock edge — flips left ↔ right on toolbar toggle. */
   readonly filesDrawerPosition: 'left' | 'right';
   /** Settings drawer — display preferences for the Activity Room. */
@@ -70,16 +75,19 @@ type Action =
   | { readonly type: 'CLOSE_ALL' }
   | { readonly type: 'TOGGLE_TERMINAL_DRAWER' }
   | { readonly type: 'CYCLE_TERMINAL_DRAWER' }
-  | { readonly type: 'DOCK_TERMINAL_DRAWER'; readonly position: 'bottom' | 'top' | 'right' }
+  | { readonly type: 'DOCK_TERMINAL_DRAWER'; readonly position: 'bottom' | 'top' | 'left' | 'right' }
   | { readonly type: 'TOGGLE_FILES_DRAWER' }
+  | { readonly type: 'OPEN_FILES_DRAWER'; readonly path: string }
+  | { readonly type: 'INSPECT_EDIT_IN_FILES'; readonly detail: EditExecutionDetail }
   | { readonly type: 'CYCLE_FILES_DRAWER' }
+  | { readonly type: 'DOCK_FILES_DRAWER'; readonly position: 'left' | 'right' }
   | { readonly type: 'TOGGLE_SETTINGS_DRAWER' }
   | { readonly type: 'CYCLE_SETTINGS_DRAWER' }
   | { readonly type: 'TOGGLE_BROWSER_DRAWER' }
   | { readonly type: 'CYCLE_BROWSER_DRAWER' }
   | { readonly type: 'DOCK_BROWSER_DRAWER'; readonly position: 'right' | 'left' | 'bottom' };
 
-const INITIAL_STATE: ActivityRoomUIState = {
+export const INITIAL_STATE: ActivityRoomUIState = {
   detailItem: null,
   editingItem: null,
   threadActivityIds: [],
@@ -88,6 +96,8 @@ const INITIAL_STATE: ActivityRoomUIState = {
   terminalDrawerOpen: false,
   terminalDrawerPosition: 'bottom',
   filesDrawerOpen: false,
+  filesDrawerPath: null,
+  filesDrawerEdit: null,
   filesDrawerPosition: 'left',
   settingsDrawerOpen: false,
   settingsDrawerPosition: 'right',
@@ -96,7 +106,7 @@ const INITIAL_STATE: ActivityRoomUIState = {
   attachedFiles: [],
 };
 
-function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIState {
+export function activityRoomUIReducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIState {
   switch (action.type) {
     case 'OPEN_DETAIL':
       // Close other modals, keep reply-to and agent control
@@ -174,6 +184,17 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
     case 'TOGGLE_FILES_DRAWER':
       return { ...state, filesDrawerOpen: !state.filesDrawerOpen };
 
+    case 'OPEN_FILES_DRAWER':
+      return { ...state, filesDrawerOpen: true, filesDrawerPath: action.path, filesDrawerEdit: null };
+
+    case 'INSPECT_EDIT_IN_FILES':
+      return {
+        ...state,
+        filesDrawerOpen: true,
+        filesDrawerPath: action.detail.file,
+        filesDrawerEdit: action.detail,
+      };
+
     case 'CYCLE_FILES_DRAWER':
       // Toolbar toggle: closed → open docked left; open → flip the dock
       // edge left ↔ right (stays open, browser state survives — no remount).
@@ -182,6 +203,9 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
         ...state,
         filesDrawerPosition: state.filesDrawerPosition === 'left' ? 'right' : 'left',
       };
+
+    case 'DOCK_FILES_DRAWER':
+      return { ...state, filesDrawerOpen: true, filesDrawerPosition: action.position };
 
     case 'TOGGLE_SETTINGS_DRAWER':
       return { ...state, settingsDrawerOpen: !state.settingsDrawerOpen };
@@ -221,7 +245,7 @@ function reducer(state: ActivityRoomUIState, action: Action): ActivityRoomUIStat
 // ─── Hook ────────────────────────────────────────────────────
 
 export function useActivityRoomUI() {
-  const [state, dispatch] = useReducer(reducer, INITIAL_STATE);
+  const [state, dispatch] = useReducer(activityRoomUIReducer, INITIAL_STATE);
 
   const openDetail = useCallback((item: M11CStreamItem) => dispatch({ type: 'OPEN_DETAIL', item }), []);
   const closeDetail = useCallback(() => dispatch({ type: 'CLOSE_DETAIL' }), []);
@@ -247,11 +271,20 @@ export function useActivityRoomUI() {
   const toggleTerminalDrawer = useCallback(() => dispatch({ type: 'TOGGLE_TERMINAL_DRAWER' }), []);
   const cycleTerminalDrawer = useCallback(() => dispatch({ type: 'CYCLE_TERMINAL_DRAWER' }), []);
   const dockTerminalDrawer = useCallback(
-    (position: 'bottom' | 'top' | 'right') => dispatch({ type: 'DOCK_TERMINAL_DRAWER', position }),
+    (position: 'bottom' | 'top' | 'left' | 'right') => dispatch({ type: 'DOCK_TERMINAL_DRAWER', position }),
     [],
   );
   const toggleFilesDrawer = useCallback(() => dispatch({ type: 'TOGGLE_FILES_DRAWER' }), []);
+  const openFilesDrawer = useCallback((path: string) => dispatch({ type: 'OPEN_FILES_DRAWER', path }), []);
+  const inspectEditInFiles = useCallback(
+    (detail: EditExecutionDetail) => dispatch({ type: 'INSPECT_EDIT_IN_FILES', detail }),
+    [],
+  );
   const cycleFilesDrawer = useCallback(() => dispatch({ type: 'CYCLE_FILES_DRAWER' }), []);
+  const dockFilesDrawer = useCallback(
+    (position: 'left' | 'right') => dispatch({ type: 'DOCK_FILES_DRAWER', position }),
+    [],
+  );
   const toggleSettingsDrawer = useCallback(() => dispatch({ type: 'TOGGLE_SETTINGS_DRAWER' }), []);
   const cycleSettingsDrawer = useCallback(() => dispatch({ type: 'CYCLE_SETTINGS_DRAWER' }), []);
   const toggleBrowserDrawer = useCallback(() => dispatch({ type: 'TOGGLE_BROWSER_DRAWER' }), []);
@@ -281,7 +314,10 @@ export function useActivityRoomUI() {
     cycleTerminalDrawer,
     dockTerminalDrawer,
     toggleFilesDrawer,
+    openFilesDrawer,
+    inspectEditInFiles,
     cycleFilesDrawer,
+    dockFilesDrawer,
     toggleSettingsDrawer,
     cycleSettingsDrawer,
     toggleBrowserDrawer,

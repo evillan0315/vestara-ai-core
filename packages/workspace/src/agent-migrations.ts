@@ -6,7 +6,11 @@ import {
   type MigrationManifest,
   type MigrationStep,
 } from '@vestara/sqlite-migrations';
-import { ORCHESTRATION_BASE_MIGRATIONS, ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS } from '@vestara/workflow-orchestrator';
+import {
+  ORCHESTRATION_BASE_MIGRATIONS,
+  ORCHESTRATION_DECISION_WAIT_MIGRATIONS,
+  ORCHESTRATION_EXTERNAL_WAIT_MIGRATIONS,
+} from '@vestara/workflow-orchestrator';
 import type { Database } from 'sql.js';
 import { HUMAN_KNOWLEDGE_MIGRATIONS } from './human-knowledge-migrations';
 import { HUMAN_PRINCIPAL_MIGRATIONS } from './human-principal-migrations';
@@ -264,6 +268,7 @@ export const PLANS_MANIFEST: MigrationManifest = buildManifest('plans', [
   [...CI_OBSERVER_MIGRATIONS.steps],
   HUMAN_PRINCIPAL_MIGRATIONS,
   HUMAN_KNOWLEDGE_MIGRATIONS,
+  ORCHESTRATION_DECISION_WAIT_MIGRATIONS,
 ]);
 
 export { migrate } from '@vestara/sqlite-migrations';

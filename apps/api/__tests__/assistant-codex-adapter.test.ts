@@ -1,12 +1,58 @@
 import { describe, expect, it } from 'vitest';
 import {
   avoidWorkspaceCodexHome,
+  codexCommandFailed,
+  codexOperationId,
+  createCodexCommandExecutionDetail,
   createCodexSdkEnv,
   createCodexSdkOptions,
   createCodexToolPartEvent,
 } from '../src/assistant-codex-adapter';
 
 describe('Assistant Codex adapter environment', () => {
+  it('scopes thread-local item identities', () => {
+    expect(codexOperationId('thread-a', 'item_18')).toBe('codex:thread-a:item_18');
+    expect(codexOperationId('thread-a', 'item_18')).not.toBe(codexOperationId('thread-b', 'item_18'));
+    expect(codexOperationId('thread-a', 'retry-1')).not.toBe(codexOperationId('thread-b', 'item_18'));
+  });
+
+  it('uses SDK status/exit code, never command output prose, for the terminal verdict', () => {
+    expect(codexCommandFailed({ status: 'completed', exit_code: 1, aggregated_output: 'ok' })).toBe(true);
+    expect(codexCommandFailed({ status: 'completed', exit_code: 0, aggregated_output: 'failed' })).toBe(false);
+
+    const failed = createCodexCommandExecutionDetail('thread-a', {
+      id: 'item_18',
+      status: 'completed',
+      exit_code: 1,
+      aggregated_output: 'ok',
+    });
+    const succeeded = createCodexCommandExecutionDetail('thread-b', {
+      id: 'item_18',
+      status: 'completed',
+      exit_code: 0,
+      aggregated_output: 'failed',
+    });
+    expect(failed).toMatchObject({ operationId: 'codex:thread-a:item_18', state: 'failed', source: 'codex' });
+    expect(succeeded).toMatchObject({ operationId: 'codex:thread-b:item_18', state: 'completed', source: 'codex' });
+
+    expect(
+      createCodexToolPartEvent({
+        status: 'error',
+        callID: failed?.operationId ?? '',
+        tool: 'bash',
+        agentId: 'vestara-assistant',
+      }),
+    ).toMatchObject({ payload: { part: { callID: 'codex:thread-a:item_18', state: { status: 'error' } } } });
+    expect(
+      createCodexToolPartEvent({
+        status: 'completed',
+        callID: succeeded?.operationId ?? '',
+        tool: 'bash',
+        agentId: 'vestara-assistant',
+      }),
+    ).toMatchObject({ payload: { part: { callID: 'codex:thread-b:item_18', state: { status: 'completed' } } } });
+  });
+
   it('keeps generic OPENAI_MODEL out of the Codex SDK environment', () => {
     const env = createCodexSdkEnv({
       OPENAI_API_KEY: 'sk-test',

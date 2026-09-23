@@ -10,6 +10,29 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [VESTARA-CHECKPOINT-003] — 2026-09-24 — Activity Room Coordination and Edit Inspection
+
+### Added
+
+- Correlation-preserving Activity Room coordination across Conversation
+  Runtime, execution observations, EventBus, M9/M10/M11, and the UI.
+- Workflow-owned human decision wait projection with shared interaction
+  identity and replay-safe participant linkage.
+- Correlated OpenCode/Codex tool outcomes and structured edit observations.
+- Activity edit inspection in the persistent Files drawer.
+
+### Verified
+
+- Eddie's full-refresh dogfood: `Inspect edit` opened the read-only historical
+  diff and separate current README view while Activity Room remained visible.
+- Focused regression suites and targeted workspace UI build passed.
+- Evidence and scope: `docs/activity-room/VESTARA-CHECKPOINT-003-evidence.md`.
+
+### Deferred
+
+- Participant-state redesign, composer agent selection, Composer Event
+  Inspector, Execution page work, and live-browser integration.
+
 ---
 
 ## [VESTARA-CHECKPOINT-002] — 2026-09-22 — Documentation & Milestone Reconciliation (post-CLEANUP-001)

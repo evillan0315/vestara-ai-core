@@ -683,18 +683,20 @@ const MAX_OBSERVATION_CONTENT = 2000;
  * - Structured `read` evidence rides `detail` (kind `read`); every other
  *   tool stays `generic`. Unknown tools remain generic — never guessed.
  */
-function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
+export function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
   const detail = chunk.detail;
   const operationId = detail?.operationId;
   const toolName = chunk.name ?? detail?.tool ?? 'unknown';
   const timestamp = chunk.metadata.timestamp;
   const readDetail = detail?.kind === 'read' ? detail : undefined;
+  const editDetail = detail?.kind === 'edit' ? detail : undefined;
 
   if (chunk.type === 'tool_call') {
     return {
       toolCallId: operationId ?? chunk.id,
       ...(operationId ? { operationId } : {}),
       ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
+      ...(editDetail ? { observationKind: 'edit' as const, edit: editDetail } : {}),
       toolName,
       status: 'running',
       timestamp,
@@ -728,6 +730,7 @@ function chunkToObservation(chunk: StreamChunk): ToolObservation | undefined {
       toolCallId: operationId ?? chunk.id,
       ...(operationId ? { operationId } : {}),
       ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
+      ...(editDetail ? { observationKind: 'edit' as const, edit: editDetail } : {}),
       toolName,
       status,
       timestamp,

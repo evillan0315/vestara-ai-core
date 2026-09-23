@@ -63,6 +63,9 @@ function TerminalWorkspaceInner(
   const isPty = activeId !== null && ptySessions[activeId] === true;
   const wsRef = useRef<WebSocket | null>(null);
   const lineBufRef = useRef<Record<string, string>>({});
+  const historyRef = useRef<Record<string, string[]>>({});
+  const historyCursorRef = useRef<Record<string, number | null>>({});
+  const historyDraftRef = useRef<Record<string, string>>({});
   const uptimeRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const retryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -168,8 +171,59 @@ function TerminalWorkspaceInner(
     }
   }, []);
 
+  const replaceInputLine = useCallback((sessionId: string, next: string) => {
+    const current = lineBufRef.current[sessionId] || '';
+    if (current.length > 0) writeToTerminal(sessionId, '\b \b'.repeat(current.length));
+    if (next.length > 0) writeToTerminal(sessionId, next);
+    lineBufRef.current[sessionId] = next;
+  }, []);
+
+  const pushCommandHistory = useCallback((sessionId: string, command: string) => {
+    const history = historyRef.current[sessionId] ?? [];
+    if (history[history.length - 1] !== command) {
+      historyRef.current[sessionId] = [...history, command];
+    }
+    historyCursorRef.current[sessionId] = null;
+    historyDraftRef.current[sessionId] = '';
+  }, []);
+
+  const navigateHistory = useCallback(
+    (sessionId: string, direction: 'older' | 'newer'): boolean => {
+      const history = historyRef.current[sessionId] ?? [];
+      if (history.length === 0) return false;
+
+      const currentCursor = historyCursorRef.current[sessionId];
+      if (direction === 'older') {
+        if (currentCursor === null || currentCursor === undefined) {
+          historyDraftRef.current[sessionId] = lineBufRef.current[sessionId] || '';
+          const nextCursor = history.length - 1;
+          historyCursorRef.current[sessionId] = nextCursor;
+          replaceInputLine(sessionId, history[nextCursor] ?? '');
+          return true;
+        }
+        const nextCursor = Math.max(0, currentCursor - 1);
+        historyCursorRef.current[sessionId] = nextCursor;
+        replaceInputLine(sessionId, history[nextCursor] ?? '');
+        return true;
+      }
+
+      if (currentCursor === null || currentCursor === undefined) return false;
+      const nextCursor = currentCursor + 1;
+      if (nextCursor >= history.length) {
+        historyCursorRef.current[sessionId] = null;
+        replaceInputLine(sessionId, historyDraftRef.current[sessionId] || '');
+        historyDraftRef.current[sessionId] = '';
+        return true;
+      }
+      historyCursorRef.current[sessionId] = nextCursor;
+      replaceInputLine(sessionId, history[nextCursor] ?? '');
+      return true;
+    },
+    [replaceInputLine],
+  );
+
   const handleTerminalData = useCallback(
-    (sessionId: string, data: string) => {
+    (sessionId: string, data: string): boolean | void => {
       if (ptySessions[sessionId] === true) {
         // Pty: raw passthrough — the kernel tty owns echo, line editing,
         // and signals (Ctrl-C/Ctrl-D arrive as bytes the tty interprets).
@@ -177,6 +231,14 @@ function TerminalWorkspaceInner(
         setProcessStatus(sessionId, 'running');
         sendInput(sessionId, data);
         return;
+      }
+      if (data === '\x1b[A') {
+        navigateHistory(sessionId, 'older');
+        return false;
+      }
+      if (data === '\x1b[B') {
+        navigateHistory(sessionId, 'newer');
+        return false;
       }
       for (const ch of data) {
         if (ch === '\x03') {
@@ -193,9 +255,13 @@ function TerminalWorkspaceInner(
         } else if (ch === '\r' || ch === '\n') {
           const cmd = (lineBufRef.current[sessionId] || '').trim();
           lineBufRef.current[sessionId] = '';
+          historyCursorRef.current[sessionId] = null;
+          historyDraftRef.current[sessionId] = '';
           if (cmd === 'clear') {
+            pushCommandHistory(sessionId, cmd);
             clearTerminal(sessionId);
           } else if (cmd === 'help') {
+            pushCommandHistory(sessionId, cmd);
             // Display-only help; everything else executes in the backend shell.
             writelnToTerminal(sessionId, '');
             writelnToTerminal(sessionId, 'Vestara Terminal — real shell, workspace-scoped.');
@@ -204,6 +270,7 @@ function TerminalWorkspaceInner(
             writelnToTerminal(sessionId, '  Ctrl-D        End input (exits the shell at prompt)');
             writelnToTerminal(sessionId, 'Everything else runs in bash under the workspace root.');
           } else if (cmd) {
+            pushCommandHistory(sessionId, cmd);
             setProcessStatus(sessionId, 'running');
             // The pane already echoed the line; the backend echoes nothing
             // (piped stdio), so advance past it before the command output.
@@ -215,12 +282,14 @@ function TerminalWorkspaceInner(
           }
         } else if (ch === '\x7f') {
           lineBufRef.current[sessionId] = (lineBufRef.current[sessionId] || '').slice(0, -1);
+          historyCursorRef.current[sessionId] = null;
         } else if (ch >= ' ' || ch === '\t') {
           lineBufRef.current[sessionId] = (lineBufRef.current[sessionId] || '') + ch;
+          historyCursorRef.current[sessionId] = null;
         }
       }
     },
-    [ptySessions, sendInput, setProcessStatus],
+    [navigateHistory, ptySessions, pushCommandHistory, sendInput, setProcessStatus],
   );
 
   const handleResize = useCallback((cols: number, rows: number) => {

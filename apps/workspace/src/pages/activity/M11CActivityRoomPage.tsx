@@ -34,8 +34,8 @@ import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
 import type { AttentionEntry } from '@vestara/activity-room';
 import { handleActivityReply } from '../../lib/assistant-navigation';
-import { postActivityMessage, retractActivityMessage, editActivityMessage } from '../../lib/activity';
-import { Pill, StatusIndicator } from '@vestara/ui';
+import { postActivityMessage, retractActivityMessage, editActivityMessage, DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
+import { ActionIcon, Pill, StatusIndicator } from '@vestara/ui';
 import type { ActivityProjectionRecord } from './activity-types';
 import '../../styles/activity-room.css';
 import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout';
@@ -70,6 +70,7 @@ import TerminalWorkspace, { type TerminalWorkspaceApi } from '../../components/t
 import ActivityFilesPanel from './ActivityFilesPanel';
 import ActivitySettingsPanel from './ActivitySettingsPanel';
 import ActivityBrowserPanel from './ActivityBrowserPanel';
+import { ActivityDrawerDockControls, ActivityDrawerHeaderActions } from './ActivityDrawerHeaderActions';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -240,14 +241,24 @@ export default function M11CActivityRoomPage() {
   }, [mobilePanel]);
 
   // Drawer shortcuts (Activity Room scope only): backtick toggles Terminal,
-  // Ctrl/⌘+B toggles the Files explorer. Typing surfaces (inputs, composer,
-  // xterm helper textarea) are never hijacked.
-  const { toggleTerminalDrawer, toggleFilesDrawer } = ui;
+  // Ctrl/⌘+B toggles Files, Ctrl/⌘+, toggles Settings. Typing surfaces
+  // (inputs, composer, xterm helper textarea) are never hijacked.
+  const { toggleTerminalDrawer, toggleFilesDrawer, toggleSettingsDrawer, toggleBrowserDrawer } = ui;
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
         e.preventDefault();
         toggleFilesDrawer();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ',') {
+        e.preventDefault();
+        toggleSettingsDrawer();
+        return;
+      }
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
+        e.preventDefault();
+        toggleBrowserDrawer();
         return;
       }
       const target = e.target as HTMLElement | null;
@@ -265,7 +276,7 @@ export default function M11CActivityRoomPage() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [toggleTerminalDrawer, toggleFilesDrawer]);
+  }, [toggleTerminalDrawer, toggleFilesDrawer, toggleSettingsDrawer, toggleBrowserDrawer]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
@@ -665,6 +676,7 @@ export default function M11CActivityRoomPage() {
             onSubmitResponse={room.submitResponse}
             participantNames={participantNames}
             participantModels={participantModels}
+            onInspectEdit={ui.inspectEditInFiles}
             attentionFocus={attentionFocus}
             attentionEntries={room.attention}
             onOpenAttention={handleOpenAttention}
@@ -803,64 +815,43 @@ export default function M11CActivityRoomPage() {
           bodyClassName="ar-terminal-drawer__body"
           hideBackdrop
           header={
-            <div className="flex shrink-0 items-center gap-1" role="group" aria-label="Terminal actions">
-              <button
-                type="button"
-                onClick={() => ui.dockTerminalDrawer('bottom')}
-                title="Dock terminal to bottom"
-                aria-label="Dock terminal to bottom"
-                aria-pressed={ui.terminalDrawerPosition === 'bottom'}
-                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
-                  ui.terminalDrawerPosition === 'bottom'
-                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
-                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
-                }`}
-              >
-                <SouthOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
-                onClick={() => ui.dockTerminalDrawer('right')}
-                title="Dock terminal to right"
-                aria-label="Dock terminal to right"
-                aria-pressed={ui.terminalDrawerPosition === 'right'}
-                className={`grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset ${
-                  ui.terminalDrawerPosition === 'right'
-                    ? 'bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)]'
-                    : 'text-[var(--vestara-text-secondary)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)]'
-                }`}
-              >
-                <EastOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-              </button>
-              <span aria-hidden="true" className="mx-0.5 h-5 w-px bg-[var(--vestara-border-subtle)]" />
-              <button
-                type="button"
+            <ActivityDrawerHeaderActions
+              label="Terminal actions"
+              dockControls={
+                <ActivityDrawerDockControls
+                  current={ui.terminalDrawerPosition}
+                  positions={['left', 'bottom', 'right', 'top']}
+                  label="Terminal drawer position"
+                  onDock={(position) => {
+                    if (position === 'left' || position === 'bottom' || position === 'right' || position === 'top') {
+                      ui.dockTerminalDrawer(position);
+                    }
+                  }}
+                />
+              }
+            >
+              <ActionIcon
+                label="New terminal session"
+                icon={<AddOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
+                tone="muted"
+                size="sm"
                 onClick={() => terminalApi.current?.newSession()}
-                title="New terminal session"
-                aria-label="New terminal session"
-                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              >
-                <AddOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
+              />
+              <ActionIcon
+                label="Clear terminal"
+                icon={<CleaningServicesOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
+                tone="muted"
+                size="sm"
                 onClick={() => terminalApi.current?.clearActive()}
-                title="Clear terminal"
-                aria-label="Clear terminal"
-                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              >
-                <CleaningServicesOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-              </button>
-              <button
-                type="button"
+              />
+              <ActionIcon
+                label="Kill terminal session"
+                icon={<DeleteOutlineOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
+                tone="destructive"
+                size="sm"
                 onClick={() => terminalApi.current?.killActive()}
-                title="Kill terminal session"
-                aria-label="Kill terminal session"
-                className="grid size-7 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-status-error-bg)] hover:text-[var(--vestara-status-error)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
-              >
-                <DeleteOutlineOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-              </button>
-            </div>
+              />
+            </ActivityDrawerHeaderActions>
           }
         >
           {/* Full terminal workspace (same component as the Terminal page):
@@ -881,9 +872,28 @@ export default function M11CActivityRoomPage() {
           defaultSize="medium"
           portal
           hideBackdrop
+          header={
+            <ActivityDrawerHeaderActions
+              label="Files actions"
+              dockControls={
+                <ActivityDrawerDockControls
+                  current={ui.filesDrawerPosition}
+                  positions={['left', 'right']}
+                  label="Files drawer position"
+                  onDock={(position) => {
+                    if (position === 'left' || position === 'right') ui.dockFilesDrawer(position);
+                  }}
+                />
+              }
+            />
+          }
         >
           <div className="h-full min-h-0 w-full">
-            <ActivityFilesPanel />
+            <ActivityFilesPanel
+              onAttachToComposer={ui.addFileAttachment}
+              openPath={ui.filesDrawerPath}
+              editDetail={ui.filesDrawerEdit}
+            />
           </div>
         </Drawer>
       )}
@@ -1076,9 +1086,13 @@ function M11CComposer({
   onClearFiles?: () => void;
   participants?: readonly ParticipantOption[];
 }) {
-  // AAR-001E: human messages cap at 4000 chars (server enforces; the
-  // counter keeps the Director from composing past it).
-  const COMPOSER_MAX = 4000;
+  // Human message cap is configurable via Settings → General
+  // (`general.composerMaxChars`, default 100 000; server enforces the
+  // effective value, the counter keeps the Director from composing past it).
+  const [composerMax, setComposerMax] = useState(DEFAULT_COMPOSER_MAX_CHARS);
+  useEffect(() => {
+    void fetchComposerMaxChars().then(setComposerMax);
+  }, []);
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1108,8 +1122,8 @@ function M11CComposer({
   const handleSend = useCallback(async () => {
     const text = value.trim();
     if (!text || sending) return;
-    if (text.length > COMPOSER_MAX) {
-      setError(`Message is ${text.length - COMPOSER_MAX} characters over the 4000 limit`);
+    if (text.length > composerMax) {
+      setError(`Message is ${text.length - composerMax} characters over the ${composerMax} limit`);
       return;
     }
 
@@ -1428,22 +1442,22 @@ function M11CComposer({
            <span className="truncate">{previewLabel}</span>
          </span>
          <span className="ar-composer__secondary flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
-           {/* Character count (4000 cap) — tertiary metadata */}
-           <span
-             aria-hidden="true"
-             className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > COMPOSER_MAX ? 'text-[var(--vestara-status-error)]' : value.length > COMPOSER_MAX - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
-           >
-             {value.length}/{COMPOSER_MAX}
-           </span>
-           <span className="sr-only" aria-live="polite">
-             {value.length > COMPOSER_MAX ? `Over limit by ${value.length - COMPOSER_MAX} characters` : ''}
-           </span>
+            {/* Character count (configurable cap) — tertiary metadata */}
+            <span
+              aria-hidden="true"
+              className={`shrink-0 font-mono text-[10px] tabular-nums ${value.length > composerMax ? 'text-[var(--vestara-status-error)]' : value.length > composerMax - 200 ? 'text-[var(--vestara-status-warning)]' : 'text-[var(--vestara-text-dim)]'}`}
+            >
+              {value.length}/{composerMax}
+            </span>
+            <span className="sr-only" aria-live="polite">
+              {value.length > composerMax ? `Over limit by ${value.length - composerMax} characters` : ''}
+            </span>
 
            {/* Send — primary composer action (existing submit path) */}
            <button
              type="button"
              onClick={handleSend}
-             disabled={!value.trim() || value.length > COMPOSER_MAX || sending}
+              disabled={!value.trim() || value.length > composerMax || sending}
              aria-label={sending ? 'Sending message' : 'Send message'}
              title={sending ? 'Sending message' : 'Send message (Enter)'}
              className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--vestara-surface-canvas)] transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel)]"

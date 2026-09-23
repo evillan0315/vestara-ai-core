@@ -50,6 +50,12 @@ export interface InteractionServiceOptions {
   readonly deliveryVerifier?: PublicationDeliveryVerifier;
 }
 
+export interface InteractionPresentationContext {
+  readonly workflowRunId?: string;
+  readonly taskId?: string;
+  readonly correlationId?: string;
+}
+
 export class InteractionService {
   private readonly persistence: InteractionPersistencePort;
   private readonly publication: InteractionPublicationPort;
@@ -69,7 +75,7 @@ export class InteractionService {
    * If deliveryVerifier is provided and verification fails, the publication
    * remains pending and a delivery error is thrown.
    */
-  async present(interaction: StructuredInteraction): Promise<void> {
+  async present(interaction: StructuredInteraction, context?: InteractionPresentationContext): Promise<void> {
     // Validate structural invariants
     const errors = validateInteraction(interaction);
     if (errors.length > 0) {
@@ -90,6 +96,9 @@ export class InteractionService {
       createdAt: interaction.createdAt,
       content: interaction.content,
       choices: interaction.choices,
+      ...(context?.workflowRunId ? { workflowRunId: context.workflowRunId } : {}),
+      ...(context?.taskId ? { taskId: context.taskId } : {}),
+      ...(context?.correlationId ? { correlationId: context.correlationId } : {}),
     });
 
     // C2: Verify delivery before acknowledging publication

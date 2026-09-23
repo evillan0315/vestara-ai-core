@@ -55,6 +55,7 @@ export interface M11AStreamItem {
   readonly workflowRunId?: string;
   readonly executionId?: string;
   readonly taskId?: string;
+  readonly runtimeSessionBindingId?: string;
   /** Diagnostic details for the in-card details disclosure (absent = none). */
   readonly details?: MessageDetailsData;
   /**
@@ -71,6 +72,8 @@ export interface M11AStreamItem {
     readonly callID: string;
     readonly status: 'started' | 'completed' | 'failed';
     readonly agentId?: string;
+    readonly sessionId?: string;
+    readonly output?: string;
   };
   readonly aggregated?: {
     readonly count: number;
@@ -132,6 +135,36 @@ export interface M11AActivityDetail {
 export interface M11AError {
   readonly code: string;
   readonly message: string;
+}
+
+/** Conversation-backed debug data used by the Activity Room detail surface. */
+export interface ConversationDebugMessage {
+  readonly id: string;
+  readonly role: string;
+  readonly content: string;
+  readonly provider?: string;
+  readonly model?: string;
+  readonly createdAt: string;
+  readonly toolObservations?: readonly {
+    readonly toolCallId: string;
+    readonly toolName: string;
+    readonly status: string;
+    readonly timestamp: string;
+    readonly content: string;
+  }[];
+  readonly executionResult?: {
+    readonly termination: string;
+    readonly toolCallCount: number;
+    readonly elapsedMs: number;
+  };
+}
+
+export interface ConversationDebugResponse {
+  readonly conversation: {
+    readonly id: string;
+    readonly title: string;
+    readonly messages: readonly ConversationDebugMessage[];
+  };
 }
 
 // ─── HTTP Client ─────────────────────────────────────────────
@@ -217,6 +250,11 @@ export async function fetchM11AAggregateDrillDown(
   aggregateId: string,
 ): Promise<{ records: readonly M11AActivityRecord[]; count: number }> {
   return m11aFetch(`/api/activity-room/v1/activities/aggregate/${encodeURIComponent(aggregateId)}`);
+}
+
+/** Fetch the durable conversation transcript for debugging a projected item. */
+export async function fetchConversationDebug(conversationId: string): Promise<ConversationDebugResponse> {
+  return m11aFetch<ConversationDebugResponse>(`/api/conversations/${encodeURIComponent(conversationId)}`);
 }
 
 // ─── Participant Projection ──────────────────────────────────

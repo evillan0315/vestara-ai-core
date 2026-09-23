@@ -25,6 +25,10 @@ export interface InteractionPresentedPayload {
   readonly createdAt: string;
   readonly content: string;
   readonly choices: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+  /** Bounded lineage supplied by a domain adapter; not interaction semantics. */
+  readonly workflowRunId?: string;
+  readonly taskId?: string;
+  readonly correlationId?: string;
 }
 
 /**

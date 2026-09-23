@@ -32,7 +32,7 @@ export type AssistantExecutionKind =
 
 export type AssistantExecutionState = 'running' | 'completed' | 'failed';
 
-export type AssistantExecutionSource = 'opencode' | 'vestara-workflow';
+export type AssistantExecutionSource = 'opencode' | 'codex' | 'vestara-workflow';
 
 export type AssistantExecutionProvenance = 'runtime-provided' | 'vestara-derived' | 'unavailable';
 
@@ -525,7 +525,8 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
     operationId,
     state,
     tool: boundedString(record.tool, ASSISTANT_EXECUTION_BOUNDS.identity),
-    source: record.source === 'vestara-workflow' ? 'vestara-workflow' : 'opencode',
+    source:
+      record.source === 'vestara-workflow' ? 'vestara-workflow' : record.source === 'codex' ? 'codex' : 'opencode',
     timestamp: boundedNumber(record.timestamp) ?? Date.now(),
     assistantMessageId: boundedString(record.assistantMessageId, ASSISTANT_EXECUTION_BOUNDS.identity),
     sessionId: boundedString(record.sessionId, ASSISTANT_EXECUTION_BOUNDS.identity),

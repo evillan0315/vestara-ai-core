@@ -10,7 +10,7 @@
  * Aggregated items use M10's referencedActivityIds/sequenceRange.
  */
 
-import { memo, useCallback, useState } from 'react';
+import { memo, useCallback, useEffect, useState } from 'react';
 import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import ArticleOutlinedIcon from '@mui/icons-material/ArticleOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
@@ -43,6 +43,10 @@ import { InteractionCard } from '../../components/interaction/InteractionCard';
 import type { InteractionFeedbackState } from '../../components/interaction/InteractionAsyncFeedback';
 import { StatusIndicator } from '@vestara/ui';
 import '../../styles/marketplace.css';
+import type { CorrelatedSession } from './correlated-session';
+import type { EditExecutionDetail } from '@vestara/shared';
+import { fetchEditObservation } from './edit-observation';
+import { normalizeToolCategory } from '../../components/assistant/AssistantToolCard';
 
 // ─── Status badge (canonical semantic tokens) ────────────────
 
@@ -83,6 +87,8 @@ interface M11CStreamItemProps {
   readonly participantNames?: Readonly<Record<string, string>>;
   /** Participant ID → model label lookup (modelDisplayName ?? modelId) for tool rows. */
   readonly participantModels?: Readonly<Record<string, string>>;
+  /** Inspect a resolved edit observation in the Activity Room Files drawer. */
+  readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
   /** Select a workflow context (workflow badge → browser scope). */
   readonly onSelectWorkflow?: (workflowId: string) => void;
 }
@@ -385,7 +391,7 @@ function toolExtraSummary(item: StreamItemType, tool: ResolvedToolExecution): st
     'tool.succeeded',
     'tool.failed',
   ]);
-  const content = item.content.trim();
+  const content = (item.tool?.output ?? item.content).trim();
   if (content && !generic.has(content)) return content;
   return undefined;
 }
@@ -440,6 +446,80 @@ function ActivityMaterialIcon({ visual, tone }: { visual: VisualClass; tone: 'in
   }
 }
 
+function CorrelatedSessionActivity({
+  session,
+  onInspectEdit,
+}: {
+  readonly session: CorrelatedSession;
+  readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const [editDetails, setEditDetails] = useState<Record<string, import('@vestara/shared').EditExecutionDetail>>({});
+  const statusLabel = session.status === 'working' ? 'Working' : session.status === 'failed' ? 'Failed' : 'Completed';
+  const statusGlyph = session.status === 'working' ? '●' : session.status === 'failed' ? '✕' : '✓';
+
+  useEffect(() => {
+    let cancelled = false;
+    const candidates = session.operations.filter(
+      (operation) => normalizeToolCategory(operation.toolName) === 'edit' && operation.conversationId,
+    );
+    void Promise.all(
+      candidates.map(async (operation) => {
+        const detail = await fetchEditObservation(operation.conversationId!, operation.operationId);
+        if (!cancelled && detail) {
+          setEditDetails((current) => ({ ...current, [operation.operationId]: detail }));
+        }
+      }),
+    );
+    return () => {
+      cancelled = true;
+    };
+  }, [session.operations]);
+
+  return (
+    <div className="mt-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)]">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-[11px] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-accent-bg)]"
+        onClick={() => setExpanded((value) => !value)}
+        aria-expanded={expanded}
+      >
+        <span>{expanded ? '▼' : '▶'} Activity · {session.operations.length} operations</span>
+        <span className={session.status === 'failed' ? 'text-[var(--vestara-status-error)]' : 'text-[var(--vestara-text-muted)]'}>
+          {statusGlyph} {statusLabel}
+        </span>
+      </button>
+      {expanded && (
+        <div className="border-t border-[var(--vestara-border-subtle)] px-2 py-1" role="list" aria-label="Correlated tool activity">
+          {session.operations.map((operation) => (
+            <div key={operation.operationId} className="flex min-w-0 items-center gap-2 py-0.5 text-[11px]" role="listitem">
+              <span className={operation.status === 'failed' ? 'text-[var(--vestara-status-error)]' : 'text-[var(--vestara-text-muted)]'} aria-hidden="true">
+                {operation.status === 'started' ? '●' : operation.status === 'failed' ? '✕' : '✓'}
+              </span>
+              <span className="shrink-0 font-medium text-[var(--vestara-text-primary)]">{operation.toolName}</span>
+              <span className="min-w-0 truncate text-[var(--vestara-text-muted)]" title={operation.operationId}>
+                {operation.operationId}
+              </span>
+              {operation.output && <span className="min-w-0 truncate text-[var(--vestara-text-dim)]">{operation.output}</span>}
+              {editDetails[operation.operationId] && (
+                <>
+                  <button
+                    type="button"
+                    className="shrink-0 text-[var(--vestara-accent-text)] underline-offset-2 hover:underline"
+                    onClick={() => onInspectEdit?.(editDetails[operation.operationId])}
+                  >
+                    {editDetails[operation.operationId].diffRepresentation === 'unavailable' ? 'Open file' : 'Inspect edit'}
+                  </button>
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Component ───────────────────────────────────────────────
 
 export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
@@ -457,6 +537,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   participantNames,
   participantModels,
   onSelectWorkflow,
+  onInspectEdit,
 }: M11CStreamItemProps) {
   const visual = classifyVisual(item);
   const config = CLASS_CONFIG[visual];
@@ -604,12 +685,27 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
       [onSubmitResponse, item.interaction, isResolved, isSubmitting],
     );
 
+    // AR-REC-R3: Explicit retry resubmits the same interactionId + choiceId
+    // through the existing submitResponse path. Ephemeral UI behavior only —
+    // no retry authority, persistence, or second submission mechanism.
+    const handleRetry = useCallback(() => {
+      if (
+        onSubmitResponse &&
+        submission?.status === 'failure' &&
+        submission.interactionId === item.interaction!.interactionId &&
+        submission.retryable
+      ) {
+        void onSubmitResponse(submission.interactionId, submission.choiceId);
+      }
+    }, [onSubmitResponse, submission, item.interaction]);
+
     return (
       <InteractionCard
         interaction={interaction}
         response={response}
         onSelect={handleSelect}
         feedback={feedback}
+        onRetry={handleRetry}
         resolved={isResolved}
         disabled={isSubmitting || isResolved}
         importance={item.importance}
@@ -674,6 +770,11 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             {item.actor.role && (
               <span className="ar-stream-role shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-default)] px-1.5 text-[10px] capitalize text-[var(--vestara-text-muted)]">
                 {item.actor.role}
+              </span>
+            )}
+            {item.session && (
+              <span className="shrink-0 text-[10px] uppercase tracking-wide text-[var(--vestara-text-muted)]">
+                {item.session.status}
               </span>
             )}
           </span>
@@ -839,6 +940,8 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
           )}
         </div>
         )}
+
+        {item.session && !collapsed && <CorrelatedSessionActivity session={item.session} onInspectEdit={onInspectEdit} />}
 
         {/* Below-the-fold exceptions: thread context renders only when present */}
         {!collapsed && item.referencedActivityIds && item.referencedActivityIds.length > 0 && (

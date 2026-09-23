@@ -23,7 +23,7 @@ interface TerminalPaneProps {
   /** Identifier for the terminal session. */
   sessionId?: string;
   /** Callback when terminal data is received. */
-  onData?: (data: string) => void;
+  onData?: (data: string) => boolean | void;
   /** Fired after fit with the display dimensions (recorded server-side). */
   onResize?: (cols: number, rows: number) => void;
   /** Keystroke echo. False for pty sessions (the kernel tty echoes). */
@@ -81,10 +81,10 @@ export default function TerminalPane({ sessionId, onData, onResize, localEcho = 
     // has no tty line discipline to echo for us) and forwards raw input.
     // Reconnect replay arrives as server frames like any other output.
     term.onData((data) => {
-      onDataRef.current?.(data);
+      const handled = onDataRef.current?.(data);
       // Spawn-driver echo: piped stdio has no tty to echo for us. Pty
       // sessions echo in-kernel — local echo would double-type.
-      if (localEchoRef.current) {
+      if (localEchoRef.current && handled !== false) {
         for (const ch of data) {
           if (ch === '\x7f') {
             term.write('\b \b');

@@ -136,6 +136,8 @@ export interface WorkflowTask {
   readonly lastError?: string;
   /** Set while the task awaits a high-risk-change approval. */
   readonly approvalReason?: string;
+  /** Stable interaction identity while this task awaits human approval. */
+  readonly approvalInteractionId?: string;
   /** Set while the task awaits an external verifier (e.g. CI). */
   readonly externalWait?: ExternalVerificationWait;
   readonly startedAt?: string;
@@ -261,6 +263,7 @@ export type OrchestrationEvent =
       readonly projectId: string;
       readonly planId: string;
       readonly taskId: string;
+      readonly decision?: 'approved' | 'changes-requested' | 'rejected';
       readonly at: string;
     }
   | {

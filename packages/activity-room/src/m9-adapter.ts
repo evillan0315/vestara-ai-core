@@ -330,6 +330,9 @@ export interface InteractionPresentedInput {
   readonly createdAt: string;
   readonly content: string;
   readonly choices: readonly { readonly choiceId: string; readonly label: string; readonly description?: string }[];
+  readonly workflowRunId?: string;
+  readonly taskId?: string;
+  readonly correlationId?: string;
 }
 
 /**
@@ -352,9 +355,13 @@ export function fromInteractionPresented(input: InteractionPresentedInput): Acti
       data: {
         interactionId: input.interactionId,
         conversationId: input.conversationId,
+        presentingParticipantId: input.presentingParticipantId,
         choices: input.choices,
+        ...(input.correlationId ? { correlationId: input.correlationId } : {}),
       },
     },
+    ...(input.workflowRunId ? { workflowRunId: input.workflowRunId as ActivityEvent['workflowRunId'] } : {}),
+    ...(input.taskId ? { taskId: input.taskId as ActivityEvent['taskId'] } : {}),
   };
 }
 
@@ -407,6 +414,14 @@ export interface ToolEventInput {
   readonly toolName: string;
   /** Agent identity. */
   readonly agentId?: string;
+  /** Conversation identity when supplied by the runtime event. */
+  readonly conversationId?: string;
+  /** EventBus correlation identity when supplied by the runtime event. */
+  readonly correlationId?: string;
+  /** Execution identity forwarded from EventBus metadata when available. */
+  readonly executionId?: ExecutionId;
+  /** Runtime session identity when supplied by the runtime event. */
+  readonly sessionId?: RuntimeSessionId;
 }
 
 /**
@@ -444,8 +459,12 @@ export function fromToolEvent(input: ToolEventInput): ActivityEvent {
       data: {
         callID: input.callID,
         toolName: input.toolName,
+        ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+        ...(input.correlationId ? { correlationId: input.correlationId } : {}),
       },
     },
+    ...(input.executionId ? { executionId: input.executionId } : {}),
+    ...(input.sessionId ? { runtimeSessionBindingId: input.sessionId } : {}),
     visibility: 'all',
   };
 }

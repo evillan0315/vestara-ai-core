@@ -605,11 +605,18 @@ export class M9IngestionBridge {
         // actor.id to the runtime agent). Absent stays absent — fromToolEvent
         // defaults to 'vestara' only when no agent is known.
         const toolAgentId = typeof event.actor?.id === 'string' && event.actor.id ? event.actor.id : undefined;
+        const conversationId =
+          typeof innerPayload.conversationId === 'string' ? innerPayload.conversationId : undefined;
+        const sessionId = typeof innerPayload.sessionId === 'string' ? innerPayload.sessionId : undefined;
         return fromToolEvent({
           lifecycleType: lifecycleType as 'called' | 'succeeded' | 'failed',
           callID,
           toolName,
           ...(toolAgentId ? { agentId: toolAgentId } : {}),
+          ...(conversationId ? { conversationId } : {}),
+          ...(event.metadata.correlationId ? { correlationId: event.metadata.correlationId } : {}),
+          ...(event.metadata.executionId ? { executionId: event.metadata.executionId as any } : {}),
+          ...(sessionId ? { sessionId: sessionId as any } : {}),
         });
       }
       return null; // non-tool part updates are not ingested
@@ -693,6 +700,9 @@ export class M9IngestionBridge {
             readonly label: string;
             readonly description?: string;
           }[]) || [],
+        workflowRunId: event.payload.workflowRunId as string | undefined,
+        taskId: event.payload.taskId as string | undefined,
+        correlationId: event.payload.correlationId as string | undefined,
       });
     }
     if (type === 'interaction:responded') {

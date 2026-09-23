@@ -10,6 +10,43 @@ import type { ActivityProjectionRecord } from '../pages/activity/activity-types'
 import type { LiveStreamItem, WorkflowParticipant, WorkflowReceipts } from '../pages/activity/activity-types';
 import { resolveWsUrl } from './clientConfig';
 
+// ─── Composer limits ─────────────────────────────────────────────
+// Canonical client-side composer cap. Default 100 000 chars; the effective
+// limit is configurable via `general.composerMaxChars` (Settings → General)
+// and resolved per composer by `fetchComposerMaxChars`. The hard cap mirrors
+// the server-side `MAX_MESSAGE_HARD_CAP` in apps/api/src/routes/activity-room.ts.
+
+export const DEFAULT_COMPOSER_MAX_CHARS = 100_000;
+export const COMPOSER_MAX_HARD_CAP = 100_000;
+
+/** Clamp an unknown configured value into the valid composer range. */
+export function resolveComposerMaxChars(value: unknown): number {
+  if (typeof value === 'number' && Number.isInteger(value) && value >= 1) {
+    return Math.min(value, COMPOSER_MAX_HARD_CAP);
+  }
+  return DEFAULT_COMPOSER_MAX_CHARS;
+}
+
+/**
+ * Fetch the effective composer limit from the workspace configuration
+ * authority (`GET /api/settings` → `general.composerMaxChars`). Never
+ * throws — returns the default when settings are unreachable so the
+ * composer stays usable offline.
+ */
+export async function fetchComposerMaxChars(): Promise<number> {
+  try {
+    const res = await fetch('/api/settings');
+    if (!res.ok) return DEFAULT_COMPOSER_MAX_CHARS;
+    const data = (await res.json()) as {
+      settings?: readonly { key?: unknown; value?: unknown }[];
+    };
+    const entry = data.settings?.find((setting) => setting.key === 'general.composerMaxChars');
+    return resolveComposerMaxChars(entry?.value);
+  } catch {
+    return DEFAULT_COMPOSER_MAX_CHARS;
+  }
+}
+
 // ─── History API ───────────────────────────────────────────────
 
 export interface ActivityHistoryParams {

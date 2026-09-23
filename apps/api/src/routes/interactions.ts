@@ -22,45 +22,11 @@
 
 import { randomUUID } from 'node:crypto';
 import type * as http from 'node:http';
-import * as path from 'node:path';
-import { M9DeliveryVerifier } from '@vestara/activity-room';
-import { InteractionService, ResponseConflictError } from '@vestara/interaction-app';
-import { InteractionEventBusAdapter, SqliteInteractionStore } from '@vestara/interaction-persistence';
+import { ResponseConflictError } from '@vestara/interaction-app';
 import type { ChoiceId, InteractionId, InteractionResponse } from '@vestara/types';
 import { requireRole } from '../auth';
 import type { WorkspaceContext } from '../workspace-context';
-import { getM11ARoom } from './activity-room-m11a';
 import { json, readBody } from './types';
-
-// ─── Lazy Singleton ─────────────────────────────────────────
-
-let interactionService: InteractionService | null = null;
-let interactionServiceRepoPath: string | null = null;
-
-async function getInteractionService(ctx: WorkspaceContext): Promise<InteractionService> {
-  if (interactionService && interactionServiceRepoPath === ctx.repoPath) return interactionService;
-
-  const dbPath = path.join(ctx.repoPath, '.vestara', 'interactions.db');
-  const store = await SqliteInteractionStore.open(dbPath);
-  const adapter = new InteractionEventBusAdapter(ctx.eventBus);
-
-  // C2: Delivery verifier checks M9 before acknowledging publication
-  let verifier: import('@vestara/interaction-persistence').PublicationDeliveryVerifier | undefined;
-  try {
-    const m9Store = getM11ARoom().store;
-    verifier = new M9DeliveryVerifier(m9Store);
-  } catch {
-    // M11A not initialized — proceed without verifier (legacy behavior)
-  }
-
-  interactionService = new InteractionService({
-    persistence: store,
-    publication: adapter,
-    deliveryVerifier: verifier,
-  });
-  interactionServiceRepoPath = ctx.repoPath;
-  return interactionService;
-}
 
 // ─── Route Handler ──────────────────────────────────────────
 
@@ -120,7 +86,7 @@ export async function handleInteractionsRoute(
 
   // Delegate to frozen InteractionService
   try {
-    const service = await getInteractionService(ctx);
+    const service = ctx.interactionService;
     const result = await service.recordResponse(interactionId, response);
 
     // Same-choice retry returns existing response — 200 (idempotent)

@@ -206,6 +206,7 @@
 .st-logo-editor {
   display: grid;
   gap: var(--st-spacing-field);
+  min-width: 30%;
 }
 
 .st-logo-preview {
@@ -251,6 +252,7 @@
 
 .st-gap-section {
   gap: var(--vestara-spacing-section);
+  width: 90%;
 }
 
 .st-gap-field {

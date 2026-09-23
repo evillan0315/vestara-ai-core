@@ -48,7 +48,6 @@ const GROUP_TILE_FG: Record<SettingsGroupId, string> = {
   'runtime-ai': 'var(--st-tile-runtime-fg)',
   engineering: 'var(--st-tile-engineering-fg)',
   operations: 'var(--st-tile-operations-fg)',
-  advanced: 'var(--st-tile-advanced-fg)',
 };
 
 function SettingsNavLinks({ navigation }: { navigation: SettingsNavigationItem[] }) {

@@ -153,6 +153,7 @@ import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessApprovalInteractionBridge } from './bridges/harness-approval-interaction-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
+import { createWorkflowDecisionInteractionBridge } from './bridges/workflow-decision-interaction-bridge';
 import { resolveVisualScenarios } from './evidence/visual-scenarios.js';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
@@ -214,6 +215,8 @@ export interface WorkspaceContext {
   runtime: WorkspaceRuntime;
   apiRuntime: ApiRuntime;
   eventBus: EventBus;
+  /** Shared interaction authority used by workflow bridges and HTTP responses. */
+  interactionService: InteractionService;
   repoPath: string;
   workspaceDir: string;
   db: unknown;
@@ -1320,6 +1323,17 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       });
     },
   });
+  const workflowDecisionInteractionBridge = createWorkflowDecisionInteractionBridge({
+    eventBus: kernel.eventBus,
+    interactionService: bridgeInteractionService,
+    workflow: workflowOrchestrator,
+    workspaceId: session.fingerprint.id,
+    resolveParticipantName: async (agentId) => (await agents.getAgent(agentId))?.name,
+    logger: {
+      warn: (message) => kernel.logger.warn(message),
+      info: (message) => kernel.logger.info(message),
+    },
+  });
   harnessSession.restoreActiveSessions().catch((error: unknown) => {
     telemetry.track({
       agent: 'agent-harness',
@@ -1690,6 +1704,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     runtime,
     apiRuntime,
     eventBus: kernel.eventBus,
+    interactionService: bridgeInteractionService,
     repoPath: abs,
     workspaceDir,
     db,
@@ -1741,6 +1756,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       unsubscribeActivityRoomBridge();
       unsubscribeEngineeringMemory();
       harnessApprovalBridgeDisposal.dispose();
+      workflowDecisionInteractionBridge.dispose();
       workspaceUiWatcher?.stop();
       await terminalSessions.dispose();
       persistDb(db, dbPath);
