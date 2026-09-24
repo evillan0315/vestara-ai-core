@@ -9,7 +9,7 @@
  */
 
 /** Status of an Assistant turn execution. */
-export type AssistantTurnStatus = 'completed' | 'failed';
+export type AssistantTurnStatus = 'completed' | 'failed' | 'cancelled';
 
 /**
  * Canonical result for one Assistant turn.

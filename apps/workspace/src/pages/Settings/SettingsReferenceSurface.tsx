@@ -505,6 +505,55 @@ function InstantToggleRow({
 }
 
 /**
+ * Navigation indicator row: label + helper on the left, switch + slider +
+ * live px value on one line on the right. The switch sits flush-right so it
+ * aligns vertically with the Workspace sidebar toggle above it.
+ */
+function NavigationIndicatorRow({
+  enabled,
+  thickness,
+  onEnabledChange,
+  onThicknessChange,
+}: {
+  enabled: boolean;
+  thickness: number;
+  onEnabledChange: (value: boolean) => void;
+  onThicknessChange: (value: number) => void;
+}) {
+  return (
+    <div className="flex min-w-0 items-center justify-between gap-3">
+      <span className="min-w-0">
+        <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
+          Navigation indicator
+        </span>
+        <span className="st-mt-element block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
+          Selection edge on the active sidebar item.
+        </span>
+      </span>
+      <span className="flex shrink-0 items-center gap-2">
+        <span
+          aria-hidden="true"
+          className="min-w-10 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-1.5 py-0.5 text-center font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]"
+        >
+          {thickness}px
+        </span>
+        <input
+          aria-label="Navigation indicator thickness"
+          type="range"
+          min="1"
+          max="8"
+          value={thickness}
+          disabled={!enabled}
+          onChange={(event) => onThicknessChange(Number(event.target.value))}
+          className="w-24 accent-[var(--vestara-accent)] disabled:opacity-40"
+        />
+        <Toggle label="Navigation indicator" checked={enabled} onChange={onEnabledChange} />
+      </span>
+    </div>
+  );
+}
+
+/**
  * Sub-section inside the Preferences card: icon tile + title + helper,
  * replacing bare dividers with scannable grouped blocks.
  */
@@ -678,6 +727,14 @@ function PreferencesCard({
                 </span>
               </span>
             </InstantField>
+            <InstantField label="Font weight" helper="Default weight for body text. Live-previewed under Typography.">
+              <Segmented
+                label="Font weight"
+                value={settings.fontWeight}
+                options={['light', 'normal', 'medium', 'semibold']}
+                onChange={(value) => updateSetting('fontWeight', value)}
+              />
+            </InstantField>
           </div>
         </PreferenceSection>
         <PreferenceSection
@@ -687,10 +744,10 @@ function PreferencesCard({
         >
           <div className="grid st-gap-section">
             <TypographyPreview />
-            <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
-              <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
-            </InstantField>
             <div className="grid st-gap-section sm:grid-cols-2">
+              <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
+                <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
+              </InstantField>
               <InstantField label="Font size" helper="Base text size across surfaces.">
                 <Segmented
                   label="Font size"
@@ -699,23 +756,16 @@ function PreferencesCard({
                   onChange={(value) => updateSetting('fontSize', value)}
                 />
               </InstantField>
-              <InstantField label="Font weight" helper="Default weight for text.">
-                <Segmented
-                  label="Font weight"
-                  value={settings.fontWeight}
-                  options={['light', 'normal', 'medium', 'semibold']}
-                  onChange={(value) => updateSetting('fontWeight', value)}
-                />
-              </InstantField>
             </div>
           </div>
         </PreferenceSection>
+        <div className="lg:col-span-2">
         <PreferenceSection
           icon={navIcon('sessions')}
           title="Layout"
           description="Rail, density, and corner controls. These apply instantly and are not part of Save / Discard."
         >
-          <div className="grid st-gap-section">
+          <div className="grid st-gap-section sm:grid-cols-2 sm:gap-x-[var(--vestara-spacing-section)]">
             <InstantField label="Sidebar width" helper="Rail width from compact to wide.">
               <Segmented
                 label="Sidebar width"
@@ -766,30 +816,15 @@ function PreferencesCard({
               checked={settings.sidebarEnabled}
               onChange={(value) => updateSetting('sidebarEnabled', value)}
             />
-            <InstantField
-              label="Navigation indicator"
-              helper={`Selection edge on the active item, ${settings.leftBorderThickness}px.`}
-            >
-              <span className="flex items-center gap-3">
-                <Toggle
-                  label="Navigation indicator"
-                  checked={settings.leftBorderEnabled}
-                  onChange={(value) => updateSetting('leftBorderEnabled', value)}
-                />
-                <input
-                  aria-label="Navigation indicator thickness"
-                  type="range"
-                  min="1"
-                  max="8"
-                  value={settings.leftBorderThickness}
-                  disabled={!settings.leftBorderEnabled}
-                  onChange={(event) => updateSetting('leftBorderThickness', Number(event.target.value))}
-                  className="w-24 accent-[var(--vestara-accent)] disabled:opacity-40"
-                />
-              </span>
-            </InstantField>
+            <NavigationIndicatorRow
+              enabled={settings.leftBorderEnabled}
+              thickness={settings.leftBorderThickness}
+              onEnabledChange={(value) => updateSetting('leftBorderEnabled', value)}
+              onThicknessChange={(value) => updateSetting('leftBorderThickness', value)}
+            />
           </div>
         </PreferenceSection>
+        </div>
         </div>
       </div>
     </ReferenceCard>

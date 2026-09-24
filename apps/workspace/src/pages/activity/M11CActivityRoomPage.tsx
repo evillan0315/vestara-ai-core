@@ -203,6 +203,8 @@ function attentionDetailContent(entry: AttentionEntry): string {
 
 export default function M11CActivityRoomPage() {
   useRenderProfiler('M11CActivityRoomPage');
+  const [steerConversationId, setSteerConversationId] = useState<string | null>(null);
+  const [steerRequestId, setSteerRequestId] = useState<string | null>(null);
   const room = useM11CActivityRoom();
   const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
@@ -677,6 +679,16 @@ export default function M11CActivityRoomPage() {
             participantNames={participantNames}
             participantModels={participantModels}
             onInspectEdit={ui.inspectEditInFiles}
+            onSteerTurn={(conversationId) => {
+              setSteerConversationId(conversationId);
+              setSteerRequestId(crypto.randomUUID());
+            }}
+            onStopTurn={async (conversationId) => {
+              const response = await fetch(`/api/activity-room/active-turns/${encodeURIComponent(conversationId)}/stop`, {
+                method: 'POST',
+              });
+              if (!response.ok) throw new Error(`Stop failed (HTTP ${response.status})`);
+            }}
             attentionFocus={attentionFocus}
             attentionEntries={room.attention}
             onOpenAttention={handleOpenAttention}
@@ -708,6 +720,12 @@ export default function M11CActivityRoomPage() {
             onRemoveFile={ui.removeFileAttachment}
             onClearFiles={ui.clearFileAttachments}
             participants={room.participants}
+            steerConversationId={steerConversationId}
+            steerRequestId={steerRequestId}
+            onSteerSent={() => {
+              setSteerConversationId(null);
+              setSteerRequestId(null);
+            }}
           />
         </main>
 
@@ -1063,6 +1081,9 @@ function M11CComposer({
   onRemoveFile,
   onClearFiles,
   participants = [],
+  steerConversationId,
+  steerRequestId,
+  onSteerSent,
 }: {
   replyTo?: M11CStreamItem | null;
   onClearReply?: () => void;
@@ -1085,6 +1106,9 @@ function M11CComposer({
   onRemoveFile?: (id: string) => void;
   onClearFiles?: () => void;
   participants?: readonly ParticipantOption[];
+  steerConversationId?: string | null;
+  steerRequestId?: string | null;
+  onSteerSent?: () => void;
 }) {
   // Human message cap is configurable via Settings → General
   // (`general.composerMaxChars`, default 100 000; server enforces the
@@ -1096,6 +1120,7 @@ function M11CComposer({
   const [value, setValue] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [steerNotice, setSteerNotice] = useState<string | null>(null);
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
   const [structuredTarget, setStructuredTarget] = useState<string | null>(null);
@@ -1156,7 +1181,7 @@ function M11CComposer({
       const attachmentLines = attachedFiles.map((file) => `![${file.name}](${file.path})`);
       const contentWithAttachments =
         attachmentLines.length > 0 ? `${text}\n\n${attachmentLines.join('\n')}` : text;
-      await postActivityMessage({
+      const result = await postActivityMessage({
         content: contentWithAttachments,
         targets: [...targets],
         actor: { displayName: 'You', role: 'human' },
@@ -1165,13 +1190,24 @@ function M11CComposer({
         // targets. Principal ≠ Surface ≠ Target.
         surface: 'workspace-ui',
         referencedActivityIds: mergedReferences.length > 0 ? mergedReferences : undefined,
+        ...(steerConversationId && steerRequestId ? { steerConversationId, steerRequestId } : {}),
       });
       setValue('');
+      if (steerConversationId) {
+        setSteerNotice(
+          result.delivery?.status === 'queued'
+            ? 'Correction queued for the active conversation’s next turn.'
+            : result.delivery?.status === 'duplicate'
+              ? 'Correction already queued.'
+              : 'Correction delivery is unavailable.',
+        );
+      }
       setStructuredTarget(null);
       setMentionOpen(false);
       onClearReply?.();
       onClearReferences?.();
       onClearFiles?.();
+      onSteerSent?.();
     } catch (err) {
       // Send failed — text, references, AND file attachments stay so the
       // user can retry intact.
@@ -1179,7 +1215,7 @@ function M11CComposer({
     } finally {
       setSending(false);
     }
-  }, [value, sending, replyTo, references, attachedFiles, onClearReply, onClearReferences, onClearFiles, structuredTarget]);
+  }, [value, sending, replyTo, references, attachedFiles, onClearReply, onClearReferences, onClearFiles, structuredTarget, steerConversationId, steerRequestId, onSteerSent]);
 
   const handleChange = useCallback((next: string) => {
     setValue(next);
@@ -1278,7 +1314,7 @@ function M11CComposer({
     >
       {/* Reply context — existing referencedActivityIds mechanism only */}
       {replyTo && (
-        <div className="mb-[var(--vestara-spacing-element)] flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] shadow-[inset_2px_0_0_var(--vestara-accent)]">
+        <div className="mb-[var(--vestara-spacing-element)] flex min-w-0 items-center gap-2 rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2 py-1 text-xs text-[var(--vestara-text-muted)] shadow-[inset_2px_0_0_var(--vestara-accent)]">
           <span aria-hidden="true">↩</span>
           <span className="min-w-0 flex-1 truncate">
             Replying to <strong className="font-medium text-[var(--vestara-text-secondary)]">{replyTo.actor.displayName}</strong>
@@ -1306,7 +1342,7 @@ function M11CComposer({
             return (
               <span
                 key={ref.attentionId}
-                className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] py-0.5 pl-1 pr-0.5 text-[11px]"
+                className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] py-0.5 pl-1 pr-0.5 text-[11px]"
                 title={`${attentionTypeLabel(ref)} · ${ref.message} (ref ${String(ref.sourceRecordId)})`}
               >
                 <button
@@ -1349,7 +1385,7 @@ function M11CComposer({
           {attachedFiles.map((file) => (
             <span
               key={file.id}
-              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] py-0.5 pl-1.5 pr-0.5 text-[11px]"
+              className="inline-flex min-w-0 max-w-full items-center gap-1 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] py-0.5 pl-1.5 pr-0.5 text-[11px]"
               title={`Attached file ${file.path}`}
             >
               <ImageOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
@@ -1432,7 +1468,12 @@ function M11CComposer({
         </div>
 
        {/* Toolbar: recipient/target …… tertiary count + primary send */}
-       <div className="mt-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center justify-between gap-[var(--vestara-spacing-element)]">
+       {steerNotice && (
+         <p className="mb-[var(--vestara-spacing-element)] text-xs text-[var(--vestara-text-secondary)]" role="status">
+           {steerNotice}
+         </p>
+       )}
+        <div className="mt-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center justify-between gap-[var(--vestara-spacing-element)] border-t border-[var(--vestara-accent-border)] pt-[var(--vestara-spacing-element)]">
          {/* Target: live @mention preview, presented truthfully */}
          <span
            className="ar-composer__target inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
@@ -1460,7 +1501,7 @@ function M11CComposer({
               disabled={!value.trim() || value.length > composerMax || sending}
              aria-label={sending ? 'Sending message' : 'Send message'}
              title={sending ? 'Sending message' : 'Send message (Enter)'}
-             className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--vestara-surface-canvas)] transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel)]"
+              className="grid size-10 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent)] text-[var(--vestara-surface-canvas)] shadow-[0_4px_14px_-6px_var(--vestara-accent-bg)] transition-all duration-150 hover:brightness-110 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--vestara-surface-panel)]"
            >
              <span aria-hidden="true" className="inline-flex">
                {sending ? '…' : <SendOutlinedIcon sx={{ fontSize: SIZING.icon.md }} />}
@@ -1531,7 +1572,7 @@ function M11CEditModal({
           <textarea
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            className="w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] px-3 py-2 text-sm text-[var(--vestara-text)] focus:outline-none focus:border-[var(--vestara-accent-border-hover)] resize-none placeholder:text-[var(--vestara-text-muted)]"
+            className="w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-canvas)] px-3 py-2 text-sm text-[var(--vestara-text)] focus:outline-none focus:border-[var(--vestara-accent-border-hover)] resize-none placeholder:text-[var(--vestara-text-muted)]"
             rows={4}
             aria-label="Edit message content"
           />

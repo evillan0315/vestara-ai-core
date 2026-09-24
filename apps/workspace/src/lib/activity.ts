@@ -150,10 +150,19 @@ export interface ActivityMessagePayload {
    * surface. Informational only — never principal identity, never authorship.
    */
   surface?: string;
+  /** Authoritative active conversation selected for queued steering. */
+  steerConversationId?: string;
+  /** Idempotency identity for one steering submission. */
+  steerRequestId?: string;
 }
 
-/** Sends a human message and resolves with the persisted, sequenced record. */
-export async function postActivityMessage(payload: ActivityMessagePayload): Promise<ActivityRecord> {
+export interface ActivityMessageResult {
+  readonly record: ActivityRecord;
+  readonly delivery?: { readonly status: 'started' | 'queued' | 'duplicate'; readonly queuedCount?: number };
+}
+
+/** Sends a human message and returns its durable record plus delivery state. */
+export async function postActivityMessage(payload: ActivityMessagePayload): Promise<ActivityMessageResult> {
   const res = await fetch('/api/messages', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -169,8 +178,7 @@ export async function postActivityMessage(payload: ActivityMessagePayload): Prom
     }
     throw new Error(detail);
   }
-  const data = (await res.json()) as { record: ActivityRecord };
-  return data.record;
+  return (await res.json()) as ActivityMessageResult;
 }
 
 /**
@@ -182,12 +190,13 @@ export async function retractActivityMessage(
   targetId: string,
   reason: string = 'Message retracted',
 ): Promise<ActivityRecord> {
-  return postActivityMessage({
+  const result = await postActivityMessage({
     content: reason,
     targets: [{ type: 'all-agents' }],
     correctionOf: targetId,
     actor: { displayName: 'You', role: 'human' },
   });
+  return result.record;
 }
 
 /**
@@ -199,13 +208,14 @@ export async function editActivityMessage(
   targetId: string,
   newContent: string,
 ): Promise<ActivityRecord> {
-  return postActivityMessage({
+  const result = await postActivityMessage({
     content: newContent,
     targets: [{ type: 'all-agents' }],
     correctionOf: targetId,
     effect: 'intervention',
     actor: { displayName: 'You', role: 'human' },
   });
+  return result.record;
 }
 
 // ─── Effective state (Direction 2) ─────────────────────────────

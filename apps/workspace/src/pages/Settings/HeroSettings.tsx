@@ -216,7 +216,7 @@ export function HeroBriefingCard({
             <span className="size-2 rounded-full bg-[var(--vestara-amber)]" aria-hidden="true" />
             Live Preview — {TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s
           </div>
-          <div className="mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-4 text-xs">
+          <div className="mt-3 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] p-4 text-xs">
             <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
             <div className="mt-2 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
             <div className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>
@@ -266,7 +266,7 @@ export function HeroLivePreview({
       description="The exact Hero the Director sees, updating in real time."
       className={`flex h-full flex-col ${className}`}
     >
-      <div className="flex flex-1 flex-col justify-center rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-4 text-xs">
+      <div className="flex flex-1 flex-col justify-center rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] p-4 text-xs">
         <div className="font-semibold text-[var(--vestara-amber)]">{TOPIC_LABELS[currentTopic]} · Hero title rotates every {intervalMs / 1000}s</div>
         <div className="mt-2 text-[var(--vestara-text-muted)]">Visit <a href="/overview" className="underline">/overview</a> to see the one-liner title, greeting “{(() => { const h = new Date().getHours(); if (h < 12) return 'Good Morning'; if (h < 18) return 'Good Afternoon'; return 'Good Evening'; })()} Director…” and the dynamic checklist card “A More Capable Tomorrow” now topic-aware.</div>
         <div className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-dim)]">Storage: {STORAGE_TOPIC}={topicOverride ?? 'auto'} · {STORAGE_INTERVAL}={intervalMs} · Preview key {previewKey}</div>

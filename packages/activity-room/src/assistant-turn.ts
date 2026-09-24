@@ -118,6 +118,12 @@ export interface TriggerAssistantTurnOptions {
    * conversation-service → context-assembler → CompletionRequest path.
    */
   readonly activityReferences?: readonly TurnSurfaceReference[];
+  /** Reuse the authoritative conversation for a queued steering turn. */
+  readonly conversationId?: string;
+  /** Explicit Stop signal owned by the API control surface. */
+  readonly signal?: AbortSignal;
+  /** Called immediately after the Conversation Runtime creates the conversation. */
+  readonly onConversationCreated?: (conversationId: string) => void;
 }
 
 /** Resolved execution configuration from agent definition. */
@@ -184,6 +190,9 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     surface,
     surfaceContext,
     activityReferences,
+    conversationId,
+    signal,
+    onConversationCreated,
   } = options;
   const correlationId = humanRecord.correlationId ?? `corr-${randomUUID()}`;
   const completedAt = new Date().toISOString();
@@ -227,10 +236,13 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     //    identity-overload defect (Phase A): it made agents the authors of
     //    human messages downstream. Being mentioned never makes one a speaker.
     const principalId = humanRecord.actor.id;
-    const conversation = await conversationService.createConversation(principalId, {
-      agentId,
-      correlationId,
-    });
+    const conversation = conversationId
+      ? { id: conversationId }
+      : await conversationService.createConversation(principalId, {
+          agentId,
+          correlationId,
+        });
+    onConversationCreated?.(conversation.id);
 
     // 3. Send message through conversation service (provider execution)
     //    Pass the agent's COMPLETE binding (provider + model from the same
@@ -251,6 +263,7 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     if (executionConfig) {
       sendOptions.executionConfig = executionConfig;
     }
+    if (signal) sendOptions.signal = signal;
     // AR-REF-001: bridge the durable Activity references into the existing
     // turn surface-context mechanism. User content is untouched — references
     // travel structurally via surfaceContext.selectedReferences. Without
@@ -272,6 +285,18 @@ export async function triggerAssistantTurn(options: TriggerAssistantTurnOptions)
     }
 
     const response = await conversationService.sendMessage(conversation.id, humanRecord.content, sendOptions);
+
+    if (signal?.aborted) {
+      return {
+        conversationId: conversation.id,
+        humanMessageId: humanRecord.id,
+        agentId,
+        correlationId,
+        status: 'cancelled',
+        failure: 'Turn cancelled by Director',
+        completedAt,
+      };
+    }
 
     // 4. Persist agent response in Activity Room
     if (response.response.content) {

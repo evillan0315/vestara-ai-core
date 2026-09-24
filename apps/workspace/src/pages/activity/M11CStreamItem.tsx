@@ -50,6 +50,11 @@ import { normalizeToolCategory } from '../../components/assistant/AssistantToolC
 
 // ─── Status badge (canonical semantic tokens) ────────────────
 
+// Record action icons float over row content, so they carry a translucent
+// canvas overlay (canonical tokens only) to stay legible anywhere.
+const RECORD_ACTION_OVERLAY =
+  'bg-[color-mix(in_srgb,var(--vestara-surface-canvas)_82%,transparent)] backdrop-blur-sm';
+
 function StatusBadge({ label, tone }: { label: string; tone: 'error' | 'success' }) {
   return (
     <span
@@ -89,6 +94,8 @@ interface M11CStreamItemProps {
   readonly participantModels?: Readonly<Record<string, string>>;
   /** Inspect a resolved edit observation in the Activity Room Files drawer. */
   readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
+  readonly onSteerTurn?: (conversationId: string) => void;
+  readonly onStopTurn?: (conversationId: string) => Promise<void>;
   /** Select a workflow context (workflow badge → browser scope). */
   readonly onSelectWorkflow?: (workflowId: string) => void;
 }
@@ -449,11 +456,16 @@ function ActivityMaterialIcon({ visual, tone }: { visual: VisualClass; tone: 'in
 function CorrelatedSessionActivity({
   session,
   onInspectEdit,
+  onSteerTurn,
+  onStopTurn,
 }: {
   readonly session: CorrelatedSession;
   readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
+  readonly onSteerTurn?: (conversationId: string) => void;
+  readonly onStopTurn?: (conversationId: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
+  const [stopState, setStopState] = useState<'idle' | 'requested' | 'failed'>('idle');
   const [editDetails, setEditDetails] = useState<Record<string, import('@vestara/shared').EditExecutionDetail>>({});
   const statusLabel = session.status === 'working' ? 'Working' : session.status === 'failed' ? 'Failed' : 'Completed';
   const statusGlyph = session.status === 'working' ? '●' : session.status === 'failed' ? '✕' : '✓';
@@ -477,7 +489,7 @@ function CorrelatedSessionActivity({
   }, [session.operations]);
 
   return (
-    <div className="mt-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)]">
+    <div className="mt-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)]">
       <button
         type="button"
         className="flex w-full items-center justify-between gap-2 px-2 py-1 text-left text-[11px] text-[var(--vestara-text-muted)] hover:bg-[var(--vestara-accent-bg)]"
@@ -489,8 +501,31 @@ function CorrelatedSessionActivity({
           {statusGlyph} {statusLabel}
         </span>
       </button>
+      {session.status === 'working' && session.conversationId && (
+        <div className="flex items-center gap-2 border-t border-[var(--vestara-accent-border)] px-2 py-1">
+          <button
+            type="button"
+            className="text-[11px] text-[var(--vestara-accent-text)] underline-offset-2 hover:underline"
+            onClick={() => onSteerTurn?.(session.conversationId!)}
+          >
+            Steer next turn
+          </button>
+          <button
+            type="button"
+            disabled={stopState === 'requested'}
+            className="text-[11px] text-[var(--vestara-status-error)] underline-offset-2 hover:underline disabled:opacity-60"
+            onClick={() => {
+              if (!onStopTurn) return;
+              setStopState('requested');
+              void onStopTurn(session.conversationId!).catch(() => setStopState('failed'));
+            }}
+          >
+            {stopState === 'requested' ? 'Stop requested' : stopState === 'failed' ? 'Stop failed' : 'Stop'}
+          </button>
+        </div>
+      )}
       {expanded && (
-        <div className="border-t border-[var(--vestara-border-subtle)] px-2 py-1" role="list" aria-label="Correlated tool activity">
+        <div className="border-t border-[var(--vestara-accent-border)] px-2 py-1" role="list" aria-label="Correlated tool activity">
           {session.operations.map((operation) => (
             <div key={operation.operationId} className="flex min-w-0 items-center gap-2 py-0.5 text-[11px]" role="listitem">
               <span className={operation.status === 'failed' ? 'text-[var(--vestara-status-error)]' : 'text-[var(--vestara-text-muted)]'} aria-hidden="true">
@@ -538,6 +573,8 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
   participantModels,
   onSelectWorkflow,
   onInspectEdit,
+  onSteerTurn,
+  onStopTurn,
 }: M11CStreamItemProps) {
   const visual = classifyVisual(item);
   const config = CLASS_CONFIG[visual];
@@ -761,7 +798,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
             {/* Secondary actor/provider identity — modelDisplayName preferred, modelId fallback */}
             {modelLabel && (
               <span
-                className="shrink-0 truncate rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] text-[var(--vestara-text-muted)]"
+                className="shrink-0 truncate rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] px-1.5 text-[10px] text-[var(--vestara-text-muted)]"
                 title={`Model ${modelLabel}`}
               >
                 {modelLabel}
@@ -890,6 +927,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                   label="Detail"
                   tone="info"
                   size="sm"
+                  className={RECORD_ACTION_OVERLAY}
                   icon={<InfoOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onOpenDetail(item); }}
                 />
@@ -899,6 +937,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                   label="Reply"
                   tone="accent"
                   size="sm"
+                  className={RECORD_ACTION_OVERLAY}
                   icon={<ReplyOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onReply(item); }}
                 />
@@ -907,6 +946,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                 label="Forward to Telegram"
                 tone="success"
                 size="sm"
+                className={RECORD_ACTION_OVERLAY}
                 icon={<ForwardOutlinedIcon sx={{ fontSize: 18 }} />}
                 onClick={openForward}
               />
@@ -923,6 +963,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                   label="Edit"
                   tone="warning"
                   size="sm"
+                  className={RECORD_ACTION_OVERLAY}
                   icon={<EditOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onEdit(item); }}
                 />
@@ -932,6 +973,7 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                   label="Retract"
                   tone="destructive"
                   size="sm"
+                  className={RECORD_ACTION_OVERLAY}
                   icon={<UndoOutlinedIcon sx={{ fontSize: 18 }} />}
                   onClick={(e) => { e.stopPropagation(); onRetract(item); }}
                 />
@@ -941,14 +983,21 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
         </div>
         )}
 
-        {item.session && !collapsed && <CorrelatedSessionActivity session={item.session} onInspectEdit={onInspectEdit} />}
+        {item.session && !collapsed && (
+          <CorrelatedSessionActivity
+            session={item.session}
+            onInspectEdit={onInspectEdit}
+            onSteerTurn={onSteerTurn}
+            onStopTurn={onStopTurn}
+          />
+        )}
 
         {/* Below-the-fold exceptions: thread context renders only when present */}
         {!collapsed && item.referencedActivityIds && item.referencedActivityIds.length > 0 && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onOpenThread?.(item.referencedActivityIds!); }}
-            className="mt-1 w-full cursor-pointer rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] px-2 py-1 text-left transition-colors hover:bg-[var(--vestara-accent-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+            className="mt-1 w-full cursor-pointer rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2 py-1 text-left transition-colors hover:bg-[var(--vestara-accent-bg)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
             aria-label={`View thread with ${lookupAuthor ? item.referencedActivityIds.map((id) => lookupAuthor(id) ?? 'someone').join(', ') : `${item.referencedActivityIds.length} messages`}`}
           >
             <div className="flex items-center gap-1 text-[10px] text-[var(--vestara-text-muted)]">

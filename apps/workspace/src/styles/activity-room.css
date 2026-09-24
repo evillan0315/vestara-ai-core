@@ -293,7 +293,7 @@
 }
 .ar-header__controls { gap: var(--vestara-spacing-section); }
 
-.ar-header__identity { gap: var(--vestara-spacing-section); }
+.ar-header__identity { gap: var(--vestara-spacing-section); padding-left: var(--vestara-spacing-section); }
 .ar-header__mark {
   display: grid;
   flex-shrink: 0;
@@ -524,26 +524,26 @@
 .ar-page .ar-stream-kind { border-color: var(--vestara-accent-border); color: var(--vestara-accent-text); background: var(--vestara-accent-bg); }
 .ar-page .ar-stream-kind--human { color: var(--vestara-status-info); border-color: var(--vestara-status-info-border); background: var(--vestara-status-info-bg); }
 .ar-page .ar-stream-kind--work { color: var(--vestara-status-warning); border-color: var(--vestara-status-warning-border); background: var(--vestara-status-warning-bg); }
-.ar-page .ar-stream-kind--muted { color: var(--vestara-text-muted); border-color: var(--vestara-border-subtle); background: var(--vestara-surface-canvas); font-weight: 400; }
+.ar-page .ar-stream-kind--muted { color: var(--vestara-text-muted); border-color: var(--vestara-accent-border); background: var(--vestara-surface-canvas); font-weight: 400; }
 .ar-page .ar-live-now__overflow { justify-content: flex-start; }
 .ar-page .ar-stream-role { color: var(--vestara-text-secondary); background: var(--vestara-surface-canvas); }
 .ar-page .ar-stream-tile { display: grid; width: 1.75rem; height: 1.75rem; flex-shrink: 0; place-items: center; border: 1px solid; border-radius: var(--vestara-radius); font-size: var(--vestara-font-size-xs); font-weight: 600; }
 /* Icon tiles are minimal transparent containers (1.75rem = 28px anchors both
    compact lines). Type identity lives in the glyph foreground only — never in
    tile fills. */
-.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--human { color: var(--vestara-status-info); background: transparent; border-color: var(--vestara-accent-border); }
 .ar-page .ar-stream-tile--agent-note,
-.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: transparent; border-color: var(--vestara-border-subtle); }
-.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: transparent; border-color: var(--vestara-border-subtle); }
-.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: transparent; border-color: var(--vestara-border-subtle); }
-.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--work { color: var(--vestara-accent-text); background: transparent; border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-tile--tool { color: var(--vestara-status-tool); background: transparent; border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-tile--attention { color: var(--vestara-status-error); background: transparent; border-color: var(--vestara-accent-border); }
+.ar-page .ar-stream-tile--verification { color: var(--vestara-status-success); background: transparent; border-color: var(--vestara-accent-border); }
 .ar-page .ar-stream-tile--quiet,
-.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: transparent; border-color: var(--vestara-border-subtle); }
+.ar-page .ar-stream-tile--unknown { color: var(--vestara-text-muted); background: transparent; border-color: var(--vestara-accent-border); }
 .ar-page .ar-stream-status { display: inline-flex; align-items: center; gap: 0.25rem; border: 1px solid; border-radius: var(--vestara-radius-full); padding: 0 0.375rem; font-size: var(--vestara-font-size-xs); font-weight: 500; }
 .ar-page .ar-stream-status--error { color: var(--vestara-status-error); background: var(--vestara-status-error-bg); border-color: var(--vestara-status-error-border); }
 .ar-page .ar-stream-status--success { color: var(--vestara-status-success); background: var(--vestara-status-success-bg); border-color: var(--vestara-status-success-border); }
 .ar-page .ar-stream-status--warning { color: var(--vestara-status-warning); background: transparent; border-color: var(--vestara-status-warning-border); }
-.ar-page .ar-stream-record__actions { border-top: 1px solid color-mix(in srgb, var(--vestara-border-subtle) 65%, transparent); padding-top: var(--vestara-spacing-element); }
+.ar-page .ar-stream-record__actions { border-top: 1px solid color-mix(in srgb, var(--vestara-accent-border) 65%, transparent); padding-top: var(--vestara-spacing-element); }
 .ar-page .ar-stream-record__actions button { color: var(--vestara-text-secondary); }
 .ar-page .ar-stream-record__actions button:hover { color: var(--vestara-text-primary); }
 .ar-page .ar-participant-type--human { color: var(--vestara-status-info); background: var(--vestara-status-info-bg); border-color: var(--vestara-status-info-border); }
@@ -1471,7 +1471,7 @@
   letter-spacing: 0;
   color: var(--vestara-text-secondary);
   cursor: pointer;
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   background: transparent;
   transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
@@ -1528,7 +1528,7 @@
   font-size: 0.75rem;
   color: var(--vestara-text-primary);
   background: var(--vestara-surface-canvas);
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   outline: none;
   transition: border-color 0.15s ease;
@@ -1549,7 +1549,7 @@
 
 .ar-attention-section {
   overflow: hidden;
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   background: transparent;
 }
@@ -1559,7 +1559,7 @@
   align-items: flex-start;
   gap: 0.5rem;
   padding: 0.625rem 0.75rem;
-  border-bottom: 1px solid var(--vestara-border-subtle);
+  border-bottom: 1px solid var(--vestara-accent-border);
 }
 
 .ar-attention-section__chevron {
@@ -1596,7 +1596,7 @@
   min-height: 3rem;
   padding: 0.5rem 0.625rem;
   border: 0;
-  border-bottom: 1px solid var(--vestara-border-subtle);
+  border-bottom: 1px solid var(--vestara-accent-border);
   background: transparent;
   text-align: left;
   cursor: pointer;
@@ -1611,7 +1611,7 @@
   width: 1.5rem;
   height: 1.5rem;
   place-items: center;
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius);
   font-size: 0.75rem;
   font-weight: 700;
@@ -2191,32 +2191,32 @@
 }
 
 .ar-stream-record--agent-note {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   box-shadow: inset 2px 0 0 var(--vestara-accent);
   padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--work {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--task {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--workflow {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   padding: 0.5rem 0.625rem;
 }
 
 .ar-stream-record--tool {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   padding: 0.5rem 0.625rem;
 }
@@ -2234,7 +2234,7 @@
 }
 
 .ar-stream-record--queued {
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid var(--vestara-accent-border);
   background: transparent;
   padding: 0.5rem 0.625rem;
 }
@@ -2312,7 +2312,7 @@
 
 .ar-stream-type--muted {
   color: var(--vestara-text-muted);
-  border-color: var(--vestara-border-subtle);
+  border-color: var(--vestara-accent-border);
   background: var(--vestara-surface-canvas);
 }
 
@@ -2326,13 +2326,13 @@
 .ar-stream-tile--tool.ar-stream-tile--warning {
   color: var(--vestara-status-warning);
   background: transparent;
-  border-color: var(--vestara-border-subtle);
+  border-color: var(--vestara-accent-border);
 }
 
 .ar-stream-tile--tool.ar-stream-tile--error {
   color: var(--vestara-status-error);
   background: transparent;
-  border-color: var(--vestara-border-subtle);
+  border-color: var(--vestara-accent-border);
 }
 
 .ar-stream-tool-icon {
@@ -3441,17 +3441,16 @@
   }
 }
 
-/* ── Operation Controls: wrapped buttons on canonical gaps with accent
-   borders (density-driven; Pill tones/behavior untouched). ───────────── */
+/* ── Operation Controls: uniform square icon buttons (ActionIcon lg) on a
+    4-column grid with canonical gaps and accent borders. ──────────── */
 .ar-page .ar-context__actions {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: var(--vestara-spacing-element);
+  justify-items: center;
 }
 
 .ar-page .ar-context__actions > * {
-  width: 100%;
-  justify-content: center;
   border-color: var(--vestara-accent-border);
 }
 
@@ -3467,7 +3466,7 @@
 
 .ar-page .ar-stream-record {
   border: 0;
-  border-bottom: 1px solid var(--vestara-border-subtle);
+  border-bottom: 1px solid var(--vestara-accent-border);
   border-radius: 0;
   background: transparent;
   padding: var(--vestara-spacing-element) var(--vestara-spacing-section);

@@ -49,7 +49,6 @@ export default function ActivityRoomHeader({
   return (
     <header className="ar-header px-[var(--vestara-spacing-page)]" aria-label="Activity Room controls">
       <div className="ar-header__identity">
-        <div className="ar-header__mark" aria-hidden="true">V</div>
         <div className="min-w-0">
           <p className="ar-kicker">Live operations</p>
           <h1 className="ar-header__title">{roomName}</h1>

@@ -115,6 +115,8 @@ interface M11CActivityStreamProps {
   readonly onSelectWorkflow?: (workflowId: string) => void;
   /** Inspect a resolved edit observation in the Activity Room Files drawer. */
   readonly onInspectEdit?: (detail: import('@vestara/shared').EditExecutionDetail) => void;
+  readonly onSteerTurn?: (conversationId: string) => void;
+  readonly onStopTurn?: (conversationId: string) => Promise<void>;
   /** Active workflow scope (from the workflow browser). Narrows the stream. */
   readonly workflowFilter?: string | null;
   readonly streamHeading?: string;
@@ -326,6 +328,8 @@ function M11CActivityStream({
   onAttachAttention,
   onSelectWorkflow,
   onInspectEdit,
+  onSteerTurn,
+  onStopTurn,
   workflowFilter,
   streamHeading = 'Activity Stream',
   streamHeaderAction,
@@ -773,6 +777,8 @@ function M11CActivityStream({
                       participantModels={participantModels}
                       onSelectWorkflow={onSelectWorkflow}
                       onInspectEdit={onInspectEdit}
+                      onSteerTurn={onSteerTurn}
+                      onStopTurn={onStopTurn}
                     />
                   </div>
                 );

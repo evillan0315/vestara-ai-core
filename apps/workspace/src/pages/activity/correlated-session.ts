@@ -19,6 +19,7 @@ export interface CorrelatedSession {
   readonly lineageKey: string;
   readonly status: 'working' | 'completed' | 'failed';
   readonly operations: readonly CorrelatedOperation[];
+  readonly conversationId?: string;
 }
 
 function lineageKeys(item: M11CStreamItem): readonly string[] {
@@ -105,7 +106,14 @@ export function deriveCorrelatedSessions(items: readonly M11CStreamItem[]): M11C
       : operations.some((operation) => operation.status === 'started')
         ? 'working'
         : 'completed';
-    sessions.set(key, { lineageKey: key, status, operations });
+    sessions.set(key, {
+      lineageKey: key,
+      status,
+      operations,
+      ...(operations.find((operation) => operation.conversationId)?.conversationId
+        ? { conversationId: operations.find((operation) => operation.conversationId)?.conversationId }
+        : {}),
+    });
   }
 
   return items.flatMap((item) => {

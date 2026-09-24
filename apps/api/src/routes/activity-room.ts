@@ -20,9 +20,11 @@ import {
 import type { TurnSurfaceContext } from '@vestara/shared';
 import type { ActivityRoom } from '../activity-room';
 import { getActivityRoom } from '../activity-room';
+import { activityTurnControls } from '../activity-turn-controls';
 import { json } from '../http/response';
 import * as messageReceipts from '../message-receipts';
 import type { WorkspaceContext } from '../workspace-context';
+import { registerTurnController, releaseTurnController } from './conversations';
 
 /** Canonical kind allowlist — single-sourced from @vestara/activity-room to prevent drift. */
 const ACTIVITY_KIND_VALUES = new Set<string>(ACTIVITY_KINDS);
@@ -216,6 +218,17 @@ export async function handleActivityRoomRoute(
     }
     const body = parsed.body;
     if (await handleMessageCommand(ctx, res, body)) return true;
+    const steerConversationId = stringField(body.steerConversationId);
+    const steerRequestId = stringField(body.steerRequestId);
+    if (
+      steerConversationId &&
+      (!steerRequestId || !activityTurnControls.canQueue(steerConversationId, steerRequestId))
+    ) {
+      json(res, 409, {
+        error: { code: 'ACTIVE_TURN_UNAVAILABLE', message: 'The addressed active turn is unavailable.' },
+      });
+      return true;
+    }
     const record = await sendActivityMessage(ctx, room, res, undefined, body);
     if (record) {
       void maybeWakeAddressedAgent(ctx, record);
@@ -232,7 +245,13 @@ export async function handleActivityRoomRoute(
       // AR-006: Trigger an agent turn for targeted messages from addressable
       // agents only. Non-addressable targets (browser/coder/unknown) produce
       // NO turn — never fall back to Assistant (AR Convergence step 3).
-      if (triggersTurn) {
+      if (steerConversationId && steerRequestId) {
+        const delivery = activityTurnControls.enqueue(steerConversationId, steerRequestId, {
+          ...record,
+          messageKind: 'steering',
+        });
+        json(res, 201, { record, delivery });
+      } else if (triggersTurn) {
         const executionConfig =
           body.executionConfig && typeof body.executionConfig === 'object'
             ? (body.executionConfig as { maxToolCalls?: number; turnTimeoutMs?: number })
@@ -242,35 +261,45 @@ export async function handleActivityRoomRoute(
         // AR-REF-001: resolve durable Activity references into turn surface
         // context (bounded, structured — user content untouched).
         const surfaceContext = await turnSurfaceContextForReferences(ctx, room, record.referencedActivityIds);
-        void triggerAssistantTurn({
+        const control = activityTurnControls.start({
+          activityId: record.id,
           agentId: turnAgentId,
-          humanRecord: record,
-          service: room.service,
-          conversationService: ctx.conversationService,
-          agentStorage: ctx.agents,
-          ...(executionConfig ? { executionConfig } : {}),
-          ...(surface ? { surface } : {}),
-          ...(surfaceContext ? { surfaceContext } : {}),
-        })
-          .then((result) => {
-            // Mirror completed turn replies into M9 so they appear on the
-            // M11C surface (the legacy append above is M11C-invisible).
-            if (result.status === 'completed' && result.content) {
-              void mirrorAgentReplyToM9(turnAgentId, result.content, {
-                ...(result.reasoning ? { reasoning: result.reasoning } : {}),
-                ...(result.model ? { modelId: result.model } : {}),
-                ...(result.provider ? { providerId: result.provider } : {}),
-                ...(typeof result.latencyMs === 'number' ? { latencyMs: result.latencyMs } : {}),
-                ...(typeof result.tokens === 'number' ? { tokens: result.tokens } : {}),
-                conversationId: result.conversationId,
-              });
-            }
-          })
-          .catch(() => {
+          runQueued: (queued, conversationId) =>
+            runActivityTurn(
+              ctx,
+              room,
+              queued,
+              turnAgentId,
+              executionConfig,
+              surface,
+              surfaceContext,
+              control,
+              conversationId,
+            ),
+        });
+        void runActivityTurn(ctx, room, record, turnAgentId, executionConfig, surface, surfaceContext, control).catch(
+          () => {
             /* turn failures are already captured in the result */
-          });
+          },
+        );
+        json(res, 201, { record, delivery: { status: 'started' } });
+      } else {
+        json(res, 201, { record });
       }
     }
+    return true;
+  }
+
+  if (method === 'GET' && p === '/api/activity-room/active-turns') {
+    json(res, 200, { turns: activityTurnControls.list() });
+    return true;
+  }
+
+  const stopActiveTurnMatch = p.match(/^\/api\/activity-room\/active-turns\/([^/]+)\/stop$/);
+  if (method === 'POST' && stopActiveTurnMatch) {
+    const conversationId = decodeURIComponent(stopActiveTurnMatch[1]);
+    const result = activityTurnControls.requestStop(conversationId);
+    json(res, result.status === 'requested' ? 202 : 409, result);
     return true;
   }
 
@@ -302,32 +331,29 @@ export async function handleActivityRoomRoute(
         // AR-REF-001: resolve durable Activity references into turn surface
         // context (bounded, structured — user content untouched).
         const surfaceContext = await turnSurfaceContextForReferences(ctx, room, record.referencedActivityIds);
-        void triggerAssistantTurn({
+        const control = activityTurnControls.start({
+          activityId: record.id,
           agentId,
-          humanRecord: record,
-          service: room.service,
-          conversationService: ctx.conversationService,
-          agentStorage: ctx.agents,
-          ...(executionConfig ? { executionConfig } : {}),
-          ...(surface ? { surface } : {}),
-          ...(surfaceContext ? { surfaceContext } : {}),
-        })
-          .then((result) => {
-            if (result.status === 'completed' && result.content) {
-              void mirrorAgentReplyToM9(agentId, result.content, {
-                ...(result.reasoning ? { reasoning: result.reasoning } : {}),
-                ...(result.model ? { modelId: result.model } : {}),
-                ...(result.provider ? { providerId: result.provider } : {}),
-                ...(typeof result.latencyMs === 'number' ? { latencyMs: result.latencyMs } : {}),
-                ...(typeof result.tokens === 'number' ? { tokens: result.tokens } : {}),
-                conversationId: result.conversationId,
-              });
-            }
-          })
-          .catch(() => {
+          runQueued: (queued, conversationId) =>
+            runActivityTurn(
+              ctx,
+              room,
+              queued,
+              agentId,
+              executionConfig,
+              surface,
+              surfaceContext,
+              control,
+              conversationId,
+            ),
+        });
+        void runActivityTurn(ctx, room, record, agentId, executionConfig, surface, surfaceContext, control).catch(
+          () => {
             /* turn failures are already captured in the result */
-          });
+          },
+        );
       }
+      json(res, 201, { record, ...(triggersTurn ? { delivery: { status: 'started' } } : {}) });
     }
     return true;
   }
@@ -371,6 +397,53 @@ export async function handleActivityRoomRoute(
   }
 
   return false;
+}
+
+async function runActivityTurn(
+  ctx: WorkspaceContext,
+  room: ActivityRoom,
+  record: AgentMessageActivity,
+  agentId: string,
+  executionConfig: { maxToolCalls?: number; turnTimeoutMs?: number } | undefined,
+  surface: string | undefined,
+  surfaceContext: TurnSurfaceContext | undefined,
+  control: { controller: AbortController; bindConversation: (conversationId: string) => void },
+  conversationId?: string,
+) {
+  let boundConversationId = conversationId;
+  const result = await triggerAssistantTurn({
+    agentId,
+    humanRecord: record,
+    service: room.service,
+    conversationService: ctx.conversationService,
+    agentStorage: ctx.agents,
+    ...(executionConfig ? { executionConfig } : {}),
+    ...(surface ? { surface } : {}),
+    ...(surfaceContext ? { surfaceContext } : {}),
+    ...(conversationId ? { conversationId } : {}),
+    signal: control.controller.signal,
+    onConversationCreated: (createdConversationId) => {
+      boundConversationId = createdConversationId;
+      control.bindConversation(createdConversationId);
+      registerTurnController(createdConversationId, control.controller);
+    },
+  });
+
+  if (result.status === 'completed' && result.content) {
+    void mirrorAgentReplyToM9(agentId, result.content, {
+      ...(result.reasoning ? { reasoning: result.reasoning } : {}),
+      ...(result.model ? { modelId: result.model } : {}),
+      ...(result.provider ? { providerId: result.provider } : {}),
+      ...(typeof result.latencyMs === 'number' ? { latencyMs: result.latencyMs } : {}),
+      ...(typeof result.tokens === 'number' ? { tokens: result.tokens } : {}),
+      conversationId: result.conversationId,
+    });
+  }
+
+  const activeConversationId = boundConversationId ?? result.conversationId;
+  const continued = activityTurnControls.finish(activeConversationId, result.status);
+  if (!continued) releaseTurnController(activeConversationId, control.controller);
+  return result;
 }
 
 function readBody(req: http.IncomingMessage): Promise<string> {
@@ -650,7 +723,6 @@ async function sendActivityMessage(
     } catch {
       /* receipt seeding is best-effort */
     }
-    json(res, 201, { record: appended });
     // M11C visibility is handled by the caller (see the turn-predicate
     // mirror below): messages that trigger a conversation-runtime turn are
     // projected into M9 by the EventBus bridge (`conversation:message.sent`

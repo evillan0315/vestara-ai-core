@@ -189,7 +189,11 @@ function M11CParticipantRail({
     <div className="ar-rail" role="region" aria-label="Participants">
       <div className="ar-rail__sticky-head">
         <div className="ar-rail__head">
-        <p className="ar-kicker">Participants</p>
+        {/* Panel-level staleness honesty (AR-LIVE-001): roster and work
+            state arrive with the snapshot and refresh on reconnect.
+            No per-row repetition. No presence is shown: no presence
+            authority exists. */}
+        <p className="ar-rail__freshness">Snapshot roster · refreshes on reconnect · no presence tracking</p>
         <button
           type="button"
           onClick={() => {
@@ -200,16 +204,11 @@ function M11CParticipantRail({
           className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
           aria-pressed={selectedParticipantId === undefined && !isFiltered}
         >
-          <span className="ar-rail__all-label">Everyone</span>
+          <span className="ar-rail__all-label">Participants</span>
           <span className="ar-rail__census">
             <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
           </span>
         </button>
-        {/* Panel-level staleness honesty (AR-LIVE-001): roster and work
-            state arrive with the snapshot and refresh on reconnect.
-            No per-row repetition. No presence is shown: no presence
-            authority exists. */}
-        <p className="ar-rail__freshness">Snapshot roster · refreshes on reconnect · no presence tracking</p>
         </div>
 
         {/* ── Search + Type Filter ──────────────────────────── */}

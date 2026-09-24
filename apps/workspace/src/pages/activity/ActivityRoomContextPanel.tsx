@@ -15,11 +15,16 @@ import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ScreenshotMonitorOutlinedIcon from '@mui/icons-material/ScreenshotMonitorOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
+import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
+import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
+import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
+import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import type { ReactNode } from 'react';
 import { useState } from 'react';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import type { M11CConnectionState } from '../../hooks/useM11CActivityRoom';
 import { SIZING } from '@vestara/ui-tokens';
-import { Pill, StatusIndicator } from '@vestara/ui';
+import { ActionIcon, Pill, StatusIndicator } from '@vestara/ui';
 import { VestaraModal } from '../../components/ui/VestaraModal';
 import { formatRelative } from './activity-formatters';
 import { CONNECTION_STATUS_CONFIG } from './status-config';
@@ -97,6 +102,41 @@ function OperationBadge({ kind }: { readonly kind: string }) {
   );
 }
 
+/**
+ * Uniform operation tile: square ActionIcon + micro-label, identical geometry
+ * for every control. Controls with no handler in this view render disabled
+ * with an honest tooltip instead of a dead click.
+ */
+function OperationTile({
+  label,
+  icon,
+  onClick,
+  disabled,
+  unavailableHint,
+}: {
+  readonly label: string;
+  readonly icon: ReactNode;
+  readonly onClick?: () => void;
+  readonly disabled?: boolean;
+  readonly unavailableHint?: string;
+}) {
+  const wired = onClick !== undefined && !disabled;
+  return (
+    <span className="flex min-w-0 flex-col items-center gap-1">
+      <ActionIcon
+        label={label}
+        tooltip={wired ? label : (unavailableHint ?? label)}
+        size="lg"
+        icon={icon}
+        onClick={onClick}
+        disabled={!wired}
+      />
+      <span aria-hidden="true" className="w-full truncate text-center text-[10px] leading-tight text-[var(--vestara-text-muted)]">
+        {label}
+      </span>
+    </span>
+  );
+}
 /**
  * Serialize the current viewport as a standalone SVG document (dependency-free
  * foreignObject render). Page stylesheets are inlined so the shot keeps its
@@ -282,23 +322,19 @@ export default function ActivityRoomContextPanel({
       <div className="ar-context__section ar-context__controls">
         <div className="ar-context__section-header"><h2 className="ar-context__title">Operation Controls</h2></div>
         <div className="ar-context__actions">
-          <Pill onClick={onBroadcast}><span aria-hidden="true">➤</span> Broadcast</Pill>
-          <Pill onClick={onSnapshot}><span aria-hidden="true">▣</span> Snapshot</Pill>
-          <Pill onClick={onExport}><span aria-hidden="true">⇩</span> Export</Pill>
-          <Pill onClick={onSettings}><span aria-hidden="true">⚙</span> Settings</Pill>
-          <Pill onClick={onTerminal}>
-            <TerminalOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" /> Terminal
-          </Pill>
-          <Pill onClick={onFiles}>
-            <FolderOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" /> Files
-          </Pill>
-          <Pill onClick={onBrowser}>
-            <PublicOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" /> Browser
-          </Pill>
-          <Pill onClick={handleScreenshot} disabled={shotBusy}>
-            <ScreenshotMonitorOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
-            {shotBusy ? 'Capturing…' : 'Screenshot'}
-          </Pill>
+          <OperationTile label="Broadcast" icon={<SendOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onBroadcast} unavailableHint="Broadcast is not wired in this view" />
+          <OperationTile label="Snapshot" icon={<CameraAltOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onSnapshot} unavailableHint="Snapshot is not wired in this view" />
+          <OperationTile label="Export" icon={<FileDownloadOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onExport} unavailableHint="Export is not wired in this view" />
+          <OperationTile label="Settings" icon={<SettingsOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onSettings} unavailableHint="Settings is not wired in this view" />
+          <OperationTile label="Terminal" icon={<TerminalOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onTerminal} />
+          <OperationTile label="Files" icon={<FolderOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onFiles} />
+          <OperationTile label="Browser" icon={<PublicOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onBrowser} />
+          <OperationTile
+            label={shotBusy ? 'Capturing…' : 'Screenshot'}
+            icon={<ScreenshotMonitorOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />}
+            onClick={handleScreenshot}
+            disabled={shotBusy}
+          />
         </div>
         {shotError && !shot && (
           <p className="mt-1 text-[11px] text-[var(--vestara-status-error)]" role="status">

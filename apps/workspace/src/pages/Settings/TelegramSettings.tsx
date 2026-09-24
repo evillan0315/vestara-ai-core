@@ -158,7 +158,7 @@ export function TelegramNotificationsPanel({
       }
     >
       {soundEnabled !== undefined && onSoundChange && (
-        <div className="mb-4 flex items-center justify-between gap-3 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel-raised)] p-3">
+        <div className="flex items-center justify-between gap-4 py-3">
           <span className="min-w-0">
             <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">Enable sound notifications</span>
             <span className="block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">Audible cue when operations finish — saved with your changes.</span>
