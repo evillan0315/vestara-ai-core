@@ -15,7 +15,6 @@
  * - Conversations: kind === 'conversation'
  * - Agents: actor.type !== 'human'
  * - Humans: actor.type === 'human'
- * - Tools: kind === 'tool-call' || kind === 'tool-result'
  * - Executions: kind === 'activity' || kind === 'progress'
  * - Errors: kind === 'diagnostic' (authoritative failure class, not string matching)
  */
@@ -25,6 +24,8 @@ import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import AddLinkOutlinedIcon from '@mui/icons-material/AddLinkOutlined';
 import BuildOutlinedIcon from '@mui/icons-material/BuildOutlined';
 import FactCheckOutlinedIcon from '@mui/icons-material/FactCheckOutlined';
+import FilterAltOffOutlinedIcon from '@mui/icons-material/FilterAltOffOutlined';
+import NightlightOutlinedIcon from '@mui/icons-material/NightlightOutlined';
 import ScienceOutlinedIcon from '@mui/icons-material/ScienceOutlined';
 import TaskAltOutlinedIcon from '@mui/icons-material/TaskAltOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
@@ -37,6 +38,7 @@ import type { AttentionEntry } from '@vestara/activity-room';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { EmptyState } from '@vestara/ui';
 import { M11CStreamItemComponent } from './M11CStreamItem';
+import ActivityDateFilter, { type DateFilterValue } from './ActivityDateFilter';
 import ActivityRoomTabs, { type ActivityRoomView } from './ActivityRoomTabs';
 
 // ─── Constants ───────────────────────────────────────────────
@@ -62,6 +64,8 @@ interface M11CActivityStreamProps {
   readonly loadingHistory: boolean;
   /** Number of older records loaded beyond initial snapshot. */
   readonly olderLoaded: number;
+  /** Whether older durable activity may still be available. */
+  readonly hasMoreHistory?: boolean;
   /** Whether the stream is in loading/connecting state. */
   readonly loading: boolean;
   /** Callback to load older history (scroll up). */
@@ -113,8 +117,12 @@ interface M11CActivityStreamProps {
   readonly onAttachAttention?: (entry: AttentionEntry) => void;
   /** Select a workflow context (from stream workflow badges → browser scope). */
   readonly onSelectWorkflow?: (workflowId: string) => void;
+  /** Clear the participant scope (rail selection) — used by the filtered-empty reset. */
+  readonly onClearParticipantFilter?: () => void;
+  /** Clear the workflow scope (browser/badge selection) — used by the filtered-empty reset. */
+  readonly onClearWorkflowFilter?: () => void;
   /** Inspect a resolved edit observation in the Activity Room Files drawer. */
-  readonly onInspectEdit?: (detail: import('@vestara/shared').EditExecutionDetail) => void;
+  readonly onInspectEdit?: (detail: import('@vestara/shared').FileMutationExecutionDetail) => void;
   readonly onSteerTurn?: (conversationId: string) => void;
   readonly onStopTurn?: (conversationId: string) => Promise<void>;
   /** Active workflow scope (from the workflow browser). Narrows the stream. */
@@ -140,19 +148,273 @@ interface M11CActivityStreamProps {
  * - Needs attention: canonical unresolved AttentionEntry projection
  * - Conversations: human/agent messages
  * - Work: task/workflow lifecycle (activity/progress)
- * - Tools: tool calls/results
  */
-type StreamFilter = 'all' | 'attention' | 'operational';
-type TypeFilter = 'all' | 'conversations' | 'work' | 'tools' | 'evidence';
+export type StreamFilter = 'all' | 'attention' | 'operational';
+export type TypeFilter = 'all' | 'conversations' | 'work' | 'evidence';
 
 /** Timeline density (DENSITY-MODES): summary hides routine ops, operational hides raw chatter, raw shows all. */
 export type StreamDensity = 'summary' | 'operational' | 'raw';
 
-function matchesDensityKind(kind: string, density: StreamDensity): boolean {
+export function matchesDensityKind(kind: string, density: StreamDensity): boolean {
   if (density === 'raw') return true;
   if (density === 'operational') return kind !== 'log' && kind !== 'telemetry';
   // summary: milestones + conversations + failures + evidence + decisions
   return kind === 'conversation' || kind === 'activity' || kind === 'diagnostic' || kind === 'evidence' || kind === 'interaction' || kind === 'error';
+}
+
+/**
+ * Presentation label for a density mode. Hidden records are described only
+ * as hidden by the active view — never as missing, unloaded, failed, or
+ * unavailable (density filtering is presentation only; recovery holds all).
+ */
+export function densityViewLabel(density: StreamDensity): string {
+  return density === 'raw' ? 'Raw' : density === 'summary' ? 'Summary' : 'Operational';
+}
+
+/**
+ * AR-STREAM-TOOL-001 — standalone tool lifecycle rows are structurally
+ * excluded from the Activity Stream list, regardless of density.
+ *
+ * tool.called / tool.succeeded / tool.failed remain authoritative M9
+ * execution evidence with exact callID lineage: they are recovered in the
+ * snapshot, correlated onto their owning activity by AR-COORD-002
+ * (deriveCorrelatedSessions → "Activity · N operations"), and resolvable
+ * through detail/drill-down/diagnostics by activity identity. They are
+ * simply never standalone list entries — not hidden by a view, excluded
+ * from the list projection itself.
+ */
+export function isToolLifecycleKind(kind: string): boolean {
+  return kind === 'tool-call' || kind === 'tool-result';
+}
+
+/**
+ * List-eligible records: everything recovered except standalone tool
+ * lifecycle rows. Scope, density, preset, category, and search narrow
+ * further downstream from this set.
+ */
+export function applyStreamEligibility(items: readonly StreamItemType[]): StreamItemType[] {
+  return items.filter((item) => !isToolLifecycleKind(item.kind));
+}
+
+/** Scope options shared by the stream pipeline (participant + workflow narrow the eligible set). */
+export interface StreamScopeOptions {
+  readonly selectedParticipantId?: string;
+  readonly workflowFilter?: string | null;
+}
+
+/** Full presentation filter options (scope + density + preset + category + search + date). */
+export interface StreamFilterOptions extends StreamScopeOptions {
+  readonly density: StreamDensity;
+  readonly activeFilter: StreamFilter;
+  readonly typeFilter: TypeFilter;
+  readonly searchQuery: string;
+  /** Inclusive calendar-day lower bound (`yyyy-mm-dd`, viewer locale). Absent/empty = unbounded. */
+  readonly startDate?: string | null;
+  /** Inclusive calendar-day upper bound (`yyyy-mm-dd`, viewer locale). Absent/empty = unbounded. */
+  readonly endDate?: string | null;
+}
+
+/** Strict `yyyy-mm-dd` parse into viewer-locale calendar parts. Returns null when absent or malformed. */
+export function parseCalendarDay(value: string | null | undefined): { year: number; month: number; day: number } | null {
+  if (value === undefined || value === null) return null;
+  const trimmed = value.trim();
+  if (trimmed === '') return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  const probe = new Date(year, month - 1, day);
+  if (probe.getFullYear() !== year || probe.getMonth() !== month - 1 || probe.getDate() !== day) return null;
+  return { year, month, day };
+}
+
+/** Viewer-locale midnight (ms) for a calendar day. */
+function dayStartMs(part: { year: number; month: number; day: number }): number {
+  return new Date(part.year, part.month - 1, part.day).getTime();
+}
+
+/** True when the From/To pair is usable. Invalid (`From > To`) applies no date predicate — the UI warns instead of swapping. */
+export function isValidDateRange(startDate: string | null | undefined, endDate: string | null | undefined): boolean {
+  const start = parseCalendarDay(startDate);
+  const end = parseCalendarDay(endDate);
+  if (!start || !end) return true;
+  return dayStartMs(start) <= dayStartMs(end);
+}
+
+/** Date-window predicate over an ISO timestamp. Window bounds are inclusive calendar days in the viewer locale. */
+export function matchesDateWindow(
+  timestamp: string,
+  startDate: string | null | undefined,
+  endDate: string | null | undefined,
+): boolean {
+  const start = parseCalendarDay(startDate);
+  const end = parseCalendarDay(endDate);
+  if (!start && !end) return true;
+  if (start && end && dayStartMs(start) > dayStartMs(end)) return true;
+  const time = new Date(timestamp).getTime();
+  if (Number.isNaN(time)) return false;
+  if (start && time < dayStartMs(start)) return false;
+  if (end) {
+    const endExclusive = dayStartMs(end) + 86_400_000;
+    if (time >= endExclusive) return false;
+  }
+  return true;
+}
+
+/**
+ * Apply participant + workflow scope only. Density, preset, category, and
+ * search narrow further downstream — this is the eligible set the density
+ * count is measured against.
+ */
+export function applyStreamScope(
+  items: readonly StreamItemType[],
+  scope: StreamScopeOptions,
+): StreamItemType[] {
+  let result = items;
+  if (scope.selectedParticipantId !== undefined) {
+    const selected = scope.selectedParticipantId;
+    result = result.filter((item) => item.actor.id === selected || `agent-${item.actor.id}` === selected);
+  }
+  if (scope.workflowFilter) {
+    const workflow = scope.workflowFilter;
+    result = result.filter((item) => item.workflowRunId === workflow);
+  }
+  return [...result];
+}
+
+/**
+ * Count scope-eligible records hidden by the active density mode.
+ * Presentation only — the records remain recovered client-side.
+ */
+export function countDensityHidden(
+  items: readonly StreamItemType[],
+  scope: StreamScopeOptions,
+  density: StreamDensity,
+): number {
+  if (density === 'raw') return 0;
+  return applyStreamScope(items, scope).filter((item) => !matchesDensityKind(item.kind, density)).length;
+}
+
+/**
+ * Presentation pipeline shared by the stream component and its tests.
+ * Uses canonical M11C stream `kind` values, not string matching.
+ * Order (all AND-composed): eligibility → scope → density → preset →
+ * category → search → date. Standalone tool lifecycle rows never enter the list
+ * under any density (AR-STREAM-TOOL-001); correlated tool operations stay
+ * visible on their owning activity via its session.
+ */
+export function filterStreamItems(items: readonly StreamItemType[], options: StreamFilterOptions): StreamItemType[] {
+  let result = applyStreamEligibility(items).filter((item) => matchesDensityKind(item.kind, options.density));
+
+  // Participant filter (existing)
+  if (options.selectedParticipantId !== undefined) {
+    const selected = options.selectedParticipantId;
+    result = result.filter((item) => item.actor.id === selected || `agent-${item.actor.id}` === selected);
+  }
+
+  // Workflow scope (from browser selection or stream badge)
+  if (options.workflowFilter) {
+    const workflow = options.workflowFilter;
+    result = result.filter((item) => item.workflowRunId === workflow);
+  }
+
+  if (options.activeFilter === 'operational') {
+    result = result.filter((item) => matchesDensityKind(item.kind, 'operational'));
+  }
+
+  if (options.activeFilter === 'attention') {
+    result = result.filter(isAttentionItem);
+  }
+
+  // Type filter. Needs Attention is rendered as its own canonical section,
+  // not as a derived ActivityRecord filter.
+  if (options.typeFilter !== 'all') {
+    result = result.filter((item) => {
+      switch (options.typeFilter) {
+        case 'conversations':
+          return item.kind === 'conversation';
+        case 'work':
+          return item.kind === 'activity' || item.kind === 'progress';
+        case 'evidence':
+          return item.kind === 'evidence';
+        default:
+          return true;
+      }
+    });
+  }
+
+  // Text search filter (content + actor name)
+  const query = options.searchQuery.trim().toLowerCase();
+  if (query) {
+    result = result.filter((item) => {
+      const contentMatch = item.content.toLowerCase().includes(query);
+      const actorMatch = item.actor.displayName.toLowerCase().includes(query);
+      return contentMatch || actorMatch;
+    });
+  }
+
+  // Date-window filter (inclusive calendar days, viewer locale). Invalid
+  // ranges apply no predicate — the filter bar warns instead of swapping.
+  if (parseCalendarDay(options.startDate) || parseCalendarDay(options.endDate)) {
+    if (isValidDateRange(options.startDate, options.endDate)) {
+      result = result.filter((item) => matchesDateWindow(item.timestamp, options.startDate, options.endDate));
+    }
+  }
+
+  return result;
+}
+
+/**
+ * The stream counts, kept separate by construction:
+ * - recovered: items the client holds (snapshot + live + history, tool
+ *   lifecycle evidence included — recovery is lossless).
+ * - excludedToolRows: recovered tool lifecycle rows structurally excluded
+ *   from the list (AR-STREAM-TOOL-001). Never a loss signal.
+ * - scopeEligible / densityHidden / filtered / rendered: the presentation
+ *   pipeline over list-eligible records only.
+ * Never derive "activity count" from the rendered array alone, and never
+ * count excluded tool rows as density-hidden.
+ */
+export interface StreamCounts {
+  readonly recovered: number;
+  readonly excludedToolRows: number;
+  readonly scopeEligible: number;
+  readonly densityHidden: number;
+  readonly filtered: number;
+  readonly rendered: number;
+}
+
+export function computeStreamCounts(
+  items: readonly StreamItemType[],
+  options: StreamFilterOptions & { readonly renderWindow?: number; readonly olderLoaded?: number },
+): StreamCounts {
+  const eligible = applyStreamEligibility(items);
+  const scopeEligible = applyStreamScope(eligible, options).length;
+  const densityHidden = countDensityHidden(eligible, options, options.density);
+  const filtered = filterStreamItems(items, options).length;
+  const renderWindow = options.renderWindow ?? RENDER_WINDOW;
+  const olderLoaded = options.olderLoaded ?? 0;
+  const rendered = Math.min(filtered, renderWindow + olderLoaded);
+  return {
+    recovered: items.length,
+    excludedToolRows: items.length - eligible.length,
+    scopeEligible,
+    densityHidden,
+    filtered,
+    rendered,
+  };
+}
+
+/** The canonical latest end for the ascending oldest → newest list. */
+export function latestScrollPosition(scrollHeight: number): number {
+  return scrollHeight;
+}
+
+/** Preserve the current visual item when older rows are prepended. */
+export function preservedScrollPosition(previousTop: number, previousHeight: number, nextHeight: number): number {
+  return previousTop + Math.max(0, nextHeight - previousHeight);
 }
 
 const FILTER_TABS: { id: StreamFilter; label: string }[] = [
@@ -165,7 +427,6 @@ const TYPE_OPTIONS: { id: TypeFilter; label: string }[] = [
   { id: 'all', label: 'All Types' },
   { id: 'conversations', label: 'Messages' },
   { id: 'work', label: 'Work' },
-  { id: 'tools', label: 'Tools' },
   { id: 'evidence', label: 'Evidence' },
 ];
 
@@ -305,6 +566,7 @@ function M11CActivityStream({
   unread,
   loadingHistory,
   olderLoaded,
+  hasMoreHistory = true,
   loading,
   onLoadOlder,
   onReportViewport,
@@ -327,6 +589,8 @@ function M11CActivityStream({
   onOpenAttention,
   onAttachAttention,
   onSelectWorkflow,
+  onClearParticipantFilter,
+  onClearWorkflowFilter,
   onInspectEdit,
   onSteerTurn,
   onStopTurn,
@@ -335,19 +599,33 @@ function M11CActivityStream({
   streamHeaderAction,
   showViewTabs = false,
   density: controlledDensity,
+  onDensityChange,
 }: M11CActivityStreamProps) {
   useRenderProfiler('M11CActivityStream');
   const scrollRef = useRef<HTMLDivElement>(null);
   const [atBottom, setAtBottom] = useState(true);
   const previousScrollHeight = useRef(0);
   const previousItemCount = useRef(0);
+  const previousOlderLoaded = useRef(0);
   const snapFrame = useRef(0);
   const [activeFilter, setActiveFilter] = useState<StreamFilter>('all');
   const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
   const [activeView, setActiveView] = useState<ActivityRoomView>('activity');
   const [searchQuery, setSearchQuery] = useState('');
-  const [internalDensity] = useState<StreamDensity>('operational');
+  // AR-DATE-001: inclusive calendar-day window (`yyyy-mm-dd`, viewer locale). Empty = unbounded.
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [datePreset, setDatePreset] = useState<'all' | 'today' | 'yesterday' | 'custom'>('all');
+  const [internalDensity, setInternalDensity] = useState<StreamDensity>('operational');
   const density = controlledDensity ?? internalDensity;
+  const setDensity = useCallback(
+    (next: StreamDensity) => {
+      onDensityChange?.(next);
+      if (controlledDensity === undefined) setInternalDensity(next);
+    },
+    [controlledDensity, onDensityChange],
+  );
+  const showAllDensity = useCallback(() => setDensity('raw'), [setDensity]);
 
   // ─── Preamble measurement (scroll-origin correction) ──────
   // Declared before the virtualizer: the virtualizer reads preambleH for
@@ -393,9 +671,11 @@ function M11CActivityStream({
   // ─── Filter Counts ───────────────────────────────────────
 
   const filterCounts = useMemo(() => {
+    // Visible-item counts never include standalone tool lifecycle rows.
+    const eligible = applyStreamEligibility(items);
     let base = selectedParticipantId !== undefined
-      ? items.filter((item) => item.actor.id === selectedParticipantId)
-      : items;
+      ? eligible.filter((item) => item.actor.id === selectedParticipantId)
+      : eligible;
     if (workflowFilter) {
       base = base.filter((item) => item.workflowRunId === workflowFilter);
     }
@@ -408,57 +688,38 @@ function M11CActivityStream({
   }, [items, selectedParticipantId, workflowFilter, attentionEntries.length]);
 
   // ─── Filtering ──────────────────────────────────────────
-  // Uses canonical M11C stream `kind` values, not string matching.
-  // Error filter uses the authoritative failure class (kind 'diagnostic').
+  // Canonical pipeline (filterStreamItems): eligibility → scope → density →
+  // preset → category → search. Recovered (items, tool evidence included),
+  // tool-excluded, density-hidden, filtered, and rendered stay separate.
 
-  const filtered = useMemo(() => {
-    let result = items.filter((item) => matchesDensityKind(item.kind, density));
+  const eligibleItems = useMemo(() => applyStreamEligibility(items), [items]);
 
-    // Participant filter (existing)
-    if (selectedParticipantId !== undefined) {
-      result = result.filter((item) => item.actor.id === selectedParticipantId || `agent-${item.actor.id}` === selectedParticipantId);
-    }
+  const excludedToolRows = items.length - eligibleItems.length;
 
-    // Workflow scope (from browser selection or stream badge)
-    if (workflowFilter) {
-      result = result.filter((item) => item.workflowRunId === workflowFilter);
-    }
+  const scopeBase = useMemo(
+    () => applyStreamScope(eligibleItems, { selectedParticipantId, workflowFilter }),
+    [eligibleItems, selectedParticipantId, workflowFilter],
+  );
 
-    if (activeFilter === 'operational') {
-      result = result.filter((item) => matchesDensityKind(item.kind, 'operational'));
-    }
+  const densityHidden = useMemo(
+    () => (density === 'raw' ? 0 : scopeBase.filter((item) => !matchesDensityKind(item.kind, density)).length),
+    [scopeBase, density],
+  );
 
-    // Type filter. Needs Attention is rendered as its own canonical section,
-    // not as a derived ActivityRecord filter.
-    if (typeFilter !== 'all') {
-      result = result.filter((item) => {
-        switch (typeFilter) {
-          case 'conversations':
-            return item.kind === 'conversation';
-          case 'work':
-            return item.kind === 'activity' || item.kind === 'progress';
-          case 'tools':
-            return item.kind === 'tool-call' || item.kind === 'tool-result';
-          case 'evidence':
-            return item.kind === 'evidence';
-          default:
-            return true;
-        }
-      });
-    }
-
-    // Text search filter (content + actor name)
-    const query = searchQuery.trim().toLowerCase();
-    if (query) {
-      result = result.filter((item) => {
-        const contentMatch = item.content.toLowerCase().includes(query);
-        const actorMatch = item.actor.displayName.toLowerCase().includes(query);
-        return contentMatch || actorMatch;
-      });
-    }
-
-    return result;
-  }, [items, selectedParticipantId, workflowFilter, activeFilter, typeFilter, searchQuery, density]);
+  const filtered = useMemo(
+    () =>
+      filterStreamItems(items, {
+        density,
+        selectedParticipantId,
+        workflowFilter,
+        activeFilter,
+        typeFilter,
+        searchQuery,
+        startDate,
+        endDate,
+      }),
+    [items, density, selectedParticipantId, workflowFilter, activeFilter, typeFilter, searchQuery, startDate, endDate],
+  );
 
   // ─── Bounded Window ─────────────────────────────────────
 
@@ -483,11 +744,68 @@ function M11CActivityStream({
 
   const hasMore = filtered.length > rendered.length;
   // Attention mode renders the canonical AttentionEntry[] section followed by
-  // Recent Activity. The "Waiting for activity…" empty state appears only when
-  // there is genuinely nothing to show: no stream rows AND (in attention mode)
-  // no open attention entries. It must never mask unresolved attention.
+  // Recent Activity. The idle empty state appears only when there is genuinely
+  // nothing to show: no stream rows AND (in attention mode) no open attention
+  // entries. It must never mask unresolved attention. Filtered-empty (items
+  // exist but search/preset/scope hides them) renders a distinct reset state.
   const attentionMode = activeFilter === 'attention';
   const streamEmpty = rendered.length === 0 && (!attentionMode || attentionEntries.length === 0);
+  const trimmedQuery = searchQuery.trim();
+  // AR-DATE-001: a set From/To bound is an internal filter even when other presets are clear.
+  const dateActive = parseCalendarDay(startDate) !== null || parseCalendarDay(endDate) !== null;
+  const dateRangeValid = isValidDateRange(startDate, endDate);
+  const hasInternalFilter =
+    activeFilter !== 'all' || typeFilter !== 'all' || trimmedQuery.length > 0 || dateActive;
+  const hasExternalScope = selectedParticipantId !== undefined || workflowFilter != null;
+  // Density is presentation-only: records it hides stay recovered. A density
+  // that hides the whole window is a filtered-empty state, never quiet.
+  const hasDensityFilter = density !== 'raw' && densityHidden > 0;
+  // Structural tool exclusion is not a loss signal either: a window holding
+  // only tool operations renders its own state, never quiet, never missing.
+  const hasStructuralExclusion = excludedToolRows > 0;
+  const baseHasContent = items.length > 0 || attentionEntries.length > 0;
+  const isFilteredEmpty =
+    streamEmpty &&
+    baseHasContent &&
+    (hasInternalFilter || hasExternalScope || hasDensityFilter || hasStructuralExclusion);
+  const filteredEmptyTitle = trimmedQuery
+    ? `No matches for "${trimmedQuery.length > 40 ? `${trimmedQuery.slice(0, 40)}…` : trimmedQuery}"`
+    : selectedParticipantId !== undefined && participantNames?.[selectedParticipantId]
+      ? `No activity for ${participantNames[selectedParticipantId]} in this window`
+      : workflowFilter
+        ? `No activity for this workflow in this window`
+        : dateActive && dateRangeValid
+          ? `No activity from ${startDate || '…'} to ${endDate || '…'}`
+          : typeFilter !== 'all'
+          ? 'Hidden by the category filter'
+          : hasDensityFilter
+            ? `Hidden by the ${densityViewLabel(density)} view`
+              : hasStructuralExclusion
+              ? 'No list activity in this window'
+              : 'Hidden by the current filters';
+  const clearAllFilters = useCallback(() => {
+    setActiveFilter('all');
+    setTypeFilter('all');
+    setSearchQuery('');
+    setStartDate('');
+    setEndDate('');
+    setDatePreset('all');
+    onClearWorkflowFilter?.();
+    onClearParticipantFilter?.();
+  }, [onClearParticipantFilter, onClearWorkflowFilter]);
+
+  // AR-DATE-002: the dropdown owns presets/inputs; the stream owns the window.
+  const handleDateChange = useCallback((next: DateFilterValue) => {
+    setStartDate(next.startDate);
+    setEndDate(next.endDate);
+    setDatePreset(next.preset);
+  }, []);
+
+  const clearDates = useCallback(() => {
+    setStartDate('');
+    setEndDate('');
+    setDatePreset('all');
+  }, []);
 
   // ─── Scroll Behavior ────────────────────────────────────
 
@@ -498,11 +816,11 @@ function M11CActivityStream({
   const snapToBottom = useCallback(() => {
     const el = scrollRef.current;
     if (!el) return;
-    el.scrollTop = el.scrollHeight;
+    el.scrollTop = latestScrollPosition(el.scrollHeight);
     cancelAnimationFrame(snapFrame.current);
     snapFrame.current = requestAnimationFrame(() => {
       const target = scrollRef.current;
-      if (target) target.scrollTop = target.scrollHeight;
+      if (target) target.scrollTop = latestScrollPosition(target.scrollHeight);
     });
   }, []);
 
@@ -516,20 +834,27 @@ function M11CActivityStream({
     const el = scrollRef.current;
     if (!el) return;
 
-    if (atBottom) {
+    const historyLoaded = olderLoaded > previousOlderLoaded.current;
+    const priorHeight = previousScrollHeight.current;
+    const priorTop = el.scrollTop;
+
+    if (historyLoaded) {
+      el.scrollTop = preservedScrollPosition(priorTop, priorHeight, el.scrollHeight);
+      cancelAnimationFrame(snapFrame.current);
+      snapFrame.current = requestAnimationFrame(() => {
+        const target = scrollRef.current;
+        if (target) target.scrollTop = preservedScrollPosition(priorTop, priorHeight, target.scrollHeight);
+      });
+    } else if (atBottom) {
       if (items.length >= previousItemCount.current) snapToBottom();
-    } else if (items.length > previousItemCount.current && olderLoaded === 0) {
-      // New items arrived while reading history — preserve scroll position
-      // by maintaining the scroll offset relative to the bottom
-      const newScrollHeight = el.scrollHeight;
-      const scrollDelta = newScrollHeight - previousScrollHeight.current;
-      if (scrollDelta > 0) {
-        el.scrollTop += scrollDelta;
-      }
+    } else if (items.length > previousItemCount.current) {
+      // New live rows append at the latest end. A user reading older rows
+      // keeps the current viewport; only an at-bottom user auto-follows.
     }
 
     previousItemCount.current = items.length;
     previousScrollHeight.current = el.scrollHeight;
+    previousOlderLoaded.current = olderLoaded;
   }, [items, atBottom, olderLoaded, snapToBottom]);
 
   // Report viewport position to parent
@@ -584,6 +909,20 @@ function M11CActivityStream({
               paused/buffered context surfaces inline, where it changes
               stream behavior. */}
           <label className="ar-stream-filter__select-label">
+            <span className="sr-only">Timeline density</span>
+            <select
+              value={density}
+              onChange={(event) => setDensity(event.target.value as StreamDensity)}
+              className="ar-stream-filter__select"
+              aria-label="Timeline density"
+              title="Timeline density: Raw shows every recovered record"
+            >
+              <option value="summary">Summary</option>
+              <option value="operational">Operational</option>
+              <option value="raw">Raw</option>
+            </select>
+          </label>
+          <label className="ar-stream-filter__select-label">
             <span className="sr-only">Activity category</span>
             <select
               value={typeFilter}
@@ -598,9 +937,65 @@ function M11CActivityStream({
               ))}
             </select>
           </label>
+          {/* AR-DATE-002: date-window filter lives in the icon dropdown.
+              All visual values map to Vestara tokens; Tailwind is the renderer only. */}
+          <ActivityDateFilter
+            startDate={startDate}
+            endDate={endDate}
+            preset={datePreset}
+            dateActive={dateActive}
+            dateRangeValid={dateRangeValid}
+            onChange={handleDateChange}
+            onClear={clearDates}
+          />
           {streamHeaderAction}
         </div>
       </div>
+
+      {/* AR-DATE-001: invalid ranges pause the date predicate instead of swapping bounds. */}
+      {dateActive && !dateRangeValid && (
+        <div
+          className="ar-banner ar-banner--warn"
+          role="status"
+          aria-live="polite"
+          aria-label="Invalid date range"
+        >
+          <span className="min-w-0 flex-1">From date is after To date — date filter paused until fixed.</span>
+        </div>
+      )}
+
+      {/* AR-DATE-001: date windows apply over recovered items; older history may still be loading. */}
+      {dateActive && dateRangeValid && (hasMoreHistory || loadingHistory) && (
+        <div
+          className="ar-banner ar-banner--info"
+          role="status"
+          aria-live="polite"
+          aria-label="Older history may still be loading for this date window"
+        >
+          <span className="min-w-0 flex-1">Older history may still be loading — use Load older history to extend coverage.</span>
+        </div>
+      )}
+
+      {/* Density visibility (AR-STREAM-RELOAD-001): the density view is
+          presentation-only, so records it hides are announced with their
+          recovered count — never as missing, unloaded, failed, or
+          unavailable. Bounded single row with a reveal action. */}
+      {hasDensityFilter && (
+        <div
+          className="ar-banner ar-banner--info"
+          role="status"
+          aria-live="polite"
+          aria-label={`${densityHidden} ${densityHidden === 1 ? 'activity' : 'activities'} hidden by ${densityViewLabel(density)} view`}
+        >
+          <span className="min-w-0 flex-1">
+            {densityHidden} {densityHidden === 1 ? 'activity' : 'activities'} hidden by {densityViewLabel(density)}{' '}
+            view
+          </span>
+          <button type="button" onClick={showAllDensity} className="ar-stream-filter__tab">
+            Show all
+          </button>
+        </div>
+      )}
 
       <div
         ref={scrollRef}
@@ -613,18 +1008,48 @@ function M11CActivityStream({
         tabIndex={0}
       >
         {loading ? (
-          <div className="flex flex-col gap-2 py-1">
+          <div role="status" aria-live="polite" aria-label="Connecting to Activity Room" className="flex flex-col gap-2 py-1">
+            <span className="ar-kicker">Connecting — loading recent activity…</span>
             {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} className="ar-skeleton" />
+              <div key={i} aria-hidden="true" className="ar-skeleton" />
             ))}
           </div>
         ) : streamEmpty ? (
-          <EmptyState
-            icon={<span className="text-2xl">❖</span>}
-            title="Waiting for activity…"
-            description="No activity yet. Start a workflow and its progress will appear here in real time."
-            className="ar-empty"
-          />
+          isFilteredEmpty ? (
+            <EmptyState
+              icon={<FilterAltOffOutlinedIcon sx={{ fontSize: SIZING.icon.lg }} />}
+              title={filteredEmptyTitle}
+              description="Nothing in this window is eligible for the activity list. Tool operations remain recoverable inside their owning activity as execution evidence."
+              action={
+                <span className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={clearAllFilters}
+                    className="min-h-11 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+                  >
+                    Clear search &amp; filters
+                  </button>
+                  {hasDensityFilter && (
+                    <button
+                      type="button"
+                      onClick={showAllDensity}
+                      className="min-h-11 rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-panel)] px-3 text-xs font-semibold text-[var(--vestara-text-secondary)]"
+                    >
+                      Show all
+                    </button>
+                  )}
+                </span>
+              }
+              className="ar-empty"
+            />
+          ) : (
+            <EmptyState
+              icon={<NightlightOutlinedIcon sx={{ fontSize: SIZING.icon.lg }} />}
+              title="Room is quiet — nothing running"
+              description="Healthy idle state. New workflow progress, messages, and evidence will stream here. Use the composer below to start work."
+              className="ar-empty"
+            />
+          )
         ) : (
           <>
             {/* Dedicated virtualized region: the sizer reserves preambleH +
@@ -656,25 +1081,31 @@ function M11CActivityStream({
                     {attentionEntries.map((entry) => {
                       const tone = attentionTone(entry);
                       return (
-                        <button
+                        <div
                           key={entry.attentionId}
-                          type="button"
                           className="ar-attention-row"
-                          onClick={() => onOpenAttention?.(entry)}
-                          title={`${attentionTypeLabel(entry)} · ${entry.message}`}
+                          role="listitem"
                         >
-                          <span className={`ar-attention-row__icon ar-attention-row__icon--${tone}`} aria-hidden="true">
-                            <AttentionMaterialIcon entry={entry} tone={tone} />
-                          </span>
-                          <span className="ar-attention-row__main">
-                            <span className={`ar-attention-row__type ar-attention-row__type--${tone}`}>
-                              {attentionTypeLabel(entry)}
+                          <button
+                            type="button"
+                            className="ar-attention-row__detail"
+                            onClick={() => onOpenAttention?.(entry)}
+                            disabled={!onOpenAttention}
+                            title={`${attentionTypeLabel(entry)} · ${entry.message}`}
+                          >
+                            <span className={`ar-attention-row__icon ar-attention-row__icon--${tone}`} aria-hidden="true">
+                              <AttentionMaterialIcon entry={entry} tone={tone} />
                             </span>
-                            <span className="ar-attention-row__subject" title={attentionSubject(entry)}>
-                              {attentionSubject(entry)}
+                            <span className="ar-attention-row__main">
+                              <span className={`ar-attention-row__type ar-attention-row__type--${tone}`}>
+                                {attentionTypeLabel(entry)}
+                              </span>
+                              <span className="ar-attention-row__subject" title={attentionSubject(entry)}>
+                                {attentionSubject(entry)}
+                              </span>
+                              <span className="ar-attention-row__reason" title={entry.message}>{entry.message}</span>
                             </span>
-                            <span className="ar-attention-row__reason" title={entry.message}>{entry.message}</span>
-                          </span>
+                          </button>
                           <span className="ar-attention-row__statuswrap">
                             <span
                               className={`ar-attention-row__status ar-attention-row__status--${tone}`}
@@ -695,13 +1126,11 @@ function M11CActivityStream({
                               {entry.sourceRecordId.slice(0, 12)}
                             </span>
                           </span>
-                          {/* Attach as reference — separate action from detail
-                              navigation. A span (not a nested button: the row
-                              itself is a button) with button semantics. Attaches
-                              the structured AttentionEntry, never sends. */}
-                          <span
-                            role="button"
-                            tabIndex={0}
+                          {/* Attach as reference — a separate action from detail
+                              navigation. It attaches the structured entry and
+                              never sends or mutates attention. */}
+                          <button
+                            type="button"
                             aria-label={`Attach ${attentionTypeLabel(entry)} ${attentionSubject(entry)} as reference`}
                             title="Attach as reference"
                             className="ar-attention-row__attach"
@@ -709,18 +1138,11 @@ function M11CActivityStream({
                               e.stopPropagation();
                               onAttachAttention?.(entry);
                             }}
-                            onKeyDown={(e) => {
-                              if (e.key === 'Enter' || e.key === ' ') {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                onAttachAttention?.(entry);
-                              }
-                            }}
                           >
                             <AddLinkOutlinedIcon className="ar-attention-row__attach-icon" aria-hidden="true" />
-                          </span>
+                          </button>
                           <span className="ar-attention-row__arrow" aria-hidden="true">›</span>
-                        </button>
+                        </div>
                       );
                     })}
                   </div>
@@ -730,7 +1152,7 @@ function M11CActivityStream({
             {attentionMode && <div className="ar-attention-section__recent">Recent Activity</div>}
 
               {/* Load older history button */}
-              {hasMore && onLoadOlder && (
+              {(hasMore || hasMoreHistory) && onLoadOlder && (
                 <div className="ar-load">
                   <span className="ar-load__rule" aria-hidden="true" />
                   <button
