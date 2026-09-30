@@ -474,6 +474,51 @@ export function projectEditObservation(
   });
 }
 
+/**
+ * `message.part.updated` with an OpenCode `write` tool part → structured write
+ * detail. The runtime supplies the final content, but not an authoritative
+ * patch or before-image; those capabilities remain unavailable.
+ */
+export function projectWriteObservation(
+  event: OpenCodeEventLike,
+  repoDir?: string,
+): AssistantExecutionDetail | undefined {
+  if (!isEvent(event, EVENT.messagePartUpdated)) return undefined;
+  const payload = event.payload ?? {};
+  const part = payload.part as Record<string, unknown> | undefined;
+  if (part?.type !== 'tool' || part.tool !== 'write') return undefined;
+  const callID = str(part.callID);
+  if (!callID) return undefined;
+  const state = (part.state ?? {}) as Record<string, unknown>;
+  const input = state.input as Record<string, unknown> | undefined;
+  const filePath = str(input?.filePath);
+  if (!filePath) return undefined;
+  const status = str(state.status);
+  const time = state.time as Record<string, unknown> | undefined;
+  const startedAt = num(time?.start);
+  const endedAt = num(time?.end);
+  const durationMs = startedAt !== undefined && endedAt !== undefined ? Math.max(0, endedAt - startedAt) : undefined;
+  const envelopeState: 'running' | 'completed' | 'failed' =
+    status === 'error' ? 'failed' : status === 'completed' ? 'completed' : 'running';
+  const finalContent = typeof input?.content === 'string' ? input.content : undefined;
+
+  return projectDetail({
+    ...baseEnvelope(callID, envelopeState, payload, 'write'),
+    kind: 'write',
+    tool: 'write',
+    file: relativizeForEvidence(filePath, repoDir),
+    fileProvenance: 'runtime-provided',
+    ...(envelopeState === 'completed' && finalContent !== undefined ? { finalContent } : {}),
+    contentProvenance: finalContent !== undefined && envelopeState === 'completed' ? 'runtime-provided' : 'unavailable',
+    diffRepresentation: 'unavailable',
+    diffProvenance: 'unavailable',
+    beforeAfterProvenance: 'unavailable',
+    durationMs,
+    timestamp: endedAt ?? num(payload.time) ?? Date.now(),
+    ...(envelopeState === 'failed' ? { error: str(state.error) ?? 'Write failed' } : {}),
+  });
+}
+
 /** `permission.v2.asked` / `permission.asked` → requested permission (allowlisted fields only). */
 export function projectPermissionRequested(event: OpenCodeEventLike): AssistantExecutionDetail | undefined {
   if (!isEvent(event, EVENT.permissionAsked) && !isEvent(event, EVENT.permissionAskedV1)) return undefined;

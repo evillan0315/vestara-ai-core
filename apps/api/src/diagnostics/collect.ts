@@ -18,7 +18,7 @@ import * as path from 'node:path';
 const RUN_TIMEOUT_MS = 4000;
 
 /** Run a command; returns stdout trimmed, or null on any failure. */
-export function run(cmd: string, args: string[], timeoutMs = RUN_TIMEOUT_MS): string | null {
+export function run(cmd: string, args: readonly string[], timeoutMs = RUN_TIMEOUT_MS): string | null {
   try {
     const res = execFileSync(cmd, args, {
       encoding: 'utf8',
@@ -621,36 +621,140 @@ export function collectGit(repoPath: string): GitStatus {
 // ─── Tool versions (cached) ───────────────────────────────────
 
 const VERSION_CACHE_TTL_MS = 60_000;
-let versionCache: { at: number; versions: Record<string, string | null> } | null = null;
 
-export function collectVersions(): Record<string, string | null> {
-  const now = Date.now();
-  if (versionCache && now - versionCache.at < VERSION_CACHE_TTL_MS) {
-    return versionCache.versions;
+export type ToolResolutionSource = 'workspace-local' | 'host-path' | 'missing';
+
+export interface ResolvedTool {
+  capability: string;
+  executable: string | null;
+  source: ToolResolutionSource;
+}
+
+export interface ToolCandidate {
+  executable: string;
+  versionArgs: readonly string[];
+  allowedSources: readonly Exclude<ToolResolutionSource, 'missing'>[];
+}
+
+export interface ToolDescriptor {
+  capability: string;
+  executable: string;
+  versionArgs: readonly string[];
+  allowedSources: readonly Exclude<ToolResolutionSource, 'missing'>[];
+  alternatives?: readonly ToolCandidate[];
+}
+
+/** The diagnostic contract's stable capability names and bounded probe commands. */
+export const TOOL_DESCRIPTORS: readonly ToolDescriptor[] = [
+  { capability: 'node', executable: 'node', versionArgs: ['-v'], allowedSources: ['host-path'] },
+  { capability: 'npm', executable: 'npm', versionArgs: ['-v'], allowedSources: ['host-path'] },
+  { capability: 'pnpm', executable: 'pnpm', versionArgs: ['-v'], allowedSources: ['host-path'] },
+  { capability: 'yarn', executable: 'yarn', versionArgs: ['-v'], allowedSources: ['host-path'] },
+  {
+    capability: 'tsc',
+    executable: 'tsc',
+    versionArgs: ['--version'],
+    allowedSources: ['workspace-local', 'host-path'],
+  },
+  { capability: 'python', executable: 'python3', versionArgs: ['--version'], allowedSources: ['host-path'] },
+  { capability: 'git', executable: 'git', versionArgs: ['--version'], allowedSources: ['host-path'] },
+  { capability: 'docker', executable: 'docker', versionArgs: ['--version'], allowedSources: ['host-path'] },
+  {
+    capability: 'docker-compose',
+    executable: 'docker',
+    versionArgs: ['compose', 'version'],
+    allowedSources: ['host-path'],
+    alternatives: [{ executable: 'docker-compose', versionArgs: ['version'], allowedSources: ['host-path'] }],
+  },
+  {
+    capability: 'kubernetes',
+    executable: 'kubectl',
+    versionArgs: ['version', '--client', '-o', 'json'],
+    allowedSources: ['host-path'],
+  },
+  { capability: 'github-cli', executable: 'gh', versionArgs: ['--version'], allowedSources: ['host-path'] },
+  { capability: 'openssl', executable: 'openssl', versionArgs: ['version'], allowedSources: ['host-path'] },
+  { capability: 'sqlite', executable: 'sqlite3', versionArgs: ['--version'], allowedSources: ['host-path'] },
+] as const;
+
+interface VersionCache {
+  at: number;
+  versions: Record<string, string | null>;
+  resolved: Record<string, ResolvedTool>;
+}
+
+let versionCache: { repoPath: string; value: VersionCache } | null = null;
+
+function isContained(root: string, candidate: string): boolean {
+  const relative = path.relative(root, candidate);
+  return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
+}
+
+function workspaceExecutable(repoPath: string, executable: string): string | null {
+  const root = path.resolve(repoPath);
+  const candidate = path.resolve(root, 'node_modules', '.bin', executable);
+  if (!isContained(root, candidate)) return null;
+  try {
+    const realRoot = fs.realpathSync(root);
+    const realCandidate = fs.realpathSync(candidate);
+    if (!isContained(realRoot, realCandidate)) return null;
+    fs.accessSync(realCandidate, fs.constants.X_OK);
+    return realCandidate;
+  } catch {
+    return null;
   }
-  const probe = (cmd: string, args: string[] = ['--version']) => {
-    const out = run(cmd, args, 3000);
-    if (out === null) return null;
-    const first = out.split('\n')[0];
-    return first.length > 80 ? first.slice(0, 80) : first;
-  };
-  const versions: Record<string, string | null> = {
-    node: probe('node', ['-v']),
-    npm: probe('npm', ['-v']),
-    pnpm: probe('pnpm', ['-v']),
-    yarn: probe('yarn', ['-v']),
-    tsc: probe('tsc', ['--version']),
-    python: probe('python3', ['--version']),
-    git: probe('git', ['--version']),
-    docker: probe('docker', ['--version']),
-    'docker-compose': probe('docker-compose', ['version']),
-    kubernetes: probe('kubectl', ['version', '--client', '-o', 'json']),
-    'github-cli': probe('gh', ['--version']),
-    openssl: probe('openssl', ['version']),
-    sqlite: probe('sqlite3', ['--version']),
-  };
-  versionCache = { at: now, versions };
-  return versions;
+}
+
+export function resolveTool(
+  descriptor: ToolDescriptor,
+  repoPath: string,
+): { resolved: ResolvedTool; version: string | null } {
+  const candidates = [descriptor, ...(descriptor.alternatives ?? [])];
+  for (const candidate of candidates) {
+    for (const source of candidate.allowedSources) {
+      const executable =
+        source === 'workspace-local' ? workspaceExecutable(repoPath, candidate.executable) : candidate.executable;
+      if (!executable) continue;
+      const out = run(executable, candidate.versionArgs, 3000);
+      if (out === null) continue;
+      const first = out.split('\n')[0];
+      return {
+        resolved: { capability: descriptor.capability, executable, source },
+        version: first.length > 80 ? first.slice(0, 80) : first,
+      };
+    }
+  }
+  return { resolved: { capability: descriptor.capability, executable: null, source: 'missing' }, version: null };
+}
+
+export function collectToolResolution(repoPath: string): Record<string, ResolvedTool> {
+  return collectToolchain(repoPath).resolved;
+}
+
+function collectToolchain(repoPath: string): VersionCache {
+  const now = Date.now();
+  const resolvedRepoPath = path.resolve(repoPath);
+  if (
+    versionCache &&
+    versionCache.repoPath === resolvedRepoPath &&
+    now - versionCache.value.at < VERSION_CACHE_TTL_MS
+  ) {
+    return versionCache.value;
+  }
+  const versions: Record<string, string | null> = {};
+  const resolved: Record<string, ResolvedTool> = {};
+  for (const descriptor of TOOL_DESCRIPTORS) {
+    const result = resolveTool(descriptor, resolvedRepoPath);
+    versions[descriptor.capability] = result.version;
+    resolved[descriptor.capability] = result.resolved;
+  }
+  const value = { at: now, versions, resolved };
+  versionCache = { repoPath: resolvedRepoPath, value };
+  return value;
+}
+
+export function collectVersions(repoPath: string): Record<string, string | null> {
+  return collectToolchain(repoPath).versions;
 }
 
 // ─── Processes ────────────────────────────────────────────────

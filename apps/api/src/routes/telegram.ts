@@ -9,6 +9,7 @@
  *   POST /api/telegram/simulate       — Simulate a Telegram message (testing)
  *   POST /api/telegram/pairing        — Create pairing request
  *   POST /api/telegram/pairing/approve — Approve pairing with token
+ *   POST /api/telegram/enroll         — Explicitly bind an existing pairing
  *   GET  /api/telegram/bindings       — List all bindings (diagnostic)
  *   GET  /api/telegram/chats          — Linked chats for the forward picker
  *   POST /api/telegram/forward        — Forward an Activity Room message to Telegram
@@ -49,6 +50,9 @@ import {
   type TunnelProviderKind,
   waitForHostResolution,
 } from '@vestara/telegram-integration';
+import { resolveAssistantIdentity } from '../assistant-identity';
+import { requireRole } from '../auth';
+import { enrollTelegramIdentity, resolveTelegramIdentity } from '../telegram-identity';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -235,6 +239,14 @@ function getWorkspaceBindingService(): TelegramWorkspaceBindingService {
   return workspaceBindingService;
 }
 
+/** Re-read workspace state using the canonical principal, never the pairing ID. */
+export function rereadCanonicalWorkspace(
+  bindings: Pick<TelegramWorkspaceBindingService, 'getPreferredWorkspace'>,
+  canonicalPrincipalId: string,
+) {
+  return bindings.getPreferredWorkspace(canonicalPrincipalId);
+}
+
 function getConversationBindingService(): TelegramConversationBindingService {
   if (!conversationBindingService) {
     conversationBindingService = new TelegramConversationBindingService({ store: store ?? undefined });
@@ -294,8 +306,11 @@ function getTextRouter(ctx: WorkspaceContext): GlobalAssistantTextRouter | null 
           // Per-turn canonical binding: the SAME live AgentDefinition read
           // the Activity Room performs. No Telegram-local model authority.
           const binding = await resolveTelegramAgentBinding(ctx.agents, options?.agentId);
+          const assistantIdentity = await resolveAssistantIdentity(ctx, options?.actor);
           const result = await ctx.conversationService.sendMessage(conversationId, content, {
             agentId: binding.agentId,
+            ...(options?.actor ? { actor: options.actor } : {}),
+            ...(assistantIdentity ? { assistantIdentity } : {}),
             ...(binding.provider ? { provider: binding.provider } : {}),
             ...(binding.model ? { model: binding.model } : {}),
           });
@@ -312,8 +327,11 @@ function getTextRouter(ctx: WorkspaceContext): GlobalAssistantTextRouter | null 
         // channel, provider/model resolved server-side per turn.
         streamMessage: async function* (conversationId, content, options) {
           const binding = await resolveTelegramAgentBinding(ctx.agents, options?.agentId);
+          const assistantIdentity = await resolveAssistantIdentity(ctx, options?.actor);
           const stream = ctx.conversationService.sendMessageStream(conversationId, content, {
             agentId: binding.agentId,
+            ...(options?.actor ? { actor: options.actor } : {}),
+            ...(assistantIdentity ? { assistantIdentity } : {}),
             ...(binding.provider ? { provider: binding.provider } : {}),
             ...(binding.model ? { model: binding.model } : {}),
           });
@@ -730,32 +748,45 @@ async function processTelegramMessage(
     };
   }
 
+  // A Telegram-local pairing is not itself a canonical human identity. The
+  // explicit pairing principal must resolve through HumanPrincipalStorage;
+  // otherwise this request remains unresolved and cannot enter routing.
+  const resolvedIdentity = await resolveTelegramIdentity(identity, ctx.humanPrincipals);
+  if (!resolvedIdentity) {
+    return {
+      status: 'unresolved-identity',
+      error: `Telegram user ${telegramUserId} has no canonical Vestara principal binding.`,
+    };
+  }
+  const canonicalPrincipalId = resolvedIdentity.principal.id;
+  const canonicalBinding = { ...identity, principalId: canonicalPrincipalId };
+
   // 2. Resolve workspace — auto-bind on first message. Pairing already
   // required operator approval, so an approved principal messaging the
   // bot is bound to the current workspace (first binding is preferred,
   // mirroring the simulate path). Without this, paired users hit a
   // dead-end `no-workspace` silence.
-  let workspace = wsBindings.getPreferredWorkspace(identity.principalId);
+  let workspace = wsBindings.getPreferredWorkspace(canonicalPrincipalId);
   if (!workspace) {
     const currentWorkspaceId = path.basename(ctx.repoPath) || 'workspace';
     try {
-      wsBindings.bindWorkspace(identity.principalId, currentWorkspaceId, currentWorkspaceId);
+      wsBindings.bindWorkspace(canonicalPrincipalId, currentWorkspaceId, currentWorkspaceId);
     } catch {
       // Already bound (race) — fall through to re-read.
     }
-    workspace = wsBindings.getPreferredWorkspace(identity.principalId);
+    workspace = rereadCanonicalWorkspace(wsBindings, canonicalPrincipalId);
   }
   if (!workspace) {
     return {
       status: 'no-workspace',
-      error: `No workspace bound for principal ${identity.principalId}.`,
+      error: `No workspace bound for principal ${canonicalPrincipalId}.`,
     };
   }
 
   // 3. Resolve or create conversation binding, scoped to the resolved
   // workspace so a chat bound elsewhere can never leak across workspaces.
   const chatId = message.conversation.externalId;
-  let conversation = convBindings.getActiveBinding(chatId, identity.principalId, workspace.workspaceId);
+  let conversation = convBindings.getActiveBinding(chatId, canonicalPrincipalId, workspace.workspaceId);
 
   if (!conversation) {
     // Auto-create a new Vestara conversation
@@ -767,9 +798,9 @@ async function processTelegramMessage(
     }
 
     // Create a new Vestara conversation
-    const vestaraConv = await ctx.conversationService.createConversation(identity.principalId);
+    const vestaraConv = await ctx.conversationService.createConversation(canonicalPrincipalId);
     conversation = convBindings.createBinding({
-      principalId: identity.principalId,
+      principalId: canonicalPrincipalId,
       workspaceId: workspace.workspaceId,
       telegramChatId: chatId,
       telegramChatType: message.conversation.type === 'channel' ? 'group' : message.conversation.type,
@@ -860,7 +891,7 @@ async function processTelegramMessage(
     },
   };
 
-  const routeResult = await router.routeStream(message, identity, workspace, conversation, sink);
+  const routeResult = await router.routeStream(message, canonicalBinding, workspace, conversation, sink);
   if (typingTimer) clearInterval(typingTimer);
 
   if (routeResult.status === 'queued') {
@@ -993,15 +1024,15 @@ export async function handleTelegramRoute(
       if (!pairing.isPaired(telegramUserId)) {
         // Auto-approve for simulation mode
         const request = pairing.createPairingRequest(telegramUserId, displayName);
-        const principalId = `sim-principal-${telegramUserId}`;
-        pairing.approvePairing(request.token, principalId, displayName);
+        const principal = await ctx.humanPrincipals.create();
+        pairing.approvePairing(request.token, principal.id, displayName);
 
         // Auto-bind to current workspace
         const wsBindings = getWorkspaceBindingService();
         const currentWorkspaceId = path.basename(ctx.repoPath) || 'workspace';
         const currentWorkspaceName = currentWorkspaceId;
         try {
-          wsBindings.bindWorkspace(principalId, currentWorkspaceId, currentWorkspaceName);
+          wsBindings.bindWorkspace(principal.id, currentWorkspaceId, currentWorkspaceName);
         } catch {
           // already bound — ignore
         }
@@ -1062,6 +1093,41 @@ export async function handleTelegramRoute(
         });
       } catch (error) {
         json(res, 400, { error: error instanceof Error ? error.message : 'Pairing failed' });
+      }
+      return true;
+    }
+
+    // ─── POST /api/telegram/enroll ──────────────────────────
+    // Explicit operator enrollment for an already-paired Telegram subject.
+    // The target canonical principal is caller-selected; no display-name or
+    // host identity matching is accepted.
+    if (method === 'POST' && p === '/api/telegram/enroll') {
+      if (!requireRole(req, ctx, 'admin', res)) return true;
+      const body = JSON.parse(await readBody(req)) as {
+        telegramUserId?: string;
+        principalId?: string;
+      };
+
+      if (!body.telegramUserId || !body.principalId) {
+        json(res, 400, { error: 'telegramUserId and principalId are required' });
+        return true;
+      }
+
+      try {
+        const enrollment = await enrollTelegramIdentity(
+          body.telegramUserId,
+          body.principalId,
+          getPairingService(),
+          ctx.humanPrincipals,
+        );
+        json(res, 200, {
+          status: 'enrolled',
+          telegramUserId: enrollment.externalIdentity.subject,
+          provider: enrollment.externalIdentity.provider,
+          principalId: enrollment.principal.id,
+        });
+      } catch (error) {
+        json(res, 400, { error: error instanceof Error ? error.message : 'Enrollment failed' });
       }
       return true;
     }

@@ -4,6 +4,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
@@ -112,6 +113,8 @@ import {
   ExplainService,
   HarnessSession,
   HarnessTaskDispatcher,
+  HumanIdentityRepresentationStorage,
+  HumanPrincipalStorage,
   ImplementationService,
   KnowledgeGraphStorage,
   MemoryService,
@@ -147,18 +150,24 @@ import { createDefaultAssistantPolicy } from './assistant-capability-policy';
 import { createAssistantCodexExecutor } from './assistant-codex-adapter';
 import { AssistantConversationSessionRegistry } from './assistant-conversation-sessions';
 import { AssistantInteractionBroker } from './assistant-interaction-broker';
-import { createAssistantOpenCodeExecutor } from './assistant-opencode-adapter';
+import {
+  createAssistantOpenCodeExecutor,
+  createRuntimeQuestionIngestHook,
+  createRuntimeQuestionResponseHook,
+} from './assistant-opencode-adapter';
 import { startActivityRoomOrganizationalBridge } from './bridges/activity-room-organizational-bridge';
 import { ChangeEventProjector } from './bridges/change-event-bridge';
 import { createHarnessApprovalInteractionBridge } from './bridges/harness-approval-interaction-bridge';
 import { createHarnessEngineeringEventBridge } from './bridges/harness-engineering-event-bridge';
 import { OrchestrationEventBridge } from './bridges/orchestration-event-bridge';
 import { createWorkflowDecisionInteractionBridge } from './bridges/workflow-decision-interaction-bridge';
+import { ComposerSuggestionService } from './composer-suggestion-service';
 import { resolveVisualScenarios } from './evidence/visual-scenarios.js';
 import { ExternalRuntimeService } from './external-runtime/service';
 import { EngineeringGraphService } from './graph/service';
 import * as messageReceipts from './message-receipts';
 import { type OpenCodeRuntimeService, openCodeRuntimeService } from './opencode-runtime-service';
+import { getM11ARoom } from './routes/activity-room-m11a';
 import { restoreProviderConfigurations } from './routes/providers';
 import { ApiRuntime } from './runtime/api-runtime';
 import { SessionStreamAccumulator } from './session-stream';
@@ -174,6 +183,7 @@ export interface WorkspaceContext {
   routingAssignments: FileRoutingAssignmentStore;
   conversationSessions: SqliteConversationSessionStore;
   conversationService: ConversationService;
+  composerSuggestionService: ComposerSuggestionService;
   assistantConversationSessions: AssistantConversationSessionRegistry;
   agentThreadStore: FileThreadStore;
   agentTools: ToolRuntime;
@@ -264,6 +274,8 @@ export interface WorkspaceContext {
   /** GA-RUNTIME-001 Addendum B: interactive permission/question decisions. */
   assistantInteractionBroker: import('./assistant-interaction-broker').AssistantInteractionBroker;
   users: UserStore;
+  humanPrincipals: HumanPrincipalStorage;
+  humanIdentityRepresentations: HumanIdentityRepresentationStorage;
   audit: AuditStore;
   publish: (event: UiEvent) => void;
   onMilestoneUpdate?: (version: string) => void;
@@ -272,8 +284,12 @@ export interface WorkspaceContext {
 }
 
 type PublishFn = (event: UiEvent) => void;
+type ComposerSuggestionExecutor = ProviderExecutor & { readonly suggestionTransportAvailable?: boolean };
 
-async function openSqlDb(dbPath: string, migrateRaw?: (raw: import('sql.js').Database) => void): Promise<unknown> {
+export async function openSqlDb(
+  dbPath: string,
+  migrateRaw?: (raw: import('sql.js').Database) => void,
+): Promise<unknown> {
   const path = await import('node:path');
   const initSqlJs = (await import('sql.js')).default;
   const sqlJsDir = path.dirname(require.resolve('sql.js'));
@@ -290,21 +306,37 @@ async function openSqlDb(dbPath: string, migrateRaw?: (raw: import('sql.js').Dat
   // an open transaction — incompatible with the migration runner's
   // per-step transactions.
   if (migrateRaw) migrateRaw(db);
+  let expectedDiskDigest = fs.existsSync(dbPath)
+    ? createHash('sha256').update(fs.readFileSync(dbPath)).digest('hex')
+    : null;
+  const persistOwnedDb = (): void => {
+    const currentBytes = fs.existsSync(dbPath) ? fs.readFileSync(dbPath) : null;
+    const currentDigest = currentBytes ? createHash('sha256').update(currentBytes).digest('hex') : null;
+    if (currentDigest !== expectedDiskDigest) {
+      throw new Error(`plans.db changed outside the API writer; refusing stale snapshot persistence: ${dbPath}`);
+    }
+    const data = Buffer.from(db.export());
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fs.writeFileSync(dbPath, data);
+    expectedDiskDigest = createHash('sha256').update(data).digest('hex');
+  };
+  const isWriteSql = (sql: string): boolean => {
+    const trimmed = sql.trim().toUpperCase();
+    return /^(INSERT|UPDATE|DELETE|REPLACE|CREATE|DROP|ALTER|VACUUM)\b/.test(trimmed);
+  };
   // Auto-persist: wrap exec to trigger disk write after every DML
   const origExec = db.exec.bind(db);
   db.exec = (sql: string) => {
     const result = origExec(sql);
     // Only persist on write operations
-    const trimmed = sql.trim().toUpperCase();
-    if (
-      trimmed.startsWith('INSERT') ||
-      trimmed.startsWith('UPDATE') ||
-      trimmed.startsWith('DELETE') ||
-      trimmed.startsWith('CREATE') ||
-      trimmed.startsWith('DROP')
-    ) {
-      persistDb(db, dbPath);
-    }
+    if (isWriteSql(sql)) persistOwnedDb();
+    return result;
+  };
+  // Cover direct Database#run writes used by several shared plans stores.
+  const origRun = db.run.bind(db);
+  db.run = (sql: string, params?: unknown) => {
+    const result = params === undefined ? origRun(sql) : origRun(sql, params);
+    if (isWriteSql(sql)) persistOwnedDb();
     return result;
   };
   // Also wrap prepare-based writes via a patched prepare
@@ -320,13 +352,16 @@ async function openSqlDb(dbPath: string, migrateRaw?: (raw: import('sql.js').Dat
       }
       return result;
     };
+    const origStatementRun = stmt.run.bind(stmt);
+    stmt.run = (...args: unknown[]) => {
+      const result = origStatementRun(...args);
+      if (isWriteSql(sql)) persistOwnedDb();
+      return result;
+    };
     const origFree = stmt.free.bind(stmt);
     stmt.free = () => {
       origFree();
-      const trimmed = sql.trim().toUpperCase();
-      if (trimmed.startsWith('INSERT') || trimmed.startsWith('UPDATE') || trimmed.startsWith('DELETE')) {
-        persistDb(db, dbPath);
-      }
+      if (isWriteSql(sql)) persistOwnedDb();
     };
     return stmt;
   };
@@ -690,6 +725,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   const verifications = new VerificationStorage(db);
   const collaboration = new CollaborationStorage(db);
   const users = new UserStore(db);
+  const humanPrincipals = new HumanPrincipalStorage(db);
+  const humanIdentityRepresentations = new HumanIdentityRepresentationStorage(db, humanPrincipals);
   const audit = new AuditStore(db);
   const knowledgeGraph = new KnowledgeGraphStorage(db);
   const memory = new MemoryService({
@@ -843,6 +880,14 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
   // failure fail-closes with a clear error — there is deliberately NO silent
   // fallback to a direct cloud provider.
   let openCodeConversationExecutor: ProviderExecutor;
+  // COMPOSER-SUGGEST-PROBE-20260929-01: suggestion inference bypasses the
+  // agent-turn executor entirely. The agent turn (session creation + event
+  // projection + permission/question handling) cost ~8.5s for a `no_match`
+  // and leaks single-use sessions; it is not a viable per-keystroke path.
+  // Suggestions use the runtime provider's native `json_schema` format on an
+  // ephemeral session (aborted in `finally`), with no tools map, no persona,
+  // and no Activity Room mirror.
+  let composerSuggestionExecutor: ComposerSuggestionExecutor;
   // GA-RUNTIME-001: server-authoritative provider/model resolution + bounded
   // conversation → session mapping + interactive permission/question broker.
   // Declared here so the returned WorkspaceContext exposes them to routes.
@@ -895,6 +940,23 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
         assistantBindingResolver.resolve({ providerId: requestedProvider, modelId: requestedModel }),
       sessionRegistry: assistantConversationSessions,
       interactionBroker: assistantInteractionBroker,
+      // AR-TOOL-ASK-003A4A: durable ingestion for `question.asked`, bound to
+      // the already-opened M11A RuntimeInteraction authority. Resolved lazily
+      // at ask time (M11A initializes after this composition site): no new
+      // store instance per executor/turn/question, no non-null assertion, and
+      // the preserved broker + reply/reject path below is untouched.
+      runtimeQuestionIngest: createRuntimeQuestionIngestHook({
+        getStore: () => getM11ARoom().runtimeQuestions,
+        reportFailure: (message, detail) => {
+          console.warn(`[assistant] ${message} ${JSON.stringify(detail)}`);
+        },
+      }),
+      runtimeQuestionResponse: createRuntimeQuestionResponseHook({
+        getStore: () => getM11ARoom().runtimeQuestions,
+        reportFailure: (message, detail) => {
+          console.warn(`[assistant] ${message} ${JSON.stringify(detail)}`);
+        },
+      }),
       // GA-CAP-003: fallback boundary for executor paths without a persona
       // resolver. Per-turn personas carry their own agent-derived policy.
       // repositoryDir originates from canonical resolveRepoRoot() — never .vestara, cwd, or UI state.
@@ -910,10 +972,34 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       eventBus: kernel.eventBus,
     });
     log('assistant-execution: local OpenCode adapter active (127.0.0.1:4096)');
+    composerSuggestionExecutor = new OpenCodeRuntimeProvider({
+      client: ocClient,
+      workspaceId: session.fingerprint.id,
+      directory: abs,
+      // Suggestion bounds: fail fast, never linger. Idle 20s / ceiling 60s
+      // vs the agent turn's 60s/30min defaults — a suggest that stalls is a
+      // `no_match`, not a long-running execution.
+      streamIdleTimeoutMs: 20_000,
+      streamMaxDurationMs: 60_000,
+    });
   } catch (error) {
     const message = `Local OpenCode transport unavailable (${error instanceof Error ? error.message : 'unknown'}) — Floating Assistant requires 127.0.0.1:4096`;
     log(`assistant-execution: ${message}`);
     openCodeConversationExecutor = {
+      async complete() {
+        throw new Error(message);
+      },
+      async *stream() {
+        yield {
+          id: 'oc-transport-unavailable',
+          type: 'error',
+          content: message,
+          metadata: { sequence: 0, timestamp: new Date().toISOString() },
+        };
+      },
+    };
+    composerSuggestionExecutor = {
+      suggestionTransportAvailable: false,
       async complete() {
         throw new Error(message);
       },
@@ -958,6 +1044,13 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     logger: kernel.logger,
     store: conversationStore,
   });
+  const composerSuggestionService = new ComposerSuggestionService(
+    composerSuggestionExecutor,
+    abs,
+    async (conversationId) =>
+      conversationService.getConversation(conversationId, { limit: 6, offset: 0, order: 'desc' }),
+    kernel.logger,
+  );
   log('conversation-service');
 
   // ── Agent Harness — the durable single-turn execution loop. The composition
@@ -1673,6 +1766,7 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     routingAssignments,
     conversationSessions,
     conversationService,
+    composerSuggestionService,
     assistantConversationSessions,
     agentThreadStore,
     agentTools,
@@ -1716,6 +1810,8 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
     verifications,
     collaboration,
     users,
+    humanPrincipals,
+    humanIdentityRepresentations,
     audit,
     knowledgeGraph,
     memory,
@@ -1759,7 +1855,6 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       workflowDecisionInteractionBridge.dispose();
       workspaceUiWatcher?.stop();
       await terminalSessions.dispose();
-      persistDb(db, dbPath);
       await documentation?.dispose();
       await marketplaceManager.shutdown();
       agentThreadStore.close();

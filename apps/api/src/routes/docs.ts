@@ -322,6 +322,38 @@ function getIndex(repoPath: string, roots: DocNode[]): IndexEntry[] {
   return index;
 }
 
+/** Bounded repository-backed documentation search for contextual consumers. */
+export function searchDocumentation(
+  repoPath: string,
+  query: string,
+): Array<{ path: string; title: string; reason: string }> {
+  const { roots } = buildDocTree(repoPath);
+  const index = getIndex(repoPath, roots);
+  const terms = query
+    .toLowerCase()
+    .split(/[^a-z0-9]+/)
+    .filter((term) => term.length >= 3)
+    .slice(0, 12);
+  if (terms.length === 0) return [];
+  return index
+    .map((entry) => {
+      const haystack = [entry.title, entry.path, ...entry.headings, ...entry.tags, ...entry.aliases, entry.text]
+        .join(' ')
+        .toLowerCase();
+      const matches = terms.filter((term) => haystack.includes(term));
+      const titleMatches = terms.filter((term) => `${entry.title} ${entry.path}`.toLowerCase().includes(term));
+      return { entry, score: matches.length + titleMatches.length * 2, matches };
+    })
+    .filter((result) => result.score > 0)
+    .sort((left, right) => right.score - left.score || left.entry.path.localeCompare(right.entry.path))
+    .slice(0, 5)
+    .map(({ entry, matches }) => ({
+      path: entry.path,
+      title: entry.title,
+      reason: `Matches ${matches.slice(0, 4).join(', ')} in the document title, path, headings, tags, or excerpt.`,
+    }));
+}
+
 export async function handleDocsRoute(
   method: string,
   p: string,

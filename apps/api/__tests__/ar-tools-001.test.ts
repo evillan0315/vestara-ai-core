@@ -13,6 +13,7 @@
 
 import type { CompletionRequest } from '@vestara/shared';
 import { describe, expect, it } from 'vitest';
+import { createAssistantCodexExecutor } from '../src/assistant-codex-adapter';
 import { createAssistantOpenCodeExecutor } from '../src/assistant-opencode-adapter';
 import { startActivityRoomOrganizationalBridge } from '../src/bridges/activity-room-organizational-bridge';
 import { createAgentLifecycleBridge } from '../src/bridges/agent-lifecycle-bridge';
@@ -41,11 +42,13 @@ function captureBus() {
   };
 }
 
-function toolStreamClient(sessionId: string) {
+function toolStreamClient(sessionId: string, capturePrompt?: (input: unknown) => void) {
   return {
-    createSession: async () => ({ id: `${sessionId}-fresh` }),
+    createSession: async () => ({ id: sessionId }),
     getSession: async (id: string) => ({ id }),
-    sendMessageAsync: async () => undefined,
+    sendMessageAsync: async (_sessionId: string, input: unknown) => {
+      capturePrompt?.(input);
+    },
     openEventStream: async function* () {
       yield {
         type: 'session.next.tool.called',
@@ -126,6 +129,79 @@ describe('AR-TOOLS-001 adapter mirror', () => {
     });
     const response = await executor.complete(userRequest());
     expect(response.content).toBeDefined();
+  });
+
+  it('fails closed for suggestion-only turns and does not mirror tool observations', async () => {
+    const { emitted, bus } = captureBus();
+    let prompt: unknown;
+    const logs: Array<{ message: string; context?: Record<string, unknown> }> = [];
+    const executor = createAssistantOpenCodeExecutor({
+      client: toolStreamClient('oc-suggestion', (input) => {
+        prompt = input;
+      }) as never,
+      workspaceId: 'workspace-1',
+      directory: '/repo',
+      agent: 'vestara-assistant',
+      resolveProviderModel: async () => undefined,
+      eventBus: bus as never,
+      logger: {
+        info: (message, context) => logs.push({ message, context }),
+        warn: (message, context) => logs.push({ message, context }),
+      },
+    });
+    const response = await executor.complete({
+      ...userRequest(),
+      suggestionOnly: true,
+      suggestionRequestId: 'suggestion-probe-1',
+    });
+    expect(prompt).not.toHaveProperty('tools');
+    expect(emitted.filter((event) => event.type === 'opencode.message.part.updated')).toHaveLength(0);
+    expect(response.content).toContain('forbidden operation');
+    expect(logs.find((entry) => entry.message === 'assistant.turn.started')?.context).toMatchObject({
+      suggestionRequestId: 'suggestion-probe-1',
+      sessionId: 'oc-suggestion',
+    });
+    expect(logs.find((entry) => entry.message === 'assistant.turn.ended')?.context).toMatchObject({
+      suggestionRequestId: 'suggestion-probe-1',
+      sessionId: 'oc-suggestion',
+      termination: 'failed',
+    });
+  });
+
+  it('does not answer permissions for suggestion-only turns', async () => {
+    const { emitted, bus } = captureBus();
+    let permissionResponses = 0;
+    const client = {
+      ...toolStreamClient('oc-suggestion-permission'),
+      respondToPermission: async () => {
+        permissionResponses += 1;
+        return true;
+      },
+      openEventStream: async function* () {
+        yield {
+          type: 'permission.asked',
+          payload: { sessionID: 'oc-suggestion-permission', permissionID: 'per-1', action: 'read' },
+        };
+      },
+    };
+    const executor = createAssistantOpenCodeExecutor({
+      client: client as never,
+      workspaceId: 'workspace-1',
+      directory: '/repo',
+      agent: 'vestara-assistant',
+      resolveProviderModel: async () => undefined,
+      eventBus: bus as never,
+    });
+    await executor.complete({ ...userRequest(), suggestionOnly: true });
+    expect(permissionResponses).toBe(0);
+    expect(emitted.filter((event) => event.type === 'opencode.message.part.updated')).toHaveLength(0);
+  });
+
+  it('fails closed before starting Codex for suggestion-only turns', async () => {
+    const executor = createAssistantCodexExecutor({ directory: '/repo' });
+    await expect(executor.complete({ ...userRequest(), suggestionOnly: true })).rejects.toThrow(
+      'tool-free runtime mode',
+    );
   });
 });
 

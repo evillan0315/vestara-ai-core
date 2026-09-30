@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { projectEditObservation } from '../src/assistant-execution-projection';
+import { projectEditObservation, projectWriteObservation } from '../src/assistant-execution-projection';
 
 function editEvent(overrides: Record<string, unknown> = {}) {
   return {
@@ -72,5 +72,60 @@ describe('OpenCode edit tool projection', () => {
       diffRepresentation: 'unavailable',
       diffProvenance: 'unavailable',
     });
+  });
+});
+
+describe('OpenCode write tool projection', () => {
+  it('preserves the authoritative runtime path and final content without claiming a diff', () => {
+    const detail = projectWriteObservation(
+      {
+        type: 'message.part.updated',
+        payload: {
+          part: {
+            type: 'tool',
+            callID: 'call-write-001f',
+            tool: 'write',
+            state: {
+              status: 'completed',
+              input: {
+                filePath: '/workspace/repo/.tmp/dogfood.txt',
+                content: 'runtime final content',
+              },
+              output: 'Wrote file successfully.',
+            },
+          },
+        },
+      },
+      '/workspace/repo',
+    );
+
+    expect(detail).toMatchObject({
+      kind: 'write',
+      operationId: 'call-write-001f',
+      tool: 'write',
+      file: '.tmp/dogfood.txt',
+      fileProvenance: 'runtime-provided',
+      finalContent: 'runtime final content',
+      contentProvenance: 'runtime-provided',
+      diffRepresentation: 'unavailable',
+      diffProvenance: 'unavailable',
+      beforeAfterProvenance: 'unavailable',
+    });
+  });
+
+  it('fails closed when write input has no authoritative file path', () => {
+    const detail = projectWriteObservation({
+      type: 'message.part.updated',
+      payload: {
+        part: {
+          type: 'tool',
+          callID: 'call-write-no-path',
+          tool: 'write',
+          state: { status: 'completed', input: { content: 'content only' } },
+        },
+      },
+    });
+
+    expect(detail).toBeUndefined();
   });
 });

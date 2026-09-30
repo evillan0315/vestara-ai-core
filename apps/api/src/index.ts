@@ -15,7 +15,7 @@ import { initActivityRoom } from './activity-room';
 import { createAgentLifecycleBridge } from './bridges/agent-lifecycle-bridge';
 import { reconcileStaleCIWaits } from './ci-reconcile';
 import { startOpencodeSupervisor } from './opencode-supervisor';
-import { getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
+import { closeM11AActivityRoom, getM11ARoom, initM11AActivityRoom } from './routes/activity-room-m11a';
 import { collectCIWaits } from './routes/ci';
 import { initTelegramRoute, resolveTelegramActivation } from './routes/telegram';
 import { type ApiServer, createServer } from './server';
@@ -235,6 +235,7 @@ async function main(): Promise<void> {
     if (ciReconcileTimer) clearInterval(ciReconcileTimer);
     if (ciNotifyTimer) clearInterval(ciNotifyTimer);
     server.close();
+    closeM11AActivityRoom();
     await ctx.close();
     const shutdownMs = Math.round(Number(process.hrtime.bigint() - shutdownStart) / 1_000_000);
     console.log(`[api] shutdown complete in ${shutdownMs}ms`);

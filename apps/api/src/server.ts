@@ -22,7 +22,7 @@ import { COMPRESSION_MIN_BYTES, type ContentEncoding, compressBuffer, negotiateE
 import { sendError } from './http/response';
 import { createDispatcher, type RouteGroup } from './http/router';
 import { handleActivityRoomRoute } from './routes/activity-room';
-import { handleM11AActivityRoomRoute } from './routes/activity-room-m11a';
+import { getM11ARoom, handleM11AActivityRoomRoute } from './routes/activity-room-m11a';
 import { createM11BTransport, type M11BTransport } from './routes/activity-room-m11b.js';
 import { handleAgentHarnessRoute } from './routes/agent-harness';
 import { handleAgentsRoute } from './routes/agents';
@@ -32,6 +32,7 @@ import { handleCatalogRoute } from './routes/catalog';
 import { handleCIRoute } from './routes/ci';
 import { attachCodexClient, getCodexClient, handleCodexRoute, rememberThread } from './routes/codex';
 import { handleConversationsRoute } from './routes/conversations';
+import { handleComposerSuggestionsRoute } from './routes/composer-suggestions';
 import { handleDiagnosticsRoute } from './routes/diagnostics';
 import { handleDocsRoute } from './routes/docs';
 import { handleDocumentationRoute } from './routes/documentation';
@@ -44,6 +45,7 @@ import { handleGitHubCIRoute } from './routes/github-ci';
 import { handleGraphRoute } from './routes/graph';
 import { handleHostRoute } from './routes/host';
 import { handleInteractionsRoute } from './routes/interactions';
+import { handleInventoryRoute } from './routes/inventory';
 import { handleMarketplaceRoute } from './routes/marketplace';
 import { handleMediaRoute } from './routes/media';
 import { handleMemoryRoute } from './routes/memory';
@@ -204,7 +206,9 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/projects', '/api/sprints'], handler: handleProjectsRoute },
   { prefixes: ['/api/orders'], handler: handleOrdersRoute },
   { prefixes: ['/api/interactions'], handler: handleInteractionsRoute },
+  { prefixes: ['/api/inventory'], handler: handleInventoryRoute },
   { prefixes: ['/api/conversations'], handler: handleConversationsRoute },
+  { prefixes: ['/api/composer'], handler: handleComposerSuggestionsRoute },
   { prefixes: ['/api/activity-room', '/api/visual-config'], handler: handleActivityRoomRoute },
   { prefixes: ['/api/activity-room/v1'], handler: handleM11AActivityRoomRoute },
   { prefixes: ['/api/agent-threads'], handler: handleAgentHarnessRoute },
@@ -670,28 +674,28 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
   // execution lifecycle) until killed, timed out, or server shutdown.
   const terminalWss = new WebSocketServer({ noServer: true, maxPayload: 1 * 1024 * 1024 });
 
-  // M11B transport will be initialized after server creation
+  // M11A is initialized before createServer() in the API entrypoint. Attach
+  // M11B before the HTTP server can accept upgrades; an async dynamic import
+  // here leaves a window where the WebSocket handshake succeeds but the
+  // subscribe frame has no connection handler and the client hangs forever.
   let m11bTransport: M11BTransport | null = null;
-
-  // Initialize M11B transport asynchronously
-  (async () => {
-    try {
-      const { getM11ARoom } = await import('./routes/activity-room-m11a.js');
-      const m11aRoom = getM11ARoom();
-      m11bTransport = createM11BTransport({
-        room: m11aRoom,
-        path: '/ws/activity-room/v1',
-        maxPayload: 1 * 1024 * 1024,
-        heartbeatIntervalMs: 30_000,
-        bufferCapacity: 128,
-      });
-      m11bTransport.attach(m11bWss);
-      m11bTransport.startHeartbeat();
-      console.log('[M11B] Realtime transport initialized on /ws/activity-room/v1');
-    } catch (error) {
-      console.warn('[M11B] Failed to initialize transport (M11A room may not be ready):', error);
-    }
-  })();
+  try {
+    m11bTransport = createM11BTransport({
+      room: getM11ARoom(),
+      path: '/ws/activity-room/v1',
+      maxPayload: 1 * 1024 * 1024,
+      heartbeatIntervalMs: 30_000,
+      bufferCapacity: 128,
+    });
+    m11bTransport.attach(m11bWss);
+    m11bTransport.startHeartbeat();
+    console.log('[M11B] Realtime transport initialized on /ws/activity-room/v1');
+  } catch (error) {
+    // Keep createServer usable in isolated route tests that do not boot M11A.
+    // Production initialization is ordered in index.ts and should always
+    // reach the attached path above before listen().
+    console.warn('[M11B] Failed to initialize transport (M11A room may not be ready):', error);
+  }
 
   server.on('upgrade', (req, socket, head) => {
     let pathname = '/';

@@ -16,6 +16,7 @@ import {
   ASSISTANT_EXECUTION_VERSION,
   type CompletionRequest,
   type CompletionResponse,
+  renderAssistantIdentityContext,
   type StreamChunk,
   truncateReasoning,
 } from '@vestara/shared';
@@ -52,6 +53,11 @@ function lastUserText(messages: CompletionRequest['messages']): string {
     if (message?.role === 'user' && typeof message.content === 'string') return message.content;
   }
   return '';
+}
+
+export function buildCodexPrompt(userText: string, assistantIdentity?: CompletionRequest['assistantIdentity']): string {
+  const identityContext = renderAssistantIdentityContext(assistantIdentity);
+  return identityContext ? `${identityContext}\n\n${userText}` : userText;
 }
 
 function usageTotal(usage: CodexUsage | null | undefined) {
@@ -209,7 +215,13 @@ async function runCodexTurn(
   options: AssistantCodexExecutorOptions,
   onChunk?: (chunk: StreamChunk) => void,
 ): Promise<CompletionResponse> {
-  const prompt = lastUserText(request.messages);
+  // The Codex SDK exposes read-only filesystem access, not a tool-free
+  // inference mode. Fail closed rather than allowing commands or mirroring
+  // tool observations from a suggestion request.
+  if (request.suggestionOnly) {
+    throw new Error('Codex suggestion-only inference is unavailable without a tool-free runtime mode');
+  }
+  const prompt = buildCodexPrompt(lastUserText(request.messages), request.assistantIdentity);
   if (!prompt) throw new Error('Codex turn requires a user message');
 
   const { Codex } = await loadSdk();
@@ -220,7 +232,7 @@ async function runCodexTurn(
   const threadOptions = {
     ...(options.defaultModel ? { model: options.defaultModel } : {}),
     workingDirectory: options.directory,
-    sandboxMode: 'workspace-write' as const,
+    sandboxMode: request.suggestionOnly ? ('read-only' as const) : ('workspace-write' as const),
     approvalPolicy: 'never' as const,
     skipGitRepoCheck: true,
     threadSource: 'vestara-global-assistant',

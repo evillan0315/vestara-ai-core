@@ -1,6 +1,7 @@
 import type * as http from 'node:http';
 import type { GAExecutionConfig, TurnSurfaceContext } from '@vestara/shared';
 import { type ConversationChunk, TUI_PROTOCOL_VERSION } from '@vestara/tui-protocol';
+import { resolveAssistantIdentity } from '../assistant-identity';
 import type { WorkspaceContext } from '../workspace-context';
 import { CORS, json, readBody } from './types';
 
@@ -385,9 +386,15 @@ export async function handleConversationsRoute(
       return true;
     }
     try {
+      const conversation = await ctx.conversationService.getConversation(conversationId, { limit: 0, offset: 0 });
+      if (!conversation) {
+        json(res, 404, { error: 'Conversation not found' });
+        return true;
+      }
       const result = await ctx.conversationService.sendMessage(conversationId, message, {
         model: binding?.model ?? (typeof body.model === 'string' && body.model ? body.model : undefined),
         provider: binding?.provider,
+        assistantIdentity: await resolveAssistantIdentity(ctx, { kind: 'human', id: conversation.userId }),
       });
       json(res, 200, { message: result.message, response: result.response, latency: result.latency });
     } catch (error) {
@@ -477,6 +484,11 @@ export async function handleConversationsRoute(
     try {
       const surfaceContext = normalizeSurfaceContext(body.surfaceContext);
       const executionConfig = parseExecutionConfig(body.executionConfig);
+      const conversation = await ctx.conversationService.getConversation(conversationId, { limit: 0, offset: 0 });
+      if (!conversation) {
+        json(res, 404, { error: 'Conversation not found' });
+        return true;
+      }
       for await (const chunk of ctx.conversationService.sendMessageStream(conversationId, message, {
         model:
           assistantRuntime === 'opencode'
@@ -487,6 +499,7 @@ export async function handleConversationsRoute(
         surfaceContext,
         signal: abort.signal,
         executionConfig,
+        assistantIdentity: await resolveAssistantIdentity(ctx, { kind: 'human', id: conversation.userId }),
       })) {
         // GA-DETACH-001: If the client disconnected, DRAIN the execution to
         // natural completion instead of breaking. Breaking the for-await

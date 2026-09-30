@@ -25,6 +25,7 @@
  * @see packages/types/src/diagnostic.ts (DIAG-0 types)
  */
 
+import * as v8 from 'node:v8';
 import type {
   DiagnosticSeverity,
   DiagnosticSnapshot,
@@ -106,25 +107,52 @@ export function classifyToolchainVersions(versions: Record<string, string | null
 // ─── Snapshot Collectors ───────────────────────────────────────
 
 /**
+ * Classify process heap pressure against the V8 heap size limit.
+ *
+ * Pure helper (testable): `heapLimitBytes` is the OOM boundary, not the
+ * currently-committed heap. Exported for unit tests.
+ */
+export function classifyProcessHeapHealth(heapUsedBytes: number, heapLimitBytes: number): DiagnosticSourceHealth {
+  if (!Number.isFinite(heapUsedBytes) || !Number.isFinite(heapLimitBytes) || heapLimitBytes <= 0) return 'unknown';
+  const usedPercent = (heapUsedBytes / heapLimitBytes) * 100;
+  return usedPercent > 90 ? 'unhealthy' : usedPercent > 80 ? 'degraded' : 'healthy';
+}
+
+/**
  * DIAG-1: Collect process health snapshot.
- * Sources: collect.collectProcesses(), process.memoryUsage()
+ * Sources: collect.collectProcesses(), process.memoryUsage(), v8 heap limit
+ *
+ * Pressure is measured against the V8 heap size limit (the OOM boundary),
+ * not the dynamically-sized committed heap: V8 grows/shrinks `heapTotal`
+ * on demand, so `heapUsed / heapTotal` reports 80%+ on healthy small heaps
+ * (e.g. 38MB used / 46MB committed) and flaps `diagnostic:api-server`
+ * attention. Falls back to `heapTotal` only when the limit is unavailable.
  */
 function collectProcessHealth(): DiagnosticSnapshot {
   const mem = process.memoryUsage();
   const proc = collect.collectProcesses(5);
-  const usedPercent = mem.heapTotal > 0 ? Math.round((mem.heapUsed / mem.heapTotal) * 100) : 0;
+  let heapLimit = 0;
+  try {
+    heapLimit = v8.getHeapStatistics().heap_size_limit ?? 0;
+  } catch {
+    heapLimit = 0;
+  }
+  const denominator = heapLimit > 0 ? heapLimit : mem.heapTotal;
+  const usedPercent = denominator > 0 ? Math.round((mem.heapUsed / denominator) * 100) : 0;
 
-  const health: DiagnosticSourceHealth = usedPercent > 90 ? 'unhealthy' : usedPercent > 80 ? 'degraded' : 'healthy';
+  const health: DiagnosticSourceHealth =
+    denominator <= 0 ? 'unknown' : classifyProcessHeapHealth(mem.heapUsed, denominator);
 
   return {
     source: sourceRef('api-server', 'runtime', 'API Server Process'),
     health,
     severity: deriveSeverity(health),
-    message: `Process memory: ${usedPercent}% heap used (${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(mem.heapTotal / 1024 / 1024)}MB)`,
+    message: `Process memory: ${usedPercent}% heap used (${Math.round(mem.heapUsed / 1024 / 1024)}MB / ${Math.round(denominator / 1024 / 1024)}MB limit)`,
     observedAt: new Date().toISOString(),
     payload: {
       heapUsedBytes: mem.heapUsed,
       heapTotalBytes: mem.heapTotal,
+      heapLimitBytes: heapLimit > 0 ? heapLimit : null,
       rssBytes: mem.rss,
       externalBytes: mem.external,
       topProcessCount: proc.processes.length,
@@ -284,8 +312,15 @@ function collectDockerHealth(): DiagnosticSnapshot {
  * DIAG-1: Collect tool versions health snapshot.
  * Source: collect.collectVersions()
  */
-function collectToolVersionsHealth(): DiagnosticSnapshot {
-  const versions = collect.collectVersions();
+function collectToolVersionsHealth(repoPath: string): DiagnosticSnapshot {
+  const versions = collect.collectVersions(repoPath);
+  const resolution = Object.values(collect.collectToolResolution(repoPath)).map(
+    ({ capability, executable, source }) => ({
+      capability,
+      executable,
+      source,
+    }),
+  );
   const classification = classifyToolchainVersions(versions);
   const health = classification.health;
 
@@ -300,6 +335,7 @@ function collectToolVersionsHealth(): DiagnosticSnapshot {
     observedAt: new Date().toISOString(),
     payload: {
       ...versions,
+      resolution,
       missingTools: classification.missingTools,
       missingRequiredTools: classification.missingRequiredTools,
       missingOptionalTools: classification.missingOptionalTools,
@@ -383,7 +419,7 @@ export function collectDiagnosticSnapshots(
     () => collectNetworkHealth(),
     () => collectGitHealth(repoPath),
     () => collectDockerHealth(),
-    () => collectToolVersionsHealth(),
+    () => collectToolVersionsHealth(repoPath),
   ];
 
   // Add health summary if input is provided

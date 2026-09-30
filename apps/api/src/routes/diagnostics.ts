@@ -61,7 +61,8 @@ export async function handleDiagnosticsRoute(
     const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
     const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
     const cpu = collect.collectCpu();
-    const versions = collect.collectVersions();
+    const versions = collect.collectVersions(ctx.repoPath);
+    const toolResolution = collect.collectToolResolution(ctx.repoPath);
     const health = collect.collectHealth({
       repoPath: ctx.repoPath,
       workspaceStatus: ctx.runtime.currentStatus,
@@ -90,6 +91,7 @@ export async function handleDiagnosticsRoute(
       docker,
       git,
       versions,
+      toolResolution,
       temperature: collect.collectTemperature(),
       processes: { total: proc.total, threads: proc.threads },
       workspace: {
@@ -168,7 +170,11 @@ export async function handleDiagnosticsRoute(
   }
 
   if (method === 'GET' && p === '/api/diagnostics/versions') {
-    json(res, 200, { ts: Date.now(), versions: collect.collectVersions() });
+    json(res, 200, {
+      ts: Date.now(),
+      versions: collect.collectVersions(ctx.repoPath),
+      toolResolution: collect.collectToolResolution(ctx.repoPath),
+    });
     return true;
   }
 
@@ -184,7 +190,7 @@ export async function handleDiagnosticsRoute(
     const gpu = cachedComposed('gpu', 30_000, () => collect.collectGpu());
     const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
     const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
-    const versions = collect.collectVersions();
+    const versions = collect.collectVersions(ctx.repoPath);
     const checks = collect.collectHealth({
       repoPath: ctx.repoPath,
       workspaceStatus: ctx.runtime.currentStatus,
@@ -209,7 +215,7 @@ export async function handleDiagnosticsRoute(
     const gpu = cachedComposed('gpu', 30_000, () => collect.collectGpu());
     const docker = cachedComposed('docker', 20_000, () => collect.collectDocker());
     const git = cachedComposed(`git:${ctx.repoPath}`, 15_000, () => collect.collectGit(ctx.repoPath));
-    const versions = collect.collectVersions();
+    const versions = collect.collectVersions(ctx.repoPath);
 
     const { collectDiagnosticSnapshots } = await import('../diagnostics/snapshots.js');
     const result = collectDiagnosticSnapshots(ctx.repoPath, {
@@ -261,7 +267,7 @@ export async function handleDiagnosticsRoute(
     const gpu = collect.collectGpu();
     const docker = collect.collectDocker();
     const git = collect.collectGit(ctx.repoPath);
-    const versions = collect.collectVersions();
+    const versions = collect.collectVersions(ctx.repoPath);
 
     const snapshotResult = collectDiagnosticSnapshots(ctx.repoPath, {
       repoPath: ctx.repoPath,
@@ -344,7 +350,7 @@ export async function handleDiagnosticsRoute(
     return true;
   }
 
-  // ─── M11A/sql.js WASM health instrumentation ────────────────────
+  // ─── M11A/native SQLite health instrumentation ──────────────────
   if (method === 'GET' && p === '/api/diagnostics/m11a-health') {
     try {
       const { getM11ARoom } = await import('./activity-room-m11a.js');
@@ -379,6 +385,7 @@ export async function handleDiagnosticsRoute(
         },
         persistence: {
           persistDbCount: inst.persistDbCount,
+          m9PersistenceErrorCount: inst.m9PersistenceErrorCount,
         },
         correlation: {
           note: 'Compare watcher.errorRate and watcher.firstErrorAt with process uptime. If errorRate > 0 within first hour, WASM corruption is rapid. If >20h, WASM corruption is slow-degradation.',

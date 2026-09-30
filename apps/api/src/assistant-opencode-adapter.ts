@@ -27,13 +27,23 @@
  *   This is NOT a failure. The session remains active for later reattachment.
  */
 
-import * as fs from 'node:fs';
+import {
+  type IngestRuntimeQuestionInput,
+  ingestRuntimeQuestionAsked,
+  type RuntimeQuestionInteractionStore,
+} from '@vestara/activity-room';
 import type { ProviderExecutor } from '@vestara/conversation';
 import type { EventBus } from '@vestara/event-bus';
 import type { OpenCodeEvent, OpenCodeHttpClient } from '@vestara/opencode-runtime';
 import { normalizePermissionAction } from '@vestara/opencode-runtime';
-import type { CompletionRequest, CompletionResponse, GAExecutionConfig, StreamChunk } from '@vestara/shared';
-import { truncateReasoning } from '@vestara/shared';
+import {
+  type CompletionRequest,
+  type CompletionResponse,
+  type GAExecutionConfig,
+  renderAssistantIdentityContext,
+  type StreamChunk,
+  truncateReasoning,
+} from '@vestara/shared';
 import {
   type AssistantCapabilityPolicy,
   buildToolsMap,
@@ -57,6 +67,7 @@ import {
   projectToolCompleted,
   projectToolFailed,
   projectToolStarted,
+  projectWriteObservation,
 } from './assistant-execution-projection';
 import type { AssistantInteractionBroker, AssistantQuestionDecision } from './assistant-interaction-broker';
 
@@ -159,6 +170,18 @@ export interface AssistantOpenCodeExecutorOptions {
    * browser and await a real user decision instead of degrading to a status.
    */
   interactionBroker?: AssistantInteractionBroker;
+  /**
+   * AR-TOOL-ASK-003A: durable runtime question ingestion hook. When set, a
+   * `question.asked` event is ingested into the durable runtime question
+   * interaction authority (pending) BEFORE the turn awaits the browser's
+   * decision, so the durable interaction exists before the Activity Room
+   * can project it. Fire-and-forget with catch — ingestion failures never
+   * break the turn, and this hook NEVER delivers to OpenCode. Absent in unit
+   * tests.
+   */
+  runtimeQuestionIngest?: (input: IngestRuntimeQuestionInput) => void;
+  /** Prepare the exact durable interaction before OpenCode delivery. */
+  runtimeQuestionResponse?: (input: RuntimeQuestionResponseInput) => RuntimeQuestionClaim;
   title?: string;
   /** Hard cap for a single turn (ms). Default 5 minutes. */
   turnTimeoutMs?: number;
@@ -194,6 +217,138 @@ export interface AssistantOpenCodeExecutorOptions {
   eventBus?: EventBus;
 }
 
+export interface RuntimeQuestionResponseInput {
+  readonly conversationId: string;
+  readonly openCodeSessionId: string;
+  readonly openCodeRequestId: string;
+  readonly decision: 'answered' | 'rejected';
+  readonly answers: readonly (readonly string[])[];
+}
+
+export interface RuntimeQuestionClaim {
+  readonly interactionId: string;
+  readonly markDelivered: (status: 'answered' | 'rejected' | 'delivery-unknown') => void;
+}
+
+/**
+ * AR-TOOL-ASK-003A4A: dependencies for the production ingestion hook.
+ * The store is resolved lazily at `question.asked` time (never constructed
+ * here): exactly one authority instance exists per process, owned by M11A.
+ */
+export interface RuntimeQuestionIngestHookDeps {
+  /**
+   * Resolve the already-opened RuntimeInteraction authority. Must never
+   * open, create, or migrate storage. Return null (or throw) when the
+   * capability is unavailable — the hook then fails closed without
+   * fabricating persistence.
+   */
+  getStore: () => RuntimeQuestionInteractionStore | null;
+  /**
+   * Observable sink for ingestion failures and unavailable-authority
+   * refusals (journal-visible in production). The adapter catches hook
+   * errors to preserve the turn, so without this sink a persistence
+   * failure would be silent.
+   */
+  reportFailure: (message: string, detail: Record<string, unknown>) => void;
+}
+
+/**
+ * AR-TOOL-ASK-003A4A: build the production `runtimeQuestionIngest` hook.
+ * Binds `question.asked` → `ingestRuntimeQuestionAsked(store, input)` with
+ * byte-for-byte identities and existing idempotency semantics. No delivery:
+ * this hook never calls replyToQuestion/rejectQuestion (003B owns delivery)
+ * and never touches M9 rows. Failures (unavailable authority, missing
+ * identities, persistence errors) are reported via `reportFailure` and
+ * rethrown so the adapter's preserved legacy path continues the turn.
+ */
+export function createRuntimeQuestionIngestHook(
+  deps: RuntimeQuestionIngestHookDeps,
+): (input: IngestRuntimeQuestionInput) => void {
+  return (input) => {
+    let store: RuntimeQuestionInteractionStore | null;
+    try {
+      store = deps.getStore();
+    } catch (error) {
+      deps.reportFailure('runtime-question-ingest: authority unreachable', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw new Error(
+        'RuntimeInteraction ingestion unavailable: authority unreachable; refusing to fabricate persistence',
+      );
+    }
+    if (store === null || store === undefined) {
+      deps.reportFailure('runtime-question-ingest: authority unavailable', {
+        reason: 'RuntimeInteraction explicit migration has not run; ingestion refused',
+      });
+      throw new Error(
+        'RuntimeInteraction ingestion unavailable: authority not open; refusing to fabricate persistence',
+      );
+    }
+    try {
+      ingestRuntimeQuestionAsked(store, input);
+    } catch (error) {
+      deps.reportFailure('runtime-question-ingest: persistence failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      throw error;
+    }
+  };
+}
+
+/**
+ * Prepare a legacy Assistant response through the durable RuntimeInteraction
+ * authority. Exact runtime identities are required; delivery is performed by
+ * the adapter only after this callback returns a successful claim.
+ */
+export function createRuntimeQuestionResponseHook(
+  deps: RuntimeQuestionIngestHookDeps,
+): (input: RuntimeQuestionResponseInput) => RuntimeQuestionClaim {
+  return (input) => {
+    const store = deps.getStore();
+    if (store === null || store === undefined) {
+      deps.reportFailure('runtime-question-response: authority unavailable', { reason: 'store not open' });
+      throw new Error('RuntimeInteraction response unavailable: authority not open; refusing delivery');
+    }
+    const interaction = store.getByRuntimeIds(input.openCodeSessionId, input.openCodeRequestId);
+    if (!interaction || interaction.conversationId !== input.conversationId) {
+      deps.reportFailure('runtime-question-response: exact interaction not found', {
+        conversationId: input.conversationId,
+        openCodeSessionId: input.openCodeSessionId,
+        openCodeRequestId: input.openCodeRequestId,
+      });
+      throw new Error('RuntimeInteraction response unavailable: exact identity mismatch; refusing delivery');
+    }
+    const presented =
+      interaction.status === 'pending'
+        ? store.present(interaction.interactionId)
+        : interaction.status === 'presented'
+          ? interaction
+          : undefined;
+    if (!presented?.claimToken) {
+      throw new Error(`RuntimeInteraction response unavailable: interaction is ${interaction.status}`);
+    }
+    const claimed =
+      input.decision === 'answered'
+        ? store.claim({
+            interactionId: presented.interactionId,
+            claimToken: presented.claimToken,
+            expectedVersion: presented.version,
+            answers: input.answers,
+          })
+        : store.claimRejection({
+            interactionId: presented.interactionId,
+            claimToken: presented.claimToken,
+            expectedVersion: presented.version,
+          });
+    return {
+      interactionId: claimed.interactionId,
+      markDelivered: (status) => {
+        store.markDelivered(claimed.interactionId, status);
+      },
+    };
+  };
+}
+
 // GA-EXEC-001: Default turn timeout. Overridden by:
 //   1. Per-turn executionConfig.turnTimeoutMs (UI/session)
 //   2. VESTARA_GA_TURN_TIMEOUT_MS env var (deployment default)
@@ -223,8 +378,6 @@ const DEFAULT_MAX_TOOL_CALLS = (() => {
  */
 const TRANSPORT_PROVIDER = 'opencode';
 const OPENCODE_RUNTIME_ID = 'opencode';
-const OPENCODE_INGRESS_003_MARKER = 'OPENCODE-INGRESS-003-PING';
-const OPENCODE_INGRESS_003_TRACE = '/tmp/opencode-ingress-003-trace.ndjson';
 
 /**
  * GA-DETACH-001: How a turn ended. This determines whether the OpenCode
@@ -246,58 +399,6 @@ type TurnTermination = 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detac
  */
 function requiresAbort(termination: TurnTermination): boolean {
   return termination === 'cancelled' || termination === 'timeout' || termination === 'failed';
-}
-
-function isIngress003Probe(userText: string): boolean {
-  return userText.includes(OPENCODE_INGRESS_003_MARKER);
-}
-
-function appendIngress003Trace(record: Record<string, unknown>): void {
-  try {
-    fs.appendFileSync(
-      OPENCODE_INGRESS_003_TRACE,
-      `${JSON.stringify({ at: new Date().toISOString(), ...record })}\n`,
-      'utf8',
-    );
-  } catch {
-    // Observation-only instrumentation: tracing must never affect execution.
-  }
-}
-
-function ingressSurfaceOf(request: CompletionRequest): string {
-  const route = request.surfaceContext?.surface?.routeId ?? request.surfaceContext?.surface?.path;
-  if (route) return String(route);
-  if (request.agentId) return 'activity-room-agent-turn';
-  return 'assistant';
-}
-
-function surfaceContextMeta(surfaceContext: CompletionRequest['surfaceContext']): Record<string, unknown> {
-  if (!surfaceContext) return { present: false };
-  return {
-    present: true,
-    workspace: {
-      id: surfaceContext.workspace.id.slice(0, 120),
-      name: surfaceContext.workspace.name.slice(0, 120),
-    },
-    surface: {
-      routeId: surfaceContext.surface.routeId,
-      path: surfaceContext.surface.path.slice(0, 200),
-      title: surfaceContext.surface.title,
-      section: surfaceContext.surface.section,
-    },
-    selected: surfaceContext.selected
-      ? {
-          kind: surfaceContext.selected.kind.slice(0, 80),
-          id: surfaceContext.selected.id.slice(0, 120),
-          hasLabel: typeof surfaceContext.selected.label === 'string',
-          labelLength: surfaceContext.selected.label?.length ?? 0,
-        }
-      : undefined,
-    selectedReferences: {
-      count: surfaceContext.selectedReferences?.length ?? 0,
-      kinds: [...new Set((surfaceContext.selectedReferences ?? []).map((ref) => ref.kind.slice(0, 80)))],
-    },
-  };
 }
 
 function safeString(value: string): string {
@@ -333,21 +434,6 @@ function sanitizeErrorLike(value: unknown, depth = 0): unknown {
   return out;
 }
 
-function requestOptionsMeta(
-  request: CompletionRequest,
-  executionConfig: GAExecutionConfig | undefined,
-): Record<string, unknown> {
-  return {
-    assistantRuntime: request.assistantRuntime,
-    temperature: request.temperature,
-    maxTokens: request.maxTokens,
-    messageCount: request.messages.length,
-    hasSignal: request.signal !== undefined,
-    hasJsonSchema: request.jsonSchema !== undefined,
-    executionConfig,
-  };
-}
-
 function lastUserText(messages: CompletionRequest['messages']): string {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];
@@ -356,6 +442,34 @@ function lastUserText(messages: CompletionRequest['messages']): string {
     }
   }
   return '';
+}
+
+/** Suggestion inference is deliberately incapable of runtime operations. */
+function isSuggestionOnlyForbiddenEvent(event: OpenCodeEvent): boolean {
+  if (
+    event.type === 'session.next.tool.input.started' ||
+    event.type === 'session.next.tool.called' ||
+    event.type === 'session.next.tool.success' ||
+    event.type === 'session.next.tool.failed' ||
+    event.type === 'session.next.shell.started' ||
+    event.type === 'session.next.shell.ended' ||
+    event.type === 'permission.v2.asked' ||
+    event.type === 'permission.asked' ||
+    event.type === 'permission.v2.replied' ||
+    event.type === 'permission.replied' ||
+    event.type === 'question.v2.asked' ||
+    event.type === 'question.asked' ||
+    event.type === 'question.v2.replied' ||
+    event.type === 'question.replied' ||
+    event.type === 'todo.updated' ||
+    event.type === 'file.edited'
+  ) {
+    return true;
+  }
+  if (event.type !== 'message.part.updated') return false;
+  const payload = event.payload as Record<string, unknown> | undefined;
+  const part = payload?.part as Record<string, unknown> | undefined;
+  return part?.type === 'tool';
 }
 
 /**
@@ -405,6 +519,14 @@ export function buildSurfaceSystem(surfaceContext: CompletionRequest['surfaceCon
     }
   }
   return lines.join('\n');
+}
+
+export function buildAssistantSystem(request: CompletionRequest): string | undefined {
+  const blocks = [
+    buildSurfaceSystem(request.surfaceContext),
+    renderAssistantIdentityContext(request.assistantIdentity),
+  ].filter((value): value is string => Boolean(value));
+  return blocks.length > 0 ? blocks.join('\n\n') : undefined;
 }
 
 function chunk(type: StreamChunk['type'], sequence: number, extra: Partial<StreamChunk> = {}): StreamChunk {
@@ -519,16 +641,21 @@ export async function* runAssistantOpenCodeTurn(
 
   const deadline = Date.now() + turnTimeoutMs;
   const turnStartedAt = Date.now();
-  const probeTrace = isIngress003Probe(userText);
-  const systemText = buildSurfaceSystem(request.surfaceContext);
-  const toolsMap = turnPersona.capabilityPolicy ? buildToolsMap(turnPersona.capabilityPolicy) : undefined;
-  let submittedAt: string | undefined;
-  let firstEventAt: string | undefined;
-  let terminalAt: string | undefined;
+  const systemText = buildAssistantSystem(request);
+  // Suggestion-only inference is tool-free by construction: omit the `tools`
+  // key entirely (never send `tools:{}` — an empty map is not a tool-free
+  // guarantee, upstream may still emit tool parts). Fail-closed enforcement
+  // in the event loop remains the authoritative boundary.
+  const toolsMap = request.suggestionOnly
+    ? undefined
+    : turnPersona.capabilityPolicy
+      ? buildToolsMap(turnPersona.capabilityPolicy)
+      : undefined;
   let sessionErrorPayload: unknown;
   // Cancellation-boundary attribution: record the turn start with its
   // originating identities and bounds, so any later abort names this turn.
   options.logger?.info('assistant.turn.started', {
+    ...(request.suggestionRequestId ? { suggestionRequestId: request.suggestionRequestId } : {}),
     conversationId: request.conversationId,
     sessionId: resolvedSessionId,
     requestedAgent: request.agentId,
@@ -537,28 +664,10 @@ export async function* runAssistantOpenCodeTurn(
     model: turnModel?.modelID,
     turnTimeoutMs,
     maxToolCalls,
+    suggestionOnly: request.suggestionOnly ?? false,
   });
-  if (probeTrace) {
-    appendIngress003Trace({
-      probe: 'OPENCODE-INGRESS-003',
-      phase: 'envelope',
-      ingressSurface: ingressSurfaceOf(request),
-      requestId: request.conversationId,
-      correlationId: request.conversationId,
-      conversationId: request.conversationId,
-      sessionId: resolvedSessionId,
-      runtimeAgent: turnPersona.runtimeAgent,
-      requestedAgent: request.agentId,
-      provider: turnProvider,
-      model: turnModel?.modelID,
-      operation: 'prompt_async',
-      system: { present: systemText !== undefined, size: systemText?.length ?? 0 },
-      surfaceContext: surfaceContextMeta(request.surfaceContext),
-      tools: { keys: Object.keys(toolsMap ?? {}) },
-      requestOptions: requestOptionsMeta(request, execCfg),
-    });
-  }
   const shellStartedAt = new Map<string, number>();
+  const openToolInvocations = new Map<string, { readonly tool: string }>();
   let sequence = 0;
   // AR-TOOLS-001: durable Activity Room mirror for Global Assistant tool use.
   // Tool lifecycle also emits canonical `opencode.message.part.updated`
@@ -566,22 +675,29 @@ export async function* runAssistantOpenCodeTurn(
   // tool.called/succeeded/failed facts keyed on OpenCode callID. The yielded
   // SSE chunks remain the live UI contract; this is the durable mirror.
   // Fire-and-forget with catch — mirror failures never break the turn.
-  const mirrorToolEvent = (status: 'running' | 'completed' | 'error', callID: string, tool: string): void => {
+  let mirrorChain = Promise.resolve();
+  const mirrorToolEvent = (status: 'running' | 'completed' | 'error', callID: string, tool: string): Promise<void> => {
+    if (status === 'running') openToolInvocations.set(callID, { tool });
+    else openToolInvocations.delete(callID);
+    if (request.suggestionOnly) return Promise.resolve();
     const bus = options.eventBus;
-    if (!bus) return;
-    void bus
-      .emit({
-        type: 'opencode.message.part.updated',
-        source: 'assistant-opencode-adapter',
-        actor: { id: turnPersona.runtimeAgent, role: 'agent' },
-        payload: {
-          part: { type: 'tool', callID, tool, state: { status } },
-          conversationId: request.conversationId,
-          sessionId: resolvedSessionId,
-        },
-        metadata: request.conversationId ? { correlationId: request.conversationId } : undefined,
-      })
+    if (!bus) return Promise.resolve();
+    mirrorChain = mirrorChain
+      .then(() =>
+        bus.emit({
+          type: 'opencode.message.part.updated',
+          source: 'assistant-opencode-adapter',
+          actor: { id: turnPersona.runtimeAgent, role: 'agent' },
+          payload: {
+            part: { type: 'tool', callID, tool, state: { status } },
+            conversationId: request.conversationId,
+            sessionId: resolvedSessionId,
+          },
+          metadata: request.conversationId ? { correlationId: request.conversationId } : undefined,
+        }),
+      )
       .catch(() => {});
+    return mirrorChain;
   };
   // GA-DETACH-001: Track how the turn ended. This determines whether the
   // OpenCode session should be aborted or left running for reattachment.
@@ -632,17 +748,6 @@ export async function* runAssistantOpenCodeTurn(
       },
       context,
     );
-    submittedAt = new Date().toISOString();
-    if (probeTrace) {
-      appendIngress003Trace({
-        probe: 'OPENCODE-INGRESS-003',
-        phase: 'submitted',
-        conversationId: request.conversationId,
-        sessionId: resolvedSessionId,
-        operation: 'prompt_async',
-        submittedAt,
-      });
-    }
 
     let turnDone = false;
     while (!turnDone) {
@@ -679,21 +784,16 @@ export async function* runAssistantOpenCodeTurn(
       const event = queue.shift();
       if (!event) break;
 
+      if (request.suggestionOnly && isSuggestionOnlyForbiddenEvent(event)) {
+        termination = 'failed';
+        sessionErrorPayload = { reason: 'Suggestion-only runtime emitted a forbidden operation event' };
+        yield chunk('error', sequence++, { content: 'Suggestion-only runtime attempted a forbidden operation' });
+        turnDone = true;
+        continue;
+      }
+
       const payload = (event.payload ?? {}) as Record<string, unknown>;
       const callID = typeof payload.callID === 'string' ? payload.callID : undefined;
-      if (firstEventAt === undefined) {
-        firstEventAt = new Date().toISOString();
-        if (probeTrace) {
-          appendIngress003Trace({
-            probe: 'OPENCODE-INGRESS-003',
-            phase: 'first-event',
-            conversationId: request.conversationId,
-            sessionId: resolvedSessionId,
-            eventType: event.type,
-            firstEventAt,
-          });
-        }
-      }
 
       // GA-EXEC-001: budget enforcement helper — checks tool-call limits
       // after each event. Returns an error message if exceeded, null if
@@ -738,8 +838,12 @@ export async function* runAssistantOpenCodeTurn(
           const detail =
             projectReadObservation(event, directory) ??
             projectEditObservation(event, directory) ??
+            projectWriteObservation(event, directory) ??
             projectMessagePartUpdated(event);
-          if (detail && (detail.kind === 'tool' || detail.kind === 'read' || detail.kind === 'edit')) {
+          if (
+            detail &&
+            (detail.kind === 'tool' || detail.kind === 'read' || detail.kind === 'edit' || detail.kind === 'write')
+          ) {
             const toolName = detail.tool ?? 'read';
             if (detail.state === 'running') {
               toolCallCount++;
@@ -1041,6 +1145,24 @@ export async function* runAssistantOpenCodeTurn(
           // request id). No answer → fail-safe reject of the question.
           const detail = projectQuestionAsked(event);
           if (detail && detail.kind === 'question') {
+            // AR-TOOL-ASK-003A: durable interaction exists before answering.
+            // Ingest the exact runtime identities (no inference) into the
+            // pending authority. Best-effort: never breaks the turn, never
+            // delivers to OpenCode. SSE below stays a presentation hint.
+            if (request.conversationId) {
+              try {
+                options.runtimeQuestionIngest?.({
+                  conversationId: request.conversationId,
+                  openCodeSessionId: resolvedSessionId,
+                  openCodeRequestId: detail.questionRequestId,
+                  questions: detail.questions,
+                  providerId: turnProvider,
+                  modelId: turnModel?.modelID,
+                });
+              } catch {
+                // ingestion failed — continue with the preserved path
+              }
+            }
             const broker = options.interactionBroker;
             if (broker && request.conversationId) {
               yield chunk('status', sequence++, {
@@ -1050,13 +1172,28 @@ export async function* runAssistantOpenCodeTurn(
               const decision = (await broker.awaitQuestion(request.conversationId, detail.questionRequestId)) as
                 | AssistantQuestionDecision
                 | undefined;
-              if (decision && decision.answers.length > 0) {
+              const answered = Boolean(decision && decision.answers.length > 0);
+              const runtimeQuestionResponse = options.runtimeQuestionResponse;
+              if (!runtimeQuestionResponse) {
+                throw new Error('RuntimeInteraction response authority unavailable; refusing question delivery');
+              }
+              const claim = runtimeQuestionResponse({
+                conversationId: request.conversationId,
+                openCodeSessionId: resolvedSessionId,
+                openCodeRequestId: detail.questionRequestId,
+                decision: answered ? 'answered' : 'rejected',
+                answers: answered ? decision!.answers : [],
+              });
+              if (answered) {
                 try {
-                  await client.replyToQuestion(resolvedSessionId, detail.questionRequestId, {
-                    answers: decision.answers,
+                  const delivered = await client.replyToQuestion(resolvedSessionId, detail.questionRequestId, {
+                    answers: decision!.answers,
                   });
+                  if (delivered !== true) throw new Error('OpenCode did not confirm answer delivery');
+                  claim.markDelivered('answered');
                 } catch {
-                  // reply failed — continue
+                  claim.markDelivered('delivery-unknown');
+                  throw new Error('OpenCode answer delivery could not be confirmed');
                 }
                 yield chunk('status', sequence++, {
                   content: 'Answered',
@@ -1064,9 +1201,12 @@ export async function* runAssistantOpenCodeTurn(
                 });
               } else {
                 try {
-                  await client.rejectQuestion(resolvedSessionId, detail.questionRequestId);
+                  const delivered = await client.rejectQuestion(resolvedSessionId, detail.questionRequestId);
+                  if (delivered !== true) throw new Error('OpenCode did not confirm rejection delivery');
+                  claim.markDelivered('rejected');
                 } catch {
-                  // reject failed — continue
+                  claim.markDelivered('delivery-unknown');
+                  throw new Error('OpenCode rejection delivery could not be confirmed');
                 }
                 yield chunk('status', sequence++, {
                   content: 'Question dismissed',
@@ -1104,7 +1244,6 @@ export async function* runAssistantOpenCodeTurn(
           if (status && status.type === 'idle') {
             turnDone = true;
             termination = 'completed';
-            terminalAt = new Date().toISOString();
           }
           break;
         }
@@ -1112,24 +1251,11 @@ export async function* runAssistantOpenCodeTurn(
           // Dedicated idle event (1.18.27 contract) — authoritative settlement.
           turnDone = true;
           termination = 'completed';
-          terminalAt = new Date().toISOString();
           break;
         }
         case 'session.error': {
           termination = 'failed';
-          terminalAt = new Date().toISOString();
           sessionErrorPayload = sanitizeErrorLike(payload);
-          if (probeTrace) {
-            appendIngress003Trace({
-              probe: 'OPENCODE-INGRESS-003',
-              phase: 'session-error',
-              conversationId: request.conversationId,
-              sessionId: resolvedSessionId,
-              eventType: event.type,
-              terminalAt,
-              error: sessionErrorPayload,
-            });
-          }
           yield chunk('error', sequence++, { content: 'OpenCode session error' });
           turnDone = true;
           break;
@@ -1215,6 +1341,7 @@ export async function* runAssistantOpenCodeTurn(
           termination,
           toolCallCount,
           elapsedMs,
+          runtimeSessionId: resolvedSessionId,
           execution: {
             runtimeId: OPENCODE_RUNTIME_ID,
             providerId: turnProvider,
@@ -1245,54 +1372,17 @@ export async function* runAssistantOpenCodeTurn(
     // has declared the turn failed.
     const explicitCancellation = request.signal?.aborted === true;
     const elapsedMs = Date.now() - turnStartedAt;
-    const aborting = requiresAbort(termination);
-    if (probeTrace) {
-      let assistantMessageCreated = false;
-      let tokenCounts: unknown;
-      let sessionModel: unknown;
-      try {
-        const messages = await client.listMessages(resolvedSessionId, context);
-        assistantMessageCreated = messages.some((message) => message.role === 'assistant');
-      } catch {
-        assistantMessageCreated = false;
-      }
-      try {
-        const session = await client.getSession(resolvedSessionId, context);
-        const sessionRecord = session as unknown as Record<string, unknown>;
-        tokenCounts = sessionRecord.tokens;
-        sessionModel = sessionRecord.model;
-      } catch {
-        tokenCounts = undefined;
-      }
-      appendIngress003Trace({
-        probe: 'OPENCODE-INGRESS-003',
-        phase: 'outcome',
-        ingressSurface: ingressSurfaceOf(request),
-        conversationId: request.conversationId,
-        sessionId: resolvedSessionId,
-        runtimeAgent: turnPersona.runtimeAgent,
-        provider: turnProvider,
-        model: turnModel?.modelID,
-        sessionModel,
-        operation: 'prompt_async',
-        submittedAt,
-        firstEventAt,
-        terminalAt,
-        termination,
-        elapsedMs,
-        toolCallCount,
-        aborting,
-        signalAborted: explicitCancellation,
-        assistantMessageCreated,
-        tokenCounts,
-        ...(sessionErrorPayload !== undefined ? { sessionErrorPayload } : {}),
-      });
-    }
+    // Suggestion-only turns are single-use by construction (resolveSession
+    // bypasses the registry): always abort to bound retention, even on
+    // `completed`, so suggest sessions never leak. Regular turns abort only
+    // on failed/timeout/cancelled (completed/detached stay alive for reuse).
+    const aborting = requiresAbort(termination) || request.suggestionOnly === true;
     // Cancellation-boundary attribution: every turn end records its
     // classification; every abort additionally records its reason at warn
     // level BEFORE the abort is issued, so a later OpenCode "Interrupted"
     // state maps to exactly one Vestara operation + reason.
     options.logger?.info('assistant.turn.ended', {
+      ...(request.suggestionRequestId ? { suggestionRequestId: request.suggestionRequestId } : {}),
       conversationId: request.conversationId,
       sessionId: resolvedSessionId,
       termination,
@@ -1300,15 +1390,28 @@ export async function* runAssistantOpenCodeTurn(
       toolCallCount,
       aborting,
       signalAborted: explicitCancellation,
+      suggestionOnly: request.suggestionOnly ?? false,
+      ...(sessionErrorPayload !== undefined ? { sessionErrorPayload } : {}),
     });
     if (aborting) {
+      // M9 only has the existing tool.called/tool.succeeded/tool.failed
+      // vocabulary. Map every authoritative aborting turn outcome
+      // (failed, timeout, cancelled) to tool.failed, while preserving the
+      // exact locally-opened callID and turn identities in the event payload.
+      // The map contains only invocations opened by this adapter turn; no
+      // unrelated outstanding operation is scanned or inferred.
+      for (const [callID, invocation] of openToolInvocations) {
+        await mirrorToolEvent('error', callID, invocation.tool);
+      }
       options.logger?.warn('assistant.turn.abortSession', {
+        ...(request.suggestionRequestId ? { suggestionRequestId: request.suggestionRequestId } : {}),
         conversationId: request.conversationId,
         sessionId: resolvedSessionId,
         reason: termination,
         elapsedMs,
         toolCallCount,
         signalAborted: explicitCancellation,
+        suggestionOnly: request.suggestionOnly ?? false,
       });
       try {
         await client.abortSession(resolvedSessionId, context);
@@ -1338,7 +1441,7 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
    */
   async function resolveSession(request: CompletionRequest): Promise<string | undefined> {
     const registry = options.sessionRegistry;
-    if (!registry || !request.conversationId) return undefined;
+    if (request.suggestionOnly || !registry || !request.conversationId) return undefined;
     const context = { workspaceId: options.workspaceId, directory: options.directory };
     const userText = lastUserText(request.messages);
     const result = await registry.acquire({
@@ -1354,9 +1457,11 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
           await options.client.getSession(id, context);
           return true;
         } catch (err) {
-          console.error(
-            `[adapter:verifySession] FAILED session=${id} dir=${context.directory} err=${err instanceof Error ? err.message : String(err)}`,
-          );
+          options.logger?.warn('assistant.session.verifyFailed', {
+            sessionId: id,
+            directory: context.directory,
+            error: err instanceof Error ? err.message : String(err),
+          });
           return false;
         }
       },
@@ -1399,13 +1504,13 @@ export function createAssistantOpenCodeExecutor(options: AssistantOpenCodeExecut
         usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
         latency: 0,
         ...(executionResult ? { executionResult } : {}),
-        ...(sessionId
+        ...(sessionId || executionResult?.runtimeSessionId
           ? {
               resolution: {
                 providerId: turnModel?.providerID,
                 reason: turnModel ? ('explicit-model' as const) : ('default' as const),
                 defaultResolution: !turnModel,
-                runtimeSessionId: sessionId,
+                runtimeSessionId: executionResult?.runtimeSessionId ?? sessionId,
                 // ROUTING-CONVERGENCE-001C attribution invariant:
                 // requested logical agent → resolved runtime persona.
                 ...(request.agentId ? { requestedAgentId: request.agentId } : {}),
