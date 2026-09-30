@@ -68,6 +68,24 @@ const CONVERSATION_BASELINE_DDL = `
       CREATE INDEX IF NOT EXISTS idx_conversation_messages_conv ON conversation_messages(conversation_id, created_at);
     `;
 
+const ASSISTANT_EXECUTION_DDL = `
+      CREATE TABLE IF NOT EXISTS assistant_executions (
+        execution_id TEXT PRIMARY KEY,
+        conversation_id TEXT NOT NULL,
+        assistant_message_id TEXT NOT NULL UNIQUE,
+        status TEXT NOT NULL,
+        requested_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        runtime_correlation_json TEXT,
+        observation_reference_json TEXT,
+        terminal_result_json TEXT
+      );
+      CREATE INDEX IF NOT EXISTS idx_assistant_executions_conversation
+        ON assistant_executions(conversation_id, updated_at);
+      CREATE INDEX IF NOT EXISTS idx_assistant_executions_active
+        ON assistant_executions(conversation_id, status);
+    `;
+
 export const CONVERSATION_SESSION_MIGRATIONS: readonly MigrationStep[] = [
   {
     name: 'conversation_sessions.baseline',
@@ -190,6 +208,25 @@ export const CONVERSATION_MIGRATIONS: readonly MigrationStep[] = [
     ],
     up: (db: Database, ctx) => {
       ctx.addColumnIfMissing(db, 'conversation_messages', 'execution_result_json', 'TEXT');
+    },
+  },
+  {
+    name: 'assistant-executions.baseline',
+    produces: [
+      fingerprint('assistant_executions', [
+        'execution_id',
+        'conversation_id',
+        'assistant_message_id',
+        'status',
+        'requested_at',
+        'updated_at',
+        'runtime_correlation_json',
+        'observation_reference_json',
+        'terminal_result_json',
+      ]),
+    ],
+    up: (db: Database) => {
+      db.exec(ASSISTANT_EXECUTION_DDL);
     },
   },
 ];

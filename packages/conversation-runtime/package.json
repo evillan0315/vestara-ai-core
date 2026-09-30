@@ -6,13 +6,14 @@
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "test": "echo 'TEST CORPUS RESET: currently zero tests — new suite pending'; exit 0",
+    "test": "vitest run --root ../.. packages/conversation-runtime/__tests__",
     "build": "tsc"
   },
   "dependencies": {
     "@vestara/runtime": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/conversation": "workspace:*",
+    "@vestara/execution-types": "workspace:*",
     "@vestara/event-bus": "workspace:*",
     "@vestara/logger": "workspace:*",
     "@vestara/opencode-runtime": "workspace:*",

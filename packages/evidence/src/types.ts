@@ -43,7 +43,8 @@ export type EvidenceKind =
   | 'browser-navigation'
   | 'screenshot'
   | 'screen-recording'
-  | 'visual-comparison';
+  | 'visual-comparison'
+  | 'historical-document';
 
 // ─── Visual artifact metadata (EVIDENCE-UX-002 M1) ────────────────
 //

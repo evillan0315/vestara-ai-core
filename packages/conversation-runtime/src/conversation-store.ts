@@ -1,4 +1,13 @@
-import type { ConversationListPage, ConversationStore } from '@vestara/conversation';
+import type { AssistantExecutionStore, ConversationListPage, ConversationStore } from '@vestara/conversation';
+import type {
+  AssistantExecutionObservationReference,
+  AssistantExecutionRecord,
+  AssistantRuntimeCorrelation,
+  ExecutionId,
+  ExecutionResult,
+  ExecutionStatus,
+} from '@vestara/execution-types';
+import { isValidTransition } from '@vestara/execution-types';
 import type { Logger } from '@vestara/logger';
 import type { Conversation, ConversationStatus, ConversationSummary, Message, ToolObservation } from '@vestara/shared';
 import { migrate } from '@vestara/sqlite-migrations';
@@ -35,6 +44,48 @@ function dbAll(db: any, sql: string, params?: any[]): any[] {
   while (stmt.step()) results.push(stmt.getAsObject());
   stmt.free();
   return results;
+}
+
+const EXECUTION_STATUSES = new Set<ExecutionStatus>([
+  'requested',
+  'binding',
+  'ready',
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+  'timed_out',
+]);
+
+function parseJsonObject(value: unknown): Record<string, unknown> | undefined {
+  if (typeof value !== 'string' || value.length === 0) return undefined;
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+      ? (parsed as Record<string, unknown>)
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function parseRuntimeCorrelation(value: unknown): AssistantRuntimeCorrelation | undefined {
+  const parsed = parseJsonObject(value);
+  if (!parsed || (parsed.runtimeId !== 'opencode' && parsed.runtimeId !== 'codex')) return undefined;
+  return parsed as AssistantRuntimeCorrelation;
+}
+
+function parseObservationReference(value: unknown): AssistantExecutionObservationReference | undefined {
+  const parsed = parseJsonObject(value);
+  if (!parsed || typeof parsed.executionId !== 'string' || typeof parsed.runtimeId !== 'string') return undefined;
+  return parsed as unknown as AssistantExecutionObservationReference;
+}
+
+function parseTerminalResult(value: unknown, executionId: string): ExecutionResult | undefined {
+  const parsed = parseJsonObject(value);
+  if (!parsed || parsed.id !== executionId) return undefined;
+  if (!['completed', 'failed', 'cancelled', 'timed_out'].includes(String(parsed.status))) return undefined;
+  return parsed as unknown as ExecutionResult;
 }
 
 /**
@@ -126,6 +177,10 @@ export class SqliteConversationStore implements ConversationStore {
   constructor(options?: { dbPath?: string; logger?: Logger }) {
     this.dbPath = options?.dbPath;
     this.logger = options?.logger?.child({ component: 'conversation-store' });
+  }
+
+  get executionStore(): AssistantExecutionStore {
+    return this;
   }
 
   async initialize(): Promise<void> {
@@ -384,8 +439,116 @@ export class SqliteConversationStore implements ConversationStore {
     this._persist();
   }
 
+  async createExecution(record: AssistantExecutionRecord): Promise<void> {
+    await this._db();
+    if (record.status !== 'requested') {
+      throw new Error(`Assistant execution must be created in requested state: ${record.executionId}`);
+    }
+    dbRun(
+      this.db,
+      `INSERT INTO assistant_executions
+       (execution_id, conversation_id, assistant_message_id, status, requested_at, updated_at,
+        runtime_correlation_json, observation_reference_json, terminal_result_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        record.executionId,
+        record.conversationId,
+        record.assistantMessageId,
+        record.status,
+        record.requestedAt,
+        record.updatedAt,
+        record.runtime ? JSON.stringify(record.runtime) : null,
+        record.observation ? JSON.stringify(record.observation) : null,
+        record.result ? JSON.stringify(record.result) : null,
+      ],
+    );
+    this._persist();
+  }
+
+  async getExecution(executionId: ExecutionId): Promise<AssistantExecutionRecord | null> {
+    await this._db();
+    const row = dbGet(this.db, 'SELECT * FROM assistant_executions WHERE execution_id = ?', [executionId]);
+    return row ? this._rowToExecution(row) : null;
+  }
+
+  async listActiveExecutions(conversationId: string): Promise<readonly AssistantExecutionRecord[]> {
+    await this._db();
+    const rows = dbAll(
+      this.db,
+      `SELECT * FROM assistant_executions
+       WHERE conversation_id = ? AND status IN ('requested', 'binding', 'ready', 'running')
+       ORDER BY requested_at, execution_id`,
+      [conversationId],
+    );
+    return rows.map((row) => this._rowToExecution(row));
+  }
+
+  async updateExecutionStatus(executionId: ExecutionId, status: ExecutionStatus, updatedAt: string): Promise<void> {
+    await this._db();
+    if (!EXECUTION_STATUSES.has(status)) throw new Error(`Invalid assistant execution status: ${status}`);
+    const current = await this.getExecution(executionId);
+    if (!current) throw new Error(`Assistant execution not found: ${executionId}`);
+    if (current.status !== status) {
+      if (!isValidTransition(current.status, status)) {
+        throw new Error(`Invalid assistant execution transition: ${current.status} -> ${status}`);
+      }
+    }
+    dbRun(this.db, 'UPDATE assistant_executions SET status = ?, updated_at = ? WHERE execution_id = ?', [
+      status,
+      updatedAt,
+      executionId,
+    ]);
+    this._persist();
+  }
+
+  async updateExecutionRuntime(
+    executionId: ExecutionId,
+    runtime: AssistantRuntimeCorrelation,
+    updatedAt: string,
+  ): Promise<void> {
+    await this._db();
+    this.requireExecution(executionId);
+    dbRun(
+      this.db,
+      'UPDATE assistant_executions SET runtime_correlation_json = ?, updated_at = ? WHERE execution_id = ?',
+      [JSON.stringify(runtime), updatedAt, executionId],
+    );
+    this._persist();
+  }
+
+  async updateExecutionObservation(
+    executionId: ExecutionId,
+    observation: AssistantExecutionObservationReference,
+    updatedAt: string,
+  ): Promise<void> {
+    await this._db();
+    this.requireExecution(executionId);
+    dbRun(
+      this.db,
+      'UPDATE assistant_executions SET observation_reference_json = ?, updated_at = ? WHERE execution_id = ?',
+      [JSON.stringify(observation), updatedAt, executionId],
+    );
+    this._persist();
+  }
+
+  async attachExecutionResult(executionId: ExecutionId, result: ExecutionResult, updatedAt: string): Promise<void> {
+    await this._db();
+    if (result.id !== executionId) throw new Error(`Execution result identity mismatch: ${executionId}`);
+    if (!['completed', 'failed', 'cancelled', 'timed_out'].includes(result.status)) {
+      throw new Error(`Execution result is not terminal: ${result.status}`);
+    }
+    this.requireExecution(executionId);
+    dbRun(this.db, 'UPDATE assistant_executions SET terminal_result_json = ?, updated_at = ? WHERE execution_id = ?', [
+      JSON.stringify(result),
+      updatedAt,
+      executionId,
+    ]);
+    this._persist();
+  }
+
   async remove(id: string): Promise<void> {
     const db = await this._db();
+    dbRun(db, 'DELETE FROM assistant_executions WHERE conversation_id = ?', [id]);
     dbRun(db, 'DELETE FROM conversation_messages WHERE conversation_id = ?', [id]);
     dbRun(db, 'DELETE FROM conversations WHERE id = ?', [id]);
     this._persist();
@@ -411,6 +574,33 @@ export class SqliteConversationStore implements ConversationStore {
       createdAt: row.created_at as string,
       ...(toolObservations ? { toolObservations } : {}),
       ...(executionResult ? { executionResult } : {}),
+    };
+  }
+
+  private requireExecution(executionId: ExecutionId): void {
+    const row = dbGet(this.db, 'SELECT execution_id FROM assistant_executions WHERE execution_id = ?', [executionId]);
+    if (!row) throw new Error(`Assistant execution not found: ${executionId}`);
+  }
+
+  private _rowToExecution(row: Record<string, unknown>): AssistantExecutionRecord {
+    const status = String(row.status) as ExecutionStatus;
+    if (!EXECUTION_STATUSES.has(status)) throw new Error(`Invalid persisted assistant execution status: ${status}`);
+    return {
+      executionId: String(row.execution_id) as ExecutionId,
+      conversationId: String(row.conversation_id),
+      assistantMessageId: String(row.assistant_message_id),
+      status,
+      requestedAt: String(row.requested_at),
+      updatedAt: String(row.updated_at),
+      ...(parseRuntimeCorrelation(row.runtime_correlation_json)
+        ? { runtime: parseRuntimeCorrelation(row.runtime_correlation_json) }
+        : {}),
+      ...(parseObservationReference(row.observation_reference_json)
+        ? { observation: parseObservationReference(row.observation_reference_json) }
+        : {}),
+      ...(parseTerminalResult(row.terminal_result_json, String(row.execution_id))
+        ? { result: parseTerminalResult(row.terminal_result_json, String(row.execution_id)) }
+        : {}),
     };
   }
 

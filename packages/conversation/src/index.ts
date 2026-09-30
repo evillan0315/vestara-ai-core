@@ -14,6 +14,16 @@
 
 import type { ContextAssembler } from '@vestara/context';
 import type { EventBus } from '@vestara/event-bus';
+import type {
+  AssistantExecutionObservationReference,
+  AssistantExecutionRecord,
+  AssistantRuntimeCorrelation,
+  ExecutionActor,
+  ExecutionId,
+  ExecutionResult,
+  ExecutionStatus,
+  RuntimeSessionId,
+} from '@vestara/execution-types';
 import type { Logger } from '@vestara/logger';
 import type {
   CompletionRequest,
@@ -42,6 +52,25 @@ export interface ProviderExecutor {
   stream(request: CompletionRequest): AsyncIterable<StreamChunk>;
 }
 
+/** Durable execution persistence capability owned by the conversation store. */
+export interface AssistantExecutionStore {
+  createExecution(record: AssistantExecutionRecord): Promise<void>;
+  getExecution(executionId: ExecutionId): Promise<AssistantExecutionRecord | null>;
+  listActiveExecutions(conversationId: string): Promise<readonly AssistantExecutionRecord[]>;
+  updateExecutionStatus(executionId: ExecutionId, status: ExecutionStatus, updatedAt: string): Promise<void>;
+  updateExecutionRuntime(
+    executionId: ExecutionId,
+    runtime: AssistantRuntimeCorrelation,
+    updatedAt: string,
+  ): Promise<void>;
+  updateExecutionObservation(
+    executionId: ExecutionId,
+    observation: AssistantExecutionObservationReference,
+    updatedAt: string,
+  ): Promise<void>;
+  attachExecutionResult(executionId: ExecutionId, result: ExecutionResult, updatedAt: string): Promise<void>;
+}
+
 /**
  * Persistence boundary for conversations. `DefaultConversationService` keeps an
  * in-memory map by default; pass a store (e.g. the SQLite store in
@@ -63,6 +92,8 @@ export interface ConversationStore {
   updateTitle(id: string, title: string): Promise<void>;
   updateRuntimeSessionId(id: string, runtimeSessionId: string): Promise<void>;
   remove(id: string): Promise<void>;
+  /** Optional for legacy/in-memory consumers; required by the API store. */
+  readonly executionStore?: AssistantExecutionStore;
 }
 
 /**
@@ -127,6 +158,10 @@ export interface SendOptions {
    * so the adapter can enforce Vestara-owned limits.
    */
   executionConfig?: import('@vestara/shared').GAExecutionConfig;
+  /** Canonical initiator attribution; never an authorization grant. */
+  actor?: ExecutionActor;
+  /** Authorized, bounded identity projection; absent remains UNKNOWN. */
+  assistantIdentity?: import('@vestara/shared').AssistantIdentityContext;
 }
 
 export interface SendResult {
@@ -140,6 +175,52 @@ let messageCounter = 0;
 
 function generateId(prefix: string): string {
   return `${prefix}-${Date.now()}-${++messageCounter}`;
+}
+
+function generateExecutionId(): ExecutionId {
+  return generateId('exec') as ExecutionId;
+}
+
+function terminalStatusFor(
+  executionResult: Message['executionResult'] | undefined,
+  signal: AbortSignal | undefined,
+): 'completed' | 'failed' | 'cancelled' | 'timed_out' {
+  if (signal?.aborted) return 'cancelled';
+  switch (executionResult?.termination) {
+    case 'cancelled':
+      return 'cancelled';
+    case 'timeout':
+      return 'timed_out';
+    case 'failed':
+      return 'failed';
+    default:
+      return 'completed';
+  }
+}
+
+function runtimeCorrelation(
+  runtime: SendOptions['assistantRuntime'],
+  runtimeSessionId: string,
+  providerId?: string,
+  modelId?: string,
+): AssistantRuntimeCorrelation {
+  if (runtime === 'codex') {
+    const threadId = runtimeSessionId.startsWith('codex:') ? runtimeSessionId.slice('codex:'.length) : undefined;
+    return {
+      runtimeId: 'codex',
+      ...(threadId ? { threadId } : {}),
+      runtimeSessionId: runtimeSessionId as RuntimeSessionId,
+      ...(providerId ? { providerId } : {}),
+      ...(modelId ? { modelId } : {}),
+    };
+  }
+  return {
+    runtimeId: 'opencode',
+    sessionId: runtimeSessionId,
+    runtimeSessionId: runtimeSessionId as RuntimeSessionId,
+    ...(providerId ? { providerId } : {}),
+    ...(modelId ? { modelId } : {}),
+  };
 }
 
 export class DefaultConversationService implements ConversationService {
@@ -185,6 +266,83 @@ export class DefaultConversationService implements ConversationService {
       return cached ? windowConversation(cached, options) : null;
     }
     return this.store.getConversation(id, options);
+  }
+
+  /**
+   * Allocate and durably register the assistant response before runtime
+   * submission. Store-less consumers retain their legacy behavior; the API's
+   * persistent conversation store supplies this capability.
+   */
+  private async beginAssistantExecution(
+    conversationId: string,
+    assistantMessageId: string,
+  ): Promise<{ executionId: ExecutionId; requestedAt: string } | undefined> {
+    const store = this.store?.executionStore;
+    if (!store) return undefined;
+    const executionId = generateExecutionId();
+    const requestedAt = new Date().toISOString();
+    await store.createExecution({
+      executionId,
+      conversationId,
+      assistantMessageId,
+      status: 'requested',
+      requestedAt,
+      updatedAt: requestedAt,
+    });
+    await store.updateExecutionStatus(executionId, 'binding', new Date().toISOString());
+    await store.updateExecutionStatus(executionId, 'ready', new Date().toISOString());
+    return { executionId, requestedAt };
+  }
+
+  private async markExecutionRunning(executionId: ExecutionId, store: AssistantExecutionStore): Promise<void> {
+    await store.updateExecutionStatus(executionId, 'running', new Date().toISOString());
+  }
+
+  private async attachRuntimeCorrelation(
+    executionId: ExecutionId,
+    store: AssistantExecutionStore,
+    runtime: SendOptions['assistantRuntime'],
+    runtimeSessionId: string | undefined,
+    providerId?: string,
+    modelId?: string,
+  ): Promise<void> {
+    if (!runtimeSessionId) return;
+    await store.updateExecutionRuntime(
+      executionId,
+      runtimeCorrelation(runtime, runtimeSessionId, providerId, modelId),
+      new Date().toISOString(),
+    );
+  }
+
+  private async settleExecution(
+    executionId: ExecutionId,
+    store: AssistantExecutionStore,
+    input: {
+      readonly status: 'completed' | 'failed' | 'cancelled' | 'timed_out';
+      readonly requestedAt: string;
+      readonly startedAt: string;
+      readonly output?: string;
+      readonly error?: string;
+    },
+  ): Promise<void> {
+    const completedAt = new Date().toISOString();
+    const result: ExecutionResult = {
+      id: executionId,
+      status: input.status,
+      ...(input.output ? { output: input.output } : {}),
+      artifacts: [],
+      evidence: [],
+      timing: {
+        requestedAt: input.requestedAt,
+        startedAt: input.startedAt,
+        completedAt,
+        durationMs: Math.max(0, Date.parse(completedAt) - Date.parse(input.startedAt)),
+      },
+      ...(input.error
+        ? { error: { code: input.status, message: input.error, recoverable: input.status === 'failed' } }
+        : {}),
+    };
+    await store.attachExecutionResult(executionId, result, completedAt);
   }
 
   async createConversation(
@@ -243,6 +401,12 @@ export class DefaultConversationService implements ConversationService {
     conversation.updatedAt = userMessage.createdAt;
     await this.store?.addMessage(conversationId, userMessage);
 
+    // Allocate and persist execution authority immediately after the human
+    // message and before any runtime-facing event or invocation.
+    const assistantMessageId = generateId('msg');
+    const execution = await this.beginAssistantExecution(conversationId, assistantMessageId);
+    const executionStore = this.store?.executionStore;
+
     await this.eventBus?.emit({
       type: 'conversation:message.sent',
       source: 'conversation-service',
@@ -256,7 +420,7 @@ export class DefaultConversationService implements ConversationService {
         ...(options.surface ? { surface: options.surface } : {}),
       },
       actor: { id: conversation.userId, role: 'user' },
-      metadata: {},
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     this.logger?.info('Message sent', {
@@ -269,21 +433,31 @@ export class DefaultConversationService implements ConversationService {
     // GA-RUNTIME-001: feed the stored runtime session ID (if the caller did not
     // supply one) so subsequent turns reuse the conversation's OpenCode session.
     const runtimeSessionId = options.runtimeSessionId ?? conversation.runtimeSessionId;
-    const request = this.contextAssembler.buildContext(conversation, content, { ...options, runtimeSessionId });
+    const request = this.contextAssembler.buildContext(conversation, content, {
+      ...options,
+      runtimeSessionId,
+      ...(execution ? { executionId: execution.executionId, assistantMessageId } : {}),
+    });
 
     await this.eventBus?.emit({
       type: 'conversation:provider.request.started',
       source: 'conversation-service',
-      payload: { conversationId, model: request.model },
-      metadata: {},
+      payload: {
+        conversationId,
+        model: request.model,
+        ...(options.agentId ? { agentId: options.agentId } : {}),
+      },
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     const startTime = performance.now();
+    const executionStartedAt = new Date().toISOString();
     let responseContent = '';
     let responseTokens = 0;
     let responseProvider = 'opencode';
     let responseModel: string | undefined;
     let responseExecutionResult: Message['executionResult'];
+    let responseError: string | undefined;
     // REASONING-BOUNDARY-001: provider-emitted reasoning, structurally
     // separate from content (complete-path executor returns it on the
     // response envelope, never inside content).
@@ -292,6 +466,15 @@ export class DefaultConversationService implements ConversationService {
     // by the executor on the first turn). Persisted so later turns reuse it.
     let turnRuntimeSessionId = runtimeSessionId;
 
+    if (execution && executionStore) await this.markExecutionRunning(execution.executionId, executionStore);
+    if (execution && executionStore && turnRuntimeSessionId) {
+      await this.attachRuntimeCorrelation(
+        execution.executionId,
+        executionStore,
+        options.assistantRuntime,
+        turnRuntimeSessionId,
+      );
+    }
     try {
       const response = await this.providerExecutor.complete(request);
       responseContent = response.content;
@@ -301,6 +484,17 @@ export class DefaultConversationService implements ConversationService {
       responseReasoning = response.reasoning ? truncateReasoning(response.reasoning) : undefined;
       responseExecutionResult = response.executionResult;
       turnRuntimeSessionId = response.resolution?.runtimeSessionId ?? turnRuntimeSessionId;
+
+      if (execution && executionStore) {
+        await this.attachRuntimeCorrelation(
+          execution.executionId,
+          executionStore,
+          options.assistantRuntime,
+          turnRuntimeSessionId,
+          response.provider,
+          response.model,
+        );
+      }
 
       await this.eventBus?.emit({
         type: 'conversation:provider.response.completed',
@@ -317,6 +511,7 @@ export class DefaultConversationService implements ConversationService {
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'Provider call failed';
       responseContent = `Error: ${msg}`;
+      responseError = msg;
 
       await this.eventBus?.emit({
         type: 'conversation:provider.error',
@@ -330,7 +525,7 @@ export class DefaultConversationService implements ConversationService {
 
     // Create assistant response message
     const responseMessage: Message = {
-      id: generateId('msg'),
+      id: assistantMessageId,
       conversationId,
       role: 'assistant',
       content: responseContent,
@@ -355,18 +550,35 @@ export class DefaultConversationService implements ConversationService {
       await this.store?.updateRuntimeSessionId(conversationId, turnRuntimeSessionId);
     }
 
+    if (execution && executionStore) {
+      const terminalStatus = responseError
+        ? options.signal?.aborted
+          ? 'cancelled'
+          : 'failed'
+        : terminalStatusFor(responseExecutionResult, options.signal);
+      await this.settleExecution(execution.executionId, executionStore, {
+        status: terminalStatus,
+        requestedAt: execution.requestedAt,
+        startedAt: executionStartedAt,
+        output: responseContent,
+        ...(responseError ? { error: responseError } : {}),
+      });
+      await executionStore.updateExecutionStatus(execution.executionId, terminalStatus, new Date().toISOString());
+    }
+
     await this.eventBus?.emit({
       type: 'conversation:response.completed',
       source: 'conversation-service',
       payload: {
         conversationId,
         messageId: responseMessage.id,
+        ...(options.agentId ? { agentId: options.agentId } : {}),
         contentLength: responseMessage.content.length,
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
         contentPreview: boundedContentPreview(responseMessage.content),
       },
-      metadata: {},
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     this.logger?.info('Response completed', {
@@ -400,6 +612,10 @@ export class DefaultConversationService implements ConversationService {
     conversation.updatedAt = userMessage.createdAt;
     await this.store?.addMessage(conversationId, userMessage);
 
+    const assistantMessageId = generateId('msg');
+    const execution = await this.beginAssistantExecution(conversationId, assistantMessageId);
+    const executionStore = this.store?.executionStore;
+
     // Persist resolved title: if title is still the counter default ("Conversation N"),
     // derive a meaningful title from the first user message and write it back to SQLite.
     if (/^Conversation \d+$/.test(conversation.title) && content.trim()) {
@@ -421,20 +637,28 @@ export class DefaultConversationService implements ConversationService {
         ...(options.surface ? { surface: options.surface } : {}),
       },
       actor: { id: conversation.userId, role: 'user' },
-      metadata: {},
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     // Build context
     // GA-RUNTIME-001: feed the stored runtime session ID (if the caller did not
     // supply one) so subsequent turns reuse the conversation's OpenCode session.
     const runtimeSessionId = options.runtimeSessionId ?? conversation.runtimeSessionId;
-    const request = this.contextAssembler.buildContext(conversation, content, { ...options, runtimeSessionId });
+    const request = this.contextAssembler.buildContext(conversation, content, {
+      ...options,
+      runtimeSessionId,
+      ...(execution ? { executionId: execution.executionId, assistantMessageId } : {}),
+    });
 
     await this.eventBus?.emit({
       type: 'conversation:provider.request.started',
       source: 'conversation-service',
-      payload: { conversationId, model: request.model },
-      metadata: {},
+      payload: {
+        conversationId,
+        model: request.model,
+        ...(options.agentId ? { agentId: options.agentId } : {}),
+      },
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     let fullContent = '';
@@ -442,6 +666,7 @@ export class DefaultConversationService implements ConversationService {
     let responseProvider = 'opencode';
     let responseModel: string | undefined;
     let responseExecutionResult: Message['executionResult'];
+    let responseError: string | undefined;
     // REASONING-BOUNDARY-001: provider-emitted reasoning accumulates on a
     // disjoint channel — fullContent (final text) never receives it.
     let reasoningContent = '';
@@ -451,11 +676,31 @@ export class DefaultConversationService implements ConversationService {
     // GA-CTX-001: collect tool observations across the turn
     const toolObservations: ToolObservation[] = [];
     const startTime = performance.now();
+    const executionStartedAt = new Date().toISOString();
 
+    if (execution && executionStore) await this.markExecutionRunning(execution.executionId, executionStore);
+    if (execution && executionStore && turnRuntimeSessionId) {
+      await this.attachRuntimeCorrelation(
+        execution.executionId,
+        executionStore,
+        options.assistantRuntime,
+        turnRuntimeSessionId,
+      );
+    }
     try {
       for await (const chunk of this.providerExecutor.stream(request)) {
         if (chunk.metadata?.runtimeSessionId) {
           turnRuntimeSessionId = chunk.metadata.runtimeSessionId;
+          if (execution && executionStore) {
+            await this.attachRuntimeCorrelation(
+              execution.executionId,
+              executionStore,
+              options.assistantRuntime,
+              turnRuntimeSessionId,
+              chunk.metadata.provider,
+              chunk.metadata.model,
+            );
+          }
         }
         if (chunk.type === 'text' && chunk.content) {
           fullContent += chunk.content;
@@ -469,6 +714,7 @@ export class DefaultConversationService implements ConversationService {
           responseExecutionResult = chunk.metadata.executionResult ?? responseExecutionResult;
           yield chunk;
         } else if (chunk.type === 'error') {
+          responseError = chunk.content ?? 'Stream failed';
           yield chunk;
         } else if (chunk.type === 'complete') {
           responseProvider = chunk.metadata.provider ?? responseProvider;
@@ -496,13 +742,14 @@ export class DefaultConversationService implements ConversationService {
       const msg = error instanceof Error ? error.message : 'Stream failed';
       yield new DefaultStreamProcessor().error(msg);
       fullContent = `Error: ${msg}`;
+      responseError = msg;
     }
 
     const latency = Math.round(performance.now() - startTime);
 
     // Create assistant response message
     const responseMessage: Message = {
-      id: generateId('msg'),
+      id: assistantMessageId,
       conversationId,
       role: 'assistant',
       content: fullContent,
@@ -529,18 +776,35 @@ export class DefaultConversationService implements ConversationService {
       await this.store?.updateRuntimeSessionId(conversationId, turnRuntimeSessionId);
     }
 
+    if (execution && executionStore) {
+      const terminalStatus = responseError
+        ? options.signal?.aborted
+          ? 'cancelled'
+          : 'failed'
+        : terminalStatusFor(responseExecutionResult, options.signal);
+      await this.settleExecution(execution.executionId, executionStore, {
+        status: terminalStatus,
+        requestedAt: execution.requestedAt,
+        startedAt: executionStartedAt,
+        output: fullContent,
+        ...(responseError ? { error: responseError } : {}),
+      });
+      await executionStore.updateExecutionStatus(execution.executionId, terminalStatus, new Date().toISOString());
+    }
+
     await this.eventBus?.emit({
       type: 'conversation:response.completed',
       source: 'conversation-service',
       payload: {
         conversationId,
         messageId: responseMessage.id,
+        ...(options.agentId ? { agentId: options.agentId } : {}),
         contentLength: responseMessage.content.length,
         tokens: responseMessage.tokens,
         latency: responseMessage.latency,
         contentPreview: boundedContentPreview(responseMessage.content),
       },
-      metadata: {},
+      metadata: execution ? { executionId: execution.executionId } : {},
     });
 
     yield new DefaultStreamProcessor().complete({
@@ -690,6 +954,7 @@ export function chunkToObservation(chunk: StreamChunk): ToolObservation | undefi
   const timestamp = chunk.metadata.timestamp;
   const readDetail = detail?.kind === 'read' ? detail : undefined;
   const editDetail = detail?.kind === 'edit' ? detail : undefined;
+  const writeDetail = detail?.kind === 'write' ? detail : undefined;
 
   if (chunk.type === 'tool_call') {
     return {
@@ -697,6 +962,7 @@ export function chunkToObservation(chunk: StreamChunk): ToolObservation | undefi
       ...(operationId ? { operationId } : {}),
       ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
       ...(editDetail ? { observationKind: 'edit' as const, edit: editDetail } : {}),
+      ...(writeDetail ? { observationKind: 'write' as const, write: writeDetail } : {}),
       toolName,
       status: 'running',
       timestamp,
@@ -731,6 +997,7 @@ export function chunkToObservation(chunk: StreamChunk): ToolObservation | undefi
       ...(operationId ? { operationId } : {}),
       ...(readDetail ? { observationKind: 'read' as const, read: readDetail } : {}),
       ...(editDetail ? { observationKind: 'edit' as const, edit: editDetail } : {}),
+      ...(writeDetail ? { observationKind: 'write' as const, write: writeDetail } : {}),
       toolName,
       status,
       timestamp,
@@ -754,7 +1021,36 @@ export function chunkToObservation(chunk: StreamChunk): ToolObservation | undefi
  * are preserved. Observations without an operationId (legacy
  * transport-only identity) always append.
  */
-function upsertObservation(list: ToolObservation[], observation: ToolObservation): void {
+function hasStructuredEdit(observation: ToolObservation): observation is ToolObservation & {
+  readonly observationKind: 'edit';
+  readonly edit: NonNullable<ToolObservation['edit']>;
+} {
+  return (
+    observation.observationKind === 'edit' &&
+    observation.edit?.kind === 'edit' &&
+    observation.operationId !== undefined &&
+    observation.edit.operationId === observation.operationId
+  );
+}
+
+function hasStructuredWrite(observation: ToolObservation): observation is ToolObservation & {
+  readonly observationKind: 'write';
+  readonly write: NonNullable<ToolObservation['write']>;
+} {
+  return (
+    observation.observationKind === 'write' &&
+    observation.write?.kind === 'write' &&
+    observation.operationId !== undefined &&
+    observation.write.operationId === observation.operationId
+  );
+}
+
+function hasStructuredFileMutation(observation: ToolObservation): boolean {
+  return hasStructuredEdit(observation) || hasStructuredWrite(observation);
+}
+
+/** Upsert one lifecycle snapshot without discarding same-operation edit evidence. */
+export function upsertObservation(list: ToolObservation[], observation: ToolObservation): void {
   const operationId = observation.operationId;
   if (operationId) {
     const index = list.findIndex((entry) => entry.operationId === operationId);
@@ -765,7 +1061,12 @@ function upsertObservation(list: ToolObservation[], observation: ToolObservation
       const incomingTerminal =
         observation.status === 'completed' || observation.status === 'failed' || observation.status === 'denied';
       if (incomingTerminal || !existingTerminal) {
-        list[index] = observation;
+        list[index] =
+          !hasStructuredFileMutation(observation) && hasStructuredFileMutation(existing)
+            ? hasStructuredEdit(existing)
+              ? { ...observation, observationKind: 'edit', edit: existing.edit }
+              : { ...observation, observationKind: 'write', write: existing.write }
+            : observation;
         return;
       }
       return;

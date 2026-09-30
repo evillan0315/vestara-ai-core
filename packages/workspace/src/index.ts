@@ -149,6 +149,16 @@ export {
 } from './harness-task-dispatcher';
 export { HelpService } from './help-service';
 export type {
+  HumanIdentityRepresentation,
+  HumanIdentityRepresentationInput,
+  HumanIdentityRepresentationStatus,
+} from './human-identity-representation';
+export {
+  HUMAN_IDENTITY_REPRESENTATION_MANIFEST,
+  HUMAN_IDENTITY_REPRESENTATION_MIGRATIONS,
+} from './human-identity-representation-migrations';
+export { HumanIdentityRepresentationStorage } from './human-identity-representation-storage';
+export type {
   HumanKnowledgeInput,
   HumanKnowledgeItem,
   HumanKnowledgeMeta,

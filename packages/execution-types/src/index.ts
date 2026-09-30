@@ -129,3 +129,13 @@ export type {
   RuntimeExecutionHandle,
   RuntimeExecutionPort,
 } from './port.js';
+
+// ── Durable assistant execution lifecycle ──────────────────────────────────
+
+export type {
+  AssistantExecutionObservationReference,
+  AssistantExecutionReconciliation,
+  AssistantExecutionReconciliationStatus,
+  AssistantExecutionRecord,
+  AssistantRuntimeCorrelation,
+} from './assistant-execution.js';

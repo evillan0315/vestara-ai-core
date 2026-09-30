@@ -9,6 +9,8 @@ export * from './baseline-store';
 export * from './bundle-store';
 export * from './collectors';
 export * from './confidence';
+export * from './historical-evidence';
+export * from './historical-persistence';
 export * from './pipeline';
 export * from './recording-ingest';
 export * from './types';

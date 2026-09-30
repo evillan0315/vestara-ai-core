@@ -145,4 +145,30 @@ describe('conversation runtime attribution', () => {
     });
     expect(messages?.[1]?.model).toBe('model-a');
   });
+
+  it('propagates the canonical human actor from conversation execution options', async () => {
+    let captured: CompletionRequest | undefined;
+    const executor: ProviderExecutor = {
+      async complete() {
+        throw new Error('unused');
+      },
+      async *stream(request: CompletionRequest) {
+        captured = request;
+        yield chunk('text', { sequence: 0, timestamp: new Date().toISOString() }, 'done');
+        yield chunk('complete', { sequence: 1, timestamp: new Date().toISOString() });
+      },
+    };
+    const service = serviceWith(executor);
+    const conversation = await service.createConversation('hp-canonical-1');
+
+    for await (const _ of service.sendMessageStream(conversation.id, 'hello', {
+      actor: { kind: 'human', id: conversation.userId },
+    })) {
+      // drain
+    }
+
+    expect(conversation.userId).toBe('hp-canonical-1');
+    expect(captured?.actor).toEqual({ kind: 'human', id: 'hp-canonical-1' });
+    expect(captured?.actor).not.toHaveProperty('role');
+  });
 });
