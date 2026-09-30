@@ -68,6 +68,7 @@ export interface OpenCodeRuntimeProviderOptions {
 
 export type ProviderResolutionReason =
   | 'preferred'
+  | 'requested'
   | 'preferred-unavailable'
   | 'explicit-model'
   | 'explicit-unresolvable'
@@ -199,7 +200,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
   async complete(request: CompletionRequest): Promise<CompletionResponse> {
     const started = Date.now();
     await this.discoverProviders().catch(() => {});
-    const resolved = this.resolveProvider(request.model);
+    const resolved = this.resolveProvider(request.model, request.provider);
     // M7: If a runtime session ID is provided, reuse the existing session.
     // Otherwise, create a new ephemeral session (existing behavior).
     const sessionId = request.runtimeSessionId || (await this.createSession(request.title));
@@ -286,7 +287,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
    *   2. Preferred provider from constructor options or environment.
    *   3. Runtime default (no provider forced).
    */
-  private resolveProvider(modelId: string | undefined): ProviderResolution {
+  private resolveProvider(modelId: string | undefined, requestedProvider?: string): ProviderResolution {
     const discovered = new Set(this.models.map((model) => model.id));
 
     // 1. Check explicit provider from the model string first — this enables
@@ -297,6 +298,15 @@ export class OpenCodeRuntimeProvider implements AIProvider {
     }
     if (explicit !== undefined) {
       return { providerId: undefined, reason: 'explicit-unresolvable', defaultResolution: true };
+    }
+
+    // Preserve a server-resolved provider when the model id is bare or uses
+    // the runtime sentinel. The binding is validated against discovery here.
+    if (requestedProvider) {
+      if (discovered.has(requestedProvider)) {
+        return { providerId: requestedProvider, reason: 'requested', defaultResolution: false };
+      }
+      return { providerId: undefined, reason: 'preferred-unavailable', defaultResolution: true };
     }
 
     // 2. Fall back to preferred provider when no explicit provider is in the model string.
