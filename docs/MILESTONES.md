@@ -2159,10 +2159,10 @@ vestara provider status ollama
 | Artifact | Description |
 |----------|-------------|
 | `WF-PLAYGROUND-000` | Workflow Architecture & Ownership Audit — maps existing WorkflowRun, definitions, steps, DAG contracts, execution contracts, routing contracts, task contracts, Activity Room integration, event infrastructure, persistence and APIs |
-| `WF-PLAYGROUND-001` | Workflow Graph Contract — canonical graph independent of React Flow with IDs, versioning, metadata, inputs/outputs, nodes, edges, policies |
+| `WF-PLAYGROUND-001` | Workflow Graph Contract — canonical graph independent of Cytoscape with IDs, versioning, metadata, inputs/outputs, nodes, edges, policies |
 | `WF-PLAYGROUND-002` | Node/Port/Edge Semantics — executable graph vocabulary (Input, Output, Agent, Task, Tool, Router, Transform, Approval, Wait, Subworkflow) with typed compatibility and cycle rules |
 | `WF-PLAYGROUND-003` | Explainability Contract — deterministic explanation generation from graph (What/Why/Receive/Produce/Governance/Failure for every node/edge) |
-| `WF-PLAYGROUND-004` | React Flow Designer — visual workflow creation using canonical Vestara UI system, round-tripping to graph contracts |
+| `WF-PLAYGROUND-004` | Cytoscape Designer — visual workflow creation using canonical Vestara UI system, round-tripping to graph contracts |
 | `WF-PLAYGROUND-005` | Configuration Inspector — contextual node/edge configuration preserving routing invariants (Agent → RoutingIntent → RoutingAssignment → Provider/Model) |
 | `WF-PLAYGROUND-006` | Validation Engine — static analyzer detecting unreachable nodes, orphan nodes, incompatible ports, missing required input, invalid cycles, dead ends, unbounded retries, etc. |
 | `WF-PLAYGROUND-007` | Simulator — safe simulation runtime stepping through nodes, emitting execution observations matching future production runtime family |
@@ -2191,11 +2191,11 @@ vestara provider status ollama
 **RELEASE A — FOUNDATION** (phases 000-003):
 - `pnpm vestara doctor` passes
 - Architecture audit produces dependency and authority diagrams
-- Graph contract can serialize/validate versioned workflow without React Flow
+- Graph contract can serialize/validate versioned workflow without Cytoscape
 - Deterministic explanation generation from graph structure
 
 **RELEASE B — PLAYGROUND** (phases 004-007):
-- React Flow Designer renders and rounds-trip graphs
+- Cytoscape Designer renders and round-trips graphs
 - Validation engine detects structural issues
 - Simulator executes deterministically under control
 - Every graph can be understood without reading implementation code
@@ -2230,6 +2230,90 @@ vestara provider status ollama
 - `packages/ui-tokens/` tokens validated per each new visual value
 - `apps/workspace/src/styles/` tokens updated per new `--vestara-*` requirements
 - `@vestara/workflow-orchestrator` types enriched for canonical graph contract
+
+**Graph technology decision (Director, 2026-09-26)**: Vestara standardizes on Cytoscape for all Workflow graph capabilities. React Flow is no longer the intended renderer/editor for this program — `WF-PLAYGROUND-001`/`004` and RELEASE A/B verification above now reference Cytoscape. Same library does not collapse authoring vs runtime-observation authority; see the `WF-GRAPH` section decision record. No other milestone scope redesigned by this decision.
+
+**Status**: 🔷 Planned
+
+---
+
+### WF-GRAPH — Workflow Graph + Cytoscape (Read-Only Runtime Projection) 🔷 Planned
+
+**Mode**: MILESTONE PLANNING / ROADMAP RECORDING ONLY. No implementation authorized by this record. No runtime behavior change. No Workflow contract refactor. Cytoscape is not installed by this record.
+
+**Objective**: Restructure the existing Workflow page (`/orchestration`, `apps/workspace/src/pages/Orchestration.tsx`) around an active workflow/run, making a live Cytoscape graph the primary visualization for understanding tasks, agents/roles, execution progression, transitions, approvals, holds, failures, retries, handoffs, verification, evidence, and completion. The Workflow page becomes a control/inspection surface over real Vestara orchestration, not merely a project dashboard. Useful existing operational information is preserved/reused, not discarded for redesign.
+
+**Core invariant** (frozen):
+
+```text
+Workflow Runtime
+    ↓ authoritative state
+Workflow Graph Projection
+    ↓ derived graph contract
+Cytoscape Renderer
+    ↓
+Workflow UI
+```
+
+Cytoscape is presentation and interaction infrastructure only. Cytoscape nodes/edges MUST NOT become canonical Workflow state. Graph state ≠ Workflow state. Visual state ≠ Execution state. Selection ≠ Authority. Interaction ≠ Permission. Request ≠ Permission ≠ Execution ≠ Verification.
+
+**Director graph-technology decision (2026-09-26 — resolves WF-GRAPH conflict C1)**: Vestara standardizes on Cytoscape for Workflow graph capabilities. React Flow is no longer the intended renderer/editor for WF-PLAYGROUND. Cytoscape supports both tracks:
+
+1. Workflow Runtime Graph (WF-GRAPH) — read-only authoritative runtime projection, inspection, live execution visualization, topology/navigation, evidence/status visualization.
+2. Future Workflow Builder / Playground (WF-PLAYGROUND designer phases, WF-BUILDER-001+) — visual authoring, node/edge creation, definition editing, topology validation, simulation/playground.
+
+Using the same graph library MUST NOT collapse authoring vs runtime-observation authority:
+
+```text
+Builder:  Cytoscape Editor → Candidate WorkflowDefinition → Validation → Authorization → Canonical WorkflowDefinition
+Runtime:  Canonical Workflow Runtime → Workflow Graph Projection → Cytoscape Renderer
+```
+
+Therefore: Cytoscape graph state ≠ canonical Workflow state. Builder graph ≠ runtime graph. Candidate definition ≠ authorized definition. Visual mutation ≠ runtime mutation. Selection ≠ authority.
+
+**Phases**:
+
+| Phase | Scope |
+|-------|-------|
+| `WF-GRAPH-000` | Current Workflow Ownership Audit — ZERO MUTATION. Map domain contracts, definitions, runtime, WorkflowRun ownership, Task ownership, task states, execution ownership, agent/role assignment, approval state, verification state, evidence/artifact relationships, runtime events, persistence, API routes, Workspace Workflow page, existing dashboard projections. Produce the actual current lifecycle from source. Identify canonical owners, derived/duplicated state, missing projection boundaries, graphable relationships, relationships requiring inference, and state the UI MUST NOT infer. |
+| `WF-GRAPH-001` | Canonical Graph Projection Contract — provider/UI-neutral `WorkflowGraphProjection` (`workflowId`, `runId`, `version`, `nodes[]`, `edges[]`, `generatedAt`), `GraphNode` (id/kind/label/status + optional role/taskId/executionId/sessionId/verification/attention/metadata), `GraphEdge` (id/source/target/kind + optional status/transition/evidence/metadata). Fields finalized only from WF-GRAPH-000 evidence. Only transition types supported by authoritative contracts (success/failure/retry/escalate/handoff/approval/rejection/hold/resume/verification pass/fail). No invented relationships. |
+| `WF-GRAPH-002` | Graph Projection Service — deterministic, read-only `WorkflowGraphProjector`: canonical state → projection. Stable node/edge IDs, explicit ordering, no runtime mutation, no Cytoscape/UI dependency, UNKNOWN stays explicit. Tests prove identical authoritative state yields equivalent topology. Testable without Cytoscape. |
+| `WF-GRAPH-003` | Workflow Graph API — expose the projection through the existing appropriate Workflow API boundary (`/api/orchestration/*`). Sufficient information for a renderer without forcing the UI to join endpoints and infer topology. Preserve canonical runtime → projection → API → client → renderer. Versioning per current API conventions. |
+| `WF-GRAPH-004` | Cytoscape Renderer Foundation — introduce Cytoscape as a rendering dependency only after the projection contract exists. Reusable `WorkflowGraph` component: render nodes/edges, selection, pan/zoom/fit, focus selected, layout selection, viewport preservation, responsive resizing. Non-responsibilities: state ownership, execution, approval, verification, inferred topology, persistence. Canonical Vestara UI tokens only (`@vestara/ui-tokens`, `@vestara/ui-theme`, VES-DESIGN-002); no hardcoded palettes. |
+| `WF-GRAPH-005` | Workflow Page Restructure — header (name, description, run status, progress, current run, pause/stop only where authority already exists, View in Activity); nav (Overview, Workflow Graph, Tasks, Executions, Evidence, Configuration); graph + Node Detail Inspector layout with Recent Activity / Execution Timeline / Artifacts-Evidence panels. No controls for nonexistent capabilities. Reuse existing layout primitives; no screen-specific styling architecture. |
+| `WF-GRAPH-006` | Node Inspector — selection opens contextual details without mutating state (task ID/status/role/agent/runtime-model/session/execution/timing/authority boundary/token usage-cost and progress where authoritative; verification/artifacts/logs/decisions). Navigation (Open Execution, Open in Activity, Open Evidence, View Changes) uses authoritative identifiers only — no fuzzy correlation by label/timestamp/name/proximity. |
+| `WF-GRAPH-007` | Live Graph State — projection updates over existing authoritative runtime/event mechanisms (PENDING → AUTHORIZED → RUNNING → VERIFYING → COMPLETED plus supported alternates, e.g. VERIFY PASS → COMPLETE / FAIL → REPAIR). Selection survives updates, viewport does not jump, no optimistic advancement unless current semantics support it, reconnect reconstructs from authoritative state. Live event ≠ canonical state. |
+| `WF-GRAPH-008` | Approval / Hold / Attention Visualization — awaiting approval, HOLD, NEEDS_DECISION, verification failure, retry, escalation, blocked, attention-required — only where supported by Workflow contracts. Graph shows why execution stopped, who/what owns the next transition, whether human action is required. No manufactured approval states. |
+| `WF-GRAPH-009` | Activity / Execution / Evidence Integration — graph as navigation surface over Activity Room, Execution, Agent, Evidence, Files/Artifacts, Verification. Does not replace those surfaces. Preserves Workflow ≠ Task ≠ Session ≠ Execution ≠ Agent ≠ Model ≠ Evidence identity/lineage. |
+| `WF-GRAPH-010` | Dogfood + Verification — bounded real workflow (candidate: `dogfood-001-orchestration-smoke`, existence/availability to be confirmed in WF-GRAPH-000). Verify topology/task-count/state/transition fidelity, selection, exact inspector lineage, live updates, reconnect reconstruction, viewport usability, Activity/Execution/Evidence links, and no silent mutation of Workflow authority. Capture evidence. |
+
+**Deferred — visual workflow builder / playground**: explicitly NOT combined with this read-only milestone. Future `WF-BUILDER-001+` (create/connect/edit/validate/configure tasks, roles, approval gates, templates, simulation, compile to canonical `WorkflowDefinition`) reverses authority direction (Editor → candidate → validation → authorization → canonical definition → runtime) and MUST remain separate. Must be reconciled with `WF-PLAYGROUND-004`–`007` designer/simulator scope before either track implements editing (see Conflicts).
+
+**Acceptance principles**: (1) Cytoscape never owns Workflow truth. (2) UI never infers topology when canonical lineage is absent. (3) Projection testable without Cytoscape. (4) Deterministic reconstruction. (5) Live updates never become canonical state. (6) Existing execution behavior unchanged until explicitly authorized later. (7) Existing dashboard information preserved/reused. (8) Vestara canonical design system for all visual semantics. (9) Approval/HOLD visible only when authoritative. (10) Understandable before editable.
+
+**Sequence**: `WF-GRAPH-000 → 001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010`, then freeze/evaluate before `WF-BUILDER-001+`. Internally consistent: each phase consumes only artifacts produced by earlier phases (audit → contract → projector → API → renderer → page → inspector → live → governance → integration → dogfood); rendering (004) is gated on the projection contract (001); no phase mutates Workflow authority.
+
+**Category**: Platform (projection contract/service/API over existing orchestration) + Product (Workflow page operations surface).
+
+**Dependencies**: v5.4 Multi-Agent Workflow Orchestration Core (`@vestara/workflow-orchestrator` single writer of project/plan/task state, `/api/orchestration/*`, `orchestration.*` events); `@vestara/workflow-projections`; `@vestara/ui-tokens` / `@vestara/ui-theme` / VES-DESIGN-002; Activity Room projection/lineage conventions (authoritative `conversationId`/`callID`, no fuzzy correlation); existing `apps/workspace` layout primitives.
+
+**Conflicts / findings recorded explicitly (no architecture invented)**:
+
+| # | Conflict / finding | Classification | Handling |
+|---|--------------------|----------------|----------|
+| C1 | ✅ RESOLVED (2026-09-26 Director decision) — Renderer divergence closed: Vestara standardizes on Cytoscape for all Workflow graph capabilities; React Flow is no longer the intended renderer/editor for WF-PLAYGROUND (`WF-PLAYGROUND-001`/`004` and RELEASE A/B verification now reference Cytoscape). WF-GRAPH remains the read-only operations-surface track; WF-PLAYGROUND/WF-BUILDER remains the design/editing track. Same library does not collapse authoring vs runtime-observation authority (see decision record above). | Resolution recorded in-file; no program scope redesigned. |
+| C2 | `docs/PCS-026-wf-playground.md` is referenced by the WF-PLAYGROUND program record as a key item but does not exist in `docs/` (only `docs/PCS-026-engineering-evidence-pipeline.md` was found). | ADJACENT (pre-existing doc debt) | Recorded; not acted on. WF-GRAPH documentation-first artifacts (PCS/UX/ATS) must use non-colliding identifiers when authored. |
+| C3 | `v8.0` version string is already used twice in this file (`WF-PLAYGROUND Program` 🔷 Planned and `Multi-User Collaboration` 🔶 In Progress). | OBSERVATION (pre-existing) | WF-GRAPH deliberately uses `WF-GRAPH-xxx` phase IDs, not a `vX.Y` version, to avoid worsening the collision. Version renumbering is out of scope for this record. |
+| C4 | `WF-GRAPH-001` candidate fields assume `runId` / `WorkflowRun`, but architecture review evidence (ARX-015 F7) records no first-class `WorkflowRun` type in `workflow-orchestrator`; two parallel workflow systems exist (legacy `WorkflowRuntime` in `packages/runtime` vs `WorkflowOrchestrator`). | Dependency on WF-GRAPH-000 | 001 fields stay candidate until the 000 audit confirms or denies run-level ownership. If absent, the contract must model runs as derived/explicit-UNKNOWN, not invent a canonical run authority. |
+| C5 | Orchestrator observation (`ProjectSnapshot`) and `workflow-projections` UI types are parallel systems with no bridge (ARX-015-000 §762); task threads join by string `taskId` with no FK (AR-P1-AUDIT). | Dependency on WF-GRAPH-000/002 | The projector source (orchestrator snapshot vs projections package vs event bridge) is chosen in 000/002 from evidence; string-join lineage must not become graph edges unless a governed FK/authority exists. |
+| C6 | `dogfood-001-orchestration-smoke` specimen named in the plan was not found in the repo (only `scripts/ci-dogfood.mjs` matched `*dogfood*`). | Dependency on WF-GRAPH-000 | 010 dogfood target/existence confirmed during 000; substitute bounded specimen only if the candidate does not exist. |
+| C7 | Current `Orchestration.tsx` uses hardcoded Tailwind palette classes (`bg-zinc-600/20`, `bg-amber-500/15`, `bg-emerald-500/15`, etc.), which WF-GRAPH-004/005 UI-token governance forbids. | ADJACENT (known, planned migration) | Page restructure migrates these surfaces to `--vestara-*` tokens per VES-DESIGN-002; no styling change authorized by this record. |
+| C8 | WF-PLAYGROUND-019 (Production Runtime Convergence) promotes simulation contracts toward production runtime authority, while WF-GRAPH freezes existing Workflow execution behavior unchanged (principle 6). | OBSERVATION | No direct contradiction while both are Planned: WF-GRAPH never grants runtime authority; any future convergence needs explicit authorization and reconciliation with WF-GRAPH principles 1/6. |
+
+**Verification (planning record)**: `docs/MILESTONES.md` updated; `packages/workspace/src/milestone-service.ts` intentionally untouched (it tracks `vX.Y` version milestones; the `WF-PLAYGROUND-000`–`020` program precedent likewise lives only in `MILESTONES.md`). No source, contract, dependency, or styling file modified. No Cytoscape installed. No PCS/UX/ATS authored yet — documentation-first specs remain a prerequisite before any WF-GRAPH phase beyond 000 leaves planning.
+
+**Status**: 🔷 Planned (recorded 2026-09-26; first authorized activity after approval is the WF-GRAPH-000 zero-mutation audit).
+
 ---
 
 ### v7.14 — Premium Marketplace Gallery 🔷 Planned
@@ -4970,3 +5054,1044 @@ filePath, and filediff patch; no heuristic matching is accepted.
 
 Participant-state redesign, composer agent selection, Composer Event Inspector,
 Execution page work, and live-browser integration remain later milestones.
+
+---
+
+## AR-DIAGNOSTIC-ACTIONS-001 — Investigate → Repair Governance 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future milestone — RECORDED ONLY. No implementation is authorized.
+No Activity Room behavior, permission behavior, workflow, persistence, service,
+or diagnostic runtime is changed by this record. Not active. Not complete.
+
+**Purpose**: Record a future Activity Room capability that turns "Needs Attention"
+diagnostic observations into governed investigation and repair workflows, under the
+fundamental rule: **OBSERVATION MUST NOT IMPLY MUTATION**.
+
+**Background (current foundation, unchanged)**: Activity Room dogfooding already
+supports (1) live "Needs Attention" count, (2) attention banner describing the
+active condition, (3) clicking the alert focuses the Needs Attention list,
+(4) selecting an attention item opens a detail drawer, (5) the drawer exposes
+diagnostic information, technical details, and raw evidence, and (6) conditions
+such as system-memory pressure can automatically disappear when the underlying
+condition recovers (e.g. `System Memory — Memory usage: 82% (6411MB used) —
+Status: open — Severity: medium — Reason: dependency-unavailable`).
+
+**Core flow (future direction)**:
+
+```text
+Needs Attention → Open diagnostic detail → Investigate → Collect/correlate evidence
+→ Investigation Result → Determine whether action is required → Propose Repair
+→ Permission/risk/approval boundary → Execute through canonical owning mutation
+boundary → Verify → Record evidence → Resolve or continue monitoring
+```
+
+**Investigate (future, safe/default action)**: available from a Needs Attention
+list item and from the diagnostic detail drawer. Non-mutating by default: may
+inspect diagnostic observations, logs, runtime/service state, Activity Room
+events, execution/tool evidence, dependency/resource state, ownership boundaries,
+likely root cause, blast radius, symptom-vs-cause, and whether intervention is
+necessary; produces a bounded repair recommendation. MUST NOT automatically
+modify files, canonical state, configuration, services, databases, permissions,
+or another subsystem's owned state, nor execute destructive commands.
+
+**Investigation Result (future)**: preserves observed condition, evidence
+gathered, confirmed facts, suspected causes, unknowns, likely root cause,
+affected subsystem(s), canonical owner(s), blast radius, risk, recommended next
+action, whether repair is necessary, proposed repair boundary, and verification
+requirements. Possible outcomes: No action required · Continue monitoring ·
+More evidence required · Repair recommended · Human decision required ·
+Dependency unavailable · Unable to determine root cause.
+
+**Repair (future, governed mutation action)**: NOT "let the diagnostic agent
+change whatever appears broken". Means: execute an explicitly bounded corrective
+operation through the subsystem that owns the affected canonical state (e.g.
+workspace problems via Workspace ownership; identity problems via
+HumanPrincipal/Identity ownership; service problems via System/Service
+authority). Before repair, Vestara must know what will change, why, which
+subsystem owns the state, which supported mutation boundary will be used,
+expected side effects, risk, required permission, approval need, verification,
+and evidence recording. Diagnostics never acquires mutation authority merely by
+diagnosing the problem. Investigation itself does not grant repair authority.
+
+**Review Repair (future, pre-mutation boundary)**: after an investigation
+determines that corrective action is warranted, prefer "Review Repair" over
+immediately executing "Repair". Review Repair presents, before any mutation:
+confirmed diagnosis, proposed corrective action, canonical owner of affected
+state, mutation boundary that will be invoked, files/configuration/state/
+services affected, expected side effects, risk classification, required
+permissions/approval, verification plan, and rollback/recovery information when
+applicable. Conceptual lifecycle: `Needs Attention → Investigate → Diagnosis →
+Review Repair → Permission / Approval → Repair → Verify → Resolve`. "Repair"
+may remain directly available for predefined, bounded, low-risk remediations
+where policy explicitly permits it. This refinement is future planning only.
+
+**Governance invariants (preserved)**: Identity ≠ Authority ≠ Context ≠
+Intelligence. If canonical state has an owner, Vestara must use that owner's
+supported mutation boundary. Storage is an implementation detail of the owner,
+not the platform mutation API. Observation ≠ Authority. Diagnosis ≠ Permission.
+Capability ≠ Authority. Repair must never bypass canonical ownership via
+SQL, filesystem, shell, or direct storage access merely because it is
+technically available.
+
+**Incident lifecycle (future direction)**:
+`OPEN → INVESTIGATING → DIAGNOSED → REPAIR_PENDING → REPAIRING → VERIFYING → RESOLVED`.
+Not every incident traverses every state (`OPEN → RESOLVED` is valid for
+transients; `OPEN → INVESTIGATING → DIAGNOSED → MONITORING → RESOLVED` is valid
+when no intervention is needed). Repair only when justified.
+
+**Self-recovering conditions**: distinguish an observed problem from a problem
+requiring intervention. A memory-threshold alert (`Needs Attention — System
+Memory`) may resolve automatically when usage returns to healthy; historical
+evidence remains available; no automatic repair merely because an alert fired.
+
+**Activity Room UX (future, extend — do not redesign)**: preserve banner →
+filtered list → item → diagnostic drawer. Future list-item actions may include
+`[Investigate] [Open Details]`; the drawer may expose investigation status,
+evidence, technical details, raw payload, related activity, dependencies,
+affected resources, root-cause findings, proposed repair, and verification
+requirements; `[Repair]` appears only after the repair boundary is sufficiently
+established, with `[Review Repair]` preferred over immediate `[Repair]` except
+for predefined, bounded, low-risk remediations where policy explicitly permits
+direct repair.
+
+**Activity Room role**: remains the operational projection/evidence surface for
+detection, investigation, decisions, permission requests, repair execution,
+verification, and resolution. It does not become the canonical owner of
+diagnostic, permission, system, workspace, identity, or other domain state.
+
+**Architectural ownership (target)**: Diagnostics owns observation/diagnosis;
+Permission/policy authority owns authorization; the canonical subsystem owns
+mutation of its state; Execution/runtime performs authorized operations;
+Verification determines outcome; Activity Room projects lifecycle and evidence.
+
+**Dogfood principle (recorded)**: "If it is broken but still usable, observe it
+before replacing it. Let Vestara reveal the failure through real use. Do not
+rush the repair." Safety qualification: conditions threatening durable data
+integrity, security, authority boundaries, irreversible state, or destructive
+execution may escalate immediately. Otherwise prefer: Observe → Reproduce →
+Trace → Establish ownership/authority → Diagnose → Propose smallest correction
+→ Repair through owner → Verify → Preserve evidence.
+
+**Reference scenario (illustrative only, no retroactive change)**: the recent
+plans.db persistence investigation (HumanPrincipal disappeared after API
+restart; stale in-memory snapshot overwriting durable plans.db) is the model
+future flow — Observe → Investigate (lifecycle evidence, plans.db, systemd API
+ownership, SQL.js lifecycle, stale snapshot, blast radius) → Diagnosis → Repair
+proposal (API-owned single-writer/write-through) → Operator approval → Owning
+subsystem repair → Regression + live verification → Activity Room evidence chain.
+
+**Future acceptance direction (when eventually implemented)**: attention
+condition can launch investigation; investigation is non-mutating by default;
+evidence is correlated and retained; investigation can conclude no repair is
+required; repair cannot bypass permission/authority boundaries; repair invokes
+the canonical owner's supported mutation boundary; proposed mutation is visible
+before governed execution where required; execution result is captured;
+verification is distinct from execution; failed repair remains observable;
+successful repair transitions toward resolution; naturally recovered conditions
+trigger no unnecessary mutation; Activity Room shows the complete operational
+history.
+
+**Out of scope for this record**: autonomous repair, diagnostic agents, new
+permission behavior, workflow-engine changes, Activity Room UI changes, system
+command execution, service restart controls, file/database repair, automatic
+code modification, new persistence architecture. Those require separate
+implementation milestones.
+
+**Dependencies**: ATTENTION-INTELLIGENCE-001 (Needs Attention derived
+current-state read model); VESTARA-CHECKPOINT-001/002/003 (attention
+convergence, diagnostic drawer/evidence, coordination/edit inspection);
+VER-GOV-001 (governed verification execution + participant activity projection);
+CI-OBS-001J (governed repair boundary precedent: observe/classify/recommend
+without autonomous mutation); VES-REPO (repository awareness / concurrent-change
+governance); UIM / HumanPrincipal-Identity ownership; Workspace and
+System/Service canonical mutation ownership; permission/policy authority.
+
+---
+
+## AR-BUG-EXEC-PROJECTION-001 — Cross-Runtime Operation Projection Consistency 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future investigation — RECORDED ONLY. No implementation is
+authorized. No Activity Room grouping, projection, persistence, adapter, or UI
+eligibility behavior is changed by this record. Not active. Not complete.
+
+**Observed (dogfood, unchanged by this record)**: a completed Muse/OpenCode
+execution retains its structured `Activity · N operations` group and operation
+details, while completed Codex executions do not visibly retain an equivalent
+group.
+
+**Investigation scope (future, before any behavior change)**: compare the
+authoritative execution/correlation path across runtimes and determine whether
+the difference originates in runtime observations, adapter normalization,
+persistence, correlation (`callID` / `operationId` / execution identity),
+projection, or UI eligibility. Do not implement new grouping semantics until the
+existing Muse path is understood.
+
+**Convergence rule**: prefer convergence on an existing canonical contract over
+runtime-specific UI behavior.
+
+**Acceptance direction (when eventually investigated)**: where equivalent
+authoritative operation evidence exists, Activity Room should consistently
+retain the execution → operations relationship after completion regardless of
+runtime/provider.
+
+**Out of scope for this record**: new grouping semantics, adapter changes,
+persistence changes, correlation changes, projection changes, UI eligibility
+changes, runtime-specific Activity Room behavior.
+
+**Dependencies**: existing Muse/OpenCode execution → operations path
+(authoritative reference behavior); VESTARA-CHECKPOINT-001 (canonical path:
+provider/runtime → normalized lifecycle/event → EventBus → Activity projection;
+OpenCode and Codex convergence into canonical Activity semantics;
+`message.part.updated`, `part.type=tool`); VESTARA-CHECKPOINT-003
+(coordination/correlation via Conversation Runtime, OpenCode/Codex observations,
+EventBus, M9/M10/M11; authoritative edit evidence via `callID`); Activity Room
+projection/persistence ownership.
+
+---
+
+## LOCATION-PRESENCE — Vestara Location & Presence 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future capability — RECORDED ONLY. Planning idea and
+architectural intent only. No production code, permissions, Activity Room,
+Telegram, agent, workflow, provider, runtime, or ACTOR-IDENTITY behavior is
+changed by this record. Not scheduled ahead of current canonical identity,
+execution-context, Activity Room, and other active foundational work. Not
+active. Not complete.
+
+**Working name**: Vestara Location & Presence.
+
+**Vision**: a governed Location & Presence capability, later distributable as
+an optional/premium Marketplace addition. GPS is one location provider, not the
+architecture. Vestara understands physical presence and location while
+preserving strict human identity, consent, privacy, retention, disclosure, and
+authority boundaries.
+
+**Foundational principle**: location data belonging to a human resolves through
+canonical identity:
+
+```text
+Location Provider / Device → DevicePrincipal / Device Identity
+→ HumanPrincipal association → Location Observation
+→ Consent + Retention Policy → Permission + Disclosure Policy
+→ Authorized Context → Agent / Workflow / Application
+```
+
+Preserve: `Identity ≠ Relationship ≠ Permission ≠ Disclosure ≠ Authority ≠
+Context ≠ Intelligence`. Knowing information does not imply permission to
+disclose it.
+
+**Relationship model (future)**: Vestara may understand governed relationships
+between canonical HumanPrincipals (e.g. `HumanPrincipal: Eddie — spouse —>
+HumanPrincipal: Wife`). Relationships are context, not authority: spouse does
+not inherit private conversation/file/credential/agent-activity/location-history
+access, and administrator/founder status does not automatically override
+another human's private context.
+
+**Location data model (future design, contracts not finalized here)**:
+`LocationProvider`, `DeviceIdentity`/`DevicePrincipal`, Human ↔ Device
+association, `LocationObservation`, `LocationAccuracy`, `LocationSource`,
+`PresenceState`, `Place`/`NamedPlace`, `Geofence`, `LocationEvent`,
+`LocationSharingPolicy`, `LocationRetentionPolicy`, `LocationDisclosurePolicy`,
+`LocationConsent`. A future `LocationObservation` should answer: whose location,
+which device/provider, when, how accurate, current vs historical, under what
+consent, retention limit, who may consume it, and who may receive disclosure.
+
+**Privacy model**: collection ≠ disclosure; current-location ≠ historical ≠
+geofence ≠ presence ≠ sharing authority. Disclosure classes are exploratory,
+not frozen (e.g. private, shared, delegated, consent-required,
+household/family shared, workspace shared, temporary sharing,
+emergency/safety governed).
+
+**Canonical security example (future acceptance test)**: Wife asks "Vestara,
+where did Eddie go last night?" Vestara must resolve requester identity,
+subject identity, relationship if relevant, information classification,
+applicable consent, disclosure policy, and authorization for this disclosure.
+Being Eddie's spouse MUST NOT itself authorize disclosure; when unauthorized,
+Vestara does not reveal private location history.
+
+**Positive use cases (future)**: "How far am I from home?", "Where is my
+phone?", leave-the-office / near-the-store reminders, "tell my family when I
+arrive safely", arrival-triggered approved workflows, device-presence
+detection, arrival/departure events, geofenced workflow triggers, temporary
+sharing, safety check-ins, mutually authorized family sharing.
+
+**Marketplace model**: optional installable capability, potentially premium.
+`Installation ≠ Provider Connection ≠ Consent ≠ Collection Permission ≠
+Retention Permission ≠ Disclosure Permission ≠ Execution Authority`.
+Installation declares capabilities (read current location, observe presence,
+observe geofence transitions, retain history, query history, share location,
+trigger workflows from location events); each permission independently
+governable.
+
+**Provider architecture**: domain decoupled from GPS. Future providers may
+include mobile GPS, OS location services, browser geolocation, trusted device
+presence, Wi-Fi/network-derived presence, Bluetooth/proximity, vehicle/device
+integrations, third-party services. Provider observations normalize into
+Vestara-owned contracts; agents/workflows consume canonical contracts, never
+provider payloads.
+
+**Agent/workflow governance**: reasoning about location ≠ permission to
+retrieve it; location-event trigger ≠ permission to inspect history. Keep
+`Observation → Context → Reasoning → Disclosure → Action` separately
+governable.
+
+**Activity/evidence (future)**: governed evidence without leaking coordinates
+unnecessarily (provider connected, consent granted/revoked, geofence
+transition, triggered workflow requested, disclosure allowed/denied, retention
+cleanup). Prefer references/classifications over precise coordinates.
+
+**Retention (future design)**: explicitly address whether history is stored,
+duration, deletion, user control, provenance, precision reduction,
+encryption/storage boundary, export, revocation, derived data, backups.
+Default: minimize collection and retention.
+
+**Future dogfood direction**: at least two independently enrolled
+HumanPrincipals (e.g. Human A → Eddie, Human B → Wife); verify independent
+resolution, correct device→human binding, no cross-identity observations,
+policy-obeying current sharing, private history by default, no implicit
+spousal disclosure, effective revocation, restart-stable policy, no
+agent/workflow bypass.
+
+**Key acceptance principle**: Vestara may know something without being allowed
+to tell someone else. Success means understanding WHO asks, WHO it concerns,
+WHAT is requested, WHERE it came from, WHAT consent/disclosure policy applies,
+and WHAT action/disclosure is authorized. Do not reduce this to a GPS API
+wrapper.
+
+**Suggested future milestone family (not authorized)**:
+`LOCATION-PRESENCE-000` Domain & Threat Model Audit → `001` Canonical
+Contracts → `002` Device ↔ Human Binding → `003` Provider Adapter Contract →
+`004` Consent/Retention/Disclosure Policy → `005` Current Location Vertical
+Slice → `006` Presence & Named Places → `007` Geofence Events → `008`
+Governed Workflow Triggers → `009` Historical Location & Retention → `010`
+Multi-Human Sharing & Relationship Policy → `011` Marketplace Packaging →
+`012` Security/Privacy Dogfood & Evidence.
+
+**Dependencies (do not implement until mature)**: canonical HumanPrincipal
+identity; external identity binding; actor propagation; human
+relationship/context model (useful, not required for basic single-user
+slice); permission contracts; disclosure/privacy policy; device
+identity/principal model; Marketplace capability declarations; governed
+event/evidence infrastructure.
+
+**Out of scope for this record**: all implementation, contracts, adapters,
+policies, providers, UI, workflows, retention/storage design, and dogfood.
+
+---
+
+## CDI — Vestara Contextual Disclosure Intelligence 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future architecture / premium capability — RECORDED ONLY.
+Planning idea and principles only. No production code, permissions, prompts,
+agents, workflows, Activity Room, Telegram, providers, persistence, runtime, or
+ACTOR-IDENTITY behavior is changed by this record. No contracts created. No
+current milestones altered. Not active. Not complete.
+
+**Working name**: Vestara Contextual Disclosure Intelligence.
+
+**Vision**: governed intelligence that understands requests for information in
+context and determines the appropriate disclosure path without confusing AI
+reasoning with authorization. Combines canonical identity, information-subject
+identity, relationships, permissions, consent, disclosure preferences,
+information sensitivity, situational context, AI semantic reasoning,
+deterministic governance, and evidence/audit. The goal is NOT to make an LLM
+the authorization system; AI understands what a request MEANS while Vestara
+governance determines what MAY happen because of that meaning.
+
+**Core principles (recorded explicitly)**:
+
+1. AI determines what the request means. Governance determines what may happen
+   because of that meaning.
+2. Intelligence may classify sensitivity and context. Intelligence does not
+   manufacture disclosure authority.
+3. Vestara may know something without being allowed to tell someone else.
+4. Relationship is context, not authority.
+5. Absence of policy is not permission.
+6. Human approval becomes governed state, not hidden model memory.
+7. Prefer minimum necessary disclosure.
+8. UNKNOWN and ambiguity must fail toward the safer disclosure boundary.
+9. Understanding sensitive information does not authorize revealing it.
+10. Disclosure decisions should be explainable from governed evidence.
+
+Preserve: `Identity ≠ Relationship ≠ Permission ≠ Disclosure ≠ Authority ≠
+Context ≠ Intelligence`.
+
+**Motivating scenario (future)**: two independently enrolled HumanPrincipals
+(Human A → Eddie; Human B → Eddie's wife; future relationship context
+`Human A — spouse —> Human B`). Wife asks: "Has Eddie applied for any jobs
+today?" Vestara may possess job-application evidence and there may be NO
+explicit policy covering this exact question. Vestara should understand who
+asks, who it concerns, what is requested, relationship, semantic topic,
+sensitivity, granularity, consent/preferences, policy, and uncertainty — but
+relationship alone MUST NOT grant disclosure authority.
+
+**Absence of policy**: AI may analyze, but analysis MUST NOT become
+authorization. For personal/sensitive information a valid outcome is
+`CONSENT_REQUIRED` (e.g. "That involves Eddie's private job-search activity. I
+can ask Eddie whether he'd like to share it.") — preferable to silent leakage,
+invented permission, spouse-as-universal-access, or mechanical refusal of every
+contextual request.
+
+**Consent workflow (future, conceptual — not frozen UI/contracts)**: a governed
+disclosure request carries requester, subject, topic, requested disclosure,
+context, sensitivity assessment, existing authority (`none`), and proposed
+action (`request_subject_consent`); subject actions conceptually `[Allow once]
+[Allow this type] [Deny]`; "Allow this type" becomes governed
+policy/preferences, never hidden model memory.
+
+**Semantic differentiation**: same-topic requests are NOT equivalent
+disclosures (e.g. "Did Eddie apply for anything today?" vs company names vs
+rejections vs recruiter conversations vs salary vs private job-search
+concerns). Reason about semantic content, granularity, sensitivity,
+provenance, requester, subject, relationship, purpose/context, and existing
+policy/consent. Do NOT reduce privacy to static topic labels.
+
+**Bounded disclosure**: decisions need not be binary — `DISCLOSE |
+DISCLOSE_BOUNDED | CONSENT_REQUIRED | APPROVAL_REQUIRED | DENY`, including
+summarize-without-details, redact fields, request consent, or require approval
+(e.g. "He's been actively working on it today." while withholding companies,
+conversations, contents, salary, notes, rejections).
+
+**Proposed conceptual flow (not frozen)**:
+
+```text
+Request → Requester Identity Resolution → Information Subject Resolution
+→ Requested Information Classification → Relationship / Context Resolution
+→ Existing Consent + Disclosure Policy → AI Semantic / Sensitivity Assessment
+→ Governance Decision (DISCLOSE | DISCLOSE_BOUNDED | CONSENT_REQUIRED
+| APPROVAL_REQUIRED | DENY) → Evidence / Audit
+```
+
+**AI responsibility (future)**: may determine what is asked, who/what it
+concerns, topic, sensitivity, granularity, semantic equivalence, scope excess,
+minimum useful subset, ambiguity, and whether consent should be considered.
+MUST NOT independently grant permission, authority, disclosure rights, or
+workspace/file/conversation/location/credential access.
+
+**Governance responsibility (future)**: canonical identities, explicit
+consent/deny, permission state, disclosure policy, subject-controlled
+preferences, hard privacy boundaries, resource access, final permitted action
+boundary, and durable evidence remain deterministic/governed. AI analysis is
+advisory/contextual evidence only. Structured semantic output (illustrative,
+schema NOT frozen) must never itself be treated as authorization.
+
+**Policy learning**: human approval → governed durable inspectable,
+changeable, revocable preference/policy (e.g. job-search summary/status →
+ALLOW; application details → ASK; recruiter messages/compensation → PRIVATE).
+Never approval → hidden LLM memory → guessed permission.
+
+**UNKNOWN/ambiguity**: first-class; when requester, subject, policy, consent,
+sensitivity, equivalence, or scope cannot be established, do not manufacture
+certainty — clarify, request consent, escalate, bound the answer, or deny.
+
+**Relationships**: spouse/parent/child/coworker/manager/friend/collaborator
+may inform interpretation but MUST NOT automatically grant access to the
+subject's conversations, files, credentials, location, health, finances, agent
+activity, preferences, or employment information. Relationship-based sharing
+requires explicit governed policy.
+
+**Cross-domain design (future consumers, not implemented now)**: human
+identity/profile, Location & Presence, conversations, files, calendars,
+employment/job-search context, health/financial integrations, agents,
+workflows, enterprise/workspace information, preferences, connected
+applications. Location example: knowing Eddie's historical location plus
+understanding "Where did Eddie go last night?" grants no disclosure authority
+(`understand request ✓`, `locate data ✓ potentially`, `permission ?`
+independently governed).
+
+**Agent-to-agent disclosure**: same architecture governs machine actors
+(human → assistant, assistant → human, agent → agent, workflow → context,
+application → context); canonical actor/subject resolution always required;
+shared Vestara membership implies no unrestricted sharing.
+
+**Minimum necessary disclosure**: full data → authorized scope → minimum
+useful projection → recipient (summaries, redaction, field/precision/temporal
+filtering, aggregation; e.g. "Eddie arrived safely." when that is the only
+authorized disclosure).
+
+**Evidence/auditability (future)**: governed evidence (requester, subject,
+information class, policy evaluated, AI assessment reference, decision,
+consent/approval trail, bounded projection used, timestamp, provenance)
+without duplicating sensitive source data; a human can later ask "Why did/didn't
+Vestara tell her that?" and receive the governed decision path
+(identity → context → policy → semantic assessment → consent/authority →
+decision), not opaque model reasoning.
+
+**Failure safety**: if semantic analysis is unavailable, malformed,
+low-confidence, or inconsistent, do not default to broader disclosure; fall
+back to the stricter governed boundary.
+
+**Marketplace/premium value**: foundational premium intelligence layer
+connecting identity, relationships, data, permissions, consent, applications,
+agents, workflows, and physical-world context; modules such as Location &
+Presence integrate with it rather than implementing incompatible privacy
+reasoning.
+
+**Suggested future milestone family (planning placeholders, not authorized)**:
+`CDI-000` Domain/Threat Model Audit → `001` Disclosure Request + Decision
+Contracts → `002` Information Subject/Classification Model → `003` Policy +
+Consent Evaluation Boundary → `004` Structured Semantic Assessment → `005`
+Consent/Approval Workflow → `006` Bounded Disclosure Projection → `007`
+Durable Disclosure Preferences → `008` Relationship-Aware Context → `009`
+Agent/Workflow Disclosure Governance → `010` Location & Presence Integration →
+`011` Evidence/Explainability → `012` Multi-Human Privacy Dogfood → `013`
+Adversarial/Privacy Verification.
+
+**Canonical acceptance examples (future)**: (A) no-policy job-search question
+→ consent request, not spousal authority; (B) Eddie-approved summary sharing →
+bounded summary allowed; (C) summary permission does not expand to recruiter
+conversations; (D) relationship grants no historical-location disclosure; (E)
+deterministic DENY beats an AI "reasonable to disclose" assessment.
+
+**Dependencies (likely foundations; do not block simple identity work on CDI;
+do not implement CDI inside ACTOR-IDENTITY)**: canonical HumanPrincipal
+identity; actor propagation; governed human-readable identity; permission
+contracts; contextual projection; future relationship model; consent/approval
+infrastructure; evidence/audit infrastructure.
+
+**Roadmap position**: FUTURE ARCHITECTURE / PREMIUM CAPABILITY. Do not schedule
+ahead of current ACTOR-IDENTITY work, canonical identity propagation, governed
+human-readable identity, and current Activity Room foundational work.
+
+**Out of scope for this record**: all implementation, contracts, schemas,
+policies, workflows, integrations, UI, dogfood, and verification.
+
+---
+
+## SYSTEM-OPS-001 — Governed Build & Service Controls 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future architecture — RECORDED ONLY. No implementation is
+authorized. No runtime behavior, Activity Room behavior, systemd configuration,
+sudoers/polkit, service state, build pipeline, permission behavior, workflow,
+or persistence is changed by this record. Not active. Not complete.
+
+**Motivation (observed dogfood incident, no retroactive change)**: the current
+operator deployment sequence (`pnpm build && sudo systemctl restart
+vestara-api.service && sudo systemctl status …` + API health verification) is
+performed manually outside Activity Room. A real incident demonstrated the
+failure mode: `pnpm build` FAILED with TypeScript errors, the shell commands
+had been entered independently rather than chained, the systemd restart still
+executed, the service restarted successfully, and `/api/health` returned HTTP
+200 — so a healthy running service was serving the previously compiled
+artifact, not the failed new source. This establishes the invariant this
+milestone family must preserve:
+
+```text
+Build State ≠ Artifact State ≠ Deployment State ≠ Service State ≠ Health State
+```
+
+A healthy running service MUST NOT imply that the current source was
+successfully built or deployed.
+
+**Vision (future)**: governed build and service controls for Vestara's own
+API lifecycle, surfaced initially through Activity Room. The operator can
+build Vestara, inspect build result/evidence, inspect API service state,
+start/restart/stop the API through state-aware controls, verify health after
+lifecycle operations, and see authoritative evidence in Activity Room. Agents
+may REQUEST these capabilities in the future; agents must NOT receive
+unrestricted sudo or arbitrary service-control authority. Vestara owns the
+capability.
+
+**Activity Room UX concept (future, do not implement now)**: a BUILD panel
+(Source Modified/Clean/Unknown; latest authoritative build Passed/Failed/Never
+Built/Stale; artifact Current/Previous/Unknown; `[Build]`; bounded evidence:
+started/completed time, exit code, build command identity, error/warning
+summary, artifact/generation identity, source/worktree identity) with the rule
+that successful build alone never implies successful deployment; and an API
+SERVICE panel that is state-aware (running → `[Restart]` + secondary `[Stop]`;
+stopped → `[Start]`; unknown → `[Inspect]`), showing PID, health
+(Healthy/Unhealthy/Unknown), and artifact identity (Current/Previous/Unknown).
+Stop is a separate secondary/destructive action, never the primary control.
+
+**Build gating (future rule)**: a normal deployment/restart workflow for newly
+changed source must fail closed when the authoritative build failed. `Build →
+FAIL` must NOT silently restart the previous artifact and represent that as
+deployment success. `Source: Modified / Latest build: FAILED / Running API:
+Healthy / Deployed artifact: PREVIOUS` is a valid, explicitly visible system
+state; restarting the previous artifact, if ever allowed, is an explicit
+separate operation, never an accidental consequence of a failed build.
+
+**Capability model (future, bounded — never arbitrary shell)**: conceptual
+capabilities such as `BuildWorkspace`, `GetServiceStatus("vestara-api")`,
+`StartService`, `RestartService`, `StopService`, `VerifyServiceHealth`, with
+exact naming to follow existing Vestara capability/runtime conventions at
+audit/implementation time. Initial service allowlist: `vestara-api` →
+`vestara-api.service` only. No arbitrary unit names from agents or UI, no
+`sudo <arbitrary command>`, no general root shell, no arbitrary systemctl
+arguments.
+
+**Authority model (preserved)**: Request ≠ Permission ≠ Execution ≠
+Verification; Identity ≠ Authority. An agent stating "ACTOR-IDENTITY-004R is
+verified and requires API restart" issues a REQUEST, not an authorization.
+Conceptual flow: Agent/Operator → service-operation request → policy/permission
+→ approval when required → bounded system capability → execution →
+independent state/health observation → verification → evidence. Initial
+implementation may require explicit human approval for mutating service
+operations; read-only status/health inspection may use a lower-risk policy.
+
+**System supervisor boundary (future architecture direction)**: the API cannot
+be the sole authoritative verifier of its own restart (the requesting process
+terminates during `systemctl restart vestara-api.service`). Investigate a
+small Vestara-owned service/system supervisor with minimum OS privilege for
+the explicitly allowed services: Activity Room → governed system operation →
+permission/approval → supervisor → systemd → lifecycle → new API instance →
+health observation → verification → Activity evidence. Do NOT choose or
+configure sudoers/polkit/systemd helpers in this record; evaluate Linux
+mechanisms during the future architecture audit. The supervisor must stay
+lightweight for the resource-constrained dogfood machine; prefer event/state
+transitions over high-frequency status polling.
+
+**Self-restart/reconnection (future requirement)**: a restart is a lifecycle
+operation, not an unexpected generic disconnect — requested → authorized →
+stopping → interrupted → starting → reconnecting → healthy → VERIFIED — with
+no manual browser refresh required. Already supported by dogfood evidence of
+the long-lived Activity Room browser surviving API restarts.
+
+**Health verification (future minimum)**: systemd unit state ≠ process ready ≠
+HTTP healthy ≠ expected artifact deployed. Post-start/restart verification
+includes service state, process identity/PID, health endpoint, and
+artifact/build identity where available. Future extensions (readiness,
+WebSocket/SSE connectivity, dependent runtimes, migration status, degraded
+health) are explicitly deferred.
+
+**Activity/evidence (future)**: every governed system operation produces
+structured evidence (operation ID, requesting actor, executing capability,
+target service, timestamps, result, exit/status code, verification outcome,
+artifact/build identity) — bounded fields only, no unbounded terminal output
+in Activity projection (detailed logs referenced separately). Lifecycle chain:
+requested → permission requested/approved → stopping → starting → running →
+health check started/verified → completed; build chain: requested → started →
+completed/failed.
+
+**Agent experience (future illustration)**: Developer requests restart with
+reason (e.g. ACTOR-IDENTITY-004R deployment), passing build, and verification
+references; operator reviews impact ("API will briefly become unavailable")
+and approves; Activity Room shows restarting → reconnecting → health check →
+healthy + expected-artifact-active. The requester never owns service authority;
+requester, executor, and authority are recorded separately.
+
+**Relationship to AR-DIAGNOSTIC-ACTIONS-001**: SYSTEM-OPS-001 becomes the
+reusable bounded repair executor for diagnostic intelligence (`Needs Attention
+→ Investigate → diagnosis → proposed RestartService → Review Repair →
+permission/approval → SYSTEM-OPS capability → verification → resolve`).
+Diagnostic intelligence must not bypass service-operation authority.
+
+**Relationship to system/terminal observability**: preserve command/operation
+evidence ≠ resulting service state (operation result vs observed unit state vs
+health vs artifact verification are related facts, not the same event).
+
+**Security requirements (future implementation must prevent)**: arbitrary
+sudo/shell/systemd units; command or service-name injection; agents bypassing
+approval; the API claiming its own restart succeeded without external
+observation; stale artifact represented as current deployment; health
+represented as deployment proof; build failure followed implicitly by
+previous-artifact restart; identity interpreted as service authority. Service
+operations are allowlisted and bounded.
+
+**Provisional milestone sequence (naming/numbering subject to roadmap
+conventions at audit time)**: `SYSTEM-OPS-000` current build/deployment/service
+authority audit → `001` canonical build + service operation contracts → `002`
+build evidence + artifact identity → `003` read-only service status + health →
+`004` bounded service supervisor → `005` permission/approval integration →
+`006` Activity Room build control → `007` Activity Room start/restart/stop
+controls → `008` restart reconnection + health verification → `009` agent
+service-operation requests → `010` diagnostic repair integration → `011`
+dogfood + evidence + freeze.
+
+**Dogfood acceptance scenarios (future)**: A (build success → verified
+expected artifact); B (build failure → new deployment unavailable, previous
+artifact explicitly shown running); C (stopped → Start); D (running →
+Restart + reconnect + verify); E (active-but-unhealthy → not marked verified);
+F (agent request → no direct sudo → approval → bounded execution with
+separated evidence); G (long-lived Activity Room tab survives authorized
+restart without manual refresh).
+
+**Non-goals for first implementation**: arbitrary process manager, Linux
+administration, shell execution, systemd control, package upgrades, OS
+reboot/shutdown, container/Kubernetes orchestration, remote-machine
+administration, generalized IaC, autonomous repair without policy, full CI/CD
+replacement. First implementation stays centered on Vestara's own API
+build/service lifecycle.
+
+**Dependencies**: Activity Room attention/evidence projection; permission/policy
+authority; systemd unit ownership (`vestara-api.service`); build pipeline
+identity; artifact/generation identity; AR-DIAGNOSTIC-ACTIONS-001 (consumer of
+the repair capability); existing restart-reconnection dogfood behavior.
+
+**Out of scope for this record**: all implementation, contracts, supervisor
+code, sudoers/polkit/systemd configuration, builds, service restarts/stops,
+permission behavior changes, Activity Room UI changes, agent authority changes.
+
+---
+
+## AR-LAYOUT-001 — Configurable Activity Room Workspace Layout 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future milestone — RECORDED ONLY. PLANNED / DEFERRED.
+No implementation is authorized. No Activity Room behavior, layout,
+subscription, selection, streaming, persistence, or authority semantics are
+changed by this record. Not active. Not complete.
+
+**Objective**: Make the Activity Room a user-adjustable operational workspace
+while preserving Activity state, selection, streaming, and authority semantics.
+
+**Target composition (future)**:
+
+```text
+┌──────────────┬──────────────────────────┬──────────────────┐
+│ Participants │      Activity Room       │ Activity Detail  │
+│              │                          │                  │
+│      ↔       │            ↔             │                  │
+└──────────────┴──────────────────────────┴──────────────────┘
+```
+
+**Capabilities (future direction, not implemented)**:
+
+1. **Resizable regions** — left sidebar width and right detail drawer/panel
+   width adjustable; center Activity surface consumes remaining space;
+   bounded minimum/maximum widths; responsive constraints prevent unusable
+   layouts.
+2. **Sidebar visibility** — left (Participants) and right (Activity Detail)
+   independently Show/Hide controlled.
+3. **Fast toggle controls** — Activity Room shell exposes clear
+   `[toggle left] Activity Room [toggle right]` controls; hidden sidebars
+   recoverable without navigating elsewhere.
+4. **Layout persistence — FUTURE DECISION** — candidate later behavior
+   (layout preference → left visibility → left width → right visibility →
+   right width). Persistence ownership is explicitly NOT decided by this
+   record.
+5. **Responsive behavior** — Wide: left + center + right; Medium: left +
+   center or center + right; Narrow: center primary, side surfaces
+   overlay/drawer when opened.
+6. **Resize semantics (preserved)** — Resize affects presentation only:
+   `Resize ≠ Activity mutation`, `Hidden ≠ Disconnected`,
+   `Hidden ≠ Unsubscribed`, `Hidden ≠ Deleted`, `Panel width ≠ Domain
+   state`, `Layout preference ≠ Authority`.
+7. **State preservation (future requirement)** — showing/hiding or resizing
+   must not unnecessarily recreate Activity subscriptions, lose selected
+   Activity, reset history, change snapshot state, alter participant state,
+   reconnect M11B, or discard detail hydration.
+8. **Accessibility (future requirement)** — keyboard-accessible show/hide
+   controls; keyboard-accessible resizing where practical; meaningful
+   separator semantics; minimum usable dimensions; visible focus states; no
+   inaccessible off-screen controls.
+
+**Current-state note (recorded 2026-09-26, unchanged by this record)**:
+`OperationalWorkspaceLayout` (`apps/workspace/src/layouts/OperationalWorkspaceLayout.tsx`)
+owns rail/main/context geometry with a fixed rail width token
+(`lg:w-[var(--vestara-sidebar-width)]`) and a capped context column
+(`lg:max-w-sm`); it exposes no resize handles and no rail/context visibility
+toggles. `M11CActivityRoomPage` supplies participants as `rail` and
+`ActivityRoomContextPanel` as `context`, while Activity Detail renders as an
+overlay `Drawer` (`ActivityDetailDrawer`), not as the docked right workspace
+column in the target diagram. Small-screen launchers plus bottom sheets cover
+the narrow case only. Page-level `useM11CActivityRoom` ownership means future
+visibility toggles are feasible without recreating subscriptions, provided
+toggles stay presentational.
+
+**Out of scope for initial implementation (when eventually planned)**:
+draggable/reorderable panels; arbitrary dashboard builder;
+detachable/floating windows; panel configuration registry; persisted layouts
+until ownership is decided; Activity backend changes.
+
+**Dependencies**: `OperationalWorkspaceLayout` geometry; `M11CActivityRoomPage`
+composition; M11A/M11B read/live contracts (unchanged); Vestara design tokens
+(`--vestara-*`, governed Tailwind, `pnpm vds:validate`); keyboard/a11y
+conventions.
+
+**Out of scope for this record**: all implementation, layout state,
+persistence design/ownership, resize interaction, toggle controls,
+responsive rework, token changes, Activity Detail docking changes, and
+Activity backend changes.
+
+---
+
+## WF-DECISION-001 — Governed Workflow Decision Resolution 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future milestone — RECORDED ONLY. PLANNED / DEFERRED.
+No implementation is authorized. No production contracts are created. No
+workflow runtime behavior, Activity Room behavior, or HITL behavior is changed
+by this record. Not active. Not complete.
+
+**Origin**: concept emerged from live Activity Room / HITL dogfooding while
+working on AR-HITL-002 and AR-HITL-002A. Original product question: how should
+a workflow behave when a human is present versus when it is intended to operate
+fully autonomously. Broader architectural conclusion: HUMAN PRESENCE should not
+be the primary abstraction. The primary abstraction should be DECISION REQUIRED
+→ GOVERNED DECISION RESOLUTION. Human presence is one possible resolution
+policy/context.
+
+**Core model (conceptual only)**:
+
+```text
+Workflow execution
+    ↓
+Decision required
+    ↓
+Decision classification
+    ↓
+Decision policy
+    ↓
+Determine authorized resolver
+    ↓
+Resolution
+    ↓
+Evidence
+    ↓
+Workflow resumes / escalates / holds
+```
+
+**Decision classes (illustrative only — do NOT freeze vocabulary)**:
+clarification; implementation choice; review judgment; product decision;
+approval; permission; destructive/high-risk action; operational decision;
+deployment decision; unresolved/unknown decision. Vocabulary must be derived
+from further dogfood evidence.
+
+**Resolution sources (not equivalent authorities)**: Human; task agent;
+Reviewer; workflow policy; permission system; another explicitly authorized
+resolver; escalation.
+
+**Human-present execution (example)**: implementation decision required →
+policy requires/prefers human → WAITING_FOR_HUMAN → Activity Room Needs
+Attention → exact governed interaction → HumanDecision → decision evidence →
+workflow resumes. Current AR-HITL work is a candidate primitive for this future
+behavior.
+
+**Autonomous execution (example)**: implementation decision required → policy
+permits autonomous resolution → gather bounded decision context (Reviewer
+context + task context + workflow policy + existing evidence + governance
+constraints) → AutonomousDecision → decision evidence → workflow resumes. The
+Reviewer does NOT impersonate the human. Record the decision truthfully as
+autonomous. `AutonomousDecision ≠ HumanDecision`. Evidence preserves who/what
+resolved the decision and why.
+
+**Autonomous with escalation**: autonomous operation does not imply every
+decision is autonomously resolvable. Example: implementation approach →
+autonomous permitted; retry bounded failed verification → workflow/reviewer
+policy may decide; destructive repository mutation → escalation may be
+required; production deployment → explicit approval/permission policy may
+require human; unknown/high-risk decision → fail closed / escalate. Illustrative
+policy names only (`HUMAN_REQUIRED`, `AUTONOMOUS`, `AUTONOMOUS_WITH_ESCALATION`)
+— do NOT freeze into contracts.
+
+**Decision vs authority invariants (preserved)**:
+
+```text
+Decision ≠ Approval
+Approval ≠ Permission
+Permission ≠ Human presence
+Human presence ≠ Authority
+Human absence ≠ Permission
+Autonomy ≠ Unlimited authority
+Reviewer context ≠ Human authority
+AutonomousDecision ≠ HumanDecision
+Question visibility ≠ Response authority
+Decision resolution ≠ Execution authority
+```
+
+A workflow being autonomous must never allow it to grant itself permissions it
+does not possess.
+
+**Decision evidence (future capability, no persistence schema defined)**:
+must be capable of answering what decision was required; what class; why
+resolution was required; what policy applied; who/what was authorized;
+whether a human was available/present; whether autonomous resolution was
+permitted; what context/evidence was considered; what resolution was selected;
+who/what produced it; whether escalation was required; what authority allowed
+subsequent execution.
+
+**Reviewer context**: Task context + Workflow context + Reviewer context +
+Existing evidence + Governance constraints → bounded autonomous decision. The
+Reviewer helps evaluate decisions, consistency, evidence, and previous findings.
+The Reviewer must NOT automatically become the human, the permission authority,
+or the execution authority.
+
+**Relationship to HITL**: current HITL work reveals primitives needed by
+WF-DECISION-001. Observed/current conceptual chain: question required →
+runtime interaction → durable pending state → Needs Attention → Human response
+→ governed durable resolution → resume. Future decision resolution should reuse
+appropriate governed interaction primitives rather than invent a separate
+incompatible HITL system.
+
+**Relationship to workflow states (conceptual only, do NOT define final
+states)**: candidate semantics discovered through dogfooding include
+`DECISION_REQUIRED`, `WAITING_FOR_HUMAN`, `AUTONOMOUS_DECISION`,
+`ESCALATION_REQUIRED`, `HOLD`, `RESOLVED`. Further manual workflow dogfooding
+determines the authoritative state model.
+
+**Design principle**: the same canonical workflow definition should ideally be
+executable under different governed decision policies without separate "human
+workflow" and "autonomous workflow" implementations. Conceptually:
+`WorkflowDefinition + DecisionPolicy → Execution behavior`. Workflow
+topology/task intent remains stable where possible while decision-resolution
+policy determines how unresolved choices are handled.
+
+**Why deferred**: do not design the final contract yet. Current manual
+development and HITL dogfooding are producing real specimens of questions,
+product decisions, HOLD states, missing authority, deployment approval,
+verification decisions, escalation, human response, and runtime resolution.
+Collect these specimens first; when WF-DECISION-001 becomes active, derive the
+contract from observed decision cases rather than designing theoretically.
+
+**Current priority**: WF-DECISION-001 remains PLANNED / DEFERRED. Do not
+interrupt AR-HITL-002A (Runtime Question Terminal-State Convergence). After
+AR-HITL-002A evidence is complete, continue the existing Activity Room HITL
+sequence before activating this workflow milestone.
+
+**Out of scope for this record**: all implementation, production contracts,
+workflow runtime changes, Activity Room changes, HITL behavior changes,
+persistence schemas, state-model definitions, vocabulary freezes, staging,
+commits, or pushes.
+
+---
+
+## ENG-GRAPH — Engineering Graph Projection/Substrate + Cytoscape 🔷 Future (Recorded — Not Started)
+
+**Status**: 🔷 Future milestone — RECORDED ONLY. PLANNED / DEFERRED.
+No implementation is authorized. No Engineering Graph behavior, contract,
+persistence, API, or UI semantics are changed by this record. No dependency is
+installed/removed. Not active. Not complete.
+
+**Mode**: MILESTONE PLANNING / ROADMAP RECORDING ONLY.
+
+**Milestone record**: `AR-GRAPH-CYTOSCAPE-FUTURE-PLAN-001`.
+
+**Accepted audit source**: `AR-GRAPH-CYTOSCAPE-001` — Engineering Graph →
+Cytoscape Replacement & Knowledge Projection Audit. Final verdict:
+**READY — CYTOSCAPE REPLACEMENT BOUNDARY ESTABLISHED**. This record preserves
+that accepted outcome as future work and does not expand or reinterpret its
+evidence.
+
+**Accepted future direction (Gen2)**:
+
+```text
+Evidence
+    ↓
+Knowledge Assertions
+    ↓
+Domain Knowledge
+    ↓
+Vestara-owned Graph Projection
+    ↓
+Structural Graph Substrate
+    ├── deterministic Vestara structural queries
+    └── optional Cytoscape headless computation where benchmarked useful
+            ↓
+        Cytoscape visual adapter
+            ↓
+            UI
+```
+
+The current Engineering Graph is transitional Gen1 architecture. Cytoscape is
+not domain, knowledge, evidence, verification, persistence, or Workflow
+authority. Cytoscape IDs remain adapter concerns.
+
+**Preserved distinctions**: Cytoscape != Domain model; Graph != Evidence;
+Graph != Knowledge authority; Graph projection != Source knowledge;
+Relationship != Assertion about relationship; Edge existence != Proven truth;
+UNKNOWN != Missing; CONFLICTING EVIDENCE != permission to choose; Shared graph
+engine != shared domain semantics.
+
+**Core invariant (frozen)**:
+
+```text
+Evidence / Knowledge Authority
+    ↓ authoritative projection
+Vestara Graph Projection Contract (derived, serializable)
+    ↓
+Structural Graph Substrate
+    ↓
+Cytoscape Visual Adapter ( / Headless Compute optional, benchmark-gated )
+    ↓
+UI
+```
+
+Graph state ≠ domain knowledge. Graph state ≠ evidence. Visual state ≠
+authority. Selection ≠ authority. Interaction ≠ permission. Layout ≠ topology
+truth.
+
+**Future milestone sequence (planned, not active)**:
+
+| Milestone | Planned work |
+|---|---|
+| `AR-GRAPH-CYTOSCAPE-002` | Canonical Vestara Graph Projection Contract: smallest engine-neutral contract above Cytoscape, covering projection identity/kind, revision/source version, deterministic node/edge identity, semantic kinds, source/target, domain/knowledge/assertion references, unresolved/conflict references, stratum, availability/partial state, and deterministic ordering. No Cytoscape dependency in the domain contract. |
+| `AR-GRAPH-CYTOSCAPE-003` | Inventory / Knowledge Graph Projector: project evidence-backed Inventory/knowledge into the canonical projection while preserving traceability to 48 Inventory targets, 52 assertions, 6 unresolved questions, 4 conflicts, 48 reconciliation dispositions, and historical evidence through assertion references. |
+| `AR-GRAPH-CYTOSCAPE-004` | Cytoscape Adapter: translate canonical projections into Cytoscape elements and map interactions back to projection/domain references. |
+| `AR-GRAPH-CYTOSCAPE-005` | Structural Query Substrate: renderer-neutral neighbors, upstream/downstream, paths, cycles, and dependency closure; benchmark Cytoscape headless computation against deterministic Vestara operations. Epistemic queries remain knowledge-layer queries. |
+| `AR-GRAPH-CYTOSCAPE-006` | Gen1 / Gen2 Parallel Verification: compare meaningful structural behavior without requiring architectural equivalence; preserve differences where Gen1 behavior was accidental or epistemically unsafe. |
+| `AR-GRAPH-CYTOSCAPE-007` | Consumer Migration: migrate API/UI/documentation/external-runtime/extension/context consumers behind projection/query boundaries. No direct domain dependency on Cytoscape. |
+| `AR-GRAPH-CYTOSCAPE-008` | Retire Gen1 Engineering Graph: retire current in-memory EngineeringGraph/event-store authority after migration and verification. |
+
+**Future Workflow lineage**: Workflow may later project its own domain graph
+into the shared Vestara graph substrate. Knowledge Projection != Workflow
+Projection. Existing Workflow Cytoscape work is architectural precedent, not
+automatically the final shared adapter.
+
+**Lineage**: `AR-INVENTORY-001` → `AR-INVENTORY-002G` →
+`AR-INVENTORY-002B-R3` → `AR-GRAPH-CYTOSCAPE-001` → this record.
+
+**Hold and current priority**: implementation is intentionally **HOLD** because
+the replacement boundary is established, the projection contract can be
+implemented later without losing the audit result, and Inventory/evidence/
+knowledge work currently lacks a useful human-visible surface. The immediate
+product priority after this recording is a basic **Inventory UI**. This is not
+cancellation, rejection, or completion of Cytoscape work. Implementation
+resumes at `AR-GRAPH-CYTOSCAPE-002`; do not begin it under this record.
+
+**Current-state note (recorded 2026-09-27, unchanged by this record)**:
+substrate today is `packages/engineering-graph/src/` (`graph.ts` in-memory
+directed adjacency store with forward + backlink indexes, `registry.ts`
+hydration, `events.ts` event-sourced temporal layer, `ids.ts`/`types.ts`
+identity + relationship catalog) wired by `apps/api/src/graph/service.ts`
+(15s TTL cache, `timelineFor` correlation) and exposed via
+`apps/api/src/routes/graph.ts`; frontend is bespoke pure-SVG
+`RelationshipExplorer` (`apps/workspace/src/components/graph/`) with
+pan/zoom, kind-colored nodes, and click-to-inspect — no Cytoscape usage on the
+`/graph` surface. `cytoscape@^3.34.0` is already a dependency of
+`apps/workspace` (for WF-GRAPH/WF-PLAYGROUND tracks) but is not installed or
+removed by this record for the Engineering Graph surface. Full architecture:
+`docs/Architecture/Engineering-Graph.md`; UI contract:
+`docs/UI/engineering-graph.md`.
+
+**Target architecture (future direction, not implemented)**: Evidence-backed
+knowledge is projected into a Vestara-owned, engine-neutral graph projection.
+The structural substrate owns deterministic structural operations; optional
+Cytoscape headless computation is considered only where benchmarked useful.
+The Cytoscape visual adapter consumes the projection and maps interaction back
+to projection/domain references. No Cytoscape dependency belongs in the domain
+contract, and no graph topology becomes epistemic authority.
+
+**Acceptance principles (future)**: (1) Cytoscape never owns Engineering
+truth. (2) UI never infers topology when canonical lineage is absent.
+(3) Projection testable without Cytoscape. (4) Deterministic reconstruction.
+(5) Existing graph API behavior unchanged until explicitly authorized.
+(6) Vestara canonical design system for all visual semantics.
+(7) Headless use is benchmark-justified or not adopted.
+
+**Relationship to WF-GRAPH (no authority collapse)**: `WF-GRAPH` is the
+Workflow runtime projection track (orchestration state → workflow graph →
+Cytoscape); `ENG-GRAPH` is the workspace-wide relationship-engine track
+(substrate → engineering projection → Cytoscape). Same library, separate
+contracts, separate authority. Neither track's graph state is canonical for
+the other.
+
+**Sequence (future, gated)**: `AR-GRAPH-CYTOSCAPE-002` →
+`AR-GRAPH-CYTOSCAPE-003` → `AR-GRAPH-CYTOSCAPE-004` →
+`AR-GRAPH-CYTOSCAPE-005` → `AR-GRAPH-CYTOSCAPE-006` →
+`AR-GRAPH-CYTOSCAPE-007` → `AR-GRAPH-CYTOSCAPE-008`. Rendering is gated on
+the projection contract; headless computation is gated on benchmarks.
+
+**Dependencies**: `packages/engineering-graph`; `apps/api/src/graph/*`;
+`apps/workspace/src/components/graph/*`, `pages/Graph.tsx`;
+`@vestara/ui-tokens` / VES-DESIGN-002; Activity Room lineage conventions
+(authoritative identifiers, no fuzzy correlation).
+
+**Out of scope for this record**: all implementation, substrate refactors,
+projection contracts, Cytoscape wiring on `/graph`, SVG explorer removal,
+headless benchmarks/adoption, token changes, API changes, persistence
+schemas, staging, commits, or pushes.
+
+**Verification (planning record)**: `docs/MILESTONES.md` updated;
+`packages/workspace/src/milestone-service.ts` intentionally untouched (it
+tracks `vX.Y` version milestones; the `WF-GRAPH`/`WF-PLAYGROUND` precedent
+likewise lives only in `MILESTONES.md`). No source, contract, dependency, or
+styling file modified.
