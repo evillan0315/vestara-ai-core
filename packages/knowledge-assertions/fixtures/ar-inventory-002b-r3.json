@@ -1,0 +1,2209 @@
+{
+  "schemaVersion": 1,
+  "task": "AR-INVENTORY-002B-R3",
+  "sourceEvidence": {
+    "originalArtifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+    "overlayArtifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+    "originalRecordVerified": true,
+    "overlayRecordVerified": true,
+    "originalAnchorCount": 50,
+    "overlayAnchorCount": 45
+  },
+  "stratum": "design-lineage",
+  "targetPolicy": "concept targets inventory row identities; no Engineering Graph entities or relationships created",
+  "assertions": [
+    {
+      "id": "r3-original-ar-cap-01",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-01 | M9 durable activity append-only + cursors/ordering/dedup/replay | BUILT/VERIFIED | YES (HARD) | REUSE AS-IS | `packages/activity-room/src/m9-{types,adapter,ingestion-bridge,to-projection,native-sqlite-store}.ts`; `m9-*.test.ts`; 11MB `m9-activity.db`; `docs/activity-room/arx-015-m9-evidence.md`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-01"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-01"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-01"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-01",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-02",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-02 | M10 projection (agent-msg/task/test/verification/workflow) | BUILT/VERIFIED | YES (HARD) | REUSE AS-IS | `m10-projection-runtime.ts`, `projectors/*`, `service.ts`, `snapshot-projector.ts`; `arx-015-m10-evidence.md`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-02"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-02"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-02"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-02",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-03",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-03 | M11A read API (snapshot/history/participants/attention/workflow) | BUILT/VERIFIED | YES (HARD) | REUSE AS-IS | `apps/api/src/routes/activity-room-m11a.ts`; `arx-015-m11a-evidence.md`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-03"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-03"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-03"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-03",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-04",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-04 | M11B WS realtime (subscribe/catch-up/resync/heartbeat) | BUILT/VERIFIED | YES (HARD) | REUSE AS-IS | `activity-room-m11b.ts`; `arx-015-m11b-evidence.md`; `m11b-client.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-04"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-04"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-04"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-04",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-05",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-05 | M11C room page + hook (500 working set, scroll, importance, keyboard) | BUILT/VERIFIED | YES (HARD) | REUSE AS-IS | `M11CActivityRoomPage.tsx`, `useM11CActivityRoom.ts`, `M11C*.test.tsx`; `arx-015-m11c-evidence.md`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-05"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-05"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-05"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-05",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-06",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-06 | Composer (scope/target/effect/reference, max-chars from settings) | BUILT/PARTIAL | YES (HARD) | ADAPT | `ActivityComposer.tsx`, `EnhancedComposer.tsx`, `lib/activity.ts` (post/retract/edit); @mention/reply/edit in-room linkage UNKNOWN.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-06"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-06"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-06"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-06",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-07",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-07 | Drawers (detail/agent/human/files/browser/context/settings) | BUILT/PARTIAL | YES (HARD) | ADAPT | `ActivityDetailDrawer.tsx`, `Agent{Detail,Projection}Drawer.tsx`, `HumanParticipantDrawer.tsx`, `ActivityFilesPanel.tsx`, `ActivityRoomContextPanel.tsx`, `Drawer.tsx` (284 lines); no resize/dock/pin/persistence.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-07"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-07"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-07"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-07",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-08",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-08 | Participants (membership/presence/work-state) | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | `projection-types.ts` ParticipantProjection, `M11CParticipantRail.tsx`, `presence-*`, `team-roster-*`; authority = `AgentStorage` (`@vestara/workspace`) — ACCIDENTAL coupling, must extract.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-08"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-08"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-08"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-08",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-overlay-ar-cap-08",
+      "statement": "The frozen semantic review classified AR-CAP-08 as CONFLICTING EVIDENCE; no winner was selected.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-08"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "contesting",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "semantic-status",
+              "value": "AR-CAP-08",
+              "label": "CONFLICTING EVIDENCE"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-08",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-09",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-09 | Attention (room/participant/interaction, 4 projectors) | BUILT/PARTIAL | YES (HARD) | ADAPT | `attention.ts`, `runtime-question-projection.ts`, M11A attention route; expiry/terminal-clear/stale-prevention UNKNOWN.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-09"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-09"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-09"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-09",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-10",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-10 | HITL: questions/responses/decisions/approvals/permissions | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | `runtime-interaction-{contract,schema,store,ingest,presentation}.ts`; `M11CRuntimeQuestionNotice.tsx` + guard; `interaction-persistence` SQLite; Question≠Decision≠Approval≠Permission NOT separated in UI — gap.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-10"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-10"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-10"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-10",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-11",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-11 | Conversation (identity/messages/stream/history/recovery) | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | `packages/conversation*/src/*`, `apps/api/src/routes/conversations.ts` (562 lines, inflight AbortController map, GA-DETACH-001); `originConversationId` propagation partial.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-11"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-11"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-11"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-11",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-12",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-12 | Assistant (identity/role/config/binding/context/tools/continuity) | BUILT/PARTIAL | YES (HARD) | ADAPT | `assistant-{identity,binding-resolver,capability-policy,opencode-adapter(1654),codex-adapter,execution-projection,interaction-broker,conversation-sessions}.ts`; canonical agents `agents.registry.ts` (535 lines, 7 agents); Companion correctly absent.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-12"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-12"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-12"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-12",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-13",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-13 | Context assembly + surface awareness | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | `packages/context/src/index.ts` (ContextOptions incl. surfaceContext, agentId, executionConfig); `workspace-context.ts` context routes; room-vs-conversation context boundary UNKNOWN.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-13"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-13"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-13"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-13",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-14",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-14 | Runtime/provider/model resolution + cancel/abort/reconnect | BUILT/PARTIAL | YES (CONDITIONAL: OpenCode HARD when AI used) | ADAPT | `provider-runtime/*`, `provider-opencode`, `opencode-runtime/*`, `assistant-binding-resolver.ts`; requested/configured/resolved/executed conflated in UI (`ProviderModelSelector.tsx`) — repair deferred.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-14"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-14"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-14"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-14",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-overlay-ar-cap-14",
+      "statement": "The frozen semantic review classified AR-CAP-14 as CONFLICTING EVIDENCE; no winner was selected.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-14"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "contesting",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "semantic-status",
+              "value": "AR-CAP-14",
+              "label": "CONFLICTING EVIDENCE"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-14",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-15",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-15 | Tools (read/edit/shell/files/browser/search/question) | BUILT/NOT WIRED (in room) | YES (CONDITIONAL) | REUSE THROUGH CONTRACT | `tool-runtime`, `tools/{7}`, `filesystem-runtime`, `terminal-runtime`, `browser-runtime`; room shows only tool-call/result + files drawer; permission integration via broker partial.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-15"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-15"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-15"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-15",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-16",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-16 | Artifacts/files/diffs/previews/evidence links | BUILT/PARTIAL | YES (HARD for view) | REUSE THROUGH CONTRACT | `ActivityFilesPanel.tsx`, `activity-files-navigation.ts`, `edit-{manifest,observation,inspection}.ts`, Files page + `CodeEditor.tsx`, evidence pipeline; ownership/persistence split UNKNOWN.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-16"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-16"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-16"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-16",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-17",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-17 | Permissions/governance (contracts/policy/enforcement/audit) | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | `permission-contracts` (leaf, zero-dep) + `permission`/`permissions`/`policy-engine`; `/api/auth/*` admin gates; `audit-log.ts`; enforcement in adapter, room presentation only.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-17"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-17"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-17"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-17",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-18",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-18 | Login/auth/session/logout | BUILT/LEGACY | YES (HARD) | REPLACE (standalone UX) | `apps/api/src/routes/auth.ts` (login=username-or-token auto-provision, Bearer, admin roles); `Login.tsx` (83 lines, local fallback); `requiresAuth:false` on login/overview; no password/OAuth/standalone session restore.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-18"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-18"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-18"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-18",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-19",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-19 | Onboarding/first-run | MISSING (from AR) / BUILT (rig elsewhere) | YES (HARD) | EXTRACT | Only `apps/onboarding-lab` (dev rig: kernel+Ollama+tools test) + Settings; no first-run detection/persistence/room-bootstrap product.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-19"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-19"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-19"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-19",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-20",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-20 | Room identity/lifecycle/multi-room/config | MISSING | YES (HARD) | NEW (behind contract) | Single implicit room; no room CRUD/membership/recovery semantics; `workspace.json` is workspace not room.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-20"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-20"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-20"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-20",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-21",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-21 | App shell (routing/layout/drawers/dialogs/responsive/keyboard) | BUILT/PARTIAL | YES (HARD) | ADAPT | `routes.ts` (40+ routes, single SPA, shell/public layouts), `ShellLayout.tsx` (117), `ShellRoot.tsx` (59), `AppHeader/Sidebar`; no resize/drag/dock/pin/layout-persistence; 40+ routes prove shell is NOT standalone-shaped.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-21"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-21"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-21"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-21",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-22",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-22 | Evidence/lineage/telemetry | BUILT/PARTIAL | YES (HARD) | REUSE THROUGH CONTRACT | conversation/turn/operation/call/workflow/session/provider/model IDs present in parts; `origin-provenance.ts`, `evidence*` stores, `assistant-identity-transport.test.ts`; classification per-field in §8.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-22"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-22"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-22"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-22",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-23",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-23 | Persistence/recovery/migrations/cleanup/retention | BUILT/PARTIAL | YES (HARD) | REUSE AS-IS (stores) | `sqlite-migrations`, `migrations.ts`, `m9-native-schema.ts`, `runtime-interaction-schema.ts`; `prefs.db`, `interactions.db`; restart/interrupted-execution semantics UNKNOWN — REQUIRES EVIDENCE.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-23"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-23"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-23"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-23",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-24",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-24 | Packaging/install/diagnostics/logs/backup | BUILT/PARTIAL | YES (HARD) | ADAPT | `native-installer/*`, `diagnostics/*` + `/api/diagnostics/*`, `GETTING_STARTED.md`, `CONFIGURATION.md`; no standalone SPA/API/persistence/first-start/upgrade/backup product.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-24"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-24"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-24"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-24",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-ar-cap-25",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded AR-CAP-25 | User-env presentation (layouts/density/presets/prefs) | BUILT/NOT WIRED | YES (OPTIONAL core) | ADAPT | `settings-framework` (9 engines), `ActivitySettingsPanel.tsx`, `ActivityStatePanel.tsx`, `M11C density tests`; per-room vs per-user state split UNKNOWN.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-25"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-25"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-capability",
+              "value": "AR-CAP-25"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "AR-CAP-25",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-01",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-01 | M9 native SQLite store | HARD | YES | architectural | `m9-native-sqlite-store.ts`, `m9-activity.db` 11MB.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-01"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-01"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-01"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-01",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-02",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-02 | M10 projection runtime | HARD | YES | architectural | `m10-projection-runtime.ts`, `service.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-02"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-02"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-02",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-03",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-03 | M11A HTTP + M11B WS | HARD | YES | architectural | `activity-room-m11a.ts`, `activity-room-m11b.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-03"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-03"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-03",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-04",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-04 | EventBus/transport (`@vestara/event-bus`, `ws`) | HARD | YES | architectural | `packages/event-bus/src/index.ts`, `stream.ts`, `ActivityStreamHub`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-04"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-04"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-04",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-05",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-05 | Conversation + conversation-runtime | HARD | YES | architectural | `packages/conversation*/src`, `routes/conversations.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-05"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-05"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-05",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-06",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-06 | InteractionService + interaction-persistence (SQLite) | HARD | YES | architectural | `interaction-persistence/src/sqlite-store.ts`, `interactions.db`, `routes/interactions.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-06"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-06"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-06",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-07",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-07 | RuntimeQuestionInteractionStore | HARD | YES | architectural | `runtime-interaction-store.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-07"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-07"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-07",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-08",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-08 | Permission contracts + enforcement | HARD | YES | architectural | `permission-contracts` (leaf), `assistant-interaction-broker.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-08"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-08"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-08",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-09",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-09 | Context assembler + workspace context svc | HARD | YES | architectural | `packages/context/src/index.ts`, `routes/context.ts`, `routes/workspace.ts`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-09"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-09"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-09",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-10",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-10 | Provider-runtime + provider-opencode + opencode-runtime + OpenCode :4096 | CONDITIONAL (HARD when AI used) | YES (conditional) | architectural + leakage | `provider-runtime/*`, `packages/providers/opencode/*`, `packages/opencode-runtime/*`, `assistant-opencode-adapter.ts`, `workspace-context.ts` provider registration.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-10"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-10"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-10"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-10",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-11",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-11 | Tool-runtime + tools/* + filesystem/terminal/browser runtimes | CONDITIONAL | YES (conditional) | architectural | `tool-runtime/src/index.ts`, `packages/tools/*`, `createAgentTools()` in ctx.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-11"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-11"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-11",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-12",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-12 | AgentStorage/teams (`@vestara/workspace`) | HARD (currently) | EXTRACT behind contract | ACCIDENTAL | `agents.registry.ts`, M11A header comment \"Agent/Team authority (AgentStorage)\".",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-12"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-12"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-12"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-12",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-13",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-13 | Kernel + host/boot runtimes | CONDITIONAL | PARTIAL (kernel YES, host/boot NO) | ACCIDENTAL (god-object ctx) | `workspace-context.ts` 1973 lines, `createWorkspaceContext`, runtime-profile gating.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-13"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-13"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-13",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-14",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-14 | Settings-framework + WorkspaceConfigurationService | HARD | YES | architectural | `settings-framework/src/*` (9 engines), `SettingsPage.tsx`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-14"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-14"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-14",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-15",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-15 | Evidence pipeline + telemetry + audit-log | HARD (evidence) / OPTIONAL (telemetry depth) | YES (evidence), OPTIONAL (telemetry) | architectural | `evidence*` stores in ctx, `audit-log.ts`, `telemetry` pkg.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-15"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-15"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-15",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-16",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-16 | sqlite-migrations + schema runners | HARD | YES | architectural | `sqlite-migrations/src/*`, `migrations.ts` files.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-16"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-16"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-16",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-17",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-17 | Users + HumanPrincipal + representations + sessions | HARD | YES (replace UX, keep stores) | architectural (stores) / LEGACY (local-operator fallback) | `routes/auth.ts`, `ctx.users/humanPrincipals/humanIdentityRepresentations`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-17"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-17"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-17",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-18",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-18 | Legacy activity stores (`store-sqlite`, `m9-sqlite-store`, in-memory, `activity.db`) | LEGACY | NO (eliminate) | LEGACY/DUPLICATE | `store-sqlite.ts`, `m9-sqlite-store.ts`, `store.ts`, `.vestara/activity.db` vs `m9-activity.db`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-18"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-18"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-18"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-18",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-overlay-dep-18",
+      "statement": "The frozen semantic review classified DEP-18 as CONFLICTING EVIDENCE; no winner was selected.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-18"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "contesting",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "semantic-status",
+              "value": "DEP-18/19",
+              "label": "CONFLICTING EVIDENCE"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-18",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-19",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-19 | Legacy activity-room route (non-M11) | LEGACY | NO | LEGACY | `routes/activity-room.ts` (947 lines) vs M11A/M11B.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-19"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-19"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "semantic-scope",
+              "value": "DEP-18/19",
+              "label": "legacy families; conflict preserved"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-19",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-overlay-dep-19",
+      "statement": "The frozen semantic review classified DEP-19 as CONFLICTING EVIDENCE; no winner was selected.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-19"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "contesting",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "semantic-status",
+              "value": "DEP-18/19",
+              "label": "CONFLICTING EVIDENCE"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-19",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-20",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-20 | Sibling surfaces (marketplace, telegram, CI-observer, memory/graph, TTS/STT, workers, qualification, meet, live-browser page) | OPTIONAL | NO | ACCIDENTAL (via god-ctx) | `routes/{marketplace,telegram,ci,memory,voice,workers}.ts`, `routes.ts` 40+ routes.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-20"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-20"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-20"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-20",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-21",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-21 | onboarding-lab | DEVELOPMENT | NO | DEVELOPMENT | `apps/onboarding-lab/*` (explicit dev rig README).",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-21"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-21"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-21"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-21",
+      "overlayRowAddressed": true
+    },
+    {
+      "id": "r3-original-dep-22",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-22 | Visual-regression/screenshot + qualification harness | DEVELOPMENT | NO | DEVELOPMENT | `tests/visual/*`, `screenshot` scripts, `routes/qualification*`.",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-22"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-22"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-22",
+      "overlayRowAddressed": false
+    },
+    {
+      "id": "r3-original-dep-23",
+      "statement": "At the frozen AR-INVENTORY-001 observation point, the audit recorded DEP-23 | Mock server :3002 / fixtures | DEVELOPMENT/OPTIONAL | OPTIONAL | architectural-dev | `apps/workspace/src/mocks/server.ts` (existence per governance; running state UNKNOWN).",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-23"
+      },
+      "stratum": "design-lineage",
+      "status": "asserted",
+      "evidence": [
+        {
+          "kind": "historical-fragment",
+          "role": "supporting",
+          "historicalLocator": {
+            "artifactDigest": "8e43b592a37ad71adac1792e0d73f5c1370ff40469e4a9a255986b437ebc5e3a",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-23"
+            }
+          }
+        },
+        {
+          "kind": "historical-fragment",
+          "role": "contextual",
+          "historicalLocator": {
+            "artifactDigest": "154350501d21af433e80646401e06f54aaa7751acf5858417a28b0e81ca66a95",
+            "anchor": {
+              "kind": "inventory-dependency",
+              "value": "DEP-23"
+            }
+          }
+        }
+      ],
+      "assertedAt": "historical-observation-point-unknown",
+      "sourceRow": "DEP-23",
+      "overlayRowAddressed": true
+    }
+  ],
+  "unresolvedQuestions": [
+    {
+      "id": "r3-unresolved-ar-cap-08",
+      "question": "What is the reconciled status of AR-CAP-08? The frozen authority preserves conflicting historical evidence and does not select a winner.",
+      "reason": "conflicting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-08"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    },
+    {
+      "id": "r3-unresolved-ar-cap-14",
+      "question": "What is the reconciled status of AR-CAP-14? The frozen authority preserves conflicting historical evidence and does not select a winner.",
+      "reason": "conflicting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-14"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    },
+    {
+      "id": "r3-unresolved-ar-cap-23",
+      "question": "What is the current or reconciled status of AR-CAP-23? The frozen authority records UNKNOWN and requires further evidence.",
+      "reason": "awaiting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-23"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    },
+    {
+      "id": "r3-unresolved-dep-18",
+      "question": "What is the reconciled status of DEP-18? The frozen authority preserves conflicting historical evidence and does not select a winner.",
+      "reason": "conflicting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-18"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    },
+    {
+      "id": "r3-unresolved-dep-19",
+      "question": "What is the reconciled status of DEP-19? The frozen authority preserves conflicting historical evidence and does not select a winner.",
+      "reason": "conflicting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-19"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    },
+    {
+      "id": "r3-unresolved-dep-23",
+      "question": "What is the current or reconciled status of DEP-23? The frozen authority records UNKNOWN and requires further evidence.",
+      "reason": "awaiting-evidence",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-23"
+      },
+      "stratum": "unresolved",
+      "createdAt": "historical-observation-point-unknown"
+    }
+  ],
+  "conflicts": [
+    {
+      "id": "r3-conflict-ar-cap-08",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-08"
+      },
+      "stratum": "design-lineage",
+      "assertionIds": [
+        "r3-original-ar-cap-08",
+        "r3-overlay-ar-cap-08"
+      ],
+      "derivation": {
+        "source": "frozen-inventory-semantic-review",
+        "version": "R2"
+      }
+    },
+    {
+      "id": "r3-conflict-ar-cap-14",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:AR-CAP-14"
+      },
+      "stratum": "design-lineage",
+      "assertionIds": [
+        "r3-original-ar-cap-14",
+        "r3-overlay-ar-cap-14"
+      ],
+      "derivation": {
+        "source": "frozen-inventory-semantic-review",
+        "version": "R2"
+      }
+    },
+    {
+      "id": "r3-conflict-dep-18",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-18"
+      },
+      "stratum": "design-lineage",
+      "assertionIds": [
+        "r3-original-dep-18",
+        "r3-overlay-dep-18"
+      ],
+      "derivation": {
+        "source": "frozen-inventory-semantic-review",
+        "version": "R2"
+      }
+    },
+    {
+      "id": "r3-conflict-dep-19",
+      "target": {
+        "kind": "concept",
+        "id": "inventory:DEP-19"
+      },
+      "stratum": "design-lineage",
+      "assertionIds": [
+        "r3-original-dep-19",
+        "r3-overlay-dep-19"
+      ],
+      "derivation": {
+        "source": "frozen-inventory-semantic-review",
+        "version": "R2"
+      }
+    }
+  ],
+  "dispositions": [
+    {
+      "rowId": "AR-CAP-01",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-01"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-02",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-02"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-03",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-03"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-04",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-04"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-05",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-05"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-06",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-06"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-07",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-07"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-08",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-ar-cap-08"
+    },
+    {
+      "rowId": "AR-CAP-09",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-09"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-10",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-10"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-11",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-11"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-12",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-12"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-13",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-13"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-14",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-ar-cap-14"
+    },
+    {
+      "rowId": "AR-CAP-15",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-15"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-16",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-16"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-17",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-17"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-18",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-18"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-19",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-19"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-20",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-20"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-21",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-21"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-22",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-22"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-23",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-ar-cap-23"
+    },
+    {
+      "rowId": "AR-CAP-24",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-24"
+      ]
+    },
+    {
+      "rowId": "AR-CAP-25",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-ar-cap-25"
+      ]
+    },
+    {
+      "rowId": "DEP-01",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-01"
+      ]
+    },
+    {
+      "rowId": "DEP-02",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-02"
+      ]
+    },
+    {
+      "rowId": "DEP-03",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-03"
+      ]
+    },
+    {
+      "rowId": "DEP-04",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-04"
+      ]
+    },
+    {
+      "rowId": "DEP-05",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-05"
+      ]
+    },
+    {
+      "rowId": "DEP-06",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-06"
+      ]
+    },
+    {
+      "rowId": "DEP-07",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-07"
+      ]
+    },
+    {
+      "rowId": "DEP-08",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-08"
+      ]
+    },
+    {
+      "rowId": "DEP-09",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-09"
+      ]
+    },
+    {
+      "rowId": "DEP-10",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-10"
+      ]
+    },
+    {
+      "rowId": "DEP-11",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-11"
+      ]
+    },
+    {
+      "rowId": "DEP-12",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-12"
+      ]
+    },
+    {
+      "rowId": "DEP-13",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-13"
+      ]
+    },
+    {
+      "rowId": "DEP-14",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-14"
+      ]
+    },
+    {
+      "rowId": "DEP-15",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-15"
+      ]
+    },
+    {
+      "rowId": "DEP-16",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-16"
+      ]
+    },
+    {
+      "rowId": "DEP-17",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-17"
+      ]
+    },
+    {
+      "rowId": "DEP-18",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-dep-18"
+    },
+    {
+      "rowId": "DEP-19",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-dep-19"
+    },
+    {
+      "rowId": "DEP-20",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-20"
+      ]
+    },
+    {
+      "rowId": "DEP-21",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-21"
+      ]
+    },
+    {
+      "rowId": "DEP-22",
+      "state": "represented",
+      "assertionIds": [
+        "r3-original-dep-22"
+      ]
+    },
+    {
+      "rowId": "DEP-23",
+      "state": "unresolved",
+      "questionId": "r3-unresolved-dep-23"
+    }
+  ],
+  "accounting": {
+    "denominator": 48,
+    "represented": 42,
+    "unresolved": 6,
+    "excluded": 0
+  },
+  "limitations": [
+    "Historical statements describe the frozen audit point and do not establish current-system truth.",
+    "assertedAt is an explicit unknown historical observation time, not ingestion time.",
+    "No confidence snapshots were materialized.",
+    "No assertions, questions, or dispositions were persisted to a runtime database; this is a deterministic contract fixture.",
+    "The report is not evidence and was not ingested into CAS."
+  ]
+}
