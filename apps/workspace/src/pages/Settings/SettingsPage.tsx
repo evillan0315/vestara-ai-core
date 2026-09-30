@@ -22,6 +22,13 @@ import EnvironmentVariables from './EnvironmentVariables.js';
 import SystemOverview from './SystemOverview.js';
 import { AssistantExecutionPanel, ToolVisibilityPanel } from './AI/AssistantExecution/AssistantExecutionSettings.js';
 import { CISettings } from './CI/CISettings.js';
+import { CodexTransportPanel } from './CodexTransportPanel.js';
+import {
+  browserClose,
+  browserCreateSession,
+  browserReload,
+  type BrowserSessionInfo,
+} from '../../lib/browser-client';
 import {
   SettingsEmptyState,
   SettingsGeneralReference,
@@ -65,6 +72,8 @@ function RuntimeStateCard({ runtime, className = '' }: { runtime: RuntimeStatusD
 
 function OperationsCard({ refresh, className = '' }: { refresh: () => Promise<void>; className?: string }) {
   const [message, setMessage] = useState<string | null>(null);
+  const [browserSession, setBrowserSession] = useState<BrowserSessionInfo | null>(null);
+  const [browserBusy, setBrowserBusy] = useState(false);
   const action = async (kind: 'health' | 'graph') => {
     try {
       if (kind === 'health') {
@@ -79,11 +88,38 @@ function OperationsCard({ refresh, className = '' }: { refresh: () => Promise<vo
       setMessage(cause instanceof Error ? cause.message : 'Operation failed');
     }
   };
+  const browserAction = async (kind: 'start' | 'reload' | 'stop') => {
+    setBrowserBusy(true);
+    setMessage(null);
+    try {
+      if (kind === 'start') {
+        const result = await browserCreateSession('settings', 'lifecycle');
+        if (!result.ok || !result.data) throw new Error(result.error ?? 'Browser session could not be started');
+        setBrowserSession(result.data);
+        setMessage('Browser session started.');
+      } else if (kind === 'reload') {
+        if (!browserSession) throw new Error('No browser session is running');
+        const result = await browserReload(browserSession.sessionId);
+        if (!result.ok) throw new Error(result.error ?? 'Browser session reload failed');
+        setMessage('Browser session reloaded.');
+      } else {
+        if (!browserSession) throw new Error('No browser session is running');
+        const result = await browserClose(browserSession.sessionId);
+        if (!result.ok) throw new Error(result.error ?? 'Browser session could not be stopped');
+        setBrowserSession(null);
+        setMessage('Browser session stopped.');
+      }
+    } catch (cause) {
+      setMessage(cause instanceof Error ? cause.message : 'Browser lifecycle operation failed');
+    } finally {
+      setBrowserBusy(false);
+    }
+  };
   return (
     <ReferenceCard
       icon={navIcon('tools')}
       title="Supported Operations"
-      description="Disruptive operations remain disabled until a safe lifecycle endpoint exists."
+      description="Workspace checks and governed lifecycle controls."
       className={className}
     >
       <div className="flex flex-wrap gap-2 p-4">
@@ -92,6 +128,47 @@ function OperationsCard({ refresh, className = '' }: { refresh: () => Promise<vo
         </Button>
         <Button onClick={() => action('graph')}>Rebuild engineering graph</Button>
         <Button disabled>Restart runtime</Button>
+      </div>
+      <div className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3">
+        <p className="text-xs font-semibold text-[var(--vestara-text-secondary)]">Lifecycle Controls</p>
+        <p className="mt-1 text-xs text-[var(--vestara-text-muted)]">
+          Browser sessions use the governed browser runtime. Dashboard and Vestara API lifecycle actions require an external supervisor.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button
+            primary={!browserSession}
+            disabled={browserBusy || Boolean(browserSession)}
+            onClick={() => void browserAction('start')}
+          >
+            Start browser session
+          </Button>
+          <Button disabled={browserBusy || !browserSession} onClick={() => void browserAction('reload')}>
+            Reload browser session
+          </Button>
+          <Button disabled={browserBusy || !browserSession} onClick={() => void browserAction('stop')}>
+            Stop browser session
+          </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button disabled title="Requires an external agent-browser supervisor">
+            Reload agent-browser dashboard
+          </Button>
+          <Button disabled title="Requires an external agent-browser supervisor">
+            Start agent-browser server
+          </Button>
+          <Button disabled title="Requires an external Vestara API supervisor">
+            Reload Vestara API
+          </Button>
+          <Button disabled title="Requires an external Vestara API supervisor">
+            Stop Vestara API
+          </Button>
+          <Button disabled title="Requires an external Vestara API supervisor">
+            Start Vestara API
+          </Button>
+        </div>
+        <p className="mt-2 text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+          {browserSession ? `Browser session ${browserSession.sessionId} is available.` : 'No browser session is currently running.'}
+        </p>
       </div>
       {message && (
         <p className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
@@ -329,6 +406,7 @@ export default function SettingsPage() {
                 path="runtime"
                 element={
                   <div className="st-settings-grid">
+                    <CodexTransportPanel configuration={data.configuration} onChanged={changed} className="st-card-fill lg:col-span-2 xl:col-span-2" />
                     <RuntimeStateCard runtime={data.runtime} className="st-card-fill lg:col-span-2 xl:col-span-2" />
                     <OperationsCard refresh={load} className="st-card-fill st-card-supporting lg:col-span-2 xl:col-span-1" />
                     <CliSection initial={data.cli} className="lg:col-span-2 xl:col-span-1" />

@@ -4,6 +4,9 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 
 export type ConfigurationSource = 'default' | 'user' | 'workspace' | 'session' | 'command';
+export type CodexTransport = 'app-server' | 'sdk';
+export const CODEX_TRANSPORT_DEFAULT: CodexTransport = 'app-server';
+export const CODEX_TRANSPORT_OPTIONS: readonly CodexTransport[] = ['app-server', 'sdk'];
 export type SettingsSectionId =
   | 'general'
   | 'appearance'
@@ -200,6 +203,11 @@ export const WORKSPACE_SETTING_DEFINITIONS: Readonly<Record<string, SettingDefin
       typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 100_000,
   },
   'runtime.autoRefresh': { section: 'runtime', defaultValue: true, validate: booleanValue },
+  'runtime.codexTransport': {
+    section: 'runtime',
+    defaultValue: CODEX_TRANSPORT_DEFAULT,
+    validate: oneOf(CODEX_TRANSPORT_OPTIONS),
+  },
   'providers.defaultProvider': { section: 'providers', defaultValue: 'opencode', validate: stringValue },
   'providers.defaultModel': { section: 'providers', defaultValue: 'auto', validate: stringValue },
   'agents.autoAssign': { section: 'agents', defaultValue: false, validate: booleanValue },

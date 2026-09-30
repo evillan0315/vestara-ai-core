@@ -2,6 +2,7 @@ import type { ResolvedSetting } from '@vestara/configuration';
 import type { ReactNode } from 'react';
 import { StatusIndicator, type StatusVariant } from '@vestara/ui';
 import '../../styles/marketplace.css';
+export { WorkspaceOperationalPanel as ReferenceCard, WorkspacePanelIcon as SectionIcon } from '../../components/WorkspaceOperationalPanel';
 import './settings.tokens.css';
 
 /** Presentation-only capitalization for hero/card labels. Values stay authoritative. */
@@ -315,17 +316,20 @@ export function Button({
   onClick,
   disabled,
   primary = false,
+  title,
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   primary?: boolean;
+  title?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       className={`min-h-9 whitespace-nowrap rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-sm)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focus} ${primary ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
     >
       {children}
@@ -391,59 +395,5 @@ export function Toggle({
         className={`absolute left-0.5 top-1 size-4 rounded-full bg-[var(--color-zinc-50)] shadow transition-transform motion-reduce:transition-none ${checked ? 'translate-x-5' : 'translate-x-0'}`}
       />
     </button>
-  );
-}
-
-export function SectionIcon({ icon, tone = 'accent' }: { icon: ReactNode; tone?: 'accent' | 'info' }) {
-  return (
-    <span
-      aria-hidden="true"
-      className={`grid size-11 shrink-0 place-items-center rounded-[var(--vestara-radius)] border [&_svg]:size-5 ${
-        tone === 'info'
-          ? 'border-[color-mix(in_srgb,var(--vestara-status-info)_32%,transparent)] bg-[color-mix(in_srgb,var(--vestara-status-info)_12%,transparent)] text-[var(--vestara-status-info)]'
-          : 'border-[color-mix(in_srgb,var(--vestara-accent)_32%,transparent)] bg-[color-mix(in_srgb,var(--vestara-accent)_12%,transparent)] text-[var(--vestara-accent-text)]'
-      }`}
-    >
-      {icon}
-    </span>
-  );
-}
-
-export function ReferenceCard({
-  icon,
-  title,
-  description,
-  children,
-  className = '',
-  actions,
-  tone = 'accent',
-}: {
-  icon: ReactNode;
-  title: string;
-  description?: string;
-  children: ReactNode;
-  className?: string;
-  actions?: ReactNode;
-  tone?: 'accent' | 'info';
-}) {
-  return (
-    <section className={`st-panel min-w-0 ${className}`}>
-      <header className="st-card-header st-gap-field st-px-card st-py-card flex min-w-0 items-start border-b border-[var(--vestara-border-subtle)]">
-        <SectionIcon icon={icon} tone={tone} />
-        <div className="min-w-0 flex-1">
-          <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">{title}</h2>
-          {description && (
-            <p
-              title={description}
-              className="st-mt-element block max-w-2xl truncate text-[var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-muted)]"
-            >
-              {description}
-            </p>
-          )}
-        </div>
-        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
-      </header>
-      <div className="st-card-body st-pad-card">{children}</div>
-    </section>
   );
 }

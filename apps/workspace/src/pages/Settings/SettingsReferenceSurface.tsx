@@ -401,7 +401,8 @@ function WorkspaceIdentityCard({
       icon={navIcon('dashboard')}
       title="Workspace Information"
       description="Basic information and defaults exposed by the workspace configuration authority."
-      className="flex h-full w-auto min-w-0 flex-col border-[color-mix(in_srgb,var(--vestara-accent)_26%,var(--vestara-border-subtle))] lg:col-span-2 [&>.st-card-body]:flex [&>.st-card-body]:flex-1 [&>.st-card-body]:flex-col"
+      fill
+      className="h-full w-auto min-w-0 border-[color-mix(in_srgb,var(--vestara-accent)_26%,var(--vestara-border-subtle))] lg:col-span-2"
     >
       <div className="st-gap-section grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)] lg:items-start">
         <div className="st-gap-section grid min-w-0 content-start">
@@ -884,6 +885,7 @@ function QuickActionsCard({
       icon={navIcon('tools')}
       title="Quick Actions"
       description="Common configuration tasks."
+      fill
       className={`st-card-supporting ${className}`}
     >
       <div className="st-space-field">
@@ -1075,7 +1077,7 @@ export function SettingsGeneralReference({
         </div>
         <div className="flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]">
           <WorkspaceStatusCard runtime={runtime} configuration={configuration} className="shrink-0" />
-          <QuickActionsCard onReset={() => void reset()} onExport={exportSettings} className="flex flex-1 flex-col [&>.st-card-body]:flex-1" />
+          <QuickActionsCard onReset={() => void reset()} onExport={exportSettings} className="flex-1" />
         </div>
       </div>
 

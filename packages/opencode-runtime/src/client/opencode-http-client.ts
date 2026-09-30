@@ -651,29 +651,32 @@ export class OpenCodeHttpClient implements OpenCodeClient {
   }
 
   async replyToQuestion(
-    sessionId: string,
+    _sessionId: string,
     requestId: string,
     reply: OpenCodeQuestionReply,
     signal?: AbortSignal,
   ): Promise<boolean> {
     await this.requestJson({
-      path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reply`,
+      // `question.asked` is served by OpenCode's global question registry.
+      // The session-scoped route is the v2 question family and cannot resolve
+      // the v1 request emitted by the live runtime. Keep sessionId in the
+      // client contract for Vestara provenance, but do not put it on the wire.
+      path: `/question/${encodeURIComponent(requestId)}/reply`,
       method: 'POST',
       body: { answers: reply.answers },
       timeoutMs: this.config.requestTimeoutMs,
       signal,
-      sessionId,
     });
     return true;
   }
 
-  async rejectQuestion(sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean> {
+  async rejectQuestion(_sessionId: string, requestId: string, signal?: AbortSignal): Promise<boolean> {
     await this.requestJson({
-      path: `/api/session/${encodeURIComponent(sessionId)}/question/${encodeURIComponent(requestId)}/reject`,
+      // The global reject endpoint resolves the same registry as question.asked.
+      path: `/question/${encodeURIComponent(requestId)}/reject`,
       method: 'POST',
       timeoutMs: this.config.requestTimeoutMs,
       signal,
-      sessionId,
     });
     return true;
   }
