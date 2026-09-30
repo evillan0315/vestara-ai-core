@@ -14,6 +14,7 @@
 
 import { randomBytes } from 'node:crypto';
 import type { ChannelDelivery, ChannelMessage } from '@vestara/channel-types';
+import type { ExecutionActor } from '@vestara/execution-types';
 import type { ConversationBinding } from './conversation-binding.js';
 import type { TelegramIdentityBinding } from './pairing.js';
 import type { WorkspaceBinding } from './workspace-binding.js';
@@ -39,14 +40,22 @@ export interface ExecutionBackend {
    * @param options - Target agent identity (routing authority, never provider/model)
    * @returns The execution result with response text
    */
-  sendMessage(conversationId: string, content: string, options?: { agentId?: string }): Promise<ExecutionResult>;
+  sendMessage(
+    conversationId: string,
+    content: string,
+    options?: { agentId?: string; actor?: ExecutionActor; assistantIdentity?: { preferredName: string } },
+  ): Promise<ExecutionResult>;
 
   /**
    * Stream a message to the Global Assistant, yielding response text deltas
    * as they arrive. Optional — backends without streaming use `sendMessage`
    * and the router delivers the full response through the sink once.
    */
-  streamMessage?(conversationId: string, content: string, options?: { agentId?: string }): AsyncIterable<string>;
+  streamMessage?(
+    conversationId: string,
+    content: string,
+    options?: { agentId?: string; actor?: ExecutionActor; assistantIdentity?: { preferredName: string } },
+  ): AsyncIterable<string>;
 }
 
 /**
@@ -244,6 +253,7 @@ export class GlobalAssistantTextRouter {
       try {
         const result = await this.backend.sendMessage(conversation.vestaraConversationId, message.text, {
           agentId,
+          actor: { kind: 'human', id: principalId },
         });
         return {
           status: 'routed',
@@ -333,6 +343,7 @@ export class GlobalAssistantTextRouter {
         let full = '';
         const result = await this.backend.streamMessage(conversation.vestaraConversationId, message.text, {
           agentId,
+          actor: { kind: 'human', id: principalId },
         });
         for await (const delta of result) {
           if (!delta) continue;
@@ -351,6 +362,7 @@ export class GlobalAssistantTextRouter {
       if (this.backend && message.text) {
         const result = await this.backend.sendMessage(conversation.vestaraConversationId, message.text, {
           agentId,
+          actor: { kind: 'human', id: principalId },
         });
         const response = result.response ?? '';
         if (response) await sink.onText(response);

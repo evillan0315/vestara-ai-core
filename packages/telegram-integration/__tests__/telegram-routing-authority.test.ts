@@ -177,7 +177,10 @@ describe('ROUTING-CONVERGENCE-001A: Telegram has no model authority', () => {
     expect(calls).toHaveLength(1);
     expect(calls[0].conversationId).toBe('conv-1');
     // Target-agent identity only — no provider/model keys may reach execution.
-    expect(calls[0].options).toEqual({ agentId: 'agent-assistant' });
+    expect(calls[0].options).toEqual({
+      agentId: 'agent-assistant',
+      actor: { kind: 'human', id: 'principal-1' },
+    });
   });
 
   it('ignores legacy model fields stuck onto a binding (pre-fix rows)', async () => {
@@ -200,7 +203,10 @@ describe('ROUTING-CONVERGENCE-001A: Telegram has no model authority', () => {
     await router.routeMessage(channelMessage('hello'), identity, workspace, legacyShaped);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].options).toEqual({ agentId: 'agent-assistant' });
+    expect(calls[0].options).toEqual({
+      agentId: 'agent-assistant',
+      actor: { kind: 'human', id: 'principal-1' },
+    });
   });
 
   it('ignores hostile Telegram-local defaults passed as config', async () => {
@@ -222,7 +228,10 @@ describe('ROUTING-CONVERGENCE-001A: Telegram has no model authority', () => {
     await router.routeMessage(channelMessage('hello'), identity, workspace, binding);
 
     expect(calls).toHaveLength(1);
-    expect(calls[0].options).toEqual({ agentId: 'agent-assistant' });
+    expect(calls[0].options).toEqual({
+      agentId: 'agent-assistant',
+      actor: { kind: 'human', id: 'principal-1' },
+    });
   });
 
   it('createBinding stamps identity only — no model/provider keys', () => {
@@ -325,6 +334,9 @@ describe('ROUTING-CONVERGENCE-001A: router contract', () => {
     await router.routeMessage(channelMessage('hi'), identity, workspace, binding);
 
     expect(sendMessage).toHaveBeenCalledTimes(1);
-    expect(sendMessage).toHaveBeenCalledWith('conv-1', 'hi', { agentId: 'agent-assistant' });
+    expect(sendMessage).toHaveBeenCalledWith('conv-1', 'hi', {
+      agentId: 'agent-assistant',
+      actor: { kind: 'human', id: 'principal-1' },
+    });
   });
 });

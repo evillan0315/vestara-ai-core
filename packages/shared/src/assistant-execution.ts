@@ -23,6 +23,7 @@ export type AssistantExecutionKind =
   | 'tool' // generic tool activity
   | 'read' // file read observation (GA-TOOL-UX-001B structured Read evidence)
   | 'edit' // file edit (diff evidence, not rendered in M3)
+  | 'write' // file write (path/content evidence, no synthetic diff)
   | 'terminal' // shell execution
   | 'task-snapshot' // OpenCode local todo snapshot
   | 'permission' // permission request/resolution (no UI in M3)
@@ -47,7 +48,7 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
   terminalOutputPreview: 2000,
   /** Bounded shell command. */
   command: 500,
-  /** Bounded repository-relative path. */
+  /** Bounded canonical evidence path after the trusted producer boundary. */
   path: 500,
   /** Bounded identity strings (callID/sessionID/messageID/operationId). */
   identity: 200,
@@ -87,6 +88,8 @@ export const ASSISTANT_EXECUTION_BOUNDS = {
    * via `contentTruncated`.
    */
   readContentPreview: 2_000,
+  /** Bounded runtime-provided final content for a write observation. */
+  writeContent: 20_000,
 } as const;
 
 // ─── Common envelope ──────────────────────────────────────────
@@ -181,6 +184,31 @@ export interface EditExecutionDetail extends AssistantExecutionBase {
   readonly diffProvenance: 'runtime-provided' | 'unavailable';
   readonly beforeAfterProvenance: 'unavailable';
 }
+
+/**
+ * Structured evidence for an OpenCode `write` operation.
+ *
+ * `file` uses the same canonical path boundary as EditExecutionDetail: the
+ * producer normalizes the authoritative runtime path before persistence. A
+ * final document is not a diff and never grants diff capability.
+ */
+export interface WriteExecutionDetail extends AssistantExecutionBase {
+  readonly kind: 'write';
+  readonly tool: 'write';
+  /** Canonical path produced from the runtime-provided filePath. */
+  readonly file: string;
+  readonly fileProvenance: 'runtime-provided';
+  readonly finalContent?: string;
+  readonly contentTruncated?: boolean;
+  readonly contentProvenance: 'runtime-provided' | 'unavailable';
+  readonly error?: string;
+  readonly durationMs?: number;
+  readonly diffRepresentation: 'unavailable';
+  readonly diffProvenance: 'unavailable';
+  readonly beforeAfterProvenance: 'unavailable';
+}
+
+export type FileMutationExecutionDetail = EditExecutionDetail | WriteExecutionDetail;
 
 /**
  * File provenance for a Read observation (GA-TOOL-UX-001B).
@@ -317,6 +345,7 @@ export type AssistantExecutionDetail =
   | ToolExecutionDetail
   | ReadExecutionDetail
   | EditExecutionDetail
+  | WriteExecutionDetail
   | TerminalExecutionDetail
   | TaskSnapshotDetail
   | PermissionExecutionDetail
@@ -492,6 +521,12 @@ function boundedPatch(value: unknown): { value: string | undefined; truncated: b
   return { value: value.slice(0, ASSISTANT_EXECUTION_BOUNDS.patchContent), truncated: true };
 }
 
+function boundedWriteContent(value: unknown): { value: string | undefined; truncated: boolean } {
+  if (typeof value !== 'string') return { value: undefined, truncated: false };
+  if (value.length <= ASSISTANT_EXECUTION_BOUNDS.writeContent) return { value, truncated: false };
+  return { value: value.slice(0, ASSISTANT_EXECUTION_BOUNDS.writeContent), truncated: true };
+}
+
 /**
  * Normalize an unknown payload into a safe `AssistantExecutionDetail`.
  *
@@ -615,6 +650,27 @@ export function normalizeAssistantExecutionDetail(value: unknown): AssistantExec
         hunks: hunks.items,
         hunksTruncated: hunks.truncated || undefined,
         diffProvenance: representation === 'unavailable' ? 'unavailable' : 'runtime-provided',
+        beforeAfterProvenance: 'unavailable',
+      };
+    }
+    case 'write': {
+      const file = boundedString(record.file, ASSISTANT_EXECUTION_BOUNDS.path);
+      if (!file || isUnsafePath(file)) return undefined;
+      const finalContent = boundedWriteContent(record.finalContent);
+      return {
+        ...base,
+        kind: 'write',
+        tool: 'write',
+        file,
+        fileProvenance: 'runtime-provided',
+        finalContent: finalContent.value,
+        contentTruncated: finalContent.truncated || undefined,
+        contentProvenance:
+          state === 'completed' && finalContent.value !== undefined ? 'runtime-provided' : 'unavailable',
+        error: state === 'failed' ? boundedString(record.error, ASSISTANT_EXECUTION_BOUNDS.error) : undefined,
+        durationMs: boundedNumber(record.durationMs),
+        diffRepresentation: 'unavailable',
+        diffProvenance: 'unavailable',
         beforeAfterProvenance: 'unavailable',
       };
     }

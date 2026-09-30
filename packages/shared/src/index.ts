@@ -17,6 +17,7 @@ export {
   normalizeAssistantExecutionDetail,
 } from './assistant-execution.js';
 export * from './audio.js';
+export * from './composer-suggestions.js';
 export * from './config.js';
 export * from './conversation-types.js';
 export * from './events.js';

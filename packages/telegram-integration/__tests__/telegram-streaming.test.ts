@@ -116,7 +116,10 @@ describe('routeStream', () => {
     expect(rec.completes).toEqual(['Hello world']);
     // Target-agent identity only — never provider/model.
     expect(seenOptions).toEqual([
-      { conversationId: 'vestara-conv-1', options: { agentId: TELEGRAM_ASSISTANT_AGENT_ID } },
+      {
+        conversationId: 'vestara-conv-1',
+        options: { agentId: TELEGRAM_ASSISTANT_AGENT_ID, actor: { kind: 'human', id: 'principal-1' } },
+      },
     ]);
   });
 

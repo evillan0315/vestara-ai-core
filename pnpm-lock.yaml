@@ -248,6 +248,9 @@ importers:
       '@vestara/evidence':
         specifier: workspace:*
         version: link:../../packages/evidence
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../../packages/execution-types
       '@vestara/extension-contracts':
         specifier: workspace:*
         version: link:../../packages/extension-contracts
@@ -275,6 +278,9 @@ importers:
       '@vestara/kernel':
         specifier: workspace:*
         version: link:../../packages/kernel
+      '@vestara/knowledge-assertions':
+        specifier: workspace:*
+        version: link:../../packages/knowledge-assertions
       '@vestara/marketplace':
         specifier: workspace:*
         version: link:../../packages/marketplace
@@ -587,6 +593,9 @@ importers:
       '@vestara/ui-tokens':
         specifier: workspace:*
         version: link:../../packages/ui-tokens
+      '@vestara/workflow-orchestrator':
+        specifier: workspace:*
+        version: link:../../packages/workflow-orchestrator
       '@vestara/workspace':
         specifier: workspace:*
         version: link:../../packages/workspace
@@ -602,6 +611,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      cytoscape:
+        specifier: ^3.34.0
+        version: 3.34.0
       github-markdown-css:
         specifier: ^5.9.0
         version: 5.9.0
@@ -952,6 +964,9 @@ importers:
 
   packages/context:
     dependencies:
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../execution-types
       '@vestara/shared':
         specifier: workspace:*
         version: link:../shared
@@ -987,6 +1002,9 @@ importers:
       '@vestara/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../execution-types
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
@@ -1009,6 +1027,9 @@ importers:
       '@vestara/event-bus':
         specifier: workspace:*
         version: link:../event-bus
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../execution-types
       '@vestara/logger':
         specifier: workspace:*
         version: link:../logger
@@ -1427,6 +1448,16 @@ importers:
         specifier: ^4.1.10
         version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
 
+  packages/knowledge-assertions:
+    dependencies:
+      '@vestara/evidence':
+        specifier: workspace:*
+        version: link:../evidence
+    devDependencies:
+      vitest:
+        specifier: ^4.1.10
+        version: 4.1.10(@types/node@26.1.1)(jsdom@30.0.1)(vite@6.4.3(@types/node@26.1.1)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.1)(yaml@2.9.0))
+
   packages/logger:
     dependencies:
       '@vestara/shared':
@@ -1778,6 +1809,10 @@ importers:
         version: 3.25.76
 
   packages/shared:
+    dependencies:
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../execution-types
     devDependencies:
       vitest:
         specifier: ^4.1.10
@@ -1860,6 +1895,9 @@ importers:
       '@vestara/channel-types':
         specifier: workspace:*
         version: link:../channel-types
+      '@vestara/execution-types':
+        specifier: workspace:*
+        version: link:../execution-types
       '@vestara/sqlite-migrations':
         specifier: workspace:*
         version: link:../sqlite-migrations

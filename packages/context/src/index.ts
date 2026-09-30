@@ -11,7 +11,8 @@
  *   Foundation: VOM-Context
  */
 
-import type { CompletionRequest, Conversation } from '@vestara/shared';
+import type { ExecutionActor, ExecutionId } from '@vestara/execution-types';
+import { type CompletionRequest, type Conversation, renderAssistantIdentityContext } from '@vestara/shared';
 
 export interface ContextOptions {
   systemPrompt?: string;
@@ -30,6 +31,10 @@ export interface ContextOptions {
   surfaceContext?: import('@vestara/shared').TurnSurfaceContext;
   /** OpenCode session ID for session reuse (GA-RUNTIME-001). */
   runtimeSessionId?: string;
+  /** Canonical Vestara execution identity allocated before runtime submission. */
+  executionId?: ExecutionId;
+  /** Stable assistant response identity allocated before runtime submission. */
+  assistantMessageId?: string;
   /**
    * GA-RUNTIME-001: requested upstream provider ID (browser selection).
    * Bounded server-side; never trusted as execution authority.
@@ -42,6 +47,10 @@ export interface ContextOptions {
    * CompletionRequest so the adapter can enforce Vestara-owned limits.
    */
   executionConfig?: import('@vestara/shared').GAExecutionConfig;
+  /** Canonical initiator attribution; identity only, never authorization. */
+  actor?: ExecutionActor;
+  /** Authorized, bounded identity projection; absent remains UNKNOWN. */
+  assistantIdentity?: import('@vestara/shared').AssistantIdentityContext;
 }
 
 export interface ContextAssembler {
@@ -65,7 +74,12 @@ export class DefaultContextAssembler implements ContextAssembler {
     // System prompt
     messages.push({
       role: 'system',
-      content: options.systemPrompt ?? this.defaultSystemPrompt,
+      content: [
+        options.systemPrompt ?? this.defaultSystemPrompt,
+        ...(renderAssistantIdentityContext(options.assistantIdentity)
+          ? [renderAssistantIdentityContext(options.assistantIdentity)]
+          : []),
+      ].join('\n\n'),
     });
 
     // Conversation history (last 20 messages to stay within context window)
@@ -127,6 +141,8 @@ export class DefaultContextAssembler implements ContextAssembler {
       // GA-RUNTIME-001: conversation identity for OpenCode session binding —
       // owned by the conversation runtime, never browser-supplied.
       conversationId: conversation.id,
+      ...(options.executionId ? { executionId: options.executionId } : {}),
+      ...(options.assistantMessageId ? { assistantMessageId: options.assistantMessageId } : {}),
       // GA-CONTEXT-002: trusted turn-time surface context (optional).
       ...(options.surfaceContext ? { surfaceContext: options.surfaceContext } : {}),
       // GA-RUNTIME-001: requested upstream provider (browser selection, bounded).
@@ -135,6 +151,8 @@ export class DefaultContextAssembler implements ContextAssembler {
       ...(options.assistantRuntime ? { assistantRuntime: options.assistantRuntime } : {}),
       // GA-RUNTIME-001: caller-controlled cancellation (client disconnect / stop).
       ...(options.signal ? { signal: options.signal } : {}),
+      ...(options.actor ? { actor: options.actor } : {}),
+      ...(options.assistantIdentity ? { assistantIdentity: options.assistantIdentity } : {}),
       // Session reuse: pass the stored runtime session ID when available.
       ...(options.runtimeSessionId ? { runtimeSessionId: options.runtimeSessionId } : {}),
       // GA-EXEC-001: per-turn execution configuration (adapter enforcement).

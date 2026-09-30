@@ -12,6 +12,7 @@
   "dependencies": {
     "@vestara/channel-types": "workspace:*",
     "@vestara/channel-runtime": "workspace:*",
+    "@vestara/execution-types": "workspace:*",
     "@vestara/sqlite-migrations": "workspace:*"
   },
   "devDependencies": {

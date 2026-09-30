@@ -8,6 +8,8 @@
 
 export * from './db';
 export * from './distributed';
+export * from './graph-contract';
+export * from './graph-projection';
 export * from './ids';
 export * from './multi-repo';
 export * from './observation';

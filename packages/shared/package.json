@@ -9,7 +9,9 @@
     "build": "tsc",
     "test": "echo 'TEST CORPUS RESET: currently zero tests — new suite pending'; exit 0"
   },
-  "dependencies": {},
+  "dependencies": {
+    "@vestara/execution-types": "workspace:*"
+  },
   "devDependencies": {
     "vitest": "^4.1.10"
   }

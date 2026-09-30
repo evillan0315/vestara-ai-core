@@ -40,6 +40,7 @@ export interface ChunkMetadata {
     termination: 'completed' | 'failed' | 'timeout' | 'cancelled' | 'detached';
     toolCallCount: number;
     elapsedMs: number;
+    runtimeSessionId?: string;
     execution?: {
       runtimeId: string;
       providerId?: string;
