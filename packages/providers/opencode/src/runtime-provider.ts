@@ -210,6 +210,44 @@ export class OpenCodeRuntimeProvider implements AIProvider {
       const explicitModel = explicitModelOf(request.model, this.id);
       const modelId = explicitModel ?? this.modelId;
       const model = resolved.providerId || modelId ? { providerID: resolved.providerId, modelID: modelId } : undefined;
+      if (format) {
+        // OpenCode currently accepts inline JSON schemas on POST /message but
+        // rejects the same persisted format when GET /message is used. The
+        // synchronous endpoint returns the completed structured message
+        // directly, so it avoids that upstream deserialization regression.
+        // Composer suggestions additionally omit the native format entirely:
+        // the OpenCode UI reads the persisted message after completion and
+        // triggers the same upstream validation error. The schema is included
+        // in the prompt and the composer validates the returned JSON.
+        const prompt = request.suggestionOnly
+          ? `${renderPrompt(request)}\n\nReturn JSON matching this schema exactly:\n${JSON.stringify(request.jsonSchema)}`
+          : renderPrompt(request);
+        const result = await this.client().sendMessage(
+          sessionId,
+          {
+            parts: [{ type: 'text', text: prompt }],
+            ...(!request.suggestionOnly ? { format } : {}),
+            ...((request.agent ?? this.agent) ? { agent: request.agent ?? this.agent } : {}),
+            ...(model ? { model: { providerID: model.providerID ?? '', modelID: model.modelID ?? '' } } : {}),
+          },
+          { workspaceId: this.workspaceId, directory: this.directory, sessionId },
+          request.signal,
+        );
+        return {
+          id: `ocrt-${Date.now()}`,
+          model: modelId ?? request.model,
+          provider: this.id,
+          content: result.text ?? '',
+          structuredOutput: result.structuredOutput,
+          usage: { promptTokens: 0, completionTokens: 0, totalTokens: 0 },
+          latency: Math.round(Date.now() - started),
+          resolution: {
+            providerId: resolved.providerId,
+            reason: resolved.reason,
+            defaultResolution: resolved.defaultResolution,
+          },
+        };
+      }
       const { text, structuredOutput } = await this.streamReply(
         sessionId,
         renderPrompt(request),
@@ -222,7 +260,7 @@ export class OpenCodeRuntimeProvider implements AIProvider {
       );
       return {
         id: `ocrt-${Date.now()}`,
-        model: resolved.providerId ?? request.model,
+        model: modelId ?? request.model,
         provider: this.id,
         content: text,
         structuredOutput,

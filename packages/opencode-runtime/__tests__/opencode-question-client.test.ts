@@ -20,6 +20,75 @@ afterEach(() => {
 });
 
 describe('OpenCode question delivery contract', () => {
+  it('sends a structured format through the synchronous message endpoint', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          info: {
+            id: 'msg-1',
+            role: 'assistant',
+            finish: 'stop',
+          },
+          parts: [
+            { type: 'text', text: '{"status":"ready"}' },
+            {
+              type: 'tool',
+              tool: 'structured_output',
+              state: { status: 'completed', output: '{"status":"ready"}' },
+            },
+          ],
+        }),
+        { status: 200, headers: { 'content-type': 'application/json' } },
+      ),
+    );
+
+    const result = await createClient().sendMessage(
+      'ses-1',
+      {
+        parts: [{ type: 'text', text: 'Return JSON' }],
+        format: { type: 'json_schema', schema: { type: 'object' } },
+      },
+      { workspaceId: 'workspace-1', directory: '/repo', sessionId: 'ses-1' },
+    );
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe(
+      'http://opencode.test:4096/session/ses-1/message?directory=%2Frepo',
+    );
+    expect(JSON.parse(String((fetchMock.mock.calls[0] as [string, RequestInit])[1].body))).toMatchObject({
+      format: { type: 'json_schema', schema: { type: 'object' } },
+    });
+    expect(result.structuredOutput).toEqual({ status: 'ready' });
+  });
+
+  it('starts the SSE request when the event stream is created', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        new ReadableStream({
+          start(controller) {
+            controller.close();
+          },
+        }),
+        {
+          status: 200,
+          headers: { 'content-type': 'text/event-stream' },
+        },
+      ),
+    );
+
+    const stream = createClient().openEventStream({ workspaceId: 'workspace-1', directory: '/repo' });
+
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect((fetchMock.mock.calls[0] as [string])[0]).toBe('http://opencode.test:4096/event?directory=%2Frepo');
+    await expect(
+      (async () => {
+        for await (const _event of stream) {
+          // The stream is intentionally empty; creation is the behavior under test.
+        }
+      })(),
+    ).resolves.toBeUndefined();
+  });
+
   it('routes a question.asked reply by exact request ID through the global registry', async () => {
     const fetchMock = vi
       .spyOn(globalThis, 'fetch')

@@ -19,7 +19,7 @@ export function normalizeMessages(raw: unknown): OpenCodeMessage[] {
         agent: typeof info.agent === 'string' ? info.agent : undefined,
         model: typeof info.model === 'string' ? info.model : undefined,
         text: extractMessageText(info, parts),
-        structuredOutput: info.structured_output,
+        structuredOutput: info.structured_output ?? extractStructuredOutput(parts),
         parts: parts.map((part) => ({
           id: typeof part.id === 'string' ? part.id : undefined,
           type: typeof part.type === 'string' ? part.type : 'text',
@@ -36,6 +36,20 @@ export function normalizeMessages(raw: unknown): OpenCodeMessage[] {
               : undefined,
       };
     });
+}
+
+function extractStructuredOutput(parts: readonly Record<string, unknown>[]): unknown {
+  const structuredPart = [...parts]
+    .reverse()
+    .find((part) => part.type === 'tool' && typeof part.state === 'object' && part.state !== null);
+  if (!structuredPart) return undefined;
+  const state = structuredPart.state as Record<string, unknown>;
+  if (state.status !== 'completed' || typeof state.output !== 'string') return undefined;
+  try {
+    return JSON.parse(state.output);
+  } catch {
+    return undefined;
+  }
 }
 
 function extractMessageText(info: Record<string, unknown>, parts: readonly Record<string, unknown>[]): string {

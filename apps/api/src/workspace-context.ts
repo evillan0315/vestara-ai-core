@@ -976,6 +976,12 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
       client: ocClient,
       workspaceId: session.fingerprint.id,
       directory: abs,
+      // Suggestions use the same current Agent Control binding as the
+      // assistant. This keeps provider/model/agent selection configuration-
+      // driven while preserving the stateless suggestion transport path.
+      preferredProviderId: assistantAgent?.provider,
+      modelId: assistantAgent?.model,
+      agent: assistantAgent?.runtimeAgent,
       // Suggestion bounds: fail fast, never linger. Idle 20s / ceiling 60s
       // vs the agent turn's 60s/30min defaults — a suggest that stalls is a
       // `no_match`, not a long-running execution.

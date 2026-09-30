@@ -15,6 +15,15 @@ function stubClient(sessionId: string, hooks?: { onPrompt?: (input: unknown) => 
   return {
     listProviders: async () => [{ id: 'test-provider' }],
     createSession: async () => ({ id: sessionId }),
+    sendMessage: async (_id: string, input: unknown) => {
+      hooks?.onPrompt?.(input);
+      return {
+        sessionId,
+        text: '{"status":"ready","candidates":[]}',
+        structuredOutput: { status: 'ready', candidates: [] },
+        finished: true,
+      };
+    },
     sendMessageAsync: async (_id: string, input: unknown) => {
       hooks?.onPrompt?.(input);
     },
@@ -34,7 +43,7 @@ function stubClient(sessionId: string, hooks?: { onPrompt?: (input: unknown) => 
 }
 
 describe('OpenCodeRuntimeProvider stateless suggestion contract', () => {
-  it('sends native json_schema format with no tools key on an ephemeral session', async () => {
+  it('uses schema-in-prompt JSON mode for suggestions with no tools key', async () => {
     let prompt: Record<string, unknown> | undefined;
     const client = stubClient('oc-suggest-ephemeral', {
       onPrompt: (input) => {
@@ -60,7 +69,10 @@ describe('OpenCodeRuntimeProvider stateless suggestion contract', () => {
       },
     } as never);
 
-    expect(prompt).toMatchObject({ format: { type: 'json_schema' } });
+    expect(prompt).not.toHaveProperty('format');
+    expect(prompt?.parts?.[0]).toMatchObject({
+      text: expect.stringContaining('Return JSON matching this schema exactly:'),
+    });
     expect(prompt).not.toHaveProperty('tools');
     expect(response.structuredOutput).toMatchObject({ status: 'ready' });
   });
@@ -102,6 +114,35 @@ describe('OpenCodeRuntimeProvider stateless suggestion contract', () => {
       jsonSchema: { type: 'object' },
     } as never);
 
-    expect(prompt).toMatchObject({ model: { providerId: 'test-provider', modelId: 'deepseek-v4-flash' } });
+    expect(prompt).toMatchObject({ model: { providerID: 'test-provider', modelID: 'deepseek-v4-flash' } });
+  });
+
+  it('uses the configured agent binding when the request delegates to runtime defaults', async () => {
+    let prompt: Record<string, unknown> | undefined;
+    const client = stubClient('oc-suggest-configured-binding', {
+      onPrompt: (input) => {
+        prompt = input as Record<string, unknown>;
+      },
+    });
+    const provider = new OpenCodeRuntimeProvider({
+      client: client as never,
+      workspaceId: 'workspace-1',
+      directory: '/repo',
+      preferredProviderId: 'test-provider',
+      modelId: 'configured-model',
+      agent: 'configured-agent',
+    });
+
+    await provider.complete({
+      model: 'opencode-runtime',
+      messages: [{ role: 'user', content: 'Mode: suggest\nDraft: verify this' }],
+      suggestionOnly: true,
+      jsonSchema: { type: 'object' },
+    } as never);
+
+    expect(prompt).toMatchObject({
+      agent: 'configured-agent',
+      model: { providerID: 'test-provider', modelID: 'configured-model' },
+    });
   });
 });

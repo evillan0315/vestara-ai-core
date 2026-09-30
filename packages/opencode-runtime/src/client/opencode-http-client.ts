@@ -297,6 +297,7 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     const body: Record<string, unknown> = { parts: input.parts };
     if (input.agent) body.agent = input.agent;
     if (input.model) body.model = input.model;
+    if (input.format) body.format = input.format;
     const path = this.withQuery(`/session/${encodeURIComponent(sessionId)}/message`, {
       directory: context.directory,
     });
@@ -747,36 +748,43 @@ export class OpenCodeHttpClient implements OpenCodeClient {
 
   // ── Events ────────────────────────────────────────────────────────────
 
-  async *openEventStream(context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
+  openEventStream(context: OpenCodeRequestContext, signal?: AbortSignal): AsyncIterable<OpenCodeEvent> {
     const headers = {
       Authorization: basicAuthHeader(this.config.username, this.config.password),
       Accept: 'text/event-stream',
       'X-Vestara-Source': 'opencode-runtime',
     };
     const url = this.withQuery(`${this.baseUrl}/event`, { directory: context.directory });
-    const response = await fetch(url, { headers, signal });
-    if (!response.ok || !response.body) {
-      throw mapHttpStatus(response.status, undefined);
-    }
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    try {
-      while (true) {
-        if (signal?.aborted) break;
-        const { done, value } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const frames = buffer.split('\n\n');
-        buffer = frames.pop() ?? '';
-        for (const frame of frames) {
-          const event = parseSseFrame(frame);
-          if (event) yield event;
-        }
+    // Start the fetch eagerly. Async generators defer their body (including
+    // the HTTP request) until the first `next()` call; suggestion turns must
+    // have an SSE subscription in flight before prompt_async is sent or a
+    // fast terminal event can be missed entirely.
+    const responsePromise = fetch(url, { headers, signal });
+    return (async function* () {
+      const response = await responsePromise;
+      if (!response.ok || !response.body) {
+        throw mapHttpStatus(response.status, undefined);
       }
-    } finally {
-      reader.releaseLock();
-    }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      try {
+        while (true) {
+          if (signal?.aborted) break;
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const frames = buffer.split('\n\n');
+          buffer = frames.pop() ?? '';
+          for (const frame of frames) {
+            const event = parseSseFrame(frame);
+            if (event) yield event;
+          }
+        }
+      } finally {
+        reader.releaseLock();
+      }
+    })();
   }
 
   // ── Shared request plumbing ───────────────────────────────────────────
@@ -812,21 +820,24 @@ export class OpenCodeHttpClient implements OpenCodeClient {
     }
     const record = raw as Record<string, unknown>;
     const info = (record.info ?? record) as Record<string, unknown>;
+    const normalized = normalizeMessages([record])[0];
     // The POST /session/:id/message response is { info: {...}, parts: [...] }.
     // The assistant text lives in the text parts — not at a top-level `text` field.
     const text =
-      typeof info.text === 'string' && info.text
+      normalized?.text ||
+      (typeof info.text === 'string' && info.text
         ? (info.text as string)
         : Array.isArray(record.parts)
           ? (record.parts as readonly Record<string, unknown>[])
               .filter((part) => part?.type === 'text' && typeof part.text === 'string')
               .map((part) => part.text as string)
               .join('\n')
-          : undefined;
+          : undefined);
     return {
       sessionId,
       messageId: typeof info.id === 'string' ? (info.id as string) : undefined,
       text,
+      structuredOutput: normalized?.structuredOutput ?? info.structured_output,
       finished: info.finish === 'stop' || info.finish === 'end_turn' || record.finished === true,
     };
   }

@@ -211,12 +211,14 @@ export interface SendOpenCodeMessageInput {
   readonly sessionId?: string;
   readonly agent?: string;
   readonly model?: { readonly providerID: string; readonly modelID: string };
+  readonly format?: OpenCodeOutputFormat;
 }
 
 export interface OpenCodeMessageResult {
   readonly sessionId: string;
   readonly messageId?: string;
   readonly text?: string;
+  readonly structuredOutput?: unknown;
   readonly finished: boolean;
 }
 
