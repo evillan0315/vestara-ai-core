@@ -1,0 +1,104 @@
+.workflow-graph-shell {
+  min-height: 24rem;
+  overflow: hidden;
+}
+
+.workflow-graph-canvas {
+  width: 100%;
+  min-height: 28rem;
+  height: 36rem;
+  background: radial-gradient(circle at 1px 1px, var(--vestara-border-subtle) 1px, transparent 0) 0 0 / 22px 22px,
+    var(--vestara-surface-canvas);
+}
+
+.workflow-graph-empty {
+  display: grid;
+  min-height: 24rem;
+  place-items: center;
+  padding: var(--vestara-spacing-page);
+  color: var(--vestara-text-muted);
+  background: var(--vestara-surface-canvas);
+}
+
+.workflow-graph-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-element);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  border-bottom: 1px solid var(--vestara-border-subtle);
+  background: var(--vestara-surface-panel);
+}
+
+.workflow-graph-toolbar-title {
+  color: var(--vestara-text-primary);
+  font-size: 0.875rem;
+  font-weight: 650;
+}
+
+.workflow-graph-toolbar-meta {
+  color: var(--vestara-text-muted);
+  font-size: 0.6875rem;
+}
+
+.workflow-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--vestara-spacing-section);
+  margin-top: var(--vestara-spacing-element);
+  color: var(--vestara-text-muted);
+  font-size: 0.625rem;
+}
+
+.workflow-graph-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+}
+
+.workflow-legend-swatch {
+  width: 0.625rem;
+  height: 0.625rem;
+  display: inline-block;
+  border-radius: var(--vestara-radius, 0.375rem);
+}
+
+.workflow-legend-plan {
+  background: var(--vestara-accent-primary);
+}
+
+.workflow-legend-task {
+  background: var(--vestara-status-info);
+}
+
+.workflow-legend-line {
+  width: 1rem;
+  height: 0;
+  display: inline-block;
+  border-top: 2px solid currentColor;
+}
+
+.workflow-legend-contains {
+  color: var(--vestara-accent-primary);
+  border-top-style: dashed;
+}
+
+.workflow-legend-dependency {
+  color: var(--vestara-status-info);
+}
+
+.workflow-graph-control {
+  border: 1px solid var(--vestara-border-default);
+  border-radius: var(--vestara-radius);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-secondary);
+  background: var(--vestara-surface-interactive);
+  font-size: 0.6875rem;
+  cursor: pointer;
+}
+
+.workflow-graph-control:hover {
+  color: var(--vestara-text-primary);
+  background: var(--vestara-surface-interactive-hover);
+}

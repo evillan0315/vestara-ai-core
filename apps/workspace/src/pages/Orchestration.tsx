@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Tabs } from '@vestara/ui';
+import type { ArtifactKind } from '@vestara/workflow-orchestrator';
 import { VestaraModal } from '../components/ui/VestaraModal';
-import { RouteHero } from '../components/layout/PageHero/RouteHero';
+import { WorkflowGraph } from '../components/workflow/WorkflowGraph';
+import { WorkflowNodeInspector } from '../components/workflow/WorkflowNodeInspector';
+import { WorkflowSupportingPanels } from '../components/workflow/WorkflowSupportingPanels';
+import WorkspacePanelLayout from '../layouts/WorkspacePanelLayout';
+import { projectOrchestrationGraph, type OrchestrationGraphSnapshot } from '../lib/orchestration-graph';
+import '../styles/workflow-page.css';
 
 /**
  * Orchestration — multi-agent workflow projects (ADR-118 / PCS-025).
@@ -41,10 +48,32 @@ interface ApprovalTask {
 
 interface Snapshot {
   project: ProjectSummary;
-  plan?: { id: string; title: string; status: string };
-  tasks: Array<{ id: string; summary: string; status: string; files: string[]; revisionCount: number; attemptCount: number }>;
+  plan?: OrchestrationGraphSnapshot['plan'];
+  tasks: Array<
+    OrchestrationGraphSnapshot['tasks'][number] & {
+      description: string;
+      files: string[];
+      revisionCount: number;
+      attemptCount: number;
+    }
+  >;
+  artifacts?: Array<{
+    id: string;
+    kind: ArtifactKind;
+    planId?: string;
+    taskId?: string;
+    createdAt: string;
+  }>;
   phase: string;
   status: string;
+}
+
+function projectSnapshotGraph(snapshot: Snapshot): ReturnType<typeof projectOrchestrationGraph> | null {
+  try {
+    return projectOrchestrationGraph(snapshot);
+  } catch {
+    return null;
+  }
 }
 
 interface AuditEvent {
@@ -69,16 +98,6 @@ const PHASE_BADGE: Record<string, string> = {
   completed: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
   cancelled: 'bg-red-500/15 text-red-300 border-red-500/30',
   archived: 'bg-zinc-500/15 text-zinc-300 border-zinc-500/30',
-};
-
-const TASK_STATUS_BADGE: Record<string, string> = {
-  completed: 'bg-emerald-500/15 text-emerald-300',
-  approved: 'bg-teal-500/15 text-teal-300',
-  blocked: 'bg-red-500/15 text-red-300',
-  failed: 'bg-red-500/15 text-red-300',
-  'awaiting-approval': 'bg-amber-500/15 text-amber-300',
-  retrying: 'bg-amber-500/15 text-amber-300',
-  running: 'bg-blue-500/15 text-blue-300',
 };
 
 async function fetchJson<T>(path: string): Promise<T | null> {
@@ -116,6 +135,8 @@ export default function OrchestrationPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [createBusy, setCreateBusy] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [selectedGraphNodeId, setSelectedGraphNodeId] = useState<string | undefined>();
+  const [activeTab, setActiveTab] = useState('overview');
   const [form, setForm] = useState({ name: '', goal: '', repoPath: '' });
   const [taskRows, setTaskRows] = useState<TaskRow[]>([{ summary: '', files: '', capabilities: '' }]);
 
@@ -271,22 +292,149 @@ export default function OrchestrationPage() {
     }
   };
 
+  const selectedProject = projects.find((project) => project.id === expandedId) ?? null;
+  const selectedDetail = expandedId ? detail[expandedId] : undefined;
+  const selectedGraph = selectedDetail ? projectSnapshotGraph(selectedDetail.snapshot) : null;
+  const selectedNode = selectedGraph?.nodes.find((node) => node.id === selectedGraphNodeId) ?? null;
+  const selectedTask = selectedNode?.kind === 'task'
+    ? selectedDetail?.snapshot.tasks.find((task) => task.id === selectedNode.source.id)
+    : undefined;
+  const selectedProgress = selectedDetail
+    ? selectedDetail.snapshot.tasks.length > 0
+      ? Math.round(
+          (selectedDetail.snapshot.tasks.filter((task) => task.status === 'completed').length /
+            selectedDetail.snapshot.tasks.length) *
+            100,
+        )
+      : 0
+    : null;
+  const workflowTabs = [
+    { id: 'overview', label: 'Overview', shortLabel: 'Overview' },
+    { id: 'workflow-graph', label: 'Workflow Graph', shortLabel: 'Graph' },
+    { id: 'tasks', label: 'Tasks', shortLabel: 'Tasks' },
+    { id: 'executions', label: 'Executions', shortLabel: 'Exec.', disabled: true },
+    { id: 'evidence', label: 'Evidence', shortLabel: 'Evidence' },
+    { id: 'configuration', label: 'Configuration', shortLabel: 'Config.', disabled: true },
+  ];
+
   return (
-    <>
+    <WorkspacePanelLayout>
       <h1 className="sr-only">Workflows</h1>
       <div className="w-full min-w-0 space-y-4">
-        <RouteHero
-          actions={[
-            { label: 'New project', primary: true, glyph: '＋', onClick: () => setCreateOpen(true) },
-            { label: 'Refresh', glyph: '↻', onClick: () => void refresh(), title: 'Reload projects' },
-          ]}
-          stats={[
-            { label: 'projects', value: stats.total },
-            { label: 'running', value: stats.running },
-            { label: 'completed', value: stats.completed },
-            { label: 'awaiting approval', value: stats.approvals },
-          ]}
-        />
+        <header className="workflow-page-header">
+          <div className="workflow-page-header-main">
+            <p className="workflow-eyebrow">Workflow orchestration</p>
+            <h2 className="workflow-page-title">{selectedProject?.name ?? 'Workflows'}</h2>
+            <p className="workflow-page-description">
+              {selectedProject?.goal ?? 'Plan, inspect, and monitor authoritative WorkflowOrchestrator projects.'}
+            </p>
+            <div className="workflow-page-meta">
+              <span className="workflow-status-chip" data-status={selectedProject?.status}>{selectedProject?.status ?? `${stats.total} projects`}</span>
+              {selectedProject && <span>Phase: {selectedProject.phase}</span>}
+              {selectedDetail?.snapshot.plan && <span>Plan: {selectedDetail.snapshot.plan.status}</span>}
+            </div>
+            {selectedDetail && (
+              <>
+                <div className="workflow-progress-block">
+                  <div className="workflow-progress-label">
+                    <span>Task progress</span>
+                    <strong>{selectedProgress}%</strong>
+                  </div>
+                  <div className="workflow-progress-track" aria-label={`${selectedProgress}% task progress`} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={selectedProgress ?? 0}>
+                    <span style={{ width: `${selectedProgress}%` }} />
+                  </div>
+                </div>
+                <div className="workflow-summary-row" aria-label="Workflow summary">
+                <div className="workflow-summary-card"><span>Tasks</span><strong>{selectedDetail.snapshot.tasks.length}</strong></div>
+                <div className="workflow-summary-card"><span>Artifacts</span><strong>{selectedDetail.snapshot.artifacts?.length ?? 0}</strong></div>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="workflow-page-actions">
+            <button type="button" className="workflow-action workflow-action-primary" onClick={() => setCreateOpen(true)}>
+              New project
+            </button>
+            <button type="button" className="workflow-action" onClick={() => void refresh()}>
+              Refresh
+            </button>
+            {selectedDetail?.snapshot.phase === 'pending-approval' && expandedId && (
+              <button type="button" className="workflow-action" onClick={() => void approvePlan(expandedId)} disabled={busy === `plan-${expandedId}`}>
+                Approve plan
+              </button>
+            )}
+            {selectedDetail && expandedId && (selectedDetail.snapshot.status === 'running' || selectedDetail.snapshot.status === 'awaiting-approval') && (
+              <button type="button" className="workflow-action" onClick={() => void resumeProject(expandedId)} disabled={busy === `resume-${expandedId}`}>
+                Resume
+              </button>
+            )}
+          </div>
+        </header>
+
+        <Tabs tabs={workflowTabs} activeTab={activeTab} onTabChange={setActiveTab}>
+          <div className="workflow-tab-content">
+            {activeTab === 'workflow-graph' ? (
+              selectedDetail ? (
+                <>
+                  <div className="workflow-graph-composition">
+                    <WorkflowGraph
+                      graph={selectedGraph}
+                      error={selectedGraph ? undefined : 'Workflow graph is unavailable until a plan exists.'}
+                      selectedNodeId={selectedGraphNodeId}
+                      onNodeSelect={(node) => setSelectedGraphNodeId(node?.id)}
+                    />
+                    <WorkflowNodeInspector
+                      node={selectedNode}
+                      task={selectedTask ? { description: selectedTask.description, planId: selectedTask.planId, dependencies: selectedTask.dependencies } : undefined}
+                    />
+                  </div>
+                  <WorkflowSupportingPanels audit={selectedDetail.audit} artifacts={selectedDetail.snapshot.artifacts ?? []} />
+                </>
+              ) : (
+                <div className="workflow-panel workflow-panel-empty p-[var(--vestara-spacing-page)]">
+                  Select a project from Overview to inspect its Workflow graph.
+                </div>
+              )
+            ) : activeTab === 'tasks' ? (
+              selectedDetail ? (
+                <div className="workflow-task-list" aria-label="Workflow tasks">
+                  {selectedDetail.snapshot.tasks.length === 0 ? (
+                    <div className="workflow-panel workflow-panel-empty p-[var(--vestara-spacing-page)]">No tasks are available in this snapshot.</div>
+                  ) : selectedDetail.snapshot.tasks.map((task) => (
+                    <button
+                      type="button"
+                      className="workflow-task-row"
+                      key={task.id}
+                      onClick={() => {
+                        setSelectedGraphNodeId(`workflow-task:${task.id}`);
+                        setActiveTab('workflow-graph');
+                      }}
+                    >
+                      <span className="workflow-task-row-main">
+                        <strong>{task.summary}</strong>
+                        {task.description && <small>{task.description}</small>}
+                        <span className="workflow-task-row-meta">
+                          <span className="workflow-status-chip" data-status={task.status}>{task.status}</span>
+                          <span>{task.dependencies.length} prerequisite{task.dependencies.length === 1 ? '' : 's'}</span>
+                          <span>{(selectedDetail.snapshot.artifacts ?? []).filter((artifact) => artifact.taskId === task.id).length} artifacts</span>
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="workflow-panel workflow-panel-empty p-[var(--vestara-spacing-page)]">Select a project from Overview to view tasks.</div>
+              )
+            ) : activeTab === 'evidence' ? (
+              selectedDetail ? (
+                <div>
+                  <WorkflowSupportingPanels variant="evidence" audit={selectedDetail.audit} artifacts={selectedDetail.snapshot.artifacts ?? []} />
+                </div>
+              ) : (
+                <div className="workflow-panel workflow-panel-empty p-[var(--vestara-spacing-page)]">Select a project from Overview to view artifacts.</div>
+              )
+            ) : (
+              <>
 
         <section aria-labelledby="workflow-dashboard-title" className="space-y-3">
           <div className="flex flex-wrap items-end justify-between gap-2">
@@ -295,7 +443,7 @@ export default function OrchestrationPage() {
                 Operational overview
               </p>
               <h2 id="workflow-dashboard-title" className="mt-1 text-base font-semibold text-[var(--vestara-text-primary)]">
-                Workflow dashboard
+                Workflow pulse
               </h2>
             </div>
             <span className="text-[11px] text-[var(--vestara-text-muted)]">
@@ -474,70 +622,16 @@ export default function OrchestrationPage() {
                 )}
 
                 {expanded && (
-                  <div className="mt-3 space-y-4 border-t border-(--vestara-accent-border) pt-4">
+                  <div className="workflow-project-selection-note">
                     {projectDetail ? (
                       <>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {projectDetail.snapshot.phase === 'pending-approval' && (
-                            <button
-                              onClick={() => void approvePlan(project.id)}
-                              disabled={busy === `plan-${project.id}`}
-                              className="px-3 py-1 text-xs rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-300 hover:bg-amber-500/25 cursor-pointer disabled:opacity-50"
-                            >
-                              Approve plan
-                            </button>
-                          )}
-                          {(projectDetail.snapshot.status === 'running' || projectDetail.snapshot.status === 'awaiting-approval') && (
-                            <button
-                              onClick={() => void resumeProject(project.id)}
-                              disabled={busy === `resume-${project.id}`}
-                              className="px-3 py-1 text-xs rounded-lg bg-blue-500/15 border border-blue-500/30 text-blue-300 hover:bg-blue-500/25 cursor-pointer disabled:opacity-50"
-                            >
-                              Resume execution
-                            </button>
-                          )}
-                          {projectDetail.snapshot.plan && (
-                            <span className="text-[10px] text-(--vestara-text-muted)">Plan: {projectDetail.snapshot.plan.status}</span>
-                          )}
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-medium text-(--vestara-text-2) mb-2">Tasks</div>
-                          <div className="space-y-1">
-                            {projectDetail.snapshot.tasks.length === 0 && (
-                              <p className="text-xs text-(--vestara-text-muted)">No tasks yet.</p>
-                            )}
-                            {projectDetail.snapshot.tasks.map((task) => (
-                              <div key={task.id} className="flex items-center gap-3 flex-wrap text-xs">
-                                <span className="text-(--vestara-text)">{task.summary}</span>
-                                <span className={`px-1.5 py-0.5 rounded text-[10px] ${TASK_STATUS_BADGE[task.status] ?? 'bg-zinc-600/20 text-zinc-300'}`}>
-                                  {task.status}
-                                </span>
-                                {task.revisionCount > 0 && <span className="text-(--vestara-text-dim)">{task.revisionCount}r</span>}
-                                {task.attemptCount > 0 && <span className="text-(--vestara-text-dim)">{task.attemptCount}a</span>}
-                                <span className="text-(--vestara-text-dim)">{task.files.join(', ')}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div>
-                          <div className="text-xs font-medium text-(--vestara-text-2) mb-2">Audit trail</div>
-                          <div className="space-y-1 max-h-40 overflow-y-auto">
-                            {projectDetail.audit.length === 0 && (
-                              <p className="text-xs text-(--vestara-text-muted)">No events.</p>
-                            )}
-                            {projectDetail.audit.map((event) => (
-                              <div key={`${event.at}-${event.type}`} className="flex items-center gap-2 text-[10px]">
-                                <span className="text-(--vestara-text-dim)">{new Date(event.at).toLocaleTimeString()}</span>
-                                <span className="text-(--vestara-text-2)">{event.type.replace('orchestration.', '')}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                        <span>Selected workflow loaded. Use the tabs for its graph, tasks, and evidence.</span>
+                        <button type="button" className="workflow-tab-action" onClick={() => setActiveTab('workflow-graph')}>
+                          Open graph
+                        </button>
                       </>
                     ) : (
-                      <p className="text-xs text-(--vestara-text-muted)">Loading detail...</p>
+                      <span>Loading workflow snapshot...</span>
                     )}
                   </div>
                 )}
@@ -547,6 +641,10 @@ export default function OrchestrationPage() {
             </div>
           </section>
         )}
+              </>
+            )}
+          </div>
+        </Tabs>
       </div>
 
       {createOpen && (
@@ -640,6 +738,6 @@ export default function OrchestrationPage() {
           </div>
         </VestaraModal>
       )}
-    </>
+    </WorkspacePanelLayout>
   );
 }
