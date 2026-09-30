@@ -15,9 +15,11 @@
  */
 
 import { useMemo, useState } from 'react';
+import AccountTreeOutlinedIcon from '@mui/icons-material/AccountTreeOutlined';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
 import type { WorkflowSummary } from '@vestara/activity-room';
-import { StatusIndicator, type StatusVariant } from '@vestara/ui';
+import { EmptyState, StatusIndicator, type StatusVariant } from '@vestara/ui';
+import { SIZING } from '@vestara/ui-tokens';
 import { WORKFLOW_STATUS_CONFIG } from './status-config';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -202,9 +204,12 @@ export default function M11CWorkflowBrowser({
           chooses inline vs disclosure, never both). */}
       <div className="ar-workflow-browser__list ar-scroll" role="list">
         {unitsWithSummary.length === 0 ? (
-          <div className="ar-workflow-browser__empty">
-            No active workflows
-          </div>
+          <EmptyState
+            icon={<AccountTreeOutlinedIcon sx={{ fontSize: SIZING.icon.lg }} />}
+            title="No running workflows"
+            description="Room is idle — history remains searchable. New workflows will appear here."
+            className="ar-workflow-browser__empty"
+          />
         ) : (
           unitsWithSummary.map((unit) => {
             const isExpanded = expandedId === unit.workflowId;

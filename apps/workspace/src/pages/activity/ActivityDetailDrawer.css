@@ -1,0 +1,42 @@
+.activity-detail-drawer-body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.activity-detail-drawer-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.activity-detail-tabs {
+  flex: 0 0 auto;
+}
+
+.activity-detail-tab-content {
+  min-height: 0;
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.activity-detail-overview {
+  min-height: min-content;
+}
+
+.activity-detail-content-panel {
+  min-height: 0;
+  max-height: min(var(--st-panel-max-height), 55vh);
+}
+
+@media (min-width: 40rem) {
+  .activity-detail-overview {
+    display: grid;
+    align-content: start;
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

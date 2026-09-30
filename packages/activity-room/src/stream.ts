@@ -49,6 +49,7 @@ export class ActivityStreamConnection implements ActivityStreamSink {
   private readonly capacity: number;
   private readonly onResync: (connection: ActivityStreamConnection) => void;
   private checkpoint: number;
+  /** Pending records are kept sorted and unique by sequence. */
   private pending: ActivityRecord[] = [];
   private resyncRequested = false;
   private closedFlag = false;
@@ -92,8 +93,15 @@ export class ActivityStreamConnection implements ActivityStreamSink {
       this.flush();
       return this.resyncRequested ? 'resync' : 'delivered';
     }
-    // Gap in sequence: hold until the missing records arrive.
-    this.pending.push(record);
+    // Gap in sequence: hold until the missing records arrive. Keep the
+    // buffer ordered because live and catch-up delivery may interleave.
+    // Sequence is the identity here: retain the first record for a duplicate
+    // sequence so retries cannot produce a second visible delivery.
+    const existing = this.pending.findIndex((pending) => pending.sequence === record.sequence);
+    if (existing >= 0) return 'duplicate';
+    const insertionPoint = this.pending.findIndex((pending) => pending.sequence > record.sequence);
+    if (insertionPoint < 0) this.pending.push(record);
+    else this.pending.splice(insertionPoint, 0, record);
     if (this.pending.length > this.capacity) {
       this.requestResync();
       return 'resync';

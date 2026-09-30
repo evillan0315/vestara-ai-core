@@ -331,19 +331,10 @@ function attentionForRecord(record: ActivityRecord): AttentionEntry | undefined 
         },
       });
     case 'tool-result':
-      if (record.status !== 'failed') return effectAttention(record);
-      return makeEntry(record, {
-        category: 'execution-failure',
-        reason: 'tool-failed',
-        message: `${record.toolName} failed`,
-        owner: 'runtime-session',
-        details: {
-          toolName: record.toolName,
-          callID: record.callID,
-          status: record.status,
-          ...(record.output ? { output: record.output } : {}),
-        },
-      });
+      // AR-ATTN-003: tool-call outcomes are immutable execution evidence in
+      // history, never a Needs Attention source. Failed or completed, they
+      // contribute only via an open organizational effect, if present.
+      return effectAttention(record);
     case 'agent-message':
       if (record.messageKind !== 'approval-request') return effectAttention(record);
       return makeEntry(record, {

@@ -100,6 +100,25 @@ describe('ROUTING-CONVERGENCE-001C S3: lifecycle rows are system-authored', () =
     expect(payload.data.responseMessageId).toBe('msg-9');
   });
 
+  it('targets the configured agent without changing lifecycle authorship', async () => {
+    const h = harness();
+    await h.fire(
+      'conversation:provider.request.started',
+      busEvent('conversation:provider.request.started', {
+        conversationId: 'conv-1',
+        model: 'model-a',
+        agentId: 'agent-assistant',
+      }),
+    );
+
+    const row = h.appended[0];
+    const actor = row.actor as Record<string, unknown>;
+    const payload = row.payload as { data: Record<string, unknown> };
+    expect(actor.type).toBe('system');
+    expect(actor.id).toBe('conversation-runtime');
+    expect(payload.data.targetAgentId).toBe('agent-assistant');
+  });
+
   it('one Developer execution yields no agent-authored Assistant row', async () => {
     const h = harness();
     // The two bridge emissions of a single turn:

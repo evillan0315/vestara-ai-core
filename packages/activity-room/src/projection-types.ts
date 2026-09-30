@@ -364,6 +364,23 @@ export interface AttentionEntry {
   readonly acknowledged: boolean;
 }
 
+/** Read-only projection of an active durable runtime question. */
+export interface PendingRuntimeQuestionProjection {
+  readonly interactionId: string;
+  readonly conversationId: string;
+  readonly openCodeSessionId: string;
+  readonly openCodeRequestId: string;
+  readonly status: 'pending' | 'presented';
+  readonly questions: readonly {
+    readonly header: string;
+    readonly question: string;
+    readonly options: readonly { readonly label: string; readonly description?: string }[];
+  }[];
+  readonly expiresAt: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 // ─── Workflow Summary ───────────────────────────────────────
 
 /**
@@ -438,6 +455,9 @@ export interface ActivityRoomProjection {
 
   /** Attention entries requiring human awareness. */
   readonly attention: readonly AttentionEntry[];
+
+  /** Durable runtime questions awaiting human attention; read-only projection. */
+  readonly pendingRuntimeQuestions?: readonly PendingRuntimeQuestionProjection[];
 
   /** Contextual capabilities for M11 composer. */
   readonly contextualCapabilities: ContextualCapabilities;

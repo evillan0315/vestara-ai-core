@@ -132,6 +132,32 @@ export class IdempotentActivityStore implements IActivityStore {
     return this.records[this.records.length - 1].sequenceNumber;
   }
 
+  async retainNewest(limit: number): Promise<{
+    readonly deletedCount: number;
+    readonly retainedCount: number;
+    readonly firstRetainedSequence: number | null;
+    readonly lastRetainedSequence: number | null;
+  }> {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error('Activity retention limit must be a positive integer');
+    }
+    this.records.sort((left, right) => left.sequenceNumber - right.sequenceNumber);
+    const deleted = Math.max(0, this.records.length - limit);
+    const removed = this.records.splice(0, deleted);
+    for (const record of removed) {
+      this.byEventId.delete(record.eventId);
+      this.byActivityId.delete(record.activityId);
+    }
+    const first = this.records[0];
+    const last = this.records.at(-1);
+    return {
+      deletedCount: deleted,
+      retainedCount: this.records.length,
+      firstRetainedSequence: first?.sequenceNumber ?? null,
+      lastRetainedSequence: last?.sequenceNumber ?? null,
+    };
+  }
+
   /** Number of records in the store. */
   size(): number {
     return this.records.length;
@@ -161,6 +187,7 @@ function matchesQuery(record: ActivityRecord, q: M9ActivityQuery): boolean {
   if (q.after !== undefined) {
     if (record.sequenceNumber <= q.after.sequenceNumber) return false;
   }
+  if (q.beforeSequence !== undefined && record.sequenceNumber >= q.beforeSequence) return false;
   if (q.before !== undefined) {
     if (record.timestamp > q.before) return false;
   }

@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AssistantCodeEdit } from '../../components/assistant/AssistantCodeEdit';
-import type { EditExecutionDetail } from '@vestara/shared';
+import type { FileMutationExecutionDetail } from '@vestara/shared';
 import { FileTree, type TreeFacet } from '../../features/files/components/FileTree';
 import { FilePreview } from '../../features/files/components/FilePreview';
 import { FileOperationsBar } from '../../features/files/components/FileOperationsBar';
@@ -18,7 +18,7 @@ import { classifyFile } from '../../features/files/file-classification';
 import type { FileClassification } from '../../features/files/file-classification';
 import type { FileEntry } from '../../features/files/files.types';
 import { findFileEntryByPath } from './activity-files-navigation';
-import { editInspectionTabs, hasAuthoritativeEditDiff, initialEditInspectionTab } from './activity-edit-inspection';
+import { editInspectionTabs, hasAuthoritativeFileMutationDiff, initialEditInspectionTab } from './activity-edit-inspection';
 import { useFileOperations } from '../../features/files/hooks/useFileOperations';
 import { useFiles } from '../../features/files/hooks/useFiles';
 import { useSetActivitySelection } from '../../contexts/SurfaceContext';
@@ -58,7 +58,7 @@ export default function ActivityFilesPanel({
 }: {
   onAttachToComposer?: (attachment: { readonly id: string; readonly name: string; readonly path: string }) => void;
   openPath?: string | null;
-  editDetail?: EditExecutionDetail | null;
+  editDetail?: FileMutationExecutionDetail | null;
 }) {
   const { data, isLoading, error, refetch } = useFiles();
   const setActivitySelection = useSetActivitySelection();
@@ -76,7 +76,7 @@ export default function ActivityFilesPanel({
   });
 
   const facet: TreeFacet = 'all';
-  const hasAuthoritativeDiff = editDetail ? hasAuthoritativeEditDiff(editDetail) : false;
+  const hasAuthoritativeDiff = editDetail ? hasAuthoritativeFileMutationDiff(editDetail) : false;
 
   const openFile = useCallback((entry: FileEntry) => {
     setSelectedPath(entry.path);
@@ -232,14 +232,14 @@ export default function ActivityFilesPanel({
               role="tab"
               aria-selected={activeEditTab === 'diff'}
               onClick={() => setActiveEditTab('diff')}
-              className="rounded-t-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-secondary)] aria-selected:bg-[var(--vestara-accent-bg)] aria-selected:text-[var(--vestara-accent-text)]"
+              className="ml-auto rounded-t-[var(--vestara-radius)] px-2 py-1 text-xs text-[var(--vestara-text-secondary)] aria-selected:bg-[var(--vestara-accent-bg)] aria-selected:text-[var(--vestara-accent-text)]"
             >
               Edit diff · read-only
             </button>
           )}
         </div>
       )}
-      {editDetail && activeEditTab === 'diff' && hasAuthoritativeDiff ? (
+      {editDetail && editDetail.kind === 'edit' && activeEditTab === 'diff' && hasAuthoritativeDiff ? (
         <div className="min-h-0 flex-1 overflow-auto p-2" role="tabpanel" aria-label="Read-only edit diff">
           <p className="mb-2 text-xs text-[var(--vestara-text-muted)]">Historical edit diff · {editDetail.file}</p>
           <AssistantCodeEdit detail={editDetail} />
@@ -252,7 +252,7 @@ export default function ActivityFilesPanel({
               onClick={closePreview}
               aria-label="Back to file tree"
               title="Back to file tree"
-              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] text-[var(--vestara-text-secondary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+              className="grid size-7 shrink-0 cursor-pointer place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-text-primary)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-accent-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
             >
               <span aria-hidden="true">←</span>
             </button>

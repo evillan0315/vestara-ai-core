@@ -41,6 +41,28 @@ function parentPriority(item: M11CStreamItem): number {
   return 1;
 }
 
+function mergeSessions(existing: CorrelatedSession, discovered: CorrelatedSession): CorrelatedSession {
+  const byOperation = new Map(existing.operations.map((operation) => [operation.operationId, operation]));
+  for (const operation of discovered.operations) {
+    const prior = byOperation.get(operation.operationId);
+    byOperation.set(operation.operationId, {
+      ...operation,
+      activityIds: [...new Set([...(prior?.activityIds ?? []), ...operation.activityIds])],
+      ...(prior?.output && !operation.output ? { output: prior.output } : {}),
+    });
+  }
+  const operations = [...byOperation.values()];
+  return {
+    ...existing,
+    status: operations.some((operation) => operation.status === 'failed')
+      ? 'failed'
+      : operations.some((operation) => operation.status === 'started')
+        ? 'working'
+        : 'completed',
+    operations,
+  };
+}
+
 /**
  * Derive the human-facing work/session view from the existing M11C stream.
  *
@@ -120,6 +142,7 @@ export function deriveCorrelatedSessions(items: readonly M11CStreamItem[]): M11C
     if (hiddenIds.has(item.id)) return [];
     const key = lineageKeys(item).find((candidate) => sessions.has(candidate));
     const session = key ? sessions.get(key) : undefined;
-    return session && parents.get(key!)?.id === item.id ? [{ ...item, session }] : [item];
+    if (!session || parents.get(key!)?.id !== item.id) return [item];
+    return [{ ...item, session: item.session ? mergeSessions(item.session, session) : session }];
   });
 }

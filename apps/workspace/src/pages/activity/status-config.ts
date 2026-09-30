@@ -20,6 +20,32 @@ export interface ConnectionStatusConfig {
   readonly variant: StatusVariant;
 }
 
+export type ActivityDataStatus = 'available' | 'incomplete' | 'unavailable';
+
+export interface ActivityDataStatusConfig {
+  readonly label: string;
+  readonly variant: StatusVariant;
+}
+
+/**
+ * Presentation-only projection of the two authoritative Activity Room
+ * dimensions. M11B owns live transport state; M11A owns snapshot availability
+ * and completeness. No aggregate state is stored or inferred elsewhere.
+ */
+export function activityDataStatus(available: boolean, snapshotComplete: boolean): ActivityDataStatus {
+  if (!available) return 'unavailable';
+  return snapshotComplete ? 'available' : 'incomplete';
+}
+
+export const ACTIVITY_DATA_STATUS_CONFIG: Record<ActivityDataStatus, ActivityDataStatusConfig> = {
+  available: { label: 'Available', variant: 'live' },
+  incomplete: { label: 'Available · snapshot incomplete', variant: 'warn' },
+  unavailable: { label: 'Unavailable', variant: 'off' },
+};
+
+export const LIVE_STREAM_RECONNECT_LABEL = 'Reconnect live stream';
+export const LIVE_STREAM_STATUS_PREFIX = 'Live updates';
+
 /**
  * Canonical mapping from M11CConnectionState to StatusIndicator config.
  * Components may override the label for presentation-specific wording.
@@ -28,9 +54,9 @@ export const CONNECTION_STATUS_CONFIG: Record<M11CConnectionState, ConnectionSta
   connecting: { label: 'Connecting', variant: 'warn' },
   live: { label: 'Live', variant: 'live' },
   reconnecting: { label: 'Reconnecting', variant: 'warn' },
-  offline: { label: 'Offline', variant: 'off' },
+  offline: { label: 'Disconnected', variant: 'off' },
   paused: { label: 'Paused', variant: 'idle' },
-  error: { label: 'Offline', variant: 'error' },
+  error: { label: 'Disconnected', variant: 'error' },
 };
 
 // ─── Workflow Summary Status ──────────────────────────────────
@@ -75,20 +101,18 @@ export interface WorkStateConfig {
 
 /**
  * Canonical mapping from WorkState to StatusIndicator config.
- * Covers exactly the authoritative WorkState vocabulary
- * (available | working | waiting | blocked | attention-required).
- *
- * - 'available' is INTENTIONALLY ABSENT: the M10 resting value carries
- *   no activity information and must render no claim (never a presence
- *   word, never a working lamp).
- * - 'attention-required' renders the error/attention presentation.
- *
- * Previously present legacy keys (idle/completed/failed) are removed:
- * they are not members of WorkState and the sole consumer
- * (M11CParticipantRail) never referenced them.
+ * Covers the current WorkState vocabulary plus execution-phase labels
+ * accepted by newer participant projections. `available` is presented as
+ * Idle so every participant has a scannable status without conflating idle
+ * with presence.
  */
 export const WORK_STATE_CONFIG: Record<string, WorkStateConfig> = {
+  available: { variant: 'idle', label: 'Idle' },
+  idle: { variant: 'idle', label: 'Idle' },
   working: { variant: 'live', label: 'Working' },
+  building: { variant: 'live', label: 'Building' },
+  testing: { variant: 'warn', label: 'Testing' },
+  verifying: { variant: 'warn', label: 'Verifying' },
   waiting: { variant: 'warn', label: 'Waiting' },
   blocked: { variant: 'error', label: 'Blocked' },
   'attention-required': { variant: 'error', label: 'Needs attention' },

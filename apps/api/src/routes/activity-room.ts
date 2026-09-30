@@ -299,7 +299,11 @@ export async function handleActivityRoomRoute(
   if (method === 'POST' && stopActiveTurnMatch) {
     const conversationId = decodeURIComponent(stopActiveTurnMatch[1]);
     const result = activityTurnControls.requestStop(conversationId);
-    json(res, result.status === 'requested' ? 202 : 409, result);
+    // Stop is intentionally idempotent from the Activity Room UI's point of
+    // view. A historical/stale row or a duplicate click may address a turn
+    // that has already settled; that is a successful no-op, not a transport
+    // failure that should surface as a browser console error.
+    json(res, result.status === 'requested' ? 202 : 200, result);
     return true;
   }
 

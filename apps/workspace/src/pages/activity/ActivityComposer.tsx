@@ -3,6 +3,9 @@ import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined';
 import SendRoundedIcon from '@mui/icons-material/SendRounded';
 import { useTelemetryStore } from '../../contexts/TelemetryContext';
+import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { ComposerSuggestionMenu } from '../../components/composer/ComposerSuggestionMenu';
+import { parseComposerSuggestionCommand } from '../../components/composer/composerSuggestion';
 import { DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
 import type {
   ActivityMessageInput,
@@ -46,6 +49,7 @@ export default function ActivityComposer({
   onClearReference,
 }: ActivityComposerProps) {
   const telemetry = useTelemetryStore();
+  const surfaceContext = useSurfaceContext();
   const [draft, setDraft] = useState('');
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -99,6 +103,7 @@ export default function ActivityComposer({
   const submit = (): void => {
     const content = draft.trim();
     if (content.length === 0) return;
+    if (parseComposerSuggestionCommand(draft)) return;
     onSend({
       content,
       // Deliver into the active scope so the message is visible to the workflow
@@ -184,6 +189,12 @@ export default function ActivityComposer({
         )}
 
         <div className="relative">
+          <ComposerSuggestionMenu
+            draft={draft}
+            surfaceContext={surfaceContext}
+            onApply={setDraft}
+            onDismiss={() => setDraft(parseComposerSuggestionCommand(draft)?.draft ?? draft)}
+          />
           <textarea
             ref={textareaRef}
             value={draft}

@@ -18,12 +18,16 @@
  *   GET /api/activity-room/v1/participants      — Participant projection (authority + lifecycle)
  *   GET /api/activity-room/v1/attention         — Attention projection
  *   GET /api/activity-room/v1/workflow-summary  — Workflow summary projection
+ *   POST /api/activity-room/v1/interactions/:id/present — Authoritative RuntimeInteraction
+ *     presentation (AR-TOOL-ASK-003A4B mutation; all GETs above stay read-only)
  *
- * All endpoints are read-only. No mutation of M8, M9, or M10 state.
+ * All GET endpoints are read-only. No mutation of M8, M9, or M10 state.
+ * The single POST mutates ONLY RuntimeInteraction presentation state
+ * (pending → presented with token rotation); it never writes M9, never
+ * claims, never delivers to OpenCode.
  * No exposure of SQLite schema, OpenCode internals, or provider internals.
  */
 
-import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
 import type {
@@ -34,18 +38,28 @@ import type {
   M9ActivityRecord,
   M9ActivityStore,
   ParticipantProjection,
+  PendingRuntimeQuestionProjection,
+  SnapshotActivityEntity,
   WorkflowSummary,
 } from '@vestara/activity-room';
 import {
   ActivityStreamHub,
   DurableActivityStore,
   ProjectionRuntime,
+  presentRuntimeQuestionForBrowser,
+  projectActivitySnapshot,
   projectAttentionEntries,
   projectDiagnosticAttentionEntries,
+  projectPendingRuntimeQuestions,
   projectRepositoryVerificationAttentionEntries,
+  projectRuntimeQuestionAttention,
+  RuntimeInteractionStoreOpenError,
+  RuntimeQuestionInteractionStore,
+  RuntimeQuestionTransitionError,
   toProjectionRecord,
 } from '@vestara/activity-room';
 import { getActivityRoom } from '../activity-room';
+import { readBody } from '../http/body';
 import { json } from '../http/response';
 import type { WorkspaceContext } from '../workspace-context';
 
@@ -80,12 +94,14 @@ export interface M11AInstrumentation {
   firstWatcherErrorAt: string | null;
   /** Timestamp of last watcher error (null if none) */
   lastWatcherErrorAt: string | null;
-  /** Total db.exec() calls (read path) */
+  /** Total durable database read operations. */
   dbExecReadCount: number;
-  /** Total db.exec() calls (write path — via auto-persist) */
+  /** Total durable database write operations. */
   dbExecWriteCount: number;
-  /** Total persistDb() calls (db.export() invocations) */
+  /** Retained for diagnostics compatibility; native M9 never exports a database. */
   persistDbCount: number;
+  /** Persistence failures surfaced by the native M9 store. */
+  m9PersistenceErrorCount: number;
   /** Total snapshot fetches served */
   snapshotFetchCount: number;
   /** Snapshot fetch latency (last, avg, max) in ms */
@@ -101,6 +117,13 @@ export interface M11AInstrumentation {
 
 export interface M11ARoomState {
   store: M9ActivityStore;
+  /**
+   * RuntimeInteraction command-state authority, opened independently of M9.
+   * Null when its explicit migration has not run: the Tool Ask durable
+   * capability is then unavailable, but M9 evidence stays valid. Never
+   * inferred, never silently created.
+   */
+  runtimeQuestions: RuntimeQuestionInteractionStore | null;
   runtime: ProjectionRuntime;
   hub: ActivityStreamHub;
   lastProjection: ActivityRoomProjection | null;
@@ -117,34 +140,31 @@ let m11aRoom: M11ARoomState | null = null;
  * Called once at API boot before any route uses the room.
  */
 export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomState> {
-  const initSqlJs = (await import('sql.js')).default;
-  const SQL = await initSqlJs();
   const dbPath = path.join(repoPath, '.vestara', 'm9-activity.db');
-
-  let db: any;
+  let m9PersistenceErrorCount = 0;
+  // M9 authority opens first and alone: an M9-valid database always boots
+  // the Activity Room regardless of RuntimeInteraction migration state.
+  const store = DurableActivityStore.open(dbPath, {
+    onPersistenceError: () => {
+      m9PersistenceErrorCount += 1;
+      if (m11aRoom) m11aRoom.instrumentation.m9PersistenceErrorCount = m9PersistenceErrorCount;
+    },
+  });
+  // RuntimeInteraction authority opens independently against the same
+  // physical file. A missing migration leaves the Tool Ask durable
+  // capability unavailable under this domain's own error — it never
+  // redefines the M9 database as invalid and never fails M9 boot.
+  let runtimeQuestions: RuntimeQuestionInteractionStore | null = null;
   try {
-    if (fs.existsSync(dbPath)) {
-      db = new SQL.Database(fs.readFileSync(dbPath));
-    }
-  } catch {
-    /* corrupt or unreadable — start fresh */
+    runtimeQuestions = RuntimeQuestionInteractionStore.open(dbPath);
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : String(error);
+    const status = error instanceof RuntimeInteractionStoreOpenError ? error.status : 'unknown';
+    console.warn(
+      `[m11a] RuntimeInteraction authority unavailable (status=${status}): ${detail} ` +
+        `Run the explicit RuntimeInteraction migration to enable the Tool Ask durable capability.`,
+    );
   }
-  db = db ?? new SQL.Database();
-
-  // Auto-persist on write operations — intercept db.run for INSERT/UPDATE/DELETE.
-  // db.exec is used for reads (SELECT) and schema DDL; only db.run is used for
-  // writes by the DurableActivityStore, so we only need to intercept db.run.
-  const origRun = db.run.bind(db);
-  db.run = (sql: string, params?: any[]) => {
-    origRun(sql, params);
-    const trimmed = sql.trim().toUpperCase();
-    if (trimmed.startsWith('INSERT') || trimmed.startsWith('UPDATE') || trimmed.startsWith('DELETE')) {
-      persistDb(db, dbPath);
-    }
-  };
-
-  // DurableActivityStore constructor calls ensureSchema() — no inline DDL needed.
-  const store = new DurableActivityStore(db);
   const runtime = new ProjectionRuntime();
   const hub = new ActivityStreamHub({
     earliestAvailableSequence: 1,
@@ -157,6 +177,7 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
 
   m11aRoom = {
     store,
+    runtimeQuestions,
     runtime,
     hub,
     lastProjection: projection,
@@ -172,6 +193,7 @@ export async function initM11AActivityRoom(repoPath: string): Promise<M11ARoomSt
       dbExecReadCount: 0,
       dbExecWriteCount: 0,
       persistDbCount: 0,
+      m9PersistenceErrorCount,
       snapshotFetchCount: 0,
       snapshotLastLatencyMs: 0,
       snapshotAvgLatencyMs: 0,
@@ -196,15 +218,14 @@ export function getM11ARoom(): M11ARoomState {
   return m11aRoom;
 }
 
-function persistDb(db: any, dbPath: string): void {
-  if (m11aRoom) m11aRoom.instrumentation.persistDbCount++;
+export function closeM11AActivityRoom(): void {
+  m11aRoom?.store.close?.();
   try {
-    const data = db.export();
-    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
-    fs.writeFileSync(dbPath, Buffer.from(data));
+    m11aRoom?.runtimeQuestions?.close();
   } catch {
-    /* best-effort */
+    // Best-effort shutdown; the M9 close above is authoritative.
   }
+  m11aRoom = null;
 }
 
 /** Background watcher: polls M9 store for new records and broadcasts via hub. */
@@ -332,6 +353,7 @@ function parseActivityQuery(url: URL): M9ActivityQuery {
     type: type as M9ActivityQuery['type'],
     source: source as M9ActivityQuery['source'],
     after,
+    beforeSequence: beforeSeq,
     before: beforeTimestamp,
     afterTimestamp,
     limit: validatedLimit,
@@ -462,6 +484,25 @@ function sanitizeStreamItem(item: ActivityRoomProjection['stream'][0]): Record<s
   };
 }
 
+/** Sanitize the authoritative M11A entity/operation snapshot projection. */
+function sanitizeSnapshotEntity(entity: SnapshotActivityEntity): Record<string, unknown> {
+  return {
+    parent: sanitizeStreamItem(entity.parent),
+    lineageKey: entity.lineageKey,
+    operations: entity.operations.map((operation) => ({
+      operationId: operation.operationId,
+      toolName: operation.toolName,
+      status: operation.status,
+      timestamp: operation.timestamp,
+      activityIds: operation.activityIds,
+      ...(operation.output ? { output: operation.output.slice(0, 12000) } : {}),
+      ...(operation.executionId ? { executionId: operation.executionId } : {}),
+      ...(operation.runtimeSessionBindingId ? { runtimeSessionBindingId: operation.runtimeSessionBindingId } : {}),
+      ...(operation.conversationId ? { conversationId: operation.conversationId } : {}),
+    })),
+  };
+}
+
 /** Sanitize ParticipantProjection for API response. */
 function sanitizeParticipant(p: ParticipantProjection): Record<string, unknown> {
   return {
@@ -511,6 +552,27 @@ function sanitizeAttention(a: AttentionEntry): Record<string, unknown> {
     firstObservedAt: a.firstObservedAt,
     lastObservedAt: a.lastObservedAt,
     acknowledged: a.acknowledged,
+  };
+}
+
+function sanitizePendingRuntimeQuestion(question: PendingRuntimeQuestionProjection): Record<string, unknown> {
+  return {
+    interactionId: question.interactionId,
+    conversationId: question.conversationId,
+    openCodeSessionId: question.openCodeSessionId,
+    openCodeRequestId: question.openCodeRequestId,
+    status: question.status,
+    questions: question.questions.map((entry) => ({
+      header: entry.header,
+      question: entry.question,
+      options: entry.options.map((option) => ({
+        label: option.label,
+        ...(option.description ? { description: option.description } : {}),
+      })),
+    })),
+    expiresAt: question.expiresAt,
+    createdAt: question.createdAt,
+    updatedAt: question.updatedAt,
   };
 }
 
@@ -823,13 +885,37 @@ export async function handleM11AActivityRoomRoute(
     }
 
     const projection = room.lastProjection!;
+    const pendingRuntimeQuestions = projectPendingRuntimeQuestions(room.runtimeQuestions?.listPending() ?? []);
+    const runtimeQuestionAttention = projectRuntimeQuestionAttention(pendingRuntimeQuestions);
     const participants = await composeParticipants(ctx, room);
+    // AR-SNAPSHOT-002: snapshot membership is newest-N projectable Activity
+    // entities selected by the M11A SnapshotProjector (operations consume
+    // zero entity slots), not a raw tail of stream items. Wire shape and
+    // frontier cursor are unchanged, so M11C hydration is untouched.
+    const selection = await projectActivitySnapshot(
+      {
+        fetchPage: (beforeSequence, limit) => room.store.query({ beforeSequence, limit }),
+        projectRecord: (record) => room.runtime.projectRecord(record),
+      },
+      { startBefore: projection.room.cursor.sequenceNumber + 1 },
+    );
     json(res, 200, {
       room: projection.room,
       participants: participants.map(sanitizeParticipant),
-      stream: projection.stream.map(sanitizeStreamItem).slice(-50), // Bounded preview: latest window, not oldest
+      // Snapshot hydration must retain one row per projected activity. The
+      // compact projection intentionally aggregates muted runs, but using it
+      // here made a refresh replace a populated stream with one aggregate.
+      // Keep the API bounded while preserving raw activity identity so M11C
+      // can dedupe catch-up events and maintain edit/session correlation.
+      stream: selection.items.map(sanitizeStreamItem),
+      entities: selection.entities.map(sanitizeSnapshotEntity),
+      complete: selection.complete,
+      entityCount: selection.entityCount,
       workflowSummary: projection.workflowSummary ? sanitizeWorkflowSummary(projection.workflowSummary) : null,
-      attention: projection.attention.map(sanitizeAttention),
+      attention: dedupeAttention([...projection.attention, ...runtimeQuestionAttention])
+        .filter((entry) => entry.status === 'open')
+        .map(sanitizeAttention),
+      pendingRuntimeQuestions: pendingRuntimeQuestions.map(sanitizePendingRuntimeQuestion),
       contextualCapabilities: projection.contextualCapabilities,
       // Explicit cursor for reconnect
       cursor: projection.room.cursor,
@@ -1023,6 +1109,8 @@ export async function handleM11AActivityRoomRoute(
     }
 
     const projection = room.lastProjection!;
+    const pendingRuntimeQuestions = projectPendingRuntimeQuestions(room.runtimeQuestions?.listPending() ?? []);
+    const runtimeQuestionAttention = projectRuntimeQuestionAttention(pendingRuntimeQuestions);
     const legacyPage = await getActivityRoom().store.list({
       workflowId: stringValue(url.searchParams.get('workflowId')),
       sessionId: stringValue(url.searchParams.get('sessionId')),
@@ -1034,6 +1122,7 @@ export async function handleM11AActivityRoomRoute(
     ]);
     const attention = dedupeAttention([
       ...projection.attention,
+      ...runtimeQuestionAttention,
       ...legacyAttention,
       ...systemAttention,
       ...repositoryAttention,
@@ -1042,8 +1131,99 @@ export async function handleM11AActivityRoomRoute(
       .sort(attentionSort);
     json(res, 200, {
       attention: attention.map(sanitizeAttention),
+      pendingRuntimeQuestions: pendingRuntimeQuestions.map(sanitizePendingRuntimeQuestion),
       count: attention.length,
     });
+    return true;
+  }
+
+  // ─── POST /api/activity-room/v1/interactions/:id/present ──
+  // AR-TOOL-ASK-003A4B: authoritative presentation mutation. Resolves the
+  // EXACT persisted RuntimeInteraction and atomically presents it
+  // (pending → presented, re-presentation rotates token + version).
+  // Rationale for POST (not GET): presentation MUTATES authoritative state
+  // and mints a single-use credential, so it is never safe, idempotent, or
+  // cacheable. GET would let proxies/caches replay credentials; POST with
+  // `Cache-Control: no-store` keeps exactly one valid token/version pair.
+  // The claim token is returned ONLY in this response body — never in M9,
+  // SSE, Activity, logs, diagnostics, or projections. Never claims, never
+  // delivers to OpenCode (no reply/reject here; 003B owns delivery).
+  if (method === 'POST' && p.match(/^\/api\/activity-room\/v1\/interactions\/[^/]+\/present$/)) {
+    const segments = p.split('/');
+    const interactionId = decodeURIComponent(segments[segments.length - 2] as string);
+    if (!interactionId) {
+      json(res, 400, { error: { code: 'INVALID_IDENTITY', message: 'interaction id is required.' } });
+      return true;
+    }
+    let parsed: unknown;
+    try {
+      const raw = await readBody(_req);
+      parsed = raw ? JSON.parse(raw) : {};
+    } catch {
+      json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body is not valid JSON.' } });
+      return true;
+    }
+    if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      json(res, 400, { error: { code: 'INVALID_BODY', message: 'Request body must be a JSON object.' } });
+      return true;
+    }
+    const body = parsed as Record<string, unknown>;
+    const allowed = new Set(['conversationId', 'openCodeSessionId', 'openCodeRequestId']);
+    for (const key of Object.keys(body)) {
+      if (!allowed.has(key)) {
+        json(res, 400, { error: { code: 'INVALID_BODY', message: `Unexpected field: ${key}.` } });
+        return true;
+      }
+    }
+    const conversationId = body.conversationId;
+    if (typeof conversationId !== 'string' || conversationId.length === 0) {
+      json(res, 400, { error: { code: 'INVALID_IDENTITY', message: 'conversationId is required.' } });
+      return true;
+    }
+    const openCodeSessionId = body.openCodeSessionId;
+    if (openCodeSessionId !== undefined && (typeof openCodeSessionId !== 'string' || openCodeSessionId.length === 0)) {
+      json(res, 400, { error: { code: 'INVALID_IDENTITY', message: 'openCodeSessionId must be a non-empty string.' } });
+      return true;
+    }
+    const openCodeRequestId = body.openCodeRequestId;
+    if (openCodeRequestId !== undefined && (typeof openCodeRequestId !== 'string' || openCodeRequestId.length === 0)) {
+      json(res, 400, { error: { code: 'INVALID_IDENTITY', message: 'openCodeRequestId must be a non-empty string.' } });
+      return true;
+    }
+    const store = room.runtimeQuestions;
+    if (store === null) {
+      json(res, 503, {
+        error: {
+          code: 'RUNTIME_QUESTIONS_UNAVAILABLE',
+          message: 'RuntimeInteraction authority unavailable; explicit migration required.',
+        },
+      });
+      return true;
+    }
+    try {
+      const presentation = presentRuntimeQuestionForBrowser(store, {
+        interactionId,
+        conversationId,
+        ...(typeof openCodeSessionId === 'string' ? { openCodeSessionId } : {}),
+        ...(typeof openCodeRequestId === 'string' ? { openCodeRequestId } : {}),
+      });
+      if (!res.headersSent) res.setHeader('Cache-Control', 'no-store');
+      json(res, 200, { presentation });
+    } catch (error) {
+      if (error instanceof Error && error.message.includes('unknown interaction id')) {
+        json(res, 404, { error: { code: 'NOT_FOUND', message: 'Interaction not found.' } });
+        return true;
+      }
+      if (error instanceof RuntimeQuestionTransitionError) {
+        if (error.from === 'expired' || error.reason.includes('expired')) {
+          json(res, 410, { error: { code: 'GONE', message: 'Interaction expired.' } });
+          return true;
+        }
+        json(res, 409, { error: { code: 'NOT_PRESENTABLE', message: 'Interaction is not presentable.' } });
+        return true;
+      }
+      json(res, 500, { error: { code: 'INTERNAL_ERROR', message: 'Presentation failed.' } });
+    }
     return true;
   }
 

@@ -718,3 +718,45 @@ The next authorized action is to proceed with the recommended R3 milestone, subj
 - **Tools visibility:** Display-only matrix of `AssistantCapabilityPolicy` / `ASSISTANT_GRANT` tools (`read/edit/bash/glob/grep/task/webfetch/websearch/external_directory/question` → `allow/ask/deny`) with FactRows for provenance; badge links to `/settings/assistant-execution`. `var(--vestara-*)` only.
 
 > **Reconciliation complete. All R0–R13 requirements traced. Next milestone recommended: R3 — Shared UI Foundation. (Addendum 2026-09-13 Fix 1+2 + badge + Fix 3 recorded; Settings Execution+Tools planned)**
+
+### Addendum 2026-09-26 — Activity Room stabilization handoff
+
+Accepted and evidenced stabilization work is complete for AR-HISTORY-002,
+AR-SNAPSHOT-002A, AR-STREAM-STATUS-002, AR-STREAM-STATUS-003, and
+AR-SCROLL-002. The frozen contracts are: bounded recent-first history
+pagination; M11A-owned snapshot entities, attachments, cardinality,
+completeness, and frontier; separate M11A data availability from M11B live
+transport state; and canonical M11C oldest-to-newest rendering with latest at
+the bottom, anchored initial hydration, history-anchor preservation, and no
+viewport theft from live updates.
+
+The next Activity Room milestone is explicitly unresolved and audit-only:
+
+**AR-STREAM-LIFECYCLE-001 — M11B WebSocket Connection Lifecycle Audit**
+
+Current observed state: Activity data is `Available` or `Available · snapshot
+incomplete`, while live updates are `Disconnected`. Runtime Settings reports
+`websocketEndpoint = ws://127.0.0.1:3001/ws` and
+`websocketStatus = available`; that proves capability/configuration evidence,
+not a connected, authenticated, subscribed, or message-flowing Activity Room
+client. OpenCode Runtime connectivity is independent. “Data updated just now”
+is not proof of a healthy M11B WebSocket.
+
+The next audit must trace the first failing transition across:
+
+```text
+Activity Room mount → M11B client creation → endpoint resolution → /ws upgrade
+→ authentication → open → subscription/cursor → first message → disconnect
+→ retry/backoff → reconnect → resumed delivery
+```
+
+It must compare the client lifecycle with the server `/ws` implementation and
+logs, and return the exact lifecycle, authentication and subscription paths,
+retry behavior, runtime evidence, first failing transition, root cause,
+ownership boundary, smallest repair scope, and `REPAIR_READY` or `HOLD`.
+The historical Codex/App Server `401 Unauthorized` must not be attributed to
+M11B without concrete shared-boundary evidence.
+
+This handoff does not reopen AR-HISTORY-002, AR-SNAPSHOT-002A,
+AR-SCROLL-002, or AR-STREAM-STATUS-002/003, and authorizes no mutation during
+the lifecycle audit.

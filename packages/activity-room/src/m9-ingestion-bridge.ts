@@ -462,10 +462,13 @@ export class M9IngestionBridge {
     if (type === 'conversation:provider.request.started') {
       const _conversationId = (event.payload.conversationId as string) || 'unknown';
       const model = (event.payload.model as string) || undefined;
+      const agentId =
+        typeof event.payload.agentId === 'string' && event.payload.agentId ? event.payload.agentId : undefined;
       return fromAgentLifecycle({
         agentId: 'conversation-runtime',
         displayName: 'Conversation Runtime',
         actorType: 'system',
+        ...(agentId ? { targetAgentId: agentId } : {}),
         lifecycleType: 'started',
         message: model ? `Started work (${model})` : 'Started work',
         executionId: event.metadata.executionId as any,
@@ -485,11 +488,14 @@ export class M9IngestionBridge {
       const tokens = event.payload.tokens as number | undefined;
       const conversationId = (event.payload.conversationId as string) || undefined;
       const responseMessageId = (event.payload.messageId as string) || undefined;
+      const agentId =
+        typeof event.payload.agentId === 'string' && event.payload.agentId ? event.payload.agentId : undefined;
       const status = tokens ? `Completed (${tokens} tokens)` : 'Completed';
       const base = fromAgentLifecycle({
         agentId: 'conversation-runtime',
         displayName: 'Conversation Runtime',
         actorType: 'system',
+        ...(agentId ? { targetAgentId: agentId } : {}),
         lifecycleType: 'completed',
         message: status,
         executionId: event.metadata.executionId as any,

@@ -49,7 +49,19 @@ export {
 } from './m9-adapter';
 export { M9DeliveryVerifier } from './m9-delivery-verifier';
 export { M9IngestionBridge, type M9IngestionBridgeOptions } from './m9-ingestion-bridge';
-export { SqliteActivityStore as DurableActivityStore } from './m9-sqlite-store';
+export {
+  inspectM9Schema,
+  M9_SCHEMA_VERSION,
+  M9SchemaCompatibilityError,
+  M9SchemaError,
+  migrateM9Schema,
+  preflightM9Schema,
+} from './m9-native-schema';
+export {
+  M9StoreOpenError,
+  NativeSqliteActivityStore as DurableActivityStore,
+  NativeSqliteActivityStore,
+} from './m9-native-sqlite-store';
 export { IdempotentActivityStore } from './m9-store';
 export { toProjectionRecord } from './m9-to-projection';
 export type {
@@ -77,6 +89,7 @@ export type {
   AttentionStatus,
   ContextualCapabilities,
   ParticipantProjection,
+  PendingRuntimeQuestionProjection,
   StreamImportance,
   StreamItem,
   StreamItemKind,
@@ -89,9 +102,61 @@ export { TestProjector } from './projectors/test-projector';
 export { VerificationProjector } from './projectors/verification-projector';
 export { WorkflowProjector } from './projectors/workflow-projector';
 export { ActivityRedactor, DEFAULT_REDACTION_POLICY, type RedactionPolicy } from './redactor';
+export type {
+  ClaimRuntimeQuestionInput,
+  ClaimRuntimeQuestionRejectionInput,
+  IngestRuntimeQuestionInput,
+  RuntimeQuestion,
+  RuntimeQuestionInteraction,
+  RuntimeQuestionOption,
+  RuntimeQuestionStatus,
+} from './runtime-interaction-contract';
+export {
+  boundRuntimeAnswers,
+  boundRuntimeQuestions,
+  deriveRuntimeQuestionInteractionId,
+  RUNTIME_QUESTION_ANSWERABLE_STATES,
+  RUNTIME_QUESTION_BOUNDS,
+  RUNTIME_QUESTION_DEFAULT_TTL_MS,
+  RUNTIME_QUESTION_TERMINAL_STATES,
+  RuntimeQuestionIdentityError,
+  RuntimeQuestionTransitionError,
+  requireExactIdentity,
+} from './runtime-interaction-contract';
+export {
+  inspectRuntimeInteractionSchema,
+  migrateRuntimeInteractionSchema,
+  RUNTIME_INTERACTION_SCHEMA_VERSION,
+  RUNTIME_QUESTION_INTERACTIONS_DDL,
+  RuntimeInteractionSchemaCompatibilityError,
+  RuntimeInteractionSchemaError,
+  type RuntimeInteractionSchemaInspection,
+  type RuntimeInteractionSchemaStatus,
+} from './runtime-interaction-schema';
+export type { ExpireUnclaimedResult, RuntimeQuestionStoreOptions } from './runtime-interaction-store';
+export { RuntimeInteractionStoreOpenError, RuntimeQuestionInteractionStore } from './runtime-interaction-store';
+export { answerRuntimeQuestion, ingestRuntimeQuestionAsked } from './runtime-question-ingest';
+export type {
+  BrowserRuntimeQuestionPresentation,
+  PresentRuntimeQuestionInput,
+} from './runtime-question-presentation';
+export { presentRuntimeQuestionForBrowser } from './runtime-question-presentation';
+export { projectPendingRuntimeQuestions, projectRuntimeQuestionAttention } from './runtime-question-projection';
 export { MonotonicSequence } from './sequence';
 export { ActivityProjectionService, type ActivityProjectionServiceOptions, DEFAULT_PROJECTORS } from './service';
 export { type ActivitySeverity, severityOf } from './severity';
+export {
+  MAX_SNAPSHOT_SCAN_PAGES,
+  projectActivitySnapshot,
+  SNAPSHOT_ENTITY_CAPACITY,
+  SNAPSHOT_SCAN_PAGE_SIZE,
+  type SnapshotActivityEntity,
+  type SnapshotOperation,
+  type SnapshotOperationStatus,
+  type SnapshotProjectorDeps,
+  type SnapshotProjectorOptions,
+  type SnapshotSelection,
+} from './snapshot-projector';
 export {
   type ActivitySourceAuthority,
   type ActivitySourceEvent,

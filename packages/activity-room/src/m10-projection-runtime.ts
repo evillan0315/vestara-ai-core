@@ -115,14 +115,30 @@ export class ProjectionRuntime {
       stream: aggregatedStream,
       workflowSummary: this.getLatestWorkflowSummary(),
       attention: this.attention.filter((a) => a.status === 'open'),
+      pendingRuntimeQuestions: [],
       contextualCapabilities: this.buildContextualCapabilities(participants),
     };
+  }
+
+  /**
+   * Return the bounded raw stream window before presentation aggregation.
+   *
+   * M11A uses this for snapshot hydration so a refresh does not turn a long
+   * run of muted records into one client-visible row. The normal projection
+   * continues to expose aggregation for consumers that explicitly want the
+   * compact presentation, while every raw item keeps its original activity
+   * identity and sequence for correlation and drill-down.
+   */
+  getRawStream(): readonly StreamItem[] {
+    return [...this.stream];
   }
 
   // ─── Participant Management ───────────────────────────────
 
   private updateParticipantFromRecord(record: ActivityRecord): void {
     const actor = record.actor;
+    const data = record.payload.data as Record<string, unknown> | undefined;
+    const targetAgentId = typeof data?.targetAgentId === 'string' ? data.targetAgentId : undefined;
     // Phase A compatibility guard — NOT canonical identity (this runtime has
     // no agent authority; canonical checks live at ingestion and M11A
     // admission). A human-typed actor carrying an agent-style id is a
@@ -131,7 +147,7 @@ export class ProjectionRuntime {
     if (actor.type === 'human' && actor.id.startsWith('agent-')) {
       return;
     }
-    const participantId = `${actor.type}-${actor.id}`;
+    const participantId = targetAgentId ? `agent-${targetAgentId}` : `${actor.type}-${actor.id}`;
 
     const existing = this.participants.get(participantId);
 
@@ -140,7 +156,6 @@ export class ProjectionRuntime {
     const assignment = this.deriveAssignment(record);
 
     // Extract model/role metadata from payload.data (set by AgentLifecycleBridge)
-    const data = record.payload.data as Record<string, unknown> | undefined;
     const role = typeof data?.role === 'string' ? data.role : undefined;
     const modelId = typeof data?.modelId === 'string' ? data.modelId : undefined;
     const modelDisplayName = typeof data?.modelDisplayName === 'string' ? data.modelDisplayName : undefined;
@@ -158,7 +173,7 @@ export class ProjectionRuntime {
         providerId: providerId ?? existing.providerId,
         teamId: teamId ?? existing.teamId,
         teamName: teamName ?? existing.teamName,
-        membership: membership ?? existing.membership,
+        membership: membership ?? (targetAgentId ? 'joined' : existing.membership),
         workState: workState ?? existing.workState,
         currentAssignment: assignment ?? existing.currentAssignment,
         lastActivityAt: record.timestamp,
@@ -167,8 +182,8 @@ export class ProjectionRuntime {
       // New participant
       this.participants.set(participantId, {
         participantId,
-        type: actor.type,
-        displayName: actor.displayName,
+        type: targetAgentId ? 'agent' : actor.type,
+        displayName: targetAgentId ?? actor.displayName,
         modelDisplayName,
         role,
         modelId,
@@ -279,6 +294,17 @@ export class ProjectionRuntime {
   }
 
   // ─── Stream Management ────────────────────────────────────
+
+  /**
+   * Narrowly named single-record projection for the M11A snapshot projector
+   * (AR-SNAPSHOT-002, per AR-SNAPSHOT-001B §5): applies the exact per-record
+   * mapping used by live processing, with no working-set, cursor,
+   * participant, attention, or aggregation side effects. Ordinary M10 stream
+   * semantics are unchanged.
+   */
+  projectRecord(record: ActivityRecord): StreamItem {
+    return this.recordToStreamItem(record);
+  }
 
   private recordToStreamItem(record: ActivityRecord): StreamItem {
     const kind = this.classifyKind(record);
@@ -629,19 +655,9 @@ export class ProjectionRuntime {
       }
     }
 
-    if (record.type === 'tool.succeeded') {
-      const data = record.payload.data as Record<string, unknown> | undefined;
-      const callID = typeof data?.callID === 'string' ? data.callID : undefined;
-      if (callID) {
-        const toResolve = this.attention.find(
-          (a) => a.reason === 'tool-failed' && a.details?.callID === callID && a.status === 'open',
-        );
-        if (toResolve) {
-          const idx = this.attention.indexOf(toResolve);
-          this.attention[idx] = { ...toResolve, status: 'resolved', resolvedAt: record.timestamp, acknowledged: true };
-        }
-      }
-    }
+    // AR-ATTN-003: tool-call outcomes never produce Needs Attention, so there
+    // is no tool-failed attention to resolve here. tool.succeeded history is
+    // preserved as immutable execution evidence without attention effects.
   }
 
   private deriveAttention(record: ActivityRecord): AttentionEntry | undefined {
@@ -730,32 +746,12 @@ export class ProjectionRuntime {
           timestamp: record.timestamp,
           acknowledged: false,
         };
+      // AR-ATTN-003: tool.failed records remain immutable execution evidence
+      // in M9 history and the Activity stream, but never produce Needs
+      // Attention. Execution success/failure semantics and callID correlation
+      // are unchanged; only the attention projection is suppressed.
       case 'tool.failed': {
-        const data = record.payload.data as Record<string, unknown> | undefined;
-        const toolName = typeof data?.toolName === 'string' && data.toolName ? data.toolName : 'tool';
-        const callID = typeof data?.callID === 'string' && data.callID ? data.callID : String(record.activityId);
-        return {
-          attentionId: `att-${String(record.activityId)}`,
-          reason: 'tool-failed',
-          category: 'execution-failure',
-          message: `${toolName} failed`,
-          sourceRecordId: String(record.activityId),
-          owner: 'runtime-session',
-          status: 'open',
-          evidenceRefs: [],
-          details: {
-            activityType: record.type,
-            toolName,
-            callID,
-            status: 'failed',
-          },
-          actor: record.actor,
-          workflowRunId: record.workflowRunId,
-          taskId: record.taskId,
-          sessionId: record.runtimeSessionBindingId,
-          timestamp: record.timestamp,
-          acknowledged: false,
-        };
+        return undefined;
       }
       case 'interaction.presented': {
         // Extract interaction metadata from payload.data

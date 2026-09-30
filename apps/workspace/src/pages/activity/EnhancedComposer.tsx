@@ -16,6 +16,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
+import { useSurfaceContext } from '../../contexts/SurfaceContext';
+import { ComposerSuggestionMenu } from '../../components/composer/ComposerSuggestionMenu';
+import { parseComposerSuggestionCommand } from '../../components/composer/composerSuggestion';
 import type {
   ActivityMessageInput,
   ActivityOrganizationalEffect,
@@ -244,6 +247,7 @@ export function EnhancedActivityComposer({
   selectedModel = '',
   onModelChange,
 }: EnhancedComposerProps) {
+  const surfaceContext = useSurfaceContext();
   const [draft, setDraft] = useState('');
   const [mentionOpen, setMentionOpen] = useState(false);
   const [mentionQuery, setMentionQuery] = useState('');
@@ -288,6 +292,7 @@ export function EnhancedActivityComposer({
   const submit = useCallback((): void => {
     const content = draft.trim();
     if (content.length === 0) return;
+    if (parseComposerSuggestionCommand(draft)) return;
     onSend({
       content,
       workflowId: scope.workflowId,
@@ -393,6 +398,13 @@ export function EnhancedActivityComposer({
 
         {/* Textarea with @mention dropdown */}
         <div className="relative">
+          <ComposerSuggestionMenu
+            draft={draft}
+            surfaceContext={surfaceContext}
+            model={selectedModel}
+            onApply={setDraft}
+            onDismiss={() => setDraft(parseComposerSuggestionCommand(draft)?.draft ?? draft)}
+          />
           <textarea
             ref={textareaRef}
             value={draft}

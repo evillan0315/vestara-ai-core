@@ -10,6 +10,7 @@ import type {
   ActivityRecord as M9ActivityRecord,
   ActivityRoomProjection,
   AttentionEntry,
+  PendingRuntimeQuestionProjection,
   ParticipantProjection,
   WorkflowSummary,
 } from '@vestara/activity-room';
@@ -22,10 +23,34 @@ export interface M11ASnapshot {
   room: ActivityRoomProjection['room'];
   participants: readonly ParticipantProjection[];
   stream: readonly M11AStreamItem[];
+  /** Authoritative M11A parent entities with operation membership attached. */
+  entities?: readonly M11AActivityEntity[];
+  /** False means bounded reconstruction stopped before completeness was proven. */
+  complete: boolean;
+  entityCount: number;
   workflowSummary: WorkflowSummary | null;
   attention: readonly AttentionEntry[];
+  pendingRuntimeQuestions?: readonly PendingRuntimeQuestionProjection[];
   contextualCapabilities: ActivityRoomProjection['contextualCapabilities'];
   cursor: ActivityCursor;
+}
+
+export interface M11AActivityOperation {
+  readonly operationId: string;
+  readonly toolName: string;
+  readonly status: 'started' | 'completed' | 'failed';
+  readonly timestamp: string;
+  readonly activityIds: readonly string[];
+  readonly output?: string;
+  readonly executionId?: string;
+  readonly runtimeSessionBindingId?: string;
+  readonly conversationId?: string;
+}
+
+export interface M11AActivityEntity {
+  readonly parent: M11AStreamItem;
+  readonly lineageKey: string | null;
+  readonly operations: readonly M11AActivityOperation[];
 }
 
 /**
@@ -260,7 +285,14 @@ export async function fetchConversationDebug(conversationId: string): Promise<Co
 // ─── Participant Projection ──────────────────────────────────
 
 export async function fetchM11AParticipants(): Promise<readonly ParticipantProjection[]> {
-  return m11aFetch<readonly ParticipantProjection[]>('/api/activity-room/v1/participants');
+  const response = await m11aFetch<
+    | readonly ParticipantProjection[]
+    | { readonly participants: readonly ParticipantProjection[] }
+  >('/api/activity-room/v1/participants');
+  // M11A returns an envelope with count metadata. Keep the UI contract as a
+  // participant array and tolerate the older bare-array response during rollout.
+  if ('participants' in response) return response.participants;
+  return response;
 }
 
 // ─── Attention Projection ────────────────────────────────────
@@ -268,6 +300,13 @@ export async function fetchM11AParticipants(): Promise<readonly ParticipantProje
 export async function fetchM11AAttention(): Promise<readonly AttentionEntry[]> {
   const response = await m11aFetch<{ attention: readonly AttentionEntry[] }>('/api/activity-room/v1/attention');
   return response.attention;
+}
+
+export async function fetchM11ARuntimeQuestions(): Promise<readonly PendingRuntimeQuestionProjection[]> {
+  const response = await m11aFetch<{
+    readonly pendingRuntimeQuestions?: readonly PendingRuntimeQuestionProjection[];
+  }>('/api/activity-room/v1/attention');
+  return response.pendingRuntimeQuestions ?? [];
 }
 
 // ─── Workflow Summary ────────────────────────────────────────

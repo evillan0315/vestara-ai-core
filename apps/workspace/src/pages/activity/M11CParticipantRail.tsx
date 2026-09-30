@@ -20,9 +20,9 @@
  * Presence honesty: M10 never resolves presence today (uniform 'offline'
  * default — "resolved independently" path is unwired). Presence lamps render
  * ONLY for positively-resolved states (online/active/busy/away); otherwise
- * presence is omitted, never inferred from workState. Work state renders
- * from WORK_STATE_CONFIG; the M10 resting value 'available' (absent from
- * the config) carries no information and renders no claim.
+ * presence is omitted, never inferred from workState. Work status renders
+ * from WORK_STATE_CONFIG; the M10 resting value 'available' is presented as
+ * Idle without making a presence claim.
  *
  * Humans and agents share the same component contract.
  */
@@ -97,7 +97,7 @@ function humanizeIdentifier(value: string): string {
 // ─── Shared presentation classes (canonical tokens only) ─────
 
 const TILE_BASE =
-  'grid size-7 shrink-0 place-items-center rounded-[var(--vestara-radius-full)] border font-serif text-sm font-semibold shadow-[var(--vestara-elevation-sm)] [&_svg]:size-[16px]';
+  'ar-participant-avatar grid size-7 shrink-0 place-items-center border font-serif text-sm font-semibold shadow-[var(--vestara-elevation-sm)] [&_svg]:size-[16px]';
 
 function participantTypeLabel(type: string): string {
   switch (type) {
@@ -151,10 +151,11 @@ function M11CParticipantRail({
     // upstream), then recency, then name. Blocked/needs-attention pin top.
     const workRank = (ws: string): number => {
       if (ws === 'blocked' || ws === 'attention-required') return 0;
-      if (ws === 'working') return 1;
+      if (ws === 'building' || ws === 'working' || ws === 'testing' || ws === 'verifying') return 1;
       if (ws === 'waiting') return 2;
       if (ws === 'failed') return 3;
-      return 4;
+      if (ws === 'available' || ws === 'idle') return 4;
+      return 5;
     };
     return [...participants].sort((a, b) => {
       const rank = workRank(a.workState) - workRank(b.workState);
@@ -178,7 +179,10 @@ function M11CParticipantRail({
   // Counts from authoritative workState, not from presence (UNKNOWN).
   // "total" counts projections; "at work" counts working; blocked and
   // attention-required split out so they scan instead of hiding in a sum.
-  const activeCount = participants.filter((p) => p.workState === 'working').length;
+  const activeCount = participants.filter((p) => {
+    const workState = String(p.workState);
+    return workState === 'working' || workState === 'building' || workState === 'testing' || workState === 'verifying';
+  }).length;
   const blockedCount = participants.filter(
     (p) => p.workState === 'blocked' || p.workState === 'attention-required',
   ).length;
@@ -190,10 +194,12 @@ function M11CParticipantRail({
       <div className="ar-rail__sticky-head">
         <div className="ar-rail__head">
         {/* Panel-level staleness honesty (AR-LIVE-001): roster and work
-            state arrive with the snapshot and refresh on reconnect.
-            No per-row repetition. No presence is shown: no presence
-            authority exists. */}
-        <p className="ar-rail__freshness">Snapshot roster · refreshes on reconnect · no presence tracking</p>
+            state arrive with the snapshot and refresh on reconnect. */}
+        <p className="ar-rail__freshness">
+          <span>Roster snapshot</span>
+          <span aria-hidden="true">·</span>
+          <span>Refreshes on reconnect</span>
+        </p>
         <button
           type="button"
           onClick={() => {
@@ -204,7 +210,7 @@ function M11CParticipantRail({
           className={`ar-rail__all ${selectedParticipantId === undefined && !isFiltered ? 'ar-rail__all--active' : ''}`}
           aria-pressed={selectedParticipantId === undefined && !isFiltered}
         >
-          <span className="ar-rail__all-label">Participants</span>
+            <span className="ar-rail__all-label">All participants</span>
           <span className="ar-rail__census">
             <strong>{totalCount}</strong> total{activeCount > 0 ? <> · <strong>{activeCount}</strong> at work</> : ''}{blockedCount > 0 ? <> · <strong className="text-[var(--vestara-status-error)]">{blockedCount} blocked</strong></> : ''}
           </span>
@@ -294,9 +300,8 @@ const ParticipantRow = memo(function ParticipantRow({
   const identity = resolveIdentity(participant);
   const initial = identity.unknown ? '?' : (identity.name.trim()[0] ?? '?').toUpperCase();
 
-  // Work state from the contract config only. The M10 resting value
-  // 'available' is intentionally absent from the config: it carries no
-  // information and renders no claim (never a presence word).
+  // Work state from the projection config only. Idle is a work-state label,
+  // not a presence claim; presence remains independently resolved.
   const work = WORK_STATE_CONFIG[participant.workState];
   const presence = resolvedPresence(participant);
   const membershipLabel = MEMBERSHIP_LABEL[participant.membership] ?? '';
@@ -345,34 +350,36 @@ const ParticipantRow = memo(function ParticipantRow({
               </span>
             )}
           </span>
-          {/* Secondary: model · provider (metadata, never identity) */}
-          {identity.meta && (
-            <span className="mt-0.5 block truncate font-mono text-[10px] text-[var(--vestara-text-muted)]">
-              {identity.meta}
-            </span>
-          )}
-          {/* Tertiary: work state (authoritative) + assignment + membership */}
-          <span className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-[var(--vestara-text-muted)]">
+          {/* Compact secondary line: metadata, work state, assignment, and
+              membership share one scan line and truncate as a unit. */}
+          <span className="mt-0.5 flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[11px] text-[var(--vestara-text-muted)]">
+            {identity.meta && <span className="min-w-0 shrink truncate font-mono text-[10px]">{identity.meta}</span>}
             {presence && (
-              <span className="inline-flex items-center gap-1 capitalize">
+              <span className="inline-flex shrink-0 items-center gap-1 capitalize">
                 <StatusIndicator variant={PRESENCE_VARIANT_CONFIG[presence] ?? 'idle'} size="xs" pulse={false} aria-hidden />
                 {humanizeIdentifier(presence)}
               </span>
             )}
             {work && (
               <span
+                title={work.label}
                 className={`inline-flex items-center gap-1 ${urgentWork ? 'font-semibold text-[var(--vestara-status-error)]' : ''}`}
               >
-                <StatusIndicator variant={work.variant} size="xs" pulse={participant.workState === 'working'} aria-hidden />
+                <StatusIndicator
+                  variant={work.variant}
+                  size="xs"
+                  pulse={String(participant.workState) === 'working' || String(participant.workState) === 'building'}
+                  aria-hidden
+                />
                 {work.label}
               </span>
             )}
             {participant.currentAssignment?.taskTitle && (
-              <span className="max-w-32 truncate" title={participant.currentAssignment.taskTitle}>
+              <span className="min-w-0 truncate" title={participant.currentAssignment.taskTitle}>
                 {participant.currentAssignment.taskTitle}
               </span>
             )}
-            {membershipLabel && <span>{membershipLabel}</span>}
+            {membershipLabel && <span className="shrink-0">{membershipLabel}</span>}
           </span>
         </span>
       </button>
@@ -382,7 +389,7 @@ const ParticipantRow = memo(function ParticipantRow({
           onClick={() => onOpenAgentControl!(participant.participantId)}
           aria-label={`Open agent control for ${identity.name}`}
           title={`Open agent control for ${identity.name}`}
-          className="grid size-8 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-transparent text-[var(--vestara-text-dim)] transition-colors hover:border-[var(--vestara-border-subtle)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+          className="grid size-9 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-transparent text-lg text-[var(--vestara-text-dim)] transition-colors hover:border-[var(--vestara-border-subtle)] hover:text-[var(--vestara-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
         >
           <span aria-hidden="true">→</span>
         </button>

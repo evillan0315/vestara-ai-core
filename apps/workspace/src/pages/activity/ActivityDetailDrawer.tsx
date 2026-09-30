@@ -15,6 +15,9 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer';
+import { WorkspaceOperationalPanel } from '../../components/WorkspaceOperationalPanel';
+import { navIcon } from '../../layouts/workspace-navigation';
+import './ActivityDetailDrawer.css';
 import {
   actorInitials,
   effectAccent,
@@ -22,7 +25,6 @@ import {
   formatRelative,
   kindIcon,
   kindLabel,
-  severityAccent,
   severityBadge,
   severityOfRecord,
 } from './activity-formatters';
@@ -34,6 +36,8 @@ interface ActivityDetailDrawerProps {
   /** Records available to resolve related/corrected ids to readable titles. */
   records?: readonly ActivityRecord[];
 }
+
+type ActivityDetailTab = 'overview' | 'operations' | 'evidence' | 'raw';
 
 /** Resolve an activity id to a short readable title, falling back to the id. */
 function resolveTitle(records: readonly ActivityRecord[] | undefined, id: string): string {
@@ -411,6 +415,7 @@ function technicalRows(record: ActivityRecord): Array<{ label: string; value: st
 
 export default function ActivityDetailDrawer({ record: recordProp, onClose, records }: ActivityDetailDrawerProps) {
   const [fullRecord, setFullRecord] = useState<ActivityRecord | null>(null);
+  const [activeTab, setActiveTab] = useState<ActivityDetailTab>('overview');
 
   // Lazy detail hydration (STREAM-PERF): the list serves truncated projections;
   // when a record is flagged `hasDetails`, fetch the full raw record on demand.
@@ -439,6 +444,10 @@ export default function ActivityDetailDrawer({ record: recordProp, onClose, reco
     };
   }, [recordProp]);
 
+  useEffect(() => {
+    setActiveTab('overview');
+  }, [recordProp?.id]);
+
   const record = fullRecord ?? recordProp;
   const loadingDetails = recordProp?.hasDetails === true && fullRecord === null;
   const severity = record ? severityOfRecord(record) : undefined;
@@ -451,6 +460,23 @@ export default function ActivityDetailDrawer({ record: recordProp, onClose, reco
         record.taskId && `Task ${record.taskId}`,
       ].filter(Boolean)
     : [];
+  const hasOperation = record?.kind === 'tool-call' || record?.kind === 'tool-result';
+  const hasEvidence = (record?.evidenceRefs.length ?? 0) > 0;
+  const hasRelated = Boolean(
+    record &&
+      ((record.relatesTo?.length ?? 0) > 0 ||
+        record.correctionOf !== undefined ||
+        record.workflowId !== undefined ||
+        record.taskId !== undefined ||
+        record.sessionId !== undefined ||
+        record.originConversationId !== undefined),
+  );
+  const tabs: Array<{ id: ActivityDetailTab; label: string }> = [
+    { id: 'overview', label: 'Overview' },
+    ...(hasOperation ? [{ id: 'operations' as const, label: 'Operations' }] : []),
+    ...(hasEvidence ? [{ id: 'evidence' as const, label: 'Evidence' }] : []),
+    { id: 'raw', label: 'Raw data' },
+  ];
 
   return (
     <Drawer
@@ -467,140 +493,133 @@ export default function ActivityDetailDrawer({ record: recordProp, onClose, reco
           </span>
         ) : undefined
       }
-      bodyClassName="px-4 py-3"
+      bodyClassName="activity-detail-drawer-body px-4 py-3"
     >
       {record && (
-        <div className="space-y-3">
-          {/* Human-readable summary first */}
-          <div className="flex items-center gap-2">
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-(--vestara-accent-bg) text-[9px] font-semibold text-(--vestara-text-2)">
-              {actorInitials(record)}
-            </span>
-            <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-(--vestara-text)">
-                {record.actor.displayName || record.actor.id}
-              </div>
-              <div className="text-[9px] text-(--vestara-text-dim)">
-                {record.actor.role ?? record.actor.type} · {formatRelative(record.timestamp)}
-              </div>
-            </div>
-            <span className="ml-auto shrink-0 text-sm text-(--vestara-text-2)">{kindIcon(record.kind)}</span>
-          </div>
-
-          <div
-            className="mt-2 rounded-lg border-l-2 bg-(--vestara-accent-bg) px-3 py-2"
-            style={{ borderLeftColor: severityAccent(severity ?? 'info') }}
-          >
-            {loadingDetails && (
-              <p className="mb-1 text-[10px] text-(--vestara-text-muted)">Loading full details…</p>
-            )}
-            <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <span
-                className={`rounded-full border px-2 py-0.5 text-[10px] font-bold ${
-                  severityBadge(severity ?? 'info')
+        <div className="activity-detail-drawer-content">
+          <div role="tablist" aria-label="Activity detail views" className="activity-detail-tabs flex flex-wrap gap-1 border-b border-[var(--vestara-border-subtle)] pb-2">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeTab === tab.id}
+                className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-(--vestara-accent-bg) text-(--vestara-text)'
+                    : 'text-(--vestara-text-muted) hover:bg-(--vestara-accent-bg) hover:text-(--vestara-text)'
                 }`}
+                onClick={() => setActiveTab(tab.id)}
               >
-                {displayType(record)}
-              </span>
-              {statusForRecord(record) && (
-                <span className="text-[10px] text-(--vestara-text-muted)">{statusForRecord(record)}</span>
-              )}
-            </div>
-            {contextParts.length > 0 && (
-              <div className="mt-1 text-[9px] text-(--vestara-text-dim)">{contextParts.join(' · ')}</div>
-            )}
+                {tab.label}
+              </button>
+            ))}
           </div>
 
-          {renderPrimaryDetails(record)}
+          <div key={record.id} className="activity-detail-tab-content">
+            {activeTab === 'overview' && (
+            <div className="activity-detail-overview space-y-3">
+              <WorkspaceOperationalPanel
+                icon={navIcon('activity')}
+                title={contentLine(record)}
+                description={`${displayType(record)} · ${formatRelative(record.timestamp)}`}
+                actions={
+                  <span className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${severityBadge(severity ?? 'info')}`}>
+                    {statusForRecord(record) ?? 'recorded'}
+                  </span>
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-(--vestara-accent-bg) text-xs font-semibold text-(--vestara-text-2)">
+                    {actorInitials(record)}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-(--vestara-text)">{record.actor.displayName || record.actor.id}</p>
+                    <p className="text-xs text-(--vestara-text-muted)">{record.actor.role ?? record.actor.type}</p>
+                  </div>
+                  <span className="ml-auto shrink-0 text-base text-(--vestara-text-2)">{kindIcon(record.kind)}</span>
+                </div>
+                {loadingDetails && <p className="mt-3 text-xs text-(--vestara-text-muted)">Loading full details…</p>}
+                {contextParts.length > 0 && <p className="mt-3 text-xs text-(--vestara-text-muted)">{contextParts.join(' · ')}</p>}
+              </WorkspaceOperationalPanel>
 
-          {record.evidenceRefs.length > 0 && (
-            <DetailSection title="Evidence">
-              <div className="flex flex-wrap gap-1.5">
+              <WorkspaceOperationalPanel icon={navIcon('files')} title="Activity details" description="Authoritative content and lifecycle information." scrollable className="activity-detail-content-panel">
+                {renderPrimaryDetails(record)}
+                {attentionRows.length > 0 && <FieldGrid rows={attentionRows} />}
+              </WorkspaceOperationalPanel>
+
+              {hasRelated && (
+                <WorkspaceOperationalPanel icon={navIcon('graph')} title="Related entities" description="Only exact identifiers present on this Activity record are shown.">
+                  <FieldGrid
+                    rows={[
+                      { label: 'Workflow run', value: record.workflowId },
+                      { label: 'Task', value: record.taskId },
+                      { label: 'Runtime session', value: record.sessionId },
+                      { label: 'Origin conversation', value: record.originConversationId },
+                      ...(record.correctionOf ? [{ label: 'Correction of', value: resolveTitle(records, record.correctionOf) }] : []),
+                    ]}
+                  />
+                  {record.relatesTo && record.relatesTo.length > 0 && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      {record.relatesTo.map((id) => (
+                        <span key={id} title={id} className="rounded-md border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-1 text-xs text-(--vestara-text-2)">
+                          {resolveTitle(records, id)}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </WorkspaceOperationalPanel>
+              )}
+
+              <WorkspaceOperationalPanel icon={navIcon('settings')} title="Technical details" description="Identifiers and provenance for precise inspection.">
+                <FieldGrid rows={rows} />
+              </WorkspaceOperationalPanel>
+            </div>
+            )}
+
+            {activeTab === 'operations' && hasOperation && (
+            <WorkspaceOperationalPanel icon={navIcon('tools')} title="Operation" description="The selected Activity record carries this exact operation identity." scrollable className="activity-detail-content-panel">
+              <FieldGrid
+                rows={
+                  record.kind === 'tool-call'
+                    ? [
+                        { label: 'Tool', value: record.toolName },
+                        { label: 'Status', value: 'running' },
+                        { label: 'Call ID', value: record.callID },
+                        { label: 'Agent', value: record.agentId },
+                      ]
+                    : [
+                        { label: 'Tool', value: record.toolName },
+                        { label: 'Status', value: record.status },
+                        { label: 'Call ID', value: record.callID },
+                        { label: 'Agent', value: record.agentId },
+                      ]
+                }
+              />
+              {record.output && <div className="mt-3"><ResultBlock value={record.output} /></div>}
+            </WorkspaceOperationalPanel>
+            )}
+
+            {activeTab === 'evidence' && hasEvidence && (
+            <WorkspaceOperationalPanel icon={navIcon('files')} title="Evidence references" description="Exact references carried by the Activity record; not inferred artifacts." scrollable className="activity-detail-content-panel">
+              <div className="flex flex-wrap gap-2">
                 {record.evidenceRefs.map((ref) => (
-                  <span
-                    key={ref}
-                    className="rounded-md border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-0.5 font-mono text-[9px] text-(--vestara-text-2)"
-                  >
+                  <span key={ref} className="rounded-md border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-1 font-mono text-xs text-(--vestara-text-2)">
                     {ref}
                   </span>
                 ))}
               </div>
-            </DetailSection>
-          )}
+            </WorkspaceOperationalPanel>
+            )}
 
-          {record.correctionOf !== undefined && (
-            <DetailSection title="Correction of">
-              <div className="rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5 text-[10px] text-(--vestara-text-2)">
-                {resolveTitle(records, record.correctionOf)}
-              </div>
-            </DetailSection>
-          )}
-
-          {attentionRows.length > 0 && (
-            <div className="mt-3">
-              <h3 className="mb-1 text-[9px] uppercase tracking-widest text-(--vestara-text-dim)">
-                Why It Needs Attention
-              </h3>
-              <div className="space-y-1.5">
-                {attentionRows.map((row) => (
-                  <div
-                    key={row.label}
-                    className="grid grid-cols-[130px_1fr] gap-3 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5"
-                  >
-                    <span className="break-words text-[9px] uppercase tracking-wider text-(--vestara-text-dim)">
-                      {row.label}
-                    </span>
-                    <span className="break-words text-[10px] leading-relaxed text-(--vestara-text-2)">{row.value}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {record.relatesTo !== undefined && record.relatesTo.length > 0 && (
-            <DetailSection title="Related activity">
-              <div className="flex flex-wrap gap-1.5">
-                {record.relatesTo.map((id) => (
-                  <span
-                    key={id}
-                    className="rounded-md border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-0.5 text-[9px] text-(--vestara-text-2)"
-                    title={id}
-                  >
-                    {resolveTitle(records, id)}
-                  </span>
-                ))}
-              </div>
-            </DetailSection>
-          )}
-
-          {/* Technical details — collapsed by default */}
-          <details className="mt-3 rounded-lg border border-(--vestara-accent-border)">
-            <summary className="cursor-pointer select-none px-3 py-2 text-[9px] uppercase tracking-widest text-(--vestara-text-2)">
-              Technical details
-            </summary>
-            <div className="space-y-1.5 px-3 pb-3">
-              {rows.map((row) => (
-                <div
-                  key={row.label}
-                  className="grid grid-cols-[130px_1fr] gap-3 rounded-lg border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-3 py-1.5"
-                >
-                  <span className="break-words text-[9px] uppercase tracking-wider text-(--vestara-text-dim)">
-                    {row.label}
-                  </span>
-                  <span className="break-words text-[10px] leading-relaxed text-(--vestara-text-2)">{row.value}</span>
-                </div>
-              ))}
-
-              <details className="mt-2 rounded-lg border border-(--vestara-accent-border)">
-                <summary className="cursor-pointer select-none px-2 py-1.5 text-[9px] uppercase tracking-widest text-(--vestara-text-2)">
-                  Raw payload
-                </summary>
-                <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words px-3 pb-3 font-mono text-[10px] leading-relaxed text-(--vestara-text-muted)">
-                  {JSON.stringify(record, null, 2)}
-                </pre>
-              </details>
-            </div>
-          </details>
+            {activeTab === 'raw' && (
+            <WorkspaceOperationalPanel icon={navIcon('terminal')} title="Raw data" description="Authoritative payload retained for debugging and evidence inspection." scrollable className="activity-detail-content-panel">
+              <pre className="max-h-[60vh] overflow-auto whitespace-pre-wrap break-words rounded-lg border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] p-3 font-mono text-xs leading-relaxed text-(--vestara-text-muted)">
+                {JSON.stringify(record, null, 2)}
+              </pre>
+            </WorkspaceOperationalPanel>
+            )}
+          </div>
         </div>
       )}
     </Drawer>

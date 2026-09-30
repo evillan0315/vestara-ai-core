@@ -267,6 +267,9 @@ export interface M9ActivityQuery {
   /** Only records after this cursor (exclusive). */
   readonly after?: ActivityCursor;
 
+  /** Only records before this sequence (exclusive), for backward pagination. */
+  readonly beforeSequence?: number;
+
   /** Only records before this timestamp. */
   readonly before?: string;
 
@@ -289,6 +292,9 @@ export interface M9ActivityQuery {
  * 6-kind discriminated union ActivityRecord.
  */
 export interface M9ActivityStore {
+  /** Close the durable connection when the owning process shuts down. */
+  close?(): void;
+
   /**
    * Append a canonical event. Idempotent: same eventId returns existing record.
    * Returns the durable ActivityRecord with assigned sequenceNumber.
@@ -336,4 +342,16 @@ export interface M9ActivityStore {
    * Get the last sequence number. For polling/recovery.
    */
   lastSequence(): Promise<number>;
+
+  /**
+   * Atomically retain the newest records by sequence number.
+   * Older Activity facts are removed; retained IDs and sequence numbers are
+   * never rewritten. Other domain stores are outside this operation.
+   */
+  retainNewest(limit: number): Promise<{
+    readonly deletedCount: number;
+    readonly retainedCount: number;
+    readonly firstRetainedSequence: number | null;
+    readonly lastRetainedSequence: number | null;
+  }>;
 }

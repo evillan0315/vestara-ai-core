@@ -3,10 +3,16 @@
 import { render, screen } from '@testing-library/react';
 import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
-import type { EditExecutionDetail } from '@vestara/shared';
+import type { EditExecutionDetail, WriteExecutionDetail } from '@vestara/shared';
 import { AssistantCodeEdit } from '../../components/assistant/AssistantCodeEdit';
 import { activityRoomUIReducer, INITIAL_STATE } from '../../hooks/useActivityRoomUI';
-import { editInspectionTabs, hasAuthoritativeEditDiff, initialEditInspectionTab } from './activity-edit-inspection';
+import {
+  editInspectionTabs,
+  hasAuthoritativeEditDiff,
+  hasAuthoritativeFileMutationDiff,
+  hasAuthoritativeFileMutationPath,
+  initialEditInspectionTab,
+} from './activity-edit-inspection';
 import { findFileEntryByPath } from './activity-files-navigation';
 
 const editDetail: EditExecutionDetail = {
@@ -26,6 +32,23 @@ const editDetail: EditExecutionDetail = {
 };
 
 const unavailableEdit = { ...editDetail, diffRepresentation: 'unavailable' as const, patch: undefined };
+const writeDetail: WriteExecutionDetail = {
+  contract: 'assistant.execution.v1',
+  version: 1,
+  operationId: 'call-write-1',
+  kind: 'write',
+  state: 'completed',
+  tool: 'write',
+  source: 'opencode',
+  timestamp: 1,
+  file: '.tmp/dogfood.txt',
+  fileProvenance: 'runtime-provided',
+  finalContent: 'final content',
+  contentProvenance: 'runtime-provided',
+  diffRepresentation: 'unavailable',
+  diffProvenance: 'unavailable',
+  beforeAfterProvenance: 'unavailable',
+};
 
 describe('Activity edit file drawer handoff', () => {
   it('opens the Files drawer with the exact resolved edit path', () => {
@@ -64,6 +87,13 @@ describe('Activity edit file drawer handoff', () => {
     expect(editInspectionTabs(unavailableEdit)).toEqual(['current']);
     expect(initialEditInspectionTab(unavailableEdit)).toBe('current');
     expect(hasAuthoritativeEditDiff(unavailableEdit)).toBe(false);
+  });
+
+  it('makes a structured write Open-eligible but never View-diff eligible', () => {
+    expect(hasAuthoritativeFileMutationPath(writeDetail)).toBe(true);
+    expect(hasAuthoritativeFileMutationDiff(writeDetail)).toBe(false);
+    expect(editInspectionTabs(writeDetail)).toEqual(['current']);
+    expect(initialEditInspectionTab(writeDetail)).toBe('current');
   });
 
   it('reconstructs the same inspection target after a fresh drawer mount', () => {

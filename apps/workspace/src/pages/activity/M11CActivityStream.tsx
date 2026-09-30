@@ -386,6 +386,48 @@ export interface StreamCounts {
   readonly rendered: number;
 }
 
+export interface ActivityWindowDiagnostics {
+  readonly recoveredRecordCount: number;
+  readonly listEligibleEntityCount: number;
+  readonly excludedToolRowCount: number;
+  readonly activeFilters: {
+    readonly density: StreamDensity;
+    readonly activeFilter: StreamFilter;
+    readonly typeFilter: TypeFilter;
+    readonly searchQuery: string;
+    readonly startDate: string;
+    readonly endDate: string;
+    readonly selectedParticipantId?: string;
+    readonly workflowFilter?: string | null;
+  };
+  readonly snapshotEntityCount?: number;
+}
+
+/** Diagnostic-only view of the current Activity window; it never changes it. */
+export function computeActivityWindowDiagnostics(
+  items: readonly StreamItemType[],
+  options: StreamFilterOptions,
+  snapshotEntityCount?: number,
+): ActivityWindowDiagnostics {
+  const eligible = applyStreamEligibility(items);
+  return {
+    recoveredRecordCount: items.length,
+    listEligibleEntityCount: eligible.length,
+    excludedToolRowCount: items.length - eligible.length,
+    activeFilters: {
+      density: options.density,
+      activeFilter: options.activeFilter,
+      typeFilter: options.typeFilter,
+      searchQuery: options.searchQuery,
+      startDate: options.startDate ?? '',
+      endDate: options.endDate ?? '',
+      ...(options.selectedParticipantId !== undefined ? { selectedParticipantId: options.selectedParticipantId } : {}),
+      ...(options.workflowFilter !== undefined ? { workflowFilter: options.workflowFilter } : {}),
+    },
+    ...(snapshotEntityCount !== undefined ? { snapshotEntityCount } : {}),
+  };
+}
+
 export function computeStreamCounts(
   items: readonly StreamItemType[],
   options: StreamFilterOptions & { readonly renderWindow?: number; readonly olderLoaded?: number },

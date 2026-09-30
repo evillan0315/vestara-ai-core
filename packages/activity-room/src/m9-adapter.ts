@@ -259,6 +259,9 @@ export interface AgentLifecycleInput {
   /** Agent assignment identity. */
   readonly agentAssignmentId?: string;
 
+  /** Target agent for system-authored runtime lifecycle telemetry. */
+  readonly targetAgentId?: string;
+
   /** Execution context. */
   readonly executionId?: ExecutionId;
 
@@ -294,6 +297,7 @@ export function fromAgentLifecycle(input: AgentLifecycleInput): ActivityEvent {
       ...(typeof input.latencyMs === 'number' ? { latencyMs: input.latencyMs } : {}),
       ...(typeof input.tokens === 'number' ? { tokens: input.tokens } : {}),
       ...(input.conversationId ? { conversationId: input.conversationId } : {}),
+      ...(input.targetAgentId ? { targetAgentId: input.targetAgentId } : {}),
     },
   };
 

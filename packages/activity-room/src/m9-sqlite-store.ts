@@ -140,6 +140,10 @@ export class SqliteActivityStore implements IActivityStore {
       conditions.push('sequence_number > ?');
       params.push(q.after.sequenceNumber);
     }
+    if (q.beforeSequence !== undefined) {
+      conditions.push('sequence_number < ?');
+      params.push(q.beforeSequence);
+    }
     if (q.before !== undefined) {
       conditions.push('timestamp <= ?');
       params.push(q.before);
@@ -152,10 +156,17 @@ export class SqliteActivityStore implements IActivityStore {
     const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
     const limit = q.limit !== undefined ? `LIMIT ${q.limit}` : '';
 
-    const sql = `SELECT * FROM m9_activity_events ${where} ORDER BY sequence_number ASC ${limit}`;
+    // AR-HISTORY-002: backward pagination must return the window immediately
+    // preceding the cursor, not the globally oldest rows. Select newest-first
+    // under the cursor, then restore canonical ascending order for the caller
+    // (parity with the in-memory M9 store's slice(-limit) semantics).
+    const backward = q.beforeSequence !== undefined;
+    const order = backward ? 'DESC' : 'ASC';
+    const sql = `SELECT * FROM m9_activity_events ${where} ORDER BY sequence_number ${order} ${limit}`;
     const rows = this.db.exec(sql, params)[0]?.values ?? [];
 
-    return rows.map((row: unknown[]) => this.rowToRecord(row));
+    const records = rows.map((row: unknown[]) => this.rowToRecord(row));
+    return backward ? records.reverse() : records;
   }
 
   async getAfter(cursor: ActivityCursor): Promise<readonly ActivityRecord[]> {
@@ -218,6 +229,51 @@ export class SqliteActivityStore implements IActivityStore {
   async lastSequence(): Promise<number> {
     const result = this.db.exec('SELECT COALESCE(MAX(sequence_number), 0) FROM m9_activity_events');
     return Number(result[0]?.values?.[0]?.[0] ?? 0);
+  }
+
+  async retainNewest(limit: number): Promise<{
+    readonly deletedCount: number;
+    readonly retainedCount: number;
+    readonly firstRetainedSequence: number | null;
+    readonly lastRetainedSequence: number | null;
+  }> {
+    if (!Number.isInteger(limit) || limit < 1) {
+      throw new Error('Activity retention limit must be a positive integer');
+    }
+
+    const newest =
+      this.db.exec('SELECT sequence_number FROM m9_activity_events ORDER BY sequence_number DESC LIMIT ?', [limit])[0]
+        ?.values ?? [];
+    const count = Number(this.db.exec('SELECT COUNT(*) FROM m9_activity_events')[0]?.values?.[0]?.[0] ?? 0);
+    if (count <= limit) {
+      return {
+        deletedCount: 0,
+        retainedCount: count,
+        firstRetainedSequence: newest.length > 0 ? Number(newest.at(-1)[0]) : null,
+        lastRetainedSequence: newest.length > 0 ? Number(newest[0][0]) : null,
+      };
+    }
+
+    const cutoff = Number(newest.at(-1)[0]);
+    this.db.run('BEGIN IMMEDIATE TRANSACTION');
+    try {
+      this.db.run('DELETE FROM m9_activity_events WHERE sequence_number < ?', [cutoff]);
+      const deletedCount = this.db.getRowsModified();
+      this.db.run('COMMIT');
+      return {
+        deletedCount,
+        retainedCount: count - deletedCount,
+        firstRetainedSequence: cutoff,
+        lastRetainedSequence: Number(newest[0][0]),
+      };
+    } catch (error) {
+      try {
+        this.db.run('ROLLBACK');
+      } catch {
+        /* Preserve the original failure if rollback also fails. */
+      }
+      throw error;
+    }
   }
 
   // ─── Private Helpers ──────────────────────────────────────

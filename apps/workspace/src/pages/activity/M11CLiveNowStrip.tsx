@@ -7,7 +7,7 @@
  *
  * Scan-first derivation (presence is UNKNOWN upstream — M10 never resolves
  * it, so presence-only filtering collapses in production): a participant is
- * "live" when their workState is working/blocked/attention-required, or
+ * "live" when their workState is active, blocked/attention-required, or
  * when they produced stream content within LIVE_WINDOW_MS. Presence lamps
  * render only for positively-resolved states; work state is authoritative.
  *
@@ -29,6 +29,8 @@ interface LiveNowStripProps {
   readonly participants: readonly ParticipantProjection[];
   /** Recent stream items (last N) to derive live narrative. */
   readonly stream: readonly M11CStreamItem[];
+  readonly onSelectParticipant?: (participantId: string) => void;
+  readonly onSelectWorkflow?: (workflowId: string) => void;
 }
 
 interface LiveParticipant {
@@ -37,6 +39,7 @@ interface LiveParticipant {
   readonly role: string | undefined;
   readonly workState: string;
   readonly urgent: boolean;
+  readonly activityLabel: 'Working' | 'Recent';
   readonly latestContent: string;
   readonly latestTimestamp: string;
   readonly workflowRunId?: string;
@@ -89,6 +92,8 @@ function deriveLatestContent(
 export default function M11CLiveNowStrip({
   participants,
   stream,
+  onSelectParticipant,
+  onSelectWorkflow,
 }: LiveNowStripProps) {
   // Work state is authoritative; presence is UNKNOWN upstream so it never
   // gates visibility. A participant is live when working/blocked/needs
@@ -97,8 +102,8 @@ export default function M11CLiveNowStrip({
     const now = Date.now();
     const result: LiveParticipant[] = [];
     for (const p of participants) {
-      const ws = p.workState;
-      const working = ws === 'working' || ws === 'blocked' || ws === 'attention-required';
+      const ws = String(p.workState);
+      const working = ws === 'working' || ws === 'building' || ws === 'testing' || ws === 'verifying';
       const latest = deriveLatestContent(p.participantId, stream);
       const recentByStream = latest
         ? now - new Date(latest.timestamp).getTime() < LIVE_WINDOW_MS
@@ -114,6 +119,7 @@ export default function M11CLiveNowStrip({
         role: p.role,
         workState: ws,
         urgent: ws === 'blocked' || ws === 'attention-required',
+        activityLabel: working ? 'Working' : 'Recent',
         latestContent: latest.content,
         latestTimestamp: latest.timestamp,
         workflowRunId: latest.workflowRunId,
@@ -147,15 +153,25 @@ export default function M11CLiveNowStrip({
     >
       <div className="ar-live-now__items">
         {visible.map((p) => (
-          <div
+          <button
+            type="button"
             key={p.participantId}
             className="ar-live-now__item"
+            onClick={() => {
+              if (p.workflowRunId && onSelectWorkflow) {
+                onSelectWorkflow(p.workflowRunId);
+                return;
+              }
+              onSelectParticipant?.(p.participantId);
+            }}
+            disabled={!onSelectParticipant && !(p.workflowRunId && onSelectWorkflow)}
+            aria-label={`Open ${p.workflowRunId ? `workflow ${p.workflowRunId}` : p.displayName} activity`}
             title={`${p.displayName} · ${p.workState} · ${formatAgo(p.latestTimestamp)}${p.workflowRunId ? ` · workflow ${p.workflowRunId}` : ''}`}
           >
             <StatusIndicator
               variant={p.urgent ? 'warn' : 'live'}
               size="xs"
-              pulse
+              pulse={p.urgent}
               ariaLabel={p.urgent ? `${p.displayName} needs attention` : `${p.displayName} live`}
             />
             <span className="ar-live-now__name">
@@ -165,7 +181,7 @@ export default function M11CLiveNowStrip({
               )}
             </span>
             <span className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-1.5 text-[10px] font-bold uppercase tracking-[0.12em] text-[var(--vestara-text-muted)]">
-              {p.urgent ? p.workState : 'Live'}
+              {p.urgent ? (p.workState === 'blocked' ? 'Blocked' : 'Needs attention') : p.activityLabel}
             </span>
             {p.workflowRunId && (
               <span
@@ -181,7 +197,7 @@ export default function M11CLiveNowStrip({
             <span className="shrink-0 text-[10px] tabular-nums text-[var(--vestara-text-dim)]">
               {formatAgo(p.latestTimestamp)}
             </span>
-          </div>
+          </button>
         ))}
         {overflow > 0 && (
           <div className="ar-live-now__item ar-live-now__overflow" aria-label={`${overflow} more live participants`}>

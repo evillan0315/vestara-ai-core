@@ -15,10 +15,8 @@ import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ScreenshotMonitorOutlinedIcon from '@mui/icons-material/ScreenshotMonitorOutlined';
 import TerminalOutlinedIcon from '@mui/icons-material/TerminalOutlined';
-import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
-import CameraAltOutlinedIcon from '@mui/icons-material/CameraAltOutlined';
-import FileDownloadOutlinedIcon from '@mui/icons-material/FileDownloadOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
+import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded';
 import type { ReactNode } from 'react';
 import { useState } from 'react';
 import type { M11CStreamItem } from '../../hooks/useM11CActivityRoom';
@@ -27,7 +25,11 @@ import { SIZING } from '@vestara/ui-tokens';
 import { ActionIcon, Pill, StatusIndicator } from '@vestara/ui';
 import { VestaraModal } from '../../components/ui/VestaraModal';
 import { formatRelative } from './activity-formatters';
-import { CONNECTION_STATUS_CONFIG } from './status-config';
+import {
+  ACTIVITY_DATA_STATUS_CONFIG,
+  CONNECTION_STATUS_CONFIG,
+  activityDataStatus,
+} from './status-config';
 import { CodexRuntimeActivityCard } from '../../components/codex/CodexRuntimeActivityCard';
 import { useSessionStatus } from '../../hooks/useSessionStatus';
 
@@ -42,13 +44,13 @@ interface ActivityRoomContextPanelProps {
   readonly activeAgentCount: number;
   /** Connection state for stream status. */
   readonly connectionState: M11CConnectionState;
-  readonly onBroadcast?: () => void;
-  readonly onSnapshot?: () => void;
-  readonly onExport?: () => void;
+  readonly dataAvailable: boolean;
+  readonly snapshotComplete: boolean;
   readonly onSettings?: () => void;
   readonly onTerminal?: () => void;
   readonly onFiles?: () => void;
   readonly onBrowser?: () => void;
+  readonly onInventory?: () => void;
   /** Attach a saved screenshot file to the composer as a file reference. */
   readonly onReferenceScreenshot?: (file: { name: string; path: string }) => void;
 }
@@ -205,13 +207,13 @@ export default function ActivityRoomContextPanel({
   participantCount,
   activeAgentCount,
   connectionState,
-  onBroadcast,
-  onSnapshot,
-  onExport,
+  dataAvailable,
+  snapshotComplete,
   onSettings,
   onTerminal,
   onFiles,
   onBrowser,
+  onInventory,
   onReferenceScreenshot,
 }: ActivityRoomContextPanelProps) {
   // DERIVABLE: total events from stream length
@@ -222,6 +224,7 @@ export default function ActivityRoomContextPanel({
 
   // READY: connection status from room.state
   const statusConfig = CONNECTION_STATUS_CONFIG[connectionState] ?? CONNECTION_STATUS_CONFIG.offline;
+  const dataConfig = ACTIVITY_DATA_STATUS_CONFIG[activityDataStatus(dataAvailable, snapshotComplete)];
 
   const [shotBusy, setShotBusy] = useState(false);
   const [shotError, setShotError] = useState<string | null>(null);
@@ -322,13 +325,11 @@ export default function ActivityRoomContextPanel({
       <div className="ar-context__section ar-context__controls">
         <div className="ar-context__section-header"><h2 className="ar-context__title">Operation Controls</h2></div>
         <div className="ar-context__actions">
-          <OperationTile label="Broadcast" icon={<SendOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onBroadcast} unavailableHint="Broadcast is not wired in this view" />
-          <OperationTile label="Snapshot" icon={<CameraAltOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onSnapshot} unavailableHint="Snapshot is not wired in this view" />
-          <OperationTile label="Export" icon={<FileDownloadOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onExport} unavailableHint="Export is not wired in this view" />
           <OperationTile label="Settings" icon={<SettingsOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onSettings} unavailableHint="Settings is not wired in this view" />
           <OperationTile label="Terminal" icon={<TerminalOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onTerminal} />
           <OperationTile label="Files" icon={<FolderOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onFiles} />
           <OperationTile label="Browser" icon={<PublicOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onBrowser} />
+          <OperationTile label="Inventory" icon={<Inventory2RoundedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />} onClick={onInventory} />
           <OperationTile
             label={shotBusy ? 'Capturing…' : 'Screenshot'}
             icon={<ScreenshotMonitorOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />}
@@ -389,8 +390,12 @@ export default function ActivityRoomContextPanel({
           </VestaraModal>
         )}
       </div>
-      {/* ── Activity Metrics ────────────────────────────────── */}
-      <div className="ar-context__section">
+      {/* Header owns the primary operational counts. Keep historical context
+          available, but quiet, so the right rail does not compete with live
+          attention and workflow signals. */}
+      <details className="ar-context__details">
+        <summary className="ar-context__details-summary">Context details</summary>
+        <div className="ar-context__section ar-context__section--nested">
         <div className="ar-context__section-header">
           <h3 className="ar-context__title">Activity Metrics</h3>
         </div>
@@ -423,10 +428,10 @@ export default function ActivityRoomContextPanel({
             </div>
           </div>
         </div>
-      </div>
+        </div>
 
       {/* ── Recent Operations ───────────────────────────────── */}
-      <div className="ar-context__section">
+      <div className="ar-context__section ar-context__section--nested">
         <div className="ar-context__section-header">
           <h3 className="ar-context__title">Recent Operations</h3>
         </div>
@@ -455,6 +460,7 @@ export default function ActivityRoomContextPanel({
           )}
         </div>
       </div>
+      </details>
 
       {/* ── OpenCode Sessions ───────────────────────────────── */}
       {sessionEntries.length > 0 && (
@@ -506,10 +512,10 @@ export default function ActivityRoomContextPanel({
             variant={statusConfig.variant}
             size="xs"
             pulse={connectionState === 'live'}
-            ariaLabel={`Activity Stream: ${statusConfig.label}`}
+            ariaLabel={`Live Activity stream: ${statusConfig.label}`}
           />
           <span className="ar-context__stream-status-label">
-            Activity Stream
+            Live Activity Stream
           </span>
           <span className={`ar-context__stream-status-state ar-context__stream-status-state--${statusConfig.variant}`}>
             {statusConfig.label}
@@ -517,9 +523,10 @@ export default function ActivityRoomContextPanel({
         </div>
         <ul className="ar-system-status" aria-label="System status details">
           <li><StatusIndicator variant="live" size="xs" ariaLabel="OpenCode runtime connected" /><span>OpenCode Runtime</span><strong>Connected</strong></li>
-          <li><StatusIndicator variant={connectionState === 'live' ? 'live' : 'warn'} size="xs" ariaLabel="Event stream status" /><span>Event Stream</span><strong>{statusConfig.label}</strong></li>
+          <li><StatusIndicator variant={connectionState === 'live' ? 'live' : 'warn'} size="xs" ariaLabel="Live Activity stream status" /><span>Live Activity Stream</span><strong>{statusConfig.label}</strong></li>
+          <li><StatusIndicator variant={dataConfig.variant} size="xs" ariaLabel="Activity data status" /><span>Activity Data</span><strong>{dataConfig.label}</strong></li>
           <li><StatusIndicator variant="live" size="xs" ariaLabel="Workspace index current" /><span>Workspace Index</span><strong>Up to date</strong></li>
-          <li><StatusIndicator variant="live" size="xs" ariaLabel="WebSocket stable" /><span>WebSocket</span><strong>Stable</strong></li>
+          <li><StatusIndicator variant={dataConfig.variant} size="xs" ariaLabel="Activity snapshot status" /><span>Activity Snapshot</span><strong>{dataConfig.label}</strong></li>
         </ul>
       </div>
     </div>

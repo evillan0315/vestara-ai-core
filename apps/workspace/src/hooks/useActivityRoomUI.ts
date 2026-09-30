@@ -12,7 +12,7 @@
  */
 
 import { useCallback, useReducer } from 'react';
-import type { EditExecutionDetail } from '@vestara/shared';
+import type { FileMutationExecutionDetail } from '@vestara/shared';
 import type { M11CStreamItem } from './useM11CActivityRoom';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export interface ActivityRoomUIState {
   /** Exact workspace-relative file path requested by an Activity operation. */
   readonly filesDrawerPath: string | null;
   /** Resolved edit observation currently inspected in the Files drawer. */
-  readonly filesDrawerEdit: EditExecutionDetail | null;
+  readonly filesDrawerEdit: FileMutationExecutionDetail | null;
   /** Files drawer dock edge — flips left ↔ right on toolbar toggle. */
   readonly filesDrawerPosition: 'left' | 'right';
   /** Settings drawer — display preferences for the Activity Room. */
@@ -78,7 +78,7 @@ type Action =
   | { readonly type: 'DOCK_TERMINAL_DRAWER'; readonly position: 'bottom' | 'top' | 'left' | 'right' }
   | { readonly type: 'TOGGLE_FILES_DRAWER' }
   | { readonly type: 'OPEN_FILES_DRAWER'; readonly path: string }
-  | { readonly type: 'INSPECT_EDIT_IN_FILES'; readonly detail: EditExecutionDetail }
+  | { readonly type: 'INSPECT_EDIT_IN_FILES'; readonly detail: FileMutationExecutionDetail }
   | { readonly type: 'CYCLE_FILES_DRAWER' }
   | { readonly type: 'DOCK_FILES_DRAWER'; readonly position: 'left' | 'right' }
   | { readonly type: 'TOGGLE_SETTINGS_DRAWER' }
@@ -277,7 +277,7 @@ export function useActivityRoomUI() {
   const toggleFilesDrawer = useCallback(() => dispatch({ type: 'TOGGLE_FILES_DRAWER' }), []);
   const openFilesDrawer = useCallback((path: string) => dispatch({ type: 'OPEN_FILES_DRAWER', path }), []);
   const inspectEditInFiles = useCallback(
-    (detail: EditExecutionDetail) => dispatch({ type: 'INSPECT_EDIT_IN_FILES', detail }),
+    (detail: FileMutationExecutionDetail) => dispatch({ type: 'INSPECT_EDIT_IN_FILES', detail }),
     [],
   );
   const cycleFilesDrawer = useCallback(() => dispatch({ type: 'CYCLE_FILES_DRAWER' }), []);

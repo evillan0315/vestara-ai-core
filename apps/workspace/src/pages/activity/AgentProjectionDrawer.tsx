@@ -27,7 +27,7 @@ import { Tabs } from '@vestara/ui';
 import { AgentStatusBadge } from '../../components/ui/agents/AgentStatusBadge';
 import { deriveCategory, CATEGORY_ICONS, CATEGORY_COLORS } from '../../components/ui/agents/deriveCategory';
 import { getAgentColor } from '../../components/ui/agents/agentColors';
-import { ProviderModelPicker } from '../../components/ui/agents/ProviderModelPicker';
+import { ProviderModelSelector } from '../../components/ui/ProviderModelSelector';
 import { buttonPrimaryClass, buttonSecondaryClass } from '../../components/ui/agents/formClasses';
 import { FormField, TextInput, TextArea, Select, MultiSelect } from '../../components/ui/forms';
 import type { ParticipantProjection } from '@vestara/activity-room';
@@ -336,13 +336,16 @@ function ConfigurationTab({ agent, teams, draft, updateDraft, validationErrors, 
       </FormField>
 
       <FormField label="Provider / Model">
-        <ProviderModelPicker
-          providerId={draft.provider}
-          modelId={draft.model}
-          onChange={(p, m) => {
-            updateDraft('provider', p);
-            updateDraft('model', m);
+        <p className="mb-2 text-[10px] leading-relaxed text-(--vestara-text-muted)">
+          Same configured OpenCode working set the Global Assistant uses — includes Codex-capable models when configured.
+        </p>
+        <ProviderModelSelector
+          value={{ providerId: draft.provider, modelId: draft.model }}
+          onChange={(value) => {
+            updateDraft('provider', value.providerId);
+            updateDraft('model', value.modelId);
           }}
+          placement="below"
         />
       </FormField>
 

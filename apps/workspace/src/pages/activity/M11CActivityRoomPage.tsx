@@ -28,7 +28,11 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useM11CActivityRoom, type M11CStreamItem } from '../../hooks/useM11CActivityRoom';
+import {
+  snapshotCompletionMessage,
+  useM11CActivityRoom,
+  type M11CStreamItem,
+} from '../../hooks/useM11CActivityRoom';
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
@@ -43,14 +47,12 @@ import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
-import AddOutlinedIcon from '@mui/icons-material/AddOutlined';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
 import SouthOutlinedIcon from '@mui/icons-material/SouthOutlined';
-import CleaningServicesOutlinedIcon from '@mui/icons-material/CleaningServicesOutlined';
-import DeleteOutlineOutlinedIcon from '@mui/icons-material/DeleteOutlineOutlined';
 import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
+import GroupOutlinedIcon from '@mui/icons-material/GroupOutlined';
 import M11CActivityStream, {
   AttentionMaterialIcon,
   attentionStatusLabel,
@@ -62,15 +64,15 @@ import { SIZING } from '@vestara/ui-tokens';
 import M11CParticipantRail from './M11CParticipantRail';
 import M11CLiveNowStrip from './M11CLiveNowStrip';
 import M11CWorkflowBrowser, { deriveWorkflowUnits, hasActiveWork } from './M11CWorkflowBrowser';
-import { WORKFLOW_STATUS_CONFIG } from './status-config';
+import { LIVE_STREAM_RECONNECT_LABEL, WORKFLOW_STATUS_CONFIG, WORK_STATE_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 import ActivityRoomHeader from './ActivityRoomHeader';
 import Drawer from '../../components/ui/Drawer';
-import TerminalWorkspace, { type TerminalWorkspaceApi } from '../../components/terminal/TerminalWorkspace';
-import ActivityFilesPanel from './ActivityFilesPanel';
 import ActivitySettingsPanel from './ActivitySettingsPanel';
 import ActivityBrowserPanel from './ActivityBrowserPanel';
-import { ActivityDrawerDockControls, ActivityDrawerHeaderActions } from './ActivityDrawerHeaderActions';
+import M11CRuntimeQuestionNotice from './M11CRuntimeQuestionNotice';
+import { useGlobalDrawer } from '../../contexts/GlobalDrawerContext';
+import InventoryDrawer from '../../components/inventory/InventoryDrawer';
 
 function formatFreshness(timestamp: number | null, now: number): string {
   if (timestamp === null) return 'Waiting for first update';
@@ -206,14 +208,14 @@ export default function M11CActivityRoomPage() {
   const [steerConversationId, setSteerConversationId] = useState<string | null>(null);
   const [steerRequestId, setSteerRequestId] = useState<string | null>(null);
   const room = useM11CActivityRoom();
+  const snapshotIncomplete = room.error === snapshotCompletionMessage(false);
   const ui = useActivityRoomUI();
   const [selectedParticipantId, setSelectedParticipantId] = useState<string | undefined>(undefined);
-  // Imperative bridge to the drawer-hosted terminal workspace (session
-  // actions live there; the drawer header only triggers them).
-  const terminalApi = useRef<TerminalWorkspaceApi | null>(null);
+  const globalDrawer = useGlobalDrawer();
   // Scan-first scope: attention banner focuses the stream preset; workflow
   // badges/browser rows scope the stream to one workflow. Both clearable.
   const [attentionFocus, setAttentionFocus] = useState(false);
+  const [inventoryOpen, setInventoryOpen] = useState(false);
   // Composer reference attachments: structured AttentionEntry objects the
   // user attached from Needs Attention rows. Sent as referencedActivityIds
   // (existing canonical contract) — never pasted text, never auto-sent.
@@ -245,14 +247,13 @@ export default function M11CActivityRoomPage() {
   // Drawer shortcuts (Activity Room scope only): backtick toggles Terminal,
   // Ctrl/⌘+B toggles Files, Ctrl/⌘+, toggles Settings. Typing surfaces
   // (inputs, composer, xterm helper textarea) are never hijacked.
-  const { toggleTerminalDrawer, toggleFilesDrawer, toggleSettingsDrawer, toggleBrowserDrawer } = ui;
+  const { toggleSettingsDrawer, toggleBrowserDrawer } = ui;
+  useEffect(() => {
+    globalDrawer.registerActivityAttachmentHandler(ui.addFileAttachment);
+    return () => globalDrawer.registerActivityAttachmentHandler(null);
+  }, [globalDrawer.registerActivityAttachmentHandler, ui.addFileAttachment]);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'b') {
-        e.preventDefault();
-        toggleFilesDrawer();
-        return;
-      }
       if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.key === ',') {
         e.preventDefault();
         toggleSettingsDrawer();
@@ -263,22 +264,10 @@ export default function M11CActivityRoomPage() {
         toggleBrowserDrawer();
         return;
       }
-      const target = e.target as HTMLElement | null;
-      const typing =
-        !!target &&
-        (target.tagName === 'INPUT' ||
-          target.tagName === 'TEXTAREA' ||
-          target.isContentEditable ||
-          target.getAttribute('role') === 'textbox');
-      if (typing || e.ctrlKey || e.metaKey || e.altKey) return;
-      if (e.key === '`') {
-        e.preventDefault();
-        toggleTerminalDrawer();
-      }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [toggleTerminalDrawer, toggleFilesDrawer, toggleSettingsDrawer, toggleBrowserDrawer]);
+  }, [toggleSettingsDrawer, toggleBrowserDrawer]);
 
   // ─── Agent Control Drawer ─────────────────────────────────
 
@@ -298,10 +287,26 @@ export default function M11CActivityRoomPage() {
 
   // ─── Derived counts for context panel ──────────────────────
 
-  // Derive "at work" from authoritative workState, not from presence (which is UNKNOWN).
-  const activeAgentCount = useMemo(
+  // Derive operational buckets from authoritative workState, not presence.
+  // Keep working and blocked separate so the summary band cannot imply that
+  // blocked agents are healthy active work.
+  const workingAgentCount = useMemo(
     () => room.participants.filter(
-      (p) => p.type !== 'human' && (p.workState === 'working' || p.workState === 'blocked' || p.workState === 'attention-required'),
+      (p) => {
+        const workState = String(p.workState);
+        return p.type !== 'human' && (
+          workState === 'working' ||
+          workState === 'building' ||
+          workState === 'testing' ||
+          workState === 'verifying'
+        );
+      },
+    ).length,
+    [room.participants],
+  );
+  const blockedAgentCount = useMemo(
+    () => room.participants.filter(
+      (p) => p.type !== 'human' && (p.workState === 'blocked' || p.workState === 'attention-required'),
     ).length,
     [room.participants],
   );
@@ -454,9 +459,9 @@ export default function M11CActivityRoomPage() {
     room.state === 'connecting' ? 'Connecting' :
     room.state === 'live' ? 'Live' :
     room.state === 'reconnecting' ? 'Reconnecting' :
-    room.state === 'offline' ? 'Offline' :
+    room.state === 'offline' ? 'Disconnected' :
     room.state === 'paused' ? 'Paused' :
-    room.state === 'error' ? 'Offline' :
+    room.state === 'error' ? 'Disconnected' :
     'Unknown';
 
   // ─── Room name ──────────────────────────────────────────
@@ -469,6 +474,14 @@ export default function M11CActivityRoomPage() {
   // exactly as the browser defines it, or the latest summary is running.
   const workflowUnits = useMemo(() => deriveWorkflowUnits(room.stream), [room.stream]);
   const hasActiveWorkflows = hasActiveWork(workflowUnits, room.workflowSummary);
+  const criticalAttentionCount = room.attention.filter((entry) => entry.severity === 'critical').length;
+  const runningWorkflowCount = workflowUnits.filter((unit) => unit.status === 'running').length
+    + (room.workflowSummary?.status === 'running' && workflowUnits.every((unit) => unit.workflowId !== room.workflowSummary?.workflowRunId) ? 1 : 0);
+  const scopeLabel = workflowFilter
+    ? `Workflow ${workflowFilter.slice(0, 12)}`
+    : selectedParticipantId
+      ? participantNames[selectedParticipantId] ?? 'Participant'
+      : undefined;
   const activityLoading = room.lastUpdatedAt === null && room.state === 'connecting';
   // Root gap-* matches Files/Settings page containers: canonical section
   // spacing between hero, launchers, and the working area.
@@ -486,6 +499,20 @@ export default function M11CActivityRoomPage() {
         cursor={room.cursor?.sequenceNumber}
         unread={room.unread}
         lastUpdatedAt={room.lastUpdatedAt}
+        dataAvailable={room.room !== null}
+        snapshotComplete={room.snapshotComplete}
+        attentionCount={room.attention.length}
+        criticalAttentionCount={criticalAttentionCount}
+        workingAgentCount={workingAgentCount}
+        blockedAgentCount={blockedAgentCount}
+        workflowCount={workflowUnits.length}
+        runningWorkflowCount={runningWorkflowCount}
+        onFocusAttention={() => setAttentionFocus((value) => !value)}
+        scopeLabel={scopeLabel}
+        onClearScope={() => {
+          setSelectedParticipantId(undefined);
+          setWorkflowFilter(null);
+        }}
         onPause={room.paused ? room.resume : room.pause}
         onClear={room.clear}
       />
@@ -545,8 +572,15 @@ export default function M11CActivityRoomPage() {
               <div className="ar-banner ar-banner--warn my-[var(--vestara-spacing-section)]" role="alert">
                 <StatusIndicator variant="warn" size="sm" ariaLabel="Warning" />
                 <span className="min-w-0 flex-1">{room.error}</span>
-                <Pill variant="danger" size="sm" onClick={room.retry}>
-                  Reconnect
+                <Pill
+                  variant={snapshotIncomplete ? 'gold' : 'danger'}
+                  size="sm"
+                  onClick={snapshotIncomplete ? () => void room.loadOlder() : room.retry}
+                  disabled={snapshotIncomplete && room.loadingHistory}
+                >
+                  {snapshotIncomplete
+                    ? room.loadingHistory ? 'Loading older…' : 'Load older history'
+                    : LIVE_STREAM_RECONNECT_LABEL}
                 </Pill>
               </div>
             )}
@@ -596,6 +630,7 @@ export default function M11CActivityRoomPage() {
                 </button>
               );
             })()}
+            <M11CRuntimeQuestionNotice questions={room.pendingRuntimeQuestions} />
           </>
         )}
         rail={(
@@ -616,12 +651,15 @@ export default function M11CActivityRoomPage() {
             <ActivityRoomContextPanel
               stream={room.stream}
               participantCount={room.participants.length}
-              activeAgentCount={activeAgentCount}
+              activeAgentCount={workingAgentCount}
               connectionState={room.state}
-              onTerminal={ui.cycleTerminalDrawer}
-              onFiles={ui.cycleFilesDrawer}
+              dataAvailable={room.room !== null}
+              snapshotComplete={room.snapshotComplete}
+              onTerminal={() => globalDrawer.toggleDrawer('terminal')}
+              onFiles={() => globalDrawer.toggleDrawer('files')}
               onBrowser={ui.cycleBrowserDrawer}
               onSettings={ui.cycleSettingsDrawer}
+              onInventory={() => setInventoryOpen(true)}
               onReferenceScreenshot={(file) =>
                 ui.addFileAttachment({ id: `shot-${Date.now()}`, name: file.name, path: file.path })
               }
@@ -635,6 +673,8 @@ export default function M11CActivityRoomPage() {
           <M11CLiveNowStrip
             participants={room.participants}
             stream={room.stream}
+            onSelectParticipant={handleSelectParticipant}
+            onSelectWorkflow={handleSelectWorkflow}
           />
 
           {/* Active-work strip: inline fallback where the right workflows
@@ -661,6 +701,7 @@ export default function M11CActivityRoomPage() {
             unread={room.unread}
             loadingHistory={room.loadingHistory}
             olderLoaded={room.olderLoaded}
+            hasMoreHistory={room.hasMoreHistory}
             loading={room.state === 'connecting'}
             onLoadOlder={room.loadOlder}
             onReportViewport={room.reportViewport}
@@ -678,7 +719,7 @@ export default function M11CActivityRoomPage() {
             onSubmitResponse={room.submitResponse}
             participantNames={participantNames}
             participantModels={participantModels}
-            onInspectEdit={ui.inspectEditInFiles}
+            onInspectEdit={globalDrawer.inspectFileEdit}
             onSteerTurn={(conversationId) => {
               setSteerConversationId(conversationId);
               setSteerRequestId(crypto.randomUUID());
@@ -695,6 +736,8 @@ export default function M11CActivityRoomPage() {
             onAttachAttention={handleAttachAttention}
             workflowFilter={workflowFilter}
             onSelectWorkflow={handleSelectWorkflow}
+            onClearParticipantFilter={() => setSelectedParticipantId(undefined)}
+            onClearWorkflowFilter={() => setWorkflowFilter(null)}
             streamHeading={workflowFilter ? 'Workflow activity' : selectedParticipantId === undefined ? 'Activity Stream' : `Activity for ${participantNames[selectedParticipantId] ?? 'selected participant'}`}
             streamHeaderAction={
               <span className="ar-panel__hint flex items-center gap-2">
@@ -818,103 +861,6 @@ export default function M11CActivityRoomPage() {
           participant={agentControlParticipant}
         />
       )}
-      {/* Terminal Drawer — docks bottom, flips to top on toolbar toggle.
-          Stays mounted while open so the session survives the flip. The
-          workspace toolbar is hidden here; its actions live in this header. */}
-      {ui.terminalDrawerOpen && (
-        <Drawer
-          open
-          onClose={ui.toggleTerminalDrawer}
-          title="Terminal"
-          position={ui.terminalDrawerPosition}
-          defaultSize="large"
-          portal
-          panelClassName="ar-terminal-drawer"
-          bodyClassName="ar-terminal-drawer__body"
-          hideBackdrop
-          header={
-            <ActivityDrawerHeaderActions
-              label="Terminal actions"
-              dockControls={
-                <ActivityDrawerDockControls
-                  current={ui.terminalDrawerPosition}
-                  positions={['left', 'bottom', 'right', 'top']}
-                  label="Terminal drawer position"
-                  onDock={(position) => {
-                    if (position === 'left' || position === 'bottom' || position === 'right' || position === 'top') {
-                      ui.dockTerminalDrawer(position);
-                    }
-                  }}
-                />
-              }
-            >
-              <ActionIcon
-                label="New terminal session"
-                icon={<AddOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
-                tone="muted"
-                size="sm"
-                onClick={() => terminalApi.current?.newSession()}
-              />
-              <ActionIcon
-                label="Clear terminal"
-                icon={<CleaningServicesOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
-                tone="muted"
-                size="sm"
-                onClick={() => terminalApi.current?.clearActive()}
-              />
-              <ActionIcon
-                label="Kill terminal session"
-                icon={<DeleteOutlineOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} />}
-                tone="destructive"
-                size="sm"
-                onClick={() => terminalApi.current?.killActive()}
-              />
-            </ActivityDrawerHeaderActions>
-          }
-        >
-          {/* Full terminal workspace (same component as the Terminal page):
-              server sessions, tabs, and backend-piped I/O. */}
-          <div className="h-full min-h-0 w-full">
-            <TerminalWorkspace ref={terminalApi} hideToolbar />
-          </div>
-        </Drawer>
-      )}
-      {/* Files Drawer — docks left, flips to right on toolbar toggle.
-          Same production workspace as the Files page (no parallel browser). */}
-      {ui.filesDrawerOpen && (
-        <Drawer
-          open
-          onClose={ui.toggleFilesDrawer}
-          title="Files"
-          position={ui.filesDrawerPosition}
-          defaultSize="medium"
-          portal
-          hideBackdrop
-          header={
-            <ActivityDrawerHeaderActions
-              label="Files actions"
-              dockControls={
-                <ActivityDrawerDockControls
-                  current={ui.filesDrawerPosition}
-                  positions={['left', 'right']}
-                  label="Files drawer position"
-                  onDock={(position) => {
-                    if (position === 'left' || position === 'right') ui.dockFilesDrawer(position);
-                  }}
-                />
-              }
-            />
-          }
-        >
-          <div className="h-full min-h-0 w-full">
-            <ActivityFilesPanel
-              onAttachToComposer={ui.addFileAttachment}
-              openPath={ui.filesDrawerPath}
-              editDetail={ui.filesDrawerEdit}
-            />
-          </div>
-        </Drawer>
-      )}
       {/* Settings Drawer — docks right, flips to left on toolbar toggle.
           Full-size takeover; same General surface as the Settings page. */}
       {ui.settingsDrawerOpen && (
@@ -931,6 +877,7 @@ export default function M11CActivityRoomPage() {
           </div>
         </Drawer>
       )}
+      <InventoryDrawer open={inventoryOpen} onClose={() => setInventoryOpen(false)} />
       {/* Browser Drawer — embeds the existing agent-browser dashboard only.
           Opening this drawer does not create or navigate browser sessions. */}
       {ui.browserDrawerOpen && (
@@ -1295,7 +1242,7 @@ function M11CComposer({
         label,
         role: p?.role,
         meta,
-        state: p?.workState,
+        state: p?.workState ? WORK_STATE_CONFIG[p.workState]?.label : undefined,
       });
     }
     return entries;
@@ -1475,13 +1422,29 @@ function M11CComposer({
        )}
         <div className="mt-[var(--vestara-spacing-element)] flex min-w-0 flex-wrap items-center justify-between gap-[var(--vestara-spacing-element)] border-t border-[var(--vestara-accent-border)] pt-[var(--vestara-spacing-element)]">
          {/* Target: live @mention preview, presented truthfully */}
-         <span
-           className="ar-composer__target inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
-           title={previewTitle}
-         >
-           <span aria-hidden="true" className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
-           <span className="truncate">{previewLabel}</span>
-         </span>
+         <div className="relative flex min-w-0 items-center gap-2">
+           <button
+             type="button"
+             onClick={() => {
+               setMentionQuery('');
+               setMentionOpen((open) => !open);
+               inputRef.current?.focus();
+             }}
+             aria-label="Choose composer agent"
+             aria-expanded={mentionOpen}
+             title="Choose an agent"
+             className="grid size-7 shrink-0 place-items-center rounded-[var(--vestara-radius)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-accent-text)] transition-colors hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-text-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-accent)] focus-visible:ring-inset"
+           >
+             <GroupOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
+           </button>
+           <span
+             className="ar-composer__target inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-[var(--vestara-surface-canvas)] px-2.5 py-1 text-[11px] font-semibold text-[var(--vestara-accent-text)]"
+             title={previewTitle}
+           >
+             <span aria-hidden="true" className="inline-block size-1.5 shrink-0 rounded-full bg-[var(--vestara-accent)] shadow-[0_0_6px_var(--vestara-accent)]" />
+             <span className="truncate">{previewLabel}</span>
+           </span>
+         </div>
          <span className="ar-composer__secondary flex shrink-0 items-center gap-[var(--vestara-spacing-element)]">
             {/* Character count (configurable cap) — tertiary metadata */}
             <span

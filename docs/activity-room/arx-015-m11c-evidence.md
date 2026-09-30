@@ -183,6 +183,90 @@ Theme Builder tests (`ImportExport`, `TokenEditor`, `PresetGallery`, etc.) fail 
 
 ---
 
+## AR-STREAM-RELOAD-001 — Raw Snapshot Recovery + Density Visibility
+
+**Status**: Implemented. Persistence semantics unchanged.
+
+### Frozen invariant
+
+Snapshot/reload hydration MUST use raw stream identity; projection
+aggregation MUST NOT be used as durable recovery state.
+
+- **M9** = durable evidence (append-only ActivityRecords, monotonic sequences).
+- **M10 raw stream** (`ProjectionRuntime.getRawStream()`) = reload/correlation
+  identity — one row per durable record, `si-<activityId>`, never `si-agg-*`.
+- **M10 aggregation** (`getProjection().stream`) = presentation only. It may
+  coalesce muted runs for the compact view; every aggregate reference
+  resolves back to a raw snapshot row.
+- **Density filtering** = presentation only (client-side). Records hidden by
+  the active density view stay recovered; the stream announces them
+  (`N activities hidden by <View> view` + Show all) and never describes them
+  as missing, unloaded, failed, or unavailable.
+- Counts stay separate: **recovered** (client-held) vs **filtered** (after
+  scope/density/preset/category/search) vs **rendered** (bounded window).
+  Activity count is never derived from the rendered array alone.
+
+Regression evidence: `packages/activity-room/__tests__/ar-stream-reload-001.test.ts`
+(49 `task.runnable` + 1 `human.message` through the real M9 store → M10
+runtime → snapshot composition → client merge/dedupe) and
+`apps/workspace/src/pages/activity/M11CActivityStream.density.test.tsx`
+(50 recovered / 49 density-hidden / 1 visible; raw reveal; search/scope
+composition; zero-recovered vs recovered-but-hidden; bounded affordance).
+
+### Snapshot bound + pagination
+
+The snapshot is bounded to the newest 50 raw rows (`getRawStream().slice(-50)`
+in the M11A snapshot handler). Older durable history is NOT in the snapshot;
+it is obtained through pagination (`GET /api/activity-room/v1/activities`,
+cursor-based `getAfter`, scroll-up history loading). A bounded snapshot
+therefore never implies persistence loss.
+
+### Follow-up (recorded, not repaired here)
+
+Reviewer-noted `pairRespondedChoices` 50-row-window pairing limitation in
+`useM11CActivityRoom` (presented/responded pairing is window-bounded) is
+adjacent to this milestone. It is recorded as a follow-up and was NOT
+repaired inside AR-STREAM-RELOAD-001.
+
+## AR-STREAM-TOOL-001 — Tool Calls Excluded from the Activity Stream List
+
+**Status**: Implemented. Presentation/projection rule only. No M9 deletion,
+no history migration, no retention/cursor/grouping change.
+
+### Rule
+
+`tool.called`, `tool.succeeded`, and `tool.failed` remain authoritative M9
+execution evidence with exact `callID` lineage, but they are never
+standalone user-facing Activity Stream rows:
+
+- **M9 untouched**: every tool.* record persists; detail, drill-down,
+  diagnostics, and verification resolve them by durable activity identity.
+- **Reload untouched**: raw recovery (`getRawStream()` → snapshot window →
+  client merge) carries tool evidence like any other record — the
+  AR-STREAM-RELOAD-001 invariant holds unchanged.
+- **AR-COORD-002 untouched**: correlated tool operations stay nested on
+  their owning activity ("Activity · N operations", with file-mutation
+  Open/View). The list exclusion applies to standalone rows that
+  correlation leaves top-level — under every density.
+- **Not density**: exclusion is structural (`isToolLifecycleKind` in the
+  stream pipeline), identical under raw, operational, and summary. Excluded
+  rows never count as density-hidden and never feed Needs Attention
+  (`tool.failed` exclusion per AR-ATTN-003 holds).
+
+Counts: recovered includes tool evidence (lossless recovery); filtered /
+rendered / tab badges / density-hidden never include standalone tool rows.
+A window holding only tool operations renders "Only tool operations in
+this window" — never quiet, never missing.
+
+Regression evidence: `packages/activity-room/__tests__/ar-stream-tool-001.test.ts`
+(M9 retention + callID lineage, raw recovery identity, detail resolution,
+attention absence) and
+`apps/workspace/src/pages/activity/M11CActivityStream.tool.test.tsx`
+(exclusion under all densities, counts, owning-session preservation,
+attention predicate, non-tool immunity, list affordances).
+
+---
+
 ## What's Next
 
 After M11C receives architectural review:

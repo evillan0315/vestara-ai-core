@@ -36,6 +36,7 @@ import UndoOutlinedIcon from '@mui/icons-material/UndoOutlined';
 import VerifiedOutlinedIcon from '@mui/icons-material/VerifiedOutlined';
 import { SIZING } from '@vestara/ui-tokens';
 import { ActionIcon } from '@vestara/ui';
+import { Tooltip } from '@vestara/ui';
 import M11CForwardDialog from './M11CForwardDialog';
 import type { M11CStreamItem as StreamItemType, SubmissionState } from '../../hooks/useM11CActivityRoom';
 import type { StructuredInteraction, InteractionResponse, ChoiceId, InteractionId } from '@vestara/types';
@@ -44,8 +45,8 @@ import type { InteractionFeedbackState } from '../../components/interaction/Inte
 import { StatusIndicator } from '@vestara/ui';
 import '../../styles/marketplace.css';
 import type { CorrelatedSession } from './correlated-session';
-import type { EditExecutionDetail } from '@vestara/shared';
-import { fetchEditObservation } from './edit-observation';
+import type { FileMutationExecutionDetail } from '@vestara/shared';
+import { fetchFileMutationObservation } from './edit-observation';
 import { normalizeToolCategory } from '../../components/assistant/AssistantToolCard';
 
 // ─── Status badge (canonical semantic tokens) ────────────────
@@ -93,7 +94,7 @@ interface M11CStreamItemProps {
   /** Participant ID → model label lookup (modelDisplayName ?? modelId) for tool rows. */
   readonly participantModels?: Readonly<Record<string, string>>;
   /** Inspect a resolved edit observation in the Activity Room Files drawer. */
-  readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
+  readonly onInspectEdit?: (detail: FileMutationExecutionDetail) => void;
   readonly onSteerTurn?: (conversationId: string) => void;
   readonly onStopTurn?: (conversationId: string) => Promise<void>;
   /** Select a workflow context (workflow badge → browser scope). */
@@ -460,13 +461,13 @@ function CorrelatedSessionActivity({
   onStopTurn,
 }: {
   readonly session: CorrelatedSession;
-  readonly onInspectEdit?: (detail: EditExecutionDetail) => void;
+  readonly onInspectEdit?: (detail: FileMutationExecutionDetail) => void;
   readonly onSteerTurn?: (conversationId: string) => void;
   readonly onStopTurn?: (conversationId: string) => Promise<void>;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [stopState, setStopState] = useState<'idle' | 'requested' | 'failed'>('idle');
-  const [editDetails, setEditDetails] = useState<Record<string, import('@vestara/shared').EditExecutionDetail>>({});
+  const [editDetails, setEditDetails] = useState<Record<string, FileMutationExecutionDetail>>({});
   const statusLabel = session.status === 'working' ? 'Working' : session.status === 'failed' ? 'Failed' : 'Completed';
   const statusGlyph = session.status === 'working' ? '●' : session.status === 'failed' ? '✕' : '✓';
 
@@ -477,7 +478,7 @@ function CorrelatedSessionActivity({
     );
     void Promise.all(
       candidates.map(async (operation) => {
-        const detail = await fetchEditObservation(operation.conversationId!, operation.operationId);
+        const detail = await fetchFileMutationObservation(operation.conversationId!, operation.operationId);
         if (!cancelled && detail) {
           setEditDetails((current) => ({ ...current, [operation.operationId]: detail }));
         }
@@ -858,12 +859,15 @@ export const M11CStreamItemComponent = memo(function M11CStreamItemComponent({
                 )}
               </>
             ) : (
-              <span
-                className={`min-w-0 text-xs text-[var(--vestara-text-primary)] ${expanded || !collapsible ? 'break-words' : 'truncate'}`}
-                title={bodyText || item.kind}
-              >
-                {bodyText || <span className="italic">{item.kind}</span>}
-              </span>
+              // AR-TOOLTIP-001: full body on hover only while truncated —
+              // expanded or short messages show no duplicate tooltip.
+              <Tooltip content={bodyText} disabled={!bodyText || !collapsible || expanded}>
+                <span
+                  className={`min-w-0 text-xs text-[var(--vestara-text-primary)] ${expanded || !collapsible ? 'break-words' : 'truncate'}`}
+                >
+                  {bodyText || <span className="italic">{item.kind}</span>}
+                </span>
+              </Tooltip>
             )}
             {toolExecution && (
               <span className={`ar-stream-status ar-stream-status--${toolExecution.status === 'failed' ? 'error' : 'warning'} shrink-0`}>

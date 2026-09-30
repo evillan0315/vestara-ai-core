@@ -275,7 +275,8 @@
   justify-content: space-between;
   gap: var(--vestara-spacing-section);
   min-width: 0;
-  padding: var(--vestara-spacing-4);
+  min-height: var(--vestara-spacing-10);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
   border: 1px solid var(--vestara-accent-border);
   border-radius: var(--vestara-radius-lg);
   background:
@@ -285,6 +286,7 @@
 }
 
 .ar-header__identity,
+.ar-header__signals,
 .ar-header__controls {
   display: flex;
   align-items: center;
@@ -292,6 +294,40 @@
   min-width: 0;
 }
 .ar-header__controls { gap: var(--vestara-spacing-section); }
+
+.ar-header__signals {
+  display: flex;
+  flex: 1 1 auto;
+  justify-content: center;
+  gap: var(--vestara-spacing-element);
+  min-width: 0;
+}
+
+.ar-signal {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  min-height: var(--vestara-spacing-10);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius);
+  color: var(--vestara-text-secondary);
+  background: var(--vestara-accent-bg);
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ar-signal strong { color: var(--vestara-text-primary); font-size: var(--vestara-font-size-sm); }
+.ar-signal span { font-size: var(--vestara-font-size-xs); }
+.ar-signal small { color: var(--vestara-status-error); font-size: var(--vestara-font-size-xs); }
+.ar-signal--attention { color: var(--vestara-status-warning); cursor: pointer; }
+.ar-signal--attention:disabled { cursor: default; }
+.ar-signal--attention:hover:not(:disabled) { border-color: var(--vestara-status-warning); }
+.ar-signal--quiet { color: var(--vestara-text-muted); background: transparent; }
+.ar-signal--blocked { color: var(--vestara-status-error); border-color: var(--vestara-status-error-border); background: var(--vestara-status-error-bg); }
+.ar-signal--blocked strong { color: var(--vestara-status-error); }
 
 .ar-header__identity { gap: var(--vestara-spacing-section); padding-left: var(--vestara-spacing-section); }
 .ar-header__mark {
@@ -307,8 +343,26 @@
   font-family: var(--vestara-font-family);
   font-size: var(--vestara-font-size-lg);
 }
-.ar-header__title { margin: 0; color: var(--vestara-text-primary); font-size: 1.75rem; font-weight: var(--vestara-font-weight-semibold); letter-spacing: -0.02em; }
-.ar-header__subtitle { margin: 0; color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-base); }
+.ar-header__title { margin: 0; color: var(--vestara-text-primary); font-size: var(--vestara-font-size-lg); font-weight: var(--vestara-font-weight-semibold); letter-spacing: -0.02em; }
+.ar-header__subtitle { margin: 0; color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-xs); }
+.ar-header__scope {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  max-width: 100%;
+  margin-top: var(--vestara-spacing-element);
+  padding: 0 var(--vestara-spacing-element);
+  overflow: hidden;
+  color: var(--vestara-accent-text);
+  font-size: var(--vestara-font-size-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius-full);
+  background: var(--vestara-accent-bg);
+}
+.ar-header__scope:hover:not(:disabled) { border-color: var(--vestara-accent-border-hover); }
+.ar-header__scope:disabled { cursor: default; }
 .ar-header__meta { color: var(--vestara-text-secondary); font-size: var(--vestara-font-size-base); white-space: nowrap; }
 .ar-control-button {
   min-height: 2.5rem;
@@ -321,6 +375,20 @@
 }
 .ar-control-button:hover { border-color: var(--ar-gold-light); background: var(--vestara-accent-bg); }
 .ar-control-button--icon { width: var(--vestara-spacing-10); padding: 0; }
+.ar-control-button:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+.ar-control-button--active {
+  border-color: var(--vestara-accent-border-hover);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  box-shadow: inset 0 0 0 1px var(--vestara-accent-border);
+}
+.ar-control-button--terminal {
+  font-family: var(--vestara-font-family-mono);
+  font-weight: var(--vestara-font-weight-semibold);
+}
 
 .ar-workarea { align-items: stretch; }
 .ar-panel {
@@ -355,6 +423,8 @@
 
 @media (max-width: 1023px) {
   .ar-header { align-items: flex-start; flex-direction: column; }
+  .ar-header__signals { width: 100%; flex-wrap: wrap; justify-content: flex-start; overflow-x: visible; }
+  .ar-signal { flex: 1 1 auto; }
   .ar-header__controls { flex-wrap: wrap; }
   .ar-panel--context { display: none; }
 }
@@ -559,6 +629,80 @@
 .ar-page .ar-stream-filter {
   align-items: center;
   gap: var(--vestara-spacing-element);
+}
+
+/* AR-HITL-002: durable pending-human attention. The runtime question
+   projection owns whether this surface exists; CSS owns only salience. */
+.ar-runtime-question-stack {
+  display: grid;
+  gap: var(--vestara-spacing-section);
+  margin-block: var(--vestara-spacing-section);
+}
+
+.ar-runtime-question-panel {
+  border-color: var(--vestara-status-warning-border) !important;
+  box-shadow: 0 0 0 1px var(--vestara-status-warning-border);
+  animation: ar-runtime-question-attention 3.2s ease-in-out infinite;
+}
+
+.ar-runtime-question__header,
+.ar-runtime-question__text,
+.ar-runtime-question__readonly {
+  margin: 0;
+}
+
+.ar-runtime-question__header {
+  color: var(--vestara-text-secondary);
+  font-size: var(--vestara-font-size-sm);
+  font-weight: 600;
+}
+
+.ar-runtime-question__text {
+  color: var(--vestara-text-primary);
+  font-size: var(--vestara-font-size-lg);
+  line-height: 1.5;
+}
+
+.ar-runtime-question__options {
+  display: grid;
+  gap: var(--vestara-spacing-element);
+  margin: var(--vestara-spacing-element) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ar-runtime-question__options li {
+  display: grid;
+  gap: var(--vestara-spacing-element);
+  border-left: 2px solid var(--vestara-status-warning-border);
+  padding-left: var(--vestara-spacing-element);
+}
+
+.ar-runtime-question__option-label {
+  color: var(--vestara-text-primary);
+  font-weight: 600;
+}
+
+.ar-runtime-question__option-description,
+.ar-runtime-question__readonly {
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-sm);
+}
+
+@keyframes ar-runtime-question-attention {
+  0%,
+  100% {
+    box-shadow: 0 0 0 1px var(--vestara-status-warning-border);
+  }
+  50% {
+    box-shadow: 0 0 0 3px var(--vestara-status-warning-border);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-runtime-question-panel {
+    animation: none;
+  }
 }
 .ar-page .ar-stream-filter__heading {
   display: inline-flex;
@@ -1164,6 +1308,24 @@
   margin-bottom: 0.5rem;
 }
 
+.ar-context__details {
+  border-bottom: 1px solid var(--ar-hairline);
+}
+
+.ar-context__details-summary {
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+  cursor: pointer;
+  list-style: none;
+}
+
+.ar-context__details-summary::-webkit-details-marker { display: none; }
+.ar-context__details-summary::before { content: '▸'; margin-right: var(--vestara-spacing-element); color: var(--vestara-text-disabled); }
+.ar-context__details[open] .ar-context__details-summary::before { content: '▾'; }
+.ar-context__details-summary:hover { color: var(--vestara-text-secondary); }
+.ar-context__section--nested { border-bottom: 0; padding-top: var(--vestara-spacing-element); }
+
 .ar-context__title {
   font-size: 9px;
   font-weight: 700;
@@ -1599,12 +1761,26 @@
   border-bottom: 1px solid var(--vestara-accent-border);
   background: transparent;
   text-align: left;
-  cursor: pointer;
 }
 
 .ar-attention-row:hover {
   background: color-mix(in srgb, var(--vestara-accent) 5%, transparent);
 }
+
+.ar-attention-row__detail {
+  display: flex;
+  min-width: 0;
+  grid-column: 1 / 3;
+  align-items: center;
+  gap: 0.625rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.ar-attention-row__detail:not(:disabled) { cursor: pointer; }
+.ar-attention-row__detail:disabled { cursor: default; }
 
 .ar-attention-row__icon {
   display: grid;
@@ -2135,6 +2311,20 @@
   gap: 0.375rem;
   flex-shrink: 0;
   min-width: 0;
+  padding: 0;
+  color: inherit;
+  text-align: left;
+  border: 0;
+  background: transparent;
+}
+
+button.ar-live-now__item { cursor: pointer; }
+button.ar-live-now__item:hover { color: var(--ar-ink); }
+button.ar-live-now__item:disabled { cursor: default; }
+button.ar-live-now__item:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+  border-radius: var(--vestara-radius);
 }
 
 .ar-live-now__name {
@@ -3401,10 +3591,55 @@
    Terminal consumer is unaffected. Mobile/tablet sheets keep their own
    behavior via the max-width rules above. */
 .ar-rail__freshness {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
   margin-top: var(--vestara-spacing-element);
   font-size: 10px;
   letter-spacing: 0.04em;
   color: var(--vestara-text-muted);
+}
+
+.ar-rail__freshness span:first-child {
+  color: var(--vestara-text-secondary);
+  font-weight: var(--vestara-font-weight-semibold);
+}
+
+.ar-participant-avatar {
+  border-radius: var(--vestara-radius);
+}
+
+.ar-rail__all:focus-visible,
+.ar-rail__filter-clear:focus-visible,
+.ar-rail__search-input:focus-visible,
+.ar-rail__type-select select:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+@media (min-width: 1024px) {
+  .ar-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .ar-header__identity {
+    grid-column: 1;
+    justify-self: start;
+  }
+
+  .ar-header__signals {
+    grid-column: 2;
+    justify-self: center;
+    align-items: center;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+
+  .ar-header__controls {
+    grid-column: 3;
+    justify-self: end;
+  }
 }
 
 @media (min-width: 1024px) {

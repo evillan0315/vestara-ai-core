@@ -13,15 +13,24 @@
  * system, or UI-owned workflow state is introduced.
  */
 
-import type { AttentionEntry, ParticipantProjection, WorkflowSummary } from '@vestara/activity-room';
+import type {
+  AttentionEntry,
+  ParticipantProjection,
+  PendingRuntimeQuestionProjection,
+  WorkflowSummary,
+} from '@vestara/activity-room';
 import type { InteractionResponse } from '@vestara/types';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  type M11AActivityEntity,
   type M11AActivityRecord,
+  type M11ASnapshot,
   type M11AStreamItem,
   classifySubmissionError,
   fetchM11AActivities,
   fetchM11AAttention,
+  fetchM11AParticipants,
+  fetchM11ARuntimeQuestions,
   fetchM11ASnapshot,
   submitInteractionResponse,
 } from '../lib/m11a-api';
@@ -129,6 +138,7 @@ export interface M11CActivityRoom {
 
   /** Attention entries requiring human awareness. */
   readonly attention: readonly AttentionEntry[];
+  readonly pendingRuntimeQuestions: readonly PendingRuntimeQuestionProjection[];
 
   /** Latest sequence number seen. */
   readonly latestSequence: number;
@@ -141,6 +151,12 @@ export interface M11CActivityRoom {
 
   /** Number of older records loaded beyond initial snapshot. */
   readonly olderLoaded: number;
+
+  /** Whether older durable activity may still be available. */
+  readonly hasMoreHistory: boolean;
+
+  /** Whether M11A proved the bounded snapshot complete. */
+  readonly snapshotComplete: boolean;
 
   /** Error message, if any. */
   readonly error: string | undefined;
@@ -206,6 +222,55 @@ function streamItemFromSnapshot(item: M11AStreamItem): M11CStreamItem {
     // against GET /api/activity-room/v1/snapshot — no `referencedActivityIds`).
     // Threading ids are only populated from wire projection records.
   };
+}
+
+/**
+ * Adapt the authoritative M11A entity projection to the existing UI item
+ * shape. Operation membership is already established by M11A; this function
+ * does not infer or recompute it.
+ */
+function streamItemFromSnapshotEntity(entity: M11AActivityEntity): M11CStreamItem {
+  const parent = streamItemFromSnapshot(entity.parent);
+  if (entity.operations.length === 0) return parent;
+  const operations = entity.operations.map((operation) => ({
+    operationId: operation.operationId,
+    toolName: operation.toolName,
+    status: operation.status,
+    timestamp: operation.timestamp,
+    activityIds: operation.activityIds,
+    ...(operation.output ? { output: operation.output } : {}),
+    ...(operation.executionId ? { executionId: operation.executionId } : {}),
+    ...(operation.runtimeSessionBindingId ? { runtimeSessionBindingId: operation.runtimeSessionBindingId } : {}),
+    ...(operation.conversationId ? { conversationId: operation.conversationId } : {}),
+  }));
+  const status = operations.some((operation) => operation.status === 'failed')
+    ? 'failed'
+    : operations.some((operation) => operation.status === 'started')
+      ? 'working'
+      : 'completed';
+  return {
+    ...parent,
+    session: {
+      lineageKey: entity.lineageKey ?? `activity:${parent.id}`,
+      status,
+      operations,
+      ...(entity.lineageKey?.startsWith('conversation:')
+        ? { conversationId: entity.lineageKey.slice('conversation:'.length) }
+        : {}),
+    },
+  };
+}
+
+export function snapshotStreamItems(snapshot: Pick<M11ASnapshot, 'entities' | 'stream'>): M11CStreamItem[] {
+  const items = snapshot.entities?.map(streamItemFromSnapshotEntity) ?? snapshot.stream.map(streamItemFromSnapshot);
+  // M11A selects entities newest-first while its canonical flat items are
+  // ascending. M11C owns the display-order boundary: all downstream live,
+  // history, and scroll behavior assumes oldest → newest.
+  return items.sort(compareBySequence);
+}
+
+export function snapshotCompletionMessage(complete: boolean): string | undefined {
+  return complete ? undefined : 'Activity snapshot incomplete; load older history to continue.';
 }
 
 /**
@@ -480,6 +545,20 @@ function compareBySequence(a: M11CStreamItem, b: M11CStreamItem): number {
   return a.sequence - b.sequence;
 }
 
+export function mergeActivityItems(
+  previous: readonly M11CStreamItem[],
+  additions: readonly M11CStreamItem[],
+): M11CStreamItem[] {
+  const known = new Set(previous.map((item) => item.id));
+  const uniqueAdditions = additions.filter((item) => !known.has(item.id));
+  if (uniqueAdditions.length === 0) return [...previous];
+  const merged = [...previous, ...uniqueAdditions].sort(compareBySequence);
+  if (merged.length > MAX_WORKING_SET) {
+    return pairRespondedChoices(merged.slice(merged.length - MAX_WORKING_SET));
+  }
+  return pairRespondedChoices(merged);
+}
+
 /**
  * AR-REC-R3: Hook-level presented/responded pairing.
  *
@@ -532,10 +611,15 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const [stream, setStream] = useState<readonly M11CStreamItem[]>([]);
   const [workflowSummary, setWorkflowSummary] = useState<WorkflowSummary | null>(null);
   const [attention, setAttention] = useState<readonly AttentionEntry[]>([]);
+  const [pendingRuntimeQuestions, setPendingRuntimeQuestions] = useState<
+    readonly PendingRuntimeQuestionProjection[]
+  >([]);
   const [latestSequence, setLatestSequence] = useState(0);
   const [unread, setUnread] = useState(0);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [olderLoaded, setOlderLoaded] = useState(0);
+  const [hasMoreHistory, setHasMoreHistory] = useState(true);
+  const [snapshotComplete, setSnapshotComplete] = useState(true);
   const [error, setError] = useState<string | undefined>(undefined);
   const [paused, setPaused] = useState(false);
   const [freshIds, setFreshIds] = useState<ReadonlySet<string>>(new Set());
@@ -554,6 +638,10 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const disposedRef = useRef(false);
   const clientRef = useRef<M11BClient>(m11bClient);
   const submissionRef = useRef<SubmissionState>({ status: 'idle' });
+  const participantRefreshTimer = useRef<number | null>(null);
+  const participantRefreshInFlight = useRef(false);
+  const participantRefreshPending = useRef(false);
+  const snapshotCompleteRef = useRef(true);
 
   // ─── Derived ────────────────────────────────────────────
 
@@ -571,25 +659,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const mergeStream = useCallback((items: readonly M11CStreamItem[]) => {
     if (items.length === 0) return;
     setStream((previous) => {
-      const known = new Set(previous.map((item) => item.id));
-      const additions = items.filter((item) => !known.has(item.id));
-      if (additions.length === 0) return previous;
-      // M11B normally delivers monotonically increasing sequences. Keep that
-      // hot path append-only; sorting the full 500-item working set for every
-      // live batch creates avoidable work during tool/event bursts. Preserve
-      // the defensive sort for catch-up or reconnect batches that arrive out
-      // of order.
-      const previousLast = previous[previous.length - 1]?.sequence ?? -Infinity;
-      const appendOnly = additions.every((item, index) =>
-        item.sequence > previousLast && (index === 0 || item.sequence > additions[index - 1].sequence),
-      );
-      const merged = appendOnly ? [...previous, ...additions] : [...previous, ...additions].sort(compareBySequence);
-      // Bound the working set — drop oldest if over limit, then pair
-      // responded items with presented siblings inside the window.
-      if (merged.length > MAX_WORKING_SET) {
-        return pairRespondedChoices(merged.slice(merged.length - MAX_WORKING_SET));
-      }
-      return pairRespondedChoices(merged);
+      return mergeActivityItems(previous, items);
     });
   }, []);
 
@@ -612,8 +682,11 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     if (attentionInFlight.current || disposedRef.current) return;
     attentionInFlight.current = true;
     try {
-      const entries = await fetchM11AAttention();
-      if (!disposedRef.current) setAttention(entries);
+      const [entries, questions] = await Promise.all([fetchM11AAttention(), fetchM11ARuntimeQuestions()]);
+      if (!disposedRef.current) {
+        setAttention(entries);
+        setPendingRuntimeQuestions(questions);
+      }
     } catch {
       // Snapshot-seeded attention stays; endpoint refresh is best-effort.
     } finally {
@@ -629,6 +702,38 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       void refreshAttention();
     }, 1000);
   }, [refreshAttention]);
+
+  // Participants are an M11A projection, not client-derived stream state.
+  // Re-read them after live activity batches so lifecycle events (including
+  // agent.started) update the rail without introducing a polling loop.
+  const refreshParticipants = useCallback(async () => {
+    if (participantRefreshInFlight.current || disposedRef.current) {
+      participantRefreshPending.current = true;
+      return;
+    }
+    participantRefreshInFlight.current = true;
+    participantRefreshPending.current = false;
+    try {
+      const nextParticipants = await fetchM11AParticipants();
+      if (!disposedRef.current) setParticipants(nextParticipants);
+    } catch {
+      // Snapshot participants remain visible when a live refresh is unavailable.
+    } finally {
+      participantRefreshInFlight.current = false;
+      if (participantRefreshPending.current && !disposedRef.current) {
+        participantRefreshPending.current = false;
+        scheduleParticipantRefresh();
+      }
+    }
+  }, []);
+
+  const scheduleParticipantRefresh = useCallback(() => {
+    if (participantRefreshTimer.current !== null) return;
+    participantRefreshTimer.current = window.setTimeout(() => {
+      participantRefreshTimer.current = null;
+      void refreshParticipants();
+    }, LIVE_BATCH_MS);
+  }, [refreshParticipants]);
 
   // ─── Actions ────────────────────────────────────────────
 
@@ -664,6 +769,10 @@ export function useM11CActivityRoom(): M11CActivityRoom {
   const loadOlder = useCallback(async () => {
     if (stream.length === 0 || loadingOlderRef.current) return;
     const oldest = Math.min(...stream.map((item) => item.sequence));
+    if (oldest <= 1) {
+      setHasMoreHistory(false);
+      return;
+    }
     loadingOlderRef.current = true;
     setLoadingHistory(true);
     try {
@@ -672,6 +781,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
       const older = response.records.map((record) => streamItemFromLive(record, false));
       const known = new Set(stream.map((item) => item.id));
       const uniqueOlder = older.filter((item) => !known.has(item.id));
+      if (response.records.length < HISTORY_PAGE_SIZE || uniqueOlder.length === 0) setHasMoreHistory(false);
       if (uniqueOlder.length > 0) {
         // Prepend older records (preserving sort order)
         setStream((previous) => {
@@ -701,6 +811,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     unreadRef.current = 0;
     setFreshIds(new Set());
     setOlderLoaded(0);
+    setHasMoreHistory(true);
     setError(undefined);
     liveBufferRef.current = [];
     if (flushTimerRef.current !== null) {
@@ -809,6 +920,10 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         setSubmission({ status: 'idle' });
       }
 
+      // Participant status is independent of the stream viewport pause: the
+      // rail should still reflect an agent that starts or finishes work.
+      scheduleParticipantRefresh();
+
       if (pausedRef.current) {
         // Buffer while paused
         if (!liveBufferRef.current.some((existing) => existing.id === item.id)) {
@@ -840,54 +955,68 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
       updateSequence(sequence);
     },
-    [bumpUnread, mergeStream, updateSequence, scheduleAttentionRefresh],
+    [bumpUnread, mergeStream, updateSequence, scheduleAttentionRefresh, scheduleParticipantRefresh],
   );
 
   // ─── WebSocket Lifecycle ────────────────────────────────
 
   useEffect(() => {
+    let cancelled = false;
     disposedRef.current = false;
     const client = clientRef.current;
 
     // Register WebSocket listeners
     const offActivity = client.onActivity((activity, sequence) => {
-      if (!disposedRef.current) handleLiveActivity(activity, sequence);
+      if (!cancelled) handleLiveActivity(activity, sequence);
     });
 
     const offState = client.onState((wsState: M11BConnectionState) => {
-      if (disposedRef.current) return;
+      if (cancelled) return;
       if (pausedRef.current) return; // Local pause overrides WS state
       setState(wsState);
     });
 
     const offSubscribed = client.onSubscribed((_cursor, _frontier) => {
-      if (!disposedRef.current) setError(undefined);
+      if (!cancelled) {
+        // The subscription acknowledgement is the authoritative proof that
+        // the live transport is usable. Set the UI state here as well as in
+        // the client state listener so a late listener registration or a
+        // StrictMode reconnect cannot leave the header stuck at offline.
+        setState(pausedRef.current ? 'paused' : 'live');
+        setError(snapshotCompleteRef.current ? undefined : 'Activity snapshot incomplete; load older history to continue.');
+      }
     });
 
     const offCatchupComplete = client.onCatchupComplete((_cursor) => {
       // Catch-up complete — transition to LIVE
-      if (!disposedRef.current) {
+      if (!cancelled) {
         setState(pausedRef.current ? 'paused' : 'live');
       }
     });
 
     const offResync = client.onResync((earliestAvailableSequence, _latestSequence) => {
-      if (disposedRef.current) return;
+      if (cancelled || disposedRef.current) return;
       setError('Stream fell behind; resynchronizing…');
       // Re-fetch snapshot and re-subscribe
       void (async () => {
         try {
           const snapshot = await fetchM11ASnapshot();
-          if (disposedRef.current) return;
+          if (cancelled || disposedRef.current) return;
           // Apply snapshot
           setRoom(snapshot.room);
           setCursor(snapshot.cursor);
           setParticipants(snapshot.participants);
           setWorkflowSummary(snapshot.workflowSummary);
           setAttention(snapshot.attention);
+          setPendingRuntimeQuestions(snapshot.pendingRuntimeQuestions ?? []);
           setLastUpdatedAt(Date.now());
-          const items = pairRespondedChoices(snapshot.stream.map(streamItemFromSnapshot));
+          snapshotCompleteRef.current = snapshot.complete;
+          setSnapshotComplete(snapshot.complete);
+          const items = pairRespondedChoices(snapshotStreamItems(snapshot));
           setStream(items);
+          setHasMoreHistory(items.length > 0 || !snapshot.complete);
+          const incompleteMessage = snapshotCompletionMessage(snapshot.complete);
+          if (incompleteMessage) setError(incompleteMessage);
           updateSequence(snapshot.cursor.sequenceNumber);
           // Snapshot seeds attention; the canonical endpoint refreshes it.
           void refreshAttention();
@@ -900,7 +1029,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     });
 
     const offError = client.onError((_code, message) => {
-      if (!disposedRef.current) setError(message);
+      if (!cancelled) setError(message);
     });
 
     const offHeartbeat = client.onHeartbeat(() => {
@@ -912,7 +1041,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     void (async () => {
       try {
         const snapshot = await fetchM11ASnapshot();
-        if (disposedRef.current) return;
+        if (cancelled || disposedRef.current) return;
 
         // Apply snapshot state
         setRoom(snapshot.room);
@@ -920,10 +1049,16 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         setParticipants(snapshot.participants);
         setWorkflowSummary(snapshot.workflowSummary);
         setAttention(snapshot.attention);
+        setPendingRuntimeQuestions(snapshot.pendingRuntimeQuestions ?? []);
         setLastUpdatedAt(Date.now());
 
-        const items = pairRespondedChoices(snapshot.stream.map(streamItemFromSnapshot));
+        snapshotCompleteRef.current = snapshot.complete;
+        setSnapshotComplete(snapshot.complete);
+        const items = pairRespondedChoices(snapshotStreamItems(snapshot));
         setStream(items);
+        setHasMoreHistory(items.length > 0 || !snapshot.complete);
+        const incompleteMessage = snapshotCompletionMessage(snapshot.complete);
+        if (incompleteMessage) setError(incompleteMessage);
         updateSequence(snapshot.cursor.sequenceNumber);
         // Snapshot seeds attention; the canonical endpoint refreshes it.
         void refreshAttention();
@@ -941,6 +1076,7 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     // ─── Cleanup ──────────────────────────────────────────
 
     return () => {
+      cancelled = true;
       disposedRef.current = true;
       offActivity();
       offState();
@@ -958,6 +1094,11 @@ export function useM11CActivityRoom(): M11CActivityRoom {
         window.clearTimeout(attentionRefreshTimer.current);
         attentionRefreshTimer.current = null;
       }
+      if (participantRefreshTimer.current !== null) {
+        window.clearTimeout(participantRefreshTimer.current);
+        participantRefreshTimer.current = null;
+      }
+      participantRefreshPending.current = false;
       liveBufferRef.current = [];
     };
   }, [handleLiveActivity, updateSequence, refreshAttention, retryKey]);
@@ -990,14 +1131,14 @@ export function useM11CActivityRoom(): M11CActivityRoom {
 
   const mappedState: M11CConnectionState = paused
     ? 'paused'
-    : state === 'offline'
-      ? 'offline'
-      : state === 'reconnecting'
-        ? 'reconnecting'
-        : state === 'connecting'
-          ? 'connecting'
-          : error
-            ? 'error'
+    : state === 'error'
+      ? 'error'
+      : state === 'offline'
+        ? 'offline'
+        : state === 'reconnecting'
+          ? 'reconnecting'
+          : state === 'connecting'
+            ? 'connecting'
             : 'live';
 
   return {
@@ -1009,10 +1150,13 @@ export function useM11CActivityRoom(): M11CActivityRoom {
     stream: presentedStream,
     workflowSummary,
     attention,
+    pendingRuntimeQuestions,
     latestSequence,
     unread,
     loadingHistory,
     olderLoaded,
+    hasMoreHistory,
+    snapshotComplete,
     error,
     paused,
     freshIds,

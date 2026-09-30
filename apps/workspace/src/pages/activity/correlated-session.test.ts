@@ -99,6 +99,54 @@ describe('AR-COORD-002 correlated activity presentation', () => {
     expect(completed[0]?.session?.status).toBe('completed');
   });
 
+  it('converges an exact failed operation and removes working controls', () => {
+    const result = deriveCorrelatedSessions([
+      item({ id: 'message', sequence: 1, kind: 'conversation', originConversationId: 'conv-question-1' }),
+      item({
+        id: 'tool-start',
+        sequence: 2,
+        kind: 'tool-call',
+        originConversationId: 'conv-question-1',
+        runtimeSessionBindingId: 'ses-question-1',
+        tool: { toolName: 'question', callID: 'call-question-1', status: 'started' },
+      }),
+      item({
+        id: 'tool-failed',
+        sequence: 3,
+        kind: 'tool-result',
+        originConversationId: 'conv-question-1',
+        runtimeSessionBindingId: 'ses-question-1',
+        tool: { toolName: 'question', callID: 'call-question-1', status: 'failed' },
+      }),
+    ]);
+
+    expect(result[0]?.session).toMatchObject({
+      status: 'failed',
+      conversationId: 'conv-question-1',
+      operations: [{ operationId: 'call-question-1', status: 'failed' }],
+    });
+  });
+
+  it('does not close an operation from agent completion or inactive conversation alone', () => {
+    const result = deriveCorrelatedSessions([
+      item({ id: 'message', sequence: 1, kind: 'conversation', originConversationId: 'conv-question-2' }),
+      item({
+        id: 'tool-start',
+        sequence: 2,
+        kind: 'tool-call',
+        originConversationId: 'conv-question-2',
+        runtimeSessionBindingId: 'ses-question-2',
+        tool: { toolName: 'question', callID: 'call-question-2', status: 'started' },
+      }),
+      item({ id: 'agent-completed', sequence: 3, kind: 'activity', originConversationId: 'conv-question-2' }),
+    ]);
+
+    expect(result[0]?.session).toMatchObject({
+      status: 'working',
+      operations: [{ operationId: 'call-question-2', status: 'started' }],
+    });
+  });
+
   it('uses a shared conversation lineage when parent and tools expose different stronger fields', () => {
     const result = deriveCorrelatedSessions([
       item({ id: 'message', sequence: 1, kind: 'conversation', originConversationId: 'conv-1' }),

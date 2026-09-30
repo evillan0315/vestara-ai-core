@@ -238,6 +238,7 @@ export default function AgentDetailDrawer({
                   value={{ providerId: provider, modelId: model }}
                   onChange={handleProviderModelChange}
                   disabled={!agent}
+                  placement="below"
                 />
               </div>
               {error && (
