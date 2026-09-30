@@ -44,6 +44,8 @@ import type { SurfaceLocation, SurfaceReference } from '@vestara/types';
 import { MarkdownRenderer } from '../chat/MarkdownRenderer';
 import { ProviderModelSelector } from '../ui/ProviderModelSelector';
 import { AssistantResponseActions } from './AssistantResponseActions';
+import { ComposerSuggestionMenu } from '../composer/ComposerSuggestionMenu';
+import { parseComposerSuggestionCommand } from '../composer/composerSuggestion';
 import { AssistantFilesSummary } from './AssistantFilesSummary';
 import { AssistantExecutionTimeline } from './AssistantToolCard';
 import { ToolObservationRenderer } from './ToolObservationRenderer';
@@ -568,6 +570,7 @@ const ComposeInput = memo(function ComposeInput({
   onExecControlsToggle,
   execControlsRef,
   workspaceName,
+  surfaceContext,
 }: {
   onSend: (text: string) => void;
   loading: boolean;
@@ -583,6 +586,7 @@ const ComposeInput = memo(function ComposeInput({
   execControlsRef?: React.RefObject<HTMLButtonElement | null>;
   /** Server-derived workspace name for the shell-mode cwd pill (GA-TERM-001). */
   workspaceName?: string;
+  surfaceContext?: import('@vestara/types').SurfaceContext;
 }) {
   const [input, setInput] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -640,6 +644,7 @@ const ComposeInput = memo(function ComposeInput({
   const handleSend = useCallback(() => {
     const text = input.trim();
     if (!text || loading) return;
+    if (parseComposerSuggestionCommand(input)) return;
     onSend(text);
     setInput('');
     requestAnimationFrame(() => {
@@ -704,6 +709,23 @@ const ComposeInput = memo(function ComposeInput({
       )}
       {/* Primary input surface */}
       <div className={`relative rounded-2xl border backdrop-blur vestara-composer-surface transition-all ${isShellMode ? 'border-(--vestara-accent-border-hover) shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-(--vestara-accent-border-active) focus-within:ring-2 focus-within:ring-(--vestara-accent-bg)' : 'border-(--vestara-border-default) shadow-[inset_0_1px_4px_rgba(0,0,0,0.4)] focus-within:border-(--vestara-accent-border-hover) focus-within:ring-2 focus-within:ring-(--vestara-accent-bg)'}`}>
+        <ComposerSuggestionMenu
+          draft={input}
+          surfaceContext={surfaceContext}
+          conversationId={conversationKey}
+          provider={providerModel?.providerId}
+          model={providerModel?.modelId}
+          assistantRuntime={assistantRuntime}
+          onApply={(next) => {
+            setInput(next);
+            requestAnimationFrame(() => textareaRef.current?.focus());
+          }}
+          onDismiss={() => {
+            const command = parseComposerSuggestionCommand(input);
+            setInput(command?.draft ?? input);
+            textareaRef.current?.focus();
+          }}
+        />
         <textarea
           ref={textareaRef}
           value={input}
@@ -1845,6 +1867,7 @@ export function ConversationPanel({ assistant, focusOnMountRef, expanded = false
           onExecControlsToggle={handleExecControlsToggle}
           execControlsRef={execGearRef}
           workspaceName={surface.workspace.name}
+          surfaceContext={surface}
         />
         {/* GA-EXEC-001: execution controls popover */}
         {execControlsOpen && (

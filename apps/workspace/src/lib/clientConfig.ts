@@ -22,6 +22,20 @@ function readEnvBase(): string {
   return (meta.env?.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
 }
 
+function readDevApiPort(): string {
+  // @ts-expect-error Vite injects import.meta.env at browser build time.
+  return (import.meta.env.VITE_API_PORT ?? '3001').trim();
+}
+
+function resolveDevApiBase(): string {
+  // @ts-expect-error Vite injects import.meta.env at browser build time.
+  const isDev = import.meta.env.DEV;
+  if (!isDev || typeof window === 'undefined' || window.location.port !== '5173') return '';
+
+  const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:';
+  return `${protocol}//${window.location.hostname}:${readDevApiPort()}`;
+}
+
 function readAgentBrowserDashboardEnv(): string {
   const meta = import.meta as { env?: Record<string, string | undefined> };
   return (meta.env?.VITE_AGENT_BROWSER_DASHBOARD_URL ?? 'http://localhost:4848').trim().replace(/\/+$/, '');
@@ -100,7 +114,11 @@ export function getAgentBrowserDashboardUrl(): string {
  * browser behavior).
  */
 export function resolveWsUrl(suffix: string): string {
-  const base = getApiBase();
+  // Vite's HTTP proxy handles /api during development, but some workspace
+  // sessions intentionally disable the /ws proxy (visual capture and
+  // isolated UI runs). Connect directly to the API in that case so the UI
+  // does not hydrate successfully while reporting a disconnected live stream.
+  const base = getApiBase() || resolveDevApiBase();
   if (base) {
     const proto = base.startsWith('https:') ? 'wss:' : 'ws:';
     const host = base.replace(/^https?:\/\//, '').replace(/\/.*$/, '');

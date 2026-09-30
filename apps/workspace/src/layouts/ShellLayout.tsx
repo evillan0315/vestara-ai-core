@@ -13,6 +13,8 @@ import PageContainer from '../components/layout/Page/PageContainer';
 
 import { useWorkspaceNavigation } from '../lib/navigation-store.js';
 import ShellRoot from './ShellRoot';
+import GlobalDrawerHost from './GlobalDrawerHost';
+import { GlobalDrawerProvider } from '../contexts/GlobalDrawerContext';
 
 /**
  * Workspace navigation comes from the canonical registry
@@ -77,6 +79,7 @@ export default function ShellLayout() {
   return (
     <GraphProvider>
       <SurfaceContextProvider>
+        <GlobalDrawerProvider>
         <ShellRoot
           sidebar={
             <AppSidebar
@@ -85,6 +88,7 @@ export default function ShellLayout() {
               mobileOpen={mobileSidebarOpen}
               onToggleCollapse={toggleDesktopSidebar}
               onShortcuts={() => setShowShortcuts(true)}
+              onNavigate={closeMobileSidebar}
             />
           }
           header={<AppHeader mobileSidebarOpen={mobileSidebarOpen} onMenuClick={toggleMobileSidebar} />}
@@ -104,7 +108,9 @@ export default function ShellLayout() {
         <KeyboardShortcutsModal open={showShortcuts} onClose={() => setShowShortcuts(false)} />
         <Inspector />
         <GraphSearch />
+        <GlobalDrawerHost />
         <GlobalAssistant />
+        </GlobalDrawerProvider>
       </SurfaceContextProvider>
     </GraphProvider>
   );

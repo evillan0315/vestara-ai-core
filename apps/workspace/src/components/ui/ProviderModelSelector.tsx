@@ -80,6 +80,8 @@ export interface ProviderModelSelectorProps {
   disabled?: boolean;
   /** Compact mode: inline trigger (for composer bar). Default: false (popover trigger button). */
   compact?: boolean;
+  /** Where to place the model list relative to the trigger. */
+  placement?: 'above' | 'below';
   /** Additional CSS class for the trigger element. */
   className?: string;
 }
@@ -160,6 +162,7 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
   onChange,
   disabled = false,
   compact = false,
+  placement = 'above',
   className,
 }: ProviderModelSelectorProps) {
   const [open, setOpen] = useState(false);
@@ -534,9 +537,13 @@ export const ProviderModelSelector = memo(function ProviderModelSelector({
         </div>
       )}
 
-      {/* Popover — opens upward to avoid panel clipping */}
+      {/* Popover */}
       {open && (
-        <div className="absolute left-0 right-0 bottom-full mb-1 z-[100] bg-zinc-900 border border-(--vestara-accent-border) rounded-lg shadow-lg overflow-hidden">
+        <div
+          className={`absolute left-0 right-0 z-[100] bg-zinc-900 border border-(--vestara-accent-border) rounded-lg shadow-lg overflow-hidden ${
+            placement === 'below' ? 'top-full mt-1' : 'bottom-full mb-1'
+          }`}
+        >
           {/* Provider tabs */}
           <div className="flex border-b border-(--vestara-accent-border) overflow-x-auto">
             {providers.map((p) => (

@@ -62,6 +62,7 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-accent-text': theme.accent.text,
     '--vestara-accent-text-hover': theme.accent.textHover,
     '--vestara-accent-text-muted': theme.accent.textMuted,
+    '--vestara-accent-overlay': theme.accent.overlay,
 
     // Status (VES-DESIGN-002 §K)
     '--vestara-status-success': theme.status.success,

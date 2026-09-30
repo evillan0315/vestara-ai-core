@@ -15,6 +15,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import hljs from 'highlight.js/lib/common';
 import { Button, Card, CardContent } from '@vestara/ui';
+import { useVestaraTheme } from '@vestara/ui-theme';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { getHighlightLanguage, type FileClassification } from '../file-classification';
@@ -46,12 +47,6 @@ const MAX_EDIT_SIZE_DEFAULT = 2 * 1024 * 1024; // 2 MB
 /** Warning tier: files above this size edit slowly (F-E-3, below the hard cap). */
 const LARGE_FILE_WARN_SIZE = 512 * 1024; // 512 KB
 
-// Mapping application themes to Monaco Editor themes
-const MONACO_THEME_MAP: Record<'light' | 'dark', string> = {
-  light: 'vs-light',
-  dark: 'vs-dark',
-};
-
 export function CodeEditor({
   filePath,
   content: initialContent,
@@ -61,7 +56,6 @@ export function CodeEditor({
   onDraftChange,
   onCursorChange,
   maxEditSize = MAX_EDIT_SIZE_DEFAULT,
-  theme = 'dark',
 }: CodeEditorProps) {
   const [content, setContent] = useState(initialContent);
   const [isDirty, setIsDirty] = useState(false);
@@ -72,7 +66,8 @@ export function CodeEditor({
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const originalContentRef = useRef(initialContent);
 
-  const monacoTheme = MONACO_THEME_MAP[theme] || 'vs-light';
+  const { resolvedMode } = useVestaraTheme();
+  const monacoTheme = `vestara-${resolvedMode}`;
 
   // Update content when initialContent changes (e.g., file switched)
   useEffect(() => {
@@ -153,6 +148,38 @@ export function CodeEditor({
     (editorInstance, monaco: Monaco) => {
       editorRef.current = editorInstance;
 
+      // Monaco does not inherit CSS variables. Build its palette from the
+      // active Vestara semantic tokens at mount time so the editor follows
+      // the selected light/dark theme and accent without a second palette.
+      const styles = getComputedStyle(document.documentElement);
+      const token = (name: string, fallback: string) => styles.getPropertyValue(name).trim() || fallback;
+      const editorTheme = `vestara-${resolvedMode}`;
+      monaco.editor.defineTheme(editorTheme, {
+        base: resolvedMode === 'dark' ? 'vs-dark' : 'vs',
+        inherit: false,
+        rules: [
+          { token: 'comment', foreground: token('--vestara-text-muted', '8b949e'), fontStyle: 'italic' },
+          { token: 'keyword', foreground: token('--vestara-accent-text', 'd29922') },
+          { token: 'string', foreground: token('--vestara-status-success', '3fb950') },
+          { token: 'number', foreground: token('--vestara-status-info', '58a6ff') },
+          { token: 'type', foreground: token('--vestara-accent-text', 'd29922') },
+          { token: 'delimiter', foreground: token('--vestara-text-secondary', 'c9d1d9') },
+        ],
+        colors: {
+          'editor.background': token('--vestara-surface-canvas', resolvedMode === 'dark' ? '#0d1117' : '#ffffff'),
+          'editor.foreground': token('--vestara-text-primary', resolvedMode === 'dark' ? '#e6edf3' : '#24292f'),
+          'editor.selectionBackground': token('--vestara-accent-bg', '#3d2f0f'),
+          'editor.inactiveSelectionBackground': token('--vestara-accent-bg', '#2b2415'),
+          'editorLineNumber.foreground': token('--vestara-text-muted', '#8b949e'),
+          'editorLineNumber.activeForeground': token('--vestara-accent-text', '#d29922'),
+          'editorGutter.background': token('--vestara-surface-canvas', resolvedMode === 'dark' ? '#0d1117' : '#ffffff'),
+          'editorCursor.foreground': token('--vestara-accent', '#f59e0b'),
+          'editorWidget.background': token('--vestara-surface-panel', resolvedMode === 'dark' ? '#161b22' : '#ffffff'),
+          'editorWidget.foreground': token('--vestara-text-primary', resolvedMode === 'dark' ? '#e6edf3' : '#24292f'),
+        },
+      });
+      monaco.editor.setTheme(editorTheme);
+
       // Ctrl/Cmd+S -> save (prevents browser save dialog)
       editorInstance.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
         void handleSaveRef.current();
@@ -169,7 +196,7 @@ export function CodeEditor({
         }
       }
     },
-    [onCursorChange],
+    [onCursorChange, resolvedMode],
   );
 
   const size = new Blob([content]).size;
@@ -184,7 +211,7 @@ export function CodeEditor({
       <div className="flex h-full  min-h-0 flex-1 flex-col p-0">
         {/* Toolbar */}
         <div
-          className="code-editor-toolbar flex items-center gap-2 border-b border-[var(--vestara-border-subtle)] bg-[var(--vestara-accent)]"
+          className="code-editor-toolbar flex items-center gap-2 border-b border-[var(--vestara-accent-border)] bg-[var(--vestara-accent-bg)] text-[var(--vestara-text-primary)]"
           role="toolbar"
           aria-label="Code editor actions"
         >
@@ -217,7 +244,7 @@ export function CodeEditor({
               {error}
             </span>
           )}
-          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={!isDirty} aria-label="Revert changes">
+          <Button variant="ghost" size="sm" onClick={handleCancel} disabled={!isDirty} aria-label="Revert changes" className="!bg-[var(--vestara-accent-bg)] !text-[var(--vestara-text-primary)] hover:!bg-[var(--vestara-accent-bg)] hover:!text-[var(--vestara-accent-text)]">
             Revert
           </Button>
           <Button
@@ -227,6 +254,7 @@ export function CodeEditor({
             disabled={isSaving || !isDirty || isLarge}
             aria-label="Save file"
             aria-busy={isSaving}
+            className="!border-[var(--vestara-accent-border)] !bg-[var(--vestara-accent-bg)] !text-[var(--vestara-text-primary)] hover:!bg-[var(--vestara-accent-bg)] hover:!text-[var(--vestara-accent-text)] disabled:!bg-[var(--vestara-accent-bg)] disabled:!text-[var(--vestara-text-muted)]"
           >
             {isSaving ? 'Saving…' : 'Save'}
           </Button>

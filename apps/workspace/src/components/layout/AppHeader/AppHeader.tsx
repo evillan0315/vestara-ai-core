@@ -27,8 +27,9 @@ const AppHeader: FC<AppHeaderProps> = ({ mobileSidebarOpen = false, onMenuClick 
           aria-label="Toggle navigation"
           aria-controls="workspace-navigation"
           aria-expanded={mobileSidebarOpen}
+          title={mobileSidebarOpen ? 'Close navigation' : 'Open navigation'}
           onClick={onMenuClick}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-(--vestara-text-2) transition lg:hidden"
+          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn text-(--vestara-text-2) transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus) lg:hidden"
         >
           <MenuRounded fontSize="small" />
         </button>
@@ -55,7 +56,9 @@ const AppHeader: FC<AppHeaderProps> = ({ mobileSidebarOpen = false, onMenuClick 
 
         <button
           onClick={toggle}
-          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition"
+          type="button"
+          aria-label={`Switch to ${resolved === 'dark' ? 'light' : 'dark'} theme`}
+          className="flex h-10 w-10 items-center justify-center rounded-xl accent-btn transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)"
         >
           {resolved === 'dark' ? <LightModeRounded fontSize="small" /> : <DarkModeRounded fontSize="small" />}
         </button>

@@ -41,12 +41,19 @@ class WorkspaceSocket {
       return;
     }
 
-    this.ws.onopen = () => {
+    const socket = this.ws;
+
+    socket.onopen = () => {
+      if (this.ws !== socket || socket.readyState !== WebSocket.OPEN) return;
       this.setState('open');
-      this.ws?.send(JSON.stringify({ op: 'subscribe', channels: ['workspace'] }));
+      try {
+        socket.send(JSON.stringify({ op: 'subscribe', channels: ['workspace'] }));
+      } catch {
+        this.setState('error');
+      }
     };
 
-    this.ws.onmessage = (ev) => {
+    socket.onmessage = (ev) => {
       try {
         const msg = JSON.parse(String(ev.data)) as { op?: string; event?: WorkspaceEvent };
         if (msg.op === 'event' && msg.event) {
@@ -57,11 +64,13 @@ class WorkspaceSocket {
       }
     };
 
-    this.ws.onerror = () => {
+    socket.onerror = () => {
+      if (this.ws !== socket) return;
       this.setState('error');
     };
 
-    this.ws.onclose = () => {
+    socket.onclose = () => {
+      if (this.ws !== socket) return;
       this.setState('closed');
       this.ws = null;
       if (!this.intentionalClose) this.scheduleReconnect();
@@ -74,8 +83,19 @@ class WorkspaceSocket {
       window.clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    this.ws?.close();
+    const socket = this.ws;
     this.ws = null;
+    if (socket) {
+      socket.onopen = null;
+      socket.onmessage = null;
+      socket.onerror = null;
+      socket.onclose = null;
+      try {
+        socket.close();
+      } catch {
+        /* already closed */
+      }
+    }
     this.setState('closed');
   }
 

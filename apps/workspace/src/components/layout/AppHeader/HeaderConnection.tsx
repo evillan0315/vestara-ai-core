@@ -29,7 +29,10 @@ export default function HeaderConnection({ status = 'connected' }: HeaderConnect
   }[status];
 
   return (
-    <div className={`hidden lg:flex items-center gap-2 px-3 h-9 rounded-xl border border-(--vestara-accent-border) ${config.bg}`}>
+    <div
+      role="status"
+      aria-label={`Workspace connection: ${config.label}`}
+      className={`hidden lg:flex items-center gap-2 px-3 h-9 rounded-xl border border-(--vestara-accent-border) ${config.bg}`}>
       <div className={config.color}>{config.icon}</div>
 
       <div className="text-xs">

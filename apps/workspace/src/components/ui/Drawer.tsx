@@ -50,6 +50,8 @@ export interface DrawerProps {
    * close via the header button or Escape. Defaults to false.
    */
   hideBackdrop?: boolean;
+  /** Keep the surface mounted while hidden so session/domain state survives close. */
+  keepMounted?: boolean;
 }
 
 /** 0 means "full" (100% of the viewport dimension). */
@@ -92,6 +94,7 @@ export function Drawer({
   bodyClassName = '',
   portal = false,
   hideBackdrop = false,
+  keepMounted = false,
 }: DrawerProps) {
   const [preset, setPreset] = useState<DrawerSize>(defaultSize);
   const [customPx, setCustomPx] = useState<number | null>(null);
@@ -187,7 +190,7 @@ export function Drawer({
     document.addEventListener('pointerup', onUp);
   };
 
-  if (!open) return null;
+  if (!open && !keepMounted) return null;
 
   const dimensionStyle = vertical ? { height: `${effectivePx}px` } : { width: `${effectivePx}px` };
   const positionClasses =
@@ -208,7 +211,7 @@ export function Drawer({
 
   const drawerContent = (
     <div
-      className={`fixed inset-0 ${hideBackdrop ? 'pointer-events-none' : ''}`}
+      className={`fixed inset-0 ${hideBackdrop ? 'pointer-events-none' : ''} ${open ? '' : 'invisible'}`}
       style={{ zIndex: Number(Z_INDEX.modal) }}
     >
       {!hideBackdrop && (

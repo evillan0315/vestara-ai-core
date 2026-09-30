@@ -1,0 +1,83 @@
+/* WorkspaceOperationalPanel owns this generic operational-surface grammar. */
+:root {
+  --st-panel-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  --st-panel-backdrop:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 6%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent-dark) 12%, transparent), transparent 72%),
+    color-mix(in srgb, var(--vestara-accent-bg) 35%, transparent);
+  --st-panel-border: var(--vestara-accent-dark);
+  --st-spacing-card: calc(var(--vestara-spacing-section) + (var(--vestara-spacing-element) * 2));
+  --st-spacing-field: calc(var(--vestara-spacing-section) + var(--vestara-spacing-element));
+  --st-panel-max-height: 34rem;
+}
+
+[data-theme='light'] {
+  --st-panel-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  --st-panel-backdrop:
+    radial-gradient(120% 80% at 50% 0%, color-mix(in srgb, var(--vestara-status-info) 8%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent-dark) 12%, transparent), transparent 72%),
+    color-mix(in srgb, var(--vestara-accent-bg) 35%, transparent);
+}
+
+.st-panel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--vestara-radius-lg, 12px);
+  border: 1px solid var(--st-panel-border);
+  background: var(--st-panel-backdrop);
+  box-shadow: var(--st-panel-shadow);
+}
+
+.st-card-header {
+  border-bottom: 1px solid var(--vestara-border-subtle);
+}
+
+.st-card-fill {
+  display: flex;
+  height: 100%;
+  min-width: 0;
+  flex-direction: column;
+}
+
+.st-card-fill > .st-card-body {
+  min-height: 0;
+  flex: 1;
+}
+
+.st-card-fixed {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: var(--st-panel-max-height);
+}
+
+.st-card-fixed > .st-card-header {
+  flex-shrink: 0;
+}
+
+.st-card-fixed > .st-card-body {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.st-pad-card {
+  padding: var(--st-spacing-card);
+}
+
+.st-px-card {
+  padding-inline: var(--st-spacing-card);
+}
+
+.st-py-card {
+  padding-block: var(--st-spacing-card);
+}
+
+.st-gap-field {
+  gap: var(--st-spacing-field);
+}
+
+.st-mt-element {
+  margin-top: var(--vestara-spacing-element);
+}

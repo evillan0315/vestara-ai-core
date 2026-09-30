@@ -160,6 +160,7 @@
      via generated-tokens.css (ELEVATION tokens), single source of truth. */
   --vestara-z-index-overlay: 1300;
   --vestara-z-index-popover: 1500;
+  --vestara-z-index-tooltip: 1800;
 
   /* ── Page container (overridden by JS theme.tsx) ── */
   --vestara-page-max-width: 1280px;

@@ -84,6 +84,8 @@ export type { SortDirection, TableColumn, TableProps } from './components/Table.
 export { Table } from './components/Table.js';
 export type { TagProps, TagSize, TagVariant } from './components/Tag.js';
 export { Tag } from './components/Tag.js';
+export type { TooltipPlacement, TooltipProps } from './components/Tooltip.js';
+export { Tooltip } from './components/Tooltip.js';
 
 // ─── Containers ────────────────────────────────────────────────
 

@@ -15,6 +15,7 @@
   --vestara-accent-border-active: #f59e0b;
   --vestara-accent-border-hover: #f59e0b60;
   --vestara-accent-glow: rgba(245, 158, 11, 0.04);
+  --vestara-accent-overlay: rgba(26, 20, 8, 0.96);
   --vestara-accent-primary: #f59e0b;
   --vestara-accent-secondary: #fbbf24;
   --vestara-accent-text: #fbbf24;
@@ -95,6 +96,7 @@
   --vestara-accent-border-active: #f59e0b;
   --vestara-accent-border-hover: rgba(245, 158, 11, 0.3);
   --vestara-accent-glow: rgba(245, 158, 11, 0.04);
+  --vestara-accent-overlay: rgba(255, 251, 235, 0.97);
   --vestara-accent-primary: #b45309;
   --vestara-accent-secondary: #d97706;
   --vestara-accent-text: #d97706;

@@ -13,6 +13,7 @@ interface AppSidebarProps {
   mobileOpen: boolean;
   onToggleCollapse: () => void;
   onShortcuts: () => void;
+  onNavigate: () => void;
 }
 
 const AppSidebar: FC<AppSidebarProps> = ({
@@ -21,6 +22,7 @@ const AppSidebar: FC<AppSidebarProps> = ({
   mobileOpen,
   onToggleCollapse,
   onShortcuts,
+  onNavigate,
 }) => {
   const effectiveCollapsed = collapsed && !mobileOpen;
   const collapsedStyle: CSSProperties | undefined = effectiveCollapsed
@@ -37,7 +39,7 @@ const AppSidebar: FC<AppSidebarProps> = ({
     >
       <SidebarBrand collapsed={effectiveCollapsed} />
 
-      <SidebarNavigation sections={navigation} collapsed={effectiveCollapsed} />
+      <SidebarNavigation sections={navigation} collapsed={effectiveCollapsed} onNavigate={onNavigate} />
 
       <div className="hidden px-2 lg:block">
         <button

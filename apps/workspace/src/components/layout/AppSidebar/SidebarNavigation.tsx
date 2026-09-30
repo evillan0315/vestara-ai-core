@@ -16,9 +16,10 @@ export type { ProjectedNavItem as NavigationItem };
 interface SidebarNavigationProps {
   sections: ProjectedNavSection[];
   collapsed?: boolean;
+  onNavigate?: () => void;
 }
 
-const SidebarNavigation: FC<SidebarNavigationProps> = ({ sections, collapsed }) => {
+const SidebarNavigation: FC<SidebarNavigationProps> = ({ sections, collapsed, onNavigate }) => {
   return (
     <div className={`flex-1 overflow-y-auto py-6 ${collapsed ? 'space-y-6 px-1' : 'space-y-8 px-3'}`}>
       {sections.map((section) => (
@@ -28,7 +29,7 @@ const SidebarNavigation: FC<SidebarNavigationProps> = ({ sections, collapsed }) 
               {item.dividerBefore && (
                 <div aria-hidden="true" className="mx-2 my-3 border-t border-(--vestara-accent-border)" />
               )}
-              <SidebarNavigationItem key={item.to} {...item} collapsed={collapsed} />
+              <SidebarNavigationItem key={item.to ?? item.navId} {...item} collapsed={collapsed} onNavigate={onNavigate} />
             </div>
           ))}
         </SidebarSection>

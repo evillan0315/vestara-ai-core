@@ -23,7 +23,10 @@ export default function HeaderNotifications() {
   return (
     <div ref={ref} className="relative">
       <button
+        type="button"
         onClick={() => setOpen((prev) => !prev)}
+        aria-expanded={open}
+        aria-controls="workspace-notifications"
         className="relative flex items-center justify-center w-10 h-10 rounded-xl accent-btn transition-colors"
         aria-label="Notifications"
       >
@@ -36,7 +39,7 @@ export default function HeaderNotifications() {
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) shadow-xl z-50">
+        <div id="workspace-notifications" role="dialog" aria-label="Notifications" className="absolute right-0 top-full mt-2 w-80 max-h-96 overflow-y-auto rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) shadow-xl z-[var(--vestara-z-index-popover)]">
           <div className="flex items-center justify-between px-4 py-3 border-b border-(--vestara-accent-border)">
             <span className="text-sm font-semibold text-(--vestara-text)">
               Notifications {unreadCount > 0 && <span className="text-(--vestara-text-muted) font-normal">({unreadCount} unread)</span>}

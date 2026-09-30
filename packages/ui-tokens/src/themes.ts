@@ -65,6 +65,8 @@ export interface AccentTheme {
   text: string;
   textHover: string;
   textMuted: string;
+  /** Amber-tinted overlay surface (AR-TOOLTIP-001: tooltip background). */
+  overlay: string;
 }
 
 // ─── Status Theme ──────────────────────────────────────────────
@@ -162,6 +164,7 @@ export const DARK_THEME: Theme = {
     text: COLOR.brand.amberLight,
     textHover: COLOR.brand.amberLight,
     textMuted: `${COLOR.brand.amber}99`,
+    overlay: 'rgba(26, 20, 8, 0.96)',
   },
   status: {
     success: COLOR.status.success,
@@ -246,6 +249,7 @@ export const LIGHT_THEME: Theme = {
     text: COLOR.brand.amberDark,
     textHover: COLOR.brand.amber,
     textMuted: 'rgba(245, 158, 11, 0.5)',
+    overlay: 'rgba(255, 251, 235, 0.97)',
   },
   status: {
     success: '#16a34a',

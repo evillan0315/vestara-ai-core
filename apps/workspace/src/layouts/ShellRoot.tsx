@@ -1,4 +1,3 @@
-import { Z_INDEX } from '@vestara/ui-tokens';
 import type { ReactNode } from 'react';
 
 export interface ShellRootProps {
@@ -32,7 +31,7 @@ export function ShellRoot({
         <button
           type="button"
           aria-label="Close navigation"
-          className="fixed inset-0 bg-(--vestara-surface-overlay) lg:hidden" style={{ zIndex: Number(Z_INDEX.overlay) }}
+          className="fixed inset-0 z-[var(--vestara-z-index-overlay)] bg-(--vestara-surface-overlay) lg:hidden"
           onClick={onCloseMobileSidebar}
         />
       )}

@@ -11,6 +11,7 @@ export interface SidebarNavigationItemProps {
   collapsed?: boolean;
   /** Route-less behavior (e.g. Global Assistant opens the floating panel). */
   action?: WorkspaceNavAction;
+  onNavigate?: () => void;
 }
 
 function dispatchNavAction(action: WorkspaceNavAction): void {
@@ -31,17 +32,22 @@ const SidebarNavigationItem: FC<SidebarNavigationItemProps> = ({
   description,
   collapsed,
   action,
+  onNavigate,
 }) => {
   if (action || !to) {
     return (
       <button
         type="button"
-        onClick={() => action && dispatchNavAction(action)}
+        onClick={() => {
+          if (action) dispatchNavAction(action);
+          onNavigate?.();
+        }}
         title={collapsed ? `${title}${description ? ` — ${description}` : ''}` : description}
+        aria-label={collapsed ? title : undefined}
         className={[
           ITEM_CLASSES,
           collapsed ? 'justify-center' : '',
-          'border-transparent hover:border-(--vestara-accent-border) hover:bg-(--vestara-bg)',
+          'border-transparent hover:border-(--vestara-accent-border) hover:bg-(--vestara-bg) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)',
         ].join(' ')}
       >
         <div
@@ -63,10 +69,12 @@ const SidebarNavigationItem: FC<SidebarNavigationItemProps> = ({
   return (
     <NavLink
       to={to}
+      onClick={onNavigate}
       title={collapsed ? `${title}${description ? ` — ${description}` : ''}` : undefined}
+      aria-label={collapsed ? title : undefined}
       className={({ isActive }) =>
         [
-          'group relative flex items-center gap-3 rounded-xl border px-2 py-1 transition-all duration-200',
+          'group relative flex items-center gap-3 rounded-xl border px-2 py-1 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)',
           collapsed ? 'justify-center' : '',
           isActive
             ? 'border-(--vestara-accent-border) bg-(--vestara-accent-bg) shadow-lg'

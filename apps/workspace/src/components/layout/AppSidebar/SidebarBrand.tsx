@@ -11,7 +11,8 @@ const SidebarBrand: FC<SidebarBrandProps> = ({ collapsed }) => {
   return (
     <Link
       to="/overview"
-      className="flex items-center justify-center border-b border-(--vestara-accent-border) px-3 py-2 transition-colors"
+      aria-label="Go to Overview"
+      className="flex items-center justify-center border-b border-(--vestara-accent-border) px-3 py-2 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-(--vestara-border-focus)"
     >
       <div className="min-w-0">
         {/* No src → themed inline mark that follows the selected accent */}
