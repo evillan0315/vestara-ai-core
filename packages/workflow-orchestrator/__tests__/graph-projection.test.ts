@@ -62,7 +62,9 @@ describe('WF-GRAPH-002 workflow snapshot projection', () => {
   it('projects multiple prerequisites independently', () => {
     const result = projectWorkflowGraph(snapshot({ a: [], b: [], c: ['a', 'b'] }));
 
-    expect(result.edges.filter((edge) => edge.kind === 'depends_on').map(({ source, target }) => [source, target])).toEqual([
+    expect(
+      result.edges.filter((edge) => edge.kind === 'depends_on').map(({ source, target }) => [source, target]),
+    ).toEqual([
       ['workflow-task:a', 'workflow-task:c'],
       ['workflow-task:b', 'workflow-task:c'],
     ]);

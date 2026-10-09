@@ -62,6 +62,14 @@
   color: var(--vestara-text-primary);
 }
 
+/* Shared hero surface: the same layered accent wash used by Activity Room. */
+.st-hero-surface {
+  background:
+    radial-gradient(90% 130% at 85% 10%, color-mix(in srgb, var(--vestara-accent) 15%, transparent), transparent 60%),
+    radial-gradient(70% 100% at 15% 0%, color-mix(in srgb, var(--vestara-accent) 8%, transparent), transparent 55%),
+    var(--vestara-hero-bg, var(--vestara-surface-canvas));
+}
+
 /* ── Horizontally scrollable panel variant ── */
 .st-panel-scroll-x {
   overflow-x: auto;

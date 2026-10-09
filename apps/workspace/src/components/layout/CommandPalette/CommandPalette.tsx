@@ -1,7 +1,7 @@
 import ArrowForwardRoundedIcon from '@mui/icons-material/ArrowForwardRounded';
 import KeyboardCommandKeyRoundedIcon from '@mui/icons-material/KeyboardCommandKeyRounded';
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { VestaraModal } from '../../ui/VestaraModal.js';
 import {
@@ -44,6 +44,7 @@ export default function CommandPalette() {
   const [sessions, setSessions] = useState<SearchResult[]>([]);
   const [requests, setRequests] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
   const navStore = useNavigationStore();
 
   const fetchData = useCallback(async () => {
@@ -131,6 +132,23 @@ export default function CommandPalette() {
 
   useEffect(() => { setSelected(0); }, [query]);
 
+  useEffect(() => {
+    if (open) inputRef.current?.focus();
+  }, [open]);
+
+  const handleInputKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      setSelected((current) => results.length ? (current + 1) % results.length : 0);
+    } else if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      setSelected((current) => results.length ? (current - 1 + results.length) % results.length : 0);
+    } else if (event.key === 'Enter' && results[selected]) {
+      event.preventDefault();
+      chooseResult(results[selected]);
+    }
+  };
+
   if (!open) return null;
 
   const typeLabels: Record<string, string> = { page: 'Page', agent: 'Agent', project: 'Project', session: 'Session', request: 'Request' };
@@ -144,18 +162,20 @@ export default function CommandPalette() {
     >
         <div className="flex items-center gap-3 border-b border-(--vestara-accent-border) px-5 py-4">
           <SearchRoundedIcon fontSize="small" className="text-(--vestara-text-2)" />
-          <input value={query} onChange={(e) => setQuery(e.target.value)}
+          <input ref={inputRef} value={query} onChange={(e) => setQuery(e.target.value)} onKeyDown={handleInputKeyDown}
+            role="combobox" aria-expanded="true" aria-controls="workspace-command-results"
+            aria-activedescendant={results[selected] ? `command-result-${results[selected].id}` : undefined}
             placeholder="Search pages, agents, projects, sessions..."
             className="flex-1 bg-transparent text-sm text-(--vestara-text) outline-none placeholder-(--vestara-text-dim)" />
           <kbd className="rounded border border-(--vestara-accent-border) bg-(--vestara-accent-bg) px-2 py-1 text-[10px] text-(--vestara-text-2)">ESC</kbd>
         </div>
 
-        <div className="max-h-125 overflow-y-auto py-2">
+        <div id="workspace-command-results" role="listbox" aria-label="Workspace search results" className="max-h-125 overflow-y-auto py-2">
           {loading && results.length === 0 && (
             <div className="px-5 py-10 text-center text-sm text-(--vestara-text-muted) animate-pulse">Loading...</div>
           )}
           {results.map((result, index) => (
-            <button key={result.id} onClick={() => chooseResult(result)}
+            <button id={`command-result-${result.id}`} role="option" aria-selected={index === selected} key={result.id} onClick={() => chooseResult(result)}
               className={`flex w-full items-center gap-4 px-5 py-3 text-left transition-colors ${index === selected ? 'bg-(--vestara-accent-bg)' : 'hover:bg-(--vestara-accent-bg)'}`}>
               <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-(--vestara-accent-border) bg-(--vestara-accent-bg) text-sm">
                 {result.icon || <ArrowForwardRoundedIcon fontSize="small" className="text-(--vestara-text-2)" />}

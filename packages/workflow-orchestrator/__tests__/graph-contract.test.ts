@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   WORKFLOW_GRAPH_DEPENDENCY_DIRECTION,
+  type WorkflowGraphProjection,
   workflowGraphEdgeId,
   workflowGraphNodeId,
-  type WorkflowGraphProjection,
 } from '../src/graph-contract';
 
 describe('WF-GRAPH-001 contract', () => {

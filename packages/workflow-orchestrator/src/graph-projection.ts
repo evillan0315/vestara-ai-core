@@ -4,11 +4,11 @@
  */
 
 import {
-  workflowGraphEdgeId,
-  workflowGraphNodeId,
   type WorkflowGraphEdge,
   type WorkflowGraphNode,
   type WorkflowGraphProjection,
+  workflowGraphEdgeId,
+  workflowGraphNodeId,
 } from './graph-contract';
 import type { ProjectSnapshot, WorkflowPlan, WorkflowTask } from './types';
 
@@ -30,19 +30,13 @@ export function projectWorkflowGraph(snapshot: WorkflowGraphSnapshot): WorkflowG
 
   const nodes: WorkflowGraphNode[] = [planNode(plan, planNodeId), ...tasks.map((task) => taskNode(task))];
   const taskIds = new Set(tasks.map((task) => task.id));
-  const containsEdges = tasks.map((task) =>
-    edge('contains', planNodeId, workflowGraphNodeId('task', task.id)),
-  );
+  const containsEdges = tasks.map((task) => edge('contains', planNodeId, workflowGraphNodeId('task', task.id)));
   const dependencyEdges = tasks
     .flatMap((task) =>
       task.dependencies
         .filter((dependencyId) => taskIds.has(dependencyId))
         .map((dependencyId) =>
-          edge(
-            'depends_on',
-            workflowGraphNodeId('task', dependencyId),
-            workflowGraphNodeId('task', task.id),
-          ),
+          edge('depends_on', workflowGraphNodeId('task', dependencyId), workflowGraphNodeId('task', task.id)),
         ),
     )
     .sort((left, right) => left.id.localeCompare(right.id));

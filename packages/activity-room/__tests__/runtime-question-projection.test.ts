@@ -38,7 +38,9 @@ describe('runtime question projection', () => {
   });
 
   it('projects room attention without creating a response authority', () => {
-    const [attention] = projectRuntimeQuestionAttention(projectPendingRuntimeQuestions([base]));
+    const [attention] = projectRuntimeQuestionAttention(
+      projectPendingRuntimeQuestions([base], Date.parse('2026-09-27T12:05:00.000Z')),
+    );
 
     expect(attention).toMatchObject({
       reason: 'waiting-for-human',

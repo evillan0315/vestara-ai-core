@@ -1,11 +1,11 @@
+import type { TelegramIdentityBinding, TelegramPairingService } from '@vestara/telegram-integration';
 import {
-  HumanPrincipalConflictError,
-  HumanPrincipalNotFoundError,
   type HumanExternalIdentity,
   type HumanPrincipal,
+  HumanPrincipalConflictError,
+  HumanPrincipalNotFoundError,
   type HumanPrincipalStorage,
 } from '@vestara/workspace';
-import type { TelegramIdentityBinding, TelegramPairingService } from '@vestara/telegram-integration';
 
 export const TELEGRAM_EXTERNAL_IDENTITY_PROVIDER = 'telegram';
 
@@ -37,11 +37,7 @@ export async function resolveTelegramIdentity(
         (identity) =>
           identity.provider === TELEGRAM_EXTERNAL_IDENTITY_PROVIDER && identity.subject === binding.telegramUserId,
       )
-    : await principals.linkExternalIdentity(
-        principal.id,
-        TELEGRAM_EXTERNAL_IDENTITY_PROVIDER,
-        binding.telegramUserId,
-      );
+    : await principals.linkExternalIdentity(principal.id, TELEGRAM_EXTERNAL_IDENTITY_PROVIDER, binding.telegramUserId);
 
   return externalIdentity ? { externalIdentity, principal } : undefined;
 }

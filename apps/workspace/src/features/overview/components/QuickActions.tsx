@@ -19,7 +19,7 @@ interface QuickAction {
 
 const QUICK_ACTIONS: QuickAction[] = [
   { id: 'project', label: 'New Project', sub: 'Start building', href: '/projects', tile: 'var(--vestara-status-info)', glyph: '✚' },
-  { id: 'workflow', label: 'Create Workflow', sub: 'Automate work', href: '/workflows', tile: 'var(--vestara-accent-primary)', glyph: '⁂' },
+  { id: 'workflow', label: 'Create Workflow', sub: 'Automate work', href: '/orchestration', tile: 'var(--vestara-accent-primary)', glyph: '⁂' },
   { id: 'files', label: 'Open Files', sub: 'Browse workspace', href: '/files', tile: 'var(--vestara-status-success)', glyph: '▤' },
   { id: 'terminal', label: 'Launch Terminal', sub: 'Start a session', href: '/terminal', tile: 'var(--vestara-text-muted)', glyph: '›_' },
 ];

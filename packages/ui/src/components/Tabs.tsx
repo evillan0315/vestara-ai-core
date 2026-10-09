@@ -22,6 +22,12 @@ export interface Tab {
   label: string;
   /** Optional short label for narrow viewports. */
   shortLabel?: string;
+  /** Optional leading icon supplied by the consuming design system. */
+  icon?: ReactNode;
+  /** Optional native tooltip for dense or abbreviated tabs. */
+  title?: string;
+  /** Whether this tab renders the bottom-border selection treatment. */
+  borderBottom?: boolean;
   /** Disabled tabs are skipped by keyboard navigation and not selectable. */
   disabled?: boolean;
 }
@@ -30,13 +36,16 @@ export interface TabsProps {
   tabs: readonly Tab[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
-  children: ReactNode;
+  /** Optional controlled panel content. Omit it when the tabs are navigation-only. */
+  children?: ReactNode;
   /** className applied to the tab list container. */
   className?: string;
   /** className applied to each tab button. */
   tabClassName?: string;
   /** className applied to the active tab button. */
   activeTabClassName?: string;
+  /** Accessible name for the tablist. */
+  ariaLabel?: string;
 }
 
 // ─── Component ─────────────────────────────────────────────────
@@ -49,6 +58,7 @@ export function Tabs({
   className = '',
   tabClassName = '',
   activeTabClassName = '',
+  ariaLabel,
 }: TabsProps) {
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const uid = useId().replace(/:/g, '');
@@ -102,6 +112,7 @@ export function Tabs({
     <div className={className}>
       <div
         role="tablist"
+        aria-label={ariaLabel}
         aria-orientation="horizontal"
         className="flex gap-0 border-b border-(--vestara-accent-border) overflow-x-auto scrollbar-none"
         onKeyDown={handleKeyDown}
@@ -109,6 +120,7 @@ export function Tabs({
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;
           const isDisabled = tab.disabled === true;
+          const hasBottomBorder = tab.borderBottom !== false;
           return (
             <button
               key={tab.id}
@@ -123,32 +135,40 @@ export function Tabs({
               aria-controls={`tabpanel-${uid}-${tab.id}`}
               tabIndex={isActive && !isDisabled ? 0 : -1}
               type="button"
+              title={tab.title}
               disabled={isDisabled}
               onClick={() => onTabChange(tab.id)}
-              className={`flex-shrink-0 px-3 py-2 text-xs font-medium transition-colors cursor-pointer
-                border-b-2 -mb-px
+              className={`flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors cursor-pointer
+                ${hasBottomBorder ? 'border-b-2 -mb-px' : 'border-b-0'}
                 ${
                   isActive
-                    ? `border-(--vestara-accent-text) text-(--vestara-accent-text) ${activeTabClassName}`
+                    ? `${hasBottomBorder ? 'border-(--vestara-accent-text)' : ''} text-(--vestara-accent-text) ${activeTabClassName}`
                     : `border-transparent text-(--vestara-text-muted) hover:text-(--vestara-text-2) ${tabClassName}`
                 } disabled:cursor-not-allowed disabled:opacity-45`}
             >
+              {tab.icon && (
+                <span aria-hidden="true" className="[&_svg]:size-4">
+                  {tab.icon}
+                </span>
+              )}
               <span className="hidden sm:inline">{tab.label}</span>
               <span className="sm:hidden">{tab.shortLabel ?? tab.label}</span>
             </button>
           );
         })}
       </div>
-      <div
-        role="tabpanel"
-        id={`tabpanel-${uid}-${activeTab}`}
-        aria-labelledby={`tab-${uid}-${activeTab}`}
-        // biome-ignore lint/a11y/noNoninteractiveTabindex: tabpanel keeps tabIndex=0 for keyboard scroll parity with the promoted application copy (WAI-ARIA tabpanel focus when content overflows).
-        tabIndex={0}
-        className="focus:outline-none"
-      >
-        {children}
-      </div>
+      {children !== undefined && (
+        <div
+          role="tabpanel"
+          id={`tabpanel-${uid}-${activeTab}`}
+          aria-labelledby={`tab-${uid}-${activeTab}`}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: tabpanel keeps tabIndex=0 for keyboard scroll parity with the promoted application copy (WAI-ARIA tabpanel focus when content overflows).
+          tabIndex={0}
+          className="focus:outline-none"
+        >
+          {children}
+        </div>
+      )}
     </div>
   );
 }

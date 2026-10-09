@@ -1,7 +1,8 @@
 import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { VestaraMark } from '../../components/branding/index.js';
+import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, type ThemeMode, type ThemeSettings, useTheme } from '../../lib/theme.js';
 import type { RuntimeStatusDto } from './settings-client.js';
@@ -53,7 +54,8 @@ const FIELD_HELP: Record<string, string> = {
   'general.workspaceName': 'Shown in the hero, tab titles, and overview. Cannot be empty.',
   'general.defaultBranch': 'Branch used for new work and comparisons.',
   'general.defaultLandingPage': 'Route opened at startup, e.g. /overview.',
-  'general.composerMaxChars': 'Max characters per composer message (1–100000, default 100000). Applies to the Activity Room composer; enforced server-side.',
+  'general.composerMaxChars':
+    'Max characters per composer message (1–100000, default 100000). Applies to the Activity Room composer; enforced server-side.',
   'general.startupBehavior': 'What to restore or open on launch.',
   'general.dateTimeFormat': 'Locale follows your browser; ISO 8601 sorts cleanly.',
   'general.logFormat': 'Structured suits machine parsing; compact suits skimming.',
@@ -104,7 +106,7 @@ function relativeTime(iso: string | undefined): string {
 
 function SettingsHero({ configuration, runtime }: { configuration: ResolvedConfiguration; runtime: RuntimeStatusDto }) {
   return (
-    <section className="st-panel st-pad-card border border-[color-mix(in_srgb,var(--vestara-accent)_42%,var(--vestara-border-subtle))]">
+    <section className="st-panel st-hero-surface st-pad-card border border-[color-mix(in_srgb,var(--vestara-accent)_42%,var(--vestara-border-subtle))]">
       <div className="st-gap-section flex min-w-0 flex-col lg:flex-row lg:items-center lg:justify-between">
         <div className="st-gap-field flex min-w-0 items-center lg:max-w-[34rem]">
           <SectionIcon icon={navIcon('settings')} />
@@ -118,7 +120,11 @@ function SettingsHero({ configuration, runtime }: { configuration: ResolvedConfi
           </div>
         </div>
         <div className="st-gap-field grid min-w-0 sm:grid-cols-3 lg:w-[min(48rem,60%)]">
-          <HeroFact icon={navIcon('files')} label="Workspace" value={settingValue(configuration, 'general.workspaceName')} />
+          <HeroFact
+            icon={navIcon('files')}
+            label="Workspace"
+            value={settingValue(configuration, 'general.workspaceName')}
+          />
           <HeroFact icon={navIcon('terminal')} label="Runtime" value={runtime.runtimeVersion} />
           <HeroFact icon={navIcon('sessions')} label="Updated" value={relativeTime(configuration.generatedAt)} />
         </div>
@@ -127,15 +133,7 @@ function SettingsHero({ configuration, runtime }: { configuration: ResolvedConfi
   );
 }
 
-function HeroFact({
-  icon,
-  label,
-  value,
-}: {
-  icon: ReactNode;
-  label: string;
-  value: string;
-}) {
+function HeroFact({ icon, label, value }: { icon: ReactNode; label: string; value: string }) {
   return (
     <div className="st-hero-chip min-w-0">
       <div className="st-gap-field flex min-h-14 min-w-0 items-center">
@@ -152,34 +150,27 @@ function HeroFact({
 }
 
 function SettingsTabs() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const tabs = SETTINGS_TABS.map((id) => SETTINGS_SECTIONS.find((entry) => entry.id === id)).filter(
     (section): section is (typeof SETTINGS_SECTIONS)[number] => section !== undefined,
   );
+
+  const activeTab = location.pathname.split('/')[2] || 'general';
+
   return (
-    <nav
-      aria-label="Settings sections"
-      className="st-panel st-panel-scroll-x st-settings-nav st-gap-field st-pad-element flex min-w-0 border border-[var(--vestara-border-subtle)]"
-    >
-      {tabs.map((section) => (
-        <NavLink
-          key={section.id}
-          to={`/settings/${section.id}`}
-          title={section.description}
-          className={({ isActive }) =>
-            `st-gap-field st-px-card inline-flex min-h-10 min-w-28 flex-1 shrink-0 items-center justify-center whitespace-nowrap rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-medium transition-colors ${focus} ${
-              isActive
-                ? 'border-[color-mix(in_srgb,var(--vestara-accent)_54%,var(--vestara-border-subtle))] bg-[color-mix(in_srgb,var(--vestara-accent)_14%,transparent)] text-[var(--vestara-accent-text)]'
-                : 'border-transparent text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:bg-[var(--vestara-accent-bg)] hover:text-[var(--vestara-accent-text)]'
-            }`
-          }
-        >
-          <span aria-hidden="true" className="[&_svg]:size-4">
-            {navIcon(section.icon)}
-          </span>
-          <span className="truncate">{section.label}</span>
-        </NavLink>
-      ))}
-    </nav>
+    <WorkspaceTabs
+      tabs={tabs.map((section) => ({
+        id: section.id,
+        label: section.label,
+        title: section.description,
+        icon: navIcon(section.icon),
+      }))}
+      activeTab={activeTab}
+      onTabChange={(tabId) => navigate(`/settings/${tabId}`)}
+      ariaLabel="Settings sections"
+      stretch
+    />
   );
 }
 
@@ -290,13 +281,7 @@ function DraftField({
   );
 }
 
-function WorkspaceLogoControl({
-  value,
-  onChange,
-}: {
-  value: unknown;
-  onChange: (value: string) => void;
-}) {
+function WorkspaceLogoControl({ value, onChange }: { value: unknown; onChange: (value: string) => void }) {
   const inputRef = useRef<HTMLInputElement | null>(null);
   const [error, setError] = useState<string | null>(null);
   const logo = typeof value === 'string' ? value : '';
@@ -331,11 +316,14 @@ function WorkspaceLogoControl({
           Workspace Logo
         </p>
         <p className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
-          Used as the visual identity for this workspace. Images under 256 KB are stored with the configuration
-          when you save below.
+          Used as the visual identity for this workspace. Images under 256 KB are stored with the configuration when you
+          save below.
         </p>
       </div>
-      <div className="st-logo-preview" aria-label={hasLogo ? 'Current workspace logo preview' : 'Default workspace logo preview'}>
+      <div
+        className="st-logo-preview"
+        aria-label={hasLogo ? 'Current workspace logo preview' : 'Default workspace logo preview'}
+      >
         {hasLogo ? (
           <img src={logo} alt="" className="max-h-full max-w-full object-contain" />
         ) : (
@@ -423,9 +411,14 @@ function WorkspaceIdentityCard({
       </div>
       <div className="mt-auto flex flex-col gap-[var(--vestara-spacing-section)] border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">{dirtyLabel}</p>
+          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
+            {dirtyLabel}
+          </p>
           {message && (
-            <p role="status" className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
+            <p
+              role="status"
+              className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+            >
               {message}
             </p>
           )}
@@ -457,15 +450,7 @@ function WorkspaceIdentityCard({
   );
 }
 
-function InstantField({
-  label,
-  helper,
-  children,
-}: {
-  label: string;
-  helper: string;
-  children: ReactNode;
-}) {
+function InstantField({ label, helper, children }: { label: string; helper: string; children: ReactNode }) {
   return (
     <div className="min-w-0">
       <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
@@ -687,145 +672,145 @@ function PreferencesCard({
             title="Appearance"
             description="Theme mode and accent color for focus, selection, and primary actions. Applies instantly."
           >
-          <div className="grid st-gap-section">
-            <InstantField label="Theme Preference" helper="Follow your system, or lock dark / light. Saved durably.">
-              <Segmented
-                label="Theme Preference"
-                value={mode}
-                options={['dark', 'light', 'system']}
-                onChange={onThemeModeChange}
-              />
-            </InstantField>
-            <InstantField label="Accent palette" helper="Colors focus rings, selection, and primary actions.">
-              <span className="flex flex-wrap items-center gap-2">
-                {Object.entries(ACCENT_PALETTES).map(([id, palette]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-label={palette.label}
-                    aria-pressed={settings.colorTheme === id}
-                    title={palette.label}
-                    onClick={() => updateSetting('colorTheme', id as ThemeSettings['colorTheme'])}
-                    className={`grid size-7 place-items-center rounded-[var(--vestara-radius-full)] border ${focus} ${
-                      settings.colorTheme === id
-                        ? 'border-[var(--vestara-color-text-primary,var(--vestara-text))] ring-2 ring-[var(--vestara-accent)] ring-offset-2 ring-offset-[var(--vestara-color-surface-panel,var(--color-zinc-900))]'
-                        : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))]'
-                    }`}
-                    style={{ backgroundColor: palette.hex }}
-                  >
-                    {settings.colorTheme === id && (
-                      <span
-                        className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-surface-canvas)]"
-                        aria-hidden="true"
-                      >
-                        ✓
-                      </span>
-                    )}
-                  </button>
-                ))}
-                <span className="text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)]">
-                  {ACCENT_PALETTES[settings.colorTheme].label}
-                </span>
-              </span>
-            </InstantField>
-            <InstantField label="Font weight" helper="Default weight for body text. Live-previewed under Typography.">
-              <Segmented
-                label="Font weight"
-                value={settings.fontWeight}
-                options={['light', 'normal', 'medium', 'semibold']}
-                onChange={(value) => updateSetting('fontWeight', value)}
-              />
-            </InstantField>
-          </div>
-        </PreferenceSection>
-        <PreferenceSection
-          icon={navIcon('files')}
-          title="Typography"
-          description="Fonts and text styles across every surface. Applies instantly."
-        >
-          <div className="grid st-gap-section">
-            <TypographyPreview />
-            <div className="grid st-gap-section sm:grid-cols-2">
-              <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
-                <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
-              </InstantField>
-              <InstantField label="Font size" helper="Base text size across surfaces.">
+            <div className="grid st-gap-section">
+              <InstantField label="Theme Preference" helper="Follow your system, or lock dark / light. Saved durably.">
                 <Segmented
-                  label="Font size"
-                  value={settings.fontSize}
-                  options={['small', 'medium', 'large']}
-                  onChange={(value) => updateSetting('fontSize', value)}
+                  label="Theme Preference"
+                  value={mode}
+                  options={['dark', 'light', 'system']}
+                  onChange={onThemeModeChange}
+                />
+              </InstantField>
+              <InstantField label="Accent palette" helper="Colors focus rings, selection, and primary actions.">
+                <span className="flex flex-wrap items-center gap-2">
+                  {Object.entries(ACCENT_PALETTES).map(([id, palette]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      aria-label={palette.label}
+                      aria-pressed={settings.colorTheme === id}
+                      title={palette.label}
+                      onClick={() => updateSetting('colorTheme', id as ThemeSettings['colorTheme'])}
+                      className={`grid size-7 place-items-center rounded-[var(--vestara-radius-full)] border ${focus} ${
+                        settings.colorTheme === id
+                          ? 'border-[var(--vestara-color-text-primary,var(--vestara-text))] ring-2 ring-[var(--vestara-accent)] ring-offset-2 ring-offset-[var(--vestara-color-surface-panel,var(--color-zinc-900))]'
+                          : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))]'
+                      }`}
+                      style={{ backgroundColor: palette.hex }}
+                    >
+                      {settings.colorTheme === id && (
+                        <span
+                          className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-surface-canvas)]"
+                          aria-hidden="true"
+                        >
+                          ✓
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                  <span className="text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-secondary)]">
+                    {ACCENT_PALETTES[settings.colorTheme].label}
+                  </span>
+                </span>
+              </InstantField>
+              <InstantField label="Font weight" helper="Default weight for body text. Live-previewed under Typography.">
+                <Segmented
+                  label="Font weight"
+                  value={settings.fontWeight}
+                  options={['light', 'normal', 'medium', 'semibold']}
+                  onChange={(value) => updateSetting('fontWeight', value)}
                 />
               </InstantField>
             </div>
+          </PreferenceSection>
+          <PreferenceSection
+            icon={navIcon('files')}
+            title="Typography"
+            description="Fonts and text styles across every surface. Applies instantly."
+          >
+            <div className="grid st-gap-section">
+              <TypographyPreview />
+              <div className="grid st-gap-section sm:grid-cols-2">
+                <InstantField label="Font family" helper="System stacks ship locally; Google fonts stream on demand.">
+                  <SelectField settingKey="fontFamily" options={FONT_FAMILY_OPTIONS} />
+                </InstantField>
+                <InstantField label="Font size" helper="Base text size across surfaces.">
+                  <Segmented
+                    label="Font size"
+                    value={settings.fontSize}
+                    options={['small', 'medium', 'large']}
+                    onChange={(value) => updateSetting('fontSize', value)}
+                  />
+                </InstantField>
+              </div>
+            </div>
+          </PreferenceSection>
+          <div className="lg:col-span-2">
+            <PreferenceSection
+              icon={navIcon('sessions')}
+              title="Layout"
+              description="Rail, density, and corner controls. These apply instantly and are not part of Save / Discard."
+            >
+              <div className="grid st-gap-section sm:grid-cols-2 sm:gap-x-[var(--vestara-spacing-section)]">
+                <InstantField label="Sidebar width" helper="Rail width from compact to wide.">
+                  <Segmented
+                    label="Sidebar width"
+                    value={settings.sidebarWidth}
+                    options={['compact', 'normal', 'wide']}
+                    onChange={(value) => updateSetting('sidebarWidth', value)}
+                  />
+                </InstantField>
+                <InstantField label="Sidebar mode" helper="Icons save rail space; text shows labels.">
+                  <Segmented
+                    label="Sidebar mode"
+                    value={settings.sidebarMode}
+                    options={['icons', 'text']}
+                    onChange={(value) => updateSetting('sidebarMode', value)}
+                  />
+                </InstantField>
+                <InstantField label="Spacing" helper="Density of pages, sections, and elements.">
+                  <Segmented
+                    label="Spacing"
+                    value={settings.spacing}
+                    options={['compact', 'comfortable', 'spacious']}
+                    onChange={(value) => updateSetting('spacing', value)}
+                  />
+                </InstantField>
+                <InstantField label="Radius" helper="Corner roundness across surfaces.">
+                  <Segmented
+                    label="Radius"
+                    value={settings.radius}
+                    options={['none', 'small', 'medium', 'large']}
+                    onChange={(value) => updateSetting('radius', value)}
+                  />
+                </InstantField>
+                <InstantToggleRow
+                  label="Full-width content"
+                  helper="Stretch content edge to edge."
+                  checked={settings.fullWidth}
+                  onChange={(value) => updateSetting('fullWidth', value)}
+                />
+                <InstantToggleRow
+                  label="Fullscreen behavior"
+                  helper="Saved with your display profile."
+                  checked={settings.fullScreen}
+                  onChange={(value) => updateSetting('fullScreen', value)}
+                />
+                <InstantToggleRow
+                  label="Workspace sidebar"
+                  helper="Show or hide the workspace rail."
+                  checked={settings.sidebarEnabled}
+                  onChange={(value) => updateSetting('sidebarEnabled', value)}
+                />
+                <NavigationIndicatorRow
+                  enabled={settings.leftBorderEnabled}
+                  thickness={settings.leftBorderThickness}
+                  onEnabledChange={(value) => updateSetting('leftBorderEnabled', value)}
+                  onThicknessChange={(value) => updateSetting('leftBorderThickness', value)}
+                />
+              </div>
+            </PreferenceSection>
           </div>
-        </PreferenceSection>
-        <div className="lg:col-span-2">
-        <PreferenceSection
-          icon={navIcon('sessions')}
-          title="Layout"
-          description="Rail, density, and corner controls. These apply instantly and are not part of Save / Discard."
-        >
-          <div className="grid st-gap-section sm:grid-cols-2 sm:gap-x-[var(--vestara-spacing-section)]">
-            <InstantField label="Sidebar width" helper="Rail width from compact to wide.">
-              <Segmented
-                label="Sidebar width"
-                value={settings.sidebarWidth}
-                options={['compact', 'normal', 'wide']}
-                onChange={(value) => updateSetting('sidebarWidth', value)}
-              />
-            </InstantField>
-            <InstantField label="Sidebar mode" helper="Icons save rail space; text shows labels.">
-              <Segmented
-                label="Sidebar mode"
-                value={settings.sidebarMode}
-                options={['icons', 'text']}
-                onChange={(value) => updateSetting('sidebarMode', value)}
-              />
-            </InstantField>
-            <InstantField label="Spacing" helper="Density of pages, sections, and elements.">
-              <Segmented
-                label="Spacing"
-                value={settings.spacing}
-                options={['compact', 'comfortable', 'spacious']}
-                onChange={(value) => updateSetting('spacing', value)}
-              />
-            </InstantField>
-            <InstantField label="Radius" helper="Corner roundness across surfaces.">
-              <Segmented
-                label="Radius"
-                value={settings.radius}
-                options={['none', 'small', 'medium', 'large']}
-                onChange={(value) => updateSetting('radius', value)}
-              />
-            </InstantField>
-            <InstantToggleRow
-              label="Full-width content"
-              helper="Stretch content edge to edge."
-              checked={settings.fullWidth}
-              onChange={(value) => updateSetting('fullWidth', value)}
-            />
-            <InstantToggleRow
-              label="Fullscreen behavior"
-              helper="Saved with your display profile."
-              checked={settings.fullScreen}
-              onChange={(value) => updateSetting('fullScreen', value)}
-            />
-            <InstantToggleRow
-              label="Workspace sidebar"
-              helper="Show or hide the workspace rail."
-              checked={settings.sidebarEnabled}
-              onChange={(value) => updateSetting('sidebarEnabled', value)}
-            />
-            <NavigationIndicatorRow
-              enabled={settings.leftBorderEnabled}
-              thickness={settings.leftBorderThickness}
-              onEnabledChange={(value) => updateSetting('leftBorderEnabled', value)}
-              onThicknessChange={(value) => updateSetting('leftBorderThickness', value)}
-            />
-          </div>
-        </PreferenceSection>
-        </div>
         </div>
       </div>
     </ReferenceCard>
@@ -844,10 +829,20 @@ function WorkspaceStatusCard({
   const rows = [
     ['Status', <Status key="status" bare value={runtime.status} />],
     ['API', runtime.apiEndpoint ? 'Connected API' : 'Unknown'],
-    ['Version', <span key="version" className="font-mono">{runtime.runtimeVersion}</span>],
+    [
+      'Version',
+      <span key="version" className="font-mono">
+        {runtime.runtimeVersion}
+      </span>,
+    ],
     ['Active executions', runtime.activeExecutionCount],
     ['Event store', runtime.engineeringEventStoreStatus],
-    ['Revision', <span key="revision" className="font-mono">{configuration.revision.slice(0, 8)}</span>],
+    [
+      'Revision',
+      <span key="revision" className="font-mono">
+        {configuration.revision.slice(0, 8)}
+      </span>,
+    ],
   ] as const;
   return (
     <ReferenceCard
@@ -859,8 +854,13 @@ function WorkspaceStatusCard({
     >
       <div className="divide-y divide-[var(--vestara-border-subtle)]">
         {rows.map(([label, value]) => (
-          <div key={label} className="st-gap-field flex min-h-10 items-center justify-between py-[var(--vestara-spacing-element)]">
-            <span className="text-[var(--vestara-font-size-xs)] font-medium uppercase text-[var(--vestara-text-muted)]">{label}</span>
+          <div
+            key={label}
+            className="st-gap-field flex min-h-10 items-center justify-between py-[var(--vestara-spacing-element)]"
+          >
+            <span className="text-[var(--vestara-font-size-xs)] font-medium uppercase text-[var(--vestara-text-muted)]">
+              {label}
+            </span>
             <span className="min-w-0 truncate text-right text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)]">
               {value}
             </span>
@@ -944,7 +944,11 @@ function GeneralConnectivitySection({
   const { settings, error } = telegram;
   if (!settings) {
     return (
-      <div role="status" aria-label="Loading connectivity panels" className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-3">
+      <div
+        role="status"
+        aria-label="Loading connectivity panels"
+        className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-3"
+      >
         <div className="mpg-skeleton h-64" />
         <div className="mpg-skeleton h-64" />
         <div className="mpg-skeleton h-64" />
@@ -1037,7 +1041,11 @@ export function SettingsGeneralReference({
   const hero = useHeroSettingsState();
 
   const status = useMemo(
-    () => ({ dirtyLabel: dirty ? `${dirty} unsaved change${dirty === 1 ? '' : 's'}` : 'Workspace configuration is synchronized' }),
+    () => ({
+      dirtyLabel: dirty
+        ? `${dirty} unsaved change${dirty === 1 ? '' : 's'}`
+        : 'Workspace configuration is synchronized',
+    }),
     [dirty],
   );
 
@@ -1083,7 +1091,12 @@ export function SettingsGeneralReference({
 
       <GeneralSectionLabel label="Personalization" hint="Profiles, appearance, typography & layout" />
       <div className="min-w-0">
-        <PreferencesCard onGeneralChange={onGeneralChange} onChanged={onChanged} hasUnsaved={dirty > 0} className="w-full" />
+        <PreferencesCard
+          onGeneralChange={onGeneralChange}
+          onChanged={onChanged}
+          hasUnsaved={dirty > 0}
+          className="w-full"
+        />
       </div>
 
       <GeneralConnectivitySection configuration={configuration} onChanged={onChanged} telegram={telegram} />

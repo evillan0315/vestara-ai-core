@@ -89,7 +89,9 @@
   --vestara-text-dim: var(--vestara-text-disabled);
 
   /* ── Legacy surface aliases (COMPATIBILITY — DEPRECATED) ── */
-  --vestara-surface: var(--vestara-surface-canvas);
+  /* Keep the global compatibility surface subtly aligned with the selected
+     accent instead of exposing the neutral canvas gray to older consumers. */
+  --vestara-surface: color-mix(in srgb, var(--vestara-accent) 10%, var(--vestara-surface-canvas));
   --vestara-surface-elevated: var(--vestara-surface-panel-raised);
   --vestara-bg: var(--vestara-surface-canvas);
   --vestara-primary: var(--vestara-accent-primary);

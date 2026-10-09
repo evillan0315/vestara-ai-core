@@ -6,8 +6,7 @@
  * right MilestonesSummary + SystemStatus (status order). Columns are
  * user-rearrangeable (drag + keyboard) and persisted via useOverviewLayout.
  *
- * Renders unwrapped (no PageShell): ShellLayout's PageContainer owns
- * max-width and gutters, AppHeader/PageHeader owns the visible title.
+ * Uses the shared WorkspacePanelLayout and Settings-inspired hero/tab rhythm.
  *
  * Architecture Traceability:
  *   VES-OVERVIEW-001: Vestara Overview (phases 0-2)
@@ -15,21 +14,24 @@
  */
 
 import type { ReactNode } from 'react';
+import { useState } from 'react';
+import { DraggableDashboard } from '../../components/dashboard/DraggableDashboard.js';
+import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
+import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ContinueWorking } from './components/ContinueWorking';
 import { MilestonesSummary } from './components/MilestonesSummary';
 import { OverviewHero } from './components/OverviewHero';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
-import { SortablePanel } from './components/SortablePanel';
 import { SystemStatus } from './components/SystemStatus';
 import { TodayFocus } from './components/TodayFocus';
 import { WorkspaceHealth } from './components/WorkspaceHealth';
 import { WorkspaceSnapshot } from './components/WorkspaceSnapshot';
-import { CodexRuntimeActivityCard } from '../../components/codex/CodexRuntimeActivityCard';
 import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
 import { useOverviewLayout, type OverviewPanelId } from './hooks/useOverviewLayout';
 import { useMorningBriefing } from '../../hooks/useMorningBriefing';
+import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import '../../styles/marketplace.css';
 import './overview.tokens.css';
 
@@ -37,23 +39,23 @@ function LoadingSkeleton() {
   // Mirrors the loaded layout breakpoints to avoid layout shift.
   return (
     <div className="w-full min-w-0 space-y-4" role="status" aria-live="polite" aria-label="Loading overview">
-        <div className="mpg-skeleton h-44" />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="mpg-skeleton h-16" />
-          ))}
+      <div className="mpg-skeleton h-44" />
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <div key={i} className="mpg-skeleton h-16" />
+        ))}
+      </div>
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div className="space-y-4">
+          <div className="mpg-skeleton h-32" />
+          <div className="mpg-skeleton h-32" />
         </div>
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div className="space-y-4">
-            <div className="mpg-skeleton h-32" />
-            <div className="mpg-skeleton h-32" />
-          </div>
-          <div className="space-y-4">
-            <div className="mpg-skeleton h-32" />
-            <div className="mpg-skeleton h-32" />
-          </div>
+        <div className="space-y-4">
+          <div className="mpg-skeleton h-32" />
+          <div className="mpg-skeleton h-32" />
         </div>
-        <p className="sr-only">Loading workspace overview…</p>
+      </div>
+      <p className="sr-only">Loading workspace overview…</p>
     </div>
   );
 }
@@ -65,11 +67,7 @@ function SnapshotBanner({ onRetry }: { onRetry: () => void }) {
         severity="warning"
         description="Live data unavailable — showing cached snapshot."
         action={
-          <button
-            type="button"
-            onClick={onRetry}
-            className="mpg-pill"
-          >
+          <button type="button" onClick={onRetry} className="mpg-pill">
             Retry
           </button>
         }
@@ -82,21 +80,22 @@ export function OverviewScreen() {
   const { data, isLoading, error, refetch } = useOverview();
   const { briefing: morningBriefing, loading: morningLoading } = useMorningBriefing();
   const { layout, move, moveAcross, reset } = useOverviewLayout();
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'configuration'>('dashboard');
 
   // min-w-0 on grid columns keeps long content from blowing out the grid on
   // narrow viewports.
   if (isLoading) {
     return (
-      <>
+      <WorkspacePanelLayout>
         <h1 className="sr-only">Overview</h1>
         <LoadingSkeleton />
-      </>
+      </WorkspacePanelLayout>
     );
   }
 
   if (!data) {
     return (
-      <>
+      <WorkspacePanelLayout>
         <h1 className="sr-only">Overview</h1>
         <div className="flex items-center justify-center py-24">
           <div className="text-center">
@@ -106,7 +105,7 @@ export function OverviewScreen() {
             <h2 className="text-lg font-semibold text-[var(--vestara-text-primary)]">No data available</h2>
           </div>
         </div>
-      </>
+      </WorkspacePanelLayout>
     );
   }
 
@@ -114,100 +113,77 @@ export function OverviewScreen() {
   const focusPct = data.focus.length ? Math.round((focusDone / data.focus.length) * 100) : 0;
 
   const panels: Record<OverviewPanelId, ReactNode> = {
-    todayFocus: <TodayFocus items={data.focus} />,
     continueWorking: <ContinueWorking items={data.continueWorking} />,
+    todayFocus: <TodayFocus items={data.focus} />,
     recentActivity: <RecentActivity items={data.recentActivity} />,
     milestones: <MilestonesSummary />,
     systemStatus: <SystemStatus agents={data.agents} resources={data.resources} />,
     workspaceHealth: <WorkspaceHealth health={data.health} />,
   };
 
-  function handleDropOnColumn(toColumn: 'left' | 'right', toIndex: number, draggedId: string) {
-    const fromColumn: 'left' | 'right' | null = layout.left.includes(draggedId as OverviewPanelId)
-      ? 'left'
-      : layout.right.includes(draggedId as OverviewPanelId)
-        ? 'right'
-        : null;
-    if (!fromColumn) return;
-    const fromIndex = layout[fromColumn].indexOf(draggedId as OverviewPanelId);
-    if (fromColumn === toColumn) {
-      if (fromIndex === toIndex) return;
-      move(toColumn, fromIndex, toIndex > fromIndex ? 1 : -1);
-      return;
-    }
-    moveAcross(fromColumn, fromIndex, toColumn, toIndex);
-  }
-
-  function renderColumn(column: 'left' | 'right') {
-    const ids = layout[column];
-    return (
-      <div
-        className="min-w-0 space-y-4"
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={(e) => {
-          e.preventDefault();
-          const dragged = e.dataTransfer.getData('text/vestara-panel');
-          if (dragged && !(layout[column] as readonly string[]).includes(dragged)) {
-            const from: 'left' | 'right' = column === 'left' ? 'right' : 'left';
-            const fromIndex = (layout[from] as readonly string[]).indexOf(dragged);
-            if (fromIndex >= 0) moveAcross(from, fromIndex, column, ids.length);
-          }
-        }}
-      >
-        {ids.map((id, index) => (
-          <SortablePanel
-            key={id}
-            panelId={id}
-            column={column}
-            index={index}
-            isFirst={index === 0}
-            isLast={index === ids.length - 1}
-            onMove={move}
-            onDropOnColumn={handleDropOnColumn}
-          >
-            {panels[id]}
-          </SortablePanel>
-        ))}
-      </div>
-    );
-  }
-
   return (
-    <>
-      <h1 className="sr-only">Overview</h1>
-      {error && <SnapshotBanner onRetry={() => void refetch()} />}
+    <WorkspacePanelLayout>
+      <div className="w-full min-w-0 space-y-4">
+        <h1 className="sr-only">Overview</h1>
+        {error && <SnapshotBanner onRetry={() => void refetch()} />}
 
-      <div className="mb-4 w-full min-w-0 space-y-4 sm:mb-6">
         <OverviewHero
           workspace={data.workspace}
-          stats={{
-            projects: data.projects.length,
-            agentsOnline: data.agents.filter((a) => a.status === 'online' || a.status === 'busy' || a.status === 'working').length,
-            focusPct,
-          }}
+          stats={{ focusPct }}
           briefing={morningBriefing}
           briefingLoading={morningLoading}
         />
-        <QuickActions />
-        <CodexRuntimeActivityCard />
-        <WorkspaceSnapshot />
-
-        <div className="flex items-center justify-end">
-          <button
-            type="button"
-            onClick={reset}
-            title="Reset panel layout to default"
-            className="text-[11px] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
-          >
-            Reset layout
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {renderColumn('left')}
-          {renderColumn('right')}
-        </div>
+        <WorkspaceTabs
+          tabs={[
+            {
+              id: 'dashboard',
+              label: 'Dashboard',
+              shortLabel: 'Dashboard',
+              icon: navIcon('dashboard'),
+              borderBottom: false,
+            },
+            {
+              id: 'configuration',
+              label: 'Configuration',
+              shortLabel: 'Config',
+              icon: navIcon('settings'),
+              borderBottom: false,
+            },
+          ]}
+          activeTab={activeTab}
+          onTabChange={(tabId) => setActiveTab(tabId as 'dashboard' | 'configuration')}
+          ariaLabel="Overview sections"
+        />
+        {activeTab === 'dashboard' ? (
+          <div className="space-y-[var(--vestara-spacing-section)]">
+            <QuickActions />
+            <div className="flex items-center justify-end">
+              <button
+                type="button"
+                onClick={reset}
+                title="Reset panel layout to default"
+                className="text-[11px] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-primary)]"
+              >
+                Reset layout
+              </button>
+            </div>
+            <DraggableDashboard
+              columns={[
+                { id: 'left', items: layout.left },
+                { id: 'right', items: layout.right },
+              ]}
+              renderItem={(id) => panels[id]}
+              onMove={(column, index, direction) => move(column as 'left' | 'right', index, direction)}
+              onMoveAcross={(from, fromIndex, to, toIndex) =>
+                moveAcross(from as 'left' | 'right', fromIndex, to as 'left' | 'right', toIndex)
+              }
+              getItemLabel={(id) => id.replace(/([A-Z])/g, ' $1')}
+            />
+          </div>
+        ) : (
+          <WorkspaceSnapshot />
+        )}
       </div>
-    </>
+    </WorkspacePanelLayout>
   );
 }

@@ -7,15 +7,15 @@ const HeaderSearch: FC = () => {
   };
 
   return (
-    <div className="hidden max-w-xl flex-1 lg:block">
+    <div className="flex max-w-xl flex-1 justify-end lg:block">
       <button
         type="button"
         onClick={openSearch}
         aria-label="Search pages, agents, and projects"
-        className="flex h-11 w-full items-center gap-3 rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) px-4 text-left transition hover:border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus)">
+        className="flex h-11 w-11 items-center justify-center rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface) px-4 text-left transition hover:border-(--vestara-accent-border) hover:bg-(--vestara-accent-bg) focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-(--vestara-border-focus) lg:w-full">
         <SearchRounded fontSize="small" className="text-(--vestara-text-2)" />
-        <span className="flex-1 text-sm text-(--vestara-text-2)">Search pages, agents, projects...</span>
-        <kbd className="rounded border border-(--vestara-accent-border) px-2 py-0.5 text-[10px] text-(--vestara-text-2)">⌘K</kbd>
+        <span className="hidden flex-1 text-sm text-(--vestara-text-2) lg:block">Search pages, agents, projects...</span>
+        <kbd className="hidden rounded border border-(--vestara-accent-border) px-2 py-0.5 text-[10px] text-(--vestara-text-2) lg:block">⌘K</kbd>
       </button>
     </div>
   );

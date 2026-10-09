@@ -10,21 +10,21 @@
 import type { ResolvedConfiguration } from '@vestara/configuration';
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import {
+  ConfigurationActionButton,
+  type ConfigurationItem,
+  ConfigurationView,
+  type ConfigurationViewMode,
+} from '../../../components/configuration/ConfigurationView.js';
 import { navIcon } from '../../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, useTheme } from '../../../lib/theme.js';
-import {
-  Button,
-  FactRow,
-  humanize,
-  SettingsDomainCard,
-  Status,
-} from '../../../pages/Settings/settings-ui.js';
 import {
   type CliStatusDto,
   type EventStoreStatusDto,
   type RuntimeStatusDto,
   settingsClient,
 } from '../../../pages/Settings/settings-client.js';
+import { Button, humanize, Status } from '../../../pages/Settings/settings-ui.js';
 
 interface SnapshotData {
   configuration: ResolvedConfiguration;
@@ -48,6 +48,7 @@ function relativeTime(iso: string | undefined): string | null {
 
 function SnapshotPanels({ data, onRefresh }: { data: SnapshotData; onRefresh: () => void }) {
   const navigate = useNavigate();
+  const [viewMode, setViewMode] = useState<ConfigurationViewMode>('cards');
   const { resolved, settings, activeProfile } = useTheme();
   const settingValue = (key: string, fallback = 'Not configured') =>
     String(data.configuration.settings.find((s) => s.key === key)?.value ?? fallback);
@@ -62,15 +63,135 @@ function SnapshotPanels({ data, onRefresh }: { data: SnapshotData; onRefresh: ()
   const revisionShort = data.configuration.revision.slice(0, 8);
 
   const openLink = (section: string, label: string) => (
-    <button
-      type="button"
-      onClick={() => navigate(`/settings/${section}`)}
-      className="mpg-link"
-      aria-label={`Open ${label} settings`}
-    >
-      View details<span aria-hidden="true"> ›</span>
-    </button>
+    <ConfigurationActionButton label={`Open ${label} settings`} onClick={() => navigate(`/settings/${section}`)} />
   );
+
+  const items: readonly ConfigurationItem[] = [
+    {
+      id: 'runtime',
+      icon: navIcon('activity'),
+      title: 'Runtime & CLI',
+      badge: <Status value={humanize(data.runtime.status)} />,
+      description: 'Runtime services, CLI connection and execution environment.',
+      action: openLink('runtime', 'Runtime'),
+      tone: 'info',
+      facts: [
+        { label: 'Runtime', value: <Status value={humanize(data.runtime.status)} /> },
+        { label: 'CLI', value: <Status value={cliConnected ? 'Connected' : 'Unavailable'} /> },
+        { label: 'Version', value: <span className="font-mono">{data.runtime.runtimeVersion}</span> },
+        { label: 'Event bus', value: <Status value={humanize(data.runtime.eventBusStatus)} /> },
+      ],
+    },
+    {
+      id: 'ai',
+      icon: navIcon('assistant'),
+      title: 'AI & Agents',
+      badge: (
+        <Status
+          value={
+            data.configuration.settings.some((s) => s.key === 'providers.defaultProvider') ? 'Configured' : 'Unknown'
+          }
+        />
+      ),
+      description: 'Provider configuration and agent execution policy.',
+      action: openLink('ai', 'AI & Agents'),
+      facts: [
+        { label: 'Provider', value: humanize(settingValue('providers.defaultProvider')) },
+        { label: 'Model', value: settingValue('providers.defaultModel', 'Unknown') },
+        { label: 'Agents', value: typeof maxConcurrent === 'number' ? `${maxConcurrent} max concurrent` : 'Unknown' },
+        { label: 'Assignment', value: autoAssign ? 'Auto-assign' : 'Manual' },
+      ],
+    },
+    {
+      id: 'security',
+      icon: navIcon('files'),
+      title: 'Security & Safety',
+      badge: <Status value={dryRun ? 'Protected' : 'Active'} />,
+      description: 'Filesystem policy, safety boundaries and risk controls.',
+      action: openLink('security', 'Security'),
+      facts: [
+        { label: 'Filesystem', value: <Status value={dryRun ? 'Protected' : 'Active'} /> },
+        { label: 'Verification', value: humanize(settingValue('verification.profile', 'standard')) },
+        {
+          label: 'Write scope',
+          value: Array.isArray(writablePaths) ? (
+            <span className="max-w-48 truncate font-mono text-xs" title={writablePaths.join(', ')}>
+              {writablePaths.join(', ')}
+            </span>
+          ) : (
+            'Unknown'
+          ),
+        },
+        {
+          label: 'Protected files',
+          value: Array.isArray(protectedFiles) ? `${protectedFiles.length} files` : 'Unknown',
+        },
+      ],
+    },
+    {
+      id: 'operations',
+      icon: navIcon('diagnostics'),
+      title: 'Operations',
+      badge: <Status value={humanize(data.runtime.telemetryStatus)} />,
+      description: 'Telemetry, notifications and operational configuration.',
+      action: openLink('operations', 'Operations'),
+      tone: 'info',
+      facts: [
+        { label: 'Telemetry', value: humanize(settingValue('telemetry.level', data.runtime.telemetryStatus)) },
+        { label: 'Notifications', value: <Status value={notificationsOn ? 'Enabled' : 'Muted'} /> },
+        {
+          label: 'Workspace ID',
+          value: (
+            <span className="max-w-36 truncate font-mono text-xs" title={data.runtime.workspaceId}>
+              {data.runtime.workspaceId}
+            </span>
+          ),
+        },
+        {
+          label: 'Events',
+          value: <span className="font-mono tabular-nums">{data.history.eventCount.toLocaleString()}</span>,
+        },
+      ],
+    },
+    {
+      id: 'appearance',
+      icon: navIcon('settings'),
+      title: 'Appearance',
+      badge: <span className="mpg-tag-pill">{resolved === 'dark' ? 'Dark mode' : 'Light mode'}</span>,
+      description: 'Theme, layout and display preferences.',
+      action: openLink('general', 'Appearance'),
+      facts: [
+        { label: 'Theme', value: resolved === 'dark' ? 'Vestara Dark' : 'Vestara Light' },
+        { label: 'Density', value: humanize(settings.spacing) },
+        { label: 'Accent color', value: ACCENT_PALETTES[settings.colorTheme].label },
+        {
+          label: 'Profile',
+          value: activeProfile ? (PROFILES.find((p) => p.id === activeProfile)?.label ?? activeProfile) : 'Custom',
+        },
+      ],
+    },
+    {
+      id: 'configuration',
+      icon: navIcon('tools'),
+      title: 'Configuration',
+      badge: (
+        <Status
+          value={data.configuration.overrideCount > 0 ? `${data.configuration.overrideCount} overrides` : 'Defaults'}
+        />
+      ),
+      description: 'Workspace-level configuration and overrides.',
+      action: openLink('general', 'Configuration'),
+      facts: [
+        {
+          label: 'Active overrides',
+          value: <span className="font-mono tabular-nums">{data.configuration.overrideCount}</span>,
+        },
+        { label: 'Revision', value: <span className="font-mono text-xs">{revisionShort}</span> },
+        { label: 'Last updated', value: updated ?? 'Unknown' },
+        { label: 'Workspace', value: settingValue('general.workspaceName', 'Vestara Workspace') },
+      ],
+    },
+  ];
 
   return (
     <div className="space-y-4">
@@ -80,13 +201,18 @@ function SnapshotPanels({ data, onRefresh }: { data: SnapshotData; onRefresh: ()
             Configuration &amp; system status
           </h2>
           <p className="mt-0.5 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-            A quick view of your current configuration and system status. Values are read from the workspace runtime snapshot.
+            A quick view of your current configuration and system status. Values are read from the workspace runtime
+            snapshot.
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-3">
           {updated && (
             <span className="text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-              <span title={data.configuration.generatedAt ? new Date(data.configuration.generatedAt).toLocaleString() : undefined}>
+              <span
+                title={
+                  data.configuration.generatedAt ? new Date(data.configuration.generatedAt).toLocaleString() : undefined
+                }
+              >
                 Configuration snapshot updated {updated}
               </span>
             </span>
@@ -97,140 +223,7 @@ function SnapshotPanels({ data, onRefresh }: { data: SnapshotData; onRefresh: ()
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        <SettingsDomainCard
-          index={0}
-          icon={navIcon('activity')}
-          iconTone="var(--vestara-status-info)"
-          title="Runtime & CLI"
-          badge={<Status value={humanize(data.runtime.status)} />}
-          description="Runtime services, CLI connection and execution environment."
-          action={openLink('runtime', 'Runtime')}
-        >
-          <FactRow label="Runtime" value={humanize(data.runtime.status)} isStatus />
-          <FactRow label="CLI" value={cliConnected ? 'Connected' : 'Unavailable'} isStatus />
-          <FactRow label="Version" value={<span className="font-mono">{data.runtime.runtimeVersion}</span>} />
-          <FactRow label="Event bus" value={humanize(data.runtime.eventBusStatus)} isStatus />
-        </SettingsDomainCard>
-
-        <SettingsDomainCard
-          index={1}
-          icon={navIcon('assistant')}
-          iconTone="var(--vestara-status-success)"
-          title="AI & Agents"
-          badge={
-            <Status
-              value={data.configuration.settings.some((s) => s.key === 'providers.defaultProvider') ? 'Configured' : 'Unknown'}
-            />
-          }
-          description="Provider configuration and agent execution policy."
-          action={openLink('ai', 'AI & Agents')}
-        >
-          <FactRow label="Provider" value={humanize(settingValue('providers.defaultProvider'))} />
-          <FactRow label="Model" value={settingValue('providers.defaultModel', 'Unknown')} />
-          <FactRow
-            label="Agents"
-            value={typeof maxConcurrent === 'number' ? `${maxConcurrent} max concurrent` : 'Unknown'}
-          />
-          <FactRow label="Assignment" value={autoAssign ? 'Auto-assign' : 'Manual'} />
-        </SettingsDomainCard>
-
-        <SettingsDomainCard
-          index={2}
-          icon={navIcon('files')}
-          iconTone="var(--vestara-status-warning)"
-          title="Security & Safety"
-          badge={<Status value={dryRun ? 'Protected' : 'Active'} />}
-          description="Filesystem policy, safety boundaries and risk controls."
-          action={openLink('security', 'Security')}
-        >
-          <FactRow label="Filesystem" value={dryRun ? 'Dry-run protected' : 'Active writes'} isStatus={Boolean(dryRun)} />
-          <FactRow label="Verification" value={humanize(settingValue('verification.profile', 'standard'))} />
-          <FactRow
-            label="Write scope"
-            value={
-              Array.isArray(writablePaths) ? (
-                <span className="font-mono text-xs" title={writablePaths.join(', ')}>
-                  {writablePaths.join(', ')}
-                </span>
-              ) : (
-                'Unknown'
-              )
-            }
-          />
-          <FactRow
-            label="Protected files"
-            value={Array.isArray(protectedFiles) ? `${protectedFiles.length} files` : 'Unknown'}
-          />
-        </SettingsDomainCard>
-
-        <SettingsDomainCard
-          index={3}
-          icon={navIcon('diagnostics')}
-          iconTone="var(--vestara-status-info)"
-          title="Operations"
-          badge={<Status value={humanize(data.runtime.telemetryStatus)} />}
-          description="Telemetry, notifications and operational configuration."
-          action={openLink('operations', 'Operations')}
-        >
-          <FactRow label="Telemetry" value={humanize(settingValue('telemetry.level', data.runtime.telemetryStatus))} />
-          <FactRow label="Notifications" value={notificationsOn ? 'Enabled' : 'Muted'} isStatus={Boolean(notificationsOn)} />
-          <FactRow
-            label="Workspace ID"
-            value={
-              <span className="max-w-36 truncate font-mono text-xs" title={data.runtime.workspaceId}>
-                {data.runtime.workspaceId}
-              </span>
-            }
-          />
-          <FactRow
-            label="Events"
-            value={<span className="font-mono tabular-nums">{data.history.eventCount.toLocaleString()}</span>}
-          />
-        </SettingsDomainCard>
-
-        <SettingsDomainCard
-          index={4}
-          icon={navIcon('settings')}
-          iconTone="var(--vestara-accent-text)"
-          title="Appearance"
-          badge={
-            <span className="mpg-tag-pill">{resolved === 'dark' ? 'Dark mode' : 'Light mode'}</span>
-          }
-          description="Theme, layout and display preferences."
-          action={openLink('general', 'Appearance')}
-        >
-          <FactRow label="Theme" value={resolved === 'dark' ? 'Vestara Dark' : 'Vestara Light'} />
-          <FactRow label="Density" value={humanize(settings.spacing)} />
-          <FactRow label="Accent color" value={ACCENT_PALETTES[settings.colorTheme].label} />
-          <FactRow
-            label="Profile"
-            value={activeProfile ? (PROFILES.find((p) => p.id === activeProfile)?.label ?? activeProfile) : 'Custom'}
-          />
-        </SettingsDomainCard>
-
-        <SettingsDomainCard
-          index={5}
-          icon={navIcon('tools')}
-          iconTone="var(--vestara-text-secondary)"
-          title="Configuration"
-          badge={
-            <Status
-              value={data.configuration.overrideCount > 0 ? `${data.configuration.overrideCount} overrides` : 'Defaults'}
-            />
-          }
-          description="Workspace-level configuration and overrides."
-          action={openLink('general', 'Configuration')}
-        >
-          <FactRow
-            label="Active overrides"
-            value={<span className="font-mono tabular-nums">{data.configuration.overrideCount}</span>}
-          />
-          <FactRow label="Revision" value={<span className="font-mono text-xs">{revisionShort}</span>} />
-          <FactRow label="Last updated" value={updated ?? 'Unknown'} />
-          <FactRow label="Workspace" value={settingValue('general.workspaceName', 'Vestara Workspace')} />
-        </SettingsDomainCard>
-      </div>
+      <ConfigurationView items={items} mode={viewMode} onModeChange={setViewMode} />
 
       <div className="st-panel flex flex-col gap-3 p-4 sm:flex-row sm:items-center">
         <span

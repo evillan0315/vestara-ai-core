@@ -18,6 +18,7 @@ import { PipelineTimeline } from './pipeline';
 import { PlansPanel, TasksPanel } from './plans';
 import { ProjectsPanel } from './projects';
 import { TraceabilityPanel } from './traceability';
+import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import { RouteHero } from '../layout/PageHero/RouteHero';
 import '../../styles/execution.css';
 
@@ -63,7 +64,8 @@ function ExecutionPageInner() {
   };
 
   return (
-    <div className="w-full min-w-0 space-y-4">
+    <WorkspacePanelLayout fluid={false}>
+      <div className="w-full min-w-0 space-y-4">
       <RouteHero
         routeId="execution"
         eyebrow={exec.paused ? 'Execution paused' : 'Live operations'}
@@ -144,7 +146,8 @@ function ExecutionPageInner() {
       </div>
 
       <ExecutionAnalyze open={aiOpen} onClose={() => setAiOpen(false)} />
-    </div>
+      </div>
+    </WorkspacePanelLayout>
   );
 }
 

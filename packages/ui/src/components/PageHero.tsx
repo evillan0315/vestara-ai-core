@@ -3,8 +3,8 @@
  *
  * The Workspace hero composition — eyebrow + headline, description,
  * optional search, CTAs + stat pills, capability checklist — owned by
- * @vestara/ui. Migrated from apps/workspace without redesign: same grammar,
- * same token-driven appearance, no app-local `mpg-*` classes.
+ * @vestara/ui. Shared across workspace routes so every page gets the same
+ * responsive grammar, token-driven appearance, and accessible actions.
  *
  * Provider-neutral navigation: actions carry `to` (app route path) rendered
  * as a plain anchor. SPA hosts pass `onNavigate` to intercept client-side;
@@ -108,13 +108,13 @@ const STATUS_DOT: Record<PageHeroStatusTone, string> = {
 // ─── Banner + panel styles (mpg-hero grammar, token utilities) ─
 
 const BANNER_BASE =
-  'relative overflow-hidden flex flex-wrap gap-4 justify-between rounded-[var(--vestara-radius-lg,8px)] border border-[var(--vestara-accent-border)] px-6 py-5';
+  'relative flex flex-col items-stretch gap-4 overflow-hidden rounded-[var(--vestara-radius-lg,8px)] border border-[var(--vestara-accent-border)] px-6 py-5 sm:flex-row sm:items-start sm:justify-between';
 
 const BANNER_BACKGROUND =
-  'bg-[radial-gradient(90%_130%_at_85%_10%,color-mix(in_srgb,var(--vestara-marketplace-primary)_15%,transparent),transparent_60%),radial-gradient(70%_100%_at_15%_0%,color-mix(in_srgb,var(--vestara-accent)_8%,transparent),transparent_55%),var(--vestara-hero-bg,var(--vestara-shell-bg,var(--vestara-surface-panel)))]';
+  'bg-[radial-gradient(90%_130%_at_85%_10%,color-mix(in_srgb,var(--vestara-accent)_15%,transparent),transparent_60%),radial-gradient(70%_100%_at_15%_0%,color-mix(in_srgb,var(--vestara-accent)_8%,transparent),transparent_55%),var(--vestara-hero-bg,var(--vestara-surface-canvas))]';
 
 const BANNER_BACKGROUND_LIGHT =
-  "[[data-theme='light']_&]:bg-[radial-gradient(90%_130%_at_85%_10%,color-mix(in_srgb,var(--vestara-marketplace-primary)_22%,transparent),transparent_60%),radial-gradient(70%_100%_at_15%_0%,color-mix(in_srgb,var(--vestara-accent)_12%,transparent),transparent_55%),var(--vestara-hero-bg,var(--vestara-shell-bg,var(--vestara-surface-panel)))]";
+  "[[data-theme='light']_&]:bg-[radial-gradient(90%_130%_at_85%_10%,color-mix(in_srgb,var(--vestara-accent)_15%,transparent),transparent_60%),radial-gradient(70%_100%_at_15%_0%,color-mix(in_srgb,var(--vestara-accent)_8%,transparent),transparent_55%),var(--vestara-hero-bg,var(--vestara-surface-canvas))]";
 
 const PRIMARY_ACTION =
   'rounded-[var(--vestara-radius,6px)] px-4 py-1.5 text-[13px] font-semibold text-[var(--vestara-on-accent)] bg-[var(--vestara-accent)] border border-[var(--vestara-accent-border-active)] shadow-[0_0_14px_var(--vestara-surface-glow)] transition-[filter] duration-150 hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -157,14 +157,17 @@ function HeroAction({ action, onNavigate }: { action: PageHeroAction; onNavigate
         href={action.to}
         className={className}
         title={action.title}
-        aria-disabled={action.disabled}
+        aria-disabled={action.disabled || undefined}
+        tabIndex={action.disabled ? -1 : undefined}
         onClick={
-          onNavigate
-            ? (event) => {
-                event.preventDefault();
-                if (!action.disabled) onNavigate(action.to as string);
-              }
-            : undefined
+          action.disabled
+            ? (event) => event.preventDefault()
+            : onNavigate
+              ? (event) => {
+                  event.preventDefault();
+                  onNavigate(action.to as string);
+                }
+              : undefined
         }
       >
         {content}
@@ -216,7 +219,7 @@ export function PageHero({
       className={`${BANNER_BASE} ${BANNER_BACKGROUND} ${BANNER_BACKGROUND_LIGHT} ${density === 'compact' ? 'px-5 py-4' : ''} ${className ?? ''}`}
       aria-label={label ?? `${title ?? 'Page'} highlights`}
     >
-      <div className="min-w-[min(100%,320px)] flex-[1_1_320px] min-w-0 overflow-hidden">
+      <div className="min-w-0 flex-1 overflow-hidden">
         {eyebrow && (
           <p className="inline-flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.22em] text-[var(--vestara-accent)]">
             <span aria-hidden="true" className={`inline-block h-2 w-2 rounded-full ${STATUS_DOT[statusTone]}`} />
@@ -224,7 +227,7 @@ export function PageHero({
           </p>
         )}
         <Title
-          className="mt-2 block max-w-full truncate whitespace-nowrap text-[28px] font-bold tracking-tight text-[var(--vestara-text-primary)] sm:text-[34px]"
+          className="mt-2 block max-w-full break-words text-[28px] font-bold leading-tight tracking-tight text-[var(--vestara-text-primary)] sm:text-[34px]"
           title={title}
         >
           {title}
@@ -260,7 +263,7 @@ export function PageHero({
         )}
       </div>
       {hasSide && (
-        <div className="ml-auto flex min-w-[min(100%,220px)] flex-[0_1_260px] flex-col items-end justify-center gap-3.5 text-right">
+        <div className="flex w-full min-w-0 flex-none flex-col items-stretch justify-center gap-3.5 text-left sm:ml-auto sm:w-auto sm:min-w-[min(100%,220px)] sm:flex-[0_1_260px] sm:items-end sm:text-right">
           {actions && actions.length > 0 && (
             <div className="flex flex-wrap items-center justify-end gap-2">
               {actions.map((action) => (

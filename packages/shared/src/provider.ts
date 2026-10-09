@@ -273,7 +273,13 @@ export interface CompletionResponse {
     /** Selected upstream provider id; undefined means the runtime's configured default. */
     providerId?: string;
     /** Why this resolution was chosen. */
-    reason: 'preferred' | 'requested' | 'preferred-unavailable' | 'explicit-model' | 'explicit-unresolvable' | 'default';
+    reason:
+      | 'preferred'
+      | 'requested'
+      | 'preferred-unavailable'
+      | 'explicit-model'
+      | 'explicit-unresolvable'
+      | 'default';
     /** True when execution fell back to the runtime's configured/default resolution. */
     defaultResolution: boolean;
     /** GA-RUNTIME-001: the OpenCode session that carried this completion (set when one was acquired). */

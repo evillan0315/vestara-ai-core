@@ -29,7 +29,7 @@ vi.stubGlobal(
 const BASE = {
   startDate: '',
   endDate: '',
-  preset: 'all' as const,
+  preset: 'all' as DateFilterValue['preset'],
   dateActive: false,
   dateRangeValid: true,
 };
@@ -63,7 +63,7 @@ describe('AR-DATE-002 date filter dropdown', () => {
 
   it('reports custom windows on manual date edits', () => {
     function Harness() {
-      const [value, setValue] = useState({ startDate: '', endDate: '', preset: 'all' as const });
+      const [value, setValue] = useState<DateFilterValue>({ startDate: '', endDate: '', preset: 'all' });
       return (
         <ActivityDateFilter
           {...value}

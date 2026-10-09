@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type {
   Assertion,
@@ -23,7 +24,7 @@ interface MaterializationFixture {
 }
 
 const fixture = JSON.parse(
-  readFileSync(join(process.cwd(), 'fixtures/ar-inventory-002b-r3.json'), 'utf8'),
+  readFileSync(join(dirname(fileURLToPath(import.meta.url)), '../fixtures/ar-inventory-002b-r3.json'), 'utf8'),
 ) as MaterializationFixture;
 
 const rowIds = [

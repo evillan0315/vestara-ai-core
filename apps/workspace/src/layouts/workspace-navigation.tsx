@@ -15,9 +15,9 @@
  * - Capability gating keeps today's narrow semantics: an entry with a
  *   capabilityId is dropped only when that capability is parked.
  *
- * The curated VISIBLE set matches assets/vestara-agents-screen.png:
- * Overview, Global Assistant, Activity Room, Executions, Agents, Workflows,
- * Projects, Files, Terminal, Marketplace — divider — Tools, Settings.
+ * The curated VISIBLE set keeps the high-frequency workspace actions in the
+ * sidebar. Marketplace and Tools remain searchable secondary destinations so
+ * the primary rail stays focused on daily work.
  * Everything else is registered but hidden (discovery tier), so the
  * command palette can still find it.
  */
@@ -174,8 +174,8 @@ export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
   { id: 'projects', label: 'Projects', path: '/projects', icon: 'projects', group: 'build', order: 70, tier: 'primary', description: 'Browse engineering projects', keywords: ['projects', 'repos', 'repositories'] },
   { id: 'files', label: 'Files', path: '/files', icon: 'files', group: 'build', order: 80, tier: 'primary', description: 'Filesystem capability operations', keywords: ['files', 'filesystem', 'browse', 'operations'] },
   { id: 'terminal', label: 'Terminal', path: '/terminal', icon: 'terminal', group: 'runtime', order: 90, tier: 'primary', description: 'Integrated terminal', keywords: ['terminal', 'shell', 'console'] },
-  { id: 'marketplace', label: 'Marketplace', path: '/marketplace', icon: 'marketplace', group: 'extend', order: 100, tier: 'primary', description: 'Discover and install engineering assets', keywords: ['marketplace', 'install', 'modules', 'assets', 'exchange'] },
-  { id: 'api-builder', label: 'Tools', path: '/api-builder', icon: 'tools', group: 'system', order: 110, tier: 'primary', dividerBefore: true, description: 'Developer tools and API testing', keywords: ['tools', 'api', 'builder', 'rest', 'test'] },
+  { id: 'marketplace', label: 'Marketplace', path: '/marketplace', icon: 'marketplace', group: 'extend', order: 100, tier: 'secondary', description: 'Discover and install engineering assets', keywords: ['marketplace', 'install', 'modules', 'assets', 'exchange'] },
+  { id: 'api-builder', label: 'Tools', path: '/api-builder', icon: 'tools', group: 'system', order: 110, tier: 'secondary', description: 'Developer tools and API testing', keywords: ['tools', 'api', 'builder', 'rest', 'test'] },
   { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings', group: 'system', order: 120, tier: 'primary', description: 'Workspace configuration', keywords: ['settings', 'configuration', 'preferences', 'theme'] },
 
   // ── Secondary (reachable from parents, searchable) ──

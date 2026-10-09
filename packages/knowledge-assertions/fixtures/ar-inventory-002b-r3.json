@@ -1809,10 +1809,7 @@
         "id": "inventory:AR-CAP-08"
       },
       "stratum": "design-lineage",
-      "assertionIds": [
-        "r3-original-ar-cap-08",
-        "r3-overlay-ar-cap-08"
-      ],
+      "assertionIds": ["r3-original-ar-cap-08", "r3-overlay-ar-cap-08"],
       "derivation": {
         "source": "frozen-inventory-semantic-review",
         "version": "R2"
@@ -1825,10 +1822,7 @@
         "id": "inventory:AR-CAP-14"
       },
       "stratum": "design-lineage",
-      "assertionIds": [
-        "r3-original-ar-cap-14",
-        "r3-overlay-ar-cap-14"
-      ],
+      "assertionIds": ["r3-original-ar-cap-14", "r3-overlay-ar-cap-14"],
       "derivation": {
         "source": "frozen-inventory-semantic-review",
         "version": "R2"
@@ -1841,10 +1835,7 @@
         "id": "inventory:DEP-18"
       },
       "stratum": "design-lineage",
-      "assertionIds": [
-        "r3-original-dep-18",
-        "r3-overlay-dep-18"
-      ],
+      "assertionIds": ["r3-original-dep-18", "r3-overlay-dep-18"],
       "derivation": {
         "source": "frozen-inventory-semantic-review",
         "version": "R2"
@@ -1857,10 +1848,7 @@
         "id": "inventory:DEP-19"
       },
       "stratum": "design-lineage",
-      "assertionIds": [
-        "r3-original-dep-19",
-        "r3-overlay-dep-19"
-      ],
+      "assertionIds": ["r3-original-dep-19", "r3-overlay-dep-19"],
       "derivation": {
         "source": "frozen-inventory-semantic-review",
         "version": "R2"
@@ -1871,51 +1859,37 @@
     {
       "rowId": "AR-CAP-01",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-01"
-      ]
+      "assertionIds": ["r3-original-ar-cap-01"]
     },
     {
       "rowId": "AR-CAP-02",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-02"
-      ]
+      "assertionIds": ["r3-original-ar-cap-02"]
     },
     {
       "rowId": "AR-CAP-03",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-03"
-      ]
+      "assertionIds": ["r3-original-ar-cap-03"]
     },
     {
       "rowId": "AR-CAP-04",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-04"
-      ]
+      "assertionIds": ["r3-original-ar-cap-04"]
     },
     {
       "rowId": "AR-CAP-05",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-05"
-      ]
+      "assertionIds": ["r3-original-ar-cap-05"]
     },
     {
       "rowId": "AR-CAP-06",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-06"
-      ]
+      "assertionIds": ["r3-original-ar-cap-06"]
     },
     {
       "rowId": "AR-CAP-07",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-07"
-      ]
+      "assertionIds": ["r3-original-ar-cap-07"]
     },
     {
       "rowId": "AR-CAP-08",
@@ -1925,37 +1899,27 @@
     {
       "rowId": "AR-CAP-09",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-09"
-      ]
+      "assertionIds": ["r3-original-ar-cap-09"]
     },
     {
       "rowId": "AR-CAP-10",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-10"
-      ]
+      "assertionIds": ["r3-original-ar-cap-10"]
     },
     {
       "rowId": "AR-CAP-11",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-11"
-      ]
+      "assertionIds": ["r3-original-ar-cap-11"]
     },
     {
       "rowId": "AR-CAP-12",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-12"
-      ]
+      "assertionIds": ["r3-original-ar-cap-12"]
     },
     {
       "rowId": "AR-CAP-13",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-13"
-      ]
+      "assertionIds": ["r3-original-ar-cap-13"]
     },
     {
       "rowId": "AR-CAP-14",
@@ -1965,58 +1929,42 @@
     {
       "rowId": "AR-CAP-15",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-15"
-      ]
+      "assertionIds": ["r3-original-ar-cap-15"]
     },
     {
       "rowId": "AR-CAP-16",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-16"
-      ]
+      "assertionIds": ["r3-original-ar-cap-16"]
     },
     {
       "rowId": "AR-CAP-17",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-17"
-      ]
+      "assertionIds": ["r3-original-ar-cap-17"]
     },
     {
       "rowId": "AR-CAP-18",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-18"
-      ]
+      "assertionIds": ["r3-original-ar-cap-18"]
     },
     {
       "rowId": "AR-CAP-19",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-19"
-      ]
+      "assertionIds": ["r3-original-ar-cap-19"]
     },
     {
       "rowId": "AR-CAP-20",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-20"
-      ]
+      "assertionIds": ["r3-original-ar-cap-20"]
     },
     {
       "rowId": "AR-CAP-21",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-21"
-      ]
+      "assertionIds": ["r3-original-ar-cap-21"]
     },
     {
       "rowId": "AR-CAP-22",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-22"
-      ]
+      "assertionIds": ["r3-original-ar-cap-22"]
     },
     {
       "rowId": "AR-CAP-23",
@@ -2026,135 +1974,97 @@
     {
       "rowId": "AR-CAP-24",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-24"
-      ]
+      "assertionIds": ["r3-original-ar-cap-24"]
     },
     {
       "rowId": "AR-CAP-25",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-ar-cap-25"
-      ]
+      "assertionIds": ["r3-original-ar-cap-25"]
     },
     {
       "rowId": "DEP-01",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-01"
-      ]
+      "assertionIds": ["r3-original-dep-01"]
     },
     {
       "rowId": "DEP-02",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-02"
-      ]
+      "assertionIds": ["r3-original-dep-02"]
     },
     {
       "rowId": "DEP-03",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-03"
-      ]
+      "assertionIds": ["r3-original-dep-03"]
     },
     {
       "rowId": "DEP-04",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-04"
-      ]
+      "assertionIds": ["r3-original-dep-04"]
     },
     {
       "rowId": "DEP-05",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-05"
-      ]
+      "assertionIds": ["r3-original-dep-05"]
     },
     {
       "rowId": "DEP-06",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-06"
-      ]
+      "assertionIds": ["r3-original-dep-06"]
     },
     {
       "rowId": "DEP-07",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-07"
-      ]
+      "assertionIds": ["r3-original-dep-07"]
     },
     {
       "rowId": "DEP-08",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-08"
-      ]
+      "assertionIds": ["r3-original-dep-08"]
     },
     {
       "rowId": "DEP-09",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-09"
-      ]
+      "assertionIds": ["r3-original-dep-09"]
     },
     {
       "rowId": "DEP-10",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-10"
-      ]
+      "assertionIds": ["r3-original-dep-10"]
     },
     {
       "rowId": "DEP-11",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-11"
-      ]
+      "assertionIds": ["r3-original-dep-11"]
     },
     {
       "rowId": "DEP-12",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-12"
-      ]
+      "assertionIds": ["r3-original-dep-12"]
     },
     {
       "rowId": "DEP-13",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-13"
-      ]
+      "assertionIds": ["r3-original-dep-13"]
     },
     {
       "rowId": "DEP-14",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-14"
-      ]
+      "assertionIds": ["r3-original-dep-14"]
     },
     {
       "rowId": "DEP-15",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-15"
-      ]
+      "assertionIds": ["r3-original-dep-15"]
     },
     {
       "rowId": "DEP-16",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-16"
-      ]
+      "assertionIds": ["r3-original-dep-16"]
     },
     {
       "rowId": "DEP-17",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-17"
-      ]
+      "assertionIds": ["r3-original-dep-17"]
     },
     {
       "rowId": "DEP-18",
@@ -2169,23 +2079,17 @@
     {
       "rowId": "DEP-20",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-20"
-      ]
+      "assertionIds": ["r3-original-dep-20"]
     },
     {
       "rowId": "DEP-21",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-21"
-      ]
+      "assertionIds": ["r3-original-dep-21"]
     },
     {
       "rowId": "DEP-22",
       "state": "represented",
-      "assertionIds": [
-        "r3-original-dep-22"
-      ]
+      "assertionIds": ["r3-original-dep-22"]
     },
     {
       "rowId": "DEP-23",

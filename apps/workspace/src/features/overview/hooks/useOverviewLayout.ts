@@ -8,14 +8,27 @@
 
 import { useCallback, useState } from 'react';
 
-export type OverviewPanelId = 'todayFocus' | 'continueWorking' | 'recentActivity' | 'milestones' | 'systemStatus' | 'workspaceHealth';
+export type OverviewPanelId =
+  | 'continueWorking'
+  | 'todayFocus'
+  | 'recentActivity'
+  | 'milestones'
+  | 'systemStatus'
+  | 'workspaceHealth';
 
-const STORAGE_KEY = 'vestara:overview-layout:v1';
+const STORAGE_KEY = 'vestara:overview-layout:v3';
 
-const DEFAULT_LEFT: readonly OverviewPanelId[] = ['todayFocus', 'continueWorking', 'recentActivity'];
+const DEFAULT_LEFT: readonly OverviewPanelId[] = ['continueWorking', 'todayFocus', 'recentActivity'];
 const DEFAULT_RIGHT: readonly OverviewPanelId[] = ['workspaceHealth', 'milestones', 'systemStatus'];
 
-const ALL: readonly OverviewPanelId[] = ['todayFocus', 'continueWorking', 'recentActivity', 'milestones', 'systemStatus', 'workspaceHealth'];
+const ALL: readonly OverviewPanelId[] = [
+  'continueWorking',
+  'todayFocus',
+  'recentActivity',
+  'milestones',
+  'systemStatus',
+  'workspaceHealth',
+];
 
 export interface OverviewLayout {
   readonly left: readonly OverviewPanelId[];

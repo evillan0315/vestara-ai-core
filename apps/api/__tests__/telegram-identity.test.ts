@@ -1,8 +1,8 @@
+import { migrate } from '@vestara/sqlite-migrations';
+import type { TelegramIdentityBinding } from '@vestara/telegram-integration';
+import { HUMAN_PRINCIPAL_MANIFEST, HumanPrincipalStorage } from '@vestara/workspace';
 import initSqlJs from 'sql.js';
 import { describe, expect, it } from 'vitest';
-import { migrate } from '@vestara/sqlite-migrations';
-import { HUMAN_PRINCIPAL_MANIFEST, HumanPrincipalStorage } from '@vestara/workspace';
-import type { TelegramIdentityBinding } from '@vestara/telegram-integration';
 import { enrollTelegramIdentity, resolveTelegramIdentity } from '../src/telegram-identity';
 
 function binding(overrides: Partial<TelegramIdentityBinding> = {}): TelegramIdentityBinding {
