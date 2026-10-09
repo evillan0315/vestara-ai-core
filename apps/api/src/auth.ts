@@ -2,8 +2,11 @@
  * Auth middleware for Vestara API.
  *
  * Extracts and verifies Bearer tokens from the Authorization header.
- * Attaches the authenticated user to the request for downstream handlers.
- * Unauthenticated requests get a minimal anonymous user context.
+ * Fail-closed: requests without a valid token are unauthenticated (null) —
+ * there is no anonymous admin fallback (VES-AUTH-001, v8.0 enforced access).
+ *
+ * The legacy `X-Vestara-Actor` header is attribution-only: it downgrades to a
+ * viewer-identified actor for audit display and never grants authority.
  */
 
 import type * as http from 'node:http';
@@ -17,10 +20,23 @@ export interface AuthUser {
 }
 
 /**
- * Extract and verify the bearer token from an incoming request.
- * Returns the authenticated user, or a default anonymous user.
+ * Paths that remain reachable without a Bearer token.
+ * - POST /api/auth/login issues tokens, so it must stay public.
+ * - POST /api/telegram/webhook is validated inside its handler via the
+ *   Telegram Bot API secret_token header, not via Bearer.
+ * Everything else under /api/* requires authentication.
  */
-export function authenticate(req: http.IncomingMessage, userStore?: UserStore): AuthUser {
+export function isPublicApiRequest(method: string, pathname: string): boolean {
+  if (method === 'POST' && pathname === '/api/auth/login') return true;
+  if (method === 'POST' && pathname === '/api/telegram/webhook') return true;
+  return false;
+}
+
+/**
+ * Extract and verify the bearer token from an incoming request.
+ * Returns the authenticated user, or null when unauthenticated.
+ */
+export function authenticate(req: http.IncomingMessage, userStore?: UserStore): AuthUser | null {
   // 1. Try Authorization: Bearer <token>
   const authHeader = req.headers.authorization;
   if (authHeader && userStore) {
@@ -39,7 +55,16 @@ export function authenticate(req: http.IncomingMessage, userStore?: UserStore): 
     }
   }
 
-  // 2. Try X-Vestara-Actor header (legacy)
+  // 2. No valid token — unauthenticated. The legacy actor header is handled
+  // separately via legacyActor() for attribution only.
+  return null;
+}
+
+/**
+ * Attribution-only legacy actor name from `X-Vestara-Actor`.
+ * Grants no authority; use only for audit display on public paths.
+ */
+export function legacyActor(req: http.IncomingMessage): AuthUser {
   const actorHeader = req.headers['x-vestara-actor'];
   const actorName = typeof actorHeader === 'string' && actorHeader.trim() ? actorHeader.trim() : 'local-operator';
 
@@ -47,7 +72,7 @@ export function authenticate(req: http.IncomingMessage, userStore?: UserStore): 
     id: actorName,
     name: actorName,
     type: 'user',
-    role: 'admin',
+    role: 'viewer',
   };
 }
 
@@ -58,8 +83,31 @@ export function hasRole(user: AuthUser, minimum: AuthUser['role']): boolean {
 }
 
 /**
+ * Require any authenticated user for a request.
+ * Sends a 401 JSON response and returns null when unauthenticated.
+ */
+export function requireAuth(
+  req: http.IncomingMessage,
+  ctx: { users: UserStore },
+  res: http.ServerResponse,
+): AuthUser | null {
+  const user = authenticate(req, ctx.users);
+  if (!user) {
+    const data = JSON.stringify({ error: 'Authentication is required.' });
+    res.writeHead(401, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data),
+    });
+    res.end(data);
+    return null;
+  }
+  return user;
+}
+
+/**
  * Require a minimum role for a request.
- * Sends a 403 JSON response and returns false if the user lacks the required role.
+ * Sends a 401 JSON response when unauthenticated, 403 when under-role,
+ * and returns null in both cases.
  */
 export function requireRole(
   req: http.IncomingMessage,
@@ -68,6 +116,15 @@ export function requireRole(
   res: http.ServerResponse,
 ): AuthUser | null {
   const user = authenticate(req, ctx.users);
+  if (!user) {
+    const data = JSON.stringify({ error: 'Authentication is required.' });
+    res.writeHead(401, {
+      'Content-Type': 'application/json',
+      'Content-Length': Buffer.byteLength(data),
+    });
+    res.end(data);
+    return null;
+  }
   if (!hasRole(user, minimum)) {
     const data = JSON.stringify({ error: `Forbidden: requires role '${minimum}' or higher` });
     res.writeHead(403, {

@@ -20,7 +20,7 @@ interface CorsHeaders {
 const CORS: CorsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET,POST,PUT,PATCH,DELETE,OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, X-Vestara-Actor, X-Request-Id',
+  'Access-Control-Allow-Headers': 'Authorization, Content-Type, X-Vestara-Actor, X-Request-Id',
 };
 
 export interface SendOptions {

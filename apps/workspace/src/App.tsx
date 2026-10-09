@@ -9,6 +9,7 @@ import ShellLayout from './layouts/ShellLayout';
 import { ThemeProvider } from './lib/theme';
 import { VestaraThemeProvider } from '@vestara/ui-theme';
 import { APP_ROUTES } from './routes';
+import { useAuth } from './lib/auth';
 
 const Login = lazy(() => import('./pages/Login'));
 const Overview = lazy(() => import('./pages/Overview'));
@@ -120,6 +121,12 @@ function pageFor(routeId: string) {
   return Page ? <LazyPage>{createElement(Page)}</LazyPage> : null;
 }
 
+function ProtectedPage({ children }: { children: React.ReactNode }) {
+  const { user, loading } = useAuth();
+  if (loading) return <div className="w-full py-16 text-center text-(--vestara-text-muted)">Checking session...</div>;
+  return user ? children : <Navigate to="/login" replace />;
+}
+
 export default function App() {
   const publicRoutes = APP_ROUTES.filter((r) => r.layout === 'public');
   const shellRoutes = APP_ROUTES.filter((r) => r.layout === 'shell');
@@ -143,7 +150,11 @@ export default function App() {
                       r.redirect ? (
                         <Route key={r.id} path={r.path} element={<Navigate to={r.redirect} replace />} />
                       ) : (
-                        <Route key={r.id} path={r.path} element={pageFor(r.id)} />
+                        <Route
+                          key={r.id}
+                          path={r.path}
+                          element={r.requiresAuth ? <ProtectedPage>{pageFor(r.id)}</ProtectedPage> : pageFor(r.id)}
+                        />
                       ),
                     )}
                 </Route>

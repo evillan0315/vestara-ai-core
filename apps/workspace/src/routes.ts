@@ -36,7 +36,7 @@ export const APP_ROUTES: AppRoute[] = [
     redirect: '/overview',
   },
 
-  { id: 'overview', path: '/overview', title: 'Overview', requiresAuth: false, enabled: true, layout: 'shell' },
+  { id: 'overview', path: '/overview', title: 'Overview', requiresAuth: true, enabled: true, layout: 'shell' },
   // Legacy Dashboard URL — preserved as a redirect so old bookmarks/deep
   // links land on the canonical Overview route. The Dashboard page component
   // is intentionally unreachable via navigation (no Dashboard API traffic).
@@ -44,7 +44,7 @@ export const APP_ROUTES: AppRoute[] = [
     id: 'dashboard',
     path: '/dashboard',
     title: 'Dashboard',
-    requiresAuth: false,
+    requiresAuth: true,
     enabled: false,
     layout: 'shell',
     redirect: '/overview',
@@ -71,7 +71,7 @@ export const APP_ROUTES: AppRoute[] = [
   { id: 'agents', path: '/agents', title: 'Agent Control', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'routing', path: '/routing', title: 'Engineering Routing', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'chat', path: '/chat', title: 'Chat', requiresAuth: true, enabled: true, layout: 'shell' },
-  { id: 'meet', path: '/meet', title: 'Vestara Meet', requiresAuth: false, enabled: true, layout: 'shell' },
+  { id: 'meet', path: '/meet', title: 'Vestara Meet', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'memory', path: '/memory', title: 'Knowledge', requiresAuth: true, enabled: true, layout: 'shell' },
   // Intelligence grouping — canonical prefix /intelligence/* (legacy paths redirect)
   { id: 'intelligence', path: '/intelligence', title: 'Intelligence', requiresAuth: true, enabled: true, layout: 'shell' },
@@ -125,7 +125,7 @@ export const APP_ROUTES: AppRoute[] = [
   { id: 'activities', path: '/activities', title: 'Activities', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'activity', path: '/activity', title: 'Activity Room', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'api-builder', path: '/api-builder', title: 'API Builder', requiresAuth: true, enabled: true, layout: 'shell' },
-  { id: 'docs', path: '/docs', title: 'Documentation', requiresAuth: false, enabled: true, layout: 'shell' },
+  { id: 'docs', path: '/docs', title: 'Documentation', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'diagnostics', path: '/diagnostics', title: 'Diagnostics', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'execution', path: '/execution', title: 'Execution', requiresAuth: true, enabled: true, layout: 'shell' },
   { id: 'graph', path: '/graph', title: 'Engineering Graph', requiresAuth: true, enabled: true, layout: 'shell' },

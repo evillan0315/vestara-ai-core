@@ -311,8 +311,9 @@ function tunnelStatusLabel(status: TelegramTunnel['state']['status']): string {
 
 /**
  * Webhook tunnel control (TG-030). Telegram delivers updates to a public
- * HTTPS URL, so the loopback API must be exposed through a tunnel. Enabling
- * is an explicit action: nothing is spawned by configuration alone.
+ * HTTPS URL, so the loopback API must be exposed through a tunnel.
+ * `cloudflared` is the default provider and a non-manual tunnel
+ * auto-enables on API boot; the buttons below cover explicit retry/stop.
  */
 export function TunnelSection({ initial, className = '' }: { initial: TelegramTunnel; className?: string }) {
   const [tunnel, setTunnel] = useState<TelegramTunnel>(initial);
@@ -449,7 +450,8 @@ export function TunnelSection({ initial, className = '' }: { initial: TelegramTu
 
         <p className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
           Enabling starts the selected provider and registers the resulting URL with Telegram for this session; configuration
-          persists, runtime state does not.
+          persists, runtime state does not. A non-manual tunnel also auto-enables on API start / systemd reload
+          (opt out with VESTARA_TELEGRAM_TUNNEL_AUTOSTART=0).
         </p>
       </ReferenceCard>
   );

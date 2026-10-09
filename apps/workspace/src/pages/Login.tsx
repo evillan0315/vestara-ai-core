@@ -1,9 +1,10 @@
 import { type FormEvent, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth';
+import { resolveHttpUrl } from '../lib/clientConfig';
 
 export default function Login() {
-  const { setActor } = useAuth();
+  const { establishSession } = useAuth();
   const navigate = useNavigate();
   const [name, setName] = useState('');
   const [err, setErr] = useState('');
@@ -22,25 +23,20 @@ export default function Login() {
 
     // Authenticate with the API server
     try {
-      const res = await fetch('/api/auth/login', {
+      const res = await fetch(resolveHttpUrl('/api/auth/login'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: n }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        // Store the token and user info
-        if (data.user?.token) {
-          localStorage.setItem('vestara-auth-token', data.user.token);
-          localStorage.setItem('vestara-actor', data.user.username || n);
-        }
-      }
-      // Even if the API is unreachable, fall back to local identity
-    } catch {
-      // API server may not be running — use local identity
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.user?.token) throw new Error(data.error ?? 'Login failed');
+      establishSession(data.user);
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : 'Unable to sign in');
+      setSubmitting(false);
+      return;
     }
 
-    setActor(n);
     setSubmitting(false);
     navigate('/overview', { replace: true });
   };

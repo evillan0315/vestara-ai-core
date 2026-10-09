@@ -78,11 +78,29 @@ const notificationPolicy = new TelegramNotificationPolicy();
 
 const TUNNEL_PROVIDER_KINDS: readonly TunnelProviderKind[] = ['manual', 'cloudflared', 'ngrok'];
 
+function resolveTunnelProviderOverride(): TunnelProviderKind | undefined {
+  const raw = process.env.VESTARA_TELEGRAM_TUNNEL_PROVIDER?.trim().toLowerCase();
+  return TUNNEL_PROVIDER_KINDS.includes(raw as TunnelProviderKind) ? (raw as TunnelProviderKind) : undefined;
+}
+
 function initialTunnelConfig(): TunnelConfig {
   return {
     ...DEFAULT_TUNNEL_CONFIG,
+    provider: resolveTunnelProviderOverride() ?? DEFAULT_TUNNEL_CONFIG.provider,
     localPort: Number(process.env.VESTARA_API_PORT ?? process.env.PORT ?? 3001),
   };
+}
+
+/**
+ * Whether a tunnel should auto-enable on API boot / systemd restart.
+ * Default ON — opt out with `VESTARA_TELEGRAM_TUNNEL_AUTOSTART=0|false`.
+ * Manual-provider tunnels never autostart (no process to spawn, and an
+ * empty publicUrl would only fail).
+ */
+export function shouldAutoEnableTunnel(env: NodeJS.ProcessEnv = process.env): boolean {
+  const raw = env.VESTARA_TELEGRAM_TUNNEL_AUTOSTART?.trim().toLowerCase();
+  if (raw === '0' || raw === 'false' || raw === 'no' || raw === 'off') return false;
+  return true;
 }
 
 let tunnelConfig: TunnelConfig = initialTunnelConfig();
@@ -379,11 +397,17 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
     notificationPolicy.setPreferences('default', storedNotifications);
   }
 
-  // Rehydrate tunnel configuration (TG-030). Tunnel *state* is runtime-only:
-  // persisted configuration never spawns a process on boot.
+  // Rehydrate tunnel configuration (TG-030). `cloudflared` is the default;
+  // a non-manual tunnel auto-enables on boot so systemd start/reload brings
+  // the live tunnel up without opening Settings. Autostart is best-effort
+  // and never fails boot — failures surface on GET /api/telegram/tunnel.
   const storedTunnel = store.getSettings(TUNNEL_SETTINGS_KEY) as Partial<TunnelConfig> | undefined;
   if (storedTunnel !== undefined) {
     tunnelConfig = { ...initialTunnelConfig(), ...storedTunnel };
+  }
+  const providerOverride = resolveTunnelProviderOverride();
+  if (providerOverride !== undefined) {
+    tunnelConfig = { ...tunnelConfig, provider: providerOverride };
   }
   tunnelService = null;
 
@@ -395,6 +419,22 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
   textRouter = null; // will be recreated with backend on first use
 
   console.log('[telegram] route initialized with persistent store');
+
+  // Auto-enable the live tunnel on API start / systemd reload. Fire-and-
+  // forget: boot must never block on tunnel DNS/propagation, and a missing
+  // cloudflared binary or bot token just leaves state `disabled`/`error`.
+  if (shouldAutoEnableTunnel() && tunnelConfig.provider !== 'manual') {
+    void getTunnelService()
+      .enable()
+      .then((state) => {
+        console.log(
+          `[telegram] tunnel autostart provider=${tunnelConfig.provider} status=${state.status}${state.publicUrl ? ` url=${state.publicUrl}` : ''}${state.lastError ? ` error=${state.lastError}` : ''}`,
+        );
+      })
+      .catch((error) => {
+        console.warn('[telegram] tunnel autostart failed', error instanceof Error ? error.message : error);
+      });
+  }
 }
 
 // ─── Message Processing ────────────────────────────────────────
@@ -1338,7 +1378,8 @@ export async function handleTelegramRoute(
 
     // ─── PUT /api/telegram/tunnel ───────────────────────────
     // Configure and/or start/stop the tunnel. Configuration is persisted;
-    // runtime state is not. Enabling is always an explicit request.
+    // runtime state is not. Requests can enable/disable explicitly; a
+    // non-manual tunnel also auto-enables on API boot (see initTelegramRoute).
     if (method === 'PUT' && p === '/api/telegram/tunnel') {
       const body = JSON.parse(await readBody(req)) as {
         enabled?: unknown;

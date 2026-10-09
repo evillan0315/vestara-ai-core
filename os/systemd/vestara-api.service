@@ -13,6 +13,8 @@ WorkingDirectory=/opt/vestara
 EnvironmentFile=-/etc/vestara/vestara.env
 Environment=NODE_ENV=production
 Environment=VESTARA_API_PORT=3001
+Environment=VESTARA_TELEGRAM_TUNNEL_PROVIDER=cloudflared
+Environment=VESTARA_TELEGRAM_TUNNEL_AUTOSTART=1
 ExecStart=/usr/bin/node /opt/vestara/apps/api/dist/index.js
 Restart=on-failure
 RestartSec=5

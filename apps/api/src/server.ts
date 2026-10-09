@@ -10,11 +10,13 @@
 import * as fs from 'node:fs';
 import * as http from 'node:http';
 import type { Socket } from 'node:net';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import type { WorkspaceEvent, WorkspaceEventType, WsServerMessage } from '@vestara/events';
 import { categorizeEvent } from '@vestara/events';
 import { type RawData, WebSocket, WebSocketServer } from 'ws';
 import { getActivityRoom } from './activity-room';
+import { authenticate, isPublicApiRequest } from './auth';
 import { ApiError, httpMetrics, logger, requestContext, sendJson, sendNoContent } from './http';
 import { normalizeError } from './http/api-error';
 import { assertDeclaredBodySize } from './http/body';
@@ -352,6 +354,81 @@ export function serveWorkspaceUi(res: http.ServerResponse, pathname: string, dis
   return true;
 }
 
+/**
+ * Public screenshot surface for sharing workspace captures (e.g. photo URLs
+ * for Telegram, which cannot read local scratch paths). The directory
+ * defaults to the opencode scratch dir; override with
+ * `VESTARA_SCREENSHOTS_DIR`. Only raster images are served — anything else,
+ * including directory listings and SVG, resolves to not-found so the public
+ * tunnel URL can never leak non-image files.
+ */
+export const SCREENSHOTS_ROUTE_PREFIX = '/screenshots/';
+
+function screenshotsDir(): string {
+  return path.normalize(process.env.VESTARA_SCREENSHOTS_DIR ?? path.join(os.tmpdir(), 'opencode'));
+}
+
+const SCREENSHOT_CONTENT_TYPES: Record<string, string> = {
+  '.gif': 'image/gif',
+  '.jpeg': 'image/jpeg',
+  '.jpg': 'image/jpeg',
+  '.png': 'image/png',
+  '.webp': 'image/webp',
+};
+
+export type ScreenshotResolution =
+  | { readonly status: 'ok'; readonly filePath: string; readonly contentType: string }
+  | { readonly status: 'not-found' }
+  | { readonly status: 'ignored' };
+
+/**
+ * Pure screenshot path policy: map a request pathname to a file inside `dir`.
+ * `dir` is injectable so the policy is testable without touching the real
+ * screenshots directory.
+ */
+export function resolveScreenshotFile(pathname: string, dir: string): ScreenshotResolution {
+  if (!pathname.startsWith(SCREENSHOTS_ROUTE_PREFIX)) return { status: 'ignored' };
+  let rel: string;
+  try {
+    rel = decodeURIComponent(pathname.slice(SCREENSHOTS_ROUTE_PREFIX.length));
+  } catch {
+    return { status: 'not-found' };
+  }
+  const filePath = path.normalize(path.join(dir, rel));
+  const contained = filePath.startsWith(`${dir}${path.sep}`);
+  const ext = path.extname(filePath).toLowerCase();
+  const contentType = SCREENSHOT_CONTENT_TYPES[ext];
+  if (!contained || contentType === undefined) return { status: 'not-found' };
+  if (!fs.existsSync(filePath) || !fs.statSync(filePath).isFile()) return { status: 'not-found' };
+  return { status: 'ok', filePath, contentType };
+}
+
+/**
+ * Serve a screenshot file claimed by {@link resolveScreenshotFile}. Returns
+ * true when the request was claimed (bytes served or 404 JSON written) so
+ * screenshot paths never fall through to the SPA fallback as HTML.
+ */
+export function serveScreenshots(res: http.ServerResponse, pathname: string, dir: string = screenshotsDir()): boolean {
+  const resolution = resolveScreenshotFile(pathname, dir);
+  if (resolution.status === 'ignored') return false;
+  if (resolution.status === 'not-found') {
+    sendJson(res, 404, { error: 'Screenshot not found' }, { cacheControl: 'no-cache' });
+    return true;
+  }
+  const stat = fs.statSync(resolution.filePath);
+  res.writeHead(200, {
+    'content-type': resolution.contentType,
+    'content-length': String(stat.size),
+    'cache-control': 'no-cache',
+  });
+  if (res.req?.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+  fs.createReadStream(resolution.filePath).pipe(res);
+  return true;
+}
+
 export function createServer(ctx: WorkspaceContext, port: number, options: ApiServerOptions = {}): ApiServer {
   const requestTimeoutMs = options.requestTimeoutMs ?? DEFAULT_REQUEST_TIMEOUT_MS;
   const shutdownGraceMs = options.shutdownGraceMs ?? SHUTDOWN_GRACE_MS;
@@ -568,6 +645,26 @@ export function createServer(ctx: WorkspaceContext, port: number, options: ApiSe
           sendJson(res, 200, httpMetrics.snapshot());
           complete(200, responseBytes);
           return;
+        }
+
+        // Public screenshot files (e.g. photo URLs for Telegram).
+        if ((method === 'GET' || method === 'HEAD') && pathname.startsWith(SCREENSHOTS_ROUTE_PREFIX)) {
+          if (serveScreenshots(res, pathname)) {
+            complete(res.statusCode ?? 200, responseBytes);
+            return;
+          }
+        }
+
+        // Enforced authentication (VES-AUTH-001, Option A): every /api/*
+        // request carries a valid Bearer token, except the documented public
+        // paths (login issuance, secret-validated Telegram webhook). Health,
+        // telemetry, and screenshot fast-paths above already returned.
+        if (pathname.startsWith('/api') && !isPublicApiRequest(method, pathname)) {
+          if (!authenticate(req, ctx.users)) {
+            sendJson(res, 401, { error: 'Authentication is required.' }, { cacheControl: 'no-cache' });
+            complete(401, responseBytes);
+            return;
+          }
         }
 
         // Serve the built Workspace UI for non-API GET requests (SPA fallback).

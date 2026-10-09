@@ -13,6 +13,8 @@ WorkingDirectory=/home/eddie/projects/vestara/vestara-ai-core
 EnvironmentFile=-/home/eddie/projects/vestara/vestara-ai-core/.env
 Environment=NODE_ENV=production
 Environment=VESTARA_API_PORT=3001
+Environment=VESTARA_TELEGRAM_TUNNEL_PROVIDER=cloudflared
+Environment=VESTARA_TELEGRAM_TUNNEL_AUTOSTART=1
 ExecStart=/usr/bin/node /home/eddie/projects/vestara/vestara-ai-core/apps/api/dist/index.js
 Restart=on-failure
 RestartSec=5

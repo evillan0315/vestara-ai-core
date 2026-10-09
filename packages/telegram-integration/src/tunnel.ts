@@ -7,9 +7,11 @@
  * the local webhook endpoint, and registers the resulting public URL with the
  * Telegram Bot API.
  *
- * Tunnel state is runtime state: only the configuration persists. A process
- * is never spawned by configuration alone — enabling is always an explicit
- * action, and disabling stops whatever this service started.
+ * Tunnel state is runtime state: only the configuration persists. The
+ * `cloudflared` provider is the default, and the API server auto-enables a
+ * non-manual tunnel on boot (best-effort, opt out with
+ * `VESTARA_TELEGRAM_TUNNEL_AUTOSTART=0`). Disabling stops whatever this
+ * service started.
  *
  * The service performs no I/O itself; it delegates to an injected
  * `TunnelProvider` and `TelegramWebhookRegistrar`, so it is fully testable
@@ -126,7 +128,7 @@ export type TunnelConfigPatch = Partial<TunnelConfig>;
 // ─── Defaults ──────────────────────────────────────────────────
 
 export const DEFAULT_TUNNEL_CONFIG: TunnelConfig = {
-  provider: 'manual',
+  provider: 'cloudflared',
   localPort: 3001,
 };
 
@@ -315,8 +317,9 @@ export class StaticTunnelProvider implements TunnelProvider {
 // ─── Tunnel Service ────────────────────────────────────────────
 
 /**
- * Owns tunnel configuration and lifecycle. Never spawns a process unless a
- * provider is explicitly selected and `enable()` is called.
+ * Owns tunnel configuration and lifecycle. A non-manual tunnel is
+ * auto-enabled on API boot (see `initTelegramRoute`); `disable()` stops
+ * whatever this service started.
  */
 export class TelegramTunnelService {
   private config: TunnelConfig;

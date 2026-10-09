@@ -7,6 +7,7 @@
  */
 
 import type * as http from 'node:http';
+import { authenticate, legacyActor } from '../auth';
 import { ApiError, normalizeError } from '../http/api-error';
 import { readBody as hardenedReadBody } from '../http/body';
 import { CORS_HEADERS, json } from '../http/response';
@@ -34,6 +35,5 @@ export function actorOf(req: http.IncomingMessage): string {
 }
 
 export function getActor(req: http.IncomingMessage, ctx: WorkspaceContext) {
-  const { authenticate } = require('../auth');
-  return authenticate(req, ctx.users);
+  return authenticate(req, ctx.users) ?? legacyActor(req);
 }

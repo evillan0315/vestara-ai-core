@@ -144,6 +144,18 @@ const REGISTRY: readonly RegistryEntry[] = [
     description: "Set to '1' to skip the memory index build.",
   },
   {
+    name: 'VESTARA_TELEGRAM_TUNNEL_PROVIDER',
+    scope: 'api-process',
+    description: 'Telegram tunnel provider default (manual | cloudflared | ngrok).',
+    defaultValue: 'cloudflared',
+  },
+  {
+    name: 'VESTARA_TELEGRAM_TUNNEL_AUTOSTART',
+    scope: 'api-process',
+    description: "Set to '0' to disable auto-enabling the Telegram tunnel on API boot.",
+    defaultValue: '1',
+  },
+  {
     name: 'VESTARA_TELEGRAM_TUNNEL_COMMAND',
     scope: 'api-process',
     description: 'Tunnel provider command override for Telegram webhooks.',
