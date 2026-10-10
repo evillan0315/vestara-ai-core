@@ -36,8 +36,7 @@ import {
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
-import { projectActivityStreamWorkflowGraph } from '../../lib/activity-workflow-graph';
-import { workflowGraphNodeId } from '@vestara/workflow-orchestrator';
+import { projectActivityStreamWorkflowGraph, workflowGraphNodeId } from '../../lib/activity-workflow-graph';
 import type { AttentionEntry } from '@vestara/activity-room';
 import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage, DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';

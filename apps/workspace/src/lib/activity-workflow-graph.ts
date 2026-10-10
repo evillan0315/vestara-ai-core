@@ -24,11 +24,28 @@
 import type {
   PlanStatus,
   TaskStatus,
+  WorkflowGraphEdgeKind,
+  WorkflowGraphNodeKind,
   WorkflowGraphProjection,
 } from '@vestara/workflow-orchestrator';
-import { workflowGraphEdgeId, workflowGraphNodeId } from '@vestara/workflow-orchestrator';
 import type { WorkflowSummary } from '@vestara/activity-room';
 import type { M11CStreamItem } from '../hooks/useM11CActivityRoom';
+
+/**
+ * Browser-safe copies of the orchestrator graph-contract ID helpers.
+ * The orchestrator package is Node-oriented at runtime (CJS dist pulls in
+ * sqlite/orchestrator internals), so the browser boundary must not import
+ * runtime values from it — type-only imports above are erased at compile
+ * time. Formats mirror `workflowGraphNodeId` / `workflowGraphEdgeId` in
+ * `packages/workflow-orchestrator/src/graph-contract.ts` exactly.
+ */
+export function workflowGraphNodeId(kind: WorkflowGraphNodeKind, sourceId: string): string {
+  return `workflow-${kind}:${sourceId}`;
+}
+
+export function workflowGraphEdgeId(kind: WorkflowGraphEdgeKind, source: string, target: string): string {
+  return `${kind}:${source}->${target}`;
+}
 
 function shortId(value: string): string {
   return value.length > 12 ? `${value.slice(0, 12)}…` : value;
