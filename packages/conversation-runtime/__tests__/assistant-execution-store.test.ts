@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type {
@@ -123,5 +123,24 @@ describe('SqliteConversationStore assistant execution authority', () => {
         '2026-09-28T00:00:00.100Z',
       ),
     ).rejects.toThrow('Execution result identity mismatch');
+  });
+
+  it('quarantines a zero-filled corrupt database and starts fresh instead of crashing', async () => {
+    tempDir = mkdtempSync(join(tmpdir(), 'vestara-assistant-corrupt-'));
+    const dbPath = join(tempDir, 'conversations.db');
+    // Reproduce the Oct 2026 outage: 8 MiB of zeros is not a database.
+    writeFileSync(dbPath, Buffer.alloc(1024, 0));
+    const store = new SqliteConversationStore({ dbPath });
+    await store.initialize();
+
+    const files = readdirSync(tempDir);
+    expect(files.some((name) => name.startsWith('conversations.db.corrupt-'))).toBe(true);
+    const header = readFileSync(dbPath).subarray(0, 16).toString('binary');
+    expect(header).toBe('SQLite format 3\0');
+
+    // The recovered store must be fully usable.
+    const initial = record('exec-recovered');
+    await store.createExecution(initial);
+    expect((await store.getExecution(initial.executionId))?.status).toBe('requested');
   });
 });

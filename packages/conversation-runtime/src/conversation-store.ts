@@ -187,24 +187,77 @@ export class SqliteConversationStore implements ConversationStore {
     if (this.initialized) return;
     const sql = await getDb();
     const fs = await import('node:fs');
-    if (this.dbPath) {
+    const path = await import('node:path');
+    // SQLite files start with the 16-byte magic "SQLite format 3\0". A zero-filled,
+    // truncated, or non-database file must never fatally block startup (observed:
+    // 8 MiB of zeros throwing "file is not a database" from PRAGMA user_version).
+    const isValidSqlite = (buffer: Buffer): boolean =>
+      buffer.length >= 16 && buffer.subarray(0, 16).toString('binary') === 'SQLite format 3\0';
+    const quarantine = (file: string, reason: string): void => {
       try {
-        const buffer = fs.readFileSync(this.dbPath);
-        this.db = new sql.Database(buffer);
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+        fs.renameSync(file, `${file}.corrupt-${stamp}`);
+        this.logger?.warn('Quarantined corrupt conversation database', { file, reason });
       } catch {
+        // Best effort — startup must proceed even when quarantine fails.
+      }
+    };
+    const persistAtomic = (migrated: any): void => {
+      if (!this.dbPath) return;
+      const dir = path.dirname(this.dbPath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const tmp = `${this.dbPath}.tmp-${process.pid}`;
+      fs.writeFileSync(tmp, Buffer.from(migrated.export()));
+      fs.renameSync(tmp, this.dbPath);
+    };
+    if (this.dbPath) {
+      let buffer: Buffer | undefined;
+      try {
+        const raw = fs.readFileSync(this.dbPath);
+        if (!isValidSqlite(raw)) {
+          quarantine(this.dbPath, 'invalid-sqlite-header');
+        } else {
+          buffer = raw;
+        }
+      } catch (error) {
+        // ENOENT (first boot) → fresh DB. Any other read failure quarantines so a
+        // half-written file cannot wedge every subsequent startup.
+        if ((error as NodeJS.ErrnoException)?.code !== 'ENOENT') {
+          quarantine(this.dbPath, 'unreadable');
+        }
+      }
+      try {
+        this.db = buffer ? new sql.Database(buffer) : new sql.Database();
+      } catch {
+        if (buffer) quarantine(this.dbPath, 'open-failed');
         this.db = new sql.Database();
       }
     } else {
       this.db = new sql.Database();
     }
 
-    migrate(this.db, CONVERSATION_MANIFEST, {
-      persist: (migrated) => {
-        if (this.dbPath) {
-          fs.writeFileSync(this.dbPath, Buffer.from(migrated.export()));
-        }
-      },
-    });
+    try {
+      migrate(this.db, CONVERSATION_MANIFEST, {
+        persist: persistAtomic,
+      });
+    } catch (error) {
+      // Payload passed the header check but is still unusable (e.g. corrupt pages
+      // failing PRAGMA user_version). Quarantine and start fresh rather than crash.
+      if (!this.dbPath) throw error;
+      try {
+        this.db?.close?.();
+      } catch {
+        // Ignore close failures on a corrupt handle.
+      }
+      quarantine(this.dbPath, 'migrate-failed');
+      this.db = new sql.Database();
+      migrate(this.db, CONVERSATION_MANIFEST, {
+        persist: persistAtomic,
+      });
+      this.logger?.warn('Recreated conversation database after quarantining corrupt file');
+    }
     this.initialized = true;
   }
 
@@ -608,13 +661,19 @@ export class SqliteConversationStore implements ConversationStore {
     if (!this.dbPath) return;
     try {
       const fs = require('node:fs') as typeof import('node:fs');
+      const path = require('node:path') as typeof import('node:path');
       const data = this.db.export();
       const buffer = Buffer.from(data);
-      const dir = this.dbPath.substring(0, this.dbPath.lastIndexOf('/'));
+      const dir = path.dirname(this.dbPath);
       if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
       }
-      fs.writeFileSync(this.dbPath, buffer);
+      // Atomic write: a crash mid-write must leave either the old or the new DB,
+      // never a truncated file (a truncated file caused the Oct 2026 zero-filled
+      // conversations.db outage).
+      const tmp = `${this.dbPath}.tmp-${process.pid}`;
+      fs.writeFileSync(tmp, buffer);
+      fs.renameSync(tmp, this.dbPath);
     } catch {}
   }
 }
