@@ -83,7 +83,6 @@
 │   │   ├── Logo.tsx
 │   │   ├── OperationalWidgets.tsx
 │   │   ├── SessionTimeline.tsx
-│   │   ├── ShellLayout-tobe-deleted.tsx
 │   │   ├── Sidebar.tsx
 │   │   ├── terminal
 │   │   │   ├── TerminalEmptyState.tsx

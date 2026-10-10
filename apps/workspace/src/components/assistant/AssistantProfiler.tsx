@@ -73,8 +73,10 @@ export function resetProfilerStats() {
   metrics.clear();
 }
 
-/** Log a summary of all profiling stats to console. */
+/** Log a summary of all profiling stats to console (development only). */
 export function logProfilerSummary() {
+  if (process.env.NODE_ENV !== 'development') return;
+
   console.group('📊 Assistant Performance Profile');
   for (const [id, stats] of metrics) {
     console.log(
