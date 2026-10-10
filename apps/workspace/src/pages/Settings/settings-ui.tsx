@@ -157,7 +157,7 @@ export function SettingsRow({ label, description, value, code, icon, onClick, ch
           )}
         </span>
       </span>
-      <span className="flex min-w-0 items-center justify-start gap-3 text-left text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] sm:justify-end sm:text-right">
+      <span className="st-row-value flex items-center justify-start gap-3 text-left text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] sm:justify-end sm:text-right">
         {value}
         {onClick && <Chevron />}
       </span>
@@ -317,12 +317,15 @@ export function Button({
   disabled,
   primary = false,
   title,
+  className = '',
 }: {
   children: ReactNode;
   onClick?: () => void;
   disabled?: boolean;
   primary?: boolean;
   title?: string;
+  /** Optional layout passthrough (e.g. `w-full sm:w-auto` for stacked mobile actions). */
+  className?: string;
 }) {
   return (
     <button
@@ -330,7 +333,7 @@ export function Button({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className={`min-h-9 whitespace-nowrap rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-sm)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focus} ${primary ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'}`}
+      className={`min-h-9 w-auto max-w-full overflow-hidden text-ellipsis whitespace-nowrap rounded-[var(--vestara-radius)] border px-3 text-[var(--vestara-font-size-sm)] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${focus} ${primary ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]' : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-[var(--vestara-color-text-secondary,var(--vestara-text-2))] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-color-text-primary,var(--vestara-text))]'} ${className}`}
     >
       {children}
     </button>

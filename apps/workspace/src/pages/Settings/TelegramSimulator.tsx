@@ -219,7 +219,7 @@ export function TelegramSimulator() {
           onKeyDown={handleKeyDown}
           placeholder="Type a message to simulate..."
           disabled={loading}
-          className="flex-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-3 py-2 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-primary,var(--vestara-text))] placeholder:text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))]"
+          className="min-w-0 flex-1 rounded-[var(--vestara-radius)] border border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] px-3 py-2 text-[var(--vestara-font-size-sm)] text-[var(--vestara-color-text-primary,var(--vestara-text))] placeholder:text-[var(--vestara-color-text-muted,var(--vestara-text-muted))] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--vestara-color-focus-ring,var(--vestara-accent))]"
         />
         <Button onClick={handleSend} disabled={loading || !input.trim()}>
           {loading ? 'Sending...' : 'Send'}

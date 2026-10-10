@@ -119,7 +119,7 @@ function SettingsHero({ configuration, runtime }: { configuration: ResolvedConfi
             </p>
           </div>
         </div>
-        <div className="st-gap-field grid min-w-0 sm:grid-cols-3 lg:w-[min(48rem,60%)]">
+        <div className="st-gap-field grid min-w-0 grid-cols-1 min-[560px]:grid-cols-3 lg:w-[min(48rem,60%)]">
           <HeroFact
             icon={navIcon('files')}
             label="Workspace"
@@ -142,7 +142,9 @@ function HeroFact({ icon, label, value }: { icon: ReactNode; label: string; valu
         </span>
         <span className="min-w-0">
           <span className="st-hero-chip-label">{label}</span>
-          <span className="st-hero-chip-value truncate">{value}</span>
+          <span className="st-hero-chip-value truncate" title={value}>
+            {value}
+          </span>
         </span>
       </div>
     </div>
@@ -507,7 +509,7 @@ function NavigationIndicatorRow({
   onThicknessChange: (value: number) => void;
 }) {
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3">
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
       <span className="min-w-0">
         <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
           Navigation indicator
@@ -516,7 +518,7 @@ function NavigationIndicatorRow({
           Selection edge on the active sidebar item.
         </span>
       </span>
-      <span className="flex shrink-0 items-center gap-2">
+      <span className="flex min-w-0 flex-wrap items-center gap-2 sm:justify-end">
         <span
           aria-hidden="true"
           className="min-w-10 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-1.5 py-0.5 text-center font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-secondary)]"
@@ -531,7 +533,7 @@ function NavigationIndicatorRow({
           value={thickness}
           disabled={!enabled}
           onChange={(event) => onThicknessChange(Number(event.target.value))}
-          className="w-24 accent-[var(--vestara-accent)] disabled:opacity-40"
+          className="w-24 max-w-full shrink-0 accent-[var(--vestara-accent)] disabled:opacity-40"
         />
         <Toggle label="Navigation indicator" checked={enabled} onChange={onEnabledChange} />
       </span>

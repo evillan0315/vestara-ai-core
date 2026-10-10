@@ -183,7 +183,7 @@
 
 .st-gap-section {
   gap: var(--vestara-spacing-section);
-  width: 90%;
+  width: 100%;
 }
 
 .st-gap-element {
@@ -219,4 +219,76 @@
 
 .st-pt-field {
   padding-top: var(--st-spacing-field);
+}
+
+/* ── Responsive layer: full responsiveness from 320px handsets to
+   ultrawide desktops. Every value stays token-derived (var() or
+   color-mix() over vars) — no hard-coded palette, spacing, or radius. */
+
+/* Scrollable tab rail must win over .st-panel's overflow:hidden so the
+   7-domain tab strip scrolls horizontally on narrow viewports instead of
+   clipping. Momentum scrolling for touch devices. */
+.st-panel.st-panel-scroll-x {
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+}
+
+/* Long operational values (executable paths, socket paths, store
+   identities, endpoints) wrap instead of forcing horizontal overflow
+   on 320–480px viewports. */
+.st-row-value {
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Compact card padding on handsets so content keeps usable width below
+   the sm breakpoint. */
+@media (max-width: 639px) {
+  .st-pad-card {
+    padding: var(--vestara-spacing-section);
+  }
+
+  .st-px-card {
+    padding-inline: var(--vestara-spacing-section);
+  }
+
+  /* Narrower tab hit-areas on phones: more domains visible per swipe. */
+  .st-settings-nav [role='tab'] {
+    min-width: 0;
+    padding-inline: var(--vestara-spacing-section);
+  }
+
+  /* Panel headers wrap: title keeps full width, actions drop to their own
+     row and wrap instead of squeezing the title or overflowing. */
+  .st-card-header {
+    flex-wrap: wrap;
+    row-gap: var(--vestara-spacing-element);
+  }
+
+  .st-card-actions {
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+
+  .st-card-actions > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  /* Hero chips compress on phones: shorter tiles, smaller floor width. */
+  .st-hero-chip {
+    min-width: 0;
+    padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  }
+}
+
+/* Respect reduced motion for the entrance animation. */
+@media (prefers-reduced-motion: reduce) {
+  .st-panel.st-panel-scroll-x {
+    scrollbar-width: none;
+  }
 }

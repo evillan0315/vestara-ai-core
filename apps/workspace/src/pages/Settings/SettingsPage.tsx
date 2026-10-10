@@ -57,7 +57,9 @@ function RuntimeStateCard({ runtime, className = '' }: { runtime: RuntimeStatusD
             ) : (
               <span
                 className={
-                  key.toLowerCase().includes('id') || key.toLowerCase().includes('endpoint') ? 'font-mono text-xs' : ''
+                  key.toLowerCase().includes('id') || key.toLowerCase().includes('endpoint')
+                    ? 'min-w-0 break-all font-mono text-xs'
+                    : 'min-w-0 break-words'
                 }
               >
                 {String(value)}
@@ -195,21 +197,21 @@ function CliSection({ initial, className = '' }: { initial: CliStatusDto; classN
     ['Runtime connected', <Status key="connected" value={status.runtimeConnected} />, status.connectionEvidence],
     [
       'Executable',
-      <span key="executable" className="font-mono text-xs">
+      <span key="executable" className="min-w-0 break-all font-mono text-xs">
         {status.executablePath ?? 'Not found'}
       </span>,
     ],
     ['Version compatibility', <Status key="compatibility" value={status.compatible} />],
     [
       'Workspace ID',
-      <span key="workspace" className="font-mono text-xs">
+      <span key="workspace" className="min-w-0 break-all font-mono text-xs">
         {status.workspaceId}
       </span>,
     ],
     ['Transport', status.transport],
     [
       'Local socket',
-      <span key="socket" className="font-mono text-xs">
+      <span key="socket" className="min-w-0 break-all font-mono text-xs">
         {status.localSocketAvailable ? status.localSocketPath : `Unavailable · fallback ${status.runtimeEndpoint}`}
       </span>,
     ],
@@ -226,8 +228,8 @@ function CliSection({ initial, className = '' }: { initial: CliStatusDto; classN
         {rows.map(([label, value, description]) => (
           <SettingsRow key={label} label={label} description={description} value={value} />
         ))}
-        <div className="mt-[var(--vestara-spacing-section)] flex justify-end border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)]">
-          <Button primary onClick={verify}>
+        <div className="mt-[var(--vestara-spacing-section)] flex flex-col gap-[var(--vestara-spacing-element)] border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] sm:flex-row sm:justify-end">
+          <Button primary onClick={verify} className="w-full sm:w-auto">
             Verify connection
           </Button>
         </div>
@@ -260,7 +262,7 @@ function HistoryCard({ initial, className = '' }: { initial: EventStoreStatusDto
         tone="info"
         className={className}
         actions={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button
               primary
               onClick={async () => {
@@ -300,7 +302,7 @@ function HistoryCard({ initial, className = '' }: { initial: EventStoreStatusDto
         <SettingsRow label="Schema version" value={status.eventSchemaVersion} />
         <SettingsRow
           label="Store identity"
-          value={<span className="font-mono text-xs">{status.workspaceStoreIdentity}</span>}
+          value={<span className="min-w-0 break-all font-mono text-xs">{status.workspaceStoreIdentity}</span>}
         />
         {message && (
           <p className="border-t border-[var(--vestara-color-border-subtle,var(--color-zinc-800))] px-4 py-3 text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
@@ -366,12 +368,12 @@ export default function SettingsPage() {
         <div role="alert" className="st-panel p-5">
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
            <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">{error}</p>
-           <div className="mt-4 space-y-4">
-             <ApiEndpointField onApplied={load} />
-             <Button primary onClick={() => void load()}>
-               Retry connection
-             </Button>
-           </div>
+            <div className="mt-4 space-y-4">
+              <ApiEndpointField onApplied={load} />
+              <Button primary onClick={() => void load()} className="w-full sm:w-auto">
+                Retry connection
+              </Button>
+            </div>
         </div>
       ) : !data ? (
         <LoadingState />

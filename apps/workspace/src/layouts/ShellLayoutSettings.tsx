@@ -290,17 +290,17 @@ export default function ShellLayoutSettings({
             <p className="mt-[var(--vestara-spacing-2)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)]">
               This restores theme, density, accent, and other display preferences to their defaults. Workspace and runtime settings are not changed.
             </p>
-            <div className="mt-[var(--vestara-spacing-5)] flex justify-end gap-[var(--vestara-spacing-2)]">
+            <div className="mt-[var(--vestara-spacing-5)] flex flex-col-reverse gap-[var(--vestara-spacing-2)] sm:flex-row sm:justify-end">
               <button
                 type="button"
-                className="min-h-9 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text-primary)]"
+                className="min-h-9 w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-secondary)] hover:border-[var(--vestara-accent-border-hover)] hover:text-[var(--vestara-text-primary)] sm:w-auto"
                 onClick={() => setShowResetConfirmation(false)}
               >
                 Keep preferences
               </button>
               <button
                 type="button"
-                className="min-h-9 rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-status-warning)] hover:border-[var(--vestara-status-warning)]"
+                className="min-h-9 w-full rounded-[var(--vestara-radius)] border border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] px-[var(--vestara-spacing-3)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-status-warning)] hover:border-[var(--vestara-status-warning)] sm:w-auto"
                 onClick={() => {
                   resetSettings();
                   setShowResetConfirmation(false);

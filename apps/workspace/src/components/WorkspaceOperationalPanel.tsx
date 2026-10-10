@@ -39,7 +39,7 @@ export function WorkspaceOperationalPanel({
             </p>
           )}
         </div>
-        {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
+        {actions && <div className="st-card-actions flex shrink-0 gap-2">{actions}</div>}
       </header>
       <div className="st-card-body st-pad-card">{children}</div>
     </section>
