@@ -36,6 +36,8 @@ import {
 import { useActivityRoomUI } from '../../hooks/useActivityRoomUI';
 import { useRenderProfiler } from '../../hooks/useActivityProfiler';
 import { fetchM11AActivityById } from '../../lib/m11a-api';
+import { projectActivityStreamWorkflowGraph } from '../../lib/activity-workflow-graph';
+import { workflowGraphNodeId } from '@vestara/workflow-orchestrator';
 import type { AttentionEntry } from '@vestara/activity-room';
 import { handleActivityReply } from '../../lib/assistant-navigation';
 import { postActivityMessage, retractActivityMessage, editActivityMessage, DEFAULT_COMPOSER_MAX_CHARS, fetchComposerMaxChars } from '../../lib/activity';
@@ -67,6 +69,7 @@ import M11CWorkflowBrowser, { deriveWorkflowUnits, hasActiveWork } from './M11CW
 import { LIVE_STREAM_RECONNECT_LABEL, WORKFLOW_STATUS_CONFIG, WORK_STATE_CONFIG } from './status-config';
 import ActivityRoomContextPanel from './ActivityRoomContextPanel';
 import ActivityRoomHeader from './ActivityRoomHeader';
+import ActivityRoomSkeleton from './ActivityRoomSkeleton';
 import Drawer from '../../components/ui/Drawer';
 import ActivitySettingsPanel from './ActivitySettingsPanel';
 import ActivityBrowserPanel from './ActivityBrowserPanel';
@@ -98,15 +101,6 @@ function ActivityFreshness({ timestamp }: { timestamp: number | null }) {
     >
       {formatFreshness(timestamp, now)}
     </span>
-  );
-}
-
-function ActivityPanelSkeleton({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-0 flex-1 flex-col gap-2" aria-label={`Loading ${label}`}>
-      <span className="ar-kicker">{label}</span>
-      {[0, 1, 2, 3].map((item) => <div className="ar-skeleton" key={item} />)}
-    </div>
   );
 }
 
@@ -371,6 +365,22 @@ export default function M11CActivityRoomPage() {
 
   const [detailRecord, setDetailRecord] = useState<ActivityProjectionRecord | null>(null);
 
+  // Mini workflow graph for the detail drawer: projected from the live
+  // stream for the inspected record's run (authoritative summary wins).
+  // Null when the record names no run — the drawer hides its Workflow
+  // panel instead of inventing structure.
+  const detailWorkflowRunId = detailRecord?.workflowId;
+  const detailWorkflowGraph = useMemo(
+    () =>
+      detailWorkflowRunId
+        ? projectActivityStreamWorkflowGraph(room.stream, detailWorkflowRunId, room.workflowSummary)
+        : null,
+    [detailWorkflowRunId, room.stream, room.workflowSummary],
+  );
+  const detailWorkflowNodeId = detailRecord?.taskId
+    ? workflowGraphNodeId('task', detailRecord.taskId)
+    : undefined;
+
   useEffect(() => {
     const item = ui.detailItem;
     if (!item) {
@@ -486,7 +496,7 @@ export default function M11CActivityRoomPage() {
   // Root gap-* matches Files/Settings page containers: canonical section
   // spacing between hero, launchers, and the working area.
   return (
-    <div className="ar-page min-w-0 w-full max-w-full g px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]">
+    <div className="ar-page min-w-0 w-full max-w-full gap-[var(--vestara-spacing-section)] px-[var(--vestara-spacing-page)] pt-[var(--vestara-spacing-page)] pb-[var(--vestara-spacing-page)]">
       {/* ─── Canonical workspace Hero (VES-DESIGN-008B) ─────────
           Replaces the hand-rolled ar-plinth. Hierarchy:
           STATUS (connection) vs METADATA (records/cursor) vs ACTION
@@ -554,12 +564,16 @@ export default function M11CActivityRoomPage() {
             </span>
           </summary>
           <div className="mt-2">
+            {activityLoading ? (
+              <ActivityRoomSkeleton label="Workflows" statusLabel="Loading workflows" variant="workflows" />
+            ) : (
             <M11CWorkflowBrowser
               stream={room.stream}
               workflowSummary={room.workflowSummary}
               onSelectWorkflow={handleSelectWorkflow}
               selectedWorkflowId={workflowFilter}
             />
+            )}
           </div>
         </details>
       )}
@@ -635,7 +649,7 @@ export default function M11CActivityRoomPage() {
         )}
         rail={(
           <aside className="ar-panel ar-panel--rail min-w-0 max-w-full">
-          {activityLoading ? <ActivityPanelSkeleton label="Participants" /> : (
+          {activityLoading ? <ActivityRoomSkeleton label="Participants" variant="participants" /> : (
             <M11CParticipantRail
               participants={room.participants}
               selectedParticipantId={selectedParticipantId}
@@ -648,6 +662,7 @@ export default function M11CActivityRoomPage() {
         )}
         context={(
           <aside className="ar-panel ar-panel--context min-w-0 max-w-full" aria-label="Operational context">
+            {activityLoading ? <ActivityRoomSkeleton label="Operational context" variant="metrics" count={5} /> : (
             <ActivityRoomContextPanel
               stream={room.stream}
               participantCount={room.participants.length}
@@ -664,6 +679,7 @@ export default function M11CActivityRoomPage() {
                 ui.addFileAttachment({ id: `shot-${Date.now()}`, name: file.name, path: file.path })
               }
             />
+            )}
           </aside>
         )}
       >
@@ -682,7 +698,7 @@ export default function M11CActivityRoomPage() {
               the right side. Hidden by CSS wherever the aside shows. */}
           {hasActiveWorkflows && (
             <div className="ar-workflow-strip ar-workflow-strip--inline">
-              {activityLoading ? <ActivityPanelSkeleton label="Workflows" /> : (
+              {activityLoading ? <ActivityRoomSkeleton label="Workflows" variant="workflows" /> : (
                 <M11CWorkflowBrowser
                   stream={room.stream}
                   workflowSummary={room.workflowSummary}
@@ -774,7 +790,13 @@ export default function M11CActivityRoomPage() {
 
         {/* Detail drawer — the stream stays a concise projection while the
             right-side drawer hydrates authoritative activity detail. */}
-        <ActivityDetailDrawer record={detailRecord} onClose={ui.closeDetail} records={detailRecord ? [detailRecord] : []} />
+        <ActivityDetailDrawer
+          record={detailRecord}
+          onClose={ui.closeDetail}
+          records={detailRecord ? [detailRecord] : []}
+          workflowGraph={detailWorkflowGraph}
+          workflowSelectedNodeId={detailWorkflowNodeId}
+        />
       </OperationalWorkspaceLayout>
 
       {/* ─── Mobile sheets (small screens only) ─────────────── */}

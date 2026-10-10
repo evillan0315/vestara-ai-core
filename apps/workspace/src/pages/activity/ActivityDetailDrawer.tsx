@@ -12,11 +12,13 @@
  * that are absent stay absent (UNKNOWN is preserved, never inferred).
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
+import type { WorkflowGraphProjection } from '@vestara/workflow-orchestrator';
 import { Drawer } from '../../components/ui/Drawer';
 import { MarkdownRenderer } from '../../components/chat/MarkdownRenderer';
 import { WorkspaceOperationalPanel } from '../../components/WorkspaceOperationalPanel';
 import { navIcon } from '../../layouts/workspace-navigation';
+import ActivityRoomSkeleton from './ActivityRoomSkeleton';
 import './ActivityDetailDrawer.css';
 import {
   actorInitials,
@@ -35,7 +37,21 @@ interface ActivityDetailDrawerProps {
   onClose: () => void;
   /** Records available to resolve related/corrected ids to readable titles. */
   records?: readonly ActivityRecord[];
+  /**
+   * Stream-derived workflow graph for the record's run (see
+   * projectActivityStreamWorkflowGraph). Absent/null hides the Workflow
+   * panel — the drawer never invents structure.
+   */
+  workflowGraph?: WorkflowGraphProjection | null;
+  /** Graph node id for the record's task, when the record names one. */
+  workflowSelectedNodeId?: string;
 }
+
+// Cytoscape stays out of the initial Activity Room bundle: the mini graph
+// loads only when a workflow-bearing record is actually inspected.
+const WorkflowGraphLazy = lazy(() =>
+  import('../../components/workflow/WorkflowGraph').then((module) => ({ default: module.WorkflowGraph })),
+);
 
 type ActivityDetailTab = 'overview' | 'operations' | 'evidence' | 'raw';
 
@@ -413,7 +429,13 @@ function technicalRows(record: ActivityRecord): Array<{ label: string; value: st
   return rows;
 }
 
-export default function ActivityDetailDrawer({ record: recordProp, onClose, records }: ActivityDetailDrawerProps) {
+export default function ActivityDetailDrawer({
+  record: recordProp,
+  onClose,
+  records,
+  workflowGraph,
+  workflowSelectedNodeId,
+}: ActivityDetailDrawerProps) {
   const [fullRecord, setFullRecord] = useState<ActivityRecord | null>(null);
   const [activeTab, setActiveTab] = useState<ActivityDetailTab>('overview');
 
@@ -542,6 +564,24 @@ export default function ActivityDetailDrawer({ record: recordProp, onClose, reco
                 {loadingDetails && <p className="mt-3 text-xs text-(--vestara-text-muted)">Loading full details…</p>}
                 {contextParts.length > 0 && <p className="mt-3 text-xs text-(--vestara-text-muted)">{contextParts.join(' · ')}</p>}
               </WorkspaceOperationalPanel>
+
+              {record.workflowId && workflowGraph && workflowGraph.nodes.length > 0 && (
+              <WorkspaceOperationalPanel
+                icon={navIcon('workflows')}
+                title="Workflow"
+                description="Stream-derived structure for this run — plan plus observed tasks."
+              >
+                <Suspense fallback={<ActivityRoomSkeleton label="Workflow graph" variant="compact" />}>
+                  <WorkflowGraphLazy
+                    chrome="bare"
+                    height={220}
+                    showLegend={false}
+                    graph={workflowGraph}
+                    selectedNodeId={workflowSelectedNodeId}
+                  />
+                </Suspense>
+              </WorkspaceOperationalPanel>
+              )}
 
               <WorkspaceOperationalPanel icon={navIcon('files')} title="Activity details" description="Authoritative content and lifecycle information." scrollable className="activity-detail-content-panel">
                 {renderPrimaryDetails(record)}

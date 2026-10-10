@@ -3132,23 +3132,131 @@ button.ar-live-now__item:focus-visible {
   background: linear-gradient(90deg, transparent, var(--ar-hairline-strong), transparent);
 }
 
-/* ── Skeleton (connecting) ──────────────────────────────────── */
+/* ── Skeleton (dynamic loader) ────────────────────────────────
+   Workflow-page parity: soft accent wash + gentle pulse + shimmer
+   sweep, staged entrance, varied row heights. Same recipe as
+   .mpg-skeleton (marketplace.css) but scoped to the room's own
+   stylesheet so the Activity Room never depends on a transitive
+   marketplace import. All values are var(--vestara-*) tokens. */
+
+@keyframes ar-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes ar-skeleton-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes ar-skeleton-sweep {
+  from {
+    background-position: 180% 0;
+  }
+  to {
+    background-position: -80% 0;
+  }
+}
 
 .ar-skeleton {
   position: relative;
   overflow: hidden;
   height: 3.5rem;
-  border: 1px solid var(--ar-hairline);
-  border-radius: var(--vestara-radius);
-  background: var(--ar-surface-sunken);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius-lg);
+  background: color-mix(in srgb, var(--vestara-accent) 6%, transparent);
+  animation:
+    ar-skeleton-enter 0.25s ease-out both,
+    ar-skeleton-pulse 1.6s ease-in-out infinite;
 }
 
 .ar-skeleton::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--vestara-accent-light) 4%, transparent) 50%, transparent 70%);
+  background: linear-gradient(100deg, transparent 30%, color-mix(in srgb, var(--vestara-accent-light) 12%, transparent) 50%, transparent 70%);
   background-size: 220% 100%;
+  animation: ar-skeleton-sweep 1.6s ease-in-out infinite;
+}
+
+/* Varied row heights — staged loaders mimic real content instead of
+   repeating one identical bar (workflow-page parity). */
+.ar-skeleton--xs {
+  height: 2.5rem;
+}
+
+.ar-skeleton--sm {
+  height: 3rem;
+}
+
+.ar-skeleton--md {
+  height: 3.5rem;
+}
+
+.ar-skeleton--lg {
+  height: 4.5rem;
+}
+
+.ar-skeleton--xl {
+  height: 6rem;
+}
+
+/* Structured rows: avatar/circle + text lines, for participant and
+   stream-lookalike loaders. */
+.ar-skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  border: 1px solid var(--vestara-accent-border);
+  border-radius: var(--vestara-radius-lg);
+  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+  background: color-mix(in srgb, var(--vestara-accent) 6%, transparent);
+  animation:
+    ar-skeleton-enter 0.25s ease-out both,
+    ar-skeleton-pulse 1.6s ease-in-out infinite;
+}
+
+.ar-skeleton-row__avatar {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex: 0 0 auto;
+  border-radius: var(--vestara-radius-full);
+  background: color-mix(in srgb, var(--vestara-accent) 18%, transparent);
+}
+
+.ar-skeleton-row__lines {
+  display: flex;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--vestara-spacing-element);
+}
+
+.ar-skeleton-row__line {
+  height: 0.625rem;
+  border-radius: var(--vestara-radius-full);
+  background: color-mix(in srgb, var(--vestara-accent) 16%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ar-skeleton,
+  .ar-skeleton-row {
+    animation: none;
+  }
+  .ar-skeleton::after {
+    animation: none;
+  }
 }
 
 /* ── Load-older / jump-to-latest ────────────────────────────── */

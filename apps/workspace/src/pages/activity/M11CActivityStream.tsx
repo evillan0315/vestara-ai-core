@@ -40,6 +40,7 @@ import { EmptyState } from '@vestara/ui';
 import { M11CStreamItemComponent } from './M11CStreamItem';
 import ActivityDateFilter, { type DateFilterValue } from './ActivityDateFilter';
 import ActivityRoomTabs, { type ActivityRoomView } from './ActivityRoomTabs';
+import ActivityRoomSkeleton from './ActivityRoomSkeleton';
 
 // ─── Constants ───────────────────────────────────────────────
 
@@ -1050,12 +1051,11 @@ function M11CActivityStream({
         tabIndex={0}
       >
         {loading ? (
-          <div role="status" aria-live="polite" aria-label="Connecting to Activity Room" className="flex flex-col gap-2 py-1">
-            <span className="ar-kicker">Connecting — loading recent activity…</span>
-            {[0, 1, 2, 3, 4].map((i) => (
-              <div key={i} aria-hidden="true" className="ar-skeleton" />
-            ))}
-          </div>
+          <ActivityRoomSkeleton
+            label="Connecting — loading recent activity…"
+            statusLabel="Connecting to Activity Room"
+            variant="stream"
+          />
         ) : streamEmpty ? (
           isFilteredEmpty ? (
             <EmptyState

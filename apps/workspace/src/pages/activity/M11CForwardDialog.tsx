@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Pill } from '@vestara/ui';
 import { telegramApi, type TelegramChat } from '../../lib/telegram';
+import ActivityRoomSkeleton from './ActivityRoomSkeleton';
 
 interface M11CForwardDialogProps {
   /** Stream item id — sent alongside text for server-truth resolution. */
@@ -97,11 +98,7 @@ export default function M11CForwardDialog({ activityId, actorName, content, onCl
           </div>
 
           {phase === 'loading' && (
-            <div className="flex flex-col gap-2" aria-label="Loading Telegram chats">
-              {[0, 1].map((i) => (
-                <div key={i} className="ar-skeleton" />
-              ))}
-            </div>
+            <ActivityRoomSkeleton label="Telegram chats" statusLabel="Loading Telegram chats" variant="compact" />
           )}
 
           {phase !== 'loading' && !configured && (

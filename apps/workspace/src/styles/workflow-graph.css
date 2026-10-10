@@ -1,13 +1,48 @@
 .workflow-graph-shell {
   min-height: 24rem;
   overflow: hidden;
+  background: var(--vestara-surface-canvas);
+}
+
+/* Bare chrome: embeddable canvas shell for drawers, context panels,
+   modals, and other cards. Flush panel grammar, same canvas. */
+.workflow-graph-bare {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--vestara-border-subtle);
+  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
+  background: var(--vestara-surface-canvas);
+}
+
+/* Loading fills the shell edge-to-edge — no inset padding around the
+   skeleton so the graph region never jumps when content resolves. */
+.workflow-graph-loading {
+  padding: 0;
+}
+
+.workflow-graph-loading .mpg-skeleton {
+  border: 0;
+  border-radius: 0;
+}
+
+/* Bare embeds stay compact: the panel minimums do not apply. */
+.workflow-graph-bare .workflow-graph-shell {
+  min-height: 0;
+}
+
+.workflow-graph-bare .workflow-graph-canvas {
+  min-height: 12rem;
 }
 
 .workflow-graph-canvas {
   width: 100%;
   min-height: 28rem;
   height: 36rem;
-  background: radial-gradient(circle at 1px 1px, var(--vestara-border-subtle) 1px, transparent 0) 0 0 / 22px 22px,
+  /* Premium canvas: faint accent ceiling-glow over the dot grid, all
+     token-driven so dark/light follow automatically. */
+  background:
+    radial-gradient(90% 55% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 9%, transparent), transparent 65%),
+    radial-gradient(circle at 1px 1px, var(--vestara-border-subtle) 1px, transparent 0) 0 0 / 22px 22px,
     var(--vestara-surface-canvas);
 }
 
@@ -27,7 +62,8 @@
   gap: var(--vestara-spacing-element);
   padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
   border-bottom: 1px solid var(--vestara-border-subtle);
-  background: var(--vestara-surface-panel);
+  background: color-mix(in srgb, var(--vestara-surface-panel) 82%, transparent);
+  backdrop-filter: blur(8px);
 }
 
 .workflow-graph-toolbar-title {
@@ -61,14 +97,17 @@
   width: 0.625rem;
   height: 0.625rem;
   display: inline-block;
-  border-radius: var(--vestara-radius, 0.375rem);
+  border-radius: var(--vestara-radius-full, 9999px);
+  box-shadow: 0 0 10px color-mix(in srgb, currentColor 55%, transparent);
 }
 
 .workflow-legend-plan {
+  color: var(--vestara-accent-primary);
   background: var(--vestara-accent-primary);
 }
 
 .workflow-legend-task {
+  color: var(--vestara-status-info);
   background: var(--vestara-status-info);
 }
 
@@ -90,15 +129,42 @@
 
 .workflow-graph-control {
   border: 1px solid var(--vestara-border-default);
-  border-radius: var(--vestara-radius);
+  border-radius: var(--vestara-radius-full, 9999px);
   padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
   color: var(--vestara-text-secondary);
   background: var(--vestara-surface-interactive);
   font-size: 0.6875rem;
+  font-weight: 600;
   cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .workflow-graph-control:hover {
   color: var(--vestara-text-primary);
+  border-color: var(--vestara-accent-border-hover);
   background: var(--vestara-surface-interactive-hover);
+}
+
+.workflow-graph-control:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.workflow-graph-control:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.workflow-graph-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--vestara-spacing-element);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .workflow-graph-control {
+    transition: none;
+  }
 }
