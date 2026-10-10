@@ -81,31 +81,56 @@
   box-shadow: 0 0 16px var(--vestara-surface-glow-hover);
 }
 
-/* ── Gallery cards ── */
+/* ── Gallery cards ──
+   Premium canvas treatment: darkest theme surface as the base, crowned by
+   a faint accent glow and a raised-sheen veil, with a deep ambient shadow.
+   Every wash derives from --vestara-* tokens (or color-mix over them) so
+   dark/light appearances follow automatically. */
 .mpg-card {
   position: relative;
   isolation: isolate;
   overflow: hidden;
   border-radius: 0.75rem;
-  border: 1px solid var(--vestara-accent-border);
-  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
+  border: 1px solid color-mix(in srgb, var(--vestara-accent) 30%, var(--vestara-border-subtle));
+  background:
+    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 11%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-surface-panel-raised) 55%, transparent) 0%, transparent 38%),
+    var(--vestara-surface-canvas);
   box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.42),
     0 0 0 1px var(--vestara-surface-glow),
-    0 0 12px var(--vestara-surface-glow),
+    0 0 14px var(--vestara-surface-glow),
     inset 0 1px 0 var(--vestara-surface-sheen);
   transition: border-color 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
 }
 
 /* Holographic overlay removed per design review — cards stay flat
-   so the deep accent base reads clean. */
+   so the deep canvas base reads clean. */
 
 .mpg-card:hover {
-  border-color: var(--vestara-accent-border-hover);
+  border-color: color-mix(in srgb, var(--vestara-accent) 55%, var(--vestara-accent-border-hover));
   box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.48),
     0 0 0 1px var(--vestara-surface-glow-hover),
-    0 0 20px var(--vestara-surface-glow-hover),
+    0 0 24px var(--vestara-surface-glow-hover),
     inset 0 1px 0 var(--vestara-surface-sheen-hover);
   transform: translateY(-2px);
+}
+
+[data-theme='light'] .mpg-card {
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.1),
+    0 0 0 1px var(--vestara-surface-glow),
+    0 0 14px var(--vestara-surface-glow),
+    inset 0 1px 0 var(--vestara-surface-sheen);
+}
+
+[data-theme='light'] .mpg-card:hover {
+  box-shadow:
+    0 18px 38px rgba(15, 23, 42, 0.14),
+    0 0 0 1px var(--vestara-surface-glow-hover),
+    0 0 24px var(--vestara-surface-glow-hover),
+    inset 0 1px 0 var(--vestara-surface-sheen-hover);
 }
 
 /* Left accent bar — hidden per design review (cards stay clean;

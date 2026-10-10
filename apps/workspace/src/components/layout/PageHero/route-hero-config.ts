@@ -59,17 +59,6 @@ export const ROUTE_HERO_CONFIG: Record<string, RouteHeroConfig> = {
     label: 'Workspace highlights',
   },
 
-  orchestration: {
-    eyebrow: 'Automation',
-    title: 'Workflows',
-    subtitle: 'Multi-agent projects · task waves · approval gateway.',
-    quote: '"Plans become waves. Waves become done." — Vestara',
-    checklistTitle: 'Pipeline',
-    checklist: ['◇ Create → analyze → plan', '◇ Architecture → approve', '◇ Execute waves to done'],
-    checklistLabel: 'How it flows',
-    label: 'Workflows highlights',
-  },
-
   settings: {
     eyebrow: 'Workspace Configuration',
     title: 'Settings',

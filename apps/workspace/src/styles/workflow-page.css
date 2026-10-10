@@ -1,65 +1,76 @@
-.workflow-page-header {
+/* Page root — fit-to-screen guard mirroring the Activity Room (.ar-page).
+   Full-bleed flex column: header/tabs keep natural height, the work region
+   takes the rest and each column scrolls internally on desktop. Below
+   desktop the page scrolls naturally. */
+.workflow-page {
   display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
+  min-height: 0;
+  /* clip (not hidden): guards horizontal overflow without creating a
+     scroll container, so sticky children keep working. */
+  overflow-x: clip;
   gap: var(--vestara-spacing-section);
-  border: 1px solid var(--vestara-accent-border);
-  border-radius: var(--vestara-radius-lg, var(--vestara-radius));
   padding: var(--vestara-spacing-page);
-  background: linear-gradient(135deg, var(--vestara-surface-panel), var(--vestara-surface-canvas));
 }
 
-.workflow-page-header-main {
-  min-width: 0;
-  flex: 1 1 28rem;
+.workflow-page > * {
+  max-width: 100%;
 }
 
-.workflow-eyebrow {
-  margin: 0;
-  color: var(--vestara-accent-text);
-  font-size: var(--vestara-font-size-xs);
-  font-weight: var(--vestara-font-weight-semibold);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-}
-
-.workflow-page-title {
-  margin-top: var(--vestara-spacing-element);
-  overflow: hidden;
-  color: var(--vestara-text-primary);
-  font-size: var(--vestara-font-size-2xl);
-  font-weight: var(--vestara-font-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.workflow-page-description {
-  max-width: 60rem;
-  margin-top: var(--vestara-spacing-element);
-  color: var(--vestara-text-secondary);
-  font-size: var(--vestara-font-size-sm);
-}
-
-.workflow-page-meta,
-.workflow-page-actions,
-.workflow-summary-row {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+.workflow-rail,
+.workflow-context {
   gap: var(--vestara-spacing-element);
+  padding: var(--vestara-spacing-section);
 }
 
-.workflow-page-meta {
-  margin-top: var(--vestara-spacing-section);
-  color: var(--vestara-text-muted);
-  font-size: var(--vestara-font-size-xs);
+@media (min-width: 1024px) {
+  .workflow-page {
+    overflow: hidden;
+  }
+
+  .workflow-page > *:not(.operational-workspace-layout) {
+    flex-shrink: 0;
+  }
+
+  .workflow-page > .operational-workspace-layout {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  /* Slot wrappers contain; they never scroll themselves. */
+  .workflow-page .operational-workspace-layout__rail,
+  .workflow-page .operational-workspace-layout__context,
+  .workflow-page .operational-workspace-layout__main {
+    overflow: hidden;
+  }
+
+  /* Rail + context stretch to the row and scroll internally. */
+  .workflow-page .workflow-rail,
+  .workflow-page .workflow-context {
+    height: 100%;
+    min-height: 0;
+    overflow-y: auto;
+  }
 }
 
-.workflow-page-actions {
-  flex: 0 1 auto;
-  justify-content: flex-end;
+@media (max-width: 1023px) {
+  .workflow-page {
+    flex: 0 0 auto;
+    min-height: 100%;
+  }
+
+  .workflow-page .operational-workspace-layout {
+    flex: 0 0 auto;
+  }
+
+  .workflow-page .operational-workspace-layout__work,
+  .workflow-page .operational-workspace-layout__main {
+    overflow: visible;
+  }
 }
 
 .workflow-action,
@@ -129,74 +140,40 @@
   background: var(--vestara-status-warning-bg);
 }
 
-.workflow-summary-row {
-  margin-top: var(--vestara-spacing-section);
+.workflow-status-chip[data-status='cancelled'] {
+  color: var(--vestara-status-error);
+  border-color: var(--vestara-status-error-border);
+  background: var(--vestara-status-error-bg);
 }
 
-.workflow-progress-block {
-  max-width: 42rem;
-  margin-top: var(--vestara-spacing-section);
-}
-
-.workflow-progress-label {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--vestara-spacing-element);
+.workflow-status-chip[data-status='draft'],
+.workflow-status-chip[data-status='archived'] {
   color: var(--vestara-text-muted);
-  font-size: var(--vestara-font-size-xs);
+  border-color: var(--vestara-border-default);
+  background: var(--vestara-surface-panel-raised);
 }
 
-.workflow-progress-label strong {
-  color: var(--vestara-text-primary);
-  font-weight: var(--vestara-font-weight-semibold);
-}
-
-.workflow-progress-track {
-  height: 0.5rem;
-  overflow: hidden;
-  margin-top: var(--vestara-spacing-element);
-  border-radius: var(--vestara-radius-full, 9999px);
-  background: var(--vestara-surface-interactive);
-}
-
-.workflow-progress-track span {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--vestara-status-success);
-  transition: width 240ms ease;
-}
-
-.workflow-summary-card,
 .workflow-panel {
   min-width: 0;
-  border: 1px solid var(--vestara-border-subtle);
+  border: 1px solid color-mix(in srgb, var(--vestara-accent) 18%, var(--vestara-border-subtle));
   border-radius: var(--vestara-radius-lg, var(--vestara-radius));
-  background: var(--vestara-surface-panel);
+  background:
+    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 9%, transparent) 0%, transparent 60%),
+    var(--vestara-surface-canvas);
+  box-shadow:
+    0 14px 32px rgba(0, 0, 0, 0.42),
+    inset 0 1px 0 var(--vestara-surface-sheen);
 }
 
-.workflow-summary-card {
-  min-width: 8rem;
-  padding: var(--vestara-spacing-element) var(--vestara-spacing-section);
+[data-theme='light'] .workflow-panel {
+  box-shadow:
+    0 14px 30px rgba(15, 23, 42, 0.1),
+    inset 0 1px 0 var(--vestara-surface-sheen);
 }
 
-.workflow-summary-card span,
 .workflow-support-heading span {
   color: var(--vestara-text-muted);
   font-size: var(--vestara-font-size-xs);
-}
-
-.workflow-summary-card strong {
-  display: block;
-  margin-top: 0.125rem;
-  color: var(--vestara-text-primary);
-  font-size: var(--vestara-font-size-lg);
-}
-
-.workflow-tab-content {
-  min-width: 0;
-  padding-top: var(--vestara-spacing-section);
 }
 
 .workflow-graph-composition {
@@ -424,6 +401,32 @@
   border-top: 1px solid var(--vestara-border-subtle);
   padding-top: var(--vestara-spacing-section);
   color: var(--vestara-text-muted);
+  font-size: var(--vestara-font-size-xs);
+}
+
+.workflow-next-action {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--vestara-spacing-section);
+}
+
+.workflow-next-action-text {
+  min-width: 0;
+  flex: 1 1 16rem;
+}
+
+.workflow-next-action-text strong {
+  overflow-wrap: anywhere;
+  color: var(--vestara-text-primary);
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-semibold);
+}
+
+.workflow-next-action-text p {
+  margin-top: var(--vestara-spacing-element);
+  color: var(--vestara-text-secondary);
   font-size: var(--vestara-font-size-xs);
 }
 
