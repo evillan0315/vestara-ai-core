@@ -673,9 +673,79 @@
 
 .ar-runtime-question__options li {
   display: grid;
+}
+
+.ar-runtime-question__option-button {
+  display: grid;
   gap: var(--vestara-spacing-element);
-  border-left: 2px solid var(--vestara-status-warning-border);
-  padding-left: var(--vestara-spacing-element);
+  width: 100%;
+  border: 1px solid var(--vestara-status-warning-border);
+  border-radius: var(--vestara-radius-lg);
+  padding: var(--vestara-spacing-element);
+  text-align: left;
+  color: var(--vestara-text-primary);
+  background: transparent;
+  cursor: pointer;
+}
+
+.ar-runtime-question__option-button:hover:not(:disabled) {
+  border-color: var(--ar-gold-light);
+  background: var(--vestara-accent-bg);
+}
+
+.ar-runtime-question__option-button:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.ar-runtime-question__option-button--selected {
+  border-color: var(--vestara-accent-border-hover);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  box-shadow: inset 0 0 0 1px var(--vestara-accent-border);
+}
+
+.ar-runtime-question__option-button:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.ar-runtime-question__send {
+  min-height: 2.5rem;
+  margin-top: var(--vestara-spacing-section);
+  padding: 0 var(--vestara-spacing-section);
+  border: 1px solid var(--ar-hairline-strong);
+  border-radius: var(--vestara-radius-lg);
+  color: var(--vestara-accent-text);
+  background: var(--vestara-accent-bg);
+  cursor: pointer;
+}
+
+.ar-runtime-question__send:hover:not(:disabled) {
+  border-color: var(--ar-gold-light);
+}
+
+.ar-runtime-question__send:focus-visible {
+  outline: 2px solid var(--vestara-accent);
+  outline-offset: 2px;
+}
+
+.ar-runtime-question__send:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.ar-runtime-question__sent {
+  margin: var(--vestara-spacing-section) 0 0;
+  color: var(--vestara-status-success);
+  font-size: var(--vestara-font-size-sm);
+  font-weight: 600;
+}
+
+.ar-runtime-question__error {
+  margin: var(--vestara-spacing-element) 0 0;
+  color: var(--vestara-status-error);
+  font-size: var(--vestara-font-size-sm);
 }
 
 .ar-runtime-question__option-label {

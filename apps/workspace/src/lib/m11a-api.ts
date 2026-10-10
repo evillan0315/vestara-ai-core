@@ -309,6 +309,33 @@ export async function fetchM11ARuntimeQuestions(): Promise<readonly PendingRunti
   return response.pendingRuntimeQuestions ?? [];
 }
 
+// ─── Runtime Question Answer ───────────────────────────────────
+
+/**
+ * Answer a pending runtime question from the Activity Room.
+ *
+ * Uses the live assistant interaction authority — the same endpoint the
+ * Floating Assistant's question tool uses:
+ *   POST /api/conversations/:conversationId/questions/:requestId
+ *   Body: { "answers": [[...labels per question...]] }
+ *
+ * The turn loop resolves the in-flight waiter, records the durable claim,
+ * and delivers to OpenCode, so answering here unblocks the runtime.
+ * Returns true when the answer was accepted; throws otherwise (unknown or
+ * already-settled question surfaces as HTTP 404).
+ */
+export async function answerM11ARuntimeQuestion(
+  conversationId: string,
+  openCodeRequestId: string,
+  answers: readonly (readonly string[])[],
+): Promise<true> {
+  await m11aFetch<{ ok: true; requestId: string }>(
+    `/api/conversations/${encodeURIComponent(conversationId)}/questions/${encodeURIComponent(openCodeRequestId)}`,
+    { method: 'POST', body: JSON.stringify({ answers }) },
+  );
+  return true;
+}
+
 // ─── Workflow Summary ────────────────────────────────────────
 
 export async function fetchM11AWorkflowSummary(): Promise<WorkflowSummary | null> {
