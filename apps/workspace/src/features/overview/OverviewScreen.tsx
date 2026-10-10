@@ -13,27 +13,35 @@
  *   @see docs/blueprint/VESTARA-OVERVIEW-SCREEN.md
  */
 
-import type { ReactNode } from 'react';
-import { useState } from 'react';
+import { lazy, Suspense, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { DraggableDashboard } from '../../components/dashboard/DraggableDashboard.js';
 import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import { ContinueWorking } from './components/ContinueWorking';
-import { MilestonesSummary } from './components/MilestonesSummary';
 import { OverviewHero } from './components/OverviewHero';
 import { QuickActions } from './components/QuickActions';
 import { RecentActivity } from './components/RecentActivity';
 import { SystemStatus } from './components/SystemStatus';
 import { TodayFocus } from './components/TodayFocus';
 import { WorkspaceHealth } from './components/WorkspaceHealth';
-import { WorkspaceSnapshot } from './components/WorkspaceSnapshot';
 import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
 import { useOverview } from './hooks/useOverview';
 import { useOverviewLayout, type OverviewPanelId } from './hooks/useOverviewLayout';
+import { overviewFixture } from './overview.fixtures';
 import { useMorningBriefing } from '../../hooks/useMorningBriefing';
 import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
 import '../../styles/marketplace.css';
 import './overview.tokens.css';
+
+const MilestonesSummary = lazy(async () => {
+  const module = await import('./components/MilestonesSummary');
+  return { default: module.MilestonesSummary };
+});
+
+const WorkspaceSnapshot = lazy(async () => {
+  const module = await import('./components/WorkspaceSnapshot');
+  return { default: module.WorkspaceSnapshot };
+});
 
 function LoadingSkeleton() {
   // Mirrors the loaded layout breakpoints to avoid layout shift.
@@ -76,11 +84,45 @@ function SnapshotBanner({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+function PanelFallback() {
+  return <div className="mpg-skeleton h-32" role="status" aria-label="Loading overview panel" />;
+}
+
 export function OverviewScreen() {
   const { data, isLoading, error, refetch } = useOverview();
   const { briefing: morningBriefing, loading: morningLoading } = useMorningBriefing();
   const { layout, move, moveAcross, reset } = useOverviewLayout();
   const [activeTab, setActiveTab] = useState<'dashboard' | 'configuration'>('dashboard');
+  const viewData = data ?? overviewFixture;
+  const focusPct = useMemo(() => {
+    const focusDone = viewData.focus.filter((f) => f.completed).length;
+    return viewData.focus.length ? Math.round((focusDone / viewData.focus.length) * 100) : 0;
+  }, [viewData.focus]);
+  const panels = useMemo<Record<OverviewPanelId, ReactNode>>(
+    () => ({
+      continueWorking: <ContinueWorking items={viewData.continueWorking} />,
+      todayFocus: <TodayFocus items={viewData.focus} />,
+      recentActivity: <RecentActivity items={viewData.recentActivity} />,
+      milestones: (
+        <Suspense fallback={<PanelFallback />}>
+          <MilestonesSummary />
+        </Suspense>
+      ),
+      systemStatus: <SystemStatus agents={viewData.agents} resources={viewData.resources} />,
+      workspaceHealth: <WorkspaceHealth health={viewData.health} />,
+    }),
+    [viewData],
+  );
+  const renderPanel = useCallback((id: OverviewPanelId) => panels[id], [panels]);
+  const handleMove = useCallback(
+    (column: string, index: number, direction: -1 | 1) => move(column as 'left' | 'right', index, direction),
+    [move],
+  );
+  const handleMoveAcross = useCallback(
+    (from: string, fromIndex: number, to: string, toIndex: number) =>
+      moveAcross(from as 'left' | 'right', fromIndex, to as 'left' | 'right', toIndex),
+    [moveAcross],
+  );
 
   // min-w-0 on grid columns keeps long content from blowing out the grid on
   // narrow viewports.
@@ -108,18 +150,6 @@ export function OverviewScreen() {
       </WorkspacePanelLayout>
     );
   }
-
-  const focusDone = data.focus.filter((f) => f.completed).length;
-  const focusPct = data.focus.length ? Math.round((focusDone / data.focus.length) * 100) : 0;
-
-  const panels: Record<OverviewPanelId, ReactNode> = {
-    continueWorking: <ContinueWorking items={data.continueWorking} />,
-    todayFocus: <TodayFocus items={data.focus} />,
-    recentActivity: <RecentActivity items={data.recentActivity} />,
-    milestones: <MilestonesSummary />,
-    systemStatus: <SystemStatus agents={data.agents} resources={data.resources} />,
-    workspaceHealth: <WorkspaceHealth health={data.health} />,
-  };
 
   return (
     <WorkspacePanelLayout>
@@ -172,16 +202,16 @@ export function OverviewScreen() {
                 { id: 'left', items: layout.left },
                 { id: 'right', items: layout.right },
               ]}
-              renderItem={(id) => panels[id]}
-              onMove={(column, index, direction) => move(column as 'left' | 'right', index, direction)}
-              onMoveAcross={(from, fromIndex, to, toIndex) =>
-                moveAcross(from as 'left' | 'right', fromIndex, to as 'left' | 'right', toIndex)
-              }
+              renderItem={renderPanel}
+              onMove={handleMove}
+              onMoveAcross={handleMoveAcross}
               getItemLabel={(id) => id.replace(/([A-Z])/g, ' $1')}
             />
           </div>
         ) : (
-          <WorkspaceSnapshot />
+            <Suspense fallback={<PanelFallback />}>
+              <WorkspaceSnapshot />
+            </Suspense>
         )}
       </div>
     </WorkspacePanelLayout>

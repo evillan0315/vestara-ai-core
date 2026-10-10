@@ -60,6 +60,7 @@ function resolveRepoRoot(envOverride?: string): string {
 async function main(): Promise<void> {
   bootMark('entrypoint-entered');
   const port = Number(process.env.VESTARA_API_PORT ?? 3001);
+  const host = process.env.VESTARA_API_HOST?.trim() || '127.0.0.1';
   const repoPath = resolveRepoRoot(process.env.VESTARA_REPO);
   bootMark('config-loaded');
 
@@ -207,11 +208,12 @@ async function main(): Promise<void> {
   for (const e of pending) server.broadcast(e);
   bootMark('routes-registered');
 
-  server.listen(port, () => {
+  server.listen(port, host, () => {
     bootMark('http-listening');
-    console.log(`[api] listening on http://127.0.0.1:${port}`);
-    console.log(`[api] websocket ws://127.0.0.1:${port}/ws`);
-    console.log(`[api] health   http://127.0.0.1:${port}/api/health`);
+    const displayHost = host === '0.0.0.0' ? '127.0.0.1' : host;
+    console.log(`[api] listening on http://${displayHost}:${port}`);
+    console.log(`[api] websocket ws://${displayHost}:${port}/ws`);
+    console.log(`[api] health   http://${displayHost}:${port}/api/health`);
 
     // Print final waterfall
     console.log('\n[boot] ═══ STARTUP WATERFALL ═══');

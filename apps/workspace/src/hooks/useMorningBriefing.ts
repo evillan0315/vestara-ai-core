@@ -42,9 +42,11 @@ export function useMorningBriefing() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
-    await Promise.all([fetchLatest(), fetchAll()]);
+    // The list response already contains its first item, which is the latest
+    // briefing. Avoid paying for a second request to /latest on every mount.
+    await fetchAll();
     setLoading(false);
-  }, [fetchLatest, fetchAll]);
+  }, [fetchAll]);
 
   useEffect(() => {
     refresh();

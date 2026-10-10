@@ -44,17 +44,26 @@ function withFallback<T>(live: readonly T[] | null | undefined, fallback: readon
   return live && live.length > 0 ? live : fallback;
 }
 
-async function fetchWorkspace(): Promise<OverviewWorkspaceSummary> {
+interface WorkspaceFetchResult {
+  readonly summary: OverviewWorkspaceSummary;
+  readonly gitRemote: string | null;
+}
+
+async function fetchWorkspace(): Promise<WorkspaceFetchResult> {
   const data = await apiFetch<{
     workspace?: { name?: string; description?: string; lastActivity?: string };
     health?: string;
+    fingerprint?: { gitRemote?: string };
   }>('/api/workspace');
-  if (!data?.workspace) return overviewFixture.workspace;
+  if (!data?.workspace) return { summary: overviewFixture.workspace, gitRemote: null };
   return {
-    name: data.workspace.name ?? overviewFixture.workspace.name,
-    description: data.workspace.description ?? overviewFixture.workspace.description,
-    lastActivity: data.workspace.lastActivity ?? overviewFixture.workspace.lastActivity,
-    health: (data.health as OverviewWorkspaceSummary['health']) ?? 'healthy',
+    summary: {
+      name: data.workspace.name ?? overviewFixture.workspace.name,
+      description: data.workspace.description ?? overviewFixture.workspace.description,
+      lastActivity: data.workspace.lastActivity ?? overviewFixture.workspace.lastActivity,
+      health: (data.health as OverviewWorkspaceSummary['health']) ?? 'healthy',
+    },
+    gitRemote: data.fingerprint?.gitRemote ?? null,
   };
 }
 
@@ -121,14 +130,13 @@ function githubOwnerFromRemote(remote: unknown): string | null {
   return m?.[1] ?? null;
 }
 
-async function fetchProjects(): Promise<readonly OverviewProjectSummary[]> {
+async function fetchProjects(gitRemote: string | null): Promise<readonly OverviewProjectSummary[]> {
   try {
     // Derive the GitHub owner from the workspace fingerprint so we list
     // the user's own repos instead of a hardcoded account. When the owner
     // cannot be determined, fall back to fixtures rather than fetching
     // another account's repositories.
-    const ws = await apiFetch<{ fingerprint?: { gitRemote?: string } }>('/api/workspace');
-    const owner = githubOwnerFromRemote(ws?.fingerprint?.gitRemote);
+    const owner = githubOwnerFromRemote(gitRemote);
     if (!owner) return overviewFixture.projects;
     const res = await fetch(`https://api.github.com/users/${encodeURIComponent(owner)}/repos?sort=updated&per_page=5&type=owner`, {
       headers: { Accept: 'application/vnd.github.v3+json' },
@@ -240,27 +248,35 @@ export function useOverview(): UseOverviewReturn {
     setIsLoading(true);
     setError(null);
     try {
-      const [workspace, continueWorking, recentActivity, agents, projects, resources, marketplace, health] = await Promise.all([
-        fetchWorkspace(),
-        fetchRecentWork(),
+      const [workspace, continueWorking] = await Promise.all([fetchWorkspace(), fetchRecentWork()]);
+      setData({
+        ...overviewFixture,
+        workspace: workspace.summary,
+        continueWorking: withFallback(continueWorking, overviewFixture.continueWorking),
+      });
+      setIsLoading(false);
+
+      const [recentActivity, agents, projects, resources, marketplace, health] = await Promise.all([
         fetchRecentActivity(),
         fetchAgents(),
-        fetchProjects(),
+        fetchProjects(workspace.gitRemote),
         fetchResources(),
         fetchMarketplace(),
         fetchHealth(),
       ]);
-      setData({
-        workspace,
-        continueWorking: withFallback(continueWorking, overviewFixture.continueWorking),
-        recentActivity: withFallback(recentActivity, overviewFixture.recentActivity),
-        agents: withFallback(agents, overviewFixture.agents),
-        projects: withFallback(projects, overviewFixture.projects),
-        resources,
-        marketplace: withFallback(marketplace, overviewFixture.marketplace),
-        focus: overviewFixture.focus,
-        health,
-      });
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              recentActivity: withFallback(recentActivity, overviewFixture.recentActivity),
+              agents: withFallback(agents, overviewFixture.agents),
+              projects: withFallback(projects, overviewFixture.projects),
+              resources,
+              marketplace: withFallback(marketplace, overviewFixture.marketplace),
+              health,
+            }
+          : current,
+      );
     } catch (err) {
       // Fall back to fixtures rather than a dead screen; record the error path.
       setData(overviewFixture);

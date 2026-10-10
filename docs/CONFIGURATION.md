@@ -28,6 +28,13 @@ Set `VESTARA_API_PORT` to use another port:
 VESTARA_API_PORT=4100 pnpm dev:api
 ```
 
+The API binds to loopback by default. Set `VESTARA_API_HOST` only when the API
+must accept connections on another interface:
+
+```bash
+VESTARA_API_HOST=0.0.0.0 pnpm dev:api
+```
+
 Set `VESTARA_REPO` when the API should use a repository other than its current
 working directory:
 
@@ -103,6 +110,7 @@ allow both HTTP and WebSocket connections from the desktop machine.
 | Setting | Default | Used by |
 |---------|---------|---------|
 | `VESTARA_API_PORT` | `3001` | API listener |
+| `VESTARA_API_HOST` | `127.0.0.1` | API listener bind host |
 | `VESTARA_REPO` | Current repository | API workspace selection |
 | `VITE_API_URL` | Same origin | Workspace build and desktop development |
 

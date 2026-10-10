@@ -86,6 +86,12 @@ const REGISTRY: readonly RegistryEntry[] = [
     defaultValue: '3001',
   },
   {
+    name: 'VESTARA_API_HOST',
+    scope: 'api-process',
+    description: 'API bind host (defaults to loopback for local-only access).',
+    defaultValue: '127.0.0.1',
+  },
+  {
     name: 'PORT',
     scope: 'api-process',
     description: 'Generic port fallback used when VESTARA_API_PORT is unset.',
