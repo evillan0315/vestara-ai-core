@@ -637,6 +637,14 @@ const MILESTONES: Milestone[] = [
     status: 'pending',
     description: 'Three-column premium operations layout, 8 phases',
   },
+  {
+    version: 'AR-REPORT',
+    name: 'Activity Date-Range Report',
+    era: 'Activity Room',
+    status: 'pending',
+    description:
+      'Date-range activity report: header report icon opens the reusable Drawer with a timeline view of in-range activities and report details (see docs/VES-ACTIVITY-REPORT-PLAN.md)',
+  },
   // CI Observation & Verification
   {
     version: 'CI-OBS-001',
