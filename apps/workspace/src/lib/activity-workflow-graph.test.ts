@@ -22,7 +22,7 @@ function item(
 
 function summary(workflowRunId: string, status: WorkflowSummary['status']): WorkflowSummary {
   return {
-    workflowRunId,
+    workflowRunId: workflowRunId as WorkflowSummary['workflowRunId'],
     status,
     taskCount: 1,
     completedTasks: 0,

@@ -36,6 +36,11 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     css: true,
+    // Registers jest-dom matchers (toBeInTheDocument, toBeDisabled, …) and
+    // Testing Library auto-cleanup. Required: without this, suites that do
+    // not import '@testing-library/jest-dom/vitest' directly fail with
+    // "Invalid Chai property".
+    setupFiles: ['./vitest.setup.ts'],
     // Playwright owns tests/visual/*.spec.*; exclude both the sources and the
     // stale compiled artifacts so vitest never executes them.
     exclude: [...configDefaults.exclude, 'tests/visual/**/*.spec.ts', 'tests/visual/**/*.spec.js'],

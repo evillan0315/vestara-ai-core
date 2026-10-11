@@ -113,7 +113,9 @@ function buildLayout(name: WorkflowGraphLayoutName): cytoscape.LayoutOptions {
 }
 
 function stylesheet(): cytoscape.StylesheetJson {
-  return [
+  // Cytoscape 3.34's bundled types omit the runtime-valid `shadow-*` node
+  // styles, so entries are built loosely and cast once at this boundary.
+  const entries: Array<{ selector: string; style: Record<string, string | number> }> = [
     {
       selector: 'node',
       style: {
@@ -242,6 +244,7 @@ function stylesheet(): cytoscape.StylesheetJson {
       },
     },
   ];
+  return entries as cytoscape.StylesheetJson;
 }
 
 function styledElements(graph: WorkflowGraphProjection): cytoscape.ElementDefinition[] {
