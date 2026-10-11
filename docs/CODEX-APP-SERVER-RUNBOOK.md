@@ -34,7 +34,7 @@ itself grant Git or network permissions.
 Debian boot
   -> systemd user manager (user)
      -> codex-app-server.service
-        -> /home/user/.npm-global/bin/codex app-server
+        -> $HOME/.npm-global/bin/codex app-server
            -> ws://127.0.0.1:4500
            -> http://127.0.0.1:4500/readyz
            -> http://127.0.0.1:4500/healthz
@@ -54,7 +54,7 @@ mkdir -p ~/.config/systemd/user
 Verified directory:
 
 ```text
-/home/user/.config/systemd/user
+$HOME/.config/systemd/user
 ```
 
 ### 3.2 Service unit
@@ -75,7 +75,7 @@ Wants=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/home/user/.npm-global/bin/codex app-server --listen ws://127.0.0.1:4500
+ExecStart=$HOME/.npm-global/bin/codex app-server --listen ws://127.0.0.1:4500
 Restart=on-failure
 RestartSec=5
 

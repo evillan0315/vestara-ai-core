@@ -194,7 +194,7 @@ bash build-order.sh
 pnpm --filter @vestara/documentation test
 ```
 
-Test evidence: [documentation.test.ts](__tests__/documentation.test.ts).
+Test evidence: the machine-readable documentation report (`docs/documentation-ci-report.json`, via `pnpm documentation:check`).
 
 ## Verification
 

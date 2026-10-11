@@ -4,6 +4,7 @@ version: 1.0.0
 status: ready-for-operator-approval
 owner: vestara
 last-reviewed: 2026-09-25
+next-review: 2026-10-25
 ---
 
 # ACTOR-IDENTITY-002C — Canonical Human Principal Provisioning

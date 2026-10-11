@@ -4,6 +4,9 @@ version: 1.0.0
 status: implemented
 owner: vestara
 last-reviewed: 2026-09-25
+next-review: 2026-10-25
+implementation-repository: vestara-ai-core
+implementation-commit: 40bad37bee9991f5bcde602cb11b274052c0bfdd
 ---
 
 # ACTOR-IDENTITY-002 — Canonical Telegram Identity Binding Evidence

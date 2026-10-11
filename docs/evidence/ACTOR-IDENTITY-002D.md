@@ -4,6 +4,7 @@ version: 1.0.0
 status: partially-complete-api-reload-required
 owner: vestara
 last-reviewed: 2026-09-25
+next-review: 2026-10-25
 ---
 
 # ACTOR-IDENTITY-002D — Principal Creation and Telegram Enrollment

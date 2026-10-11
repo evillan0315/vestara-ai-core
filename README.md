@@ -74,8 +74,8 @@ Telegram Bot API  →  POST /api/telegram/webhook  →  TelegramAdapter / Webhoo
 2. Add to your `.env` (never commit it):
 
 ```bash
-TELEGRAM_BOT_TOKEN=123456:ABC-DEF...
-TELEGRAM_WEBHOOK_SECRET=your-random-secret
+TELEGRAM_BOT_TOKEN=<bot-token-from-BotFather>
+TELEGRAM_WEBHOOK_SECRET=<output-of-openssl-rand-hex-32>
 # Optional tunnel (default ON, cloudflared): set to 0 to disable autostart
 VESTARA_TELEGRAM_TUNNEL_AUTOSTART=1
 # VESTARA_TELEGRAM_TUNNEL_PROVIDER=cloudflared  # or ngrok

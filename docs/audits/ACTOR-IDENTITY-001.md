@@ -4,6 +4,7 @@ version: 1.0.0
 status: audit-complete
 owner: vestara
 last-reviewed: 2026-09-25
+next-review: 2026-10-25
 ---
 
 # ACTOR-IDENTITY-001 — Actor Identity Architecture Audit

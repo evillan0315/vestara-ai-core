@@ -4,6 +4,8 @@ version: 1.0.0
 status: implemented-live-verified
 owner: vestara
 last-reviewed: 2026-09-25
+next-review: 2026-10-25
+implementation-repository: vestara-ai-core
 ---
 
 # PERSISTENCE-SINGLE-WRITER-001 — Shared plans.db Persistence Boundary
