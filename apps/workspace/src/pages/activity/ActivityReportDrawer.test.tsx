@@ -14,7 +14,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { REPORT_FIXTURES } from './activity-report.fixtures';
 import { toCalendarDate } from './ActivityDateFilter';
-import ActivityReportDrawer from './ActivityReportDrawer';
+import ActivityReportDrawer, { reportDateParams, reportDayEndIso, reportDayStartIso } from './ActivityReportDrawer';
 
 const fetchMock = vi.fn();
 
@@ -50,13 +50,12 @@ describe('ActivityReportDrawer', () => {
     expect(screen.queryByRole('heading', { name: 'Activity report' })).toBeNull();
   });
 
-  it("loads today's window on open and renders summary plus timeline", async () => {
+  it('loads all dates on open and renders summary plus timeline', async () => {
     render(<ActivityReportDrawer open onClose={vi.fn()} />);
-    const today = toCalendarDate(new Date());
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
-    expect(fetchMock).toHaveBeenCalledWith(
-      `/api/activity-room?from=${encodeURIComponent(`${today}T00:00:00.000Z`)}&to=${encodeURIComponent(`${today}T23:59:59.999Z`)}&limit=1000`,
-    );
+    // All-dates default carries no from/to window: content loads even when
+    // the store holds no records for the current day (e.g. after a restart).
+    expect(fetchMock).toHaveBeenCalledWith('/api/activity-room?limit=1000');
     expect(await screen.findByText('4 activities')).toBeInTheDocument();
     const summary = screen.getByRole('region', { name: 'Report summary' });
     expect(summary).toHaveTextContent('Agent');
@@ -75,21 +74,73 @@ describe('ActivityReportDrawer', () => {
     fireEvent.change(screen.getByLabelText('Filter to date'), { target: { value: '2026-10-10' } });
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
     const last = fetchMock.mock.calls.at(-1)?.[0] as string;
-    expect(last).toContain(`from=${encodeURIComponent('2026-10-09T00:00:00.000Z')}`);
-    expect(last).toContain(`to=${encodeURIComponent('2026-10-10T23:59:59.999Z')}`);
+    // Viewer-locale day bounds (matches the stream predicate) — computed
+    // via the same helpers so the assertion holds in any timezone.
+    expect(last).toContain(`from=${encodeURIComponent(reportDayStartIso('2026-10-09') as string)}`);
+    expect(last).toContain(`to=${encodeURIComponent(reportDayEndIso('2026-10-10') as string)}`);
+  });
+
+  it('filters on a From-only window instead of falling back to all dates', async () => {
+    render(<ActivityReportDrawer open onClose={vi.fn()} />);
+    await screen.findByText('4 activities');
+    fireEvent.click(screen.getByRole('button', { name: /Filter by date/ }));
+    fireEvent.change(screen.getByLabelText('Filter from date'), { target: { value: '2026-10-09' } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const last = fetchMock.mock.calls.at(-1)?.[0] as string;
+    expect(last).toContain(`from=${encodeURIComponent(reportDayStartIso('2026-10-09') as string)}`);
+    expect(last).not.toContain('to=');
+    expect(await screen.findByText(/from 2026-10-09 onwards/)).toBeInTheDocument();
+  });
+
+  it('filters on a To-only window instead of falling back to all dates', async () => {
+    render(<ActivityReportDrawer open onClose={vi.fn()} />);
+    await screen.findByText('4 activities');
+    fireEvent.click(screen.getByRole('button', { name: /Filter by date/ }));
+    fireEvent.change(screen.getByLabelText('Filter to date'), { target: { value: '2026-10-10' } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    const last = fetchMock.mock.calls.at(-1)?.[0] as string;
+    expect(last).not.toContain('from=');
+    expect(last).toContain(`to=${encodeURIComponent(reportDayEndIso('2026-10-10') as string)}`);
+    expect(await screen.findByText(/up to 2026-10-10/)).toBeInTheDocument();
+  });
+
+  it('ignores malformed bounds instead of rolling into a neighbouring day', async () => {
+    // 2026-02-30 is not a calendar day: strict parsing treats it as
+    // unbounded (stream parity) rather than March 2nd.
+    expect(reportDateParams('2026-02-30', '')).toEqual({});
+    expect(reportDayStartIso('2026-02-30')).toBeNull();
+    render(<ActivityReportDrawer open onClose={vi.fn()} />);
+    await screen.findByText('4 activities');
+    fireEvent.click(screen.getByRole('button', { name: /Filter by date/ }));
+    fireEvent.change(screen.getByLabelText('Filter from date'), { target: { value: '2026-10-09' } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // Whether jsdom keeps the impossible day or sanitizes the native input
+    // to empty, the drawer must not query a rolled-over March window and
+    // must not pause: the bound is ignored and loading resumes unfiltered.
+    fireEvent.change(screen.getByLabelText('Filter from date'), { target: { value: '2026-02-30' } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(3));
+    const last = fetchMock.mock.calls.at(-1)?.[0] as string;
+    expect(last).toBe('/api/activity-room?limit=1000');
+    expect(screen.queryByText(/report paused until fixed/)).toBeNull();
   });
 
   it('pauses loading with a notice when the range is invalid', async () => {
     render(<ActivityReportDrawer open onClose={vi.fn()} />);
     await screen.findByText('4 activities');
-    const calls = fetchMock.mock.calls.length;
     fireEvent.click(screen.getByRole('button', { name: /Filter by date/ }));
     const tomorrow = toCalendarDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
     const today = toCalendarDate(new Date());
     fireEvent.change(screen.getByLabelText('Filter from date'), { target: { value: tomorrow } });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     fireEvent.change(screen.getByLabelText('Filter to date'), { target: { value: today } });
     expect(await screen.findByText(/report paused until fixed/)).toBeInTheDocument();
-    expect(fetchMock.mock.calls.length).toBe(calls);
+    expect(fetchMock.mock.calls.length).toBe(2);
+    // Repairing the range resumes loading with the fixed window.
+    fireEvent.change(screen.getByLabelText('Filter to date'), { target: { value: tomorrow } });
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(3));
+    const last = fetchMock.mock.calls.at(-1)?.[0] as string;
+    expect(last).toContain(`from=${encodeURIComponent(reportDayStartIso(tomorrow) as string)}`);
+    expect(last).toContain(`to=${encodeURIComponent(reportDayEndIso(tomorrow) as string)}`);
   });
 
   it('shows an error with retry when loading fails', async () => {

@@ -15,7 +15,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { Drawer } from '../../components/ui/Drawer';
 import { fetchActivityHistory } from '../../lib/activity';
 import ActivityRoomSkeleton from './ActivityRoomSkeleton';
-import ActivityDateFilter, { toCalendarDate, type DateFilterPreset } from './ActivityDateFilter';
+import ActivityDateFilter, { type DateFilterPreset } from './ActivityDateFilter';
+import { isValidDateRange, parseCalendarDay } from './M11CActivityStream';
 import {
   actorInitials,
   formatRelative,
@@ -36,15 +37,42 @@ export interface ActivityReportDrawerProps {
   readonly onClose: () => void;
 }
 
-/** Lexicographic comparison is exact for yyyy-mm-dd calendar days. */
+/**
+ * Strict range check shared with the stream (`AR-DATE-001`): malformed
+ * bounds are unbounded (never rolled over), `From > To` pauses loading.
+ */
 function isRangeValid(startDate: string, endDate: string): boolean {
-  if (!startDate || !endDate) return true;
-  return startDate <= endDate;
+  return isValidDateRange(startDate, endDate);
 }
 
-/** Explicit UTC day bounds so a `to` date includes its whole day. */
-function dayBounds(startDate: string, endDate: string): { from: string; to: string } {
-  return { from: `${startDate}T00:00:00.000Z`, to: `${endDate}T23:59:59.999Z` };
+/** Viewer-locale start-of-day for a calendar day, as an ISO instant. Null when malformed. */
+export function reportDayStartIso(calendarDay: string): string | null {
+  const part = parseCalendarDay(calendarDay);
+  if (!part) return null;
+  return new Date(part.year, part.month - 1, part.day, 0, 0, 0, 0).toISOString();
+}
+
+/** Viewer-locale end-of-day for a calendar day, as an ISO instant. Null when malformed. */
+export function reportDayEndIso(calendarDay: string): string | null {
+  const part = parseCalendarDay(calendarDay);
+  if (!part) return null;
+  return new Date(part.year, part.month - 1, part.day, 23, 59, 59, 999).toISOString();
+}
+
+/**
+ * Viewer-locale `from`/`to` params for the report query. Bounds are
+ * inclusive calendar days in the viewer locale (matching the stream
+ * predicate); each bound is independent so From-only / To-only windows
+ * filter instead of falling back to all dates. Malformed bounds are
+ * ignored, never rolled over into a neighbouring day.
+ */
+export function reportDateParams(startDate: string, endDate: string): { from?: string; to?: string } {
+  const params: { from?: string; to?: string } = {};
+  const from = startDate ? reportDayStartIso(startDate) : null;
+  const to = endDate ? reportDayEndIso(endDate) : null;
+  if (from) params.from = from;
+  if (to) params.to = to;
+  return params;
 }
 
 function recordText(record: ActivityProjectionRecord): string {
@@ -62,16 +90,22 @@ function preview(text: string): string {
 }
 
 export default function ActivityReportDrawer({ open, onClose }: ActivityReportDrawerProps) {
-  const [preset, setPreset] = useState<DateFilterPreset>('today');
-  const [startDate, setStartDate] = useState(() => toCalendarDate(new Date()));
-  const [endDate, setEndDate] = useState(() => toCalendarDate(new Date()));
+  // Default to All dates (not Today): the store's latest records predate the
+  // current day after an API restart with no new activity, so a today-scoped
+  // default opens on an empty timeline. All dates always shows content.
+  const [preset, setPreset] = useState<DateFilterPreset>('all');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [records, setRecords] = useState<readonly ActivityProjectionRecord[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
-  const dateActive = preset !== 'all';
+  // A set From/To bound is an active filter even when the preset reads
+  // `custom` with a single bound — same definition as the stream, so the
+  // trigger dot, window label, and query never disagree.
+  const dateActive = parseCalendarDay(startDate) !== null || parseCalendarDay(endDate) !== null;
   const rangeValid = isRangeValid(startDate, endDate);
 
   useEffect(() => {
@@ -79,8 +113,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const params =
-      startDate && endDate ? { ...dayBounds(startDate, endDate), limit: REPORT_LIMIT } : { limit: REPORT_LIMIT };
+    const params = { ...reportDateParams(startDate, endDate), limit: REPORT_LIMIT };
     void fetchActivityHistory(params).then((result) => {
       if (cancelled) return;
       setRecords(result.records as ActivityProjectionRecord[]);
@@ -101,8 +134,15 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
     };
   }, [records]);
 
-  const rangeLabel =
-    !dateActive || (!startDate && !endDate) ? 'All dates' : startDate === endDate ? startDate : `${startDate} to ${endDate}`;
+  const rangeLabel = !dateActive
+    ? 'All dates'
+    : startDate && endDate
+      ? startDate === endDate
+        ? startDate
+        : `${startDate} to ${endDate}`
+      : startDate
+        ? `from ${startDate} onwards`
+        : `up to ${endDate}`;
 
   return (
     <Drawer
@@ -136,7 +176,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
         {!rangeValid && (
           <p
             role="status"
-            className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-element)] text-[var(--vestara-status-warning)] text-[length:var(--vestara-font-size-sm)]"
+            className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-transparent p-[var(--vestara-spacing-element)] text-[var(--vestara-status-warning)] text-[length:var(--vestara-font-size-sm)]"
           >
             From date is after To date — report paused until fixed.
           </p>
@@ -146,7 +186,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
         ) : error ? (
           <div
             role="alert"
-            className="flex flex-col gap-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-section)]"
+            className="flex flex-col gap-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-transparent p-[var(--vestara-spacing-section)]"
           >
             <p className="text-[var(--vestara-text-primary)] text-[length:var(--vestara-font-size-sm)]">{error}</p>
             <button type="button" className="ar-stream-filter__tab" onClick={() => setReloadKey((key) => key + 1)}>
@@ -156,7 +196,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
         ) : records.length === 0 ? (
           <p
             role="status"
-            className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-section)] text-[var(--vestara-text-muted)] text-[length:var(--vestara-font-size-sm)]"
+            className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-transparent p-[var(--vestara-spacing-section)] text-[var(--vestara-text-muted)] text-[length:var(--vestara-font-size-sm)]"
           >
             No activities in {rangeLabel}.
           </p>
@@ -164,7 +204,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
           <>
             <section
               aria-label="Report summary"
-              className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)] p-[var(--vestara-spacing-section)]"
+              className="rounded-[var(--vestara-radius-lg)] border border-[var(--vestara-accent-border)] bg-transparent p-[var(--vestara-spacing-section)]"
             >
               <p className="text-[var(--vestara-text-primary)] text-[length:var(--vestara-font-size-sm)]">
                 <strong>
@@ -176,7 +216,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
                 {summary.byKind.map(([kind, count]) => (
                   <li
                     key={kind}
-                    className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] px-2 py-1 text-[var(--vestara-text-secondary)] text-[length:var(--vestara-font-size-xs)]"
+                    className="rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-transparent px-2 py-1 text-[var(--vestara-text-secondary)] text-[length:var(--vestara-font-size-xs)] transition-colors hover:border-[var(--vestara-accent-border-hover)]"
                   >
                     {kindLabel(kind as ActivityProjectionRecord['kind'])} · {count}
                   </li>
@@ -188,25 +228,28 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
                 </p>
               )}
             </section>
-            <ol aria-label={`Activities in ${rangeLabel}`} className="flex flex-col gap-[var(--vestara-spacing-element)]">
+            <ol
+              aria-label={`Activities in ${rangeLabel}`}
+              className="ml-[var(--vestara-spacing-element)] flex flex-col gap-[var(--vestara-spacing-element)] border-l border-[var(--vestara-accent-border)] pl-[var(--vestara-spacing-section)]"
+            >
               {records.map((record) => {
                 const expanded = expandedId === record.id;
                 const text = recordText(record);
                 return (
                   <li
                     key={record.id}
-                    className="rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel)]"
+                    className={`rounded-[var(--vestara-radius-lg)] border border-l-2 bg-transparent transition-colors hover:border-[var(--vestara-accent-border-hover)] hover:bg-[color-mix(in_srgb,var(--vestara-accent)_5%,transparent)] ${expanded ? 'border-[var(--vestara-accent-border-active)] border-l-[var(--vestara-accent-border-active)]' : 'border-[var(--vestara-accent-border)] border-l-[var(--vestara-accent-border-hover)]'}`}
                   >
                     <button
                       type="button"
-                      className="flex w-full items-start gap-[var(--vestara-spacing-element)] p-[var(--vestara-spacing-element)] text-left"
+                      className="flex w-full items-start gap-[var(--vestara-spacing-element)] rounded-[var(--vestara-radius-lg)] p-[var(--vestara-spacing-element)] text-left focus-visible:outline-2 focus-visible:outline-[var(--vestara-accent-border-active)]"
                       aria-expanded={expanded}
                       aria-label={`${kindLabel(record.kind)} by ${record.actor.displayName || record.actor.id}, ${formatRelative(record.timestamp)}`}
                       onClick={() => setExpandedId(expanded ? null : record.id)}
                     >
                       <span
                         aria-hidden="true"
-                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] text-[var(--vestara-text-secondary)] text-[length:var(--vestara-font-size-xs)]"
+                        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-[var(--vestara-radius-full)] border border-[var(--vestara-accent-border)] bg-transparent text-[var(--vestara-text-secondary)] text-[length:var(--vestara-font-size-xs)]"
                       >
                         {actorInitials(record)}
                       </span>
@@ -230,7 +273,7 @@ export default function ActivityReportDrawer({ open, onClose }: ActivityReportDr
                       </span>
                     </button>
                     {expanded && (
-                      <dl className="flex flex-col gap-1 border-t border-[var(--vestara-border-default)] p-[var(--vestara-spacing-element)] text-[length:var(--vestara-font-size-xs)]">
+                      <dl className="flex flex-col gap-1 border-t border-[var(--vestara-accent-border)] p-[var(--vestara-spacing-element)] text-[length:var(--vestara-font-size-xs)]">
                         <div className="flex gap-2">
                           <dt className="shrink-0 text-[var(--vestara-text-muted)]">Actor</dt>
                           <dd className="text-[var(--vestara-text-primary)]">
