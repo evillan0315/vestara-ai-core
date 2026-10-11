@@ -11,8 +11,12 @@
  */
 
 import type { ConversationBinding } from '@vestara/telegram-integration';
-import { describe, expect, it } from 'vitest';
-import { resolveForwardTarget } from '../src/routes/telegram';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildForwardMirrorMessage,
+  mirrorTelegramForwardToActivityRoom,
+  resolveForwardTarget,
+} from '../src/routes/telegram';
 
 function binding(chatId: string, overrides?: Partial<ConversationBinding>): ConversationBinding {
   return {
@@ -66,5 +70,29 @@ describe('resolveForwardTarget', () => {
     const result = resolveForwardTarget([binding('111')], '   ');
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.binding.telegramChatId).toBe('111');
+  });
+});
+
+describe('buildForwardMirrorMessage', () => {
+  it('prefixes the outbound copy with the destination chat', () => {
+    expect(buildForwardMirrorMessage('8531736505', 'hello')).toBe('[To Telegram 8531736505] hello');
+  });
+
+  it('preserves the full forwarded text (no truncation)', () => {
+    const text = 'a'.repeat(5000);
+    expect(buildForwardMirrorMessage('111', text)).toBe(`[To Telegram 111] ${text}`);
+  });
+});
+
+describe('mirrorTelegramForwardToActivityRoom', () => {
+  it('never throws when M11A is uninitialized (best-effort mirror)', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await expect(
+        mirrorTelegramForwardToActivityRoom('111', 'hello', { id: 'user-1', name: 'Operator' }),
+      ).resolves.toBeUndefined();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

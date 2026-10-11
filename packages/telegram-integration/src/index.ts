@@ -131,6 +131,22 @@ export type {
 } from './pairing.js';
 export { TelegramPairingService } from './pairing.js';
 export { TelegramPersistentStore } from './persistent-store.js';
+export type { ParsedQuestionCallback, ProjectedQuestion, ProjectedQuestionOption } from './question-projection.js';
+export {
+  buildQuestionChannelKeyboard,
+  buildQuestionKeyboard,
+  MAX_OPTIONS_PER_QUESTION,
+  MAX_QUESTIONS_PER_REQUEST,
+  matchTextAnswer,
+  OPTION_LABEL_LIMIT,
+  parseQuestionCallback,
+  QUESTION_CALLBACK_PREFIX,
+  QUESTION_TEXT_LIMIT,
+  renderQuestionText,
+  selectionsToAnswers,
+  TELEGRAM_TEXT_LIMIT,
+  toggleSelection,
+} from './question-projection.js';
 export type {
   DeliveryFailure,
   DeliveryFailureKind,
@@ -237,7 +253,7 @@ import type {
 import { buildTelegramEditPayload, buildTelegramSendPayload } from './telegram-types.js';
 
 // Re-export channel types used by the API route
-export type { ChannelMessage } from '@vestara/channel-types';
+export type { ChannelButton, ChannelMessage } from '@vestara/channel-types';
 // Re-export canonical Telegram translators for external consumers.
 // Raw Telegram Bot API types stay inside telegram-types.ts and are
 // intentionally NOT re-exported here.
@@ -367,6 +383,23 @@ export class TelegramAdapter implements ChannelAdapter {
       return true;
     } catch (error) {
       if (error instanceof Error && error.message.includes('message is not modified')) return true;
+      return false;
+    }
+  }
+
+  /**
+   * Answer a callback query (stops the loading spinner on a tapped inline
+   * button). Optionally shows a short toast to the tapping user. Best-
+   * effort: Telegram failures return false. Never throws.
+   */
+  async answerCallbackQuery(callbackQueryId: string, text?: string): Promise<boolean> {
+    try {
+      await this.apiCall('answerCallbackQuery', {
+        callback_query_id: callbackQueryId,
+        ...(text ? { text } : {}),
+      });
+      return true;
+    } catch {
       return false;
     }
   }

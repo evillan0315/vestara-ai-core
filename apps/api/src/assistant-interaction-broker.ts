@@ -81,6 +81,21 @@ export class AssistantInteractionBroker {
     return this.decide('question', conversationId, questionRequestId, decision);
   }
 
+  /**
+   * Release a pending question wait without answers (VES-TG-030: Telegram
+   * Reject). The adapter treats the undefined decision as a fail-safe
+   * reject — identical to the timeout path, but immediate.
+   */
+  cancelQuestion(conversationId: string, questionRequestId: string): boolean {
+    const entry = this.pending.get(key(conversationId, questionRequestId));
+    if (entry?.kind !== 'question') return false;
+    this.pending.delete(key(conversationId, questionRequestId));
+    const record = entry as PendingInteraction & { timer?: ReturnType<typeof setTimeout> };
+    if (record.timer) clearTimeout(record.timer);
+    entry.resolve(undefined);
+    return true;
+  }
+
   /** Bounded diagnostic: number of still-pending interactions. */
   get pendingCount(): number {
     return this.pending.size;

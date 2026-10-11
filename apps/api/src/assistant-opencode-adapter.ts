@@ -182,6 +182,24 @@ export interface AssistantOpenCodeExecutorOptions {
   runtimeQuestionIngest?: (input: IngestRuntimeQuestionInput) => void;
   /** Prepare the exact durable interaction before OpenCode delivery. */
   runtimeQuestionResponse?: (input: RuntimeQuestionResponseInput) => RuntimeQuestionClaim;
+  /**
+   * VES-TG-030: Telegram mirror for `question.asked`. When set, a pending
+   * question is also forwarded to the Telegram chat bound to the
+   * conversation (fire-and-forget with catch — forwarding never breaks
+   * the turn). Structural input keeps this module free of channel
+   * imports; the broker remains the answer authority. Absent in unit tests.
+   */
+  telegramQuestionForward?: (input: {
+    readonly conversationId: string;
+    readonly requestId: string;
+    readonly questions: readonly {
+      readonly question: string;
+      readonly header: string;
+      readonly options: readonly { readonly label: string; readonly description?: string }[];
+      readonly multiple?: boolean;
+      readonly custom?: boolean;
+    }[];
+  }) => void;
   title?: string;
   /** Hard cap for a single turn (ms). Default 5 minutes. */
   turnTimeoutMs?: number;
@@ -1161,6 +1179,27 @@ export async function* runAssistantOpenCodeTurn(
                 });
               } catch {
                 // ingestion failed — continue with the preserved path
+              }
+            }
+            // VES-TG-030: mirror the pending question to the bound Telegram
+            // chat (fire-and-forget). The turn still awaits the broker
+            // below, so forward failures can never break or stall execution.
+            if (request.conversationId) {
+              try {
+                options.telegramQuestionForward?.({
+                  conversationId: request.conversationId,
+                  requestId: detail.questionRequestId,
+                  questions: detail.questions.map((record) => ({
+                    question: record.question,
+                    header: record.header ?? '',
+                    options: (record.options ?? []).map((option) => ({
+                      label: option.label,
+                      ...(option.description ? { description: option.description } : {}),
+                    })),
+                  })),
+                });
+              } catch {
+                // forward failed — the broker path below still awaits
               }
             }
             const broker = options.interactionBroker;

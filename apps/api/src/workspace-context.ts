@@ -957,6 +957,19 @@ export async function createWorkspaceContext(repoPath: string, publish: PublishF
           console.warn(`[assistant] ${message} ${JSON.stringify(detail)}`);
         },
       }),
+      // VES-TG-030: mirror pending questions to the Telegram chat bound to
+      // the conversation. Fire-and-forget with catch — forwarding never
+      // breaks the turn. Lazy import: the telegram route module initializes
+      // after this composition site, so it resolves at ask time.
+      telegramQuestionForward: (input) => {
+        void import('./routes/telegram.js')
+          .then((telegram) => telegram.forwardAssistantQuestionToTelegram(input))
+          .catch((error) => {
+            console.warn(
+              `[assistant] telegram question forward failed ${error instanceof Error ? error.message : error}`,
+            );
+          });
+      },
       // GA-CAP-003: fallback boundary for executor paths without a persona
       // resolver. Per-turn personas carry their own agent-derived policy.
       // repositoryDir originates from canonical resolveRepoRoot() — never .vestara, cwd, or UI state.

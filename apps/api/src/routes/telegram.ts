@@ -23,7 +23,7 @@ import * as fs from 'node:fs';
 import type * as http from 'node:http';
 import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
-import type { ChannelMessage, ConversationBinding, StreamSink } from '@vestara/telegram-integration';
+import type { ChannelMessage, ConversationBinding, ProjectedQuestion, StreamSink } from '@vestara/telegram-integration';
 import {
   cloudflaredArgs,
   DEFAULT_TUNNEL_CONFIG,
@@ -51,8 +51,14 @@ import {
   waitForHostResolution,
 } from '@vestara/telegram-integration';
 import { resolveAssistantIdentity } from '../assistant-identity';
-import { requireRole } from '../auth';
+import { authenticate, requireRole } from '../auth';
 import { enrollTelegramIdentity, resolveTelegramIdentity } from '../telegram-identity';
+import {
+  answerQuestionByText,
+  dispatchQuestionTap,
+  forwardAssistantQuestion,
+  type TrackedQuestion,
+} from '../telegram-question-bridge';
 import type { WorkspaceContext } from '../workspace-context';
 import { json, readBody } from './types';
 
@@ -598,6 +604,173 @@ async function deliverTelegramReply(
   }
 }
 
+// ─── VES-TG-030: Question Bridge ───────────────────────────────
+// Forwards pending assistant questions to the bound Telegram chat and
+// routes answers back into the AssistantInteractionBroker. Telegram holds
+// only transport correlation (chat/message → conversation/request); the
+// broker stays the answer authority.
+
+export interface AssistantQuestionForward {
+  readonly conversationId: string;
+  readonly requestId: string;
+  readonly questions: readonly ProjectedQuestion[];
+}
+
+/**
+ * Forward a pending assistant question to the Telegram chat bound to the
+ * Vestara conversation. Best-effort fire-and-forget: never throws, so a
+ * missing token or chat can never break the agent turn (the browser path
+ * still awaits the broker).
+ */
+export async function forwardAssistantQuestionToTelegram(input: AssistantQuestionForward): Promise<void> {
+  try {
+    const botToken = process.env.TELEGRAM_BOT_TOKEN;
+    if (!botToken) return;
+    const service = getConversationBindingService();
+    const workspaceId = (workspaceContext && path.basename(workspaceContext.repoPath)) || 'workspace';
+    const adapter = new TelegramAdapter({ botToken });
+    const result = await forwardAssistantQuestion(
+      {
+        botToken,
+        findBinding: (conversationId) => {
+          const binding = service.getBindingByConversationId(conversationId);
+          if (binding?.status !== 'active' || binding.workspaceId !== workspaceId) return undefined;
+          return {
+            telegramChatId: binding.telegramChatId,
+            telegramChatType: binding.telegramChatType,
+            telegramChatTitle: binding.telegramChatTitle,
+            principalId: binding.principalId,
+          };
+        },
+        sendQuestion: async (chatId, text, keyboard) => {
+          const delivery = await adapter.sendDelivery({
+            id: `tg-question-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            channel: 'telegram',
+            conversation: { channel: 'telegram', externalId: chatId, type: 'direct' },
+            content: { text, inlineKeyboard: keyboard },
+            priority: 'high',
+          });
+          return delivery.success && delivery.externalMessageId
+            ? { ok: true as const, messageId: delivery.externalMessageId }
+            : { ok: false as const };
+        },
+      },
+      input,
+    );
+    if (!result.forwarded) {
+      console.warn(`[telegram] question forward skipped (${result.reason}) for conversation ${input.conversationId}`);
+    }
+  } catch (error) {
+    console.warn('[telegram] question forward failed', error instanceof Error ? error.message : error);
+  }
+}
+
+/** The tapping sender must hold the active pairing behind the question. */
+function isQuestionSenderAuthorized(entry: TrackedQuestion, senderTelegramUserId: string): boolean {
+  const binding = getPairingService().getBindingByTelegramId(senderTelegramUserId);
+  return !!binding?.active && binding.principalId === entry.principalId;
+}
+
+/**
+ * Route a raw webhook body carrying a callback_query to the question
+ * bridge. Returns true when the tap belonged to a forwarded question;
+ * false leaves every existing button behavior untouched.
+ */
+export async function dispatchTelegramQuestionTap(ctx: WorkspaceContext, rawBody: string): Promise<boolean> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return false;
+  let data = '';
+  let callbackQueryId = '';
+  let chatId = '';
+  let messageId = '';
+  let senderId = '';
+  try {
+    const body = JSON.parse(rawBody) as {
+      readonly callback_query?: {
+        readonly id?: unknown;
+        readonly data?: unknown;
+        readonly from?: { readonly id?: unknown };
+        readonly message?: { readonly message_id?: unknown; readonly chat?: { readonly id?: unknown } };
+      };
+    };
+    const query = body?.callback_query;
+    if (typeof query?.data !== 'string' || !query.data.startsWith('tq:')) return false;
+    data = query.data;
+    callbackQueryId = typeof query.id === 'string' ? query.id : String(query.id ?? '');
+    chatId = String(query.message?.chat?.id ?? '');
+    messageId = String(query.message?.message_id ?? '');
+    senderId = String(query.from?.id ?? '');
+  } catch {
+    return false;
+  }
+  if (!callbackQueryId || !chatId || !messageId || !senderId) return false;
+  const adapter = new TelegramAdapter({ botToken });
+  const outcome = await dispatchQuestionTap(
+    {
+      isAuthorized: isQuestionSenderAuthorized,
+      decide: (conversationId, requestId, answers) =>
+        ctx.assistantInteractionBroker.decideQuestion(conversationId, requestId, { answers }),
+      cancel: (conversationId, requestId) => ctx.assistantInteractionBroker.cancelQuestion(conversationId, requestId),
+      answerTap: async (id, text) => {
+        await adapter.answerCallbackQuery(id, text);
+      },
+      updateMessage: async (targetChatId, targetMessageId, text, keyboard) => {
+        await adapter.sendDelivery({
+          id: `tg-question-update-${Date.now()}`,
+          channel: 'telegram',
+          conversation: { channel: 'telegram', externalId: targetChatId, type: 'direct' },
+          content: { text, ...(keyboard ? { inlineKeyboard: keyboard } : {}) },
+          editMessageId: targetMessageId,
+          priority: 'normal',
+        });
+      },
+    },
+    { chatId, messageId, callbackQueryId, callbackData: data, senderTelegramUserId: senderId },
+  );
+  return outcome.handled;
+}
+
+/**
+ * Answer a forwarded question from a typed chat reply. Returns
+ * `passthrough` for everything that is not a live question answer, so
+ * normal chat routing continues untouched.
+ */
+async function tryAnswerForwardedQuestionByText(
+  message: ChannelMessage,
+): Promise<{ readonly status: 'answered' | 'unauthorized' | 'passthrough' }> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (!botToken) return { status: 'passthrough' };
+  const adapter = new TelegramAdapter({ botToken });
+  const outcome = await answerQuestionByText(
+    {
+      isAuthorized: isQuestionSenderAuthorized,
+      decide: (conversationId, requestId, answers) =>
+        workspaceContext?.assistantInteractionBroker.decideQuestion(conversationId, requestId, { answers }) ?? false,
+      confirmMessage: async (entry, answers, accepted) => {
+        const picked = answers.map((row) => [...row].join(', ')).join(' · ');
+        const summary = accepted ? `Answered: ${picked}` : 'Already resolved in the app.';
+        const text = `✅ ${entry.questions[0]?.question ?? 'Question'}\n${summary}`;
+        const edited = await adapter.sendDelivery({
+          id: `tg-question-resolve-${Date.now()}`,
+          channel: 'telegram',
+          conversation: { channel: 'telegram', externalId: entry.chatId, type: 'direct' },
+          content: { text },
+          editMessageId: entry.messageId,
+          priority: 'normal',
+        });
+        if (!edited.success) await adapter.sendTextMessage(entry.chatId, text);
+      },
+    },
+    {
+      chatId: message.conversation.externalId,
+      senderTelegramUserId: message.sender.externalId,
+      text: message.text ?? '',
+    },
+  );
+  if (!outcome.handled) return { status: 'passthrough' };
+  return outcome.outcome === 'answered' ? { status: 'answered' } : { status: 'unauthorized' };
+}
+
 /**
  * Parse a Telegram bot command from message text. Returns the command
  * name for known commands, null otherwise. Handles `@BotName` suffixes
@@ -742,6 +915,47 @@ async function mirrorTelegramReplyToActivityRoom(response: string): Promise<void
 }
 
 /**
+ * Build the Activity Room copy for an outbound Telegram forward.
+ * Pure — safe to unit test. Mirrors the inbound `[Telegram] Name: text`
+ * convention so the stream reads symmetrically in both directions.
+ */
+export function buildForwardMirrorMessage(chatId: string, text: string): string {
+  return `[To Telegram ${chatId}] ${text}`;
+}
+
+/**
+ * Mirror an explicit operator forward (Activity Room → Telegram) into the
+ * Activity Room (M9 durable store) via the canonical `fromHumanMessage`
+ * adapter — the same bridge the composer uses (`mirrorHumanMessageToM9`
+ * in activity-room.ts). Without this, free-text forwards leave no Room
+ * record at all (the Bot API delivery is the only trace). Best-effort and
+ * fire-and-forget: throws nothing (M11A is uninitialized in unit tests),
+ * and a mirror failure must never fail the forward response.
+ */
+export async function mirrorTelegramForwardToActivityRoom(
+  chatId: string,
+  text: string,
+  operator: { readonly id: string; readonly name: string },
+): Promise<void> {
+  try {
+    const [{ getM11ARoom }, { fromHumanMessage }] = await Promise.all([
+      import('./activity-room-m11a.js'),
+      import('@vestara/activity-room'),
+    ]);
+    await getM11ARoom().store.append(
+      fromHumanMessage({
+        message: buildForwardMirrorMessage(chatId, text),
+        userId: operator.id,
+        displayName: `${operator.name} (→ Telegram)`,
+        messageId: `tg-forward-${Date.now()}`,
+      }),
+    );
+  } catch (error) {
+    console.warn('[telegram] activity mirror (forward) failed', error instanceof Error ? error.message : error);
+  }
+}
+
+/**
  * Process a normalized Telegram message through the full pipeline:
  * 1. Resolve identity binding (Telegram user -> Vestara principal)
  * 2. Resolve workspace binding (principal -> workspace)
@@ -800,6 +1014,17 @@ async function processTelegramMessage(
   }
   const canonicalPrincipalId = resolvedIdentity.principal.id;
   const canonicalBinding = { ...identity, principalId: canonicalPrincipalId };
+
+  // VES-TG-030: a typed answer to a forwarded assistant question wins over
+  // normal routing — but only when the text actually answers a live
+  // question in this chat. Anything else falls through untouched.
+  const textAnswer = await tryAnswerForwardedQuestionByText(message);
+  if (textAnswer.status === 'answered') {
+    return { status: 'question-answered' };
+  }
+  if (textAnswer.status === 'unauthorized') {
+    return { status: 'question-unauthorized', error: 'Only the paired operator can answer this question.' };
+  }
 
   // 2. Resolve workspace — auto-bind on first message. Pairing already
   // required operator approval, so an approved principal messaging the
@@ -1008,6 +1233,12 @@ export async function handleTelegramRoute(
       }
 
       if (result.action) {
+        // VES-TG-030: forwarded-question taps resolve through the broker;
+        // anything else keeps the existing acknowledge behavior.
+        if (await dispatchTelegramQuestionTap(ctx, body)) {
+          json(res, 200, { status: 'received', channel: 'question' });
+          return true;
+        }
         json(res, 200, {
           status: 'received',
           actionId: result.action.id,
@@ -1299,6 +1530,14 @@ export async function handleTelegramRoute(
         }
       }
       if (sent === chunks.length) {
+        // Mirror the outbound copy into the Room so the send is visible on
+        // the /activity surface. Fire-and-forget: mirroring never fails
+        // delivery or the forward response.
+        const operator = authenticate(req, ctx.users);
+        void mirrorTelegramForwardToActivityRoom(binding.telegramChatId, text, {
+          id: operator?.id ?? 'local-operator',
+          name: operator?.name ?? 'local-operator',
+        });
         json(res, 200, { status: 'sent', chatId: binding.telegramChatId, chunks: { sent, total: chunks.length } });
       } else {
         json(res, 502, {
