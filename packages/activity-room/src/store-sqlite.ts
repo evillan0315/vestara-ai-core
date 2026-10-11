@@ -72,6 +72,8 @@ function matchesQuery(record: ActivityRecord, query: ActivityQuery): boolean {
   if (query.agentId !== undefined && !matchesAgent(record, query.agentId)) return false;
   if (query.afterSequence !== undefined && record.sequence <= query.afterSequence) return false;
   if (query.beforeSequence !== undefined && record.sequence >= query.beforeSequence) return false;
+  if (query.since !== undefined && record.timestamp < query.since) return false;
+  if (query.until !== undefined && record.timestamp > query.until) return false;
   return true;
 }
 

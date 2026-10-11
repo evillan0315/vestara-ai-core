@@ -1,4 +1,6 @@
 import { StatusIndicator } from '@vestara/ui';
+import AssessmentOutlinedIcon from '@mui/icons-material/AssessmentOutlined';
+import { SIZING } from '@vestara/ui-tokens';
 import {
   ACTIVITY_DATA_STATUS_CONFIG,
   CONNECTION_STATUS_CONFIG,
@@ -31,6 +33,7 @@ interface ActivityRoomHeaderProps {
   readonly scopeLabel?: string;
   readonly onClearScope?: () => void;
   readonly onOpenSettings?: () => void;
+  readonly onOpenReport?: () => void;
 }
 
 function formatFreshness(timestamp: number | null | undefined): string | null {
@@ -63,6 +66,7 @@ export default function ActivityRoomHeader({
   scopeLabel,
   onClearScope,
   onOpenSettings,
+  onOpenReport,
 }: ActivityRoomHeaderProps) {
   const ui = useActivityRoomUI();
   const { toggleDrawer, activeSurface, open } = useGlobalDrawer();
@@ -145,6 +149,17 @@ export default function ActivityRoomHeader({
             onClick={onOpenSettings}
           >
             Settings
+          </button>
+        )}
+        {onOpenReport && (
+          <button
+            type="button"
+            className="ar-control-button ar-control-button--icon"
+            aria-label="Activity report"
+            title="Open activity report"
+            onClick={onOpenReport}
+          >
+            <AssessmentOutlinedIcon sx={{ fontSize: SIZING.icon.sm }} aria-hidden="true" />
           </button>
         )}
         <button

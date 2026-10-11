@@ -46,6 +46,12 @@ const EFFECT_VALUES = new Set<ActivityOrganizationalEffect>([
 const MAX_LIMIT = 1000;
 const DEFAULT_LIMIT = 100;
 /**
+ * Maximum report window (366 days). A wider `from`/`to` range clamps `to`
+ * down to `from` + window — the same clamp precedent as MAX_LIMIT on
+ * `limit` — so a report can never accidentally scan unbounded history.
+ */
+const MAX_RANGE_MS = 366 * 24 * 60 * 60 * 1000;
+/**
  * Default human-message cap (chars). The effective limit is configurable via
  * the `general.composerMaxChars` workspace setting (Settings → General) and
  * resolved per request by `resolveComposerMaxChars`; this constant is the
@@ -79,6 +85,17 @@ function integer(value: string | null): number | undefined {
 }
 
 /**
+ * Normalize a `from`/`to` value to ISO-8601 (accepts date-only and
+ * datetime). Unparseable values return undefined and are ignored — never
+ * inferred — matching the unknown-filter policy below.
+ */
+function isoTimestamp(value: string | null): string | undefined {
+  if (value === null || value.length === 0) return undefined;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? undefined : parsed.toISOString();
+}
+
+/**
  * Effective human-message cap for the composer. Reads the configurable
  * `general.composerMaxChars` setting (Settings → General, default 100 000);
  * falls back to the default and clamps to the hard cap so a corrupt value
@@ -107,6 +124,12 @@ export function parseActivityQuery(url: URL): import('@vestara/activity-room').A
   const kind = string(params.get('kind'));
   const severity = string(params.get('severity'));
   const limit = integer(params.get('limit'));
+  const since = isoTimestamp(params.get('from'));
+  let until = isoTimestamp(params.get('to'));
+  if (since !== undefined && until !== undefined) {
+    const clamped = new Date(since).getTime() + MAX_RANGE_MS;
+    if (new Date(until).getTime() > clamped) until = new Date(clamped).toISOString();
+  }
   return {
     workflowId: string(params.get('workflowId')),
     sessionId: string(params.get('sessionId')),
@@ -122,6 +145,8 @@ export function parseActivityQuery(url: URL): import('@vestara/activity-room').A
         : undefined,
     afterSequence: integer(params.get('afterSequence')),
     beforeSequence: integer(params.get('beforeSequence')),
+    since,
+    until,
     limit: limit !== undefined ? Math.max(1, Math.min(MAX_LIMIT, limit)) : DEFAULT_LIMIT,
   };
 }
@@ -146,9 +171,15 @@ export async function handleActivityRoomRoute(
   if (method === 'GET' && p === '/api/activity-room') {
     const query = parseActivityQuery(url);
     // STREAM-PERF-001: initial load is the LATEST bounded window, not the oldest
-    // history. Explicit cursors (beforeSequence/afterSequence) pass through.
+    // history. Explicit cursors (beforeSequence/afterSequence) or an explicit
+    // date range (since/until) pass through.
     let effective = query;
-    if (query.afterSequence === undefined && query.beforeSequence === undefined) {
+    if (
+      query.afterSequence === undefined &&
+      query.beforeSequence === undefined &&
+      query.since === undefined &&
+      query.until === undefined
+    ) {
       const last = await room.store.lastSequence();
       effective = { ...query, afterSequence: Math.max(0, last - (query.limit ?? DEFAULT_LIMIT)) };
     }

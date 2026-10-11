@@ -58,6 +58,10 @@ export interface ActivityHistoryParams {
   severity?: ActivitySeverity;
   afterSequence?: number;
   beforeSequence?: number;
+  /** Inclusive lower bound (date-only or ISO datetime) on record.timestamp. */
+  from?: string;
+  /** Inclusive upper bound (date-only or ISO datetime) on record.timestamp. */
+  to?: string;
   limit?: number;
 }
 

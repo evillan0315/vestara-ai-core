@@ -48,6 +48,7 @@ import OperationalWorkspaceLayout from '../../layouts/OperationalWorkspaceLayout
 import AgentProjectionDrawer from './AgentProjectionDrawer';
 import { resolveAgentIdFromParticipantId } from './AgentProjectionDrawer';
 import ActivityDetailDrawer from './ActivityDetailDrawer';
+import ActivityReportDrawer from './ActivityReportDrawer';
 import EastOutlinedIcon from '@mui/icons-material/EastOutlined';
 import PublicOutlinedIcon from '@mui/icons-material/PublicOutlined';
 import ImageOutlinedIcon from '@mui/icons-material/ImageOutlined';
@@ -363,6 +364,7 @@ export default function M11CActivityRoomPage() {
   }, [room.stream]);
 
   const [detailRecord, setDetailRecord] = useState<ActivityProjectionRecord | null>(null);
+  const [reportOpen, setReportOpen] = useState(false);
 
   // Mini workflow graph for the detail drawer: projected from the live
   // stream for the inspected record's run (authoritative summary wins).
@@ -524,6 +526,7 @@ export default function M11CActivityRoomPage() {
         }}
         onPause={room.paused ? room.resume : room.pause}
         onClear={room.clear}
+        onOpenReport={() => setReportOpen(true)}
       />
 
       {/* ─── Working area: adaptive composition (VES-DESIGN-008F) ──
@@ -796,6 +799,8 @@ export default function M11CActivityRoomPage() {
           workflowGraph={detailWorkflowGraph}
           workflowSelectedNodeId={detailWorkflowNodeId}
         />
+        {/* Report drawer — date-range report over the same Drawer shell. */}
+        <ActivityReportDrawer open={reportOpen} onClose={() => setReportOpen(false)} />
       </OperationalWorkspaceLayout>
 
       {/* ─── Mobile sheets (small screens only) ─────────────── */}
