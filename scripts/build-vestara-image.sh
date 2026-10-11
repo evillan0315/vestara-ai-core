@@ -4,6 +4,7 @@ set -Eeuo pipefail
 # Build a UEFI-bootable image file. It never writes directly to a block device.
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT=${VESTARA_IMAGE_OUTPUT:-${ROOT}/vestara.img}
+OUTPUT_NAME=$(basename -- "$OUTPUT")
 SUITE=${VESTARA_IMAGE_SUITE:-noble}
 MIRROR=${VESTARA_IMAGE_MIRROR:-https://archive.ubuntu.com/ubuntu}
 SIZE=${VESTARA_IMAGE_SIZE:-16G}
@@ -28,7 +29,7 @@ if [[ ${EUID} -ne 0 ]]; then echo 'Run this builder with sudo.' >&2; exit 1; fi
 case $OUTPUT in /dev/*|/sys/*|/proc/*|/) echo "Refusing unsafe output path: $OUTPUT" >&2; exit 1;; esac
 if [[ -e $OUTPUT && $FORCE -ne 1 ]]; then echo "Output exists; use --force: $OUTPUT" >&2; exit 1; fi
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 1; }; }
-for command in debootstrap parted losetup mkfs.fat mkfs.ext4 mount umount chroot grub-install rsync; do need "$command"; done
+for command in debootstrap parted losetup mkfs.fat mkfs.ext4 mount umount chroot grub-install rsync lsinitramfs; do need "$command"; done
 for artifact in "$ROOT/apps/api/dist/index.js" "$ROOT/apps/cli/dist/index.js"; do
   [[ -f $artifact ]] || { echo "Missing build artifact: $artifact; run pnpm build first." >&2; exit 1; }
 done
@@ -65,38 +66,90 @@ exit 101
 POLICY
 chmod 755 "$WORK/root/usr/sbin/policy-rc.d"
 chroot "$WORK/root" /usr/bin/apt-get update
-chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
+#chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal
 chroot "$WORK/root" groupadd --system vestara || true; chroot "$WORK/root" useradd --system --gid vestara --home-dir /var/lib/vestara --shell /usr/sbin/nologin vestara || true
+chroot "$WORK/root" useradd --create-home --shell /bin/bash eddie || true
+chroot "$WORK/root" usermod -aG sudo eddie || true
+printf '%s\n' 'eddie:vestara' | chroot "$WORK/root" chpasswd
 
 # Install external coding-agent CLIs (OpenAI Codex, Claude Code, Gemini CLI)
 # as global npm packages so external-runtime discovery finds them on the image.
 chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/npm install -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli
 
-rsync -a --delete --exclude '.git/' --exclude '.env' "$ROOT/" "$WORK/root/opt/vestara/"
+rsync -a --delete --exclude '.git/' --exclude '.env' --exclude "$OUTPUT_NAME" "$ROOT/" "$WORK/root/opt/vestara/"
 chroot "$WORK/root" install -d -o vestara -g vestara -m 0750 /opt/vestara/.vestara
 install -d -m 0755 "$WORK/root/etc/systemd/system" "$WORK/root/etc/systemd/system/vestara.target.wants" "$WORK/root/etc/systemd/system/multi-user.target.wants"
 install -d -m 0755 "$WORK/root/boot/efi"
 install -d -m 0755 "$WORK/root/boot/grub/themes/vestara" "$WORK/root/usr/share/plymouth/themes/vestara" "$WORK/root/etc/default/grub.d"
 install -m 0644 "$ROOT"/os/customization/grub/theme.txt "$WORK/root/boot/grub/themes/vestara/theme.txt"
+install -m 0644 "$ROOT"/os/customization/plymouth/background.png "$WORK/root/boot/grub/themes/vestara/background.png"
 install -m 0644 "$ROOT"/os/customization/plymouth/vestara.plymouth "$ROOT"/os/customization/plymouth/vestara.script "$WORK/root/usr/share/plymouth/themes/vestara/"
+install -m 0644 "$ROOT"/os/customization/plymouth/background.png "$WORK/root/usr/share/plymouth/themes/vestara/"
+for frame in "$ROOT"/os/customization/plymouth/v-rotate-*.png; do
+  [[ -f $frame ]] || { echo "Missing Plymouth animation frame: $frame" >&2; exit 1; }
+  install -m 0644 "$frame" "$WORK/root/usr/share/plymouth/themes/vestara/"
+done
 install -m 0644 "$ROOT"/os/customization/configs/grub/vestara.cfg "$WORK/root/etc/default/grub.d/vestara.cfg"
 install -m 0644 "$ROOT"/os/customization/assets/logo.svg "$WORK/root/usr/share/plymouth/themes/vestara/logo.svg"
 chroot "$WORK/root" rsvg-convert --width 512 --height 512 --output /usr/share/plymouth/themes/vestara/logo.png /usr/share/plymouth/themes/vestara/logo.svg
 install -m 0644 "$WORK/root/usr/share/plymouth/themes/vestara/logo.png" "$WORK/root/boot/grub/themes/vestara/logo.png"
-chroot "$WORK/root" plymouth-set-default-theme -R vestara
+install -d -m 0755 "$WORK/root/etc/plymouth"
+cat > "$WORK/root/etc/plymouth/plymouthd.conf" <<'PLYMOUTH'
+[Daemon]
+Theme=vestara
+PLYMOUTH
+# Ubuntu's package defaults can otherwise leave default.plymouth pointing at
+# the Ubuntu spinner. Make Vestara the package-level default as well as the
+# daemon configuration, then rebuild initramfs after all assets are present.
+ln -sfn vestara.plymouth "$WORK/root/usr/share/plymouth/themes/default.plymouth"
 install -m 0644 "$ROOT"/os/systemd/*.service "$ROOT"/os/systemd/*.path "$ROOT"/os/systemd/vestara.target "$WORK/root/etc/systemd/system/"
 for service in vestara-host.service vestara-api.service vestara-workspace.service; do ln -sfn "../$service" "$WORK/root/etc/systemd/system/vestara.target.wants/$service"; done
 ln -sfn ../vestara.target "$WORK/root/etc/systemd/system/multi-user.target.wants/vestara.target"
 install -d -m 0755 "$WORK/root/var/lib/vestara/workspaces" "$WORK/root/etc/vestara"
 install -m 0644 "$ROOT/os/customization/identity/eddie.yaml" "$WORK/root/etc/vestara/human-profile.yaml"
-chroot "$WORK/root" update-grub
+install -d -m 0755 "$WORK/root/etc/lightdm/lightdm.conf.d"
+cat > "$WORK/root/etc/lightdm/lightdm.conf.d/50-vestara.conf" <<'LIGHTDM'
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=xfce
+LIGHTDM
+cat > "$WORK/root/etc/lightdm/lightdm-gtk-greeter.conf" <<'GREETER'
+[greeter]
+background=/usr/share/plymouth/themes/vestara/background.png
+theme-name=Adwaita-dark
+icon-theme-name=Adwaita
+GREETER
+printf '%s\n' /usr/sbin/lightdm > "$WORK/root/etc/X11/default-display-manager"
 printf '%s\n' 'VESTARA_REPO=/var/lib/vestara/workspaces/default' > "$WORK/root/etc/vestara/vestara.env"
-chroot "$WORK/root" systemctl enable vestara.target vestara-host.service vestara-api.service vestara-workspace.service vestara-api-reload.path; chroot "$WORK/root" rm -f /usr/sbin/policy-rc.d
+chroot "$WORK/root" systemctl enable vestara.target vestara-host.service vestara-api.service vestara-workspace.service vestara-api-reload.path lightdm.service
+chroot "$WORK/root" systemctl set-default graphical.target
+chroot "$WORK/root" rm -f /usr/sbin/policy-rc.d
 ROOT_UUID=$(blkid -s UUID -o value "${LOOP}p2"); ESP_UUID=$(blkid -s UUID -o value "${LOOP}p1")
 cat > "$WORK/root/etc/fstab" <<FSTAB
 UUID=$ROOT_UUID / ext4 defaults 0 1
 UUID=$ESP_UUID /boot/efi vfat umask=0077 0 1
 FSTAB
+printf '%s\n' "GRUB_DEVICE_UUID=$ROOT_UUID" > "$WORK/root/etc/default/grub.d/vestara-root.cfg"
+install -d -m 0755 "$WORK/root/dev/disk/by-uuid"
+ln -sfn "${LOOP}p2" "$WORK/root/dev/disk/by-uuid/$ROOT_UUID"
+chroot "$WORK/root" update-grub
+grep -Fq "$ROOT_UUID" "$WORK/root/boot/grub/grub.cfg" || {
+  echo "GRUB configuration does not reference the image root UUID: $ROOT_UUID" >&2
+  exit 1
+}
 grub-install --target=x86_64-efi --efi-directory="$WORK/esp" --boot-directory="$WORK/root/boot" --root-directory="$WORK/root" --removable --no-nvram
-chroot "$WORK/root" update-initramfs -c -k all || true
+[[ -f "$WORK/esp/EFI/BOOT/BOOTX64.EFI" ]] || {
+  echo "EFI bootloader was not created." >&2
+  find "$WORK/esp" -maxdepth 4 -print >&2
+  exit 1
+}
+chroot "$WORK/root" update-initramfs -u -k all
+for initrd in "$WORK/root"/boot/initrd.img-*; do
+  [[ -f $initrd ]] || continue
+  lsinitramfs "$initrd" | grep -Fq 'usr/share/plymouth/themes/vestara/vestara.plymouth' || {
+    echo "Vestara Plymouth theme is missing from initramfs: $initrd" >&2
+    exit 1
+  }
+done
 echo "Created UEFI-bootable image: $OUTPUT"
