@@ -43,16 +43,35 @@ function dbAll(db: any, sql: string, params?: any[]): any[] {
 
 export class TelegramPersistentStore {
   private readonly db: any;
+  private readonly persistFn?: () => void;
 
-  constructor(db: any) {
+  constructor(db: any, options: { persist?: () => void } = {}) {
     this.db = db;
+    this.persistFn = options.persist;
+  }
+
+  /**
+   * Flush the in-memory sql.js database to disk. Best-effort: a failed
+   * flush must never fail the mutation that triggered it.
+   */
+  private persist(): void {
+    try {
+      this.persistFn?.();
+    } catch {
+      /* best-effort */
+    }
+  }
+
+  /** Run a mutating statement, then flush to disk. */
+  private mutate(sql: string, params?: any[]): void {
+    dbRun(this.db, sql, params);
+    this.persist();
   }
 
   // ─── Pairing Requests ──────────────────────────────────────
 
   savePairingRequest(request: PairingRequest): void {
-    dbRun(
-      this.db,
+    this.mutate(
       `INSERT OR REPLACE INTO telegram_pairing_requests
        (id, telegram_user_id, telegram_display_name, token, status, created_at, expires_at, approved_at, principal_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -90,14 +109,13 @@ export class TelegramPersistentStore {
   }
 
   deletePairingRequest(id: string): void {
-    dbRun(this.db, 'DELETE FROM telegram_pairing_requests WHERE id = ?', [id]);
+    this.mutate('DELETE FROM telegram_pairing_requests WHERE id = ?', [id]);
   }
 
   // ─── Identity Bindings ─────────────────────────────────────
 
   saveIdentityBinding(binding: TelegramIdentityBinding): void {
-    dbRun(
-      this.db,
+    this.mutate(
       `INSERT OR REPLACE INTO telegram_identity_bindings
        (id, telegram_user_id, telegram_display_name, principal_id, principal_name, created_at, active)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -128,14 +146,13 @@ export class TelegramPersistentStore {
   }
 
   deleteIdentityBinding(id: string): void {
-    dbRun(this.db, 'DELETE FROM telegram_identity_bindings WHERE id = ?', [id]);
+    this.mutate('DELETE FROM telegram_identity_bindings WHERE id = ?', [id]);
   }
 
   // ─── Workspace Bindings ────────────────────────────────────
 
   saveWorkspaceBinding(binding: WorkspaceBinding): void {
-    dbRun(
-      this.db,
+    this.mutate(
       `INSERT OR REPLACE INTO telegram_workspace_bindings
        (id, principal_id, workspace_id, workspace_name, preferred, created_at, last_accessed_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -166,7 +183,7 @@ export class TelegramPersistentStore {
   }
 
   deleteWorkspaceBinding(id: string): void {
-    dbRun(this.db, 'DELETE FROM telegram_workspace_bindings WHERE id = ?', [id]);
+    this.mutate('DELETE FROM telegram_workspace_bindings WHERE id = ?', [id]);
   }
 
   countWorkspaceBindings(principalId: string): number {
@@ -177,7 +194,7 @@ export class TelegramPersistentStore {
   }
 
   clearPreferredWorkspace(principalId: string): void {
-    dbRun(this.db, 'UPDATE telegram_workspace_bindings SET preferred = 0 WHERE principal_id = ? AND preferred = 1', [
+    this.mutate('UPDATE telegram_workspace_bindings SET preferred = 0 WHERE principal_id = ? AND preferred = 1', [
       principalId,
     ]);
   }
@@ -189,8 +206,7 @@ export class TelegramPersistentStore {
     // columns are retained (no migration risk) but permanently NULL — the
     // binding carries identity only. Provider/model binding is resolved per
     // turn from the canonical AgentDefinition, never from this row.
-    dbRun(
-      this.db,
+    this.mutate(
       `INSERT OR REPLACE INTO telegram_conversation_bindings
        (id, principal_id, workspace_id, telegram_chat_id, telegram_chat_type, telegram_chat_title,
         vestara_conversation_id, vestara_conversation_title, status, created_at, last_activity_at,
@@ -261,8 +277,7 @@ export class TelegramPersistentStore {
   // ─── Delivery Queue ──────────────────────────────────────
 
   saveDeliveryRecord(record: DeliveryRecord): void {
-    dbRun(
-      this.db,
+    this.mutate(
       `INSERT OR REPLACE INTO telegram_delivery_queue
        (id, delivery_json, status, attempts, max_attempts, priority, created_at,
         last_attempt_at, last_error, scheduled_retry_at, external_message_id)
@@ -291,14 +306,14 @@ export class TelegramPersistentStore {
         records.push(this.rowToDeliveryRecord(row));
       } catch {
         // Corrupt rows must never break recovery — drop them.
-        dbRun(this.db, 'DELETE FROM telegram_delivery_queue WHERE id = ?', [row.id]);
+        this.mutate('DELETE FROM telegram_delivery_queue WHERE id = ?', [row.id]);
       }
     }
     return records;
   }
 
   deleteDeliveryRecord(id: string): void {
-    dbRun(this.db, 'DELETE FROM telegram_delivery_queue WHERE id = ?', [id]);
+    this.mutate('DELETE FROM telegram_delivery_queue WHERE id = ?', [id]);
   }
 
   // ─── Settings ──────────────────────────────────────────────
@@ -308,7 +323,7 @@ export class TelegramPersistentStore {
    * the shape (e.g. `notifications:<principalId>`).
    */
   saveSettings(key: string, value: unknown): void {
-    dbRun(this.db, `INSERT OR REPLACE INTO telegram_settings (key, value, updated_at) VALUES (?, ?, ?)`, [
+    this.mutate(`INSERT OR REPLACE INTO telegram_settings (key, value, updated_at) VALUES (?, ?, ?)`, [
       key,
       JSON.stringify(value),
       new Date().toISOString(),
@@ -327,7 +342,7 @@ export class TelegramPersistentStore {
   }
 
   deleteSettings(key: string): void {
-    dbRun(this.db, 'DELETE FROM telegram_settings WHERE key = ?', [key]);
+    this.mutate('DELETE FROM telegram_settings WHERE key = ?', [key]);
   }
 
   // ─── Row Mappers ───────────────────────────────────────────

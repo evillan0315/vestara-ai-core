@@ -553,8 +553,9 @@ const MILESTONES: Milestone[] = [
     version: 'v5.4',
     name: 'Multi-Agent Workflow Orchestration Core',
     era: 'Operational',
-    status: 'in_progress',
-    description: 'WorkflowOrchestrator, state machines, durable harness',
+    status: 'completed',
+    description:
+      'WorkflowOrchestrator, state machines, durable harness. PCS-025 Phases 1–3 delivered 2026-08-03 (beba9ff); status reconciled 2026-10-11 (was stale in_progress).',
   },
   // Collaboration Era
   {
@@ -641,9 +642,9 @@ const MILESTONES: Milestone[] = [
     version: 'AR-REPORT',
     name: 'Activity Date-Range Report',
     era: 'Activity Room',
-    status: 'pending',
+    status: 'in_progress',
     description:
-      'Date-range activity report: header report icon opens the reusable Drawer with a timeline view of in-range activities and report details (see docs/VES-ACTIVITY-REPORT-PLAN.md)',
+      'Date-range activity report: header report icon opens the reusable Drawer with a timeline view of in-range activities and report details (see docs/VES-ACTIVITY-REPORT-PLAN.md). Backend range query + drawer timeline landed 2026-10-11; verification phase (vds:validate, screenshots:ci baseline) remains.',
   },
   // CI Observation & Verification
   {
@@ -659,8 +660,17 @@ const MILESTONES: Milestone[] = [
     version: 'VOS-BOOT-001',
     name: 'Unified Boot Experience',
     era: 'OS',
+    status: 'in_progress',
+    description:
+      'GRUB to Plymouth to systemd to desktop. Animated Plymouth boot, GRUB background continuity, and desktop image-builder copy stage landed 2026-10-11; systemd readiness projection, failure presentation, and QEMU validation remain.',
+  },
+  {
+    version: 'VOS-STARTUP-001',
+    name: 'OS Startup Screen',
+    era: 'OS',
     status: 'pending',
-    description: 'GRUB to Plymouth to systemd to desktop',
+    description:
+      'Post-onboarding / login-success Vestara startup screen owning the handoff from boot to Workspace (see docs/VOS-STARTUP-SCREEN-PLAN.md). Plan captured 2026-10-11; implementation not started.',
   },
   // Vestara Live OS Program — governed, reproducible Debian-based Vestara image
   {

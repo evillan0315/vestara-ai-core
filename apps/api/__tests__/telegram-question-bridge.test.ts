@@ -17,6 +17,7 @@ import {
   forwardAssistantQuestion,
   QUESTION_FORWARD_TTL_MS,
   type QuestionDispatchDeps,
+  type QuestionTextDeps,
   TelegramQuestionLedger,
   type TrackedQuestion,
 } from '../src/telegram-question-bridge';
@@ -219,10 +220,24 @@ describe('dispatchQuestionTap', () => {
     });
     expect(deps.taps[0]).toContain('Reply');
   });
+
+  it('awaits asynchronous authorization (canonical-principal resolution)', async () => {
+    // Production isAuthorized resolves the sender through the canonical
+    // principal store — the bridge must await it, never treat the Promise
+    // as truthy. Awaiting a Promise object would authorize everyone.
+    const allow = dispatchDeps({ isAuthorized: async (_entry, sender) => sender === 'tg-operator' });
+    allow.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(allow, tapEvent())).toEqual({ handled: true, outcome: 'selected' });
+
+    const deny = dispatchDeps({ isAuthorized: async () => false });
+    deny.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(deny, tapEvent())).toEqual({ handled: true, outcome: 'unauthorized' });
+    expect(deny.decided).toHaveLength(0);
+  });
 });
 
 describe('answerQuestionByText', () => {
-  function textDeps() {
+  function textDeps(): { decided: Array<{ answers: readonly (readonly string[])[] }>; deps: QuestionTextDeps } {
     const decided: Array<{ answers: readonly (readonly string[])[] }> = [];
     return {
       decided,
@@ -264,8 +279,19 @@ describe('answerQuestionByText', () => {
     expect(decided).toEqual([{ answers: [['eu-west']] }]);
     expect(deps.ledger.size).toBe(0);
   });
-});
 
+  it('awaits asynchronous authorization before answering', async () => {
+    const { deps, decided } = textDeps();
+    deps.isAuthorized = async () => false;
+    deps.ledger.track(tracked());
+    expect(await answerQuestionByText(deps, { chatId: 'chat-1', senderTelegramUserId: 'u', text: '2' })).toEqual({
+      handled: true,
+      outcome: 'unauthorized',
+    });
+    expect(decided).toHaveLength(0);
+    expect(deps.ledger.size).toBe(1);
+  });
+});
 describe('TelegramQuestionLedger', () => {
   it('sweeps expired entries for surfacing', () => {
     const ledger = new TelegramQuestionLedger();
@@ -273,5 +299,71 @@ describe('TelegramQuestionLedger', () => {
     ledger.track(tracked({ messageId: 'new', expiresAt: 9999 }));
     expect(ledger.sweepExpired(500)).toHaveLength(1);
     expect(ledger.size).toBe(1);
+  });
+});
+
+describe('dispatchQuestionTap onResolved', () => {
+  it('reports tap answers with entry, pick, and sender', async () => {
+    const deps = dispatchDeps();
+    const resolutions: Array<{ answers: unknown; sender: string; outcome: string }> = [];
+    deps.onResolved = (resolution) => {
+      resolutions.push({
+        answers: resolution.answers,
+        sender: resolution.senderTelegramUserId,
+        outcome: resolution.outcome,
+      });
+    };
+    deps.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(deps, tapEvent())).toEqual({ handled: true, outcome: 'selected' });
+    expect(await dispatchQuestionTap(deps, tapEvent({ callbackData: 'tq:done' }))).toEqual({
+      handled: true,
+      outcome: 'answered',
+    });
+    expect(resolutions).toEqual([{ answers: [['eu-west']], sender: 'tg-operator', outcome: 'answered' }]);
+  });
+
+  it('reports tap rejections with empty answers', async () => {
+    const deps = dispatchDeps();
+    const resolutions: Array<{ answers: unknown; outcome: string; accepted: boolean }> = [];
+    deps.onResolved = (resolution) => {
+      resolutions.push({ answers: resolution.answers, outcome: resolution.outcome, accepted: resolution.accepted });
+    };
+    deps.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(deps, tapEvent({ callbackData: 'tq:no' }))).toEqual({
+      handled: true,
+      outcome: 'rejected',
+    });
+    expect(resolutions).toHaveLength(1);
+    expect(resolutions[0]).toMatchObject({ answers: [], outcome: 'rejected' });
+  });
+
+  it('stays silent on staging, unauthorized, and stale taps', async () => {
+    const deps = dispatchDeps({
+      onResolved: () => {
+        throw new Error('must not be called');
+      },
+    });
+    deps.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(deps, tapEvent())).toEqual({ handled: true, outcome: 'selected' });
+    expect(await dispatchQuestionTap(deps, tapEvent({ senderTelegramUserId: 'tg-stranger' }))).toEqual({
+      handled: true,
+      outcome: 'unauthorized',
+    });
+    expect(deps.cancelled).toHaveLength(0);
+  });
+
+  it('never lets a throwing observer break resolution', async () => {
+    const deps = dispatchDeps({
+      onResolved: () => {
+        throw new Error('observer down');
+      },
+    });
+    deps.ledger?.track(tracked());
+    expect(await dispatchQuestionTap(deps, tapEvent())).toEqual({ handled: true, outcome: 'selected' });
+    expect(await dispatchQuestionTap(deps, tapEvent({ callbackData: 'tq:done' }))).toEqual({
+      handled: true,
+      outcome: 'answered',
+    });
+    expect(deps.decided).toEqual([{ conversationId: 'conv-1', requestId: 'req-1', answers: [['eu-west']] }]);
   });
 });

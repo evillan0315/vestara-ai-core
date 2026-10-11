@@ -271,6 +271,39 @@ export class TelegramPairingService {
   }
 
   /**
+   * Get a pairing request by its stable request id.
+   * Checks in-memory first, then the persistent store (restart recovery).
+   */
+  getPairingRequestById(id: string): PairingRequest | undefined {
+    const pending = this.pendingRequests.get(id);
+    if (pending) return pending;
+    if (this.store) {
+      const stored = this.store.getPairingRequestById(id);
+      if (stored) {
+        this.pendingRequests.set(stored.id, stored);
+        this.tokenToRequest.set(stored.token, stored.id);
+        return stored;
+      }
+    }
+    return undefined;
+  }
+
+  /**
+   * Cancel a pending pairing request (operator rejection).
+   * Removes it from memory and the persistent store so the user can
+   * `/pair` again immediately instead of waiting for expiry.
+   * Returns true when a request was cancelled.
+   */
+  cancelPairingRequest(id: string): boolean {
+    const request = this.pendingRequests.get(id) ?? this.store?.getPairingRequestById(id);
+    if (!request || request.status !== 'pending') return false;
+    this.pendingRequests.delete(request.id);
+    this.tokenToRequest.delete(request.token);
+    this.store?.deletePairingRequest(request.id);
+    return true;
+  }
+
+  /**
    * Get pending pairing request by token.
    */
   getPendingRequest(token: string): PairingRequest | undefined {

@@ -10,6 +10,111 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-11] — Activity Report, OS Boot, Telegram Bridge, Workflow Graph
+
+### Added
+
+- **AR-REPORT (Activity Date-Range Report, now In Progress)**: plan
+  captured (`docs/VES-ACTIVITY-REPORT-PLAN.md`, `15ecd9d`); bounded
+  `from`/`to` range query over activity records
+  (`packages/activity-room/src/store.ts`, `store-sqlite.ts`,
+  `packages/activity-room/__tests__/activity-range-query.test.ts`,
+  `apps/api/__tests__/activity-range-query.test.ts`); report icon in
+  `ActivityRoomHeader` opening the reusable Drawer; `ActivityReportDrawer`
+  with range select → summary counts → timeline + inline details and
+  `activity-report.fixtures.ts` (`9164846`); viewer-locale bounds,
+  half-bounded windows, strict date validation (`6eae755`).
+  Milestone: `AR-REPORT` pending → in_progress in
+  `packages/workspace/src/milestone-service.ts`; verification phase
+  (`vds:validate`, `screenshots:ci` baseline) remains.
+- **OS boot presentation (VOS-BOOT-001, now In Progress)**: animated
+  Plymouth boot theme (`os/customization/plymouth/vestara.script`), GRUB
+  background continuity (`os/customization/grub/theme.txt`), desktop
+  image-builder copy stage (`scripts/copy-plymouth-assets.sh` new,
+  `scripts/build-vestara-image.sh`) (`886ec08`). Readiness projection,
+  failure presentation, and QEMU validation remain.
+- **VOS-STARTUP-001 (Planned)**: post-onboarding / login-success startup
+  screen plan captured (`docs/VOS-STARTUP-SCREEN-PLAN.md`, `b3c5c9f`);
+  closes the handoff gap between `VOS-BOOT-001`, `VOS-LIVE-001I/001J`,
+  and `v4.0` onboarding. Implementation not started.
+- **Telegram question bridge**: assistant questions forwarded to the bound
+  chat with tap/text answers (`apps/api/src/telegram-question-bridge.ts`,
+  `telegram-question-bridge.test.ts`, `question-projection.ts`,
+  `question-projection.test.ts`) (`5fd75f9`). Follow-on hardening of the
+  complete `VES-TG-001` platform; Telegram remains a participation
+  surface, never an identity or execution authority.
+- **Workflow graph UI projection (v5.4 track)**: Workflow page overhauled
+  on Activity Room grammar (`Orchestration.tsx`,
+  `orchestration-next-action.ts` + test); premium Cytoscape
+  `WorkflowGraph` wired to the Activity Room drawer
+  (`activity-workflow-graph.ts` + test, `ActivityDetailDrawer`,
+  `M11CActivityRoomPage/Stream`, `M11CForwardDialog`,
+  `ActivityRoomSkeleton`); browser-safe graph ID helpers; Cytoscape
+  stylesheet typing follow-up (`4070a40`, `fdadfec`, `ad20303`,
+  `5f3bc0d`).
+- **Overview performance**: loading-performance pass with perf baselines
+  (`apps/workspace/PERF-BASELINE.md`, `performance/*.perf.test.tsx`,
+  route-timing harness) and config-doc update (`f915514`).
+
+### Changed
+
+- **Fail-closed API auth + tunnel (v8.0 track)**: unauthenticated requests
+  rejected by default (`auth.ts`, `server.ts`,
+  `auth-enforcement.test.ts`); cloudflared tunnel autostart
+  (`os/systemd/vestara-api*.service`); public screenshots route
+  (`routes/misc.ts`, `screenshots-route.test.ts`, UI login wiring);
+  Telegram webhook auth hardening (`cded0cf`).
+- **Settings page responsiveness**: full 320px → ultrawide pass
+  (`SettingsPage`, `SettingsReferenceSurface`, `TelegramSimulator`,
+  `settings-ui`, `settings.tokens.css`, `ShellLayoutSettings`,
+  `WorkspaceOperationalPanel`) (`21f9471`).
+- **Conversation store durability**: corrupt conversation DB quarantined,
+  atomic persistence (`906b3e6`).
+- **Activity Room runtime questions**: options selectable and answerable
+  (`M11CRuntimeQuestionNotice.tsx`, `m11a-api.ts`,
+  `activity-room.css`) (`81b0f04`).
+- **Workspace cleanup**: dead components removed (`EmptyState`,
+  `ShellLayout-tobe-deleted`), dev-guard profiler logging removed
+  (`512dc03`).
+
+### Fixed
+
+- **Telegram question answers rejected for the paired operator
+  (VES-TG-001 follow-on)**: the bridge authorized answers against the raw
+  pairing principal while the ledger records the canonical principal
+  (`resolveTelegramIdentity` prefers the external-identity-linked
+  principal over the approval-time one), so legitimately paired operators
+  got "Only the paired operator can answer." `isAuthorized` is now async
+  and resolves the sender through the canonical principal store before
+  comparing, with a raw-principal fallback when the store is unavailable;
+  fail-closed semantics unchanged (unpaired senders and bystanders still
+  rejected). Covered by new async-auth tests in
+  `telegram-question-bridge.test.ts` (14/14 pass) plus adjacent
+  identity/forward/command/projection suites (36/36 pass).
+
+### Verified
+
+- New suites: activity range query (store + API), report drawer/header,
+  telegram question bridge + projection, webhook auth, auth enforcement,
+  screenshots route, overview/activity-settings perf, workflow graph +
+  next-action, shell-loading path.
+- Milestones aligned: `AR-REPORT` → in_progress, `VOS-BOOT-001` →
+  in_progress, `VOS-STARTUP-001` added (pending) in
+  `packages/workspace/src/milestone-service.ts`; `docs/MILESTONES.md`
+  (v1.1.0) gains the AR-REPORT section, VOS-BOOT-001 progress record,
+  VOS-STARTUP-001 section, v5.4 UI-projection note, and v8.0 auth
+  evidence; `docs/IMPLEMENTATION_STATUS.md` (v1.1.0) version table
+  extended.
+- **v5.4 status reconciled**: `MILESTONES.md` ("Partial / Phases 2–3
+  pending") and `milestone-service.ts` (`in_progress`) were stale since
+  2026-08-03 — `beba9ff` delivered PCS-025 Phases 1–3 and flipped only
+  `IMPLEMENTATION_STATUS.md` + PCS docs, missing `MILESTONES.md`; the
+  service entry (added 2026-09-11) re-seeded the stale text. Both now
+  ✅ Complete with evidence citations; `IMPLEMENTATION_STATUS.md` was
+  already correct and is unchanged.
+
+---
+
 ## [VESTARA-CHECKPOINT-003] — 2026-09-24 — Activity Room Coordination and Edit Inspection
 
 ### Added

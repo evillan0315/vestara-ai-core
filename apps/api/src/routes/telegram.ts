@@ -25,6 +25,7 @@ import * as path from 'node:path';
 import { migrate } from '@vestara/sqlite-migrations';
 import type { ChannelMessage, ConversationBinding, ProjectedQuestion, StreamSink } from '@vestara/telegram-integration';
 import {
+  type CommandContext,
   cloudflaredArgs,
   DEFAULT_TUNNEL_CONFIG,
   GlobalAssistantTextRouter,
@@ -37,6 +38,7 @@ import {
   TELEGRAM_ASSISTANT_AGENT_ID,
   TELEGRAM_MANIFEST,
   TelegramAdapter,
+  TelegramCommandRegistry,
   TelegramConversationBindingService,
   TelegramNotificationPolicy,
   TelegramPairingService,
@@ -52,11 +54,16 @@ import {
 } from '@vestara/telegram-integration';
 import { resolveAssistantIdentity } from '../assistant-identity';
 import { authenticate, requireRole } from '../auth';
+import {
+  createTelegramPairingInteractionBridge,
+  presentTelegramPairingApproval,
+} from '../bridges/telegram-pairing-interaction-bridge';
 import { enrollTelegramIdentity, resolveTelegramIdentity } from '../telegram-identity';
 import {
   answerQuestionByText,
   dispatchQuestionTap,
   forwardAssistantQuestion,
+  type QuestionResolution,
   type TrackedQuestion,
 } from '../telegram-question-bridge';
 import type { WorkspaceContext } from '../workspace-context';
@@ -71,6 +78,7 @@ let conversationBindingService: TelegramConversationBindingService | null = null
 let textRouter: GlobalAssistantTextRouter | null = null;
 let store: TelegramPersistentStore | null = null;
 let workspaceContext: WorkspaceContext | null = null;
+let pairingInteractionBridge: { dispose: () => void } | null = null;
 
 /** Settings key for the operator-scoped notification preferences (TG-018/023). */
 const NOTIFICATION_SETTINGS_KEY = 'notifications:default';
@@ -249,7 +257,25 @@ function getWebhookHandler(): TelegramWebhookHandler {
   return webhookHandler;
 }
 
-function getPairingService(): TelegramPairingService {
+/**
+ * Flush the in-memory sql.js Telegram database to `telegram.db` after every
+ * mutation. Previously persistence only ran inside `migrate()` at boot, so
+ * pairing approvals and bindings lived only in memory until the next restart.
+ * Best-effort: a failed flush must never fail the mutation (Telegram db is
+ * ~100KB; human-scale write frequency).
+ */
+function persistTelegramDb(db: any, dbPath: string): void {
+  try {
+    const data = db.export();
+    fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+    fs.writeFileSync(dbPath, Buffer.from(data));
+  } catch {
+    /* best-effort */
+  }
+}
+
+// Exported for unit tests (TG-031 mirror coverage) — the HTTP surface is unchanged.
+export function getPairingService(): TelegramPairingService {
   if (!pairingService) {
     pairingService = new TelegramPairingService({ store: store ?? undefined });
   }
@@ -395,7 +421,9 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
     },
   });
 
-  store = new TelegramPersistentStore(db);
+  store = new TelegramPersistentStore(db, {
+    persist: () => persistTelegramDb(db, dbPath),
+  });
 
   // Rehydrate operator notification preferences (TG-018/023).
   const storedNotifications = store.getSettings(NOTIFICATION_SETTINGS_KEY);
@@ -423,6 +451,23 @@ export async function initTelegramRoute(dbPath: string, ctx: WorkspaceContext): 
   workspaceBindingService = new TelegramWorkspaceBindingService({ store });
   conversationBindingService = new TelegramConversationBindingService({ store });
   textRouter = null; // will be recreated with backend on first use
+
+  // One-click pairing approval in the Activity Room: every /pair request is
+  // presented as an Approve/Reject interaction. Best-effort — never fails boot.
+  try {
+    pairingInteractionBridge?.dispose();
+    pairingInteractionBridge = createTelegramPairingInteractionBridge({
+      eventBus: ctx.eventBus,
+      interactionService: ctx.interactionService,
+      pairing: pairingService,
+      principals: ctx.humanPrincipals,
+      mirror: (text) => {
+        void mirrorTelegramReplyToActivityRoom(text);
+      },
+    });
+  } catch (error) {
+    console.warn('[telegram] pairing approval bridge failed', error instanceof Error ? error.message : error);
+  }
 
   console.log('[telegram] route initialized with persistent store');
 
@@ -665,10 +710,26 @@ export async function forwardAssistantQuestionToTelegram(input: AssistantQuestio
   }
 }
 
-/** The tapping sender must hold the active pairing behind the question. */
-function isQuestionSenderAuthorized(entry: TrackedQuestion, senderTelegramUserId: string): boolean {
-  const binding = getPairingService().getBindingByTelegramId(senderTelegramUserId);
-  return !!binding?.active && binding.principalId === entry.principalId;
+/**
+ * The answering sender must own the question through the canonical
+ * principal. The ledger records the canonical principal (conversation
+ * bindings are created with it), while the pairing record carries the raw
+ * approval-time principal — resolve before comparing, never raw-to-canonical.
+ * Without a principal store the check falls back to the raw pairing
+ * principal (previous behavior).
+ */
+async function isQuestionSenderAuthorized(
+  entry: TrackedQuestion,
+  senderTelegramUserId: string,
+  principals: WorkspaceContext['humanPrincipals'] | undefined,
+): Promise<boolean> {
+  const pairing = getPairingService().getBindingByTelegramId(senderTelegramUserId);
+  if (!pairing?.active) return false;
+  if (principals) {
+    const resolved = await resolveTelegramIdentity(pairing, principals).catch(() => undefined);
+    if (resolved) return resolved.principal.id === entry.principalId;
+  }
+  return pairing.principalId === entry.principalId;
 }
 
 /**
@@ -707,10 +768,23 @@ export async function dispatchTelegramQuestionTap(ctx: WorkspaceContext, rawBody
   const adapter = new TelegramAdapter({ botToken });
   const outcome = await dispatchQuestionTap(
     {
-      isAuthorized: isQuestionSenderAuthorized,
+      isAuthorized: (entry, sender) => isQuestionSenderAuthorized(entry, sender, ctx.humanPrincipals),
       decide: (conversationId, requestId, answers) =>
         ctx.assistantInteractionBroker.decideQuestion(conversationId, requestId, { answers }),
       cancel: (conversationId, requestId) => ctx.assistantInteractionBroker.cancelQuestion(conversationId, requestId),
+      // Question-answer mirror: tap resolutions left no Room trace (the
+      // typed path reports through confirmMessage below). Best-effort.
+      onResolved: (resolution: QuestionResolution) => {
+        void mirrorTelegramReplyToActivityRoom(
+          buildQuestionAnswerMirrorMessage({
+            question: resolution.entry.questions[0]?.question ?? 'Question',
+            picked: resolution.answers.map((row) => [...row].join(', ')).join(' · '),
+            senderLabel: resolution.senderTelegramUserId,
+            accepted: resolution.accepted,
+            outcome: resolution.outcome,
+          }),
+        );
+      },
       answerTap: async (id, text) => {
         await adapter.answerCallbackQuery(id, text);
       },
@@ -734,8 +808,11 @@ export async function dispatchTelegramQuestionTap(ctx: WorkspaceContext, rawBody
  * Answer a forwarded question from a typed chat reply. Returns
  * `passthrough` for everything that is not a live question answer, so
  * normal chat routing continues untouched.
+ *
+ * Exported for unit tests (answer-mirror coverage) — the HTTP surface is
+ * unchanged.
  */
-async function tryAnswerForwardedQuestionByText(
+export async function tryAnswerForwardedQuestionByText(
   message: ChannelMessage,
 ): Promise<{ readonly status: 'answered' | 'unauthorized' | 'passthrough' }> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
@@ -743,7 +820,7 @@ async function tryAnswerForwardedQuestionByText(
   const adapter = new TelegramAdapter({ botToken });
   const outcome = await answerQuestionByText(
     {
-      isAuthorized: isQuestionSenderAuthorized,
+      isAuthorized: (entry, sender) => isQuestionSenderAuthorized(entry, sender, workspaceContext?.humanPrincipals),
       decide: (conversationId, requestId, answers) =>
         workspaceContext?.assistantInteractionBroker.decideQuestion(conversationId, requestId, { answers }) ?? false,
       confirmMessage: async (entry, answers, accepted) => {
@@ -759,6 +836,18 @@ async function tryAnswerForwardedQuestionByText(
           priority: 'normal',
         });
         if (!edited.success) await adapter.sendTextMessage(entry.chatId, text);
+        // Question-answer mirror: the raw typed answer was already
+        // projected as inbound; project the resolution so the Room shows
+        // what it meant and whether the broker accepted it.
+        void mirrorTelegramReplyToActivityRoom(
+          buildQuestionAnswerMirrorMessage({
+            question: entry.questions[0]?.question ?? 'Question',
+            picked,
+            senderLabel: message.sender.displayName ?? message.sender.externalId,
+            accepted,
+            outcome: 'answered',
+          }),
+        );
       },
     },
     {
@@ -775,15 +864,131 @@ async function tryAnswerForwardedQuestionByText(
  * Parse a Telegram bot command from message text. Returns the command
  * name for known commands, null otherwise. Handles `@BotName` suffixes
  * (group chats) and trailing args; case-insensitive.
- * Pure — safe to unit test.
+ * `/pair` + `/start` are API-owned (pairing-code flow); `/help`,
+ * `/status`, `/workspace`, `/conversations` are read-only projections
+ * over the TG-012 registry. Anything else falls through to normal chat
+ * routing. Pure — safe to unit test.
  */
-export function parseTelegramCommandText(text: string | undefined): 'pair' | 'start' | null {
+export type TelegramBotCommand = 'pair' | 'start' | 'help' | 'status' | 'workspace' | 'conversations';
+
+export function parseTelegramCommandText(text: string | undefined): TelegramBotCommand | null {
   if (!text) return null;
   const first = text.trim().split(/\s+/)[0] ?? '';
   const cmd = first.split('@')[0]?.toLowerCase();
-  if (cmd === '/pair') return 'pair';
-  if (cmd === '/start') return 'start';
-  return null;
+  switch (cmd) {
+    case '/pair':
+      return 'pair';
+    case '/start':
+      return 'start';
+    case '/help':
+      return 'help';
+    case '/status':
+      return 'status';
+    case '/workspace':
+      return 'workspace';
+    case '/conversations':
+      return 'conversations';
+    default:
+      return null;
+  }
+}
+
+/** Args after the `/command[@Bot]` head. Pure — safe to unit test. */
+export function parseTelegramCommandArgs(text: string | undefined): string[] {
+  if (!text) return [];
+  return text.trim().split(/\s+/).slice(1);
+}
+
+let commandRegistry: TelegramCommandRegistry | null = null;
+
+/**
+ * TG-012 registry wired to the live binding authorities. Read-only
+ * projections only — `/pair` and `/start` stay API-owned (pairing-code
+ * issuance + Room mirror of the code).
+ */
+function getCommandRegistry(): TelegramCommandRegistry {
+  if (!commandRegistry) {
+    commandRegistry = new TelegramCommandRegistry({
+      providers: {
+        workspaceBindings: getWorkspaceBindingService(),
+        conversationBindings: getConversationBindingService(),
+      },
+    });
+  }
+  return commandRegistry;
+}
+
+/**
+ * Resolve the caller's principal for info commands: canonical identity
+ * when the store is available, raw pairing principal otherwise (same
+ * fallback as the question-bridge authorization). Unpaired callers get
+ * undefined and the registry answers with its "need to pair" copy.
+ */
+async function resolveCommandPrincipalId(
+  telegramUserId: string,
+  principals: WorkspaceContext['humanPrincipals'] | undefined,
+): Promise<string | undefined> {
+  const pairing = getPairingService().getBindingByTelegramId(telegramUserId);
+  if (!pairing?.active) return undefined;
+  if (principals) {
+    const resolved = await resolveTelegramIdentity(pairing, principals).catch(() => undefined);
+    if (resolved) return resolved.principal.id;
+  }
+  return pairing.principalId;
+}
+
+/**
+ * The Bot API relay sends plain text — drop the registry's `**`
+ * emphasis markers so users never see literal asterisks. Pure.
+ */
+export function stripTelegramMarkdown(text: string): string {
+  return text.replace(/\*\*/g, '');
+}
+
+/**
+ * Deliver an info-command reply over the Bot API and project it into
+ * the Activity Room (same TG-031 bridge as /pair + /start).
+ * Best-effort: never throws, never fails the command path.
+ */
+async function deliverCommandReply(chatId: string, text: string): Promise<void> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken) {
+    try {
+      await new TelegramAdapter({ botToken }).sendTextMessage(chatId, text);
+    } catch (error) {
+      console.warn('[telegram] command reply delivery failed', error instanceof Error ? error.message : error);
+    }
+  }
+  void mirrorTelegramReplyToActivityRoom(text);
+}
+
+/**
+ * Execute a read-only info command through the TG-012 registry and relay
+ * the reply (Bot API send + Room mirror). The registry enforces pairing
+ * itself, so unpaired callers get its "need to pair" copy.
+ */
+async function runInfoCommand(
+  message: ChannelMessage,
+  command: 'help' | 'status' | 'workspace' | 'conversations',
+  ctx: WorkspaceContext | undefined,
+): Promise<{
+  status: 'command-answered';
+  command: 'help' | 'status' | 'workspace' | 'conversations';
+  success: boolean;
+}> {
+  const chatId = message.conversation.externalId;
+  const principalId = await resolveCommandPrincipalId(message.sender.externalId, ctx?.humanPrincipals);
+  const chatType = message.conversation.type;
+  const context: CommandContext = {
+    telegramUserId: message.sender.externalId,
+    telegramChatId: chatId,
+    telegramChatType: chatType === 'channel' ? 'group' : chatType,
+    ...(principalId ? { principalId } : {}),
+    args: parseTelegramCommandArgs(message.text),
+  };
+  const result = await getCommandRegistry().executeCommand(command, context);
+  await deliverCommandReply(chatId, stripTelegramMarkdown(result.response));
+  return { status: 'command-answered', command, success: result.success };
 }
 
 /**
@@ -793,15 +998,27 @@ export function parseTelegramCommandText(text: string | undefined): 'pair' | 'st
  * only reached the webhook HTTP response — the user saw silence and
  * retried forever. Commands are handled before identity resolution so
  * unpaired users always get a visible answer.
+ *
+ * TG-031: every reply built here is also projected into the Activity Room
+ * via `mirrorTelegramReplyToActivityRoom` so the operator surface shows
+ * the pairing code. Projection-only — the Bot API send stays the delivery
+ * authority and mirroring never fails the command path.
+ *
+ * Read-only info commands (`help`/`status`/`workspace`/`conversations`)
+ * execute through the TG-012 registry with the live binding authorities;
+ * the registry enforces pairing itself, so unpaired callers get its
+ * "need to pair" copy — never silence.
  */
-async function handleTelegramCommand(
+export async function handleTelegramCommand(
   message: ChannelMessage,
-  command: 'pair' | 'start',
+  command: TelegramBotCommand,
+  ctx?: WorkspaceContext,
 ): Promise<
   | { status: 'started'; paired: boolean }
   | { status: 'already-paired'; principalId: string }
   | { status: 'pairing-requested'; pairingId: string; expiresAt: string }
   | { status: 'pairing-failed'; error: string }
+  | { status: 'command-answered'; command: 'help' | 'status' | 'workspace' | 'conversations'; success: boolean }
 > {
   const pairing = getPairingService();
   const telegramUserId = message.sender.externalId;
@@ -814,49 +1031,90 @@ async function handleTelegramCommand(
 
   if (command === 'start') {
     const paired = !!existing?.active;
+    const text = paired
+      ? `Hello ${displayName}! Your Telegram is paired with Vestara — just send a message.`
+      : "Hello! I'm the Vestara assistant bot.\n\nSend /pair to link your Telegram account. You'll get a code to share with your Vestara operator for approval.";
     if (adapter) {
-      await adapter.sendTextMessage(
-        chatId,
-        paired
-          ? `Hello ${displayName}! Your Telegram is paired with Vestara — just send a message.`
-          : "Hello! I'm the Vestara assistant bot.\n\nSend /pair to link your Telegram account. You'll get a code to share with your Vestara operator for approval.",
-      );
+      await adapter.sendTextMessage(chatId, text);
     }
+    // TG-031: project the reply into the Activity Room so the operator
+    // surface shows what the user was told. Best-effort, never fails.
+    void mirrorTelegramReplyToActivityRoom(text);
     return { status: 'started', paired };
   }
 
+  // Read-only info commands run before the pairing flow: the registry
+  // enforces pairing itself, and a paired /status must report status —
+  // not fall into the already-paired /pair notice below.
+  if (command === 'help') return runInfoCommand(message, 'help', ctx);
+  if (command === 'status') return runInfoCommand(message, 'status', ctx);
+  if (command === 'workspace') return runInfoCommand(message, 'workspace', ctx);
+  if (command === 'conversations') return runInfoCommand(message, 'conversations', ctx);
+
   if (existing?.active) {
+    const text = `You're already paired as ${existing.principalName} — just send a message.`;
     if (adapter) {
-      await adapter.sendTextMessage(
-        chatId,
-        `You're already paired as ${existing.principalName} — just send a message.`,
-      );
+      await adapter.sendTextMessage(chatId, text);
     }
+    // TG-031: same Room projection as above.
+    void mirrorTelegramReplyToActivityRoom(text);
     return { status: 'already-paired', principalId: existing.principalId };
   }
 
   try {
     const request = pairing.createPairingRequest(telegramUserId, displayName);
     const mins = Math.max(1, Math.round((Date.parse(request.expiresAt) - Date.now()) / 60000));
+    const text = `Your Vestara pairing code:\n\n${request.token}\n\nShare it with your Vestara operator to approve (expires in ~${mins} min). Then just send me a message.`;
     if (adapter) {
-      await adapter.sendTextMessage(
-        chatId,
-        `Your Vestara pairing code:\n\n${request.token}\n\nShare it with your Vestara operator to approve (expires in ~${mins} min). Then just send me a message.`,
-      );
+      await adapter.sendTextMessage(chatId, text);
+    }
+    // TG-031: the pairing code must be visible on the operator surface —
+    // Details on the mirrored /pair row now shows this agent reply.
+    void mirrorTelegramReplyToActivityRoom(text);
+    // One-click Room approval: present an Approve/Reject interaction.
+    // Best-effort and skippable (tests call without ctx) — never fails /pair.
+    if (ctx?.interactionService) {
+      void presentTelegramPairingApproval(ctx.interactionService, {
+        pairingId: request.id,
+        telegramUserId,
+        telegramDisplayName: displayName,
+        token: request.token,
+        expiresAt: request.expiresAt,
+      });
     }
     return { status: 'pairing-requested', pairingId: request.id, expiresAt: request.expiresAt };
   } catch (error) {
     const reason = error instanceof Error ? error.message : 'Pairing failed';
+    const text =
+      reason === 'Maximum pending pairing requests reached'
+        ? 'You already have a pending pairing request — ask your Vestara operator to approve it.'
+        : `Pairing failed: ${reason}`;
     if (adapter) {
-      await adapter.sendTextMessage(
-        chatId,
-        reason === 'Maximum pending pairing requests reached'
-          ? 'You already have a pending pairing request — ask your Vestara operator to approve it.'
-          : `Pairing failed: ${reason}`,
-      );
+      await adapter.sendTextMessage(chatId, text);
     }
+    // TG-031: project the failure reply too, so the Room never implies silence.
+    void mirrorTelegramReplyToActivityRoom(text);
     return { status: 'pairing-failed', error: reason };
   }
+}
+
+/**
+ * Single-flight the Activity Room bridge imports (TG-032). The Telegram
+ * pipeline fires mirrors fire-and-forget, so the incoming and reply
+ * mirrors overlap in flight — sharing one module namespace avoids
+ * duplicate loads and keeps every mirror on the same bridge.
+ */
+let mirrorBridgePromise: Promise<
+  readonly [typeof import('./activity-room-m11a.js'), typeof import('@vestara/activity-room')]
+> | null = null;
+
+function loadMirrorBridge(): Promise<
+  readonly [typeof import('./activity-room-m11a.js'), typeof import('@vestara/activity-room')]
+> {
+  if (!mirrorBridgePromise) {
+    mirrorBridgePromise = Promise.all([import('./activity-room-m11a.js'), import('@vestara/activity-room')]);
+  }
+  return mirrorBridgePromise;
 }
 
 /**
@@ -870,10 +1128,7 @@ async function mirrorTelegramIncomingToActivityRoom(message: ChannelMessage): Pr
   try {
     const text = message.text?.trim();
     if (!text) return;
-    const [{ getM11ARoom }, { fromHumanMessage }] = await Promise.all([
-      import('./activity-room-m11a.js'),
-      import('@vestara/activity-room'),
-    ]);
+    const [{ getM11ARoom }, { fromHumanMessage }] = await loadMirrorBridge();
     const displayName = message.sender.displayName ?? message.sender.externalId;
     await getM11ARoom().store.append(
       fromHumanMessage({
@@ -896,10 +1151,7 @@ async function mirrorTelegramIncomingToActivityRoom(message: ChannelMessage): Pr
  */
 async function mirrorTelegramReplyToActivityRoom(response: string): Promise<void> {
   try {
-    const [{ getM11ARoom }, { fromAgentLifecycle }] = await Promise.all([
-      import('./activity-room-m11a.js'),
-      import('@vestara/activity-room'),
-    ]);
+    const [{ getM11ARoom }, { fromAgentLifecycle }] = await loadMirrorBridge();
     await getM11ARoom().store.append(
       fromAgentLifecycle({
         agentId: 'agent-assistant',
@@ -912,6 +1164,101 @@ async function mirrorTelegramReplyToActivityRoom(response: string): Promise<void
   } catch (error) {
     console.warn('[telegram] activity mirror (reply) failed', error instanceof Error ? error.message : error);
   }
+}
+
+/**
+ * TG-032: user-visible copy for every guard rejection in
+ * `processTelegramMessage`. Previously guard failures only reached the
+ * webhook HTTP response — the Telegram user saw silence and the operator
+ * saw nothing. Every guard below now delivers a visible reply over the
+ * Bot API and projects it into the Activity Room (same TG-031 bridge).
+ * Internal identifiers (telegram user IDs, principal IDs) stay in the
+ * HTTP response + logs; chat copy is generic by design.
+ */
+export type TelegramGuardFailureStatus =
+  | 'unpaired'
+  | 'unresolved-identity'
+  | 'question-unauthorized'
+  | 'no-workspace'
+  | 'conversation-limit'
+  | 'not-configured'
+  | 'queued'
+  | 'rejected'
+  | 'failed';
+
+/** Max user-facing error detail characters (TG-032) — bounds Bot API + Room copy. */
+const GUARD_DETAIL_MAX_LENGTH = 300;
+
+/**
+ * Build the user-visible copy for a guard rejection.
+ * Pure — safe to unit test.
+ */
+export function buildGuardFailureReply(status: TelegramGuardFailureStatus, detail?: string): string {
+  const clean = (detail ?? '').trim().replace(/\s+/g, ' ');
+  const short = clean.length > GUARD_DETAIL_MAX_LENGTH ? `${clean.slice(0, GUARD_DETAIL_MAX_LENGTH)}…` : clean;
+  switch (status) {
+    case 'unpaired':
+      return "You're not paired with Vestara yet.\n\nSend /pair to link your Telegram account — you'll get a code to share with your Vestara operator for approval.";
+    case 'unresolved-identity':
+      return 'Your Telegram is paired but not linked to a Vestara operator identity yet — ask your operator to finish enrollment, then try again.';
+    case 'question-unauthorized':
+      return 'Only the paired operator can answer that question.';
+    case 'no-workspace':
+      return 'No workspace is linked to your account yet — ask your Vestara operator to link one, then try again.';
+    case 'conversation-limit':
+      return 'This chat reached the maximum linked conversations — ask your operator to reset the binding, then try again.';
+    case 'not-configured':
+      return "The Telegram assistant isn't ready right now — try again in a bit.";
+    case 'queued':
+      return 'Working on it — your request is queued and the reply will land here.';
+    case 'rejected':
+      return short ? `That was rejected: ${short}` : 'That was rejected by policy.';
+    case 'failed':
+      return short ? `That run failed: ${short}` : 'That run failed — try again.';
+  }
+}
+
+/**
+ * Deliver a guard rejection to the user over the Bot API and project it
+ * into the Activity Room. Best-effort: never throws, never fails the
+ * pipeline. Exported for unit tests (TG-032 coverage) — the HTTP surface
+ * is unchanged.
+ */
+export async function notifyGuardFailure(chatId: string, text: string): Promise<void> {
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  if (botToken) {
+    try {
+      await new TelegramAdapter({ botToken }).sendTextMessage(chatId, text);
+    } catch (error) {
+      console.warn('[telegram] guard reply delivery failed', error instanceof Error ? error.message : error);
+    }
+  }
+  // Project the reply into the Activity Room so the operator surface
+  // shows what the user was told. Fire-and-forget: never fails.
+  void mirrorTelegramReplyToActivityRoom(text);
+}
+
+/**
+ * Build the Activity Room copy for a Telegram-resolved assistant
+ * question (tap or typed answer). Pure — safe to unit test. The user's
+ * raw answer text was already projected as inbound; this projects the
+ * resolution (what it meant, who sent it, whether the broker accepted
+ * it) so the operator surface shows the outcome.
+ */
+export interface TelegramQuestionAnswerMirror {
+  readonly question: string;
+  readonly picked: string;
+  readonly senderLabel: string;
+  readonly accepted: boolean;
+  readonly outcome: 'answered' | 'rejected';
+}
+
+export function buildQuestionAnswerMirrorMessage(mirror: TelegramQuestionAnswerMirror): string {
+  const who = mirror.senderLabel.trim() || 'unknown sender';
+  const what = mirror.question.trim() || 'Question';
+  if (mirror.outcome === 'rejected') return `[Telegram] ${who} rejected "${what}"`;
+  const verdict = mirror.accepted ? '' : ' (already resolved in the app)';
+  return `[Telegram] ${who} answered "${what}": ${mirror.picked}${verdict}`;
 }
 
 /**
@@ -938,10 +1285,7 @@ export async function mirrorTelegramForwardToActivityRoom(
   operator: { readonly id: string; readonly name: string },
 ): Promise<void> {
   try {
-    const [{ getM11ARoom }, { fromHumanMessage }] = await Promise.all([
-      import('./activity-room-m11a.js'),
-      import('@vestara/activity-room'),
-    ]);
+    const [{ getM11ARoom }, { fromHumanMessage }] = await loadMirrorBridge();
     await getM11ARoom().store.append(
       fromHumanMessage({
         message: buildForwardMirrorMessage(chatId, text),
@@ -962,8 +1306,14 @@ export async function mirrorTelegramForwardToActivityRoom(
  * 3. Resolve or create conversation binding (chat -> Vestara conversation)
  * 4. Route through GlobalAssistantTextRouter
  * 5. Return the execution result
+ *
+ * TG-032: every guard rejection below delivers a user-visible reply over
+ * the Bot API and mirrors it into the Activity Room via
+ * `notifyGuardFailure` — the HTTP error alone is silence to the user.
+ * Exported for unit tests (TG-032 guard coverage) — the HTTP surface is
+ * unchanged.
  */
-async function processTelegramMessage(
+export async function processTelegramMessage(
   message: ChannelMessage,
   ctx: WorkspaceContext,
 ): Promise<{
@@ -987,15 +1337,20 @@ async function processTelegramMessage(
   // 0. Bot commands are answered directly — before the identity guard,
   // which would otherwise swallow them into silence (its error only
   // reaches the webhook HTTP response, never the user's chat).
+  // `/pair` + `/start` are API-owned; `/help`, `/status`, `/workspace`,
+  // `/conversations` execute through the TG-012 registry. Everything
+  // else falls through to the identity guard and normal routing.
   const command = parseTelegramCommandText(message.text);
-  if (command === 'pair' || command === 'start') {
-    return handleTelegramCommand(message, command);
+  if (command) {
+    return handleTelegramCommand(message, command, ctx);
   }
 
   // 1. Resolve identity
   const telegramUserId = message.sender.externalId;
   const identity = pairing.getBindingByTelegramId(telegramUserId);
   if (!identity) {
+    // TG-032: unpaired users must see this — the HTTP error alone is silence.
+    void notifyGuardFailure(message.conversation.externalId, buildGuardFailureReply('unpaired'));
     return {
       status: 'unpaired',
       error: `Telegram user ${telegramUserId} is not paired. Use /pair to link your account.`,
@@ -1007,6 +1362,8 @@ async function processTelegramMessage(
   // otherwise this request remains unresolved and cannot enter routing.
   const resolvedIdentity = await resolveTelegramIdentity(identity, ctx.humanPrincipals);
   if (!resolvedIdentity) {
+    // TG-032: same silence problem as unpaired — tell the user.
+    void notifyGuardFailure(message.conversation.externalId, buildGuardFailureReply('unresolved-identity'));
     return {
       status: 'unresolved-identity',
       error: `Telegram user ${telegramUserId} has no canonical Vestara principal binding.`,
@@ -1023,6 +1380,8 @@ async function processTelegramMessage(
     return { status: 'question-answered' };
   }
   if (textAnswer.status === 'unauthorized') {
+    // TG-032: unauthorized answers were silent to the user.
+    void notifyGuardFailure(message.conversation.externalId, buildGuardFailureReply('question-unauthorized'));
     return { status: 'question-unauthorized', error: 'Only the paired operator can answer this question.' };
   }
 
@@ -1042,6 +1401,8 @@ async function processTelegramMessage(
     workspace = rereadCanonicalWorkspace(wsBindings, canonicalPrincipalId);
   }
   if (!workspace) {
+    // TG-032: paired but workspace-less users must see this.
+    void notifyGuardFailure(message.conversation.externalId, buildGuardFailureReply('no-workspace'));
     return {
       status: 'no-workspace',
       error: `No workspace bound for principal ${canonicalPrincipalId}.`,
@@ -1056,6 +1417,8 @@ async function processTelegramMessage(
   if (!conversation) {
     // Auto-create a new Vestara conversation
     if (!convBindings.canCreateConversation(chatId)) {
+      // TG-032: the limit error must reach the chat, not just the webhook log.
+      void notifyGuardFailure(chatId, buildGuardFailureReply('conversation-limit'));
       return {
         status: 'conversation-limit',
         error: 'Maximum conversations per chat reached.',
@@ -1081,6 +1444,8 @@ async function processTelegramMessage(
   // on the final text. Gating (rate limit, concurrency, closed) is
   // enforced inside routeStream — identical to the single-shot path.
   if (!router) {
+    // TG-032: misconfiguration must be visible in the chat + Room.
+    void notifyGuardFailure(message.conversation.externalId, buildGuardFailureReply('not-configured'));
     return {
       status: 'not-configured',
       error: 'Telegram text router not initialized.',
@@ -1160,15 +1525,35 @@ async function processTelegramMessage(
   if (typingTimer) clearInterval(typingTimer);
 
   if (routeResult.status === 'queued') {
+    // TG-032: without this the user stares at the "thinking" placeholder
+    // with no Room record of the outcome.
+    void notifyGuardFailure(streamChatId, buildGuardFailureReply('queued'));
     return { status: 'queued', conversationId: routeResult.conversationId };
   }
   if (routeResult.status === 'rejected') {
+    // TG-032: clear the stale "thinking" placeholder with the refusal and
+    // mirror it — exactly one Room record either way.
+    const text = buildGuardFailureReply('rejected', routeResult.error);
+    if (adapter && placeholderId) {
+      const edited = await adapter.editTextMessage(streamChatId, placeholderId, text);
+      if (!edited) void notifyGuardFailure(streamChatId, text);
+      else void mirrorTelegramReplyToActivityRoom(text);
+    } else {
+      void notifyGuardFailure(streamChatId, text);
+    }
     return { status: 'rejected', error: routeResult.error, conversationId: routeResult.conversationId };
   }
   if (routeResult.status === 'failed') {
+    // TG-032: the placeholder edit is the user-visible signal; mirror it
+    // so the Room shows the failure instead of implying silence.
+    const text = buildGuardFailureReply('failed', routeResult.error);
     // Don't leave a stale placeholder behind on execution failure.
     if (adapter && placeholderId) {
-      await adapter.editTextMessage(streamChatId, placeholderId, '(assistant error — try again)');
+      const edited = await adapter.editTextMessage(streamChatId, placeholderId, text);
+      if (!edited) void notifyGuardFailure(streamChatId, text);
+      else void mirrorTelegramReplyToActivityRoom(text);
+    } else {
+      void notifyGuardFailure(streamChatId, text);
     }
     return { status: 'failed', error: routeResult.error, conversationId: routeResult.conversationId };
   }

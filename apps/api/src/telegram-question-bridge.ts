@@ -176,8 +176,11 @@ export interface QuestionTapEvent {
 export interface QuestionDispatchDeps {
   readonly ledger?: TelegramQuestionLedger;
   readonly now?: () => number;
-  /** Paired-principal check: the tapping sender must own the question. */
-  readonly isAuthorized: (entry: TrackedQuestion, senderTelegramUserId: string) => boolean;
+  /**
+   * Paired-principal check: the tapping sender must own the question.
+   * May resolve asynchronously (e.g. canonical-principal resolution).
+   */
+  readonly isAuthorized: (entry: TrackedQuestion, senderTelegramUserId: string) => boolean | Promise<boolean>;
   /** Resolve through the broker. Answers mirror POST /questions/:id. */
   readonly decide: (conversationId: string, requestId: string, answers: readonly (readonly string[])[]) => boolean;
   /** Release the broker wait without answers (adapter fail-safe rejects). */
@@ -189,6 +192,34 @@ export interface QuestionDispatchDeps {
     text: string,
     keyboard?: readonly ChannelButton[][],
   ) => Promise<void>;
+  /**
+   * Observer for broker resolutions (tap path). The typed path already
+   * reports through `confirmMessage`; taps had no equivalent, so answers
+   * resolved by button left no trace outside the broker. Optional and
+   * never allowed to break resolution — a throwing observer is swallowed.
+   */
+  readonly onResolved?: (resolution: QuestionResolution) => void;
+}
+
+/** A tap-resolved answer, reported to observers after broker resolution. */
+export interface QuestionResolution {
+  readonly entry: TrackedQuestion;
+  readonly answers: readonly (readonly string[])[];
+  readonly accepted: boolean;
+  readonly outcome: 'answered' | 'rejected';
+  readonly senderTelegramUserId: string;
+}
+
+/**
+ * Report a tap resolution to the optional observer. Observer failures
+ * must never break the broker resolution path.
+ */
+function reportResolution(deps: QuestionDispatchDeps, resolution: QuestionResolution): void {
+  try {
+    deps.onResolved?.(resolution);
+  } catch {
+    /* observer-only — resolution already stands */
+  }
 }
 
 export type QuestionDispatchOutcome =
@@ -221,7 +252,7 @@ export async function dispatchQuestionTap(
     await deps.answerTap(event.callbackQueryId, 'This question expired — see the app for the latest.');
     return { handled: true, outcome: 'stale' };
   }
-  if (!deps.isAuthorized(entry, event.senderTelegramUserId)) {
+  if (!(await deps.isAuthorized(entry, event.senderTelegramUserId))) {
     await deps.answerTap(event.callbackQueryId, 'Only the paired operator can answer.');
     return { handled: true, outcome: 'unauthorized' };
   }
@@ -231,7 +262,14 @@ export async function dispatchQuestionTap(
   }
   if (parsed.kind === 'reject') {
     ledger.remove(event.chatId, event.messageId);
-    deps.cancel(entry.conversationId, entry.requestId);
+    const accepted = deps.cancel(entry.conversationId, entry.requestId);
+    reportResolution(deps, {
+      entry,
+      answers: [],
+      accepted,
+      outcome: 'rejected',
+      senderTelegramUserId: event.senderTelegramUserId,
+    });
     await deps.updateMessage(event.chatId, event.messageId, resolvedText(entry, 'Rejected from Telegram.'));
     await deps.answerTap(event.callbackQueryId, 'Rejected.');
     return { handled: true, outcome: 'rejected' };
@@ -244,6 +282,13 @@ export async function dispatchQuestionTap(
     }
     ledger.remove(event.chatId, event.messageId);
     const accepted = deps.decide(entry.conversationId, entry.requestId, answers);
+    reportResolution(deps, {
+      entry,
+      answers,
+      accepted,
+      outcome: 'answered',
+      senderTelegramUserId: event.senderTelegramUserId,
+    });
     const picked = answers.map((row) => row.join(', ')).join(' · ');
     await deps.updateMessage(event.chatId, event.messageId, resolvedText(entry, `Answered: ${picked}`));
     await deps.answerTap(event.callbackQueryId, accepted ? 'Answer sent.' : 'Question already resolved.');
@@ -283,7 +328,8 @@ export interface QuestionTextEvent {
 export interface QuestionTextDeps {
   readonly ledger?: TelegramQuestionLedger;
   readonly now?: () => number;
-  readonly isAuthorized: (entry: TrackedQuestion, senderTelegramUserId: string) => boolean;
+  /** Same ownership check as taps; may resolve asynchronously. */
+  readonly isAuthorized: (entry: TrackedQuestion, senderTelegramUserId: string) => boolean | Promise<boolean>;
   readonly decide: (conversationId: string, requestId: string, answers: readonly (readonly string[])[]) => boolean;
   readonly confirmMessage: (
     entry: TrackedQuestion,
@@ -316,7 +362,7 @@ export async function answerQuestionByText(
     .filter((candidate) => matchTextAnswer(text, candidate.questions) !== null)
     .sort((a, b) => a.expiresAt - b.expiresAt)[0];
   if (!entry) return { handled: false };
-  if (!deps.isAuthorized(entry, event.senderTelegramUserId)) {
+  if (!(await deps.isAuthorized(entry, event.senderTelegramUserId))) {
     return { handled: true, outcome: 'unauthorized' };
   }
   const row = matchTextAnswer(text, entry.questions) as readonly string[];

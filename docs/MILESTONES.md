@@ -1,10 +1,10 @@
 ---
 title: Milestones
-version: 1.0.0
+version: 1.1.0
 status: approved
 owner: vestara
-last-reviewed: 2026-09-04
-next-review: 2026-10-04
+last-reviewed: 2026-10-11
+next-review: 2026-11-11
 ---
 
 
@@ -1418,7 +1418,7 @@ my-repo > workflow status
 
 ---
 
-### v5.4 — Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1) 🔶 Partial
+### v5.4 — Multi-Agent Workflow Orchestration Core (ADR-118 / PCS-025 Phase 1) ✅ Complete
 
 **Objective**: Replace the hard-coded sequential prototype with a `WorkflowOrchestrator`
 as the single writer of project/plan/task state — state machines, task/artifact/
@@ -1438,7 +1438,14 @@ resume — with tasks executing through the durable harness.
   execute/verify/cancel/archive/resume + snapshot + audit
 - `docs/PCS-025-phase-1-implementation-plan.md` — Phase 1 plan + delivery record
 
-**Status**: 🔶 Partial (Phase 1 core delivered; Phases 2-3 pending)
+**UI projection progress (2026-10-10/11)** — Workflow page overhauled on Activity Room grammar; premium Cytoscape `WorkflowGraph` wired to the Activity Room drawer; deterministic `orchestration-next-action` helper; browser-safe `activity-workflow-graph` ID helpers + tests; Cytoscape stylesheet typing follow-up:
+
+- `apps/workspace/src/pages/Orchestration.tsx`, `styles/workflow-page.css`, `styles/workflow-graph.css` (`4070a40`, `fdadfec`)
+- `apps/workspace/src/components/workflow/WorkflowGraph.tsx`, `WorkflowGraph.test.tsx` (`4070a40`, `fdadfec`, `5f3bc0d`)
+- `apps/workspace/src/lib/activity-workflow-graph.ts` (+ test), `orchestration-next-action.ts` (+ test) (`4070a40`, `fdadfec`, `ad20303`)
+- Activity Room wiring: `ActivityDetailDrawer.tsx`, `M11CActivityRoomPage.tsx`, `M11CActivityStream.tsx`, `M11CForwardDialog.tsx`, `ActivityRoomSkeleton.tsx` (`4070a40`)
+
+**Status**: ✅ Complete (PCS-025 Phases 1–3 delivered 2026-08-03 via `beba9ff`; reconciled 2026-10-11 — the prior "Partial / Phases 2–3 pending" text was written by `b7b06ce` earlier the same day and never updated when `beba9ff` landed ~7h later. Evidence: `docs/PCS-025-multi-agent-project-management.md` "Phases 1–3 are delivered", `docs/PCS-025-phase-1-implementation-plan.md` Phase 2 & 3 delivery notes, `docs/IMPLEMENTATION_STATUS.md` v5.4 ✅ Complete since 2026-08-03.)
 
 ---
 
@@ -2489,6 +2496,9 @@ Therefore: Cytoscape graph state ≠ canonical Workflow state. Builder graph ≠
 | `POST /api/admin/users/:id/rotate-token` — rotate API key (admin only) | ✅ Complete |
 | Actor context — all 15 event routes now use real user identity instead of hardcoded `{ id: 'user', name: 'User' }` | ✅ Complete |
 | Legacy support — `X-Vestara-Actor` header still works as fallback | ✅ Complete |
+| Fail-closed API auth — unauthenticated requests rejected by default; no open-by-default routes except governed public surfaces | ✅ Complete 2026-10-10 (`cded0cf`: `apps/api/src/auth.ts`, `server.ts`, `auth-enforcement.test.ts`) |
+| Cloudflared tunnel autostart + public screenshots route | ✅ Complete 2026-10-10 (`cded0cf`: `os/systemd/vestara-api*.service`, `routes/misc.ts`, `screenshots-route.test.ts`; UI login wiring in `App.tsx`/`main.tsx`/`auth.tsx`) |
+| Webhook auth hardening (Telegram) | ✅ Complete 2026-10-10 (`cded0cf`: `packages/telegram-integration/__tests__/webhook-auth.test.ts`) |
 
 **Remaining**:
 - Shared workspace state across users
@@ -2891,6 +2901,26 @@ Open Vestara → Activity Room → See three-column layout
 → Use keyboard to navigate → Focus visible on all interactive elements
 → Enable reduced-motion → Animations disabled
 ```
+
+---
+
+### AR-REPORT — Activity Date-Range Report 🔶 In Progress
+
+**Objective**: Report all activities within a selected date range in the Activity Room: a report icon in the Activity Room header opens the reusable Drawer, which loads a timeline view of in-range activities plus report details (summary counts by kind/actor).
+
+**Plan**: `docs/VES-ACTIVITY-REPORT-PLAN.md` (captured 2026-10-11, `15ecd9d`)
+
+**Implementation progress (2026-10-11)**:
+
+| Plan phase | Landed work | Evidence |
+|------------|-------------|----------|
+| 1 — Backend range query | Bounded `from`/`to` range query over activity records; invalid/missing range returns invalid, never an unbounded dump | `packages/activity-room/src/store.ts`, `store-sqlite.ts`, `packages/activity-room/__tests__/activity-range-query.test.ts`, `apps/api/__tests__/activity-range-query.test.ts` (`9164846`) |
+| 2 — Report trigger | Report icon in `ActivityRoomHeader` opens/closes the Drawer | `ActivityRoomHeader.tsx`, `ActivityRoomHeaderReport.test.tsx` (`9164846`) |
+| 3 — Report drawer + timeline | `ActivityReportDrawer` with range select → summary counts → timeline + inline details expansion; fixtures for presets, custom windows, invalid/empty ranges | `ActivityReportDrawer.tsx`, `ActivityReportDrawer.test.tsx`, `activity-report.fixtures.ts` (`9164846`); viewer-locale bounds, half-bounded windows, strict date validation (`6eae755`); Cytoscape/typing + test-setup follow-ups (`5f3bc0d`) |
+| 4 — Verification | **Remaining**: `lint:check`, `vds:validate`, scoped vitest, Playwright `screenshots:ci` baseline for the drawer state | — |
+| 5 — Milestone close-out | **Remaining**: flip to complete only when phases 1–4 meet criteria | — |
+
+**Status**: 🔶 In Progress (phases 1–3 landed; phase 4 verification + phase 5 close-out remain)
 
 ---
 
@@ -3438,7 +3468,40 @@ Workspace available
 - `os/customization/builder/profiles/` — headless, desktop, recovery image profiles
 - `scripts/os/` — refactored image builder stages
 
-**Status**: 🔶 Planned
+**Status**: 🔶 In Progress (boot-presentation phases partially landed 2026-10-11; readiness projection, failure presentation, and QEMU validation remain)
+
+**Implementation progress (2026-10-11)**:
+
+| Phase | Landed work | Evidence |
+|-------|-------------|----------|
+| VOS-BOOT-001-P2 (partial) | Animated Plymouth boot theme | `os/customization/plymouth/vestara.script` (`886ec08`) |
+| VOS-BOOT-001-P8 (partial) | GRUB background continuity | `os/customization/grub/theme.txt` (`886ec08`) |
+| VOS-BOOT-001-P10 (partial) | Desktop image-builder copy stage | `scripts/copy-plymouth-assets.sh` (new), `scripts/build-vestara-image.sh` (`886ec08`) |
+
+**Remaining**: P1 canonical asset separation, P3 systemd readiness projection, P4 failure presentation, P5–P7 desktop profile/startup, P9 Live integration (owned by VOS-LIVE-001), P11 QEMU boot validation. The post-boot handoff gap is captured separately as `VOS-STARTUP-001` (see below; `docs/VOS-STARTUP-SCREEN-PLAN.md`).
+
+---
+
+### VOS-STARTUP-001 — Vestara OS Startup Screen 🔷 Planned
+
+**Objective**: Own the handoff from boot to Workspace on the Vestara OS image: after first-boot onboarding completes or a returning user logs in successfully, show a branded, health-gated Vestara startup screen that transitions into the Workspace — no Ubuntu/Debian branding, no console spam, no dead-end desktop.
+
+**Plan**: `docs/VOS-STARTUP-SCREEN-PLAN.md` (captured 2026-10-11, `b3c5c9f`; DRAFT pending Director approval)
+
+**Gap closed by this milestone**: `VOS-BOOT-001` ends at the desktop session, `VOS-LIVE-001I` covers backend startup orchestration with no visual screen, `VOS-LIVE-001J` covers shell hosting with no startup screen, and `v4.0` onboarding ends at completion with no handoff target.
+
+**Phases**:
+
+| Phase | Scope |
+|-------|-------|
+| VOS-STARTUP-001-P1 | Workspace startup route + states (`loading` → `ready` / `ready-celebration` / `degraded`) against fixtures; `vds:validate` + Biome clean |
+| VOS-STARTUP-001-P2 | Login/greeter + autostart packaging in `os/customization/login/` (currently README-only) |
+| VOS-STARTUP-001-P3 | Image-builder integration; zero Ubuntu/Debian branding end-to-end |
+| VOS-STARTUP-001-P4 | VM-first verification (first-boot, login-success, offline/degraded paths) + `screenshots:ci` baselines |
+
+**Non-goals**: Plymouth theme, GRUB menu, recovery path, onboarding conversation itself.
+
+**Status**: 🔷 Planned (plan captured; implementation not started)
 
 ---
 
@@ -3942,13 +4005,15 @@ interface OverviewViewModel {
 | **Audio Assistant** | **v7.17** | **Optional microphone/STT and streaming TTS/speaker integration for the Global Assistant** | 🔷 Planned |
 | **Activity Room UX** | **AR-UI** | **Production Team Experience (21 phases, 5 batches)** | ✅ Approved |
 | **Activity Room Rec/Dec** | **AR-REC** | **Contextual Recommendations & Governed Decisions (14 phases, 6 batches)** | ✅ Approved |
+| **Activity Date-Range Report** | **AR-REPORT** | **Header report icon → reusable Drawer with timeline view of in-range activities + summary counts (plan phases 1–3 landed 2026-10-11; verification remains)** | 🔶 In Progress |
 | **Governed Verification** | **VER-GOV-001** | **Governed Verification Execution & Participant Activity (001A–001P; coordinator, queue, evidence, recovery, projection)** | 🔷 Proposed |
 | **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
-| **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases)** | 🔶 Planned |
+| **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases; P2/P8/P10 partially landed 2026-10-11)** | 🔶 In Progress |
+| **OS Startup Screen** | **VOS-STARTUP-001** | **Post-onboarding / login-success startup screen owning the boot → Workspace handoff (plan captured 2026-10-11)** | 🔷 Planned |
 | **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
-| **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches; routed through Global Assistant)** | ✅ Complete |
+| **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches; routed through Global Assistant; + TG-030 question bridge 2026-10-11; + canonical-principal answer-auth fix 2026-10-11)** | ✅ Complete |
 | **Live Browser + Telegram** | **VES-LB-TG** | **Live Browser + Telegram Streaming (30 phases, agent-browser substrate)** | 🔶 Proposed |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |
 | **Enterprise** | **v9.0–v9.2** | **Enterprise Scale, Plugin v2, Mobile/API** | 🔶 Planned |

@@ -1,10 +1,10 @@
 ---
 title: Implementation Status
-version: 1.0.0
+version: 1.1.0
 status: approved
 owner: vestara
-last-reviewed: 2026-09-04
-next-review: 2026-10-04
+last-reviewed: 2026-10-11
+next-review: 2026-11-11
 ---
 
 
@@ -93,6 +93,10 @@ next-review: 2026-10-04
 | **v8.5** | **Subsystem Migration — all packages to standard layout** | **✅ Complete** | **2026-08-03** |
 | **v9.0** | **Dashboard Runtime — Dashboard as a client of Kernel** | **✅ Complete** | **2026-08-03** |
 | **v10.0** | **Remote Worker — Docker, CI, MCP integration** | **✅ Complete** | **2026-08-03** |
+| **AR-REPORT** | **Activity Date-Range Report (header icon → Drawer timeline + summary counts)** | **🔶 In Progress** | **2026-10-11** |
+| **VOS-BOOT-001** | **Unified Boot Experience (GRUB → Plymouth → systemd → desktop; P2/P8/P10 partial)** | **🔶 In Progress** | **2026-10-11** |
+| **VOS-STARTUP-001** | **OS Startup Screen (post-onboarding / login-success handoff; plan captured)** | **🔷 Planned** | **2026-10-11** |
+| **v8.0-collab** | **Multi-User Collaboration — fail-closed API auth, tunnel autostart, public screenshots route, webhook auth** | **🔶 In Progress** | **2026-10-10** |
 
 ## Proposed governance milestones
 
