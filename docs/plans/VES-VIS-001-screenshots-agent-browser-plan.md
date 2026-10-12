@@ -1,9 +1,9 @@
 ---
 title: VES-VIS-001 — Screenshots on agent-browser (Restructure Plan)
-version: 1.0.0
+version: 1.1.0
 status: planned
 owner: vestara
-last-reviewed: 2026-10-12
+last-reviewed: 2026-10-13
 next-review: 2026-11-12
 ---
 
@@ -34,7 +34,9 @@ disabling, reduced-motion emulation, masks, and network-idle settling.
   (only `type Browser`); naming, baselines, reports, and diff are
   driver-agnostic already.
 - S2: Theme seeding via init script + `vestara-theme` localStorage key is
-  portable to any CDP-capable driver.
+  portable to any CDP-capable driver. (Caveat filed v1.1.0 — see F8: the
+  mechanism is portable, but the app currently honors a different key, so
+  seeded light never renders.)
 - S3: `BrowserDriver` boundary + agent-browser CLI contract notes already
   exist (`packages/tools/browser/src/agent-browser-driver.ts`, 0.27.0 spike:
   batch-via-stdin, isolated `--session` browsers, `screenshot <path>`,
@@ -66,6 +68,25 @@ disabling, reduced-motion emulation, masks, and network-idle settling.
 - F7: No mocks server exists (`apps/workspace/src/mocks/` absent) despite
   governance referencing `:3002` — fixtures are the only mock layer, and
   they are Playwright-coupled (see F2).
+- F8: Dual theme providers; the harness seeds the wrong key (proven
+  2026-10-13, filed v1.1.0). The app nests `VestaraThemeProvider`
+  (`@vestara/ui-theme`, reads `vestara-theme-mode`, defaults dark) outside
+  `ThemeProvider` (`apps/workspace/src/lib/theme.tsx`, reads
+  `vestara-theme` — the key the harness seeds). Both write `data-theme`;
+  the outer dark default wins, so every `light` capture renders dark:
+  146/172 committed dark/light baseline pairs are byte-identical, and a
+  spot-checked "light" baseline (`docs.desktop-1440.light`) renders dark.
+  Until the seed covers both keys (or the providers unify), light-theme
+  regression coverage is absent and every light `compare-green` is
+  dark-vs-dark. Evidence: a seeded-light probe ends with
+  `data-theme="dark"` and byte-identical dark/light screenshots, even with
+  `/api/settings` returning 401 (server hydration ruled out as sole cause).
+- F9: Live backend data leaks into captures (found with F8, filed v1.1.0).
+  The 26 non-identical dark/light pairs differ by data, not theme (docs
+  pair: "Not scanned / 0 documents" vs "Scanned 9/21/2026 / 998
+  documents") — dark and light cases capture at different moments against
+  live state, so green results on live-data routes are partly timing luck.
+  Fixtures do not cover those routes' data (see F7).
 
 ## 2. Target shape (no behavior change until P3)
 
@@ -94,7 +115,9 @@ F7 for both drivers).
   Abort criteria: any NO that forces harness-specific behavior into the app.
 - **P1 — Driver seam.** Extract `PlaywrightDriver` behind
   `ScreenshotDriver` with zero capture changes (byte-identical baselines on
-  re-run prove it). No new dependencies.
+  re-run prove it). Per F8, re-run parity is only meaningful for theme cases
+  after the seed covers the outer provider's key — today dark/light pairs
+  are dark-vs-dark. No new dependencies.
 - **P2 — AgentBrowserDriver + parity.** Implement the driver, run dual
   captures per case, record parity % per route/viewport/theme in the plan
   (not as gates). Add the 1672×941 `startup-reference` viewport here —
