@@ -4035,7 +4035,7 @@ interface OverviewViewModel {
 | **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
-| **Screenshots on agent-browser** | **VES-VIS-001** | **Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (future plan, not authorized)** | 🔷 Planned |
+| **Screenshots on agent-browser** | **VES-VIS-001** | **Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (plan v1.1.0 — F8/F9 theme-seed + data-drift findings filed; implementation not authorized)** | 🔷 Planned |
 | **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches; routed through Global Assistant; + TG-030 question bridge 2026-10-11; + canonical-principal answer-auth fix 2026-10-11)** | ✅ Complete |
 | **Live Browser + Telegram** | **VES-LB-TG** | **Live Browser + Telegram Streaming (30 phases, agent-browser substrate)** | 🔶 Proposed |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |

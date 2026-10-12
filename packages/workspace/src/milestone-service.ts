@@ -870,7 +870,7 @@ const MILESTONES: Milestone[] = [
     era: 'UI Platform',
     status: 'pending',
     description:
-      'Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (see docs/plans/VES-VIS-001-screenshots-agent-browser-plan.md). Plan captured 2026-10-12; implementation not authorized.',
+      'Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (see docs/plans/VES-VIS-001-screenshots-agent-browser-plan.md). Plan v1.1.0 (F8/F9 theme-seed + data-drift findings filed 2026-10-13); implementation not authorized.',
   },
   // Marketplace Era — Vestara Interactive Results
   {

@@ -96,7 +96,7 @@ next-review: 2026-11-11
 | **AR-REPORT** | **Activity Date-Range Report (header icon → Drawer timeline + summary counts)** | **🔶 In Progress** | **2026-10-11** |
 | **VOS-BOOT-001** | **Unified Boot Experience (GRUB → Plymouth → systemd → desktop; P2/P8/P10 partial)** | **🔶 In Progress** | **2026-10-11** |
 | **VOS-STARTUP-001** | **OS Startup Screen (post-onboarding / login-success handoff; P0–P3 + P4 baselines landed; Node 24 rebuild + QEMU re-gate remain)** | **🔶 In Progress** | **2026-10-12** |
-| **VES-VIS-001** | **Screenshots on agent-browser (visual-harness restructure; future plan, not authorized)** | **🔷 Planned** | **2026-10-12** |
+| **VES-VIS-001** | **Screenshots on agent-browser (visual-harness restructure; plan v1.1.0 — F8/F9 filed; implementation not authorized)** | **🔷 Planned** | **2026-10-12** |
 | **v8.0-collab** | **Multi-User Collaboration — fail-closed API auth, tunnel autostart, public screenshots route, webhook auth** | **🔶 In Progress** | **2026-10-10** |
 
 ## Proposed governance milestones
