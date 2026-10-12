@@ -144,6 +144,10 @@ Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STAT
 | ![Vestara OS startup screen reference](assets/vestara-desktop-02-screen.png) | ![Startup canvas artwork — clean planet and mountain scene](assets/startup/vestara-desktop-02-screen.png) |
 | Design reference for the post-onboarding / login-success handoff (`/startup?entry=onboarding\|login`) — brand lockup, readiness card, six-row checklist, quote, corner metadata. | Clean 1671×941 canvas background with no baked text; all UI renders independently above it. Served at `/startup/vestara-startup-bg.png`. |
 
+![Approved startup baseline (desktop-1920 dark)](apps/workspace/tests/visual/.artifacts/baselines/startup.desktop-1920.dark.png)
+
+*Approved `screenshots:ci` baseline — live P2 readiness rows (core/workspace/desktop complete without a session) over the canvas artwork. All 8 `startup.*` baselines compare-green.*
+
 ---
 
 ## Quickstart
@@ -368,7 +372,8 @@ pnpm documentation:check                # CI baseline drift gate
 
 - `AR-REPORT` — Activity date-range reports (in progress; verification phase remains)
 - `VOS-BOOT-001` — Unified boot experience (in progress; readiness projection + QEMU validation remain)
-- `VOS-STARTUP-001` — Post-onboarding / login-success startup screen (in progress — P1 route + artwork landed; P2–P4 remain)
+- `VOS-STARTUP-001` — Post-onboarding / login-success startup screen (in progress — P0–P3 + P4 baselines landed; Node 24 rebuild + QEMU re-gate remain)
+- `VES-VIS-001` — Screenshots on agent-browser (future plan, not authorized)
 - Workflow graph projection hardening + verification
 - Marketplace remote registries expansion
 

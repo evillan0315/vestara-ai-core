@@ -14,6 +14,12 @@ READY_URL="$API_BASE/api/health/ready"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/vestara"
 ONBOARDING_COMPLETE="$CONFIG_DIR/onboarding-complete"
 ONBOARDING_PENDING="$CONFIG_DIR/onboarding-pending"
+# System marker dir written by POST /api/onboarding/begin|complete
+# (VESTARA_ONBOARDING_MARKER_DIR; /var/lib/vestara/onboarding on the image).
+SYSTEM_DIR="${VESTARA_ONBOARDING_MARKER_DIR:-/var/lib/vestara/onboarding}"
+
+pending_present() { [[ -f $SYSTEM_DIR/onboarding-pending || -f $ONBOARDING_PENDING ]]; }
+complete_present() { [[ -f $SYSTEM_DIR/onboarding-complete || -f $ONBOARDING_COMPLETE ]]; }
 
 # Bounded wait for the readiness gate. If the API never becomes ready the
 # browser still opens: /startup renders its degraded state with a
@@ -27,14 +33,12 @@ while ((SECONDS < deadline)); do
   sleep 2
 done
 
-# Entry resolution. No onboarding flow exists yet, so the default is login.
-# When the flow lands it writes $ONBOARDING_PENDING on first boot and moves
-# it to $ONBOARDING_COMPLETE at completion — no script change required then.
+# Entry resolution. Completion is terminal: a complete marker anywhere wins
+# over pending. Default is login until a flow writes the pending marker via
+# POST /api/onboarding/begin and completes via /api/onboarding/complete.
 ENTRY="login"
-if [[ -f $ONBOARDING_PENDING ]]; then
+if pending_present && ! complete_present; then
   ENTRY="onboarding"
-elif [[ -f $ONBOARDING_COMPLETE ]]; then
-  ENTRY="login"
 fi
 
 exec chromium --kiosk "$API_BASE/startup?entry=$ENTRY"

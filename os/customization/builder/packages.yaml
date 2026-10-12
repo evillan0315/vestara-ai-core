@@ -6,8 +6,10 @@ base:
   - plymouth
   - plymouth-themes
   - ca-certificates
+  # Node 24 from NodeSource node_24.x (the nodejs package provides npm;
+  # Debian trixie nodejs is v20 — the API crashes on Node <22 via
+  # node:sqlite, so the distro nodejs/npm packages are not used).
   - nodejs
-  - npm
 profiles:
   headless: []
   developer:

@@ -55,6 +55,7 @@ import { handleMilestonesRoute } from './routes/milestones';
 import { handleMiscRoute } from './routes/misc';
 import { handleMorningBriefingsRoute } from './routes/morning-briefings';
 import { handleNotificationsRoute } from './routes/notifications';
+import { handleOnboardingRoute } from './routes/onboarding';
 import { handleOpenCodeRoute } from './routes/opencode';
 import { handleOrchestrationRoute } from './routes/orchestration';
 import { handleOrdersRoute } from './routes/orders';
@@ -215,6 +216,7 @@ export const ROUTE_DEFS: RouteDef[] = [
   { prefixes: ['/api/activity-room/v1'], handler: handleM11AActivityRoomRoute },
   { prefixes: ['/api/agent-threads'], handler: handleAgentHarnessRoute },
   { prefixes: ['/api/notifications'], handler: handleNotificationsRoute },
+  { prefixes: ['/api/onboarding'], handler: handleOnboardingRoute },
   { prefixes: ['/api/approvals', '/api/artifacts', '/api/memory'], handler: memAdapter },
   { prefixes: ['/api/marketplace'], handler: handleMarketplaceRoute },
   { prefixes: ['/api/catalog'], handler: handleCatalogRoute },

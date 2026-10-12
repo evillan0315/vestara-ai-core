@@ -8,9 +8,18 @@ OUTPUT_NAME=$(basename -- "$OUTPUT")
 SUITE=${VESTARA_IMAGE_SUITE:-trixie}
 MIRROR=${VESTARA_IMAGE_MIRROR:-https://deb.debian.org/debian}
 SIZE=${VESTARA_IMAGE_SIZE:-16G}
+# Host-persistent download cache (apt archives + npm cache). Survives
+# --force rebuilds so only changed packages are re-downloaded. Export empty
+# to disable: VESTARA_IMAGE_CACHE_DIR=.
+CACHE_DIR=${VESTARA_IMAGE_CACHE_DIR:-${ROOT}/.cache/vestara-image}
 FORCE=0
 usage() { cat >&2 <<'USAGE'
 Usage: sudo scripts/build-vestara-image.sh [--output PATH] [--suite NAME] [--mirror URL] [--size SIZE] [--force]
+
+Environment:
+  VESTARA_IMAGE_OUTPUT / SUITE / MIRROR / SIZE (defaults above)
+  VESTARA_IMAGE_CACHE_DIR  host download cache (default
+                           <repo>/.cache/vestara-image, gitignored; empty disables)
 USAGE
 }
 while (($#)); do
@@ -29,12 +38,12 @@ if [[ ${EUID} -ne 0 ]]; then echo 'Run this builder with sudo.' >&2; exit 1; fi
 case $OUTPUT in /dev/*|/sys/*|/proc/*|/) echo "Refusing unsafe output path: $OUTPUT" >&2; exit 1;; esac
 if [[ -e $OUTPUT && $FORCE -ne 1 ]]; then echo "Output exists; use --force: $OUTPUT" >&2; exit 1; fi
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required command: $1" >&2; exit 1; }; }
-for command in debootstrap parted losetup mkfs.fat mkfs.ext4 mount umount chroot grub-install rsync lsinitramfs; do need "$command"; done
+for command in debootstrap parted losetup mkfs.fat mkfs.ext4 mount umount chroot grub-install rsync lsinitramfs curl gpg; do need "$command"; done
 for artifact in "$ROOT/apps/api/dist/index.js" "$ROOT/apps/cli/dist/index.js"; do
   [[ -f $artifact ]] || { echo "Missing build artifact: $artifact; run pnpm build first." >&2; exit 1; }
 done
 WORK=$(mktemp -d /tmp/vestara-image.XXXXXX); LOOP=''
-cleanup() { set +e; for mountpoint in "$WORK/root/run" "$WORK/root/sys" "$WORK/root/proc" "$WORK/root/dev" "$WORK/esp" "$WORK/root"; do mountpoint -q "$mountpoint" && umount -lf "$mountpoint"; done; [[ -n $LOOP ]] && losetup --detach "$LOOP" >/dev/null 2>&1; rm -rf "$WORK"; }
+cleanup() { set +e; for mountpoint in "$WORK/root/var/cache/apt/archives" "$WORK/root/var/cache/npm" "$WORK/root/run" "$WORK/root/sys" "$WORK/root/proc" "$WORK/root/dev" "$WORK/esp" "$WORK/root"; do mountpoint -q "$mountpoint" && umount -lf "$mountpoint"; done; [[ -n $LOOP ]] && losetup --detach "$LOOP" >/dev/null 2>&1; rm -rf "$WORK"; [[ -n ${SUDO_USER:-} && -n ${CACHE_DIR:-} && -d $CACHE_DIR ]] && chown -R "$SUDO_USER" "$CACHE_DIR"; }
 trap cleanup EXIT
 mkdir -p "$(dirname "$OUTPUT")"
 truncate -s "$SIZE" "$OUTPUT"
@@ -44,6 +53,15 @@ for _ in {1..20}; do [[ -b ${LOOP}p1 && -b ${LOOP}p2 ]] && break; sleep 0.2; don
 [[ -b ${LOOP}p1 && -b ${LOOP}p2 ]] || { echo 'Partition devices did not appear.' >&2; exit 1; }
 mkfs.fat -F32 "${LOOP}p1"; mkfs.ext4 -F "${LOOP}p2"
 mkdir -p "$WORK/root" "$WORK/esp"; mount "${LOOP}p2" "$WORK/root"; mount "${LOOP}p1" "$WORK/esp"
+# Bind the host download cache into the target before anything downloads, so
+# debootstrap/apt/npm reuse prior runs. The mounts also keep the image lean:
+# cached payloads live on the host, not in the image filesystem.
+if [[ -n $CACHE_DIR ]]; then
+  mkdir -p "$CACHE_DIR/apt-archives" "$CACHE_DIR/npm"
+  mkdir -p "$WORK/root/var/cache/apt/archives" "$WORK/root/var/cache/npm"
+  mount --bind "$CACHE_DIR/apt-archives" "$WORK/root/var/cache/apt/archives"
+  mount --bind "$CACHE_DIR/npm" "$WORK/root/var/cache/npm"
+fi
 mkdir -p "$WORK/bin"
 cat > "$WORK/bin/wget" <<'WGET'
 #!/bin/sh
@@ -67,7 +85,21 @@ POLICY
 chmod 755 "$WORK/root/usr/sbin/policy-rc.d"
 chroot "$WORK/root" /usr/bin/apt-get update
 #chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
-chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal chromium curl
+# VOS runtime: Debian trixie ships Node 20, but the repo requires Node 22+
+# (node:sqlite needs >=22.5 — the API exits on Node 20). Install Node 24
+# from NodeSource; its nodejs package provides npm, so the distro npm
+# package (which conflicts with it) is intentionally absent below.
+install -d -m 0755 "$WORK/root/usr/share/keyrings"
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o "$WORK/root/usr/share/keyrings/nodesource.gpg"
+chmod 0644 "$WORK/root/usr/share/keyrings/nodesource.gpg"
+cat > "$WORK/root/etc/apt/sources.list.d/nodesource.list" <<'APT'
+deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_24.x nodistro main
+APT
+chroot "$WORK/root" /usr/bin/apt-get update
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal chromium curl
+NODE_VERSION=$(chroot "$WORK/root" /usr/bin/node --version)
+[[ $NODE_VERSION == v24.* ]] || { echo "Expected Node 24 on image, got: $NODE_VERSION" >&2; exit 1; }
+chroot "$WORK/root" /usr/bin/npm --version
 chroot "$WORK/root" groupadd --system vestara || true; chroot "$WORK/root" useradd --system --gid vestara --home-dir /var/lib/vestara --shell /usr/sbin/nologin vestara || true
 chroot "$WORK/root" useradd --create-home --shell /bin/bash eddie || true
 chroot "$WORK/root" usermod -aG sudo eddie || true
@@ -75,7 +107,7 @@ printf '%s\n' 'eddie:vestara' | chroot "$WORK/root" chpasswd
 
 # Install external coding-agent CLIs (OpenAI Codex, Claude Code, Gemini CLI)
 # as global npm packages so external-runtime discovery finds them on the image.
-chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/npm install -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive NPM_CONFIG_CACHE=/var/cache/npm /usr/bin/npm install -g @openai/codex @anthropic-ai/claude-code @google/gemini-cli
 
 rsync -a --delete --exclude '.git/' --exclude '.env' --exclude "$OUTPUT_NAME" "$ROOT/" "$WORK/root/opt/vestara/"
 chroot "$WORK/root" install -d -o vestara -g vestara -m 0750 /opt/vestara/.vestara
@@ -111,6 +143,9 @@ install -m 0644 "$ROOT"/os/systemd/*.service "$ROOT"/os/systemd/*.path "$ROOT"/o
 for service in vestara-host.service vestara-api.service vestara-workspace.service; do ln -sfn "../$service" "$WORK/root/etc/systemd/system/vestara.target.wants/$service"; done
 ln -sfn ../vestara.target "$WORK/root/etc/systemd/system/multi-user.target.wants/vestara.target"
 install -d -m 0755 "$WORK/root/var/lib/vestara/workspaces" "$WORK/root/etc/vestara"
+# VOS-STARTUP-001 P3: onboarding marker dir — writable by the API user
+# (POST /api/onboarding/begin|complete), readable by the desktop user.
+chroot "$WORK/root" install -d -o vestara -g vestara -m 0755 /var/lib/vestara/onboarding
 install -m 0644 "$ROOT/os/customization/identity/eddie.yaml" "$WORK/root/etc/vestara/human-profile.yaml"
 # VOS-STARTUP-001 P3: LightDM seat + greeter config and the XFCE session
 # autostart bridge live under os/customization/login/ (single source).
@@ -127,6 +162,7 @@ install -m 0644 "$ROOT/os/customization/login/vestara-startup.desktop" "$WORK/ro
 [[ -x $WORK/root/usr/bin/curl ]] || { echo 'curl is not installed on the image.' >&2; exit 1; }
 printf '%s\n' /usr/sbin/lightdm > "$WORK/root/etc/X11/default-display-manager"
 printf '%s\n' 'VESTARA_REPO=/var/lib/vestara/workspaces/default' > "$WORK/root/etc/vestara/vestara.env"
+printf '%s\n' 'VESTARA_ONBOARDING_MARKER_DIR=/var/lib/vestara/onboarding' >> "$WORK/root/etc/vestara/vestara.env"
 chroot "$WORK/root" systemctl enable vestara.target vestara-host.service vestara-api.service vestara-workspace.service vestara-api-reload.path lightdm.service
 chroot "$WORK/root" systemctl set-default graphical.target
 chroot "$WORK/root" rm -f /usr/sbin/policy-rc.d

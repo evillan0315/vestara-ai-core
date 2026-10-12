@@ -1,6 +1,6 @@
 ---
 title: VOS Startup Screen Plan — Post-Onboarding / Login-Success Screen for the Vestara OS Image
-version: 1.1.0
+version: 1.2.0
 status: in-progress
 owner: vestara
 last-reviewed: 2026-10-12
@@ -9,7 +9,7 @@ next-review: 2026-11-12
 
 # VOS Startup Screen Plan — Post-Onboarding / Login-Success Screen
 
-## Status: IN PROGRESS — P0 artwork + P1 route + P2 readiness landed; P3–P4 remain
+## Status: IN PROGRESS — P0–P3 + P4 baselines landed; remain Node 24 rebuild + QEMU re-gate, 1672 strict-diff, onboarding UI flow
 
 ## Executive Summary
 
@@ -212,14 +212,40 @@ indicator must remain independently rendered so runtime state can change.
   `ReadinessCard`, `ReadinessChecklist`, `StartupFooter`, fixture-first
   `loading` / `ready` / `ready-celebration` / `degraded` states;
   `pnpm vds:validate` + workspace-ui `tsc -b` + `vite build` green.
-- **Remaining**: P3 onboarding-flow hookup (marker writer; launcher defaults
-  to `login` until the flow lands), image rebuild + QEMU login-success
-  verification, P4 screenshot-diff + QEMU gates.
+- **Remaining**: P3 onboarding-flow UI hookup (marker authority + launcher
+  ready), QEMU login-success verification, P4 1672×941 strict-diff gate.
+- **P4**: 8/8 `startup.*` Playwright baselines captured and compare-green
+  (desktop 1920/1600/1440 + laptop 1366 × dark/light; harness viewports,
+  not the 1672×941 reference viewport — strict-diff gate still open).
+- **QEMU 2026-10-13**: greeter → eddie login → XFCE + chromium kiosk opens
+  `/startup?entry=login` (bridge works), but the in-VM API is down:
+  `vestara-api.service` exits in 312ms with
+  `ERR_UNKNOWN_BUILTIN_MODULE: node:sqlite` from
+  `m9-native-sqlite-store.js` — the image ships Node v20.19.2 while the
+  repo requires Node 22+ (`node:sqlite` needs ≥22.5).
+- **Node 24 on image (was BLOCKER, now wired)**: builder installs Node 24
+  from NodeSource `node_24.x` (verified 24.21.0, npm bundled; distro
+  `npm` package dropped — it conflicts), asserts `node --version v24.*`
+  plus npm before continuing. Takes effect on the next manual image
+  rebuild; re-run the QEMU login-success gate against that image.
+- **Builder download cache**: `VESTARA_IMAGE_CACHE_DIR` (default
+  `<repo>/.cache/vestara-image`, gitignored) bind-mounts apt archives +
+  npm cache into the target — rebuilds fetch only changed payloads;
+  image stays leaner. Documented in builder usage text + `.env`
+  (commented; `.env` never reaches sudo runs).
+- **P4 baselines**: 8/8 `startup.*` shots (desktop 1920/1600/1440 +
+  laptop 1366 × dark/light) captured and compare-green; the approved
+  render is linked from the README Screenshots section.
 - **P3**: LightDM/XFCE bridge packaged under `os/customization/login/`
   (seat + greeter confs, `vestara-startup-session.sh` readiness wait with
   bounded fallback to degraded, `vestara-startup.desktop` autostart,
   marker-ready entry resolution) and wired into `scripts/build-vestara-image.sh`
   (`chromium` + `curl`, install + binary assertions, validation.yaml).
+- **P3 hookup**: `POST /api/onboarding/begin|complete` + `GET
+  /api/onboarding/status` completion authority (fixed filenames,
+  `VESTARA_ONBOARDING_MARKER_DIR`, authed; 6 tests green); session
+  launcher honors system markers with completion terminal; builder
+  provisions `/var/lib/vestara/onboarding` (vestara-owned) + env.
 - **P2**: readiness hook polls `/api/health/live`, `/api/health`,
   `/api/health/ready` (public) plus `/api/auth/me`, `/api/agents`,
   `/api/host`, `/api/boot` when a session exists; rows derive from probes.

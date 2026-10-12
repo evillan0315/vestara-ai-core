@@ -10,6 +10,49 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-12] — OS Startup Screen P0–P4, Image Node 24 + Cache, Screenshot Futures
+
+### Added
+
+- **VOS-STARTUP-001 P0–P1 (now In Progress)**: reference fidelity contract
+  (`docs/VOS-STARTUP-SCREEN-PLAN.md`); clean 1671×941 planet/mountain
+  artwork with no baked text (`assets/startup/` → served at
+  `/startup/vestara-startup-bg.png`); `/startup?entry=onboarding|login`
+  route with `StartupCanvas`, `BrandLockup` (canonical `VestaraMark`),
+  `ReadinessCard`, `ReadinessChecklist`, `StartupFooter`, fixture-first
+  `loading` / `ready` / `ready-celebration` / `degraded` states
+  (`apps/workspace/src/features/startup/`, `7630681`).
+- **VOS-STARTUP-001 P2**: live readiness hook polling `/api/health/*`
+  plus authed `/api/auth/me`, `/api/agents`, `/api/host`, `/api/boot`;
+  rows derive from probes with structured `VOS-STARTUP-*` codes and
+  OS-first recovery (`0542bff`).
+- **VOS-STARTUP-001 P3**: LightDM/XFCE bridge
+  (`os/customization/login/` — seat/greeter confs, readiness-wait
+  chromium-kiosk launcher with marker-ready entry resolution, autostart
+  entry); onboarding marker API (`apps/api/src/routes/onboarding.ts` +
+  tests); builder wiring (chromium/curl, marker dir + env) and host
+  download cache (`VESTARA_IMAGE_CACHE_DIR`) (`235ab23` + follow-ups).
+- **Image runtime Node 24**: builder installs NodeSource `node_24.x`
+  (verified 24.21.0, npm bundled) with a v24.* gate — Debian trixie
+  Node 20 crashes the API via `node:sqlite` (found by the QEMU
+  login-success check: greeter → eddie login → kiosk opens the route,
+  API down).
+- **VES-VIS-001 (future plan, not authorized)**: Playwright harness audit
+  plus agent-browser restructure plan
+  (`docs/plans/VES-VIS-001-screenshots-agent-browser-plan.md`).
+- **P4 baselines**: 8/8 `startup.*` Playwright shots (desktop + laptop ×
+  dark/light) captured and compare-green; approved render linked from
+  the README Screenshots section.
+
+### Changed
+
+- Milestone `VOS-STARTUP-001` pending → in_progress (registry, ledger,
+  status, plan v1.2.0); new `VES-VIS-001` entry (pending, UI Platform).
+- Image base Ubuntu Noble → Debian Trixie with plain GRUB background
+  and throbber-only Plymouth (`4c5cb4a`).
+- README Screenshots section (reference, canvas artwork, live render,
+  approved baseline) and roadmap.
+
 ## [2026-10-11] — Activity Report, OS Boot, Telegram Bridge, Workflow Graph
 
 ### Added

@@ -11,6 +11,7 @@ required:
   - /etc/xdg/autostart/vestara-startup.desktop
   - /usr/bin/chromium
   - /usr/bin/curl
+  - /var/lib/vestara/onboarding
 services:
   - vestara-host.service
   - vestara-api.service

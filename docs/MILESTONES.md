@@ -3507,7 +3507,7 @@ Workspace available
 
 **Objective**: Own the handoff from boot to Workspace on the Vestara OS image: after first-boot onboarding completes or a returning user logs in successfully, show a branded, health-gated Vestara startup screen that transitions into the Workspace — no Ubuntu/Debian branding, no console spam, no dead-end desktop.
 
-**Plan**: `docs/VOS-STARTUP-SCREEN-PLAN.md` (captured 2026-10-11, `b3c5c9f`; P0 clean artwork + P1 `/startup` route landed 2026-10-12, `7630681`)
+**Plan**: `docs/VOS-STARTUP-SCREEN-PLAN.md` (captured 2026-10-11, `b3c5c9f`; v1.2.0 — P0–P3 + P4 baselines landed, see record)
 
 **Gap closed by this milestone**: `VOS-BOOT-001` ends at the desktop session, `VOS-LIVE-001I` covers backend startup orchestration with no visual screen, `VOS-LIVE-001J` covers shell hosting with no startup screen, and `v4.0` onboarding ends at completion with no handoff target.
 
@@ -3515,14 +3515,15 @@ Workspace available
 
 | Phase | Scope |
 |-------|-------|
-| VOS-STARTUP-001-P1 | Workspace startup route + states (`loading` → `ready` / `ready-celebration` / `degraded`) against fixtures; `vds:validate` + Biome clean — landed 2026-10-12 (`7630681`) |
-| VOS-STARTUP-001-P2 | Login/greeter + autostart packaging in `os/customization/login/` (currently README-only) |
-| VOS-STARTUP-001-P3 | Image-builder integration; zero Ubuntu/Debian branding end-to-end |
-| VOS-STARTUP-001-P4 | VM-first verification (first-boot, login-success, offline/degraded paths) + `screenshots:ci` baselines |
+| VOS-STARTUP-001-P0 | Visual contract + clean 1671×941 artwork (no baked text), vendored to `public/startup/` — landed |
+| VOS-STARTUP-001-P1 | Workspace `/startup` route + states (`loading` → `ready` / `ready-celebration` / `degraded`) against fixtures; `vds:validate` + Biome clean — landed (`7630681`) |
+| VOS-STARTUP-001-P2 | Live readiness: systemd/API probes → six rows, structured `VOS-STARTUP-*` codes, OS-first recovery — landed (`0542bff`) |
+| VOS-STARTUP-001-P3 | LightDM/XFCE bridge (`os/customization/login/`) + builder wiring (chromium/curl, Node 24, cache) + onboarding marker API — landed (`235ab23` + follow-ups) |
+| VOS-STARTUP-001-P4 | VM-first verification + `screenshots:ci` baselines — partial: 8/8 `startup.*` baselines compare-green; QEMU login proved the bridge but exposed image Node 20 vs `node:sqlite` (builder now pins Node 24 — rebuild + re-gate pending); 1672 strict-diff + onboarding UI flow remain |
 
 **Non-goals**: Plymouth theme, GRUB menu, recovery path, onboarding conversation itself.
 
-**Status**: 🔶 In Progress (P0 artwork + P1 route + P2 readiness landed; P3–P4 remain)
+**Status**: 🔶 In Progress (P0–P3 + P4 baselines landed; remain Node 24 rebuild + QEMU re-gate, 1672 strict-diff, onboarding UI flow)
 
 ---
 
@@ -4030,10 +4031,11 @@ interface OverviewViewModel {
 | **Governed Verification** | **VER-GOV-001** | **Governed Verification Execution & Participant Activity (001A–001P; coordinator, queue, evidence, recovery, projection)** | 🔷 Proposed |
 | **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases; P2/P8/P10 partially landed 2026-10-11)** | 🔶 In Progress |
-| **OS Startup Screen** | **VOS-STARTUP-001** | **Post-onboarding / login-success startup screen owning the boot → Workspace handoff (P0 artwork + P1 /startup route landed 2026-10-12)** | 🔶 In Progress |
+| **OS Startup Screen** | **VOS-STARTUP-001** | **Post-onboarding / login-success startup screen owning the boot → Workspace handoff (P0–P3 + P4 baselines landed; Node 24 rebuild + QEMU re-gate remain)** | 🔶 In Progress |
 | **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |
+| **Screenshots on agent-browser** | **VES-VIS-001** | **Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (future plan, not authorized)** | 🔷 Planned |
 | **Telegram Integration** | **VES-TG-001** | **Telegram Interaction Platform (29 phases, 5 batches; routed through Global Assistant; + TG-030 question bridge 2026-10-11; + canonical-principal answer-auth fix 2026-10-11)** | ✅ Complete |
 | **Live Browser + Telegram** | **VES-LB-TG** | **Live Browser + Telegram Streaming (30 phases, agent-browser substrate)** | 🔶 Proposed |
 | **Collaboration** | **v8.0–v8.2** | **Multi-User, Advanced PM, AI Workflows** | 🔶 In Progress |

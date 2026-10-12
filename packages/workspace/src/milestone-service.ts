@@ -679,7 +679,7 @@ const MILESTONES: Milestone[] = [
     era: 'OS',
     status: 'in_progress',
     description:
-      'Post-onboarding / login-success Vestara startup screen owning the handoff from boot to Workspace (see docs/VOS-STARTUP-SCREEN-PLAN.md). P0 clean artwork + P1 /startup route + P2 readiness landed; P3 login handoff, P4 VM verification remain.',
+      'Post-onboarding / login-success Vestara startup screen owning the handoff from boot to Workspace (see docs/VOS-STARTUP-SCREEN-PLAN.md). P0 artwork, P1 route, P2 readiness, P3 bridge + hookup, and P4 baselines landed; remain Node 24 rebuild + QEMU re-gate, 1672 strict-diff, onboarding UI flow.',
   },
   // Vestara Live OS Program — governed, reproducible Debian-based Vestara image
   {
@@ -862,6 +862,15 @@ const MILESTONES: Milestone[] = [
     era: 'UI Platform',
     status: 'completed',
     description: 'Premium responsive workspace overview',
+  },
+  // Screenshot restructure (future plan, not authorized)
+  {
+    version: 'VES-VIS-001',
+    name: 'Screenshots on agent-browser',
+    era: 'UI Platform',
+    status: 'pending',
+    description:
+      'Restructure the Playwright visual harness behind a ScreenshotDriver seam and cut over to agent-browser (see docs/plans/VES-VIS-001-screenshots-agent-browser-plan.md). Plan captured 2026-10-12; implementation not authorized.',
   },
   // Marketplace Era — Vestara Interactive Results
   {
