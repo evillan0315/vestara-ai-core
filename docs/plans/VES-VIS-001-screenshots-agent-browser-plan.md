@@ -1,6 +1,6 @@
 ---
 title: VES-VIS-001 — Screenshots on agent-browser (Restructure Plan)
-version: 1.1.0
+version: 1.2.0
 status: planned
 owner: vestara
 last-reviewed: 2026-10-13
@@ -60,8 +60,10 @@ disabling, reduced-motion emulation, masks, and network-idle settling.
 - F4: Update mode rewrites every in-scope baseline; only operator discipline
   (`-g`, `SCREENSHOT_ROUTES`) prevents full-suite churn.
 - F5: `visual-regression.yml` runs `screenshots:ci` scoped to
-  `activity,qualification-activity` with `continue-on-error` — regressions
-  do not fail the PR from that job today.
+  `activity,qualification-activity` with `continue-on-error` — (correction
+  v1.2.0: a subsequent `Fail PR on regression` step fails the run when the
+  screenshot step fails, so regressions DO fail the PR and red main; see
+  F10) — the screenshot step itself is what needs the audit below.
 - F6: Route-specific stabilization is bespoke per route (`page.ts`
   activity pinning). A second driver must reproduce or explicitly own each
   stabilization or diffs will be attributed to the wrong cause.
@@ -87,6 +89,39 @@ disabling, reduced-motion emulation, masks, and network-idle settling.
   documents") — dark and light cases capture at different moments against
   live state, so green results on live-data routes are partly timing luck.
   Fixtures do not cover those routes' data (see F7).
+- F10 (BLOCKER — workflow red on main): fail-closed API auth broke every
+  CI capture (audited 2026-10-13, filed v1.2.0). Both CI-scoped routes
+  require auth, but the harness never authenticates: `ensureStorageStates()`
+  (`auth/roles.ts`) has zero callers and `browser.newContext()` never
+  receives `storageState`, so no `vestara-auth-token` is ever seeded and
+  `ProtectedPage` redirects every capture to `/login` (probed: no-token
+  `/activity` lands on `/login`). `activity` cases additionally exceed the
+  30s default test timeout (three swallowed 10s waits for content that never
+  renders → `Target page … has been closed`). Baselines (2026-09-21) predate
+  fail-closed auth (`cded0cf`, 2026-10-10); the last 5 main runs fail at
+  `Fail PR on regression`. Fix: wire the existing storage-state
+  infrastructure (call `ensureStorageStates()`, pass `storageState` per
+  role, seed a fixture token) plus a `/api/auth/me` fixture — do NOT
+  re-approve login-page captures as baselines.
+- F11 (HIGH — CI consequence of F8): after the F10 auth fix, whoever runs
+  `screenshots:update` will bake dark pixels into every `*.light.png` again
+  unless the F8 seed fix ships in the same change. Auth repair and theme
+  repair must land together with the re-baselining.
+- F12 (MEDIUM — determinism debts in the CI scope): relative-time strings
+  ("26h ago", "52m ago", "Last event") computed against wall clock from
+  fixed fixture timestamps age baselines out within hours/days, and the
+  unmocked WebSocket-fallback reconnect UI (`Error: Reconnecting... 2/5`)
+  is nondeterministic by construction. Neither is covered by `masks.ts`.
+  Fix with route masks or fixture pinning (harness-only preferred).
+- F13 (LOW — workflow hygiene, audited 2026-10-13): `colorScheme: 'dark'`
+  is hardcoded for every context (`runner/viewport.ts`) so light captures
+  get dark browser chrome (fix with the F8 seed work — `open()` never
+  receives the theme); failure traces are discarded (`test-results/` is not
+  in the artifact upload paths); 68 MB of committed `baselines/` are
+  re-uploaded every run; the `vite build` step's output is unused by the
+  `vite dev` webServer (keep `tsc -b` as the harness type gate, drop the
+  bundle); `SCREENSHOT_ROUTES=activity` substring-matches `activity-room`
+  too (`routes/discovery.ts`) — confusing but CI-sets-both so unaffected.
 
 ## 2. Target shape (no behavior change until P3)
 
