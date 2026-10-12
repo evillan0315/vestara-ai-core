@@ -5,8 +5,8 @@ set -Eeuo pipefail
 ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 OUTPUT=${VESTARA_IMAGE_OUTPUT:-${ROOT}/vestara.img}
 OUTPUT_NAME=$(basename -- "$OUTPUT")
-SUITE=${VESTARA_IMAGE_SUITE:-noble}
-MIRROR=${VESTARA_IMAGE_MIRROR:-https://archive.ubuntu.com/ubuntu}
+SUITE=${VESTARA_IMAGE_SUITE:-trixie}
+MIRROR=${VESTARA_IMAGE_MIRROR:-https://deb.debian.org/debian}
 SIZE=${VESTARA_IMAGE_SIZE:-16G}
 FORCE=0
 usage() { cat >&2 <<'USAGE'
@@ -52,8 +52,8 @@ WGET
 chmod 755 "$WORK/bin/wget"
 PATH="$WORK/bin:$PATH" debootstrap --variant=minbase --include=apt,apt-utils "$SUITE" "$WORK/root" "$MIRROR"
 install -d -m 0755 "$WORK/root/etc/apt/sources.list.d"
-cat > "$WORK/root/etc/apt/sources.list.d/vestara-universe.list" <<APT
-deb $MIRROR $SUITE main universe
+cat > "$WORK/root/etc/apt/sources.list.d/vestara-components.list" <<APT
+deb $MIRROR $SUITE main contrib non-free non-free-firmware
 APT
 install -d -m 0755 "$WORK/root/dev" "$WORK/root/proc" "$WORK/root/sys" "$WORK/root/run"
 cp -L /etc/resolv.conf "$WORK/root/etc/resolv.conf.vestara"
@@ -66,8 +66,8 @@ exit 101
 POLICY
 chmod 755 "$WORK/root/usr/sbin/policy-rc.d"
 chroot "$WORK/root" /usr/bin/apt-get update
-#chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
-chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-generic grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal
+#chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal
 chroot "$WORK/root" groupadd --system vestara || true; chroot "$WORK/root" useradd --system --gid vestara --home-dir /var/lib/vestara --shell /usr/sbin/nologin vestara || true
 chroot "$WORK/root" useradd --create-home --shell /bin/bash eddie || true
 chroot "$WORK/root" usermod -aG sudo eddie || true
@@ -83,13 +83,17 @@ install -d -m 0755 "$WORK/root/etc/systemd/system" "$WORK/root/etc/systemd/syste
 install -d -m 0755 "$WORK/root/boot/efi"
 install -d -m 0755 "$WORK/root/boot/grub/themes/vestara" "$WORK/root/usr/share/plymouth/themes/vestara" "$WORK/root/etc/default/grub.d"
 install -m 0644 "$ROOT"/os/customization/grub/theme.txt "$WORK/root/boot/grub/themes/vestara/theme.txt"
-install -m 0644 "$ROOT"/os/customization/plymouth/background.png "$WORK/root/boot/grub/themes/vestara/background.png"
+install -m 0644 "$ROOT"/os/customization/plymouth/background.png "$WORK/root/boot/grub/vestara-background.png"
 install -m 0644 "$ROOT"/os/customization/plymouth/vestara.plymouth "$ROOT"/os/customization/plymouth/vestara.script "$WORK/root/usr/share/plymouth/themes/vestara/"
 install -m 0644 "$ROOT"/os/customization/plymouth/background.png "$WORK/root/usr/share/plymouth/themes/vestara/"
-for frame in "$ROOT"/os/customization/plymouth/v-rotate-*.png; do
-  [[ -f $frame ]] || { echo "Missing Plymouth animation frame: $frame" >&2; exit 1; }
+for frame in "$ROOT"/os/customization/plymouth/throbber-*.png; do
+  [[ -f $frame ]] || { echo "Missing Plymouth throbber frame: $frame" >&2; exit 1; }
   install -m 0644 "$frame" "$WORK/root/usr/share/plymouth/themes/vestara/"
 done
+[[ $(find "$ROOT/os/customization/plymouth" -maxdepth 1 -name 'throbber-*.png' | wc -l) -eq 20 ]] || {
+  echo "Expected exactly 20 Plymouth throbber frames." >&2
+  exit 1
+}
 install -m 0644 "$ROOT"/os/customization/configs/grub/vestara.cfg "$WORK/root/etc/default/grub.d/vestara.cfg"
 install -m 0644 "$ROOT"/os/customization/assets/logo.svg "$WORK/root/usr/share/plymouth/themes/vestara/logo.svg"
 chroot "$WORK/root" rsvg-convert --width 512 --height 512 --output /usr/share/plymouth/themes/vestara/logo.png /usr/share/plymouth/themes/vestara/logo.svg
@@ -99,8 +103,8 @@ cat > "$WORK/root/etc/plymouth/plymouthd.conf" <<'PLYMOUTH'
 [Daemon]
 Theme=vestara
 PLYMOUTH
-# Ubuntu's package defaults can otherwise leave default.plymouth pointing at
-# the Ubuntu spinner. Make Vestara the package-level default as well as the
+# Debian's package defaults can otherwise leave default.plymouth pointing at
+# the distro spinner. Make Vestara the package-level default as well as the
 # daemon configuration, then rebuild initramfs after all assets are present.
 ln -sfn vestara.plymouth "$WORK/root/usr/share/plymouth/themes/default.plymouth"
 install -m 0644 "$ROOT"/os/systemd/*.service "$ROOT"/os/systemd/*.path "$ROOT"/os/systemd/vestara.target "$WORK/root/etc/systemd/system/"
@@ -149,6 +153,10 @@ for initrd in "$WORK/root"/boot/initrd.img-*; do
   [[ -f $initrd ]] || continue
   lsinitramfs "$initrd" | grep -Fq 'usr/share/plymouth/themes/vestara/vestara.plymouth' || {
     echo "Vestara Plymouth theme is missing from initramfs: $initrd" >&2
+    exit 1
+  }
+  lsinitramfs "$initrd" | grep -Fq 'usr/share/plymouth/themes/vestara/throbber-19.png' || {
+    echo "Vestara Plymouth throbber is missing from initramfs: $initrd" >&2
     exit 1
   }
 done

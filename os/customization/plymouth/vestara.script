@@ -21,18 +21,18 @@ background_sprite.SetPosition(
   -100
 );
 
-# Load and scale the rotating logo frames.
-frame_count = 16;
+# Load and scale the loading throbber frames.
+frame_count = 20;
 for (i = 0; i < frame_count; i++)
   {
     if (i < 10)
-      frame_name = "v-rotate-0" + i + ".png";
+      frame_name = "throbber-0" + i + ".png";
     else
-      frame_name = "v-rotate-" + i + ".png";
+      frame_name = "throbber-" + i + ".png";
 
     frame = Image(frame_name);
 
-    target_size = Window.GetHeight() * 0.78;
+    target_size = Window.GetHeight() * 0.22;
     frame_scale = target_size / frame.GetHeight();
 
     frames[i] = frame.Scale(
@@ -44,8 +44,8 @@ for (i = 0; i < frame_count; i++)
 frame_index = 0;
 refresh_count = 0;
 
-logo_sprite = Sprite(frames[frame_index]);
-logo_sprite.SetPosition(
+throbber_sprite = Sprite(frames[frame_index]);
+throbber_sprite.SetPosition(
   Window.GetX() + Window.GetWidth() / 2 - frames[0].GetWidth() / 2,
   Window.GetY() + Window.GetHeight() / 2 - frames[0].GetHeight() / 2,
   0
@@ -59,7 +59,7 @@ fun refresh_callback ()
     if (refresh_count % 4 == 0)
       {
         frame_index = (frame_index + 1) % frame_count;
-        logo_sprite.SetImage(frames[frame_index]);
+        throbber_sprite.SetImage(frames[frame_index]);
       }
   }
 

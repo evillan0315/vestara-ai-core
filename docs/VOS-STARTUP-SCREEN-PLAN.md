@@ -74,6 +74,99 @@ the onboarding conversation itself.
 - **Data:** API first; local `*.fixtures.ts` fallback while the health gate
   is pending; never hardcoded arrays in JSX.
 
+## Reference fidelity contract
+
+`assets/vestara-desktop-02-screen.png` is the normative visual reference for
+the first implementation. It is 1672 × 941 pixels. “Similar” means the
+rendered startup route must match this composition; no alternate layout,
+generic desktop screen, or framework-default loading page is acceptable.
+
+The implementation must preserve these visible regions and their relative
+placement:
+
+| Region | Required appearance |
+|---|---|
+| Canvas | Full-viewport, edge-to-edge dark space/mountain artwork with no scrollbars or opaque page margins. |
+| Upper-left identity | `VESTARA OS` followed by `HUMAN INTELLIGENCE. MULTIPLIED.` in small, widely tracked typography. |
+| Upper-right navigation | `PEOPLE  |  AGENTS  |  WORKFLOWS  |  A MORE CAPABLE TOMORROW` plus the cyan terminal line. These are presentation elements, not navigation controls. |
+| Center brand | Cyan Vestara mark, `VESTARA`, `AI OPERATING SYSTEM`, and `THINK  ·  PLAN  ·  BUILD  ·  VERIFY  ·  TOGETHER`, centered as one vertical lockup. |
+| Readiness card | Translucent dark card with a thin cool border, rounded corners, cyan circular loading indicator, `Starting Vestara OS...`, and `Initializing services, agents and workspace`. |
+| Readiness checklist | Six rows: `Core system`, `Agent services`, `Workspace environment`, `Loading user profile...`, `Preparing desktop...`, and `Almost ready...`; completed rows use cyan check circles and pending rows use outlined circles. |
+| Lower quote | Centered divider, `“A more capable tomorrow, together.”`, and `— VESTARA`. |
+| Lower corners | Version/copyright at lower-left; `POWERED BY OPENCODE` and `BUILT FOR PEOPLE AND AGENTS` plus the cyan terminal line at lower-right. |
+
+The reference is a screenshot baseline, not a background image to place behind
+duplicated text. Artwork, logo, typography, card, checklist, and status
+indicator must remain independently rendered so runtime state can change.
+
+### Responsive fidelity
+
+- Use the reference viewport as the baseline screenshot size.
+- Use a cover-scaled background with a fixed focal point; preserve the planet
+  rim, mountain silhouette, and central valley placement.
+- Keep the brand lockup and readiness card centered as a group.
+- Anchor corner metadata to the viewport edges with tokenized spacing.
+- At smaller viewports, scale the composition proportionally and hide only the
+  decorative upper-right navigation if it would collide with the brand; never
+  move the readiness card into a different layout.
+- At no viewport may the browser default body background, loading text, or a
+  blank desktop become visible during the startup route.
+
+## Implementation plan for exact reproduction
+
+### P0 — Freeze the visual contract
+
+1. Treat `assets/vestara-desktop-02-screen.png` as the approved screenshot
+   baseline and record its 1672 × 941 viewport.
+2. Identify or produce the clean background, Vestara mark, wordmark, and footer
+   assets separately; do not bake runtime text into the background.
+3. Add a startup screenshot fixture and a visual review checklist covering
+   every region in the table above.
+
+### P1 — Build the startup route
+
+1. Add `/startup?entry=onboarding|login` to the Workspace application.
+2. Build focused components: `StartupCanvas`, `BrandLockup`, `ReadinessCard`,
+   `ReadinessChecklist`, and `StartupFooter`.
+3. Add `loading`, `ready`, `ready-celebration`, and `degraded` states.
+4. Use fixtures first so the reference can be matched before systemd and API
+   integration is introduced.
+5. Validate with `pnpm vds:validate`, Biome, and the Workspace visual test
+   harness.
+
+### P2 — Connect real readiness state
+
+1. Make systemd authoritative for `Core system`, `Agent services`, and
+   `Workspace environment`.
+2. Resolve the logged-in Linux user to the Vestara Principal before marking
+   `Loading user profile...` complete.
+3. Make `Preparing desktop...` and `Almost ready...` reflect actual desktop
+   and Workspace launch readiness, not timers.
+4. Map failures to `degraded` with a diagnostics code and recovery action;
+   never leave the user at a blank screen.
+
+### P3 — Integrate first boot and returning-user entry
+
+1. First boot: onboarding completion enters `/startup?entry=onboarding` with
+   `ready-celebration` before Workspace opens.
+2. Returning user: successful LightDM login starts `/startup?entry=login` and
+   must not start onboarding again.
+3. Package the LightDM/session autostart bridge under
+   `os/customization/login/`.
+4. Keep Plymouth, GRUB, and recovery behavior outside this route’s ownership.
+
+### P4 — Validate against the reference and VM flows
+
+1. Add a screenshot baseline at 1672 × 941 and compare with a strict visual
+   diff. Review background crop, spacing, typography, cyan accents, card
+   opacity, checklist alignment, and footer placement.
+2. Run QEMU scenarios for first boot, successful returning-user login,
+   healthy service startup, offline/degraded startup, and recovery.
+3. Verify there is no Ubuntu/Debian branding, tty, console flash, default
+   greeter, or generic desktop between login and this screen.
+4. Only after screenshot and VM gates pass should the image builder wire the
+   route as the normal desktop handoff.
+
 ## Technical Design
 
 - **Route:** new Workspace startup route (e.g. `/startup?entry=onboarding|login`)
