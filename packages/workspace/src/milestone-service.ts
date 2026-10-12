@@ -616,6 +616,15 @@ const MILESTONES: Milestone[] = [
     status: 'pending',
     description: 'Cross-platform agent communication, standard formats',
   },
+  // Production Era — deployable, operable, hardened runtime
+  {
+    version: 'v11.0',
+    name: 'Production Environment',
+    era: 'Production',
+    status: 'pending',
+    description:
+      'Full production hardening: containerization, env/config authority, reverse-proxy TLS, persistence/backup, observability, security hardening, release pipeline (see docs/plans/v11.0-production-environment-plan.md)',
+  },
   // Activity Room Milestones
   {
     version: 'AR-UI',

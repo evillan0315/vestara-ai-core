@@ -212,8 +212,14 @@ indicator must remain independently rendered so runtime state can change.
   `ReadinessCard`, `ReadinessChecklist`, `StartupFooter`, fixture-first
   `loading` / `ready` / `ready-celebration` / `degraded` states;
   `pnpm vds:validate` + workspace-ui `tsc -b` + `vite build` green.
-- **Remaining**: P3 LightDM/XFCE handoff under `os/customization/login/`,
-  P4 screenshot-diff + QEMU gates.
+- **Remaining**: P3 onboarding-flow hookup (marker writer; launcher defaults
+  to `login` until the flow lands), image rebuild + QEMU login-success
+  verification, P4 screenshot-diff + QEMU gates.
+- **P3**: LightDM/XFCE bridge packaged under `os/customization/login/`
+  (seat + greeter confs, `vestara-startup-session.sh` readiness wait with
+  bounded fallback to degraded, `vestara-startup.desktop` autostart,
+  marker-ready entry resolution) and wired into `scripts/build-vestara-image.sh`
+  (`chromium` + `curl`, install + binary assertions, validation.yaml).
 - **P2**: readiness hook polls `/api/health/live`, `/api/health`,
   `/api/health/ready` (public) plus `/api/auth/me`, `/api/agents`,
   `/api/host`, `/api/boot` when a session exists; rows derive from probes.

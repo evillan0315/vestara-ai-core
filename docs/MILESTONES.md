@@ -1,10 +1,10 @@
 ---
 title: Milestones
-version: 1.1.0
+version: 1.2.0
 status: approved
 owner: vestara
-last-reviewed: 2026-10-11
-next-review: 2026-11-11
+last-reviewed: 2026-10-12
+next-review: 2026-11-12
 ---
 
 
@@ -2651,6 +2651,27 @@ Therefore: Cytoscape graph state ≠ canonical Workflow state. Builder graph ≠
 - Open-source reference implementations
 
 **Target**: 2028
+
+---
+
+### v11.0 — Production Environment 🔷 Planned
+
+**Objective**: Ship a deployable, operable, hardened production runtime for the Vestara platform — containerized API+UI, env/config authority, reverse-proxy TLS, persistence/backup, observability, security hardening, and a tagged release pipeline.
+
+**Plan**: `docs/plans/v11.0-production-environment-plan.md` (8 phases: baseline audit → containerization → env/config → proxy/TLS → persistence/backup → observability → security → release).
+
+**Key artifacts**:
+
+- `docker-compose.prod.yml` + `apps/api/Dockerfile` + `apps/workspace/Dockerfile` (multi-stage, non-root, healthchecks)
+- `.env.production.example` + Zod-validated fail-fast boot config
+- Caddy/nginx TLS profile preserving `/api/*` + `/ws` (SSE disconnect still ≠ cancellation)
+- `scripts/backup-vestara.sh` / `scripts/restore-vestara.sh` + named-volume mount contract
+- `docs/operations/PRODUCTION-RUNBOOK.md` + CI prod-smoke job (`compose up → /api/health → down`)
+- Release tags `v11.0.x` with checksums + drilled rollback (previous tag + volume restore)
+
+**Verification**: `pnpm lint:check && bash build-order.sh && pnpm test:fast` green; `compose up -d + curl -f /api/health` 200; authed `/api/milestones` 200 / unauthenticated 401; `scripts/milestone-status.sh v11.0` reports planned phases.
+
+**Status**: 🔷 Planned
 
 ---
 

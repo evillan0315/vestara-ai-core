@@ -67,7 +67,7 @@ POLICY
 chmod 755 "$WORK/root/usr/sbin/policy-rc.d"
 chroot "$WORK/root" /usr/bin/apt-get update
 #chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs rsync
-chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal
+chroot "$WORK/root" env DEBIAN_FRONTEND=noninteractive /usr/bin/apt-get install -y linux-image-amd64 grub-efi-amd64-signed shim-signed systemd-sysv plymouth plymouth-themes librsvg2-bin ca-certificates nodejs npm rsync xserver-xorg lightdm lightdm-gtk-greeter xfce4 xfce4-terminal chromium curl
 chroot "$WORK/root" groupadd --system vestara || true; chroot "$WORK/root" useradd --system --gid vestara --home-dir /var/lib/vestara --shell /usr/sbin/nologin vestara || true
 chroot "$WORK/root" useradd --create-home --shell /bin/bash eddie || true
 chroot "$WORK/root" usermod -aG sudo eddie || true
@@ -112,18 +112,19 @@ for service in vestara-host.service vestara-api.service vestara-workspace.servic
 ln -sfn ../vestara.target "$WORK/root/etc/systemd/system/multi-user.target.wants/vestara.target"
 install -d -m 0755 "$WORK/root/var/lib/vestara/workspaces" "$WORK/root/etc/vestara"
 install -m 0644 "$ROOT/os/customization/identity/eddie.yaml" "$WORK/root/etc/vestara/human-profile.yaml"
+# VOS-STARTUP-001 P3: LightDM seat + greeter config and the XFCE session
+# autostart bridge live under os/customization/login/ (single source).
+for login_file in 50-vestara-seat.conf lightdm-gtk-greeter.conf vestara-startup-session.sh vestara-startup.desktop; do
+  [[ -f $ROOT/os/customization/login/$login_file ]] || { echo "Missing login bridge file: $login_file" >&2; exit 1; }
+done
 install -d -m 0755 "$WORK/root/etc/lightdm/lightdm.conf.d"
-cat > "$WORK/root/etc/lightdm/lightdm.conf.d/50-vestara.conf" <<'LIGHTDM'
-[Seat:*]
-greeter-session=lightdm-gtk-greeter
-user-session=xfce
-LIGHTDM
-cat > "$WORK/root/etc/lightdm/lightdm-gtk-greeter.conf" <<'GREETER'
-[greeter]
-background=/usr/share/plymouth/themes/vestara/background.png
-theme-name=Adwaita-dark
-icon-theme-name=Adwaita
-GREETER
+install -m 0644 "$ROOT/os/customization/login/50-vestara-seat.conf" "$WORK/root/etc/lightdm/lightdm.conf.d/50-vestara.conf"
+install -m 0644 "$ROOT/os/customization/login/lightdm-gtk-greeter.conf" "$WORK/root/etc/lightdm/lightdm-gtk-greeter.conf"
+install -m 0755 "$ROOT/os/customization/login/vestara-startup-session.sh" "$WORK/root/usr/local/bin/vestara-startup-session.sh"
+install -d -m 0755 "$WORK/root/etc/xdg/autostart"
+install -m 0644 "$ROOT/os/customization/login/vestara-startup.desktop" "$WORK/root/etc/xdg/autostart/vestara-startup.desktop"
+[[ -x $WORK/root/usr/bin/chromium ]] || { echo 'chromium is not installed on the image.' >&2; exit 1; }
+[[ -x $WORK/root/usr/bin/curl ]] || { echo 'curl is not installed on the image.' >&2; exit 1; }
 printf '%s\n' /usr/sbin/lightdm > "$WORK/root/etc/X11/default-display-manager"
 printf '%s\n' 'VESTARA_REPO=/var/lib/vestara/workspaces/default' > "$WORK/root/etc/vestara/vestara.env"
 chroot "$WORK/root" systemctl enable vestara.target vestara-host.service vestara-api.service vestara-workspace.service vestara-api-reload.path lightdm.service

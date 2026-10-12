@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Version=1.0
+Name=Vestara Startup
+Comment=Open the Vestara OS startup route after login (VOS-STARTUP-001 P3)
+Exec=/usr/local/bin/vestara-startup-session.sh
+OnlyShowIn=XFCE;
+Terminal=false
+StartupNotify=false
+NoDisplay=true
+X-GNOME-Autostart-enabled=true

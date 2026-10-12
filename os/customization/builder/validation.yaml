@@ -5,6 +5,12 @@ required:
   - /etc/default/grub.d/vestara.cfg
   - /etc/systemd/system/vestara.target
   - /etc/systemd/system/vestara-api-reload.path
+  - /etc/lightdm/lightdm.conf.d/50-vestara.conf
+  - /etc/lightdm/lightdm-gtk-greeter.conf
+  - /usr/local/bin/vestara-startup-session.sh
+  - /etc/xdg/autostart/vestara-startup.desktop
+  - /usr/bin/chromium
+  - /usr/bin/curl
 services:
   - vestara-host.service
   - vestara-api.service

@@ -1,7 +1,7 @@
 id: desktop
 description: Full graphical Vestara workspace profile.
-display_manager: sddm-or-gdm
-desktop: vestara-workspace
+display_manager: lightdm
+desktop: xfce
 login: graphical
 boot_splash: plymouth
 services:

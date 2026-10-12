@@ -135,6 +135,10 @@ Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STAT
 
 ## Screenshots
 
+![Vestara startup page — live render of `/startup?entry=onboarding`](assets/vestara-startup-screen.png)
+
+*Live startup page (`/startup?entry=onboarding`, 1600×900) — brand lockup, readiness card with checklist, quote, and corner metadata over the canvas artwork.*
+
 | OS startup screen (VOS-STARTUP-001) | Startup canvas artwork |
 |---|---|
 | ![Vestara OS startup screen reference](assets/vestara-desktop-02-screen.png) | ![Startup canvas artwork — clean planet and mountain scene](assets/startup/vestara-desktop-02-screen.png) |
