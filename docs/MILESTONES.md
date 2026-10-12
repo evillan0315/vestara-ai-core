@@ -3501,7 +3501,7 @@ Workspace available
 
 **Non-goals**: Plymouth theme, GRUB menu, recovery path, onboarding conversation itself.
 
-**Status**: 🔶 In Progress (P0 artwork + P1 route landed 2026-10-12; P2–P4 remain)
+**Status**: 🔶 In Progress (P0 artwork + P1 route + P2 readiness landed; P3–P4 remain)
 
 ---
 

@@ -670,7 +670,7 @@ const MILESTONES: Milestone[] = [
     era: 'OS',
     status: 'in_progress',
     description:
-      'Post-onboarding / login-success Vestara startup screen owning the handoff from boot to Workspace (see docs/VOS-STARTUP-SCREEN-PLAN.md). P0 clean artwork + P1 /startup route landed 2026-10-12; P2 readiness wiring, P3 login handoff, P4 VM verification remain.',
+      'Post-onboarding / login-success Vestara startup screen owning the handoff from boot to Workspace (see docs/VOS-STARTUP-SCREEN-PLAN.md). P0 clean artwork + P1 /startup route + P2 readiness landed; P3 login handoff, P4 VM verification remain.',
   },
   // Vestara Live OS Program — governed, reproducible Debian-based Vestara image
   {

@@ -9,7 +9,7 @@ next-review: 2026-11-12
 
 # VOS Startup Screen Plan — Post-Onboarding / Login-Success Screen
 
-## Status: IN PROGRESS — P0 artwork + P1 route landed 2026-10-12 (`7630681`); P2–P4 remain
+## Status: IN PROGRESS — P0 artwork + P1 route + P2 readiness landed; P3–P4 remain
 
 ## Executive Summary
 
@@ -212,8 +212,14 @@ indicator must remain independently rendered so runtime state can change.
   `ReadinessCard`, `ReadinessChecklist`, `StartupFooter`, fixture-first
   `loading` / `ready` / `ready-celebration` / `degraded` states;
   `pnpm vds:validate` + workspace-ui `tsc -b` + `vite build` green.
-- **Remaining**: P2 systemd/API readiness wiring, P3 LightDM/XFCE handoff
-  under `os/customization/login/`, P4 screenshot-diff + QEMU gates.
+- **Remaining**: P3 LightDM/XFCE handoff under `os/customization/login/`,
+  P4 screenshot-diff + QEMU gates.
+- **P2**: readiness hook polls `/api/health/live`, `/api/health`,
+  `/api/health/ready` (public) plus `/api/auth/me`, `/api/agents`,
+  `/api/host`, `/api/boot` when a session exists; rows derive from probes.
+  Codes are structured (`VOS-STARTUP-<CHECK> (GET <path> → <cause>)`,
+  5xx-aware agent row); recovery actions are OS-first (systemd/journalctl,
+  GRUB recovery entry) with a dev fallback.
 
 ## Risks
 
