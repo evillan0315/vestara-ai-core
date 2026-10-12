@@ -25,6 +25,15 @@ export interface AppRoute {
 
 export const APP_ROUTES: AppRoute[] = [
   { id: 'login', path: '/login', title: 'Login', requiresAuth: false, enabled: true, layout: 'public' },
+  {
+    id: 'startup',
+    path: '/startup',
+    title: 'Startup',
+    requiresAuth: false,
+    enabled: true,
+    layout: 'public',
+    hideFromNav: true,
+  },
 
   {
     id: 'redirect-root',

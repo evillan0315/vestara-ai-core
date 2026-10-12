@@ -1,0 +1,59 @@
+/**
+ * VOS-STARTUP-001 P1: Startup Scoped Tokens
+ *
+ * Scoped `--st-*` layer for the startup route. Every value derives from
+ * canonical `--vestara-*` tokens so dark/light mode and the user-selected
+ * accent propagate automatically. Never hard-code palette hex here.
+ */
+
+:root {
+  --st-canvas-bg: var(--vestara-surface-canvas);
+  --st-card-bg: var(--vestara-surface-panel);
+  --st-card-border: var(--vestara-border-subtle);
+  --st-card-shadow: var(--vestara-elevation-lg);
+  --st-title: var(--vestara-text-primary);
+  --st-sub: var(--vestara-text-secondary);
+  --st-muted: var(--vestara-text-muted);
+  --st-accent: var(--vestara-status-tool);
+  --st-accent-soft: var(--vestara-status-tool-bg);
+  --st-accent-border: var(--vestara-status-tool-border);
+  --st-check-done-bg: var(--vestara-status-tool);
+  --st-check-pending-border: var(--vestara-border-default);
+  --st-check-failed-bg: var(--vestara-status-error-bg);
+  --st-check-failed-fg: var(--vestara-status-error);
+  --st-quote: var(--vestara-text-secondary);
+}
+
+[data-theme='light'] {
+  --st-canvas-bg: var(--vestara-surface-canvas);
+  --st-card-bg: var(--vestara-surface-panel);
+  --st-card-border: var(--vestara-border-default);
+}
+
+/* ── Canvas artwork ──
+   Clean planet/mountain/valley artwork (no baked text) vendored from
+   assets/startup/vestara-desktop-02-screen.png (1671x941 baseline).
+   Text, logo, card, checklist, and status stay independently rendered
+   above a token scrim so runtime state can change. */
+.st-canvas-artwork {
+  background-color: var(--st-canvas-bg);
+  background-image:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--vestara-surface-canvas) 58%, transparent) 0%,
+      color-mix(in srgb, var(--vestara-surface-canvas) 28%, transparent) 42%,
+      color-mix(in srgb, var(--vestara-surface-canvas) 55%, transparent) 100%
+    ),
+    url('/startup/vestara-startup-bg.png');
+  background-size: cover, cover;
+  background-position: center, center 38%;
+  background-repeat: no-repeat, no-repeat;
+}
+
+/* Cyan mark scope — the reference mark is cyan. Keeps the theme ramp
+   token-derived (status-tool) instead of hard-coding the cyan literal. */
+.st-brand-mark {
+  --vestara-accent: var(--vestara-status-tool);
+  --vestara-accent-light: var(--vestara-status-tool);
+  --vestara-accent-dark: var(--vestara-status-tool);
+}

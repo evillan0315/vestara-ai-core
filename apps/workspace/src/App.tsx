@@ -12,6 +12,7 @@ import { APP_ROUTES } from './routes';
 import { useAuth } from './lib/auth';
 
 const Login = lazy(() => import('./pages/Login'));
+const Startup = lazy(() => import('./pages/Startup'));
 const Overview = lazy(() => import('./pages/Overview'));
 const Dashboard = lazy(() => import('./pages/Dashboard'));
 const LiveBrowser = lazy(() => import('./pages/live-browser/LiveBrowserPage'));
@@ -56,6 +57,7 @@ const MeetPage = lazy(() => import('./pages/Meet'));
 /** Route id → lazy page component. Keys match APP_ROUTES ids. */
 const PAGES: Record<string, ComponentType> = {
   login: Login,
+  startup: Startup,
   overview: Overview,
   dashboard: Dashboard,
   'live-browser': LiveBrowser,
