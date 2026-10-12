@@ -1,15 +1,15 @@
 ---
 title: VOS Startup Screen Plan — Post-Onboarding / Login-Success Screen for the Vestara OS Image
-version: 1.0.0
-status: proposed
+version: 1.1.0
+status: in-progress
 owner: vestara
-last-reviewed: 2026-10-11
-next-review: 2026-11-11
+last-reviewed: 2026-10-12
+next-review: 2026-11-12
 ---
 
 # VOS Startup Screen Plan — Post-Onboarding / Login-Success Screen
 
-## Status: DRAFT — Pending Director Approval
+## Status: IN PROGRESS — P0 artwork + P1 route landed 2026-10-12 (`7630681`); P2–P4 remain
 
 ## Executive Summary
 
@@ -200,6 +200,20 @@ indicator must remain independently rendered so runtime state can change.
    `VOS-LIVE-001I`/`VOS-LIVE-001J` or a PCS-017 addendum) in
    `packages/workspace/src/milestone-service.ts`; do not hand-edit
    milestone state without Director approval.
+
+## Implementation record (2026-10-12)
+
+- **P0**: clean 1671 × 941 planet/mountain/valley artwork produced (no baked
+  text) at `assets/startup/vestara-desktop-02-screen.png`, vendored to
+  `apps/workspace/public/startup/vestara-startup-bg.png` and rendered via the
+  `.st-canvas-artwork` cover background with a token scrim.
+- **P1**: `/startup?entry=onboarding|login` route landed (`7630681`) with
+  `StartupCanvas`, `BrandLockup` (canonical `VestaraMark`, cyan-scoped),
+  `ReadinessCard`, `ReadinessChecklist`, `StartupFooter`, fixture-first
+  `loading` / `ready` / `ready-celebration` / `degraded` states;
+  `pnpm vds:validate` + workspace-ui `tsc -b` + `vite build` green.
+- **Remaining**: P2 systemd/API readiness wiring, P3 LightDM/XFCE handoff
+  under `os/customization/login/`, P4 screenshot-diff + QEMU gates.
 
 ## Risks
 

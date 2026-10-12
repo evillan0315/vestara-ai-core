@@ -3482,11 +3482,11 @@ Workspace available
 
 ---
 
-### VOS-STARTUP-001 — Vestara OS Startup Screen 🔷 Planned
+### VOS-STARTUP-001 — Vestara OS Startup Screen 🔶 In Progress
 
 **Objective**: Own the handoff from boot to Workspace on the Vestara OS image: after first-boot onboarding completes or a returning user logs in successfully, show a branded, health-gated Vestara startup screen that transitions into the Workspace — no Ubuntu/Debian branding, no console spam, no dead-end desktop.
 
-**Plan**: `docs/VOS-STARTUP-SCREEN-PLAN.md` (captured 2026-10-11, `b3c5c9f`; DRAFT pending Director approval)
+**Plan**: `docs/VOS-STARTUP-SCREEN-PLAN.md` (captured 2026-10-11, `b3c5c9f`; P0 clean artwork + P1 `/startup` route landed 2026-10-12, `7630681`)
 
 **Gap closed by this milestone**: `VOS-BOOT-001` ends at the desktop session, `VOS-LIVE-001I` covers backend startup orchestration with no visual screen, `VOS-LIVE-001J` covers shell hosting with no startup screen, and `v4.0` onboarding ends at completion with no handoff target.
 
@@ -3494,14 +3494,14 @@ Workspace available
 
 | Phase | Scope |
 |-------|-------|
-| VOS-STARTUP-001-P1 | Workspace startup route + states (`loading` → `ready` / `ready-celebration` / `degraded`) against fixtures; `vds:validate` + Biome clean |
+| VOS-STARTUP-001-P1 | Workspace startup route + states (`loading` → `ready` / `ready-celebration` / `degraded`) against fixtures; `vds:validate` + Biome clean — landed 2026-10-12 (`7630681`) |
 | VOS-STARTUP-001-P2 | Login/greeter + autostart packaging in `os/customization/login/` (currently README-only) |
 | VOS-STARTUP-001-P3 | Image-builder integration; zero Ubuntu/Debian branding end-to-end |
 | VOS-STARTUP-001-P4 | VM-first verification (first-boot, login-success, offline/degraded paths) + `screenshots:ci` baselines |
 
 **Non-goals**: Plymouth theme, GRUB menu, recovery path, onboarding conversation itself.
 
-**Status**: 🔷 Planned (plan captured; implementation not started)
+**Status**: 🔶 In Progress (P0 artwork + P1 route landed 2026-10-12; P2–P4 remain)
 
 ---
 
@@ -4009,7 +4009,7 @@ interface OverviewViewModel {
 | **Governed Verification** | **VER-GOV-001** | **Governed Verification Execution & Participant Activity (001A–001P; coordinator, queue, evidence, recovery, projection)** | 🔷 Proposed |
 | **CI Observation & Verification** | **CI-OBS-001** | **GitHub CI Observation & Verification — evidence-backed CI review, Activity Room projection, governed repair boundary** | 🔶 Planned |
 | **OS Boot Experience** | **VOS-BOOT-001** | **Unified Boot: GRUB → Plymouth → systemd → Desktop (11 phases; P2/P8/P10 partially landed 2026-10-11)** | 🔶 In Progress |
-| **OS Startup Screen** | **VOS-STARTUP-001** | **Post-onboarding / login-success startup screen owning the boot → Workspace handoff (plan captured 2026-10-11)** | 🔷 Planned |
+| **OS Startup Screen** | **VOS-STARTUP-001** | **Post-onboarding / login-success startup screen owning the boot → Workspace handoff (P0 artwork + P1 /startup route landed 2026-10-12)** | 🔶 In Progress |
 | **Vestara Live OS** | **VOS-LIVE-001** | **Live OS Production Foundation — governed, reproducible Debian-based Vestara image; Live/Persistent/Installed/Recovery modes (20 milestones A–T, 7 phases)** | 🔶 Planned |
 | **Shared UI Platform** | **VES-UI-001** | **Vestara UI SDK (23 milestones, 6 batches)** | 🔶 Proposed |
 | **Overview Screen** | **VES-OVERVIEW-001** | **Vestara Overview (23 milestones, 6 batches)** | ✅ Complete |

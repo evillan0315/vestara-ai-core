@@ -17,6 +17,7 @@
 - [What Is Vestara?](#what-is-vestara)
 - [Telegram — First-Class Participation Surface](#telegram--first-class-participation-surface)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Quickstart](#quickstart)
 - [Usage](#usage)
 - [Configuration](#configuration)
@@ -129,6 +130,15 @@ Implementation: `packages/telegram-integration/src/` (adapter, pairing, commands
 - **Quality infrastructure** — benchmarks, visual regression (Playwright), docs governance gates
 
 Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STATUS.md) · [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · [`docs/MILESTONES.md`](docs/MILESTONES.md)
+
+---
+
+## Screenshots
+
+| OS startup screen (VOS-STARTUP-001) | Startup canvas artwork |
+|---|---|
+| ![Vestara OS startup screen reference](assets/vestara-desktop-02-screen.png) | ![Startup canvas artwork — clean planet and mountain scene](assets/startup/vestara-desktop-02-screen.png) |
+| Design reference for the post-onboarding / login-success handoff (`/startup?entry=onboarding\|login`) — brand lockup, readiness card, six-row checklist, quote, corner metadata. | Clean 1671×941 canvas background with no baked text; all UI renders independently above it. Served at `/startup/vestara-startup-bg.png`. |
 
 ---
 
@@ -354,7 +364,7 @@ pnpm documentation:check                # CI baseline drift gate
 
 - `AR-REPORT` — Activity date-range reports (in progress; verification phase remains)
 - `VOS-BOOT-001` — Unified boot experience (in progress; readiness projection + QEMU validation remain)
-- `VOS-STARTUP-001` — Post-onboarding / login-success startup screen (planned)
+- `VOS-STARTUP-001` — Post-onboarding / login-success startup screen (in progress — P1 route + artwork landed; P2–P4 remain)
 - Workflow graph projection hardening + verification
 - Marketplace remote registries expansion
 
