@@ -10,6 +10,69 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-13] — Launcher Dock, Workspace Tabs, VES-VIS-001 F8–F13, Navigation Restructure
+
+### Added
+
+- **Workspace launcher + tabs (`9fea59f`)**: `LauncherDock` +
+  `WorkspaceTabLayout`/`WorkspaceTabs` extraction with tests;
+  Settings reference surface + shared `WorkspaceStatusCard`
+  projection; `GlobalAssistant` + `WorkspaceOperationalPanel`
+  composition updates; new `startup` cyan accent token
+  (`packages/ui-tokens/src/tokens.ts`) + settings-page styles;
+  GA ↔ Activity Room alignment doc
+  (`docs/activity-room/ga-activity-room-alignment.md`) +
+  engineering findings update; visual test helpers
+  (theme/viewport/runner/fixtures); Tabs tabpanel a11y fix.
+- **VES-VIS-001 F8/F9 (`40249c8`, plan v1.1.0)**: dual theme
+  providers — harness seeds `vestara-theme` but outer
+  `VestaraThemeProvider` reads `vestara-theme-mode` (defaults
+  dark), so every light capture renders dark (146/172 pairs
+  byte-identical); live backend data leaks into captures (the 26
+  differing pairs differ by data, not theme). Qualifies S2 and the
+  P1 byte-identical acceptance criterion. Registry/ledger/status
+  reflect plan v1.1.0 (`eaaa17b`); implementation still not
+  authorized.
+- **VES-VIS-001 F10–F13 (`6b1177b`, plan v1.2.0)**: F10 BLOCKER —
+  fail-closed auth broke all CI captures (no token ever seeded;
+  dead storageState infra; login redirect); F11 HIGH —
+  theme-in-CI consequence of F8 (re-baseline with seed fix);
+  F12 MEDIUM — relative-time + reconnect-UI determinism debts;
+  F13 LOW — workflow hygiene bundle (corrects F5 on the Fail
+  step).
+- **v7.15 Navigation Restructure & Route-Driven Pages (in
+  progress)**: two-tier category navigation (Marketplace +
+  Workspace with Engineering/Operations groups), route-driven nav
+  generation from `APP_ROUTES`, dynamic page/tab creation from the
+  route manifest; 5-item default sidebar (Overview, Marketplace,
+  Activity Room, Workflows, Settings); plan at
+  `NAVIGATION_RESTRUCTURE_PLAN.md`; milestone registry, ledger,
+  status table, `MilestoneService.getCurrent()` focus priority,
+  and Overview `MilestonesSummary` current-focus badge updated.
+- **Marketplace Discover overhaul**: fixture-backed Discover
+  surface (`discover.fixtures.ts` fallback for empty/error
+  states), `Collections` page (localStorage-curated favorites
+  over installed/registry assets), layout/component restyling on
+  `var(--vestara-*)` tokens.
+
+### Changed
+
+- Asset dedup: byte-identical `assets/vestara-startup-screen.png`
+  → `assets/boot/boot-startup-preview-checklist-dark-card-teal-planet.png`
+  and `assets/vestara-desktop-02-screen.png` (+
+  `assets/startup/` copy) → canonical
+  `assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png`;
+  `favicon.svg`/`logo.svg` → `assets/brand/`, audit JSON →
+  `assets/audits/`; README Screenshots links repointed.
+- `Tabs` vertical/horizontal padding split (horizontal-only
+  `px-3 py-2`); biome formatting clean.
+
+### Verified
+
+- `9fea59f`: lint clean, build green, `vds:validate`,
+  `dependencies:check`, `agents:check`, `docs:govern`,
+  `documentation:check` green; 920/920 tests (130 files).
+
 ## [2026-10-12] — OS Startup Screen P0–P4, Image Node 24 + Cache, Screenshot Futures
 
 ### Added

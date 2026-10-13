@@ -149,7 +149,10 @@ export function Tabs({
             buttonClass = 'flex-shrink-0';
           }
           buttonClass +=
-            ' vestara-tab inline-flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ';
+            ' vestara-tab inline-flex items-center gap-2 text-xs font-medium transition-colors cursor-pointer ';
+          if (!isVertical) {
+            buttonClass += 'px-3 py-2 ';
+          }
           buttonClass += edgeWidth + ' ';
 
           if (isActive) {

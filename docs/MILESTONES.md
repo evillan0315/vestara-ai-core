@@ -2427,6 +2427,38 @@ Therefore: Cytoscape graph state ≠ canonical Workflow state. Builder graph ≠
 
 ---
 
+### v7.15 — Navigation Restructure & Route-Driven Pages 🟡 In Progress
+
+**Objective**: Restructure the workspace navigation from a flat registry into a two-tier category-driven system with dynamic route/page generation. Routes become the single source of truth — adding a route with navigation metadata automatically creates the nav entry and page/tab.
+
+**Navigation Hierarchy**:
+- **Marketplace** (top-level category) — Discover, Installed, Updates, Categories, Registries, Capabilities, Operation Center, Publish
+- **Workspace** (top-level category)
+  - Overview (standalone)
+  - **Engineering** (group) — Projects, Files, Terminal, Graph, Routing, Workflows, Agents, Workers, Diagnostics + `/engineering` landing
+  - **Operations** (group) — Executions, Sessions, Artifacts, Activities, Ops Center, Evidence, Verifier, Qualification + `/operations` landing
+  - Activity Room, Global Assistant, Settings, Tools
+
+**Architecture Change**: Replace `WORKSPACE_NAVIGATION` registry (216 entries) with route-driven generation from `APP_ROUTES`. Extend `AppRoute` with `navCategory`, `navGroup`, `navOrder`, `navIcon`, `navTier` fields. Generator produces `ProjectedNavSection[]` with category headers + grouped sections.
+
+**Key Artifacts**:
+- `apps/workspace/src/routes.ts` — extend `AppRoute` with nav metadata, annotate all 68 routes
+- `apps/workspace/src/lib/navigation-generator.ts` — new: `buildNavigationFromRoutes(routes, custom, visibility, parked)`
+- `apps/workspace/src/lib/navigation-types.ts` — new: shared generated nav types
+- `apps/workspace/src/layouts/workspace-navigation.tsx` — replace registry with generator
+- `apps/workspace/src/lib/navigation-store.ts` — adapt CRUD to merge custom entries with generated
+- `apps/workspace/src/components/layout/AppSidebar/SidebarNavigation.tsx` — render category headers + grouped sections
+- `apps/workspace/src/components/layout/AppSidebar/SidebarSection.tsx` — support category-level sections
+- `apps/workspace/src/pages/Engineering/EngineeringLanding.tsx` — new landing page
+- `apps/workspace/src/pages/Operations/OperationsLanding.tsx` — new landing page
+- `apps/workspace/src/pages/Marketplace/MarketplaceLanding.tsx` — new landing page (or redirect)
+
+**Plan**: `NAVIGATION_RESTRUCTURE_PLAN.md` (full 5-phase migration, testing strategy, acceptance criteria)
+
+**Status**: 🟡 In Progress — Plan authored, milestone recorded, Phase 1 (route annotation) authorized
+
+---
+
 ### GA-TERM-001 — Assistant Terminal Mode 🔷 Planned
 
 **Objective**: Let the floating assistant double as a governed terminal — an explicit `$` shell mode in the composer that reuses the existing bash tool path, with terminal-grade output and full Activity Room audit. True interactive pty is explicitly deferred.
@@ -2830,7 +2862,9 @@ Then verify:
 
 ---
 
-### v7.15 — Activity Room Premium UX 🔷 Planned
+### v7.18 — Activity Room Premium UX 🔷 Planned
+
+> Renumbered from v7.15 on 2026-10-13 — v7.15 reassigned to Navigation Restructure & Route-Driven Pages (in progress).
 
 **Objective**: Transform the Activity Room from a functional two-column layout into a premium three-column operations room matching the reference design. The Activity Room should feel like a live engineering operations center — premium technical appearance, calm but visibly live, high information density without clutter, strong operational hierarchy, excellent readability, restrained animation, deterministic status presentation.
 

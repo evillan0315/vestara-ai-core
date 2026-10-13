@@ -23,7 +23,7 @@
 
 import { useMemo, useState } from 'react';
 import { Collapsible } from '@vestara/ui';
-import { useMilestones, type AuthorityMilestone } from '../hooks/useMilestones';
+import { useMilestones, type AuthorityMilestone, type MilestonesProjection } from '../hooks/useMilestones';
 import { SectionCard } from './SectionCard';
 
 type StatusFilter = 'all' | 'Active' | 'Pending' | 'Planned' | 'Done' | 'Future';
@@ -64,6 +64,9 @@ export function MilestonesSummary() {
 
   const pct = data?.progress.total ? Math.round((data.progress.completed / data.progress.total) * 100) : 0;
 
+  // Current milestone from authority (last non-completed)
+  const currentMilestone = data?.current ?? null;
+
   if (isLoading) {
     return (
       <SectionCard title="Milestones" index={6}>
@@ -82,8 +85,13 @@ export function MilestonesSummary() {
     );
   }
 
+  // Current focus badge for header
+  const currentBadge = currentMilestone
+    ? `${currentMilestone.version} · ${currentMilestone.name}`
+    : `${counts.active} active`;
+
   return (
-    <SectionCard title="Milestones" badge={`${counts.active} active`} index={6}>
+    <SectionCard title="Milestones" badge={currentBadge} index={6}>
       <div className="mb-3 flex flex-wrap gap-1.5" role="group" aria-label="Filter milestones by status">
         {FILTERS.map((option) => {
           const count = option === 'all' ? counts.total : option === 'Active' ? counts.active : option === 'Pending' ? counts.pending : option === 'Done' ? counts.done : 0;
@@ -136,39 +144,49 @@ export function MilestonesSummary() {
         </p>
       ) : (
         <ul className="max-h-80 space-y-1.5 overflow-y-auto pr-1">
-          {rows.map((milestone, i) => (
-            <li
-              key={`${milestone.version}:${milestone.name}:${i}`}
-              className="mpg-enter"
-              style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
-            >
-              <div
-                className="mpg-category-row px-1"
-                title={milestone.description || `${milestone.version} · ${milestone.name}`}
+          {rows.map((milestone, i) => {
+            const isCurrent = currentMilestone?.version === milestone.version;
+            return (
+              <li
+                key={`${milestone.version}:${milestone.name}:${i}`}
+                className={`mpg-enter ${isCurrent ? 'mpg-current-milestone' : ''}`}
+                style={{ animationDelay: `${Math.min(i, 12) * 30}ms` }}
               >
-                <span className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <span
-                    aria-hidden="true"
-                    title={`${DISPLAY_STATUS[milestone.status]}`}
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ background: STATUS_DOT[DISPLAY_STATUS[milestone.status]] }}
-                  />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[12.5px] text-[var(--vestara-text-primary)]">
-                      <span className="mr-1.5 font-mono text-[11px] text-[var(--vestara-text-muted)]">
-                        {milestone.version}
+                <div
+                  className="mpg-category-row px-1"
+                  title={milestone.description || `${milestone.version} · ${milestone.name}`}
+                >
+                  <span className="flex min-w-0 flex-1 items-center gap-2.5">
+                    <span
+                      aria-hidden="true"
+                      title={`${DISPLAY_STATUS[milestone.status]}${isCurrent ? ' (Current)' : ''}`}
+                      className={`h-1.5 w-1.5 shrink-0 rounded-full ${isCurrent ? 'ring-2 ring-[var(--vestara-accent)] ring-offset-1 ring-offset-[var(--vestara-surface-panel)]' : ''}`}
+                      style={{ background: STATUS_DOT[DISPLAY_STATUS[milestone.status]] }}
+                    />
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[12.5px] text-[var(--vestara-text-primary)]">
+                        <span className="mr-1.5 font-mono text-[11px] text-[var(--vestara-text-muted)]">
+                          {milestone.version}
+                        </span>
+                        {milestone.name}
+                        {isCurrent && (
+                          <span className="ml-1.5 text-[10px] font-medium text-[var(--vestara-accent-text)] uppercase tracking-[0.05em]">
+                            Current
+                          </span>
+                        )}
                       </span>
-                      {milestone.name}
-                    </span>
-                    <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">
-                      {milestone.era}
+                      <span className="block truncate text-[11px] text-[var(--vestara-text-muted)]">
+                        {milestone.era}
+                      </span>
                     </span>
                   </span>
-                </span>
-                <span className="mpg-tag-pill shrink-0">{DISPLAY_STATUS[milestone.status]}</span>
-              </div>
-            </li>
-          ))}
+                  <span className={`mpg-tag-pill shrink-0 ${isCurrent ? 'border-[var(--vestara-accent-border)]' : ''}`}>
+                    {DISPLAY_STATUS[milestone.status]}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -187,6 +205,11 @@ export function MilestonesSummary() {
           Status and priority are separate dimensions. Priority is not tracked by the milestone authority, so none is
           shown. Planned/Future buckets are reserved and currently unpopulated — counts reflect authority state only.
         </p>
+        {currentMilestone && (
+          <p className="mt-2 text-[11px] text-[var(--vestara-accent-text)]">
+            <strong>Current focus:</strong> {currentMilestone.version} — {currentMilestone.name}
+          </p>
+        )}
       </Collapsible>
     </SectionCard>
   );

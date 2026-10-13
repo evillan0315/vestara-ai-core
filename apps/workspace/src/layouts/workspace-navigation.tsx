@@ -15,10 +15,9 @@
  * - Capability gating keeps today's narrow semantics: an entry with a
  *   capabilityId is dropped only when that capability is parked.
  *
- * The curated VISIBLE set keeps the high-frequency workspace actions in the
- * sidebar. Marketplace and Tools remain searchable secondary destinations so
- * the primary rail stays focused on daily work.
- * Everything else is registered but hidden (discovery tier), so the
+ * The curated VISIBLE set is the 5-item default sidebar:
+ * Overview, Marketplace, Activity Room, Workflows, Settings.
+ * Everything else is registered but hidden (secondary/discovery tiers), so the
  * command palette can still find it.
  */
 
@@ -155,7 +154,7 @@ export function navIcon(key: WorkspaceNavIcon): ReactNode {
 export { ApiRoundedIcon, ChatRoundedIcon, DnsRoundedIcon, LightbulbRoundedIcon, PublicRoundedIcon, ReceiptLongRoundedIcon, TuneRoundedIcon, VideoCallRoundedIcon };
 
 // ─── Registry ────────────────────────────────────────────────────
-// Curated visible order follows assets/vestara-agents-screen.png.
+// Default sidebar order: Overview, Marketplace, Activity Room, Workflows, Settings.
 // Label/path remaps (ADAPT, not fabrication):
 //   Overview → /overview (canonical workspace landing template)
 //   Executions → /execution · Workflows → /orchestration (the flows surface)
@@ -164,21 +163,22 @@ export { ApiRoundedIcon, ChatRoundedIcon, DnsRoundedIcon, LightbulbRoundedIcon, 
 //   Tools → /api-builder (the existing tools surface)
 
 export const WORKSPACE_NAVIGATION: readonly WorkspaceNavEntry[] = [
-  // ── Primary (sidebar, mock order) ──
+  // ── Primary (sidebar default: Overview, Marketplace, Activity Room, Workflows, Settings) ──
   { id: 'overview', label: 'Overview', path: '/overview', icon: 'home', group: 'workspace', order: 10, tier: 'primary', description: 'Workspace landing', keywords: ['home', 'overview', 'landing', 'start'], hero: { eyebrow: 'Welcome to Vestara', subtitle: 'Agents. Workflows. Tools. A more capable you.' } },
-  { id: 'global-assistant', label: 'Global Assistant', icon: 'assistant', group: 'workspace', order: 20, tier: 'primary', description: 'Open the floating AI assistant', keywords: ['assistant', 'ai', 'chat', 'help'], action: 'open-assistant' },
+  { id: 'marketplace', label: 'Marketplace', path: '/marketplace', icon: 'marketplace', group: 'extend', order: 20, tier: 'primary', description: 'Discover and install engineering assets', keywords: ['marketplace', 'install', 'modules', 'assets', 'exchange'] },
   { id: 'activity', label: 'Activity Room', path: '/activity', icon: 'activity', group: 'workspace', order: 30, tier: 'primary', description: 'Live agent and workflow activity', keywords: ['activity', 'room', 'live', 'feed'] },
-  { id: 'execution', label: 'Executions', path: '/execution', icon: 'executions', group: 'build', order: 40, tier: 'primary', description: 'Plans, agents, and runs', keywords: ['executions', 'execution', 'runs', 'plans', 'ops'], hero: { eyebrow: 'Live operations', subtitle: 'Plans, agents, and runs — live operational command.' } },
-  { id: 'agents', label: 'Agents', path: '/agents', icon: 'agents', group: 'automation', order: 50, tier: 'primary', description: 'Deploy and manage AI agents', keywords: ['agents', 'control', 'manage', 'deploy'], hero: { eyebrow: 'Workforce', subtitle: 'Deploy, manage, and orchestrate AI agents for every part of your workflow.' } },
-  { id: 'orchestration', label: 'Workflows', path: '/orchestration', icon: 'workflows', group: 'build', order: 60, tier: 'primary', description: 'Automated workflows and orchestration', keywords: ['workflows', 'orchestration', 'flows', 'automate'] },
-  { id: 'projects', label: 'Projects', path: '/projects', icon: 'projects', group: 'build', order: 70, tier: 'primary', description: 'Browse engineering projects', keywords: ['projects', 'repos', 'repositories'] },
-  { id: 'files', label: 'Files', path: '/files', icon: 'files', group: 'build', order: 80, tier: 'primary', description: 'Filesystem capability operations', keywords: ['files', 'filesystem', 'browse', 'operations'] },
-  { id: 'terminal', label: 'Terminal', path: '/terminal', icon: 'terminal', group: 'runtime', order: 90, tier: 'primary', description: 'Integrated terminal', keywords: ['terminal', 'shell', 'console'] },
-  { id: 'marketplace', label: 'Marketplace', path: '/marketplace', icon: 'marketplace', group: 'extend', order: 100, tier: 'secondary', description: 'Discover and install engineering assets', keywords: ['marketplace', 'install', 'modules', 'assets', 'exchange'] },
-  { id: 'api-builder', label: 'Tools', path: '/api-builder', icon: 'tools', group: 'system', order: 110, tier: 'secondary', description: 'Developer tools and API testing', keywords: ['tools', 'api', 'builder', 'rest', 'test'] },
-  { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings', group: 'system', order: 120, tier: 'primary', description: 'Workspace configuration', keywords: ['settings', 'configuration', 'preferences', 'theme'] },
+  { id: 'orchestration', label: 'Workflows', path: '/orchestration', icon: 'workflows', group: 'build', order: 40, tier: 'primary', description: 'Automated workflows and orchestration', keywords: ['workflows', 'orchestration', 'flows', 'automate'] },
+  { id: 'settings', label: 'Settings', path: '/settings', icon: 'settings', group: 'system', order: 50, tier: 'primary', description: 'Workspace configuration', keywords: ['settings', 'configuration', 'preferences', 'theme'] },
+  // ── Secondary (hidden by default, reachable from parents + search) ──
+  { id: 'global-assistant', label: 'Global Assistant', icon: 'assistant', group: 'workspace', order: 60, tier: 'secondary', description: 'Open the floating AI assistant', keywords: ['assistant', 'ai', 'chat', 'help'], action: 'open-assistant' },
+  { id: 'execution', label: 'Executions', path: '/execution', icon: 'executions', group: 'build', order: 70, tier: 'secondary', description: 'Plans, agents, and runs', keywords: ['executions', 'execution', 'runs', 'plans', 'ops'], hero: { eyebrow: 'Live operations', subtitle: 'Plans, agents, and runs — live operational command.' } },
+  { id: 'agents', label: 'Agents', path: '/agents', icon: 'agents', group: 'automation', order: 80, tier: 'secondary', description: 'Deploy and manage AI agents', keywords: ['agents', 'control', 'manage', 'deploy'], hero: { eyebrow: 'Workforce', subtitle: 'Deploy, manage, and orchestrate AI agents for every part of your workflow.' } },
+  { id: 'projects', label: 'Projects', path: '/projects', icon: 'projects', group: 'build', order: 90, tier: 'secondary', description: 'Browse engineering projects', keywords: ['projects', 'repos', 'repositories'] },
+  { id: 'files', label: 'Files', path: '/files', icon: 'files', group: 'build', order: 100, tier: 'secondary', description: 'Filesystem capability operations', keywords: ['files', 'filesystem', 'browse', 'operations'] },
+  { id: 'terminal', label: 'Terminal', path: '/terminal', icon: 'terminal', group: 'runtime', order: 110, tier: 'secondary', description: 'Integrated terminal', keywords: ['terminal', 'shell', 'console'] },
+  { id: 'api-builder', label: 'Tools', path: '/api-builder', icon: 'tools', group: 'system', order: 120, tier: 'secondary', description: 'Developer tools and API testing', keywords: ['tools', 'api', 'builder', 'rest', 'test'] },
 
-  // ── Secondary (reachable from parents, searchable) ──
+  // ── Secondary continued (reachable from parents, searchable) ──
   // Legacy Dashboard entry: retained (searchable) for old bookmarks. The
   // /dashboard route itself redirects to /overview (routes.ts authority).
   { id: 'dashboard', label: 'Dashboard', path: '/dashboard', icon: 'dashboard', group: 'workspace', order: 200, tier: 'secondary', description: 'Legacy workspace dashboard (redirects to Overview)', keywords: ['dashboard', 'health', 'stats', 'legacy'] },

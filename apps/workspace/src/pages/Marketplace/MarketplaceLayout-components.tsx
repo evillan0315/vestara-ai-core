@@ -18,7 +18,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { Badge, Button, EmptyState, StatusIndicator } from '@vestara/ui';
-import { RouteHero } from '../../components/layout/PageHero/RouteHero';
+import { WORKSPACE_BENEFITS_FIXTURE } from './discover.fixtures.js';
 
 // ─── Type accent colors ─────────────────────────────────────────
 // VES-DESIGN-005: canonical marketplace tokens (dark/light aware).
@@ -109,6 +109,18 @@ export interface AssetCardProps {
   featured?: boolean;
   statusFooter?: ReactNode;
   index?: number;
+  /** Reference rating row — fixture or derived display metadata. */
+  rating?: number;
+  reviews?: number;
+  installs?: string;
+  /** Icon-tile glyph override (fixtures); defaults to the title initial. */
+  glyph?: string;
+  /** Icon-tile accent override; defaults to the type accent. */
+  accentOverride?: string;
+  /** Real install workflow; when omitted the card keeps a visual affordance. */
+  onInstall?: () => void;
+  installBusy?: boolean;
+  installState?: 'idle' | 'installing' | 'installed' | 'error';
 }
 
 export function AssetCard({
@@ -124,66 +136,103 @@ export function AssetCard({
   featured = false,
   statusFooter,
   index = 0,
+  rating,
+  reviews,
+  installs,
+  glyph,
+  accentOverride,
+  onInstall,
+  installBusy = false,
+  installState = 'idle',
 }: AssetCardProps) {
-  const accent = typeAccent(type);
+  const accent = accentOverride ?? typeAccent(type);
   const initial = (displayName.trim().charAt(0) || 'V').toUpperCase();
   const tagPills = tags.slice(0, 3);
+  const installLabel = installState === 'installed' ? 'Installed ✓' : installState === 'installing' || installBusy ? 'Installing…' : installState === 'error' ? 'Retry' : 'Install';
   return (
     <Link
       to={to}
-      className="mpg-card mpg-enter mpg-asset block p-4"
+      className="mpg-card mpg-enter mpg-asset block p-3.5"
       style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
     >
       <span className="mpg-card-accent" style={{ background: accent }} aria-hidden="true" />
-      <div className="relative z-[2]">
-        <div className="flex items-start gap-3">
+      <div className="relative z-[2] flex h-full flex-col">
+        <div className="flex items-start gap-2.5">
           <span
             className="mpg-icon-box"
             style={{ color: accent, background: `color-mix(in srgb, ${accent} 14%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
             aria-hidden="true"
           >
-            {initial}
+            {glyph ?? initial}
           </span>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-start justify-between gap-2">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold text-[var(--vestara-text-primary)]">
-                  {displayName}
-                </div>
-                <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted)]">
-                  {publisherId ?? packageName.split('.')[0] ?? 'vestara'}
-                </div>
-              </div>
-              {featured && <span className="mpg-featured-badge">★ Featured</span>}
+          <div className={`min-w-0 flex-1 ${featured ? 'pr-16' : ''}`}>
+            <div className="truncate text-[13px] font-semibold text-[var(--vestara-text-primary)]">
+              {displayName}
+            </div>
+            <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted)]">
+              {publisherId ?? packageName.split('.')[0] ?? 'vestara'}
             </div>
           </div>
         </div>
+        {featured && <span className="mpg-featured-badge">★ Featured</span>}
         {summary && (
           <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]">
             {summary}
           </p>
         )}
         <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          <TypeBadge type={type} />
           {tagPills.map((tag) => (
             <span key={tag} className="mpg-tag-pill">
               {tag}
             </span>
           ))}
         </div>
-        <div className="mt-3 flex items-center justify-between gap-2 border-t border-[var(--vestara-border-subtle)] pt-3">
-          <div className="flex min-w-0 items-center gap-2 text-xs">
-            <span
-              className={verified ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-text-disabled)]'}
-              title={verified ? 'Checksum verified' : 'Not verified'}
-            >
-              {verified ? '✓' : '○'}
-            </span>
-            <span className="font-mono text-[var(--vestara-text-muted)]">{latestVersion}</span>
+        <div className="mpg-asset-foot mt-auto flex items-center justify-between gap-1.5 pt-3">
+          <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
+            {rating !== undefined && (
+              <span className="inline-flex items-center gap-1 font-medium text-[var(--vestara-marketplace-rating)]" title={verified ? 'Checksum verified' : undefined}>
+                <span aria-hidden="true">★</span> {rating.toFixed(1)}
+                {reviews !== undefined && (
+                  <span className="font-normal text-[var(--vestara-text-muted)]">({reviews})</span>
+                )}
+              </span>
+            )}
+            {installs !== undefined && (
+              <span className="inline-flex items-center gap-1 text-[var(--vestara-text-muted)]">
+                <span aria-hidden="true">⤓</span> {installs}
+              </span>
+            )}
+            {rating === undefined && installs === undefined && (
+              <>
+                <span
+                  className={verified ? 'text-[var(--vestara-status-success)]' : 'text-[var(--vestara-text-disabled)]'}
+                  title={verified ? 'Checksum verified' : 'Not verified'}
+                >
+                  {verified ? '✓' : '○'}
+                </span>
+                <span className="font-mono text-[var(--vestara-text-muted)]">{latestVersion}</span>
+              </>
+            )}
           </div>
-          <span className="mpg-install-btn" aria-hidden="true">
-            Install
-          </span>
+          {onInstall ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                onInstall();
+              }}
+              disabled={installBusy || installState === 'installing' || installState === 'installed'}
+              className="mpg-install-btn"
+              aria-label={`Install ${displayName}`}
+            >
+              {installLabel}
+            </button>
+          ) : (
+            <span className="mpg-install-btn" aria-hidden="true">
+              Install
+            </span>
+          )}
         </div>
         {statusFooter && <div className="mt-2 flex flex-wrap items-center gap-2">{statusFooter}</div>}
         <span className="sr-only">{packageName}</span>
@@ -511,36 +560,58 @@ export function MarketplaceSection({ title, action, children }: MarketplaceSecti
 }
 
 // ─── v2 Hero ──────────────────────────────────────────────────────
-// assets/vestara-marketplace-02-screen.png: "Build More with Vestara"
-// + inline search + right checklist card. All colors via tokens.
+// Reference (marketplace-discover-modules-grid.png): "Build More with
+// Vestara" hero panel with inline search + blue geometric artwork, and a
+// separate narrow workspace-benefits card immediately to its right.
+// All colors via tokens; artwork is layered CSS gradients (no assets).
 
 export function MarketplaceHero({
   query,
   onQueryChange,
-  searchPlaceholder = 'Search assets by name, publisher, or capability…',
+  searchPlaceholder = 'Search marketplace...',
 }: {
   query: string;
   onQueryChange: (value: string) => void;
   searchPlaceholder?: string;
 }) {
   return (
-    <RouteHero
-      routeId="marketplace"
-      subtitle="Agents, tools, templates, and integrations for a more capable tomorrow."
-      search={{
-        value: query,
-        onChange: onQueryChange,
-        placeholder: searchPlaceholder,
-        inputId: 'marketplace-hero-search',
-        label: 'Search marketplace',
-      }}
-      checklist={[
-        '◇ Extend your workspace',
-        '⬔ Automate your workflow',
-        '❖ Share with the community',
-        '⬣ Build what\u2019s next',
-      ]}
-    />
+    <div className="mpg-hero-row">
+      <section className="mpg-hero mpg-hero-discover" aria-label="Marketplace highlights">
+        <div className="mpg-hero-copy">
+          <h2 className="text-xl font-bold leading-tight tracking-tight text-[var(--vestara-text-primary)]">
+            Build More with Vestara
+          </h2>
+          <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]">
+            Agents, tools, templates, and integrations for a more capable tomorrow.
+          </p>
+          <div className="mpg-hero-search">
+            <span aria-hidden="true">⌕</span>
+            <label className="sr-only" htmlFor="marketplace-hero-search">
+              Search marketplace
+            </label>
+            <input
+              id="marketplace-hero-search"
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              placeholder={searchPlaceholder}
+            />
+          </div>
+        </div>
+        <div className="mpg-hero-art" aria-hidden="true" />
+      </section>
+      <aside className="mpg-benefits" aria-label="Why extend">
+        <ul>
+          {WORKSPACE_BENEFITS_FIXTURE.map((benefit) => (
+            <li key={benefit.label}>
+              <span className="mpg-benefits-icon" aria-hidden="true">
+                {benefit.glyph}
+              </span>
+              <span>{benefit.label}</span>
+            </li>
+          ))}
+        </ul>
+      </aside>
+    </div>
   );
 }
 
@@ -569,18 +640,20 @@ export function MarketplaceFilterRow({
   const [sortOpen, setSortOpen] = useState(false);
   const activeSort = MARKETPLACE_SORTS.find((s) => s.id === sort) ?? MARKETPLACE_SORTS[0];
   return (
-    <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Marketplace filters">
-      {filters?.map((f) => (
-        <button
-          key={f.id || 'all'}
-          type="button"
-          onClick={() => onFilterChange?.(f.id)}
-          aria-pressed={f.active}
-          className={`mpg-pill ${f.active ? 'mpg-pill-active' : ''}`}
-        >
-          {f.label}
-        </button>
-      ))}
+    <div className="mpg-filterbar" role="toolbar" aria-label="Marketplace filters">
+      <div className="mpg-filterbar-pills">
+        {filters?.map((f) => (
+          <button
+            key={f.id || 'all'}
+            type="button"
+            onClick={() => onFilterChange?.(f.id)}
+            aria-pressed={f.active}
+            className={`mpg-pill ${f.active ? 'mpg-pill-active' : ''}`}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
       {/* Sort is a button-menu (not a native select) so the type-filter
           select remains the single combobox in the page for a11y/tests. */}
       <div className="mpg-sort-wrap">

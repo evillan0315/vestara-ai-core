@@ -85,6 +85,7 @@ next-review: 2026-11-11
 | **v7.6** | **AI Workspace Chat Redesign** | **✅ Complete** | **2026-07-25** |
 | **v7.7** | **Workspace UI Tester Automation** | **✅ Complete** | **2026-07-26** |
 | **v7.8** | **API Builder UI/UX Enhancement** | **✅ Complete** | **2026-07-26** |
+| **v7.15** | **Navigation Restructure & Route-Driven Pages** | **🟡 In Progress** | **2026-10-13** |
 | **v8.0** | **OS Architecture — Complete Specification** | **✅ Complete** | **2026-07-27** |
 | **v8.1** | **Foundation — state-machine, events, types, registry, permissions** | **✅ Complete** | **2026-07-27** |
 | **v8.2** | **Job, Worker, Intent Systems** | **✅ Complete** | **2026-08-03** |

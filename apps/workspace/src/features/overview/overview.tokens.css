@@ -101,6 +101,14 @@
   --ov-install-solid-bg: var(--vestara-marketplace-primary);
 }
 
+/* Current milestone highlight */
+.mpg-current-milestone {
+  background: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
+  border-left: 2px solid var(--vestara-accent);
+  margin-left: calc(-1 * var(--vestara-spacing-2));
+  padding-left: var(--vestara-spacing-2);
+}
+
 /* ── Light appearance ── */
 [data-theme='light'] {
   --ov-card-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);

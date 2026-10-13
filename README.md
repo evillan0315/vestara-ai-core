@@ -135,13 +135,13 @@ Full version history: [`docs/IMPLEMENTATION_STATUS.md`](docs/IMPLEMENTATION_STAT
 
 ## Screenshots
 
-![Vestara startup page — live render of `/startup?entry=onboarding`](assets/vestara-startup-screen.png)
+![Vestara startup page — live render of `/startup?entry=onboarding`](assets/boot/boot-startup-preview-checklist-dark-card-teal-planet.png)
 
 *Live startup page (`/startup?entry=onboarding`, 1600×900) — brand lockup, readiness card with checklist, quote, and corner metadata over the canvas artwork.*
 
 | OS startup screen (VOS-STARTUP-001) | Startup canvas artwork |
 |---|---|
-| ![Vestara OS startup screen reference](assets/vestara-desktop-02-screen.png) | ![Startup canvas artwork — clean planet and mountain scene](assets/startup/vestara-desktop-02-screen.png) |
+| ![Vestara OS startup screen reference](assets/boot/boot-startup-preview-checklist-dark-card-teal-planet.png) | ![Startup canvas artwork — clean planet and mountain scene](assets/wallpapers/wallpaper-teal-giant-planet-mountain-lake.png) |
 | Design reference for the post-onboarding / login-success handoff (`/startup?entry=onboarding\|login`) — brand lockup, readiness card, six-row checklist, quote, corner metadata. | Clean 1671×941 canvas background with no baked text; all UI renders independently above it. Served at `/startup/vestara-startup-bg.png`. |
 
 ![Approved startup baseline (desktop-1920 dark)](apps/workspace/tests/visual/.artifacts/baselines/startup.desktop-1920.dark.png)

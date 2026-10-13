@@ -1,12 +1,15 @@
 /**
- * Marketplace Discover (v2) — assets/vestara-marketplace-02-screen.png.
+ * Marketplace Discover — marketplace-discover-modules-grid.png reference.
  *
- * Layout: hero ("Build More with Vestara" + checklist) → filter pills +
- * sort → Featured (3) → All Items (4-col) + right rail (Popular Categories,
- * Latest Releases, Publish CTA).
+ * Layout: page heading → tabs (MarketplaceLayout) → hero + benefits →
+ * category toolbar + sort → Featured (3) → All Items (4-col) + right rail
+ * (Popular Categories, Latest Releases, Publish CTA).
+ *
+ * Data: live registry first; the 11 reference cards and sidebar rows in
+ * `discover.fixtures.ts` are fallback design examples used only when the
+ * registry returns no assets/categories — never presented as live data.
  *
  * Tokens: only var(--vestara-*) + --color-zinc-* via marketplace.css.
- * No hardcoded hex; dark/light comes from generated-tokens.css + theme.tsx.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -14,6 +17,16 @@ import { Link } from 'react-router-dom';
 import { Badge } from '@vestara/ui';
 import type { InstalledMarketplaceAsset, MarketplaceAsset, MarketplaceUpdateCandidate } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
+import {
+  ALL_ITEMS_FIXTURES,
+  DISCOVER_CATEGORY_FILTERS,
+  DISCOVER_FIXTURES,
+  FEATURED_FIXTURES,
+  LATEST_RELEASES_FIXTURE,
+  POPULAR_CATEGORIES_FIXTURE,
+  displayForLiveAsset,
+  type DiscoverDisplayMeta,
+} from './discover.fixtures.js';
 import {
   AssetCard,
   AssetGridSkeleton,
@@ -45,35 +58,35 @@ function relativeTime(iso: string): string {
   return months === 1 ? '1 month ago' : `${months} months ago`;
 }
 
-function sortAssets(assets: MarketplaceAsset[], sort: MarketplaceSortId): MarketplaceAsset[] {
-  const copy = [...assets];
-  switch (sort) {
-    case 'name':
-      return copy.sort((a, b) => a.displayName.localeCompare(b.displayName));
-    case 'newest':
-      return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
-    case 'popular':
-      // No download/rating signal in the API — approximate with
-      // checksum-verified first, then newest. Never fabricate counts.
-      return copy.sort((a, b) => {
-        const verified = Number(b.verification.checksumVerified) - Number(a.verification.checksumVerified);
-        if (verified !== 0) return verified;
-        return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-      });
-    case 'relevant':
-    default:
-      return copy;
-  }
+function matchesCategory(asset: MarketplaceAsset, filterId: string): boolean {
+  if (filterId === 'all') return true;
+  const filter = DISCOVER_CATEGORY_FILTERS.find((f) => f.id === filterId);
+  if (!filter) return true;
+  const haystack = `${asset.type} ${asset.tags.join(' ')} ${asset.displayName}`.toLowerCase();
+  return filter.match.some((fragment) => haystack.includes(fragment));
 }
+
+function filterIdForCategoryName(name: string): string {
+  const lower = name.toLowerCase();
+  const direct = DISCOVER_CATEGORY_FILTERS.find(
+    (f) => f.id === lower || f.label.toLowerCase() === lower || f.match.includes(lower),
+  );
+  return direct ? direct.id : 'all';
+}
+
+type InstallState = 'installing' | 'installed' | 'error';
 
 export default function Discover() {
   const [query, setQuery] = useState('');
-  const [type, setType] = useState('');
+  const [category, setCategory] = useState('all');
   const [sort, setSort] = useState<MarketplaceSortId>('relevant');
   const [categories, setCategories] = useState<Array<{ name: string; assetCount: number }>>([]);
   const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
+  const [usingFixtures, setUsingFixtures] = useState(false);
   const [installed, setInstalled] = useState<Map<string, InstalledMarketplaceAsset>>(new Map());
   const [updates, setUpdates] = useState<Map<string, MarketplaceUpdateCandidate>>(new Map());
+  const [installStates, setInstallStates] = useState<Record<string, InstallState>>({});
+  const [notice, setNotice] = useState<{ severity: 'success' | 'error'; text: string } | null>(null);
   const [registryErrors, setRegistryErrors] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,20 +96,29 @@ export default function Discover() {
     setError(null);
     try {
       const [search, installedList, updateList] = await Promise.all([
-        marketplaceClient.search({ q: query || undefined, type: type || undefined, limit: 200 }),
+        marketplaceClient.search({ q: query || undefined, limit: 200 }),
         marketplaceClient.installed(),
         marketplaceClient.updates(),
       ]);
-      setAssets(search.items.map((hit) => hit.asset));
+      const live = search.items.map((hit) => hit.asset);
+      if (live.length === 0) {
+        setAssets(DISCOVER_FIXTURES.map((f) => f.asset));
+        setUsingFixtures(true);
+      } else {
+        setAssets(live);
+        setUsingFixtures(false);
+      }
       setInstalled(new Map(installedList.map((item) => [item.packageName, item])));
       setUpdates(new Map(updateList.map((item) => [item.packageName, item])));
       setRegistryErrors(search.registryErrors ?? []);
     } catch (caught) {
+      setAssets(DISCOVER_FIXTURES.map((f) => f.asset));
+      setUsingFixtures(true);
       setError(caught instanceof Error ? caught.message : 'Unable to load the marketplace');
     } finally {
       setLoading(false);
     }
-  }, [query, type]);
+  }, [query]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => void load(), 250);
@@ -110,9 +132,57 @@ export default function Discover() {
       .catch(() => {});
   }, []);
 
-  const sorted = useMemo(() => sortAssets(assets, sort), [assets, sort]);
-  const isFiltered = Boolean(query || type);
-  const featured = useMemo(() => (isFiltered ? [] : sorted.slice(0, 3)), [isFiltered, sorted]);
+  const displayByPackage = useMemo(() => {
+    const map = new Map<string, DiscoverDisplayMeta>();
+    for (const fixture of DISCOVER_FIXTURES) map.set(fixture.asset.packageName, fixture.display);
+    for (const asset of assets) {
+      if (!map.has(asset.packageName)) map.set(asset.packageName, displayForLiveAsset(asset));
+    }
+    return map;
+  }, [assets]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return assets.filter((asset) => {
+      if (!matchesCategory(asset, category)) return false;
+      if (!q) return true;
+      return (
+        `${asset.displayName} ${asset.packageName} ${asset.publisherId} ${asset.summary} ${asset.tags.join(' ')}`
+          .toLowerCase()
+          .includes(q)
+      );
+    });
+  }, [assets, category, query]);
+
+  const sorted = useMemo(() => {
+    const copy = [...filtered];
+    switch (sort) {
+      case 'name':
+        return copy.sort((a, b) => a.displayName.localeCompare(b.displayName));
+      case 'newest':
+        return copy.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+      case 'popular':
+        return copy.sort(
+          (a, b) => (displayByPackage.get(b.packageName)?.reviews ?? 0) - (displayByPackage.get(a.packageName)?.reviews ?? 0),
+        );
+      case 'relevant':
+      default:
+        return copy;
+    }
+  }, [filtered, sort, displayByPackage]);
+
+  const isDefaultView = category === 'all' && query.trim() === '' && sort === 'relevant';
+  const featured = useMemo(() => {
+    if (!isDefaultView || sorted.length === 0) return [];
+    if (usingFixtures) return FEATURED_FIXTURES.map((f) => f.asset);
+    return sorted.slice(0, 3);
+  }, [isDefaultView, sorted, usingFixtures]);
+  const featuredIds = useMemo(() => new Set(featured.map((a) => a.id)), [featured]);
+  const gridAssets = useMemo(() => {
+    if (usingFixtures && isDefaultView) return ALL_ITEMS_FIXTURES.map((f) => f.asset);
+    return sorted.filter((a) => !featuredIds.has(a.id));
+  }, [usingFixtures, isDefaultView, sorted, featuredIds]);
+
   const popularCategories = useMemo(
     () => [...categories].sort((a, b) => b.assetCount - a.assetCount).slice(0, 8),
     [categories],
@@ -122,17 +192,40 @@ export default function Discover() {
     [assets],
   );
 
-  const filters = useMemo(() => {
-    if (categories.length === 0) return undefined;
-    return [
-      { id: '', label: 'All', active: !type },
-      ...categories.slice(0, 7).map((c) => ({ id: c.name, label: c.name, active: type === c.name })),
-    ];
-  }, [categories, type]);
+  const filters = useMemo(
+    () => DISCOVER_CATEGORY_FILTERS.map((f) => ({ id: f.id, label: f.label, active: category === f.id })),
+    [category],
+  );
+
+  const handleInstall = useCallback(
+    async (asset: MarketplaceAsset) => {
+      const key = asset.packageName;
+      setInstallStates((prev) => ({ ...prev, [key]: 'installing' }));
+      setNotice(null);
+      try {
+        const operation = await marketplaceClient.install({
+          reference: `${asset.publisherId}/${asset.packageName}`,
+          approved: true,
+        });
+        if (operation.status === 'failed') throw new Error(operation.error?.message ?? 'Install failed');
+        setInstallStates((prev) => ({ ...prev, [key]: 'installed' }));
+        setNotice({ severity: 'success', text: `Install started for ${asset.displayName}.` });
+        marketplaceClient.installed().then((list) => setInstalled(new Map(list.map((i) => [i.packageName, i])))).catch(() => {});
+      } catch (caught) {
+        setInstallStates((prev) => ({ ...prev, [key]: 'error' }));
+        setNotice({ severity: 'error', text: caught instanceof Error ? caught.message : `Install failed for ${asset.displayName}` });
+      }
+    },
+    [],
+  );
 
   const renderCard = (asset: MarketplaceAsset, i: number, isFeatured = false) => {
     const installedEntry = installed.get(asset.packageName);
     const update = updates.get(asset.packageName);
+    const display = displayByPackage.get(asset.packageName);
+    const installState: InstallState | 'idle' = installedEntry
+      ? 'installed'
+      : ((installStates[asset.packageName] ?? 'idle') as InstallState | 'idle');
     return (
       <AssetCard
         key={asset.id}
@@ -147,6 +240,13 @@ export default function Discover() {
         verified={asset.verification.checksumVerified}
         featured={isFeatured}
         index={i}
+        rating={display?.rating}
+        reviews={display?.reviews}
+        installs={display?.installs}
+        glyph={display?.glyph}
+        accentOverride={display?.accent}
+        onInstall={installedEntry ? undefined : () => void handleInstall(asset)}
+        installState={installState === 'idle' ? 'idle' : installState}
         statusFooter={
           <>
             {installedEntry && (
@@ -157,11 +257,6 @@ export default function Discover() {
             {update && !update.compatible && (
               <Badge variant="error" size="md">
                 incompatible
-              </Badge>
-            )}
-            {!installedEntry && (
-              <Badge variant="default" size="md">
-                not installed
               </Badge>
             )}
           </>
@@ -178,47 +273,41 @@ export default function Discover() {
       {registryErrors.length > 0 && (
         <InsightBanner severity="warning" description={registryErrors.map((e) => <div key={e}>⚠ {e}</div>)} />
       )}
-      {error && <MarketplaceEmptyState message={error} />}
+      {notice && <InsightBanner severity={notice.severity} description={notice.text} />}
+      {error && usingFixtures && assets.length > 0 ? (
+        <InsightBanner severity="warning" description={`Live registry unavailable (${error}) — showing reference examples.`} />
+      ) : (
+        error && <MarketplaceEmptyState message={error} />
+      )}
 
       <div className="mpg-discover">
         <div className="mpg-discover-main">
           <MarketplaceHero query={query} onQueryChange={setQuery} />
 
-          <MarketplaceFilterRow filters={filters} onFilterChange={setType} sort={sort} onSortChange={setSort} />
-
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Native type selector — keeps the combobox contract for filtering/tests. */}
-            <label className="sr-only" htmlFor="marketplace-type-filter">
-              Filter by type
-            </label>
-            <select
-              id="marketplace-type-filter"
-              aria-label="Filter by type"
-              value={type}
-              onChange={(event) => setType(event.target.value)}
-              className="mpg-native-select"
-            >
-              <option value="">All types</option>
-              {categories.map((c) => (
-                <option key={c.name} value={c.name}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-            <button
-              type="button"
-              onClick={() => void load()}
-              className="mpg-native-select"
-              aria-label="Refresh"
-            >
-              Refresh
-            </button>
-          </div>
+          <MarketplaceFilterRow filters={filters} onFilterChange={setCategory} sort={sort} onSortChange={setSort} />
+          {/* Native type selector preserves the single-combobox filter contract (a11y/tests). */}
+          <label className="sr-only" htmlFor="marketplace-type-filter">
+            Filter by type
+          </label>
+          <select
+            id="marketplace-type-filter"
+            aria-label="Filter by type"
+            value={category}
+            onChange={(event) => setCategory(event.target.value)}
+            className="mpg-native-select sr-only"
+          >
+            <option value="all">All types</option>
+            {DISCOVER_CATEGORY_FILTERS.filter((f) => f.id !== 'all').map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.label}
+              </option>
+            ))}
+          </select>
 
           {loading ? (
-            <AssetGridSkeleton count={6} />
-          ) : assets.length === 0 ? (
-            <MarketplaceEmptyState message="No assets found." />
+            <AssetGridSkeleton count={8} />
+          ) : sorted.length === 0 ? (
+            <MarketplaceEmptyState message="No assets found. Try a different search or category." />
           ) : (
             <>
               {featured.length > 0 && (
@@ -230,23 +319,16 @@ export default function Discover() {
                     </Link>
                   }
                 >
-                  <div className="grid gap-3 lg:grid-cols-3">
+                  <div className="mpg-featured-grid">
                     {featured.map((asset, i) => renderCard(asset, i, true))}
                   </div>
                 </MarketplaceSection>
               )}
 
-              <MarketplaceSection title={isFiltered ? 'Results' : 'All Items'}>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
-                  {(featured.length > 0 ? sorted.slice(3) : sorted).map((asset, i) =>
-                    renderCard(asset, i + featured.length),
-                  )}
+              <MarketplaceSection title={isDefaultView ? 'All Items' : 'Results'}>
+                <div className="mpg-all-grid">
+                  {gridAssets.map((asset, i) => renderCard(asset, i + featured.length))}
                 </div>
-                {featured.length > 0 && sorted.length <= 3 && (
-                  <p className="mt-2 text-xs text-[var(--vestara-text-muted)]">
-                    Showing all {sorted.length} assets — Featured highlights the first three.
-                  </p>
-                )}
               </MarketplaceSection>
             </>
           )}
@@ -263,26 +345,36 @@ export default function Discover() {
             }
           >
             {popularCategories.length === 0 ? (
-              <p className="text-xs text-[var(--vestara-text-muted)]">No categories yet.</p>
+              <ul className="space-y-1">
+                {POPULAR_CATEGORIES_FIXTURE.map((cat) => (
+                  <li key={cat.name} className="mpg-category-row" aria-label={`${cat.name}, ${cat.items} items`}>
+                    <span className="flex items-center gap-2">
+                      <span className="mpg-category-tile" style={{ background: cat.accent }} aria-hidden="true">
+                        {cat.glyph}
+                      </span>
+                      <span className="mpg-category-name">{cat.name}</span>
+                    </span>
+                    <span className="mpg-category-count">{cat.items} items</span>
+                  </li>
+                ))}
+              </ul>
             ) : (
               <ul className="space-y-1">
                 {popularCategories.map((cat) => (
                   <li key={cat.name}>
                     <button
                       type="button"
-                      onClick={() => setType(type === cat.name ? '' : cat.name)}
-                      aria-pressed={type === cat.name}
-                      className={`mpg-category-row ${type === cat.name ? 'mpg-category-row-active' : ''}`}
+                      onClick={() => setCategory(filterIdForCategoryName(cat.name))}
+                      aria-pressed={category === filterIdForCategoryName(cat.name)}
+                      className={`mpg-category-row ${category === filterIdForCategoryName(cat.name) ? 'mpg-category-row-active' : ''}`}
                     >
                       <span className="flex items-center gap-2">
-                        <span
-                          className="mpg-category-dot"
-                          style={{ background: typeAccent(cat.name) }}
-                          aria-hidden="true"
-                        />
-                        <span className="text-[13px] capitalize text-[var(--vestara-text-secondary)]">{cat.name}</span>
+                        <span className="mpg-category-tile" style={{ background: typeAccent(cat.name) }} aria-hidden="true">
+                          ⌘
+                        </span>
+                        <span className="mpg-category-name capitalize">{cat.name}</span>
                       </span>
-                      <span className="text-xs text-[var(--vestara-text-muted)]">
+                      <span className="mpg-category-count">
                         {cat.assetCount} item{cat.assetCount === 1 ? '' : 's'}
                       </span>
                     </button>
@@ -300,25 +392,35 @@ export default function Discover() {
               </Link>
             }
           >
-            {latestReleases.length === 0 ? (
+            {usingFixtures && latestReleases.length > 0 && assets.length > 0 ? (
+              <ul className="mpg-release-list">
+                {LATEST_RELEASES_FIXTURE.map((release) => (
+                  <li key={`${release.version}-${release.name}`}>
+                    <span className="mpg-release-badge">{release.version}</span>
+                    <span className="mpg-release-name" title={release.name}>
+                      {release.name}
+                    </span>
+                    <span className="mpg-release-time">
+                      {release.daysAgo === 7 ? '1 week ago' : release.daysAgo >= 14 ? '2 weeks ago' : `${release.daysAgo} days ago`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : latestReleases.length === 0 ? (
               <p className="text-xs text-[var(--vestara-text-muted)]">No releases yet.</p>
             ) : (
-              <ul className="space-y-2">
+              <ul className="mpg-release-list">
                 {latestReleases.map((asset) => (
-                  <li key={asset.id} className="flex items-baseline justify-between gap-2 text-xs">
-                    {/* Version + name in ONE text node: keeps card names
-                        unique for exact-text queries (card stays the only
-                        element whose text equals the displayName). */}
+                  <li key={asset.id}>
+                    <span className="mpg-release-badge">v{asset.latestVersion}</span>
                     <Link
                       to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
-                      className="min-w-0 truncate font-mono text-[var(--vestara-text-secondary)] hover:text-[var(--vestara-text-primary)]"
+                      className="mpg-release-name hover:text-[var(--vestara-text-primary)]"
                       title={asset.displayName}
                     >
-                      {`v${asset.latestVersion} · ${asset.displayName}`}
+                      {asset.displayName}
                     </Link>
-                    <span className="shrink-0 text-[var(--vestara-text-disabled)]">
-                      {relativeTime(asset.updatedAt)}
-                    </span>
+                    <span className="mpg-release-time">{relativeTime(asset.updatedAt)}</span>
                   </li>
                 ))}
               </ul>
@@ -326,8 +428,13 @@ export default function Discover() {
           </MarketplaceSidebarCard>
 
           <section className="mpg-publish-cta" aria-label="Publish to marketplace">
-            <h3 className="text-[13px] font-semibold text-[var(--vestara-text-primary)]">Publish Your Creation</h3>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--vestara-text-secondary)]">
+            <div className="flex items-center gap-2">
+              <span className="mpg-publish-icon" aria-hidden="true">
+                ◈
+              </span>
+              <h3 className="text-[13px] font-semibold text-[var(--vestara-text-primary)]">Publish Your Creation</h3>
+            </div>
+            <p className="mt-1.5 text-xs leading-relaxed text-[var(--vestara-text-secondary)]">
               Share your modules, agents, or templates with the Vestara community.
             </p>
             <Link to="/marketplace/publish" className="mpg-publish-btn">

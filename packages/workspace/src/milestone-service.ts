@@ -17,6 +17,8 @@ export interface Milestone {
   status: MilestoneStatus;
   description: string;
   completedAt?: string;
+  /** Explicitly marks this milestone as the current organizational focus */
+  focus?: boolean;
 }
 
 const MILESTONES: Milestone[] = [
@@ -446,6 +448,15 @@ const MILESTONES: Milestone[] = [
       'Curated luxury gallery for engineering capabilities with holographic cards, glass-morphism panels, and progressive revelation UX',
   },
   {
+    version: 'v7.15',
+    name: 'Navigation Restructure & Route-Driven Pages',
+    era: 'Dashboard',
+    status: 'in_progress',
+    description:
+      'Two-tier category navigation (Marketplace + Workspace with Engineering/Operations groups), route-driven nav generation, dynamic page/tab creation from route manifest. Replaces flat registry with category/group hierarchy. Plan: NAVIGATION_RESTRUCTURE_PLAN.md',
+    focus: true,
+  },
+  {
     version: 'v7.16',
     name: 'Intelligence Route Real-Time',
     era: 'Dashboard',
@@ -641,11 +652,12 @@ const MILESTONES: Milestone[] = [
     description: 'Contextual recommendations, governed decisions, 14 phases',
   },
   {
-    version: 'v7.15',
+    version: 'v7.18',
     name: 'Activity Room Premium UX',
     era: 'Activity Room',
     status: 'pending',
-    description: 'Three-column premium operations layout, 8 phases',
+    description:
+      'Three-column premium operations layout, 8 phases (renumbered from v7.15 on 2026-10-13: v7.15 reassigned to Navigation Restructure & Route-Driven Pages)',
   },
   {
     version: 'AR-REPORT',
@@ -1102,8 +1114,16 @@ export class MilestoneService {
   }
 
   getCurrent(): Milestone | null {
+    // Priority 0: explicitly focused milestone
+    const focused = MILESTONES.find((m) => m.focus === true);
+    if (focused) return focused;
+    // Priority 1: in_progress milestones (actively being worked on)
     for (let i = MILESTONES.length - 1; i >= 0; i--) {
-      if (MILESTONES[i].status !== 'completed') return MILESTONES[i];
+      if (MILESTONES[i].status === 'in_progress') return MILESTONES[i];
+    }
+    // Priority 2: pending milestones (not started)
+    for (let i = MILESTONES.length - 1; i >= 0; i--) {
+      if (MILESTONES[i].status === 'pending') return MILESTONES[i];
     }
     return MILESTONES[MILESTONES.length - 1] ?? null;
   }
