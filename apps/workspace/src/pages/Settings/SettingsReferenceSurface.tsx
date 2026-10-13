@@ -1,9 +1,10 @@
-import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
+import type { ResolvedConfiguration } from '@vestara/configuration';
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { VestaraMark } from '../../components/branding/index.js';
 import { WorkspaceTabs } from '../../components/ui/WorkspaceTabs.js';
-import { navIcon } from '../../layouts/workspace-navigation.js';
+import { WorkspaceTabLayout } from '../../components/ui/WorkspaceTabLayout.js';
+import { navIcon, type WorkspaceNavIcon } from '../../layouts/workspace-navigation.js';
 import { ACCENT_PALETTES, PROFILES, type ThemeMode, type ThemeSettings, useTheme } from '../../lib/theme.js';
 import type { RuntimeStatusDto } from './settings-client.js';
 import { settingsClient } from './settings-client.js';
@@ -17,8 +18,8 @@ import {
 } from './TelegramSettings.js';
 import { TelegramSimulator } from './TelegramSimulator.js';
 import { PolicySection } from './PolicySection.js';
-import { SETTINGS_SECTIONS, settingsGroupLabel } from './settings-navigation.js';
-import { Button, focus, input, ReferenceCard, SectionIcon, Segmented, Status, Toggle } from './settings-ui.js';
+import { SETTINGS_SECTIONS, SETTINGS_GROUPS } from './settings-navigation.js';
+import { Button, focus, input, ReferenceCard, SectionIcon, Segmented, Toggle } from './settings-ui.js';
 import { SelectField } from './appearance-controls.js';
 
 const SETTINGS_TABS = ['general', 'navigation', 'system', 'runtime', 'ai', 'security', 'operations'] as const;
@@ -70,18 +71,6 @@ const FONT_FAMILY_OPTIONS = [
   { value: 'jakarta', label: 'Plus Jakarta Sans (Google)' },
   { value: 'roboto', label: 'Roboto (Google)' },
 ] as const;
-
-const ACTIONS = [
-  { id: 'export', label: 'Export Settings', description: 'Download your configuration', icon: 'files' as const },
-  {
-    id: 'import',
-    label: 'Import Settings',
-    description: 'Restore from a backup file',
-    icon: 'tools' as const,
-    unavailableHint: 'Import from a backup file is not available yet.',
-  },
-  { id: 'reset', label: 'Reset to Defaults', description: 'Restore default configuration', icon: 'routing' as const },
-];
 
 const WORKSPACE_LOGO_KEY = 'general.workspaceLogo';
 const WORKSPACE_LOGO_MAX_BYTES = 256 * 1024;
@@ -186,10 +175,10 @@ export function SettingsReferenceFrame({
   children: ReactNode;
 }) {
   return (
-    <div className="min-w-0 space-y-[var(--vestara-spacing-section)]">
+    <div className="settings-page__frame min-w-0">
       <SettingsHero configuration={configuration} runtime={runtime} />
       <SettingsTabs />
-      {children}
+      <div className="settings-page__work min-w-0">{children}</div>
     </div>
   );
 }
@@ -361,21 +350,9 @@ function WorkspaceLogoControl({ value, onChange }: { value: unknown; onChange: (
 function WorkspaceIdentityCard({
   generalDraft,
   onDraftChange,
-  dirtyLabel,
-  message,
-  saving,
-  dirty,
-  onDiscard,
-  onSave,
 }: {
   generalDraft: SettingsDraftState;
   onDraftChange: (key: string, value: unknown) => void;
-  dirtyLabel: string;
-  message: string | null;
-  saving: boolean;
-  dirty: number;
-  onDiscard: () => void;
-  onSave: () => void;
 }) {
   const visibleKeys = [
     'general.workspaceName',
@@ -386,15 +363,15 @@ function WorkspaceIdentityCard({
     'general.dateTimeFormat',
     'general.logFormat',
   ].filter((key) => key in generalDraft.values);
+  const { activeProfile, applyProfile, resetSettings } = useTheme();
   return (
     <ReferenceCard
       icon={navIcon('dashboard')}
       title="Workspace Information"
       description="Basic information and defaults exposed by the workspace configuration authority."
-      fill
-      className="h-full w-auto min-w-0 border-[color-mix(in_srgb,var(--vestara-accent)_26%,var(--vestara-border-subtle))] lg:col-span-2"
+      className="st-card-secondary"
     >
-      <div className="st-gap-section grid flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)] lg:items-start">
+      <div className="st-gap-section grid min-w-0 content-start lg:grid-cols-[minmax(0,1fr)_minmax(13rem,18rem)] lg:items-start">
         <div className="st-gap-section grid min-w-0 content-start">
           {visibleKeys.map((key) => (
             <DraftField
@@ -411,44 +388,126 @@ function WorkspaceIdentityCard({
           onChange={(value) => onDraftChange(WORKSPACE_LOGO_KEY, value)}
         />
       </div>
-      <div className="mt-auto flex flex-col gap-[var(--vestara-spacing-section)] border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
-            {dirtyLabel}
-          </p>
-          {message && (
-            <p
-              role="status"
-              className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
-            >
-              {message}
-            </p>
-          )}
-        </div>
-        <div className="st-gap-field flex shrink-0 flex-wrap">
-          <button
-            type="button"
-            onClick={onDiscard}
-            disabled={saving || dirty === 0}
-            className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] disabled:cursor-not-allowed disabled:border-[var(--vestara-border-subtle)] disabled:bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] disabled:text-[var(--vestara-text-muted)] disabled:opacity-65 ${focus}`}
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            onClick={onSave}
-            disabled={saving || dirty === 0}
-            className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-semibold disabled:cursor-not-allowed ${focus} ${
-              saving || dirty > 0
-                ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]'
-                : 'border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] text-[var(--vestara-text-muted)]'
-            }`}
-          >
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
+      <div className="mt-[var(--vestara-spacing-section)] pt-[var(--vestara-spacing-section)]">
+        <WorkspaceProfileSection
+          activeProfile={activeProfile}
+          onApplyProfile={applyProfile}
+          onReset={resetSettings}
+        />
       </div>
     </ReferenceCard>
+  );
+}
+
+function WorkspaceProfileSection({
+  activeProfile,
+  onApplyProfile,
+  onReset,
+}: {
+  activeProfile: string;
+  onApplyProfile: (id: string) => void;
+  onReset: () => void;
+}) {
+  return (
+    <PreferenceSection
+      icon={navIcon('routing')}
+      title="Workspace Profile"
+      description="Curated display presets that apply instantly. Choose a profile to set theme, density, and typography together."
+    >
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {PROFILES.map((profile) => (
+          <button
+            key={profile.id}
+            type="button"
+            aria-pressed={activeProfile === profile.id}
+            onClick={() => onApplyProfile(profile.id)}
+            className={`relative min-h-20 rounded-[var(--vestara-radius-lg)] border p-3 text-left ${focus} ${
+              activeProfile === profile.id
+                ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]'
+                : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] hover:border-[var(--vestara-accent-border-hover)]'
+            }`}
+          >
+            <span className="font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)]">
+              {profile.id.toUpperCase()}
+            </span>
+            <strong className="mt-2 block text-sm text-[var(--vestara-color-text-primary,var(--vestara-text))]">
+              {profile.label}
+            </strong>
+            <span className="mt-1 block text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
+              {profile.description}
+            </span>
+            {activeProfile === profile.id && (
+              <span className="absolute right-3 top-3 text-[var(--vestara-accent)]" aria-hidden="true">
+                ✓
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+      <div className="mt-3">
+        <Button onClick={onReset}>Reset display</Button>
+      </div>
+    </PreferenceSection>
+  );
+}
+
+/**
+ * Workspace save bar. Rendered in the tab-content footer slot so the sync
+ * status and actions stay pinned below the scrolling form.
+ */
+function WorkspaceIdentityFooter({
+  dirtyLabel,
+  message,
+  saving,
+  dirty,
+  onDiscard,
+  onSave,
+}: {
+  dirtyLabel: string;
+  message: string | null;
+  saving: boolean;
+  dirty: number;
+  onDiscard: () => void;
+  onSave: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-[var(--vestara-spacing-section)] pt-[var(--vestara-spacing-section)] sm:flex-row sm:items-center sm:justify-between">
+      <div className="min-w-0">
+        <p className="text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
+          {dirtyLabel}
+        </p>
+        {message && (
+          <p
+            role="status"
+            className="st-mt-element text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]"
+          >
+            {message}
+          </p>
+        )}
+      </div>
+      <div className="st-gap-field flex shrink-0 flex-wrap">
+        <button
+          type="button"
+          onClick={onDiscard}
+          disabled={saving || dirty === 0}
+          className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border border-[var(--vestara-border-default)] bg-[var(--vestara-surface-panel-raised)] text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)] disabled:cursor-not-allowed disabled:border-[var(--vestara-border-subtle)] disabled:bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] disabled:text-[var(--vestara-text-muted)] disabled:opacity-65 ${focus}`}
+        >
+          Discard
+        </button>
+        <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || dirty === 0}
+          className={`st-px-card min-h-11 rounded-[var(--vestara-radius)] border text-[var(--vestara-font-size-sm)] font-semibold disabled:cursor-not-allowed ${focus} ${
+            saving || dirty > 0
+              ? 'border-[var(--vestara-accent-dark)] bg-[var(--vestara-accent-dark)] text-[var(--vestara-surface-canvas)] hover:bg-[var(--vestara-accent)]'
+              : 'border-[var(--vestara-border-subtle)] bg-[color-mix(in_srgb,var(--vestara-surface-panel)_70%,transparent)] text-[var(--vestara-text-muted)]'
+          }`}
+        >
+          {saving ? 'Saving...' : 'Save Changes'}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -557,7 +616,7 @@ function PreferenceSection({
   children: ReactNode;
 }) {
   return (
-    <div className="border-t border-[var(--vestara-border-subtle)] pt-[var(--vestara-spacing-section)] first:border-t-0 first:pt-0">
+    <div className="pt-[var(--vestara-spacing-section)] first:pt-0">
       <p className="flex min-w-0 items-center gap-2 text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-secondary)]">
         <span
           aria-hidden="true"
@@ -625,49 +684,10 @@ function PreferencesCard({
     <ReferenceCard
       icon={navIcon('settings')}
       title="Preferences"
-      description="Personalize how the workspace behaves for you — profiles, appearance, and layout."
+      description="Personalize how the workspace behaves for you — appearance, typography, and layout."
       className={`st-card-secondary ${className}`}
     >
       <div className="grid gap-[var(--vestara-spacing-section)]">
-        <PreferenceSection
-          icon={navIcon('routing')}
-          title="Workspace Profile"
-          description="Curated display presets that apply instantly. Choose a profile to set theme, density, and typography together."
-        >
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-            {PROFILES.map((profile) => (
-              <button
-                key={profile.id}
-                type="button"
-                aria-pressed={activeProfile === profile.id}
-                onClick={() => applyProfile(profile.id)}
-                className={`relative min-h-20 rounded-[var(--vestara-radius-lg)] border p-3 text-left ${focus} ${
-                  activeProfile === profile.id
-                    ? 'border-[var(--vestara-accent)] bg-[var(--vestara-accent-bg)] shadow-[inset_3px_0_0_var(--vestara-accent)]'
-                    : 'border-[var(--vestara-color-border-default,var(--color-zinc-700))] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] hover:border-[var(--vestara-accent-border-hover)]'
-                }`}
-              >
-                <span className="font-mono text-[var(--vestara-font-size-xs)] text-[var(--vestara-accent-text)]">
-                  {profile.id.toUpperCase()}
-                </span>
-                <strong className="mt-2 block text-sm text-[var(--vestara-color-text-primary,var(--vestara-text))]">
-                  {profile.label}
-                </strong>
-                <span className="mt-1 block text-xs text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-                  {profile.description}
-                </span>
-                {activeProfile === profile.id && (
-                  <span className="absolute right-3 top-3 text-[var(--vestara-accent)]" aria-hidden="true">
-                    ✓
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="mt-3">
-            <Button onClick={resetSettings}>Reset display</Button>
-          </div>
-        </PreferenceSection>
         <div className="grid gap-[var(--vestara-spacing-section)] lg:grid-cols-2">
           <PreferenceSection
             icon={navIcon('dashboard')}
@@ -819,117 +839,55 @@ function PreferencesCard({
   );
 }
 
-function WorkspaceStatusCard({
-  runtime,
-  configuration,
-  className = '',
-}: {
-  runtime: RuntimeStatusDto;
-  configuration: ResolvedConfiguration;
-  className?: string;
-}) {
-  const rows = [
-    ['Status', <Status key="status" bare value={runtime.status} />],
-    ['API', runtime.apiEndpoint ? 'Connected API' : 'Unknown'],
-    [
-      'Version',
-      <span key="version" className="font-mono">
-        {runtime.runtimeVersion}
-      </span>,
-    ],
-    ['Active executions', runtime.activeExecutionCount],
-    ['Event store', runtime.engineeringEventStoreStatus],
-    [
-      'Revision',
-      <span key="revision" className="font-mono">
-        {configuration.revision.slice(0, 8)}
-      </span>,
-    ],
-  ] as const;
-  return (
-    <ReferenceCard
-      icon={navIcon('activity')}
-      title="Workspace Status"
-      description="Current workspace health and status."
-      tone="info"
-      className={`st-card-supporting ${className}`}
-    >
-      <div className="divide-y divide-[var(--vestara-border-subtle)]">
-        {rows.map(([label, value]) => (
-          <div
-            key={label}
-            className="st-gap-field flex min-h-10 items-center justify-between py-[var(--vestara-spacing-element)]"
-          >
-            <span className="text-[var(--vestara-font-size-xs)] font-medium uppercase text-[var(--vestara-text-muted)]">
-              {label}
-            </span>
-            <span className="min-w-0 truncate text-right text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)]">
-              {value}
-            </span>
-          </div>
-        ))}
-      </div>
-    </ReferenceCard>
-  );
+/**
+ * General sub-section registry: single source of truth for the vertical
+ * sub-tabs and the panel header. Adding a section here wires both
+ * surfaces — no parallel metadata elsewhere.
+ */
+type GeneralSubSectionId = 'workspace' | 'personalization' | 'telegram' | 'overview';
+
+interface GeneralSubSectionMeta {
+  id: GeneralSubSectionId;
+  label: string;
+  description: string;
+  icon: WorkspaceNavIcon;
 }
 
-function QuickActionsCard({
-  onReset,
-  onExport,
-  className = '',
-}: {
-  onReset: () => void;
-  onExport: () => void;
-  className?: string;
-}) {
-  return (
-    <ReferenceCard
-      icon={navIcon('tools')}
-      title="Quick Actions"
-      description="Common configuration tasks."
-      fill
-      className={`st-card-supporting ${className}`}
-    >
-      <div className="st-space-field">
-        {ACTIONS.map((action) => (
-          <button
-            key={action.id}
-            type="button"
-            onClick={action.id === 'reset' ? onReset : action.id === 'export' ? onExport : undefined}
-            disabled={action.id !== 'reset' && action.id !== 'export'}
-            title={'unavailableHint' in action ? action.unavailableHint : undefined}
-            className={`st-gap-field st-px-card st-py-field flex w-full items-start rounded-[var(--vestara-radius)] border border-[var(--vestara-border-subtle)] bg-[var(--vestara-color-surface-raised,var(--color-zinc-950))] text-left transition-colors disabled:cursor-not-allowed disabled:opacity-55 ${focus} ${
-              action.id === 'reset'
-                ? 'hover:border-[var(--vestara-status-warning-border)] hover:bg-[color-mix(in_srgb,var(--vestara-status-warning)_8%,transparent)] hover:text-[var(--vestara-status-warning)]'
-                : 'hover:border-[var(--vestara-accent-border)]'
-            }`}
-          >
-            <span aria-hidden="true" className="st-mt-element text-[var(--vestara-text-muted)] [&_svg]:size-5">
-              {navIcon(action.icon)}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-[var(--vestara-font-size-sm)] font-medium text-[var(--vestara-text-primary)]">
-                {action.label}
-              </span>
-              <span className="st-mt-element block text-[var(--vestara-font-size-xs)] leading-relaxed text-[var(--vestara-text-muted)]">
-                {action.description}
-              </span>
-            </span>
-          </button>
-        ))}
-      </div>
-    </ReferenceCard>
-  );
-}
+const GENERAL_SUB_SECTIONS: readonly GeneralSubSectionMeta[] = [
+  { id: 'workspace', label: 'Workspace', description: 'Workspace identity, status and quick actions', icon: 'dashboard' },
+  {
+    id: 'personalization',
+    label: 'Personalization',
+    description: 'Profiles, appearance, typography and layout',
+    icon: 'settings',
+  },
+  { id: 'telegram', label: 'Telegram', description: 'Tunnel, bot integration and simulator', icon: 'tools' },
+  { id: 'overview', label: 'Overview & Hero', description: 'Briefing card and notifications', icon: 'activity' },
+];
 
-function GeneralSectionLabel({ label, hint }: { label: string; hint?: string }) {
+/**
+ * Panel header derived from the active sub-tab metadata. Pinned above the
+ * scrolling body by WorkspaceTabLayout — no sticky positioning needed here.
+ */
+function GeneralSectionHeader({ meta, hint }: { meta: GeneralSubSectionMeta; hint?: string }) {
   return (
-    <div className="flex items-center gap-3 pt-1">
-      <span className="text-[var(--vestara-font-size-xs)] font-semibold uppercase tracking-[0.08em] text-[var(--vestara-text-muted)]">
-        {label}
-      </span>
-      <span className="h-px flex-1 bg-[var(--vestara-border-subtle)]" aria-hidden="true" />
-      {hint && <span className="text-[var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{hint}</span>}
+    <div className="bg-[var(--vestara-surface-canvas)] pb-[var(--vestara-spacing-section)]">
+      <div className="flex min-w-0 items-center gap-[var(--vestara-spacing-section)]">
+        <SectionIcon icon={navIcon(meta.icon)} />
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">
+            {meta.label}
+          </h2>
+          <p className="mt-[var(--vestara-spacing-element)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-muted)] truncate">
+            {meta.description}
+          </p>
+        </div>
+        {hint && (
+          <span className="shrink-0 rounded-[var(--vestara-radius-full)] border border-[var(--vestara-border-subtle)] px-[var(--vestara-spacing-section)] py-[var(--vestara-spacing-element)] text-[var(--vestara-font-size-xs)] font-medium text-[var(--vestara-text-muted)]">
+            {hint}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -984,6 +942,7 @@ export function SettingsGeneralReference({
 }) {
   const [generalDraft, setGeneralDraft] = useState(() => createDraft(configuration, 'general'));
   const [notificationDraft, setNotificationDraft] = useState(() => createDraft(configuration, 'notifications'));
+  const [section, setSection] = useState<string>('workspace');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const dirty = generalDraft.dirtyKeys.length + notificationDraft.dirtyKeys.length;
@@ -1025,20 +984,6 @@ export function SettingsGeneralReference({
     }
   };
 
-  const reset = async (section: SettingsSectionId = 'general') => {
-    setSaving(true);
-    setMessage(null);
-    try {
-      const result = await settingsClient.reset(configuration, section);
-      onChanged(result.configuration);
-      setMessage(`${settingsGroupLabel(section === 'notifications' ? 'operations' : 'workspace')} settings reset.`);
-    } catch (cause) {
-      setMessage(cause instanceof Error ? cause.message : 'Reset failed');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const telegram = useTelegramPanelState();
   const hero = useHeroSettingsState();
 
@@ -1051,32 +996,57 @@ export function SettingsGeneralReference({
     [dirty],
   );
 
-  const exportSettings = () => {
-    const payload = {
-      exportedAt: new Date().toISOString(),
-      revision: configuration.revision,
-      settings: configuration.settings,
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `vestara-settings-${configuration.revision.slice(0, 8)}.json`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-    setMessage('Settings exported.');
-  };
+  const activeMeta = GENERAL_SUB_SECTIONS.find((entry) => entry.id === section) ?? GENERAL_SUB_SECTIONS[0];
+
+  // Parent tab metadata (General) for the sidebar header — constant across sub-tabs.
+  const generalMeta = SETTINGS_SECTIONS.find((s) => s.id === 'general');
 
   return (
-    <div className="min-w-0 space-y-[var(--vestara-spacing-section)]">
-      <GeneralSectionLabel label="Workspace" hint={dirty ? `${dirty} unsaved` : 'Synced'} />
-      <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-stretch">
-        <div className="flex min-w-0 flex-col">
-          <WorkspaceIdentityCard
-            generalDraft={generalDraft}
-            onDraftChange={onGeneralChange}
+    <WorkspaceTabLayout
+      rail={
+        <WorkspaceTabs
+          orientation="vertical"
+          tabs={GENERAL_SUB_SECTIONS.map((entry) => ({
+            id: entry.id,
+            label: entry.label,
+            title:
+              entry.id === 'workspace' && dirty > 0
+                ? `${dirty} unsaved change${dirty === 1 ? '' : 's'}`
+                : entry.description,
+            icon: navIcon(entry.icon),
+            borderBottom: false,
+          }))}
+          activeTab={section}
+          onTabChange={setSection}
+          ariaLabel="General settings sections"
+        />
+      }
+      sidebarHeader={
+        generalMeta && (
+          <div className="bg-[var(--vestara-surface-canvas)] pb-[var(--vestara-spacing-section)]">
+            <div className="flex min-w-0 items-center gap-[var(--vestara-spacing-section)]">
+              <SectionIcon icon={navIcon(generalMeta.icon)} />
+              <div className="min-w-0">
+                <h2 className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">
+                  {generalMeta.label}
+                </h2>
+                <p className="mt-[var(--vestara-spacing-element)] text-[var(--vestara-font-size-sm)] text-[var(--vestara-text-muted)] truncate">
+                  {generalMeta.description}
+                </p>
+              </div>
+            </div>
+          </div>
+        )
+      }
+      header={
+        <GeneralSectionHeader
+          meta={activeMeta}
+          hint={activeMeta.id === 'workspace' ? (dirty > 0 ? `${dirty} unsaved` : 'Synced') : undefined}
+        />
+      }
+      footer={
+        section === 'workspace' ? (
+          <WorkspaceIdentityFooter
             dirtyLabel={status.dirtyLabel}
             message={message}
             saving={saving}
@@ -1084,14 +1054,14 @@ export function SettingsGeneralReference({
             onDiscard={discard}
             onSave={() => void save()}
           />
-        </div>
-        <div className="flex min-w-0 flex-col gap-[var(--vestara-spacing-section)]">
-          <WorkspaceStatusCard runtime={runtime} configuration={configuration} className="shrink-0" />
-          <QuickActionsCard onReset={() => void reset()} onExport={exportSettings} className="flex-1" />
-        </div>
-      </div>
+        ) : undefined
+      }
+    >
+      {section === 'workspace' && (
+        <WorkspaceIdentityCard generalDraft={generalDraft} onDraftChange={onGeneralChange} />
+      )}
 
-      <GeneralSectionLabel label="Personalization" hint="Profiles, appearance, typography & layout" />
+      {section === 'personalization' && (
       <div className="min-w-0">
         <PreferencesCard
           onGeneralChange={onGeneralChange}
@@ -1100,10 +1070,13 @@ export function SettingsGeneralReference({
           className="w-full"
         />
       </div>
+      )}
 
-      <GeneralConnectivitySection configuration={configuration} onChanged={onChanged} telegram={telegram} />
+      {section === 'telegram' && (
+        <GeneralConnectivitySection configuration={configuration} onChanged={onChanged} telegram={telegram} />
+      )}
 
-      <GeneralSectionLabel label="Overview & Hero" hint="Briefing + notifications" />
+      {section === 'overview' && (
       <div className="grid min-w-0 gap-[var(--vestara-spacing-section)] lg:grid-cols-2 lg:items-stretch">
         <HeroBriefingCard hero={hero} className="flex h-full flex-col" />
         {telegram.settings && telegram.draft ? (
@@ -1123,6 +1096,7 @@ export function SettingsGeneralReference({
           <div role="status" aria-label="Loading notifications" className="mpg-skeleton h-64" />
         )}
       </div>
-    </div>
+      )}
+    </WorkspaceTabLayout>
   );
 }

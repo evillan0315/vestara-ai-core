@@ -56,6 +56,7 @@ The four knowledge artifacts answer different questions:
 | ENG-007 | Tool risk and information risk are independent | Verified | Browser tool governance metadata tests | Browser / computer-use tool providers (PCS-026) |
 | ENG-008 | Computer use should produce evidence through existing protocols | Verified | Browser tools emit harness evidence artifacts | Browser / computer-use tool providers (PCS-026) |
 | ENG-009 | Executor state must be scoped to the actor/task boundary | Verified | Session-isolation test (per agent:task pages) | Browser information stewardship enforcement (PCS-026) |
+| ENG-010 | Global Assistant aligns with Activity Room via provenance routing, not shared state | Observed | `assistant-navigation.ts` provenance routing; M11A/M11B snapshot→live lifecycle; `status-config.ts` GA-STATE-001 | Global Assistant ↔ Activity Room alignment (2026-10-13) |
 
 ---
 
@@ -477,6 +478,46 @@ Browser information stewardship enforcement (PCS-026, 2026-08-05)
 ### Confidence
 
 Verified
+
+---
+
+## ENG-010 — Global Assistant aligns with Activity Room via provenance routing, not shared state
+
+### Title
+
+Provenance-routed handoff keeps conversation authority and projection authority separate.
+
+### Problem
+
+The floating Global Assistant and the Activity Room both render agent work (streams, participants, status, tools, agents). Sharing a store or inferring origin from presentation (actor names, content, icons) would conflate Conversation authority with projection authority and risk opening the wrong conversation or asserting presence/identity the projections never made.
+
+### Observation
+
+Investigation on 2026-10-13 traced the wiring: Room streams flow `M9 → M10 → M11A snapshot + M11B WS → useM11CActivityRoom` (snapshot 50, working set 500, render window 100); participants come from `GET /v1/participants` as `ParticipantProjection` with identity/presence honesty rules (model-id displayNames demoted, presence lamps only for positively-resolved states); status funnels through `status-config.ts` GA-STATE-001 while Assistant `StreamState` stays a distinct lifecycle (`detached` = SSE disconnect ≠ cancellation); tools split transient Assistant SSE projections (`AssistantToolCard`) vs durable M9 `payload.tool {toolName, callID, status}` rows (`M11CStreamItem`); the only Assistant↔Room bridge is `assistant-navigation.ts` provenance routing (`originConversationId` with no `originSurface` → open existing conversation via reused `open-assistant` event; otherwise local composer) plus display-only `SurfaceContext` selection (Room contributes, context owns).
+
+### Finding
+
+Cross-surface alignment should be routed on durable provenance (`originConversationId`/`originSurface`), never on presentation or a shared mutable store. Each side keeps its authority: Conversation Runtime owns conversations, M9/M10/M11 own projections, `SurfaceContext` owns selection display, `status-config` owns status vocabulary.
+
+### Engineering Principle
+
+Provenance decides, presentation displays. Handoff opens what already exists; it never creates, infers, or merges authority.
+
+### Recommendation
+
+Keep the `open-assistant` provenance contract as the sole Assistant↔Room handoff; fix the stale "no callID" taxonomy comment in `M11CStreamItem.tsx` to reflect Phase-1 `tool.callID` passthrough; wire presence resolution upstream rather than inferring it from `workState` in the rail.
+
+### Related Evidence
+
+`docs/activity-room/ga-activity-room-alignment.md` — Global Assistant ↔ Activity Room Alignment (streams, participants, status, tools, agents); `apps/workspace/src/lib/assistant-navigation.ts`, `apps/workspace/src/hooks/useM11CActivityRoom.ts`, `packages/activity-room/src/projection-types.ts`, `apps/workspace/src/pages/activity/status-config.ts`, `apps/workspace/src/pages/activity/M11CParticipantRail.tsx`, `packages/workspace/src/agents.registry.ts:395-453`
+
+### Related Milestone
+
+Global Assistant ↔ Activity Room alignment investigation (2026-10-13)
+
+### Confidence
+
+Observed
 
 ---
 

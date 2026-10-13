@@ -13,9 +13,16 @@ import type { Theme } from '../config.js';
 /** The localStorage key the app reads for its theme. */
 export const THEME_STORAGE_KEY = 'vestara-theme';
 
+/**
+ * The localStorage key the outer VestaraThemeProvider (@vestara/ui-theme)
+ * reads. The app nests two providers that both write `data-theme` from
+ * different keys — seeding only one leaves light captures rendering dark.
+ */
+export const THEME_MODE_STORAGE_KEY = 'vestara-theme-mode';
+
 /** Seed the theme preference before the page loads (call via addInitScript). */
 export function themeInitScript(theme: Theme): string {
-  return `() => { try { localStorage.setItem('${THEME_STORAGE_KEY}', '${theme.storageValue}'); } catch {} }`;
+  return `() => { try { localStorage.setItem('${THEME_STORAGE_KEY}', '${theme.storageValue}'); localStorage.setItem('${THEME_MODE_STORAGE_KEY}', '${theme.storageValue}'); } catch {} }`;
 }
 
 /** Apply a theme to an already-loaded page. */

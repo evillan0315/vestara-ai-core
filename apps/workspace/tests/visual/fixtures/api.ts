@@ -162,6 +162,19 @@ function json(route: Route, status: number, body: unknown): Promise<void> {
   });
 }
 
+/**
+ * Session fixture — every authenticated route needs it. The harness seeds a
+ * fixture bearer token via role storage states (see auth/roles.ts), so the
+ * app's AuthProvider fetches /api/auth/me on boot; without this mock the
+ * request fails (no API in CI) and ProtectedPage redirects to /login.
+ * Username matches the long-standing baselines (eddie / Administrator).
+ */
+async function installAuthFixture(page: Page): Promise<void> {
+  await page.route('**/api/auth/me', (route) =>
+    json(route, 200, { currentUser: { id: 'visual-admin', username: 'eddie', role: 'admin' } }),
+  );
+}
+
 async function installActivityFixtures(page: Page): Promise<void> {
   await page.addInitScript((cursor) => {
     const NativeWebSocket = window.WebSocket;
@@ -282,6 +295,8 @@ async function installQualificationFixtures(page: Page): Promise<void> {
 }
 
 export async function installVisualApiFixtures(page: Page, route: RouteDefinition): Promise<void> {
+  await installAuthFixture(page);
+
   if (ACTIVITY_ROUTE_IDS.has(route.id)) {
     await installActivityFixtures(page);
   }

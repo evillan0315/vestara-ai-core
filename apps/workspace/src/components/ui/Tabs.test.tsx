@@ -16,6 +16,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tabs } from '@vestara/ui';
+import type { ComponentProps } from 'react';
 
 // Hermetic under both runners: the root runner cleans via vitest.setup.ts,
 // the workspace runner relies on RTL globals — belt and suspenders here.
@@ -32,16 +33,19 @@ const TABS = [{ id: 'overview', label: 'Overview' }, { id: 'work', label: 'Work'
 function Harness({  tabs = [...TABS],
   initial = 'overview',
   onTabChange,
+  orientation,
 }: {
   tabs?: { id: string; label: string; shortLabel?: string; disabled?: boolean }[];
   initial?: string;
   onTabChange?: (id: string) => void;
+  orientation?: ComponentProps<typeof Tabs>['orientation'];
 }) {
   const [active, setActive] = useState(initial);
   return (
     <Tabs
       tabs={tabs}
       activeTab={active}
+      orientation={orientation}
       onTabChange={(id) => {
         setActive(id);
         onTabChange?.(id);
@@ -149,8 +153,7 @@ describe('Tabs (canonical @vestara/ui)', () => {
     expect(tabAt(2)).toHaveFocus();
   });
 
-  it('scopes tab/panel IDs per instance so concurrent instances never collide', () => {
-    render(
+  it('scopes tab/panel IDs per instance so concurrent instances never collide', () => {    render(
       <>
         <Harness />
         <Harness initial="work" />
@@ -172,5 +175,45 @@ describe('Tabs (canonical @vestara/ui)', () => {
       const labelledBy = panel.getAttribute('aria-labelledby') ?? '';
       expect(document.getElementById(labelledBy)).not.toBeNull();
     }
+  });
+
+  it('defaults to a horizontal tablist that ignores ArrowUp/ArrowDown', () => {
+    const onTabChange = vi.fn();
+    render(<Harness onTabChange={onTabChange} />);
+
+    expect(screen.getByRole('tablist')).toHaveAttribute('aria-orientation', 'horizontal');
+
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowDown' });
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowUp' });
+    expect(onTabChange).not.toHaveBeenCalled();
+  });
+
+  it('renders a vertical rail navigated by ArrowUp/ArrowDown only', () => {
+    const onTabChange = vi.fn();
+    render(<Harness orientation="vertical" onTabChange={onTabChange} />);
+
+    expect(screen.getByRole('tablist')).toHaveAttribute('aria-orientation', 'vertical');
+
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowDown' });
+    expect(onTabChange).toHaveBeenCalledWith('work');
+    expect(tabAt(1)).toHaveFocus();
+
+    fireEvent.keyDown(tabAt(1), { key: 'ArrowUp' });
+    expect(onTabChange).toHaveBeenCalledWith('overview');
+
+    // Horizontal arrows are inert on a vertical rail.
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowRight' });
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowLeft' });
+    expect(onTabChange).toHaveBeenCalledTimes(2);
+  });
+
+  it('wraps ArrowUp from the first vertical tab to the last tab', () => {
+    const onTabChange = vi.fn();
+    render(<Harness orientation="vertical" onTabChange={onTabChange} />);
+
+    fireEvent.keyDown(tabAt(0), { key: 'ArrowUp' });
+
+    expect(onTabChange).toHaveBeenCalledWith('activity');
+    expect(tabAt(2)).toHaveFocus();
   });
 });

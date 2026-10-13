@@ -53,7 +53,7 @@ export const PROFILES: WorkspaceProfile[] = [
   {
     id: 'default',
     label: 'Default',
-    description: 'Balanced dark theme',
+    description: 'Balanced dark theme · startup cyan',
     icon: '◈',
     settings: {
       fontFamily: 'system',
@@ -66,7 +66,7 @@ export const PROFILES: WorkspaceProfile[] = [
       fullScreen: false,
       sidebarEnabled: true,
       sidebarMode: 'text',
-      colorTheme: 'gold',
+      colorTheme: 'startup',
       leftBorderEnabled: false,
       leftBorderColor: '',
       leftBorderThickness: 0,
@@ -214,9 +214,9 @@ const DEFAULT_SETTINGS: ThemeSettings = {
   sidebarEnabled: true,
   sidebarMode: 'text',
   leftBorderEnabled: true,
-  leftBorderColor: '#f59e0b',
+  leftBorderColor: '#22d3ee',
   leftBorderThickness: 4,
-  colorTheme: 'gold',
+  colorTheme: 'startup',
 };
 
 const FONT_STACKS: Record<FontFamily, string> = {

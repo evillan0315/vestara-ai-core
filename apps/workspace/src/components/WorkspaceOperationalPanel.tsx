@@ -29,7 +29,7 @@ export function WorkspaceOperationalPanel({
   const panelClassName = [className, fill ? 'st-card-fill' : '', scrollable ? 'st-card-fixed' : ''].filter(Boolean).join(' ');
   return (
     <section className={`st-panel min-w-0 ${panelClassName}`} aria-labelledby={titleId}>
-      <header className="st-card-header st-gap-field st-px-card st-py-card flex min-w-0 items-start border-b border-[var(--vestara-border-subtle)]">
+      <header className="st-card-header st-gap-field st-px-card st-py-card flex min-w-0 items-start border-b border-[var(--st-panel-border)]">
         {icon && <WorkspacePanelIcon icon={icon} tone={tone} />}
         <div className="min-w-0 flex-1">
           <h2 id={titleId} className="text-[var(--vestara-font-size-lg)] font-semibold text-[var(--vestara-text-primary)]">{title}</h2>

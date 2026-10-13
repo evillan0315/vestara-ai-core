@@ -1,7 +1,7 @@
 import type { ResolvedConfiguration, SettingsSectionId } from '@vestara/configuration';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
-import WorkspacePanelLayout from '../../layouts/WorkspacePanelLayout';
+import '../../styles/settings-page.css';
 import { navIcon } from '../../layouts/workspace-navigation.js';
 import {
   type CliStatusDto,
@@ -363,8 +363,9 @@ export default function SettingsPage() {
   // Hero summary is a projection of authoritative API/runtime state —
   // omitted entirely until loaded, never fabricated.
   return (
-    <WorkspacePanelLayout fluid={false}>
+    <div className="settings-page">
       {error ? (
+        <div className="settings-page__work">
         <div role="alert" className="st-panel p-5">
           <h2 className="font-semibold text-[var(--vestara-red)]">Settings disconnected</h2>
            <p className="mt-2 text-sm text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">{error}</p>
@@ -375,8 +376,11 @@ export default function SettingsPage() {
               </Button>
             </div>
         </div>
+        </div>
       ) : !data ? (
-        <LoadingState />
+        <div className="settings-page__work">
+          <LoadingState />
+        </div>
       ) : (
         <>
           <SettingsReferenceFrame configuration={data.configuration} runtime={data.runtime}>
@@ -456,6 +460,6 @@ export default function SettingsPage() {
           </SettingsReferenceFrame>
         </>
       )}
-    </WorkspacePanelLayout>
+    </div>
   );
 }

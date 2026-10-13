@@ -8,7 +8,7 @@
 
 import type { BrowserContext } from '@playwright/test';
 import type { Config, Theme } from '../config.js';
-import { THEME_STORAGE_KEY } from '../helpers/theme.js';
+import { THEME_MODE_STORAGE_KEY, THEME_STORAGE_KEY } from '../helpers/theme.js';
 
 export class ThemeRunner {
   constructor(private readonly config: Config) {}
@@ -22,13 +22,16 @@ export class ThemeRunner {
 
   /** Ensure the context starts in the requested theme. */
   seed(context: BrowserContext, theme: Theme): void {
-    context.addInitScript(
-      ([key, value]) => {
-        try {
-          localStorage.setItem(key, value);
-        } catch {}
-      },
-      [THEME_STORAGE_KEY, theme.storageValue] as const,
-    );
+    // Both app theme providers must agree (see THEME_MODE_STORAGE_KEY):
+    // the inner reads vestara-theme, the outer reads vestara-theme-mode.
+    const entries = [
+      [THEME_STORAGE_KEY, theme.storageValue],
+      [THEME_MODE_STORAGE_KEY, theme.storageValue],
+    ] as const;
+    context.addInitScript((pairs) => {
+      try {
+        for (const [key, value] of pairs) localStorage.setItem(key, value);
+      } catch {}
+    }, entries);
   }
 }

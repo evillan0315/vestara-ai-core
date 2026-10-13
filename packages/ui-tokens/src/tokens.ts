@@ -403,7 +403,8 @@ export type AccentColorTheme =
   | 'indigo'
   | 'purple'
   | 'fuchsia'
-  | 'pink';
+  | 'pink'
+  | 'startup';
 
 export interface AccentPalette {
   readonly label: string;
@@ -631,6 +632,17 @@ export const ACCENT_PALETTES: Record<AccentColorTheme, AccentPalette> = {
     border: '#ec489940',
     borderHover: '#ec489980',
     borderActive: '#ec4899',
+  },
+  startup: {
+    label: 'Startup Cyan',
+    hex: '#22d3ee',
+    light: '#67e8f9',
+    dark: '#0891b2',
+    glow: 'rgba(34, 211, 238, 0.04)',
+    bg: '#22d3ee14',
+    border: '#22d3ee40',
+    borderHover: '#22d3ee80',
+    borderActive: '#22d3ee',
   },
 } as const;
 

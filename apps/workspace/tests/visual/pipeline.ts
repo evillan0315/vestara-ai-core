@@ -46,7 +46,7 @@ export class ScreenshotPipeline {
   ): Promise<PipelineResult> {
     const started = Date.now();
     const themes = new ThemeRunner(this.config);
-    const { context, page } = await this.viewports.open(browser, viewport);
+    const { context, page } = await this.viewports.open(browser, viewport, theme, role);
     themes.seed(context, theme);
 
     let status: ShotStatus;

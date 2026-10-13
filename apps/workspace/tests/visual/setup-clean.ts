@@ -4,6 +4,7 @@
  */
 
 import * as fs from 'node:fs';
+import { ensureStorageStates } from './auth/roles.js';
 import { outputLayout } from './config.js';
 
 export default async function globalSetup(): Promise<void> {
@@ -12,4 +13,7 @@ export default async function globalSetup(): Promise<void> {
   for (const dir of [layout.current, layout.diff, layout.results, layout.reports]) {
     fs.rmSync(dir, { recursive: true, force: true });
   }
+  // Role storage states back the per-case `storageState` contexts opened by
+  // ViewportRunner — without them authenticated routes redirect to /login.
+  ensureStorageStates();
 }

@@ -34,6 +34,12 @@ export interface LauncherDockProps {
   runtimeSessions?: OpenCodeSessionView[];
   /** GA-SESSION-003: callback when a runtime session resume is invoked. */
   onResumeSession?: (sessionId: string) => void;
+  /**
+   * Launcher top-left in viewport px. The dock anchors to the launcher and
+   * flips above/below + left/right to stay on screen. Omit for the legacy
+   * docked bottom-right placement.
+   */
+  anchor?: { x: number; y: number } | null;
 }
 
 /** Maximum conversations shown in the dock — most recent first. */
@@ -61,8 +67,16 @@ export function LauncherDock({
   onMouseLeave,
   runtimeSessions,
   onResumeSession,
+  anchor = null,
 }: LauncherDockProps) {
   if (!open) return null;
+
+  // Anchor to the movable launcher: flip above/below and left/right so the
+  // dock stays on screen wherever the launcher is parked.
+  const viewportWidth = typeof window === 'undefined' ? 1280 : window.innerWidth;
+  const viewportHeight = typeof window === 'undefined' ? 800 : window.innerHeight;
+  const placement = anchor && anchor.y + 24 <= viewportHeight / 2 ? 'below' : 'above';
+  const align = anchor && anchor.x < 320 ? 'left' : 'right';
 
   // GA-SESSION-003: build runtime session items preserving parentID lineage.
   // Root sessions are primary resume targets; child sessions appear indented
@@ -87,7 +101,7 @@ export function LauncherDock({
       aria-label="Recent conversations"
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="assistant-dock-enter fixed bottom-[5.25rem] right-6 w-72 overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_var(--vestara-accent-bg),0_0_16px_-4px_var(--vestara-accent-bg)] backdrop-blur-xl"
+      className={`assistant-dock-enter absolute w-72 overflow-hidden rounded-xl border border-(--vestara-accent-border) bg-(--vestara-surface)/95 shadow-[0_24px_70px_-12px_rgba(0,0,0,0.8),0_0_0_1px_var(--vestara-accent-bg),0_0_16px_-4px_var(--vestara-accent-bg)] backdrop-blur-xl ${placement === 'above' ? 'bottom-[calc(100%+12px)]' : 'top-[calc(100%+12px)]'} ${align === 'right' ? 'right-0' : 'left-0'}`}
       style={{ zIndex: Number(Z_INDEX.sticky) }}
     >
       <div className="flex items-center justify-between px-3 pt-2.5 pb-1">

@@ -9,26 +9,21 @@
  * and token-only styling. No routing, no domain models, no runtime clients.
  *
  * Architecture Traceability:
- *   UI-COMP-001 Phase 2 §C → Phase 7A Slice 1
+ *   UI-COMP-001 Phase 2 \u00a7C \u2192 Phase 7A Slice 1
  */
 
 import type { ReactNode } from 'react';
 import { useCallback, useId, useRef } from 'react';
 
-// ─── Types ─────────────────────────────────────────────────────
+// \u2503 Types \u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503
 
 export interface Tab {
   id: string;
   label: string;
-  /** Optional short label for narrow viewports. */
   shortLabel?: string;
-  /** Optional leading icon supplied by the consuming design system. */
   icon?: ReactNode;
-  /** Optional native tooltip for dense or abbreviated tabs. */
   title?: string;
-  /** Whether this tab renders the bottom-border selection treatment. */
   borderBottom?: boolean;
-  /** Disabled tabs are skipped by keyboard navigation and not selectable. */
   disabled?: boolean;
 }
 
@@ -36,19 +31,17 @@ export interface TabsProps {
   tabs: readonly Tab[];
   activeTab: string;
   onTabChange: (tabId: string) => void;
-  /** Optional controlled panel content. Omit it when the tabs are navigation-only. */
   children?: ReactNode;
-  /** className applied to the tab list container. */
   className?: string;
-  /** className applied to each tab button. */
   tabClassName?: string;
-  /** className applied to the active tab button. */
   activeTabClassName?: string;
-  /** Accessible name for the tablist. */
   ariaLabel?: string;
+  orientation?: 'horizontal' | 'vertical';
+  border?: 'none' | 'accent';
+  tablistClassName?: string;
 }
 
-// ─── Component ─────────────────────────────────────────────────
+// \u2503 Component \u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503\u2503
 
 export function Tabs({
   tabs,
@@ -59,9 +52,13 @@ export function Tabs({
   tabClassName = '',
   activeTabClassName = '',
   ariaLabel,
+  orientation = 'horizontal',
+  border = 'none',
+  tablistClassName = '',
 }: TabsProps) {
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const uid = useId().replace(/:/g, '');
+  const isVertical = orientation === 'vertical';
 
   const focusTab = useCallback((tabId: string) => {
     tabRefs.current.get(tabId)?.focus();
@@ -77,12 +74,23 @@ export function Tabs({
 
       switch (e.key) {
         case 'ArrowRight':
+          if (isVertical) return;
+          e.preventDefault();
+          nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % enabledTabs.length;
+          break;
         case 'ArrowDown':
+          if (!isVertical) return;
           e.preventDefault();
           nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % enabledTabs.length;
           break;
         case 'ArrowLeft':
+          if (isVertical) return;
+          e.preventDefault();
+          nextIndex =
+            currentIndex === -1 ? enabledTabs.length - 1 : (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
+          break;
         case 'ArrowUp':
+          if (!isVertical) return;
           e.preventDefault();
           nextIndex =
             currentIndex === -1 ? enabledTabs.length - 1 : (currentIndex - 1 + enabledTabs.length) % enabledTabs.length;
@@ -105,22 +113,57 @@ export function Tabs({
         focusTab(nextTab.id);
       }
     },
-    [tabs, activeTab, onTabChange, focusTab],
+    [tabs, activeTab, onTabChange, focusTab, isVertical],
   );
+
+  const verticalTablist = 'flex flex-col items-stretch gap-1 bg-(--vestara-surface-canvas) ' + tablistClassName;
+  const horizontalTablist =
+    'flex gap-0 overflow-x-auto scrollbar-none bg-(--vestara-surface-canvas) ' + tablistClassName;
 
   return (
     <div className={className}>
       <div
         role="tablist"
         aria-label={ariaLabel}
-        aria-orientation="horizontal"
-        className="flex gap-0 border-b border-(--vestara-accent-border) overflow-x-auto scrollbar-none"
+        aria-orientation={orientation}
+        className={isVertical ? verticalTablist : horizontalTablist}
         onKeyDown={handleKeyDown}
       >
         {tabs.map((tab) => {
           const isActive = tab.id === activeTab;
           const isDisabled = tab.disabled === true;
-          const hasBottomBorder = tab.borderBottom !== false;
+          const hasEdge = tab.borderBottom !== false;
+          const edgeWidth = hasEdge
+            ? isVertical
+              ? 'border-l-2 -ml-px'
+              : 'border-b-2 -mb-px'
+            : isVertical
+              ? 'border-l-0'
+              : 'border-b-0';
+          const showAccentBorder = border === 'accent' && hasEdge && isActive;
+
+          let buttonClass = '';
+          if (isVertical) {
+            buttonClass = 'w-full';
+          } else {
+            buttonClass = 'flex-shrink-0';
+          }
+          buttonClass +=
+            ' vestara-tab inline-flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors cursor-pointer ';
+          buttonClass += edgeWidth + ' ';
+
+          if (isActive) {
+            if (showAccentBorder) {
+              buttonClass += 'border-(--vestara-accent-text) text-(--vestara-accent-text) ';
+            } else {
+              buttonClass += 'text-(--vestara-accent-text) ' + activeTabClassName + ' ';
+            }
+          } else {
+            buttonClass +=
+              'border-transparent text-(--vestara-text-muted) hover:text-(--vestara-text-2) ' + tabClassName + ' ';
+          }
+          buttonClass += 'disabled:cursor-not-allowed disabled:opacity-45';
+
           return (
             <button
               key={tab.id}
@@ -129,22 +172,16 @@ export function Tabs({
                 else tabRefs.current.delete(tab.id);
               }}
               role="tab"
-              id={`tab-${uid}-${tab.id}`}
+              id={'tab-' + uid + '-' + tab.id}
               aria-selected={isActive}
               aria-disabled={isDisabled || undefined}
-              aria-controls={`tabpanel-${uid}-${tab.id}`}
+              aria-controls={'tabpanel-' + uid + '-' + tab.id}
               tabIndex={isActive && !isDisabled ? 0 : -1}
               type="button"
               title={tab.title}
               disabled={isDisabled}
               onClick={() => onTabChange(tab.id)}
-              className={`flex-shrink-0 inline-flex items-center gap-2 px-3 py-2 text-xs font-medium transition-colors cursor-pointer
-                ${hasBottomBorder ? 'border-b-2 -mb-px' : 'border-b-0'}
-                ${
-                  isActive
-                    ? `${hasBottomBorder ? 'border-(--vestara-accent-text)' : ''} text-(--vestara-accent-text) ${activeTabClassName}`
-                    : `border-transparent text-(--vestara-text-muted) hover:text-(--vestara-text-2) ${tabClassName}`
-                } disabled:cursor-not-allowed disabled:opacity-45`}
+              className={buttonClass.trim()}
             >
               {tab.icon && (
                 <span aria-hidden="true" className="[&_svg]:size-4">
@@ -160,9 +197,9 @@ export function Tabs({
       {children !== undefined && (
         <div
           role="tabpanel"
-          id={`tabpanel-${uid}-${activeTab}`}
-          aria-labelledby={`tab-${uid}-${activeTab}`}
-          // biome-ignore lint/a11y/noNoninteractiveTabindex: tabpanel keeps tabIndex=0 for keyboard scroll parity with the promoted application copy (WAI-ARIA tabpanel focus when content overflows).
+          id={'tabpanel-' + uid + '-' + activeTab}
+          aria-labelledby={'tab-' + uid + '-' + activeTab}
+          // biome-ignore lint/a11y/noNoninteractiveTabindex: WAI-ARIA tabpanel pattern — the panel is focus-labelled by its tab
           tabIndex={0}
           className="focus:outline-none"
         >

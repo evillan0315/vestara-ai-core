@@ -1,0 +1,98 @@
+/* Page root — fit-to-screen guard mirroring the Activity Room (.ar-page)
+   and Workflows (.workflow-page).
+   Flex column: hero + tabs keep natural height, the tab content region
+   takes the rest and scrolls internally on desktop. Below desktop the
+   page scrolls naturally. The centered max-width from the
+   WorkspacePanelLayout geometry contract is preserved. */
+.settings-page {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  width: 100%;
+  max-width: var(--vestara-page-max-width);
+  margin-inline: auto;
+  min-width: 0;
+  min-height: 0;
+  /* clip (not hidden): guards horizontal overflow without creating a
+     scroll container, so sticky children keep working. */
+  overflow-x: clip;
+  gap: var(--vestara-spacing-section);
+  padding: var(--vestara-spacing-page);
+}
+
+.settings-page > * {
+  max-width: 100%;
+}
+
+/* Frame owns the hero → tabs → work rhythm; work is the only flexer. */
+.settings-page__frame {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  gap: var(--vestara-spacing-section);
+}
+
+.settings-page__frame > * {
+  max-width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .settings-page {
+    overflow: hidden;
+  }
+
+  .settings-page__frame {
+    overflow: hidden;
+  }
+
+  .settings-page__frame > *:not(.settings-page__work) {
+    flex-shrink: 0;
+  }
+
+  /* Single scroll owner: the tab content region. Hero + tabs stay pinned. */
+  .settings-page__work {
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow-y: auto;
+  }
+
+  /* Fit-screen tab layout: when the work region hosts a tab layout, the
+     region becomes a flex column with no scroll of its own — the layout's
+     content panel is the single scroll owner. Other routes are untouched. */
+  .settings-page__work:has(> .tab-layout) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Bulletproof fallback: explicit class on the tab layout root that
+     the parent can target without :has (for browsers where :has has
+     specificity conflicts or isn't applied). */
+  .settings-page__work > .tab-layout[data-fit-screen] ~ *,
+  .settings-page__work > .tab-layout[data-fit-screen] {
+    /* no-op selector to anchor the next rule */
+  }
+  .settings-page__work:has(> .tab-layout[data-fit-screen]) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+}
+
+@media (max-width: 1023px) {
+  .settings-page {
+    flex: 0 0 auto;
+    min-height: 100%;
+  }
+
+  .settings-page__frame {
+    flex: 0 0 auto;
+  }
+
+  .settings-page__work {
+    overflow: visible;
+  }
+}

@@ -11,9 +11,9 @@
  *   no literal spacing, widths, or colors.
  * - ROUTES own routing; ShellLayout owns shell chrome (sidebar/header/
  *   breadcrumbs). This component owns page-panel geometry only.
- * - Pages own content. Settings is the first designated consumer; Overview
- *   and Diagnostics adopt the panel when their migrations land (their direct
- *   PageContainer use is unchanged by this milestone).
+ * - Pages own content. Current consumers: Overview, Execution, Terminal,
+ *   and Files. Settings uses its own fit-screen root (styles/settings-page.css)
+ *   mirroring the Activity Room / Workflows pattern instead of this panel.
  */
 
 import type { PropsWithChildren, ReactNode } from 'react';

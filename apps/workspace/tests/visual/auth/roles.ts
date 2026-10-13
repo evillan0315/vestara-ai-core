@@ -30,7 +30,7 @@ export interface Role {
   id: string;
   label: string;
   actor: string;
-  /** Token seeded for authenticated requests (may be empty for local). */
+  /** Token seeded for authenticated requests (defaults to a fixture value). */
   token?: string;
 }
 
@@ -50,6 +50,9 @@ export function storageStatePath(roleId: string): string {
   return path.join(outputLayout().storage, `${roleId}.json`);
 }
 
+/** Fallback bearer token for visual-run storage states (fixture-only, never a real credential). */
+export const VISUAL_FIXTURE_TOKEN = 'visual-fixture-token';
+
 /** Build a Playwright StorageState with the role's identity. */
 export function buildStorageState(role: Role): StorageState {
   return {
@@ -59,7 +62,7 @@ export function buildStorageState(role: Role): StorageState {
         origin: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173',
         localStorage: [
           { name: 'vestara-actor', value: role.actor },
-          ...(role.token ? [{ name: 'vestara-auth-token', value: role.token }] : []),
+          { name: 'vestara-auth-token', value: role.token ?? VISUAL_FIXTURE_TOKEN },
         ],
       },
     ],
