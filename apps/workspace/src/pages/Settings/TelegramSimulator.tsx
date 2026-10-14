@@ -233,9 +233,9 @@ export function TelegramSimulator() {
 
       {/* Help */}
       <p className="mt-3 text-[var(--vestara-font-size-xs)] text-[var(--vestara-color-text-muted,var(--vestara-text-muted))]">
-        Messages are auto-paired to a simulated Telegram user and routed through the full
-        execution pipeline. The response comes from the same LLM backend used by the
-        floating assistant.
+        Simulated users start unpaired. Send /start then /pair to get a pairing code, approve it
+        with your operator flow, then send messages to test the full execution pipeline. The
+        response comes from the same LLM backend used by the floating assistant.
       </p>
     </ReferenceCard>
   );

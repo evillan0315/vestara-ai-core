@@ -47,6 +47,18 @@ export interface WorkspaceProfile {
   settings: ThemeSettings;
   /** Optional theme mode applied with the profile (profiles without a mode keep the current mode). */
   mode?: ThemeMode;
+  /** Optional gallery system the profile presents. `discover` wires the
+      Marketplace Discover gallery (@vestara/marketplace-ui + MARKETPLACE_LAYOUT):
+      comfortable spacing, large radius, wide rail, blue accent. */
+  gallery?: 'default' | 'discover';
+}
+
+/** The workspace presentation profile is the Discover-backed profile. */
+export const DISCOVER_GALLERY_PROFILE_ID = 'presentation';
+export const GALLERY_ATTRIBUTE = 'data-gallery';
+
+export function galleryForProfile(id: string): 'default' | 'discover' {
+  return PROFILES.find((p) => p.id === id)?.gallery ?? 'default';
 }
 
 export const PROFILES: WorkspaceProfile[] = [
@@ -97,8 +109,9 @@ export const PROFILES: WorkspaceProfile[] = [
   {
     id: 'presentation',
     label: 'Presentation',
-    description: 'Large font · wide sidebar · comfortable spacing',
+    description: 'Discover gallery · large font · wide sidebar · comfortable spacing',
     icon: '▯',
+    gallery: 'discover',
     settings: {
       fontFamily: 'system',
       fontSize: 'large',
@@ -407,6 +420,15 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     applySettings(settings, resolved);
   }, [settings, resolved]);
+
+  // Discover gallery wiring: the presentation profile presents the
+  // @vestara/marketplace-ui gallery system. Hosts scope gallery-specific
+  // overrides under `[data-gallery="discover"]`.
+  useEffect(() => {
+    const gallery = galleryForProfile(activeProfile);
+    if (gallery === 'default') document.documentElement.removeAttribute(GALLERY_ATTRIBUTE);
+    else document.documentElement.setAttribute(GALLERY_ATTRIBUTE, gallery);
+  }, [activeProfile]);
 
   // Reconstruct the approved appearance from durable server settings on mount,
   // so a reload restores it even when ephemeral client storage is absent.

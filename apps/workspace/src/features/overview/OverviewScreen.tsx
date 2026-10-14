@@ -24,7 +24,7 @@ import { RecentActivity } from './components/RecentActivity';
 import { SystemStatus } from './components/SystemStatus';
 import { TodayFocus } from './components/TodayFocus';
 import { WorkspaceHealth } from './components/WorkspaceHealth';
-import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { InsightBanner } from '@vestara/marketplace-ui';
 import { useOverview } from './hooks/useOverview';
 import { useOverviewLayout, type OverviewPanelId } from './hooks/useOverviewLayout';
 import { overviewFixture } from './overview.fixtures';

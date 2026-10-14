@@ -1,68 +1,31 @@
 /**
- * Marketplace Premium Gallery (v7.14) — composition primitives.
+ * @vestara/marketplace-ui — Discover Gallery Components
  *
- * Premium product cards with holographic overlay, hover glow, left
- * accent, and status footer. Built on `@vestara/ui` (Button, Badge,
- * Card, StatusIndicator, EmptyState, Table) with the gallery chamber
- * treatments from `styles/marketplace.css`.
+ * Globally reusable Marketplace Discover presentation primitives.
+ * Router-agnostic: navigation props carry `to` (app route path) rendered
+ * as a plain anchor. SPA hosts pass `onNavigate` to intercept client-side;
+ * without it the anchor performs a standard navigation. This package must
+ * never import react-router, workspace code, or Activity Room contracts
+ * (same rule as @vestara/ui PageHero).
  *
- * Backward compatible: MarketplacePage, MarketplaceStatPill,
- * MarketplaceToolbar, MarketplaceEmptyState, MarketplaceLoadingState,
- * MarketplaceErrorState, MarketplaceSection keep their props so
- * existing tests and pages continue to work.
+ * Styling: the canonical `mpg-*` gallery grammar bound to `var(--vestara-*)`
+ * tokens only — colors from DISCOVER_COLORS, geometry from MARKETPLACE_LAYOUT
+ * vars. Hosts ship the gallery stylesheet (workspace `marketplace.css`).
  *
- * Ownership: apps/workspace (Marketplace presentation)
- * Authority: None — pure presentation, no domain behavior.
+ * Architecture Traceability:
+ *   VES-DESIGN-005 §M: marketplace premium gallery
+ *   Canonical authority — apps/workspace re-exports these verbatim.
  */
 
-import { useEffect, useState, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { Badge, Button, EmptyState, StatusIndicator } from '@vestara/ui';
-import { WORKSPACE_BENEFITS_FIXTURE } from './discover.fixtures.js';
+import { type MouseEvent, type ReactNode, useEffect, useState } from 'react';
+import { accentGlow, DISCOVER_ACCENT } from './accent.js';
+import { MARKETPLACE_SORTS, type MarketplaceSortId, WORKSPACE_BENEFITS_FIXTURE } from './fixtures.js';
+import { typeAccent, typeBadgeVariant, UPDATE_ACCENTS } from './tokens.js';
 
-// ─── Type accent colors ─────────────────────────────────────────
-// VES-DESIGN-005: canonical marketplace tokens (dark/light aware).
-// Never hardcode hex here — theme.tsx + generated-tokens.css own values.
+// ─── Navigation Helper ──────────────────────────────────────────
 
-const TYPE_ACCENTS: Record<string, string> = {
-  agent: 'var(--vestara-marketplace-agent)',
-  skill: 'var(--vestara-marketplace-skill)',
-  provider: 'var(--vestara-marketplace-provider)',
-  theme: 'var(--vestara-marketplace-theme)',
-  workflow: 'var(--vestara-marketplace-workflow)',
-  'mcp-server': 'var(--vestara-marketplace-mcp)',
-  mcpserver: 'var(--vestara-marketplace-mcp)',
-  command: 'var(--vestara-marketplace-command)',
-  module: 'var(--vestara-marketplace-module)',
-  plugin: 'var(--vestara-marketplace-plugin)',
-  'standards-pack': 'var(--vestara-marketplace-standards)',
-};
-
-export function typeAccent(type: string): string {
-  return TYPE_ACCENTS[type] ?? 'var(--vestara-accent)';
-}
-
-function typeBadgeVariant(type: string): 'default' | 'success' | 'warning' | 'error' | 'info' {
-  switch (type) {
-    case 'agent':
-    case 'plugin':
-      return 'info';
-    case 'skill':
-    case 'module':
-      return 'default';
-    case 'provider':
-    case 'standards-pack':
-      return 'success';
-    case 'theme':
-    case 'workflow':
-      return 'warning';
-    case 'mcp-server':
-    case 'command':
-      return 'error';
-    default:
-      return 'default';
-  }
-}
+export type NavigateHandler = (to: string, event: MouseEvent) => void;
 
 // ─── TypeBadge ──────────────────────────────────────────────────
 
@@ -82,9 +45,9 @@ export interface GalleryCardProps {
   className?: string;
 }
 
-export function GalleryCard({ accent = 'var(--vestara-accent)', children, className = '' }: GalleryCardProps) {
+export function GalleryCard({ accent = DISCOVER_ACCENT.fallback, children, className = '' }: GalleryCardProps) {
   return (
-    <div className={`mpg-card p-4 ${className}`}>
+    <div className={`mpg-card p-[var(--vestara-spacing-page)] ${className}`}>
       <span className="mpg-card-accent" style={{ background: accent }} aria-hidden="true" />
       <div className="relative z-[2]">{children}</div>
     </div>
@@ -92,12 +55,15 @@ export function GalleryCard({ accent = 'var(--vestara-accent)', children, classN
 }
 
 // ─── AssetCard ──────────────────────────────────────────────────
-// v2 (assets/vestara-marketplace-02-screen.png): icon box + name/publisher,
-// 2-line summary, tag pills, version/verified footer + Install affordance.
-// Outer element stays a Link so existing Discover tests and routes keep working.
+// v2 gallery card: icon box + name/publisher, 2-line summary, tag pills,
+// version/verified footer + Install affordance. Outer element is an anchor;
+// SPA hosts pass onNavigate for client-side routing.
+
+export type AssetInstallState = 'idle' | 'installing' | 'installed' | 'error';
 
 export interface AssetCardProps {
   to: string;
+  onNavigate?: NavigateHandler;
   displayName: string;
   packageName: string;
   publisherId?: string;
@@ -121,10 +87,12 @@ export interface AssetCardProps {
   onInstall?: () => void;
   installBusy?: boolean;
   installState?: 'idle' | 'installing' | 'installed' | 'error';
+  className?: string;
 }
 
 export function AssetCard({
   to,
+  onNavigate,
   displayName,
   packageName,
   publisherId,
@@ -144,43 +112,52 @@ export function AssetCard({
   onInstall,
   installBusy = false,
   installState = 'idle',
+  className = '',
 }: AssetCardProps) {
   const accent = accentOverride ?? typeAccent(type);
   const initial = (displayName.trim().charAt(0) || 'V').toUpperCase();
   const tagPills = tags.slice(0, 3);
-  const installLabel = installState === 'installed' ? 'Installed ✓' : installState === 'installing' || installBusy ? 'Installing…' : installState === 'error' ? 'Retry' : 'Install';
+  const installLabel =
+    installState === 'installed'
+      ? 'Installed ✓'
+      : installState === 'installing' || installBusy
+        ? 'Installing…'
+        : installState === 'error'
+          ? 'Retry'
+          : 'Install';
   return (
-    <Link
-      to={to}
-      className="mpg-card mpg-enter mpg-asset block p-3.5"
+    <a
+      href={to}
+      onClick={onNavigate ? (event) => onNavigate(to, event) : undefined}
+      className={`mpg-card mpg-enter mpg-asset block p-[var(--vestara-spacing-section)] ${className}`}
       style={{ animationDelay: `${Math.min(index, 12) * 30}ms` }}
     >
       <span className="mpg-card-accent" style={{ background: accent }} aria-hidden="true" />
       <div className="relative z-[2] flex h-full flex-col">
-        <div className="flex items-start gap-2.5">
+        <div className="flex items-start gap-2">
           <span
-            className="mpg-icon-box"
-            style={{ color: accent, background: `color-mix(in srgb, ${accent} 14%, transparent)`, borderColor: `color-mix(in srgb, ${accent} 35%, transparent)` }}
+            className="mpg-icon-box mpg-icon-solid"
+            style={{ background: accent, boxShadow: accentGlow(accent) }}
             aria-hidden="true"
           >
             {glyph ?? initial}
           </span>
-          <div className={`min-w-0 flex-1 ${featured ? 'pr-16' : ''}`}>
-            <div className="truncate text-[13px] font-semibold text-[var(--vestara-text-primary)]">
+          <div className={`min-w-0 flex-1 ${featured ? 'pr-[72px]' : ''}`}>
+            <div className="truncate text-[length:var(--vestara-font-size-sm)] font-semibold text-[var(--vestara-text-primary)]">
               {displayName}
             </div>
-            <div className="mt-0.5 truncate text-xs text-[var(--vestara-text-muted)]">
+            <div className="mt-0.5 truncate text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
               {publisherId ?? packageName.split('.')[0] ?? 'vestara'}
             </div>
           </div>
         </div>
         {featured && <span className="mpg-featured-badge">★ Featured</span>}
         {summary && (
-          <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]">
+          <p className="mt-2.5 line-clamp-2 min-h-[2.5rem] text-[length:var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-secondary)]">
             {summary}
           </p>
         )}
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           {tagPills.map((tag) => (
             <span key={tag} className="mpg-tag-pill">
               {tag}
@@ -188,9 +165,12 @@ export function AssetCard({
           ))}
         </div>
         <div className="mpg-asset-foot mt-auto flex items-center justify-between gap-1.5 pt-3">
-          <div className="flex min-w-0 items-center gap-1.5 text-[11px]">
+          <div className="flex min-w-0 items-center gap-1.5 text-[length:var(--vestara-font-size-xs)]">
             {rating !== undefined && (
-              <span className="inline-flex items-center gap-1 font-medium text-[var(--vestara-marketplace-rating)]" title={verified ? 'Checksum verified' : undefined}>
+              <span
+                className="inline-flex items-center gap-1 font-medium text-[var(--vestara-marketplace-rating)]"
+                title={verified ? 'Checksum verified' : undefined}
+              >
                 <span aria-hidden="true">★</span> {rating.toFixed(1)}
                 {reviews !== undefined && (
                   <span className="font-normal text-[var(--vestara-text-muted)]">({reviews})</span>
@@ -237,7 +217,7 @@ export function AssetCard({
         {statusFooter && <div className="mt-2 flex flex-wrap items-center gap-2">{statusFooter}</div>}
         <span className="sr-only">{packageName}</span>
       </div>
-    </Link>
+    </a>
   );
 }
 
@@ -252,14 +232,19 @@ export interface InsightBannerProps {
 
 const INSIGHT_STYLES: Record<InsightBannerProps['severity'], string> = {
   info: 'border-[var(--vestara-status-info-border)] bg-[var(--vestara-status-info-bg)] text-[var(--vestara-status-info)]',
-  warning: 'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]',
-  error: 'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]',
-  success: 'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]',
+  warning:
+    'border-[var(--vestara-status-warning-border)] bg-[var(--vestara-status-warning-bg)] text-[var(--vestara-status-warning)]',
+  error:
+    'border-[var(--vestara-status-error-border)] bg-[var(--vestara-status-error-bg)] text-[var(--vestara-status-error)]',
+  success:
+    'border-[var(--vestara-status-success-border)] bg-[var(--vestara-status-success-bg)] text-[var(--vestara-status-success)]',
 };
 
 export function InsightBanner({ severity, title, description, action }: InsightBannerProps) {
   return (
-    <div className={`rounded-lg border px-4 py-3 text-sm ${INSIGHT_STYLES[severity]}`}>
+    <div
+      className={`rounded-lg border px-4 py-3 text-[length:var(--vestara-font-size-base)] ${INSIGHT_STYLES[severity]}`}
+    >
       {title && <div className="font-medium">{title}</div>}
       <div>{description}</div>
       {action && <div className="mt-2">{action}</div>}
@@ -273,22 +258,16 @@ export function DetailCard({ title, children }: { title: string; children: React
   return (
     <section className="mpg-card mpg-hairline-top">
       <div className="relative z-[2]">
-        <div className="border-b border-[var(--vestara-border-subtle)] px-4 py-3 text-sm font-semibold text-[var(--vestara-text-primary)]">
+        <div className="border-b border-[var(--vestara-border-subtle)] px-4 py-3 text-[length:var(--vestara-font-size-base)] font-semibold text-[var(--vestara-text-primary)]">
           {title}
         </div>
-        <div className="p-4">{children}</div>
+        <div className="p-[var(--vestara-spacing-page)]">{children}</div>
       </div>
     </section>
   );
 }
 
 // ─── UpdateGroup ────────────────────────────────────────────────
-
-const UPDATE_ACCENTS: Record<string, string> = {
-  compatible: 'var(--vestara-marketplace-provider)',
-  breaking: 'var(--vestara-marketplace-workflow)',
-  incompatible: 'var(--vestara-status-error)',
-};
 
 export function UpdateGroup({
   id,
@@ -301,11 +280,14 @@ export function UpdateGroup({
   count: number;
   children: ReactNode;
 }) {
-  const accent = UPDATE_ACCENTS[id] ?? 'var(--vestara-accent)';
+  const accent = UPDATE_ACCENTS[id] ?? DISCOVER_ACCENT.fallback;
   return (
     <div>
-      <h3 className="mb-3 flex items-center gap-2 text-sm font-medium text-[var(--vestara-text-secondary)]">
-        <span className="inline-block h-2 w-2 rounded-full" style={{ background: accent, boxShadow: `0 0 6px ${accent}` }} />
+      <h3 className="mb-3 flex items-center gap-2 text-[length:var(--vestara-font-size-base)] font-medium text-[var(--vestara-text-secondary)]">
+        <span
+          className="inline-block h-2 w-2 rounded-full"
+          style={{ background: accent, boxShadow: `0 0 6px ${accent}` }}
+        />
         {label} ({count})
       </h3>
       <div className="space-y-2" style={{ borderLeft: `3px solid ${accent}`, borderRadius: 8, paddingLeft: 12 }}>
@@ -319,9 +301,13 @@ export function UpdateGroup({
 
 export function AssetGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3" aria-label="Loading assets">
-      {Array.from({ length: count }, (_, i) => (
-        <div key={`skeleton-${i}`} className="mpg-skeleton h-32" />
+    <div
+      className="grid gap-[var(--vestara-spacing-section)] md:grid-cols-2 xl:grid-cols-3"
+      role="status"
+      aria-label="Loading assets"
+    >
+      {Array.from({ length: count }, (_, i) => `skeleton-${i}`).map((key) => (
+        <div key={key} className="mpg-skeleton h-32" />
       ))}
     </div>
   );
@@ -409,21 +395,41 @@ export interface MarketplacePageProps {
   stats?: ReactNode;
   toolbar?: ReactNode;
   children: ReactNode;
+  /** Hide the title block — the layout owns the canonical Marketplace
+      heading above the tabs (reference hierarchy, Discover only). */
+  hideHeader?: boolean;
 }
 
-export function MarketplacePage({ title, description, stats, toolbar, children }: MarketplacePageProps) {
+export function MarketplacePage({
+  title,
+  description,
+  stats,
+  toolbar,
+  children,
+  hideHeader = false,
+}: MarketplacePageProps) {
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <div>
-          <h2 className="text-2xl font-bold text-[var(--vestara-text-primary)]">{title}</h2>
-          {description && (
-            <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">{description}</p>
-          )}
+    <div className="space-y-4">
+      {!hideHeader && (
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-2xl font-bold text-[var(--vestara-text-primary)]">{title}</h2>
+            {description && (
+              <p className="mt-1 text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
+                {description}
+              </p>
+            )}
+          </div>
+          {stats}
+          {toolbar}
         </div>
-        {stats}
-        {toolbar}
-      </div>
+      )}
+      {hideHeader && (stats || toolbar) ? (
+        <>
+          {stats}
+          {toolbar}
+        </>
+      ) : null}
       {children}
     </div>
   );
@@ -437,12 +443,16 @@ export interface MarketplaceStatPillProps {
   color?: string;
 }
 
-export function MarketplaceStatPill({ label, value, color = 'text-[var(--vestara-text-primary)]' }: MarketplaceStatPillProps) {
+export function MarketplaceStatPill({
+  label,
+  value,
+  color = 'text-[var(--vestara-text-primary)]',
+}: MarketplaceStatPillProps) {
   return (
     <div className="mpg-card flex items-center gap-2 px-3 py-2">
       <span className="relative z-[2] flex items-center gap-2">
         <span className={`text-lg font-bold ${color}`}>{value}</span>
-        <span className="text-xs text-[var(--vestara-text-muted)]">{label}</span>
+        <span className="text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">{label}</span>
       </span>
     </div>
   );
@@ -473,14 +483,14 @@ export function MarketplaceToolbar({
         value={searchValue}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder={searchPlaceholder}
-        className="w-full max-w-md rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 text-sm"
+        className="w-full max-w-md rounded-md border border-[var(--vestara-border-subtle)] bg-[var(--vestara-surface-canvas)] px-3 py-2 text-[length:var(--vestara-font-size-base)]"
       />
       {filters?.map((f) => (
         <button
           key={f.id}
           type="button"
           onClick={() => onFilterChange?.(f.id)}
-          className={`rounded-full border px-3 py-1.5 text-sm transition-all ${
+          className={`rounded-full border px-3 py-1.5 text-[length:var(--vestara-font-size-base)] transition-all ${
             f.active
               ? 'border-[var(--vestara-accent-border-hover)] text-white shadow-[0_0_16px_var(--vestara-surface-glow-hover)]'
               : 'border-[var(--vestara-border-subtle)] text-[var(--vestara-text-muted)] hover:text-[var(--vestara-text-secondary)]'
@@ -517,14 +527,16 @@ export interface MarketplaceLoadingStateProps {
   message?: string;
 }
 
-export function MarketplaceLoadingState({ message = 'Loading…' }: MarketplaceLoadingStateProps) {
+export function MarketplaceLoadingState(_props: MarketplaceLoadingStateProps) {
   return <AssetGridSkeleton count={6} />;
 }
 
 export function MarketplaceLoadingMessage({ message = 'Loading…' }: MarketplaceLoadingStateProps) {
   return (
     <div className="mpg-card p-12 text-center">
-      <div className="relative z-[2] text-sm text-[var(--vestara-text-muted)]">{message}</div>
+      <div className="relative z-[2] text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
+        {message}
+      </div>
     </div>
   );
 }
@@ -550,9 +562,11 @@ export interface MarketplaceSectionProps {
 export function MarketplaceSection({ title, action, children }: MarketplaceSectionProps) {
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-[var(--vestara-text-primary)]">{title}</h3>
-        {action && <div className="text-xs">{action}</div>}
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-[length:var(--vestara-font-size-base)] font-semibold text-[var(--vestara-text-primary)]">
+          {title}
+        </h3>
+        {action && <div className="text-[length:var(--vestara-font-size-xs)]">{action}</div>}
       </div>
       {children}
     </div>
@@ -561,9 +575,32 @@ export function MarketplaceSection({ title, action, children }: MarketplaceSecti
 
 // ─── v2 Hero ──────────────────────────────────────────────────────
 // Reference (marketplace-discover-modules-grid.png): "Build More with
-// Vestara" hero panel with inline search + blue geometric artwork, and a
-// separate narrow workspace-benefits card immediately to its right.
-// All colors via tokens; artwork is layered CSS gradients (no assets).
+// Vestara" hero panel with inline search + futuristic blue geometric
+// artwork (floating translucent cubes, central Vestara-branded cube),
+// and a separate narrow workspace-benefits card immediately to its right.
+//
+// Artwork note: no matching hero asset exists in the repo (searched
+// assets/, apps/workspace/public/, apps/workspace/src — only the gold
+// V logo, wallpapers, and OS chrome). The artwork is therefore a
+// lightweight inline SVG cube composition styled purely with
+// var(--vestara-*) token classes from marketplace.css — no gradients
+// blobs, no new assets, no hardcoded colors.
+
+function HeroCube({ x, y, s, tone, label }: { x: number; y: number; s: number; tone: string; label?: string }) {
+  const h = s / 2;
+  return (
+    <g className={tone}>
+      <polygon points={`${x},${y - h} ${x + s},${y} ${x},${y + h} ${x - s},${y}`} className="mpg-cube-top" />
+      <polygon points={`${x - s},${y} ${x},${y + h} ${x},${y + h + s} ${x - s},${y + s}`} className="mpg-cube-left" />
+      <polygon points={`${x + s},${y} ${x},${y + h} ${x},${y + h + s} ${x + s},${y + s}`} className="mpg-cube-right" />
+      {label && (
+        <text x={x} y={y + h + s * 0.72} textAnchor="middle" className="mpg-cube-label">
+          {label}
+        </text>
+      )}
+    </g>
+  );
+}
 
 export function MarketplaceHero({
   query,
@@ -581,7 +618,7 @@ export function MarketplaceHero({
           <h2 className="text-xl font-bold leading-tight tracking-tight text-[var(--vestara-text-primary)]">
             Build More with Vestara
           </h2>
-          <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--vestara-text-secondary)]">
+          <p className="mt-1.5 text-[length:var(--vestara-font-size-sm)] leading-relaxed text-[var(--vestara-text-secondary)]">
             Agents, tools, templates, and integrations for a more capable tomorrow.
           </p>
           <div className="mpg-hero-search">
@@ -597,7 +634,18 @@ export function MarketplaceHero({
             />
           </div>
         </div>
-        <div className="mpg-hero-art" aria-hidden="true" />
+        <div className="mpg-hero-art" aria-hidden="true">
+          <svg viewBox="170 0 250 210" preserveAspectRatio="xMidYMid slice" focusable="false" role="img">
+            <title>Marketplace artwork</title>
+            <HeroCube x={252} y={160} s={15} tone="mpg-cube-skill" />
+            <HeroCube x={242} y={62} s={22} tone="mpg-cube-violet" />
+            <HeroCube x={292} y={162} s={14} tone="mpg-cube-primary" />
+            <HeroCube x={324} y={98} s={50} tone="mpg-cube-brand" label="V" />
+            <HeroCube x={368} y={52} s={25} tone="mpg-cube-primary" />
+            <HeroCube x={380} y={146} s={19} tone="mpg-cube-violet" />
+            <HeroCube x={407} y={100} s={14} tone="mpg-cube-skill" />
+          </svg>
+        </div>
       </section>
       <aside className="mpg-benefits" aria-label="Why extend">
         <ul>
@@ -616,15 +664,8 @@ export function MarketplaceHero({
 }
 
 // ─── v2 Filter pills + sort ───────────────────────────────────────
-
-export type MarketplaceSortId = 'relevant' | 'popular' | 'newest' | 'name';
-
-export const MARKETPLACE_SORTS: Array<{ id: MarketplaceSortId; label: string }> = [
-  { id: 'relevant', label: 'Most Relevant' },
-  { id: 'popular', label: 'Most Popular' },
-  { id: 'newest', label: 'Newest' },
-  { id: 'name', label: 'Name A–Z' },
-];
+// Sort is a button-menu (not a native select) so a page-level native
+// type-filter select remains the single combobox for a11y/tests.
 
 export function MarketplaceFilterRow({
   filters,
@@ -654,8 +695,6 @@ export function MarketplaceFilterRow({
           </button>
         ))}
       </div>
-      {/* Sort is a button-menu (not a native select) so the type-filter
-          select remains the single combobox in the page for a11y/tests. */}
       <div className="mpg-sort-wrap">
         <button
           type="button"
@@ -705,8 +744,10 @@ export function MarketplaceSidebarCard({
   return (
     <section className="mpg-side-card" aria-label={title}>
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-[13px] font-semibold text-[var(--vestara-text-primary)]">{title}</h3>
-        {action && <div className="text-xs">{action}</div>}
+        <h3 className="whitespace-nowrap text-[length:var(--vestara-font-size-xs)] font-semibold text-[var(--vestara-text-primary)]">
+          {title}
+        </h3>
+        {action && <div className="shrink-0 text-[length:var(--vestara-font-size-xs)]">{action}</div>}
       </div>
       {children}
     </section>

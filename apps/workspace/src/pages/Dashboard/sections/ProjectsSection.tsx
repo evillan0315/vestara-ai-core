@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
 import { DashPill, DashProgress, DashTile, enterDelay } from '../dashPremium';

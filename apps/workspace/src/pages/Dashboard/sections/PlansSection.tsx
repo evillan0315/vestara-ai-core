@@ -5,7 +5,7 @@ import {
   verifyChangeSet,
   type PlanData,
 } from '../../../lib/api';
-import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';
 

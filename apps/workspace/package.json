@@ -39,6 +39,7 @@
     "@vestara/design-system": "workspace:*",
     "@vestara/execution-center": "workspace:*",
     "@vestara/media-conference": "workspace:*",
+    "@vestara/marketplace-ui": "workspace:*",
     "@vestara/settings-framework": "workspace:*",
     "@vestara/shared": "workspace:*",
     "@vestara/types": "workspace:*",

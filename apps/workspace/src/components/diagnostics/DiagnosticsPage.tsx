@@ -14,11 +14,7 @@ import PauseRoundedIcon from '@mui/icons-material/PauseRounded';
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded';
 import RefreshRoundedIcon from '@mui/icons-material/RefreshRounded';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import {
-  AssetGridSkeleton,
-  GalleryCard,
-  InsightBanner,
-} from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { AssetGridSkeleton, GalleryCard, InsightBanner } from '@vestara/marketplace-ui';
 import { RouteHero } from '../layout/PageHero/RouteHero';
 import { diagnosticsApi, formatBytes } from '../../lib/diagnostics';
 import { AgentMonitor } from './AgentMonitor';

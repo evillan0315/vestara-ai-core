@@ -5,7 +5,8 @@
  * and staggered entrance.
  */
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { MarketplaceAsset } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import {
@@ -14,9 +15,18 @@ import {
   MarketplaceEmptyState,
   MarketplacePage,
   MarketplaceSection,
-} from './MarketplaceLayout-components.js';
+  type NavigateHandler,
+} from '@vestara/marketplace-ui';
 
 export default function Categories() {
+  const navigate = useNavigate();
+  const handleNavigate: NavigateHandler = useCallback(
+    (to, event) => {
+      event.preventDefault();
+      navigate(to);
+    },
+    [navigate],
+  );
   const [categories, setCategories] = useState<Array<{ name: string; assetCount: number }>>([]);
   const [assets, setAssets] = useState<MarketplaceAsset[]>([]);
   const [selected, setSelected] = useState<string>('');
@@ -40,11 +50,11 @@ export default function Categories() {
       description="Browse assets by category to discover what's available."
     >
       <div className="grid gap-6 lg:grid-cols-[260px_1fr]">
-        <aside className="mpg-card mpg-hairline-top h-fit p-3">
+        <aside className="mpg-card mpg-hairline-top h-fit p-[var(--vestara-spacing-section)]">
           <div className="relative z-[2]">
-            <div className="px-2 pb-2 text-sm font-semibold text-[var(--vestara-text-primary)]">Categories</div>
+            <div className="px-2 pb-2 text-[length:var(--vestara-font-size-base)] font-semibold text-[var(--vestara-text-primary)]">Categories</div>
             {categories.length === 0 && !loading && (
-              <div className="px-2 text-sm text-[var(--vestara-text-muted)]">
+              <div className="px-2 text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
                 No categories yet.
               </div>
             )}
@@ -53,7 +63,7 @@ export default function Categories() {
                 type="button"
                 key={category.name}
                 onClick={() => setSelected(category.name === selected ? '' : category.name)}
-                className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-sm transition-all ${
+                className={`flex w-full items-center justify-between rounded-full px-3 py-1.5 text-left text-[length:var(--vestara-font-size-base)] transition-all ${
                   category.name === selected
                     ? 'text-white shadow-[0_0_16px_var(--vestara-surface-glow-hover)]'
                     : 'hover:bg-[var(--vestara-surface-interactive)] text-[var(--vestara-text-muted)]'
@@ -68,7 +78,7 @@ export default function Categories() {
                 }
               >
                 <span>{category.name}</span>
-                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-border-subtle)] px-2 py-0.5 text-xs text-[var(--vestara-text-muted)]">
+                <span className="inline-flex items-center gap-1 rounded-full border border-[var(--vestara-border-subtle)] px-2 py-0.5 text-[length:var(--vestara-font-size-xs)] text-[var(--vestara-text-muted)]">
                   {category.assetCount}
                 </span>
               </button>
@@ -78,7 +88,7 @@ export default function Categories() {
 
         <section>
           {selected && (
-            <div className="mb-3 text-sm text-[var(--vestara-text-muted)]">
+            <div className="mb-3 text-[length:var(--vestara-font-size-base)] text-[var(--vestara-text-muted)]">
               {selected} — {visible.length} asset(s)
             </div>
           )}
@@ -88,11 +98,12 @@ export default function Categories() {
             <MarketplaceEmptyState message="No assets in this category." />
           ) : (
             <MarketplaceSection title={selected || 'All Assets'}>
-              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-[var(--vestara-spacing-section)] md:grid-cols-2 xl:grid-cols-3">
                 {visible.map((asset, i) => (
                   <AssetCard
                     key={asset.id}
                     to={`/marketplace/assets/${encodeURIComponent(asset.publisherId)}/${encodeURIComponent(asset.packageName)}`}
+                    onNavigate={handleNavigate}
                     displayName={asset.displayName}
                     packageName={asset.packageName}
                     type={asset.type}

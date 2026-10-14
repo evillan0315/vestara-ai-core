@@ -15,7 +15,7 @@
  */
 
 import type { Theme } from './themes.js';
-import { ELEVATION } from './tokens.js';
+import { ELEVATION, MARKETPLACE_LAYOUT, MOTION } from './tokens.js';
 
 // ─── CSS Variable Generator ────────────────────────────────────
 
@@ -125,6 +125,36 @@ export function generateCSSVariables(theme: Theme): Record<string, string> {
     '--vestara-elevation-md': ELEVATION.md,
     '--vestara-elevation-lg': ELEVATION.lg,
     '--vestara-elevation-xl': ELEVATION.xl,
+
+    // Motion (theme-invariant rhythm — sourced from MOTION tokens,
+    // not per-theme values). Hosts bind transitions/animations here so
+    // behavior stays consistent and honors the shared motion vocabulary.
+    '--vestara-motion-fast': MOTION.fast,
+    '--vestara-motion-normal': MOTION.normal,
+    '--vestara-motion-slow': MOTION.slow,
+    '--vestara-motion-slower': MOTION.slower,
+    '--vestara-motion-easing': MOTION.easing.default,
+
+    // VES-DESIGN-005 §M: Discover gallery layout (theme-invariant geometry
+    // sourced from MARKETPLACE_LAYOUT — identical in dark/light).
+    '--vestara-marketplace-card-padding': MARKETPLACE_LAYOUT.cardPadding,
+    '--vestara-marketplace-card-radius': MARKETPLACE_LAYOUT.cardRadius,
+    '--vestara-marketplace-card-gap': MARKETPLACE_LAYOUT.cardGap,
+    '--vestara-marketplace-discover-grid-gap': MARKETPLACE_LAYOUT.discoverGridGap,
+    '--vestara-marketplace-discover-main-gap': MARKETPLACE_LAYOUT.discoverMainGap,
+    '--vestara-marketplace-discover-side-gap': MARKETPLACE_LAYOUT.discoverSideGap,
+    '--vestara-marketplace-hero-padding': MARKETPLACE_LAYOUT.heroPadding,
+    '--vestara-marketplace-hero-radius': MARKETPLACE_LAYOUT.heroRadius,
+    '--vestara-marketplace-hero-gap': MARKETPLACE_LAYOUT.heroGap,
+    '--vestara-marketplace-benefits-padding': MARKETPLACE_LAYOUT.benefitsPadding,
+    '--vestara-marketplace-pill-padding': MARKETPLACE_LAYOUT.pillPadding,
+    '--vestara-marketplace-pill-radius': MARKETPLACE_LAYOUT.pillRadius,
+    '--vestara-marketplace-tag-padding': MARKETPLACE_LAYOUT.tagPadding,
+    '--vestara-marketplace-install-padding': MARKETPLACE_LAYOUT.installPadding,
+    '--vestara-marketplace-side-card-padding': MARKETPLACE_LAYOUT.sideCardPadding,
+    '--vestara-marketplace-icon-box-size': MARKETPLACE_LAYOUT.iconBoxSize,
+    '--vestara-marketplace-icon-box-radius': MARKETPLACE_LAYOUT.iconBoxRadius,
+    '--vestara-marketplace-category-tile-size': MARKETPLACE_LAYOUT.categoryTileSize,
   };
 }
 

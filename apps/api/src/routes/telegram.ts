@@ -1639,6 +1639,10 @@ export async function handleTelegramRoute(
     // ─── POST /api/telegram/simulate ────────────────────────
     // Simulates a Telegram message without needing a real bot.
     // Accepts { text, userId?, chatId?, displayName? }.
+    // Simulated users start UNPAIRED by default: no auto-pairing, no
+    // auto workspace binding. Use /start + /pair in the simulator to
+    // exercise connecting, sending (unpaired guard), and pairing —
+    // the same explicit flow as the real bot path.
     if (method === 'POST' && p === '/api/telegram/simulate') {
       const body = JSON.parse(await readBody(req)) as {
         text?: string;
@@ -1675,25 +1679,10 @@ export async function handleTelegramRoute(
         timestamp: new Date().toISOString(),
       };
 
-      // Auto-pair if not already paired
-      const pairing = getPairingService();
-      if (!pairing.isPaired(telegramUserId)) {
-        // Auto-approve for simulation mode
-        const request = pairing.createPairingRequest(telegramUserId, displayName);
-        const principal = await ctx.humanPrincipals.create();
-        pairing.approvePairing(request.token, principal.id, displayName);
-
-        // Auto-bind to current workspace
-        const wsBindings = getWorkspaceBindingService();
-        const currentWorkspaceId = path.basename(ctx.repoPath) || 'workspace';
-        const currentWorkspaceName = currentWorkspaceId;
-        try {
-          wsBindings.bindWorkspace(principal.id, currentWorkspaceId, currentWorkspaceName);
-        } catch {
-          // already bound — ignore
-        }
-      }
-
+      // No auto-pairing here: simulated users stay unpaired until the
+      // explicit /pair → approve flow runs. processTelegramMessage owns
+      // the unpaired guard, /start + /pair commands, canonical identity
+      // resolution, and workspace auto-bind for approved principals.
       const pipeline = await processTelegramMessage(message, ctx);
       json(res, 200, {
         messageId: message.id,

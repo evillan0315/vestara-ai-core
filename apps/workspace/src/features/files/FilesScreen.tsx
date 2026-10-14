@@ -13,7 +13,7 @@
 
 import { useMemo } from 'react';
 import { EmptyState, Pill } from '@vestara/ui';
-import { InsightBanner } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { InsightBanner } from '@vestara/marketplace-ui';
 import '../../styles/marketplace.css';
 import '../../styles/execution.css';
 import '../../styles/activity-room.css';

@@ -40,11 +40,17 @@ export default function MarketplaceLayout() {
   }, []);
 
   return (
-    <div className="w-full min-w-0 space-y-4">
+    <div className="mpg-page w-full min-w-0 space-y-3 p-[var(--vestara-spacing-page)]">
       {/* ShellLayout owns the page canvas, gutters, and background. Marketplace
           contributes only its navigation and gallery content, like Overview. */}
-      {/* Section identity lives here (tabs); each route owns its own
-          title via MarketplacePage — no duplicate "Marketplace" header. */}
+      {/* Canonical heading sits above the tab navigation (reference hierarchy);
+          Discover hides its own duplicate via MarketplacePage hideHeader. */}
+      <div>
+        <h1 className="text-2xl font-bold text-[var(--vestara-text-primary)]">Marketplace</h1>
+        <p className="mt-1 text-sm text-[var(--vestara-text-muted)]">
+          Discover and install modules, agents, templates, and tools to extend your Vestara workspace.
+        </p>
+      </div>
       <header className="mpg-market-header relative z-[2]">
         <nav className="mpg-market-tabs" aria-label="Marketplace sections">
           {PRIMARY_TABS.map((tab) => (

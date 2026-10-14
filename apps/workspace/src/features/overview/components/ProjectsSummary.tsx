@@ -5,7 +5,7 @@
  * descriptions, and star toggles.
  */
 
-import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { OverviewProjectSummary } from '../overview.types';
 import { SectionCard } from './SectionCard';
 

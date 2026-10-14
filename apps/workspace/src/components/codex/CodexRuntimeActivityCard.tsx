@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { GalleryCard } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { GalleryCard } from '@vestara/marketplace-ui';
 import { fetchCodexRuntimeStatus, type CodexRuntimeStatus } from '../../lib/codex';
 
 interface CodexRuntimeActivityCardProps {

@@ -2352,7 +2352,7 @@ Therefore: Cytoscape graph state ≠ canonical Workflow state. Builder graph ≠
 **Key artifacts**:
 
 - `apps/workspace/src/pages/Marketplace/MarketplaceLayout.tsx` — gallery chamber wrapper, premium tab bar
-- `apps/workspace/src/pages/Marketplace/MarketplaceLayout-components.tsx` — premium composition primitives (AssetCard, TypeBadge, GalleryCard, InsightBanner, DetailCard, AssetGridSkeleton, ConfirmButton)
+- `packages/marketplace-ui/src/components.tsx` — premium composition primitives (AssetCard, TypeBadge, GalleryCard, InsightBanner, DetailCard, AssetGridSkeleton, ConfirmButton)
 - `apps/workspace/src/pages/Marketplace/Discover.tsx` — premium asset grid, category cards, search/filter
 - `apps/workspace/src/pages/Marketplace/AssetDetail.tsx` — premium product showcase, detail cards
 - `apps/workspace/src/pages/Marketplace/Installed.tsx` — premium table, confirmation on destructive actions

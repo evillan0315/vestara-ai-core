@@ -1,4 +1,4 @@
-import { MarketplaceEmptyState } from '../../Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { MilestoneResponse } from '../../../components/dashboard/constants';
 import type { DragSectionProps } from '../DashboardSection';
 import DashboardSection from '../DashboardSection';

@@ -17,7 +17,7 @@ import {
   MarketplaceSection,
   MarketplaceStatPill,
   MarketplaceToolbar,
-} from './MarketplaceLayout-components.js';
+} from '@vestara/marketplace-ui';
 
 // ─── State Config ───────────────────────────────────────────
 

@@ -382,6 +382,39 @@ export const DENSITY = {
   },
 } as const;
 
+// ─── Marketplace Discover Layout Tokens ────────────────────────
+// VES-DESIGN-005 §M: Discover gallery layout vocabulary, sampled from
+// apps/workspace/src/styles/marketplace.css (mpg-* grammar) so the
+// gallery shell renders identically in every host. Theme-invariant
+// geometry — identical in dark/light; colors stay in COLOR.marketplace.
+// Category: spacing|radius|sizing per UI-UX governance (vestara-* pattern).
+
+export const MARKETPLACE_LAYOUT = {
+  // Gallery cards (mpg-card / AssetCard)
+  cardPadding: '0.75rem',
+  cardRadius: '0.75rem',
+  cardGap: '0.75rem',
+  // Discover shell (mpg-discover 80/20 + stacks)
+  discoverGridGap: '1rem',
+  discoverMainGap: '0.875rem',
+  discoverSideGap: '0.625rem',
+  // Hero row (mpg-hero-discover + benefits)
+  heroPadding: '0.875rem 1.25rem',
+  heroRadius: '0.5rem',
+  heroGap: '0.875rem',
+  benefitsPadding: '0.875rem 1rem',
+  // Controls (filter pills, tag pills, install affordance)
+  pillPadding: '0.375rem 0.875rem',
+  pillRadius: '0.5rem',
+  tagPadding: '0.125rem 0.625rem',
+  installPadding: '0.3125rem 0.875rem',
+  // Sidebar cards + icon tiles
+  sideCardPadding: '0.75rem',
+  iconBoxSize: '2.25rem',
+  iconBoxRadius: '0.625rem',
+  categoryTileSize: '1.375rem',
+} as const;
+
 // ─── Accent Palettes (VES-DESIGN-004) ─────────────────────────
 
 export type AccentColorTheme =

@@ -76,6 +76,18 @@
   --vestara-accent-text-hover: var(--vestara-accent-light);
   --vestara-accent-text-muted: var(--vestara-accent);
 
+  /* ── Derived marketplace alignment (selected accent palette → gallery) ──
+      Marketplace primary actions (Install, active pills, links, badges,
+      hero washes) follow the user-selected accent palette at runtime via
+      --vestara-accent, so the gallery re-themes with profiles (presentation
+      → blue, premium → gold) with zero re-render. Percentages mirror the
+      canonical token shapes (12% bg / 40% border). Categorical tile hues
+      (agent/skill/provider/…) stay static identity colors by design —
+      see @vestara/marketplace-ui DISCOVER_COLORS. */
+  --vestara-marketplace-primary: var(--vestara-accent);
+  --vestara-marketplace-primary-bg: color-mix(in srgb, var(--vestara-accent) 12%, transparent);
+  --vestara-marketplace-primary-border: color-mix(in srgb, var(--vestara-accent) 40%, transparent);
+
   /* ── Derived surface utilities (use dynamic accent variables) ──
      These reference --vestara-accent which changes at runtime. */
   --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 10%, transparent);
@@ -132,6 +144,13 @@
      DashboardListCard/StatCard use (black/50 → transparent → black/40),
      layered over the card base via background-image. */
   --vestara-card-shade: linear-gradient(180deg, rgba(0, 0, 0, 0.5), transparent 35%, transparent 65%, rgba(0, 0, 0, 0.4));
+  /* Gallery card surface: dark accent background with a little
+     transparency. A single darkened wash of the selected accent at 85%
+     (16% accent + 69% near-black, ~15% see-through) — every gallery
+     card (mpg-card family: asset, gallery, detail, side, benefits,
+     publish) shares this fill and re-themes with the accent palette
+     while staying dark. Categorical tile hues stay untouched. */
+  --vestara-gallery-card-bg: color-mix(in srgb, var(--vestara-accent) 16%, #0a0a0c 69%);
 
   /* ── Font defaults (overridden by JS theme.tsx) ── */
   --vestara-font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
@@ -227,6 +246,12 @@
   --vestara-accent-text-hover: var(--vestara-accent);
   --vestara-accent-text-muted: var(--vestara-accent);
 
+  /* Derived marketplace alignment — light mode (10% bg / 35% border,
+     mirroring the canonical light token shapes). */
+  --vestara-marketplace-primary: var(--vestara-accent);
+  --vestara-marketplace-primary-bg: color-mix(in srgb, var(--vestara-accent) 10%, transparent);
+  --vestara-marketplace-primary-border: color-mix(in srgb, var(--vestara-accent) 35%, transparent);
+
   /* Derived surface utilities — light mode */
   --vestara-surface-glow: color-mix(in srgb, var(--vestara-accent) 8%, transparent);
   --vestara-surface-glow-hover: color-mix(in srgb, var(--vestara-accent) 14%, transparent);
@@ -245,6 +270,11 @@
   --vestara-card-shade: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 35%, transparent 70%, rgba(15, 23, 42, 0.05));
   /* Cards in light mode: pale tint of the accent over the light shell */
   --vestara-card-bg: color-mix(in srgb, var(--vestara-accent) 8%, var(--vestara-shell-bg));
+  /* Gallery card surface — light mode: accent-soaked crown over pale
+     panel washes (no dark foot, preserves light readability). */
+  --vestara-gallery-card-bg:
+    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 24%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, color-mix(in srgb, var(--vestara-accent) 18%, white) 0%, color-mix(in srgb, var(--vestara-accent) 7%, var(--vestara-surface-panel)) 60%, color-mix(in srgb, var(--vestara-accent) 14%, var(--vestara-surface-panel-raised)) 130%);
 }
 
 [data-theme="dark"] {

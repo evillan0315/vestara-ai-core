@@ -1025,7 +1025,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Governed user-management operations reusing Auth/Principal/Session/Permission authorities; link/unlink/collision/revocation as authorized auditable mutations; every mutation authorized and auditable',
+      'Governed user-management operations reusing Auth/Principal/Session/Permission authorities; link/unlink/collision/revocation as authorized auditable mutations including Telegram user/identity (surface + ExternalIdentity candidate, not OAuth adapter); every mutation authorized and auditable',
   },
   {
     version: 'UIM-009',
@@ -1033,7 +1033,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'Directory/Invitations/Access-Security + User Detail surfacing linked ExternalIdentities and collision/revocation/recovery states via design system tokens; zero hardcode',
+      'Directory/Invitations/Access-Security + User Detail surfacing linked ExternalIdentities including Telegram user/identity and collision/revocation/recovery states via design system tokens; zero hardcode',
   },
   {
     version: 'UIM-010',
@@ -1041,7 +1041,7 @@ const MILESTONES: Milestone[] = [
     era: 'Identity',
     status: 'pending',
     description:
-      'One principal across surfaces in projection with OAuth-linked identities shown truthfully; provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
+      'One principal across surfaces in projection with OAuth-linked and Telegram-linked user/identity shown truthfully (e.g. via Telegram = one principal, two surfaces); provenance inspectable; legacy records classified, never rewritten; coordinates with existing convergence work',
   },
   {
     version: 'UIM-011',

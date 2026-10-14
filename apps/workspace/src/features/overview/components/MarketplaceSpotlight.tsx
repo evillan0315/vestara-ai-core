@@ -6,7 +6,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { GalleryCard, MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
+import { GalleryCard, MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { OverviewMarketplaceItem } from '../overview.types';
 import { SectionCard } from './SectionCard';
 

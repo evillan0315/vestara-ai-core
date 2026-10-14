@@ -6,6 +6,10 @@
    overlays, glass-morphism panels, instrument-precision status.
 
    Uses the Workspace design tokens (--vestara-*, --color-zinc-*).
+   Gallery geometry resolves to MARKETPLACE_LAYOUT tokens
+   (@vestara/ui-tokens → @vestara/marketplace-ui layout.ts) with the
+   sampled values as fallbacks, so the workspace presentation profile
+   (`data-gallery="discover"`) and every global host share one geometry.
    Class prefix: mpg-
    ───────────────────────────────────────────────────────────── */
 
@@ -64,9 +68,9 @@
 .mpg-tab {
   border-radius: 9999px;
   padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--color-zinc-400);
-  transition: all 0.15s ease;
+  transition: all var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
 
 .mpg-tab:hover {
@@ -82,55 +86,62 @@
 }
 
 /* ── Gallery cards ──
-   Premium canvas treatment: darkest theme surface as the base, crowned by
-   a faint accent glow and a raised-sheen veil, with a deep ambient shadow.
-   Every wash derives from --vestara-* tokens (or color-mix over them) so
-   dark/light appearances follow automatically. */
+   Shared gallery surface: dark accent background
+   (see --vestara-gallery-card-bg). Every card in the gallery — asset,
+   gallery, detail, side, benefits, publish — uses this one fill so the
+   whole family re-themes with the accent palette while staying dark.
+   (Fallback layers use generated tokens only, for hosts without the
+   derived layer.) */
 .mpg-card {
   position: relative;
   isolation: isolate;
   overflow: hidden;
-  border-radius: 0.75rem;
-  border: 1px solid color-mix(in srgb, var(--vestara-accent) 30%, var(--vestara-border-subtle));
-  background:
-    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 11%, transparent) 0%, transparent 60%),
-    linear-gradient(180deg, color-mix(in srgb, var(--vestara-surface-panel-raised) 55%, transparent) 0%, transparent 38%),
-    var(--vestara-surface-canvas);
+  border-radius: var(--vestara-radius-lg, var(--vestara-marketplace-card-radius, 0.75rem));
+  border: 1px solid color-mix(in srgb, var(--vestara-marketplace-primary) 45%, var(--vestara-border-subtle));
+  background: var(--vestara-gallery-card-bg,
+    radial-gradient(110% 70% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 12%, transparent) 0%, transparent 60%),
+    linear-gradient(180deg, var(--vestara-surface-panel-raised) 0%, var(--vestara-surface-panel) 130%));
+  /* Floating treatment: on dark backgrounds separation comes from light,
+     not shadow — bright accent ring + halo + lit top edge lift the card
+     off the global background. */
   box-shadow:
-    0 14px 32px rgba(0, 0, 0, 0.42),
-    0 0 0 1px var(--vestara-surface-glow),
-    0 0 14px var(--vestara-surface-glow),
-    inset 0 1px 0 var(--vestara-surface-sheen);
-  transition: border-color 0.15s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    0 24px 48px rgba(0, 0, 0, 0.6),
+    0 0 0 1px color-mix(in srgb, var(--vestara-accent) 35%, transparent),
+    0 0 28px color-mix(in srgb, var(--vestara-accent) 22%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--vestara-accent-light) 25%, transparent);
+  transform: translateY(-1px);
+  transition: border-color var(--vestara-motion-normal) var(--vestara-motion-easing), box-shadow var(--vestara-motion-normal) var(--vestara-motion-easing), transform var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
 
 /* Holographic overlay removed per design review — cards stay flat
    so the deep canvas base reads clean. */
 
 .mpg-card:hover {
-  border-color: color-mix(in srgb, var(--vestara-accent) 55%, var(--vestara-accent-border-hover));
+  border-color: color-mix(in srgb, var(--vestara-marketplace-primary) 75%, var(--vestara-marketplace-primary-border));
   box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.48),
-    0 0 0 1px var(--vestara-surface-glow-hover),
-    0 0 24px var(--vestara-surface-glow-hover),
-    inset 0 1px 0 var(--vestara-surface-sheen-hover);
-  transform: translateY(-2px);
+    0 30px 60px rgba(0, 0, 0, 0.65),
+    0 0 0 1px color-mix(in srgb, var(--vestara-accent) 55%, transparent),
+    0 0 40px color-mix(in srgb, var(--vestara-accent) 30%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--vestara-accent-light) 35%, transparent);
+  transform: translateY(-3px);
 }
 
 [data-theme='light'] .mpg-card {
   box-shadow:
-    0 14px 30px rgba(15, 23, 42, 0.1),
-    0 0 0 1px var(--vestara-surface-glow),
-    0 0 14px var(--vestara-surface-glow),
-    inset 0 1px 0 var(--vestara-surface-sheen);
+    0 20px 44px rgba(15, 23, 42, 0.14),
+    0 0 0 1px var(--vestara-surface-glow-hover),
+    0 0 18px var(--vestara-surface-glow-hover),
+    inset 0 1px 0 var(--vestara-surface-sheen-hover);
+  transform: translateY(-1px);
 }
 
 [data-theme='light'] .mpg-card:hover {
   box-shadow:
-    0 18px 38px rgba(15, 23, 42, 0.14),
+    0 28px 56px rgba(15, 23, 42, 0.18),
     0 0 0 1px var(--vestara-surface-glow-hover),
-    0 0 24px var(--vestara-surface-glow-hover),
+    0 0 30px var(--vestara-surface-glow-hover),
     inset 0 1px 0 var(--vestara-surface-sheen-hover);
+  transform: translateY(-3px);
 }
 
 /* Left accent bar — hidden per design review (cards stay clean;
@@ -139,7 +150,8 @@
   display: none;
 }
 
-/* Staggered entrance */
+/* Staggered entrance — lands on the resting float (-1px) and releases
+   (backwards fill) so hover lift keeps working after the animation. */
 @keyframes mpg-enter {
   from {
     opacity: 0;
@@ -147,12 +159,12 @@
   }
   to {
     opacity: 1;
-    transform: translateY(0) scale(1);
+    transform: translateY(-1px) scale(1);
   }
 }
 
 .mpg-enter {
-  animation: mpg-enter 0.25s ease-out both;
+  animation: mpg-enter 0.25s ease-out backwards;
 }
 
 /* Skeleton — dashboard recipe: soft accent wash + gentle pulse.
@@ -209,6 +221,13 @@
    dark-navy + electric-blue gallery. Only var(--vestara-*) tokens.
    ───────────────────────────────────────────────────────────── */
 
+/* Page wash: selected-accent atmosphere behind the marketplace content. */
+.mpg-page {
+  background:
+    radial-gradient(60% 22% at 78% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 9%, transparent), transparent 70%),
+    radial-gradient(40% 18% at 8% 4%, color-mix(in srgb, var(--vestara-accent) 6%, transparent), transparent 70%);
+}
+
 /* Primary tabs: bright-blue underline, muted blue-gray inactive. */
 .mpg-market-tab {
   display: inline-flex;
@@ -223,9 +242,9 @@
   height: 1.25rem;
   padding: 0 0.375rem;
   border-radius: 9999px;
-  font-size: 0.6875rem;
-  font-weight: 700;
-  color: #fff;
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-semibold);
+  color: var(--vestara-on-accent);
   background: var(--vestara-marketplace-primary);
 }
 /* Advanced destinations (not primary Discover tabs) — quiet utility row. */
@@ -236,7 +255,7 @@
   padding-top: 0.5rem;
 }
 .mpg-market-advanced-link {
-  font-size: 0.75rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-text-disabled);
 }
 .mpg-market-advanced-link:hover {
@@ -244,32 +263,29 @@
   text-decoration: underline;
 }
 
-/* Discover 80/20 shell lives with the v2 layout rules below
-   (.mpg-discover: 4fr/1fr at ≥1100px). Reference-only pieces follow. */
+/* Discover single-column stack lives with the v2 layout rules below
+   (full-width hero → category strip → grids → bottom rail).
+   Reference-only pieces follow. */
 
-/* Hero row: wide hero panel + narrow benefits card. */
+/* Hero row: full-width hero panel with the benefits strip stacked below. */
 .mpg-hero-row {
   display: grid;
-  gap: 0.875rem;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-hero-gap, 0.875rem));
   grid-template-columns: minmax(0, 1fr);
-}
-@media (min-width: 900px) {
-  .mpg-hero-row {
-    grid-template-columns: minmax(0, 1fr) 232px;
-    align-items: stretch;
-  }
+  width: 100%;
 }
 .mpg-hero-discover {
   position: relative;
   overflow: hidden;
   display: flex;
+  width: 100%;
+  min-width: 0;
   border-radius: var(--vestara-radius-lg, 8px);
   border: 1px solid var(--vestara-marketplace-primary-border);
-  padding: 1rem 1.25rem;
+  padding: var(--vestara-marketplace-hero-padding, 0.875rem 1.25rem);
   background:
-    radial-gradient(80% 120% at 82% 20%, color-mix(in srgb, var(--vestara-marketplace-primary) 22%, transparent), transparent 62%),
-    radial-gradient(60% 90% at 12% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 10%, transparent), transparent 55%),
-    var(--vestara-hero-bg, var(--vestara-shell-bg, var(--vestara-surface-panel)));
+    radial-gradient(70% 110% at 88% 30%, color-mix(in srgb, var(--vestara-marketplace-primary) 16%, transparent), transparent 62%),
+    linear-gradient(180deg, var(--vestara-card-bg) 0%, var(--vestara-surface-panel) 90%);
 }
 .mpg-hero-discover .mpg-hero-copy {
   position: relative;
@@ -278,42 +294,105 @@
   flex: 1 1 auto;
 }
 .mpg-hero-discover .mpg-hero-search {
-  margin-top: 0.875rem;
+  margin-top: 0.625rem;
   max-width: 26rem;
 }
 .mpg-hero-art {
   position: absolute;
   inset: 0 0 0 auto;
-  width: 46%;
+  width: 48%;
   z-index: 1;
   pointer-events: none;
-  background:
-    radial-gradient(34% 42% at 62% 46%, color-mix(in srgb, var(--vestara-marketplace-primary) 55%, transparent), transparent 72%),
-    radial-gradient(16% 22% at 78% 30%, color-mix(in srgb, var(--vestara-marketplace-skill) 50%, transparent), transparent 70%),
-    radial-gradient(12% 18% at 46% 66%, color-mix(in srgb, var(--vestara-marketplace-agent) 45%, transparent), transparent 70%),
-    linear-gradient(115deg, transparent 42%, color-mix(in srgb, var(--vestara-marketplace-primary) 16%, transparent) 58%, transparent 76%),
-    linear-gradient(65deg, transparent 55%, color-mix(in srgb, var(--vestara-marketplace-skill) 12%, transparent) 72%, transparent 88%);
-  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 42%);
-  mask-image: linear-gradient(to right, transparent 0%, black 42%);
+  -webkit-mask-image: linear-gradient(to right, transparent 0%, black 22%);
+  mask-image: linear-gradient(to right, transparent 0%, black 22%);
+}
+.mpg-hero-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* Isometric cube faces — translucent blue geometry (token-styled). */
+.mpg-cube-top,
+.mpg-cube-left,
+.mpg-cube-right {
+  stroke-width: 1.5;
+}
+.mpg-cube-primary .mpg-cube-top {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 30%, transparent);
+  stroke: var(--vestara-marketplace-primary);
+}
+.mpg-cube-primary .mpg-cube-left {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 12%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-primary) 70%, transparent);
+}
+.mpg-cube-primary .mpg-cube-right {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 22%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-primary) 85%, transparent);
+}
+.mpg-cube-skill .mpg-cube-top {
+  fill: color-mix(in srgb, var(--vestara-marketplace-skill) 28%, transparent);
+  stroke: var(--vestara-marketplace-skill);
+}
+.mpg-cube-skill .mpg-cube-left {
+  fill: color-mix(in srgb, var(--vestara-marketplace-skill) 10%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-skill) 65%, transparent);
+}
+.mpg-cube-skill .mpg-cube-right {
+  fill: color-mix(in srgb, var(--vestara-marketplace-skill) 20%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-skill) 80%, transparent);
+}
+.mpg-cube-violet .mpg-cube-top {
+  fill: color-mix(in srgb, var(--vestara-marketplace-agent) 30%, transparent);
+  stroke: var(--vestara-marketplace-agent);
+}
+.mpg-cube-violet .mpg-cube-left {
+  fill: color-mix(in srgb, var(--vestara-marketplace-agent) 12%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-agent) 65%, transparent);
+}
+.mpg-cube-violet .mpg-cube-right {
+  fill: color-mix(in srgb, var(--vestara-marketplace-agent) 22%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-agent) 85%, transparent);
+}
+/* Central Vestara-branded cube: brighter glass body + white V mark. */
+.mpg-cube-brand .mpg-cube-top {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 45%, transparent);
+  stroke: var(--vestara-marketplace-primary-light, var(--vestara-status-info));
+}
+.mpg-cube-brand .mpg-cube-left {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 18%, transparent);
+  stroke: color-mix(in srgb, var(--vestara-marketplace-primary) 75%, transparent);
+}
+.mpg-cube-brand .mpg-cube-right {
+  fill: color-mix(in srgb, var(--vestara-marketplace-primary) 32%, transparent);
+  stroke: var(--vestara-marketplace-primary);
+}
+.mpg-cube-label {
+  fill: #fff;
+  opacity: 0.92;
+  font-size: 30px;
+  font-weight: 800;
+  font-family: var(--vestara-font-family);
 }
 .mpg-benefits {
   border-radius: var(--vestara-radius-lg, 8px);
   border: 1px solid var(--vestara-marketplace-primary-border);
-  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
-  padding: 0.875rem 1rem;
+  background: var(--vestara-gallery-card-bg,
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 8%, transparent), transparent 65%),
+    var(--vestara-surface-panel));
+  padding: var(--vestara-marketplace-benefits-padding, 0.875rem 1rem);
 }
 .mpg-benefits ul {
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  height: 100%;
-  gap: 0.75rem;
+  flex-direction: row;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1.5rem;
 }
 .mpg-benefits li {
   display: flex;
   align-items: center;
   gap: 0.625rem;
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-text-secondary);
 }
 .mpg-benefits-icon {
@@ -324,7 +403,7 @@
   width: 1.5rem;
   height: 1.5rem;
   border-radius: 0.375rem;
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-marketplace-primary);
   background: var(--vestara-marketplace-primary-bg);
   border: 1px solid var(--vestara-marketplace-primary-border);
@@ -353,7 +432,7 @@
 /* Featured (3-up) + All Items (4-up) grids with equal-height cards. */
 .mpg-featured-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-card-gap, 0.75rem));
   grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 900px) {
@@ -363,7 +442,7 @@
 }
 .mpg-all-grid {
   display: grid;
-  gap: 0.75rem;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-card-gap, 0.75rem));
   grid-template-columns: minmax(0, 1fr);
 }
 @media (min-width: 640px) {
@@ -371,7 +450,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
-@media (min-width: 1100px) {
+@media (min-width: 1200px) {
   .mpg-all-grid {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
@@ -379,10 +458,10 @@
 .mpg-asset {
   height: 100%;
 }
-/* Dense 4-column cards (≥1100px): stack the action footer so the
+/* Dense 4-column cards (≥1200px viewport): stack the action footer so the
    rating + install count stay fully visible above a right-aligned
    Install button. Wider grids keep the inline reference treatment. */
-@media (min-width: 1100px) {
+@media (min-width: 1200px) {
   .mpg-all-grid .mpg-asset-foot {
     flex-direction: column;
     align-items: stretch;
@@ -400,11 +479,11 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 1.375rem;
-  height: 1.375rem;
+  width: var(--vestara-marketplace-category-tile-size, 1.375rem);
+  height: var(--vestara-marketplace-category-tile-size, 1.375rem);
   border-radius: 0.375rem;
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-semibold);
   color: #fff;
 }
 .mpg-release-list {
@@ -418,8 +497,8 @@
   column-gap: 0.5rem;
   row-gap: 1px;
   align-items: center;
-  padding: 0.375rem 0;
-  font-size: 0.75rem;
+  padding: 0.3125rem 0;
+  font-size: var(--vestara-font-size-sm);
   border-bottom: 1px solid var(--vestara-border-subtle);
 }
 .mpg-release-list > li:last-child {
@@ -429,7 +508,7 @@
   grid-row: span 2;
   flex-shrink: 0;
   font-family: var(--vestara-font-mono, monospace);
-  font-size: 0.6875rem;
+  font-size: var(--vestara-font-size-xs);
   white-space: nowrap;
   color: var(--vestara-text-muted);
   background: color-mix(in srgb, var(--vestara-surface-interactive) 70%, transparent);
@@ -447,7 +526,7 @@
 }
 .mpg-release-time {
   flex-shrink: 0;
-  font-size: 0.6875rem;
+  font-size: var(--vestara-font-size-xs);
   color: var(--vestara-text-disabled);
 }
 .mpg-publish-icon {
@@ -458,7 +537,7 @@
   width: 1.75rem;
   height: 1.75rem;
   border-radius: 0.5rem;
-  font-size: 0.9375rem;
+  font-size: var(--vestara-font-size-lg);
   color: var(--vestara-marketplace-primary);
   background: var(--vestara-marketplace-primary-bg);
   border: 1px solid var(--vestara-marketplace-primary-border);
@@ -473,11 +552,11 @@
 }
 .mpg-market-tab {
   padding: 0.5rem 0.125rem;
-  font-size: 0.875rem;
+  font-size: var(--vestara-font-size-base);
   color: var(--vestara-text-muted);
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
-  transition: color 0.15s ease, border-color 0.15s ease;
+  transition: color var(--vestara-motion-normal) var(--vestara-motion-easing), border-color var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
 .mpg-market-tab:hover {
   color: var(--vestara-text-primary);
@@ -485,31 +564,65 @@
 .mpg-market-tab-active {
   color: var(--vestara-text-primary);
   border-bottom-color: var(--vestara-marketplace-primary);
+  background: var(--vestara-marketplace-primary-bg);
+  border-radius: var(--vestara-radius, 6px) var(--vestara-radius, 6px) 0 0;
 }
 
-/* Discover 2-column shell: main + rail. */
+/* Discover shell: single-column stack — full-width hero, category
+   strip, grids, then the bottom rail (former sidebar content). */
 .mpg-discover {
   display: grid;
-  gap: 1rem;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-main-gap, 0.875rem));
   grid-template-columns: minmax(0, 1fr);
 }
-@media (min-width: 1100px) {
-  .mpg-discover {
-    grid-template-columns: minmax(0, 4fr) minmax(200px, 1fr);
+
+/* Product category strip: horizontal chips directly under the hero. */
+.mpg-category-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mpg-category-strip-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-radius: var(--vestara-radius-full, 9999px);
+  border: 1px solid var(--vestara-border-subtle);
+  background: color-mix(in srgb, var(--vestara-surface-interactive) 55%, transparent);
+  padding: 0.375rem 0.75rem 0.375rem 0.375rem;
+  font-size: var(--vestara-font-size-sm);
+  color: var(--vestara-text-secondary);
+  white-space: nowrap;
+  transition: color var(--vestara-motion-normal) var(--vestara-motion-easing), border-color var(--vestara-motion-normal) var(--vestara-motion-easing), background var(--vestara-motion-normal) var(--vestara-motion-easing);
+}
+button.mpg-category-strip-item:hover {
+  color: var(--vestara-text-primary);
+  border-color: var(--vestara-marketplace-primary-border);
+  background: var(--vestara-marketplace-primary-bg);
+}
+.mpg-category-strip-name {
+  font-size: var(--vestara-font-size-sm);
+  color: inherit;
+}
+.mpg-category-strip-count {
+  font-size: var(--vestara-font-size-xs);
+  color: var(--vestara-text-muted);
+}
+
+/* Bottom rail: releases + publish CTA pushed below the grids. */
+.mpg-bottom-rail {
+  display: grid;
+  gap: var(--vestara-spacing-section, var(--vestara-marketplace-discover-side-gap, 0.625rem));
+  grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 900px) {
+  .mpg-bottom-rail {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     align-items: start;
   }
-}
-.mpg-discover-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  min-width: 0;
-}
-.mpg-discover-side {
-  display: flex;
-  flex-direction: column;
-  gap: 0.875rem;
-  min-width: 0;
 }
 
 /* Hero banner — shared by Overview + Diagnostics (mpg-hero).
@@ -590,7 +703,7 @@
   outline: none !important;
   box-shadow: none !important;
   color: var(--vestara-text-primary);
-  font-size: 0.875rem;
+  font-size: var(--vestara-font-size-base);
 }
 .mpg-hero-checklist {
   flex: 0 1 220px;
@@ -610,19 +723,19 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-text-secondary);
 }
 
 /* Filter pills (reference: compact rounded controls, blue active fill). */
 .mpg-pill {
-  border-radius: var(--vestara-radius-lg, 8px);
+  border-radius: var(--vestara-marketplace-pill-radius, var(--vestara-radius-lg, 8px));
   border: 1px solid var(--vestara-border-default);
-  padding: 0.375rem 0.875rem;
-  font-size: 0.8125rem;
+  padding: var(--vestara-marketplace-pill-padding, 0.375rem 0.875rem);
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-text-secondary);
   background: transparent;
-  transition: all 0.15s ease;
+  transition: all var(--vestara-motion-normal) var(--vestara-motion-easing);
   white-space: nowrap;
 }
 .mpg-pill:hover {
@@ -630,7 +743,7 @@
   border-color: var(--vestara-marketplace-primary-border);
 }
 .mpg-pill-active {
-  color: #fff;
+  color: var(--vestara-on-accent);
   background: var(--vestara-marketplace-primary);
   border-color: var(--vestara-marketplace-primary);
   box-shadow: 0 0 14px var(--vestara-surface-glow-hover);
@@ -647,7 +760,7 @@
   border: 1px solid var(--vestara-border-default);
   background: var(--vestara-surface-panel);
   color: var(--vestara-text-secondary);
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   padding: 0.375rem 0.75rem;
   white-space: nowrap;
 }
@@ -673,7 +786,7 @@
   text-align: left;
   border-radius: 4px;
   padding: 0.5rem 0.75rem;
-  font-size: 0.8125rem;
+  font-size: var(--vestara-font-size-sm);
   color: var(--vestara-text-secondary);
 }
 .mpg-sort-item:hover {
@@ -690,7 +803,7 @@
   border: 1px solid var(--vestara-border-subtle);
   background: var(--vestara-surface-panel);
   color: var(--vestara-text-muted);
-  font-size: 0.75rem;
+  font-size: var(--vestara-font-size-sm);
   padding: 0.25rem 0.5rem;
   width: fit-content;
 }
@@ -701,12 +814,18 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  width: 2.5rem;
-  height: 2.5rem;
-  border-radius: 0.625rem;
+  width: var(--vestara-marketplace-icon-box-size, 2.25rem);
+  height: var(--vestara-marketplace-icon-box-size, 2.25rem);
+  border-radius: var(--vestara-marketplace-icon-box-radius, 0.625rem);
   border: 1px solid;
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-weight: var(--vestara-font-weight-semibold);
+  font-size: var(--vestara-font-size-lg);
+}
+/* Solid saturated tile (reference gallery): token color fill, white glyph. */
+.mpg-icon-solid {
+  color: #fff;
+  border-color: transparent;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
 }
 .mpg-featured-badge {
   position: absolute;
@@ -716,31 +835,31 @@
   flex-shrink: 0;
   white-space: nowrap;
   border-radius: 9999px;
-  padding: 0.125rem 0.5rem;
-  font-size: 0.625rem;
-  font-weight: 600;
+  padding: 0.125rem 0.375rem;
+  font-size: var(--vestara-font-size-xs);
+  font-weight: var(--vestara-font-weight-semibold);
   color: var(--vestara-marketplace-featured-text);
   background: var(--vestara-marketplace-featured-bg);
   border: 1px solid color-mix(in srgb, var(--vestara-marketplace-rating) 40%, transparent);
 }
 .mpg-tag-pill {
   border-radius: 9999px;
-  padding: 0.125rem 0.625rem;
-  font-size: 0.6875rem;
+  padding: var(--vestara-marketplace-tag-padding, 0.125rem 0.625rem);
+  font-size: var(--vestara-font-size-xs);
   color: var(--vestara-text-muted);
   background: color-mix(in srgb, var(--vestara-surface-interactive) 70%, transparent);
   border: 1px solid var(--vestara-border-subtle);
 }
 .mpg-install-btn {
   border-radius: var(--vestara-radius, 6px);
-  padding: 0.3125rem 0.875rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fff;
+  padding: var(--vestara-marketplace-install-padding, 0.3125rem 0.875rem);
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-semibold);
+  color: var(--vestara-on-accent);
   background: var(--vestara-marketplace-primary);
   border: 1px solid var(--vestara-marketplace-primary);
   box-shadow: 0 0 14px var(--vestara-surface-glow);
-  transition: filter 0.15s ease;
+  transition: filter var(--vestara-motion-normal) var(--vestara-motion-easing);
   white-space: nowrap;
 }
 .mpg-install-btn:disabled {
@@ -752,7 +871,7 @@
 }
 .mpg-link {
   color: var(--vestara-marketplace-primary);
-  font-size: 0.75rem;
+  font-size: var(--vestara-font-size-sm);
 }
 .mpg-link:hover {
   text-decoration: underline;
@@ -761,9 +880,11 @@
 /* Sidebar cards. */
 .mpg-side-card {
   border-radius: var(--vestara-radius-lg, 8px);
-  border: 1px solid var(--vestara-accent-border);
-  background: var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
-  padding: 0.875rem;
+  border: 1px solid var(--vestara-marketplace-primary-border);
+  background: var(--vestara-gallery-card-bg,
+    radial-gradient(120% 60% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 8%, transparent), transparent 65%),
+    var(--vestara-surface-panel));
+  padding: var(--vestara-marketplace-side-card-padding, 0.75rem);
 }
 .mpg-category-row {
   display: flex;
@@ -772,15 +893,15 @@
   justify-content: space-between;
   gap: 0.5rem;
   border-radius: var(--vestara-radius, 6px);
-  padding: 0.3125rem 0.375rem;
+  padding: 0.25rem 0.375rem;
 }
 .mpg-category-row .mpg-category-name {
-  font-size: 0.75rem;
+  font-size: var(--vestara-font-size-sm);
   white-space: nowrap;
   color: var(--vestara-text-secondary);
 }
 .mpg-category-row .mpg-category-count {
-  font-size: 0.6875rem;
+  font-size: var(--vestara-font-size-xs);
   white-space: nowrap;
   color: var(--vestara-text-muted);
 }
@@ -799,11 +920,11 @@
 }
 .mpg-publish-cta {
   border-radius: var(--vestara-radius-lg, 8px);
-  border: 1px solid var(--vestara-accent-border);
-  background:
-    radial-gradient(100% 100% at 50% 0%, color-mix(in srgb, var(--vestara-accent) 10%, transparent), transparent 70%),
-    var(--vestara-accent-bg, var(--vestara-card-bg, var(--vestara-shell-bg)));
-  padding: 1rem;
+  border: 1px solid var(--vestara-marketplace-primary-border);
+  background: var(--vestara-gallery-card-bg,
+    radial-gradient(100% 100% at 50% 0%, color-mix(in srgb, var(--vestara-marketplace-primary) 12%, transparent), transparent 70%),
+    var(--vestara-surface-panel));
+  padding: var(--vestara-spacing-section, 0.75rem);
 }
 .mpg-publish-btn {
   display: inline-block;
@@ -813,13 +934,13 @@
   white-space: nowrap;
   border-radius: var(--vestara-radius, 6px);
   padding: 0.5rem 0.5rem;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--vestara-accent-text);
-  background: var(--vestara-accent-bg);
-  border: 1px solid var(--vestara-accent-border-hover);
-  transition: background 0.15s ease;
+  font-size: var(--vestara-font-size-sm);
+  font-weight: var(--vestara-font-weight-semibold);
+  color: var(--vestara-marketplace-primary-light, var(--vestara-marketplace-primary));
+  background: transparent;
+  border: 1px solid var(--vestara-marketplace-primary-border);
+  transition: background var(--vestara-motion-normal) var(--vestara-motion-easing);
 }
 .mpg-publish-btn:hover {
-  background: color-mix(in srgb, var(--vestara-accent) 18%, transparent);
+  background: var(--vestara-marketplace-primary-bg);
 }

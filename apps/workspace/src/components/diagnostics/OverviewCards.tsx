@@ -5,7 +5,7 @@
  * mpg-enter stagger) with metric progress bars and sparklines.
  */
 
-import { GalleryCard } from '../../pages/Marketplace/MarketplaceLayout-components.js';
+import { GalleryCard } from '@vestara/marketplace-ui';
 import type { DiagSummary } from '../../lib/diagnostics';
 import { formatBytes, formatUptime } from '../../lib/diagnostics';
 import { Sparkline } from './charts';

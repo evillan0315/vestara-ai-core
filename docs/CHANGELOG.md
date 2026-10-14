@@ -50,7 +50,7 @@ next-review: 2026-10-04
   status table, `MilestoneService.getCurrent()` focus priority,
   and Overview `MilestonesSummary` current-focus badge updated.
 - **Marketplace Discover overhaul**: fixture-backed Discover
-  surface (`discover.fixtures.ts` fallback for empty/error
+  surface (`packages/marketplace-ui/src/fixtures.ts` fallback for empty/error
   states), `Collections` page (localStorage-curated favorites
   over installed/registry assets), layout/component restyling on
   `var(--vestara-*)` tokens.

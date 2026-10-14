@@ -149,7 +149,7 @@ export const telegramApi = {
     return fetchJson<TelegramStatus>('/api/telegram/status');
   },
 
-  /** Simulate a Telegram message (auto-pairs + routes through pipeline) */
+  /** Simulate a Telegram message (unpaired by default; use /pair to link, then send) */
   async simulate(params: {
     text: string;
     userId?: string;

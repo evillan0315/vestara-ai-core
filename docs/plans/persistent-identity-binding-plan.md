@@ -117,7 +117,18 @@ Make each surface resolve the authenticated session to the principal:
 - Assistant: principal/workspace/surface context, with no authority inference.
 - CLI: device or browser login flow; no identity from local Git config.
 - Telegram: explicit pairing to the principal; raw Telegram IDs remain surface
-  data.
+  data. Adding a Telegram user means normalizing the Telegram user/channel
+  subject to an `ExternalIdentity{provider: 'telegram', subject}` candidate,
+  then explicit governed binding to the canonical `HumanPrincipal`
+  (authenticated principal proof + Telegram possession proof, e.g. pairing
+  code initiated from a signed-in session). Arrival via Telegram never
+  authenticates by itself; `HumanPrincipal via Surface Telegram` ≠
+  `Telegram = human`. Unlink preserves principal/history; revocation withdraws
+  trust without auto-delete; collisions stay `UNKNOWN`. The existing
+  `TelegramIdentityBinding` remains a pairing seam only and must
+  reference/validate the canonical `HumanPrincipal` store, never become a
+  competing principal authority (per `docs/audits/ACTOR-IDENTITY-001.md`).
+  Spec-only; no runtime behavior changed by this refinement.
 
 Project Eddie’s existing biography only after principal resolution. The profile
 seed remains `SELF_DESCRIBED`, `PUBLIC`, and `agentReadable=true`; those fields
@@ -148,27 +159,31 @@ dogfood scenarios pass.
 6. Unlinking an identity preserves Eddie’s principal and biography.
 7. Provider revocation withdraws trust without deleting Eddie’s profile.
 8. Telegram and Workspace UI project the same principal with truthful surface
-   provenance.
+   provenance (`Eddie via Telegram` = one principal, two surfaces).
 9. Assistant context identifies Eddie but grants no authority by itself.
 10. Suspended or deleted principals cannot establish new sessions, while prior
     records remain attributable.
 11. Ambiguous or failed resolution is represented as `UNKNOWN`, never guessed.
 12. Every privileged identity mutation has an auditable actor, timestamp,
     target, reason, and result.
+13. A Telegram user identity links/unlinks without fabrication: same Telegram
+    subject never serves two principals, unlink leaves the principal intact,
+    and ambiguous claims stay `UNKNOWN` pending governed resolution.
 
 ## Explicit non-goals
 
 - No automatic recognition from the text “I am Eddie.”
-- No identity inference from Git commits, host usernames, email domains, or
-  browser/device fingerprints.
+- No identity inference from Git commits, host usernames, email domains,
+  Telegram IDs/display names, or browser/device fingerprints.
 - No role or permission assignment from Google, GitHub, or Telegram claims.
-- No implementation of OAuth callbacks, schema migrations, or UI in this plan
-  document; those require phase-specific authorization.
+- No implementation of OAuth callbacks, Telegram pairing runtime, schema
+  migrations, or UI in this plan document; those require phase-specific
+  authorization.
 
 ## Related authority
 
 - `docs/IDENTITY-OWNERSHIP.md`
 - `packages/workspace/src/human-principal.ts`
 - `packages/workspace/src/human-knowledge.ts`
-- `docs/MILESTONES.md` — UIM-001 through UIM-011
+- `docs/MILESTONES.md` — UIM-001 through UIM-016
 - `docs/blueprint/VES-TG-001-channel-architecture.md`

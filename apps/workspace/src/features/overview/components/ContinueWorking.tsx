@@ -6,7 +6,7 @@
  */
 
 import { Link } from 'react-router-dom';
-import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { OverviewRecentWorkItem } from '../overview.types';
 import { timeAgo as formatRelativeTime } from '../utils/timeAgo';
 import { SectionCard } from './SectionCard';

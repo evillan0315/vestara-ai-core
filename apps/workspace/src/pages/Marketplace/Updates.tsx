@@ -15,7 +15,7 @@ import {
   MarketplaceEmptyState,
   MarketplacePage,
   UpdateGroup,
-} from './MarketplaceLayout-components.js';
+} from '@vestara/marketplace-ui';
 
 function groupLabel(update: MarketplaceUpdateCandidate): 'compatible' | 'breaking' | 'incompatible' {
   if (!update.compatible) return 'incompatible';

@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { MarketplaceEmptyState } from '../../../pages/Marketplace/MarketplaceLayout-components.js';
+import { MarketplaceEmptyState } from '@vestara/marketplace-ui';
 import type { OverviewActivityItem } from '../overview.types';
 import { timeAgo as formatRelativeTime } from '../utils/timeAgo';
 import { SectionCard } from './SectionCard';

@@ -12,7 +12,7 @@ import { Badge, Button } from '@vestara/ui';
 import type { InstalledMarketplaceAsset, MarketplaceAssetDetails } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
 import InstallReview from './InstallReview.js';
-import { DetailCard, InsightBanner, TypeBadge, typeAccent } from './MarketplaceLayout-components.js';
+import { DetailCard, InsightBanner, TypeBadge, typeAccent } from '@vestara/marketplace-ui';
 
 function contributionsOf(details: MarketplaceAssetDetails): Array<{ kind: string; label: string; ids: string[] }> {
   const contributions = details.manifest?.contributions ?? {};

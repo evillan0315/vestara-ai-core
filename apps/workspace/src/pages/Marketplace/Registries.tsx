@@ -15,7 +15,7 @@ import {
   MarketplacePage,
   MarketplaceStatPill,
   RegistryHealthLamp,
-} from './MarketplaceLayout-components.js';
+} from '@vestara/marketplace-ui';
 
 function healthVariant(status: string): 'success' | 'warning' | 'error' {
   if (status === 'healthy') return 'success';

@@ -16,7 +16,7 @@ import {
   InsightBanner,
   MarketplaceEmptyState,
   MarketplacePage,
-} from './MarketplaceLayout-components.js';
+} from '@vestara/marketplace-ui';
 
 function stateBadgeVariant(state: string): 'success' | 'error' | 'warning' | 'default' | 'info' {
   if (state === 'active') return 'success';

@@ -12,7 +12,7 @@ import { Link } from 'react-router-dom';
 import { Button } from '@vestara/ui';
 import type { InstalledMarketplaceAsset } from '../../lib/marketplace.js';
 import { marketplaceClient } from '../../lib/marketplace.js';
-import { InsightBanner, MarketplaceEmptyState, MarketplacePage } from './MarketplaceLayout-components.js';
+import { InsightBanner, MarketplaceEmptyState, MarketplacePage } from '@vestara/marketplace-ui';
 
 const STORAGE_KEY = 'vestara.marketplace.collections.v1';
 

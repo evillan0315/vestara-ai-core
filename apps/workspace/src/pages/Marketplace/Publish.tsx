@@ -14,7 +14,7 @@ import {
   InsightBanner,
   MarketplacePage,
   MarketplaceSection,
-} from './MarketplaceLayout-components.js';
+} from '@vestara/marketplace-ui';
 
 export default function Publish() {
   const [sourcePath, setSourcePath] = useState('');

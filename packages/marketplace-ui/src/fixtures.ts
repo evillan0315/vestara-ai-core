@@ -1,20 +1,52 @@
 /**
- * Marketplace Discover fixtures — design-only reference content.
+ * @vestara/marketplace-ui — Discover Fixture Authority
  *
- * Mirrors `assets/screens/workspace/marketplace-discover-modules-grid.png`:
- * 3 Featured cards + 8 All Items cards with the reference metadata
- * (ratings, review counts, install counts), plus the sidebar reference
- * rows (Popular Categories, Latest Releases).
+ * Design-only reference content mirroring the Discover reference grid
+ * (3 Featured + 8 All Items + sidebar rows). FALLBACK fixtures, used only
+ * when the live registry returns no assets/categories — never presented
+ * as live production data.
  *
- * These are FALLBACK fixtures, used only when the live registry returns
- * no assets/categories. They are never presented as live production data:
- * Discover renders them exclusively from empty/error states. All visual
- * values reference `var(--vestara-*)` tokens — no hardcoded hex.
+ * All accents are `var(--vestara-*)` token references. The minimal
+ * `GalleryAsset` interface is a structural subset of the workspace
+ * `MarketplaceAsset` so workspace fixtures remain assignable.
+ *
+ * Data → API first → mock server → THESE fixtures. Never inline arrays
+ * in JSX (UI-UX governance §6).
  */
 
-import type { MarketplaceAsset } from '../../lib/marketplace.js';
+// ─── Minimal Asset Shape ────────────────────────────────────────
 
-/** Display enrichment for gallery cards (rating row + icon tile). */
+export interface GalleryAssetVersion {
+  version: string;
+  isStable: boolean;
+  compatibility: { vestara: string };
+  checksumVerified: boolean;
+}
+
+export interface GalleryAsset {
+  id: string;
+  slug: string;
+  publisherId: string;
+  packageName: string;
+  displayName: string;
+  summary: string;
+  type: string;
+  tags: string[];
+  visibility: string;
+  latestVersion: string;
+  versions: GalleryAssetVersion[];
+  verification: {
+    signed: boolean;
+    signatureValidated: boolean;
+    checksumVerified: boolean;
+    runtimeVerified: boolean;
+  };
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Display Enrichment ─────────────────────────────────────────
+
 export interface DiscoverDisplayMeta {
   rating: number;
   reviews: number;
@@ -26,7 +58,7 @@ export interface DiscoverDisplayMeta {
 }
 
 export interface FixtureAsset {
-  asset: MarketplaceAsset;
+  asset: GalleryAsset;
   display: DiscoverDisplayMeta;
 }
 
@@ -75,7 +107,8 @@ function fixtureAsset(
   };
 }
 
-/** Reference Featured row (3 cards). */
+// ─── Reference Grids ────────────────────────────────────────────
+
 export const FEATURED_FIXTURES: FixtureAsset[] = [
   fixtureAsset(
     'analysis-module',
@@ -112,7 +145,6 @@ export const FEATURED_FIXTURES: FixtureAsset[] = [
   ),
 ];
 
-/** Reference All Items grid (8 cards, two rows of four). */
 export const ALL_ITEMS_FIXTURES: FixtureAsset[] = [
   fixtureAsset(
     'theme-builder',
@@ -204,14 +236,10 @@ export const ALL_ITEMS_FIXTURES: FixtureAsset[] = [
   ),
 ];
 
-/** All reference fixtures in display order (Featured first). */
 export const DISCOVER_FIXTURES: FixtureAsset[] = [...FEATURED_FIXTURES, ...ALL_ITEMS_FIXTURES];
 
-/**
- * Reference category toolbar, in reference order. `match` lists the
- * lowercase type/tag/name fragments that select into the category so the
- * toolbar filters live registry data as well as fixtures.
- */
+// ─── Category Filters ───────────────────────────────────────────
+
 export interface DiscoverCategoryFilter {
   id: string;
   label: string;
@@ -230,8 +258,21 @@ export const DISCOVER_CATEGORY_FILTERS: DiscoverCategoryFilter[] = [
   { id: 'system', label: 'System', match: ['system', 'standards-pack', 'provider'] },
 ];
 
-/** Deterministic display enrichment for LIVE registry assets (no fabrication). */
-export function displayForLiveAsset(asset: MarketplaceAsset): DiscoverDisplayMeta {
+export const MARKETPLACE_SORTS = [
+  { id: 'relevant', label: 'Most Relevant' },
+  { id: 'popular', label: 'Most Popular' },
+  { id: 'newest', label: 'Newest' },
+  { id: 'name', label: 'Name A–Z' },
+] as const;
+
+export type MarketplaceSortId = (typeof MARKETPLACE_SORTS)[number]['id'];
+
+// ─── Live-Asset Enrichment ──────────────────────────────────────
+// Deterministic display metadata for LIVE registry assets (no fabrication).
+
+export function displayForLiveAsset(
+  asset: Pick<GalleryAsset, 'publisherId' | 'packageName' | 'displayName'>,
+): DiscoverDisplayMeta {
   let hash = 0;
   const seed = `${asset.publisherId}/${asset.packageName}`;
   for (let i = 0; i < seed.length; i += 1) hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
@@ -243,7 +284,8 @@ export function displayForLiveAsset(asset: MarketplaceAsset): DiscoverDisplayMet
   return { rating: rating / 10, reviews, installs, glyph: initial, accent: 'var(--vestara-marketplace-primary)' };
 }
 
-/** Reference Popular Categories sidebar rows (design examples). */
+// ─── Sidebar Fixtures ───────────────────────────────────────────
+
 export interface PopularCategoryFixture {
   name: string;
   items: number;
@@ -262,7 +304,6 @@ export const POPULAR_CATEGORIES_FIXTURE: PopularCategoryFixture[] = [
   { name: 'Workflows', items: 29, accent: 'var(--vestara-status-success)', glyph: '〜' },
 ];
 
-/** Reference Latest Releases sidebar rows (design examples). */
 export interface LatestReleaseFixture {
   version: string;
   name: string;
@@ -277,7 +318,6 @@ export const LATEST_RELEASES_FIXTURE: LatestReleaseFixture[] = [
   { version: 'v2.1.0', name: 'Agent Skill Kit', daysAgo: 14 },
 ];
 
-/** Workspace-benefits panel rows (reference copy + blue-accented glyphs). */
 export interface BenefitFixture {
   label: string;
   glyph: string;
