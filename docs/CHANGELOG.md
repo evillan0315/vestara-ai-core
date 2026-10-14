@@ -10,6 +10,34 @@ next-review: 2026-10-04
 # Changelog
 ## Vestara AI Core — Implementation Progress
 
+## [2026-10-14] — Marketplace UI Extraction, Telegram Explicit Pairing, Identity Spec
+
+### Added
+
+- **Marketplace Discover presentation system (`da33535`)**: new
+  shared `packages/marketplace-ui` (`@vestara/marketplace-ui`) —
+  gallery components, fixture authority (`fixtures.ts`),
+  color/type-accent tokens, layout authority, theme accent wiring
+  (11/11 tests pass); `MarketplaceLayout-components.tsx` and
+  `discover.fixtures.ts` moved out of `apps/workspace` (git
+  renames); Marketplace/Overview/Dashboard consumers rewired;
+  `ui-tokens` + workspace styles extended; root + UI builds and
+  `vds:validate` clean.
+
+### Changed
+
+- **Telegram simulate is explicit-pairing only (`da33535`)**:
+  `POST /api/telegram/simulate` no longer auto-pairs or
+  auto-binds workspaces; simulated users start unpaired and
+  exercise `/start` → `/pair` → approve like the real bot path.
+  Simulator copy updated. Aligns with identity invariants
+  (surface never authenticates).
+- **Identity spec (`da33535`, spec-only)**: Telegram
+  user/identity explicit in `UIM-008`/`UIM-009`/`UIM-010`
+  (`milestone-service.ts`) and `persistent-identity-binding-plan.md`
+  (Phase 4 pairing semantics, acceptance #8/#13, non-goals);
+  milestones remain Proposed/Parked.
+
 ## [2026-10-13] — Launcher Dock, Workspace Tabs, VES-VIS-001 F8–F13, Navigation Restructure
 
 ### Added
